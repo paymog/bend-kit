@@ -6,7 +6,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Current baseline
 
-- Packages on the Bend hub, published by hash and waiting for names: `bend-kit-http@0.14.0.0`, `bend-kit-bytes@0.3.0.0` (`0x49814d83de8f70993a43e1002be29ecd`; `http` still imports `0.2.0.0`), `bend-kit-wire@0.4.0.0`, `bend-kit-url@0.4.0.0`, `bend-kit-json@0.3.0.0`, `bend-kit-encoding@0.2.1.0`, `bend-kit-dns@0.3.1.0`, `bend-kit-zlib@0.1.0.0`, `bend-kit-router@0.1.1.0`. Each description links to its source folder. `http` and `dns` import their siblings by hash, so callers share their types.
+- All 16 packages are named `bend-kit-<package>` on the Bend hub; [README.md](README.md) lists each version and hash. Each description links to its source folder. `http` and `dns` import their siblings by hash, so callers share their types.
 - Laws: http 176, url 57, json 40, bytes 122, regex 54, unicode 35, zlib 22, dns 18, encoding 12, router 3. Run `scripts/check.sh` to check them all.
 - Big bodies need a native build (`bend file.bend -o app`). The `bend file.bend` runner overflows on strings over about 30 KB.
 
@@ -40,7 +40,6 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Next
 
-- [ ] **Name the packages.** Every package is published by hash; the hub names at most five a day. The account's quota frees up around 2026-09-26 00:30 UTC: link `bytes`, `wire`, `url`, `json`, and `encoding` first, then `router`, `zlib`, `dns`, and `http` about a day later. The old `bend-net-*` names are frozen: they still resolve, but get no new versions. Run `bend link bend-kit-bytes@0.2.0.0 0xbf22530d1ea11c951d1ecaa353ed1580`, `bend link bend-kit-wire@0.4.0.0 0x8a1034c8824c5fdecbaa2e3d762aadad`, `bend link bend-kit-url@0.4.0.0 0xd248560355ba8929ae030bc9c72f40be`, `bend link bend-kit-json@0.3.0.0 0xaaa10a97bf5ac6990143da2c863f8a3f`, `bend link bend-kit-encoding@0.2.1.0 0xaec630f7a2f6b6ef96750f95d6e4195b`, `bend link bend-kit-router@0.1.1.0 0xf2239decc78af956c471ebf7f2f50374`, `bend link bend-kit-zlib@0.1.0.0 0xe01785b64266bf3ba0068183b9f9f5e3`, `bend link bend-kit-dns@0.3.1.0 0xa12defba527c5f86a84d6fb74968f8ef`, `bend link bend-kit-http@0.14.0.0 0x310b0480ce5b511ff8da9704b3d27ef3`. Then switch the hash imports in `http.bend`, `dns/dns.bend`, and the root tests, and the README table, to the names.
 - [ ] **Prove universal laws.** Most laws are fixtures. Add laws over all inputs for the claims that matter most: `res.frame` agrees with `frame` for every split of the bytes, `dc.feed` of `a ++ b` equals feeding `a` then `b`, `parse.got` never says Bad to a prefix of a valid request, `utf8.decode(utf8.encode(s)) == s`, `Json.parse(Json.encode(v)) == Some{v}`, and `Bytes.to_string(Bytes.from_string(s)) == s` for every byte string.
 - [ ] **Report the runner overflow upstream.** `String.repeat`/`String.length` on about 30 KB overflows in the `bend file.bend` runner but not in native builds. Report it to Bend with the three-line repro.
 
