@@ -27,6 +27,7 @@ The ReDoS input is **100 000** `a` with no trailing `b`. The `large` input is **
 |---|---|---|---|---|
 | `is_match` | `hello\w+` | `hello[[:alnum:]_]+` | is there a match (late in the text) | 1 if a match, else 0 |
 | `is_match_early` | `x` | `x` | is there a match (at position 0) | 1 if a match, else 0 |
+| `is_match_live` | `xy` | `xy` | is there a match (none; each char can start one) | 0 |
 | `find_captures` | `(\w+)@(\w+)\.com` | `([[:alnum:]_]+)@([[:alnum:]_]+)\.com` | leftmost match with two captures | hash of groups 0–2 spans |
 | `find_early` | `(x)x` | `(x)x` | leftmost match with one capture, at position 0 | hash of groups 0–1 spans |
 | `redos` | `(a*)*b` | `(a*)*b` | no match on 100k `a` | 0 |
@@ -48,14 +49,15 @@ Versions: Bend 2.0.29, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 33.0 |
+| is_match | 0.0 | 0.2 | 0.1 | 0.2 | 42.0 |
 | is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 7.0 |
-| find_captures | 14.9 | 2.8 | 0.8 | 0.7 | 757.0 |
-| find_early | 0.0 | 0.0 | 0.2 | 0.2 | 7.0 |
-| redos | 3.0 | timeout | 875.0 | timeout | 116.0 |
-| large | 2,278.7 | 0.0 | 0.1 | 0.1 | 914.0 |
+| is_match_live | 9.1 | 1.0 | 0.1 | 7.5 | 85.0 |
+| find_captures | 15.2 | 2.7 | 0.8 | 0.7 | 757.0 |
+| find_early | 0.0 | 0.0 | 0.2 | 0.1 | 6.0 |
+| redos | 2.9 | timeout | 860.6 | timeout | 118.0 |
+| large | 2,262.9 | 0.0 | 0.1 | 0.1 | 907.0 |
 
-Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
+Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `is_match_live` 0, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
 
 ### Program size
 
@@ -72,11 +74,12 @@ The list grows about 4–6× per doubling of k (m²); the trie grows about 2.3×
 
 Bend times in ms, median of three runs of the same bench against each version of `regex.bend`.
 
-| change | is_match | is_match_early | find_captures | find_early |
-|---|---:|---:|---:|---:|
-| before #97 (0.2.0.0) | 174 | 17 | 750 | 17 |
-| #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 748 | 7 |
-| #98: skip chars that cannot start a match | 33 | 7 | 757 | 7 |
+| change | is_match | is_match_early | is_match_live | find_captures | find_early |
+|---|---:|---:|---:|---:|---:|
+| before #97 (0.2.0.0) | 174 | 17 | 282 | 750 | 17 |
+| #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 267 | 748 | 7 |
+| #98: skip chars that cannot start a match | 33 | 7 | 266 | 757 | 7 |
+| #100: bit-parallel NFA for `is_match` | 42 | 7 | 85 | 757 | 6 |
 
 ## Caveats
 

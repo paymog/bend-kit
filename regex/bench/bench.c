@@ -78,6 +78,11 @@ int main(int argc, char **argv) {
     printf("is_match_early\t%.3f\t%u\n", ms, chk);
   }
 
+  if (want(only, "is_match_live")) {
+    if (run_one("xy", s, 0, &ms, &chk) != 0) return 1;
+    printf("is_match_live\t%.3f\t%u\n", ms, chk);
+  }
+
   if (want(only, "find_captures")) {
     if (run_one("([[:alnum:]_]+)@([[:alnum:]_]+)\\.com", s, 3, &ms, &chk) != 0) return 1;
     printf("find_captures\t%.3f\t%u\n", ms, chk);

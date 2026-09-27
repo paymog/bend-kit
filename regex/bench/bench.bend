@@ -61,6 +61,9 @@ def op.is_match(+s: String) -> IO(Unit):
 def op.is_match_early(+s: String) -> IO(Unit):
   with_hit(R.compile("x"), s, "is_match_early")
 
+def op.is_match_live(+s: String) -> IO(Unit):
+  with_hit(R.compile("xy"), s, "is_match_live")
+
 def op.find_captures(+s: String) -> IO(Unit):
   with_re(R.compile("(\\w+)@(\\w+)\\.com"), s, "find_captures")
 
@@ -80,6 +83,7 @@ def run_all(+s: String) -> IO(Unit):
   do IO<Unit>:
     op.is_match(s)
     op.is_match_early(s)
+    op.is_match_live(s)
     op.find_captures(s)
     op.find_early(s)
     op.redos()
@@ -93,6 +97,8 @@ def run_text(+s: String, +only: String) -> IO(Unit):
       op.is_match(s)
     case "is_match_early":
       op.is_match_early(s)
+    case "is_match_live":
+      op.is_match_live(s)
     case "find_captures":
       op.find_captures(s)
     case "find_early":

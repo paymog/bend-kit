@@ -36,3 +36,5 @@ Matching takes O(n·m·log m) steps for n chars and m instructions. Each char ad
 | n | 25 000 | 50 000 | 100 000 | 200 000 |
 |---|---|---|---|---|
 | ms | 33 | 67 | 133 | 267 |
+
+`is_match` on a program of at most 32 instructions with no `\b` or `\B` runs as a bit-parallel NFA instead: O(n·k) steps for k character sets. The table above times `find`.

@@ -53,6 +53,7 @@ const reEmail = /(\w+)@(\w+)\.com/;
 const reRedos = /(a*)*b/;
 const reX = /x/;
 const reEarly = /(x)x/;
+const reLive = /xy/;
 if (want("is_match")) {
   let t0 = performance.now();
   let hit = reHello.test(s);
@@ -62,6 +63,11 @@ if (want("is_match_early")) {
   let t0 = performance.now();
   let hit = reX.test(s);
   lap("is_match_early", t0, hit ? 1 : 0);
+}
+if (want("is_match_live")) {
+  let t0 = performance.now();
+  let hit = reLive.test(s);
+  lap("is_match_live", t0, hit ? 1 : 0);
 }
 if (want("find_captures")) {
   let t0 = performance.now();

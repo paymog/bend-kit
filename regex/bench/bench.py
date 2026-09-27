@@ -49,6 +49,7 @@ re_email = re.compile(r"(\w+)@(\w+)\.com")
 re_redos = re.compile(r"(a*)*b")
 re_x = re.compile(r"x")
 re_early = re.compile(r"(x)x")
+re_live = re.compile(r"xy")
 
 if want("is_match"):
     t0 = time.perf_counter()
@@ -57,6 +58,10 @@ if want("is_match"):
 if want("is_match_early"):
     t0 = time.perf_counter()
     lap("is_match_early", t0, int(re_x.search(s) is not None))
+
+if want("is_match_live"):
+    t0 = time.perf_counter()
+    lap("is_match_live", t0, int(re_live.search(s) is not None))
 
 if want("find_captures"):
     t0 = time.perf_counter()

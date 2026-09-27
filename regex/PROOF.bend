@@ -140,6 +140,57 @@ def Laws.negated_start():
 def Laws.empty_start():
   {==}
 
+def Laws.bits_hit():
+  {==}
+
+def Laws.bits_miss():
+  {==}
+
+def Laws.bits_start():
+  {==}
+
+def Laws.bits_start_hit():
+  {==}
+
+def Laws.bits_end():
+  {==}
+
+def Laws.bits_end_miss():
+  {==}
+
+def Laws.bits_empty_text():
+  {==}
+
+def Laws.bits_empty_at_end():
+  {==}
+
+def Laws.bits_text_anchors():
+  {==}
+
+def Laws.bits_start_inside():
+  {==}
+
+def Laws.bits_loop():
+  {==}
+
+def Laws.bits_loop_miss():
+  {==}
+
+def Laws.bits_pathological():
+  {==}
+
+def Laws.bits_negated():
+  {==}
+
+def Laws.bits_unicode():
+  {==}
+
+def Laws.bits_word_boundary():
+  {==}
+
+def Laws.bits_large():
+  {==}
+
 def Laws.bad_unclosed():
   {==}
 

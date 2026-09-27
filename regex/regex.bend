@@ -685,15 +685,131 @@ def first(fuel: Nat, +prog: List<&2, Inst>, st: Fs) -> Maybe<&2, List<&2, Inst>>
         case Fs{Con{+pc, t}, +seen, sets}:
           first(f, prog, first.seen(List.contains(~U32, ~U32.is_eq, seen, pc), prog, pc, t, seen, sets))
 
+# Bit-parallel NFA for is_match: bit pc stands for the set at pc, waiting on the next char.
+# The epsilon walk from a pc: the sets it reaches and whether it reaches the match, where at0
+# says the position is the start of the text and at1 the end.
+type Ew is Data:
+  Ew{stack: List<&2, U32>, seen: List<&2, U32>, mask: U32, hit: Bool}
+
+def eps.ctx(k: U32, +at0: Bool, +at1: Bool) -> Bool:
+  match k:
+    case 0:
+      at0
+    case 1:
+      at1
+    case _:
+      False{}
+
+def eps.assert(ok: Bool, +pc: U32, stack: List<&2, U32>, seen: List<&2, U32>, mask: U32, hit: Bool) -> Ew:
+  match ok:
+    case True{}:
+      Ew{(pc + 1 : U32) <> stack, seen, mask, hit}
+    case False{}:
+      Ew{stack, seen, mask, hit}
+
+def eps.inst(i: Maybe<&2, Inst>, +pc: U32, +at0: Bool, +at1: Bool, stack: List<&2, U32>, seen: List<&2, U32>, +mask: U32, hit: Bool) -> Ew:
+  match i:
+    case Some{IJmp{x}}:
+      Ew{x <> stack, seen, mask, hit}
+    case Some{ISplit{x, y}}:
+      Ew{x <> y <> stack, seen, mask, hit}
+    case Some{ISave{k}}:
+      Ew{(pc + 1 : U32) <> stack, seen, mask, hit}
+    case Some{IAssert{k}}:
+      eps.assert(eps.ctx(k, at0, at1), pc, stack, seen, mask, hit)
+    case Some{ISet{neg, items}}:
+      Ew{stack, seen, (mask .|. (1 << U32.to_nat(pc)) : U32), hit}
+    case Some{IMatch{}}:
+      Ew{stack, seen, mask, True{}}
+    case None{}:
+      Ew{stack, seen, mask, hit}
+
+def eps.seen(hit: Bool, +prog: List<&2, Inst>, +pc: U32, +at0: Bool, +at1: Bool, w: Ew) -> Ew:
+  match hit:
+    case True{}:
+      w
+    case False{}:
+      Ew{stack, seen, mask, h} = w
+      eps.inst(List.get(&2, Inst, prog, U32.to_nat(pc)), pc, at0, at1, stack, pc <> seen, mask, h)
+
+# fuel: each pc expands once and pushes at most two pcs.
+def eps.go(fuel: Nat, +prog: List<&2, Inst>, +at0: Bool, +at1: Bool, w: Ew) -> Ew:
+  match fuel:
+    case 0n:
+      w
+    case 1n+f:
+      match w:
+        case Ew{Nil{}, seen, mask, hit}:
+          Ew{Nil{}, seen, mask, hit}
+        case Ew{Con{+pc, t}, +seen, mask, hit}:
+          eps.go(f, prog, at0, at1, eps.seen(List.contains(~U32, ~U32.is_eq, seen, pc), prog, pc, at0, at1, Ew{t, seen, mask, hit}))
+
+def eps(+fuel: Nat, +prog: List<&2, Inst>, +pc: U32, +at0: Bool, +at1: Bool) -> Ew:
+  eps.go(fuel, prog, at0, at1, Ew{[pc], Nil{}, 0, False{}})
+
+def Ew.mask(w: Ew) -> U32:
+  Ew{s, v, mask, hit} = w
+  mask
+
+def Ew.hit(w: Ew) -> Bool:
+  Ew{s, v, mask, hit} = w
+  hit
+
+# The set at bit mask; follow: the sets live after it takes a char; fin, end: whether the match
+# is then reached inside the text, or at its end.
+type Bit is Data:
+  Bit{mask: U32, neg: Bool, items: List<&2, Item>, follow: U32, fin: Bool, end: Bool}
+
+# at0: the sets live at the start of the text, and hit0 whether the empty match is there;
+# hit01 the same for the empty text; atn and hitn the same inside the text, hit1 at its end.
+type Bits is Data:
+  Bits{sets: List<&2, Bit>, at0: U32, hit0: Bool, hit01: Bool, atn: U32, hit1: Bool}
+
+def bits.set(+fuel: Nat, +prog: List<&2, Inst>, +pc: U32, neg: Bool, items: List<&2, Item>) -> Bit:
+  +w = eps(fuel, prog, (pc + 1 : U32), False{}, False{})
+  Bit{(1 << U32.to_nat(pc) : U32), neg, items, Ew.mask(w), Ew.hit(w), Ew.hit(eps(fuel, prog, (pc + 1 : U32), False{}, True{}))}
+
+def bits.sets(xs: List<&2, Inst>, +fuel: Nat, +prog: List<&2, Inst>, +pc: U32) -> List<&2, Bit>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{ISet{neg, items}, t}:
+      bits.set(fuel, prog, pc, neg, items) <> bits.sets(t, fuel, prog, (pc + 1 : U32))
+    case Con{i, t}:
+      bits.sets(t, fuel, prog, (pc + 1 : U32))
+
+# Word boundaries depend on the chars on both sides, which one mask per set cannot track.
+def bits.plain(xs: List<&2, Inst>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{IAssert{+k}, t}:
+      U32.is_lt(k, 2) && bits.plain(t)
+    case Con{i, t}:
+      bits.plain(t)
+
+def bits.if(ok: Bool, +fuel: Nat, +prog: List<&2, Inst>) -> Maybe<&2, Bits>:
+  match ok:
+    case False{}:
+      None{}
+    case True{}:
+      +w0 = eps(fuel, prog, 0, True{}, False{})
+      +wn = eps(fuel, prog, 0, False{}, False{})
+      Some{Bits{bits.sets(prog, fuel, prog, 0), Ew.mask(w0), Ew.hit(w0), Ew.hit(eps(fuel, prog, 0, True{}, True{})), Ew.mask(wn), Ew.hit(eps(fuel, prog, 0, False{}, True{}))}}
+
+def bits(+fuel: Nat, +prog: List<&2, Inst>) -> Maybe<&2, Bits>:
+  bits.if(Nat.is_le(List.length(&2, Inst, prog), 32n) && bits.plain(prog), fuel, prog)
+
 # prog: the instructions by pc; fuel: enough steps for one closure; slots: two per group, group 0 included;
-# start: the sets one of which the first char of a match is in, or None when a match may start anywhere.
+# start: the sets one of which the first char of a match is in, or None when a match may start anywhere;
+# bits: the bit-parallel form, for programs of at most 32 instructions without word boundaries.
 type Regex is Data:
-  Regex{prog: Trie<Inst>, fuel: Nat, slots: Nat, start: Maybe<&2, List<&2, Inst>>}
+  Regex{prog: Trie<Inst>, fuel: Nat, slots: Nat, start: Maybe<&2, List<&2, Inst>>, bits: Maybe<&2, Bits>}
 
 def build(+node: Node, +n: U32) -> Regex:
   +insts = {ISave{0} <> emit(node, 1, [ISave{1}, IMatch{}]) : List<&2, Inst>}
   +fuel = Nat.add(Nat.mul(3n, List.length(&2, Inst, insts)), 2n)
-  Regex{trie.from(Inst, insts, 0, TTip{}), fuel, U32.to_nat((2 * n : U32)), first(fuel, insts, Fs{[0], Nil{}, Nil{}})}
+  Regex{trie.from(Inst, insts, 0, TTip{}), fuel, U32.to_nat((2 * n : U32)), first(fuel, insts, Fs{[0], Nil{}, Nil{}}), bits(fuel, insts)}
 
 def compile.fin(st: Ps) -> Maybe<&2, Regex>:
   match st:
@@ -951,7 +1067,7 @@ def find.spans(m: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Maybe<&2, List<&2, May
 
 # slots: capture slots to keep; is_match keeps none, so each ISave is free.
 def exec(re: Regex, +s: String, +any: Bool) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
-  Regex{+prog, +fuel, +slots, +start} = re
+  Regex{+prog, +fuel, +slots, +start, bits} = re
   +init = List.replicate(Maybe<&2, U32>, Bool.pick(Nat, any, 0n, slots), None{})
   run(s, prog, fuel, init, start, any, 0, run.close(Sc{Nil{}, None{}, False{}}, prog, fuel, init, start, 0, None{}, String.get(s, 0n)))
 
@@ -959,6 +1075,88 @@ def exec(re: Regex, +s: String, +any: Bool) -> Maybe<&2, List<&2, Maybe<&2, U32>
 def find(re: Regex, +s: String) -> Maybe<&2, List<&2, Maybe<&2, Span>>>:
   find.spans(exec(re, s, False{}))
 
-# Stops at the first match of any priority and records no captures.
-def is_match(re: Regex, +s: String) -> Bool:
+# The Pike VM form of is_match: stops at the first match of any priority and records no captures.
+def is_match.vm(re: Regex, +s: String) -> Bool:
   Maybe.is_some(&2, List<&2, Maybe<&2, U32>>, exec(re, s, True{}))
+
+# One char through the bit NFA: next the sets live after it, fin and end as in Bit.
+type Bs is Data:
+  Bs{next: U32, fin: Bool, end: Bool}
+
+def bits.take(hit: Bool, +follow: U32, +fin: Bool, +end: Bool, acc: Bs) -> Bs:
+  match hit:
+    case False{}:
+      acc
+    case True{}:
+      Bs{+nx, f, e} = acc
+      Bs{(nx .|. follow : U32), f || fin, e || end}
+
+def bits.char(live: Bool, +c: U32, neg: Bool, items: List<&2, Item>, +follow: U32, +fin: Bool, +end: Bool, acc: Bs) -> Bs:
+  match live:
+    case False{}:
+      acc
+    case True{}:
+      bits.take(Bool.xor(neg, items.has(items, c)), follow, fin, end, acc)
+
+# ponytail: one test per set in the program, not a table lookup; use per-byte tables if sets grow many.
+def bits.step(xs: List<&2, Bit>, +cur: U32, +c: U32, acc: Bs) -> Bs:
+  match xs:
+    case Nil{}:
+      acc
+    case Con{Bit{+mask, neg, items, follow, fin, end}, t}:
+      bits.step(t, cur, c, bits.char(U32.is_ne((cur .&. mask : U32), 0), c, neg, items, follow, fin, end, acc))
+
+# Only the sets live at a fresh start wait on c, and c starts none of them: nothing moves.
+def bits.idle(start: Maybe<&2, List<&2, Inst>>, +cur: U32, +atn: U32, +c: U32) -> Bool:
+  match start:
+    case None{}:
+      False{}
+    case Some{sets}:
+      U32.is_eq(cur, atn) && Bool.not(starts(sets, c))
+
+# hit1: a match starts and ends at the end of the text, so end starts from it.
+def bits.go(idle: Bool, +sets: List<&2, Bit>, +atn: U32, +hit1: Bool, +cur: U32, +c: U32) -> Bs:
+  match idle:
+    case True{}:
+      Bs{atn, False{}, hit1}
+    case False{}:
+      bits.step(sets, cur, c, Bs{atn, False{}, hit1})
+
+# r: the sets live at s's head, whether a match was found, and whether one ends at the end of
+# the text, if the text ends here. Inside the text an assertion can only fail, so fin implies end,
+# and a match at fin is final.
+def bits.run(s: String, +sets: List<&2, Bit>, +start: Maybe<&2, List<&2, Inst>>, +atn: U32, +hit1: Bool, r: Bs) -> Bool:
+  match s:
+    case SNil{}:
+      Bs{cur, done, ok} = r
+      done || ok
+    case SCon{Chr{+c}, t}:
+      match r:
+        case Bs{cur, True{}, ok}:
+          True{}
+        case Bs{+cur, False{}, ok}:
+          bits.run(t, sets, start, atn, hit1, bits.go(bits.idle(start, cur, atn, c), sets, atn, hit1, cur, c))
+
+def bits.is_match(b: Bits, start: Maybe<&2, List<&2, Inst>>, s: String) -> Bool:
+  Bits{sets, at0, hit0, hit01, atn, hit1} = b
+  bits.run(s, sets, start, atn, hit1, Bs{at0, hit0, hit01})
+
+# The bit NFA form of is_match, or None when the program is too large or has a word boundary.
+def is_match.bits(re: Regex, s: String) -> Maybe<&2, Bool>:
+  Regex{prog, fuel, slots, start, bits} = re
+  match bits:
+    case None{}:
+      None{}
+    case Some{b}:
+      Some{bits.is_match(b, start, s)}
+
+def is_match.pick(m: Maybe<&2, Bool>, re: Regex, +s: String) -> Bool:
+  match m:
+    case Some{x}:
+      x
+    case None{}:
+      is_match.vm(re, s)
+
+# Whether s has a match; the bit NFA runs when the program allows it, else the Pike VM.
+def is_match(+re: Regex, +s: String) -> Bool:
+  is_match.pick(is_match.bits(re, s), re, s)

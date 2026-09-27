@@ -25,6 +25,20 @@ def hit(r: Maybe<&2, R.Regex>, s: String) -> Bool:
     case Some{re}:
       R.is_match(re, s)
 
+# is_match on both paths: the bit NFA (None when the program does not allow it), then the Pike VM.
+def both(r: Maybe<&2, R.Regex>, +s: String) -> Maybe<&2, Bool> & Bool:
+  match r:
+    case None{}:
+      (None{}, False{})
+    case Some{+re}:
+      (R.is_match.bits(re, s), R.is_match.vm(re, s))
+
+def yes() -> Maybe<&2, Bool> & Bool:
+  (Some{True{}}, True{})
+
+def no() -> Maybe<&2, Bool> & Bool:
+  (Some{False{}}, False{})
+
 # Matches and captures. The expected spans are what Go's regexp (RE2) answers.
 law literal:
   {m("b", "abc") == Some{[sp(1, 2)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
@@ -168,6 +182,59 @@ law negated_start:
 # A pattern that matches the empty string may start at any char.
 law empty_start:
   {m("b*", "aab") == Some{[sp(0, 0)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# The bit NFA and the Pike VM agree on is_match.
+law bits_hit:
+  {both(R.compile("b+"), "abbc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_miss:
+  {both(R.compile("x"), "abc") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_start:
+  {both(R.compile("^b"), "ab") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_start_hit:
+  {both(R.compile("^a"), "ab") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_end:
+  {both(R.compile("a$"), "aba") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_end_miss:
+  {both(R.compile("b$"), "aba") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_empty_text:
+  {both(R.compile("^$"), "") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_empty_at_end:
+  {both(R.compile("$"), "abc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_text_anchors:
+  {both(R.compile("\\Aab\\z"), "abc") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_start_inside:
+  {both(R.compile("a^b"), "ab") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_loop:
+  {both(R.compile("(a|b)+c"), "ababc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_loop_miss:
+  {both(R.compile("(a|b)+c"), "abab") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_pathological:
+  {both(R.compile("(a*)*b"), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_negated:
+  {both(R.compile("[^a-c]"), "abc") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_unicode:
+  {both(R.compile("\\p{L}+"), "12é") == yes() : Maybe<&2, Bool> & Bool}
+
+# Word boundaries and programs over 32 instructions use only the Pike VM.
+law bits_word_boundary:
+  {both(R.compile("\\bcat"), "concat cat") == (None{}, True{}) : Maybe<&2, Bool> & Bool}
+
+law bits_large:
+  {both(R.compile("a{40}"), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == (None{}, True{}) : Maybe<&2, Bool> & Bool}
 
 # Syntax errors.
 law bad_unclosed:
