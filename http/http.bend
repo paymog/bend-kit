@@ -7,6 +7,7 @@ import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
 import bend-kit-time@0.1.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
+import bend-kit-concurrency@0.1.0.0/concurrency.bend as Conc
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
@@ -19,7 +20,7 @@ import 0x58bd522479d133cfe1b2c4451fc1a28f/zlib.bend as Zlib
 # Bodies are Bytes. The String parsers below are the spec: one Char per octet.
 # fetch reads until frame() says the response is whole. It returns Result, not Maybe.
 # Build with -o for big bodies: the `bend file.bend` runner overflows on ~30 KB strings; native binaries do not.
-#   import bend-kit-http@0.20.1.0/http.bend as Http
+#   import bend-kit-http@0.21.1.0/http.bend as Http
 
 type Req is Type:
   Req{method: String, path: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes}
@@ -3443,6 +3444,58 @@ def pool.fetch.cert.with(p: Pool, method: String, url: String, headers: Map<&2, 
 
 def pool.fetch.cert(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, chain: String, key: String) -> IO(Pool & Result<&1, &1, Err, Res>):
   pool.fetch.cert.with(p, method, url, headers, body, chain, key, 30000)
+
+# One request for fetch.all: the arguments of fetch, as a record.
+type Fetch is Type:
+  Fetch{method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes}
+
+def fetch.all.job(p: Pool, f: Fetch) -> IO(Pool & Result<&1, &1, Err, Res>):
+  Fetch{method, url, headers, body} = f
+  pool.fetch(p, method, url, headers, body)
+
+def fetch.all.pools(n: Nat) -> List<Pool>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      pool.new() <> fetch.all.pools(p)
+
+def fetch.all.close(ps: List<Pool>) -> IO(Unit):
+  match ps:
+    case Nil{}:
+      IO.pure(Unit, Unit{})
+    case p <> rest:
+      do IO<Unit>:
+        pool.close(p)
+        fetch.all.close(rest)
+
+def fetch.all.done(r: List<Pool> & List<Result<&1, &1, Err, Res>>) -> IO(List<Result<&1, &1, Err, Res>>):
+  (ps, rs) = r
+  do IO<List<Result<&1, &1, Err, Res>>>:
+    fetch.all.close(ps)
+    return rs
+
+# No requests start no workers, since Conc.pool needs at least one.
+def fetch.all.go(xs: List<Fetch>, +workers: Nat) -> IO(List<Result<&1, &1, Err, Res>>):
+  match xs:
+    case Nil{}:
+      IO.pure(List<Result<&1, &1, Err, Res>>, Nil{})
+    case x <> rest:
+      do IO<List<Result<&1, &1, Err, Res>>>:
+        r : List<Pool> & List<Result<&1, &1, Err, Res>> <-
+          Conc.pool(~Pool, ~Fetch, ~Result<&1, &1, Err, Res>, ~fetch.all.job, fetch.all.pools(workers), x <> rest)
+        fetch.all.done(r)
+
+def fetch.all.of(+n: U32, nx: Nat & List<Fetch>) -> IO(List<Result<&1, &1, Err, Res>>):
+  (+len, xs) = nx
+  fetch.all.go(xs, Nat.min(len, Nat.max(1n, U32.to_nat(n))))
+
+# Each request as fetch would make it, on at most n workers (0 counts as 1, and
+# never more workers than requests). Each worker owns its own Pool, so an idle
+# socket is reused only by the worker that opened it; every pool is closed at the
+# end. Results come back in the order of reqs.
+def fetch.all(reqs: List<Fetch>, +n: U32) -> IO(List<Result<&1, &1, Err, Res>>):
+  fetch.all.of(n, Conc.count(Fetch, reqs))
 
 def fetch.end(pr: Pool & Result<&1, &1, Err, Res>) -> IO(Result<&1, &1, Err, Res>):
   (p, r) = pr
