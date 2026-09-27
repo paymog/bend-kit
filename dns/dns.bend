@@ -548,47 +548,12 @@ def resolve.dns(name: String) -> IO(Maybe<&2, String>):
     resolve.conf(name, f)
 
 
-def hosts.pick(found: Maybe<&2, String>, now: Maybe<&2, String>) -> Maybe<&2, String>:
-  match found:
-    case Some{s}:
-      Some{s}
-    case None{}:
-      now
-
-def hosts.hit(+ip: String, hit: Bool) -> Maybe<&2, String>:
-  match hit:
-    case True{}:
-      Some{ip}
-    case False{}:
-      None{}
-
-def hosts.names(xs: List<&2, String>, +name: String, +ip: String, found: Maybe<&2, String>) -> Maybe<&2, String>:
-  match xs:
-    case Nil{}:
-      found
-    case Con{+n, t}:
-      hosts.names(t, name, ip, hosts.pick(found, hosts.hit(ip, String.eq(String.to_lower(n), name))))
-
-def hosts.ip(+name: String, +ip: String, ns: List<&2, String>, ok: Bool) -> Maybe<&2, String>:
-  match ok:
-    case False{}:
-      None{}
-    case True{}:
-      hosts.names(ns, name, ip, None{})
-
 def hosts.on_line(+name: String, ns: List<&2, String>) -> Bool:
   match ns:
     case Nil{}:
       False{}
     case Con{+n, t}:
       Bool.or(String.eq(String.to_lower(n), name), hosts.on_line(name, t))
-
-def hosts.line(+name: String, xs: List<&2, String>) -> Maybe<&2, String>:
-  match xs:
-    case Nil{}:
-      None{}
-    case Con{+addr, ns}:
-      hosts.ip(name, addr, ns, ip(addr))
 
 def hosts.line.all(+name: String, xs: List<&2, String>) -> List<&2, String>:
   match xs:
@@ -610,13 +575,6 @@ def hosts.flat(s: String) -> String:
       ""
     case SCon{Chr{+c}, t}:
       SCon{Chr{hosts.sp(c, U32.is_eq(c, 9))}, hosts.flat(t)}
-
-def hosts.scan(xs: List<&2, String>, +name: String, found: Maybe<&2, String>) -> Maybe<&2, String>:
-  match xs:
-    case Nil{}:
-      found
-    case Con{line, t}:
-      hosts.scan(t, name, hosts.pick(found, hosts.line(name, String.split(hosts.flat(line), ' '))))
 
 def hosts.scan.all(xs: List<&2, String>, +name: String, acc: List<&2, String>) -> List<&2, String>:
   match xs:
@@ -705,9 +663,6 @@ def resolve.all.hosts(+name: String, r: Result<&1, &1, U32 & String, File>) -> I
         m : File & Result<&1, &1, U32 & String, String> <- File.read(f, 65536)
         resolve.all.opened(name, m)
 
-def resolve.all.static(+host: String) -> List<&2, String>:
-  resolve.literal.all(host)
-
 def resolve.all.pick(+host: String, +xs: List<&2, String>) -> IO(List<&2, String>):
   match xs:
     case Nil{}:
@@ -716,7 +671,7 @@ def resolve.all.pick(+host: String, +xs: List<&2, String>) -> IO(List<&2, String
       IO.pure(List<&2, String>, xs)
 
 def resolve.all(+host: String) -> IO(List<&2, String>):
-  resolve.all.pick(host, resolve.all.static(host))
+  resolve.all.pick(host, resolve.literal.all(host))
 
 def resolve.all.ask(+name: String) -> IO(List<&2, String>):
   do IO<List<&2, String>>:
@@ -731,7 +686,7 @@ def resolve.all.pure.pick(+host: String, +xs: List<&2, String>) -> IO(List<&2, S
       IO.pure(List<&2, String>, xs)
 
 def resolve.all.pure(+host: String) -> IO(List<&2, String>):
-  resolve.all.pure.pick(host, resolve.all.static(host))
+  resolve.all.pure.pick(host, resolve.literal.all(host))
 
 def resolve.pure(+host: String) -> IO(Maybe<&2, String>):
   do IO<Maybe<&2, String>>:
