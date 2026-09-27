@@ -28,6 +28,7 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets, including client certificates. |
 | [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |
 | [`http`](http) | `0xa32ae93500a5dfaef6edb45d6e7bcc3b/http.bend` | HTTP/1.1 client and server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
+| [`http2`](http2) | `bend-kit-http2@0.1.0.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
 | [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |
@@ -42,7 +43,7 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`random`](random) | `bend-kit-random@0.1.0.0/random.bend` | Seeded xoshiro128** generator with unbiased ranges, `F32` in [0, 1), Fisher-Yates shuffles, and an OS-entropy seed. Not for cryptography. |
 | [`time`](time) | `bend-kit-time@0.1.0.0/time.bend` | Monotonic and wall clocks, `Duration` and `Instant` on `Int.I64` seconds plus nanoseconds, Gregorian dates for years 0 to 9999, RFC 3339 and HTTP-date (IMF-fixdate) text, and TZif time zones. |
 
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.5.0.1`, `zlib@0.1.4.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, `crypto@0.1.0.0`, `random@0.1.0.0`, and `time@0.1.0.0`.
+Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.5.0.1`, `zlib@0.1.4.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `http2@0.1.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, `crypto@0.1.0.0`, `random@0.1.0.0`, and `time@0.1.0.0`.
 
 `wire`, `zlib`, `http`, `files`, `process`, `crypto`, `random`, and `time` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
 
