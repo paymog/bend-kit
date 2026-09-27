@@ -36,6 +36,8 @@ def main():
         hb = pathlib.Path(temp) / "hpack-bend"
         subprocess.run(["cc", "-O2", str(HERE / "hpack.c"), *flags, "-o", str(hc)], check=True)
         subprocess.run(["bend", str(HERE / "hpack.bend"), "-o", str(hb)], check=True)
+        session = pathlib.Path(temp) / "session-bend"
+        subprocess.run(["bend", str(HERE / "session.bend"), "-o", str(session)], check=True)
         print("input: 10,000 HTTP/2 PING ACK frames; checksum:", FRAME_CHECKSUM)
         for label, command in (
             ("nghttp2 C session", [str(c)]),
@@ -50,6 +52,13 @@ def main():
             ("Bend HPACK decoder", [str(hb)]),
         ):
             print(f"{label}: {run(command, HPACK_CHECKSUM):.4f}s; checksum {HPACK_CHECKSUM}")
+        print("input: server SETTINGS then 10,000 PING ACK frames on one client connection; checksum:", FRAME_CHECKSUM)
+        for label, command in (
+            ("nghttp2 C session", [str(c)]),
+            ("Python h2 connection", [sys.executable, str(HERE / "session.py")]),
+            ("Bend client connection", [str(session)]),
+        ):
+            print(f"{label}: {run(command, FRAME_CHECKSUM):.4f}s; checksum {FRAME_CHECKSUM}")
 
 
 if __name__ == "__main__":

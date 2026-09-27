@@ -294,3 +294,48 @@ def Laws.hpack_never_index_even_if_static():
 
 def Laws.hpack_invalid_octet():
   {==}
+
+def Laws.client_preface():
+  {==}
+
+def Laws.client_settings_ack():
+  {==}
+
+def Laws.client_goaway():
+  {==}
+
+def Laws.client_flow_stall():
+  {==}
+
+def Laws.client_flow_resume():
+  {==}
+
+def Laws.client_goaway_blocks_request():
+  {==}
+
+def Laws.client_header_continuation():
+  {==}
+
+def Laws.client_continuation_interleaving():
+  {==}
+
+def Laws.client_interim_then_final():
+  {==}
+
+def Laws.client_window_update_overflow():
+  {==}
+
+def Laws.client_window_update_negative():
+  {==}
+
+def Laws.client_settings_window_overflow():
+  {==}
+
+def Laws.client_settings_window_negative():
+  {==}
+
+def Laws.client_settings_window_underflow():
+  {==}
+
+def Laws.client_settings_window_recovers():
+  {==}

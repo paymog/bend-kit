@@ -444,3 +444,191 @@ law hpack_never_index_even_if_static:
 
 law hpack_invalid_octet:
   {hp.hex(Hp.encode([Hp.Field{"x", "€", 0}], False{}, Hp.new(4096))) == None{} : Maybe<&2, String>}
+
+def client.open(r: H.Client & Bytes.Bytes) -> H.Client:
+  (c, preface) = r
+  c
+
+def client.preface(r: H.Client & Bytes.Bytes) -> String:
+  (c, preface) = r
+  Bytes.to_hex(preface)
+
+def client.settings.acked(r: H.Reply) -> Bool:
+  match r:
+    case H.Ready{H.Client{input, streams, encoder, decoder,
+        H.Control{next, active, frame_max, initial, max_streams, connection, recv,
+          first, ack, continuation, goaway}}, Con{packet, Nil{}}, Nil{}}:
+      Bool.and(Bool.not(first), Bool.and(ack,
+        String.eq(Bytes.to_hex(packet), "000000040100000000")))
+    case _:
+      False{}
+
+law client_preface:
+  {client.preface(H.client.start()) == "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000200000000" : String}
+
+law client_settings_ack:
+  {client.settings.acked(H.client.receive(client.open(H.client.start()), raw(0, 4, 0, 0, Bytes.new(0)))) == True{} : Bool}
+
+def client.fields() -> List<&2, Hp.Field>:
+  [Hp.Field{":method", "GET", 0}, Hp.Field{":scheme", "https", 0},
+    Hp.Field{":authority", "www.example.com", 0}, Hp.Field{":path", "/", 0}]
+
+def client.fixture(r: H.Client & Bytes.Bytes) -> H.Reply:
+  H.client.request(client.open(r), client.fields(), Bytes.new(0))
+
+def client.feed(r: H.Reply, b: Bytes.Bytes) -> H.Reply:
+  match r:
+    case H.Failed{error}:
+      H.Failed{error}
+    case H.Ready{c, writes, events}:
+      H.client.receive(c, b)
+
+def client.rejected(r: H.Reply) -> Bool:
+  match r:
+    case H.Failed{H.Error{7, True{}, 0}}:
+      True{}
+    case _:
+      False{}
+
+def client.goaway.result(r: H.Reply) -> Bool:
+  match r:
+    case H.Ready{H.Client{input, streams, encoder, decoder,
+        H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
+          first, ack, continuation, Some{+last}}},
+        Con{ack_packet, Nil{}}, Con{H.Shutdown{+stopped, +code}, Con{H.Reset{+id, +reason}, Nil{}}}}:
+      Bool.and(U32.is_eq(active, 0), Bool.and(U32.is_eq(last, 0),
+        Bool.and(U32.is_eq(stopped, 0), Bool.and(U32.is_eq(code, 0),
+          Bool.and(U32.is_eq(id, 1), U32.is_eq(reason, 7))))))
+    case _:
+      False{}
+
+def client.stall.start(r: H.Client & Bytes.Bytes) -> H.Reply:
+  (H.Client{input, streams, encoder, decoder,
+    H.Control{next, active, frame_max, initial, max_streams, window, recv,
+      first, ack, continuation, goaway}}, preface) = r
+  H.client.request(H.Client{input, streams, encoder, decoder,
+    H.Control{next, active, frame_max, initial, max_streams, 0, recv,
+      first, ack, continuation, goaway}}, client.fields(), Bytes.from_string("abc"))
+
+def client.stall.header(d: H.Decode) -> Bool:
+  match d:
+    case H.Got{H.Frame{1, 4, 1, payload}, Bytes.Bytes{0, buf}}:
+      True{}
+    case _:
+      False{}
+
+def client.stall.result(r: H.Reply) -> Bool:
+  match r:
+    case H.Ready{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
+        remote_end, head, headers, partial, body, Bytes.Bytes{+remaining, buf}}, Nil{}},
+        encoder, decoder, control}, Con{packet, Nil{}}, Nil{}}:
+      Bool.and(U32.is_eq(remaining, 3),
+        Bool.and(Bool.not(local_end), client.stall.header(H.parse(16384, packet))))
+    case _:
+      False{}
+
+def client.stall.data(d: H.Decode) -> Bool:
+  match d:
+    case H.Got{H.Frame{0, 1, 1, payload}, Bytes.Bytes{0, buf}}:
+      String.eq(Bytes.to_hex(payload), "616263")
+    case _:
+      False{}
+
+def client.stall.resumed(r: H.Reply) -> Bool:
+  match r:
+    case H.Ready{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
+        remote_end, head, headers, partial, body, Bytes.Bytes{+remaining, buf}}, Nil{}},
+        encoder, decoder, control}, Con{ack_packet, Con{data_packet, Nil{}}}, Nil{}}:
+      Bool.and(U32.is_eq(remaining, 0),
+        Bool.and(local_end, client.stall.data(H.parse(16384, data_packet))))
+    case _:
+      False{}
+
+law client_goaway:
+  {client.goaway.result(client.feed(client.fixture(H.client.start()),
+    Bytes.append(raw(0, 4, 0, 0, Bytes.new(0)), raw(8, 7, 0, 0, Bytes.new(8))))) == True{} : Bool}
+
+law client_flow_stall:
+  {client.stall.result(client.stall.start(H.client.start())) == True{} : Bool}
+
+law client_flow_resume:
+  {client.stall.resumed(client.feed(client.stall.start(H.client.start()),
+    Bytes.append(raw(0, 4, 0, 0, Bytes.new(0)),
+      raw(4, 8, 0, 0, Bytes.set.u32be(Bytes.new(4), 0, 3))))) == True{} : Bool}
+
+def client.goaway.blocked(r: H.Reply) -> Bool:
+  match r:
+    case H.Failed{error}:
+      False{}
+    case H.Ready{c, writes, events}:
+      client.rejected(H.client.request(c, client.fields(), Bytes.new(0)))
+
+def client.response.result(r: H.Reply) -> Bool:
+  match r:
+    case H.Ready{H.Client{input, streams, encoder, decoder,
+        H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
+          first, ack, continuation, goaway}},
+        Con{ack_packet, Nil{}},
+        Con{H.Response{1, Con{Hp.Field{":status", "200", 0}, Nil{}}, Bytes.Bytes{0, buf}}, Nil{}}}:
+      U32.is_eq(active, 0)
+    case _:
+      False{}
+
+def client.protocol.error(r: H.Reply) -> Bool:
+  match r:
+    case H.Failed{H.Error{1, True{}, 0}}:
+      True{}
+    case _:
+      False{}
+
+law client_goaway_blocks_request:
+  {client.goaway.blocked(client.feed(client.fixture(H.client.start()),
+    Bytes.append(raw(0, 4, 0, 0, Bytes.new(0)), raw(8, 7, 0, 0, Bytes.new(8))))) == True{} : Bool}
+
+law client_header_continuation:
+  {client.response.result(client.feed(client.fixture(H.client.start()),
+    Bytes.concat([raw(0, 4, 0, 0, Bytes.new(0)),
+      raw(0, 1, 1, 1, Bytes.new(0)),
+      raw(1, 9, 4, 1, Bytes.set(Bytes.new(1), 0, 136))]))) == True{} : Bool}
+
+law client_continuation_interleaving:
+  {client.protocol.error(client.feed(client.fixture(H.client.start()),
+    Bytes.concat([raw(0, 4, 0, 0, Bytes.new(0)),
+      raw(0, 1, 1, 1, Bytes.new(0)),
+      raw(8, 6, 0, 0, Bytes.from_string("12345678"))]))) == True{} : Bool}
+
+def client.response.interim(r: H.Reply) -> Bool:
+  match r:
+    case H.Ready{H.Client{input, streams, encoder, decoder,
+        H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
+          first, ack, continuation, goaway}},
+        Con{ack_packet, Nil{}},
+        Con{H.Response{1, Con{Hp.Field{":status", "100", 0}, Nil{}}, Bytes.Bytes{0, first_body}},
+          Con{H.Response{1, Con{Hp.Field{":status", "200", 0}, Nil{}}, Bytes.Bytes{0, final_body}}, Nil{}}}}:
+      U32.is_eq(active, 0)
+    case _:
+      False{}
+
+law client_interim_then_final:
+  {client.response.interim(client.feed(client.fixture(H.client.start()),
+    Bytes.concat([raw(0, 4, 0, 0, Bytes.new(0)),
+      raw(5, 1, 4, 1, Bytes.from_string("H\u{3}100")),
+      raw(1, 1, 5, 1, Bytes.set(Bytes.new(1), 0, 136))]))) == True{} : Bool}
+
+law client_window_update_overflow:
+  {H.client.window.plus(2147483647, 1) == None{} : Maybe<&1, U32>}
+
+law client_window_update_negative:
+  {H.client.window.plus(4294967295, 1) == Some{0} : Maybe<&1, U32>}
+
+law client_settings_window_overflow:
+  {H.client.window.adjust(2147483647, 1) == None{} : Maybe<&1, U32>}
+
+law client_settings_window_negative:
+  {H.client.window.adjust(0, 4294967295) == Some{4294967295} : Maybe<&1, U32>}
+
+law client_settings_window_underflow:
+  {H.client.window.adjust(2147483648, 4294967295) == None{} : Maybe<&1, U32>}
+
+law client_settings_window_recovers:
+  {H.client.window.adjust(4294967295, 1) == Some{0} : Maybe<&1, U32>}
