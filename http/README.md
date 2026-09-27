@@ -49,6 +49,8 @@ def main() -> IO(Unit):
 
 `Http.fetch(method, url, headers, body)` is the same call with a method, headers, and body. `Http.fetch.with(..., ms)` sets the per-step timeout. The default is 30 seconds. A redirect chain stops after 20 hops (`ErrRedirect`). `Http.fetch.how(..., ms, mode)` chooses the policy: `ModeFollow` follows, `ModeManual` returns the 3xx, `ModeError` fails on a redirect. `ETIMEDOUT` is 60 on macOS and 110 on Linux. Both become `ErrTimeout`.
 
+For a host with multiple addresses, the client tries them in DNS order until TCP connects, within the step timeout. `http://[::1]:8080/` connects to IPv6 and sends `Host: [::1]:8080`. Address attempts are sequential, not raced.
+
 `Http.get` is `fetch("GET", url, Http.empty(), Http.from_string(""))`.
 
 A response body over about 30 KB overflows `bend file.bend`. Compile it. That needs clang 14 or newer (`apt install clang` on Debian 12 or Ubuntu 22.04 and later; `xcode-select --install` on macOS):

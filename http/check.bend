@@ -69,6 +69,60 @@ def pool.run(p: Http.Pool, +want: String) -> IO(Unit):
     c : Http.Pool & String <- pool.take(b)
     pool.report(want, c)
 
+def test.listen6(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
+  import "../wire/effs/ipv6_test.c"
+  import "../wire/effs/ipv6_test.js"
+
+# The shared test twin also declares this UDP effect.
+def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
+  import "../wire/effs/ipv6_test.c"
+  import "../wire/effs/ipv6_test.js"
+
+def local.handler(req: Http.Req) -> IO(Http.Res):
+  Http.Req{method, path, headers, body} = req
+  IO.pure(Http.Res, Http.Res{200, Http.empty(), Bytes.from_string(Http.header(headers, "host"))})
+
+def local.accept(l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l2 : Listener <- Http.conn(~local.handler, 1048576n, m)
+    Listener.close(l2)
+
+def local.ok(good: Bool, +name: String) -> IO(Unit):
+  match good:
+    case True{}:
+      IO.print("ok " ++ name)
+    case False{}:
+      IO.die(Unit, 1, "bad " ++ name)
+
+def local.got(+want: String, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+  match r:
+    case Fail{e}:
+      IO.die(Unit, 1, "local fetch failed")
+    case Done{res}:
+      Http.Res{+status, headers, body} = res
+      do IO<Unit>:
+        local.ok(U32.is_eq(status, 200), "local status")
+        local.ok(String.eq(Bytes.to_string(body), want), "local Host header")
+
+def local.ipv6(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "IPv6 bind: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(l, +port)}:
+      +want = "[::1]:" ++ U32.show(port)
+      do IO<Unit>:
+        IO.spawn(Unit, local.accept(l))
+        result : Result<&1, &1, Http.Err, Http.Res> <- Http.get("http://" ++ want ++ "/x")
+        local.got(want, result)
+
+def local.fallback() -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen(47812))
+    IO.spawn(Unit, local.accept(l))
+    result : Result<&1, &1, Http.Err, Http.Res> <- Http.get("http://localhost:47812/x")
+    local.got("localhost:47812", result)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -82,3 +136,6 @@ def main() -> IO(Unit):
     pool.run(Http.pool.new(), "yyn")
     pool.run(Http.pool.new.with(1), "ynn")
     Listener.close(l)
+    r : Result<&1, &1, U32 & String, Listener & U32> <- test.listen6(0)
+    local.ipv6(r)
+    local.fallback()
