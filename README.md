@@ -39,10 +39,11 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `format`, padding, and the shortest `F32` text that reads back to the same value. |
 | [`hash`](hash) | `bend-kit-hash@0.1.0.0/hash.bend` | Non-cryptographic hashes over `Bytes`, or over a byte string with the `.str` forms: FNV-1a (32 and 64), xxHash (32 and 64), SipHash-1-3, CRC-32, and Adler-32. 64-bit results are `Hash.W64{hi, lo}`, two `U32` halves; `int`'s `U64` is a bit list and too slow for hashing. |
 | [`crypto`](crypto) | `bend-kit-crypto@0.1.0.0/crypto.bend` | SHA-256, SHA-512, SHA-1, HMAC, HKDF, secure random bytes, and constant-time compare through OpenSSL 3 libcrypto (`BEND_LIBCRYPTO` overrides the path). |
+| [`time`](time) | `bend-kit-time@0.1.0.0/time.bend` | Monotonic and wall clocks, `Duration` and `Instant` on `Int.I64` seconds plus nanoseconds, Gregorian dates for years 0 to 9999, RFC 3339 and HTTP-date (IMF-fixdate) text, and TZif time zones. |
 
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, and `hash@0.1.0.0`.
+Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, and `time@0.1.0.0`.
 
-`wire`, `zlib`, `http`, `files`, `process`, and `crypto` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
+`wire`, `zlib`, `http`, `files`, `process`, `crypto`, and `time` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
 
 In `process`, `env` entries are `KEY=VALUE` overrides of the inherited environment. Close the
 spawned child's stdin to send EOF, drain stdout and stderr, then call `wait`.

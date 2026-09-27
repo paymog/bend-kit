@@ -1,0 +1,15 @@
+[package]
+name = "time-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "bench"
+path = "../bench.rs"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+
+[profile.release]
+opt-level = 3
