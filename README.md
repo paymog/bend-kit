@@ -6,7 +6,7 @@ This project was called bend-net. Its old hub names, `bend-net-*`, still resolve
 
 ## Install
 
-You need [Bend 2.0.27 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2](https://bun.sh/docs/installation). macOS or Linux, including WSL. Windows is not supported.
+You need [Bend 2.0.31 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2](https://bun.sh/docs/installation). macOS or Linux, including WSL. Windows is not supported.
 
 Import a package at the top of your file. `bend` fetches it from the hub and checks it against its hash:
 
@@ -78,5 +78,7 @@ scripts/packages.sh origin/main   # the packages changed since origin/main
 `check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend` in the package folder. `bend PROOF.bend` prints "All terms check." when every law holds.
 
 CI runs `check.sh` once for each package that a pull request changes. A change to `.github/` or `scripts/` checks every package, and so does each push to `main`. The `http` smoke tests run only when `http` changes.
+
+CI installs the Bend version pinned in `scripts/install-bend.sh`, not the latest release. To move to a new Bend, change `VER` and `SHA` in that script. The change touches `scripts/`, so its pull request checks every package on the new version.
 
 On each push to `main`, a package that passes its checks runs `scripts/publish.sh`. It publishes the package as `bend-kit-<package>@<VERSION>` unless that version is already on the hub. If the hub has that version with different files, the job fails, and the package needs a higher `VERSION`. Pull requests run `scripts/publish.sh --check`, which reports the same failure and publishes nothing.
