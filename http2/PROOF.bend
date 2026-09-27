@@ -141,3 +141,156 @@ def Laws.unused_received_flag():
 
 def Laws.unused_sent_flag():
   {==}
+
+def Laws.huffman_encode_www():
+  {==}
+
+def Laws.huffman_decode_www():
+  {==}
+
+def Laws.huffman_bad_padding():
+  {==}
+
+def Laws.huffman_eos():
+  {==}
+
+def Laws.hpack_c2_indexed_encode():
+  {==}
+
+def Laws.hpack_c2_indexed_decode():
+  {==}
+
+def Laws.hpack_c2_without_encode():
+  {==}
+
+def Laws.hpack_c2_without_decode():
+  {==}
+
+def Laws.hpack_c2_never_encode():
+  {==}
+
+def Laws.hpack_c2_never_decode():
+  {==}
+
+def Laws.hpack_c2_static_encode():
+  {==}
+
+def Laws.hpack_c2_static_decode():
+  {==}
+
+def Laws.hpack_c3_1_encode():
+  {==}
+
+def Laws.hpack_c3_1_decode():
+  {==}
+
+def Laws.hpack_c3_2_encode():
+  {==}
+
+def Laws.hpack_c3_2_decode():
+  {==}
+
+def Laws.hpack_c3_3_encode():
+  {==}
+
+def Laws.hpack_c3_3_decode():
+  {==}
+
+def Laws.hpack_c4_1_encode():
+  {==}
+
+def Laws.hpack_c4_1_decode():
+  {==}
+
+def Laws.hpack_c4_2_encode():
+  {==}
+
+def Laws.hpack_c4_2_decode():
+  {==}
+
+def Laws.hpack_c4_3_encode():
+  {==}
+
+def Laws.hpack_c4_3_decode():
+  {==}
+
+def Laws.hpack_c5_1_encode():
+  {==}
+
+def Laws.hpack_c5_1_decode():
+  {==}
+
+def Laws.hpack_c5_2_encode():
+  {==}
+
+def Laws.hpack_c5_2_decode():
+  {==}
+
+def Laws.hpack_c5_3_encode():
+  {==}
+
+def Laws.hpack_c5_3_decode():
+  {==}
+
+def Laws.hpack_c6_1_encode():
+  {==}
+
+def Laws.hpack_c6_1_decode():
+  {==}
+
+def Laws.hpack_c6_2_encode():
+  {==}
+
+def Laws.hpack_c6_2_decode():
+  {==}
+
+def Laws.hpack_c6_3_encode():
+  {==}
+
+def Laws.hpack_c6_3_decode():
+  {==}
+
+def Laws.hpack_bad_zero_index():
+  {==}
+
+def Laws.hpack_bad_dynamic_index():
+  {==}
+
+def Laws.hpack_short_integer():
+  {==}
+
+def Laws.hpack_overflow_integer():
+  {==}
+
+def Laws.hpack_bad_huffman():
+  {==}
+
+def Laws.hpack_late_size_update():
+  {==}
+
+def Laws.hpack_large_size_update():
+  {==}
+
+def Laws.hpack_missing_size_update():
+  {==}
+
+def Laws.hpack_skipped_minimum_size():
+  {==}
+
+def Laws.hpack_two_size_updates_encode():
+  {==}
+
+def Laws.hpack_two_size_updates_decode():
+  {==}
+
+def Laws.hpack_oversize_evicts():
+  {==}
+
+def Laws.hpack_without_index_even_if_static():
+  {==}
+
+def Laws.hpack_never_index_even_if_static():
+  {==}
+
+def Laws.hpack_invalid_octet():
+  {==}
