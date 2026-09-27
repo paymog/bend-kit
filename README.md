@@ -36,10 +36,11 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`regex`](regex) | `0x6fa820747435b3188e7e4f3d1ffc0325/regex.bend` | Linear-time regular expressions: RE2 syntax, capture groups, and Unicode categories. See [regex/README.md](regex/README.md). |
 | [`parse`](parse) | `0x154e0a68ef9a0223bacaacefc589cad8/parse.bend` | Parser combinators over text, with positioned errors: sequence, choice, `many`, `sep_by`, `opt`, and `rec` for nested grammars. `parse/json.bend` is a JSON grammar on it. |
 | [`int`](int) | `0x0c38aaf55cb892078ec5d3c0609798a9/int.bend` | Fixed-width `U8`, `U16`, `U64`, `I32`, and `I64`, with wrapping, checked, and saturating arithmetic, and conversions to `U32` and `Nat`. `U8`, `U16`, and `I32` run at native speed on Base's `U32`. `U64` and `I64` use `Word(64n)` and are slow. |
+| [`crypto`](crypto) | `bend-kit-crypto@0.1.0.0/crypto.bend` | SHA-256, SHA-512, SHA-1, HMAC, HKDF, secure random bytes, and constant-time compare through OpenSSL 3 libcrypto (`BEND_LIBCRYPTO` overrides the path). |
 
 Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.15.0.5`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, and `int@0.1.0.0`.
 
-`wire`, `http`, `files`, and `process` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
+`wire`, `http`, `files`, `process`, and `crypto` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
 
 In `process`, `env` entries are `KEY=VALUE` overrides of the inherited environment. Close the
 spawned child's stdin to send EOF, drain stdout and stderr, then call `wait`.

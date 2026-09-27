@@ -56,7 +56,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### Tier 2
 
 - [ ] Non-cryptographic hashing (#27)
-- [ ] Cryptography: SHA-2, SHA-1, HMAC, HKDF, secure random (#28)
+- [x] Cryptography: SHA-2, SHA-1, HMAC, HKDF, secure random (#28)
 - [ ] Random numbers: seeded PRNGs and distributions (#29)
 - [ ] Property-based testing (#30)
 - [x] Regex (linear time, RE2-style) (#32)
