@@ -1,6 +1,6 @@
 import Base
 import ./http.bend as Http
-import 0xd248560355ba8929ae030bc9c72f40be/url.bend as Url
+import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
