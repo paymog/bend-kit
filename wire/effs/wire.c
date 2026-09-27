@@ -209,12 +209,63 @@ static void __attribute__((constructor)) wire_send_words_use(void) {
 
 #endif
 
+
+#if defined(CID(connect)) || defined(CID(send_to)) || defined(CID(recv_from))
+
+static int wire_fill_addr(const char* host, u32 port, struct sockaddr_storage* ss, socklen_t* slen) {
+  struct in_addr v4;
+  if (inet_pton(AF_INET, host, &v4) == 1) {
+    struct sockaddr_in* sin = (struct sockaddr_in*)ss;
+    memset(sin, 0, sizeof(*sin));
+    sin->sin_family = AF_INET;
+    sin->sin_port   = htons((u16)port);
+    sin->sin_addr   = v4;
+    *slen           = sizeof(*sin);
+    return AF_INET;
+  }
+  struct in6_addr v6;
+  if (inet_pton(AF_INET6, host, &v6) == 1) {
+    struct sockaddr_in6* sin6 = (struct sockaddr_in6*)ss;
+    memset(sin6, 0, sizeof(*sin6));
+    sin6->sin6_family = AF_INET6;
+    sin6->sin6_port   = htons((u16)port);
+    sin6->sin6_addr   = v6;
+    *slen             = sizeof(*sin6);
+    return AF_INET6;
+  }
+  return -1;
+}
+
+static const char* wire_ntop(const struct sockaddr_storage* ss, char* buf, socklen_t len) {
+  if (ss->ss_family == AF_INET) {
+    const struct sockaddr_in* sin = (const struct sockaddr_in*)ss;
+    return inet_ntop(AF_INET, &sin->sin_addr, buf, len);
+  }
+  if (ss->ss_family == AF_INET6) {
+    const struct sockaddr_in6* sin6 = (const struct sockaddr_in6*)ss;
+    return inet_ntop(AF_INET6, &sin6->sin6_addr, buf, len);
+  }
+  return NULL;
+}
+
+static u16 wire_peer_port(const struct sockaddr_storage* ss) {
+  if (ss->ss_family == AF_INET) {
+    return ntohs(((const struct sockaddr_in*)ss)->sin_port);
+  }
+  if (ss->ss_family == AF_INET6) {
+    return ntohs(((const struct sockaddr_in6*)ss)->sin6_port);
+  }
+  return 0;
+}
+
+#endif
+
 #ifdef CID(recv_from)
 
 static Term wire_recv_from_more(Env e, IoWork* w) {
-  struct sockaddr_in at = { 0 };
-  socklen_t alen = sizeof(at);
-  char      host[16];
+  struct sockaddr_storage at = { 0 };
+  socklen_t               alen = sizeof(at);
+  char                    host[46];
   int       fd = (int)w->hand;
   ssize_t   n  = io_sys_end(w, recvfrom(fd, w->data, (size_t)w->made, 0,
     (struct sockaddr*)&at, &alen));
@@ -224,10 +275,10 @@ static Term wire_recv_from_more(Env e, IoWork* w) {
     }
     w->code = ETIMEDOUT;
   }
-  inet_ntop(AF_INET, &at.sin_addr, host, 16);
-  Term r = w->code ? io_fail(e, w->code, NULL)
-    : io_done(e, io_tup(e, io_str(e, host, strlen(host)),
-      io_tup(e, ntohs(at.sin_port), wire_bytes(e, w->data, (u64)n))));
+  const char* ip = wire_ntop(&at, host, sizeof(host));
+  Term r = w->code || ip == NULL ? io_fail(e, w->code ? w->code : EINVAL, NULL)
+    : io_done(e, io_tup(e, io_str(e, ip, strlen(ip)),
+      io_tup(e, wire_peer_port(&at), wire_bytes(e, w->data, (u64)n))));
   free(w->data);
   return io_tup(e, io_hand(w->hand), r);
 }
@@ -249,12 +300,13 @@ static void __attribute__((constructor)) wire_recv_from_use(void) {
 #ifdef CID(send_to)
 
 static Term wire_send_to_more(Env e, IoWork* w) {
-  struct sockaddr_in at;
   int     fd = (int)w->hand;
   ssize_t n  = -1;
   errno      = EINVAL;
-  if (w->code == 0 && io_sys_addr(w->text, (u32)w->made, &at) == 0) {
-    n = sendto(fd, w->data, w->size, 0, (struct sockaddr*)&at, sizeof(at));
+  struct sockaddr_storage ss;
+  socklen_t               slen = 0;
+  if (w->code == 0 && wire_fill_addr(w->text, (u32)w->made, &ss, &slen) >= 0) {
+    n = sendto(fd, w->data, w->size, 0, (struct sockaddr*)&ss, slen);
   }
   io_sys_end(w, n);
   if (w->code == EAGAIN) {
@@ -295,11 +347,14 @@ static Term wire_connect_end(Env e, IoWork* w, int err) {
     close(fd);
   }
   free(w->data);
+  if (w->text != NULL) {
+    free(w->text);
+    w->text = NULL;
+  }
   return err != 0 ? io_fail(e, (u32)err, NULL) : io_done(e, io_hand(fd));
 }
 
 static Term wire_connect_more(Env e, IoWork* w) {
-  struct sockaddr_in at;
   int       fd  = (int)w->hand;
   int       err = 0;
   socklen_t len = sizeof(err);
@@ -307,8 +362,7 @@ static Term wire_connect_more(Env e, IoWork* w) {
     err = errno;
   }
   if (err == 0) {
-    io_sys_addr(w->data, (u32)w->made, &at);
-    err = connect(fd, (struct sockaddr*)&at, sizeof(at)) == 0 ? 0 : errno;
+    err = connect(fd, (struct sockaddr*)w->text, (socklen_t)w->code) == 0 ? 0 : errno;
   }
   if (err == 0 || err == EISCONN) {
     return wire_connect_end(e, w, 0);
@@ -323,15 +377,21 @@ static Term wire_connect_more(Env e, IoWork* w) {
 }
 
 Term connect_run(Env e, Term* f, IoWork* w) {
-  struct sockaddr_in at;
-  u64 hn  = 0;
+  struct sockaddr_storage ss;
+  socklen_t               slen = 0;
+  u64                     hn   = 0;
   w->data = io_cstr(e, f[0], &hn);
   w->made = (intptr_t)f[1];
   w->hand = -1;
-  if (io_nul(w->data, hn) || io_sys_addr(w->data, (u32)w->made, &at) != 0) {
+  w->text = NULL;
+  int family = io_nul(w->data, hn) ? -1 : wire_fill_addr(w->data, (u32)w->made, &ss, &slen);
+  if (family < 0) {
     return wire_connect_end(e, w, EINVAL);
   }
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  w->text = io_mem(malloc(slen));
+  memcpy(w->text, &ss, slen);
+  w->code = (intptr_t)slen;
+  int fd = socket(family, SOCK_STREAM, 0);
   if (fd < 0) {
     return wire_connect_end(e, w, errno);
   }
