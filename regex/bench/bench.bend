@@ -1,6 +1,7 @@
 # Regex benchmark: match and search on fixed inputs (see README.md).
 import Base
 import ../regex.bend as R
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 def mix(+acc: U32, +x: U32) -> U32:
   (acc * 31 + x : U32)
@@ -37,14 +38,24 @@ def lap(+name: String, t0: Nat, +chk: U32) -> IO(Unit):
     t1 : Nat <- IO.now()
     IO.print("ms\t" ++ name ++ "\t" ++ Nat.show((t1 - t0 : Nat)))
 
+def chk_bfind(p: Bytes.Bytes & Maybe<&2, List<&2, Maybe<&2, R.Span>>>) -> U32:
+  (b, m) = p
+  chk_find(m)
+
+def chk_bhit(p: Bytes.Bytes & Bool) -> U32:
+  (b, x) = p
+  Bool.pick(U32, x, 1, 0)
+
+# The text becomes Bytes before the clock starts.
 def with_re(m: Maybe<&2, R.Regex>, +s: String, +name: String) -> IO(Unit):
   match m:
     case None{}:
       IO.print("error")
     case Some{re}:
       do IO<Unit>:
+        b : Bytes.Bytes = Bytes.from_string(s)
         t0 : Nat <- IO.now()
-        lap(name, t0, chk_find(R.find(re, s)))
+        lap(name, t0, chk_bfind(R.find.bytes(re, b)))
 
 def with_hit(m: Maybe<&2, R.Regex>, +s: String, +name: String) -> IO(Unit):
   match m:
@@ -52,8 +63,9 @@ def with_hit(m: Maybe<&2, R.Regex>, +s: String, +name: String) -> IO(Unit):
       IO.print("error")
     case Some{re}:
       do IO<Unit>:
+        b : Bytes.Bytes = Bytes.from_string(s)
         t0 : Nat <- IO.now()
-        lap(name, t0, Bool.pick(U32, R.is_match(re, s), 1, 0))
+        lap(name, t0, chk_bhit(R.is_match.bytes(re, b)))
 
 def op.is_match(+s: String) -> IO(Unit):
   with_hit(R.compile("hello\\w+"), s, "is_match")

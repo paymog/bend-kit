@@ -191,6 +191,90 @@ def Laws.bits_word_boundary():
 def Laws.bits_large():
   {==}
 
+def Laws.bytes_literal():
+  {==}
+
+def Laws.bytes_no_match():
+  {==}
+
+def Laws.bytes_utf8_offsets():
+  {==}
+
+def Laws.bytes_unicode_class():
+  {==}
+
+def Laws.bytes_dot_multibyte():
+  {==}
+
+def Laws.bytes_four_byte():
+  {==}
+
+def Laws.bytes_invalid():
+  {==}
+
+def Laws.bytes_truncated():
+  {==}
+
+def Laws.bytes_overlong():
+  {==}
+
+def Laws.bytes_captures():
+  {==}
+
+def Laws.bytes_leftmost_first():
+  {==}
+
+def Laws.bytes_literal_prefix():
+  {==}
+
+def Laws.bytes_skip_multibyte():
+  {==}
+
+def Laws.bytes_empty_start():
+  {==}
+
+def Laws.bytes_empty_text():
+  {==}
+
+def Laws.bytes_anchor_end():
+  {==}
+
+def Laws.bytes_word_boundary():
+  {==}
+
+def Laws.bytes_pathological():
+  {==}
+
+def Laws.bytes_bits_hit():
+  {==}
+
+def Laws.bytes_bits_miss():
+  {==}
+
+def Laws.bytes_bits_start():
+  {==}
+
+def Laws.bytes_bits_empty_at_end():
+  {==}
+
+def Laws.bytes_bits_empty_text():
+  {==}
+
+def Laws.bytes_bits_skip_miss():
+  {==}
+
+def Laws.bytes_bits_skip_hit():
+  {==}
+
+def Laws.bytes_bits_utf8():
+  {==}
+
+def Laws.bytes_bits_skip_multibyte():
+  {==}
+
+def Laws.bytes_bits_word_boundary():
+  {==}
+
 def Laws.bad_unclosed():
   {==}
 
