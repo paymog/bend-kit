@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Bend
-        run: curl -fsSL https://bend-lang.com/install.sh | sh
+        run: scripts/install-bend.sh
       - name: Check ${{ matrix.package }}
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
@@ -76,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Bend
-        run: curl -fsSL https://bend-lang.com/install.sh | sh
+        run: ../scripts/install-bend.sh
       - name: Live fetch smoke
         run: |
           export PATH="$HOME/.bend/bin:$PATH"

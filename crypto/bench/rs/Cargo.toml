@@ -1,0 +1,15 @@
+[package]
+name = "crypto-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "bench"
+path = "../bench.rs"
+
+[dependencies]
+sha2 = "0.10"
+
+[profile.release]
+opt-level = 3
