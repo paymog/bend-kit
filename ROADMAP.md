@@ -70,7 +70,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### Tier 3
 
 - [x] Parser combinators (#38)
-- [ ] Compression: deflate/gzip encoding, zstd, brotli (#39)
+- [ ] Compression through libz, libzstd, and libbrotlidec, and `http` decoding with them (#142)
 - [ ] Concurrency helpers (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
 - [ ] Networking: WebSocket, cookies, multipart (#42)
@@ -81,16 +81,15 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ### Existing packages
 
-- [ ] **Give `zlib` a `Bytes` input.** `decoded` turns a compressed body into a `String` for `zlib` and the result back into `Bytes`, so a large gzip body still costs a `String` of each size. A plain body is never converted.
+- [ ] **Decode bodies without a `String` copy.** `decoded` turns a compressed body into a `String` for `zlib` and the result back into `Bytes`. The native effects in #142 take and return the `Bytes` layout, which removes both copies.
 - [ ] **Speed up JSON.** A 1 MB `Json.parse` takes about 3.4 s of CPU.
 - [ ] **Stream in the server.** `serve` hands the handler a whole `Req` and sends a whole `Res`. Add a handler form that reads the request body and writes the response in pieces, on the same `Rb`/`ck` framing the client streams use.
 - [ ] **Lingering close in `serve`.** After a 400, 413, or 431, `serve` closes with unread client bytes, so the client may get an RST instead of the response. Stop writing, drain for a moment, then close.
-- [ ] **IPv6 and the rest of DNS.** Add AAAA records and IPv6 connect (the runtime's `io_sys_addr` is IPv4 only). Also add a TCP retry when TC is set, and a small TTL cache.
+- [ ] **IPv6.** `Dns.resolve` goes through `getaddrinfo` (#93) but asks for `AF_INET` only, and the runtime's `io_sys_addr` connects over IPv4 only. Ask for AAAA too and add IPv6 connect.
 
 ## Later
 
 - [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist. `json.encode` is still `@unsafe` because it walks a work list.
-- [ ] brotli decoding, and gzip bodies with more than one member (only the first is decoded).
 - [ ] u64 in `bytes`. Base has no `U64`; add `get.u64be` and the rest when it does, or return a hi/lo `U32` pair if a format needs it first.
 - [ ] `Bytes` as map keys. Base's `Map` is a trie over `String` keys and takes no comparator, so `Bytes.cmp` cannot key it. Use `Bytes.to_string` as the key, or add an ordered map over `cmp`.
 - [ ] More than one idle socket per origin in the pool, and decoding inside streams.
