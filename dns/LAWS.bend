@@ -72,3 +72,12 @@ law hosts_hit:
 
 law hosts_miss:
   {Dns.hosts("no.test", "10.0.0.1 other\n") == None{} : Maybe<&2, String>}
+
+law resolve_ipv6_literal:
+  {Dns.resolve.literal("::1") == Some{"::1"} : Maybe<&2, String>}
+
+law resolve_localhost:
+  {Dns.resolve.literal.all("localhost") == ["::1", "127.0.0.1"] : List<&2, String>}
+
+law hosts_ipv6:
+  {Dns.hosts.all("v6.test", "::1 v6.test\n127.0.0.1 v6.test\n") == ["::1", "127.0.0.1"] : List<&2, String>}

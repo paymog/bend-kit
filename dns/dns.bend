@@ -4,8 +4,8 @@ import Base
 import 0x096635686408886b7d907f16c4550317/wire.bend as Wire
 
 # query, answer, and resolve.pure are pure; PROOF.bend covers them, not effs/.
-# resolve uses the OS resolver (IPv4 A only, same Maybe<String> as before).
-#   import bend-kit-dns@0.3.2.0/dns.bend as Dns
+# resolve.all uses the OS resolver (IPv4 and IPv6); resolve keeps the first address.
+#   import bend-kit-dns@0.4.0.0/dns.bend as Dns
 
 type Cur is Data:
   Cur{v: U32, rest: String}
@@ -314,6 +314,30 @@ def nameserver(conf: String) -> Maybe<&2, String>:
 def none() -> IO(Maybe<&2, String>):
   IO.pure(Maybe<&2, String>, None{})
 
+def list.append(xs: List<&2, String>, ys: List<&2, String>) -> List<&2, String>:
+  match xs:
+    case Nil{}:
+      ys
+    case Con{+h, t}:
+      h <> list.append(t, ys)
+
+def list.one(+x: String) -> List<&2, String>:
+  x <> Nil{}
+
+def list.any(+xs: List<&2, String>) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{+_, +_}:
+      True{}
+
+def list.first(xs: List<&2, String>) -> Maybe<&2, String>:
+  match xs:
+    case Nil{}:
+      None{}
+    case Con{+h, t}:
+      Some{h}
+
 def ipv4.go(s: String) -> Bool:
   match s:
     case SNil{}:
@@ -324,6 +348,34 @@ def ipv4.go(s: String) -> Bool:
 # Digits and dots; TCP.connect rejects anything else that is not an address.
 def ipv4(+s: String) -> Bool:
   Bool.and(Bool.not(String.is_empty(s)), ipv4.go(s))
+
+def ipv6.ch(+c: U32) -> Bool:
+  Bool.or(
+    Bool.and(U32.is_le(48, c), U32.is_le(c, 57)),
+    Bool.or(
+      Bool.and(U32.is_le(97, c), U32.is_le(c, 102)),
+      Bool.and(U32.is_le(65, c), U32.is_le(c, 70))))
+
+def ipv6.go(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{Chr{+c}, t}:
+      Bool.and(Bool.or(U32.is_eq(c, 58), ipv6.ch(c)), ipv6.go(t))
+
+def ipv6.has(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{Chr{+c}, t}:
+      Bool.or(U32.is_eq(c, 58), ipv6.has(t))
+
+# Bracket-free IPv6 text; connect validates the address.
+def ipv6(+s: String) -> Bool:
+  Bool.and(Bool.and(Bool.not(String.is_empty(s)), ipv6.has(s)), ipv6.go(s))
+
+def ip(+s: String) -> Bool:
+  Bool.or(ipv4(s), ipv6(s))
 
 # One attempt's outcome: try again, or this answer (None: no address).
 type Try is Data:
@@ -524,12 +576,26 @@ def hosts.ip(+name: String, +ip: String, ns: List<&2, String>, ok: Bool) -> Mayb
     case True{}:
       hosts.names(ns, name, ip, None{})
 
+def hosts.on_line(+name: String, ns: List<&2, String>) -> Bool:
+  match ns:
+    case Nil{}:
+      False{}
+    case Con{+n, t}:
+      Bool.or(String.eq(String.to_lower(n), name), hosts.on_line(name, t))
+
 def hosts.line(+name: String, xs: List<&2, String>) -> Maybe<&2, String>:
   match xs:
     case Nil{}:
       None{}
-    case Con{+ip, ns}:
-      hosts.ip(name, ip, ns, ipv4(ip))
+    case Con{+addr, ns}:
+      hosts.ip(name, addr, ns, ip(addr))
+
+def hosts.line.all(+name: String, xs: List<&2, String>) -> List<&2, String>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{+addr, ns}:
+      Bool.pick(List<&2, String>, Bool.and(ip(addr), hosts.on_line(name, ns)), list.one(addr), Nil{})
 
 def hosts.sp(+c: U32, tab: Bool) -> U32:
   match tab:
@@ -552,64 +618,128 @@ def hosts.scan(xs: List<&2, String>, +name: String, found: Maybe<&2, String>) ->
     case Con{line, t}:
       hosts.scan(t, name, hosts.pick(found, hosts.line(name, String.split(hosts.flat(line), ' '))))
 
-# First IPv4 address for name in an /etc/hosts file. The name is already lowercase.
+def hosts.scan.all(xs: List<&2, String>, +name: String, acc: List<&2, String>) -> List<&2, String>:
+  match xs:
+    case Nil{}:
+      acc
+    case Con{+line, t}:
+      hosts.scan.all(t, name,
+        list.append(acc, hosts.line.all(name, String.split(hosts.flat(line), ' '))))
+
+# Every address for name in an /etc/hosts file. The name is already lowercase.
+def hosts.all(+name: String, text: String) -> List<&2, String>:
+  hosts.scan.all(String.lines(text), name, Nil{})
+
+# First address for name in an /etc/hosts file. The name is already lowercase.
 def hosts(+name: String, text: String) -> Maybe<&2, String>:
-  hosts.scan(String.lines(text), name, None{})
+  list.first(hosts.all(name, text))
 
-def resolve.from(+name: String, m: Maybe<&2, String>) -> IO(Maybe<&2, String>):
-  match m:
-    case Some{ip}:
-      IO.pure(Maybe<&2, String>, Some{ip})
-    case None{}:
-      resolve.dns(name)
+def lookup.split(+s: String) -> List<&2, String>:
+  List.filter(~String, ~(n => Bool.not(String.is_empty(n))), String.split(s, Chr{0}))
 
-def resolve.text(+name: String, r: Result<&1, &1, U32 & String, String>) -> IO(Maybe<&2, String>):
-  match r:
-    case Fail{e}:
-      resolve.dns(name)
-    case Done{s}:
-      resolve.from(name, hosts(name, s))
-
-def resolve.opened(+name: String, m: File & Result<&1, &1, U32 & String, String>) -> IO(Maybe<&2, String>):
-  (f, r) = m
-  do IO<Maybe<&2, String>>:
-    File.close(f)
-    resolve.text(name, r)
-
-def resolve.hosts(+name: String, r: Result<&1, &1, U32 & String, File>) -> IO(Maybe<&2, String>):
-  match r:
-    case Fail{e}:
-      resolve.dns(name)
-    case Done{f}:
-      do IO<Maybe<&2, String>>:
-        m : File & Result<&1, &1, U32 & String, String> <- File.read(f, 65536)
-        resolve.opened(name, m)
-
-def lookup(host: String) -> IO(Result<&1, &1, U32 & String, String>):
+# OS resolver: every address, NUL-separated in getaddrinfo order.
+def lookup.all(host: String) -> IO(Result<&1, &1, U32 & String, String>):
   import "./effs/dns.c"
   import "./effs/dns.js"
 
-def resolve.got(r: Result<&1, &1, U32 & String, String>) -> IO(Maybe<&2, String>):
+# Literals and localhost without the OS (for laws and fast paths).
+def resolve.literal.all(+host: String) -> List<&2, String>:
+  Bool.pick(List<&2, String>, ip(host), list.one(host),
+    Bool.pick(List<&2, String>, String.eq(host, "localhost"),
+      ["::1", "127.0.0.1"], Nil{}))
+
+def resolve.literal(+host: String) -> Maybe<&2, String>:
+  list.first(resolve.literal.all(host))
+
+def resolve.all.got(r: Result<&1, &1, U32 & String, String>) -> IO(List<&2, String>):
   match r:
     case Fail{e}:
-      none()
-    case Done{ip}:
-      IO.pure(Maybe<&2, String>, Some{ip})
+      IO.pure(List<&2, String>, Nil{})
+    case Done{s}:
+      IO.pure(List<&2, String>, lookup.split(s))
 
-def resolve.os(+name: String) -> IO(Maybe<&2, String>):
-  do IO<Maybe<&2, String>>:
-    r : Result<&1, &1, U32 & String, String> <- lookup(name)
-    resolve.got(r)
+def resolve.all.os(+name: String) -> IO(List<&2, String>):
+  do IO<List<&2, String>>:
+    r : Result<&1, &1, U32 & String, String> <- lookup.all(name)
+    resolve.all.got(r)
 
-# An IPv4 address for host: literals as is, localhost (RFC 6761), /etc/hosts, else UDP DNS.
-# ponytail: no AAAA, no TCP retry on TC
-def resolve.ask(+name: String) -> IO(Maybe<&2, String>):
-  do IO<Maybe<&2, String>>:
+def resolve.all.dns.one(m: Maybe<&2, String>) -> IO(List<&2, String>):
+  match m:
+    case Some{ip}:
+      IO.pure(List<&2, String>, list.one(ip))
+    case None{}:
+      IO.pure(List<&2, String>, Nil{})
+
+# ponytail: UDP path still asks for A records only
+def resolve.all.dns(+name: String) -> IO(List<&2, String>):
+  do IO<List<&2, String>>:
+    m : Maybe<&2, String> <- resolve.dns(name)
+    resolve.all.dns.one(m)
+
+def resolve.all.from(+name: String, +xs: List<&2, String>) -> IO(List<&2, String>):
+  match xs:
+    case Nil{}:
+      resolve.all.dns(name)
+    case Con{+_, +t}:
+      IO.pure(List<&2, String>, xs)
+
+def resolve.all.text(+name: String, r: Result<&1, &1, U32 & String, String>) -> IO(List<&2, String>):
+  match r:
+    case Fail{e}:
+      resolve.all.dns(name)
+    case Done{s}:
+      resolve.all.from(name, hosts.all(name, s))
+
+def resolve.all.opened(+name: String, m: File & Result<&1, &1, U32 & String, String>) -> IO(List<&2, String>):
+  (f, r) = m
+  do IO<List<&2, String>>:
+    File.close(f)
+    resolve.all.text(name, r)
+
+def resolve.all.hosts(+name: String, r: Result<&1, &1, U32 & String, File>) -> IO(List<&2, String>):
+  match r:
+    case Fail{e}:
+      resolve.all.dns(name)
+    case Done{f}:
+      do IO<List<&2, String>>:
+        m : File & Result<&1, &1, U32 & String, String> <- File.read(f, 65536)
+        resolve.all.opened(name, m)
+
+def resolve.all.static(+host: String) -> List<&2, String>:
+  resolve.literal.all(host)
+
+def resolve.all.pick(+host: String, +xs: List<&2, String>) -> IO(List<&2, String>):
+  match xs:
+    case Nil{}:
+      resolve.all.os(String.to_lower(host))
+    case Con{+_, +t}:
+      IO.pure(List<&2, String>, xs)
+
+def resolve.all(+host: String) -> IO(List<&2, String>):
+  resolve.all.pick(host, resolve.all.static(host))
+
+def resolve.all.ask(+name: String) -> IO(List<&2, String>):
+  do IO<List<&2, String>>:
     f : Result<&1, &1, U32 & String, File> <- File.open("/etc/hosts", "r")
-    resolve.hosts(name, f)
+    resolve.all.hosts(name, f)
+
+def resolve.all.pure.pick(+host: String, +xs: List<&2, String>) -> IO(List<&2, String>):
+  match xs:
+    case Nil{}:
+      resolve.all.ask(String.to_lower(host))
+    case Con{+_, +t}:
+      IO.pure(List<&2, String>, xs)
+
+def resolve.all.pure(+host: String) -> IO(List<&2, String>):
+  resolve.all.pure.pick(host, resolve.all.static(host))
 
 def resolve.pure(+host: String) -> IO(Maybe<&2, String>):
-  Bool.pick(IO(Maybe<&2, String>), ipv4(host), IO.pure(Maybe<&2, String>, Some{host}), Bool.pick(IO(Maybe<&2, String>), String.eq(host, "localhost"), IO.pure(Maybe<&2, String>, Some{"127.0.0.1"}), resolve.ask(String.to_lower(host))))
+  do IO<Maybe<&2, String>>:
+    xs : List<&2, String> <- resolve.all.pure(host)
+    return list.first(xs)
 
+# First address from resolve.all (getaddrinfo order when the OS resolves).
 def resolve(+host: String) -> IO(Maybe<&2, String>):
-  Bool.pick(IO(Maybe<&2, String>), ipv4(host), IO.pure(Maybe<&2, String>, Some{host}), Bool.pick(IO(Maybe<&2, String>), String.eq(host, "localhost"), IO.pure(Maybe<&2, String>, Some{"127.0.0.1"}), resolve.os(String.to_lower(host))))
+  do IO<Maybe<&2, String>>:
+    xs : List<&2, String> <- resolve.all(host)
+    return list.first(xs)
