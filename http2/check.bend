@@ -1,6 +1,7 @@
 import Base
 import ./http2.bend as H
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import ./hpack.bend as Hp
 
 def ensure(ok: Bool, +why: String) -> IO(Unit):
   match ok:
@@ -25,5 +26,21 @@ def encoded(r: Result<&1, &1, H.Error, Bytes.Bytes>) -> IO(Unit):
     case Done{b}:
       received(H.parse(16384, b))
 
+def hpack.decoded(m: Maybe<&1, Hp.State & List<&2, Hp.Field>>) -> IO(Unit):
+  match m:
+    case Some{(Hp.State{entries, +size, capacity, allowed, pending, minimum}, Con{Hp.Field{name, value, mode}, Nil{}})}:
+      ensure(Bool.and(U32.is_eq(size, 57), Bool.and(String.eq(name, ":authority"), String.eq(value, "www.example.com"))), "native Huffman block and dynamic table")
+    case _:
+      IO.die(Unit, 1, "native HPACK decode failed")
+
+def hpack.encoded(m: Maybe<&1, Hp.State & Bytes.Bytes>) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.die(Unit, 1, "native HPACK encode failed")
+    case Some{(state, b)}:
+      hpack.decoded(Hp.decode(b, Hp.new(4096)))
+
 def main() -> IO(Unit):
-  encoded(H.encode(16384, H.Frame{0, 1, 1, Bytes.new(16384)}))
+  do IO<Unit>:
+    frame: Unit <- encoded(H.encode(16384, H.Frame{0, 1, 1, Bytes.new(16384)}))
+    hpack.encoded(Hp.encode([Hp.Field{":authority", "www.example.com", 0}], True{}, Hp.new(4096)))

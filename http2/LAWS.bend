@@ -1,6 +1,8 @@
 import Base
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 import ./http2.bend as H
+import ./huffman.bend as Huff
+import ./hpack.bend as Hp
 
 def round.result(r: Result<&1, &1, H.Error, Bytes.Bytes>) -> H.Decode:
   match r:
@@ -155,3 +157,290 @@ law unused_received_flag:
 
 law unused_sent_flag:
   {H.encode(16384, H.Frame{1, 128, 1, Bytes.new(0)}) == Fail{H.Error{1, True{}, 0}} : Result<&1, &1, H.Error, Bytes.Bytes>}
+
+def huffman.hex(m: Maybe<&1, Bytes.Bytes>) -> Maybe<&2, String>:
+  match m:
+    case None{}:
+      None{}
+    case Some{b}:
+      Huff.decode(b)
+
+law huffman_encode_www:
+  {Huff.encode("www.example.com") == Bytes.from_hex("f1e3c2e5f23a6ba0ab90f4ff") : Maybe<&1, Bytes.Bytes>}
+
+law huffman_decode_www:
+  {huffman.hex(Bytes.from_hex("f1e3c2e5f23a6ba0ab90f4ff")) == Some{"www.example.com"} : Maybe<&2, String>}
+
+law huffman_bad_padding:
+  {huffman.hex(Bytes.from_hex("f1e3c2e5f23a6ba0ab90f4fe")) == None{} : Maybe<&2, String>}
+
+law huffman_eos:
+  {huffman.hex(Bytes.from_hex("ffffffff")) == None{} : Maybe<&2, String>}
+
+def hp.hex(m: Maybe<&1, Hp.State & Bytes.Bytes>) -> Maybe<&2, String>:
+  match m:
+    case None{}:
+      None{}
+    case Some{(state, b)}:
+      Some{Bytes.to_hex(b)}
+
+def hp.decode(hex: String, st: Hp.State) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  Maybe.bind(&1, Bytes.Bytes, Hp.State & List<&2, Hp.Field>, Bytes.from_hex(hex), b => Hp.decode(b, st))
+
+def hp.after(hex: String, m: Maybe<&1, Hp.State & List<&2, Hp.Field>>) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  match m:
+    case None{}:
+      None{}
+    case Some{(state, fields)}:
+      hp.decode(hex, state)
+
+def hp.result(m: Maybe<&1, Hp.State & List<&2, Hp.Field>>) -> Maybe<&1, U32 & List<&2, Hp.Field>>:
+  match m:
+    case None{}:
+      None{}
+    case Some{(Hp.State{entries, size, capacity, allowed, pending, minimum}, fields)}:
+      Some{(size, fields)}
+
+law hpack_c2_indexed_encode:
+  {hp.hex(Hp.encode([Hp.Field{"custom-key", "custom-header", 0}], False{}, Hp.new(4096))) == Some{"400a637573746f6d2d6b65790d637573746f6d2d686561646572"} : Maybe<&2, String>}
+
+law hpack_c2_indexed_decode:
+  {hp.result(hp.decode("400a637573746f6d2d6b65790d637573746f6d2d686561646572", Hp.new(4096))) == Some{(55, [Hp.Field{"custom-key", "custom-header", 0}])} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c2_without_encode:
+  {hp.hex(Hp.encode([Hp.Field{":path", "/sample/path", 1}], False{}, Hp.new(4096))) == Some{"040c2f73616d706c652f70617468"} : Maybe<&2, String>}
+
+law hpack_c2_without_decode:
+  {hp.result(hp.decode("040c2f73616d706c652f70617468", Hp.new(4096))) == Some{(0, [Hp.Field{":path", "/sample/path", 1}])} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c2_never_encode:
+  {hp.hex(Hp.encode([Hp.Field{"password", "secret", 2}], False{}, Hp.new(4096))) == Some{"100870617373776f726406736563726574"} : Maybe<&2, String>}
+
+law hpack_c2_never_decode:
+  {hp.result(hp.decode("100870617373776f726406736563726574", Hp.new(4096))) == Some{(0, [Hp.Field{"password", "secret", 2}])} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c2_static_encode:
+  {hp.hex(Hp.encode([Hp.Field{":method", "GET", 0}], False{}, Hp.new(4096))) == Some{"82"} : Maybe<&2, String>}
+
+law hpack_c2_static_decode:
+  {hp.result(hp.decode("82", Hp.new(4096))) == Some{(0, [Hp.Field{":method", "GET", 0}])} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+def hp.next(fields: List<&2, Hp.Field>, huff: Bool, m: Maybe<&1, Hp.State & Bytes.Bytes>) -> Maybe<&1, Hp.State & Bytes.Bytes>:
+  match m:
+    case None{}:
+      None{}
+    case Some{(state, previous)}:
+      Hp.encode(fields, huff, state)
+
+def req.fields1() -> List<&2, Hp.Field>:
+  [Hp.Field{":method", "GET", 0}, Hp.Field{":scheme", "http", 0}, Hp.Field{":path", "/", 0}, Hp.Field{":authority", "www.example.com", 0}]
+
+def req.fields2() -> List<&2, Hp.Field>:
+  List.append(&2, Hp.Field, req.fields1(), [Hp.Field{"cache-control", "no-cache", 0}])
+
+def req.fields3() -> List<&2, Hp.Field>:
+  [Hp.Field{":method", "GET", 0}, Hp.Field{":scheme", "https", 0}, Hp.Field{":path", "/index.html", 0}, Hp.Field{":authority", "www.example.com", 0}, Hp.Field{"custom-key", "custom-value", 0}]
+
+def req.hex1(huff: Bool) -> String:
+  match huff:
+    case False{}:
+      "828684410f7777772e6578616d706c652e636f6d"
+    case True{}:
+      "828684418cf1e3c2e5f23a6ba0ab90f4ff"
+
+def req.hex2(huff: Bool) -> String:
+  match huff:
+    case False{}:
+      "828684be58086e6f2d6361636865"
+    case True{}:
+      "828684be5886a8eb10649cbf"
+
+def req.hex3(huff: Bool) -> String:
+  match huff:
+    case False{}:
+      "828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565"
+    case True{}:
+      "828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf"
+
+def req.enc1(huff: Bool) -> Maybe<&1, Hp.State & Bytes.Bytes>:
+  Hp.encode(req.fields1(), huff, Hp.new(4096))
+
+def req.enc2(+huff: Bool) -> Maybe<&1, Hp.State & Bytes.Bytes>:
+  hp.next(req.fields2(), huff, req.enc1(huff))
+
+def req.enc3(+huff: Bool) -> Maybe<&1, Hp.State & Bytes.Bytes>:
+  hp.next(req.fields3(), huff, req.enc2(huff))
+
+def req.dec1(+huff: Bool) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  hp.decode(req.hex1(huff), Hp.new(4096))
+
+def req.dec2(+huff: Bool) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  hp.after(req.hex2(huff), req.dec1(huff))
+
+def req.dec3(+huff: Bool) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  hp.after(req.hex3(huff), req.dec2(huff))
+
+def res.fields1() -> List<&2, Hp.Field>:
+  [Hp.Field{":status", "302", 0}, Hp.Field{"cache-control", "private", 0}, Hp.Field{"date", "Mon, 21 Oct 2013 20:13:21 GMT", 0}, Hp.Field{"location", "https://www.example.com", 0}]
+
+def res.fields2() -> List<&2, Hp.Field>:
+  [Hp.Field{":status", "307", 0}, Hp.Field{"cache-control", "private", 0}, Hp.Field{"date", "Mon, 21 Oct 2013 20:13:21 GMT", 0}, Hp.Field{"location", "https://www.example.com", 0}]
+
+def res.fields3() -> List<&2, Hp.Field>:
+  [Hp.Field{":status", "200", 0}, Hp.Field{"cache-control", "private", 0}, Hp.Field{"date", "Mon, 21 Oct 2013 20:13:22 GMT", 0}, Hp.Field{"location", "https://www.example.com", 0}, Hp.Field{"content-encoding", "gzip", 0}, Hp.Field{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1", 0}]
+
+def res.hex1(huff: Bool) -> String:
+  match huff:
+    case False{}:
+      "4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d"
+    case True{}:
+      "488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a62d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3"
+
+def res.hex2(huff: Bool) -> String:
+  match huff:
+    case False{}:
+      "4803333037c1c0bf"
+    case True{}:
+      "4883640effc1c0bf"
+
+def res.hex3(huff: Bool) -> String:
+  match huff:
+    case False{}:
+      "88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31"
+    case True{}:
+      "88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f9587316065c003ed4ee5b1063d5007"
+
+def res.enc1(huff: Bool) -> Maybe<&1, Hp.State & Bytes.Bytes>:
+  Hp.encode(res.fields1(), huff, Hp.new(256))
+
+def res.enc2(+huff: Bool) -> Maybe<&1, Hp.State & Bytes.Bytes>:
+  hp.next(res.fields2(), huff, res.enc1(huff))
+
+def res.enc3(+huff: Bool) -> Maybe<&1, Hp.State & Bytes.Bytes>:
+  hp.next(res.fields3(), huff, res.enc2(huff))
+
+def res.dec1(+huff: Bool) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  hp.decode(res.hex1(huff), Hp.new(256))
+
+def res.dec2(+huff: Bool) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  hp.after(res.hex2(huff), res.dec1(huff))
+
+def res.dec3(+huff: Bool) -> Maybe<&1, Hp.State & List<&2, Hp.Field>>:
+  hp.after(res.hex3(huff), res.dec2(huff))
+
+law hpack_c3_1_encode:
+  {hp.hex(req.enc1(False{})) == Some{req.hex1(False{})} : Maybe<&2, String>}
+
+law hpack_c3_1_decode:
+  {hp.result(req.dec1(False{})) == Some{(57, req.fields1())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c3_2_encode:
+  {hp.hex(req.enc2(False{})) == Some{req.hex2(False{})} : Maybe<&2, String>}
+
+law hpack_c3_2_decode:
+  {hp.result(req.dec2(False{})) == Some{(110, req.fields2())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c3_3_encode:
+  {hp.hex(req.enc3(False{})) == Some{req.hex3(False{})} : Maybe<&2, String>}
+
+law hpack_c3_3_decode:
+  {hp.result(req.dec3(False{})) == Some{(164, req.fields3())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c4_1_encode:
+  {hp.hex(req.enc1(True{})) == Some{req.hex1(True{})} : Maybe<&2, String>}
+
+law hpack_c4_1_decode:
+  {hp.result(req.dec1(True{})) == Some{(57, req.fields1())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c4_2_encode:
+  {hp.hex(req.enc2(True{})) == Some{req.hex2(True{})} : Maybe<&2, String>}
+
+law hpack_c4_2_decode:
+  {hp.result(req.dec2(True{})) == Some{(110, req.fields2())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c4_3_encode:
+  {hp.hex(req.enc3(True{})) == Some{req.hex3(True{})} : Maybe<&2, String>}
+
+law hpack_c4_3_decode:
+  {hp.result(req.dec3(True{})) == Some{(164, req.fields3())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c5_1_encode:
+  {hp.hex(res.enc1(False{})) == Some{res.hex1(False{})} : Maybe<&2, String>}
+
+law hpack_c5_1_decode:
+  {hp.result(res.dec1(False{})) == Some{(222, res.fields1())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c5_2_encode:
+  {hp.hex(res.enc2(False{})) == Some{res.hex2(False{})} : Maybe<&2, String>}
+
+law hpack_c5_2_decode:
+  {hp.result(res.dec2(False{})) == Some{(222, res.fields2())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c5_3_encode:
+  {hp.hex(res.enc3(False{})) == Some{res.hex3(False{})} : Maybe<&2, String>}
+
+law hpack_c5_3_decode:
+  {hp.result(res.dec3(False{})) == Some{(215, res.fields3())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c6_1_encode:
+  {hp.hex(res.enc1(True{})) == Some{res.hex1(True{})} : Maybe<&2, String>}
+
+law hpack_c6_1_decode:
+  {hp.result(res.dec1(True{})) == Some{(222, res.fields1())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c6_2_encode:
+  {hp.hex(res.enc2(True{})) == Some{res.hex2(True{})} : Maybe<&2, String>}
+
+law hpack_c6_2_decode:
+  {hp.result(res.dec2(True{})) == Some{(222, res.fields2())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_c6_3_encode:
+  {hp.hex(res.enc3(True{})) == Some{res.hex3(True{})} : Maybe<&2, String>}
+
+law hpack_c6_3_decode:
+  {hp.result(res.dec3(True{})) == Some{(215, res.fields3())} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_bad_zero_index:
+  {hp.decode("80", Hp.new(4096)) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_bad_dynamic_index:
+  {hp.decode("be", Hp.new(4096)) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_short_integer:
+  {hp.decode("ff", Hp.new(4096)) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_overflow_integer:
+  {hp.decode("ff8080808010", Hp.new(4096)) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_bad_huffman:
+  {hp.decode("4081ff00", Hp.new(4096)) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_late_size_update:
+  {hp.decode("8220", Hp.new(4096)) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_large_size_update:
+  {hp.decode("3fe201", Hp.new(256)) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_missing_size_update:
+  {hp.decode("82", Hp.set_limit(128, Hp.new(256))) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_skipped_minimum_size:
+  {hp.decode("3f61", Hp.set_limit(128, Hp.set_limit(64, Hp.new(256)))) == None{} : Maybe<&1, Hp.State & List<&2, Hp.Field>>}
+
+law hpack_two_size_updates_encode:
+  {hp.hex(Hp.encode(Nil{}, False{}, Hp.set_limit(128, Hp.set_limit(64, Hp.new(256))))) == Some{"3f213f61"} : Maybe<&2, String>}
+
+law hpack_two_size_updates_decode:
+  {hp.result(hp.decode("3f213f6182", Hp.set_limit(128, Hp.set_limit(64, Hp.new(256))))) == Some{(0, [Hp.Field{":method", "GET", 0}])} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_oversize_evicts:
+  {hp.result(hp.decode("400a637573746f6d2d6b65790d637573746f6d2d686561646572", Hp.new(0))) == Some{(0, [Hp.Field{"custom-key", "custom-header", 0}])} : Maybe<&1, U32 & List<&2, Hp.Field>>}
+
+law hpack_without_index_even_if_static:
+  {hp.hex(Hp.encode([Hp.Field{":method", "GET", 1}], False{}, Hp.new(4096))) == Some{"0203474554"} : Maybe<&2, String>}
+
+law hpack_never_index_even_if_static:
+  {hp.hex(Hp.encode([Hp.Field{":path", "/", 2}], False{}, Hp.new(4096))) == Some{"14012f"} : Maybe<&2, String>}
+
+law hpack_invalid_octet:
+  {hp.hex(Hp.encode([Hp.Field{"x", "€", 0}], False{}, Hp.new(4096))) == None{} : Maybe<&2, String>}

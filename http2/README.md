@@ -1,4 +1,4 @@
-# HTTP/2 frame codec
+# HTTP/2 frame and HPACK codecs
 
 `http2.bend` encodes and parses the nine-octet frame header and all ten frame types in RFC 9113 §6. A `Frame` carries the type, flags, stream ID, and packed payload bytes. The payload retains padding and fixed fields in wire order so callers can decode HPACK and other frame-specific content without converting it to a `String`.
 
@@ -6,4 +6,8 @@
 
 Unknown frame types are returned intact; a connection consumer must ignore them. Incoming reserved flag and stream-ID bits are ignored when validating; the stream-ID bit is cleared in the parsed frame. The encoder rejects unused flags on standard frame types. Stream state, header continuation ordering, flow-control windows, and direction-specific rules are connection-layer responsibilities, not individual-frame properties.
 
-Run `scripts/check.sh http2` from the repository root to type-check the codec, prove the fixture laws, and execute the 16 KiB frame smoke check. The cross-language benchmark is in `bench/`.
+`hpack.bend` encodes and decodes RFC 7541 header blocks over packed `Bytes`. Start with `Hpack.new(4096)` or the current `SETTINGS_HEADER_TABLE_SIZE`, then pass the returned `State` into the next block in that direction. Keep separate encoder and decoder states. `Hpack.encode(fields, huffman, state)` returns `Some{(next, bytes)}`; `Hpack.decode(bytes, state)` returns `Some{(next, fields)}`. `None{}` means a malformed HPACK block on decode or a non-octet string or invalid field mode on encode. A `Field` has a name, value, and mode: `0` permits dynamic indexing, `1` forbids indexing, and `2` preserves the never-indexed representation for sensitive fields. Names and values are byte strings (one `Char` per octet), not UTF-8-decoded text.
+
+Call `Hpack.set_limit(max, state)` when the peer changes its table-size limit for your encoder, or when you advertise a new limit to your decoder. The encoder emits required size updates at the start of its next block. The decoder requires them at the start of the peer's next nonempty block, rejects updates larger than the advertised limit, and rejects invalid indexes, overflowing integers, or invalid Huffman padding and EOS. Multiple limit changes emit the smallest limit first.
+
+The laws prove the exact encoded bytes and decoded fields and table sizes of every RFC 7541 Appendix C.2–C.6 example, including consecutive request and response blocks in both Huffman modes. The native smoke check also exercises a full-size frame and HPACK blocks. Run `scripts/check.sh http2` for type checking, proofs, and the smoke check. The cross-language framing and HPACK benchmarks are in `bench/`.

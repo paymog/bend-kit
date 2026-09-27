@@ -1,6 +1,7 @@
-# RFC 9113 HTTP/2 frame codec over packed Bytes.
+# RFC 9113 HTTP/2 frames and RFC 7541 HPACK header blocks over packed Bytes.
 import Base
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import ./hpack.bend as Hpack
 
 type Frame is Type:
   Frame{kind: U32, flags: U32, stream: U32, payload: Bytes.Bytes}
