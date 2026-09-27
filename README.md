@@ -27,7 +27,7 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, and percent-encoding (RFC 3986). |
 | [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact TCP, UDP, and TLS sockets. |
 | [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |
-| [`http`](http) | `0xe2e828b46585a523091ea59e50bff494/http.bend` | HTTP/1.1 client and server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
+| [`http`](http) | `0xa32ae93500a5dfaef6edb45d6e7bcc3b/http.bend` | HTTP/1.1 client and server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
 | [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |
@@ -38,9 +38,9 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`int`](int) | `0x0c38aaf55cb892078ec5d3c0609798a9/int.bend` | Fixed-width `U8`, `U16`, `U64`, `I32`, and `I64`, with wrapping, checked, and saturating arithmetic, and conversions to `U32` and `Nat`. `U8`, `U16`, and `I32` run at native speed on Base's `U32`. `U64` and `I64` use `Word(64n)` and are slow. |
 | [`crypto`](crypto) | `bend-kit-crypto@0.1.0.0/crypto.bend` | SHA-256, SHA-512, SHA-1, HMAC, HKDF, secure random bytes, and constant-time compare through OpenSSL 3 libcrypto (`BEND_LIBCRYPTO` overrides the path). |
 
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.15.0.5`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, and `int@0.1.0.0`.
+Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, and `int@0.1.0.0`.
 
-`wire`, `http`, `files`, `process`, and `crypto` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
+`wire`, `zlib`, `http`, `files`, `process`, and `crypto` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
 
 In `process`, `env` entries are `KEY=VALUE` overrides of the inherited environment. Close the
 spawned child's stdin to send EOF, drain stdout and stderr, then call `wait`.
