@@ -39,6 +39,12 @@ def tls.connect(sock: Socket, host: String, ms: U32) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# protos is a comma-separated ALPN list (for example "h2,http/1.1").
+def tls.connect.alpn(sock: Socket, host: String, ms: U32, protos: String) ->
+  IO(Socket & Result<&1, &1, U32 & String, String>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 def tls.send(sock: Socket, data: String) ->
   IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
