@@ -33,6 +33,7 @@ A name and its hash import the same package. Each version is a distinct type: `h
 | [`collections`](collections) | `./collections/collections.bend` (local; not yet published) | An ordered map and set keyed by any `Data` type, a growable vector, a deque, and a priority queue. Import the file you need: `omap.bend`, `vec.bend`, `deque.bend`, or `heap.bend`. |
 | [`unicode`](unicode) | `./unicode/unicode.bend` (local; not yet published) | Unicode 17.0 general category, NFC/NFD, full case folding, and grapheme clusters. See [unicode/README.md](unicode/README.md). |
 | [`regex`](regex) | `./regex/regex.bend` (local; not yet published) | Linear-time regular expressions: RE2 syntax, capture groups, and Unicode categories. See [regex/README.md](regex/README.md). |
+| [`parse`](parse) | `./parse/parse.bend` (local; not yet published) | Parser combinators over text, with positioned errors: sequence, choice, `many`, `sep_by`, `opt`, and `rec` for nested grammars. `parse/json.bend` is a JSON grammar on it. |
 
 The hub versions are `bytes@0.3.0.0`, `encoding@0.2.1.0`, `json@0.3.0.0`, `zlib@0.1.0.0`, `url@0.4.0.0`, `wire@0.4.0.0`, `dns@0.3.1.0`, `http@0.14.0.0`, and `router@0.1.1.0`, each named `bend-kit-<package>`.
 

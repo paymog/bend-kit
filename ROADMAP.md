@@ -69,7 +69,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ### Tier 3
 
-- [ ] Parser combinators (#38)
+- [x] Parser combinators (#38)
 - [ ] Compression: deflate/gzip encoding, zstd, brotli (#39)
 - [ ] Concurrency helpers (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
