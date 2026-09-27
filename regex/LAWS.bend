@@ -155,6 +155,20 @@ law is_match_hit:
 law is_match_miss:
   {hit(R.compile("^b+"), "abbc") == False{} : Bool}
 
+# The matcher skips chars that cannot start a match; these check the skip keeps the leftmost-first answer.
+law literal_prefix:
+  {m("abc", "ababcabc") == Some{[sp(2, 5)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law literal_prefix_end:
+  {m("ab", "xxxa") == None{} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law negated_start:
+  {m("[^x]y", "xxzy") == Some{[sp(2, 4)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# A pattern that matches the empty string may start at any char.
+law empty_start:
+  {m("b*", "aab") == Some{[sp(0, 0)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
 # Syntax errors.
 law bad_unclosed:
   {ok("(a") == False{} : Bool}

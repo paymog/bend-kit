@@ -645,13 +645,55 @@ def trie.from(-V: Data, xs: List<&2, V>, +k: U32, t: Trie<V>) -> Trie<V>:
     case Con{h, r}:
       trie.from(V, r, (k + 1 : U32), trie.set(V, t, k, h))
 
-# prog: the instructions by pc; fuel: enough steps for one closure; slots: two per group, group 0 included.
+# The walk from pc 0 over the instructions that consume no char: the sets it reaches, or
+# FsAny when it reaches an assertion or a match, so that any char may start a match.
+type Fs is Data:
+  Fs{stack: List<&2, U32>, seen: List<&2, U32>, sets: List<&2, Inst>}
+  FsAny{}
+
+def first.inst(i: Maybe<&2, Inst>, +pc: U32, stack: List<&2, U32>, seen: List<&2, U32>, sets: List<&2, Inst>) -> Fs:
+  match i:
+    case Some{IJmp{x}}:
+      Fs{x <> stack, seen, sets}
+    case Some{ISplit{x, y}}:
+      Fs{x <> y <> stack, seen, sets}
+    case Some{ISave{k}}:
+      Fs{(pc + 1 : U32) <> stack, seen, sets}
+    case Some{ISet{neg, items}}:
+      Fs{stack, seen, ISet{neg, items} <> sets}
+    case _:
+      FsAny{}
+
+def first.seen(hit: Bool, +prog: List<&2, Inst>, +pc: U32, stack: List<&2, U32>, seen: List<&2, U32>, sets: List<&2, Inst>) -> Fs:
+  match hit:
+    case True{}:
+      Fs{stack, seen, sets}
+    case False{}:
+      first.inst(List.get(&2, Inst, prog, U32.to_nat(pc)), pc, stack, pc <> seen, sets)
+
+# fuel: each pc expands once and pushes at most two pcs.
+def first(fuel: Nat, +prog: List<&2, Inst>, st: Fs) -> Maybe<&2, List<&2, Inst>>:
+  match fuel:
+    case 0n:
+      None{}
+    case 1n+f:
+      match st:
+        case FsAny{}:
+          None{}
+        case Fs{Nil{}, seen, sets}:
+          Some{sets}
+        case Fs{Con{+pc, t}, +seen, sets}:
+          first(f, prog, first.seen(List.contains(~U32, ~U32.is_eq, seen, pc), prog, pc, t, seen, sets))
+
+# prog: the instructions by pc; fuel: enough steps for one closure; slots: two per group, group 0 included;
+# start: the sets one of which the first char of a match is in, or None when a match may start anywhere.
 type Regex is Data:
-  Regex{prog: Trie<Inst>, fuel: Nat, slots: Nat}
+  Regex{prog: Trie<Inst>, fuel: Nat, slots: Nat, start: Maybe<&2, List<&2, Inst>>}
 
 def build(+node: Node, +n: U32) -> Regex:
   +insts = {ISave{0} <> emit(node, 1, [ISave{1}, IMatch{}]) : List<&2, Inst>}
-  Regex{trie.from(Inst, insts, 0, TTip{}), Nat.add(Nat.mul(3n, List.length(&2, Inst, insts)), 2n), U32.to_nat((2 * n : U32))}
+  +fuel = Nat.add(Nat.mul(3n, List.length(&2, Inst, insts)), 2n)
+  Regex{trie.from(Inst, insts, 0, TTip{}), fuel, U32.to_nat((2 * n : U32)), first(fuel, insts, Fs{[0], Nil{}, Nil{}})}
 
 def compile.fin(st: Ps) -> Maybe<&2, Regex>:
   match st:
@@ -836,20 +878,46 @@ def seed(best: Maybe<&2, List<&2, Maybe<&2, U32>>>, xs: List<&2, Th>, init: List
     case Some{b}:
       xs
 
-def run.close(sc: Sc, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Vm:
-  Sc{items, +best, stop} = sc
-  Vm{close(fuel, prog, pos, prev, next, Cl{seed(best, List.reverse(&2, Th, items), init), TTip{}, Nil{}}), best}
+def starts(xs: List<&2, Inst>, +c: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{ISet{neg, set}, t}:
+      Bool.xor(neg, items.has(set, c)) || starts(t, c)
+    case Con{i, t}:
+      starts(t, c)
 
-def run.step(st: Vm, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +any: Bool, +pos: U32, +c: Char, +next: Maybe<&2, Char>) -> Vm:
+# No live thread and no match yet: the seed is the only thread, and it dies unless next is in start.
+def seed.skip(items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>, start: Maybe<&2, List<&2, Inst>>, next: Maybe<&2, Char>) -> Bool:
+  match items best start next:
+    case Nil{} None{} Some{sets} None{}:
+      True{}
+    case Nil{} None{} Some{sets} Some{Chr{+c}}:
+      Bool.not(starts(sets, c))
+    case _ _ _ _:
+      False{}
+
+def run.seed(skip: Bool, items: List<&2, Th>, +best: Maybe<&2, List<&2, Maybe<&2, U32>>>, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Vm:
+  match skip:
+    case True{}:
+      Vm{Nil{}, None{}}
+    case False{}:
+      Vm{close(fuel, prog, pos, prev, next, Cl{seed(best, List.reverse(&2, Th, items), init), TTip{}, Nil{}}), best}
+
+def run.close(sc: Sc, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Vm:
+  Sc{+items, +best, stop} = sc
+  run.seed(seed.skip(items, best, start, next), items, best, prog, fuel, init, pos, prev, next)
+
+def run.step(st: Vm, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +pos: U32, +c: Char, +next: Maybe<&2, Char>) -> Vm:
   Vm{ths, best} = st
-  run.close(scan(ths, prog, Some{c}, any, Sc{Nil{}, best, False{}}), prog, fuel, init, pos, Some{c}, next)
+  run.close(scan(ths, prog, Some{c}, any, Sc{Nil{}, best, False{}}), prog, fuel, init, start, pos, Some{c}, next)
 
 def run.end(sc: Sc) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
   Sc{items, best, stop} = sc
   best
 
 # pos: the position of s's head. Once a match exists and no thread is live, the rest of s cannot change it.
-def run(s: String, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +any: Bool, +pos: U32, st: Vm) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
+def run(s: String, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +pos: U32, st: Vm) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
   match s:
     case SNil{}:
       Vm{ths, best} = st
@@ -860,7 +928,7 @@ def run(s: String, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>
           Some{b}
         case Vm{ths, best}:
           +p = (pos + 1 : U32)
-          run(t, prog, fuel, init, any, p, run.step(Vm{ths, best}, prog, fuel, init, any, p, c, String.get(t, 0n)))
+          run(t, prog, fuel, init, start, any, p, run.step(Vm{ths, best}, prog, fuel, init, start, any, p, c, String.get(t, 0n)))
 
 type Span is Data:
   Span{start: U32, end: U32}
@@ -883,9 +951,9 @@ def find.spans(m: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Maybe<&2, List<&2, May
 
 # slots: capture slots to keep; is_match keeps none, so each ISave is free.
 def exec(re: Regex, +s: String, +any: Bool) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
-  Regex{+prog, +fuel, +slots} = re
+  Regex{+prog, +fuel, +slots, +start} = re
   +init = List.replicate(Maybe<&2, U32>, Bool.pick(Nat, any, 0n, slots), None{})
-  run(s, prog, fuel, init, any, 0, Vm{close(fuel, prog, 0, None{}, String.get(s, 0n), Cl{[Th{0, init}], TTip{}, Nil{}}), None{}})
+  run(s, prog, fuel, init, start, any, 0, run.close(Sc{Nil{}, None{}, False{}}, prog, fuel, init, start, 0, None{}, String.get(s, 0n)))
 
 # The leftmost match in s: the span of group 0, then of each group; None for a group that did not take part.
 def find(re: Regex, +s: String) -> Maybe<&2, List<&2, Maybe<&2, Span>>>:

@@ -48,12 +48,12 @@ Versions: Bend 2.0.29, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.1 | 0.2 | 152.0 |
+| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 33.0 |
 | is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 7.0 |
-| find_captures | 15.7 | 2.8 | 0.8 | 0.7 | 748.0 |
+| find_captures | 14.9 | 2.8 | 0.8 | 0.7 | 757.0 |
 | find_early | 0.0 | 0.0 | 0.2 | 0.2 | 7.0 |
-| redos | 2.8 | timeout | 860.1 | timeout | 112.0 |
-| large | 2,216.2 | 0.0 | 0.1 | 0.1 | 897.0 |
+| redos | 3.0 | timeout | 875.0 | timeout | 116.0 |
+| large | 2,278.7 | 0.0 | 0.1 | 0.1 | 914.0 |
 
 Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
 
@@ -76,6 +76,7 @@ Bend times in ms, median of three runs of the same bench against each version of
 |---|---:|---:|---:|---:|
 | before #97 (0.2.0.0) | 174 | 17 | 750 | 17 |
 | #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 748 | 7 |
+| #98: skip chars that cannot start a match | 33 | 7 | 757 | 7 |
 
 ## Caveats
 

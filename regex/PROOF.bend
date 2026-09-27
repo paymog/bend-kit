@@ -128,6 +128,18 @@ def Laws.is_match_hit():
 def Laws.is_match_miss():
   {==}
 
+def Laws.literal_prefix():
+  {==}
+
+def Laws.literal_prefix_end():
+  {==}
+
+def Laws.negated_start():
+  {==}
+
+def Laws.empty_start():
+  {==}
+
 def Laws.bad_unclosed():
   {==}
 
