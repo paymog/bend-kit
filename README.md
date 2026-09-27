@@ -37,10 +37,11 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`parse`](parse) | `0x154e0a68ef9a0223bacaacefc589cad8/parse.bend` | Parser combinators over text, with positioned errors: sequence, choice, `many`, `sep_by`, `opt`, and `rec` for nested grammars. `parse/json.bend` is a JSON grammar on it. |
 | [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | Fixed-width `U8`, `U16`, `U64`, `I32`, and `I64`, with wrapping, checked, and saturating arithmetic, text in radix 2 to 36, and conversions to `U32` and `Nat`. `U8`, `U16`, and `I32` run at native speed on Base's `U32`. `U64` and `I64` use `Word(64n)` and are slow. |
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `format`, padding, and the shortest `F32` text that reads back to the same value. |
+| [`random`](random) | `bend-kit-random@0.1.0.0/random.bend` | Seeded xoshiro128** generator with unbiased ranges, `F32` in [0, 1), Fisher-Yates shuffles, and an OS-entropy seed. Not for cryptography. |
 
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, and `fmt@0.1.0.0`.
+Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, and `random@0.1.0.0`.
 
-`wire`, `zlib`, `http`, `files`, and `process` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
+`wire`, `zlib`, `http`, `files`, `process`, and `random` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
 
 In `process`, `env` entries are `KEY=VALUE` overrides of the inherited environment. Close the
 spawned child's stdin to send EOF, drain stdout and stderr, then call `wait`.

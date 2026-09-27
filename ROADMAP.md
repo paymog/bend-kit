@@ -6,8 +6,8 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Current baseline
 
-- All 16 packages are named `bend-kit-<package>` on the Bend hub; [README.md](README.md) lists each version and hash. Each description links to its source folder. `http` and `dns` import their siblings by hash, so callers share their types.
-- Laws: http 176, url 57, json 40, bytes 122, regex 54, unicode 35, zlib 22, dns 18, encoding 12, router 3. Run `scripts/check.sh` to check them all.
+- All 18 packages are named `bend-kit-<package>` on the Bend hub; [README.md](README.md) lists each version and hash. Each description links to its source folder. `http` and `dns` import their siblings by hash, so callers share their types.
+- Laws: http 176, url 57, json 40, bytes 122, regex 54, unicode 35, zlib 22, dns 18, random 13, encoding 12, router 3. Run `scripts/check.sh` to check them all.
 - Big bodies need a native build (`bend file.bend -o app`). The `bend file.bend` runner overflows on strings over about 30 KB.
 
 ### bytes
@@ -57,7 +57,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 - [ ] Non-cryptographic hashing (#27)
 - [ ] Cryptography: SHA-2, SHA-1, HMAC, HKDF, secure random (#28)
-- [ ] Random numbers: seeded PRNGs and distributions (#29)
+- [x] Random numbers: seeded PRNGs and distributions (#29). `F64` distributions such as normal wait on F64 (#37).
 - [ ] Property-based testing (#30)
 - [x] Regex (linear time, RE2-style) (#32)
 - [ ] Serialization: CSV, TOML, CBOR/MessagePack, YAML (#33)
