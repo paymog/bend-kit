@@ -53,6 +53,8 @@ For a host with multiple addresses, the client tries them in DNS order until TCP
 
 `Http.get` is `fetch("GET", url, Http.empty(), Http.from_string(""))`.
 
+`Http.fetch.cert(method, url, headers, body, cert_path, key_path)` presents a PEM client chain and private key to an HTTPS server. `fetch.cert.with(..., ms)` sets the timeout. The identity follows same-origin redirects but is dropped after a cross-origin redirect, even if a later hop returns. Server certificate and host verification still apply. `Http.pool.fetch.cert(p, method, url, headers, body, cert_path, key_path)` keeps authenticated connections by identity; a socket is never shared with a request without that identity or with another certificate. Run `http/mtls-check.sh` (or `http/mtls-check.sh js`) to exercise generated local certificates.
+
 A response body over about 30 KB overflows `bend file.bend`. Compile it. That needs clang 14 or newer (`apt install clang` on Debian 12 or Ubuntu 22.04 and later; `xcode-select --install` on macOS):
 
 ```sh

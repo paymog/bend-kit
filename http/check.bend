@@ -250,6 +250,88 @@ def local.gz.test() -> IO(Unit):
       Http.open("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
     local.gz.check("68656c6c6f20726177", 1, deflated)
 
+def mtls.ok(+want: String, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+  match r:
+    case Fail{e}:
+      IO.die(Unit, 1, "mTLS fetch failed")
+    case Done{res}:
+      Http.Res{+status, headers, body} = res
+      do IO<Unit>:
+        local.ok(U32.is_eq(status, 200), "mTLS status")
+        local.ok(String.eq(Bytes.to_string(body), want), "mTLS identity")
+
+def mtls.err(r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+  match r:
+    case Fail{e}:
+      match e:
+        case Http.ErrTls{code, why}:
+          IO.print("ok mTLS rejected")
+        case other:
+          IO.die(Unit, 1, "mTLS failed without TLS error")
+    case Done{res}:
+      IO.die(Unit, 1, "mTLS accepted a missing certificate")
+
+def mtls.pool.good(+want: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool):
+  (p, r) = pr
+  do IO<Http.Pool>:
+    mtls.ok(want, r)
+    return p
+
+def mtls.pool.bad(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool):
+  (p, r) = pr
+  do IO<Http.Pool>:
+    mtls.err(r)
+    return p
+
+def mtls.run(+one: String, +key1: String, +two: String, +key2: String) -> IO(Unit):
+  do IO<Unit>:
+    missing : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch("GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0))
+    mtls.err(missing)
+    accepted : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch.cert("GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), one, key1)
+    mtls.ok("client-one", accepted)
+    same : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch.cert("GET", "https://localhost:39444/same", Http.empty(), Bytes.new(0), one, key1)
+    mtls.ok("client-one", same)
+    cross : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch.cert("GET", "https://localhost:39444/cross", Http.empty(), Bytes.new(0), one, key1)
+    mtls.ok("clean", cross)
+    back : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch.cert("GET", "https://localhost:39444/back", Http.empty(), Bytes.new(0), one, key1)
+    mtls.err(back)
+    first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.cert(Http.pool.new(), "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), one, key1)
+    p1 : Http.Pool <- mtls.pool.good("client-one", first)
+    no_cert : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch(p1, "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0))
+    p2 : Http.Pool <- mtls.pool.bad(no_cert)
+    second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.cert(p2, "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), two, key2)
+    p3 : Http.Pool <- mtls.pool.good("client-two", second)
+    again : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.cert(p3, "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), one, key1)
+    p4 : Http.Pool <- mtls.pool.good("client-one", again)
+    Http.pool.close(p4)
+
+def mtls.args(xs: List<&1, String>) -> IO(Unit):
+  match xs:
+    case Nil{}:
+      IO.pure(Unit, Unit{})
+    case Con{one, tail}:
+      match tail:
+        case Nil{}:
+          IO.die(Unit, 1, "mTLS needs four certificate paths")
+        case Con{key1, rest}:
+          match rest:
+            case Nil{}:
+              IO.die(Unit, 1, "mTLS needs four certificate paths")
+            case Con{two, last}:
+              match last:
+                case Nil{}:
+                  IO.die(Unit, 1, "mTLS needs four certificate paths")
+                case Con{key2, extra}:
+                  mtls.run(one, key1, two, key2)
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -267,3 +349,5 @@ def main() -> IO(Unit):
     local.ipv6(r)
     local.fallback()
     local.gz.test()
+    args : List<&1, String> <- IO.args()
+    mtls.args(args)
