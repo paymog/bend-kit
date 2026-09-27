@@ -23,7 +23,7 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`bytes`](bytes) | `0x49814d83de8f70993a43e1002be29ecd/bytes.bend` | Byte buffers packed four bytes to a `U32`, with bounds-checked access, endian integers, search, hex, and base64. |
 | [`encoding`](encoding) | `0xcfc8be7b076f41f95c8e118383892d55/encoding.bend` | UTF-8 and hex encoding for byte strings. |
 | [`json`](json) | `0x584fc27920487ceab242392391418d7f/json.bend` | JSON values, parsed and encoded as RFC 8259. |
-| [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming gzip/zlib, Brotli, and Zstandard decoders. |
+| [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming raw DEFLATE, gzip/zlib, Brotli, and Zstandard decoders. |
 | [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, bracketed IPv6 authorities, and percent-encoding (RFC 3986). |
 | [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets, including client certificates. |
 | [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |

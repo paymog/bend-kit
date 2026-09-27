@@ -1207,7 +1207,7 @@ def zstd.words(max: U32, len: U32, words: Array<U32>) ->
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
-# gzip or zlib data (RFC 1952, 1950) through libz, found from the header. Every gzip member is decoded in turn, as gzip -d does.
+# gzip, zlib, or raw DEFLATE data through libz, selected from the first two bytes. Every gzip member is decoded in turn, as gzip -d does.
 # Fails with EFBIG when the output passes max bytes, and ENOENT without libz.
 def inflate.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):

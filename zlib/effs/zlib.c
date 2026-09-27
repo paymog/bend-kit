@@ -208,9 +208,9 @@ static bool zlib_br_load(void) {
   return ok;
 }
 
-// A decoder: kind 0 is gzip or zlib (found from the header), 1 is brotli, 2 is zstd.
-// done: the input so far ends at the end of a stream (a gzip member or a zstd frame).
-typedef struct { int kind; bool done; void* st; ZlibZ z; } ZlibDec;
+// Kind 0 accepts gzip, zlib, or raw DEFLATE; 1 is brotli, 2 is zstd.
+// A first octet is held until the second distinguishes a wrapper from raw input.
+typedef struct { int kind; bool done; bool started; bool pending; unsigned char lead; void* st; ZlibZ z; } ZlibDec;
 
 static const char* const zlib_dec_need[] = {
   "inflate needs libz.1; set BEND_LIBZ to its path",
@@ -250,6 +250,25 @@ static void zlib_dec_close(ZlibDec* d) {
   }
 }
 
+static bool zlib_has_wrapper(unsigned a, unsigned b) {
+  return (a == 0x1f && b == 0x8b)
+    || ((a & 15) == 8 && (a >> 4) <= 7 && ((a * 256 + b) % 31) == 0);
+}
+
+static int zlib_inflate_start(ZlibDec* d, unsigned a, unsigned b, const char** why) {
+  d->started = true;
+  if (zlib_has_wrapper(a, b)) {
+    return 0;
+  }
+  zlib_z.inflate_end(&d->z);
+  memset(&d->z, 0, sizeof(d->z));
+  if (zlib_z.inflate_init(&d->z, -15, zlib_z.version(), (int)sizeof(d->z)) != 0) {
+    *why = "raw inflate initialization failed";
+    return ENOMEM;
+  }
+  return 0;
+}
+
 // gzip -d reads the next member when bytes follow the end of one.
 static int zlib_inflate_feed(ZlibDec* d, const char* in, u64 n, ZlibBuf* b, const char** why) {
   ZlibZ* z    = &d->z;
@@ -284,6 +303,37 @@ static int zlib_inflate_feed(ZlibDec* d, const char* in, u64 n, ZlibBuf* b, cons
     }
   }
 }
+
+static int zlib_inflate_auto(ZlibDec* d, const char* in, u64 n, ZlibBuf* b, const char** why) {
+  if (!d->started) {
+    if (d->pending) {
+      if (n == 0) {
+        return 0;
+      }
+      int code = zlib_inflate_start(d, d->lead, (unsigned char)in[0], why);
+      d->pending = false;
+      if (code != 0) {
+        return code;
+      }
+      code = zlib_inflate_feed(d, (const char*)&d->lead, 1, b, why);
+      return code == 0 ? zlib_inflate_feed(d, in, n, b, why) : code;
+    }
+    if (n == 0) {
+      return 0;
+    }
+    if (n == 1) {
+      d->lead = (unsigned char)in[0];
+      d->pending = true;
+      return 0;
+    }
+    int code = zlib_inflate_start(d, (unsigned char)in[0], (unsigned char)in[1], why);
+    if (code != 0) {
+      return code;
+    }
+  }
+  return zlib_inflate_feed(d, in, n, b, why);
+}
+
 
 static int zlib_brotli_feed(ZlibDec* d, const char* in, u64 n, ZlibBuf* b, const char** why) {
   size_t         ain = (size_t)n;
@@ -336,7 +386,7 @@ static int zlib_zstd_feed(ZlibDec* d, const char* in, u64 n, ZlibBuf* b, const c
 
 // Decodes n bytes of in into b. 0, or an errno with why.
 static int zlib_dec_feed(ZlibDec* d, const char* in, u64 n, ZlibBuf* b, const char** why) {
-  return d->kind == 0 ? zlib_inflate_feed(d, in, n, b, why)
+  return d->kind == 0 ? zlib_inflate_auto(d, in, n, b, why)
     : d->kind == 1    ? zlib_brotli_feed(d, in, n, b, why)
                       : zlib_zstd_feed(d, in, n, b, why);
 }
