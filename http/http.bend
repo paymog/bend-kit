@@ -1934,8 +1934,13 @@ def exchange(+tls: Bool, +ms: U32, +close: Bool, +head: Bool, s: Socket, wire: B
     o : Out <- exchange.go(tls, ms, close, head, s, wire)
     return exchange.tup(o)
 
-# Connection pool: idle sockets by scheme, host, and port, newest first, at most cap per origin.
+# Paths to a PEM client chain and its private key for mutual TLS.
+type Cert is Data:
+  Cert{chain: String, key: String}
+
+# Connection pool: idle sockets by origin and client identity, newest first, at most cap per key.
 # fetch uses a fresh pool per call.
+
 type Conn is Type:
   Conn{tls: Bool, s: Socket}
 
@@ -1951,6 +1956,14 @@ def pool.new() -> Pool:
 
 def pool.key(+scheme: String, +host: String, +port: U32) -> String:
   scheme ++ "://" ++ host ++ ":" ++ U32.show(port)
+
+def pool.key.cert(+base: String, cert: Maybe<&2, Cert>) -> String:
+  match cert:
+    case None{}:
+      base
+    case Some{Cert{+chain, +key}}:
+      base ++ "|cert:" ++ Nat.show(String.length(chain)) ++ ":" ++ chain
+        ++ Nat.show(String.length(key)) ++ ":" ++ key
 
 def pool.take.of(+cap: U32, +key: String, r: Map<&1, List<&1, Conn>> & Maybe<&1, List<&1, Conn>>) -> Pool & Maybe<&1, Conn>:
   (m, got) = r
@@ -2027,27 +2040,34 @@ def conn.tls(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Result<&1, &1
     case Done{u}:
       IO.pure(Result<&1, &1, Err, Conn>, Done{Conn{True{}, s}})
 
+def conn.handshake(cert: Maybe<&2, Cert>, s: Socket, host: String, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  match cert:
+    case None{}:
+      Wire.tls.connect(s, host, ms)
+    case Some{Cert{chain, key}}:
+      Wire.tls.connect.cert(s, host, ms, chain, key)
+
 # A failed handshake is an error, never plaintext.
-def conn.secure(+ms: U32, sni: String, s: Socket, tls: Bool) -> IO(Result<&1, &1, Err, Conn>):
+def conn.secure(+ms: U32, sni: String, s: Socket, tls: Bool, cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
   match tls:
     case False{}:
       IO.pure(Result<&1, &1, Err, Conn>, Done{Conn{False{}, s}})
     case True{}:
       do IO<Result<&1, &1, Err, Conn>>:
-        hs : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect(s, sni, ms)
+        hs : Socket & Result<&1, &1, U32 & String, Unit> <- conn.handshake(cert, s, sni, ms)
         conn.tls(hs)
 
-def conn.made(+ms: U32, sni: String, tls: Bool, r: Result<&1, &1, U32 & String, Socket>) -> IO(Result<&1, &1, Err, Conn>):
+def conn.made(+ms: U32, sni: String, tls: Bool, cert: Maybe<&2, Cert>, r: Result<&1, &1, U32 & String, Socket>) -> IO(Result<&1, &1, Err, Conn>):
   match r:
     case Fail{(+code, why)}:
       IO.pure(Result<&1, &1, Err, Conn>, Fail{err.or_late(code, ErrConnect{code, why})})
     case Done{s}:
-      conn.secure(ms, sni, s, tls)
+      conn.secure(ms, sni, s, tls, cert)
 
 def conn.open(+tls: Bool, +ms: U32, sni: String, ip: String, port: U32) -> IO(Result<&1, &1, Err, Conn>):
   do IO<Result<&1, &1, Err, Conn>>:
     c : Result<&1, &1, U32 & String, Socket> <- Wire.connect(ip, port, ms)
-    conn.made(ms, sni, tls, c)
+    conn.made(ms, sni, tls, None{}, c)
 
 # ponytail: addresses are tried in order, not raced; a broken first route can consume the step timeout.
 type Dial is Type:
@@ -2107,7 +2127,7 @@ def conn.dial.all(+port: U32, +ms: U32, +start: Nat, first: String, rest: List<&
       conn.dial.run(List.foldl(~&2, ~String, ~Dial, ~conn.dial.fold, Con{ip, tail},
         Dial{port, ms, deadline, Wire.connect(first, port, ms)}))
 
-def conn.open.all(+tls: Bool, +ms: U32, +host: String, +port: U32, ips: List<&2, String>) -> IO(Result<&1, &1, Err, Conn>):
+def conn.open.all(+tls: Bool, +ms: U32, +host: String, +port: U32, ips: List<&2, String>, cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
   match ips:
     case Nil{}:
       IO.pure(Result<&1, &1, Err, Conn>, Fail{ErrDns{}})
@@ -2115,7 +2135,7 @@ def conn.open.all(+tls: Bool, +ms: U32, +host: String, +port: U32, ips: List<&2,
       do IO<Result<&1, &1, Err, Conn>>:
         start : Nat <- IO.now()
         r : Result<&1, &1, U32 & String, Socket> <- conn.dial.all(port, ms, start, addr, rest)
-        conn.made(ms, host, tls, r)
+        conn.made(ms, host, tls, cert, r)
 
 def conn.ex(c: Conn, +ms: U32, +head: Bool, wire: Bytes.Bytes) -> IO(Out):
   Conn{+tls, s} = c
@@ -2160,53 +2180,53 @@ def pool.fresh.conn(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, wi
         o : Out <- conn.ex(c, ms, head, wire)
         pool.after(p, key, tls, o)
 
-def pool.fresh(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +host: String, +port: U32, wire: Bytes.Bytes) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.fresh(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +host: String, +port: U32, wire: Bytes.Bytes, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
     ips : List<&2, String> <- Dns.resolve.all(host)
-    c : Result<&1, &1, Err, Conn> <- conn.open.all(tls, ms, host, port, ips)
+    c : Result<&1, &1, Err, Conn> <- conn.open.all(tls, ms, host, port, ips, cert)
     pool.fresh.conn(p, key, tls, ms, head, wire, c)
 
 # A reused socket the server already closed fails before any response byte.
 def pool.retry(+none: Bool, +idem: Bool) -> Bool:
   Bool.and(none, idem)
 
-def pool.stale(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +host: String, +port: U32, wire: Bytes.Bytes, e: Err, again: Bool) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.stale(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +host: String, +port: U32, wire: Bytes.Bytes, e: Err, again: Bool, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   match again:
     case True{}:
-      pool.fresh(p, key, tls, ms, head, host, port, wire)
+      pool.fresh(p, key, tls, ms, head, host, port, wire, cert)
     case False{}:
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{e}))
 
-def pool.reused(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +idem: Bool, +host: String, +port: U32, wire: Bytes.Bytes, o: Out) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.reused(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +idem: Bool, +host: String, +port: U32, wire: Bytes.Bytes, o: Out, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   match o:
     case OutFail{e, +none}:
-      pool.stale(p, key, tls, ms, head, host, port, wire, e, pool.retry(none, idem))
+      pool.stale(p, key, tls, ms, head, host, port, wire, e, pool.retry(none, idem), cert)
     case OutDone{res, sock, rest}:
       pool.keep(p, key, tls, res, sock, rest)
 
 # A spare copy of the request, for the retry after a stale socket.
-def pool.idle.reuse(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +idem: Bool, +host: String, +port: U32, c: Conn, r: Bytes.Bytes & Bytes.Bytes) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.idle.reuse(p: Pool, +key: String, +tls: Bool, +ms: U32, +head: Bool, +idem: Bool, +host: String, +port: U32, c: Conn, r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   (wire, spare) = r
   do IO<Pool & Result<&1, &1, Err, Res>>:
     o : Out <- conn.ex(c, ms, head, wire)
-    pool.reused(p, key, tls, ms, head, idem, host, port, spare, o)
+    pool.reused(p, key, tls, ms, head, idem, host, port, spare, o, cert)
 
-def pool.idle(taken: Pool & Maybe<&1, Conn>, +key: String, +tls: Bool, +ms: U32, +head: Bool, +idem: Bool, +host: String, +port: U32, wire: Bytes.Bytes) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.idle(taken: Pool & Maybe<&1, Conn>, +key: String, +tls: Bool, +ms: U32, +head: Bool, +idem: Bool, +host: String, +port: U32, wire: Bytes.Bytes, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   (p, m) = taken
   match m:
     case None{}:
-      pool.fresh(p, key, tls, ms, head, host, port, wire)
+      pool.fresh(p, key, tls, ms, head, host, port, wire, cert)
     case Some{c}:
-      pool.idle.reuse(p, key, tls, ms, head, idem, host, port, c, Bytes.slice(wire, 0, 4294967295))
+      pool.idle.reuse(p, key, tls, ms, head, idem, host, port, c, Bytes.slice(wire, 0, 4294967295), cert)
 
-def pool.origin(p: Pool, +method: String, +ms: U32, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +hf: String, a: Url.Abs, known: Bool) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.origin(p: Pool, +method: String, +ms: U32, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +hf: String, a: Url.Abs, known: Bool, +cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   Url.Abs{+scheme, +host, +port, target} = a
   match known:
     case False{}:
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrUrl{}}))
     case True{}:
-      +key = pool.key(scheme, host, port)
-      pool.idle(pool.take(p, key), key, String.eq(scheme, "https"), ms, String.eq(method, "HEAD"), pool.idempotent(method), host, port, encode_req.on(method, target, hf, headers, body, False{}))
+      +key = pool.key.cert(pool.key(scheme, host, port), cert)
+      pool.idle(pool.take(p, key), key, String.eq(scheme, "https"), ms, String.eq(method, "HEAD"), pool.idempotent(method), host, port, encode_req.on(method, target, hf, headers, body, False{}), cert)
 
 def pool.scheme.ok(a: Url.Abs) -> Bool:
   Url.Abs{+scheme, host, port, target} = a
@@ -2216,16 +2236,16 @@ def pool.one.back(h: Hop, pr: Pool & Result<&1, &1, Err, Res>) -> Pool & Result<
   (p, r) = pr
   (p, r, h)
 
-def pool.one.of(p: Pool, +method: String, +url: Url.Abs, +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
+def pool.one.of(p: Pool, +method: String, +url: Url.Abs, +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
   (body, wire) = r
   do IO<Pool & Result<&1, &1, Err, Res> & Hop>:
-    pr : Pool & Result<&1, &1, Err, Res> <- pool.origin(p, method, ms, headers, wire, Url.host_field(url), url, pool.scheme.ok(url))
+    pr : Pool & Result<&1, &1, Err, Res> <- pool.origin(p, method, ms, headers, wire, Url.host_field(url), url, pool.scheme.ok(url), cert)
     return pool.one.back(Hop{method, url, headers, body}, pr)
 
 # One request, on an idle socket to its origin when the pool has one. The hop comes back for the redirect.
-def pool.one(p: Pool, h: Hop, +ms: U32) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
+def pool.one(p: Pool, h: Hop, +ms: U32, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
   Hop{+method, +url, +headers, body} = h
-  pool.one.of(p, method, url, headers, ms, Bytes.slice(body, 0, 4294967295))
+  pool.one.of(p, method, url, headers, ms, Bytes.slice(body, 0, 4294967295), cert)
 
 type Next is Type:
   NDone{res: Result<&1, &1, Err, Res>}
@@ -2298,14 +2318,31 @@ def fetch.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes.
     case Some{a}:
       NGo{20n, Hop{method, a, accept.enc(req.put(Map.to_list(&2, List<&2, String>, headers), empty()), enc), body}}
 
-def pool.next(+mode: Mode, left: Nat, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Pool & Next:
+def pool.next.move(p: Pool, +old: String, cert: Maybe<&2, Cert>, n: Next) -> Pool & Next & Maybe<&2, Cert>:
+  match n:
+    case NGo{left, h}:
+      Hop{method, +url, headers, body} = h
+      (p, NGo{left, Hop{method, url, headers, body}},
+        Bool.pick(Maybe<&2, Cert>, String.eq(old, redirect.origin(url)), cert, None{}))
+    case NDone{r}:
+      (p, NDone{r}, None{})
+    case NStop{}:
+      (p, NStop{}, None{})
+
+def pool.next(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Pool & Next & Maybe<&2, Cert>:
   (p, m, h) = x
-  (p, fetch.policy(mode, left, h, m))
+  Hop{method, +url, headers, body} = h
+  pool.next.move(p, redirect.origin(url), cert, fetch.policy(mode, left, Hop{method, url, headers, body}, m))
+
+def pool.hops.one(+mode: Mode, +ms: U32, +cert: Maybe<&2, Cert>, p: Pool, h: Hop, left: Nat) -> IO(Pool & Next & Maybe<&2, Cert>):
+  do IO<Pool & Next & Maybe<&2, Cert>>:
+    x : Pool & Result<&1, &1, Err, Res> & Hop <- pool.one(p, h, ms, cert)
+    return pool.next(mode, left, cert, x)
 
 # NGo.left is how many redirects may follow this request. 20 is WHATWG's limit.
 @unsafe
-def pool.hops(+mode: Mode, +ms: U32, st: Pool & Next) -> IO(Pool & Result<&1, &1, Err, Res>):
-  (p, n) = st
+def pool.hops(+mode: Mode, +ms: U32, st: Pool & Next & Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
+  (p, n, cert) = st
   match n:
     case NDone{m}:
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, m))
@@ -2313,8 +2350,8 @@ def pool.hops(+mode: Mode, +ms: U32, st: Pool & Next) -> IO(Pool & Result<&1, &1
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrRedirect{}}))
     case NGo{+left, h}:
       do IO<Pool & Result<&1, &1, Err, Res>>:
-        x : Pool & Result<&1, &1, Err, Res> & Hop <- pool.one(p, h, ms)
-        pool.hops(mode, ms, pool.next(mode, left, x))
+        next : Pool & Next & Maybe<&2, Cert> <- pool.hops.one(mode, ms, cert, p, h, left)
+        pool.hops(mode, ms, next)
 
 # Content-Encoding (RFC 9110 §8.4): each value, trimmed and lowercased, in the order applied.
 def ce.keep(+w: String, +rest: List<&2, String>) -> List<&2, String>:
@@ -2567,24 +2604,33 @@ def pool.final(+enc: String, pr: Pool & Result<&1, &1, Err, Res>) -> IO(Pool & R
     d : Result<&1, &1, Err, Res> <- fetch.final(enc, r)
     return (p, d)
 
-def pool.how.enc(+enc: String, p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.how.enc(+enc: String, p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
-    pr : Pool & Result<&1, &1, Err, Res> <- pool.hops(mode, ms, (p, fetch.start(method, headers, body, Url.absolute(url), enc)))
+    pr : Pool & Result<&1, &1, Err, Res> <- pool.hops(mode, ms, (p, fetch.start(method, headers, body, Url.absolute(url), enc), cert))
     pool.final(enc, pr)
+
+def pool.how.cert(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
+  do IO<Pool & Result<&1, &1, Err, Res>>:
+    enc : String <- codings()
+    pool.how.enc(enc, p, method, url, headers, body, ms, mode, cert)
 
 # pool.how(p, "GET", "https://example.com/x?y=1", headers, body, ms, mode) follows redirects
 # on p's idle sockets. Fail is a bad URL, a failed lookup, connect, handshake, send, read,
 # a malformed response, more than 20 redirects, or a step past ms. Bodies are bytes.
 def pool.how(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode) -> IO(Pool & Result<&1, &1, Err, Res>):
-  do IO<Pool & Result<&1, &1, Err, Res>>:
-    enc : String <- codings()
-    pool.how.enc(enc, p, method, url, headers, body, ms, mode)
+  pool.how.cert(p, method, url, headers, body, ms, mode, None{})
 
 def pool.fetch.with(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32) -> IO(Pool & Result<&1, &1, Err, Res>):
   pool.how(p, method, url, headers, body, ms, ModeFollow{})
 
 def pool.fetch(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Pool & Result<&1, &1, Err, Res>):
   pool.fetch.with(p, method, url, headers, body, 30000)
+
+def pool.fetch.cert.with(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, chain: String, key: String, ms: U32) -> IO(Pool & Result<&1, &1, Err, Res>):
+  pool.how.cert(p, method, url, headers, body, ms, ModeFollow{}, Some{Cert{chain, key}})
+
+def pool.fetch.cert(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, chain: String, key: String) -> IO(Pool & Result<&1, &1, Err, Res>):
+  pool.fetch.cert.with(p, method, url, headers, body, chain, key, 30000)
 
 def fetch.end(pr: Pool & Result<&1, &1, Err, Res>) -> IO(Result<&1, &1, Err, Res>):
   (p, r) = pr
@@ -2600,6 +2646,14 @@ def fetch.how(method: String, url: String, headers: Map<&2, List<&2, String>>, b
 
 def fetch.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32) -> IO(Result<&1, &1, Err, Res>):
   fetch.how(method, url, headers, body, ms, ModeFollow{})
+
+def fetch.cert.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, chain: String, key: String, ms: U32) -> IO(Result<&1, &1, Err, Res>):
+  do IO<Result<&1, &1, Err, Res>>:
+    pr : Pool & Result<&1, &1, Err, Res> <- pool.fetch.cert.with(pool.new(), method, url, headers, body, chain, key, ms)
+    fetch.end(pr)
+
+def fetch.cert(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, chain: String, key: String) -> IO(Result<&1, &1, Err, Res>):
+  fetch.cert.with(method, url, headers, body, chain, key, 30000)
 
 # fetch.with and a 30 s step timeout.
 def fetch(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Result<&1, &1, Err, Res>):
@@ -2902,7 +2956,7 @@ def stream.origin(+ms: U32, +head: Bool, wire: Bytes.Bytes, a: Url.Abs, known: B
     case True{}:
       do IO<Result<&1, &1, Err, Stream>>:
         ips : List<&2, String> <- Dns.resolve.all(host)
-        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips)
+        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{})
         stream.conn(c, ms, head, wire)
 
 def stream.one.of(+method: String, +url: Url.Abs, +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes) -> IO(Hop & Result<&1, &1, Err, Stream>):
@@ -3144,7 +3198,7 @@ def up.origin(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>, a: 
     case True{}:
       do IO<Result<&1, &1, Err, Up>>:
         ips : List<&2, String> <- Dns.resolve.all(host)
-        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips)
+        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{})
         up.conn(c, ms, String.eq(method, "HEAD"), up.head(method, target, Url.host_field(a), headers))
 
 def up.url(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>, u: Maybe<&2, Url.Abs>) -> IO(Result<&1, &1, Err, Up>):
