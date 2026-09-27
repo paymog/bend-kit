@@ -72,6 +72,301 @@ def big(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
     case Done{p}:
       IO.die(Unit, 1, "decoder passed max")
 
+
+def stream.byte.of(h: Char) -> Bytes.Bytes:
+  Bytes.from_string(SCon{h, SNil{}})
+
+def stream.text(+out: String, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(String):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(String, 1, "decoder failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(+len, buf)}:
+      IO.pure(String, out ++ Bytes.to_string(Bytes.Bytes{len, buf}))
+
+def stream.eq(+all: String, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(+len, buf)}:
+      +ref = Bytes.to_string(Bytes.Bytes{len, buf})
+      ok(String.eq(all, ref), all)
+
+@unsafe def stream.inflate.after(pr: File & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(String):
+  match pr:
+    case (d2, mid):
+      do IO<String>:
+        acc : String <- stream.text("", mid)
+        fin : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.inflate.decoder.finish(d2)
+        all : String <- stream.text(acc, fin)
+        return all
+
+@unsafe def stream.inflate.run(dec: File, body: Bytes.Bytes) -> IO(String):
+  Bytes.Bytes{+len, buf} = body
+  do IO<String>:
+    pr : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.inflate.decoder.feed(dec, len, buf)
+    stream.inflate.after(pr)
+
+@unsafe def stream.inflate.go(dec: File, s: String, +out: String) -> IO(String):
+  match s:
+    case SNil{}:
+      do IO<String>:
+        fin : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.inflate.decoder.finish(dec)
+        all : String <- stream.text(out, fin)
+        return all
+    case SCon{h, t}:
+      stream.inflate.one(dec, h, t, out)
+
+@unsafe def stream.inflate.one(dec: File, h: Char, t: String, +out: String) -> IO(String):
+  stream.inflate.one.b(dec, stream.byte.of(h), t, out)
+
+@unsafe def stream.inflate.one.b(dec: File, b: Bytes.Bytes, t: String, +out: String) -> IO(String):
+  Bytes.Bytes{+len, buf} = b
+  do IO<String>:
+    pr : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.inflate.decoder.feed(dec, len, buf)
+    stream.inflate.step(pr, t, out)
+
+@unsafe def stream.inflate.step(pr: File & Result<&1, &1, U32 & String, U32 & Array<U32>>, t: String, +out: String) -> IO(String):
+  match pr:
+    case (d2, mid):
+      do IO<String>:
+        acc2 : String <- stream.text(out, mid)
+        stream.inflate.go(d2, t, acc2)
+
+@unsafe def stream.inflate.check(+want: String, +max: U32, +body: Bytes.Bytes, +all: String) -> IO(Unit):
+  Bytes.Bytes{+len, buf} = body
+  do IO<Unit>:
+    ref : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.inflate.words(max, len, buf)
+    stream.inflate.check.ref(all, want, ref)
+
+@unsafe def stream.inflate.check.ref(+all: String, +want: String, +ref: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+  match ref:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(+len, buf)}:
+      +rs = Bytes.to_string(Bytes.Bytes{len, buf})
+      do IO<Unit>:
+        ok(String.eq(all, rs), all)
+        ok(String.eq(rs, want), rs)
+
+@unsafe def stream.inflate.whole(+max: U32, body: Bytes.Bytes, +want: String) -> IO(Unit):
+  do IO<Unit>:
+    n : Result<&1, &1, U32 & String, File> <- Z.inflate.decoder.new(max)
+    stream.inflate.whole.new(n, want, max, body)
+
+@unsafe def stream.inflate.whole.new(n: Result<&1, &1, U32 & String, File>, +want: String, +max: U32, +body: Bytes.Bytes) -> IO(Unit):
+  match n:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder new failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{dec}:
+      do IO<Unit>:
+        all : String <- stream.inflate.run(dec, body)
+        stream.inflate.check(want, max, body, all)
+
+@unsafe def stream.inflate.piece(+max: U32, body: Bytes.Bytes, +want: String) -> IO(Unit):
+  do IO<Unit>:
+    n : Result<&1, &1, U32 & String, File> <- Z.inflate.decoder.new(max)
+    stream.inflate.piece.new(n, want, max, body)
+
+@unsafe def stream.inflate.piece.new(n: Result<&1, &1, U32 & String, File>, +want: String, +max: U32, +body: Bytes.Bytes) -> IO(Unit):
+  match n:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder new failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{dec}:
+      do IO<Unit>:
+        all : String <- stream.inflate.go(dec, Bytes.to_string(body), "")
+        stream.inflate.check(want, max, body, all)
+
+def stream.inflate.test(+max: U32, body: Bytes.Bytes, +want: String, whole: Bool) -> IO(Unit):
+  match whole:
+    case True{}:
+      stream.inflate.whole(max, body, want)
+    case False{}:
+      stream.inflate.piece(max, body, want)
+
+@unsafe def stream.brotli.after(pr: File & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(String):
+  match pr:
+    case (d2, mid):
+      do IO<String>:
+        acc : String <- stream.text("", mid)
+        fin : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.brotli.decoder.finish(d2)
+        all : String <- stream.text(acc, fin)
+        return all
+
+@unsafe def stream.brotli.run(dec: File, body: Bytes.Bytes) -> IO(String):
+  Bytes.Bytes{+len, buf} = body
+  do IO<String>:
+    pr : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.brotli.decoder.feed(dec, len, buf)
+    stream.brotli.after(pr)
+
+@unsafe def stream.brotli.go(dec: File, s: String, +out: String) -> IO(String):
+  match s:
+    case SNil{}:
+      do IO<String>:
+        fin : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.brotli.decoder.finish(dec)
+        all : String <- stream.text(out, fin)
+        return all
+    case SCon{h, t}:
+      stream.brotli.one(dec, h, t, out)
+
+@unsafe def stream.brotli.one(dec: File, h: Char, t: String, +out: String) -> IO(String):
+  stream.brotli.one.b(dec, stream.byte.of(h), t, out)
+
+@unsafe def stream.brotli.one.b(dec: File, b: Bytes.Bytes, t: String, +out: String) -> IO(String):
+  Bytes.Bytes{+len, buf} = b
+  do IO<String>:
+    pr : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.brotli.decoder.feed(dec, len, buf)
+    stream.brotli.step(pr, t, out)
+
+@unsafe def stream.brotli.step(pr: File & Result<&1, &1, U32 & String, U32 & Array<U32>>, t: String, +out: String) -> IO(String):
+  match pr:
+    case (d2, mid):
+      do IO<String>:
+        acc2 : String <- stream.text(out, mid)
+        stream.brotli.go(d2, t, acc2)
+
+@unsafe def stream.brotli.check(+want: String, +max: U32, +body: Bytes.Bytes, +all: String) -> IO(Unit):
+  Bytes.Bytes{+len, buf} = body
+  do IO<Unit>:
+    ref : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.brotli.words(max, len, buf)
+    stream.brotli.check.ref(all, want, ref)
+
+@unsafe def stream.brotli.check.ref(+all: String, +want: String, +ref: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+  match ref:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(+len, buf)}:
+      +rs = Bytes.to_string(Bytes.Bytes{len, buf})
+      do IO<Unit>:
+        ok(String.eq(all, rs), all)
+        ok(String.eq(rs, want), rs)
+
+@unsafe def stream.brotli.whole(+max: U32, body: Bytes.Bytes, +want: String) -> IO(Unit):
+  do IO<Unit>:
+    n : Result<&1, &1, U32 & String, File> <- Z.brotli.decoder.new(max)
+    stream.brotli.whole.new(n, want, max, body)
+
+@unsafe def stream.brotli.whole.new(n: Result<&1, &1, U32 & String, File>, +want: String, +max: U32, +body: Bytes.Bytes) -> IO(Unit):
+  match n:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder new failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{dec}:
+      do IO<Unit>:
+        all : String <- stream.brotli.run(dec, body)
+        stream.brotli.check(want, max, body, all)
+
+@unsafe def stream.brotli.piece(+max: U32, body: Bytes.Bytes, +want: String) -> IO(Unit):
+  do IO<Unit>:
+    n : Result<&1, &1, U32 & String, File> <- Z.brotli.decoder.new(max)
+    stream.brotli.piece.new(n, want, max, body)
+
+@unsafe def stream.brotli.piece.new(n: Result<&1, &1, U32 & String, File>, +want: String, +max: U32, +body: Bytes.Bytes) -> IO(Unit):
+  match n:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder new failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{dec}:
+      do IO<Unit>:
+        all : String <- stream.brotli.go(dec, Bytes.to_string(body), "")
+        stream.brotli.check(want, max, body, all)
+
+def stream.brotli.test(+max: U32, body: Bytes.Bytes, +want: String, whole: Bool) -> IO(Unit):
+  match whole:
+    case True{}:
+      stream.brotli.whole(max, body, want)
+    case False{}:
+      stream.brotli.piece(max, body, want)
+
+@unsafe def stream.zstd.after(pr: File & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(String):
+  match pr:
+    case (d2, mid):
+      do IO<String>:
+        acc : String <- stream.text("", mid)
+        fin : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.zstd.decoder.finish(d2)
+        all : String <- stream.text(acc, fin)
+        return all
+
+@unsafe def stream.zstd.run(dec: File, body: Bytes.Bytes) -> IO(String):
+  Bytes.Bytes{+len, buf} = body
+  do IO<String>:
+    pr : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.zstd.decoder.feed(dec, len, buf)
+    stream.zstd.after(pr)
+
+@unsafe def stream.zstd.go(dec: File, s: String, +out: String) -> IO(String):
+  match s:
+    case SNil{}:
+      do IO<String>:
+        fin : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.zstd.decoder.finish(dec)
+        all : String <- stream.text(out, fin)
+        return all
+    case SCon{h, t}:
+      stream.zstd.one(dec, h, t, out)
+
+@unsafe def stream.zstd.one(dec: File, h: Char, t: String, +out: String) -> IO(String):
+  stream.zstd.one.b(dec, stream.byte.of(h), t, out)
+
+@unsafe def stream.zstd.one.b(dec: File, b: Bytes.Bytes, t: String, +out: String) -> IO(String):
+  Bytes.Bytes{+len, buf} = b
+  do IO<String>:
+    pr : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.zstd.decoder.feed(dec, len, buf)
+    stream.zstd.step(pr, t, out)
+
+@unsafe def stream.zstd.step(pr: File & Result<&1, &1, U32 & String, U32 & Array<U32>>, t: String, +out: String) -> IO(String):
+  match pr:
+    case (d2, mid):
+      do IO<String>:
+        acc2 : String <- stream.text(out, mid)
+        stream.zstd.go(d2, t, acc2)
+
+@unsafe def stream.zstd.check(+want: String, +max: U32, +body: Bytes.Bytes, +all: String) -> IO(Unit):
+  Bytes.Bytes{+len, buf} = body
+  do IO<Unit>:
+    ref : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.zstd.words(max, len, buf)
+    stream.zstd.check.ref(all, want, ref)
+
+@unsafe def stream.zstd.check.ref(+all: String, +want: String, +ref: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+  match ref:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(+len, buf)}:
+      +rs = Bytes.to_string(Bytes.Bytes{len, buf})
+      do IO<Unit>:
+        ok(String.eq(all, rs), all)
+        ok(String.eq(rs, want), rs)
+
+@unsafe def stream.zstd.whole(+max: U32, body: Bytes.Bytes, +want: String) -> IO(Unit):
+  do IO<Unit>:
+    n : Result<&1, &1, U32 & String, File> <- Z.zstd.decoder.new(max)
+    stream.zstd.whole.new(n, want, max, body)
+
+@unsafe def stream.zstd.whole.new(n: Result<&1, &1, U32 & String, File>, +want: String, +max: U32, +body: Bytes.Bytes) -> IO(Unit):
+  match n:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder new failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{dec}:
+      do IO<Unit>:
+        all : String <- stream.zstd.run(dec, body)
+        stream.zstd.check(want, max, body, all)
+
+@unsafe def stream.zstd.piece(+max: U32, body: Bytes.Bytes, +want: String) -> IO(Unit):
+  do IO<Unit>:
+    n : Result<&1, &1, U32 & String, File> <- Z.zstd.decoder.new(max)
+    stream.zstd.piece.new(n, want, max, body)
+
+@unsafe def stream.zstd.piece.new(n: Result<&1, &1, U32 & String, File>, +want: String, +max: U32, +body: Bytes.Bytes) -> IO(Unit):
+  match n:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "decoder new failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{dec}:
+      do IO<Unit>:
+        all : String <- stream.zstd.go(dec, Bytes.to_string(body), "")
+        stream.zstd.check(want, max, body, all)
+
+def stream.zstd.test(+max: U32, body: Bytes.Bytes, +want: String, whole: Bool) -> IO(Unit):
+  match whole:
+    case True{}:
+      stream.zstd.whole(max, body, want)
+    case False{}:
+      stream.zstd.piece(max, body, want)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Z.inflate(SCon{Chr{203}, SCon{Chr{72}, SCon{Chr{205}, SCon{Chr{201}, SCon{Chr{201}, SCon{Chr{7}, SCon{Chr{0}, SNil{}}}}}}}}))
@@ -89,3 +384,9 @@ def main() -> IO(Unit):
     got("hello brotli", b)
     m : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.brotli.words, 5, brotli())
     big(m)
+    stream.inflate.test(1000, members(), "hello gzip", True{})
+    stream.inflate.test(1000, members(), "hello gzip", False{})
+    stream.brotli.test(1000, brotli(), "hello brotli", True{})
+    stream.brotli.test(1000, brotli(), "hello brotli", False{})
+    stream.zstd.test(1000, frames(), "hello zstd", True{})
+    stream.zstd.test(1000, frames(), "hello zstd", False{})

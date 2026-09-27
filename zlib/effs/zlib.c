@@ -2,7 +2,7 @@
 // ====
 // Compression through the system C libraries, loaded with dlopen.
 
-#if defined(CID(zstd.words)) || defined(CID(inflate.words)) || defined(CID(gzip.words)) || defined(CID(brotli.words))
+#if defined(CID(zstd.words)) || defined(CID(inflate.words)) || defined(CID(gzip.words)) || defined(CID(brotli.words)) || defined(CID(inflate.decoder.new)) || defined(CID(inflate.decoder.feed)) || defined(CID(inflate.decoder.finish)) || defined(CID(brotli.decoder.new)) || defined(CID(brotli.decoder.feed)) || defined(CID(brotli.decoder.finish)) || defined(CID(zstd.decoder.new)) || defined(CID(zstd.decoder.feed)) || defined(CID(zstd.decoder.finish))
 #ifndef ZLIB_EFFS
 #define ZLIB_EFFS
 #include <dlfcn.h>
@@ -79,7 +79,7 @@ static Term zlib_end(Env e, char* in, ZlibBuf* b, int code, const char* why) {
 #endif
 #endif
 
-#ifdef CID(zstd.words)
+#if defined(CID(zstd.words)) || defined(CID(zstd.decoder.new)) || defined(CID(zstd.decoder.feed)) || defined(CID(zstd.decoder.finish))
 
 // ZSTD_inBuffer and ZSTD_outBuffer, stable since zstd 1.0.
 typedef struct { const void* src; size_t size; size_t pos; } ZlibIn;
@@ -168,7 +168,7 @@ static void __attribute__((constructor)) zstd_words_use(void) {
 
 #endif
 
-#if defined(CID(inflate.words)) || defined(CID(gzip.words))
+#if defined(CID(inflate.words)) || defined(CID(gzip.words)) || defined(CID(inflate.decoder.new)) || defined(CID(inflate.decoder.feed)) || defined(CID(inflate.decoder.finish))
 #ifndef ZLIB_LIBZ
 #define ZLIB_LIBZ
 
@@ -335,7 +335,7 @@ static void __attribute__((constructor)) gzip_words_use(void) {
 
 #endif
 
-#ifdef CID(brotli.words)
+#if defined(CID(brotli.words)) || defined(CID(brotli.decoder.new)) || defined(CID(brotli.decoder.feed)) || defined(CID(brotli.decoder.finish))
 
 static struct {
   int         state;
@@ -423,6 +423,402 @@ Term brotli_words_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) brotli_words_use(void) {
   io_eff(CID(brotli.words), brotli_words_run, 0);
+}
+
+#endif
+
+#if defined(CID(inflate.decoder.new)) || defined(CID(inflate.decoder.feed)) || defined(CID(inflate.decoder.finish))
+#ifndef ZLIB_INFLATE_DEC
+#define ZLIB_INFLATE_DEC
+
+typedef struct {
+  ZlibZ z;
+  u64   max;
+} ZlibInflateDec;
+
+static ZlibInflateDec* zlib_inflate_dec(Term file) {
+  return (ZlibInflateDec*)(intptr_t)io_hand_v(file);
+}
+
+static Term zlib_dec_tup(Env e, ZlibInflateDec* d, Term r) {
+  return io_tup(e, io_hand((intptr_t)d), r);
+}
+
+static Term zlib_out_only(Env e, ZlibBuf* b, int code, const char* why) {
+  Term t = code ? io_fail(e, code, why) : io_done(e, zlib_words(e, b->p, b->have));
+  free(b->p);
+  return t;
+}
+
+static Term zlib_inflate_run(Env e, ZlibInflateDec* d, char* in, u64 n, bool feed, bool tup) {
+  ZlibBuf     b    = zlib_buf(n, d->max);
+  int         code = 0;
+  const char* why  = NULL;
+  if (n > 0) {
+    d->z.next_in  = (const unsigned char*)in;
+    d->z.avail_in = (unsigned)n;
+  }
+  for (;;) {
+    d->z.next_out  = (unsigned char*)b.p + b.have;
+    d->z.avail_out = (unsigned)(b.cap - b.have);
+    int r          = zlib_z.inflate(&d->z, 0);
+    b.have         = b.cap - d->z.avail_out;
+    if (r == 1) {
+      if (d->z.avail_in == 0) {
+        break;
+      }
+      if (zlib_z.inflate_reset(&d->z) != 0) {
+        code = EINVAL;
+        why  = "inflate reset failed";
+        break;
+      }
+      continue;
+    }
+    if (r != 0 && r != -5) {
+      code = EINVAL;
+      why  = d->z.msg != NULL ? d->z.msg : "inflate failed";
+      break;
+    }
+    if (d->z.avail_out == 0) {
+      if (!zlib_grow(&b)) {
+        code = EFBIG;
+        why  = "inflate output is larger than max";
+        break;
+      }
+    } else if (feed && d->z.avail_in == 0) {
+      break;
+    } else if (!feed && d->z.avail_in == 0) {
+      code = EINVAL;
+      why  = "inflate input ends inside a stream";
+      break;
+    }
+  }
+  if (in != NULL) {
+    free(in);
+  }
+  Term ans = zlib_out_only(e, &b, code, why);
+  return tup ? zlib_dec_tup(e, d, ans) : ans;
+}
+
+#endif
+#endif
+
+#ifdef CID(inflate.decoder.new)
+
+Term inflate_decoder_new_run(Env e, Term* f, IoWork* w) {
+  if (!zlib_z_load()) {
+    return io_fail(e, ENOENT, "inflate needs libz.1; set BEND_LIBZ to its path");
+  }
+  ZlibInflateDec* d = io_mem(calloc(1, sizeof(*d)));
+  if (d == NULL) {
+    return io_fail(e, ENOMEM, NULL);
+  }
+  if (zlib_z.inflate_init(&d->z, 15 + 32, zlib_z.version(), (int)sizeof(d->z)) != 0) {
+    free(d);
+    return io_fail(e, ENOMEM, NULL);
+  }
+  d->max = (u64)(u32)f[0];
+  return io_done(e, io_hand((intptr_t)d));
+}
+
+static void __attribute__((constructor)) inflate_decoder_new_use(void) {
+  io_eff(CID(inflate.decoder.new), inflate_decoder_new_run, 0);
+}
+
+#endif
+
+#ifdef CID(inflate.decoder.feed)
+
+Term inflate_decoder_feed_run(Env e, Term* f, IoWork* w) {
+  ZlibInflateDec* d   = zlib_inflate_dec(f[0]);
+  u64             n   = 0;
+  bool            bad = false;
+  char*           in  = zlib_words_octets(e, f[2], (u64)(u32)f[1], &n, &bad);
+  if (bad) {
+    free(in);
+    return io_tup(e, f[0], io_fail(e, EINVAL, NULL));
+  }
+  return zlib_inflate_run(e, d, in, n, true, true);
+}
+
+static void __attribute__((constructor)) inflate_decoder_feed_use(void) {
+  io_eff(CID(inflate.decoder.feed), inflate_decoder_feed_run, 0);
+}
+
+#endif
+
+#ifdef CID(inflate.decoder.finish)
+
+Term inflate_decoder_finish_run(Env e, Term* f, IoWork* w) {
+  ZlibInflateDec* d = zlib_inflate_dec(f[0]);
+  Term            t = zlib_inflate_run(e, d, NULL, 0, false, false);
+  zlib_z.inflate_end(&d->z);
+  free(d);
+  return t;
+}
+
+static void __attribute__((constructor)) inflate_decoder_finish_use(void) {
+  io_eff(CID(inflate.decoder.finish), inflate_decoder_finish_run, 0);
+}
+
+#endif
+
+#if defined(CID(brotli.decoder.new)) || defined(CID(brotli.decoder.feed)) || defined(CID(brotli.decoder.finish))
+#ifndef ZLIB_BROTLI_DEC
+#define ZLIB_BROTLI_DEC
+
+typedef struct {
+  void* s;
+  u64   max;
+} ZlibBrotliDec;
+
+static ZlibBrotliDec* zlib_brotli_dec(Term file) {
+  return (ZlibBrotliDec*)(intptr_t)io_hand_v(file);
+}
+
+static Term zlib_brotli_tup(Env e, ZlibBrotliDec* d, Term r) {
+  return io_tup(e, io_hand((intptr_t)d), r);
+}
+
+static Term zlib_brotli_loop(Env e, ZlibBrotliDec* d, char* in, u64 n, bool feed, bool tup) {
+  ZlibBuf        b    = zlib_buf(n, d->max);
+  size_t         ain  = (size_t)n;
+  const uint8_t* nin  = (const uint8_t*)in;
+  int            code = 0;
+  const char*    why  = NULL;
+  for (;;) {
+    size_t   aout = (size_t)(b.cap - b.have);
+    uint8_t* nout = (uint8_t*)b.p + b.have;
+    int      r    = zlib_br.stream(d->s, &ain, &nin, &aout, &nout, NULL);
+    b.have        = b.cap - aout;
+    if (r == 1) {
+      if (ain != 0) {
+        code = EINVAL;
+        why  = "brotli input has bytes after the stream";
+      }
+      break;
+    }
+    if (r == 0) {
+      code = EINVAL;
+      why  = zlib_br.text(zlib_br.error(d->s));
+      break;
+    }
+    if (r == 3) {
+      if (!zlib_grow(&b)) {
+        code = EFBIG;
+        why  = "brotli output is larger than max";
+        break;
+      }
+    } else if (feed && r == 2) {
+      break;
+    } else if (!feed && ain == 0) {
+      code = EINVAL;
+      why  = "brotli input ends inside the stream";
+      break;
+    } else if (feed) {
+      code = EINVAL;
+      why  = "brotli input ends inside the stream";
+      break;
+    }
+  }
+  if (in != NULL) {
+    free(in);
+  }
+  Term ans = zlib_out_only(e, &b, code, why);
+  return tup ? zlib_brotli_tup(e, d, ans) : ans;
+}
+
+#endif
+#endif
+
+#ifdef CID(brotli.decoder.new)
+
+Term brotli_decoder_new_run(Env e, Term* f, IoWork* w) {
+  if (!zlib_br_load()) {
+    return io_fail(e, ENOENT, "brotli needs libbrotlidec.1; set BEND_LIBBROTLIDEC to its path");
+  }
+  ZlibBrotliDec* d = io_mem(calloc(1, sizeof(*d)));
+  if (d == NULL) {
+    return io_fail(e, ENOMEM, NULL);
+  }
+  d->s = zlib_br.create(NULL, NULL, NULL);
+  if (d->s == NULL) {
+    free(d);
+    return io_fail(e, ENOMEM, NULL);
+  }
+  d->max = (u64)(u32)f[0];
+  return io_done(e, io_hand((intptr_t)d));
+}
+
+static void __attribute__((constructor)) brotli_decoder_new_use(void) {
+  io_eff(CID(brotli.decoder.new), brotli_decoder_new_run, 0);
+}
+
+#endif
+
+#ifdef CID(brotli.decoder.feed)
+
+Term brotli_decoder_feed_run(Env e, Term* f, IoWork* w) {
+  ZlibBrotliDec* d   = zlib_brotli_dec(f[0]);
+  u64            n   = 0;
+  bool           bad = false;
+  char*          in  = zlib_words_octets(e, f[2], (u64)(u32)f[1], &n, &bad);
+  if (bad) {
+    free(in);
+    return io_tup(e, f[0], io_fail(e, EINVAL, NULL));
+  }
+  return zlib_brotli_loop(e, d, in, n, true, true);
+}
+
+static void __attribute__((constructor)) brotli_decoder_feed_use(void) {
+  io_eff(CID(brotli.decoder.feed), brotli_decoder_feed_run, 0);
+}
+
+#endif
+
+#ifdef CID(brotli.decoder.finish)
+
+Term brotli_decoder_finish_run(Env e, Term* f, IoWork* w) {
+  ZlibBrotliDec* d = zlib_brotli_dec(f[0]);
+  Term           t = zlib_brotli_loop(e, d, NULL, 0, false, false);
+  zlib_br.destroy(d->s);
+  free(d);
+  return t;
+}
+
+static void __attribute__((constructor)) brotli_decoder_finish_use(void) {
+  io_eff(CID(brotli.decoder.finish), brotli_decoder_finish_run, 0);
+}
+
+#endif
+
+#if defined(CID(zstd.decoder.new)) || defined(CID(zstd.decoder.feed)) || defined(CID(zstd.decoder.finish))
+#ifndef ZLIB_ZSTD_DEC
+#define ZLIB_ZSTD_DEC
+
+typedef struct {
+  void* dctx;
+  u64   max;
+  int   done;
+} ZlibZstdDec;
+
+static ZlibZstdDec* zlib_zstd_dec(Term file) {
+  return (ZlibZstdDec*)(intptr_t)io_hand_v(file);
+}
+
+static Term zlib_zstd_tup(Env e, ZlibZstdDec* d, Term r) {
+  return io_tup(e, io_hand((intptr_t)d), r);
+}
+
+static Term zlib_zstd_loop(Env e, ZlibZstdDec* d, char* in, u64 n, bool feed, bool tup) {
+  ZlibBuf     b    = zlib_buf(n, d->max);
+  ZlibIn      src  = { in != NULL ? in : "", n, 0 };
+  int         code = 0;
+  const char* why  = NULL;
+  for (;;) {
+    ZlibOut dst = { b.p + b.have, b.cap - b.have, 0 };
+    size_t  r   = zlib_zstd.stream(d->dctx, &dst, &src);
+    b.have += dst.pos;
+    if (zlib_zstd.is_error(r)) {
+      code = EINVAL;
+      why  = zlib_zstd.name(r);
+      break;
+    }
+    if (r == 0 && src.pos == src.size) {
+      d->done = 1;
+      break;
+    }
+    if (feed && src.pos == src.size) {
+      break;
+    }
+    if (b.have == b.cap) {
+      if (!zlib_grow(&b)) {
+        code = EFBIG;
+        why  = "zstd output is larger than max";
+        break;
+      }
+    } else if (src.pos == src.size) {
+      code = EINVAL;
+      why  = "zstd input ends inside a frame";
+      break;
+    }
+  }
+  if (in != NULL) {
+    free(in);
+  }
+  Term ans = zlib_out_only(e, &b, code, why);
+  return tup ? zlib_zstd_tup(e, d, ans) : ans;
+}
+
+#endif
+#endif
+
+#ifdef CID(zstd.decoder.new)
+
+Term zstd_decoder_new_run(Env e, Term* f, IoWork* w) {
+  if (!zlib_zstd_load()) {
+    return io_fail(e, ENOENT, "zstd needs libzstd.1; set BEND_LIBZSTD to its path");
+  }
+  ZlibZstdDec* d = io_mem(calloc(1, sizeof(*d)));
+  if (d == NULL) {
+    return io_fail(e, ENOMEM, NULL);
+  }
+  d->dctx = zlib_zstd.create();
+  if (d->dctx == NULL) {
+    free(d);
+    return io_fail(e, ENOMEM, NULL);
+  }
+  d->max = (u64)(u32)f[0];
+  d->done = 0;
+  return io_done(e, io_hand((intptr_t)d));
+}
+
+static void __attribute__((constructor)) zstd_decoder_new_use(void) {
+  io_eff(CID(zstd.decoder.new), zstd_decoder_new_run, 0);
+}
+
+#endif
+
+#ifdef CID(zstd.decoder.feed)
+
+Term zstd_decoder_feed_run(Env e, Term* f, IoWork* w) {
+  ZlibZstdDec* d   = zlib_zstd_dec(f[0]);
+  u64          n   = 0;
+  bool         bad = false;
+  char*        in  = zlib_words_octets(e, f[2], (u64)(u32)f[1], &n, &bad);
+  if (bad) {
+    free(in);
+    return io_tup(e, f[0], io_fail(e, EINVAL, NULL));
+  }
+  return zlib_zstd_loop(e, d, in, n, true, true);
+}
+
+static void __attribute__((constructor)) zstd_decoder_feed_use(void) {
+  io_eff(CID(zstd.decoder.feed), zstd_decoder_feed_run, 0);
+}
+
+#endif
+
+#ifdef CID(zstd.decoder.finish)
+
+Term zstd_decoder_finish_run(Env e, Term* f, IoWork* w) {
+  ZlibZstdDec* d = zlib_zstd_dec(f[0]);
+  if (d->done) {
+    ZlibBuf b = { io_mem(strdup("")), 0, 0, d->max };
+    Term t = io_done(e, zlib_words(e, b.p, 0));
+    free(b.p);
+    zlib_zstd.release(d->dctx);
+    free(d);
+    return t;
+  }
+  Term         t = zlib_zstd_loop(e, d, NULL, 0, false, false);
+  zlib_zstd.release(d->dctx);
+  free(d);
+  return t;
+}
+
+static void __attribute__((constructor)) zstd_decoder_finish_use(void) {
+  io_eff(CID(zstd.decoder.finish), zstd_decoder_finish_run, 0);
 }
 
 #endif

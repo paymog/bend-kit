@@ -1225,3 +1225,45 @@ def brotli.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/zlib.c"
   import "./effs/zlib.js"
+
+
+# Streaming gzip or zlib decode (RFC 1952, 1950) through libz. The handle is a File
+# law value; do not File.close it — finish frees the native decoder.
+def inflate.decoder.new(max: U32) -> IO(Result<&1, &1, U32 & String, File>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def inflate.decoder.feed(dec: File, len: U32, words: Array<U32>) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def inflate.decoder.finish(dec: File) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def brotli.decoder.new(max: U32) -> IO(Result<&1, &1, U32 & String, File>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def brotli.decoder.feed(dec: File, len: U32, words: Array<U32>) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def brotli.decoder.finish(dec: File) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def zstd.decoder.new(max: U32) -> IO(Result<&1, &1, U32 & String, File>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def zstd.decoder.feed(dec: File, len: U32, words: Array<U32>) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def zstd.decoder.finish(dec: File) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
