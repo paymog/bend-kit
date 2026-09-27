@@ -45,6 +45,7 @@ A law is a claim; a proof is a def with the same name. Each package has:
 ## Repo facts
 
 - Bodies are `Http.Body`, which is `Bytes.Bytes`. The `String` parsers (`parse`, `frame`) are the spec, over byte strings with one `Char` per octet (0..255). `Http.text` decodes UTF-8.
+- Prefer `Bytes.Bytes` to `String` for octets, big inputs, and hot paths: codecs, parsers of bodies, socket and process IO. A `String` is a linked list with one cell per `Char`, so walking and freeing it is slow; the `bytes` bench measured `Array` 9–270× faster. Keep `String` for code points (`unicode`) and short text such as header fields, paths, and URLs. At an effect boundary, use the packed `(len, Array<U32>)` form, as `wire`'s `.words` effects do, not an octet `String`.
 - Foreign effects are defs whose body is `import "./effs/<pkg>.c"` plus `import "./effs/<pkg>.js"`, as in `wire/wire.bend`. Every effect needs both twins, and the host function name is the def name, lowercased, with dots as underscores. Read `bend guide effects` before you write one. Proofs do not cover host code.
 - `bend file.bend` runs through the checker's runner and overflows on strings over about 30 KB. Build big-body programs natively: `bend file.bend -o app`.
 - The hub shows the first comment line of a package's entry file as its description. Keep it one accurate line. It links to `tree/main/<pkg>`, and a publish is permanent, so do not rename or move a published package's folder.
