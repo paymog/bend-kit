@@ -20,3 +20,20 @@ t0 = performance.now();
 let acc = 0n;
 for (const v of xs) acc = BigInt.asUintN(64, acc + (v % m));
 console.log(`rem\t${(performance.now() - t0).toFixed(3)}\t${acc}`);
+
+const n2 = Number(process.argv[3] ?? 10000000);
+t0 = performance.now();
+let xi = 1, ai = 0;
+for (let i = 0; i < n2; i++) {
+  xi = (Math.imul(xi, 1664525) + 1013904223) | 0;
+  ai = (ai + Math.trunc(xi / 1000)) | 0;
+}
+console.log(`i32\t${(performance.now() - t0).toFixed(3)}\t${ai}`);
+t0 = performance.now();
+let x16 = 1;
+for (let i = 0; i < n2; i++) x16 = (x16 * 25173 + 13849) & 0xffff;
+console.log(`u16\t${(performance.now() - t0).toFixed(3)}\t${x16}`);
+t0 = performance.now();
+let x8 = 1;
+for (let i = 0; i < n2; i++) x8 = (x8 * 77 + 13) & 0xff;
+console.log(`u8\t${(performance.now() - t0).toFixed(3)}\t${x8}`);

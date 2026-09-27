@@ -7,16 +7,17 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 N = "16384"
-OPS = ["lcg", "rem"]
+N2 = "10000000"
+OPS = ["lcg", "rem", "i32", "u16", "u8"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 # name -> (build argv or None, run argv). Bend has N built in.
 VARIANTS = {
-    "C": (["cc", "-O2", "-o", OUT / "c", "bench.c"], [OUT / "c", N]),
-    "Rust": (["rustc", "-C", "opt-level=3", "-o", OUT / "rs", "bench.rs"], [OUT / "rs", N]),
-    "Bun": (None, ["bun", "bench.ts", N]),
-    "Node": (None, ["node", "--no-warnings", "bench.ts", N]),
-    "Python": (None, ["python3", "bench.py", N]),
+    "C": (["cc", "-O2", "-o", OUT / "c", "bench.c"], [OUT / "c", N, N2]),
+    "Rust": (["rustc", "-C", "opt-level=3", "-o", OUT / "rs", "bench.rs"], [OUT / "rs", N, N2]),
+    "Bun": (None, ["bun", "bench.ts", N, N2]),
+    "Node": (None, ["node", "--no-warnings", "bench.ts", N, N2]),
+    "Python": (None, ["python3", "bench.py", N, N2]),
     "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
 }
 

@@ -33,5 +33,23 @@ int main(int argc, char **argv) {
   for (long i = 0; i < n; i++) acc += xs[i] % m;
   printf("rem\t%.3f\t%llu\n", now_ms() - t0, (unsigned long long)acc);
   free(xs);
+
+  long n2 = argc > 2 ? atol(argv[2]) : 10000000;
+  volatile int32_t d = 1000;
+  t0 = now_ms();
+  uint32_t xi = 1, ai = 0;
+  for (long i = 0; i < n2; i++) {
+    xi = xi * 1664525u + 1013904223u;
+    ai += (uint32_t)((int32_t)xi / d);
+  }
+  printf("i32\t%.3f\t%d\n", now_ms() - t0, (int32_t)ai);
+  t0 = now_ms();
+  uint16_t x16 = 1;
+  for (long i = 0; i < n2; i++) x16 = (uint16_t)(x16 * 25173u + 13849u);
+  printf("u16\t%.3f\t%u\n", now_ms() - t0, x16);
+  t0 = now_ms();
+  uint8_t x8 = 1;
+  for (long i = 0; i < n2; i++) x8 = (uint8_t)(x8 * 77u + 13u);
+  printf("u8\t%.3f\t%u\n", now_ms() - t0, x8);
   return 0;
 }

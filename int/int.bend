@@ -402,10 +402,199 @@ def Int.to_nat(+n: Nat, +w: Word(n)) -> Maybe<&2, Nat>:
 def Int.sext(m: Nat, +n: Nat, +w: Word(n)) -> Word(m):
   Int.ext(m, n, Int.msb(n, w), w)
 
-type U8 is Data:
-  U8{data: Word(8n)}
+# U8 and U16 hold their value in a U32 below 2^w, and m is 2^w - 1.
+def Nar.opt(ov: Bool, r: U32) -> Maybe<&2, U32>:
+  match ov:
+    case True{}:
+      None{}
+    case False{}:
+      Some{r}
 
-def U8.some(m: Maybe<&2, Word(8n)>) -> Maybe<&2, U8>:
+def Nar.over(+m: U32, +r: U32) -> Maybe<&2, U32>:
+  Nar.opt(U32.is_gt(r, m), r)
+
+def Nar.checked_sub(+a: U32, +b: U32) -> Maybe<&2, U32>:
+  Nar.opt(U32.is_lt(a, b), U32.sub(a, b))
+
+def Nar.checked_div(a: U32, +b: U32) -> Maybe<&2, U32>:
+  Nar.opt(U32.is_zero(b), U32.div(a, b))
+
+def Nar.checked_mod(a: U32, +b: U32) -> Maybe<&2, U32>:
+  Nar.opt(U32.is_zero(b), U32.mod(a, b))
+
+def Nar.sat_sub(lt: Bool, a: U32, b: U32) -> U32:
+  match lt:
+    case True{}:
+      0
+    case False{}:
+      U32.sub(a, b)
+
+def Nar.saturating_sub(+a: U32, +b: U32) -> U32:
+  Nar.sat_sub(U32.is_lt(a, b), a, b)
+
+def Nar.read(+m: U32, r: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match r:
+    case None{}:
+      None{}
+    case Some{x}:
+      +v = {x : U32}
+      Nar.over(m, v)
+
+# I32 holds its two's-complement bits in a U32.
+def S32.MIN() -> U32:
+  2147483648
+
+def S32.is_neg(x: U32) -> Bool:
+  U32.is_ge(x, S32.MIN())
+
+def S32.neg(x: U32) -> U32:
+  U32.sub(0, x)
+
+def S32.neg_if(c: Bool, x: U32) -> U32:
+  match c:
+    case True{}:
+      S32.neg(x)
+    case False{}:
+      x
+
+def S32.abs(+x: U32) -> U32:
+  S32.neg_if(S32.is_neg(x), x)
+
+def S32.cmp(a: U32, b: U32) -> Cmp:
+  U32.cmp(U32.xor(a, S32.MIN()), U32.xor(b, S32.MIN()))
+
+# x / 0 is 0 and x % 0 is x, as in Base's U32. MIN / -1 wraps to MIN.
+def S32.divmod.if(z: Bool, +a: U32, +b: U32) -> U32 & U32:
+  match z:
+    case True{}:
+      (0, a)
+    case False{}:
+      (S32.neg_if(Bool.xor(S32.is_neg(a), S32.is_neg(b)),
+        U32.div(S32.abs(a), S32.abs(b))),
+        S32.neg_if(S32.is_neg(a), U32.mod(S32.abs(a), S32.abs(b))))
+
+def S32.fst(p: U32 & U32) -> U32:
+  (q, r) = p
+  q
+
+def S32.snd(p: U32 & U32) -> U32:
+  (q, r) = p
+  r
+
+def S32.div(a: U32, +b: U32) -> U32:
+  S32.fst(S32.divmod.if(U32.is_zero(b), a, b))
+
+def S32.mod(a: U32, +b: U32) -> U32:
+  S32.snd(S32.divmod.if(U32.is_zero(b), a, b))
+
+# True for MIN and -1, the one quotient that overflows.
+def S32.min_neg1(a: U32, b: U32) -> Bool:
+  Bool.and(U32.is_eq(a, S32.MIN()), U32.is_eq(b, 4294967295))
+
+def S32.div_ov(+a: U32, +b: U32) -> Bool:
+  Bool.or(U32.is_zero(b), S32.min_neg1(a, b))
+
+def S32.add_ov.go(a: U32, b: U32, +r: U32) -> Bool & U32:
+  (S32.is_neg(U32.and(U32.xor(a, r), U32.xor(b, r))), r)
+
+def S32.add_ov(+a: U32, +b: U32) -> Bool & U32:
+  S32.add_ov.go(a, b, U32.add(a, b))
+
+def S32.sub_ov.go(+a: U32, b: U32, +r: U32) -> Bool & U32:
+  (S32.is_neg(U32.and(U32.xor(a, b), U32.xor(a, r))), r)
+
+def S32.sub_ov(+a: U32, +b: U32) -> Bool & U32:
+  S32.sub_ov.go(a, b, U32.sub(a, b))
+
+def S32.mul_ov.go(+a: U32, +b: U32, +r: U32) -> Bool & U32:
+  (Bool.or(Bool.and(Bool.not(U32.is_zero(b)),
+    Bool.not(U32.is_eq(S32.div(r, b), a))), S32.min_neg1(a, b)), r)
+
+def S32.mul_ov(+a: U32, +b: U32) -> Bool & U32:
+  S32.mul_ov.go(a, b, U32.mul(a, b))
+
+def S32.checked(o: Bool & U32) -> Maybe<&2, U32>:
+  (ov, r) = o
+  Nar.opt(ov, r)
+
+def S32.checked_div(+a: U32, +b: U32) -> Maybe<&2, U32>:
+  Nar.opt(S32.div_ov(a, b), S32.div(a, b))
+
+def S32.checked_mod(+a: U32, +b: U32) -> Maybe<&2, U32>:
+  Nar.opt(S32.div_ov(a, b), S32.mod(a, b))
+
+def S32.sat(low: Bool) -> U32:
+  match low:
+    case True{}:
+      S32.MIN()
+    case False{}:
+      2147483647
+
+def S32.saturate(low: Bool, o: Bool & U32) -> U32:
+  (ov, r) = o
+  match ov:
+    case True{}:
+      S32.sat(low)
+    case False{}:
+      r
+
+# Shifts right are arithmetic: the sign bit fills in from the top.
+def S32.shr.if(neg: Bool, x: U32, k: Nat) -> U32:
+  match neg:
+    case True{}:
+      U32.not(U32.shrn(U32.not(x), k))
+    case False{}:
+      U32.shrn(x, k)
+
+def S32.show.if(neg: Bool, x: U32) -> String:
+  match neg:
+    case True{}:
+      SCon{Chr{45}, U32.show(S32.neg(x))}
+    case False{}:
+      U32.show(x)
+
+def S32.read.neg(r: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match r:
+    case None{}:
+      None{}
+    case Some{x}:
+      +v = {x : U32}
+      Nar.opt(U32.is_gt(v, S32.MIN()), S32.neg(v))
+
+def S32.read.pos(r: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match r:
+    case None{}:
+      None{}
+    case Some{x}:
+      +v = {x : U32}
+      Nar.opt(S32.is_neg(v), v)
+
+def S32.read.sign(neg: Bool, t: String, c: U32) -> Maybe<&2, U32>:
+  match neg:
+    case True{}:
+      S32.read.neg(U32.read(t))
+    case False{}:
+      S32.read.pos(U32.read(SCon{Chr{c}, t}))
+
+def S32.read(s: String) -> Maybe<&2, U32>:
+  match s:
+    case SNil{}:
+      None{}
+    case SCon{Chr{x}, t}:
+      +c = {x : U32}
+      S32.read.sign(U32.is_eq(c, 45), t, c)
+
+def S32.to_nat.if(neg: Bool, x: U32) -> Maybe<&2, Nat>:
+  match neg:
+    case True{}:
+      None{}
+    case False{}:
+      Some{U32.to_nat(x)}
+
+type U8 is Data:
+  U8{data: U32}
+
+def U8.some(m: Maybe<&2, U32>) -> Maybe<&2, U8>:
   match m:
     case None{}:
       None{}
@@ -413,95 +602,95 @@ def U8.some(m: Maybe<&2, Word(8n)>) -> Maybe<&2, U8>:
       Some{U8{x}}
 
 def U8.MIN() -> U8:
-  U8{Int.min(8n, False{})}
+  U8{0}
 
 def U8.MAX() -> U8:
-  U8{Int.max(8n, False{})}
+  U8{255}
 
 def U8.add(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Word.add(8n, x, y)}
+      U8{U32.and(U32.add(x, y), 255)}
 
 def U8.sub(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Word.sub(8n, x, y)}
+      U8{U32.and(U32.sub(x, y), 255)}
 
 def U8.mul(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Word.mul(8n, x, y)}
+      U8{U32.and(U32.mul(x, y), 255)}
 
 def U8.and(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Word.and(8n, x, y)}
+      U8{U32.and(x, y)}
 
 def U8.or(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Word.or(8n, x, y)}
+      U8{U32.or(x, y)}
 
 def U8.xor(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Word.xor(8n, x, y)}
+      U8{U32.xor(x, y)}
 
 def U8.div(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Int.div(8n, False{}, x, y)}
+      U8{U32.div(x, y)}
 
 def U8.mod(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Int.mod(8n, False{}, x, y)}
+      U8{U32.mod(x, y)}
 
 def U8.checked_add(a: U8, b: U8) -> Maybe<&2, U8>:
   match a b:
     case U8{x} U8{y}:
-      U8.some(Int.checked(8n, Int.add_ov(8n, False{}, x, y)))
+      U8.some(Nar.over(255, U32.add(x, y)))
 
 def U8.checked_sub(a: U8, b: U8) -> Maybe<&2, U8>:
   match a b:
     case U8{x} U8{y}:
-      U8.some(Int.checked(8n, Int.sub_ov(8n, False{}, x, y)))
+      U8.some(Nar.checked_sub(x, y))
 
 def U8.checked_mul(a: U8, b: U8) -> Maybe<&2, U8>:
   match a b:
     case U8{x} U8{y}:
-      U8.some(Int.checked(8n, Int.mul_ov(8n, False{}, x, y)))
+      U8.some(Nar.over(255, U32.mul(x, y)))
 
 def U8.checked_div(a: U8, b: U8) -> Maybe<&2, U8>:
   match a b:
     case U8{x} U8{y}:
-      U8.some(Int.checked_div(8n, False{}, x, y))
+      U8.some(Nar.checked_div(x, y))
 
 def U8.checked_mod(a: U8, b: U8) -> Maybe<&2, U8>:
   match a b:
     case U8{x} U8{y}:
-      U8.some(Int.checked_mod(8n, False{}, x, y))
+      U8.some(Nar.checked_mod(x, y))
 
 def U8.saturating_add(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Int.saturating_add(8n, False{}, x, y)}
+      U8{U32.min(U32.add(x, y), 255)}
 
 def U8.saturating_sub(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Int.saturating_sub(8n, False{}, x, y)}
+      U8{Nar.saturating_sub(x, y)}
 
 def U8.saturating_mul(a: U8, b: U8) -> U8:
   match a b:
     case U8{x} U8{y}:
-      U8{Int.saturating_mul(8n, False{}, x, y)}
+      U8{U32.min(U32.mul(x, y), 255)}
 
 def U8.cmp(a: U8, b: U8) -> Cmp:
   match a b:
     case U8{x} U8{y}:
-      Int.cmp(8n, False{}, x, y)
+      U32.cmp(x, y)
 
 def U8.is_eq(a: U8, b: U8) -> Bool:
   Cmp.is_eq(U8.cmp(a, b))
@@ -524,53 +713,51 @@ def U8.is_ne(a: U8, b: U8) -> Bool:
 def U8.is_zero(a: U8) -> Bool:
   match a:
     case U8{x}:
-      Int.is_zero(8n, x)
+      U32.is_zero(x)
 
 def U8.not(a: U8) -> U8:
   match a:
     case U8{x}:
-      U8{Word.not(8n, x)}
+      U8{U32.xor(x, 255)}
 
 def U8.shl(a: U8, k: Nat) -> U8:
   match a:
     case U8{x}:
-      U8{Int.shl(8n, k, x)}
+      U8{U32.and(U32.shln(x, k), 255)}
 
 def U8.shr(a: U8, k: Nat) -> U8:
   match a:
     case U8{x}:
-      U8{Int.shr(8n, False{}, k, x)}
+      U8{U32.shrn(x, k)}
 
 def U8.show(a: U8) -> String:
   match a:
     case U8{x}:
-      Int.show(8n, False{}, x)
+      U32.show(x)
 
 def U8.read(s: String) -> Maybe<&2, U8>:
-  U8.some(Int.read(8n, False{}, s))
+  U8.some(Nar.read(255, U32.read(s)))
 
 def U8.to_u32(a: U8) -> U32:
   match a:
     case U8{x}:
-      U32{Int.ext(32n, 8n, False{}, x)}
+      x
 
 def U8.from_u32(a: U32) -> U8:
-  match a:
-    case U32{x}:
-      U8{Int.ext(8n, 32n, False{}, x)}
+  U8{U32.and(a, 255)}
 
 def U8.to_nat(a: U8) -> Nat:
   match a:
     case U8{x}:
-      Word.to_nat(8n, x)
+      U32.to_nat(x)
 
 def U8.from_nat(k: Nat) -> U8:
-  U8{Int.bits(8n, k)}
+  U8{U32.and(U32.from_nat(k), 255)}
 
 type U16 is Data:
-  U16{data: Word(16n)}
+  U16{data: U32}
 
-def U16.some(m: Maybe<&2, Word(16n)>) -> Maybe<&2, U16>:
+def U16.some(m: Maybe<&2, U32>) -> Maybe<&2, U16>:
   match m:
     case None{}:
       None{}
@@ -578,95 +765,95 @@ def U16.some(m: Maybe<&2, Word(16n)>) -> Maybe<&2, U16>:
       Some{U16{x}}
 
 def U16.MIN() -> U16:
-  U16{Int.min(16n, False{})}
+  U16{0}
 
 def U16.MAX() -> U16:
-  U16{Int.max(16n, False{})}
+  U16{65535}
 
 def U16.add(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Word.add(16n, x, y)}
+      U16{U32.and(U32.add(x, y), 65535)}
 
 def U16.sub(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Word.sub(16n, x, y)}
+      U16{U32.and(U32.sub(x, y), 65535)}
 
 def U16.mul(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Word.mul(16n, x, y)}
+      U16{U32.and(U32.mul(x, y), 65535)}
 
 def U16.and(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Word.and(16n, x, y)}
+      U16{U32.and(x, y)}
 
 def U16.or(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Word.or(16n, x, y)}
+      U16{U32.or(x, y)}
 
 def U16.xor(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Word.xor(16n, x, y)}
+      U16{U32.xor(x, y)}
 
 def U16.div(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Int.div(16n, False{}, x, y)}
+      U16{U32.div(x, y)}
 
 def U16.mod(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Int.mod(16n, False{}, x, y)}
+      U16{U32.mod(x, y)}
 
 def U16.checked_add(a: U16, b: U16) -> Maybe<&2, U16>:
   match a b:
     case U16{x} U16{y}:
-      U16.some(Int.checked(16n, Int.add_ov(16n, False{}, x, y)))
+      U16.some(Nar.over(65535, U32.add(x, y)))
 
 def U16.checked_sub(a: U16, b: U16) -> Maybe<&2, U16>:
   match a b:
     case U16{x} U16{y}:
-      U16.some(Int.checked(16n, Int.sub_ov(16n, False{}, x, y)))
+      U16.some(Nar.checked_sub(x, y))
 
 def U16.checked_mul(a: U16, b: U16) -> Maybe<&2, U16>:
   match a b:
     case U16{x} U16{y}:
-      U16.some(Int.checked(16n, Int.mul_ov(16n, False{}, x, y)))
+      U16.some(Nar.over(65535, U32.mul(x, y)))
 
 def U16.checked_div(a: U16, b: U16) -> Maybe<&2, U16>:
   match a b:
     case U16{x} U16{y}:
-      U16.some(Int.checked_div(16n, False{}, x, y))
+      U16.some(Nar.checked_div(x, y))
 
 def U16.checked_mod(a: U16, b: U16) -> Maybe<&2, U16>:
   match a b:
     case U16{x} U16{y}:
-      U16.some(Int.checked_mod(16n, False{}, x, y))
+      U16.some(Nar.checked_mod(x, y))
 
 def U16.saturating_add(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Int.saturating_add(16n, False{}, x, y)}
+      U16{U32.min(U32.add(x, y), 65535)}
 
 def U16.saturating_sub(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Int.saturating_sub(16n, False{}, x, y)}
+      U16{Nar.saturating_sub(x, y)}
 
 def U16.saturating_mul(a: U16, b: U16) -> U16:
   match a b:
     case U16{x} U16{y}:
-      U16{Int.saturating_mul(16n, False{}, x, y)}
+      U16{U32.min(U32.mul(x, y), 65535)}
 
 def U16.cmp(a: U16, b: U16) -> Cmp:
   match a b:
     case U16{x} U16{y}:
-      Int.cmp(16n, False{}, x, y)
+      U32.cmp(x, y)
 
 def U16.is_eq(a: U16, b: U16) -> Bool:
   Cmp.is_eq(U16.cmp(a, b))
@@ -689,48 +876,46 @@ def U16.is_ne(a: U16, b: U16) -> Bool:
 def U16.is_zero(a: U16) -> Bool:
   match a:
     case U16{x}:
-      Int.is_zero(16n, x)
+      U32.is_zero(x)
 
 def U16.not(a: U16) -> U16:
   match a:
     case U16{x}:
-      U16{Word.not(16n, x)}
+      U16{U32.xor(x, 65535)}
 
 def U16.shl(a: U16, k: Nat) -> U16:
   match a:
     case U16{x}:
-      U16{Int.shl(16n, k, x)}
+      U16{U32.and(U32.shln(x, k), 65535)}
 
 def U16.shr(a: U16, k: Nat) -> U16:
   match a:
     case U16{x}:
-      U16{Int.shr(16n, False{}, k, x)}
+      U16{U32.shrn(x, k)}
 
 def U16.show(a: U16) -> String:
   match a:
     case U16{x}:
-      Int.show(16n, False{}, x)
+      U32.show(x)
 
 def U16.read(s: String) -> Maybe<&2, U16>:
-  U16.some(Int.read(16n, False{}, s))
+  U16.some(Nar.read(65535, U32.read(s)))
 
 def U16.to_u32(a: U16) -> U32:
   match a:
     case U16{x}:
-      U32{Int.ext(32n, 16n, False{}, x)}
+      x
 
 def U16.from_u32(a: U32) -> U16:
-  match a:
-    case U32{x}:
-      U16{Int.ext(16n, 32n, False{}, x)}
+  U16{U32.and(a, 65535)}
 
 def U16.to_nat(a: U16) -> Nat:
   match a:
     case U16{x}:
-      Word.to_nat(16n, x)
+      U32.to_nat(x)
 
 def U16.from_nat(k: Nat) -> U16:
-  U16{Int.bits(16n, k)}
+  U16{U32.and(U32.from_nat(k), 65535)}
 
 type U64 is Data:
   U64{data: Word(64n)}
@@ -899,9 +1084,9 @@ def U64.from_nat(k: Nat) -> U64:
   U64{Int.bits(64n, k)}
 
 type I32 is Data:
-  I32{data: Word(32n)}
+  I32{data: U32}
 
-def I32.some(m: Maybe<&2, Word(32n)>) -> Maybe<&2, I32>:
+def I32.some(m: Maybe<&2, U32>) -> Maybe<&2, I32>:
   match m:
     case None{}:
       None{}
@@ -909,95 +1094,99 @@ def I32.some(m: Maybe<&2, Word(32n)>) -> Maybe<&2, I32>:
       Some{I32{x}}
 
 def I32.MIN() -> I32:
-  I32{Int.min(32n, True{})}
+  I32{S32.MIN()}
 
 def I32.MAX() -> I32:
-  I32{Int.max(32n, True{})}
+  I32{2147483647}
 
 def I32.add(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Word.add(32n, x, y)}
+      I32{U32.add(x, y)}
 
 def I32.sub(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Word.sub(32n, x, y)}
+      I32{U32.sub(x, y)}
 
 def I32.mul(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Word.mul(32n, x, y)}
+      I32{U32.mul(x, y)}
 
 def I32.and(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Word.and(32n, x, y)}
+      I32{U32.and(x, y)}
 
 def I32.or(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Word.or(32n, x, y)}
+      I32{U32.or(x, y)}
 
 def I32.xor(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Word.xor(32n, x, y)}
+      I32{U32.xor(x, y)}
 
 def I32.div(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Int.div(32n, True{}, x, y)}
+      I32{S32.div(x, y)}
 
 def I32.mod(a: I32, b: I32) -> I32:
   match a b:
     case I32{x} I32{y}:
-      I32{Int.mod(32n, True{}, x, y)}
+      I32{S32.mod(x, y)}
 
 def I32.checked_add(a: I32, b: I32) -> Maybe<&2, I32>:
   match a b:
     case I32{x} I32{y}:
-      I32.some(Int.checked(32n, Int.add_ov(32n, True{}, x, y)))
+      I32.some(S32.checked(S32.add_ov(x, y)))
 
 def I32.checked_sub(a: I32, b: I32) -> Maybe<&2, I32>:
   match a b:
     case I32{x} I32{y}:
-      I32.some(Int.checked(32n, Int.sub_ov(32n, True{}, x, y)))
+      I32.some(S32.checked(S32.sub_ov(x, y)))
 
 def I32.checked_mul(a: I32, b: I32) -> Maybe<&2, I32>:
   match a b:
     case I32{x} I32{y}:
-      I32.some(Int.checked(32n, Int.mul_ov(32n, True{}, x, y)))
+      I32.some(S32.checked(S32.mul_ov(x, y)))
 
 def I32.checked_div(a: I32, b: I32) -> Maybe<&2, I32>:
   match a b:
     case I32{x} I32{y}:
-      I32.some(Int.checked_div(32n, True{}, x, y))
+      I32.some(S32.checked_div(x, y))
 
 def I32.checked_mod(a: I32, b: I32) -> Maybe<&2, I32>:
   match a b:
     case I32{x} I32{y}:
-      I32.some(Int.checked_mod(32n, True{}, x, y))
-
-def I32.saturating_add(a: I32, b: I32) -> I32:
-  match a b:
-    case I32{x} I32{y}:
-      I32{Int.saturating_add(32n, True{}, x, y)}
-
-def I32.saturating_sub(a: I32, b: I32) -> I32:
-  match a b:
-    case I32{x} I32{y}:
-      I32{Int.saturating_sub(32n, True{}, x, y)}
-
-def I32.saturating_mul(a: I32, b: I32) -> I32:
-  match a b:
-    case I32{x} I32{y}:
-      I32{Int.saturating_mul(32n, True{}, x, y)}
+      I32.some(S32.checked_mod(x, y))
 
 def I32.cmp(a: I32, b: I32) -> Cmp:
   match a b:
     case I32{x} I32{y}:
-      Int.cmp(32n, True{}, x, y)
+      S32.cmp(x, y)
+
+def I32.saturating_add(a: I32, b: I32) -> I32:
+  match a b:
+    case I32{x} I32{y}:
+      +v = {x : U32}
+      I32{S32.saturate(S32.is_neg(v), S32.add_ov(v, y))}
+
+def I32.saturating_sub(a: I32, b: I32) -> I32:
+  match a b:
+    case I32{x} I32{y}:
+      +v = {x : U32}
+      I32{S32.saturate(S32.is_neg(v), S32.sub_ov(v, y))}
+
+def I32.saturating_mul(a: I32, b: I32) -> I32:
+  match a b:
+    case I32{x} I32{y}:
+      +v = {x : U32}
+      +w = {y : U32}
+      I32{S32.saturate(Bool.xor(S32.is_neg(v), S32.is_neg(w)), S32.mul_ov(v, w))}
 
 def I32.is_eq(a: I32, b: I32) -> Bool:
   Cmp.is_eq(I32.cmp(a, b))
@@ -1020,63 +1209,64 @@ def I32.is_ne(a: I32, b: I32) -> Bool:
 def I32.is_zero(a: I32) -> Bool:
   match a:
     case I32{x}:
-      Int.is_zero(32n, x)
+      U32.is_zero(x)
 
 def I32.not(a: I32) -> I32:
   match a:
     case I32{x}:
-      I32{Word.not(32n, x)}
+      I32{U32.not(x)}
 
 def I32.shl(a: I32, k: Nat) -> I32:
   match a:
     case I32{x}:
-      I32{Int.shl(32n, k, x)}
+      I32{U32.shln(x, k)}
 
 def I32.shr(a: I32, k: Nat) -> I32:
   match a:
     case I32{x}:
-      I32{Int.shr(32n, True{}, k, x)}
+      +v = {x : U32}
+      I32{S32.shr.if(S32.is_neg(v), v, k)}
 
 def I32.neg(a: I32) -> I32:
   match a:
     case I32{x}:
-      I32{Int.neg(32n, x)}
+      I32{S32.neg(x)}
 
 def I32.abs(a: I32) -> I32:
   match a:
     case I32{x}:
-      I32{Int.abs(32n, x)}
+      I32{S32.abs(x)}
 
 def I32.is_neg(a: I32) -> Bool:
   match a:
     case I32{x}:
-      Int.msb(32n, x)
+      S32.is_neg(x)
 
 def I32.show(a: I32) -> String:
   match a:
     case I32{x}:
-      Int.show(32n, True{}, x)
+      +v = {x : U32}
+      S32.show.if(S32.is_neg(v), v)
 
 def I32.read(s: String) -> Maybe<&2, I32>:
-  I32.some(Int.read(32n, True{}, s))
+  I32.some(S32.read(s))
 
 def I32.to_u32(a: I32) -> U32:
   match a:
     case I32{x}:
-      U32{Int.sext(32n, 32n, x)}
+      x
 
 def I32.from_u32(a: U32) -> I32:
-  match a:
-    case U32{x}:
-      I32{Int.ext(32n, 32n, False{}, x)}
+  I32{a}
 
 def I32.to_nat(a: I32) -> Maybe<&2, Nat>:
   match a:
     case I32{x}:
-      Int.to_nat(32n, x)
+      +v = {x : U32}
+      S32.to_nat.if(S32.is_neg(v), v)
 
 def I32.from_nat(k: Nat) -> I32:
-  I32{Int.bits(32n, k)}
+  I32{U32.from_nat(k)}
 
 type I64 is Data:
   I64{data: Word(64n)}
