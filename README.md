@@ -39,7 +39,7 @@ A name and its hash import the same package. Each version is a distinct type: `p
 
 Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.15.0.5`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, and `int@0.1.0.0`.
 
-`wire`, `http`, `files`, and `process` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
+`wire`, `zlib`, `http`, `files`, and `process` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
 
 In `process`, `env` entries are `KEY=VALUE` overrides of the inherited environment. Close the
 spawned child's stdin to send EOF, drain stdout and stderr, then call `wait`.

@@ -73,9 +73,9 @@ A response with `Transfer-Encoding` other than `chunked` is read until the conne
 
 ## Compressed bodies
 
-`fetch` sends `accept-encoding: gzip, deflate` unless you set `Accept-Encoding` yourself. It decodes the body per `Content-Encoding`: `gzip` and `x-gzip`, `deflate` with or without the zlib wrapper, and `identity`. A list of codings is undone in reverse order. An unknown coding, such as `br`, leaves the body as sent. A corrupt body is `ErrBad`. The headers stay as the server sent them, so `content-length` is the compressed size. `Http.decoded(res)` does the same for a response you got another way. `exchange` never decodes.
+`fetch` sends `accept-encoding: gzip, deflate, br, zstd` unless you set `Accept-Encoding` yourself. It lists `br` and `zstd` only when libbrotlidec and libzstd load. It decodes the body per `Content-Encoding`: `gzip` and `x-gzip` (every member) through libz, `br` through libbrotlidec, `zstd` through libzstd, `deflate` with or without the zlib wrapper through the pure decoder, and `identity`. A list of codings is undone in reverse order. A coding it did not ask for leaves the body as sent. A corrupt body, or one that decodes past 16 MiB, is `ErrBad`. The headers stay as the server sent them, so `content-length` is the compressed size. `exchange` never decodes.
 
-The `bend-kit-zlib` package has `Zlib.inflate` (raw DEFLATE, RFC 1951), `Zlib.gunzip` (RFC 1952, one member, CRC-32 and size checked), `Zlib.unzlib` (RFC 1950, Adler-32 checked), `Zlib.crc32`, and `Zlib.adler32`. Each returns `None` for malformed or cut-short input. A 1 MB body decodes in about 0.1 s natively.
+`Http.decoded(res)` decodes a response you got another way, with the pure `bend-kit-zlib` decoders: `gzip`, `x-gzip`, `deflate`, and `identity`. It needs no C library, and `LAWS.bend` covers it. `bend-kit-zlib` has the native effects too: `Zlib.inflate.words`, `Zlib.gzip.words`, `Zlib.brotli.words`, and `Zlib.zstd.words`.
 
 ## Streams
 
