@@ -1,7 +1,8 @@
 // Run with node or bun, from this folder, after run.py has written out/doc.json.
 import { readFileSync } from "node:fs";
 
-const TEXT = readFileSync("out/doc.json", "latin1");
+const RAW = readFileSync("out/doc.json");
+const TEXT = RAW.toString("latin1");
 
 function chk(s: string): number {
   let h = 0;
@@ -18,3 +19,13 @@ t0 = performance.now();
 const out = JSON.stringify(v);
 ms = performance.now() - t0;
 console.log(`encode\t${ms.toFixed(3)}\t${chk(out)}`);
+
+t0 = performance.now();
+const vb = JSON.parse(new TextDecoder().decode(RAW));
+ms = performance.now() - t0;
+console.log(`parse.bytes\t${ms.toFixed(3)}\t${chk(JSON.stringify(vb))}`);
+
+t0 = performance.now();
+const outb = new TextEncoder().encode(JSON.stringify(vb));
+ms = performance.now() - t0;
+console.log(`encode.bytes\t${ms.toFixed(3)}\t${chk(Buffer.from(outb).toString("latin1"))}`);

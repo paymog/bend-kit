@@ -7,7 +7,7 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 RECORDS = int(sys.argv[2]) if len(sys.argv) > 2 else 4000
-OPS = ["parse", "encode"]
+OPS = ["parse", "encode", "parse.bytes", "encode.bytes"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 # name -> (build argv or None, run argv). Every program reads out/doc.json and prints `op<TAB>ms<TAB>checksum` per op.

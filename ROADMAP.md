@@ -82,7 +82,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### Existing packages
 
 - [ ] **Decode bodies without a `String` copy.** `decoded` turns a compressed body into a `String` for `zlib` and the result back into `Bytes`. The native effects in #142 take and return the `Bytes` layout, which removes both copies.
-- [ ] **Speed up JSON.** A 1 MB `Json.parse` takes about 3.4 s of CPU.
+- [ ] **Speed up JSON.** On the 1.36 MB bench document, `Json.parse.bytes` takes 11 ms and `Json.encode.bytes` 9 ms; Bun takes about 2 ms and 1 ms. Keys and string values are still `String`s.
 - [ ] **Stream in the server.** `serve` hands the handler a whole `Req` and sends a whole `Res`. Add a handler form that reads the request body and writes the response in pieces, on the same `Rb`/`ck` framing the client streams use.
 - [ ] **Lingering close in `serve`.** After a 400, 413, or 431, `serve` closes with unread client bytes, so the client may get an RST instead of the response. Stop writing, drain for a moment, then close.
 - [ ] **IPv6.** `Dns.resolve` goes through `getaddrinfo` (#93) but asks for `AF_INET` only, and the runtime's `io_sys_addr` connects over IPv4 only. Ask for AAAA too and add IPv6 connect.

@@ -1,7 +1,9 @@
 # JSON values, parsed and encoded as RFC 8259. Source: https://github.com/paymog/bend-kit/tree/main/json
 import Base
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
-# JSON (RFC 8259) over text; decode bytes with Utf8 first. Nesting has no
+# JSON (RFC 8259). parse and encode work on text; parse.bytes and encode.bytes
+# work on UTF-8 in Bytes, with no String of the whole text. Nesting has no
 # depth limit other than input size: the parser keeps its own stack, since a
 # Bend def cannot call itself through another def.
 #   import ./json/json.bend as Json
@@ -452,6 +454,7 @@ def esc(s: String) -> String:
 
 type Item is Data:
   ILit{s: String}
+  IKey{k: String}
   IVal{v: Val}
 
 def items.sep(first: Bool, tail: List<&2, Item>) -> List<&2, Item>:
@@ -473,7 +476,7 @@ def items.obj(kvs: List<&2, Sigma<&2, &2, String, _ => Val>>, first: Bool, rest:
     case Nil{}:
       Con{ILit{"}"}, rest}
     case (k, v) <> t:
-      items.sep(first, Con{ILit{"\"" ++ esc(k) ++ "\":"}, Con{IVal{v}, items.obj(t, False{}, rest)}})
+      items.sep(first, Con{IKey{k}, Con{IVal{v}, items.obj(t, False{}, rest)}})
 
 def put(s: String, racc: String) -> String:
   String.reverse(s) ++ racc
@@ -487,6 +490,8 @@ def enc.go(items: List<&2, Item>, racc: String) -> String:
       String.reverse(racc)
     case Con{ILit{s}, t}:
       enc.go(t, put(s, racc))
+    case Con{IKey{k}, t}:
+      enc.go(t, put("\"" ++ esc(k) ++ "\":", racc))
     case Con{IVal{Null{}}, t}:
       enc.go(t, put("null", racc))
     case Con{IVal{Flag{True{}}}, t}:
@@ -582,3 +587,524 @@ def u32(v: Val) -> Maybe<&2, U32>:
       None{}
     case Obj{m}:
       None{}
+
+# Bytes: parse
+# ------------
+# The same machine over UTF-8 in a Bytes buffer. A state holds the offset of
+# its next byte; the buffer goes beside it.
+
+type Sb is Data:
+  BValue{i: U32, stack: List<&2, Open>}
+  BFirst{i: U32, open: Open, stack: List<&2, Open>}
+  BKey{i: U32, stack: List<&2, Open>}
+  BColon{key: String, i: U32, stack: List<&2, Open>}
+  BStr{i: U32, acc: String, key: Bool, stack: List<&2, Open>}
+  BNum{i: U32, st: U32, acc: String, stack: List<&2, Open>}
+  BAfter{v: Val, i: U32, stack: List<&2, Open>}
+  BSep{i: U32, open: Open, stack: List<&2, Open>}
+  BEnd{v: Val, i: U32}
+  BOk{v: Val}
+  BFail{}
+
+type Cp is Data:
+  Cp{c: U32, w: U32}
+
+def pk.if(ok: Bool, a: Array<U32>, +i: U32) -> Array<U32> & U32:
+  match ok:
+    case True{}:
+      Bytes.peek(a, i)
+    case False{}:
+      (a, 256)
+
+# Byte i, or 256 at the end, which no rule accepts.
+def pk(a: Array<U32>, +len: U32, +i: U32) -> Array<U32> & U32:
+  pk.if(U32.is_lt(i, len), a, i)
+
+def word.go(w: String, ok: Bool, r: Array<U32> & U32, +len: U32, +j: U32) -> Array<U32> & Bool:
+  match w:
+    case SNil{}:
+      (a, b) = r
+      (a, ok)
+    case SCon{Chr{+c}, t}:
+      (a, +b) = r
+      word.go(t, ok && U32.is_eq(b, c), pk(a, len, (j + 1 : U32)), len, (j + 1 : U32))
+
+# Do the bytes from j spell w?
+def word(a: Array<U32>, +len: U32, w: String, +j: U32) -> Array<U32> & Bool:
+  word.go(w, True{}, pk(a, len, j), len, j)
+
+def hex4.b.go(n: Nat, r: Array<U32> & U32, +len: U32, +j: U32, +acc: U32) -> Array<U32> & U32:
+  match n:
+    case 0n:
+      (a, b) = r
+      (a, acc)
+    case 1n+k:
+      (a, +b) = r
+      +h = hexd(b)
+      hex4.b.go(k, pk(a, len, (j + 1 : U32)), len, (j + 1 : U32), Bool.pick(U32, U32.is_eq(h, 99) || U32.is_eq(acc, 65536), 65536, (acc * 16 + h : U32)))
+
+# Four hex digits from byte j, or 65536 if one is not a hex digit.
+def hex4.b(a: Array<U32>, +len: U32, +j: U32) -> Array<U32> & U32:
+  hex4.b.go(4n, pk(a, len, j), len, j, 0)
+
+def cont(+b: U32) -> Bool:
+  U32.is_eq((b .&. 192 : U32), 128)
+
+# RFC 3629 §4: overlong forms, surrogates, and code points past U+10FFFF are invalid, width 0.
+def utf8.n(+b0: U32, +b1: U32, +b2: U32, +b3: U32) -> Cp:
+  +x1 = (b1 .&. 63 : U32)
+  +x2 = (b2 .&. 63 : U32)
+  +x3 = (b3 .&. 63 : U32)
+  +c2 = (((b0 .&. 31) << 6n) .|. x1 : U32)
+  +c3 = ((((b0 .&. 15) << 12n) .|. (x1 << 6n)) .|. x2 : U32)
+  +c4 = (((((b0 .&. 7) << 18n) .|. (x1 << 12n)) .|. (x2 << 6n)) .|. x3 : U32)
+  +ok2 = U32.is_le(192, b0) && U32.is_lt(b0, 224) && cont(b1) && U32.is_le(128, c2)
+  +ok3 = U32.is_le(224, b0) && U32.is_lt(b0, 240) && cont(b1) && cont(b2) && U32.is_le(2048, c3) && (U32.is_lt(c3, 55296) || U32.is_lt(57343, c3))
+  +ok4 = U32.is_le(240, b0) && U32.is_lt(b0, 248) && cont(b1) && cont(b2) && cont(b3) && U32.is_le(65536, c4) && U32.is_le(c4, 1114111)
+  Bool.pick(Cp, ok2, Cp{c2, 2}, Bool.pick(Cp, ok3, Cp{c3, 3}, Bool.pick(Cp, ok4, Cp{c4, 4}, Cp{0, 0})))
+
+def utf8.b3(+b0: U32, +b1: U32, +b2: U32, r: Array<U32> & U32) -> Array<U32> & Cp:
+  (a, +b3) = r
+  (a, utf8.n(b0, b1, b2, b3))
+
+def utf8.b2(+len: U32, +i: U32, +b0: U32, +b1: U32, r: Array<U32> & U32) -> Array<U32> & Cp:
+  (a, +b2) = r
+  utf8.b3(b0, b1, b2, pk(a, len, (i + 3 : U32)))
+
+def utf8.b1(+len: U32, +i: U32, +b0: U32, r: Array<U32> & U32) -> Array<U32> & Cp:
+  (a, +b1) = r
+  utf8.b2(len, i, b0, b1, pk(a, len, (i + 2 : U32)))
+
+# The code point whose lead byte b0 is at i.
+def utf8.at(a: Array<U32>, +len: U32, +i: U32, +b0: U32) -> Array<U32> & Cp:
+  utf8.b1(len, i, b0, pk(a, len, (i + 1 : U32)))
+
+def str.b.cp(acc: String, key: Bool, stack: List<&2, Open>, +i: U32, r: Array<U32> & Cp) -> Array<U32> & Sb:
+  (a, Cp{+c, +w}) = r
+  (a, Bool.pick(Sb, U32.is_eq(w, 0), BFail{}, BStr{(i + w : U32), SCon{Chr{c}, acc}, key, stack}))
+
+def str.b.lo(+i: U32, +hi: U32, +acc: String, +key: Bool, +stack: List<&2, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
+  (a, +lo) = r
+  (a, Bool.pick(Sb, is_lo(lo), BStr{(i + 12 : U32), SCon{Chr{(65536 + (hi - 55296 : U32) * 1024 + (lo - 56320 : U32) : U32)}, acc}, key, stack}, BStr{(i + 6 : U32), SCon{Chr{65533}, acc}, key, stack}))
+
+# §8.2: a high surrogate pairs with a following \uDC00-\uDFFF; a lone one is U+FFFD.
+def str.b.pair(+len: U32, +i: U32, +hi: U32, acc: String, key: Bool, stack: List<&2, Open>, r: Array<U32> & Bool) -> Array<U32> & Sb:
+  (a, ok) = r
+  match ok:
+    case True{}:
+      str.b.lo(i, hi, acc, key, stack, hex4.b(a, len, (i + 8 : U32)))
+    case False{}:
+      (a, BStr{(i + 6 : U32), SCon{Chr{65533}, acc}, key, stack})
+
+# 0: not four hex digits; 1: high surrogate; 2: low surrogate; 3: other.
+def u.class(+v: U32) -> U32:
+  Bool.pick(U32, U32.is_eq(v, 65536), 0, Bool.pick(U32, is_hi(v), 1, Bool.pick(U32, is_lo(v), 2, 3)))
+
+def str.b.u.of(+k: U32, a: Array<U32>, +len: U32, +i: U32, +v: U32, acc: String, key: Bool, stack: List<&2, Open>) -> Array<U32> & Sb:
+  match k:
+    case 0:
+      (a, BFail{})
+    case 1:
+      str.b.pair(len, i, v, acc, key, stack, word(a, len, "\\u", (i + 6 : U32)))
+    case 2:
+      (a, BStr{(i + 6 : U32), SCon{Chr{65533}, acc}, key, stack})
+    case _:
+      (a, BStr{(i + 6 : U32), SCon{Chr{v}, acc}, key, stack})
+
+def str.b.u(+len: U32, +i: U32, acc: String, key: Bool, stack: List<&2, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
+  (a, +v) = r
+  str.b.u.of(u.class(v), a, len, i, v, acc, key, stack)
+
+# The escape whose backslash is at i.
+def str.b.esc(+len: U32, +i: U32, acc: String, key: Bool, stack: List<&2, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
+  (a, +e) = r
+  match e:
+    case 117:
+      str.b.u(len, i, acc, key, stack, hex4.b(a, len, (i + 2 : U32)))
+    case _:
+      +v = esc.simple(e)
+      (a, Bool.pick(Sb, U32.is_eq(v, 99), BFail{}, BStr{(i + 2 : U32), SCon{Chr{v}, acc}, key, stack}))
+
+def str.b.close(+i: U32, acc: String, key: Bool, stack: List<&2, Open>) -> Sb:
+  match key:
+    case True{}:
+      BColon{String.reverse(acc), (i + 1 : U32), stack}
+    case False{}:
+      BAfter{Str{String.reverse(acc)}, (i + 1 : U32), stack}
+
+# §7: unescaped chars below U+0020 are not allowed in a string.
+def str.b.other(ascii: Bool, +c: U32, a: Array<U32>, +len: U32, +i: U32, acc: String, key: Bool, stack: List<&2, Open>) -> Array<U32> & Sb:
+  match ascii:
+    case True{}:
+      (a, Bool.pick(Sb, U32.is_lt(c, 32), BFail{}, BStr{(i + 1 : U32), SCon{Chr{c}, acc}, key, stack}))
+    case False{}:
+      str.b.cp(acc, key, stack, i, utf8.at(a, len, i, c))
+
+def str.b(r: Array<U32> & U32, +len: U32, +i: U32, acc: String, key: Bool, stack: List<&2, Open>) -> Array<U32> & Sb:
+  (a, +c) = r
+  match c:
+    case 34:
+      (a, str.b.close(i, acc, key, stack))
+    case 92:
+      str.b.esc(len, i, acc, key, stack, pk(a, len, (i + 1 : U32)))
+    case 256:
+      (a, BFail{})
+    case _:
+      str.b.other(U32.is_lt(c, 128), c, a, len, i, acc, key, stack)
+
+def num.b.end(ok: Bool, +i: U32, acc: String, stack: List<&2, Open>) -> Sb:
+  match ok:
+    case True{}:
+      BAfter{Num{String.reverse(acc)}, i, stack}
+    case False{}:
+      BFail{}
+
+def num.b.if(stop: Bool, +c: U32, +i: U32, +st: U32, +n: U32, acc: String, stack: List<&2, Open>) -> Sb:
+  match stop:
+    case True{}:
+      num.b.end(num.accepts(st), i, acc, stack)
+    case False{}:
+      BNum{(i + 1 : U32), n, SCon{Chr{c}, acc}, stack}
+
+def num.b(r: Array<U32> & U32, +i: U32, +st: U32, acc: String, stack: List<&2, Open>) -> Array<U32> & Sb:
+  (a, +c) = r
+  +n = num.trans(st, c)
+  (a, num.b.if(U32.is_eq(n, 99), c, i, st, n, acc, stack))
+
+def lit.b(+i: U32, +n: U32, v: Val, stack: List<&2, Open>, r: Array<U32> & Bool) -> Array<U32> & Sb:
+  (a, ok) = r
+  match ok:
+    case True{}:
+      (a, BAfter{v, (i + n : U32), stack})
+    case False{}:
+      (a, BFail{})
+
+def value.b(r: Array<U32> & U32, +len: U32, +i: U32, stack: List<&2, Open>) -> Array<U32> & Sb:
+  (a, +c) = r
+  match c:
+    case 32:
+      (a, BValue{(i + 1 : U32), stack})
+    case 9:
+      (a, BValue{(i + 1 : U32), stack})
+    case 10:
+      (a, BValue{(i + 1 : U32), stack})
+    case 13:
+      (a, BValue{(i + 1 : U32), stack})
+    case 91:
+      (a, BFirst{(i + 1 : U32), OArr{Nil{}}, stack})
+    case 123:
+      (a, BFirst{(i + 1 : U32), OObj{Map.new(&2, Val), ""}, stack})
+    case 34:
+      (a, BStr{(i + 1 : U32), SNil{}, False{}, stack})
+    case 116:
+      lit.b(i, 4, Flag{True{}}, stack, word(a, len, "true", i))
+    case 102:
+      lit.b(i, 5, Flag{False{}}, stack, word(a, len, "false", i))
+    case 110:
+      lit.b(i, 4, Null{}, stack, word(a, len, "null", i))
+    case _:
+      (a, BNum{i, 0, SNil{}, stack})
+
+# After "[" or "{": the closing bracket, or the first item.
+def first.b.end(open: Open, +c: U32, +i: U32, stack: List<&2, Open>) -> Sb:
+  match open:
+    case OArr{xs}:
+      Bool.pick(Sb, U32.is_eq(c, 93), BAfter{Arr{Nil{}}, (i + 1 : U32), stack}, BFail{})
+    case OObj{m, k}:
+      Bool.pick(Sb, U32.is_eq(c, 125), BAfter{Obj{m}, (i + 1 : U32), stack}, BFail{})
+
+def first.b.open(open: Open, +i: U32, stack: List<&2, Open>) -> Sb:
+  match open:
+    case OArr{xs}:
+      BValue{i, Con{OArr{xs}, stack}}
+    case OObj{m, k}:
+      BKey{i, Con{OObj{m, k}, stack}}
+
+def first.b(r: Array<U32> & U32, +i: U32, open: Open, stack: List<&2, Open>) -> Array<U32> & Sb:
+  (a, +c) = r
+  match c:
+    case 32:
+      (a, BFirst{(i + 1 : U32), open, stack})
+    case 9:
+      (a, BFirst{(i + 1 : U32), open, stack})
+    case 10:
+      (a, BFirst{(i + 1 : U32), open, stack})
+    case 13:
+      (a, BFirst{(i + 1 : U32), open, stack})
+    case 93:
+      (a, first.b.end(open, c, i, stack))
+    case 125:
+      (a, first.b.end(open, c, i, stack))
+    case _:
+      (a, first.b.open(open, i, stack))
+
+def key.b(r: Array<U32> & U32, +i: U32, stack: List<&2, Open>) -> Array<U32> & Sb:
+  (a, +c) = r
+  match c:
+    case 32:
+      (a, BKey{(i + 1 : U32), stack})
+    case 9:
+      (a, BKey{(i + 1 : U32), stack})
+    case 10:
+      (a, BKey{(i + 1 : U32), stack})
+    case 13:
+      (a, BKey{(i + 1 : U32), stack})
+    case 34:
+      (a, BStr{(i + 1 : U32), SNil{}, True{}, stack})
+    case _:
+      (a, BFail{})
+
+def colon.b.top(k: String, +i: U32, stack: List<&2, Open>) -> Sb:
+  match stack:
+    case Nil{}:
+      BFail{}
+    case Con{OArr{xs}, up}:
+      BFail{}
+    case Con{OObj{m, old}, up}:
+      BValue{i, Con{OObj{m, k}, up}}
+
+def colon.b(r: Array<U32> & U32, k: String, +i: U32, stack: List<&2, Open>) -> Array<U32> & Sb:
+  (a, +c) = r
+  match c:
+    case 32:
+      (a, BColon{k, (i + 1 : U32), stack})
+    case 9:
+      (a, BColon{k, (i + 1 : U32), stack})
+    case 10:
+      (a, BColon{k, (i + 1 : U32), stack})
+    case 13:
+      (a, BColon{k, (i + 1 : U32), stack})
+    case 58:
+      (a, colon.b.top(k, (i + 1 : U32), stack))
+    case _:
+      (a, BFail{})
+
+# A finished value joins its container.
+def after.b(v: Val, +i: U32, stack: List<&2, Open>) -> Sb:
+  match stack:
+    case Nil{}:
+      BEnd{v, i}
+    case Con{OArr{xs}, up}:
+      BSep{i, OArr{Con{v, xs}}, up}
+    case Con{OObj{m, k}, up}:
+      BSep{i, OObj{Map.set(&2, Val, m, k, v), ""}, up}
+
+def sep.b.comma(open: Open, +i: U32, up: List<&2, Open>) -> Sb:
+  match open:
+    case OArr{xs}:
+      BValue{i, Con{OArr{xs}, up}}
+    case OObj{m, k}:
+      BKey{i, Con{OObj{m, k}, up}}
+
+def sep.b.close(open: Open, +c: U32, +i: U32, up: List<&2, Open>) -> Sb:
+  match open:
+    case OArr{xs}:
+      Bool.pick(Sb, U32.is_eq(c, 93), BAfter{Arr{List.reverse(&2, Val, xs)}, i, up}, BFail{})
+    case OObj{m, k}:
+      Bool.pick(Sb, U32.is_eq(c, 125), BAfter{Obj{m}, i, up}, BFail{})
+
+# After an item: "," or the closing bracket.
+def sep.b(r: Array<U32> & U32, +i: U32, open: Open, up: List<&2, Open>) -> Array<U32> & Sb:
+  (a, +c) = r
+  match c:
+    case 32:
+      (a, BSep{(i + 1 : U32), open, up})
+    case 9:
+      (a, BSep{(i + 1 : U32), open, up})
+    case 10:
+      (a, BSep{(i + 1 : U32), open, up})
+    case 13:
+      (a, BSep{(i + 1 : U32), open, up})
+    case 44:
+      (a, sep.b.comma(open, (i + 1 : U32), up))
+    case _:
+      (a, sep.b.close(open, c, (i + 1 : U32), up))
+
+def end.b(r: Array<U32> & U32, v: Val, +i: U32) -> Array<U32> & Sb:
+  (a, +c) = r
+  match c:
+    case 32:
+      (a, BEnd{v, (i + 1 : U32)})
+    case 9:
+      (a, BEnd{v, (i + 1 : U32)})
+    case 10:
+      (a, BEnd{v, (i + 1 : U32)})
+    case 13:
+      (a, BEnd{v, (i + 1 : U32)})
+    case 256:
+      (a, BOk{v})
+    case _:
+      (a, BFail{})
+
+# fuel: a step eats a byte, or ends a number, a value, or an opening bracket, so 4 * len + 4 steps are enough.
+def runb(fuel: Nat, r: Array<U32> & Sb, +len: U32) -> Maybe<&2, Val>:
+  match fuel:
+    case 0n:
+      None{}
+    case 1n+f:
+      (a, st) = r
+      match st:
+        case BOk{v}:
+          Some{v}
+        case BFail{}:
+          None{}
+        case BValue{+i, stack}:
+          runb(f, value.b(pk(a, len, i), len, i, stack), len)
+        case BFirst{+i, open, stack}:
+          runb(f, first.b(pk(a, len, i), i, open, stack), len)
+        case BKey{+i, stack}:
+          runb(f, key.b(pk(a, len, i), i, stack), len)
+        case BColon{k, +i, stack}:
+          runb(f, colon.b(pk(a, len, i), k, i, stack), len)
+        case BStr{+i, acc, k, stack}:
+          runb(f, str.b(pk(a, len, i), len, i, acc, k, stack), len)
+        case BNum{+i, +s, acc, stack}:
+          runb(f, num.b(pk(a, len, i), i, s, acc, stack), len)
+        case BAfter{v, +i, stack}:
+          runb(f, (a, after.b(v, i, stack)), len)
+        case BSep{+i, open, stack}:
+          runb(f, sep.b(pk(a, len, i), i, open, stack), len)
+        case BEnd{v, +i}:
+          runb(f, end.b(pk(a, len, i), v, i), len)
+
+# One JSON text in UTF-8. None for bad JSON or bad UTF-8 (RFC 8259 §8.1).
+def parse.bytes(b: Bytes.Bytes) -> Maybe<&2, Val>:
+  Bytes.Bytes{+len, buf} = b
+  runb(Nat.add(Nat.mul(U32.to_nat(len), 4n), 4n), (buf, BValue{0, Nil{}}), len)
+
+# Bytes: encode
+# -------------
+
+# Octets being written: the buffer, its size in words, the count so far, and
+# the word being filled. Bytes enter at the top of w, as in Bytes.from_string.
+type W is Type:
+  W{buf: Array<U32>, cap: U32, n: U32, w: U32}
+
+# The buffer doubles when word k does not fit.
+def w.room(grow: Bool, buf: Array<U32>, +k: U32) -> Array<U32>:
+  match grow:
+    case True{}:
+      Bytes.grow((k * 4 : U32), buf, (k * 8 : U32))
+    case False{}:
+      buf
+
+def w.store(full: Bool, buf: Array<U32>, +cap: U32, +n: U32, +w: U32) -> W:
+  match full:
+    case True{}:
+      +k = (n >> 2n : U32)
+      +g = U32.is_eq(k, cap)
+      W{Array.set(U32, w.room(g, buf, k), k, w), Bool.pick(U32, g, (cap * 2 : U32), cap), (n + 1 : U32), 0}
+    case False{}:
+      W{buf, cap, (n + 1 : U32), w}
+
+def w.put(o: W, +b: U32) -> W:
+  W{buf, +cap, +n, +w} = o
+  w.store(U32.is_eq((n .&. 3 : U32), 3), buf, cap, n, ((w >> 8n) .|. (b << 24n) : U32))
+
+def w.shrink(fit: Bool, +n: U32, buf: Array<U32>) -> Array<U32>:
+  match fit:
+    case True{}:
+      buf
+    case False{}:
+      Bytes.dst(Bytes.copy(n, buf, Bytes.alloc(n), 0, 0))
+
+# Stores the last partial word, then copies into the fewest words, as Bytes requires.
+def w.done(o: W) -> Bytes.Bytes:
+  W{buf, +cap, +n, +w} = o
+  +r = (n .&. 3 : U32)
+  +k = (n >> 2n : U32)
+  +g = U32.is_ne(r, 0) && U32.is_eq(k, cap)
+  +cap2 = Bool.pick(U32, g, (cap * 2 : U32), cap)
+  out = Bytes.flush(U32.is_ne(r, 0), w.room(g, buf, k), k, U32.shrn(w, U32.to_nat((((4 - r) .&. 3) * 8 : U32))))
+  Bytes.Bytes{n, w.shrink(U32.is_eq(U32.shln(1, Bytes.depth(Bytes.words(n))), cap2), n, out)}
+
+def w.cont(+c: U32, +k: Nat) -> U32:
+  (128 + (U32.shrn(c, k) .&. 63) : U32)
+
+def w.cp.of(+n: U32, +c: U32, o: W) -> W:
+  match n:
+    case 1:
+      w.put(o, c)
+    case 2:
+      w.put(w.put(o, (192 + U32.shrn(c, 6n) : U32)), w.cont(c, 0n))
+    case 3:
+      w.put(w.put(w.put(o, (224 + U32.shrn(c, 12n) : U32)), w.cont(c, 6n)), w.cont(c, 0n))
+    case _:
+      w.put(w.put(w.put(w.put(o, (240 + U32.shrn(c, 18n) : U32)), w.cont(c, 12n)), w.cont(c, 6n)), w.cont(c, 0n))
+
+# One code point in UTF-8.
+def w.cp(+c: U32, o: W) -> W:
+  w.cp.of(Bool.pick(U32, U32.is_lt(c, 128), 1, Bool.pick(U32, U32.is_lt(c, 2048), 2, Bool.pick(U32, U32.is_lt(c, 65536), 3, 4))), c, o)
+
+def w.hex(+n: U32) -> U32:
+  Bool.pick(U32, U32.is_lt(n, 10), (48 + n : U32), (87 + n : U32))
+
+def w.ctl(ctl: Bool, +c: U32, o: W) -> W:
+  match ctl:
+    case True{}:
+      w.put(w.put(w.put(w.put(w.put(w.put(o, 92), 117), 48), 48), w.hex(U32.shrn(c, 4n))), w.hex((c .&. 15 : U32)))
+    case False{}:
+      w.cp(c, o)
+
+# §7: quote, backslash and control chars are escaped.
+def w.esc.c(+c: U32, o: W) -> W:
+  match c:
+    case 34:
+      w.put(w.put(o, 92), 34)
+    case 92:
+      w.put(w.put(o, 92), 92)
+    case 10:
+      w.put(w.put(o, 92), 110)
+    case 13:
+      w.put(w.put(o, 92), 114)
+    case 9:
+      w.put(w.put(o, 92), 116)
+    case _:
+      w.ctl(U32.is_lt(c, 32), c, o)
+
+def w.text(s: String, o: W) -> W:
+  match s:
+    case SNil{}:
+      o
+    case SCon{Chr{+c}, t}:
+      w.text(t, w.cp(c, o))
+
+# A quoted, escaped string.
+def w.str.go(s: String, o: W) -> W:
+  match s:
+    case SNil{}:
+      w.put(o, 34)
+    case SCon{Chr{+c}, t}:
+      w.str.go(t, w.esc.c(c, o))
+
+def w.str(s: String, o: W) -> W:
+  w.str.go(s, w.put(o, 34))
+
+# ponytail: @unsafe for the same reason as enc.go.
+@unsafe
+def encb.go(items: List<&2, Item>, o: W) -> W:
+  match items:
+    case Nil{}:
+      o
+    case Con{ILit{s}, t}:
+      encb.go(t, w.text(s, o))
+    case Con{IKey{k}, t}:
+      encb.go(t, w.put(w.str(k, o), 58))
+    case Con{IVal{Null{}}, t}:
+      encb.go(t, w.text("null", o))
+    case Con{IVal{Flag{True{}}}, t}:
+      encb.go(t, w.text("true", o))
+    case Con{IVal{Flag{False{}}}, t}:
+      encb.go(t, w.text("false", o))
+    case Con{IVal{Num{n}}, t}:
+      encb.go(t, w.text(n, o))
+    case Con{IVal{Str{s}}, t}:
+      encb.go(t, w.str(s, o))
+    case Con{IVal{Arr{xs}}, t}:
+      encb.go(Con{ILit{"["}, items.arr(xs, True{}, t)}, o)
+    case Con{IVal{Obj{m}}, t}:
+      encb.go(Con{ILit{"{"}, items.obj(Map.to_list(&2, Val, m), True{}, t)}, o)
+
+# encode, as UTF-8 in Bytes.
+def encode.bytes(v: Val) -> Bytes.Bytes:
+  w.done(encb.go(Con{IVal{v}, Nil{}}, W{Bytes.alloc(64), 16, 0, 0}))
