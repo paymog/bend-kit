@@ -1,13 +1,13 @@
 # HTTP/1.1 client and server for http and https, with DNS and TLS. Source: https://github.com/paymog/bend-kit/tree/main/http
 import Base
-# By hash: bend-kit-wire@0.4.0.3, -url@0.4.0.0, -encoding@0.3.0.0, -json@0.3.0.0, -bytes@0.3.0.0, -dns@0.3.2.1, -zlib@0.1.0.0.
+# By hash: bend-kit-wire@0.4.0.3, -url@0.4.0.0, -encoding@0.3.0.0, -json@0.3.0.0, -bytes@0.3.0.0, -dns@0.3.2.1, -zlib@0.1.3.0.
 import 0x096635686408886b7d907f16c4550317/wire.bend as Wire
 import 0xd248560355ba8929ae030bc9c72f40be/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0xaaa10a97bf5ac6990143da2c863f8a3f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import 0xc10a5eaaa9c896e1570e279945f4241e/dns.bend as Dns
-import 0xe01785b64266bf3ba0068183b9f9f5e3/zlib.bend as Zlib
+import 0x9d101c075b333e2b07242347f7c35b1c/zlib.bend as Zlib
 
 # HTTP/1.1 codec and client (RFC 9112) for http:// and https:// (OpenSSL 3 at run time).
 # parse: start-line → field lines → blank → body length (§6.3); chunked (§7.1).
@@ -2203,16 +2203,16 @@ def fetch.policy(mode: Mode, left: Nat, h: Hop, m: Result<&1, &1, Err, Res>) -> 
     case ModeError{}:
       fetch.error(h, m)
 
-# A caller's own Accept-Encoding wins.
-def accept.enc(+h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
-  Bool.pick(Map<&2, List<&2, String>>, has_header(h, "accept-encoding"), h, set(h, "accept-encoding", "gzip, deflate"))
+# A caller's own Accept-Encoding wins; enc is the codings fetch can undo.
+def accept.enc(+h: Map<&2, List<&2, String>>, +enc: String) -> Map<&2, List<&2, String>>:
+  Bool.pick(Map<&2, List<&2, String>>, has_header(h, "accept-encoding"), h, set(h, "accept-encoding", enc))
 
-def fetch.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, u: Maybe<&2, Url.Abs>) -> Next:
+def fetch.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, u: Maybe<&2, Url.Abs>, +enc: String) -> Next:
   match u:
     case None{}:
       NDone{Fail{ErrUrl{}}}
     case Some{a}:
-      NGo{20n, Hop{method, a, accept.enc(req.put(Map.to_list(&2, List<&2, String>, headers), empty())), body}}
+      NGo{20n, Hop{method, a, accept.enc(req.put(Map.to_list(&2, List<&2, String>, headers), empty()), enc), body}}
 
 def pool.next(+mode: Mode, left: Nat, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Pool & Next:
   (p, m, h) = x
@@ -2330,25 +2330,171 @@ def decoded.m(r: Result<&1, &1, Err, Res>) -> Maybe<&1, Res>:
 def decoded.some(res: Res) -> Maybe<&1, Res>:
   decoded.m(decoded(res))
 
+def ce.words(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Maybe<&1, Bytes.Bytes>:
+  match r:
+    case Fail{e}:
+      None{}
+    case Done{(+len, buf)}:
+      Some{Bytes.Bytes{len, buf}}
+
+# A decoded body stops at 16 MiB, like a received one.
+def ce.eff(~eff: U32 -> U32 -> Array<U32> -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>), b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
+  Bytes.Bytes{+len, buf} = b
+  do IO<Maybe<&1, Bytes.Bytes>>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- eff(16777216, len, buf)
+    return ce.words(r)
+
+def ce.dec(d: Dec) -> Maybe<&1, Bytes.Bytes>:
+  match d:
+    case DecOk{b}:
+      Some{Bytes.from_string(b)}
+    case DecBad{}:
+      None{}
+    case DecSkip{}:
+      None{}
+
+# ponytail: deflate runs on the pure decoder, which also takes raw DEFLATE; servers rarely send it.
+def ce.io.deflate(on: Bool, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
+  match on:
+    case True{}:
+      +s = Bytes.to_string(b)
+      IO.pure(Maybe<&1, Bytes.Bytes>, ce.dec(ce.deflate(s, Zlib.unzlib(s))))
+    case False{}:
+      IO.pure(Maybe<&1, Bytes.Bytes>, Some{b})
+
+def ce.io.zstd(on: Bool, +c: String, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
+  match on:
+    case True{}:
+      ce.eff(~Zlib.zstd.words, b)
+    case False{}:
+      ce.io.deflate(String.eq(c, "deflate"), b)
+
+def ce.io.br(on: Bool, +c: String, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
+  match on:
+    case True{}:
+      ce.eff(~Zlib.brotli.words, b)
+    case False{}:
+      ce.io.zstd(String.eq(c, "zstd"), c, b)
+
+# One known coding undone: gzip, x-gzip, br, zstd, deflate, or identity.
+def ce.io.gz(on: Bool, +c: String, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
+  match on:
+    case True{}:
+      ce.eff(~Zlib.inflate.words, b)
+    case False{}:
+      ce.io.br(String.eq(c, "br"), c, b)
+
+def ce.io.go(cs: List<&2, String>, m: Maybe<&1, Bytes.Bytes>) -> IO(Maybe<&1, Bytes.Bytes>):
+  match cs:
+    case Nil{}:
+      match m:
+        case None{}:
+          IO.pure(Maybe<&1, Bytes.Bytes>, None{})
+        case Some{b}:
+          IO.pure(Maybe<&1, Bytes.Bytes>, Some{b})
+    case Con{+c, t}:
+      match m:
+        case None{}:
+          IO.pure(Maybe<&1, Bytes.Bytes>, None{})
+        case Some{b}:
+          do IO<Maybe<&1, Bytes.Bytes>>:
+            n : Maybe<&1, Bytes.Bytes> <- ce.io.gz(Bool.or(String.eq(c, "gzip"), String.eq(c, "x-gzip")), c, b)
+            ce.io.go(t, n)
+
+def ce.has(xs: List<&2, String>, +c: String) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{x, t}:
+      Bool.or(String.eq(c, x), ce.has(t, c))
+
+def ce.known(cs: List<&2, String>, +ok: List<&2, String>) -> Bool:
+  match cs:
+    case Nil{}:
+      True{}
+    case Con{c, t}:
+      Bool.and(ce.has(ok, c), ce.known(t, ok))
+
+def decoded.io.pick(m: Maybe<&1, Bytes.Bytes>, +status: U32, headers: Map<&2, List<&2, String>>) -> Result<&1, &1, Err, Res>:
+  match m:
+    case Some{b}:
+      Done{Res{status, headers, b}}
+    case None{}:
+      Fail{ErrBad{}}
+
+def decoded.io.run(known: Bool, +status: U32, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, cs: List<&2, String>) -> IO(Result<&1, &1, Err, Res>):
+  match known:
+    case True{}:
+      do IO<Result<&1, &1, Err, Res>>:
+        m : Maybe<&1, Bytes.Bytes> <- ce.io.go(cs, Some{body})
+        return decoded.io.pick(m, status, headers)
+    case False{}:
+      IO.pure(Result<&1, &1, Err, Res>, Done{Res{status, headers, body}})
+
+def decoded.io.go(empty: Bool, +enc: String, +status: U32, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Result<&1, &1, Err, Res>):
+  match empty:
+    case True{}:
+      IO.pure(Result<&1, &1, Err, Res>, Done{Res{status, headers, body}})
+    case False{}:
+      +cs = List.reverse(&2, String, ce.split(fields(headers, "content-encoding")))
+      decoded.io.run(ce.known(cs, Con{"identity", Con{"x-gzip", ce.split(Con{enc, Nil{}})}}), status, headers, body, cs)
+
+# decoded through the C libraries, for the codings in enc. A body with any other coding stays as sent.
+def decoded.io(+enc: String, res: Res) -> IO(Result<&1, &1, Err, Res>):
+  Res{+status, +headers, body} = res
+  Bytes.Bytes{+len, buf} = body
+  decoded.io.go(U32.is_zero(len), enc, status, headers, Bytes.Bytes{len, buf})
+
+# An effect on empty input fails with ENOENT only when its library does not load.
+def codings.ok(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Bool:
+  match r:
+    case Fail{(+c, why)}:
+      Bool.not(U32.is_eq(c, 2))
+    case Done{p}:
+      True{}
+
+def codings.has(~eff: U32 -> U32 -> Array<U32> -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>), b: Bytes.Bytes) -> IO(Bool):
+  Bytes.Bytes{+len, buf} = b
+  do IO<Bool>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- eff(0, len, buf)
+    return codings.ok(r)
+
+def codings.add(has: Bool, +enc: String, +c: String) -> String:
+  Bool.pick(String, has, enc ++ ", " ++ c, enc)
+
+# gzip and deflate, then br and zstd when their C library loads.
+def codings() -> IO(String):
+  do IO<String>:
+    b : Bool <- codings.has(~Zlib.brotli.words, Bytes.new(0))
+    z : Bool <- codings.has(~Zlib.zstd.words, Bytes.new(0))
+    return codings.add(z, codings.add(b, "gzip, deflate", "br"), "zstd")
+
 # The final response of a fetch, after redirects.
-def fetch.final(r: Result<&1, &1, Err, Res>) -> Result<&1, &1, Err, Res>:
+def fetch.final(+enc: String, r: Result<&1, &1, Err, Res>) -> IO(Result<&1, &1, Err, Res>):
   match r:
     case Done{res}:
-      decoded(res)
+      decoded.io(enc, res)
     case Fail{e}:
-      Fail{e}
+      IO.pure(Result<&1, &1, Err, Res>, Fail{e})
 
-def pool.final(pr: Pool & Result<&1, &1, Err, Res>) -> Pool & Result<&1, &1, Err, Res>:
+def pool.final(+enc: String, pr: Pool & Result<&1, &1, Err, Res>) -> IO(Pool & Result<&1, &1, Err, Res>):
   (p, r) = pr
-  (p, fetch.final(r))
+  do IO<Pool & Result<&1, &1, Err, Res>>:
+    d : Result<&1, &1, Err, Res> <- fetch.final(enc, r)
+    return (p, d)
+
+def pool.how.enc(+enc: String, p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode) -> IO(Pool & Result<&1, &1, Err, Res>):
+  do IO<Pool & Result<&1, &1, Err, Res>>:
+    pr : Pool & Result<&1, &1, Err, Res> <- pool.hops(mode, ms, (p, fetch.start(method, headers, body, Url.absolute(url), enc)))
+    pool.final(enc, pr)
 
 # pool.how(p, "GET", "https://example.com/x?y=1", headers, body, ms, mode) follows redirects
 # on p's idle sockets. Fail is a bad URL, a failed lookup, connect, handshake, send, read,
 # a malformed response, more than 20 redirects, or a step past ms. Bodies are bytes.
 def pool.how(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode) -> IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
-    pr : Pool & Result<&1, &1, Err, Res> <- pool.hops(mode, ms, (p, fetch.start(method, headers, body, Url.absolute(url))))
-    return pool.final(pr)
+    enc : String <- codings()
+    pool.how.enc(enc, p, method, url, headers, body, ms, mode)
 
 def pool.fetch.with(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32) -> IO(Pool & Result<&1, &1, Err, Res>):
   pool.how(p, method, url, headers, body, ms, ModeFollow{})
