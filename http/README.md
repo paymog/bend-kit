@@ -1,12 +1,12 @@
 # http
 
-HTTP/1.1 client and server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).
+HTTP/1.1 and HTTP/2 client, and HTTP/1.1 server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).
 
 ```bend
 import 0x310b0480ce5b511ff8da9704b3d27ef3/http.bend as Http
 ```
 
-`http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, and `zlib` from the hub, so a `Json.Val`, `Url.Abs`, or body from your own import of those packages is the same type that `http` uses.
+`http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, `zlib`, and `http2` from the hub. `Http.Body` keeps its pinned `bytes` type; the HTTP/2 client uses a newer `bytes` version internally and transfers the packed body without copying.
 
 HTTPS needs OpenSSL 3 at run time. On macOS, `brew install openssl@3`. The client looks for Homebrew's `libssl.3.dylib`, then `libssl.so.3`. Set `BEND_LIBSSL` to the library path if it is somewhere else.
 
@@ -49,6 +49,8 @@ def main() -> IO(Unit):
 
 `Http.fetch(method, url, headers, body)` is the same call with a method, headers, and body. `Http.fetch.with(..., ms)` sets the per-step timeout. The default is 30 seconds. A redirect chain stops after 20 hops (`ErrRedirect`). `Http.fetch.how(..., ms, mode)` chooses the policy: `ModeFollow` follows, `ModeManual` returns the 3xx, `ModeError` fails on a redirect. `ETIMEDOUT` is 60 on macOS and 110 on Linux. Both become `ErrTimeout`.
 
+HTTPS `fetch` offers `h2,http/1.1` through ALPN. An HTTP/2 response uses the same `Http.Res` type as HTTP/1.1. Request headers named by `Connection`, pseudo-headers supplied by the caller, and other hop-by-hop headers are not sent over HTTP/2. Hosts that select HTTP/1.1 keep the existing behavior.
+
 For a host with multiple addresses, the client tries them in DNS order until TCP connects, within the step timeout. `http://[::1]:8080/` connects to IPv6 and sends `Host: [::1]:8080`. Address attempts are sequential, not raced.
 
 `Http.get` is `fetch("GET", url, Http.empty(), Http.from_string(""))`.
@@ -85,6 +87,8 @@ A response with `Transfer-Encoding` other than `chunked` is read until the conne
 
 `Http.open(method, url, headers, body)` follows redirects like `fetch` and returns a `Stream` as soon as the head is in. It advertises the same `Accept-Encoding` as `fetch` unless you set that header. `Http.stream.res(st)` gives the status and headers (its body is empty). `Http.stream.read(st)` returns the next decoded piece of the body as an `Http.Body`, or `None` at the end; a piece is never empty. Codings are undone in reverse order. An unknown coding leaves the body as sent. The headers stay as sent, so `content-length` is the compressed size. `Http.stream.close(st)` closes the connection and releases any decoders. `Http.open.raw(...)` and `Http.open.raw.with(..., ms)` send no extra `Accept-Encoding` and return bytes as sent, for proxies. Content-Length, chunked, and close-delimited bodies all stream, and interim 1xx responses are skipped. Streaming a 50 MB uncompressed body keeps the program under 10 MB.
 
+Streams and streamed uploads negotiate HTTP/1.1 only.
+
 `Http.upload(method, url, headers)` sends the head with `Transfer-Encoding: chunked`. `Http.upload.write(up, piece)` sends one `Http.Body` chunk; an empty piece sends nothing. `Http.upload.finish(up)` ends the body and returns the response as a `Stream`. A streamed request body cannot be replayed, so uploads do not follow redirects. `open.with` and `upload.with` take a step timeout.
 
 ## Pool
@@ -107,6 +111,8 @@ def main() -> IO(Unit):
 
 `Http.pool.fetch(p, method, url, headers, body)` is `fetch` on the pool's idle sockets. It returns the pool with the result. Pass that pool to the next call. A pool holds up to 8 idle sockets per scheme, host, and port; `Http.pool.new.with(cap)` sets another cap. A request takes the socket given back last. When a socket comes back past the cap, the pool closes the oldest one of that origin. Redirects use the pool too. When a reused socket fails before any response byte, a GET, HEAD, OPTIONS, TRACE, PUT, or DELETE is retried once on a new connection; other methods fail. `Http.pool.fetch.with(..., ms)` sets the step timeout. `Http.pool.how(..., ms, mode)` sets the redirect mode. `Http.pool.close(p)` closes the idle sockets. `Http.fetch` is a pool of its own that closes when the call ends.
 
+For HTTPS origins that select HTTP/2, the pool keeps one session per origin and reuses it for sequential requests. It closes a session after GOAWAY. HTTP/1.1 sockets use the configured cap.
+
 ## Serve
 
 ```bend
@@ -121,5 +127,7 @@ def main() -> IO(Unit):
 `Http.serve(~h, port)` reads each request until it is whole, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. `Http.serve.with(~h, port, max)` sets the maximum request size in bytes; `serve` defaults to 16 MiB. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
 
 ## Versions
+
+`0.20.0.0` adds HTTP/2 to HTTPS `fetch` and pooled fetch. `Conn` now includes `ConnH2`; code that matches `Conn` must handle both variants.
 
 `bend-kit-http@0.14.0.0` is `http@0.13.1` moved to the Bend hub. Each package's hub description links to its folder here. It imports its sibling packages by hash, so their types are shared with your code. `http@0.13.0` is a break from `http@0.12.0`: request and response bodies, stream pieces, and the wire bytes of `encode`, `encode_req`, and `exchange` are `Http.Body`. `http@0.13.1` adds `Http.Body`, `Http.from_string`, `Http.to_string`, and `Http.length`. `Req` and `Res` are `Type`, so a value is used once: its result type is `Result<&1, &1, Http.Err, Http.Res>`. `http@0.12.0` removed the client read internals (`need`, `fetch.gate`, `Sf`). `http@0.11.0` added `GotHead` to `Got`. `http@0.10.0` changed `exchange` to return the socket as `Maybe<Socket>`.
