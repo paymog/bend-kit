@@ -678,3 +678,24 @@ def Laws.proxy_no_ipv6():
 
 def Laws.proxy_absolute_request():
   {==}
+
+def Laws.cookie_domain_match():
+  {==}
+
+def Laws.cookie_domain_scope():
+  {==}
+
+def Laws.cookie_path_match():
+  {==}
+
+def Laws.cookie_default_path():
+  {==}
+
+def Laws.cookie_path_scope():
+  {==}
+
+def Laws.cookie_date():
+  {==}
+
+def Laws.cookie_expiry():
+  {==}

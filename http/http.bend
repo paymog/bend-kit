@@ -20,7 +20,7 @@ import 0x58bd522479d133cfe1b2c4451fc1a28f/zlib.bend as Zlib
 # Bodies are Bytes. The String parsers below are the spec: one Char per octet.
 # fetch reads until frame() says the response is whole. It returns Result, not Maybe.
 # Build with -o for big bodies: the `bend file.bend` runner overflows on ~30 KB strings; native binaries do not.
-#   import bend-kit-http@0.21.1.0/http.bend as Http
+#   import bend-kit-http@0.22.0.0/http.bend as Http
 
 type Req is Type:
   Req{method: String, path: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes}
@@ -1782,6 +1782,669 @@ def redirect.if(status: U32, h: Hop, loc: String, ok: Bool) -> Maybe<&1, Hop>:
 def redirect(+status: U32, +headers: Map<&2, List<&2, String>>, h: Hop) -> Maybe<&1, Hop>:
   redirect.if(status, h, header(headers, "location"), Bool.and(redirect.code(status), has_header(headers, "location")))
 
+# Cookies (RFC 6265bis §5)
+# ------------------------
+
+# A stored cookie. domain is lowercase, with no leading dot; host_only sends it to that host alone.
+# expiry None is a session cookie. http_only and same_site ("strict", "lax", "none" or "default")
+# are kept, not enforced: fetch has no browsing client, so its requests are same-site (§5.2).
+type Cookie is Data:
+  Cookie{name: String, value: String, domain: String, host_only: Bool, path: String, secure: Bool, http_only: Bool, same_site: String, expiry: Maybe<&2, Time.Instant>}
+
+# The cookies, oldest first, and the caller's clock. No cookie in it has expired by now.
+type Jar is Data:
+  Jar{now: Time.Instant, cookies: List<&2, Cookie>}
+
+def jar.new(now: Time.Instant) -> Jar:
+  Jar{now, Nil{}}
+
+def jar.cookies(j: Jar) -> List<&2, Cookie>:
+  Jar{now, cs} = j
+  cs
+
+def cookie.live.at(+now: Time.Instant, e: Maybe<&2, Time.Instant>) -> Bool:
+  match e:
+    case None{}:
+      True{}
+    case Some{t}:
+      Cmp.is_lt(Time.Instant.cmp(now, t))
+
+# Alive at now: no expiry, or an expiry after now.
+def cookie.live(+now: Time.Instant, c: Cookie) -> Bool:
+  Cookie{name, value, domain, host_only, path, secure, http_only, same_site, expiry} = c
+  cookie.live.at(now, expiry)
+
+def jar.live(cs: List<&2, Cookie>, +now: Time.Instant) -> List<&2, Cookie>:
+  match cs:
+    case Nil{}:
+      Nil{}
+    case Con{+c, t}:
+      List.filter.put(Cookie, c, jar.live(t, now), cookie.live(now, c))
+
+# The jar at a later time: cookies expired by now are evicted (§5.7).
+def jar.at(j: Jar, +now: Time.Instant) -> Jar:
+  Jar{old, cs} = j
+  Jar{now, jar.live(cs, now)}
+
+def cookie.cut.found(r: String & String) -> String & String & Bool:
+  (a, b) = r
+  (a, b, True{})
+
+# hit: the last char pushed onto acc was c.
+def cookie.cut.go(s: String, +c: U32, acc: String, hit: Bool) -> String & String & Bool:
+  match s:
+    case SNil{}:
+      match hit:
+        case True{}:
+          cookie.cut.found(take.cut(acc, SNil{}))
+        case False{}:
+          (String.reverse(acc), SNil{}, False{})
+    case SCon{Chr{+x}, t}:
+      match hit:
+        case True{}:
+          cookie.cut.found(take.cut(acc, SCon{Chr{x}, t}))
+        case False{}:
+          cookie.cut.go(t, c, SCon{Chr{x}, acc}, U32.is_eq(x, c))
+
+# s split at its first c: before, after, and whether c was there.
+def cookie.cut(s: String, +c: U32) -> String & String & Bool:
+  cookie.cut.go(s, c, SNil{}, False{})
+
+def cookie.fst(r: String & String & Bool) -> String:
+  (a, b, found) = r
+  a
+
+# The path of an origin-form target: the part before "?".
+def cookie.target_path(t: String) -> String:
+  cookie.fst(cookie.cut(t, 63))
+
+# Longer than n octets.
+def cookie.over(s: String, +n: U32) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{c, t}:
+      Bool.or(U32.is_eq(n, 0), cookie.over(t, (n - 1 : U32)))
+
+# %x00-08 / %x0A-1F / %x7F: control characters other than HTAB.
+def cookie.ctl(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{Chr{+c}, t}:
+      Bool.or(Bool.or(U32.is_lt(c, 9), Bool.and(U32.is_gt(c, 9), U32.is_lt(c, 32))), Bool.or(U32.is_eq(c, 127), cookie.ctl(t)))
+
+def cookie.ascii(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{Chr{+c}, t}:
+      Bool.and(U32.is_lt(c, 128), cookie.ascii(t))
+
+def cookie.ip4(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{Chr{+c}, t}:
+      Bool.and(Bool.or(parse_u32.digit(c), U32.is_eq(c, 46)), cookie.ip4(t))
+
+# An IP literal rather than a host name: IPv6 has a colon, IPv4 is digits and dots.
+def cookie.ip(+h: String) -> Bool:
+  Bool.or(String.contains(h, ":"), cookie.ip4(h))
+
+# §5.1.3: s is d, or a host name under d on a label boundary.
+def cookie.domain_match(+s: String, +d: String) -> Bool:
+  Bool.or(String.eq(s, d), Bool.and(String.ends_with(s, "." ++ d), Bool.not(cookie.ip(s))))
+
+# A reversed path with its last segment and slash dropped.
+def cookie.up(rs: String) -> String:
+  match rs:
+    case SNil{}:
+      SNil{}
+    case SCon{Chr{47}, t}:
+      t
+    case SCon{Chr{c}, t}:
+      cookie.up(t)
+
+# §5.1.4: the request path up to its last "/", or "/".
+def cookie.default_path(+p: String) -> String:
+  +up = String.reverse(cookie.up(String.reverse(p)))
+  Bool.pick(String, Bool.or(Bool.not(String.starts_with(p, "/")), String.is_empty(up)), "/", up)
+
+# §5.1.4: request path p path-matches cookie path c.
+def cookie.path_match(+p: String, +c: String) -> Bool:
+  Bool.or(String.eq(p, c), Bool.and(String.starts_with(p, c), Bool.or(String.ends_with(c, "/"), String.starts_with(String.drop(p, String.length(c)), "/"))))
+
+type Hms is Data:
+  Hms{h: U32, m: U32, s: U32}
+
+# §5.1.1 cookie-date: the first time, day, month and year tokens found.
+type Cdate is Data:
+  Cdate{time: Maybe<&2, Hms>, day: Maybe<&2, U32>, month: Maybe<&2, U32>, year: Maybe<&2, U32>}
+
+def cookie.date.delim(+c: U32) -> Bool:
+  Bool.or(U32.is_eq(c, 9), Bool.or(Bool.and(U32.is_ge(c, 32), U32.is_le(c, 47)), Bool.or(Bool.and(U32.is_ge(c, 59), U32.is_le(c, 64)), Bool.or(Bool.and(U32.is_ge(c, 91), U32.is_le(c, 96)), Bool.and(U32.is_ge(c, 123), U32.is_le(c, 126))))))
+
+def cookie.date.push(acc: String, ts: List<&2, String>) -> List<&2, String>:
+  match acc:
+    case SNil{}:
+      ts
+    case SCon{h, t}:
+      Con{String.reverse(SCon{h, t}), ts}
+
+def cookie.date.step(d: Bool, +c: U32, acc: String, ts: List<&2, String>) -> String & List<&2, String>:
+  match d:
+    case True{}:
+      (SNil{}, cookie.date.push(acc, ts))
+    case False{}:
+      (SCon{Chr{c}, acc}, ts)
+
+# The date-tokens, last first. st: the token so far (reversed) and the tokens before it.
+def cookie.date.tokens(s: String, st: String & List<&2, String>) -> List<&2, String>:
+  match s:
+    case SNil{}:
+      (acc, ts) = st
+      cookie.date.push(acc, ts)
+    case SCon{Chr{+c}, t}:
+      (acc, ts) = st
+      cookie.date.tokens(t, cookie.date.step(cookie.date.delim(c), c, acc, ts))
+
+def cookie.date.head(+s: String) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{Chr{+c}, t}:
+      parse_u32.digit(c)
+
+# The digits at the start of s: (count, value, rest). d: s starts with a digit.
+def cookie.date.run(s: String, d: Bool, +n: U32, +acc: U32) -> U32 & U32 & String:
+  match s:
+    case SNil{}:
+      (n, acc, SNil{})
+    case SCon{Chr{+c}, +t}:
+      match d:
+        case True{}:
+          cookie.date.run(t, cookie.date.head(t), (n + 1 : U32), (acc * 10 + (c - 48 : U32) : U32))
+        case False{}:
+          (n, acc, SCon{Chr{c}, t})
+
+def cookie.date.within(r: U32 & U32 & String, +lo: U32, +hi: U32) -> Maybe<&1, U32 & String>:
+  (+n, v, rest) = r
+  Bool.pick(Maybe<&1, U32 & String>, Bool.and(U32.is_ge(n, lo), U32.is_le(n, hi)), Some{(v, rest)}, None{})
+
+# lo to hi digits and what follows them, which does not start with a digit.
+def cookie.date.num(+s: String, +lo: U32, +hi: U32) -> Maybe<&1, U32 & String>:
+  cookie.date.within(cookie.date.run(s, cookie.date.head(s), 0, 0), lo, hi)
+
+def cookie.date.val(m: Maybe<&1, U32 & String>) -> Maybe<&2, U32>:
+  match m:
+    case None{}:
+      None{}
+    case Some{(v, t)}:
+      Some{v}
+
+def cookie.date.colon(s: String) -> Maybe<&2, String>:
+  match s:
+    case SNil{}:
+      None{}
+    case SCon{Chr{58}, t}:
+      Some{t}
+    case SCon{Chr{c}, t}:
+      None{}
+
+def cookie.date.sec(+h: U32, +m: U32, r: Maybe<&1, U32 & String>) -> Maybe<&2, Hms>:
+  match r:
+    case None{}:
+      None{}
+    case Some{(s, t)}:
+      Some{Hms{h, m, s}}
+
+def cookie.date.min.c(+h: U32, +m: U32, c: Maybe<&2, String>) -> Maybe<&2, Hms>:
+  match c:
+    case None{}:
+      None{}
+    case Some{+t}:
+      cookie.date.sec(h, m, cookie.date.num(t, 1, 2))
+
+def cookie.date.min(+h: U32, r: Maybe<&1, U32 & String>) -> Maybe<&2, Hms>:
+  match r:
+    case None{}:
+      None{}
+    case Some{(m, t)}:
+      cookie.date.min.c(h, m, cookie.date.colon(t))
+
+def cookie.date.hour.c(+h: U32, c: Maybe<&2, String>) -> Maybe<&2, Hms>:
+  match c:
+    case None{}:
+      None{}
+    case Some{+t}:
+      cookie.date.min(h, cookie.date.num(t, 1, 2))
+
+def cookie.date.hour(r: Maybe<&1, U32 & String>) -> Maybe<&2, Hms>:
+  match r:
+    case None{}:
+      None{}
+    case Some{(h, t)}:
+      cookie.date.hour.c(h, cookie.date.colon(t))
+
+# hms-time: 1*2DIGIT ":" 1*2DIGIT ":" 1*2DIGIT, then anything but a digit.
+def cookie.date.time(+tok: String) -> Maybe<&2, Hms>:
+  cookie.date.hour(cookie.date.num(tok, 1, 2))
+
+def cookie.date.month.go(xs: List<&2, String>, +w: String, +i: U32) -> Maybe<&2, U32>:
+  match xs:
+    case Nil{}:
+      None{}
+    case Con{x, t}:
+      Bool.pick(Maybe<&2, U32>, String.eq(x, w), Some{i}, cookie.date.month.go(t, w, (i + 1 : U32)))
+
+# The month named by the first three letters, from 1.
+def cookie.date.month(+tok: String) -> Maybe<&2, U32>:
+  cookie.date.month.go(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], String.to_lower(String.take(tok, 3n)), 1)
+
+# Each try* below: the flag is set, so go on; or the token matches, so stop; or go on.
+def cookie.date.year(y: Maybe<&2, U32>, +tok: String, t: Maybe<&2, Hms>, d: Maybe<&2, U32>, m: Maybe<&2, U32>) -> Cdate:
+  match y:
+    case None{}:
+      Cdate{t, d, m, cookie.date.val(cookie.date.num(tok, 2, 4))}
+    case Some{v}:
+      Cdate{t, d, m, Some{v}}
+
+def cookie.date.month.got(g: Maybe<&2, U32>, +tok: String, t: Maybe<&2, Hms>, d: Maybe<&2, U32>, y: Maybe<&2, U32>) -> Cdate:
+  match g:
+    case None{}:
+      cookie.date.year(y, tok, t, d, None{})
+    case Some{v}:
+      Cdate{t, d, Some{v}, y}
+
+def cookie.date.month.try(m: Maybe<&2, U32>, +tok: String, t: Maybe<&2, Hms>, d: Maybe<&2, U32>, y: Maybe<&2, U32>) -> Cdate:
+  match m:
+    case None{}:
+      cookie.date.month.got(cookie.date.month(tok), tok, t, d, y)
+    case Some{v}:
+      cookie.date.year(y, tok, t, d, Some{v})
+
+def cookie.date.day.got(g: Maybe<&2, U32>, +tok: String, t: Maybe<&2, Hms>, m: Maybe<&2, U32>, y: Maybe<&2, U32>) -> Cdate:
+  match g:
+    case None{}:
+      cookie.date.month.try(m, tok, t, None{}, y)
+    case Some{v}:
+      Cdate{t, Some{v}, m, y}
+
+def cookie.date.day.try(d: Maybe<&2, U32>, +tok: String, t: Maybe<&2, Hms>, m: Maybe<&2, U32>, y: Maybe<&2, U32>) -> Cdate:
+  match d:
+    case None{}:
+      cookie.date.day.got(cookie.date.val(cookie.date.num(tok, 1, 2)), tok, t, m, y)
+    case Some{v}:
+      cookie.date.month.try(m, tok, t, Some{v}, y)
+
+def cookie.date.time.got(g: Maybe<&2, Hms>, +tok: String, d: Maybe<&2, U32>, m: Maybe<&2, U32>, y: Maybe<&2, U32>) -> Cdate:
+  match g:
+    case None{}:
+      cookie.date.day.try(d, tok, None{}, m, y)
+    case Some{v}:
+      Cdate{Some{v}, d, m, y}
+
+def cookie.date.time.try(t: Maybe<&2, Hms>, +tok: String, d: Maybe<&2, U32>, m: Maybe<&2, U32>, y: Maybe<&2, U32>) -> Cdate:
+  match t:
+    case None{}:
+      cookie.date.time.got(cookie.date.time(tok), tok, d, m, y)
+    case Some{v}:
+      cookie.date.day.try(d, tok, Some{v}, m, y)
+
+def cookie.date.fold(ts: List<&2, String>, st: Cdate) -> Cdate:
+  match ts:
+    case Nil{}:
+      st
+    case Con{+tok, rest}:
+      Cdate{t, d, m, y} = st
+      cookie.date.fold(rest, cookie.date.time.try(t, tok, d, m, y))
+
+# 70–99 are 19xx, 0–69 are 20xx.
+def cookie.date.fix(+y: U32) -> U32:
+  Bool.pick(U32, U32.is_le(y, 69), (y + 2000 : U32), Bool.pick(U32, U32.is_le(y, 99), (y + 1900 : U32), y))
+
+def cookie.date.at(+y: U32, +d: U32, mo: U32, h: U32, mi: U32, s: U32) -> Maybe<&2, Time.Instant>:
+  Bool.pick(Maybe<&2, Time.Instant>, Bool.and(U32.is_ge(y, 1601), Bool.and(U32.is_ge(d, 1), U32.is_le(d, 31))), Time.mk(Time.DateTime{Time.Date{y, mo, d}, h, mi, s, 0}), None{})
+
+def cookie.date.fin(st: Cdate) -> Maybe<&2, Time.Instant>:
+  match st:
+    case Cdate{Some{Hms{h, mi, s}}, Some{d}, Some{mo}, Some{y}}:
+      cookie.date.at(cookie.date.fix(y), d, mo, h, mi, s)
+    case _:
+      None{}
+
+# §5.1.1: a cookie-date such as "Sun, 06 Nov 1994 08:49:37 GMT" or "Thu, 01-Jan-70 00:00:01 GMT".
+# Time.mk refuses a day past the month's end and a time past 23:59:59.
+def cookie.date(s: String) -> Maybe<&2, Time.Instant>:
+  cookie.date.fin(cookie.date.fold(List.reverse(&2, String, cookie.date.tokens(s, (SNil{}, Nil{}))), Cdate{None{}, None{}, None{}, None{}}))
+
+# §5.6.1–§5.6.7: the last of each attribute. max_age and expires are already times.
+type Cav is Data:
+  Cav{expires: Maybe<&2, Time.Instant>, max_age: Maybe<&2, Time.Instant>, domain: String, path: Maybe<&2, String>, secure: Bool, http_only: Bool, same_site: String}
+
+def cookie.cav() -> Cav:
+  Cav{None{}, None{}, "", None{}, False{}, False{}, "default"}
+
+# §5.5: 400 days, the longest a cookie lives.
+def cookie.limit() -> U32:
+  34560000
+
+def cookie.later(+now: Time.Instant, +secs: U32) -> Time.Instant:
+  Time.Instant.add(now, Time.Duration.of_secs(Int.I64.from_u32(secs)))
+
+def cookie.expires.cap(+now: Time.Instant, m: Maybe<&2, Time.Instant>) -> Maybe<&2, Time.Instant>:
+  match m:
+    case None{}:
+      None{}
+    case Some{+t}:
+      +lim = cookie.later(now, cookie.limit())
+      Some{Bool.pick(Time.Instant, Cmp.is_lt(Time.Instant.cmp(lim, t)), lim, t)}
+
+def cookie.max_age.zero(m: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match m:
+    case None{}:
+      None{}
+    case Some{s}:
+      Some{0}
+
+def cookie.max_age.nz(s: String) -> String:
+  match s:
+    case SNil{}:
+      SNil{}
+    case SCon{Chr{48}, t}:
+      cookie.max_age.nz(t)
+    case SCon{Chr{c}, t}:
+      SCon{Chr{c}, t}
+
+# More than 9 significant digits is past the limit (and would overflow parse_u32).
+def cookie.max_age.cap(long: Bool, m: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match m:
+    case None{}:
+      None{}
+    case Some{s}:
+      Some{Bool.pick(U32, long, cookie.limit(), s)}
+
+def cookie.max_age.secs(+v: String, neg: Bool) -> Maybe<&2, U32>:
+  match neg:
+    case True{}:
+      cookie.max_age.zero(parse_u32(String.drop(v, 1n)))
+    case False{}:
+      cookie.max_age.cap(cookie.over(cookie.max_age.nz(v), 9), parse_u32(v))
+
+# Zero or less is the earliest time, so the cookie is already expired.
+def cookie.max_age.at(+now: Time.Instant, m: Maybe<&2, U32>) -> Maybe<&2, Time.Instant>:
+  match m:
+    case None{}:
+      None{}
+    case Some{+s}:
+      Some{Bool.pick(Time.Instant, U32.is_eq(s, 0), Time.Instant.epoch(), cookie.later(now, U32.min(s, cookie.limit())))}
+
+# §5.6.2: DIGIT*, or "-" and DIGIT*. Anything else is ignored.
+def cookie.max_age(+now: Time.Instant, +v: String) -> Maybe<&2, Time.Instant>:
+  cookie.max_age.at(now, cookie.max_age.secs(v, String.starts_with(v, "-")))
+
+def cookie.same_site(+v: String) -> String:
+  +l = String.to_lower(v)
+  Bool.pick(String, Bool.or(String.eq(l, "strict"), Bool.or(String.eq(l, "lax"), String.eq(l, "none"))), l, "default")
+
+type Av is Data:
+  AvExpires{}
+  AvMaxAge{}
+  AvDomain{}
+  AvPath{}
+  AvSecure{}
+  AvHttpOnly{}
+  AvSameSite{}
+  AvOther{}
+
+def cookie.av.kind(+k: String) -> Av:
+  Bool.pick(Av, String.eq(k, "expires"), AvExpires{}, Bool.pick(Av, String.eq(k, "max-age"), AvMaxAge{}, Bool.pick(Av, String.eq(k, "domain"), AvDomain{}, Bool.pick(Av, String.eq(k, "path"), AvPath{}, Bool.pick(Av, String.eq(k, "secure"), AvSecure{}, Bool.pick(Av, String.eq(k, "httponly"), AvHttpOnly{}, Bool.pick(Av, String.eq(k, "samesite"), AvSameSite{}, AvOther{})))))))
+
+# An Expires or Max-Age that does not parse leaves the earlier one. A leading dot of Domain is dropped.
+def cookie.av.put(k: Av, a: Cav, +now: Time.Instant, +v: String) -> Cav:
+  match k a:
+    case AvExpires{} Cav{e, m, d, p, s, h, ss}:
+      Cav{Maybe.or(&2, Time.Instant, cookie.expires.cap(now, cookie.date(v)), e), m, d, p, s, h, ss}
+    case AvMaxAge{} Cav{e, m, d, p, s, h, ss}:
+      Cav{e, Maybe.or(&2, Time.Instant, cookie.max_age(now, v), m), d, p, s, h, ss}
+    case AvDomain{} Cav{e, m, d, p, s, h, ss}:
+      Cav{e, m, String.to_lower(Bool.pick(String, String.starts_with(v, "."), String.drop(v, 1n), v)), p, s, h, ss}
+    case AvPath{} Cav{e, m, d, p, s, h, ss}:
+      Cav{e, m, d, Some{v}, s, h, ss}
+    case AvSecure{} Cav{e, m, d, p, s, h, ss}:
+      Cav{e, m, d, p, True{}, h, ss}
+    case AvHttpOnly{} Cav{e, m, d, p, s, h, ss}:
+      Cav{e, m, d, p, s, True{}, ss}
+    case AvSameSite{} Cav{e, m, d, p, s, h, ss}:
+      Cav{e, m, d, p, s, h, cookie.same_site(v)}
+    case AvOther{} Cav{e, m, d, p, s, h, ss}:
+      Cav{e, m, d, p, s, h, ss}
+
+# §5.6: name and value trimmed; a value over 1024 octets drops the attribute.
+def cookie.av(+now: Time.Instant, +a: Cav, kv: String & String & Bool) -> Cav:
+  (k, v, found) = kv
+  +tv = trim(v)
+  Bool.pick(Cav, cookie.over(tv, 1024), a, cookie.av.put(cookie.av.kind(String.to_lower(trim(k))), a, now, tv))
+
+def cookie.avs(xs: List<&2, String>, +now: Time.Instant, a: Cav) -> Cav:
+  match xs:
+    case Nil{}:
+      a
+    case Con{x, t}:
+      cookie.avs(t, now, cookie.av(now, a, cookie.cut(x, 61)))
+
+# §5.6: with no "=", the name is empty and the pair is the value.
+def cookie.nv(r: String & String & Bool) -> String & String:
+  (a, b, found) = r
+  match found:
+    case True{}:
+      (trim(a), trim(b))
+    case False{}:
+      ("", trim(a))
+
+def cookie.prefixed(+s: String, +p: String) -> Bool:
+  String.starts_with(String.to_lower(s), p)
+
+# §5.7 steps 8–10: (domain, host-only), or None to ignore the cookie.
+# ponytail: the public-suffix check knows single-label suffixes only (com, org, localhost). Multi-label
+# ones (co.uk, github.io) need the publicsuffix.org list; ship it as data when a caller needs it.
+def cookie.domain.of(+host: String, +d: String) -> Maybe<&1, String & Bool>:
+  +suffix = Bool.and(Bool.not(String.is_empty(d)), Bool.not(String.contains(d, ".")))
+  +d2 = Bool.pick(String, Bool.and(suffix, String.eq(d, host)), "", d)
+  Bool.pick(Maybe<&1, String & Bool>, Bool.or(Bool.and(suffix, Bool.not(String.eq(d, host))), Bool.not(cookie.ascii(d))), None{},
+    Bool.pick(Maybe<&1, String & Bool>, String.is_empty(d2), Some{(host, True{})},
+      Bool.pick(Maybe<&1, String & Bool>, cookie.domain_match(host, d2), Some{(d2, False{})}, None{})))
+
+def cookie.path.of(p: Maybe<&2, String>, +req: String) -> String:
+  match p:
+    case None{}:
+      cookie.default_path(req)
+    case Some{+v}:
+      Bool.pick(String, String.starts_with(v, "/"), v, cookie.default_path(req))
+
+# §5.7 steps 12–20: Secure needs https; SameSite=None needs Secure; the __Secure- and __Host- prefixes.
+def cookie.make.dm(dm: Maybe<&1, String & Bool>, +name: String, +value: String, +path: String, has_path: Bool, +secure: Bool, http_only: Bool, +same_site: String, expiry: Maybe<&2, Time.Instant>, https: Bool) -> Maybe<&2, Cookie>:
+  match dm:
+    case None{}:
+      None{}
+    case Some{(domain, +host_only)}:
+      +host = Bool.and(Bool.and(secure, host_only), Bool.and(has_path, String.eq(path, "/")))
+      +bad = Bool.or(Bool.or(Bool.and(secure, Bool.not(https)), Bool.and(String.eq(same_site, "none"), Bool.not(secure))),
+        Bool.or(Bool.or(Bool.and(cookie.prefixed(name, "__secure-"), Bool.not(secure)), Bool.and(cookie.prefixed(name, "__host-"), Bool.not(host))),
+          Bool.and(String.is_empty(name), Bool.or(cookie.prefixed(value, "__secure-"), cookie.prefixed(value, "__host-")))))
+      Bool.pick(Maybe<&2, Cookie>, bad, None{}, Some{Cookie{name, value, domain, host_only, path, secure, http_only, same_site, expiry}})
+
+# Max-Age wins over Expires, whatever their order (§5.7 step 6).
+def cookie.make(a: Url.Abs, +name: String, +value: String, c: Cav) -> Maybe<&2, Cookie>:
+  Url.Abs{scheme, host, port, target} = a
+  Cav{e, m, d, +p, secure, http_only, same_site} = c
+  cookie.make.dm(cookie.domain.of(host, d), name, value, cookie.path.of(p, cookie.target_path(target)), Maybe.is_some(&2, String, p), secure, http_only, same_site, Maybe.or(&2, Time.Instant, m, e), String.eq(scheme, "https"))
+
+# An empty name and value, or more than 4096 octets of them, is ignored.
+def cookie.parse.nv(+now: Time.Instant, a: Url.Abs, nv: String & String, avs: List<&2, String>) -> Maybe<&2, Cookie>:
+  (+name, +value) = nv
+  Bool.pick(Maybe<&2, Cookie>, Bool.or(Bool.and(String.is_empty(name), String.is_empty(value)), cookie.over(name ++ value, 4096)), None{}, cookie.make(a, name, value, cookie.avs(avs, now, cookie.cav())))
+
+def cookie.parse.go(+now: Time.Instant, a: Url.Abs, xs: List<&2, String>) -> Maybe<&2, Cookie>:
+  match xs:
+    case Nil{}:
+      None{}
+    case Con{first, avs}:
+      cookie.parse.nv(now, a, cookie.nv(cookie.cut(first, 61)), avs)
+
+# §5.6 and §5.7: one Set-Cookie value received from a at now, or None when it is ignored.
+def cookie.parse(+now: Time.Instant, a: Url.Abs, +line: String) -> Maybe<&2, Cookie>:
+  Bool.pick(Maybe<&2, Cookie>, cookie.ctl(line), None{}, cookie.parse.go(now, a, String.split(line, ';')))
+
+def cookie.https(a: Url.Abs) -> Bool:
+  Url.Abs{scheme, host, port, target} = a
+  String.eq(scheme, "https")
+
+def cookie.secure(c: Cookie) -> Bool:
+  Cookie{name, value, domain, host_only, path, secure, http_only, same_site, expiry} = c
+  secure
+
+# Same name, domain, host-only flag and path: the new cookie replaces the old one.
+def cookie.same(+a: Cookie, +b: Cookie) -> Bool:
+  Cookie{n1, v1, d1, h1, p1, s1, o1, ss1, e1} = a
+  Cookie{n2, v2, d2, h2, p2, s2, o2, ss2, e2} = b
+  Bool.and(Bool.and(String.eq(n1, n2), String.eq(d1, d2)), Bool.and(Bool.not(Bool.xor(h1, h2)), String.eq(p1, p2)))
+
+# §5.7 step 16: a secure cookie that a new cookie from plain http must not overlay.
+def cookie.shadows(+old: Cookie, +c: Cookie) -> Bool:
+  Cookie{n1, v1, +d1, h1, p1, s1, o1, ss1, e1} = old
+  Cookie{n2, v2, +d2, h2, p2, s2, o2, ss2, e2} = c
+  Bool.and(Bool.and(String.eq(n1, n2), s1), Bool.and(Bool.or(cookie.domain_match(d1, d2), cookie.domain_match(d2, d1)), cookie.path_match(p2, p1)))
+
+def cookie.shadowed(cs: List<&2, Cookie>, +c: Cookie) -> Bool:
+  match cs:
+    case Nil{}:
+      False{}
+    case Con{+o, t}:
+      Bool.or(cookie.shadows(o, c), cookie.shadowed(t, c))
+
+# cs with the cookie c replaces swapped for c (keeping its place, so its creation order), or c last.
+# A c that is not live only removes the old one: that is how a server deletes a cookie.
+def cookie.put(cs: List<&2, Cookie>, +c: Cookie, +live: Bool) -> List<&2, Cookie>:
+  match cs:
+    case Nil{}:
+      Bool.pick(List<&2, Cookie>, live, [c], Nil{})
+    case Con{+o, +t}:
+      Bool.pick(List<&2, Cookie>, cookie.same(o, c), Bool.pick(List<&2, Cookie>, live, Con{c, t}, t), Con{o, cookie.put(t, c, live)})
+
+def jar.put.c(m: Maybe<&2, Cookie>, j: Jar, +https: Bool) -> Jar:
+  match m:
+    case None{}:
+      Jar{now, cs} = j
+      Jar{now, cs}
+    case Some{+c}:
+      Jar{+now, +cs} = j
+      Jar{now, Bool.pick(List<&2, Cookie>, Bool.and(Bool.not(Bool.or(https, cookie.secure(c))), cookie.shadowed(cs, c)), cs, cookie.put(cs, c, cookie.live(now, c)))}
+
+def jar.put.one(j: Jar, +a: Url.Abs, x: String) -> Jar:
+  Jar{+now, cs} = j
+  jar.put.c(cookie.parse(now, a, x), Jar{now, cs}, cookie.https(a))
+
+def jar.put.all(xs: List<&2, String>, j: Jar, +a: Url.Abs) -> Jar:
+  match xs:
+    case Nil{}:
+      j
+    case Con{x, t}:
+      jar.put.all(t, jar.put.one(j, a, x), a)
+
+# Every set-cookie field of h, in order, as received from a.
+def jar.store.abs(j: Jar, +a: Url.Abs, +h: Map<&2, List<&2, String>>) -> Jar:
+  jar.put.all(fields(h, "set-cookie"), j, a)
+
+def jar.store.url(j: Jar, u: Maybe<&2, Url.Abs>, +h: Map<&2, List<&2, String>>) -> Jar:
+  match u:
+    case None{}:
+      j
+    case Some{+a}:
+      jar.store.abs(j, a, h)
+
+# The jar after res came from url, and res as it was. Header names are lowercase, as parse gives them.
+# An unparsable url stores nothing.
+def jar.store(j: Jar, url: String, res: Res) -> Jar & Res:
+  Res{status, +headers, body} = res
+  (jar.store.url(j, Url.absolute(url), headers), Res{status, headers, body})
+
+# §5.8.3: domain (exact when host-only), path, and Secure only over https.
+def cookie.sends(+host: String, +path: String, +https: Bool, +c: Cookie) -> Bool:
+  Cookie{n, v, +d, +ho, +p, s, o, ss, e} = c
+  Bool.and(Bool.pick(Bool, ho, String.eq(host, d), cookie.domain_match(host, d)), Bool.and(cookie.path_match(path, p), Bool.or(Bool.not(s), https)))
+
+def cookie.pick(cs: List<&2, Cookie>, +host: String, +path: String, +https: Bool) -> List<&2, Cookie>:
+  match cs:
+    case Nil{}:
+      Nil{}
+    case Con{+c, t}:
+      List.filter.put(Cookie, c, cookie.pick(t, host, path, https), cookie.sends(host, path, https, c))
+
+# The sort order of §5.8.3: longer paths first; the stable sort keeps creation order among equals.
+def cookie.longer(a: Cookie, b: Cookie) -> Bool:
+  Cookie{n1, v1, d1, h1, p1, s1, o1, ss1, e1} = a
+  Cookie{n2, v2, d2, h2, p2, s2, o2, ss2, e2} = b
+  Bool.not(Nat.is_lt(String.length(p1), String.length(p2)))
+
+def cookie.pair(c: Cookie) -> String:
+  Cookie{+n, +v, d, h, p, s, o, ss, e} = c
+  Bool.pick(String, String.is_empty(n), v, n ++ "=" ++ v)
+
+def cookie.pairs(cs: List<&2, Cookie>) -> List<&2, String>:
+  match cs:
+    case Nil{}:
+      Nil{}
+    case Con{c, t}:
+      Con{cookie.pair(c), cookie.pairs(t)}
+
+# §5.8.3: the cookie-string for a request to a, or "" when no cookie matches.
+def jar.string(j: Jar, a: Url.Abs) -> String:
+  Jar{now, cs} = j
+  Url.Abs{scheme, +host, port, target} = a
+  String.join(cookie.pairs(List.sort(~Cookie, ~cookie.longer, cookie.pick(cs, host, cookie.target_path(target), String.eq(scheme, "https")))), "; ")
+
+# One cookie field: the caller's own cookie values first, then the jar's.
+def jar.header(+h: Map<&2, List<&2, String>>, +s: String) -> Map<&2, List<&2, String>>:
+  +old = String.join(fields(h, "cookie"), "; ")
+  Bool.pick(Map<&2, List<&2, String>>, String.is_empty(s), h, set(h, "cookie", Bool.pick(String, String.is_empty(old), s, old ++ "; " ++ s)))
+
+def jar.apply.url(j: Jar, u: Maybe<&2, Url.Abs>, +h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
+  match u:
+    case None{}:
+      h
+    case Some{a}:
+      jar.header(h, jar.string(j, a))
+
+# The headers with the jar's cookies for a request to url in their cookie field (lowercase, as fetch
+# sends names). An unparsable url adds nothing.
+def jar.apply(j: Jar, url: String, +h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
+  jar.apply.url(j, Url.absolute(url), h)
+
+# The jar, if any, that a fetch threads through its hops.
+def jar.opt.apply(m: Maybe<&2, Jar>, a: Url.Abs, +h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
+  match m:
+    case None{}:
+      h
+    case Some{j}:
+      jar.header(h, jar.string(j, a))
+
+def jar.opt.res(j: Jar, +a: Url.Abs, r: Result<&1, &1, Err, Res>) -> Maybe<&2, Jar> & Result<&1, &1, Err, Res>:
+  match r:
+    case Fail{e}:
+      (Some{j}, Fail{e})
+    case Done{res}:
+      Res{status, +headers, body} = res
+      (Some{jar.store.abs(j, a, headers)}, Done{Res{status, headers, body}})
+
+def jar.opt.store(m: Maybe<&2, Jar>, +a: Url.Abs, r: Result<&1, &1, Err, Res>) -> Maybe<&2, Jar> & Result<&1, &1, Err, Res>:
+  match m:
+    case None{}:
+      (None{}, r)
+    case Some{j}:
+      jar.opt.res(j, a, r)
+
 def io.recv.words(tls: Bool, s: Socket, max: U32, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>):
   match tls:
     case True{}:
@@ -3043,22 +3706,24 @@ def pool.one.back(h: Hop, pr: Pool & Result<&1, &1, Err, Res>) -> Pool & Result<
   (p, r) = pr
   (p, r, h)
 
+# sent is headers plus any jar cookies; the hop keeps headers, so cookies never pile up across hops.
 def pool.one.of(p: Pool, +method: String, +url: Url.Abs,
-    +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes,
-    cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
+    headers: Map<&2, List<&2, String>>, sent: Map<&2, List<&2, String>>,
+    +ms: U32, r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>) ->
+    IO(Pool & Result<&1, &1, Err, Res> & Hop):
   Url.Abs{+scheme, +host, +port, target} = url
   (body, wire) = r
   do IO<Pool & Result<&1, &1, Err, Res> & Hop>:
     choice : Maybe<&2, Proxy> <- proxy.select(scheme, host, port)
     pr : Pool & Result<&1, &1, Err, Res> <-
-      pool.origin(p, method, ms, headers, wire, Url.host_field(url),
+      pool.origin(p, method, ms, sent, wire, Url.host_field(url),
         url, pool.scheme.ok(url), cert, choice)
     return pool.one.back(Hop{method, url, headers, body}, pr)
 
 # One request, on an idle socket to its origin when the pool has one. The hop comes back for the redirect.
-def pool.one(p: Pool, h: Hop, +ms: U32, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
+def pool.one(p: Pool, h: Hop, +ms: U32, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
   Hop{+method, +url, +headers, body} = h
-  pool.one.of(p, method, url, headers, ms, Bytes.slice(body, 0, 4294967295), cert)
+  pool.one.of(p, method, url, headers, jar.opt.apply(jar, url, headers), ms, Bytes.slice(body, 0, 4294967295), cert)
 
 type Next is Type:
   NDone{res: Result<&1, &1, Err, Res>}
@@ -3131,39 +3796,49 @@ def fetch.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes.
     case Some{a}:
       NGo{20n, Hop{method, a, accept.enc(req.put(Map.to_list(&2, List<&2, String>, headers), empty()), enc), body}}
 
-def pool.next.move(p: Pool, +old: String, cert: Maybe<&2, Cert>, n: Next) -> Pool & Next & Maybe<&2, Cert>:
+# The redirect loop's state: the pool, what to do next, the client identity, and the jar if any.
+type Hops is Type:
+  Hops{p: Pool, next: Next, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>}
+
+def pool.next.move(p: Pool, +old: String, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, n: Next) -> Hops:
   match n:
     case NGo{left, h}:
       Hop{method, +url, headers, body} = h
-      (p, NGo{left, Hop{method, url, headers, body}},
-        Bool.pick(Maybe<&2, Cert>, String.eq(old, redirect.origin(url)), cert, None{}))
+      Hops{p, NGo{left, Hop{method, url, headers, body}},
+        Bool.pick(Maybe<&2, Cert>, String.eq(old, redirect.origin(url)), cert, None{}), jar}
     case NDone{r}:
-      (p, NDone{r}, None{})
+      Hops{p, NDone{r}, None{}, jar}
     case NStop{}:
-      (p, NStop{}, None{})
+      Hops{p, NStop{}, None{}, jar}
 
-def pool.next(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Pool & Next & Maybe<&2, Cert>:
+def pool.next.of(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, p: Pool, +url: Url.Abs, h: Hop, r: Maybe<&2, Jar> & Result<&1, &1, Err, Res>) -> Hops:
+  (jar, m) = r
+  pool.next.move(p, redirect.origin(url), cert, jar, fetch.policy(mode, left, h, m))
+
+# The jar takes the response's Set-Cookie fields first, redirect or not.
+def pool.next(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Hops:
   (p, m, h) = x
   Hop{method, +url, headers, body} = h
-  pool.next.move(p, redirect.origin(url), cert, fetch.policy(mode, left, Hop{method, url, headers, body}, m))
+  pool.next.of(mode, left, cert, p, url, Hop{method, url, headers, body}, jar.opt.store(jar, url, m))
 
-def pool.hops.one(+mode: Mode, +ms: U32, +cert: Maybe<&2, Cert>, p: Pool, h: Hop, left: Nat) -> IO(Pool & Next & Maybe<&2, Cert>):
-  do IO<Pool & Next & Maybe<&2, Cert>>:
-    x : Pool & Result<&1, &1, Err, Res> & Hop <- pool.one(p, h, ms, cert)
-    return pool.next(mode, left, cert, x)
+def pool.hops.one(+mode: Mode, +ms: U32, +cert: Maybe<&2, Cert>, +jar: Maybe<&2, Jar>, p: Pool, h: Hop, left: Nat) -> IO(Hops):
+  do IO<Hops>:
+    x : Pool & Result<&1, &1, Err, Res> & Hop <- pool.one(p, h, ms, cert, jar)
+    return pool.next(mode, left, cert, jar, x)
 
 # NGo.left is how many redirects may follow this request. 20 is WHATWG's limit.
+# The jar, when there is one, gives cookies to every hop and takes them from every response.
 @unsafe
-def pool.hops(+mode: Mode, +ms: U32, st: Pool & Next & Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
-  (p, n, cert) = st
+def pool.hops(+mode: Mode, +ms: U32, st: Hops) -> IO(Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>):
+  Hops{p, n, cert, cj} = st
   match n:
     case NDone{m}:
-      IO.pure(Pool & Result<&1, &1, Err, Res>, (p, m))
+      IO.pure(Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>, (p, m, cj))
     case NStop{}:
-      IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrRedirect{}}))
+      IO.pure(Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>, (p, Fail{ErrRedirect{}}, cj))
     case NGo{+left, h}:
-      do IO<Pool & Result<&1, &1, Err, Res>>:
-        next : Pool & Next & Maybe<&2, Cert> <- pool.hops.one(mode, ms, cert, p, h, left)
+      do IO<Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>>:
+        next : Hops <- pool.hops.one(mode, ms, cert, cj, p, h, left)
         pool.hops(mode, ms, next)
 
 # Content-Encoding (RFC 9110 §8.4): each value, trimmed and lowercased, in the order applied.
@@ -3411,15 +4086,15 @@ def fetch.final(+enc: String, r: Result<&1, &1, Err, Res>) -> IO(Result<&1, &1, 
     case Fail{e}:
       IO.pure(Result<&1, &1, Err, Res>, Fail{e})
 
-def pool.final(+enc: String, pr: Pool & Result<&1, &1, Err, Res>) -> IO(Pool & Result<&1, &1, Err, Res>):
-  (p, r) = pr
+def pool.final(+enc: String, pr: Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>) -> IO(Pool & Result<&1, &1, Err, Res>):
+  (p, r, jar) = pr
   do IO<Pool & Result<&1, &1, Err, Res>>:
     d : Result<&1, &1, Err, Res> <- fetch.final(enc, r)
     return (p, d)
 
 def pool.how.enc(+enc: String, p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
-    pr : Pool & Result<&1, &1, Err, Res> <- pool.hops(mode, ms, (p, fetch.start(method, headers, body, Url.absolute(url), enc), cert))
+    pr : Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar> <- pool.hops(mode, ms, Hops{p, fetch.start(method, headers, body, Url.absolute(url), enc), cert, None{}})
     pool.final(enc, pr)
 
 def pool.how.cert(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
@@ -3497,6 +4172,25 @@ def fetch.all.of(+n: U32, nx: Nat & List<Fetch>) -> IO(List<Result<&1, &1, Err, 
 def fetch.all(reqs: List<Fetch>, +n: U32) -> IO(List<Result<&1, &1, Err, Res>>):
   fetch.all.of(n, Conc.count(Fetch, reqs))
 
+# The hops always hand the jar back; j is only the type's fallback.
+def pool.jar.final(+enc: String, j: Jar, pr: Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>) -> IO(Pool & Jar & Result<&1, &1, Err, Res>):
+  (p, r, jar) = pr
+  do IO<Pool & Jar & Result<&1, &1, Err, Res>>:
+    d : Result<&1, &1, Err, Res> <- fetch.final(enc, r)
+    return (p, Maybe.default(&2, Jar, jar, j), d)
+
+def pool.jar.enc(+enc: String, p: Pool, +j: Jar, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Pool & Jar & Result<&1, &1, Err, Res>):
+  do IO<Pool & Jar & Result<&1, &1, Err, Res>>:
+    pr : Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar> <- pool.hops(ModeFollow{}, 30000, Hops{p, fetch.start(method, headers, body, Url.absolute(url), enc), None{}, Some{j}})
+    pool.jar.final(enc, j, pr)
+
+# pool.fetch with a cookie jar (RFC 6265bis). Before every hop, redirects included, the jar's
+# cookies for that URL join the request's cookie field; after every response, redirects included,
+# its Set-Cookie fields go into the jar. The jar's clock is the caller's: advance it with jar.at.
+def pool.fetch.jar(p: Pool, j: Jar, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Pool & Jar & Result<&1, &1, Err, Res>):
+  do IO<Pool & Jar & Result<&1, &1, Err, Res>>:
+    enc : String <- codings()
+    pool.jar.enc(enc, p, j, method, url, headers, body)
 def fetch.end(pr: Pool & Result<&1, &1, Err, Res>) -> IO(Result<&1, &1, Err, Res>):
   (p, r) = pr
   do IO<Result<&1, &1, Err, Res>>:
