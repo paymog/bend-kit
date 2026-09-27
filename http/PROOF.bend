@@ -654,3 +654,27 @@ def Laws.retry_after_bad():
 
 def Laws.retry_delay():
   {==}
+
+def Laws.proxy_no_exact():
+  {==}
+
+def Laws.proxy_no_subdomain():
+  {==}
+
+def Laws.proxy_no_boundary():
+  {==}
+
+def Laws.proxy_no_port():
+  {==}
+
+def Laws.proxy_no_list():
+  {==}
+
+def Laws.proxy_no_wildcard():
+  {==}
+
+def Laws.proxy_no_ipv6():
+  {==}
+
+def Laws.proxy_absolute_request():
+  {==}

@@ -469,6 +469,113 @@ def retry.test() -> IO(Unit):
       Http.post.json("http://127.0.0.1:47814/json", Json.Arr{[Json.Num{Bytes.from_string("1")}, Json.Flag{True{}}]})
     retry.check("post.json", 200, "POST application/json [1,true]", posted)
 
+def local.proxy.http(req: Http.Req) -> IO(Http.Res):
+  Http.Req{method, path, +headers, body} = req
+  do IO<Http.Res>:
+    local.ok(String.eq(method, "GET"), "proxy HTTP method")
+    local.ok(String.eq(path, "http://elsewhere.test/path"), "proxy absolute-form")
+    local.ok(String.eq(Http.header(headers, "host"), "elsewhere.test"), "proxy origin Host")
+    local.ok(String.eq(Http.header(headers, "proxy-authorization"), "Basic dTpw"),
+      "proxy HTTP authorization")
+    return Http.Res{200, Http.set(Http.empty(), "connection", "close"),
+      Bytes.from_string("proxy")}
+
+def local.proxy.tunnel.received(l: Listener,
+    received: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) ->
+    IO(Unit):
+  (s, answer) = received
+  match answer:
+    case Fail{e}:
+      do IO<Unit>:
+        Http.io.close(False{}, s)
+        Listener.close(l)
+        IO.die(Unit, 1, "proxy CONNECT read failed")
+    case Done{(len, buf)}:
+      +raw = Bytes.to_string(Bytes.Bytes{len, buf})
+      do IO<Unit>:
+        local.ok(String.starts_with(raw,
+          "CONNECT elsewhere.test:443 HTTP/1.1\r\nHost: elsewhere.test:443\r\n"),
+          "proxy CONNECT authority")
+        local.ok(String.ends_with(raw,
+          "\r\nProxy-Authorization: Basic dTpw\r\n\r\n"),
+          "proxy CONNECT authorization")
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+          Http.io.send(False{}, s, "HTTP/1.1 200 Connection Established\r\n\r\n")
+        Http.io.close(False{}, local.gz.sent(sent))
+        Listener.close(l)
+
+def local.proxy.tunnel.accept(m: Listener & Result<&1, &1, U32 & String, Socket>) ->
+    IO(Unit):
+  (l, result) = m
+  match result:
+    case Fail{e}:
+      do IO<Unit>:
+        Listener.close(l)
+        IO.die(Unit, 1, "proxy CONNECT accept failed")
+    case Done{s}:
+      do IO<Unit>:
+        got : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
+          Http.io.recv.words(False{}, s, 4096, 2000)
+        local.proxy.tunnel.received(l, got)
+
+def local.proxy.http.accept(m: Listener & Result<&1, &1, U32 & String, Socket>) ->
+    IO(Listener):
+  Http.conn(~local.proxy.http, 1048576n, m)
+
+def local.proxy.serve(l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    first : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l1 : Listener <- local.proxy.http.accept(first)
+    second : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
+    local.proxy.tunnel.accept(second)
+
+def local.proxy.first(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) ->
+    IO(Http.Pool):
+  (p, result) = pr
+  match result:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, "proxied HTTP fetch failed")
+    case Done{Http.Res{+status, headers, body}}:
+      do IO<Http.Pool>:
+        local.ok(U32.is_eq(status, 200), "proxy HTTP status")
+        local.ok(String.eq(Bytes.to_string(body), "proxy"), "proxy HTTP body")
+        return p
+
+def local.proxy.last.result(result: Result<&1, &1, Http.Err, Http.Res>) ->
+    IO(Unit):
+  match result:
+    case Done{res}:
+      IO.die(Unit, 1, "proxy CONNECT tunnel unexpectedly served TLS")
+    case Fail{e}:
+      match e:
+        case Http.ErrTls{code, why}:
+          local.ok(True{}, "proxy CONNECT followed by TLS")
+        case Http.ErrRead{code, why}:
+          local.ok(True{}, "proxy CONNECT followed by TLS")
+        case other:
+          IO.die(Unit, 1, "proxy CONNECT failed before TLS")
+
+def local.proxy.last(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) ->
+    IO(Unit):
+  (p, result) = pr
+  do IO<Unit>:
+    Http.pool.close(p)
+    local.proxy.last.result(result)
+
+def local.proxy.test() -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen(47815))
+    IO.spawn(Unit, local.proxy.serve(l))
+    first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.origin.choice(Http.pool.new(), "GET", 2000, Http.empty(),
+        Bytes.new(0), "elsewhere.test", "http", "elsewhere.test", 80, "/path",
+        None{}, Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
+    p : Http.Pool <- local.proxy.first(first)
+    second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.origin.choice(p, "GET", 2000, Http.empty(), Bytes.new(0),
+        "elsewhere.test", "https", "elsewhere.test", 443, "/path", None{},
+        Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
+    local.proxy.last(second)
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -489,5 +596,6 @@ def main() -> IO(Unit):
     local.gz.test()
     resolve.check()
     retry.test()
+    local.proxy.test()
     args : List<&1, String> <- IO.args()
     mtls.args(args)
