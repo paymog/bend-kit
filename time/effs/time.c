@@ -19,8 +19,13 @@ static Term time_raw(Env e, clockid_t c) {
 
 #ifdef CID(mono.raw)
 
+// macOS CLOCK_MONOTONIC ticks in microseconds; CLOCK_MONOTONIC_RAW ticks in nanoseconds.
 Term mono_raw_run(Env e, Term* f, IoWork* w) {
+#ifdef __APPLE__
+  return time_raw(e, CLOCK_MONOTONIC_RAW);
+#else
   return time_raw(e, CLOCK_MONOTONIC);
+#endif
 }
 
 static void __attribute__((constructor)) mono_raw_use(void) {
