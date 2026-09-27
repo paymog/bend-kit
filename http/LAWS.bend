@@ -3,6 +3,8 @@ import ./http.bend as Http
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-int@0.2.0.0/int.bend as Int
 
 # LAW: the text after a blank line is the body.
 law body_after_blank:
@@ -686,3 +688,72 @@ law stream_len_cut:
 # A body with no Content-Encoding passes through as sent.
 law decoded_plain:
   {Http.decoded(Http.Res{200, Http.empty(), Bytes.from_string("hi")}) == Done{Http.Res{200, Http.empty(), Bytes.from_string("hi")}} : Result<&1, &1, Http.Err, Http.Res>}
+
+# Retry (RFC 9110 §9.2.2, §10.2.3, §15)
+# --------------------------------------
+
+def retry_now() -> Time.Instant:
+  Time.Instant.of_unix(Int.I64.from_u32(784111775))
+
+# LAW: 408, 429, 500, 502, 503 and 504 are retried; other statuses are not.
+law retry_statuses:
+  {[Http.retry.status(408), Http.retry.status(429), Http.retry.status(500), Http.retry.status(502), Http.retry.status(503), Http.retry.status(504), Http.retry.status(200), Http.retry.status(404), Http.retry.status(501)] == [True{}, True{}, True{}, True{}, True{}, True{}, False{}, False{}, False{}] : List<&2, Bool>}
+
+# LAW: only idempotent methods may be tried again.
+law retry_idempotent:
+  {[Http.pool.idempotent("GET"), Http.pool.idempotent("HEAD"), Http.pool.idempotent("OPTIONS"), Http.pool.idempotent("TRACE"), Http.pool.idempotent("PUT"), Http.pool.idempotent("DELETE"), Http.pool.idempotent("POST"), Http.pool.idempotent("PATCH")] == [True{}, True{}, True{}, True{}, True{}, True{}, False{}, False{}] : List<&2, Bool>}
+
+# LAW: a refused connect is retried, and the error is kept for when retries run out.
+law retry_connect:
+  {Http.retry.judge(True{}, Fail{Http.ErrConnect{61, "refused"}}) == (Fail{Http.ErrConnect{61, "refused"}}, Some{""}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+# LAW: a timeout is retried.
+law retry_timeout:
+  {Http.retry.judge(True{}, Fail{Http.ErrTimeout{}}) == (Fail{Http.ErrTimeout{}}, Some{""}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+# LAW: other errors would repeat, so they end the retries.
+law retry_dns_stops:
+  {Http.retry.judge(True{}, Fail{Http.ErrDns{}}) == (Fail{Http.ErrDns{}}, None{}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+# LAW: a 503 is retried with its Retry-After, and the response is kept whole.
+law retry_503:
+  {Http.retry.judge(True{}, Done{Http.Res{503, Http.set(Http.empty(), "retry-after", "2"), Bytes.from_string("busy")}}) == (Done{Http.Res{503, Http.set(Http.empty(), "retry-after", "2"), Bytes.from_string("busy")}}, Some{"2"}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+# LAW: a retryable status without Retry-After asks for the backoff ("").
+law retry_429_backoff:
+  {Http.retry.judge(True{}, Done{Http.Res{429, Http.empty(), Bytes.from_string("")}}) == (Done{Http.Res{429, Http.empty(), Bytes.from_string("")}}, Some{""}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+# LAW: a success ends the retries.
+law retry_200_stops:
+  {Http.retry.judge(True{}, Done{Http.Res{200, Http.empty(), Bytes.from_string("ok")}}) == (Done{Http.Res{200, Http.empty(), Bytes.from_string("ok")}}, None{}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+# LAW: POST is not retried, not even on a 503 or a refused connect.
+law retry_post_stops:
+  {Http.retry.judge(Http.pool.idempotent("POST"), Done{Http.Res{503, Http.empty(), Bytes.from_string("busy")}}) == (Done{Http.Res{503, Http.empty(), Bytes.from_string("busy")}}, None{}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+law retry_post_connect_stops:
+  {Http.retry.judge(Http.pool.idempotent("POST"), Fail{Http.ErrConnect{61, "refused"}}) == (Fail{Http.ErrConnect{61, "refused"}}, None{}) : Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>}
+
+# LAW: the base wait doubles from 500 ms and stops at 30 s.
+law retry_base:
+  {[Http.retry.base(0n), Http.retry.base(1n), Http.retry.base(2n), Http.retry.base(3n), Http.retry.base(4n), Http.retry.base(5n), Http.retry.base(6n), Http.retry.base(20n)] == [500, 1000, 2000, 4000, 8000, 16000, 30000, 30000] : List<&2, U32>}
+
+# LAW: for fixed jitter r, the wait is half the base plus r mod (half + 1).
+law retry_backoff:
+  {[Http.retry.backoff(0n, 0), Http.retry.backoff(0n, 4294967295), Http.retry.backoff(1n, 0), Http.retry.backoff(1n, 1000), Http.retry.backoff(3n, 7), Http.retry.backoff(6n, 0), Http.retry.backoff(10n, 4294967295)] == [250, 372, 500, 999, 2007, 15000, 15983] : List<&2, U32>}
+
+# LAW: Retry-After in seconds is a wait in ms, at most 30 s.
+law retry_after_secs:
+  {[Http.retry.after("0", retry_now()), Http.retry.after("2", retry_now()), Http.retry.after("120", retry_now()), Http.retry.after("99999999999", retry_now())] == [Some{0}, Some{2000}, Some{30000}, Some{30000}] : List<&2, Maybe<&2, U32>>}
+
+# LAW: Retry-After as an HTTP-date waits until then; a past date waits 0.
+law retry_after_date:
+  {[Http.retry.after("Sun, 06 Nov 1994 08:49:37 GMT", retry_now()), Http.retry.after("Sun, 06 Nov 1994 08:49:37 GMT", Time.Instant.of_unix(Int.I64.from_u32(784111800)))] == [Some{2000}, Some{0}] : List<&2, Maybe<&2, U32>>}
+
+# LAW: an absent or unreadable Retry-After is no delay.
+law retry_after_bad:
+  {[Http.retry.after("", retry_now()), Http.retry.after("soon", retry_now()), Http.retry.after("-1", retry_now())] == [None{}, None{}, None{}] : List<&2, Maybe<&2, U32>>}
+
+# LAW: Retry-After wins over the backoff; without it, the backoff.
+law retry_delay:
+  {[Http.retry.delay("3", retry_now(), 1n, 0), Http.retry.delay("", retry_now(), 1n, 0), Http.retry.delay("soon", retry_now(), 2n, 5)] == [3000, 500, 1005] : List<&2, U32>}

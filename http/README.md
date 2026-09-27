@@ -3,10 +3,10 @@
 HTTP/1.1 and HTTP/2 client, and HTTP/1.1 server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).
 
 ```bend
-import 0x310b0480ce5b511ff8da9704b3d27ef3/http.bend as Http
+import bend-kit-http@0.20.1.0/http.bend as Http
 ```
 
-`http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, `zlib`, and `http2` from the hub. `Http.Body` keeps its pinned `bytes` type; the HTTP/2 client uses a newer `bytes` version internally and transfers the packed body without copying.
+`http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, `zlib`, `http2`, `time`, and `int` from the hub. `Http.Body` keeps its pinned `bytes` type; the HTTP/2 client uses a newer `bytes` version internally and transfers the packed body without copying.
 
 HTTPS needs OpenSSL 3 at run time. On macOS, `brew install openssl@3`. The client looks for Homebrew's `libssl.3.dylib`, then `libssl.so.3`. Set `BEND_LIBSSL` to the library path if it is somewhere else.
 
@@ -62,6 +62,14 @@ A response body over about 30 KB overflows `bend file.bend`. Compile it. That ne
 ```sh
 bend file.bend -o app
 ```
+
+## Request helpers
+
+`Http.post.json(url, v)` POSTs a `Json.Val` as compact JSON (`Json.encode.bytes`) with `content-type: application/json`.
+
+`Http.resolve(base, ref)` resolves `ref` against the absolute `http` or `https` URL `base` with `Url.resolve` (RFC 3986 §5.2) and gives back a URL string for `fetch`: `Http.resolve("https://api.example.com/v1/", "users/7")` is `Some{"https://api.example.com/v1/users/7"}`. The default port is dropped and an IPv6 host keeps its brackets. It is `None` when `base` is not absolute or `ref` has another scheme.
+
+`Http.fetch.retry(n, method, url, headers, body)` is `fetch` tried again up to `n` more times, so `n = 2` makes at most three tries. It retries only idempotent methods (GET, HEAD, OPTIONS, TRACE, PUT, DELETE), and only after `ErrConnect`, `ErrTimeout`, or a 408, 429, 500, 502, 503, or 504. POST, PATCH, and other methods get one try. Before retry `k` (0 first) it waits the `Retry-After` of the response, as seconds or an HTTP-date, at most 30 s. Without one it waits `half + r mod (half + 1)` ms, where `half` is half of 500 ms doubled `k` times (at most 30 s), and `r` comes from `IO.random_u32`. When the retries run out, the last response or error comes back unchanged. Each try uses a new connection and the step timeout of `fetch`. `LAWS.bend` pins the retry decision, the `Retry-After` reading, and the backoff for fixed `r`.
 
 ## Headers
 
@@ -127,6 +135,8 @@ def main() -> IO(Unit):
 `Http.serve(~h, port)` reads each request until it is whole, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. `Http.serve.with(~h, port, max)` sets the maximum request size in bytes; `serve` defaults to 16 MiB. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
 
 ## Versions
+
+`0.20.1.0` adds `Http.post.json`, `Http.resolve`, and `Http.fetch.retry`, and imports `bend-kit-time@0.1.0.0` for `Retry-After` dates.
 
 `0.20.0.0` adds HTTP/2 to HTTPS `fetch` and pooled fetch. `Conn` now includes `ConnH2`; code that matches `Conn` must handle both variants.
 

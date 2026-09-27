@@ -5,6 +5,8 @@ import bend-kit-wire@0.4.2.0/wire.bend as Wire
 import bend-kit-http2@0.1.2.0/http2.bend as H2
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
+import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-int@0.2.0.0/int.bend as Int
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
@@ -17,7 +19,7 @@ import 0x58bd522479d133cfe1b2c4451fc1a28f/zlib.bend as Zlib
 # Bodies are Bytes. The String parsers below are the spec: one Char per octet.
 # fetch reads until frame() says the response is whole. It returns Result, not Maybe.
 # Build with -o for big bodies: the `bend file.bend` runner overflows on ~30 KB strings; native binaries do not.
-#   import bend-kit-http@0.15.0.0/http.bend as Http
+#   import bend-kit-http@0.20.1.0/http.bend as Http
 
 type Req is Type:
   Req{method: String, path: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes}
@@ -3092,6 +3094,191 @@ def fetch(method: String, url: String, headers: Map<&2, List<&2, String>>, body:
 
 def get(url: String) -> IO(Result<&1, &1, Err, Res>):
   fetch("GET", url, empty(), Bytes.new(0))
+
+# POST v as compact JSON, with content-type: application/json.
+def post.json(url: String, v: Json.Val) -> IO(Result<&1, &1, Err, Res>):
+  fetch("POST", url, set(empty(), "content-type", "application/json"), Json.encode.bytes(v))
+
+# Base URLs: resolve(base, ref) is ref against the absolute http(s) URL base (RFC 3986 §5.2),
+# written back as a URL for fetch. None when base is not absolute or ref has another scheme.
+def resolve.show(a: Url.Abs) -> String:
+  Url.Abs{+scheme, host, port, +target} = a
+  scheme ++ "://" ++ Url.host_field(Url.Abs{scheme, host, port, target}) ++ target
+
+def resolve.to(m: Maybe<&2, Url.Abs>) -> Maybe<&2, String>:
+  match m:
+    case None{}:
+      None{}
+    case Some{a}:
+      Some{resolve.show(a)}
+
+def resolve.base(m: Maybe<&2, Url.Abs>, +ref: String) -> Maybe<&2, String>:
+  match m:
+    case None{}:
+      None{}
+    case Some{b}:
+      resolve.to(Url.resolve(b, ref))
+
+def resolve(base: String, +ref: String) -> Maybe<&2, String>:
+  resolve.base(Url.absolute(base), ref)
+
+# Retry. The wait before retry n (0 first) is 500 ms doubled n times, at most 30 s;
+# its upper half is jitter r: backoff(n, r) = half + r mod (half + 1).
+def retry.cap() -> U32:
+  30000
+
+def retry.base(n: Nat) -> U32:
+  match n:
+    case 0n:
+      500
+    case 1n+p:
+      U32.min((retry.base(p) * 2 : U32), retry.cap())
+
+def retry.backoff.half(+half: U32, +r: U32) -> U32:
+  (half + (r % (half + 1)) : U32)
+
+def retry.backoff(n: Nat, +r: U32) -> U32:
+  retry.backoff.half((retry.base(n) / 2 : U32), r)
+
+# ms clamped to 0 .. retry.cap().
+def retry.after.ms(+ms: Int.I64) -> U32:
+  Bool.pick(U32, Int.I64.is_neg(ms), 0,
+    Bool.pick(U32, Int.I64.is_lt(ms, Int.I64.from_u32(retry.cap())), Int.I64.to_u32(ms), retry.cap()))
+
+def retry.after.date(m: Maybe<&2, Time.Instant>, now: Time.Instant) -> Maybe<&2, U32>:
+  match m:
+    case None{}:
+      None{}
+    case Some{date}:
+      Some{retry.after.ms(Time.Duration.to_ms(Time.Instant.since(date, now)))}
+
+# More than 5 digits is past the cap, and would overflow parse_u32.
+def retry.after.secs(+v: String, now: Time.Instant, n: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match n:
+    case None{}:
+      retry.after.date(Time.http_date.parse(v), now)
+    case Some{s}:
+      Some{Bool.pick(U32, Nat.is_lt(5n, String.length(v)), retry.cap(), U32.min((s * 1000 : U32), retry.cap()))}
+
+# Retry-After (RFC 9110 §10.2.3) as ms from now, at most retry.cap(): delay-seconds, or an
+# HTTP-date (a past date is 0). None when v is empty or neither form.
+def retry.after(+v: String, now: Time.Instant) -> Maybe<&2, U32>:
+  retry.after.secs(v, now, parse_u32(v))
+
+def retry.wait(m: Maybe<&2, U32>, n: Nat, +r: U32) -> U32:
+  match m:
+    case None{}:
+      retry.backoff(n, r)
+    case Some{ms}:
+      ms
+
+# The wait before retry n: Retry-After v when it reads as a delay, else backoff with jitter r.
+def retry.delay(+v: String, now: Time.Instant, n: Nat, +r: U32) -> U32:
+  retry.wait(retry.after(v, now), n, r)
+
+# Statuses a later try may clear.
+def retry.status(+s: U32) -> Bool:
+  Bool.or(Bool.or(U32.is_eq(s, 408), U32.is_eq(s, 429)),
+    Bool.or(Bool.or(U32.is_eq(s, 500), U32.is_eq(s, 502)), Bool.or(U32.is_eq(s, 503), U32.is_eq(s, 504))))
+
+# A refused connect or a timeout may clear; any other error would repeat.
+def retry.fail(e: Err) -> Result<&1, &1, Err, Res> & Maybe<&2, String>:
+  match e:
+    case ErrConnect{code, why}:
+      (Fail{ErrConnect{code, why}}, Some{""})
+    case ErrTimeout{}:
+      (Fail{ErrTimeout{}}, Some{""})
+    case other:
+      (Fail{other}, None{})
+
+def retry.res(res: Res) -> Result<&1, &1, Err, Res> & Maybe<&2, String>:
+  Res{+status, +headers, body} = res
+  (Done{Res{status, headers, body}}, Bool.pick(Maybe<&2, String>, retry.status(status), Some{header(headers, "retry-after")}, None{}))
+
+def retry.judge.try(r: Result<&1, &1, Err, Res>) -> Result<&1, &1, Err, Res> & Maybe<&2, String>:
+  match r:
+    case Fail{e}:
+      retry.fail(e)
+    case Done{res}:
+      retry.res(res)
+
+# One try, judged: the result as it came, and Some{Retry-After value} ("" when absent)
+# when an idempotent request may try again.
+def retry.judge(idem: Bool, r: Result<&1, &1, Err, Res>) -> Result<&1, &1, Err, Res> & Maybe<&2, String>:
+  match idem:
+    case False{}:
+      (r, None{})
+    case True{}:
+      retry.judge.try(r)
+
+# ponytail: a failed random source gives jitter 0, so the wait is the lower half.
+def retry.jitter(r: Result<&1, &1, U32 & String, U32>) -> U32:
+  match r:
+    case Fail{e}:
+      0
+    case Done{x}:
+      x
+
+def retry.sleep(+v: String, n: Nat) -> IO(Unit):
+  do IO<Unit>:
+    now : Time.Instant <- Time.now()
+    rnd : Result<&1, &1, U32 & String, U32> <- IO.random_u32()
+    IO.sleep(retry.delay(v, now, n, retry.jitter(rnd)))
+
+def retry.kept(body: Bytes.Bytes, j: Result<&1, &1, Err, Res> & Maybe<&2, String>) -> Bytes.Bytes & Result<&1, &1, Err, Res> & Maybe<&2, String>:
+  (r, m) = j
+  (body, r, m)
+
+# One fetch of the copy; the body comes back for the next try.
+def retry.one(+idem: Bool, +method: String, +url: String, +headers: Map<&2, List<&2, String>>,
+    r: Bytes.Bytes & Bytes.Bytes) -> IO(Bytes.Bytes & Result<&1, &1, Err, Res> & Maybe<&2, String>):
+  (body, spare) = r
+  do IO<Bytes.Bytes & Result<&1, &1, Err, Res> & Maybe<&2, String>>:
+    got : Result<&1, &1, Err, Res> <- fetch(method, url, headers, spare)
+    return retry.kept(body, retry.judge(idem, got))
+
+# left: retries still allowed. n: the retry to wait for next, 0 first.
+def retry.go(left: Nat, +n: Nat, +idem: Bool, +method: String, +url: String,
+    +headers: Map<&2, List<&2, String>>,
+    t: Bytes.Bytes & Result<&1, &1, Err, Res> & Maybe<&2, String>) -> IO(Result<&1, &1, Err, Res>):
+  match left:
+    case 0n:
+      (body, r, m) = t
+      IO.pure(Result<&1, &1, Err, Res>, r)
+    case 1n+p:
+      (body, r, m) = t
+      match m:
+        case None{}:
+          IO.pure(Result<&1, &1, Err, Res>, r)
+        case Some{v}:
+          do IO<Result<&1, &1, Err, Res>>:
+            retry.sleep(v, n)
+            tried : Bytes.Bytes & Result<&1, &1, Err, Res> & Maybe<&2, String> <-
+              retry.one(idem, method, url, headers, Bytes.slice(body, 0, 4294967295))
+            retry.go(p, 1n+n, idem, method, url, headers, tried)
+
+# fetch.retry(n, method, url, headers, body) is fetch, tried again up to n times while an
+# idempotent method (GET, HEAD, OPTIONS, TRACE, PUT, DELETE) gets a connect error, a timeout,
+# or 408, 429, 500, 502, 503, or 504. POST, PATCH and other methods get one try. It waits
+# Retry-After (seconds or HTTP-date, at most 30 s) when given, else the backoff. When retries
+# run out, the last response or error comes back as it was.
+def retry.start(enabled: Bool, n: U32, +method: String, +url: String,
+    +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
+    IO(Result<&1, &1, Err, Res>):
+  match enabled:
+    case False{}:
+      fetch(method, url, headers, body)
+    case True{}:
+      do IO<Result<&1, &1, Err, Res>>:
+        first : Bytes.Bytes & Result<&1, &1, Err, Res> & Maybe<&2, String> <-
+          retry.one(True{}, method, url, headers, Bytes.slice(body, 0, 4294967295))
+        retry.go(U32.to_nat(n), 0n, True{}, method, url, headers, first)
+
+def fetch.retry(+n: U32, +method: String, +url: String,
+    +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
+    IO(Result<&1, &1, Err, Res>):
+  retry.start(Bool.and(U32.is_ne(n, 0), pool.idempotent(method)),
+    n, method, url, headers, body)
 
 # Streaming (a body read or sent in pieces). A decoded stream owns its decoders.
 # What the next read returns: read more, a raw piece, a decoded piece, the end, or an error.
