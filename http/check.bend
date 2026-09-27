@@ -1,6 +1,10 @@
 import Base
 import ./http.bend as Http
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
+import bend-kit-http2@0.1.2.0/http2.bend as H2
+import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
+
 
 def show_req(req: Http.Req) -> IO(Unit):
   Http.Req{method, path, headers, body} = req
@@ -332,6 +336,49 @@ def mtls.args(xs: List<&1, String>) -> IO(Unit):
                   IO.die(Unit, 1, "mTLS needs four certificate paths")
                 case Con{key2, extra}:
                   mtls.run(one, key1, two, key2)
+
+def h2.has(xs: List<&2, Hpack.Field>, +want: String) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{Hpack.Field{name, value, mode}, rest}:
+      Bool.or(String.eq(name, want), h2.has(rest, want))
+
+def h2.bad(r: Result<&1, &1, Http.Err, Maybe<&1, Http.Res>>) -> Bool:
+  match r:
+    case Fail{e}:
+      True{}
+    case Done{m}:
+      False{}
+
+def h2.good(r: Result<&1, &1, Http.Err, Maybe<&1, Http.Res>>) -> Bool:
+  match r:
+    case Fail{e}:
+      False{}
+    case Done{m}:
+      match m:
+        case None{}:
+          False{}
+        case Some{Http.Res{status, headers, body}}:
+          U32.is_eq(status, 200)
+
+def h2.check() -> IO(Unit):
+  +fields = Http.h2.request.fields("GET", "/", "example.com",
+    Http.set(Http.set(Http.set(Http.set(Http.empty(),
+      "Connection", "X-Remove, keep-alive"), "X-Remove", "secret"),
+      ":evil", "forbidden"), "X-Keep", "yes"))
+  do IO<Unit>:
+    local.ok(Bool.not(h2.has(fields, "x-remove")), "h2 Connection-nominated header")
+    local.ok(Bool.not(h2.has(fields, ":evil")), "h2 caller pseudo-header")
+    local.ok(h2.has(fields, "x-keep"), "h2 regular header")
+    local.ok(h2.bad(Http.h2.response([Hpack.Field{":status", "0200", 0}],
+      HBytes.new(0))), "h2 status has exactly three digits")
+    local.ok(h2.good(List.foldl(~&1, ~H2.ClientEvent,
+      ~Result<&1, &1, Http.Err, Maybe<&1, Http.Res>>, ~Http.h2.event.fold,
+      [H2.Response{1, [Hpack.Field{":status", "103", 0}], HBytes.new(0)},
+        H2.Response{1, [Hpack.Field{":status", "200", 0}], HBytes.new(0)}],
+      Done{None{}})), "h2 interim followed by final response")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -341,6 +388,7 @@ def main() -> IO(Unit):
     show(Http.parse("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n"))
     IO.print(Bytes.to_string(Http.res_body(Http.parse_res("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"))))
     IO.print(Http.sanitize("a\rb\nc"))
+    h2.check()
     l : Listener <- IO.try(Listener, TCP.listen(47811))
     pool.run(Http.pool.new(), "yyn")
     pool.run(Http.pool.new.with(1), "ynn")
