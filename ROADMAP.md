@@ -47,7 +47,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### Tier 1
 
 - [ ] Bytes: endian ints, builder, search, compare (#20)
-- [ ] Integer types: U8, U16, U64, I32, I64 (#21)
+- [x] Integer types: U8, U16, U64, I32, I64 (#21)
 - [ ] Filesystem and paths (#22)
 - [ ] Process and OS (#23)
 - [x] Generic collections (#24). A hash map waits on hashing (#27).
