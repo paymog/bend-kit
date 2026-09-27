@@ -355,8 +355,8 @@ static void __attribute__((constructor)) connect_use(void) {
 // object of a socket lives in a table keyed by its fd. Peer verification
 // (chain + host name) is always on; TLS 1.2 is the floor.
 
-#if defined(CID(tls.connect)) || defined(CID(tls.send)) || defined(CID(tls.recv)) || defined(CID(tls.close)) \
-  || defined(CID(tls.send.words)) || defined(CID(tls.recv.words))
+#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.send)) || defined(CID(tls.recv)) \
+  || defined(CID(tls.close)) || defined(CID(tls.send.words)) || defined(CID(tls.recv.words))
 #ifndef WIRE_TLS
 #define WIRE_TLS
 #include <dlfcn.h>
@@ -376,6 +376,8 @@ typedef struct {
   void  (*ssl_free)(void*);
   long  (*verify_result)(const void*);
   const char* (*verify_text)(long);
+  int   (*set_alpn_protos)(void*, const unsigned char*, unsigned int);
+  void  (*get0_alpn_selected)(const void*, const unsigned char**, unsigned int*);
 } WireTls;
 
 #define WIRE_TLS_FDS 65536
@@ -419,13 +421,16 @@ static bool wire_tls_load(void) {
   wire_tls.get_error     = dlsym(h, "SSL_get_error");
   wire_tls.shutdown      = dlsym(h, "SSL_shutdown");
   wire_tls.ssl_free      = dlsym(h, "SSL_free");
-  wire_tls.verify_result = dlsym(h, "SSL_get_verify_result");
-  wire_tls.verify_text   = dlsym(h, "X509_verify_cert_error_string");
+  wire_tls.verify_result      = dlsym(h, "SSL_get_verify_result");
+  wire_tls.verify_text        = dlsym(h, "X509_verify_cert_error_string");
+  wire_tls.set_alpn_protos    = dlsym(h, "SSL_set_alpn_protos");
+  wire_tls.get0_alpn_selected = dlsym(h, "SSL_get0_alpn_selected");
   if (!method || !ctx_new || !paths || !verify || !ctx_ctrl
     || !wire_tls.ssl_new || !wire_tls.set_fd || !wire_tls.ctrl
     || !wire_tls.set1_host || !wire_tls.connect || !wire_tls.read
     || !wire_tls.write || !wire_tls.get_error || !wire_tls.shutdown
-    || !wire_tls.ssl_free || !wire_tls.verify_result || !wire_tls.verify_text) {
+    || !wire_tls.ssl_free || !wire_tls.verify_result || !wire_tls.verify_text
+    || !wire_tls.set_alpn_protos || !wire_tls.get0_alpn_selected) {
     return false;
   }
   void* ctx = ctx_new(method());
@@ -455,7 +460,30 @@ static void wire_tls_drop(int fd) {
 #endif
 #endif
 
-#ifdef CID(tls.connect)
+#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn))
+
+// Comma-separated protocol names to the ALPN wire form (RFC 7301).
+static bool wire_alpn_pack(const char* list, u64 len, unsigned char* buf, unsigned int* n, unsigned int max) {
+  u64 i = 0;
+  *n    = 0;
+  while (i <= len) {
+    u64 start = i;
+    while (i < len && list[i] != ',') {
+      i += 1;
+    }
+    u64 plen = i - start;
+    if (plen == 0 || plen > 255 || *n + 1 + plen > max) {
+      return false;
+    }
+    buf[(*n)++] = (unsigned char)plen;
+    memcpy(buf + *n, list + start, plen);
+    *n += (unsigned int)plen;
+    if (i < len) {
+      i += 1;
+    }
+  }
+  return true;
+}
 
 static Term wire_tls_connect_end(Env e, IoWork* w, Term r) {
   free(w->text);
@@ -472,6 +500,12 @@ static Term wire_tls_connect_more(Env e, IoWork* w) {
   void* ssl = wire_tls_of(fd);
   int   r   = wire_tls.connect(ssl);
   if (r == 1) {
+    if (w->made != 0) {
+      const unsigned char* ad;
+      unsigned int         an;
+      wire_tls.get0_alpn_selected(ssl, &ad, &an);
+      return wire_tls_connect_end(e, w, io_done(e, wire_bytes(e, (const char*)ad, an)));
+    }
     return wire_tls_connect_end(e, w, io_done(e, term_pak(CID(Unit), 0)));
   }
   int err = wire_tls.get_error(ssl, r);
@@ -485,11 +519,21 @@ static Term wire_tls_connect_more(Env e, IoWork* w) {
   return wire_tls_connect_fail(e, w, EPROTO, v != 0 ? wire_tls.verify_text(v) : "TLS handshake failed");
 }
 
+static Term wire_tls_connect_start(Env e, IoWork* w, int fd, void* ssl) {
+  wire_tls_ssl[fd] = ssl;
+  if (wire_tls.set_fd(ssl, fd) != 1 || wire_tls.ctrl(ssl, 55, 0, w->text) != 1
+    || wire_tls.set1_host(ssl, w->text) != 1) {
+    return wire_tls_connect_fail(e, w, EPROTO, "TLS setup failed");
+  }
+  return wire_tls_connect_more(e, w);
+}
+
 Term tls_connect_run(Env e, Term* f, IoWork* w) {
   uint64_t hn = 0;
   w->hand = (intptr_t)io_hand_v(f[0]);
   w->text = io_cstr(e, f[1], &hn);
   w->size = wire_deadline((u64)f[2]);
+  w->made = 0;
   int fd  = (int)w->hand;
   if (!wire_tls_load()) {
     return wire_tls_connect_end(e, w, io_fail(e, ENOENT, "TLS needs OpenSSL 3 (libssl.3); set BEND_LIBSSL to its path"));
@@ -501,17 +545,48 @@ Term tls_connect_run(Env e, Term* f, IoWork* w) {
   if (ssl == NULL) {
     return wire_tls_connect_end(e, w, io_fail(e, ENOMEM, NULL));
   }
-  wire_tls_ssl[fd] = ssl;
-  // SNI (SSL_CTRL_SET_TLSEXT_HOSTNAME, host_name) and host name verification.
-  if (wire_tls.set_fd(ssl, fd) != 1 || wire_tls.ctrl(ssl, 55, 0, w->text) != 1
-    || wire_tls.set1_host(ssl, w->text) != 1) {
-    return wire_tls_connect_fail(e, w, EPROTO, "TLS setup failed");
-  }
-  return wire_tls_connect_more(e, w);
+  return wire_tls_connect_start(e, w, fd, ssl);
 }
 
 static void __attribute__((constructor)) tls_connect_use(void) {
   io_eff(CID(tls.connect), tls_connect_run, 0);
+}
+
+#endif
+
+#ifdef CID(tls.connect.alpn)
+
+Term tls_connect_alpn_run(Env e, Term* f, IoWork* w) {
+  uint64_t hn = 0;
+  uint64_t pn = 0;
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->text = io_cstr(e, f[1], &hn);
+  w->size = wire_deadline((u64)f[2]);
+  w->made = 1;
+  char*         plist = io_cstr(e, f[3], &pn);
+  unsigned char abuf[256];
+  unsigned int  alen;
+  int           fd = (int)w->hand;
+  if (!wire_tls_load()) {
+    return wire_tls_connect_end(e, w, io_fail(e, ENOENT, "TLS needs OpenSSL 3 (libssl.3); set BEND_LIBSSL to its path"));
+  }
+  if (fd < 0 || fd >= WIRE_TLS_FDS || io_nul(w->text, hn) || io_nul(plist, pn)
+    || !wire_alpn_pack(plist, pn, abuf, &alen, sizeof(abuf))) {
+    return wire_tls_connect_end(e, w, io_fail(e, EINVAL, NULL));
+  }
+  void* ssl = wire_tls.ssl_new(wire_tls.ctx);
+  if (ssl == NULL) {
+    return wire_tls_connect_end(e, w, io_fail(e, ENOMEM, NULL));
+  }
+  if (wire_tls.set_alpn_protos(ssl, abuf, alen) != 0) {
+    wire_tls.ssl_free(ssl);
+    return wire_tls_connect_end(e, w, io_fail(e, EPROTO, "ALPN setup failed"));
+  }
+  return wire_tls_connect_start(e, w, fd, ssl);
+}
+
+static void __attribute__((constructor)) tls_connect_alpn_use(void) {
+  io_eff(CID(tls.connect.alpn), tls_connect_alpn_run, 0);
 }
 
 #endif

@@ -203,7 +203,7 @@ function wire_tls() {
     + " SSL_CTX_ctrl:pilp>l SSL_new:p>p SSL_set_fd:pi>i"
     + " SSL_ctrl:pilp>l SSL_set1_host:pp>i SSL_connect:p>i SSL_read:ppi>i"
     + " SSL_write:ppi>i SSL_get_error:pi>i SSL_shutdown:p>i SSL_free:p>v"
-    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c").split(" ").map((s) => {
+    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c SSL_set_alpn_protos:ppi>i SSL_get0_alpn_selected:ppp>v").split(" ").map((s) => {
     const [name, args, ret] = s.split(/[:>]/);
     return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
   }));
@@ -229,12 +229,72 @@ function wire_tls() {
   return null;
 }
 
+
+function wire_alpn_pack(list) {
+  const b = [];
+  for (const part of list.split(",")) {
+    const name = part;
+    if (name.length === 0 || name.length > 255) {
+      return null;
+    }
+    b.push(name.length);
+    for (let i = 0; i < name.length; i += 1) {
+      b.push(name.charCodeAt(i));
+    }
+  }
+  return new Uint8Array(b);
+}
+
+function wire_alpn_selected(t, ssl) {
+  const data = new BigUint64Array(1);
+  const len = new Uint32Array(1);
+  t.s.SSL_get0_alpn_selected(ssl, t.ffi.ptr(data), t.ffi.ptr(len));
+  const n = Number(len[0]);
+  if (n === 0) {
+    return wire_text(new Uint8Array(0), 0);
+  }
+  const read = t.ffi.read;
+  const p = Number(data[0]);
+  const view = new Uint8Array(n);
+  for (let i = 0; i < n; i += 1) {
+    view[i] = read.u8(p, i);
+  }
+  return wire_text(view, n);
+}
+
 function wire_cstr(t, text) {
   const b = Buffer.from(text + "\0", "utf8");
   return { b, p: t.ffi.ptr(b) };
 }
 
-function tls_connect(socket, host, ms, k) {
+function wire_tls_connect_go(t, socket, ssl, at, k, done) {
+  const s = t.s;
+  const fd = socket;
+  const go = () => {
+    const r = s.SSL_connect(ssl);
+    if (r === 1) {
+      return io_tup(socket, io_done(done(t, ssl)));
+    }
+    const err = s.SSL_get_error(ssl, r);
+    if (err === 2 || err === 3) {
+      if (wire_late(at)) {
+        s.SSL_free(ssl);
+        t.by.delete(fd);
+        return io_tup(socket, io_fail(wire_timedout()));
+      }
+      io_park_on(fd, err === 3, k, go, at);
+      return undefined;
+    }
+    const v = s.SSL_get_verify_result(ssl);
+    s.SSL_free(ssl);
+    t.by.delete(fd);
+    return io_tup(socket, { $: CID(Fail), error: io_tup(100,
+      v !== 0n ? String(s.X509_verify_cert_error_string(v)) : "TLS handshake failed") });
+  };
+  return go();
+}
+
+function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
   const at = wire_deadline(ms);
   const t = wire_tls();
   if (t === null) {
@@ -258,26 +318,30 @@ function tls_connect(socket, host, ms, k) {
     || s.SSL_set1_host(ssl, name.p) !== 1) {
     return fail("TLS setup failed");
   }
-  const go = () => {
-    const r = s.SSL_connect(ssl);
-    if (r === 1) {
-      return io_tup(socket, io_done({ $: CID(Unit) }));
-    }
-    const err = s.SSL_get_error(ssl, r);
-    if (err === 2 || err === 3) {
-      if (wire_late(at)) {
-        s.SSL_free(ssl);
-        t.by.delete(fd);
-        return io_tup(socket, io_fail(wire_timedout()));
-      }
-      io_park_on(fd, err === 3, k, go, at);
-      return undefined;
-    }
-    const v = s.SSL_get_verify_result(ssl);
-    return fail(v !== 0n ? String(s.X509_verify_cert_error_string(v)) : "TLS handshake failed");
-  };
-  return go();
+  const err = setup(t, ssl);
+  if (err !== null) {
+    return fail(err);
+  }
+  return wire_tls_connect_go(t, socket, ssl, at, k, done);
 }
+
+function tls_connect(socket, host, ms, k) {
+  return wire_tls_connect_setup(socket, host, ms, k, () => null, () => ({ $: CID(Unit) }));
+}
+
+function tls_connect_alpn(socket, host, ms, protos, k) {
+  return wire_tls_connect_setup(socket, host, ms, k, (t, ssl) => {
+    const abuf = wire_alpn_pack(protos);
+    if (abuf === null) {
+      return "ALPN setup failed";
+    }
+    if (t.s.SSL_set_alpn_protos(ssl, t.ffi.ptr(abuf), abuf.length) !== 0) {
+      return "ALPN setup failed";
+    }
+    return null;
+  }, (t, ssl) => wire_alpn_selected(t, ssl));
+}
+
 
 function tls_send(socket, data, k) {
   return wire_tls_send(socket, wire_octets(data), k);
@@ -422,6 +486,7 @@ io_eff(CID(send), send);
 io_eff(CID(recv_from), recv_from);
 io_eff(CID(send_to), send_to);
 io_eff(CID(tls.connect), tls_connect);
+io_eff(CID(tls.connect.alpn), tls_connect_alpn);
 io_eff(CID(tls.send), tls_send);
 io_eff(CID(tls.recv), tls_recv);
 io_eff(CID(tls.close), tls_close);
