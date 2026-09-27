@@ -53,6 +53,8 @@ HTTPS `fetch` offers `h2,http/1.1` through ALPN. An HTTP/2 response uses the sam
 
 For a host with multiple addresses, the client tries them in DNS order until TCP connects, within the step timeout. `http://[::1]:8080/` connects to IPv6 and sends `Host: [::1]:8080`. Address attempts are sequential, not raced.
 
+`fetch` and `pool.fetch` use `http_proxy`, `https_proxy`, and `no_proxy` (or uppercase names when lowercase is absent). An HTTP proxy receives an absolute-form request target. An HTTPS proxy receives `CONNECT host:port` before the client starts TLS to the origin; certificate and host verification still apply. Proxy URL userinfo supplies HTTP Basic `Proxy-Authorization`. `NO_PROXY` accepts a comma-separated list of hosts, domain suffixes, optional ports, bracketed IPv6 addresses, and `*`. Direct and proxied sockets, including different proxy credentials, have separate pool entries. Only `fetch` uses proxy environment variables; streaming requests and uploads connect directly.
+
 `Http.get` is `fetch("GET", url, Http.empty(), Http.from_string(""))`.
 
 `Http.fetch.cert(method, url, headers, body, cert_path, key_path)` presents a PEM client chain and private key to an HTTPS server. `fetch.cert.with(..., ms)` sets the timeout. The identity follows same-origin redirects but is dropped after a cross-origin redirect, even if a later hop returns. Server certificate and host verification still apply. `Http.pool.fetch.cert(p, method, url, headers, body, cert_path, key_path)` keeps authenticated connections by identity; a socket is never shared with a request without that identity or with another certificate. Run `http/mtls-check.sh` (or `http/mtls-check.sh js`) to exercise generated local certificates.
@@ -135,6 +137,8 @@ def main() -> IO(Unit):
 `Http.serve(~h, port)` reads each request until it is whole, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. `Http.serve.with(~h, port, max)` sets the maximum request size in bytes; `serve` defaults to 16 MiB. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
 
 ## Versions
+
+`0.21.0.0` adds environment-controlled HTTP and HTTPS proxy routing for `fetch` and pooled fetch.
 
 `0.20.1.0` adds `Http.post.json`, `Http.resolve`, and `Http.fetch.retry`, and imports `bend-kit-time@0.1.0.0` for `Retry-After` dates.
 

@@ -1943,6 +1943,15 @@ def exchange(+tls: Bool, +ms: U32, +close: Bool, +head: Bool, s: Socket, wire: B
 type Cert is Data:
   Cert{chain: String, key: String}
 
+type Proxy is Data:
+  ProxyDirect{}
+  ProxyVia{host: String, port: U32, authorization: String}
+
+type Route is Data:
+  RouteDirect{tls: Bool, host: String, port: U32, cert: Maybe<&2, Cert>}
+  RouteProxy{tls: Bool, host: String, port: U32, sni: String,
+    authority: String, authorization: String, cert: Maybe<&2, Cert>}
+
 # Connection pool: idle sockets by origin and client identity, newest first, at most cap per key.
 # fetch uses a fresh pool per call.
 
@@ -1960,6 +1969,12 @@ type H2Step is Type:
     sent: Result<&1, &1, Err, Socket>}
   H2Events{s: Socket, client: H2.Client, result: Result<&1, &1, Err, Maybe<&1, Res>>}
   H2Received{client: H2.Client,
+    answer: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>}
+
+type TunnelStep is Type:
+  TunnelRead{s: Socket, raw: String}
+  TunnelHead{s: Socket, raw: String, frame: Frame}
+  TunnelGot{raw: String,
     answer: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>}
 
 type Pool is Type:
@@ -2223,6 +2238,158 @@ def conn.open.all(+tls: Bool, +ms: U32, +host: String, +port: U32,
         start : Nat <- IO.now()
         r : Result<&1, &1, U32 & String, Socket> <- conn.dial.all(port, ms, start, addr, rest)
         conn.made(ms, host, tls, cert, offer, r)
+
+def proxy.auth.safe(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{Chr{+c}, rest}:
+      Bool.and(U32.is_ge(c, 32), Bool.and(U32.is_ne(c, 127), proxy.auth.safe(rest)))
+
+def proxy.auth.checked(+decoded: String, valid: Bool) -> Maybe<&2, String>:
+  match valid:
+    case False{}:
+      None{}
+    case True{}:
+      Some{"Basic " ++ Bytes.to_base64(Bytes.from_string(decoded))}
+
+def proxy.auth.value(m: Maybe<&2, String>) -> Maybe<&2, String>:
+  match m:
+    case None{}:
+      None{}
+    case Some{+decoded}:
+      proxy.auth.checked(decoded, Bool.and(Url.has(decoded, 58), proxy.auth.safe(decoded)))
+
+def proxy.from.abs(authorization: String, m: Maybe<&2, Url.Abs>) -> Maybe<&2, Proxy>:
+  match m:
+    case None{}:
+      None{}
+    case Some{Url.Abs{scheme, host, port, target}}:
+      Some{ProxyVia{host, port, authorization}}
+
+def proxy.from.user(user: String, host: String) -> Maybe<&2, Proxy>:
+  do Maybe<&2, Proxy>:
+    authorization : String <- proxy.auth.value(Url.pct.decode(user))
+    proxy.from.abs(authorization, Url.absolute("http://" ++ host))
+
+def proxy.from.authority(has_user: Bool, authority: String, split: String & String) ->
+    Maybe<&2, Proxy>:
+  match has_user:
+    case False{}:
+      proxy.from.abs("", Url.absolute("http://" ++ authority))
+    case True{}:
+      (user, host) = split
+      proxy.from.user(user, host)
+
+def proxy.from.parts(parts: String & String) -> Maybe<&2, Proxy>:
+  (+authority, path) = parts
+  match path:
+    case SNil{}:
+      proxy.from.authority(Url.has(authority, 64), authority, Url.take_to(authority, 64))
+    case other:
+      None{}
+
+def proxy.from.url.if(valid: Bool, raw: String) -> Maybe<&2, Proxy>:
+  match valid:
+    case False{}:
+      None{}
+    case True{}:
+      proxy.from.parts(Url.take_to(String.drop(raw, 7n), 47))
+
+def proxy.from.url(+raw: String) -> Maybe<&2, Proxy>:
+  proxy.from.url.if(String.starts_with(String.to_lower(raw), "http://"), raw)
+
+def proxy.no.domain(+host: String, +suffix: String) -> Bool:
+  Bool.or(String.eq(host, suffix), String.ends_with(host, "." ++ suffix))
+
+def proxy.no.suffix(+host: String, +raw: String) -> Bool:
+  match raw:
+    case SCon{Chr{46}, +suffix}:
+      proxy.no.domain(host, suffix)
+    case other:
+      proxy.no.domain(host, raw)
+
+def proxy.no.port(valid: Bool, +host: String, suffix: String) -> Bool:
+  match valid:
+    case False{}:
+      False{}
+    case True{}:
+      proxy.no.suffix(host, suffix)
+
+def proxy.no.named(+host: String, +port: U32, parts: String & String) -> Bool:
+  (suffix, port_text) = parts
+  match port_text:
+    case SNil{}:
+      proxy.no.suffix(host, suffix)
+    case other:
+      proxy.no.port(String.eq(port_text, U32.show(port)), host, suffix)
+
+def proxy.no.literal(+host: String, +port: U32, +name: String) -> Bool:
+  Bool.or(String.eq(name, host), Bool.or(String.eq(name, "[" ++ host ++ "]"),
+    Bool.or(String.eq(name, host ++ ":" ++ U32.show(port)),
+      String.eq(name, "[" ++ host ++ "]:" ++ U32.show(port)))))
+
+def proxy.no.token(+host: String, +port: U32, token: String) -> Bool:
+  +name = String.to_lower(trim(token))
+  Bool.or(String.eq(name, "*"),
+    Bool.or(proxy.no.literal(host, port, name),
+      Bool.and(Bool.not(Url.has(host, 58)),
+        proxy.no.named(host, port, Url.take_to(name, 58)))))
+
+def proxy.no.list(xs: List<&2, String>, +host: String, +port: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{token, rest}:
+      Bool.or(proxy.no.token(host, port, token), proxy.no.list(rest, host, port))
+
+def proxy.no_match(+host: String, +port: U32, no_proxy: String) -> Bool:
+  proxy.no.list(String.split(no_proxy, ','), String.to_lower(host), port)
+
+def proxy.env.value(r: Result<&1, &1, U32 & String, String>) -> String:
+  match r:
+    case Fail{e}:
+      ""
+    case Done{value}:
+      value
+
+def proxy.env.lower(r: Result<&1, &1, U32 & String, String>, upper: String) ->
+    IO(String):
+  match r:
+    case Done{value}:
+      IO.pure(String, value)
+    case Fail{e}:
+      do IO<String>:
+        got : Result<&1, &1, U32 & String, String> <- IO.get_env(upper)
+        return proxy.env.value(got)
+
+def proxy.env(lower: String, upper: String) -> IO(String):
+  do IO<String>:
+    got : Result<&1, &1, U32 & String, String> <- IO.get_env(lower)
+    proxy.env.lower(got, upper)
+
+def proxy.from.env(value: String) -> Maybe<&2, Proxy>:
+  match value:
+    case SNil{}:
+      Some{ProxyDirect{}}
+    case other:
+      proxy.from.url(value)
+
+def proxy.choose(bypass: Bool, value: String) -> Maybe<&2, Proxy>:
+  match bypass:
+    case True{}:
+      Some{ProxyDirect{}}
+    case False{}:
+      proxy.from.env(value)
+
+def proxy.select(+scheme: String, +host: String, +port: U32) ->
+    IO(Maybe<&2, Proxy>):
+  +secure = String.eq(scheme, "https")
+  do IO<Maybe<&2, Proxy>>:
+    bypass : String <- proxy.env("no_proxy", "NO_PROXY")
+    value : String <- proxy.env(Bool.pick(String, secure, "https_proxy", "http_proxy"),
+      Bool.pick(String, secure, "HTTPS_PROXY", "HTTP_PROXY"))
+    return proxy.choose(proxy.no_match(host, port, bypass), value)
 
 def h2.header.skip(+name: String) -> Bool:
   match name:
@@ -2494,6 +2661,159 @@ def h2.exchange(s: Socket, client: H2.Client, +ms: U32, request: Send) ->
       h2.request.fields(method, target, authority, headers), HBytes.Bytes{len, buf})},
     ms, 0)
 
+def proxy.connect.fail(s: Socket, e: Err) -> IO(Result<&1, &1, Err, Conn>):
+  do IO<Result<&1, &1, Err, Conn>>:
+    io.close(False{}, s)
+    return Fail{e}
+
+def proxy.connect.extra(m: Maybe<&2, String>, s: Socket, +ms: U32,
+    sni: String, cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+  match m:
+    case None{}:
+      proxy.connect.fail(s, ErrBad{})
+    case Some{rest}:
+      match rest:
+        case SNil{}:
+          conn.secure(ms, sni, s, True{}, cert, True{})
+        case other:
+          proxy.connect.fail(s, ErrBad{})
+
+def proxy.connect.status(ok: Bool, +status: U32, raw: String, s: Socket,
+    +ms: U32, sni: String, cert: Maybe<&2, Cert>) ->
+    IO(Result<&1, &1, Err, Conn>):
+  match ok:
+    case False{}:
+      proxy.connect.fail(s, ErrConnect{status, "proxy CONNECT refused"})
+    case True{}:
+      proxy.connect.extra(after(raw, True{}), s, ms, sni, cert)
+
+def proxy.connect.finish(res: Res, raw: String, s: Socket, +ms: U32,
+    sni: String, cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+  Res{+status, headers, body} = res
+  proxy.connect.status(Bool.and(U32.is_ge(status, 200), U32.is_lt(status, 300)),
+    status, raw, s, ms, sni, cert)
+
+def proxy.connect.frame(raw: String, over: Bool) -> Frame:
+  match over:
+    case True{}:
+      FrameBad{}
+    case False{}:
+      frame(raw, False{}, True{})
+
+def proxy.connect.chunk(empty: Bool, s: Socket, raw: String,
+    +len: U32, buf: Array<U32>) -> TunnelStep:
+  match empty:
+    case True{}:
+      TunnelHead{s, raw, FrameBad{}}
+    case False{}:
+      TunnelRead{s, raw ++ Bytes.to_string(Bytes.Bytes{len, buf})}
+
+def proxy.connect.loop(n: Nat, step: TunnelStep, +ms: U32, +sni: String,
+    +cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+  match n:
+    case 0n:
+      match step:
+        case TunnelRead{s, raw}:
+          proxy.connect.fail(s, ErrBad{})
+        case TunnelHead{s, raw, result}:
+          proxy.connect.fail(s, ErrBad{})
+        case TunnelGot{raw, answer}:
+          (s, result) = answer
+          proxy.connect.fail(s, ErrBad{})
+    case 1n+p:
+      match step:
+        case TunnelRead{s, +raw}:
+          proxy.connect.loop(p, TunnelHead{s, raw,
+            proxy.connect.frame(raw, Nat.is_gt(String.length(raw), 65536n))},
+            ms, sni, cert)
+        case TunnelHead{s, raw, result}:
+          match result:
+            case FrameBad{}:
+              proxy.connect.fail(s, ErrBad{})
+            case FrameMore{}:
+              do IO<Result<&1, &1, Err, Conn>>:
+                answer : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
+                  io.recv.words(False{}, s, 4096, ms)
+                proxy.connect.loop(p, TunnelGot{raw, answer}, ms, sni, cert)
+            case FrameDone{res}:
+              proxy.connect.finish(res, raw, s, ms, sni, cert)
+        case TunnelGot{raw, answer}:
+          match answer:
+            case (s, Fail{(+code, why)}):
+              proxy.connect.fail(s, err.or_late(code, ErrRead{code, why}))
+            case (s, Done{(+len, buf)}):
+              proxy.connect.loop(p,
+                proxy.connect.chunk(U32.is_zero(len), s, raw, len, buf),
+                ms, sni, cert)
+
+def proxy.connect.header(+authority: String, authorization: String) -> String:
+  match authorization:
+    case SNil{}:
+      "CONNECT " ++ authority ++ " HTTP/1.1\r\nHost: " ++ authority ++ "\r\n\r\n"
+    case other:
+      "CONNECT " ++ authority ++ " HTTP/1.1\r\nHost: " ++ authority
+        ++ "\r\nProxy-Authorization: " ++ authorization ++ "\r\n\r\n"
+
+def proxy.connect.sent(r: Socket & Result<&1, &1, U32 & String, Unit>,
+    +ms: U32, sni: String, cert: Maybe<&2, Cert>) ->
+    IO(Result<&1, &1, Err, Conn>):
+  (s, sent) = r
+  match sent:
+    case Fail{(+code, why)}:
+      proxy.connect.fail(s, err.or_late(code, ErrWrite{code, why}))
+    case Done{unit}:
+      proxy.connect.loop(Nat.mul(3n, 65536n), TunnelRead{s, ""}, ms, sni, cert)
+
+def proxy.connect(s: Socket, +ms: U32, sni: String, authority: String,
+    authorization: String, cert: Maybe<&2, Cert>) ->
+    IO(Result<&1, &1, Err, Conn>):
+  do IO<Result<&1, &1, Err, Conn>>:
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+      io.send(False{}, s, proxy.connect.header(authority, authorization))
+    proxy.connect.sent(sent, ms, sni, cert)
+
+def proxy.route.tls(tls: Bool, s: Socket, +ms: U32, sni: String,
+    authority: String, authorization: String, cert: Maybe<&2, Cert>) ->
+    IO(Result<&1, &1, Err, Conn>):
+  match tls:
+    case False{}:
+      IO.pure(Result<&1, &1, Err, Conn>, Done{Conn{False{}, s}})
+    case True{}:
+      proxy.connect(s, ms, sni, authority, authorization, cert)
+
+def proxy.route.connected(tls: Bool, +ms: U32, sni: String, authority: String,
+    authorization: String, cert: Maybe<&2, Cert>,
+    r: Result<&1, &1, Err, Conn>) -> IO(Result<&1, &1, Err, Conn>):
+  match r:
+    case Fail{e}:
+      IO.pure(Result<&1, &1, Err, Conn>, Fail{e})
+    case Done{c}:
+      match c:
+        case Conn{plain, s}:
+          proxy.route.tls(tls, s, ms, sni, authority, authorization, cert)
+        case ConnH2{s, client}:
+          do IO<Result<&1, &1, Err, Conn>>:
+            Wire.tls.close(s)
+            return Fail{ErrBad{}}
+
+def proxy.route.open(+ms: U32, +tls: Bool, +host: String, +port: U32,
+    +sni: String, +authority: String, +authorization: String,
+    cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+  do IO<Result<&1, &1, Err, Conn>>:
+    ips : List<&2, String> <- Dns.resolve.all(host)
+    conn : Result<&1, &1, Err, Conn> <-
+      conn.open.all(False{}, ms, host, port, ips, None{}, False{})
+    proxy.route.connected(tls, ms, sni, authority, authorization, cert, conn)
+
+def route.open(+ms: U32, route: Route) -> IO(Result<&1, &1, Err, Conn>):
+  match route:
+    case RouteDirect{tls, +host, port, cert}:
+      do IO<Result<&1, &1, Err, Conn>>:
+        ips : List<&2, String> <- Dns.resolve.all(host)
+        conn.open.all(tls, ms, host, port, ips, cert, True{})
+    case RouteProxy{tls, host, port, sni, authority, authorization, cert}:
+      proxy.route.open(ms, tls, host, port, sni, authority, authorization, cert)
+
 def conn.ex.h1(+tls: Bool, s: Socket, +ms: U32, request: Send) -> IO(Out):
   Send{+method, target, authority, headers, body} = request
   exchange.go(tls, ms, False{}, String.eq(method, "HEAD"), s,
@@ -2580,86 +2900,139 @@ def pool.fresh.conn(p: Pool, +key: String, +ms: U32, request: Send,
         case ConnH2{s, client}:
           pool.h2.ex(p, key, ms, request, s, client)
 
-def pool.fresh(p: Pool, +key: String, +tls: Bool, +ms: U32, +host: String,
-    +port: U32, request: Send, cert: Maybe<&2, Cert>) ->
+def pool.fresh(p: Pool, +key: String, +ms: U32, request: Send, route: Route) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
-    ips : List<&2, String> <- Dns.resolve.all(host)
-    c : Result<&1, &1, Err, Conn> <- conn.open.all(tls, ms, host, port, ips, cert, True{})
+    c : Result<&1, &1, Err, Conn> <- route.open(ms, route)
     pool.fresh.conn(p, key, ms, request, c)
 
 # A reused socket the server already closed fails before any response byte.
 def pool.retry(+none: Bool, +idem: Bool) -> Bool:
   Bool.and(none, idem)
 
-def pool.stale(p: Pool, +key: String, +tls: Bool, +ms: U32, +host: String,
-    +port: U32, request: Send, e: Err, again: Bool, cert: Maybe<&2, Cert>) ->
+def pool.stale(p: Pool, +key: String, +ms: U32, request: Send,
+    e: Err, again: Bool, route: Route) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   match again:
     case True{}:
-      pool.fresh(p, key, tls, ms, host, port, request, cert)
+      pool.fresh(p, key, ms, request, route)
     case False{}:
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{e}))
 
 def pool.reused(p: Pool, +key: String, +tls: Bool, +ms: U32, +idem: Bool,
-    +host: String, +port: U32, spare: Send, o: Out, cert: Maybe<&2, Cert>) ->
+    spare: Send, o: Out, route: Route) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   match o:
     case OutFail{e, +none}:
-      pool.stale(p, key, tls, ms, host, port, spare, e, pool.retry(none, idem), cert)
+      pool.stale(p, key, ms, spare, e, pool.retry(none, idem), route)
     case OutDone{res, sock, rest}:
       pool.keep(p, key, tls, res, sock, rest)
 
 # Copy only the reused HTTP/1.1 request body, for a stale-socket retry.
 def pool.idle.h1.bodies(p: Pool, +key: String, +tls: Bool, +ms: U32, +idem: Bool,
-    +host: String, +port: U32, s: Socket, +method: String, +target: String,
-    +authority: String, +headers: Map<&2, List<&2, String>>,
-    r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>) ->
-    IO(Pool & Result<&1, &1, Err, Res>):
+    s: Socket, +method: String, +target: String, +authority: String,
+    +headers: Map<&2, List<&2, String>>, r: Bytes.Bytes & Bytes.Bytes,
+    route: Route) -> IO(Pool & Result<&1, &1, Err, Res>):
   (wire, spare) = r
   do IO<Pool & Result<&1, &1, Err, Res>>:
     o : Out <- conn.ex.h1(tls, s, ms, Send{method, target, authority, headers, wire})
-    pool.reused(p, key, tls, ms, idem, host, port,
-      Send{method, target, authority, headers, spare}, o, cert)
+    pool.reused(p, key, tls, ms, idem,
+      Send{method, target, authority, headers, spare}, o, route)
 
 def pool.idle.h1(p: Pool, +key: String, +tls: Bool, +ms: U32, +idem: Bool,
-    +host: String, +port: U32, s: Socket, request: Send, cert: Maybe<&2, Cert>) ->
+    s: Socket, request: Send, route: Route) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   Send{+method, +target, +authority, +headers, body} = request
-  pool.idle.h1.bodies(p, key, tls, ms, idem, host, port, s, method, target,
-    authority, headers, Bytes.slice(body, 0, 4294967295), cert)
+  pool.idle.h1.bodies(p, key, tls, ms, idem, s, method, target,
+    authority, headers, Bytes.slice(body, 0, 4294967295), route)
 
 def pool.idle.reuse(p: Pool, +key: String, +ms: U32, +idem: Bool,
-    +host: String, +port: U32, c: Conn, request: Send,
-    cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
+    c: Conn, request: Send, route: Route) ->
+    IO(Pool & Result<&1, &1, Err, Res>):
   match c:
     case Conn{tls, s}:
-      pool.idle.h1(p, key, tls, ms, idem, host, port, s, request, cert)
+      pool.idle.h1(p, key, tls, ms, idem, s, request, route)
     case ConnH2{s, client}:
       pool.h2.ex(p, key, ms, request, s, client)
 
-def pool.idle(taken: Pool & Maybe<&1, Conn>, +key: String, +tls: Bool, +ms: U32,
-    +idem: Bool, +host: String, +port: U32, request: Send, cert: Maybe<&2, Cert>) ->
+def pool.idle(taken: Pool & Maybe<&1, Conn>, +key: String, +ms: U32,
+    +idem: Bool, request: Send, route: Route) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   (p, m) = taken
   match m:
     case None{}:
-      pool.fresh(p, key, tls, ms, host, port, request, cert)
+      pool.fresh(p, key, ms, request, route)
     case Some{c}:
-      pool.idle.reuse(p, key, ms, idem, host, port, c, request, cert)
+      pool.idle.reuse(p, key, ms, idem, c, request, route)
 
-def pool.origin(p: Pool, +method: String, +ms: U32,
+def proxy.http.headers(headers: Map<&2, List<&2, String>>,
+    authorization: String) -> Map<&2, List<&2, String>>:
+  match authorization:
+    case SNil{}:
+      headers
+    case other:
+      set(headers, "proxy-authorization", authorization)
+
+def proxy.absolute(scheme: String, host_field: String, target: String) -> String:
+  scheme ++ "://" ++ host_field ++ target
+
+def proxy.request(secure: Bool, +scheme: String, method: String,
+    +target: String, +hf: String, headers: Map<&2, List<&2, String>>,
+    body: Bytes.Bytes, authorization: String) -> Send:
+  match secure:
+    case True{}:
+      Send{method, target, hf, Map.del(&2, List<&2, String>, headers,
+        "proxy-authorization"), body}
+    case False{}:
+      Send{method, proxy.absolute(scheme, hf, target), hf,
+        proxy.http.headers(headers, authorization), body}
+
+def pool.origin.proxy(p: Pool, +method: String, +ms: U32,
     headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +hf: String,
-    a: Url.Abs, known: Bool, +cert: Maybe<&2, Cert>) ->
+    +scheme: String, +host: String, +port: U32, +target: String,
+    +cert: Maybe<&2, Cert>, proxy: Proxy) ->
     IO(Pool & Result<&1, &1, Err, Res>):
-  Url.Abs{+scheme, +host, +port, target} = a
+  match proxy:
+    case ProxyDirect{}:
+      +key = pool.key.cert(pool.key(scheme, host, port), cert)
+      pool.idle(pool.take(p, key), key, ms, pool.idempotent(method),
+        Send{method, target, hf, headers, body},
+        RouteDirect{String.eq(scheme, "https"), host, port, cert})
+    case ProxyVia{+proxy_host, +proxy_port, +authorization}:
+      +secure = String.eq(scheme, "https")
+      +key = pool.key.cert(pool.key(scheme, host, port)
+        ++ "|proxy:" ++ proxy_host ++ ":" ++ U32.show(proxy_port)
+        ++ "|auth:" ++ authorization, cert)
+      pool.idle(pool.take(p, key), key, ms, pool.idempotent(method),
+        proxy.request(secure, scheme, method, target, hf, headers, body, authorization),
+        RouteProxy{secure, proxy_host, proxy_port, host,
+          Url.host_field.wrap(host, Url.has(host, 58)) ++ ":" ++ U32.show(port),
+          authorization, cert})
+
+def pool.origin.choice(p: Pool, method: String, ms: U32,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, hf: String,
+    scheme: String, host: String, port: U32, target: String,
+    cert: Maybe<&2, Cert>, choice: Maybe<&2, Proxy>) ->
+    IO(Pool & Result<&1, &1, Err, Res>):
+  match choice:
+    case None{}:
+      IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrUrl{}}))
+    case Some{proxy}:
+      pool.origin.proxy(p, method, ms, headers, body, hf, scheme, host, port,
+        target, cert, proxy)
+
+def pool.origin(p: Pool, method: String, ms: U32,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, hf: String,
+    a: Url.Abs, known: Bool, cert: Maybe<&2, Cert>,
+    choice: Maybe<&2, Proxy>) ->
+    IO(Pool & Result<&1, &1, Err, Res>):
+  Url.Abs{scheme, host, port, target} = a
   match known:
     case False{}:
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrUrl{}}))
     case True{}:
-      +key = pool.key.cert(pool.key(scheme, host, port), cert)
-      pool.idle(pool.take(p, key), key, String.eq(scheme, "https"), ms,
-        pool.idempotent(method), host, port, Send{method, target, hf, headers, body}, cert)
+      pool.origin.choice(p, method, ms, headers, body, hf, scheme, host,
+        port, target, cert, choice)
 
 def pool.scheme.ok(a: Url.Abs) -> Bool:
   Url.Abs{+scheme, host, port, target} = a
@@ -2669,10 +3042,16 @@ def pool.one.back(h: Hop, pr: Pool & Result<&1, &1, Err, Res>) -> Pool & Result<
   (p, r) = pr
   (p, r, h)
 
-def pool.one.of(p: Pool, +method: String, +url: Url.Abs, +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
+def pool.one.of(p: Pool, +method: String, +url: Url.Abs,
+    +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes,
+    cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
+  Url.Abs{+scheme, +host, +port, target} = url
   (body, wire) = r
   do IO<Pool & Result<&1, &1, Err, Res> & Hop>:
-    pr : Pool & Result<&1, &1, Err, Res> <- pool.origin(p, method, ms, headers, wire, Url.host_field(url), url, pool.scheme.ok(url), cert)
+    choice : Maybe<&2, Proxy> <- proxy.select(scheme, host, port)
+    pr : Pool & Result<&1, &1, Err, Res> <-
+      pool.origin(p, method, ms, headers, wire, Url.host_field(url),
+        url, pool.scheme.ok(url), cert, choice)
     return pool.one.back(Hop{method, url, headers, body}, pr)
 
 # One request, on an idle socket to its origin when the pool has one. The hop comes back for the redirect.

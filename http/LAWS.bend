@@ -686,6 +686,7 @@ law stream_len_cut:
   {Http.pc.eof(Http.RbLen{3}) == Http.Pc{Http.RbDone{}, Http.PoBad{Http.ErrBad{}}} : Http.Pc}
 
 # A body with no Content-Encoding passes through as sent.
+
 law decoded_plain:
   {Http.decoded(Http.Res{200, Http.empty(), Bytes.from_string("hi")}) == Done{Http.Res{200, Http.empty(), Bytes.from_string("hi")}} : Result<&1, &1, Http.Err, Http.Res>}
 
@@ -757,3 +758,29 @@ law retry_after_bad:
 # LAW: Retry-After wins over the backoff; without it, the backoff.
 law retry_delay:
   {[Http.retry.delay("3", retry_now(), 1n, 0), Http.retry.delay("", retry_now(), 1n, 0), Http.retry.delay("soon", retry_now(), 2n, 5)] == [3000, 500, 1005] : List<&2, U32>}
+
+law proxy_no_exact:
+  {Http.proxy.no_match("example.com", 80, "example.com") == True{} : Bool}
+
+law proxy_no_subdomain:
+  {Http.proxy.no_match("api.example.com", 443, ".example.com") == True{} : Bool}
+
+law proxy_no_boundary:
+  {Http.proxy.no_match("notexample.com", 80, "example.com") == False{} : Bool}
+
+law proxy_no_port:
+  {Http.proxy.no_match("example.com", 80, "example.com:443") == False{} : Bool}
+
+law proxy_no_list:
+  {Http.proxy.no_match("api.example.com", 443, " localhost , .example.com:443 ") == True{} : Bool}
+
+law proxy_no_wildcard:
+  {Http.proxy.no_match("example.com", 443, "*") == True{} : Bool}
+
+law proxy_no_ipv6:
+  {Http.proxy.no_match("::1", 443, "[::1]:443") == True{} : Bool}
+
+law proxy_absolute_request:
+  {Http.encode_req("GET", Http.proxy.absolute("http", "example.com:8080", "/x?q=1"),
+    "example.com:8080", Http.empty(), Bytes.new(0)) ==
+    Bytes.from_string("GET http://example.com:8080/x?q=1 HTTP/1.1\r\nconnection: close\r\nhost: example.com:8080\r\n\r\n") : Bytes.Bytes}
