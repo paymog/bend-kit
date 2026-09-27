@@ -6,7 +6,7 @@ import Base
 # ms arguments are deadlines in milliseconds (0: none); a miss is ETIMEDOUT.
 #   import ./wire.bend as Wire
 
-# TCP connect to an IPv4 address, with a deadline.
+# TCP connect to a numeric IPv4 or IPv6 address, with a deadline.
 def connect(host: String, port: U32, ms: U32) ->
   IO(Result<&1, &1, U32 & String, Socket>):
   import "./effs/wire.c"
