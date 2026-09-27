@@ -52,6 +52,112 @@ function wire_words_octets(n, a) {
 }
 
 // A deadline in performance.now() ms, or undefined for none.
+
+function wire_lib() {
+  if (globalThis.BEND_WIRE !== undefined) {
+    return globalThis.BEND_WIRE;
+  }
+  const ffi = require("bun:ffi");
+  const mac = process.platform === "darwin";
+  globalThis.BEND_WIRE = {
+    mac,
+    ptr: ffi.ptr,
+    read: ffi.read,
+    c: ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6", {
+      inet_ntop: { args: [ffi.FFIType.i32, ffi.FFIType.ptr, ffi.FFIType.ptr, ffi.FFIType.u32], returns: ffi.FFIType.cstring },
+    }).symbols,
+  };
+  return globalThis.BEND_WIRE;
+}
+
+function wire_v6_parse(host) {
+  let h = host;
+  if (h.startsWith("[") && h.endsWith("]")) {
+    h = h.slice(1, -1);
+  }
+  const parts = h.split(":");
+  const out = new Uint8Array(16);
+  if (h === "::1") {
+    out[15] = 1;
+    return out;
+  }
+  const empty = parts.indexOf("");
+  if (empty >= 0) {
+    const left = parts.slice(0, empty).filter((x) => x !== "");
+    const right = parts.slice(empty + 1).filter((x) => x !== "");
+    const zeros = 8 - left.length - right.length;
+    if (zeros < 0) {
+      return null;
+    }
+    let i = 0;
+    for (const part of left) {
+      const v = Number.parseInt(part, 16);
+      if (Number.isNaN(v) || v > 0xffff) return null;
+      out[i++] = (v >> 8) & 255; out[i++] = v & 255;
+    }
+    for (let z = 0; z < zeros; z += 1) { out[i++] = 0; out[i++] = 0; }
+    for (const part of right) {
+      const v = Number.parseInt(part, 16);
+      if (Number.isNaN(v) || v > 0xffff) return null;
+      out[i++] = (v >> 8) & 255; out[i++] = v & 255;
+    }
+    return out;
+  }
+  if (parts.length !== 8) return null;
+  let i = 0;
+  for (const part of parts) {
+    const v = Number.parseInt(part, 16);
+    if (Number.isNaN(v) || v > 0xffff) return null;
+    out[i++] = (v >> 8) & 255; out[i++] = v & 255;
+  }
+  return out;
+}
+
+function wire_sockaddr(host, port) {
+  const { isIP } = require("net");
+  const sys = io_sys();
+  const p = Number(port) & 0xffff;
+  const ip = isIP(host);
+  if (ip === 4) {
+    const buf = io_addr(host, port);
+    return buf === null ? null : { buf, len: 16, family: 2 };
+  }
+  if (ip === 6) {
+    const raw = wire_v6_parse(host);
+    if (raw === null) return null;
+    const b = new Uint8Array(28);
+    if (sys.mac) { b[0] = 28; b[1] = 30; } else { b[0] = 10; b[1] = 0; }
+    b[2] = (p >> 8) & 255; b[3] = p & 255;
+    b.set(raw, 8);
+    return { buf: b, len: 28, family: sys.mac ? 30 : 10 };
+  }
+  return null;
+}
+
+function wire_peer_host(peer, len, mac) {
+  const { c, ptr, read } = wire_lib();
+  const fam = mac ? peer[1] : peer[0];
+  if (fam === 2) {
+    const sin = Buffer.alloc(4);
+    for (let i = 0; i < 4; i += 1) sin[i] = peer[4 + i];
+    const out = Buffer.alloc(16);
+    c.inet_ntop(2, ptr(sin), ptr(out), 16);
+    return out.toString("utf8").replace(/\0.*/, "");
+  }
+  if (fam === 10 || fam === 30) {
+    const sin6 = Buffer.alloc(16);
+    for (let i = 0; i < 16; i += 1) sin6[i] = peer[8 + i];
+    const out = Buffer.alloc(46);
+    c.inet_ntop(fam, ptr(sin6), ptr(out), 46);
+    return out.toString("utf8").replace(/\0.*/, "");
+  }
+  return null;
+}
+
+function wire_peer_port(peer, mac) {
+  return (peer[2] << 8) | peer[3];
+}
+
 function wire_deadline(ms) {
   return Number(ms) ? performance.now() + Number(ms) : undefined;
 }
@@ -135,10 +241,11 @@ function recv_from(socket, max, ms, k) {
   const sys = io_sys();
   const fd = socket;
   const b = new Uint8Array(Math.max(Number(max), 1));
-  const peer = new Uint8Array(16);
-  const len = new Uint32Array([16]);
+  const peer = new Uint8Array(128);
+  const len = new Uint32Array([peer.length]);
   const deadline = wire_deadline(ms);
   const go = () => {
+    len[0] = peer.length;
     const n = Number(sys.recvfrom(fd, sys.ptr(b), Number(max), 0, sys.ptr(peer),
       sys.ptr(len)));
     if (n < 0) {
@@ -152,8 +259,11 @@ function recv_from(socket, max, ms, k) {
       }
       return io_tup(socket, io_fail(code));
     }
-    const host = peer[4] + "." + peer[5] + "." + peer[6] + "." + peer[7];
-    const port = (peer[2] << 8) | peer[3];
+    const host = wire_peer_host(peer.subarray(0, len[0]), len[0], sys.mac);
+    if (host === null) {
+      return io_tup(socket, io_fail(22));
+    }
+    const port = wire_peer_port(peer, sys.mac);
     return io_tup(socket, io_done(io_tup(host, port, wire_text(b, n))));
   };
   return go();
@@ -163,13 +273,13 @@ function recv_from(socket, max, ms, k) {
 function send_to(socket, host, port, data, k) {
   const sys = io_sys();
   const fd = socket;
-  const at = io_addr(host, Number(port));
+  const at = wire_sockaddr(host, Number(port));
   const b = wire_octets(data);
   if (at === null || b === null) {
     return io_tup(socket, io_fail(22));
   }
   const go = () => {
-    const sent = sys.sendto(fd, sys.ptr(b), b.length, 0, sys.ptr(at), 16);
+    const sent = sys.sendto(fd, sys.ptr(b), b.length, 0, sys.ptr(at.buf), at.len);
     if (Number(sent) < 0) {
       const code = sys.errno();
       if (code === (sys.mac ? 35 : 11)) {
@@ -432,11 +542,11 @@ function tls_close(socket) {
 // Twin of connect in wire.c: a TCP connect with a deadline.
 function connect(host, port, ms, k) {
   const sys = io_sys();
-  const addr = io_addr(host, Number(port));
+  const addr = wire_sockaddr(host, Number(port));
   if (addr === null) {
     return io_fail(22);
   }
-  const fd = sys.socket(2, 1, 0);
+  const fd = sys.socket(addr.family, 1, 0);
   if (fd < 0) {
     return io_fail(sys.errno());
   }
@@ -464,7 +574,7 @@ function connect(host, port, ms, k) {
     if (failed !== 0) {
       return end(failed);
     }
-    const code = sys.connect(fd, sys.ptr(addr), 16) >= 0 ? 0 : sys.errno();
+    const code = sys.connect(fd, sys.ptr(addr.buf), addr.len) >= 0 ? 0 : sys.errno();
     if (code === 0 || code === done) {
       return end(0);
     }

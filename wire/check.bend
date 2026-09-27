@@ -48,5 +48,48 @@ def alpn.host(+host: String) -> IO(Unit):
     m : Maybe<&2, String> <- Dns.resolve(host)
     alpn.got(host, m)
 
+
+
+
+def ipv6.port() -> U32:
+  38402
+
+def ipv6.serve(+port: U32) -> IO(Unit):
+  import "./effs/ipv6_serve.c"
+  import "./effs/ipv6_serve.js"
+
+def ipv6.got(+port: U32, mr: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  match mr:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "ipv6 recv: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{+data}):
+      do IO<Unit>:
+        ok(String.eq(data, "ok"), "::1:" ++ U32.show(port), data)
+        Socket.close(s)
+
+def ipv6.open(+port: U32, cr: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match cr:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "ipv6 connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{sock}:
+      do IO<Unit>:
+        mr : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(sock, 8, 5000)
+        ipv6.got(port, mr)
+
+def ipv6.client(+port: U32) -> IO(Unit):
+  do IO<Unit>:
+    cr : Result<&1, &1, U32 & String, Socket> <- Wire.connect("::1", port, 5000)
+    ipv6.open(port, cr)
+
+def ipv6.loop(+port: U32) -> IO(Unit):
+  do IO<Unit>:
+    chan : Chan(Unit) <- IO.fork(Unit, ipv6.serve(port))
+    _ : Unit <- IO.sleep(500)
+    ipv6.client(port)
+    u : Unit <- IO.join(Unit, chan)
+    IO.pure(Unit, u)
+
 def main() -> IO(Unit):
-  alpn.host("nghttp2.org")
+  do IO<Unit>:
+    ipv6.loop(ipv6.port())
+    alpn.host("nghttp2.org")
