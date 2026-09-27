@@ -146,3 +146,25 @@ law adler32_ff512:
 
 law crc32_ff512:
   {v32(Hash.crc32(ones(512n))) == 3179004831 : U32}
+
+# The .str forms: a byte string hashes as its Bytes do.
+law fnv1a32_str:
+  {Hash.fnv1a32.str("foobar") == 3214735720 : U32}
+
+law fnv1a64_str:
+  {Hash.fnv1a64.str("foobar") == Hash.W64{2241085809, 4147734504} : Hash.W64}
+
+law xxh32_str:
+  {Hash.xxh32.str("Nobody inspects the spammish repetition", 0) == 3794352943 : U32}
+
+law xxh64_str:
+  {Hash.xxh64.str("The quick brown fox jumps over the lazy dog", Hash.W64{0, 0}) == Hash.W64{186920246, 534409660} : Hash.W64}
+
+law siphash13_str:
+  {Hash.siphash13.str(iota.go(15n, 0), Hash.W64{117835012, 50462976}, Hash.W64{252579084, 185207048}) == Hash.W64{3542145133, 709990742} : Hash.W64}
+
+law crc32_str:
+  {Hash.crc32.str("hello") == 907060870 : U32}
+
+law adler32_str:
+  {Hash.adler32.str("hello") == 103547413 : U32}

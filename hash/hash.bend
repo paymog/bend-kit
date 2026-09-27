@@ -4,6 +4,7 @@ import Base
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 # Each hash hands the buffer back beside its value. A buffer's bytes at or past len are 0.
+# Each hash also has a .str form over a byte string (one Char per octet), copied to Bytes first.
 #   import bend-kit-hash@0.1.0.0/hash.bend as Hash
 
 # A 64-bit value as two halves. Base has no native U64, and int's U64 is a bit list.
@@ -403,3 +404,33 @@ def sip.rest(+len: U32, r: Array<U32> & S4) -> Bytes.Bytes & W64:
 def siphash13(b: Bytes.Bytes, +k0: W64, +k1: W64) -> Bytes.Bytes & W64:
   Bytes.Bytes{+len, buf} = b
   sip.rest(len, dfrom(~S4, ~sip.block, U32.to_nat((len >> 3n : U32)), buf, 0, S4{W64.xor(k0, W64{1936682341, 1886610805}), W64.xor(k1, W64{1685025377, 1852075885}), W64.xor(k0, W64{1819895653, 1852142177}), W64.xor(k1, W64{1952801890, 2037671283})}))
+
+# The same hashes over a byte string. ponytail: copies to Bytes; hash short strings in place if the copy shows up in profiles.
+def v32(r: Bytes.Bytes & U32) -> U32:
+  (b, h) = r
+  h
+
+def v64(r: Bytes.Bytes & W64) -> W64:
+  (b, h) = r
+  h
+
+def fnv1a32.str(+s: String) -> U32:
+  v32(fnv1a32(Bytes.from_string(s)))
+
+def fnv1a64.str(+s: String) -> W64:
+  v64(fnv1a64(Bytes.from_string(s)))
+
+def xxh32.str(+s: String, +seed: U32) -> U32:
+  v32(xxh32(Bytes.from_string(s), seed))
+
+def xxh64.str(+s: String, +seed: W64) -> W64:
+  v64(xxh64(Bytes.from_string(s), seed))
+
+def siphash13.str(+s: String, +k0: W64, +k1: W64) -> W64:
+  v64(siphash13(Bytes.from_string(s), k0, k1))
+
+def crc32.str(+s: String) -> U32:
+  v32(crc32(Bytes.from_string(s)))
+
+def adler32.str(+s: String) -> U32:
+  v32(adler32(Bytes.from_string(s)))

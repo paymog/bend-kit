@@ -102,3 +102,24 @@ def Laws.adler32_ff512():
 
 def Laws.crc32_ff512():
   {==}
+
+def Laws.fnv1a32_str():
+  {==}
+
+def Laws.fnv1a64_str():
+  {==}
+
+def Laws.xxh32_str():
+  {==}
+
+def Laws.xxh64_str():
+  {==}
+
+def Laws.siphash13_str():
+  {==}
+
+def Laws.crc32_str():
+  {==}
+
+def Laws.adler32_str():
+  {==}
