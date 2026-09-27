@@ -81,7 +81,7 @@ fn document(i: &str) -> IResult<&str, Val> {
     terminated(val, nom::combinator::eof)(i)
 }
 
-// Glue: compact JSON with sorted keys, as Json.encode prints it.
+// Glue: compact JSON with sorted keys, as the Bend bench prints it.
 fn enc_str(s: &str, out: &mut String) {
     out.push('"');
     for c in s.chars() {

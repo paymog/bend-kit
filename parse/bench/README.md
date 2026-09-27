@@ -26,7 +26,7 @@ M4 Pro, macOS 26.6.2, 2026-09-26. Median of five runs. Times are in ms; `Nx` is 
 |---|---:|---:|---:|---:|
 | parse | 10.3 (1.0x) | 106.1 (10.3x) | 1,366.6 (132.6x) | 148.0 (14.4x) |
 
-The hand-written state machine in `json/json.bend` took 42 ms on the same document (`json/bench`, Bend 2.0.28).
+The hand-written state machine in `json/json.bend` takes 4 ms on the same document, from `Bytes` (`json/bench`, Bend 2.0.31).
 
 Versions: Bend 2.0.29, Rust 1.91.0 with nom 7.1.3, Bun 1.3.14 with Parsimmon 1.18.1, Python 3.14.6 with pyparsing 3.3.2.
 

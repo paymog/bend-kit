@@ -40,7 +40,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Next
 
-- [ ] **Prove universal laws.** Most laws are fixtures. Add laws over all inputs for the claims that matter most: `res.frame` agrees with `frame` for every split of the bytes, `dc.feed` of `a ++ b` equals feeding `a` then `b`, `parse.got` never says Bad to a prefix of a valid request, `utf8.decode(utf8.encode(s)) == s`, `Json.parse(Json.encode(v)) == Some{v}`, and `Bytes.to_string(Bytes.from_string(s)) == s` for every byte string.
+- [ ] **Prove universal laws.** Most laws are fixtures. Add laws over all inputs for the claims that matter most: `res.frame` agrees with `frame` for every split of the bytes, `dc.feed` of `a ++ b` equals feeding `a` then `b`, `parse.got` never says Bad to a prefix of a valid request, `utf8.decode(utf8.encode(s)) == s`, `Json.parse.bytes(Json.encode.bytes(v)) == Some{v}`, and `Bytes.to_string(Bytes.from_string(s)) == s` for every byte string.
 - [ ] **Report the runner overflow upstream.** `String.repeat`/`String.length` on about 30 KB overflows in the `bend file.bend` runner but not in native builds. Report it to Bend with the three-line repro.
 
 ### Tier 1
@@ -81,7 +81,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### Existing packages
 
 - [ ] **Decode bodies without a `String` copy.** `decoded` turns a compressed body into a `String` for `zlib` and the result back into `Bytes`. The native effects in #142 take and return the `Bytes` layout, which removes both copies.
-- [ ] **Speed up JSON.** On the 1.36 MB bench document, `Json.parse.bytes` takes 11 ms and `Json.encode.bytes` 9 ms; Bun takes about 2 ms and 1 ms. Keys and string values are still `String`s.
+- [ ] **Speed up JSON.** On the 1.36 MB bench document, `Json.parse.bytes` takes 4 ms and `Json.encode.bytes` 4 ms; Bun takes about 2 ms and 1 ms. The parser and encoder still take one step per byte.
 - [ ] **Stream in the server.** `serve` hands the handler a whole `Req` and sends a whole `Res`. Add a handler form that reads the request body and writes the response in pieces, on the same `Rb`/`ck` framing the client streams use.
 - [ ] **Lingering close in `serve`.** After a 400, 413, or 431, `serve` closes with unread client bytes, so the client may get an RST instead of the response. Stop writing, drain for a moment, then close.
 - [ ] **IPv6.** `Dns.resolve` goes through `getaddrinfo` (#93) but asks for `AF_INET` only, and the runtime's `io_sys_addr` connects over IPv4 only. Ask for AAAA too and add IPv6 connect.

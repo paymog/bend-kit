@@ -1,8 +1,18 @@
 import Base
 import ./parse.bend as P
 import ../json/json.bend as Json
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
-# RFC 8259 JSON on the combinators, to the same Json.Val as json/json.bend.
+# RFC 8259 JSON on the combinators. P needs Data results, so Val is a copyable
+# twin of Val with String text and a Map for objects.
+
+type Val is Data:
+  Null{}
+  Flag{on: Bool}
+  Num{s: String}
+  Str{s: String}
+  Arr{xs: List<&2, Val>}
+  Obj{m: Map<&2, Val>}
 
 def is_ws(+c: U32) -> Bool:
   Bool.or(U32.is_eq(c, 32), Bool.or(U32.is_eq(c, 9), Bool.or(U32.is_eq(c, 10), U32.is_eq(c, 13))))
@@ -150,51 +160,51 @@ def str(c: P.Cur) -> P.Res<String>:
 # An open container: array items so far (reversed), or object fields and the
 # key whose value comes next.
 type Fr is Data:
-  FArr{xs: List<&2, Json.Val>}
-  FObj{m: Map<&2, Json.Val>, k: String}
+  FArr{xs: List<&2, Val>}
+  FObj{m: Map<&2, Val>, k: String}
 
 def key(c: P.Cur) -> P.Res<String>:
   P.right(~String, ~String, ~ws, ~(d => P.left(~String, ~U32, ~str, ~(e => tok(58, e)), d)), c)
 
-def leaf(c: P.Cur) -> P.Res<Json.Val>:
-  P.alt(~Json.Val, ~(d => P.map(~String, ~Json.Val, ~(s => Json.Null{}), ~(e => P.lit("null", e)), d)),
-  ~(d => P.alt(~Json.Val, ~(e => P.map(~String, ~Json.Val, ~(s => Json.Flag{True{}}), ~(f => P.lit("true", f)), e)),
-  ~(e => P.alt(~Json.Val, ~(f => P.map(~String, ~Json.Val, ~(s => Json.Flag{False{}}), ~(g => P.lit("false", g)), f)),
-  ~(f => P.alt(~Json.Val, ~(g => P.map(~String, ~Json.Val, ~(s => Json.Str{s}), ~str, g)),
-  ~(g => P.map(~String, ~Json.Val, ~(s => Json.Num{s}), ~num, g)), f)), e)), d)), c)
+def leaf(c: P.Cur) -> P.Res<Val>:
+  P.alt(~Val, ~(d => P.map(~String, ~Val, ~(s => Null{}), ~(e => P.lit("null", e)), d)),
+  ~(d => P.alt(~Val, ~(e => P.map(~String, ~Val, ~(s => Flag{True{}}), ~(f => P.lit("true", f)), e)),
+  ~(e => P.alt(~Val, ~(f => P.map(~String, ~Val, ~(s => Flag{False{}}), ~(g => P.lit("false", g)), f)),
+  ~(f => P.alt(~Val, ~(g => P.map(~String, ~Val, ~(s => Str{s}), ~str, g)),
+  ~(g => P.map(~String, ~Val, ~(s => Num{s}), ~num, g)), f)), e)), d)), c)
 
-def arr.open(c: P.Cur) -> P.Res<P.Step<Json.Val, Fr>>:
-  P.alt(~P.Step<Json.Val, Fr>, ~(d => P.map(~U32, ~P.Step<Json.Val, Fr>, ~(x => P.Leaf{Json.Arr{Nil{}}}), ~(e => P.right(~U32, ~U32, ~(f => P.char(91, f)), ~(f => tok(93, f)), e)), d)),
-  ~(d => P.map(~U32, ~P.Step<Json.Val, Fr>, ~(x => P.Open{FArr{Nil{}}}), ~(e => P.char(91, e)), d)), c)
+def arr.open(c: P.Cur) -> P.Res<P.Step<Val, Fr>>:
+  P.alt(~P.Step<Val, Fr>, ~(d => P.map(~U32, ~P.Step<Val, Fr>, ~(x => P.Leaf{Arr{Nil{}}}), ~(e => P.right(~U32, ~U32, ~(f => P.char(91, f)), ~(f => tok(93, f)), e)), d)),
+  ~(d => P.map(~U32, ~P.Step<Val, Fr>, ~(x => P.Open{FArr{Nil{}}}), ~(e => P.char(91, e)), d)), c)
 
-def obj.open(c: P.Cur) -> P.Res<P.Step<Json.Val, Fr>>:
-  P.alt(~P.Step<Json.Val, Fr>, ~(d => P.map(~U32, ~P.Step<Json.Val, Fr>, ~(x => P.Leaf{Json.Obj{Map.new(&2, Json.Val)}}), ~(e => P.right(~U32, ~U32, ~(f => P.char(123, f)), ~(f => tok(125, f)), e)), d)),
-  ~(d => P.map(~String, ~P.Step<Json.Val, Fr>, ~(k => P.Open{FObj{Map.new(&2, Json.Val), k}}), ~(e => P.right(~U32, ~String, ~(f => P.char(123, f)), ~key, e)), d)), c)
+def obj.open(c: P.Cur) -> P.Res<P.Step<Val, Fr>>:
+  P.alt(~P.Step<Val, Fr>, ~(d => P.map(~U32, ~P.Step<Val, Fr>, ~(x => P.Leaf{Obj{Map.new(&2, Val)}}), ~(e => P.right(~U32, ~U32, ~(f => P.char(123, f)), ~(f => tok(125, f)), e)), d)),
+  ~(d => P.map(~String, ~P.Step<Val, Fr>, ~(k => P.Open{FObj{Map.new(&2, Val), k}}), ~(e => P.right(~U32, ~String, ~(f => P.char(123, f)), ~key, e)), d)), c)
 
-def open(c: P.Cur) -> P.Res<P.Step<Json.Val, Fr>>:
-  P.right(~String, ~P.Step<Json.Val, Fr>, ~ws, ~(d => P.alt(~P.Step<Json.Val, Fr>, ~arr.open,
-  ~(e => P.alt(~P.Step<Json.Val, Fr>, ~obj.open, ~(f => P.map(~Json.Val, ~P.Step<Json.Val, Fr>, ~(v => P.Leaf{v}), ~leaf, f)), e)), d)), c)
+def open(c: P.Cur) -> P.Res<P.Step<Val, Fr>>:
+  P.right(~String, ~P.Step<Val, Fr>, ~ws, ~(d => P.alt(~P.Step<Val, Fr>, ~arr.open,
+  ~(e => P.alt(~P.Step<Val, Fr>, ~obj.open, ~(f => P.map(~Val, ~P.Step<Val, Fr>, ~(v => P.Leaf{v}), ~leaf, f)), e)), d)), c)
 
-def arr.tag(comma: Bool, xs: List<&2, Json.Val>, c: P.Cur) -> P.Res<P.Step<Json.Val, Fr>>:
+def arr.tag(comma: Bool, xs: List<&2, Val>, c: P.Cur) -> P.Res<P.Step<Val, Fr>>:
   match comma:
     case True{}:
       P.Ok{P.Open{FArr{xs}}, c}
     case False{}:
-      P.Ok{P.Leaf{Json.Arr{List.reverse(&2, Json.Val, xs)}}, c}
+      P.Ok{P.Leaf{Arr{List.reverse(&2, Val, xs)}}, c}
 
-def arr.next(xs: List<&2, Json.Val>, r: P.Res<U32>) -> P.Res<P.Step<Json.Val, Fr>>:
+def arr.next(xs: List<&2, Val>, r: P.Res<U32>) -> P.Res<P.Step<Val, Fr>>:
   match r:
     case P.Ok{+t, c}:
       arr.tag(U32.is_eq(t, 44), xs, c)
     case P.Err{o, w}:
       P.Err{o, w}
 
-def obj.next(m: Map<&2, Json.Val>, r: P.Res<Maybe<&2, String>>) -> P.Res<P.Step<Json.Val, Fr>>:
+def obj.next(m: Map<&2, Val>, r: P.Res<Maybe<&2, String>>) -> P.Res<P.Step<Val, Fr>>:
   match r:
     case P.Ok{Some{k}, c}:
       P.Ok{P.Open{FObj{m, k}}, c}
     case P.Ok{None{}, c}:
-      P.Ok{P.Leaf{Json.Obj{m}}, c}
+      P.Ok{P.Leaf{Obj{m}}, c}
     case P.Err{o, w}:
       P.Err{o, w}
 
@@ -206,26 +216,59 @@ def obj.sep(c: P.Cur) -> P.Res<Maybe<&2, String>>:
   ~(e => P.map(~U32, ~Maybe<&2, String>, ~(x => None{}), ~(f => P.char(125, f)), e)), d)), c)
 
 # §4: names SHOULD be unique; like most parsers, the last one wins.
-def next(f: Fr, v: Json.Val, c: P.Cur) -> P.Res<P.Step<Json.Val, Fr>>:
+def next(f: Fr, v: Val, c: P.Cur) -> P.Res<P.Step<Val, Fr>>:
   match f:
     case FArr{xs}:
       arr.next(v <> xs, arr.sep(c))
     case FObj{m, k}:
-      obj.next(Map.set(&2, Json.Val, m, k, v), obj.sep(c))
+      obj.next(Map.set(&2, Val, m, k, v), obj.sep(c))
 
-def value(c: P.Cur) -> P.Res<Json.Val>:
-  P.left(~Json.Val, ~String, ~(d => P.rec(~Json.Val, ~Fr, ~open, ~next, d)), ~ws, c)
+def value(c: P.Cur) -> P.Res<Val>:
+  P.left(~Val, ~String, ~(d => P.rec(~Val, ~Fr, ~open, ~next, d)), ~ws, c)
 
-def parse.res(+s: String) -> P.Res<Json.Val>:
-  P.run(~Json.Val, ~value, s)
+def parse.res(+s: String) -> P.Res<Val>:
+  P.run(~Val, ~value, s)
 
-def maybe(r: P.Res<Json.Val>) -> Maybe<&2, Json.Val>:
+def maybe(r: P.Res<Val>) -> Maybe<&2, Val>:
   match r:
     case P.Ok{v, c}:
       Some{v}
     case P.Err{o, w}:
       None{}
 
-# One JSON text, as Json.parse.
-def parse(+s: String) -> Maybe<&2, Json.Val>:
+# One JSON text.
+def parse(+s: String) -> Maybe<&2, Val>:
   maybe(parse.res(s))
+
+@unsafe
+def to_json.arr(xs: List<&2, Val>) -> List<&1, Json.Val>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{x, t}:
+      Con{to_json(x), to_json.arr(t)}
+
+@unsafe
+def to_json.obj(kvs: List<&2, Sigma<&2, &2, String, _ => Val>>) -> List<&1, Bytes.Bytes & Json.Val>:
+  match kvs:
+    case Nil{}:
+      Nil{}
+    case (k, v) <> t:
+      Con{(Json.utf8(k), to_json(v)), to_json.obj(t)}
+
+# v as a Json.Val, with object keys sorted. For output in the check and bench.
+@unsafe
+def to_json(v: Val) -> Json.Val:
+  match v:
+    case Null{}:
+      Json.Null{}
+    case Flag{b}:
+      Json.Flag{b}
+    case Num{s}:
+      Json.Num{Json.utf8(s)}
+    case Str{s}:
+      Json.Str{Json.utf8(s)}
+    case Arr{xs}:
+      Json.Arr{to_json.arr(xs)}
+    case Obj{m}:
+      Json.Obj{to_json.obj(Map.to_list(&2, Val, m))}
