@@ -123,6 +123,133 @@ def local.fallback() -> IO(Unit):
     result : Result<&1, &1, Http.Err, Http.Res> <- Http.get("http://localhost:47812/x")
     local.got("localhost:47812", result)
 
+def local.gz.sent(m: Socket & Result<&1, &1, U32 & String, Unit>) -> Socket:
+  (s, r) = m
+  s
+
+def local.gz.send(s: Socket, b: Bytes.Bytes) -> IO(Socket):
+  do IO<Socket>:
+    m : Socket & Result<&1, &1, U32 & String, Unit> <- Http.io.send.bytes(False{}, s, b)
+    return local.gz.sent(m)
+
+def local.gz.body.last(l: Listener, s: Socket, first: Bytes.Bytes, pair: Bytes.Bytes & Bytes.Bytes, header: String) -> IO(Listener):
+  (old, last) = pair
+  do IO<Listener>:
+    s1 : Socket <- local.gz.send(s, Bytes.from_string(header))
+    s2 : Socket <- local.gz.send(s1, first)
+    IO.sleep(40)
+    s3 : Socket <- local.gz.send(s2, last)
+    Http.io.close(False{}, s3)
+    return l
+
+def local.gz.body.first(l: Listener, s: Socket, pair: Bytes.Bytes & Bytes.Bytes, header: String, +split: U32, +remaining: U32) -> IO(Listener):
+  (whole, first) = pair
+  local.gz.body.last(l, s, first, Bytes.slice(whole, split, remaining), header)
+
+def local.gz.body(l: Listener, s: Socket, b: Bytes.Bytes, header: String, +split: U32, +remaining: U32) -> IO(Listener):
+  local.gz.body.first(l, s, Bytes.slice(b, 0, split), header, split, remaining)
+
+def local.gz.hex(l: Listener, s: Socket, m: Maybe<&1, Bytes.Bytes>, header: String, +split: U32, +remaining: U32) -> IO(Listener):
+  match m:
+    case None{}:
+      IO.die(Listener, 1, "invalid compressed fixture")
+    case Some{b}:
+      local.gz.body(l, s, b, header, split, remaining)
+
+def local.gz.received(l: Listener, recv: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Listener):
+  (s, result) = recv
+  local.gz.hex(l, s, Bytes.from_hex("1f8b08000000000002ff4bcc29c84854484a2d4954484fcccd4d040045445d3410000000"),
+    "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: 36\r\nConnection: close\r\n\r\n", 10, 26)
+
+def local.deflate.received(l: Listener, recv: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Listener):
+  (s, result) = recv
+  local.gz.hex(l, s, Bytes.from_hex("cb48cdc9c957284a2c0700"),
+    "HTTP/1.1 200 OK\r\nContent-Encoding: deflate\r\nContent-Length: 11\r\nConnection: close\r\n\r\n", 1, 10)
+
+def local.gz.dispatch(raw: Bool, l: Listener, recv: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Listener):
+  match raw:
+    case True{}:
+      local.deflate.received(l, recv)
+    case False{}:
+      local.gz.received(l, recv)
+
+def local.gz.reply(raw: Bool, m: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
+  (l, r) = m
+  match r:
+    case Fail{e}:
+      IO.die(Listener, 1, "compressed accept failed")
+    case Done{s}:
+      do IO<Listener>:
+        recv : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
+          Http.io.recv.words(False{}, s, 4096, 2000)
+        local.gz.dispatch(raw, l, recv)
+
+def local.gz.serve(l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l1 : Listener <- local.gz.reply(False{}, a)
+    b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
+    l2 : Listener <- local.gz.reply(False{}, b)
+    c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
+    l3 : Listener <- local.gz.reply(True{}, c)
+    Listener.close(l3)
+
+type Gr is Type:
+  GrRead{st: Http.Stream, acc: Bytes.Bytes, count: U32}
+  GrGot{m: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>, acc: Bytes.Bytes, count: U32}
+
+def local.gz.read(fuel: Nat, step: Gr) -> IO(Http.Stream & Bytes.Bytes & U32):
+  match fuel:
+    case 0n:
+      IO.die(Http.Stream & Bytes.Bytes & U32, 1, "gzip stream did not end")
+    case 1n+p:
+      match step:
+        case GrRead{st, acc, +count}:
+          do IO<Http.Stream & Bytes.Bytes & U32>:
+            m : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
+            local.gz.read(p, GrGot{m, acc, count})
+        case GrGot{m, acc, +count}:
+          (s, r) = m
+          match r:
+            case Fail{e}:
+              IO.die(Http.Stream & Bytes.Bytes & U32, 1, "gzip stream read failed")
+            case Done{part}:
+              match part:
+                case None{}:
+                  IO.pure(Http.Stream & Bytes.Bytes & U32, (s, acc, count))
+                case Some{b}:
+                  local.gz.read(p, GrRead{s, Bytes.append(acc, b), (count + 1 : U32)})
+
+def local.gz.checked(+want: String, +pieces: U32, got: Http.Stream & Bytes.Bytes & U32) -> IO(Unit):
+  (end, body, count) = got
+  do IO<Unit>:
+    local.ok(String.eq(Bytes.to_hex(body), want), "gzip stream bytes")
+    local.ok(U32.is_eq(count, pieces), "gzip stream piece count")
+    Http.stream.close(end)
+
+def local.gz.check(+want: String, +pieces: U32, r: Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
+  match r:
+    case Fail{e}:
+      IO.die(Unit, 1, "gzip stream open failed")
+    case Done{st}:
+      do IO<Unit>:
+        got : Http.Stream & Bytes.Bytes & U32 <- local.gz.read(20n, GrRead{st, Bytes.new(0), 0})
+        local.gz.checked(want, pieces, got)
+
+def local.gz.test() -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen(47813))
+    IO.spawn(Unit, local.gz.serve(l))
+    decoded : Result<&1, &1, Http.Err, Http.Stream> <-
+      Http.open("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
+    local.gz.check("616c70686120626574612067616d6d61", 1, decoded)
+    raw : Result<&1, &1, Http.Err, Http.Stream> <-
+      Http.open.raw("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
+    local.gz.check("1f8b08000000000002ff4bcc29c84854484a2d4954484fcccd4d040045445d3410000000", 2, raw)
+    deflated : Result<&1, &1, Http.Err, Http.Stream> <-
+      Http.open("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
+    local.gz.check("68656c6c6f20726177", 1, deflated)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -139,3 +266,4 @@ def main() -> IO(Unit):
     r : Result<&1, &1, U32 & String, Listener & U32> <- test.listen6(0)
     local.ipv6(r)
     local.fallback()
+    local.gz.test()

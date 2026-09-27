@@ -1,13 +1,13 @@
 # HTTP/1.1 client and server for http and https, with DNS and TLS. Source: https://github.com/paymog/bend-kit/tree/main/http
 import Base
-# By hash: bend-kit-wire@0.4.2.0, -url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -dns@0.4.0.1, -zlib@0.1.3.0.
+# By hash: bend-kit-wire@0.4.2.0, -url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -dns@0.4.0.1, -zlib@0.1.5.0.
 import 0xa3dc0f6e3963608e4608a1017272cf4f/wire.bend as Wire
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import 0x296c14c91cb121bd2f42e9d9f730480d/dns.bend as Dns
-import 0x9d101c075b333e2b07242347f7c35b1c/zlib.bend as Zlib
+import 0x58bd522479d133cfe1b2c4451fc1a28f/zlib.bend as Zlib
 
 # HTTP/1.1 codec and client (RFC 9112) for http:// and https:// (OpenSSL 3 at run time).
 # parse: start-line → field lines → blank → body length (§6.3); chunked (§7.1).
@@ -2608,16 +2608,17 @@ def fetch(method: String, url: String, headers: Map<&2, List<&2, String>>, body:
 def get(url: String) -> IO(Result<&1, &1, Err, Res>):
   fetch("GET", url, empty(), Bytes.new(0))
 
-# Streaming (a body read or sent in pieces). Stream bodies are never content-decoded.
-# What the next read returns: read more, a piece, the end, or an error.
+# Streaming (a body read or sent in pieces). A decoded stream owns its decoders.
+# What the next read returns: read more, a raw piece, a decoded piece, the end, or an error.
 type Po is Type:
   PoNone{}
   PoPiece{b: Bytes.Bytes}
+  PoReady{b: Bytes.Bytes}
   PoEnd{}
   PoBad{e: Err}
 
 type Stream is Type:
-  Stream{tls: Bool, s: Socket, ms: U32, res: Res, rb: Rb, out: Po}
+  Stream{tls: Bool, s: Socket, ms: U32, res: Res, rb: Rb, out: Po, decs: List<&1, Zlib.Decoder>}
 
 type Pc is Type:
   Pc{rb: Rb, out: Po}
@@ -2666,21 +2667,21 @@ def pc.end(ok: Bool) -> Pc:
 def pc.eof(st: Rb) -> Pc:
   pc.end(rb.eof(st))
 
-def stream.mk(+tls: Bool, s: Socket, +ms: U32, res: Res, pc: Pc) -> Stream:
+def stream.mk(+tls: Bool, s: Socket, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, pc: Pc) -> Stream:
   Pc{rb, out} = pc
-  Stream{tls, s, ms, res, rb, out}
+  Stream{tls, s, ms, res, rb, out, decs}
 
-def stream.got.piece(+tls: Bool, s: Socket, +ms: U32, res: Res, +rb: Rb, p: U32 & Array<U32>) -> Stream:
+def stream.got.piece(+tls: Bool, s: Socket, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, +rb: Rb, p: U32 & Array<U32>) -> Stream:
   (+len, buf) = p
-  stream.mk(tls, s, ms, res, Bool.pick(Pc, U32.is_zero(len), pc.eof(rb), pc.of(rb, Bytes.Bytes{len, buf})))
+  stream.mk(tls, s, ms, res, decs, Bool.pick(Pc, U32.is_zero(len), pc.eof(rb), pc.of(rb, Bytes.Bytes{len, buf})))
 
-def stream.got(+tls: Bool, +ms: U32, res: Res, +rb: Rb, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Stream:
+def stream.got(+tls: Bool, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, +rb: Rb, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Stream:
   (s, r) = m
   match r:
     case Fail{(+code, why)}:
-      Stream{tls, s, ms, res, RbDone{}, PoBad{err.or_late(code, ErrRead{code, why})}}
+      Stream{tls, s, ms, res, RbDone{}, PoBad{err.or_late(code, ErrRead{code, why})}, decs}
     case Done{p}:
-      stream.got.piece(tls, s, ms, res, rb, p)
+      stream.got.piece(tls, s, ms, res, decs, rb, p)
 
 def stream.after(+rb: Rb) -> Po:
   match rb:
@@ -2695,31 +2696,130 @@ def stream.after(+rb: Rb) -> Po:
     case RbClose{}:
       PoNone{}
 
+type Fed is Type:
+  Fed{decs: List<&1, Zlib.Decoder>, body: Result<&1, &1, Err, Bytes.Bytes>}
+
+def stream.feed.received(done: List<&1, Zlib.Decoder>, m: Zlib.Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Fed:
+  (d, r) = m
+  match r:
+    case Fail{e}:
+      Fed{d <> done, Fail{ErrBad{}}}
+    case Done{(+len, buf)}:
+      Fed{d <> done, Done{Bytes.Bytes{len, buf}}}
+
+def stream.feed.step(st: Fed, d: Zlib.Decoder) -> IO(Fed):
+  Fed{done, body} = st
+  match body:
+    case Fail{e}:
+      IO.pure(Fed, Fed{d <> done, Fail{e}})
+    case Done{b}:
+      Bytes.Bytes{+len, buf} = b
+      do IO<Fed>:
+        m : Zlib.Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
+          Zlib.dec.feed.words(d, 16777216, len, buf)
+        return stream.feed.received(done, m)
+
+def stream.feed.one(prev: IO(Fed), d: Zlib.Decoder) -> IO(Fed):
+  do IO<Fed>:
+    st : Fed <- prev
+    stream.feed.step(st, d)
+
+def stream.feed.reverse(st: Fed) -> Fed:
+  Fed{done, body} = st
+  Fed{List.reverse(&1, Zlib.Decoder, done), body}
+
+def stream.feed.all(decs: List<&1, Zlib.Decoder>, b: Bytes.Bytes) -> IO(Fed):
+  do IO<Fed>:
+    st : Fed <- List.foldl(~&1, ~Zlib.Decoder, ~IO(Fed), ~stream.feed.one, decs,
+      IO.pure(Fed, Fed{Nil{}, Done{b}}))
+    return stream.feed.reverse(st)
+
+def stream.ready(empty: Bool, +rb: Rb, b: Bytes.Bytes) -> Po:
+  match empty:
+    case True{}:
+      stream.after(rb)
+    case False{}:
+      PoReady{b}
+
+def stream.feed.got(+tls: Bool, s: Socket, +ms: U32, res: Res, +rb: Rb, st: Fed) -> Stream:
+  Fed{decs, body} = st
+  match body:
+    case Fail{e}:
+      Stream{tls, s, ms, res, rb, PoBad{e}, decs}
+    case Done{b}:
+      Bytes.Bytes{+len, buf} = b
+      Stream{tls, s, ms, res, rb, stream.ready(U32.is_zero(len), rb, Bytes.Bytes{len, buf}), decs}
+
+def stream.feed.st(st: Stream, b: Bytes.Bytes) -> IO(Stream):
+  Stream{+tls, s, +ms, res, +rb, out, decs} = st
+  match decs:
+    case Nil{}:
+      IO.pure(Stream, Stream{tls, s, ms, res, rb, PoReady{b}, Nil{}})
+    case Con{d, rest}:
+      do IO<Stream>:
+        fed : Fed <- stream.feed.all(Con{d, rest}, b)
+        return stream.feed.got(tls, s, ms, res, rb, fed)
+
+def stream.finish.ok(r: Result<&1, &1, U32 & String, Unit>) -> Bool:
+  match r:
+    case Fail{e}:
+      False{}
+    case Done{u}:
+      True{}
+
+def stream.finish(decs: List<&1, Zlib.Decoder>) -> IO(Bool):
+  match decs:
+    case Nil{}:
+      IO.pure(Bool, True{})
+    case Con{d, rest}:
+      do IO<Bool>:
+        r : Result<&1, &1, U32 & String, Unit> <- Zlib.dec.finish(d)
+        tail : Bool <- stream.finish(rest)
+        return Bool.and(stream.finish.ok(r), tail)
+
+def stream.ended(good: Bool, +tls: Bool, s: Socket, +ms: U32, res: Res, +rb: Rb) ->
+  Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>:
+  match good:
+    case True{}:
+      (Stream{tls, s, ms, res, rb, PoEnd{}, Nil{}}, Done{None{}})
+    case False{}:
+      (Stream{tls, s, ms, res, rb, PoBad{ErrBad{}}, Nil{}}, Fail{ErrBad{}})
+
 # The next piece of the body; None at the end. A piece is never empty.
 @unsafe
 def stream.read(st: Stream) -> IO(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>):
-  Stream{+tls, s, +ms, res, +rb, out} = st
+  Stream{+tls, s, +ms, res, +rb, out, decs} = st
   match out:
     case PoPiece{b}:
-      IO.pure(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>, (Stream{tls, s, ms, res, rb, stream.after(rb)}, Done{Some{b}}))
+      do IO<Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>>:
+        next : Stream <- stream.feed.st(Stream{tls, s, ms, res, rb, PoNone{}, decs}, b)
+        stream.read(next)
+    case PoReady{b}:
+      IO.pure(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>,
+        (Stream{tls, s, ms, res, rb, stream.after(rb), decs}, Done{Some{b}}))
     case PoEnd{}:
-      IO.pure(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>, (Stream{tls, s, ms, res, rb, PoEnd{}}, Done{None{}}))
+      do IO<Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>>:
+        good : Bool <- stream.finish(decs)
+        return stream.ended(good, tls, s, ms, res, rb)
     case PoBad{+e}:
-      IO.pure(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>, (Stream{tls, s, ms, res, rb, PoBad{e}}, Fail{e}))
+      IO.pure(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>,
+        (Stream{tls, s, ms, res, rb, PoBad{e}, decs}, Fail{e}))
     case PoNone{}:
       do IO<Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>>:
         m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- io.recv.words(tls, s, 65536, ms)
-        stream.read(stream.got(tls, ms, res, rb, m))
+        stream.read(stream.got(tls, ms, res, decs, rb, m))
 
 # Status and headers. Its body is empty: read the body with stream.read.
 def stream.res(st: Stream) -> Stream & Res:
-  Stream{tls, s, ms, res, rb, out} = st
+  Stream{tls, s, ms, res, rb, out, decs} = st
   Res{+status, +headers, body} = res
-  (Stream{tls, s, ms, Res{status, headers, body}, rb, out}, Res{status, headers, Bytes.new(0)})
+  (Stream{tls, s, ms, Res{status, headers, body}, rb, out, decs}, Res{status, headers, Bytes.new(0)})
 
 def stream.close(st: Stream) -> IO(Unit):
-  Stream{tls, s, ms, res, rb, out} = st
-  io.close(tls, s)
+  Stream{tls, s, ms, res, rb, out, decs} = st
+  do IO<Unit>:
+    good : Bool <- stream.finish(decs)
+    io.close(tls, s)
 
 # Head read state: still scanning, cut short or bad, or the head with the bytes after it.
 type Sh is Type:
@@ -2771,7 +2871,7 @@ def stream.head(+tls: Bool, +ms: U32, +head: Bool, st: Socket & Sh) -> IO(Result
         r : Result<&1, &1, Err, Res> <- fetch.bad(tls, s, err)
         return fetch.fail.of(r)
     case ShRes{res, rb, rest}:
-      IO.pure(Result<&1, &1, Err, Stream>, Done{stream.mk(tls, s, ms, res, pc.of(rb, rest))})
+      IO.pure(Result<&1, &1, Err, Stream>, Done{stream.mk(tls, s, ms, res, Nil{}, pc.of(rb, rest))})
 
 def stream.sent(+tls: Bool, +ms: U32, +head: Bool, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Result<&1, &1, Err, Stream>):
   (s, r) = m
@@ -2871,6 +2971,97 @@ def stream.hops(+ms: U32, sn: Sn) -> IO(Result<&1, &1, Err, Stream>):
         stream.close(st)
         stream.hops(ms, sn.of(next))
 
+type Opened is Type:
+  Opened{decs: List<&1, Zlib.Decoder>, bad: Bool}
+
+def stream.open.got(st: Opened, r: Result<&1, &1, U32 & String, Zlib.Decoder>) -> Opened:
+  Opened{decs, bad} = st
+  match r:
+    case Fail{e}:
+      Opened{decs, True{}}
+    case Done{d}:
+      Opened{d <> decs, bad}
+
+def stream.open.add(st: Opened, m: IO(Result<&1, &1, U32 & String, Zlib.Decoder>)) -> IO(Opened):
+  do IO<Opened>:
+    r : Result<&1, &1, U32 & String, Zlib.Decoder> <- m
+    return stream.open.got(st, r)
+
+def stream.open.zstd(zstd: Bool, st: Opened) -> IO(Opened):
+  match zstd:
+    case True{}:
+      stream.open.add(st, Zlib.zstd.new())
+    case False{}:
+      IO.pure(Opened, st)
+
+def stream.open.br(br: Bool, +c: String, st: Opened) -> IO(Opened):
+  match br:
+    case True{}:
+      stream.open.add(st, Zlib.brotli.new())
+    case False{}:
+      stream.open.zstd(String.eq(c, "zstd"), st)
+
+def stream.open.gz(gz: Bool, +c: String, st: Opened) -> IO(Opened):
+  match gz:
+    case True{}:
+      stream.open.add(st, Zlib.inflate.new())
+    case False{}:
+      stream.open.br(String.eq(c, "br"), c, st)
+
+def stream.open.step(+c: String, st: Opened) -> IO(Opened):
+  Opened{decs, bad} = st
+  match bad:
+    case True{}:
+      IO.pure(Opened, Opened{decs, True{}})
+    case False{}:
+      stream.open.gz(Bool.or(String.eq(c, "gzip"), Bool.or(String.eq(c, "x-gzip"), String.eq(c, "deflate"))),
+        c, Opened{decs, False{}})
+
+def stream.open.one(prev: IO(Opened), c: String) -> IO(Opened):
+  do IO<Opened>:
+    st : Opened <- prev
+    stream.open.step(c, st)
+
+def stream.open.all(cs: List<&2, String>) -> IO(Opened):
+  List.foldl(~&2, ~String, ~IO(Opened), ~stream.open.one, cs, IO.pure(Opened, Opened{Nil{}, False{}}))
+
+def stream.put.decs(st: Stream, decs: List<&1, Zlib.Decoder>) -> Stream:
+  Stream{tls, s, ms, res, rb, out, old} = st
+  Stream{tls, s, ms, res, rb, out, decs}
+
+def stream.init.opened(st: Stream, opened: Opened) -> IO(Result<&1, &1, Err, Stream>):
+  Opened{decs, bad} = opened
+  match bad:
+    case True{}:
+      do IO<Result<&1, &1, Err, Stream>>:
+        stream.close(stream.put.decs(st, decs))
+        return Fail{ErrBad{}}
+    case False{}:
+      IO.pure(Result<&1, &1, Err, Stream>, Done{stream.put.decs(st, List.reverse(&1, Zlib.Decoder, decs))})
+
+def stream.init.known(known: Bool, st: Stream, cs: List<&2, String>) -> IO(Result<&1, &1, Err, Stream>):
+  match known:
+    case False{}:
+      IO.pure(Result<&1, &1, Err, Stream>, Done{st})
+    case True{}:
+      do IO<Result<&1, &1, Err, Stream>>:
+        opened : Opened <- stream.open.all(cs)
+        stream.init.opened(st, opened)
+
+def stream.init.st(+enc: String, st: Stream) -> IO(Result<&1, &1, Err, Stream>):
+  Stream{tls, s, ms, res, rb, out, decs} = st
+  Res{+status, +headers, body} = res
+  +cs = List.reverse(&2, String, ce.split(fields(headers, "content-encoding")))
+  stream.init.known(ce.known(cs, Con{"identity", Con{"x-gzip", ce.split(Con{enc, Nil{}})}}),
+    Stream{tls, s, ms, Res{status, headers, body}, rb, out, decs}, cs)
+
+def stream.init(+enc: String, r: Result<&1, &1, Err, Stream>) -> IO(Result<&1, &1, Err, Stream>):
+  match r:
+    case Fail{e}:
+      IO.pure(Result<&1, &1, Err, Stream>, Fail{e})
+    case Done{st}:
+      stream.init.st(enc, st)
+
 def stream.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, u: Maybe<&2, Url.Abs>) -> Sn:
   match u:
     case None{}:
@@ -2878,10 +3069,24 @@ def stream.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes
     case Some{a}:
       SnGo{20n, Hop{method, a, req.put(Map.to_list(&2, List<&2, String>, headers), empty()), body}}
 
-# Http.open(method, url, headers, body) follows redirects like fetch and returns once the head is in.
-# Read the body with stream.read. Stream bodies are sent and returned as is: no Accept-Encoding, no decoding.
-def open.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Result<&1, &1, Err, Stream>):
+# Open a raw stream. Its body bytes and headers remain as sent.
+def open.raw.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Result<&1, &1, Err, Stream>):
   stream.hops(ms, stream.start(method, headers, body, Url.absolute(url)))
+
+def open.raw(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Result<&1, &1, Err, Stream>):
+  open.raw.with(method, url, headers, body, 30000)
+
+def open.with.enc(+enc: String, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Result<&1, &1, Err, Stream>):
+  do IO<Result<&1, &1, Err, Stream>>:
+    r : Result<&1, &1, Err, Stream> <-
+      stream.hops(ms, stream.start(method, accept.enc(headers, enc), body, Url.absolute(url)))
+    stream.init(enc, r)
+
+# Follow redirects, then decode each body piece by Content-Encoding. Unknown codings stay raw.
+def open.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Result<&1, &1, Err, Stream>):
+  do IO<Result<&1, &1, Err, Stream>>:
+    enc : String <- codings()
+    open.with.enc(enc, method, url, headers, body, ms)
 
 def open(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Result<&1, &1, Err, Stream>):
   open.with(method, url, headers, body, 30000)
