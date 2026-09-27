@@ -31,7 +31,7 @@ These are syntax errors, not silent mismatches: flags such as `(?i)`, named grou
 
 ## Cost
 
-Matching takes O(n·m²) steps for n chars and m instructions. Each char advances every live thread once. The m² comes from list lookups in the program and in the set of visited states. `(a*)*b` against n a's, which a backtracker takes exponential time to reject, in a native build on an Apple M-series Mac:
+Matching takes O(n·m·log m) steps for n chars and m instructions. Each char advances every live thread once. The program and the set of visited states are binary tries keyed by pc, so each step costs O(log pc). `(a*)*b` against n a's, which a backtracker takes exponential time to reject, in a native build on an Apple M-series Mac:
 
 | n | 25 000 | 50 000 | 100 000 | 200 000 |
 |---|---|---|---|---|

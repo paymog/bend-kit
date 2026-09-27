@@ -1,4 +1,4 @@
-# DEFLATE, gzip, and zlib decoding (RFC 1951, 1952, 1950) over byte strings. Source: https://github.com/paymog/bend-kit/tree/main/zlib
+# DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over byte strings. Source: https://github.com/paymog/bend-kit/tree/main/zlib
 import Base
 
 # Bytes are one Char per octet (0..255), as everywhere in bend-kit.
@@ -864,3 +864,338 @@ def unzlib(s: String) -> Maybe<&2, String>:
       None{}
     case SCon{x, y}:
       None{}
+
+# DEFLATE encoding: LZ77 over hash chains, then one final fixed-Huffman block (RFC 1951 §3.2.6).
+# ponytail: fixed Huffman only; dynamic trees would cut text output further.
+
+# Bit writer: bits wait in buf, least significant first; racc holds the bytes out, reversed.
+type Bw is Data:
+  Bw{buf: U32, cnt: U32, racc: String}
+
+def bw.emit(w: Bw) -> Bw:
+  Bw{+buf, cnt, racc} = w
+  Bw{U32.shrn(buf, 8n), (cnt - 8 : U32), SCon{Chr{U32.and(buf, 255)}, racc}}
+
+def bw.emit.if(w: Bw, full: Bool) -> Bw:
+  match full:
+    case True{}:
+      bw.emit(w)
+    case False{}:
+      w
+
+def bw.full(+w: Bw) -> Bool:
+  Bw{buf, +cnt, racc} = w
+  U32.is_le(8, cnt)
+
+# A put adds at most 16 bits to at most 7, so two emits drain every whole byte.
+def bw.drain(fuel: Nat, +w: Bw) -> Bw:
+  match fuel:
+    case 0n:
+      w
+    case 1n+f:
+      bw.drain(f, bw.emit.if(w, bw.full(w)))
+
+def bw.put(w: Bw, +v: U32, +n: U32) -> Bw:
+  Bw{buf, +cnt, racc} = w
+  bw.drain(2n, Bw{U32.or(buf, U32.shln(v, bits(cnt))), (cnt + n : U32), racc})
+
+def bw.out(w: Bw) -> String:
+  Bw{buf, cnt, racc} = w
+  String.reverse(racc)
+
+# Seven zero bits push out a partial last byte.
+def bw.done(w: Bw) -> String:
+  bw.out(bw.put(w, 0, 7))
+
+# A Huffman code goes out most significant bit first, so it is reversed before the put.
+def rev(k: Nat, +v: U32, +acc: U32) -> U32:
+  match k:
+    case 0n:
+      acc
+    case 1n+p:
+      rev(p, U32.shr(v), U32.or(U32.shl(acc), U32.and(v, 1)))
+
+def bw.code(w: Bw, cl: U32 & U32) -> Bw:
+  (+c, +l) = cl
+  bw.put(w, rev(bits(l), c, 0), l)
+
+# RFC 1951 §3.2.6: the fixed code of literal/length symbol s, and its length.
+def fx.hi(+s: U32, lo: Bool) -> U32 & U32:
+  match lo:
+    case True{}:
+      ((s - 256 : U32), 7)
+    case False{}:
+      ((s - 88 : U32), 8)
+
+def fx.mid(+s: U32, lo: Bool) -> U32 & U32:
+  match lo:
+    case True{}:
+      ((s + 256 : U32), 9)
+    case False{}:
+      fx.hi(s, U32.is_lt(s, 280))
+
+def fx.low(+s: U32, lo: Bool) -> U32 & U32:
+  match lo:
+    case True{}:
+      ((s + 48 : U32), 8)
+    case False{}:
+      fx.mid(s, U32.is_lt(s, 256))
+
+def fx.lit(+s: U32) -> U32 & U32:
+  fx.low(s, U32.is_lt(s, 144))
+
+# The last index whose base is at most v, with that base and its extra-bit count; bases ascend.
+type Cx is Data:
+  Cx{i: U32, base: U32, extra: U32}
+
+def cx.go(bs: List<&2, U32>, es: List<&2, U32>, +v: U32, +i: U32, +best: Cx) -> Cx:
+  match bs:
+    case Nil{}:
+      best
+    case Con{+b, bt}:
+      match es:
+        case Nil{}:
+          best
+        case Con{+e, et}:
+          cx.go(bt, et, v, (i + 1 : U32), Bool.pick(Cx, U32.is_le(b, v), Cx{i, b, e}, best))
+
+def em.len(w: Bw, +len: U32, c: Cx) -> Bw:
+  Cx{+i, +b, +e} = c
+  bw.put(bw.code(w, fx.lit((i + 257 : U32))), (len - b : U32), e)
+
+def em.dist(w: Bw, +d: U32, c: Cx) -> Bw:
+  Cx{+i, +b, +e} = c
+  bw.put(bw.put(w, rev(5n, i, 0), 5), (d - b : U32), e)
+
+def em.match(w: Bw, +len: U32, +d: U32) -> Bw:
+  em.dist(em.len(w, len, cx.go(len.base(), len.extra(), len, 0, Cx{0, 3, 0})), d, cx.go(dist.base(), dist.extra(), d, 0, Cx{0, 1, 0}))
+
+def em.lit(w: Bw, +c: U32) -> Bw:
+  bw.code(w, fx.lit(c))
+
+# Match finder: the input, the newest position + 1 per hash, and per position the previous one with its hash (0: none).
+type Lz is Type:
+  Lz{src: Array<U32>, head: Array<U32>, prev: Array<U32>}
+
+def lz.at.of(r: Array<U32> & U32, head: Array<U32>, prev: Array<U32>) -> Lz & U32:
+  (src, v) = r
+  (Lz{src, head, prev}, v)
+
+def lz.at(z: Lz, +i: U32) -> Lz & U32:
+  Lz{src, head, prev} = z
+  lz.at.of(Array.get(U32, src, i), head, prev)
+
+def lz.drop(r: Lz & U32) -> Lz:
+  (z, v) = r
+  z
+
+def lz.h3(r: Lz & U32, +a: U32, +b: U32) -> Lz & U32:
+  (z, +c) = r
+  (z, U32.and(U32.xor(U32.xor(U32.shln(a, 10n), U32.shln(b, 5n)), c), 32767))
+
+def lz.h2(r: Lz & U32, +i: U32, +a: U32) -> Lz & U32:
+  (z, +b) = r
+  lz.h3(lz.at(z, (i + 2 : U32)), a, b)
+
+def lz.h1(r: Lz & U32, +i: U32) -> Lz & U32:
+  (z, +a) = r
+  lz.h2(lz.at(z, (i + 1 : U32)), i, a)
+
+def lz.hash(z: Lz, +i: U32) -> Lz & U32:
+  lz.h1(lz.at(z, i), i)
+
+def lz.link(r: Array<U32> & U32, +i: U32, +h: U32, src: Array<U32>, prev: Array<U32>) -> Lz & U32:
+  (head, +old) = r
+  (Lz{src, Array.set(U32, head, h, (i + 1 : U32)), Array.set(U32, prev, U32.and(i, 32767), old)}, old)
+
+def lz.ins.of(r: Lz & U32, +i: U32) -> Lz & U32:
+  (z, +h) = r
+  Lz{src, head, prev} = z
+  lz.link(Array.get(U32, head, h), i, h, src, prev)
+
+# Links position i into the chain for its next three bytes; answers the chain's previous head.
+def lz.insert(z: Lz, +i: U32) -> Lz & U32:
+  lz.ins.of(lz.hash(z, i), i)
+
+# Match length: bytes at a + k and b + k compared so far, and whether the last pair was equal.
+type Ml is Type:
+  Ml{z: Lz, a: U32, b: U32, k: U32, eq: Bool}
+
+def ml.cmp(r: Lz & U32, +a: U32, +b: U32, +k: U32, +x: U32) -> Ml:
+  (z, +y) = r
+  Ml{z, a, b, (k + 1 : U32), U32.is_eq(x, y)}
+
+def ml.read(r: Lz & U32, +a: U32, +b: U32, +k: U32) -> Ml:
+  (z, +x) = r
+  ml.cmp(lz.at(z, (b + k : U32)), a, b, k, x)
+
+def ml.len(+k: U32, eq: Bool) -> U32:
+  match eq:
+    case True{}:
+      k
+    case False{}:
+      (k - 1 : U32)
+
+# Counts equal bytes from a and from b, up to fuel.
+def ml.go(fuel: Nat, st: Ml) -> Lz & U32:
+  match fuel:
+    case 0n:
+      Ml{z, a, b, +k, eq} = st
+      (z, ml.len(k, eq))
+    case 1n+f:
+      Ml{z, +a, +b, +k, eq} = st
+      match eq:
+        case True{}:
+          ml.go(f, ml.read(lz.at(z, (a + k : U32)), a, b, k))
+        case False{}:
+          (z, (k - 1 : U32))
+
+# Chain walk at i: candidate c (position + 1), the longest match so far, and whether to go on.
+type Ch is Type:
+  Ch{z: Lz, i: U32, c: U32, max: U32, blen: U32, bdist: U32, go: Bool}
+
+# RFC 1951 §3.2.5: a distance is at most 32768.
+def ch.ok(+i: U32, +c: U32, +max: U32, +blen: U32) -> Bool:
+  Bool.and(Bool.and(U32.is_lt(0, c), U32.is_lt((i - c : U32), 32768)), U32.is_lt(blen, max))
+
+def ch.next(r: Array<U32> & U32, src: Array<U32>, head: Array<U32>, +i: U32, +max: U32, +blen: U32, +bdist: U32) -> Ch:
+  (prev, +c) = r
+  Ch{Lz{src, head, prev}, i, c, max, blen, bdist, ch.ok(i, c, max, blen)}
+
+def ch.best(r: Lz & U32, +i: U32, +p: U32, +max: U32, +blen: U32, +bdist: U32) -> Ch:
+  (z, +len) = r
+  Lz{src, head, prev} = z
+  +more = U32.is_lt(blen, len)
+  ch.next(Array.get(U32, prev, U32.and(p, 32767)), src, head, i, max, Bool.pick(U32, more, len, blen), Bool.pick(U32, more, (i - p : U32), bdist))
+
+def ch.go(fuel: Nat, st: Ch) -> Ch:
+  match fuel:
+    case 0n:
+      st
+    case 1n+f:
+      Ch{z, +i, +c, +max, +blen, +bdist, go} = st
+      match go:
+        case True{}:
+          +p = (c - 1 : U32)
+          ch.go(f, ch.best(ml.go(bits(max), Ml{z, i, p, 0, True{}}), i, p, max, blen, bdist))
+        case False{}:
+          Ch{z, i, c, max, blen, bdist, False{}}
+
+# Encoder: match finder, bit writer, position, input length, and whether bytes are left.
+type Es is Type:
+  Es{z: Lz, w: Bw, i: U32, n: U32, more: Bool}
+
+def es.lit.of(r: Lz & U32, w: Bw, +i: U32, +n: U32) -> Es:
+  (z, +c) = r
+  +j = (i + 1 : U32)
+  Es{z, em.lit(w, c), j, n, U32.is_lt(j, n)}
+
+def es.lit(z: Lz, w: Bw, +i: U32, +n: U32) -> Es:
+  es.lit.of(lz.at(z, i), w, i, n)
+
+def ins.one(ok: Bool, z: Lz, +j: U32) -> Lz:
+  match ok:
+    case True{}:
+      lz.drop(lz.insert(z, j))
+    case False{}:
+      z
+
+# Positions inside a match join their chains too, when three bytes remain.
+def ins.go(k: Nat, z: Lz, +j: U32, +n: U32) -> Lz:
+  match k:
+    case 0n:
+      z
+    case 1n+f:
+      ins.go(f, ins.one(U32.is_le((j + 3 : U32), n), z, j), (j + 1 : U32), n)
+
+def es.emit(hit: Bool, z: Lz, w: Bw, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
+  match hit:
+    case True{}:
+      +j = (i + blen : U32)
+      Es{ins.go(bits((blen - 1 : U32)), z, (i + 1 : U32), n), em.match(w, blen, bdist), j, n, U32.is_lt(j, n)}
+    case False{}:
+      es.lit(z, w, i, n)
+
+def es.pick(st: Ch, w: Bw, +n: U32) -> Es:
+  Ch{z, +i, c, max, +blen, +bdist, go} = st
+  es.emit(U32.is_le(3, blen), z, w, i, n, blen, bdist)
+
+# ponytail: greedy parse, 32 chain steps; lazy matching would compress text further.
+def es.chain(r: Lz & U32, w: Bw, +i: U32, +n: U32) -> Es:
+  (z, +c) = r
+  +room = (n - i : U32)
+  +max = Bool.pick(U32, U32.is_lt(room, 258), room, 258)
+  es.pick(ch.go(32n, Ch{z, i, c, max, 0, 0, ch.ok(i, c, max, 0)}), w, n)
+
+def es.find(short: Bool, z: Lz, w: Bw, +i: U32, +n: U32) -> Es:
+  match short:
+    case True{}:
+      es.lit(z, w, i, n)
+    case False{}:
+      es.chain(lz.insert(z, i), w, i, n)
+
+# Each step consumes at least one byte, so n steps finish.
+def es.go(fuel: Nat, st: Es) -> Es:
+  match fuel:
+    case 0n:
+      st
+    case 1n+f:
+      Es{z, w, +i, +n, more} = st
+      match more:
+        case True{}:
+          es.go(f, es.find(U32.is_lt((n - i : U32), 3), z, w, i, n))
+        case False{}:
+          Es{z, w, i, n, False{}}
+
+def es.out(st: Es) -> String:
+  Es{z, w, i, n, more} = st
+  bw.done(em.lit(w, 256))
+
+def slen(s: String, +n: U32) -> U32:
+  match s:
+    case SNil{}:
+      n
+    case SCon{h, t}:
+      slen(t, (n + 1 : U32))
+
+def src.fill(s: String, +i: U32, a: Array<U32>) -> Array<U32>:
+  match s:
+    case SNil{}:
+      a
+    case SCon{h, t}:
+      src.fill(t, (i + 1 : U32), Array.set(U32, a, i, byte(h)))
+
+# The smallest depth whose 2^depth slots hold n.
+def depth(k: Nat, +d: Nat, +n: U32) -> Nat:
+  match k:
+    case 0n:
+      d
+    case 1n+f:
+      Bool.pick(Nat, U32.is_le(n, U32.shln(1, d)), d, depth(f, 1n+d, n))
+
+# Raw DEFLATE. The header bits are BFINAL = 1 and BTYPE = 01.
+def deflate(+s: String) -> String:
+  +n = slen(s, 0)
+  src = src.fill(s, 0, Array.new(U32, depth(31n, 0n, n), 0))
+  es.out(es.go(bits(n), Es{Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, Bw{3, 3, ""}, 0, n, U32.is_lt(0, n)}))
+
+def str.of(xs: List<&2, U32>, t: String) -> String:
+  match xs:
+    case Nil{}:
+      t
+    case Con{c, r}:
+      SCon{Chr{c}, str.of(r, t)}
+
+def le32.put(+v: U32, t: String) -> String:
+  str.of([U32.and(v, 255), U32.and(U32.shrn(v, 8n), 255), U32.and(U32.shrn(v, 16n), 255), U32.shrn(v, 24n)], t)
+
+def be32.put(+v: U32, t: String) -> String:
+  str.of([U32.shrn(v, 24n), U32.and(U32.shrn(v, 16n), 255), U32.and(U32.shrn(v, 8n), 255), U32.and(v, 255)], t)
+
+# One gzip member (RFC 1952): no flags, mtime 0, OS unknown.
+def gzip(+s: String) -> String:
+  str.of([31, 139, 8, 0, 0, 0, 0, 0, 0, 255], deflate(s) ++ le32.put(crc32(s), le32.put(slen(s, 0), "")))
+
+# RFC 1950: CMF 0x78 (32 KiB window), FLG 0x01 (fastest), then DEFLATE, then Adler-32.
+def zlib(+s: String) -> String:
+  str.of([120, 1], deflate(s) ++ be32.put(adler32(s), ""))

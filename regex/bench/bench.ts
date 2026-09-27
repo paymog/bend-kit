@@ -78,3 +78,10 @@ if (want("redos")) {
   let m = reRedos.exec("a".repeat(REDOS_N));
   lap("redos", t0, chkGroups(m, 1));
 }
+if (want("large")) {
+  const sLarge = "x".repeat(1000) + "y";
+  const reLarge = /(?:x?){1000}y/;
+  let t0 = performance.now();
+  let m = reLarge.exec(sLarge);
+  lap("large", t0, chkGroups(m, 1));
+}

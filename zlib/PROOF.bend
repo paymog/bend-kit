@@ -43,3 +43,27 @@ def Laws.adler32_hello():
 
 def Laws.inflate_matches():
   {==}
+
+def Laws.deflate_empty():
+  {==}
+
+def Laws.deflate_hello():
+  {==}
+
+def Laws.deflate_every_byte():
+  {==}
+
+def Laws.deflate_run():
+  {==}
+
+def Laws.deflate_repeats():
+  {==}
+
+def Laws.gzip_pinned():
+  {==}
+
+def Laws.gzip_roundtrip():
+  {==}
+
+def Laws.zlib_roundtrip():
+  {==}

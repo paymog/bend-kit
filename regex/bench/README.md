@@ -19,7 +19,7 @@ Text is built deterministically at **N = 2^20** code points (about 1 MiB of ASCI
 2. At **N − 50**, write `user@host.com` (13 code points).
 3. At **N − 20**, write `helloworld12` (12 code points).
 
-The ReDoS input is **100 000** `a` with no trailing `b`.
+The ReDoS input is **100 000** `a` with no trailing `b`. The `large` input is **1000** `x` then one `y`.
 
 ## Cases
 
@@ -30,6 +30,7 @@ The ReDoS input is **100 000** `a` with no trailing `b`.
 | `find_captures` | `(\w+)@(\w+)\.com` | `([[:alnum:]_]+)@([[:alnum:]_]+)\.com` | leftmost match with two captures | hash of groups 0–2 spans |
 | `find_early` | `(x)x` | `(x)x` | leftmost match with one capture, at position 0 | hash of groups 0–1 spans |
 | `redos` | `(a*)*b` | `(a*)*b` | no match on 100k `a` | 0 |
+| `large` | `(?:x?){1000}y` | `((x?){250}){4}y` | about 2000 instructions; each char walks a closure over most of them | u32 hash of group-0 span |
 
 Hash: for each group, if missing then `h = h * 31`; else `h = h * 31 + start` then `h = h * 31 + end` (u32 wrap). Positions are code-point indexes in Bend and byte indexes in the other languages; the input is ASCII so they agree. The `is_match` cases use `Regex.is_match` in Bend, `REG_NOSUB` in C, `search(...) is not None` in Python, and `RegExp.test` in JavaScript.
 
@@ -41,19 +42,31 @@ Rust's standard library has no regular expression engine, so Rust is left out.
 
 ## Results
 
-Apple M4 Pro, macOS, 2026-09-26. Median of three runs (`python3 run.py 3`). Times are ms for one match on the 1 MiB text (or 100k `a` for `redos`).
+Apple M4 Pro, macOS, 2026-09-26. Median of three runs (`python3 run.py 3`). Times are ms for one match on the 1 MiB text (or 100k `a` for `redos`, 1001 chars for `large`).
 
 Versions: Bend 2.0.29, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0.1.
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 37.0 |
+| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 33.0 |
 | is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 7.0 |
-| find_captures | 17.1 | 3.1 | 0.9 | 0.7 | 735.0 |
+| find_captures | 14.9 | 2.8 | 0.8 | 0.7 | 757.0 |
 | find_early | 0.0 | 0.0 | 0.2 | 0.2 | 7.0 |
-| redos | 3.6 | timeout | 882.6 | timeout | 139.0 |
+| redos | 3.0 | timeout | 875.0 | timeout | 116.0 |
+| large | 2,278.7 | 0.0 | 0.1 | 0.1 | 914.0 |
 
-Checksums (1 MiB text): `is_match` 1, `is_match_early` 1, `find_captures` 3021334545, `find_early` 1923, `redos` 0. All non-timeout variants agree.
+Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
+
+### Program size
+
+The program and the visited set are binary tries keyed by pc, so a closure step costs O(log pc), not O(m). `(?:x?){k}y` on 200 `x` then `y`, Bend ms, one run each:
+
+| k | 125 | 250 | 500 | 1000 |
+|---|---:|---:|---:|---:|
+| list (0.1.0.0) | 149 | 600 | 2537 | 15224 |
+| trie (0.2.0.0) | 17 | 38 | 88 | 222 |
+
+The list grows about 4–6× per doubling of k (m²); the trie grows about 2.3× (m log m). On `large`, 0.1.0.0 takes 65 374 ms. The trie costs a little on tiny patterns, where every hot pc is near the list head: `is_match` was about 140 ms with lists.
 
 ### History
 
@@ -61,9 +74,9 @@ Bend times in ms, median of three runs of the same bench against each version of
 
 | change | is_match | is_match_early | find_captures | find_early |
 |---|---:|---:|---:|---:|
-| before #97 | 140 | 18 | 726 | 17 |
-| #97: stop once the match is settled; `is_match` skips captures | 118 | 7 | 727 | 7 |
-| #98: skip chars that cannot start a match | 37 | 7 | 735 | 7 |
+| before #97 (0.2.0.0) | 174 | 17 | 750 | 17 |
+| #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 748 | 7 |
+| #98: skip chars that cannot start a match | 33 | 7 | 757 | 7 |
 
 ## Caveats
 
