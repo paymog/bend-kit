@@ -1,4 +1,4 @@
-# DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over byte strings. Source: https://github.com/paymog/bend-kit/tree/main/zlib
+# DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over byte strings, and zstd decoding through libzstd. Source: https://github.com/paymog/bend-kit/tree/main/zlib
 import Base
 
 # Bytes are one Char per octet (0..255), as everywhere in bend-kit.
@@ -1199,3 +1199,10 @@ def gzip(+s: String) -> String:
 # RFC 1950: CMF 0x78 (32 KiB window), FLG 0x01 (fastest), then DEFLATE, then Adler-32.
 def zlib(+s: String) -> String:
   str.of([120, 1], deflate(s) ++ be32.put(adler32(s), ""))
+
+# Zstandard frames (RFC 8878) through libzstd, as (len, words) like Wire.recv.words.
+# Fails with EFBIG when the output passes max bytes, and ENOENT without libzstd.
+def zstd.words(max: U32, len: U32, words: Array<U32>) ->
+  IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
