@@ -1,5 +1,7 @@
 # Byte buffers packed four bytes to a U32, with bounds-checked access. Source: https://github.com/paymog/bend-kit/tree/main/bytes
 import Base
+# bend-kit-int@0.2.0.0
+import 0x4eed9d7ac6ece61523d747a9d804e4f0/int.bend as Int
 
 # Bytes{len, buf}: byte i is bits 8*(i%4) of buf[i/4]. buf has the fewest 2^d words
 # that hold len bytes. Every byte at or past len is 0, so equal buffers have equal words.
@@ -230,6 +232,60 @@ def set.u32be(b: Bytes, +i: U32, +v: U32) -> Bytes:
 
 def set.u32le(b: Bytes, +i: U32, +v: U32) -> Bytes:
   put(b, i, 4, False{}, v)
+
+# The U64 whose words, in byte order, are x then y.
+def u64.of(be: Bool, +x: U32, +y: U32) -> Int.U64:
+  match be:
+    case True{}:
+      Int.U64.or(Int.U64.shl(Int.U64.from_u32(x), 32n), Int.U64.from_u32(y))
+    case False{}:
+      Int.U64.or(Int.U64.shl(Int.U64.from_u32(y), 32n), Int.U64.from_u32(x))
+
+def u64.join(+be: Bool, x: Maybe<&2, U32>, y: Maybe<&2, U32>) -> Maybe<&2, Int.U64>:
+  match x y:
+    case Some{a} Some{c}:
+      Some{u64.of(be, a, c)}
+    case _ _:
+      None{}
+
+def u64.lo(+be: Bool, x: Maybe<&2, U32>, r: Bytes & Maybe<&2, U32>) -> Bytes & Maybe<&2, Int.U64>:
+  (b, y) = r
+  (b, u64.join(be, x, y))
+
+def u64.hi(+i: U32, +be: Bool, r: Bytes & Maybe<&2, U32>) -> Bytes & Maybe<&2, Int.U64>:
+  (b, x) = r
+  u64.lo(be, x, uint(b, (i + 4 : U32), 4, be))
+
+def u64(b: Bytes, +i: U32, +be: Bool) -> Bytes & Maybe<&2, Int.U64>:
+  u64.hi(i, be, uint(b, i, 4, be))
+
+# A U64 at byte i, or None when its 8 bytes run past len.
+def get.u64be(b: Bytes, +i: U32) -> Bytes & Maybe<&2, Int.U64>:
+  u64(b, i, True{})
+
+def get.u64le(b: Bytes, +i: U32) -> Bytes & Maybe<&2, Int.U64>:
+  u64(b, i, False{})
+
+# Writes words x then y at byte i, both in the same byte order.
+def put64.if(ok: Bool, +len: U32, buf: Array<U32>, +i: U32, +be: Bool, +x: U32, +y: U32) -> Bytes:
+  match ok:
+    case True{}:
+      put(put(Bytes{len, buf}, i, 4, be, x), (i + 4 : U32), 4, be, y)
+    case False{}:
+      Bytes{len, buf}
+
+def put64(b: Bytes, +i: U32, +be: Bool, +v: Int.U64) -> Bytes:
+  Bytes{+len, buf} = b
+  +hi = Int.U64.to_u32(Int.U64.shr(v, 32n))
+  +lo = Int.U64.to_u32(v)
+  put64.if(fits(len, i, 8), len, buf, i, be, Bool.pick(U32, be, hi, lo), Bool.pick(U32, be, lo, hi))
+
+# v at byte i. Nothing changes when its 8 bytes would run past len.
+def set.u64be(b: Bytes, +i: U32, +v: Int.U64) -> Bytes:
+  put64(b, i, True{}, v)
+
+def set.u64le(b: Bytes, +i: U32, +v: Int.U64) -> Bytes:
+  put64(b, i, False{}, v)
 
 # String.length counts in Nat, which costs more than the walk itself.
 def count(s: String, +n: U32) -> U32:

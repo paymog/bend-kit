@@ -1,5 +1,6 @@
 import Base
 import ./bytes.bend as Bytes
+import 0x4eed9d7ac6ece61523d747a9d804e4f0/int.bend as Int
 
 def bytes(xs: List<&2, U32>) -> String:
   match xs:
@@ -17,6 +18,13 @@ def str(b: Bytes.Bytes) -> String:
 def val(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, U32>:
   (b, x) = r
   x
+
+def val64(r: Bytes.Bytes & Maybe<&2, Int.U64>) -> Maybe<&2, Int.U64>:
+  (b, x) = r
+  x
+
+def w64(+hi: U32, +lo: U32) -> Int.U64:
+  Int.U64.or(Int.U64.shl(Int.U64.from_u32(hi), 32n), Int.U64.from_u32(lo))
 
 def num(r: Bytes.Bytes & U32) -> U32:
   (b, n) = r
@@ -249,6 +257,37 @@ law u32be_roundtrip:
 
 law u32le_roundtrip:
   {val(Bytes.get.u32le(Bytes.set.u32le(Bytes.new(7), 3, 3735928559), 3)) == Some{3735928559} : Maybe<&2, U32>}
+
+# 0x0102030405060708 and 0xDEADBEEFCAFEBABE, as high and low words.
+law u64be_across_words:
+  {val64(Bytes.get.u64be(of(bytes([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])), 1)) == Some{w64(16909060, 84281096)} : Maybe<&2, Int.U64>}
+
+law u64le_across_words:
+  {val64(Bytes.get.u64le(of(bytes([0, 8, 7, 6, 5, 4, 3, 2, 1, 9])), 1)) == Some{w64(16909060, 84281096)} : Maybe<&2, Int.U64>}
+
+law u64be_top:
+  {val64(Bytes.get.u64be(of(bytes([255, 255, 255, 255, 255, 255, 255, 255])), 0)) == Some{Int.U64.MAX()} : Maybe<&2, Int.U64>}
+
+law u64_past_len:
+  {val64(Bytes.get.u64le(of("abcdefg"), 0)) == None{} : Maybe<&2, Int.U64>}
+
+law u64_half_past_len:
+  {val64(Bytes.get.u64be(of("abcdefghi"), 2)) == None{} : Maybe<&2, Int.U64>}
+
+law set_u64be_across_words:
+  {str(Bytes.set.u64be(Bytes.new(10), 1, w64(16909060, 84281096))) == bytes([0, 1, 2, 3, 4, 5, 6, 7, 8, 0]) : String}
+
+law set_u64le_across_words:
+  {str(Bytes.set.u64le(Bytes.new(10), 1, w64(16909060, 84281096))) == bytes([0, 8, 7, 6, 5, 4, 3, 2, 1, 0]) : String}
+
+law set_u64_half_past_len:
+  {str(Bytes.set.u64be(of("abcdefghi"), 2, Int.U64.MAX())) == "abcdefghi" : String}
+
+law u64be_roundtrip:
+  {val64(Bytes.get.u64be(Bytes.set.u64be(Bytes.new(12), 3, w64(3735928559, 3405691582)), 3)) == Some{w64(3735928559, 3405691582)} : Maybe<&2, Int.U64>}
+
+law u64le_roundtrip:
+  {val64(Bytes.get.u64le(Bytes.set.u64le(Bytes.new(12), 3, w64(3735928559, 3405691582)), 3)) == Some{w64(3735928559, 3405691582)} : Maybe<&2, Int.U64>}
 
 law find_from_later:
   {val(Bytes.find.from(of("abcabc"), "bc", 2)) == Some{4} : Maybe<&2, U32>}

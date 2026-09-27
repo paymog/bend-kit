@@ -203,6 +203,36 @@ def Laws.u32be_roundtrip():
 def Laws.u32le_roundtrip():
   {==}
 
+def Laws.u64be_across_words():
+  {==}
+
+def Laws.u64le_across_words():
+  {==}
+
+def Laws.u64be_top():
+  {==}
+
+def Laws.u64_past_len():
+  {==}
+
+def Laws.u64_half_past_len():
+  {==}
+
+def Laws.set_u64be_across_words():
+  {==}
+
+def Laws.set_u64le_across_words():
+  {==}
+
+def Laws.set_u64_half_past_len():
+  {==}
+
+def Laws.u64be_roundtrip():
+  {==}
+
+def Laws.u64le_roundtrip():
+  {==}
+
 def Laws.find_from_later():
   {==}
 
