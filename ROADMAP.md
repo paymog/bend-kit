@@ -6,8 +6,8 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Current baseline
 
-- All 18 packages are named `bend-kit-<package>` on the Bend hub; [README.md](README.md) lists each version and hash. Each description links to its source folder. `http` and `dns` import their siblings by hash, so callers share their types.
-- Laws: http 176, url 57, json 40, bytes 122, regex 54, unicode 35, zlib 22, dns 18, random 13, encoding 12, router 3. Run `scripts/check.sh` to check them all.
+- All 19 packages are named `bend-kit-<package>` on the Bend hub; [README.md](README.md) lists each version and hash. Each description links to its source folder. `http` and `dns` import their siblings by hash, so callers share their types.
+- Laws: http 176, url 57, json 40, hash 41, bytes 122, regex 54, unicode 35, zlib 22, dns 18, random 13, encoding 12, router 3. Run `scripts/check.sh` to check them all.
 - Big bodies need a native build (`bend file.bend -o app`). The `bend file.bend` runner overflows on strings over about 30 KB.
 
 ### bytes
@@ -49,13 +49,13 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Integer types: U8, U16, U64, I32, I64 (#21)
 - [ ] Filesystem and paths (#22)
 - [ ] Process and OS (#23)
-- [x] Generic collections (#24). A hash map waits on hashing (#27).
+- [x] Generic collections (#24). A hash map can now build on `hash` (#27).
 - [x] Text formatting and number parsing (#25)
 - [ ] Time: clock, Duration, Instant, dates, time zones (#26)
 
 ### Tier 2
 
-- [ ] Non-cryptographic hashing (#27)
+- [x] Non-cryptographic hashing (#27): FNV-1a, xxHash, SipHash-1-3, CRC-32, and Adler-32 over `Bytes`. `zlib` still has its own CRC-32 and Adler-32.
 - [ ] Cryptography: SHA-2, SHA-1, HMAC, HKDF, secure random (#28)
 - [x] Random numbers: seeded PRNGs and distributions (#29). `F64` distributions such as normal wait on F64 (#37).
 - [ ] Property-based testing (#30)
