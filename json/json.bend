@@ -190,6 +190,43 @@ def pk.if(ok: Bool, a: Array<U32>, +i: U32) -> Array<U32> & U32:
 def pk(a: Array<U32>, +len: U32, +i: U32) -> Array<U32> & U32:
   pk.if(U32.is_lt(i, len), a, i)
 
+def is_ws(+c: U32) -> Bool:
+  U32.is_eq(c, 32) || U32.is_eq(c, 9) || U32.is_eq(c, 10) || U32.is_eq(c, 13)
+
+# A string byte that needs no check: ASCII, not a control, quote or backslash.
+def plain(+c: U32) -> Bool:
+  U32.is_le(32, c) && U32.is_lt(c, 128) && U32.is_ne(c, 34) && U32.is_ne(c, 92)
+
+def pos.of(+i: U32, r: Array<U32> & U32) -> Array<U32> & U32 & U32:
+  (a, +c) = r
+  (a, i, c)
+
+# The offset i and its byte.
+def pos(a: Array<U32>, +len: U32, +i: U32) -> Array<U32> & U32 & U32:
+  pos.of(i, pk(a, len, i))
+
+def run.cls(~ok: @+c: U32 -> Bool, r: Array<U32> & U32) -> Array<U32> & U32 & Bool:
+  (a, +c) = r
+  (a, c, ok(c))
+
+# g bounds the loop; it is the parser's fuel, shared, so no count is built per run.
+def run.go(~ok: @+c: U32 -> Bool, g: Nat, r: Array<U32> & U32 & Bool, +len: U32, +i: U32) -> Array<U32> & U32 & U32:
+  match g:
+    case 0n:
+      (a, +c, more) = r
+      (a, i, c)
+    case 1n+h:
+      (a, +c, more) = r
+      match more:
+        case True{}:
+          run.go(~ok, h, run.cls(~ok, pk(a, len, (i + 1 : U32))), len, (i + 1 : U32))
+        case False{}:
+          (a, i, c)
+
+# The first offset from i whose byte is not ok, and that byte.
+def run(~ok: @+c: U32 -> Bool, +g: Nat, a: Array<U32>, +len: U32, +i: U32) -> Array<U32> & U32 & U32:
+  run.go(~ok, g, run.cls(~ok, pk(a, len, i)), len, i)
+
 def word.go(w: String, ok: Bool, r: Array<U32> & U32, +len: U32, +j: U32) -> Array<U32> & Bool:
   match w:
     case SNil{}:
@@ -570,8 +607,67 @@ def end.b(r: Array<U32> & U32, v: Val, +i: U32) -> Array<U32> & Sb:
     case _:
       (a, BFail{})
 
+# A run's end (a, i, c) to each step. The parts bind without + (bendlang/bend#1077).
+def value.r(+len: U32, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  value.b((a, c), len, i, stack)
+
+def first.r(open: Open, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  first.b((a, c), i, open, stack)
+
+def key.r(stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  key.b((a, c), i, stack)
+
+def colon.r(k: Bytes.Bytes, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  colon.b((a, c), k, i, stack)
+
+def str.r(+len: U32, +s: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  str.b((a, c), len, i, s, key, stack)
+
+def num.r(+s: U32, +st: U32, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  num.b((a, c), i, s, st, stack)
+
+def sep.r(open: Open, up: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  sep.b((a, c), i, open, up)
+
+def end.r(v: Val, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, i, c) = r
+  end.b((a, c), v, i)
+
+def w.span.go(n: Nat, r: Array<U32> & U32, +i: U32, o: W) -> Array<U32> & W:
+  match n:
+    case 0n:
+      (a, v) = r
+      (a, o)
+    case 1n+k:
+      (a, +c) = r
+      w.span.go(k, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), w.put(o, c))
+
+def esc.r.go(+len: U32, +j: U32, c: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & W) -> Array<U32> & Sb:
+  (a, acc) = r
+  esc.b((a, c), len, j, acc, key, stack)
+
+# The plain bytes from i to the run's end go onto acc in one loop.
+def esc.r(+len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+  (a, +j, c) = r
+  esc.r.go(len, j, c, key, stack, w.span.go(U32.to_nat((j - i : U32)), Bytes.peek(a, i), i, acc))
+
+# States 3, 5 and 8 take digits until the number's part ends.
+def num.run(loop: Bool, +g: Nat, a: Array<U32>, +len: U32, +i: U32) -> Array<U32> & U32 & U32:
+  match loop:
+    case True{}:
+      run(~digit, g, a, len, i)
+    case False{}:
+      pos(a, len, i)
+
 # fuel: a step eats a byte, or ends a number, a value, or an opening bracket, so 4 * len + 4 steps are enough.
-def runb(fuel: Nat, r: Array<U32> & Sb, +len: U32) -> Maybe<&1, Val>:
+def runb(+fuel: Nat, r: Array<U32> & Sb, +len: U32) -> Maybe<&1, Val>:
   match fuel:
     case 0n:
       None{}
@@ -583,25 +679,25 @@ def runb(fuel: Nat, r: Array<U32> & Sb, +len: U32) -> Maybe<&1, Val>:
         case BFail{}:
           None{}
         case BValue{+i, stack}:
-          runb(f, value.b(pk(a, len, i), len, i, stack), len)
+          runb(f, value.r(len, stack, run(~is_ws, f, a, len, i)), len)
         case BFirst{+i, open, stack}:
-          runb(f, first.b(pk(a, len, i), i, open, stack), len)
+          runb(f, first.r(open, stack, run(~is_ws, f, a, len, i)), len)
         case BKey{+i, stack}:
-          runb(f, key.b(pk(a, len, i), i, stack), len)
+          runb(f, key.r(stack, run(~is_ws, f, a, len, i)), len)
         case BColon{k, +i, stack}:
-          runb(f, colon.b(pk(a, len, i), k, i, stack), len)
+          runb(f, colon.r(k, stack, run(~is_ws, f, a, len, i)), len)
         case BStr{+i, +s, k, stack}:
-          runb(f, str.b(pk(a, len, i), len, i, s, k, stack), len)
+          runb(f, str.r(len, s, k, stack, run(~plain, f, a, len, i)), len)
         case BEsc{+i, acc, k, stack}:
-          runb(f, esc.b(pk(a, len, i), len, i, acc, k, stack), len)
+          runb(f, esc.r(len, i, acc, k, stack, run(~plain, f, a, len, i)), len)
         case BNum{+i, +s, +st, stack}:
-          runb(f, num.b(pk(a, len, i), i, s, st, stack), len)
+          runb(f, num.r(s, st, stack, num.run(U32.is_eq(st, 3) || U32.is_eq(st, 5) || U32.is_eq(st, 8), f, a, len, i)), len)
         case BAfter{v, +i, stack}:
           runb(f, (a, after.b(v, i, stack)), len)
         case BSep{+i, open, stack}:
-          runb(f, sep.b(pk(a, len, i), i, open, stack), len)
+          runb(f, sep.r(open, stack, run(~is_ws, f, a, len, i)), len)
         case BEnd{v, +i}:
-          runb(f, end.b(pk(a, len, i), v, i), len)
+          runb(f, end.r(v, run(~is_ws, f, a, len, i)), len)
 
 # One JSON text in UTF-8. None for bad JSON or bad UTF-8 (RFC 8259 §8.1).
 def parse.bytes(b: Bytes.Bytes) -> Maybe<&1, Val>:
