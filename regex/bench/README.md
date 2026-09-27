@@ -49,13 +49,13 @@ Versions: Bend 2.0.29, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.1 | 0.2 | 1.0 |
+| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 1.0 |
 | is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 0.0 |
-| is_match_live | 8.7 | 1.1 | 0.1 | 7.5 | 76.0 |
-| find_captures | 15.2 | 2.9 | 0.8 | 0.7 | 760.0 |
-| find_early | 0.0 | 0.0 | 0.2 | 0.1 | 0.0 |
-| redos | 3.0 | timeout | 858.4 | timeout | 117.0 |
-| large | 2,277.8 | 0.0 | 0.2 | 0.1 | 919.0 |
+| is_match_live | 9.3 | 1.0 | 0.1 | 7.8 | 78.0 |
+| find_captures | 15.8 | 2.8 | 0.8 | 0.7 | 214.0 |
+| find_early | 0.0 | 0.0 | 0.2 | 0.2 | 0.0 |
+| redos | 3.1 | timeout | 878.7 | timeout | 21.0 |
+| large | 2,301.4 | 0.0 | 0.1 | 0.1 | 931.0 |
 
 Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `is_match_live` 0, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
 
@@ -81,9 +81,11 @@ Bend times in ms, median of three runs of the same bench against each version of
 | #98: skip chars that cannot start a match | 33 | 7 | 266 | 757 | 7 |
 | #100: bit-parallel NFA for `is_match` | 42 | 7 | 85 | 757 | 6 |
 | #144: match over `Bytes`; skip with a byte table | 1 | 0 | 76 | 760 | 0 |
+| #153: lazy DFA with capture operations for `find` | 1 | 0 | 78 | 214 | 0 |
 
 ## Caveats
 
-- The skip only helps while no match is in progress. Where every char keeps threads live (`is_match_live`, and `find_captures`, where each `x` is a `\w`), each char still runs the bit NFA or the Pike VM, and that per-char cost is the gap to C and V8.
+- The skip only helps while no match is in progress. Where every char keeps threads live (`is_match_live`, and `find_captures`, where each `x` is a `\w`), each char still takes a step: a cached DFA transition for `find`, the bit NFA for `is_match`. That per-char cost is the gap to C and V8. `is_match` keeps the bit NFA on small programs: on `is_match_live` the DFA took about 136 ms against its 78.
+- `large` has about 1000 DFA states, more than the cache holds (8 for a text under 4 KiB, 256 above), so most of its chars take the plain Pike step.
 - POSIX ERE has no `\w`; `[[:alnum:]_]` is the documented equivalent for ASCII word characters.
 - `IO.now` in Bend is whole milliseconds; C and the scripting languages use sub-ms clocks.

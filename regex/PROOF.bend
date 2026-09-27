@@ -275,6 +275,54 @@ def Laws.bytes_bits_skip_multibyte():
 def Laws.bytes_bits_word_boundary():
   {==}
 
+def Laws.dfa_captures_replay():
+  {==}
+
+def Laws.dfa_capture_alternatives():
+  {==}
+
+def Laws.dfa_capture_last_iteration():
+  {==}
+
+def Laws.dfa_capture_unset():
+  {==}
+
+def Laws.dfa_email():
+  {==}
+
+def Laws.dfa_lazy():
+  {==}
+
+def Laws.dfa_leftmost_first():
+  {==}
+
+def Laws.dfa_anchored():
+  {==}
+
+def Laws.dfa_anchored_miss():
+  {==}
+
+def Laws.dfa_empty_loop():
+  {==}
+
+def Laws.dfa_pathological_hit():
+  {==}
+
+def Laws.dfa_nested():
+  {==}
+
+def Laws.dfa_cache_full():
+  {==}
+
+def Laws.dfa_non_ascii():
+  {==}
+
+def Laws.dfa_any_large_hit():
+  {==}
+
+def Laws.dfa_any_large_miss():
+  {==}
+
 def Laws.bad_unclosed():
   {==}
 

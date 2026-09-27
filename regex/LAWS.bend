@@ -355,6 +355,59 @@ law bytes_bits_skip_multibyte:
 law bytes_bits_word_boundary:
   {bboth(R.compile("\\bcat"), "concat cat") == (None{}, True{}) : Maybe<&2, Bool> & Bool}
 
+# The lazy DFA runs find.bytes on patterns without word boundaries. A text repeats a match
+# so that later chars replay learned transitions; the String Pike VM is the reference.
+law dfa_captures_replay:
+  {mb("(a+)(b+)", "xaabbbyaabb") == Some{[sp(1, 6), sp(1, 3), sp(3, 6)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_capture_alternatives:
+  {mb("(a|ab)(c|bcd)(d*)", "xxabcdxx") == Some{[sp(2, 6), sp(2, 3), sp(3, 6), sp(6, 6)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_capture_last_iteration:
+  {mb("(a|b)+", "xxababab") == Some{[sp(2, 8), sp(7, 8)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_capture_unset:
+  {mb("x(a)|x(b)", "xxxb") == Some{[sp(2, 4), None{}, sp(3, 4)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_email:
+  {mb("(\\w+)@(\\w+)\\.com", "xx user@host.com xx") == Some{[sp(3, 16), sp(3, 7), sp(8, 12)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_lazy:
+  {mb("a+?b", "xaaab") == Some{[sp(1, 5)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_leftmost_first:
+  {mb("a|ab", "xxab") == Some{[sp(2, 3)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_anchored:
+  {mb("^(a+)$", "aaaa") == Some{[sp(0, 4), sp(0, 4)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_anchored_miss:
+  {mb("^a+$", "aaab") == None{} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_empty_loop:
+  {mb("(|a)*", "aaaa") == m("(|a)*", "aaaa") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_pathological_hit:
+  {mb("(a*)*b", "aaaaaab") == m("(a*)*b", "aaaaaab") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_nested:
+  {mb("((a)b)+c", "xababababc") == m("((a)b)+c", "xababababc") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# A short text caches at most 8 states; this pattern needs more, so the rest take the plain step.
+law dfa_cache_full:
+  {mb("(x?){12}(y)", "xxxxxxxxxxxxy") == m("(x?){12}(y)", "xxxxxxxxxxxxy") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# Non-ASCII chars take the plain step between cached ones.
+law dfa_non_ascii:
+  {mb("(a+)\u{e9}(b+)", "xaa\u{c3}\u{a9}bbaa\u{c3}\u{a9}b") == Some{[sp(1, 7), sp(1, 3), sp(5, 7)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# is_match.bytes on a program over 32 instructions: the DFA with no captures.
+law dfa_any_large_hit:
+  {bboth(R.compile("a{40}"), "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab") == (None{}, True{}) : Maybe<&2, Bool> & Bool}
+
+law dfa_any_large_miss:
+  {bboth(R.compile("a{40}"), "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab") == (None{}, False{}) : Maybe<&2, Bool> & Bool}
+
 # Syntax errors.
 law bad_unclosed:
   {ok("(a") == False{} : Bool}
