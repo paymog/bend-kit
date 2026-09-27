@@ -364,6 +364,175 @@ law i64_read_roundtrip:
   {Int.I64.read(Int.I64.show(Int.I64.MIN())) == Some{Int.I64.MIN()} :
     Maybe<&2, Int.I64>}
 
+# Radix text: lowercase digits out, either case in, and an optional sign.
+law u8_show_bin:
+  {Int.U8.show_radix(2, Int.U8.MAX()) == "11111111" : String}
+
+law u16_show_b36:
+  {Int.U16.show_radix(36, Int.U16.MAX()) == "1ekf" : String}
+
+law u32_show_hex:
+  {Int.U32.show_radix(16, 4294967295) == "ffffffff" : String}
+
+law i32_show_hex_min:
+  {Int.I32.show_radix(16, Int.I32.MIN()) == "-80000000" : String}
+
+law u64_show_b36:
+  {Int.U64.show_radix(36, Int.U64.MAX()) == "3w5e11264sgsf" : String}
+
+law i64_show_oct_min:
+  {Int.I64.show_radix(8, Int.I64.MIN()) == "-1000000000000000000000" : String}
+
+law show_radix_clamps:
+  {Int.U8.show_radix(99, u8(35)) == "z" : String}
+
+law u8_read_hex_upper:
+  {Int.U8.read_radix(16, "FF") == Some{Int.U8.MAX()} : Maybe<&2, Int.U8>}
+
+law u8_read_plus:
+  {Int.U8.read_radix(10, "+7") == Some{u8(7)} : Maybe<&2, Int.U8>}
+
+law u8_read_minus:
+  {Int.U8.read_radix(10, "-0") == None{} : Maybe<&2, Int.U8>}
+
+law u8_read_bad_radix:
+  {Int.U8.read_radix(37, "1") == None{} : Maybe<&2, Int.U8>}
+
+law u8_read_digit_over_radix:
+  {Int.U8.read_radix(2, "102") == None{} : Maybe<&2, Int.U8>}
+
+law u32_read_hex_over:
+  {Int.U32.read_radix(16, "100000000") == None{} : Maybe<&2, U32>}
+
+law i32_read_hex_min:
+  {Int.I32.read_radix(16, "-80000000") == Some{Int.I32.MIN()} :
+    Maybe<&2, Int.I32>}
+
+law i32_read_hex_under:
+  {Int.I32.read_radix(16, "-80000001") == None{} : Maybe<&2, Int.I32>}
+
+law i32_read_hex_over:
+  {Int.I32.read_radix(16, "80000000") == None{} : Maybe<&2, Int.I32>}
+
+law u64_read_b36_over:
+  {Int.U64.read_radix(36, "3w5e11264sgsg") == None{} : Maybe<&2, Int.U64>}
+
+law i64_read_bin_sign:
+  {Int.I64.read_radix(2, "-101") == Some{n64(5)} : Maybe<&2, Int.I64>}
+
+# True when ok holds for each of the f radices from r up.
+def radices(~ok: U32 -> Bool, f: Nat, +r: U32) -> Bool:
+  match f:
+    case 0n:
+      True{}
+    case 1n+g:
+      Bool.and(ok(r), radices(~ok, g, U32.add(r, 1)))
+
+def same.u8(x: Int.U8, m: Maybe<&2, Int.U8>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{y}:
+      Int.U8.is_eq(x, y)
+
+def rt.u8(+r: U32, +x: Int.U8) -> Bool:
+  same.u8(x, Int.U8.read_radix(r, Int.U8.show_radix(r, x)))
+
+def rt.u8.ends(r0: U32) -> Bool:
+  +r = {r0 : U32}
+  Bool.and(rt.u8(r, Int.U8.MIN()), rt.u8(r, Int.U8.MAX()))
+
+def same.u16(x: Int.U16, m: Maybe<&2, Int.U16>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{y}:
+      Int.U16.is_eq(x, y)
+
+def rt.u16(+r: U32, +x: Int.U16) -> Bool:
+  same.u16(x, Int.U16.read_radix(r, Int.U16.show_radix(r, x)))
+
+def rt.u16.ends(r0: U32) -> Bool:
+  +r = {r0 : U32}
+  Bool.and(rt.u16(r, Int.U16.MIN()), rt.u16(r, Int.U16.MAX()))
+
+def same.u32(x: U32, m: Maybe<&2, U32>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{y}:
+      U32.is_eq(x, y)
+
+def rt.u32(+r: U32, +x: U32) -> Bool:
+  same.u32(x, Int.U32.read_radix(r, Int.U32.show_radix(r, x)))
+
+def rt.u32.ends(r0: U32) -> Bool:
+  +r = {r0 : U32}
+  Bool.and(rt.u32(r, 0), rt.u32(r, 4294967295))
+
+def same.i32(x: Int.I32, m: Maybe<&2, Int.I32>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{y}:
+      Int.I32.is_eq(x, y)
+
+def rt.i32(+r: U32, +x: Int.I32) -> Bool:
+  same.i32(x, Int.I32.read_radix(r, Int.I32.show_radix(r, x)))
+
+def rt.i32.ends(r0: U32) -> Bool:
+  +r = {r0 : U32}
+  Bool.and(Bool.and(rt.i32(r, Int.I32.MIN()), rt.i32(r, Int.I32.MAX())),
+    Bool.and(rt.i32(r, n32(1)), rt.i32(r, i32(0))))
+
+def same.u64(x: Int.U64, m: Maybe<&2, Int.U64>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{y}:
+      Int.U64.is_eq(x, y)
+
+def rt.u64(+r: U32, +x: Int.U64) -> Bool:
+  same.u64(x, Int.U64.read_radix(r, Int.U64.show_radix(r, x)))
+
+def rt.u64.ends(r0: U32) -> Bool:
+  +r = {r0 : U32}
+  Bool.and(rt.u64(r, Int.U64.MIN()), rt.u64(r, Int.U64.MAX()))
+
+def same.i64(x: Int.I64, m: Maybe<&2, Int.I64>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{y}:
+      Int.I64.is_eq(x, y)
+
+def rt.i64(+r: U32, +x: Int.I64) -> Bool:
+  same.i64(x, Int.I64.read_radix(r, Int.I64.show_radix(r, x)))
+
+def rt.i64.ends(r0: U32) -> Bool:
+  +r = {r0 : U32}
+  Bool.and(Bool.and(rt.i64(r, Int.I64.MIN()), rt.i64(r, Int.I64.MAX())),
+    Bool.and(rt.i64(r, n64(1)), rt.i64(r, i64(0))))
+
+# Every radix from 2 to 36 reads back MIN and MAX, and signed -1 and 0.
+law u8_radix_roundtrip:
+  {radices(~rt.u8.ends, 35n, 2) == True{} : Bool}
+
+law u16_radix_roundtrip:
+  {radices(~rt.u16.ends, 35n, 2) == True{} : Bool}
+
+law u32_radix_roundtrip:
+  {radices(~rt.u32.ends, 35n, 2) == True{} : Bool}
+
+law i32_radix_roundtrip:
+  {radices(~rt.i32.ends, 35n, 2) == True{} : Bool}
+
+law u64_radix_roundtrip:
+  {radices(~rt.u64.ends, 35n, 2) == True{} : Bool}
+
+law i64_radix_roundtrip:
+  {radices(~rt.i64.ends, 35n, 2) == True{} : Bool}
+
 # Conversions: narrowing truncates, signed widening sign-extends.
 law u8_u32_roundtrip:
   {Int.U8.from_u32(Int.U8.to_u32(Int.U8.MAX())) == Int.U8.MAX() : Int.U8}
