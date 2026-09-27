@@ -13,7 +13,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### bytes
 
 - `bytes@0.1.0` (`67341da`) is a byte buffer packed four bytes to a `U32` `Array` slot. It has bounds-checked `get`/`set`, `slice`, `append`, `concat`, `find`, and `eq`, and it converts to and from byte strings. `bytes/bench` measures the layout.
-- `bytes` also reads and writes u16 and u32 in both byte orders (`get.u32be`, `set.u16le`, ...), searches with `find.from`, `rfind`, `starts_with`, `ends_with`, and `split`, orders buffers with `cmp`, and converts to and from hex and padded base64. `append` writes into the left buffer while it has room and at least doubles it when it does not, so building 200 K bytes one at a time takes 0.6 s instead of 215 s.
+- `bytes` also reads and writes u16, u32, and u64 in both byte orders (`get.u32be`, `set.u16le`, `get.u64be`, ...), searches with `find.from`, `rfind`, `starts_with`, `ends_with`, and `split`, orders buffers with `cmp`, and converts to and from hex and padded base64. The u64 forms use `int`'s `Int.U64`, which is slow until Base has a native `U64`. `append` writes into the left buffer while it has room and at least doubles it when it does not, so building 200 K bytes one at a time takes 0.6 s instead of 215 s.
 
 ### wire
 
@@ -89,7 +89,6 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ## Later
 
 - [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist. `json.encode` is still `@unsafe` because it walks a work list.
-- [ ] u64 in `bytes`. Base has no `U64`; add `get.u64be` and the rest when it does, or return a hi/lo `U32` pair if a format needs it first.
 - [ ] `Bytes` as map keys. Base's `Map` is a trie over `String` keys and takes no comparator, so `Bytes.cmp` cannot key it. Use `Bytes.to_string` as the key, or add an ordered map over `cmp`.
 - [ ] More than one idle socket per origin in the pool, and decoding inside streams.
 - [ ] A cookie jar, proxies (`HTTP_PROXY`), client certificates, ALPN, HTTP/2.

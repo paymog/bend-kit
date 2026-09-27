@@ -1,5 +1,6 @@
 import Base
 import ./bytes.bend as Bytes
+import 0x4eed9d7ac6ece61523d747a9d804e4f0/int.bend as Int
 
 # The laws run in the checker, where Array is a tree of defs. This runs the same
 # operations on the runtime's native Array, at sizes the checker would not reach.
@@ -48,6 +49,14 @@ def expect(+name: String, ok: Bool) -> IO(Unit):
       IO.print("ok " ++ name)
     case False{}:
       IO.die(Unit, 1, "FAIL " ++ name)
+
+def has64(r: Bytes.Bytes & Maybe<&2, Int.U64>, +v: String) -> Bool:
+  (b, m) = r
+  match m:
+    case None{}:
+      False{}
+    case Some{x}:
+      String.eq(Int.U64.show(x), v)
 
 def has(m: Maybe<&2, U32>, +v: U32) -> Bool:
   match m:
@@ -127,6 +136,7 @@ def main() -> IO(Unit):
     expect("append 10 KB aligned", String.eq(str(Bytes.append(of(big()), of("wxyz"))), big() ++ "wxyz"))
     expect("append 200 K one byte at a time", U32.is_eq(num(Bytes.length(build(200000n, Bytes.new(0)))), 200000))
     expect("u32be 1 MB", has(val(Bytes.get.u32be(Bytes.set.u32be(Bytes.new(1000003), 999999, 3735928559), 999999)), 3735928559))
+    expect("u64le 1 MB", has64(Bytes.get.u64le(Bytes.set.u64le(Bytes.new(1000003), 999993, Int.U64.MAX()), 999993), "18446744073709551615"))
     expect("u16le past 1 MB len", none(val(Bytes.get.u16le(Bytes.new(1000003), 1000002))))
     expect("find.from 10 KB", has(val(Bytes.find.from(of(big()), "\r\n\r\n", 1)), 10000))
     expect("rfind 10 KB", has(val(Bytes.rfind(of(big()), "a")), 9999))
