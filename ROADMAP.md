@@ -50,7 +50,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [ ] Filesystem and paths (#22)
 - [ ] Process and OS (#23)
 - [x] Generic collections (#24). A hash map waits on hashing (#27).
-- [ ] Text formatting and number parsing (#25)
+- [x] Text formatting and number parsing (#25)
 - [ ] Time: clock, Duration, Instant, dates, time zones (#26)
 
 ### Tier 2
