@@ -55,3 +55,12 @@ def Laws.hosts_hit():
 
 def Laws.hosts_miss():
   {==}
+
+def Laws.resolve_ipv6_literal():
+  {==}
+
+def Laws.resolve_localhost():
+  {==}
+
+def Laws.hosts_ipv6():
+  {==}
