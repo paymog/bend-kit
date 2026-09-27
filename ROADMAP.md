@@ -69,7 +69,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### Tier 3
 
 - [x] Parser combinators (#38)
-- [ ] Compression through libz, libzstd, and libbrotlidec, and `http` decoding with them (#142)
+- [x] Compression through libz, libzstd, and libbrotlidec, and `http` decoding with them (#142)
 - [ ] Concurrency helpers (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
 - [ ] Networking: WebSocket, cookies, multipart (#42)
