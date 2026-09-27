@@ -47,14 +47,24 @@ s = text(SIZE)
 re_hello = re.compile(r"hello\w+")
 re_email = re.compile(r"(\w+)@(\w+)\.com")
 re_redos = re.compile(r"(a*)*b")
+re_x = re.compile(r"x")
+re_early = re.compile(r"(x)x")
 
 if want("is_match"):
     t0 = time.perf_counter()
-    lap("is_match", t0, chk_groups(re_hello.search(s), 1))
+    lap("is_match", t0, int(re_hello.search(s) is not None))
+
+if want("is_match_early"):
+    t0 = time.perf_counter()
+    lap("is_match_early", t0, int(re_x.search(s) is not None))
 
 if want("find_captures"):
     t0 = time.perf_counter()
     lap("find_captures", t0, chk_groups(re_email.search(s), 3))
+
+if want("find_early"):
+    t0 = time.perf_counter()
+    lap("find_early", t0, chk_groups(re_early.search(s), 2))
 
 if want("redos"):
     t0 = time.perf_counter()

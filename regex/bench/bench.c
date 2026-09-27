@@ -42,15 +42,16 @@ static uint32_t chk_match(const regmatch_t *pm, int n) {
   return h;
 }
 
+// ngroups 0 asks only whether a match exists (REG_NOSUB); chk is then 1 or 0.
 static int run_one(const char *pat, const char *s, int ngroups, double *ms, uint32_t *chk) {
   regex_t re;
-  if (regcomp(&re, pat, REG_EXTENDED) != 0) return -1;
+  if (regcomp(&re, pat, REG_EXTENDED | (ngroups ? 0 : REG_NOSUB)) != 0) return -1;
   regmatch_t pm[16];
   int n = ngroups < 16 ? ngroups : 16;
   double t0 = now_ms();
   int rc = regexec(&re, s, n, pm, 0);
   *ms = now_ms() - t0;
-  *chk = rc == REG_NOMATCH ? 0 : chk_match(pm, n);
+  *chk = rc == REG_NOMATCH ? 0 : ngroups ? chk_match(pm, n) : 1;
   regfree(&re);
   return 0;
 }
@@ -68,13 +69,23 @@ int main(int argc, char **argv) {
   uint32_t chk;
 
   if (want(only, "is_match")) {
-    if (run_one("hello[[:alnum:]_]+", s, 1, &ms, &chk) != 0) return 1;
+    if (run_one("hello[[:alnum:]_]+", s, 0, &ms, &chk) != 0) return 1;
     printf("is_match\t%.3f\t%u\n", ms, chk);
+  }
+
+  if (want(only, "is_match_early")) {
+    if (run_one("x", s, 0, &ms, &chk) != 0) return 1;
+    printf("is_match_early\t%.3f\t%u\n", ms, chk);
   }
 
   if (want(only, "find_captures")) {
     if (run_one("([[:alnum:]_]+)@([[:alnum:]_]+)\\.com", s, 3, &ms, &chk) != 0) return 1;
     printf("find_captures\t%.3f\t%u\n", ms, chk);
+  }
+
+  if (want(only, "find_early")) {
+    if (run_one("(x)x", s, 2, &ms, &chk) != 0) return 1;
+    printf("find_early\t%.3f\t%u\n", ms, chk);
   }
 
   if (want(only, "redos")) {

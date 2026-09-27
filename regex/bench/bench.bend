@@ -46,11 +46,26 @@ def with_re(m: Maybe<&2, R.Regex>, +s: String, +name: String) -> IO(Unit):
         t0 : Nat <- IO.now()
         lap(name, t0, chk_find(R.find(re, s)))
 
+def with_hit(m: Maybe<&2, R.Regex>, +s: String, +name: String) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.print("error")
+    case Some{re}:
+      do IO<Unit>:
+        t0 : Nat <- IO.now()
+        lap(name, t0, Bool.pick(U32, R.is_match(re, s), 1, 0))
+
 def op.is_match(+s: String) -> IO(Unit):
-  with_re(R.compile("hello\\w+"), s, "is_match")
+  with_hit(R.compile("hello\\w+"), s, "is_match")
+
+def op.is_match_early(+s: String) -> IO(Unit):
+  with_hit(R.compile("x"), s, "is_match_early")
 
 def op.find_captures(+s: String) -> IO(Unit):
   with_re(R.compile("(\\w+)@(\\w+)\\.com"), s, "find_captures")
+
+def op.find_early(+s: String) -> IO(Unit):
+  with_re(R.compile("(x)x"), s, "find_early")
 
 def op.redos() -> IO(Unit):
   do IO<Unit>:
@@ -64,7 +79,9 @@ def op.large() -> IO(Unit):
 def run_all(+s: String) -> IO(Unit):
   do IO<Unit>:
     op.is_match(s)
+    op.is_match_early(s)
     op.find_captures(s)
+    op.find_early(s)
     op.redos()
     op.large()
 
@@ -74,8 +91,12 @@ def run_text(+s: String, +only: String) -> IO(Unit):
       run_all(s)
     case "is_match":
       op.is_match(s)
+    case "is_match_early":
+      op.is_match_early(s)
     case "find_captures":
       op.find_captures(s)
+    case "find_early":
+      op.find_early(s)
     case "redos":
       op.redos()
     case "large":

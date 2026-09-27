@@ -25,12 +25,14 @@ The ReDoS input is **100 000** `a` with no trailing `b`. The `large` input is **
 
 | case | Bend / Python / JS pattern | POSIX ERE (C) | work | checksum |
 |---|---|---|---|---|
-| `is_match` | `hello\w+` | `hello[[:alnum:]_]+` | leftmost match of the hello prefix | u32 hash of group-0 start/end (0 if no match) |
+| `is_match` | `hello\w+` | `hello[[:alnum:]_]+` | is there a match (late in the text) | 1 if a match, else 0 |
+| `is_match_early` | `x` | `x` | is there a match (at position 0) | 1 if a match, else 0 |
 | `find_captures` | `(\w+)@(\w+)\.com` | `([[:alnum:]_]+)@([[:alnum:]_]+)\.com` | leftmost match with two captures | hash of groups 0–2 spans |
+| `find_early` | `(x)x` | `(x)x` | leftmost match with one capture, at position 0 | hash of groups 0–1 spans |
 | `redos` | `(a*)*b` | `(a*)*b` | no match on 100k `a` | 0 |
 | `large` | `(?:x?){1000}y` | `((x?){250}){4}y` | about 2000 instructions; each char walks a closure over most of them | u32 hash of group-0 span |
 
-Hash: for each group, if missing then `h = h * 31`; else `h = h * 31 + start` then `h = h * 31 + end` (u32 wrap). Positions are code-point indexes in Bend and byte indexes in the other languages; the input is ASCII so they agree.
+Hash: for each group, if missing then `h = h * 31`; else `h = h * 31 + start` then `h = h * 31 + end` (u32 wrap). Positions are code-point indexes in Bend and byte indexes in the other languages; the input is ASCII so they agree. The `is_match` cases use `Regex.is_match` in Bend, `REG_NOSUB` in C, `search(...) is not None` in Python, and `RegExp.test` in JavaScript.
 
 Compile the pattern **outside** the timed region. Bend uses a native build (`bend bench.bend -o out/bend`); the checker runner is not used for the 1 MiB input.
 
@@ -46,12 +48,14 @@ Versions: Bend 2.0.29, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 172.0 |
-| find_captures | 17.6 | 2.8 | 0.8 | 0.7 | 757.0 |
-| redos | 3.0 | timeout | 858.5 | timeout | 116.0 |
-| large | 2,317.8 | 0.0 | 0.1 | 0.1 | 894.0 |
+| is_match | 0.0 | 0.3 | 0.1 | 0.2 | 152.0 |
+| is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 7.0 |
+| find_captures | 15.7 | 2.8 | 0.8 | 0.7 | 748.0 |
+| find_early | 0.0 | 0.0 | 0.2 | 0.2 | 7.0 |
+| redos | 2.8 | timeout | 860.1 | timeout | 112.0 |
+| large | 2,216.2 | 0.0 | 0.1 | 0.1 | 897.0 |
 
-Checksums: `is_match` 33553812, `find_captures` 3021334545, `redos` 0, `large` 1001. All non-timeout variants agree.
+Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
 
 ### Program size
 
@@ -64,8 +68,17 @@ The program and the visited set are binary tries keyed by pc, so a closure step 
 
 The list grows about 4–6× per doubling of k (m²); the trie grows about 2.3× (m log m). On `large`, 0.1.0.0 takes 65 374 ms. The trie costs a little on tiny patterns, where every hot pc is near the list head: `is_match` was about 140 ms with lists.
 
+### History
+
+Bend times in ms, median of three runs of the same bench against each version of `regex.bend`.
+
+| change | is_match | is_match_early | find_captures | find_early |
+|---|---:|---:|---:|---:|
+| before #97 (0.2.0.0) | 174 | 17 | 750 | 17 |
+| #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 748 | 7 |
+
 ## Caveats
 
-- Bend strings are `Char` lists; the gap on large inputs is mostly allocation layout, not just the Pike VM.
+- Bend strings are `Char` lists; the gap on large inputs is mostly allocation layout, not just the Pike VM. The early cases still take a few ms after the match is found, probably to free the rest of the 1 MiB list.
 - POSIX ERE has no `\w`; `[[:alnum:]_]` is the documented equivalent for ASCII word characters.
 - `IO.now` in Bend is whole milliseconds; C and the scripting languages use sub-ms clocks.

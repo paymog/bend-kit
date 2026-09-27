@@ -788,33 +788,41 @@ def scan.char(c: Maybe<&2, Char>, neg: Bool, set: List<&2, Item>, +pc: U32, caps
     case Some{Chr{+x}}:
       scan.set(Bool.xor(neg, items.has(set, x)), pc, caps, items, best)
 
-def scan.inst(i: Maybe<&2, Inst>, c: Maybe<&2, Char>, +pc: U32, caps: List<&2, Maybe<&2, U32>>, items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Sc:
+# any: only whether a match exists counts, so a match also drops the earlier threads.
+def scan.hit(any: Bool, caps: List<&2, Maybe<&2, U32>>, items: List<&2, Th>) -> Sc:
+  match any:
+    case True{}:
+      Sc{Nil{}, Some{caps}, True{}}
+    case False{}:
+      Sc{items, Some{caps}, True{}}
+
+def scan.inst(i: Maybe<&2, Inst>, c: Maybe<&2, Char>, +any: Bool, +pc: U32, caps: List<&2, Maybe<&2, U32>>, items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Sc:
   match i:
     case Some{IMatch{}}:
-      Sc{items, Some{caps}, True{}}
+      scan.hit(any, caps, items)
     case Some{ISet{neg, set}}:
       scan.char(c, neg, set, pc, caps, items, best)
     case _:
       Sc{items, best, False{}}
 
-def scan.go(stop: Bool, th: Th, +prog: Trie<Inst>, c: Maybe<&2, Char>, items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Sc:
+def scan.go(stop: Bool, th: Th, +prog: Trie<Inst>, c: Maybe<&2, Char>, +any: Bool, items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Sc:
   match stop:
     case True{}:
       Sc{items, best, True{}}
     case False{}:
       Th{+pc, caps} = th
-      scan.inst(trie.at(Inst, prog, pc), c, pc, caps, items, best)
+      scan.inst(trie.at(Inst, prog, pc), c, any, pc, caps, items, best)
 
-def scan.step(st: Sc, th: Th, +prog: Trie<Inst>, c: Maybe<&2, Char>) -> Sc:
+def scan.step(st: Sc, th: Th, +prog: Trie<Inst>, c: Maybe<&2, Char>, +any: Bool) -> Sc:
   Sc{items, best, stop} = st
-  scan.go(stop, th, prog, c, items, best)
+  scan.go(stop, th, prog, c, any, items, best)
 
-def scan(xs: List<&2, Th>, +prog: Trie<Inst>, +c: Maybe<&2, Char>, st: Sc) -> Sc:
+def scan(xs: List<&2, Th>, +prog: Trie<Inst>, +c: Maybe<&2, Char>, +any: Bool, st: Sc) -> Sc:
   match xs:
     case Nil{}:
       st
     case Con{th, t}:
-      scan(t, prog, c, scan.step(st, th, prog, c))
+      scan(t, prog, c, any, scan.step(st, th, prog, c, any))
 
 # The live threads and the best match so far.
 type Vm is Data:
@@ -832,23 +840,27 @@ def run.close(sc: Sc, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U
   Sc{items, +best, stop} = sc
   Vm{close(fuel, prog, pos, prev, next, Cl{seed(best, List.reverse(&2, Th, items), init), TTip{}, Nil{}}), best}
 
-def run.step(st: Vm, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +pos: U32, +c: Char, +next: Maybe<&2, Char>) -> Vm:
+def run.step(st: Vm, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +any: Bool, +pos: U32, +c: Char, +next: Maybe<&2, Char>) -> Vm:
   Vm{ths, best} = st
-  run.close(scan(ths, prog, Some{c}, Sc{Nil{}, best, False{}}), prog, fuel, init, pos, Some{c}, next)
+  run.close(scan(ths, prog, Some{c}, any, Sc{Nil{}, best, False{}}), prog, fuel, init, pos, Some{c}, next)
 
 def run.end(sc: Sc) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
   Sc{items, best, stop} = sc
   best
 
-# pos: the position of s's head.
-def run(s: String, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +pos: U32, st: Vm) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
+# pos: the position of s's head. Once a match exists and no thread is live, the rest of s cannot change it.
+def run(s: String, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +any: Bool, +pos: U32, st: Vm) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
   match s:
     case SNil{}:
       Vm{ths, best} = st
-      run.end(scan(ths, prog, None{}, Sc{Nil{}, best, False{}}))
+      run.end(scan(ths, prog, None{}, any, Sc{Nil{}, best, False{}}))
     case SCon{+c, +t}:
-      +p = (pos + 1 : U32)
-      run(t, prog, fuel, init, p, run.step(st, prog, fuel, init, p, c, String.get(t, 0n)))
+      match st:
+        case Vm{Nil{}, Some{b}}:
+          Some{b}
+        case Vm{ths, best}:
+          +p = (pos + 1 : U32)
+          run(t, prog, fuel, init, any, p, run.step(Vm{ths, best}, prog, fuel, init, any, p, c, String.get(t, 0n)))
 
 type Span is Data:
   Span{start: U32, end: U32}
@@ -869,11 +881,16 @@ def find.spans(m: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Maybe<&2, List<&2, May
     case Some{caps}:
       Some{spans(caps)}
 
+# slots: capture slots to keep; is_match keeps none, so each ISave is free.
+def exec(re: Regex, +s: String, +any: Bool) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
+  Regex{+prog, +fuel, +slots} = re
+  +init = List.replicate(Maybe<&2, U32>, Bool.pick(Nat, any, 0n, slots), None{})
+  run(s, prog, fuel, init, any, 0, Vm{close(fuel, prog, 0, None{}, String.get(s, 0n), Cl{[Th{0, init}], TTip{}, Nil{}}), None{}})
+
 # The leftmost match in s: the span of group 0, then of each group; None for a group that did not take part.
 def find(re: Regex, +s: String) -> Maybe<&2, List<&2, Maybe<&2, Span>>>:
-  Regex{+prog, +fuel, +slots} = re
-  +init = List.replicate(Maybe<&2, U32>, slots, None{})
-  find.spans(run(s, prog, fuel, init, 0, Vm{close(fuel, prog, 0, None{}, String.get(s, 0n), Cl{[Th{0, init}], TTip{}, Nil{}}), None{}}))
+  find.spans(exec(re, s, False{}))
 
-def is_match(re: Regex, s: String) -> Bool:
-  Maybe.is_some(&2, List<&2, Maybe<&2, Span>>, find(re, s))
+# Stops at the first match of any priority and records no captures.
+def is_match(re: Regex, +s: String) -> Bool:
+  Maybe.is_some(&2, List<&2, Maybe<&2, U32>>, exec(re, s, True{}))

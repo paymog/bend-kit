@@ -51,15 +51,27 @@ const s = text(SIZE);
 const reHello = /hello\w+/;
 const reEmail = /(\w+)@(\w+)\.com/;
 const reRedos = /(a*)*b/;
+const reX = /x/;
+const reEarly = /(x)x/;
 if (want("is_match")) {
   let t0 = performance.now();
-  let m = reHello.exec(s);
-  lap("is_match", t0, chkGroups(m, 1));
+  let hit = reHello.test(s);
+  lap("is_match", t0, hit ? 1 : 0);
+}
+if (want("is_match_early")) {
+  let t0 = performance.now();
+  let hit = reX.test(s);
+  lap("is_match_early", t0, hit ? 1 : 0);
 }
 if (want("find_captures")) {
   let t0 = performance.now();
   let m = reEmail.exec(s);
   lap("find_captures", t0, chkGroups(m, 3));
+}
+if (want("find_early")) {
+  let t0 = performance.now();
+  let m = reEarly.exec(s);
+  lap("find_early", t0, chkGroups(m, 2));
 }
 if (want("redos")) {
   let t0 = performance.now();
