@@ -323,6 +323,78 @@ def Laws.i64_read_neg():
 def Laws.i64_read_roundtrip():
   {==}
 
+def Laws.u8_show_bin():
+  {==}
+
+def Laws.u16_show_b36():
+  {==}
+
+def Laws.u32_show_hex():
+  {==}
+
+def Laws.i32_show_hex_min():
+  {==}
+
+def Laws.u64_show_b36():
+  {==}
+
+def Laws.i64_show_oct_min():
+  {==}
+
+def Laws.show_radix_clamps():
+  {==}
+
+def Laws.u8_read_hex_upper():
+  {==}
+
+def Laws.u8_read_plus():
+  {==}
+
+def Laws.u8_read_minus():
+  {==}
+
+def Laws.u8_read_bad_radix():
+  {==}
+
+def Laws.u8_read_digit_over_radix():
+  {==}
+
+def Laws.u32_read_hex_over():
+  {==}
+
+def Laws.i32_read_hex_min():
+  {==}
+
+def Laws.i32_read_hex_under():
+  {==}
+
+def Laws.i32_read_hex_over():
+  {==}
+
+def Laws.u64_read_b36_over():
+  {==}
+
+def Laws.i64_read_bin_sign():
+  {==}
+
+def Laws.u8_radix_roundtrip():
+  {==}
+
+def Laws.u16_radix_roundtrip():
+  {==}
+
+def Laws.u32_radix_roundtrip():
+  {==}
+
+def Laws.i32_radix_roundtrip():
+  {==}
+
+def Laws.u64_radix_roundtrip():
+  {==}
+
+def Laws.i64_radix_roundtrip():
+  {==}
+
 def Laws.u8_u32_roundtrip():
   {==}
 

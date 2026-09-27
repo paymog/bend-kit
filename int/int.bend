@@ -1,4 +1,4 @@
-# Fixed-width integers U8, U16, U64, I32 and I64: wrapping, checked and saturating arithmetic.
+# Fixed-width integers U8, U16, U64, I32 and I64: wrapping, checked and saturating arithmetic, and text in radix 2 to 36.
 import Base
 
 # The Int.* core serves only U64 and I64. When Base ships a native U64 (bendlang/bend#1027), delete it.
@@ -271,8 +271,73 @@ def Int.shr(+n: Nat, +s: Bool, k: Nat, w: Word(n)) -> Word(n):
     case 1n+j:
       Int.shr(n, s, j, Int.shr1(n, s, w))
 
+# Digit d below 36 as '0'..'9', then 'a'..'z'.
+def Radix.digit.if(lo: Bool, d: U32) -> Char:
+  match lo:
+    case True{}:
+      Chr{U32.add(48, d)}
+    case False{}:
+      Chr{U32.add(87, d)}
+
+def Radix.digit(+d: U32) -> Char:
+  Radix.digit.if(U32.is_lt(d, 10), d)
+
+def Radix.in(+c: U32, lo: U32, hi: U32) -> Bool:
+  Bool.and(U32.is_ge(c, lo), U32.is_le(c, hi))
+
+def Radix.value.lower(ok: Bool, c: U32) -> U32:
+  match ok:
+    case True{}:
+      U32.sub(c, 87)
+    case False{}:
+      36
+
+def Radix.value.upper(ok: Bool, +c: U32) -> U32:
+  match ok:
+    case True{}:
+      U32.sub(c, 55)
+    case False{}:
+      Radix.value.lower(Radix.in(c, 97, 122), c)
+
+def Radix.value.if(ok: Bool, +c: U32) -> U32:
+  match ok:
+    case True{}:
+      U32.sub(c, 48)
+    case False{}:
+      Radix.value.upper(Radix.in(c, 65, 90), c)
+
+# The value of a digit in either case, or 36 when c is not a digit.
+def Radix.value(+c: U32) -> U32:
+  Radix.value.if(Radix.in(c, 48, 57), c)
+
+def Radix.clamp(r: U32) -> U32:
+  U32.clamp(r, 2, 36)
+
+def Radix.ok(+r: U32) -> Bool:
+  Radix.in(r, 2, 36)
+
+def Radix.sign.if(neg: Bool, pos: Bool, c: Char, t: String) -> Bool & String:
+  match neg:
+    case True{}:
+      (True{}, t)
+    case False{}:
+      match pos:
+        case True{}:
+          (False{}, t)
+        case False{}:
+          (False{}, SCon{c, t})
+
+# Splits one leading '-' or '+' off s: (negative, rest).
+def Radix.sign(s: String) -> Bool & String:
+  match s:
+    case SNil{}:
+      (False{}, SNil{})
+    case SCon{Chr{x}, t}:
+      +c = {x : U32}
+      Radix.sign.if(U32.is_eq(c, 45), U32.is_eq(c, 43), Chr{c}, t)
+
 # z is set once the value left to print is zero; fuel n bounds the digits.
-def Int.show.go(f: Nat, +n: Nat, acc: String, z: Bool,
+def Int.show.go(f: Nat, +n: Nat, +b: Word(n), acc: String, z: Bool,
   qr: Word(n) & Word(n)) -> String:
   match f:
     case 0n:
@@ -284,26 +349,26 @@ def Int.show.go(f: Nat, +n: Nat, acc: String, z: Bool,
         case False{}:
           (q, r) = qr
           +q2 = {q : Word(n)}
-          Int.show.go(g, n,
-            SCon{Chr{U32.add(48, U32.from_nat(Word.to_nat(n, r)))}, acc},
-            Int.is_zero(n, q2), Int.udivmod.go(n, q2, n, Int.bits(n, 10n)))
+          Int.show.go(g, n, b,
+            SCon{Radix.digit(U32.from_nat(Word.to_nat(n, r))), acc},
+            Int.is_zero(n, q2), Int.udivmod.go(n, q2, n, b))
 
-def Int.show.u(+n: Nat, w: Word(n)) -> String:
-  Int.show.go(n, n, SNil{}, False{}, Int.udivmod.go(n, w, n, Int.bits(n, 10n)))
+def Int.show.u(+n: Nat, +b: Word(n), w: Word(n)) -> String:
+  Int.show.go(n, n, b, SNil{}, False{}, Int.udivmod.go(n, w, n, b))
 
-def Int.show.if(neg: Bool, +n: Nat, w: Word(n)) -> String:
+def Int.show.if(neg: Bool, +n: Nat, +b: Word(n), w: Word(n)) -> String:
   match neg:
     case True{}:
-      SCon{Chr{45}, Int.show.u(n, Int.neg(n, w))}
+      SCon{Chr{45}, Int.show.u(n, b, Int.neg(n, w))}
     case False{}:
-      Int.show.u(n, w)
+      Int.show.u(n, b, w)
 
-def Int.show(+n: Nat, s: Bool, +w: Word(n)) -> String:
+def Int.show(+n: Nat, s: Bool, r: U32, +w: Word(n)) -> String:
   match s:
     case True{}:
-      Int.show.if(Int.msb(n, w), n, w)
+      Int.show.if(Int.msb(n, w), n, Int.bits(n, U32.to_nat(Radix.clamp(r))), w)
     case False{}:
-      Int.show.u(n, w)
+      Int.show.u(n, Int.bits(n, U32.to_nat(Radix.clamp(r))), w)
 
 def Int.read.add(+n: Nat, d: Word(n), o: Bool & Word(n)) -> Maybe<&2, Word(n)>:
   (ov, m) = o
@@ -313,38 +378,37 @@ def Int.read.add(+n: Nat, d: Word(n), o: Bool & Word(n)) -> Maybe<&2, Word(n)>:
     case False{}:
       Int.checked(n, Int.add_ov(n, False{}, m, d))
 
-def Int.read.dig(ok: Bool, +n: Nat, acc: Word(n), x: U32) ->
+def Int.read.dig(ok: Bool, +n: Nat, +b: Word(n), acc: Word(n), d: U32) ->
   Maybe<&2, Word(n)>:
   match ok:
     case True{}:
-      Int.read.add(n, Int.bits(n, U32.to_nat(U32.sub(x, 48))),
-        Int.mul_ov(n, False{}, acc, Int.bits(n, 10n)))
+      Int.read.add(n, Int.bits(n, U32.to_nat(d)), Int.mul_ov(n, False{}, acc, b))
     case False{}:
       None{}
 
-def Int.read.step(+n: Nat, st: Maybe<&2, Word(n)>, x: U32) ->
-  Maybe<&2, Word(n)>:
+def Int.read.step(+n: Nat, +b: Word(n), +r: U32, st: Maybe<&2, Word(n)>,
+  x: U32) -> Maybe<&2, Word(n)>:
   match st:
     case None{}:
       None{}
     case Some{acc}:
-      +c = {x : U32}
-      Int.read.dig(Bool.and(U32.is_ge(c, 48), U32.is_le(c, 57)), n, acc, c)
+      +d = {Radix.value(x) : U32}
+      Int.read.dig(U32.is_lt(d, r), n, b, acc, d)
 
-def Int.read.go(s: String, +n: Nat, st: Maybe<&2, Word(n)>) ->
-  Maybe<&2, Word(n)>:
+def Int.read.go(s: String, +n: Nat, +b: Word(n), +r: U32,
+  st: Maybe<&2, Word(n)>) -> Maybe<&2, Word(n)>:
   match s:
     case SNil{}:
       st
     case SCon{Chr{x}, t}:
-      Int.read.go(t, n, Int.read.step(n, st, x))
+      Int.read.go(t, n, b, r, Int.read.step(n, b, r, st, x))
 
-def Int.read.u(+n: Nat, s: String) -> Maybe<&2, Word(n)>:
+def Int.read.u(+n: Nat, +b: Word(n), +r: U32, s: String) -> Maybe<&2, Word(n)>:
   match s:
     case SNil{}:
       None{}
     case SCon{h, t}:
-      Int.read.go(SCon{h, t}, n, Some{Word.zero(n)})
+      Int.read.go(SCon{h, t}, n, b, r, Some{Word.zero(n)})
 
 def Int.read.fit(bad: Bool, -n: Nat, w: Word(n)) -> Maybe<&2, Word(n)>:
   match bad:
@@ -370,24 +434,37 @@ def Int.read.neg(+n: Nat, m: Maybe<&2, Word(n)>) -> Maybe<&2, Word(n)>:
       Int.read.fit(Cmp.is_gt(Word.cmp(n, v, Int.min(n, True{}))), n,
         Int.neg(n, v))
 
-def Int.read.sign(neg: Bool, +n: Nat, t: String, c: U32) -> Maybe<&2, Word(n)>:
-  match neg:
-    case True{}:
-      Int.read.neg(n, Int.read.u(n, t))
-    case False{}:
-      Int.read.pos(n, Int.read.u(n, SCon{Chr{c}, t}))
-
-def Int.read(+n: Nat, s: Bool, str: String) -> Maybe<&2, Word(n)>:
+def Int.read.sign(s: Bool, neg: Bool, +n: Nat, +b: Word(n), +r: U32,
+  t: String) -> Maybe<&2, Word(n)>:
   match s:
-    case False{}:
-      Int.read.u(n, str)
     case True{}:
-      match str:
-        case SNil{}:
+      match neg:
+        case True{}:
+          Int.read.neg(n, Int.read.u(n, b, r, t))
+        case False{}:
+          Int.read.pos(n, Int.read.u(n, b, r, t))
+    case False{}:
+      match neg:
+        case True{}:
           None{}
-        case SCon{Chr{x}, t}:
-          +c = {x : U32}
-          Int.read.sign(U32.is_eq(c, 45), n, t, c)
+        case False{}:
+          Int.read.u(n, b, r, t)
+
+def Int.read.split(s: Bool, +n: Nat, +r: U32, p: Bool & String) ->
+  Maybe<&2, Word(n)>:
+  (neg, t) = p
+  Int.read.sign(s, neg, n, Int.bits(n, U32.to_nat(r)), r, t)
+
+def Int.read.if(ok: Bool, +n: Nat, s: Bool, +r: U32, str: String) ->
+  Maybe<&2, Word(n)>:
+  match ok:
+    case True{}:
+      Int.read.split(s, n, r, Radix.sign(str))
+    case False{}:
+      None{}
+
+def Int.read(+n: Nat, s: Bool, +r: U32, str: String) -> Maybe<&2, Word(n)>:
+  Int.read.if(Radix.ok(r), n, s, r, str)
 
 def Int.to_nat.s(neg: Bool, n: Nat, w: Word(n)) -> Maybe<&2, Nat>:
   match neg:
@@ -433,13 +510,75 @@ def Nar.sat_sub(lt: Bool, a: U32, b: U32) -> U32:
 def Nar.saturating_sub(+a: U32, +b: U32) -> U32:
   Nar.sat_sub(U32.is_lt(a, b), a, b)
 
-def Nar.read(+m: U32, r: Maybe<&2, U32>) -> Maybe<&2, U32>:
-  match r:
+# Digits of x in radix r, most significant first; fuel f bounds them.
+def Nar.show.go(f: Nat, +r: U32, acc: String, z: Bool, +x: U32) -> String:
+  match f:
+    case 0n:
+      acc
+    case 1n+g:
+      match z:
+        case True{}:
+          acc
+        case False{}:
+          +q = {U32.div(x, r) : U32}
+          Nar.show.go(g, r, SCon{Radix.digit(U32.mod(x, r)), acc},
+            U32.is_zero(q), q)
+
+def Nar.show(r: U32, x: U32) -> String:
+  Nar.show.go(32n, Radix.clamp(r), SNil{}, False{}, x)
+
+def Nar.read.dig(ok: Bool, +r: U32, acc: U32, d: U32) -> Maybe<&2, U32>:
+  match ok:
+    case True{}:
+      Some{U32.add(U32.mul(acc, r), d)}
+    case False{}:
+      None{}
+
+# acc * r + d stays at most m exactly when acc <= (m - d) / r.
+def Nar.read.step(+r: U32, +m: U32, st: Maybe<&2, U32>, x: U32) ->
+  Maybe<&2, U32>:
+  match st:
     case None{}:
       None{}
-    case Some{x}:
-      +v = {x : U32}
-      Nar.over(m, v)
+    case Some{acc}:
+      +a = {acc : U32}
+      +d = {Radix.value(x) : U32}
+      Nar.read.dig(Bool.and(U32.is_lt(d, r),
+        U32.is_le(a, U32.div(U32.sub(m, d), r))), r, a, d)
+
+def Nar.read.go(s: String, +r: U32, +m: U32, st: Maybe<&2, U32>) ->
+  Maybe<&2, U32>:
+  match s:
+    case SNil{}:
+      st
+    case SCon{Chr{x}, t}:
+      Nar.read.go(t, r, m, Nar.read.step(r, m, st, x))
+
+# Digits in radix r, at most m; no sign.
+def Nar.read.u(+r: U32, +m: U32, s: String) -> Maybe<&2, U32>:
+  match s:
+    case SNil{}:
+      None{}
+    case SCon{h, t}:
+      Nar.read.go(SCon{h, t}, r, m, Some{0})
+
+def Nar.read.split(+r: U32, +m: U32, p: Bool & String) -> Maybe<&2, U32>:
+  (neg, t) = p
+  match neg:
+    case True{}:
+      None{}
+    case False{}:
+      Nar.read.u(r, m, t)
+
+def Nar.read.if(ok: Bool, +r: U32, +m: U32, s: String) -> Maybe<&2, U32>:
+  match ok:
+    case True{}:
+      Nar.read.split(r, m, Radix.sign(s))
+    case False{}:
+      None{}
+
+def Nar.read(+r: U32, +m: U32, s: String) -> Maybe<&2, U32>:
+  Nar.read.if(Radix.ok(r), r, m, s)
 
 # I32 holds its two's-complement bits in a U32.
 def S32.MIN() -> U32:
@@ -547,43 +686,37 @@ def S32.shr.if(neg: Bool, x: U32, k: Nat) -> U32:
     case False{}:
       U32.shrn(x, k)
 
-def S32.show.if(neg: Bool, x: U32) -> String:
+def S32.show.if(neg: Bool, r: U32, x: U32) -> String:
   match neg:
     case True{}:
-      SCon{Chr{45}, U32.show(S32.neg(x))}
+      SCon{Chr{45}, Nar.show(r, S32.neg(x))}
     case False{}:
-      U32.show(x)
+      Nar.show(r, x)
 
-def S32.read.neg(r: Maybe<&2, U32>) -> Maybe<&2, U32>:
-  match r:
+def S32.read.neg(m: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match m:
     case None{}:
       None{}
     case Some{x}:
-      +v = {x : U32}
-      Nar.opt(U32.is_gt(v, S32.MIN()), S32.neg(v))
+      Some{S32.neg(x)}
 
-def S32.read.pos(r: Maybe<&2, U32>) -> Maybe<&2, U32>:
-  match r:
-    case None{}:
-      None{}
-    case Some{x}:
-      +v = {x : U32}
-      Nar.opt(S32.is_neg(v), v)
-
-def S32.read.sign(neg: Bool, t: String, c: U32) -> Maybe<&2, U32>:
+def S32.read.split(+r: U32, p: Bool & String) -> Maybe<&2, U32>:
+  (neg, t) = p
   match neg:
     case True{}:
-      S32.read.neg(U32.read(t))
+      S32.read.neg(Nar.read.u(r, S32.MIN(), t))
     case False{}:
-      S32.read.pos(U32.read(SCon{Chr{c}, t}))
+      Nar.read.u(r, 2147483647, t)
 
-def S32.read(s: String) -> Maybe<&2, U32>:
-  match s:
-    case SNil{}:
+def S32.read.if(ok: Bool, +r: U32, s: String) -> Maybe<&2, U32>:
+  match ok:
+    case True{}:
+      S32.read.split(r, Radix.sign(s))
+    case False{}:
       None{}
-    case SCon{Chr{x}, t}:
-      +c = {x : U32}
-      S32.read.sign(U32.is_eq(c, 45), t, c)
+
+def S32.read(+r: U32, s: String) -> Maybe<&2, U32>:
+  S32.read.if(Radix.ok(r), r, s)
 
 def S32.to_nat.if(neg: Bool, x: U32) -> Maybe<&2, Nat>:
   match neg:
@@ -591,6 +724,13 @@ def S32.to_nat.if(neg: Bool, x: U32) -> Maybe<&2, Nat>:
       None{}
     case False{}:
       Some{U32.to_nat(x)}
+
+# r is the radix. Show clamps it into 2..36; read rejects one outside it.
+def U32.show_radix(r: U32, x: U32) -> String:
+  Nar.show(r, x)
+
+def U32.read_radix(+r: U32, s: String) -> Maybe<&2, U32>:
+  Nar.read(r, 4294967295, s)
 
 type U8 is Data:
   U8{data: U32}
@@ -731,13 +871,19 @@ def U8.shr(a: U8, k: Nat) -> U8:
     case U8{x}:
       U8{U32.shrn(x, k)}
 
-def U8.show(a: U8) -> String:
+def U8.show_radix(r: U32, a: U8) -> String:
   match a:
     case U8{x}:
-      U32.show(x)
+      Nar.show(r, x)
+
+def U8.show(a: U8) -> String:
+  U8.show_radix(10, a)
+
+def U8.read_radix(r: U32, s: String) -> Maybe<&2, U8>:
+  U8.some(Nar.read(r, 255, s))
 
 def U8.read(s: String) -> Maybe<&2, U8>:
-  U8.some(Nar.read(255, U32.read(s)))
+  U8.read_radix(10, s)
 
 def U8.to_u32(a: U8) -> U32:
   match a:
@@ -894,13 +1040,19 @@ def U16.shr(a: U16, k: Nat) -> U16:
     case U16{x}:
       U16{U32.shrn(x, k)}
 
-def U16.show(a: U16) -> String:
+def U16.show_radix(r: U32, a: U16) -> String:
   match a:
     case U16{x}:
-      U32.show(x)
+      Nar.show(r, x)
+
+def U16.show(a: U16) -> String:
+  U16.show_radix(10, a)
+
+def U16.read_radix(r: U32, s: String) -> Maybe<&2, U16>:
+  U16.some(Nar.read(r, 65535, s))
 
 def U16.read(s: String) -> Maybe<&2, U16>:
-  U16.some(Nar.read(65535, U32.read(s)))
+  U16.read_radix(10, s)
 
 def U16.to_u32(a: U16) -> U32:
   match a:
@@ -1059,13 +1211,19 @@ def U64.shr(a: U64, k: Nat) -> U64:
     case U64{x}:
       U64{Int.shr(64n, False{}, k, x)}
 
-def U64.show(a: U64) -> String:
+def U64.show_radix(r: U32, a: U64) -> String:
   match a:
     case U64{x}:
-      Int.show(64n, False{}, x)
+      Int.show(64n, False{}, r, x)
+
+def U64.show(a: U64) -> String:
+  U64.show_radix(10, a)
+
+def U64.read_radix(r: U32, s: String) -> Maybe<&2, U64>:
+  U64.some(Int.read(64n, False{}, r, s))
 
 def U64.read(s: String) -> Maybe<&2, U64>:
-  U64.some(Int.read(64n, False{}, s))
+  U64.read_radix(10, s)
 
 def U64.to_u32(a: U64) -> U32:
   match a:
@@ -1245,14 +1403,20 @@ def I32.is_neg(a: I32) -> Bool:
     case I32{x}:
       S32.is_neg(x)
 
-def I32.show(a: I32) -> String:
+def I32.show_radix(r: U32, a: I32) -> String:
   match a:
     case I32{x}:
       +v = {x : U32}
-      S32.show.if(S32.is_neg(v), v)
+      S32.show.if(S32.is_neg(v), r, v)
+
+def I32.show(a: I32) -> String:
+  I32.show_radix(10, a)
+
+def I32.read_radix(r: U32, s: String) -> Maybe<&2, I32>:
+  I32.some(S32.read(r, s))
 
 def I32.read(s: String) -> Maybe<&2, I32>:
-  I32.some(S32.read(s))
+  I32.read_radix(10, s)
 
 def I32.to_u32(a: I32) -> U32:
   match a:
@@ -1427,13 +1591,19 @@ def I64.is_neg(a: I64) -> Bool:
     case I64{x}:
       Int.msb(64n, x)
 
-def I64.show(a: I64) -> String:
+def I64.show_radix(r: U32, a: I64) -> String:
   match a:
     case I64{x}:
-      Int.show(64n, True{}, x)
+      Int.show(64n, True{}, r, x)
+
+def I64.show(a: I64) -> String:
+  I64.show_radix(10, a)
+
+def I64.read_radix(r: U32, s: String) -> Maybe<&2, I64>:
+  I64.some(Int.read(64n, True{}, r, s))
 
 def I64.read(s: String) -> Maybe<&2, I64>:
-  I64.some(Int.read(64n, True{}, s))
+  I64.read_radix(10, s)
 
 def I64.to_u32(a: I64) -> U32:
   match a:
