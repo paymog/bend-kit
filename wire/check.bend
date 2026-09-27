@@ -165,8 +165,82 @@ def udp6.check() -> IO(Unit):
     r : Result<&1, &1, U32 & String, Socket & U32> <- test.udp6(0)
     udp6.opened(r)
 
+def mtls.no_cert(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      do IO<Unit>:
+        ok(U32.is_eq(code, 100), "mTLS rejects missing client cert", why)
+        Socket.close(s)
+    case (s, Done{u}):
+      do IO<Unit>:
+        Wire.tls.close(s)
+        IO.die(Unit, 1, "mTLS server accepted no client cert")
+
+def mtls.bad_path(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      do IO<Unit>:
+        ok(U32.is_eq(code, 22), "mTLS reports certificate load failure", why)
+        Socket.close(s)
+    case (s, Done{u}):
+      do IO<Unit>:
+        Wire.tls.close(s)
+        IO.die(Unit, 1, "mTLS accepted a missing certificate")
+
+def mtls.good(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "mTLS handshake: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{u}):
+      do IO<Unit>:
+        IO.print("ok mTLS client certificate")
+        Wire.tls.close(s)
+
+def mtls.no.socket(r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "mTLS TCP connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{s}:
+      do IO<Unit>:
+        m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect(s, "localhost", 5000)
+        mtls.no_cert(m)
+
+def mtls.bad.socket(+key: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "mTLS TCP connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{s}:
+      do IO<Unit>:
+        m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect.cert(s, "localhost", 5000, "/nonexistent/bend-kit.pem", key)
+        mtls.bad_path(m)
+
+def mtls.good.socket(+cert: String, +key: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "mTLS TCP connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{s}:
+      do IO<Unit>:
+        m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect.cert(s, "localhost", 5000, cert, key)
+        mtls.good(m)
+
+def mtls.run(+cert: String, +key: String) -> IO(Unit):
+  do IO<Unit>:
+    r1 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
+    mtls.no.socket(r1)
+    r2 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
+    mtls.bad.socket(key, r2)
+    r3 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
+    mtls.good.socket(cert, key, r3)
+
+def mtls.args(args: List<&1, String>) -> IO(Unit):
+  match args:
+    case Con{cert, Con{key, Nil{}}}:
+      mtls.run(cert, key)
+    case _:
+      alpn.host("nghttp2.org")
 def main() -> IO(Unit):
   do IO<Unit>:
     ipv6.check()
     udp6.check()
-    alpn.host("nghttp2.org")
+    args : List<&1, String> <- IO.args()
+    mtls.args(args)

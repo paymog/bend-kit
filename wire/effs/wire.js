@@ -261,7 +261,8 @@ function wire_tls() {
     + " SSL_CTX_ctrl:pilp>l SSL_new:p>p SSL_set_fd:pi>i"
     + " SSL_ctrl:pilp>l SSL_set1_host:pp>i SSL_connect:p>i SSL_read:ppi>i"
     + " SSL_write:ppi>i SSL_get_error:pi>i SSL_shutdown:p>i SSL_free:p>v"
-    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c SSL_set_alpn_protos:ppi>i SSL_get0_alpn_selected:ppp>v").split(" ").map((s) => {
+    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c SSL_set_alpn_protos:ppi>i SSL_get0_alpn_selected:ppp>v"
+    + " SSL_use_certificate_chain_file:pp>i SSL_use_PrivateKey_file:ppi>i SSL_check_private_key:p>i").split(" ").map((s) => {
     const [name, args, ret] = s.split(/[:>]/);
     return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
   }));
@@ -367,10 +368,10 @@ function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
   }
   t.by.set(fd, ssl);
   const name = wire_cstr(t, host);
-  const fail = (why) => {
+  const fail = (why, code = 100) => {
     s.SSL_free(ssl);
     t.by.delete(fd);
-    return io_tup(socket, { $: CID(Fail), error: io_tup(100, why) });
+    return io_tup(socket, { $: CID(Fail), error: io_tup(code, why) });
   };
   if (s.SSL_set_fd(ssl, fd) !== 1 || Number(s.SSL_ctrl(ssl, 55, 0n, name.p)) !== 1
     || s.SSL_set1_host(ssl, name.p) !== 1) {
@@ -378,7 +379,7 @@ function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
   }
   const err = setup(t, ssl);
   if (err !== null) {
-    return fail(err);
+    return typeof err === "string" ? fail(err) : fail(err.why, err.code);
   }
   return wire_tls_connect_go(t, socket, ssl, at, k, done);
 }
@@ -398,6 +399,26 @@ function tls_connect_alpn(socket, host, ms, protos, k) {
     }
     return null;
   }, (t, ssl) => wire_alpn_selected(t, ssl));
+}
+
+function tls_connect_cert(socket, host, ms, cert, key, k) {
+  return wire_tls_connect_setup(socket, host, ms, k, (t, ssl) => {
+    if (!cert || cert.includes("\0") || !key || key.includes("\0")) {
+      return { code: 22, why: "Invalid TLS client certificate or key path" };
+    }
+    const certPath = wire_cstr(t, cert);
+    const keyPath = wire_cstr(t, key);
+    if (t.s.SSL_use_certificate_chain_file(ssl, certPath.p) !== 1) {
+      return { code: 22, why: "TLS client certificate load failed" };
+    }
+    if (t.s.SSL_use_PrivateKey_file(ssl, keyPath.p, 1) !== 1) {
+      return { code: 22, why: "TLS client key load failed" };
+    }
+    if (t.s.SSL_check_private_key(ssl) !== 1) {
+      return { code: 22, why: "TLS client key does not match certificate" };
+    }
+    return null;
+  }, () => ({ $: CID(Unit) }));
 }
 
 
@@ -545,6 +566,7 @@ io_eff(CID(recv_from), recv_from);
 io_eff(CID(send_to), send_to);
 io_eff(CID(tls.connect), tls_connect);
 io_eff(CID(tls.connect.alpn), tls_connect_alpn);
+io_eff(CID(tls.connect.cert), tls_connect_cert);
 io_eff(CID(tls.send), tls_send);
 io_eff(CID(tls.recv), tls_recv);
 io_eff(CID(tls.close), tls_close);

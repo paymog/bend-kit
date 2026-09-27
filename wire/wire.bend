@@ -39,6 +39,13 @@ def tls.connect(sock: Socket, host: String, ms: U32) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# Use a PEM certificate chain and its private key for mutual TLS.
+# A load failure is EINVAL; a handshake or server verification failure is EPROTO.
+def tls.connect.cert(sock: Socket, host: String, ms: U32, cert_path: String, key_path: String) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 # protos is a comma-separated ALPN list (for example "h2,http/1.1").
 def tls.connect.alpn(sock: Socket, host: String, ms: U32, protos: String) ->
   IO(Socket & Result<&1, &1, U32 & String, String>):
