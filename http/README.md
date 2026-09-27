@@ -3,10 +3,10 @@
 HTTP/1.1 and HTTP/2 client, and HTTP/1.1 server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).
 
 ```bend
-import bend-kit-http@0.20.1.0/http.bend as Http
+import bend-kit-http@0.21.1.0/http.bend as Http
 ```
 
-`http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, `zlib`, `http2`, `time`, and `int` from the hub. `Http.Body` keeps its pinned `bytes` type; the HTTP/2 client uses a newer `bytes` version internally and transfers the packed body without copying.
+`http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, `zlib`, `http2`, `time`, `int`, and `concurrency` from the hub. `Http.Body` keeps its pinned `bytes` type; the HTTP/2 client uses a newer `bytes` version internally and transfers the packed body without copying.
 
 HTTPS needs OpenSSL 3 at run time. On macOS, `brew install openssl@3`. The client looks for Homebrew's `libssl.3.dylib`, then `libssl.so.3`. Set `BEND_LIBSSL` to the library path if it is somewhere else.
 
@@ -123,6 +123,22 @@ def main() -> IO(Unit):
 
 For HTTPS origins that select HTTP/2, the pool keeps one session per origin and reuses it for sequential requests. It closes a session after GOAWAY. HTTP/1.1 sockets use the configured cap.
 
+## Many requests
+
+```bend
+def get(url: String) -> Http.Fetch:
+  Http.Fetch{"GET", url, Http.empty(), Http.from_string("")}
+
+def main() -> IO(Unit):
+  do IO<Unit>:
+    rs : List<Result<&1, &1, Http.Err, Http.Res>> <- Http.fetch.all([get("https://example.com/a"), get("https://example.com/b")], 8)
+    IO.print("done")
+```
+
+`Http.fetch.all(reqs, n)` makes each `Http.Fetch{method, url, headers, body}` as `Http.fetch` would, on at most `n` workers at once, and returns the results in the order of `reqs`. A failed request is a `Fail` in its place; the others go on. `n = 0` runs one worker, a list shorter than `n` runs one worker per request, and an empty list starts none.
+
+The workers are `Conc.pool` from `bend-kit-concurrency`, and each one owns its own `Http.Pool`. A `Pool` is affine, so it cannot be shared between workers; one pool per worker needs no owner task or message protocol, and a worker reuses its idle sockets for its later requests. The cost is up to `n` connections to one origin rather than one shared set. Every worker's pool is closed when the list is done. The workers are IO computations on Bend's event loop, so the requests overlap while each waits on the network.
+
 ## Serve
 
 ```bend
@@ -137,6 +153,8 @@ def main() -> IO(Unit):
 `Http.serve(~h, port)` reads each request until it is whole, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. `Http.serve.with(~h, port, max)` sets the maximum request size in bytes; `serve` defaults to 16 MiB. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
 
 ## Versions
+
+`0.21.1.0` adds `Http.Fetch` and `Http.fetch.all`, and imports `bend-kit-concurrency@0.1.0.0` for its worker pool.
 
 `0.21.0.0` adds environment-controlled HTTP and HTTPS proxy routing for `fetch` and pooled fetch.
 

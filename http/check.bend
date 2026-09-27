@@ -576,6 +576,97 @@ def local.proxy.test() -> IO(Unit):
         "elsewhere.test", "https", "elsewhere.test", 443, "/path", None{},
         Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
     local.proxy.last(second)
+
+# The fetch.all server answers each path after 100 ms and closes its connection.
+# Sixteen requests therefore make sixteen connections, even with pooled workers.
+def all.slow(req: Http.Req) -> IO(Http.Res):
+  Http.Req{method, path, headers, body} = req
+  do IO<Http.Res>:
+    IO.sleep(100)
+    return Http.Res{200, Http.set(Http.empty(), "connection", "close"), Bytes.from_string(path)}
+
+def all.serve(n: Nat, l: Listener) -> IO(Unit):
+  match n:
+    case 0n:
+      Listener.close(l)
+    case 1n+p:
+      do IO<Unit>:
+        a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+        l1 : Listener <- Http.conn(~all.slow, 1048576n, a)
+        all.serve(p, l1)
+
+def all.path(+i: U32) -> String:
+  "/" ++ U32.show(i)
+
+def all.reqs(n: Nat, +i: U32) -> List<Http.Fetch>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      Http.Fetch{"GET", "http://127.0.0.1:47816" ++ all.path(i), Http.empty(), Bytes.new(0)} <> all.reqs(p, (i + 1 : U32))
+
+def all.paths(n: Nat, +i: U32) -> List<&2, String>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      all.path(i) <> all.paths(p, (i + 1 : U32))
+
+def all.err(e: Http.Err) -> String:
+  match e:
+    case Http.ErrUrl{}:
+      "bad url"
+    case _:
+      "failed"
+
+def all.body(r: Result<&1, &1, Http.Err, Http.Res>) -> String:
+  match r:
+    case Fail{e}:
+      all.err(e)
+    case Done{res}:
+      Http.Res{status, headers, body} = res
+      Bytes.to_string(body)
+
+def all.bodies(rs: List<Result<&1, &1, Http.Err, Http.Res>>) -> List<&2, String>:
+  match rs:
+    case Nil{}:
+      Nil{}
+    case r <> t:
+      all.body(r) <> all.bodies(t)
+
+def all.same(xs: List<&2, String>, ys: List<&2, String>) -> Bool:
+  match xs ys:
+    case Nil{} Nil{}:
+      True{}
+    case Con{x, xt} Con{y, yt}:
+      String.eq(x, y) && all.same(xt, yt)
+    case _ _:
+      False{}
+
+# Serial is 16 * 100 = 1600 ms. Eight workers should finish well under that.
+def all.check(+dt: Nat, rs: List<Result<&1, &1, Http.Err, Http.Res>>) -> IO(Unit):
+  do IO<Unit>:
+    IO.print("fetch.all: 16 requests of 100 ms on 8 workers in " ++ Nat.show(dt) ++ " ms")
+    local.ok(all.same(all.bodies(rs), all.paths(16n, 0)), "fetch.all: 16 distinct results in request order")
+    local.ok(Nat.is_lt(dt, 800n), "fetch.all: 8 at once, well under 1600 ms serial")
+
+def all.timed(t0: Nat, rs: List<Result<&1, &1, Http.Err, Http.Res>>) -> IO(Unit):
+  do IO<Unit>:
+    t1 : Nat <- IO.now()
+    all.check((t1 - t0 : Nat), rs)
+
+def all.test() -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen(47816))
+    IO.spawn(Unit, all.serve(16n, l))
+    t0 : Nat <- IO.now()
+    rs : List<Result<&1, &1, Http.Err, Http.Res>> <- Http.fetch.all(all.reqs(16n, 0), 8)
+    all.timed(t0, rs)
+    none : List<Result<&1, &1, Http.Err, Http.Res>> <- Http.fetch.all(Nil{}, 8)
+    local.ok(all.same(all.bodies(none), Nil{}), "fetch.all: no requests, no results")
+    bad : List<Result<&1, &1, Http.Err, Http.Res>> <-
+      Http.fetch.all([Http.Fetch{"GET", "not a url", Http.empty(), Bytes.new(0)}], 0)
+    local.ok(all.same(all.bodies(bad), ["bad url"]), "fetch.all: n = 0 runs one worker; a bad URL fails in place")
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -597,5 +688,6 @@ def main() -> IO(Unit):
     resolve.check()
     retry.test()
     local.proxy.test()
+    all.test()
     args : List<&1, String> <- IO.args()
     mtls.args(args)
