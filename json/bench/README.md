@@ -1,6 +1,6 @@
 # JSON benchmark
 
-This times `Json.parse` and `Json.encode` on one fixed document, in Bend and in JavaScript (Bun and Node) and Python. It times them twice: once on text, and once on UTF-8 bytes (`Json.parse.bytes` and `Json.encode.bytes`).
+This times `Json.parse.bytes` and `Json.encode.bytes` on one fixed document, in Bend and in JavaScript (Bun and Node) and Python.
 
 ## Run
 
@@ -16,39 +16,36 @@ You need `bend`, `bun`, `node`, and `python3`. `run.py` writes the input to `out
 
 `run.py` writes `{"count": N, "items": [...]}` with N = 4000 records, pretty-printed by `json.dumps(indent=2)`: 1,361,421 bytes. Each record has a bool, a null, integers, a half (`i + 0.5`), plain strings, a string with `\n`, `\t`, `\"`, and `\\` escapes, a nested object, and arrays.
 
-The document is ASCII only, its keys are in sorted order, and its numbers are integers or exact halves. So every encoder prints the same compact text, and Bend's sorted keys match the insertion order that JavaScript and Python keep.
+The document is ASCII only, and its numbers are integers or exact halves. So every encoder prints the same compact text.
 
-Each program reads the file before any timer starts. `parse` times the parse of the text. `encode` times the encode of the parsed value to compact JSON. `parse.bytes` starts from the file's bytes, and `encode.bytes` ends with UTF-8 bytes; in JavaScript and Python that includes the UTF-8 decode or encode. Bend packs the file into `Bytes` before the timer starts. After each timer stops, the program prints a checksum of the compact encoding: `h = h*31 + c` over the chars (or bytes), in wrapping u32, plus the length. All four checksums are `4114665117`.
+Each program reads the file before any timer starts. `parse.bytes` starts from the file's bytes, and `encode.bytes` ends with UTF-8 bytes; in JavaScript and Python that includes the UTF-8 decode or encode. Bend packs the file into `Bytes` before the timer starts. After each timer stops, the program prints a checksum of the compact encoding: `h = h*31 + c` over the bytes, in wrapping u32, plus the length. A Bend `Val` can be used only once, so Bend prints the checksum of its one `encode.bytes` output for both ops. All four checksums are `4114665117`.
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-26. Median of five runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op. Bend's peak RSS was 81 MB for all four ops.
+M4 Pro, macOS 26.6.2, 2026-09-27. Median of five runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
 
 | op | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|
-| parse | 2.1 (1.0x) | 2.9 (1.4x) | 4.4 (2.1x) | 40.0 (19.0x) |
-| encode | 0.9 (1.0x) | 1.1 (1.2x) | 3.9 (4.6x) | 71.0 (82.0x) |
-| parse.bytes | 2.1 (1.0x) | 2.8 (1.3x) | 4.8 (2.2x) | 11.0 (5.1x) |
-| encode.bytes | 0.8 (1.0x) | 1.3 (1.6x) | 3.9 (4.7x) | 9.0 (10.7x) |
+| parse.bytes | 2.3 (1.0x) | 2.8 (1.2x) | 4.8 (2.1x) | 4.0 (1.8x) |
+| encode.bytes | 0.9 (1.0x) | 1.4 (1.6x) | 4.0 (4.5x) | 4.0 (4.5x) |
 
-The Bytes path is 3.6x faster to parse and 8x faster to encode than the text path. The text path also needs a UTF-8 decode before `parse`, which this table does not time.
+Before strings, numbers, and keys were `Bytes` (json 0.4.0.0, same machine and Bend version), Bend took 12 ms to parse and 9 ms to encode.
 
-Versions: Bend 2.0.29, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
 ## The calls
 
-| language | parse | encode | parse.bytes | encode.bytes |
-|---|---|---|---|---|
-| Bend | `Json.parse` | `Json.encode` | `Json.parse.bytes` | `Json.encode.bytes` |
-| JavaScript | `JSON.parse` | `JSON.stringify` | `TextDecoder` then `JSON.parse` | `JSON.stringify` then `TextEncoder` |
-| Python | `json.loads` | `json.dumps(v, separators=(",", ":"), ensure_ascii=False)` | `json.loads` on `bytes` | the same `json.dumps`, then `.encode()` |
+| language | parse.bytes | encode.bytes |
+|---|---|---|
+| Bend | `Json.parse.bytes` | `Json.encode.bytes` |
+| JavaScript | `TextDecoder` then `JSON.parse` | `JSON.stringify` then `TextEncoder` |
+| Python | `json.loads` on `bytes` | `json.dumps(v, separators=(",", ":"), ensure_ascii=False)`, then `.encode()` |
 
 C and Rust have no JSON codec in their standard libraries, so they are left out.
 
 ## Caveats
 
-- Bend strings are lists, one cell per char, and objects are `Map`s. The other languages use flat strings and hash maps. The Bytes path reads and writes a flat buffer, but keys and string values are still `String`s.
+- Bend objects are lists of fields in document order. The other languages use hash maps.
 - Bend keeps each number's text. JavaScript and Python convert numbers to doubles or ints and print them back.
-- Bend's `Json.encode` sorts keys. The others keep insertion order, so they do not sort.
 - Bend's `IO.now` counts in whole ms. The other languages use sub-ms clocks.
 - These are micro-benchmarks on one machine.

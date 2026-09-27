@@ -2,6 +2,7 @@ import Base
 import ./parse.bend as P
 import ./json.bend as J
 import ../json/json.bend as Json
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 def cur(s: String, +o: U32, n: Nat) -> P.Cur:
   P.Cur{s, o, n}
@@ -153,121 +154,121 @@ law run_extra:
 
 # rec: the JSON grammar below nests through it.
 law rec_error_offset:
-  {J.parse.res("[[1,]]") == P.Err{4, "\"[\" or \"{\" or \"null\" or \"true\" or \"false\" or \"\"\" or \"0\" or digit"} : P.Res<Json.Val>}
+  {J.parse.res("[[1,]]") == P.Err{4, "\"[\" or \"{\" or \"null\" or \"true\" or \"false\" or \"\"\" or \"0\" or digit"} : P.Res<J.Val>}
 
 law rec_unclosed_offset:
-  {J.parse.res("[[1]") == P.Err{4, "\",\" or \"]\""} : P.Res<Json.Val>}
+  {J.parse.res("[[1]") == P.Err{4, "\",\" or \"]\""} : P.Res<J.Val>}
 
 # The JSON laws of json/LAWS.bend, on the grammar in json.bend
 # ------------------------------------------------------------
 
-def obj1(k: String, v: Json.Val) -> Json.Val:
-  Json.Obj{Map.set(&2, Json.Val, Map.new(&2, Json.Val), k, v)}
+def obj1(k: String, v: J.Val) -> J.Val:
+  J.Obj{Map.set(&2, J.Val, Map.new(&2, J.Val), k, v)}
 
 # RFC 8259 §3: literal names.
 law parse_null:
-  {J.parse("null") == Some{Json.Null{}} : Maybe<&2, Json.Val>}
+  {J.parse("null") == Some{J.Null{}} : Maybe<&2, J.Val>}
 
 law parse_true:
-  {J.parse("true") == Some{Json.Flag{True{}}} : Maybe<&2, Json.Val>}
+  {J.parse("true") == Some{J.Flag{True{}}} : Maybe<&2, J.Val>}
 
 law parse_false:
-  {J.parse("false") == Some{Json.Flag{False{}}} : Maybe<&2, Json.Val>}
+  {J.parse("false") == Some{J.Flag{False{}}} : Maybe<&2, J.Val>}
 
 law parse_empty_arr:
-  {J.parse("[]") == Some{Json.Arr{Nil{}}} : Maybe<&2, Json.Val>}
+  {J.parse("[]") == Some{J.Arr{Nil{}}} : Maybe<&2, J.Val>}
 
 law parse_empty_obj:
-  {J.parse("{}") == Some{Json.Obj{Map.new(&2, Json.Val)}} : Maybe<&2, Json.Val>}
+  {J.parse("{}") == Some{J.Obj{Map.new(&2, J.Val)}} : Maybe<&2, J.Val>}
 
 # §2: one value per text.
 law trailing_junk:
-  {J.parse("null x") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("null x") == None{} : Maybe<&2, J.Val>}
 
 law parse_nested:
-  {J.parse("{\"a\":[1,{\"b\":null}],\"c\":\"x\"}") == Some{Json.Obj{Map.set(&2, Json.Val, Map.set(&2, Json.Val, Map.new(&2, Json.Val), "a", Json.Arr{[Json.Num{"1"}, obj1("b", Json.Null{})]}), "c", Json.Str{"x"})}} : Maybe<&2, Json.Val>}
+  {J.parse("{\"a\":[1,{\"b\":null}],\"c\":\"x\"}") == Some{J.Obj{Map.set(&2, J.Val, Map.set(&2, J.Val, Map.new(&2, J.Val), "a", J.Arr{[J.Num{"1"}, obj1("b", J.Null{})]}), "c", J.Str{"x"})}} : Maybe<&2, J.Val>}
 
 # §2: insignificant whitespace around structural characters.
 law parse_ws:
-  {J.parse(" \t{ \"a\" :\n[ 1 , 2 ]\r\n} ") == Some{obj1("a", Json.Arr{[Json.Num{"1"}, Json.Num{"2"}]})} : Maybe<&2, Json.Val>}
+  {J.parse(" \t{ \"a\" :\n[ 1 , 2 ]\r\n} ") == Some{obj1("a", J.Arr{[J.Num{"1"}, J.Num{"2"}]})} : Maybe<&2, J.Val>}
 
 law parse_deep:
-  {J.parse("[[[[[]]]]]") == Some{Json.Arr{[Json.Arr{[Json.Arr{[Json.Arr{[Json.Arr{Nil{}}]}]}]}]}} : Maybe<&2, Json.Val>}
+  {J.parse("[[[[[]]]]]") == Some{J.Arr{[J.Arr{[J.Arr{[J.Arr{[J.Arr{Nil{}}]}]}]}]}} : Maybe<&2, J.Val>}
 
 # §4: names SHOULD be unique; like most parsers, the last one wins.
 law dup_key_last:
-  {J.parse("{\"a\":1,\"a\":2}") == Some{obj1("a", Json.Num{"2"})} : Maybe<&2, Json.Val>}
+  {J.parse("{\"a\":1,\"a\":2}") == Some{obj1("a", J.Num{"2"})} : Maybe<&2, J.Val>}
 
 # §6: number grammar; the text is kept exactly.
 law num_neg_frac_exp:
-  {J.parse("-12.5e+3") == Some{Json.Num{"-12.5e+3"}} : Maybe<&2, Json.Val>}
+  {J.parse("-12.5e+3") == Some{J.Num{"-12.5e+3"}} : Maybe<&2, J.Val>}
 
 law num_neg_zero:
-  {J.parse("-0") == Some{Json.Num{"-0"}} : Maybe<&2, Json.Val>}
+  {J.parse("-0") == Some{J.Num{"-0"}} : Maybe<&2, J.Val>}
 
 law num_big_exp:
-  {J.parse("1E400") == Some{Json.Num{"1E400"}} : Maybe<&2, Json.Val>}
+  {J.parse("1E400") == Some{J.Num{"1E400"}} : Maybe<&2, J.Val>}
 
 law num_leading_zero_rejects:
-  {J.parse("01") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("01") == None{} : Maybe<&2, J.Val>}
 
 law num_bare_minus_rejects:
-  {J.parse("-") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("-") == None{} : Maybe<&2, J.Val>}
 
 law num_dot_end_rejects:
-  {J.parse("1.") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("1.") == None{} : Maybe<&2, J.Val>}
 
 law num_dot_start_rejects:
-  {J.parse(".5") == None{} : Maybe<&2, Json.Val>}
+  {J.parse(".5") == None{} : Maybe<&2, J.Val>}
 
 law num_exp_end_rejects:
-  {J.parse("1e") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("1e") == None{} : Maybe<&2, J.Val>}
 
 law num_plus_rejects:
-  {J.parse("+1") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("+1") == None{} : Maybe<&2, J.Val>}
 
 # §7: escapes.
 law str_escapes:
-  {J.parse("\"a\\\"b\\\\c\\/d\\n\\t\"") == Some{Json.Str{"a\"b\\c/d\n\t"}} : Maybe<&2, Json.Val>}
+  {J.parse("\"a\\\"b\\\\c\\/d\\n\\t\"") == Some{J.Str{"a\"b\\c/d\n\t"}} : Maybe<&2, J.Val>}
 
 law str_unicode_pair:
-  {J.parse("\"\\u00e9\\ud83d\\ude00\"") == Some{Json.Str{"é😀"}} : Maybe<&2, Json.Val>}
+  {J.parse("\"\\u00e9\\ud83d\\ude00\"") == Some{J.Str{"é😀"}} : Maybe<&2, J.Val>}
 
 # §8.2: an unpaired surrogate becomes U+FFFD.
 law str_lone_surrogate:
-  {J.parse("\"\\ud83dx\"") == Some{Json.Str{"\u{FFFD}x"}} : Maybe<&2, Json.Val>}
+  {J.parse("\"\\ud83dx\"") == Some{J.Str{"\u{FFFD}x"}} : Maybe<&2, J.Val>}
 
 law str_raw_control_rejects:
-  {J.parse("\"a\nb\"") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("\"a\nb\"") == None{} : Maybe<&2, J.Val>}
 
 law str_bad_escape_rejects:
-  {J.parse("\"\\x\"") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("\"\\x\"") == None{} : Maybe<&2, J.Val>}
 
 law str_unterminated_rejects:
-  {J.parse("\"abc") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("\"abc") == None{} : Maybe<&2, J.Val>}
 
 # §5, §4: structure.
 law arr_trailing_comma_rejects:
-  {J.parse("[1,]") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("[1,]") == None{} : Maybe<&2, J.Val>}
 
 law arr_missing_comma_rejects:
-  {J.parse("[1 2]") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("[1 2]") == None{} : Maybe<&2, J.Val>}
 
 law obj_missing_colon_rejects:
-  {J.parse("{\"a\" 1}") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("{\"a\" 1}") == None{} : Maybe<&2, J.Val>}
 
 law obj_trailing_comma_rejects:
-  {J.parse("{\"a\":1,}") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("{\"a\":1,}") == None{} : Maybe<&2, J.Val>}
 
 law obj_number_key_rejects:
-  {J.parse("{1:2}") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("{1:2}") == None{} : Maybe<&2, J.Val>}
 
 law unclosed_rejects:
-  {J.parse("[{\"a\":[1]") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("[{\"a\":[1]") == None{} : Maybe<&2, J.Val>}
 
 law empty_rejects:
-  {J.parse("  ") == None{} : Maybe<&2, Json.Val>}
+  {J.parse("  ") == None{} : Maybe<&2, J.Val>}
 
+# The Json encoder's text parses back. It writes UTF-8, so the text here is ASCII.
 law roundtrip:
-  {J.parse(Json.encode(Json.Obj{Map.set(&2, Json.Val, Map.new(&2, Json.Val), "k\"ey", Json.Arr{[Json.Str{"é\n😀"}, Json.Null{}, Json.Num{"-0.5"}]})})) == Some{Json.Obj{Map.set(&2, Json.Val, Map.new(&2, Json.Val), "k\"ey", Json.Arr{[Json.Str{"é\n😀"}, Json.Null{}, Json.Num{"-0.5"}]})}} : Maybe<&2, Json.Val>}
-
+  {J.parse(Bytes.to_string(Json.encode.bytes(J.to_json(J.Obj{Map.set(&2, J.Val, Map.new(&2, J.Val), "k\"ey", J.Arr{[J.Str{"a\n\u{1}"}, J.Null{}, J.Num{"-0.5"}]})})))) == Some{J.Obj{Map.set(&2, J.Val, Map.new(&2, J.Val), "k\"ey", J.Arr{[J.Str{"a\n\u{1}"}, J.Null{}, J.Num{"-0.5"}]})}} : Maybe<&2, J.Val>}

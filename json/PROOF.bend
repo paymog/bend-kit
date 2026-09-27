@@ -23,6 +23,18 @@ def Laws.at_index():
 def Laws.at_object_none():
   {==}
 
+def Laws.get_key():
+  {==}
+
+def Laws.get_missing_none():
+  {==}
+
+def Laws.get_utf8_key():
+  {==}
+
+def Laws.get_array_none():
+  {==}
+
 def Laws.u32_twelve():
   {==}
 
@@ -44,6 +56,15 @@ def Laws.parse_ws():
 def Laws.parse_deep():
   {==}
 
+def Laws.empty_containers():
+  {==}
+
+def Laws.literals():
+  {==}
+
+def Laws.dup_key_kept():
+  {==}
+
 def Laws.dup_key_last():
   {==}
 
@@ -54,6 +75,9 @@ def Laws.num_neg_zero():
   {==}
 
 def Laws.num_big_exp():
+  {==}
+
+def Laws.num_in_arr():
   {==}
 
 def Laws.num_leading_zero_rejects():
@@ -77,10 +101,19 @@ def Laws.num_plus_rejects():
 def Laws.str_escapes():
   {==}
 
+def Laws.str_escape_after_word():
+  {==}
+
 def Laws.str_unicode_pair():
   {==}
 
 def Laws.str_lone_surrogate():
+  {==}
+
+def Laws.str_lone_surrogates():
+  {==}
+
+def Laws.str_bad_hex_rejects():
   {==}
 
 def Laws.str_raw_control_rejects():
@@ -92,10 +125,22 @@ def Laws.str_bad_escape_rejects():
 def Laws.str_unterminated_rejects():
   {==}
 
+def Laws.short_literal_rejects():
+  {==}
+
+def Laws.nul_rejects():
+  {==}
+
 def Laws.arr_trailing_comma_rejects():
   {==}
 
 def Laws.arr_missing_comma_rejects():
+  {==}
+
+def Laws.wrong_close_rejects():
+  {==}
+
+def Laws.empty_wrong_close_rejects():
   {==}
 
 def Laws.obj_missing_colon_rejects():
@@ -113,131 +158,44 @@ def Laws.unclosed_rejects():
 def Laws.empty_rejects():
   {==}
 
-def Laws.encode_canonical():
+def Laws.utf8_two():
+  {==}
+
+def Laws.utf8_three_four_key():
+  {==}
+
+def Laws.utf8_lone_continuation_rejects():
+  {==}
+
+def Laws.utf8_overlong_rejects():
+  {==}
+
+def Laws.utf8_surrogate_rejects():
+  {==}
+
+def Laws.utf8_past_max_rejects():
+  {==}
+
+def Laws.utf8_truncated_rejects():
+  {==}
+
+def Laws.utf8_truncated_at_end_rejects():
+  {==}
+
+def Laws.non_ascii_outside_string_rejects():
+  {==}
+
+def Laws.encode_compact():
   {==}
 
 def Laws.encode_escapes():
   {==}
 
+def Laws.encode_small_buffer():
+  {==}
+
+def Laws.encode_grown_buffer():
+  {==}
+
 def Laws.roundtrip():
-  {==}
-
-def Laws.bytes_nested():
-  {==}
-
-def Laws.bytes_ws():
-  {==}
-
-def Laws.bytes_deep():
-  {==}
-
-def Laws.bytes_empty_containers():
-  {==}
-
-def Laws.bytes_literals():
-  {==}
-
-def Laws.bytes_dup_key_last():
-  {==}
-
-def Laws.bytes_num_at_end():
-  {==}
-
-def Laws.bytes_num_in_arr():
-  {==}
-
-def Laws.bytes_num_leading_zero_rejects():
-  {==}
-
-def Laws.bytes_num_dot_end_rejects():
-  {==}
-
-def Laws.bytes_escapes():
-  {==}
-
-def Laws.bytes_unicode_pair():
-  {==}
-
-def Laws.bytes_lone_surrogate():
-  {==}
-
-def Laws.bytes_bad_hex_rejects():
-  {==}
-
-def Laws.bytes_bad_escape_rejects():
-  {==}
-
-def Laws.bytes_raw_control_rejects():
-  {==}
-
-def Laws.bytes_unterminated_rejects():
-  {==}
-
-def Laws.bytes_short_literal_rejects():
-  {==}
-
-def Laws.bytes_trailing_junk():
-  {==}
-
-def Laws.bytes_nul_rejects():
-  {==}
-
-def Laws.bytes_empty_rejects():
-  {==}
-
-def Laws.bytes_trailing_comma_rejects():
-  {==}
-
-def Laws.bytes_wrong_close_rejects():
-  {==}
-
-def Laws.bytes_empty_wrong_close_rejects():
-  {==}
-
-def Laws.bytes_missing_colon_rejects():
-  {==}
-
-def Laws.bytes_unclosed_rejects():
-  {==}
-
-def Laws.bytes_utf8_two():
-  {==}
-
-def Laws.bytes_utf8_three_four_key():
-  {==}
-
-def Laws.bytes_lone_continuation_rejects():
-  {==}
-
-def Laws.bytes_overlong_rejects():
-  {==}
-
-def Laws.bytes_surrogate_rejects():
-  {==}
-
-def Laws.bytes_past_max_rejects():
-  {==}
-
-def Laws.bytes_truncated_rejects():
-  {==}
-
-def Laws.bytes_truncated_at_end_rejects():
-  {==}
-
-def Laws.bytes_non_ascii_outside_string_rejects():
-  {==}
-
-def Laws.encode_bytes_canonical():
-  {==}
-
-def Laws.encode_bytes_escapes_utf8():
-  {==}
-
-def Laws.encode_bytes_small_buffer():
-  {==}
-
-def Laws.encode_bytes_grown_buffer():
-  {==}
-
-def Laws.roundtrip_bytes():
   {==}
