@@ -5,6 +5,7 @@ import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
 import bend-kit-http2@0.1.2.0/http2.bend as H2
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
+import bend-kit-time@0.1.0.0/time.bend as Time
 
 
 def show_req(req: Http.Req) -> IO(Unit):
@@ -667,6 +668,102 @@ def all.test() -> IO(Unit):
     bad : List<Result<&1, &1, Http.Err, Http.Res>> <-
       Http.fetch.all([Http.Fetch{"GET", "not a url", Http.empty(), Bytes.new(0)}], 0)
     local.ok(all.same(all.bodies(bad), ["bad url"]), "fetch.all: n = 0 runs one worker; a bad URL fails in place")
+# /login redirects to /home and sets sid; /home echoes every cookie field it got, joined by "|",
+# and sets last. Each response closes its connection, so the server takes one accept per request.
+def cookie.srv.pick(login: Bool, got: String) -> Http.Res:
+  match login:
+    case True{}:
+      Http.Res{302, Http.add(Http.add(Http.set(Http.empty(), "location", "/home"), "set-cookie", "sid=abc; Path=/; HttpOnly"), "connection", "close"), Bytes.new(0)}
+    case False{}:
+      Http.Res{200, Http.add(Http.set(Http.empty(), "set-cookie", "last=1"), "connection", "close"), Bytes.from_string(got)}
+
+def cookie.srv(req: Http.Req) -> IO(Http.Res):
+  Http.Req{method, path, +headers, body} = req
+  IO.pure(Http.Res, cookie.srv.pick(String.eq(path, "/login"), String.join(Http.fields(headers, "cookie"), "|")))
+
+def cookie.serve(l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l1 : Listener <- Http.conn(~cookie.srv, 1048576n, a)
+    b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
+    l2 : Listener <- Http.conn(~cookie.srv, 1048576n, b)
+    c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
+    l3 : Listener <- Http.conn(~cookie.srv, 1048576n, c)
+    Listener.close(l3)
+
+def cookie.got(+name: String, +want: String, r: Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool & Http.Jar):
+  (p, j, m) = r
+  match m:
+    case Fail{e}:
+      IO.die(Http.Pool & Http.Jar, 1, name ++ ": fetch failed")
+    case Done{res}:
+      Http.Res{+status, headers, body} = res
+      +seen = Bytes.to_string(body)
+      do IO<Http.Pool & Http.Jar>:
+        local.ok(Bool.and(U32.is_eq(status, 200), String.eq(seen, want)), name ++ " (got " ++ seen ++ ")")
+        return (p, j)
+
+def cookie.sent(+j: Http.Jar, url: String) -> String:
+  Http.header(Http.jar.apply(j, url, Http.empty()), "cookie")
+
+def cookie.end(pj: Http.Pool & Http.Jar) -> IO(Unit):
+  (p, +j) = pj
+  do IO<Unit>:
+    local.ok(String.eq(cookie.sent(j, "http://127.0.0.1:47817/"), "sid=abc; last=1"), "cookie jar kept redirect and final Set-Cookie")
+    local.ok(String.is_empty(cookie.sent(j, "http://localhost:47817/")), "cookie jar: host-only cookie not sent to another host")
+    Http.pool.close(p)
+
+# The jar the first fetch gave back is used again, with a caller cookie that must share one field.
+def cookie.again(pj: Http.Pool & Http.Jar) -> IO(Unit):
+  (p, j) = pj
+  do IO<Unit>:
+    r : Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.jar(p, j, "GET", "http://127.0.0.1:47817/home", Http.set(Http.empty(), "Cookie", "pre=1"), Bytes.new(0))
+    pj2 : Http.Pool & Http.Jar <- cookie.got("cookie jar: caller cookie and jar in one field", "pre=1; sid=abc; last=1", r)
+    cookie.end(pj2)
+
+def cookie.flags(cs: List<&2, Http.Cookie>) -> String:
+  match cs:
+    case Nil{}:
+      "none"
+    case Con{Http.Cookie{n, v, d, h, p, s, o, ss, e}, t}:
+      Bool.pick(String, o, "httponly ", "") ++ ss
+
+def cookie.jar.of(r: Http.Jar & Http.Res) -> Http.Jar:
+  (j, res) = r
+  j
+
+def cookie.stored(+now: Time.Instant, from: String, +line: String) -> Http.Jar:
+  cookie.jar.of(Http.jar.store(Http.jar.new(now), from, Http.Res{200, Http.set(Http.empty(), "set-cookie", line), Bytes.new(0)}))
+
+# Secure, SameSite, HttpOnly and the name prefixes, which the laws do not cover.
+def cookie.pure(+now: Time.Instant) -> IO(Unit):
+  +sec = cookie.stored(now, "https://s.example/", "s=1; Secure; HttpOnly; SameSite=None")
+  do IO<Unit>:
+    local.ok(String.eq(cookie.sent(sec, "https://s.example/"), "s=1"), "cookie Secure sent over https")
+    local.ok(String.is_empty(cookie.sent(sec, "http://s.example/")), "cookie Secure not sent over http")
+    local.ok(String.eq(cookie.flags(Http.jar.cookies(sec)), "httponly none"), "cookie HttpOnly and SameSite kept")
+    local.ok(String.is_empty(cookie.sent(cookie.stored(now, "http://s.example/", "t=1; Secure"), "https://s.example/")), "cookie Secure from http ignored")
+    local.ok(String.is_empty(cookie.sent(cookie.stored(now, "https://s.example/", "n=1; SameSite=None"), "https://s.example/")), "cookie SameSite=None without Secure ignored")
+    local.ok(String.eq(cookie.sent(cookie.stored(now, "https://s.example/", "__Host-a=1; Secure; Path=/"), "https://s.example/"), "__Host-a=1"), "cookie __Host- accepted")
+    local.ok(String.is_empty(cookie.sent(cookie.stored(now, "https://s.example/", "__Host-b=1; Secure; Path=/; Domain=s.example"), "https://s.example/")), "cookie __Host- with Domain ignored")
+    local.ok(String.is_empty(cookie.sent(cookie.stored(now, "https://s.example/", "__Secure-c=1"), "https://s.example/")), "cookie __Secure- without Secure ignored")
+
+# A redirect that sets a cookie: the next hop, on the same fetch, must send it.
+def cookie.live(+now: Time.Instant) -> IO(Unit):
+  do IO<Unit>:
+    cookie.pure(now)
+    l : Listener <- IO.try(Listener, TCP.listen(47817))
+    IO.spawn(Unit, cookie.serve(l))
+    r : Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.jar(Http.pool.new(), Http.jar.new(now), "GET", "http://127.0.0.1:47817/login", Http.empty(), Bytes.new(0))
+    pj : Http.Pool & Http.Jar <- cookie.got("cookie jar: redirect cookie reached the next hop", "sid=abc", r)
+    cookie.again(pj)
+
+def cookie.test() -> IO(Unit):
+  do IO<Unit>:
+    now : Time.Instant <- Time.now()
+    cookie.live(now)
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -689,5 +786,6 @@ def main() -> IO(Unit):
     retry.test()
     local.proxy.test()
     all.test()
+    cookie.test()
     args : List<&1, String> <- IO.args()
     mtls.args(args)

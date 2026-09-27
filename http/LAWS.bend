@@ -784,3 +784,61 @@ law proxy_absolute_request:
   {Http.encode_req("GET", Http.proxy.absolute("http", "example.com:8080", "/x?q=1"),
     "example.com:8080", Http.empty(), Bytes.new(0)) ==
     Bytes.from_string("GET http://example.com:8080/x?q=1 HTTP/1.1\r\nconnection: close\r\nhost: example.com:8080\r\n\r\n") : Bytes.Bytes}
+
+# Cookies (RFC 6265bis §5)
+# ------------------------
+
+def cookie_now() -> Time.Instant:
+  Time.Instant.of_unix(Int.I64.from_u32(784111777))
+
+def cookie_later(secs: U32) -> Time.Instant:
+  Time.Instant.of_unix(Int.I64.from_u32((784111777 + secs : U32)))
+
+def cookie_res(lines: List<&2, String>) -> Http.Res:
+  Http.Res{200, Map.set(&2, List<&2, String>, Http.empty(), "set-cookie", lines), Bytes.new(0)}
+
+def cookie_jar.of(r: Http.Jar & Http.Res) -> Http.Jar:
+  (j, res) = r
+  j
+
+# The Cookie value sent to `to`, secs after `from` answered at cookie_now() with these Set-Cookie lines.
+def cookie_sent(from: String, lines: List<&2, String>, secs: U32, to: String) -> String:
+  Http.header(Http.jar.apply(Http.jar.at(cookie_jar.of(Http.jar.store(Http.jar.new(cookie_now()), from, cookie_res(lines))), cookie_later(secs)), to, Http.empty()), "cookie")
+
+def cookie_after(lines: List<&2, String>, secs: U32) -> String:
+  cookie_sent("https://s.example/", lines, secs, "https://s.example/")
+
+def cookie_unix(m: Maybe<&2, Time.Instant>) -> Maybe<&2, U32>:
+  match m:
+    case None{}:
+      None{}
+    case Some{Time.Instant{s, n}}:
+      Some{Int.I64.to_u32(s)}
+
+# LAW: §5.1.3: a host domain-matches itself and a parent domain on a label boundary; an IP address matches only itself.
+law cookie_domain_match:
+  {[Http.cookie.domain_match("www.site.example", "site.example"), Http.cookie.domain_match("site.example", "site.example"), Http.cookie.domain_match("badsite.example", "site.example"), Http.cookie.domain_match("site.example", "www.site.example"), Http.cookie.domain_match("10.0.0.1", "0.0.1"), Http.cookie.domain_match("10.0.0.1", "10.0.0.1")] == [True{}, True{}, False{}, False{}, False{}, True{}] : List<&2, Bool>}
+
+# LAW: §5.7: no Domain is host-only; Domain widens to subdomains, never to another site or a public suffix; ports do not matter.
+law cookie_domain_scope:
+  {[cookie_sent("https://www.site.example/", ["a=1"], 0, "https://www.site.example/x"), cookie_sent("https://www.site.example/", ["a=1"], 0, "https://sub.www.site.example/"), cookie_sent("https://www.site.example/", ["b=2; Domain=.Site.Example"], 0, "https://other.site.example/"), cookie_sent("https://www.site.example/", ["f=6; Domain=www.site.example"], 0, "https://x.www.site.example/"), cookie_sent("https://www.site.example/", ["c=3; Domain=evil.example"], 0, "https://evil.example/"), cookie_sent("https://www.site.example/", ["d=4; Domain=example"], 0, "https://other.example/"), cookie_sent("https://a.example/", ["e=5"], 0, "https://b.example/"), cookie_sent("https://a.example/", ["g=7"], 0, "http://a.example:8080/")] == ["a=1", "", "b=2", "f=6", "", "", "", "g=7"] : List<&2, String>}
+
+# LAW: §5.1.4: a cookie path matches itself and the paths under it at a "/".
+law cookie_path_match:
+  {[Http.cookie.path_match("/docs", "/docs"), Http.cookie.path_match("/docs/web", "/docs"), Http.cookie.path_match("/docsets", "/docs"), Http.cookie.path_match("/docs/x", "/docs/"), Http.cookie.path_match("/docs", "/docs/"), Http.cookie.path_match("/", "/docs")] == [True{}, True{}, False{}, True{}, False{}, False{}] : List<&2, Bool>}
+
+# LAW: §5.1.4: the default path is the request path up to its last "/", or "/".
+law cookie_default_path:
+  {[Http.cookie.default_path("/docs/web/page"), Http.cookie.default_path("/page"), Http.cookie.default_path(""), Http.cookie.default_path("/docs/"), Http.cookie.default_path("docs")] == ["/docs/web", "/", "/", "/docs", "/"] : List<&2, String>}
+
+# LAW: §5.7, §5.8.3: the default or given path scopes a cookie, the query is not path, an invalid Path is the default, and longer paths go first.
+law cookie_path_scope:
+  {[cookie_sent("https://s.example/docs/login", ["a=1"], 0, "https://s.example/docs/x"), cookie_sent("https://s.example/docs/login", ["a=1"], 0, "https://s.example/other"), cookie_sent("https://s.example/docs/login", ["a=1"], 0, "https://s.example/docs?q=1"), cookie_sent("https://s.example/docs/login", ["z=1; Path=nope"], 0, "https://s.example/other"), cookie_sent("https://s.example/", ["x=1; Path=/", "y=2; Path=/docs"], 0, "https://s.example/docs/page")] == ["a=1", "", "a=1", "", "y=2; x=1"] : List<&2, String>}
+
+# LAW: §5.1.1: cookie-dates in the common forms, and ones that are not dates.
+law cookie_date:
+  {[cookie_unix(Http.cookie.date("Sun, 06 Nov 1994 08:49:37 GMT")), cookie_unix(Http.cookie.date("Sunday, 06-Nov-94 08:49:37 GMT")), cookie_unix(Http.cookie.date("Sun Nov  6 08:49:37 1994")), cookie_unix(Http.cookie.date("Thu, 01-Jan-1970 00:00:01 GMT")), cookie_unix(Http.cookie.date("06 Nov 1994")), cookie_unix(Http.cookie.date("Sun, 31 Feb 1994 08:49:37 GMT")), cookie_unix(Http.cookie.date("Sun, 06 Nov 1600 08:49:37 GMT")), cookie_unix(Http.cookie.date("Sun, 06 Nov 1994 24:00:00 GMT"))] == [Some{784111777}, Some{784111777}, Some{784111777}, Some{1}, None{}, None{}, None{}, None{}] : List<&2, Maybe<&2, U32>>}
+
+# LAW: §5.6.1, §5.6.2, §5.7: Max-Age beats Expires either way round, a cookie dies at its expiry, a past expiry deletes the cookie of the same path, session cookies last, leading zeros do not lengthen Max-Age, and no cookie outlives 400 days.
+law cookie_expiry:
+  {[cookie_after(["a=1; Max-Age=60"], 59), cookie_after(["a=1; Max-Age=60"], 60), cookie_after(["b=1; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=60"], 0), cookie_after(["b=1; Max-Age=0; Expires=Wed, 06 Nov 1996 08:49:37 GMT"], 0), cookie_after(["c=1; Expires=Sun, 06 Nov 1994 08:49:36 GMT"], 0), cookie_after(["d=1; Expires=Sun, 06 Nov 1994 08:50:37 GMT"], 59), cookie_after(["d=1; Expires=Sun, 06 Nov 1994 08:50:37 GMT"], 60), cookie_after(["e=1", "e=; Max-Age=0"], 0), cookie_after(["e=1; Path=/", "e=; Max-Age=0; Path=/x"], 0), cookie_after(["f=1", "f=2"], 0), cookie_after(["g=1"], 315360000), cookie_after(["h=1; Max-Age=soon"], 315360000), cookie_after(["i=1; Max-Age=99999999999"], 34559999), cookie_after(["i=1; Max-Age=99999999999"], 34560000), cookie_after(["j=1; Expires=Wed, 06 Nov 2030 08:49:37 GMT"], 34560000), cookie_after(["k=1", "k=; Max-Age=0000000000"], 0), cookie_after(["l=1; Max-Age=00000000060"], 59), cookie_after(["l=1; Max-Age=00000000060"], 60)] == ["a=1", "", "b=1", "", "", "d=1", "", "", "e=1", "f=2", "g=1", "h=1", "i=1", "", "", "", "l=1", ""] : List<&2, String>}

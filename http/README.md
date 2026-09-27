@@ -3,7 +3,7 @@
 HTTP/1.1 and HTTP/2 client, and HTTP/1.1 server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).
 
 ```bend
-import bend-kit-http@0.21.1.0/http.bend as Http
+import bend-kit-http@0.22.0.0/http.bend as Http
 ```
 
 `http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, `zlib`, `http2`, `time`, `int`, and `concurrency` from the hub. `Http.Body` keeps its pinned `bytes` type; the HTTP/2 client uses a newer `bytes` version internally and transfers the packed body without copying.
@@ -139,6 +139,25 @@ def main() -> IO(Unit):
 
 The workers are `Conc.pool` from `bend-kit-concurrency`, and each one owns its own `Http.Pool`. A `Pool` is affine, so it cannot be shared between workers; one pool per worker needs no owner task or message protocol, and a worker reuses its idle sockets for its later requests. The cost is up to `n` connections to one origin rather than one shared set. Every worker's pool is closed when the list is done. The workers are IO computations on Bend's event loop, so the requests overlap while each waits on the network.
 
+## Cookies
+
+```bend
+import bend-kit-time@0.1.0.0/time.bend as Time
+
+def login(now: Time.Instant) -> IO(Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res>):
+  Http.pool.fetch.jar(Http.pool.new(), Http.jar.new(now), "POST", "https://example.com/login", Http.empty(), Http.from_string("user=a"))
+```
+
+`Http.Jar` is a pure cookie store (RFC 6265bis §5), a `Data` value you pass along. Its clock is yours: `Http.jar.new(now)` starts an empty jar at a `Time.Instant`, and `Http.jar.at(jar, now)` moves it to a later time and evicts the cookies that expired by then. Nothing in the jar reads the clock itself.
+
+- `Http.jar.store(jar, url, res) -> Http.Jar & Http.Res` stores every `set-cookie` field of `res` as received from `url`, and hands `res` back.
+- `Http.jar.apply(jar, url, headers) -> Map<&2, List<&2, String>>` puts the jar's cookies for `url` in the `cookie` field, after any cookie value already there, as one field.
+- `Http.jar.cookies(jar)` lists the stored `Http.Cookie{name, value, domain, host_only, path, secure, http_only, same_site, expiry}` values, oldest first.
+- `Http.pool.fetch.jar(p, jar, method, url, headers, body) -> IO(Http.Pool & Http.Jar & Result<...>)` is `pool.fetch` with a jar: before every hop, redirects included, the jar's cookies for that URL join the request, and every response's `Set-Cookie`, redirects included, goes into the jar. Your own `Cookie` header still follows the redirect rules (dropped on a cross-origin hop); jar cookies go only where they match.
+
+Storage follows §5.6 and §5.7: `Domain` (a leading dot is dropped) widens a cookie from host-only to subdomains and must domain-match the host; `Path` must start with `/`, else the request's default path is used; `Max-Age` beats `Expires`; a zero or negative `Max-Age`, or an `Expires` in the past, deletes the cookie with the same name, domain, and path; no cookie lives past 400 days. `Secure` cookies come only from, and go only to, `https`, and a plain-`http` response cannot overlay a secure cookie. `SameSite=None` needs `Secure`, and the `__Secure-` and `__Host-` prefixes are enforced. `HttpOnly` and `SameSite` are kept but not enforced: `fetch` has no browsing client, so every request counts as same-site. Cookies are sent longest path first. Cookies ignore ports, as the RFC says.
+
+The public-suffix check rejects only a single-label `Domain` such as `com`. Multi-label suffixes such as `co.uk` or `github.io` need the Public Suffix List, which the jar does not ship, so `Domain=co.uk` from `a.co.uk` is accepted.
 ## Serve
 
 ```bend
@@ -153,6 +172,8 @@ def main() -> IO(Unit):
 `Http.serve(~h, port)` reads each request until it is whole, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. `Http.serve.with(~h, port, max)` sets the maximum request size in bytes; `serve` defaults to 16 MiB. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
 
 ## Versions
+
+`0.22.0.0` adds a pure RFC 6265bis cookie jar and `Http.pool.fetch.jar`. The redirect-loop helpers `pool.one`, `pool.next.move`, `pool.next`, `pool.hops.one`, `pool.hops`, and `pool.final` now pass an optional jar and use a `Hops` state record; code that calls these helpers must migrate.
 
 `0.21.1.0` adds `Http.Fetch` and `Http.fetch.all`, and imports `bend-kit-concurrency@0.1.0.0` for its worker pool.
 
