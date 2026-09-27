@@ -70,7 +70,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 - [x] Parser combinators (#38)
 - [x] Compression through libz, libzstd, and libbrotlidec, and `http` decoding with them (#142)
-- [ ] Concurrency helpers (#40)
+- [x] Concurrency helpers: `par_map`, `par_reduce`, a worker pool, `select`, and `timeout` (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
 - [ ] Networking: WebSocket, cookies, multipart (#42)
 - [ ] Templating and Markdown (#43)
