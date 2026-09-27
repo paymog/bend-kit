@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Print the top N open, unblocked leaf issues, highest priority first.
-# Priority: tier-1 > tier-2 > tier-3 > no tier; then lowest issue number.
+# Priority: pri-high > pri-med > pri-low > none; then lowest issue number.
 set -euo pipefail
 limit="${1:-10}"
 repo="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
@@ -21,9 +21,9 @@ query($owner: String!, $name: String!) {
 }' | jq -r --argjson limit "$limit" '
   def blocked: any(.blockedBy.nodes[]; .state == "OPEN");
   def chain: ., (.parent // empty | chain);
-  def tier: ([.labels.nodes[].name | capture("^tier-(?<n>[0-9]+)$").n | tonumber] | min) // 99;
+  def rank: ([.labels.nodes[].name | {"pri-high": 0, "pri-med": 1, "pri-low": 2}[.] // empty] | min) // 3;
   [.data.repository.issues.nodes[]
     | select(all(.subIssues.nodes[]; .state != "OPEN") and all(.labels.nodes[]; .name != "in-progress"))
     | select(any(chain; blocked) | not)]
-  | sort_by(tier, .number) | .[:$limit][]
-  | "#\(.number)\t\(if tier == 99 then "-" else "tier-\(tier)" end)\t\([.assignees.nodes[].login] | join(",") | if . == "" then "-" else . end)\t\(.title)\t\(.url)"'
+  | sort_by(rank, .number) | .[:$limit][]
+  | "#\(.number)\t\(["high", "med", "low", "-"][rank])\t\([.assignees.nodes[].login] | join(",") | if . == "" then "-" else . end)\t\(.title)\t\(.url)"'

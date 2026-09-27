@@ -14,8 +14,9 @@ fail=0
 for d in "$@"; do
   named=bend-kit-$d@$(<"$d/VERSION")
   if hash=$(curl -fs "$hub/name/$named"); then
-    for f in "$d/$d.bend" "$d"/effs/*; do
-      [ -f "$f" ] || continue
+    files=$(curl -fs "$hub/package/$hash.json" | jq -r '.files | keys[]')
+    for f in $files; do
+      f=$d/$f
       if ! curl -fs "$hub/$hash/${f#"$d/"}" | cmp -s - "$f"; then
         echo "$named is on the hub, but $f differs: raise $d/VERSION"
         fail=1

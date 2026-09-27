@@ -8,6 +8,14 @@ def bytes(xs: List<&2, U32>) -> String:
     case Con{c, t}:
       SCon{Chr{c}, bytes(t)}
 
+# Every byte value once, 0 through 255: all four fixed literal code ranges.
+def every(k: Nat, +i: U32) -> String:
+  match k:
+    case 0n:
+      SNil{}
+    case 1n+p:
+      SCon{Chr{i}, every(p, (i + 1 : U32))}
+
 # RFC 1951 §3.2.4: a stored block is copied as is.
 law inflate_stored:
   {Z.inflate(bytes([1, 12, 0, 243, 255, 104, 101, 108, 108, 111, 32, 115, 116, 111, 114, 101, 100])) == Some{"hello stored"} : Maybe<&2, String>}
@@ -63,3 +71,29 @@ law adler32_hello:
 # RFC 1951 §3.2.5: length/distance pairs copy from earlier output, overlapping included.
 law inflate_matches:
   {Z.inflate(bytes([43, 201, 72, 85, 40, 44, 205, 76, 206, 86, 72, 42, 202, 47, 207, 83, 72, 203, 175, 80, 200, 42, 205, 45, 40, 86, 200, 47, 75, 45, 82, 40, 1, 74, 231, 36, 86, 85, 42, 164, 228, 167, 235, 129, 121, 163, 138, 71, 21, 143, 42, 30, 85, 60, 170, 120, 84, 241, 48, 82, 12, 0])) == Some{String.repeat("the quick brown fox jumps over the lazy dog. ", 40n)} : Maybe<&2, String>}
+
+law deflate_empty:
+  {Z.inflate(Z.deflate("")) == Some{""} : Maybe<&2, String>}
+
+law deflate_hello:
+  {Z.inflate(Z.deflate("hello")) == Some{"hello"} : Maybe<&2, String>}
+
+law deflate_every_byte:
+  {Z.inflate(Z.deflate(every(256n, 0))) == Some{every(256n, 0)} : Maybe<&2, String>}
+
+# A run longer than 258 needs several overlapping matches.
+law deflate_run:
+  {Z.inflate(Z.deflate(String.repeat("a", 600n))) == Some{String.repeat("a", 600n)} : Maybe<&2, String>}
+
+law deflate_repeats:
+  {Z.inflate(Z.deflate(String.repeat("the quick brown fox jumps over the lazy dog. ", 40n))) == Some{String.repeat("the quick brown fox jumps over the lazy dog. ", 40n)} : Maybe<&2, String>}
+
+# These bytes decode with system gzip -d.
+law gzip_pinned:
+  {Z.gzip("hello hello hello hello, world") == bytes([31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 203, 72, 205, 201, 201, 87, 192, 32, 117, 20, 202, 243, 139, 114, 82, 0, 247, 26, 144, 221, 30, 0, 0, 0]) : String}
+
+law gzip_roundtrip:
+  {Z.gunzip(Z.gzip("gzip round trip, gzip round trip")) == Some{"gzip round trip, gzip round trip"} : Maybe<&2, String>}
+
+law zlib_roundtrip:
+  {Z.unzlib(Z.zlib("zlib round trip, zlib round trip")) == Some{"zlib round trip, zlib round trip"} : Maybe<&2, String>}

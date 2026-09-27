@@ -1,4 +1,4 @@
-# Zlib benchmark: gunzip one fixed member (see README.md).
+# Zlib benchmark: gunzip one fixed member, and gzip its plain text (see README.md).
 import Base
 import ../zlib.bend as Z
 
@@ -8,6 +8,13 @@ def from_bytes(xs: List<&2, U32>) -> String:
       SNil{}
     case Con{c, t}:
       SCon{Chr{c}, from_bytes(t)}
+
+def to_bytes(s: String) -> List<&2, U32>:
+  match s:
+    case SNil{}:
+      Nil{}
+    case SCon{Chr{c}, t}:
+      Con{c, to_bytes(t)}
 
 # Checksum: h = h*31 + c, u32, over every inflated byte.
 def chk(s: String, h: U32) -> U32:
@@ -34,6 +41,40 @@ def op.inflate(s: String) -> IO(Unit):
     t0 : Nat <- IO.now()
     op.inflated(t0, Z.gunzip(s))
 
+def unwrap(m: Maybe<&2, String>) -> String:
+  match m:
+    case None{}:
+      "failed"
+    case Some{s}:
+      s
+
+def saved(r: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  (f, x) = r
+  File.close(f)
+
+def save(+gz: String, r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
+  match r:
+    case Fail{e}:
+      IO.print("save\t0\tfailed")
+    case Done{f}:
+      do IO<Unit>:
+        w : File & Result<&1, &1, U32 & String, Unit> <- File.write_bytes(f, to_bytes(gz))
+        saved(w)
+
+# The checksum is of the round trip; run.py also feeds out/bend.gz to gzip -d.
+def op.deflated(t0: Nat, +gz: String) -> IO(Unit):
+  do IO<Unit>:
+    t1 : Nat <- IO.now()
+    IO.print("size\t0\t" ++ U32.show(Z.slen(gz, 0)))
+    lap("deflate", t0, t1, unwrap(Z.gunzip(gz)))
+    f : Result<&1, &1, U32 & String, File> <- File.open("out/bend.gz", "w")
+    save(gz, f)
+
+def op.deflate(s: String) -> IO(Unit):
+  do IO<Unit>:
+    t0 : Nat <- IO.now()
+    op.deflated(t0, Z.gzip(s))
+
 def bytes.of(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> List<&2, U32>:
   match r:
     case Fail{e}:
@@ -41,22 +82,24 @@ def bytes.of(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> List<&2, U32>:
     case Done{xs}:
       xs
 
-def read(m: File & Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
+def read(~op: String -> IO(Unit), m: File & Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
   (f, r) = m
   do IO<Unit>:
     File.close(f)
-    op.inflate(from_bytes(bytes.of(r)))
+    op(from_bytes(bytes.of(r)))
 
-def opened(r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
+def opened(~op: String -> IO(Unit), r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
   match r:
     case Fail{e}:
       IO.print("open\t0\tfailed")
     case Done{f}:
       do IO<Unit>:
         m : File & Result<&1, &1, U32 & String, List<&2, U32>> <- File.read_bytes(f, 16777216)
-        read(m)
+        read(~op, m)
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    f : Result<&1, &1, U32 & String, File> <- File.open("out/payload.gz", "r")
-    opened(f)
+    g : Result<&1, &1, U32 & String, File> <- File.open("out/payload.gz", "r")
+    opened(~op.inflate, g)
+    p : Result<&1, &1, U32 & String, File> <- File.open("out/plain.bin", "r")
+    opened(~op.deflate, p)

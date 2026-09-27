@@ -9,8 +9,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OPS = ["is_match", "is_match_early", "find_captures", "find_early", "redos"]
-TIMEOUT = {"is_match": 600, "is_match_early": 600, "find_captures": 600, "find_early": 600, "redos": 10}
+OPS = ["is_match", "is_match_early", "find_captures", "find_early", "redos", "large"]
+TIMEOUT = {"is_match": 600, "is_match_early": 600, "find_captures": 600, "find_early": 600, "redos": 10, "large": 60}
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 VARIANTS = {

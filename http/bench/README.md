@@ -86,3 +86,21 @@ Each row after `split` includes the rows it builds on. The `Map` build (about 17
 ## Network
 
 `fetch16.bend` and `serve16.bend` time a live download and upload in Bend only. They measure the socket and the runtime along with the codec. See the comment at the top of each file.
+
+```sh
+bend fetch16.bend -o out/fetch16 && /usr/bin/time -l out/fetch16 http://127.0.0.1:18094/cl
+bend serve16.bend -o out/serve16 && out/serve16 &
+curl -s -w ' %{time_total}\n' --data-binary @16m.bin http://127.0.0.1:18093/
+```
+
+The download server is a local Python `http.server` that sends 12 MiB (byte `i` is `i % 251`), either with `Content-Length` or as 64 KiB chunks. The upload is 16 MiB of random bytes. Each program prints the body length, which is the checksum: `12582912` and `16777216`.
+
+M4 Pro, macOS 26.6.2, Bend 2.0.29, 2026-09-26. Median of 15 downloads and 7 uploads. The time is in-process for a download and `curl` total for an upload. Peak RSS is from `/usr/bin/time -l`.
+
+| run | http 0.15.0.4 | http 0.15.0.5 |
+|---|---:|---:|
+| download, Content-Length | 8 ms, 31.6 MB | 7 ms, 19.0 MB |
+| download, chunked | 10 ms, 31.9 MB | 12 ms, 33.1 MB |
+| upload, Content-Length | 7.8 ms, 35.9 MB | 7.9 ms, 35.9 MB |
+
+0.15.0.5 writes a Content-Length response body into one buffer as it arrives. Chunked downloads and uploads take the same code path in both versions, so their differences are noise.
