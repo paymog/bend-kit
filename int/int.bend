@@ -1,6 +1,7 @@
 # Fixed-width integers U8, U16, U64, I32 and I64: wrapping, checked and saturating arithmetic.
 import Base
 
+# The Int.* core serves only U64 and I64. When Base ships a native U64 (bendlang/bend#1027), delete it.
 def Int.bits.go(n: Nat, qr: Nat & Nat) -> Word(n):
   match n:
     case 0n:
@@ -917,6 +918,8 @@ def U16.to_nat(a: U16) -> Nat:
 def U16.from_nat(k: Nat) -> U16:
   U16{U32.and(U32.from_nat(k), 65535)}
 
+# ponytail: Word(64n) costs about 68 us per op. When Base ships a native U64
+# (bendlang/bend#1027), store Base's U64 here, as U8 and U16 store Base's U32.
 type U64 is Data:
   U64{data: Word(64n)}
 
@@ -1268,6 +1271,8 @@ def I32.to_nat(a: I32) -> Maybe<&2, Nat>:
 def I32.from_nat(k: Nat) -> I32:
   I32{U32.from_nat(k)}
 
+# ponytail: Word(64n) costs about 68 us per op. When Base ships a native U64
+# (bendlang/bend#1027), store its bits in Base's U64, as I32 does with Base's U32.
 type I64 is Data:
   I64{data: Word(64n)}
 
