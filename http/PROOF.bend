@@ -606,3 +606,51 @@ def Laws.stream_len_cut():
 
 def Laws.decoded_plain():
   {==}
+
+def Laws.retry_statuses():
+  {==}
+
+def Laws.retry_idempotent():
+  {==}
+
+def Laws.retry_connect():
+  {==}
+
+def Laws.retry_timeout():
+  {==}
+
+def Laws.retry_dns_stops():
+  {==}
+
+def Laws.retry_503():
+  {==}
+
+def Laws.retry_429_backoff():
+  {==}
+
+def Laws.retry_200_stops():
+  {==}
+
+def Laws.retry_post_stops():
+  {==}
+
+def Laws.retry_post_connect_stops():
+  {==}
+
+def Laws.retry_base():
+  {==}
+
+def Laws.retry_backoff():
+  {==}
+
+def Laws.retry_after_secs():
+  {==}
+
+def Laws.retry_after_date():
+  {==}
+
+def Laws.retry_after_bad():
+  {==}
+
+def Laws.retry_delay():
+  {==}

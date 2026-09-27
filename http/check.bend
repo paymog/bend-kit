@@ -1,6 +1,7 @@
 import Base
 import ./http.bend as Http
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
 import bend-kit-http2@0.1.2.0/http2.bend as H2
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
@@ -379,6 +380,95 @@ def h2.check() -> IO(Unit):
         H2.Response{1, [Hpack.Field{":status", "200", 0}], HBytes.new(0)}],
       Done{None{}})), "h2 interim followed by final response")
 
+def resolve.ok(+want: String, m: Maybe<&2, String>) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.die(Unit, 1, "resolve gave None for " ++ want)
+    case Some{got}:
+      local.ok(String.eq(got, want), "resolve " ++ want)
+
+def resolve.none(m: Maybe<&2, String>) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.print("ok resolve refuses a relative base")
+    case Some{got}:
+      IO.die(Unit, 1, "resolve joined a relative base: " ++ got)
+
+def resolve.check() -> IO(Unit):
+  do IO<Unit>:
+    resolve.ok("https://api.example.com/v1/users/7?x=1", Http.resolve("https://api.example.com/v1/", "users/7?x=1"))
+    resolve.ok("https://api.example.com/health", Http.resolve("https://api.example.com:443/v1/", "/health"))
+    resolve.ok("http://[::1]:8080/c", Http.resolve("http://[::1]:8080/a/b", "../c"))
+    resolve.ok("http://b.example/y", Http.resolve("https://a.example/x", "http://b.example/y"))
+    resolve.none(Http.resolve("/v1/", "users"))
+
+# The retry server answers one request per connection, in this order.
+def retry.s1(req: Http.Req) -> IO(Http.Res):
+  IO.pure(Http.Res, Http.Res{503, Http.set(Http.empty(), "retry-after", "0"), Bytes.from_string("try 1")})
+
+def retry.s2(req: Http.Req) -> IO(Http.Res):
+  IO.pure(Http.Res, Http.Res{500, Http.empty(), Bytes.from_string("try 2")})
+
+def retry.s3(req: Http.Req) -> IO(Http.Res):
+  IO.pure(Http.Res, Http.Res{200, Http.empty(), Bytes.from_string("try 3")})
+
+def retry.s4(req: Http.Req) -> IO(Http.Res):
+  IO.pure(Http.Res, Http.Res{503, Http.set(Http.empty(), "retry-after", "0"), Bytes.from_string("post")})
+
+def retry.s5(req: Http.Req) -> IO(Http.Res):
+  IO.pure(Http.Res, Http.Res{502, Http.empty(), Bytes.from_string("try 5")})
+
+def retry.s6(req: Http.Req) -> IO(Http.Res):
+  IO.pure(Http.Res, Http.Res{504, Http.empty(), Bytes.from_string("try 6")})
+
+def retry.s7(req: Http.Req) -> IO(Http.Res):
+  Http.Req{method, path, headers, body} = req
+  IO.pure(Http.Res, Http.Res{200, Http.empty(), Bytes.append(Bytes.from_string(method ++ " " ++ Http.header(headers, "content-type") ++ " "), body)})
+
+def retry.serve(l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l1 : Listener <- Http.conn(~retry.s1, 1048576n, a)
+    b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
+    l2 : Listener <- Http.conn(~retry.s2, 1048576n, b)
+    c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
+    l3 : Listener <- Http.conn(~retry.s3, 1048576n, c)
+    d : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l3)
+    l4 : Listener <- Http.conn(~retry.s4, 1048576n, d)
+    e : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l4)
+    l5 : Listener <- Http.conn(~retry.s5, 1048576n, e)
+    f : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l5)
+    l6 : Listener <- Http.conn(~retry.s6, 1048576n, f)
+    g : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l6)
+    l7 : Listener <- Http.conn(~retry.s7, 1048576n, g)
+    Listener.close(l7)
+
+def retry.check(+name: String, +status: U32, +want: String, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+  match r:
+    case Fail{e}:
+      IO.die(Unit, 1, name ++ ": fetch failed")
+    case Done{res}:
+      Http.Res{got, headers, body} = res
+      local.ok(Bool.and(U32.is_eq(got, status), String.eq(Bytes.to_string(body), want)), name)
+
+# The body names the connection that answered, so "try 3" is the third try.
+def retry.test() -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen(47814))
+    IO.spawn(Unit, retry.serve(l))
+    flaky : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch.retry(2, "GET", "http://127.0.0.1:47814/flaky", Http.empty(), Bytes.new(0))
+    retry.check("retry GET: 503, 500, then 200 on try 3 of 3", 200, "try 3", flaky)
+    post : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch.retry(2, "POST", "http://127.0.0.1:47814/post", Http.empty(), Bytes.from_string("x"))
+    retry.check("retry POST: one try, 503 kept", 503, "post", post)
+    spent : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.fetch.retry(1, "GET", "http://127.0.0.1:47814/spent", Http.empty(), Bytes.new(0))
+    retry.check("retry exhausted: last 504 kept", 504, "try 6", spent)
+    posted : Result<&1, &1, Http.Err, Http.Res> <-
+      Http.post.json("http://127.0.0.1:47814/json", Json.Arr{[Json.Num{Bytes.from_string("1")}, Json.Flag{True{}}]})
+    retry.check("post.json", 200, "POST application/json [1,true]", posted)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
@@ -397,5 +487,7 @@ def main() -> IO(Unit):
     local.ipv6(r)
     local.fallback()
     local.gz.test()
+    resolve.check()
+    retry.test()
     args : List<&1, String> <- IO.args()
     mtls.args(args)
