@@ -1,7 +1,7 @@
 import Base
 import ./http.bend as Http
 import 0xd248560355ba8929ae030bc9c72f40be/url.bend as Url
-import 0xaaa10a97bf5ac6990143da2c863f8a3f/json.bend as Json
+import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 # LAW: the text after a blank line is the body.
@@ -207,7 +207,13 @@ law text_utf8:
   {Http.text(Http.Res{200, Http.empty(), Bytes.from_string(SCon{Chr{195}, SCon{Chr{169}, SNil{}}})}) == "é" : String}
 
 law json_flag:
-  {Http.json(Http.Res{200, Http.empty(), Bytes.from_string("true")}) == Some{Json.Flag{True{}}} : Maybe<&2, Json.Val>}
+  {Http.json(Http.Res{200, Http.empty(), Bytes.from_string("true")}) == Some{Json.Flag{True{}}} : Maybe<&1, Json.Val>}
+
+law json_utf8:
+  {Http.json(Http.Res{200, Http.empty(), Bytes.from_string("\"\u{c3}\u{a9}\"")}) == Some{Json.Str{Json.utf8("é")}} : Maybe<&1, Json.Val>}
+
+law json_bad_utf8_none:
+  {Http.json(Http.Res{200, Http.empty(), Bytes.from_string("\"\u{c3}\"")}) == None{} : Maybe<&1, Json.Val>}
 
 
 law req_keep:

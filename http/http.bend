@@ -1,10 +1,10 @@
 # HTTP/1.1 client and server for http and https, with DNS and TLS. Source: https://github.com/paymog/bend-kit/tree/main/http
 import Base
-# By hash: bend-kit-wire@0.4.0.3, -url@0.4.0.0, -encoding@0.3.0.0, -json@0.3.0.0, -bytes@0.3.0.0, -dns@0.3.2.1, -zlib@0.1.3.0.
+# By hash: bend-kit-wire@0.4.0.3, -url@0.4.0.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -dns@0.3.2.1, -zlib@0.1.3.0.
 import 0x096635686408886b7d907f16c4550317/wire.bend as Wire
 import 0xd248560355ba8929ae030bc9c72f40be/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
-import 0xaaa10a97bf5ac6990143da2c863f8a3f/json.bend as Json
+import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import 0xc10a5eaaa9c896e1570e279945f4241e/dns.bend as Dns
 import 0x9d101c075b333e2b07242347f7c35b1c/zlib.bend as Zlib
@@ -1586,8 +1586,9 @@ def res_body(m: Maybe<&1, Res>) -> Bytes.Bytes:
 def text(res: Res) -> String:
   Enc.utf8.decode(res_body.res(res))
 
-def json(res: Res) -> Maybe<&2, Json.Val>:
-  Json.parse(text(res))
+# UTF-8 is checked, not repaired: bad UTF-8 in a string gives None (RFC 8259 §8.1).
+def json(res: Res) -> Maybe<&1, Json.Val>:
+  Json.parse.bytes(res_body.res(res))
 
 def got_body.req(req: Req) -> Bytes.Bytes:
   Req{method, path, headers, body} = req
