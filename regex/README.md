@@ -9,9 +9,13 @@ import ./regex/regex.bend as Re
 # Re.find(re, s) gives the leftmost match: the span of group 0, then one entry per group.
 Re.find(re, "xaabbby")         # re = "(a+)(b+)": Some{[Some{Span{1, 6}}, Some{Span{1, 3}}, Some{Span{3, 6}}]}
 Re.is_match(re, "abc")         # Bool
+
+# Over a UTF-8 Bytes buffer (bend-kit-bytes). Each hands the buffer back; spans are byte offsets.
+Re.find.bytes(re, b)           # Bytes & Maybe<List<Maybe<Span>>>
+Re.is_match.bytes(re, b)       # Bytes & Bool
 ```
 
-Positions count the code points of the `String`, not octets. Decode UTF-8 with `encoding` first. A group that did not take part in the match is `None`. The semantics are leftmost-first, as in RE2 and Perl: `a|ab` against `ab` matches `a`.
+With a `String`, positions count its code points, not octets. With `Bytes`, the matcher decodes UTF-8 as it goes and positions are byte offsets, as in RE2 and Go; an invalid byte matches as one U+FFFD. The `Bytes` path is the fast one: while no match is in progress it skips bytes that cannot start one. A group that did not take part in the match is `None`. The semantics are leftmost-first, as in RE2 and Perl: `a|ab` against `ab` matches `a`.
 
 ## Syntax
 
@@ -36,3 +40,5 @@ Matching takes O(n·m·log m) steps for n chars and m instructions. Each char ad
 | n | 25 000 | 50 000 | 100 000 | 200 000 |
 |---|---|---|---|---|
 | ms | 33 | 67 | 133 | 267 |
+
+`is_match` on a program of at most 32 instructions with no `\b` or `\B` runs as a bit-parallel NFA instead: O(n·k) steps for k character sets. The table above times `find`.

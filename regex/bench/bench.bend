@@ -1,6 +1,7 @@
 # Regex benchmark: match and search on fixed inputs (see README.md).
 import Base
 import ../regex.bend as R
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 def mix(+acc: U32, +x: U32) -> U32:
   (acc * 31 + x : U32)
@@ -37,20 +38,49 @@ def lap(+name: String, t0: Nat, +chk: U32) -> IO(Unit):
     t1 : Nat <- IO.now()
     IO.print("ms\t" ++ name ++ "\t" ++ Nat.show((t1 - t0 : Nat)))
 
+def chk_bfind(p: Bytes.Bytes & Maybe<&2, List<&2, Maybe<&2, R.Span>>>) -> U32:
+  (b, m) = p
+  chk_find(m)
+
+def chk_bhit(p: Bytes.Bytes & Bool) -> U32:
+  (b, x) = p
+  Bool.pick(U32, x, 1, 0)
+
+# The text becomes Bytes before the clock starts.
 def with_re(m: Maybe<&2, R.Regex>, +s: String, +name: String) -> IO(Unit):
   match m:
     case None{}:
       IO.print("error")
     case Some{re}:
       do IO<Unit>:
+        b : Bytes.Bytes = Bytes.from_string(s)
         t0 : Nat <- IO.now()
-        lap(name, t0, chk_find(R.find(re, s)))
+        lap(name, t0, chk_bfind(R.find.bytes(re, b)))
+
+def with_hit(m: Maybe<&2, R.Regex>, +s: String, +name: String) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.print("error")
+    case Some{re}:
+      do IO<Unit>:
+        b : Bytes.Bytes = Bytes.from_string(s)
+        t0 : Nat <- IO.now()
+        lap(name, t0, chk_bhit(R.is_match.bytes(re, b)))
 
 def op.is_match(+s: String) -> IO(Unit):
-  with_re(R.compile("hello\\w+"), s, "is_match")
+  with_hit(R.compile("hello\\w+"), s, "is_match")
+
+def op.is_match_early(+s: String) -> IO(Unit):
+  with_hit(R.compile("x"), s, "is_match_early")
+
+def op.is_match_live(+s: String) -> IO(Unit):
+  with_hit(R.compile("xy"), s, "is_match_live")
 
 def op.find_captures(+s: String) -> IO(Unit):
   with_re(R.compile("(\\w+)@(\\w+)\\.com"), s, "find_captures")
+
+def op.find_early(+s: String) -> IO(Unit):
+  with_re(R.compile("(x)x"), s, "find_early")
 
 def op.redos() -> IO(Unit):
   do IO<Unit>:
@@ -64,7 +94,10 @@ def op.large() -> IO(Unit):
 def run_all(+s: String) -> IO(Unit):
   do IO<Unit>:
     op.is_match(s)
+    op.is_match_early(s)
+    op.is_match_live(s)
     op.find_captures(s)
+    op.find_early(s)
     op.redos()
     op.large()
 
@@ -74,8 +107,14 @@ def run_text(+s: String, +only: String) -> IO(Unit):
       run_all(s)
     case "is_match":
       op.is_match(s)
+    case "is_match_early":
+      op.is_match_early(s)
+    case "is_match_live":
+      op.is_match_live(s)
     case "find_captures":
       op.find_captures(s)
+    case "find_early":
+      op.find_early(s)
     case "redos":
       op.redos()
     case "large":

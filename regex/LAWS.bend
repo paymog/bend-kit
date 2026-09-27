@@ -1,5 +1,6 @@
 import Base
 import ./regex.bend as R
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 def found(r: Maybe<&2, R.Regex>, s: String) -> Maybe<&2, List<&2, Maybe<&2, R.Span>>>:
   match r:
@@ -24,6 +25,51 @@ def hit(r: Maybe<&2, R.Regex>, s: String) -> Bool:
       False{}
     case Some{re}:
       R.is_match(re, s)
+
+# is_match on both paths: the bit NFA (None when the program does not allow it), then the Pike VM.
+def both(r: Maybe<&2, R.Regex>, +s: String) -> Maybe<&2, Bool> & Bool:
+  match r:
+    case None{}:
+      (None{}, False{})
+    case Some{+re}:
+      (R.is_match.bits(re, s), R.is_match.vm(re, s))
+
+def yes() -> Maybe<&2, Bool> & Bool:
+  (Some{True{}}, True{})
+
+def no() -> Maybe<&2, Bool> & Bool:
+  (Some{False{}}, False{})
+
+def found.bytes(p: Bytes.Bytes & Maybe<&2, List<&2, Maybe<&2, R.Span>>>) -> Maybe<&2, List<&2, Maybe<&2, R.Span>>>:
+  (b, x) = p
+  x
+
+def fb(r: Maybe<&2, R.Regex>, +s: String) -> Maybe<&2, List<&2, Maybe<&2, R.Span>>>:
+  match r:
+    case None{}:
+      None{}
+    case Some{re}:
+      found.bytes(R.find.bytes(re, Bytes.from_string(s)))
+
+# Compile pat and find its leftmost match in s, a byte string (one Char per octet) read as UTF-8.
+def mb(+pat: String, +s: String) -> Maybe<&2, List<&2, Maybe<&2, R.Span>>>:
+  fb(R.compile(pat), s)
+
+def hb(p: Bytes.Bytes & Bool) -> Bool:
+  (b, x) = p
+  x
+
+def hbm(p: Bytes.Bytes & Maybe<&2, Bool>) -> Maybe<&2, Bool>:
+  (b, x) = p
+  x
+
+# is_match over bytes on both paths, as both does over a String.
+def bboth(r: Maybe<&2, R.Regex>, +s: String) -> Maybe<&2, Bool> & Bool:
+  match r:
+    case None{}:
+      (None{}, False{})
+    case Some{+re}:
+      (hbm(R.is_match.bytes.bits(re, Bytes.from_string(s))), hb(R.is_match.bytes.vm(re, Bytes.from_string(s))))
 
 # Matches and captures. The expected spans are what Go's regexp (RE2) answers.
 law literal:
@@ -154,6 +200,160 @@ law is_match_hit:
 
 law is_match_miss:
   {hit(R.compile("^b+"), "abbc") == False{} : Bool}
+
+# The matcher skips chars that cannot start a match; these check the skip keeps the leftmost-first answer.
+law literal_prefix:
+  {m("abc", "ababcabc") == Some{[sp(2, 5)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law literal_prefix_end:
+  {m("ab", "xxxa") == None{} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law negated_start:
+  {m("[^x]y", "xxzy") == Some{[sp(2, 4)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# A pattern that matches the empty string may start at any char.
+law empty_start:
+  {m("b*", "aab") == Some{[sp(0, 0)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# The bit NFA and the Pike VM agree on is_match.
+law bits_hit:
+  {both(R.compile("b+"), "abbc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_miss:
+  {both(R.compile("x"), "abc") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_start:
+  {both(R.compile("^b"), "ab") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_start_hit:
+  {both(R.compile("^a"), "ab") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_end:
+  {both(R.compile("a$"), "aba") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_end_miss:
+  {both(R.compile("b$"), "aba") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_empty_text:
+  {both(R.compile("^$"), "") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_empty_at_end:
+  {both(R.compile("$"), "abc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_text_anchors:
+  {both(R.compile("\\Aab\\z"), "abc") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_start_inside:
+  {both(R.compile("a^b"), "ab") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_loop:
+  {both(R.compile("(a|b)+c"), "ababc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bits_loop_miss:
+  {both(R.compile("(a|b)+c"), "abab") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_pathological:
+  {both(R.compile("(a*)*b"), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_negated:
+  {both(R.compile("[^a-c]"), "abc") == no() : Maybe<&2, Bool> & Bool}
+
+law bits_unicode:
+  {both(R.compile("\\p{L}+"), "12é") == yes() : Maybe<&2, Bool> & Bool}
+
+# Word boundaries and programs over 32 instructions use only the Pike VM.
+law bits_word_boundary:
+  {both(R.compile("\\bcat"), "concat cat") == (None{}, True{}) : Maybe<&2, Bool> & Bool}
+
+law bits_large:
+  {both(R.compile("a{40}"), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == (None{}, True{}) : Maybe<&2, Bool> & Bool}
+
+# Over Bytes, positions are byte offsets into the UTF-8 text, as Go's regexp gives them.
+law bytes_literal:
+  {mb("b", "abc") == Some{[sp(1, 2)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_no_match:
+  {mb("x", "abc") == None{} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_utf8_offsets:
+  {mb("l+", "h\u{c3}\u{a9}llo") == Some{[sp(3, 5)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_unicode_class:
+  {mb("\\p{L}+", "12h\u{c3}\u{a9}llo!") == Some{[sp(2, 8)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_dot_multibyte:
+  {mb("h.l", "h\u{c3}\u{a9}llo") == Some{[sp(0, 4)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_four_byte:
+  {mb("a.b", "a\u{f0}\u{9f}\u{98}\u{80}b") == Some{[sp(0, 6)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# An invalid byte is one U+FFFD, as in RE2.
+law bytes_invalid:
+  {mb(".a", "\u{ff}a") == Some{[sp(0, 2)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_truncated:
+  {mb("\\p{L}", "\u{c3}") == None{} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_overlong:
+  {mb("..", "\u{c0}\u{af}") == Some{[sp(0, 2)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_captures:
+  {mb("(a+)(b+)", "xaabbby") == Some{[sp(1, 6), sp(1, 3), sp(3, 6)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_leftmost_first:
+  {mb("a|ab", "ab") == Some{[sp(0, 1)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_literal_prefix:
+  {mb("abc", "ababcabc") == Some{[sp(2, 5)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_skip_multibyte:
+  {mb("abc", "\u{c3}\u{a9}xabc") == Some{[sp(3, 6)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_empty_start:
+  {mb("b*", "aab") == Some{[sp(0, 0)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_empty_text:
+  {mb("", "") == Some{[sp(0, 0)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_anchor_end:
+  {mb("a$", "aba") == Some{[sp(2, 3)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_word_boundary:
+  {mb("\\bcat\\b", "concat cat") == Some{[sp(7, 10)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law bytes_pathological:
+  {mb("(a*)*b", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == None{} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+# is_match over Bytes: the bit NFA and the Pike VM agree.
+law bytes_bits_hit:
+  {bboth(R.compile("b+"), "abbc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_miss:
+  {bboth(R.compile("x"), "abc") == no() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_start:
+  {bboth(R.compile("^b"), "ab") == no() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_empty_at_end:
+  {bboth(R.compile("$"), "abc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_empty_text:
+  {bboth(R.compile("^$"), "") == yes() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_skip_miss:
+  {bboth(R.compile("xy"), "xxxxx") == no() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_skip_hit:
+  {bboth(R.compile("xy"), "xxxxy") == yes() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_utf8:
+  {bboth(R.compile("\\p{L}"), "12\u{c3}\u{a9}") == yes() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_skip_multibyte:
+  {bboth(R.compile("abc"), "\u{c3}\u{a9}abc") == yes() : Maybe<&2, Bool> & Bool}
+
+law bytes_bits_word_boundary:
+  {bboth(R.compile("\\bcat"), "concat cat") == (None{}, True{}) : Maybe<&2, Bool> & Bool}
 
 # Syntax errors.
 law bad_unclosed:

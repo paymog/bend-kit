@@ -25,12 +25,15 @@ The ReDoS input is **100 000** `a` with no trailing `b`. The `large` input is **
 
 | case | Bend / Python / JS pattern | POSIX ERE (C) | work | checksum |
 |---|---|---|---|---|
-| `is_match` | `hello\w+` | `hello[[:alnum:]_]+` | leftmost match of the hello prefix | u32 hash of group-0 start/end (0 if no match) |
+| `is_match` | `hello\w+` | `hello[[:alnum:]_]+` | is there a match (late in the text) | 1 if a match, else 0 |
+| `is_match_early` | `x` | `x` | is there a match (at position 0) | 1 if a match, else 0 |
+| `is_match_live` | `xy` | `xy` | is there a match (none; each char can start one) | 0 |
 | `find_captures` | `(\w+)@(\w+)\.com` | `([[:alnum:]_]+)@([[:alnum:]_]+)\.com` | leftmost match with two captures | hash of groups 0–2 spans |
+| `find_early` | `(x)x` | `(x)x` | leftmost match with one capture, at position 0 | hash of groups 0–1 spans |
 | `redos` | `(a*)*b` | `(a*)*b` | no match on 100k `a` | 0 |
 | `large` | `(?:x?){1000}y` | `((x?){250}){4}y` | about 2000 instructions; each char walks a closure over most of them | u32 hash of group-0 span |
 
-Hash: for each group, if missing then `h = h * 31`; else `h = h * 31 + start` then `h = h * 31 + end` (u32 wrap). Positions are code-point indexes in Bend and byte indexes in the other languages; the input is ASCII so they agree.
+Hash: for each group, if missing then `h = h * 31`; else `h = h * 31 + start` then `h = h * 31 + end` (u32 wrap). Positions are byte offsets in every language; the input is ASCII. Bend times `Regex.find.bytes` and `Regex.is_match.bytes` on a `Bytes` buffer built before the clock starts. The `is_match` cases use `Regex.is_match.bytes` in Bend, `REG_NOSUB` in C, `search(...) is not None` in Python, and `RegExp.test` in JavaScript.
 
 Compile the pattern **outside** the timed region. Bend uses a native build (`bend bench.bend -o out/bend`); the checker runner is not used for the 1 MiB input.
 
@@ -46,12 +49,15 @@ Versions: Bend 2.0.29, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 172.0 |
-| find_captures | 17.6 | 2.8 | 0.8 | 0.7 | 757.0 |
-| redos | 3.0 | timeout | 858.5 | timeout | 116.0 |
-| large | 2,317.8 | 0.0 | 0.1 | 0.1 | 894.0 |
+| is_match | 0.0 | 0.3 | 0.1 | 0.2 | 1.0 |
+| is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 0.0 |
+| is_match_live | 8.7 | 1.1 | 0.1 | 7.5 | 76.0 |
+| find_captures | 15.2 | 2.9 | 0.8 | 0.7 | 760.0 |
+| find_early | 0.0 | 0.0 | 0.2 | 0.1 | 0.0 |
+| redos | 3.0 | timeout | 858.4 | timeout | 117.0 |
+| large | 2,277.8 | 0.0 | 0.2 | 0.1 | 919.0 |
 
-Checksums: `is_match` 33553812, `find_captures` 3021334545, `redos` 0, `large` 1001. All non-timeout variants agree.
+Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `is_match_live` 0, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
 
 ### Program size
 
@@ -64,8 +70,20 @@ The program and the visited set are binary tries keyed by pc, so a closure step 
 
 The list grows about 4–6× per doubling of k (m²); the trie grows about 2.3× (m log m). On `large`, 0.1.0.0 takes 65 374 ms. The trie costs a little on tiny patterns, where every hot pc is near the list head: `is_match` was about 140 ms with lists.
 
+### History
+
+Bend times in ms, median of three runs of the same bench against each version of `regex.bend`. Rows up to #100 time the `String` API.
+
+| change | is_match | is_match_early | is_match_live | find_captures | find_early |
+|---|---:|---:|---:|---:|---:|
+| before #97 (0.2.0.0) | 174 | 17 | 282 | 750 | 17 |
+| #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 267 | 748 | 7 |
+| #98: skip chars that cannot start a match | 33 | 7 | 266 | 757 | 7 |
+| #100: bit-parallel NFA for `is_match` | 42 | 7 | 85 | 757 | 6 |
+| #144: match over `Bytes`; skip with a byte table | 1 | 0 | 76 | 760 | 0 |
+
 ## Caveats
 
-- Bend strings are `Char` lists; the gap on large inputs is mostly allocation layout, not just the Pike VM.
+- The skip only helps while no match is in progress. Where every char keeps threads live (`is_match_live`, and `find_captures`, where each `x` is a `\w`), each char still runs the bit NFA or the Pike VM, and that per-char cost is the gap to C and V8.
 - POSIX ERE has no `\w`; `[[:alnum:]_]` is the documented equivalent for ASCII word characters.
 - `IO.now` in Bend is whole milliseconds; C and the scripting languages use sub-ms clocks.

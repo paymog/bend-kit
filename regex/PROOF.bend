@@ -128,6 +128,153 @@ def Laws.is_match_hit():
 def Laws.is_match_miss():
   {==}
 
+def Laws.literal_prefix():
+  {==}
+
+def Laws.literal_prefix_end():
+  {==}
+
+def Laws.negated_start():
+  {==}
+
+def Laws.empty_start():
+  {==}
+
+def Laws.bits_hit():
+  {==}
+
+def Laws.bits_miss():
+  {==}
+
+def Laws.bits_start():
+  {==}
+
+def Laws.bits_start_hit():
+  {==}
+
+def Laws.bits_end():
+  {==}
+
+def Laws.bits_end_miss():
+  {==}
+
+def Laws.bits_empty_text():
+  {==}
+
+def Laws.bits_empty_at_end():
+  {==}
+
+def Laws.bits_text_anchors():
+  {==}
+
+def Laws.bits_start_inside():
+  {==}
+
+def Laws.bits_loop():
+  {==}
+
+def Laws.bits_loop_miss():
+  {==}
+
+def Laws.bits_pathological():
+  {==}
+
+def Laws.bits_negated():
+  {==}
+
+def Laws.bits_unicode():
+  {==}
+
+def Laws.bits_word_boundary():
+  {==}
+
+def Laws.bits_large():
+  {==}
+
+def Laws.bytes_literal():
+  {==}
+
+def Laws.bytes_no_match():
+  {==}
+
+def Laws.bytes_utf8_offsets():
+  {==}
+
+def Laws.bytes_unicode_class():
+  {==}
+
+def Laws.bytes_dot_multibyte():
+  {==}
+
+def Laws.bytes_four_byte():
+  {==}
+
+def Laws.bytes_invalid():
+  {==}
+
+def Laws.bytes_truncated():
+  {==}
+
+def Laws.bytes_overlong():
+  {==}
+
+def Laws.bytes_captures():
+  {==}
+
+def Laws.bytes_leftmost_first():
+  {==}
+
+def Laws.bytes_literal_prefix():
+  {==}
+
+def Laws.bytes_skip_multibyte():
+  {==}
+
+def Laws.bytes_empty_start():
+  {==}
+
+def Laws.bytes_empty_text():
+  {==}
+
+def Laws.bytes_anchor_end():
+  {==}
+
+def Laws.bytes_word_boundary():
+  {==}
+
+def Laws.bytes_pathological():
+  {==}
+
+def Laws.bytes_bits_hit():
+  {==}
+
+def Laws.bytes_bits_miss():
+  {==}
+
+def Laws.bytes_bits_start():
+  {==}
+
+def Laws.bytes_bits_empty_at_end():
+  {==}
+
+def Laws.bytes_bits_empty_text():
+  {==}
+
+def Laws.bytes_bits_skip_miss():
+  {==}
+
+def Laws.bytes_bits_skip_hit():
+  {==}
+
+def Laws.bytes_bits_utf8():
+  {==}
+
+def Laws.bytes_bits_skip_multibyte():
+  {==}
+
+def Laws.bytes_bits_word_boundary():
+  {==}
+
 def Laws.bad_unclosed():
   {==}
 
