@@ -488,16 +488,21 @@ static bool wire_tls_load(void) {
   wire_tls.verify_text        = dlsym(h, "X509_verify_cert_error_string");
   wire_tls.set_alpn_protos    = dlsym(h, "SSL_set_alpn_protos");
   wire_tls.get0_alpn_selected = dlsym(h, "SSL_get0_alpn_selected");
+#if defined(CID(tls.connect.cert))
   wire_tls.use_cert_chain_file = dlsym(h, "SSL_use_certificate_chain_file");
   wire_tls.use_private_key_file = dlsym(h, "SSL_use_PrivateKey_file");
   wire_tls.check_private_key     = dlsym(h, "SSL_check_private_key");
+#endif
   if (!method || !ctx_new || !paths || !verify || !ctx_ctrl
     || !wire_tls.ssl_new || !wire_tls.set_fd || !wire_tls.ctrl
     || !wire_tls.set1_host || !wire_tls.connect || !wire_tls.read
     || !wire_tls.write || !wire_tls.get_error || !wire_tls.shutdown
     || !wire_tls.ssl_free || !wire_tls.verify_result || !wire_tls.verify_text
     || !wire_tls.set_alpn_protos || !wire_tls.get0_alpn_selected
-    || !wire_tls.use_cert_chain_file || !wire_tls.use_private_key_file || !wire_tls.check_private_key) {
+#if defined(CID(tls.connect.cert))
+    || !wire_tls.use_cert_chain_file || !wire_tls.use_private_key_file || !wire_tls.check_private_key
+#endif
+  ) {
     return false;
   }
   void* ctx = ctx_new(method());
