@@ -1,10 +1,10 @@
 # HTTP/1.1 client and server for http and https, with DNS and TLS. Source: https://github.com/paymog/bend-kit/tree/main/http
 import Base
-# By hash: bend-kit-wire@0.4.0.3, -url@0.4.0.0, -encoding@0.3.0.0, -json@0.3.0.0, -bytes@0.3.0.0, -dns@0.3.2.1, -zlib@0.1.3.0.
+# By hash: bend-kit-wire@0.4.0.3, -url@0.4.0.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -dns@0.3.2.1, -zlib@0.1.3.0.
 import 0x096635686408886b7d907f16c4550317/wire.bend as Wire
 import 0xd248560355ba8929ae030bc9c72f40be/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
-import 0xaaa10a97bf5ac6990143da2c863f8a3f/json.bend as Json
+import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import 0xc10a5eaaa9c896e1570e279945f4241e/dns.bend as Dns
 import 0x9d101c075b333e2b07242347f7c35b1c/zlib.bend as Zlib
@@ -1586,8 +1586,9 @@ def res_body(m: Maybe<&1, Res>) -> Bytes.Bytes:
 def text(res: Res) -> String:
   Enc.utf8.decode(res_body.res(res))
 
-def json(res: Res) -> Maybe<&2, Json.Val>:
-  Json.parse(text(res))
+# UTF-8 is checked, not repaired: bad UTF-8 in a string gives None (RFC 8259 §8.1).
+def json(res: Res) -> Maybe<&1, Json.Val>:
+  Json.parse.bytes(res_body.res(res))
 
 def got_body.req(req: Req) -> Bytes.Bytes:
   Req{method, path, headers, body} = req
@@ -1933,61 +1934,84 @@ def exchange(+tls: Bool, +ms: U32, +close: Bool, +head: Bool, s: Socket, wire: B
     o : Out <- exchange.go(tls, ms, close, head, s, wire)
     return exchange.tup(o)
 
-# Connection pool: idle sockets by scheme, host, and port. fetch uses a fresh pool per call.
+# Connection pool: idle sockets by scheme, host, and port, newest first, at most cap per origin.
+# fetch uses a fresh pool per call.
 type Conn is Type:
   Conn{tls: Bool, s: Socket}
 
 type Pool is Type:
-  Pool{idle: Map<&1, Conn>}
+  Pool{cap: U32, idle: Map<&1, List<&1, Conn>>}
 
+def pool.new.with(+cap: U32) -> Pool:
+  Pool{cap, Map.new(&1, List<&1, Conn>)}
+
+# Up to 8 idle sockets per origin.
 def pool.new() -> Pool:
-  Pool{Map.new(&1, Conn)}
+  pool.new.with(8)
 
 def pool.key(+scheme: String, +host: String, +port: U32) -> String:
   scheme ++ "://" ++ host ++ ":" ++ U32.show(port)
 
-def pool.take.of(r: Map<&1, Conn> & Maybe<&1, Conn>) -> Pool & Maybe<&1, Conn>:
-  (m, c) = r
-  (Pool{m}, c)
+def pool.take.of(+cap: U32, +key: String, r: Map<&1, List<&1, Conn>> & Maybe<&1, List<&1, Conn>>) -> Pool & Maybe<&1, Conn>:
+  (m, got) = r
+  match got:
+    case None{}:
+      (Pool{cap, m}, None{})
+    case Some{xs}:
+      match xs:
+        case Nil{}:
+          (Pool{cap, m}, None{})
+        case Con{c, t}:
+          (Pool{cap, Map.set(&1, List<&1, Conn>, m, key, t)}, Some{c})
 
+# The socket given back last.
 def pool.take(p: Pool, +key: String) -> Pool & Maybe<&1, Conn>:
-  Pool{idle} = p
-  pool.take.of(Map.pop(&1, Conn, idle, key))
+  Pool{+cap, idle} = p
+  pool.take.of(cap, key, Map.pop(&1, List<&1, Conn>, idle, key))
 
 def conn.close(c: Conn) -> IO(Unit):
   Conn{tls, s} = c
   io.close(tls, s)
 
-def conn.drop(m: Maybe<&1, Conn>) -> IO(Unit):
-  match m:
-    case None{}:
-      IO.pure(Unit, Unit{})
-    case Some{c}:
-      conn.close(c)
+# The first n sockets; the rest are closed.
+def conns.cut(xs: List<&1, Conn>, n: Nat) -> IO(List<&1, Conn>):
+  match xs:
+    case Nil{}:
+      IO.pure(List<&1, Conn>, Nil{})
+    case Con{c, t}:
+      match n:
+        case 0n:
+          do IO<List<&1, Conn>>:
+            conn.close(c)
+            conns.cut(t, 0n)
+        case 1n+k:
+          do IO<List<&1, Conn>>:
+            r : List<&1, Conn> <- conns.cut(t, k)
+            return c <> r
 
-# ponytail: one idle socket per origin; a second one replaces the first.
-def pool.give.of(+key: String, c: Conn, r: Map<&1, Conn> & Maybe<&1, Conn>) -> IO(Pool):
+def pool.give.of(+cap: U32, +key: String, c: Conn, r: Map<&1, List<&1, Conn>> & Maybe<&1, List<&1, Conn>>) -> IO(Pool):
   (m, old) = r
   do IO<Pool>:
-    conn.drop(old)
-    return Pool{Map.set(&1, Conn, m, key, c)}
+    xs : List<&1, Conn> <- conns.cut(c <> Maybe.default(&1, List<&1, Conn>, old, Nil{}), U32.to_nat(cap))
+    return Pool{cap, Map.set(&1, List<&1, Conn>, m, key, xs)}
 
+# Past cap, the oldest idle socket of the origin is closed.
 def pool.give(p: Pool, +key: String, c: Conn) -> IO(Pool):
-  Pool{idle} = p
-  pool.give.of(key, c, Map.pop(&1, Conn, idle, key))
+  Pool{+cap, idle} = p
+  pool.give.of(cap, key, c, Map.pop(&1, List<&1, Conn>, idle, key))
 
-def pool.close.go(xs: List<&1, Conn>) -> IO(Unit):
+def pool.close.go(xs: List<&1, List<&1, Conn>>) -> IO(Unit):
   match xs:
     case Nil{}:
       IO.pure(Unit, Unit{})
-    case Con{c, t}:
+    case Con{cs, t}:
       do IO<Unit>:
-        conn.close(c)
+        none : List<&1, Conn> <- conns.cut(cs, 0n)
         pool.close.go(t)
 
 def pool.close(p: Pool) -> IO(Unit):
-  Pool{idle} = p
-  pool.close.go(Map.values(&1, Conn, idle))
+  Pool{cap, idle} = p
+  pool.close.go(Map.values(&1, List<&1, Conn>, idle))
 
 # RFC 9110 §9.2.2
 def pool.idempotent(+method: String) -> Bool:
