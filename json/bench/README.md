@@ -26,10 +26,10 @@ M4 Pro, macOS 26.6.2, 2026-09-27. Median of five runs. Times are in ms; `Nx` is 
 
 | op | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|
-| parse.bytes | 2.3 (1.0x) | 2.8 (1.2x) | 4.8 (2.1x) | 4.0 (1.8x) |
-| encode.bytes | 0.9 (1.0x) | 1.4 (1.6x) | 4.0 (4.5x) | 4.0 (4.5x) |
+| parse.bytes | 2.3 (1.0x) | 2.8 (1.2x) | 4.7 (2.0x) | 3.0 (1.3x) |
+| encode.bytes | 0.9 (1.0x) | 1.4 (1.5x) | 4.1 (4.5x) | 4.0 (4.3x) |
 
-Before strings, numbers, and keys were `Bytes` (json 0.4.0.0, same machine and Bend version), Bend took 12 ms to parse and 9 ms to encode.
+Before strings, numbers, and keys were `Bytes` (json 0.4.0.0, same machine and Bend version), Bend took 12 ms to parse and 9 ms to encode. The parser takes a run of whitespace, plain string bytes, or digits in one inner loop. On a document ten times as big (`python3 run.py 1 40000`), that cut `parse.bytes` from 49 ms to 32 ms.
 
 Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
