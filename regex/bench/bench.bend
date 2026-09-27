@@ -74,6 +74,11 @@ def op.redos() -> IO(Unit):
   do IO<Unit>:
     with_re(R.compile("(a*)*b"), String.repeat("a", 100000n), "redos")
 
+# About 2000 instructions: each char walks a closure over most of the program.
+def op.large() -> IO(Unit):
+  do IO<Unit>:
+    with_re(R.compile("(?:x?){1000}y"), String.repeat("x", 1000n) ++ "y", "large")
+
 def run_all(+s: String) -> IO(Unit):
   do IO<Unit>:
     op.is_match(s)
@@ -82,6 +87,7 @@ def run_all(+s: String) -> IO(Unit):
     op.find_captures(s)
     op.find_early(s)
     op.redos()
+    op.large()
 
 def run_text(+s: String, +only: String) -> IO(Unit):
   match only:
@@ -99,6 +105,8 @@ def run_text(+s: String, +only: String) -> IO(Unit):
       op.find_early(s)
     case "redos":
       op.redos()
+    case "large":
+      op.large()
     case _:
       IO.print("error")
 

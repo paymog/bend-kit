@@ -1,8 +1,9 @@
-// Run with node or bun, from this folder, after run.py has written out/payload.gz.
+// Run with node or bun, from this folder, after run.py has written out/payload.gz and out/plain.bin.
 import { readFileSync } from "node:fs";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 const gz = readFileSync("out/payload.gz");
+const plain = readFileSync("out/plain.bin");
 
 function chk(b: Buffer): number {
   let h = 0;
@@ -12,5 +13,11 @@ function chk(b: Buffer): number {
 
 let t0 = performance.now();
 const out = gunzipSync(gz);
-const ms = performance.now() - t0;
+let ms = performance.now() - t0;
 console.log(`inflate\t${ms.toFixed(3)}\t${chk(out)}`);
+
+t0 = performance.now();
+const packed = gzipSync(plain, { level: 6 });
+ms = performance.now() - t0;
+console.log(`deflate\t${ms.toFixed(3)}\t${chk(gunzipSync(packed))}`);
+console.log(`size\t0\t${packed.length}`);

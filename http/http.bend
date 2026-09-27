@@ -1308,10 +1308,16 @@ def hs.more(+head: Bool, +k: U32, buf: Bytes.Bytes, piece: Bytes.Bytes) -> Hs:
   Bytes.Bytes{+ol, ob} = buf
   hs.scan(10n, head, HsSeek{Bytes.append(Bytes.Bytes{ol, ob}, piece), Bool.pick(U32, U32.is_lt(ol, 3), 0, (ol - 3 : U32)), k})
 
+# Untrusted servers must not grow the buffer without bound.
+def fetch.max() -> Nat:
+  U32.to_nat(16777216)
+
 # A response read in pieces. Head: the head is not whole yet. Body: it is, and parts is the body so far.
+# Len: a Content-Length body in one buffer of that size, with left bytes still to come.
 type Rv is Type:
   RvHead{buf: Bytes.Bytes, k: U32}
   RvBody{res: Res, rb: Rb, parts: List<&1, Bytes.Bytes>}
+  RvLen{res: Res, left: U32, body: Bytes.Bytes}
 
 # More: read on. Done: the response, and the bytes after it when the body is self-delimited.
 type Rt is Type:
@@ -1322,9 +1328,35 @@ type Rt is Type:
 def rv.start() -> Rv:
   RvHead{Bytes.new(0), 0}
 
-def rv.done(res: Res, parts: List<&1, Bytes.Bytes>, rest: Maybe<&1, Bytes.Bytes>) -> Rt:
+def rv.whole(res: Res, b: Bytes.Bytes, rest: Maybe<&1, Bytes.Bytes>) -> Rt:
   Res{status, headers, body} = res
-  RtDone{Res{status, headers, rb.body(parts)}, rest}
+  RtDone{Res{status, headers, b}, rest}
+
+def rv.done(res: Res, parts: List<&1, Bytes.Bytes>, rest: Maybe<&1, Bytes.Bytes>) -> Rt:
+  rv.whole(res, rb.body(parts), rest)
+
+def rl.put.of(+total: U32, +len: U32, r: Array<U32> & Array<U32>) -> Bytes.Bytes & Bytes.Bytes:
+  (src, dst) = r
+  (Bytes.Bytes{total, dst}, Bytes.Bytes{len, src})
+
+# The first m bytes of piece, written into body after the total - left bytes already there.
+def rl.put(+m: U32, +left: U32, body: Bytes.Bytes, piece: Bytes.Bytes) -> Bytes.Bytes & Bytes.Bytes:
+  Bytes.Bytes{+total, dst} = body
+  Bytes.Bytes{+len, src} = piece
+  rl.put.of(total, len, Bytes.copy(m, src, dst, 0, (total - left : U32)))
+
+def rl.fed(short: Bool, res: Res, +left: U32, +len: U32, r: Bytes.Bytes & Bytes.Bytes) -> Rt:
+  match short:
+    case True{}:
+      (body, piece) = r
+      RtMore{RvLen{res, (left - len : U32), body}}
+    case False{}:
+      (body, piece) = r
+      rv.whole(res, body, Some{bytes.snd(Bytes.slice(piece, left, (len - left : U32)))})
+
+def rl.feed(res: Res, +left: U32, body: Bytes.Bytes, piece: Bytes.Bytes) -> Rt:
+  Bytes.Bytes{+len, buf} = piece
+  rl.fed(U32.is_lt(len, left), res, left, len, rl.put(U32.min(len, left), left, body, Bytes.Bytes{len, buf}))
 
 def rv.fed(res: Res, bf: Bf) -> Rt:
   Bf{rb, parts, rest} = bf
@@ -1340,6 +1372,27 @@ def rv.fed(res: Res, bf: Bf) -> Rt:
     case RbClose{}:
       RtMore{RvBody{res, RbClose{}, parts}}
 
+# Some{left}: a Content-Length body small enough to allocate up front. Larger ones fail at the fetch cap.
+def rb.buf(rb: Rb) -> Maybe<&2, U32>:
+  match rb:
+    case RbLen{+left}:
+      Bool.pick(Maybe<&2, U32>, Nat.is_lt(fetch.max(), U32.to_nat(left)), None{}, Some{left})
+    case RbChunk{st}:
+      None{}
+    case RbClose{}:
+      None{}
+    case RbDone{}:
+      None{}
+    case RbBad{}:
+      None{}
+
+def rv.body(m: Maybe<&2, U32>, res: Res, rb: Rb, rest: Bytes.Bytes) -> Rt:
+  match m:
+    case None{}:
+      rv.fed(res, rb.feed(rb, Nil{}, rest))
+    case Some{+left}:
+      rl.feed(res, left, Bytes.new(left), rest)
+
 def rv.head(hs: Hs) -> Rt:
   match hs:
     case HsWait{buf, k}:
@@ -1348,8 +1401,8 @@ def rv.head(hs: Hs) -> Rt:
       RtBad{}
     case HsSeek{buf, from, k}:
       RtBad{}
-    case HsRes{res, rb, rest}:
-      rv.fed(res, rb.feed(rb, Nil{}, rest))
+    case HsRes{res, +rb, rest}:
+      rv.body(rb.buf(rb), res, rb, rest)
 
 def rv.eof(res: Res, parts: List<&1, Bytes.Bytes>, ok: Bool) -> Rt:
   match ok:
@@ -1367,12 +1420,16 @@ def rv.step(closed: Bool, +head: Bool, rv: Rv, piece: Bytes.Bytes) -> Rt:
           RtBad{}
         case RvBody{res, rb, parts}:
           rv.eof(res, parts, rb.eof(rb))
+        case RvLen{res, left, body}:
+          RtBad{}
     case False{}:
       match rv:
         case RvHead{buf, +k}:
           rv.head(hs.more(head, k, buf, piece))
         case RvBody{res, rb, parts}:
           rv.fed(res, rb.feed(rb, parts, piece))
+        case RvLen{res, +left, body}:
+          rl.feed(res, left, body, piece)
 
 def rv.end(closed: Bool, +head: Bool, t: Rt) -> Rt:
   match closed:
@@ -1754,10 +1811,6 @@ def fetch.close(tls: Bool, s: Socket, r: Result<&1, &1, Err, Res>) -> IO(Result<
   do IO<Result<&1, &1, Err, Res>>:
     io.close(tls, s)
     return r
-
-# Untrusted servers must not grow the buffer without bound.
-def fetch.max() -> Nat:
-  U32.to_nat(16777216)
 
 # none: no response byte arrived, so an idempotent request may be retried (RFC 9112 §9.3.1).
 # sock: the socket, when it can take another request.

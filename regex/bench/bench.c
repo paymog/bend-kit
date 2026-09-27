@@ -103,6 +103,16 @@ int main(int argc, char **argv) {
     free(as);
   }
 
+  if (want(only, "large")) {
+    char large[1002];
+    memset(large, 'x', 1000);
+    large[1000] = 'y';
+    large[1001] = 0;
+    // RE_DUP_MAX is 255, so {1000} is written as {250}{4}.
+    if (run_one("((x?){250}){4}y", large, 1, &ms, &chk) != 0) return 1;
+    printf("large\t%.3f\t%u\n", ms, chk);
+  }
+
   free(s);
   return 0;
 }

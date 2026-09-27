@@ -579,6 +579,72 @@ def emit(n: Node, +pc: U32, rest: List<&2, Inst>) -> List<&2, Inst>:
     case NGroup{+i, a}:
       ISave{(2 * i : U32)} <> emit(a, (pc + 1 : U32), ISave{(2 * i + 1 : U32)} <> rest)
 
+# A binary trie keyed by n >= 1: the path is the bits of n below its top bit, low bit
+# first, so key n costs log2(n) steps and small keys stay near the root.
+type Trie<-V: Data> is Data:
+  TTip{}
+  TNode{val: Maybe<&2, V>, lo: Trie<V>, hi: Trie<V>}
+
+# here: n is 1. left: n is even.
+def trie.get(-V: Data, t: Trie<V>, here: Bool, left: Bool, +n: U32) -> Maybe<&2, V>:
+  match t:
+    case TTip{}:
+      None{}
+    case TNode{v, lo, hi}:
+      match here:
+        case True{}:
+          v
+        case False{}:
+          match left:
+            case True{}:
+              trie.get(V, lo, U32.is_eq(U32.shr(n), 1), U32.is_even(U32.shr(n)), U32.shr(n))
+            case False{}:
+              trie.get(V, hi, U32.is_eq(U32.shr(n), 1), U32.is_even(U32.shr(n)), U32.shr(n))
+
+# fuel: a U32 key has at most 32 bits.
+def trie.put(-V: Data, fuel: Nat, t: Trie<V>, here: Bool, left: Bool, +n: U32, v: V) -> Trie<V>:
+  match fuel:
+    case 0n:
+      t
+    case 1n+f:
+      match t:
+        case TNode{x, lo, hi}:
+          match here:
+            case True{}:
+              TNode{Some{v}, lo, hi}
+            case False{}:
+              match left:
+                case True{}:
+                  TNode{x, trie.put(V, f, lo, U32.is_eq(U32.shr(n), 1), U32.is_even(U32.shr(n)), U32.shr(n), v), hi}
+                case False{}:
+                  TNode{x, lo, trie.put(V, f, hi, U32.is_eq(U32.shr(n), 1), U32.is_even(U32.shr(n)), U32.shr(n), v)}
+        case TTip{}:
+          match here:
+            case True{}:
+              TNode{Some{v}, TTip{}, TTip{}}
+            case False{}:
+              match left:
+                case True{}:
+                  TNode{None{}, trie.put(V, f, TTip{}, U32.is_eq(U32.shr(n), 1), U32.is_even(U32.shr(n)), U32.shr(n), v), TTip{}}
+                case False{}:
+                  TNode{None{}, TTip{}, trie.put(V, f, TTip{}, U32.is_eq(U32.shr(n), 1), U32.is_even(U32.shr(n)), U32.shr(n), v)}
+
+# The value at key k, stored as n = k + 1.
+def trie.at(-V: Data, t: Trie<V>, +k: U32) -> Maybe<&2, V>:
+  +n = (k + 1 : U32)
+  trie.get(V, t, U32.is_eq(n, 1), U32.is_even(n), n)
+
+def trie.set(-V: Data, t: Trie<V>, +k: U32, v: V) -> Trie<V>:
+  +n = (k + 1 : U32)
+  trie.put(V, 32n, t, U32.is_eq(n, 1), U32.is_even(n), n, v)
+
+def trie.from(-V: Data, xs: List<&2, V>, +k: U32, t: Trie<V>) -> Trie<V>:
+  match xs:
+    case Nil{}:
+      t
+    case Con{h, r}:
+      trie.from(V, r, (k + 1 : U32), trie.set(V, t, k, h))
+
 # The walk from pc 0 over the instructions that consume no char: the sets it reaches, or
 # FsAny when it reaches an assertion or a match, so that any char may start a match.
 type Fs is Data:
@@ -734,16 +800,16 @@ def bits.if(ok: Bool, +fuel: Nat, +prog: List<&2, Inst>) -> Maybe<&2, Bits>:
 def bits(+fuel: Nat, +prog: List<&2, Inst>) -> Maybe<&2, Bits>:
   bits.if(Nat.is_le(List.length(&2, Inst, prog), 32n) && bits.plain(prog), fuel, prog)
 
-# prog: the program; fuel: enough steps for one closure; slots: two per group, group 0 included;
+# prog: the instructions by pc; fuel: enough steps for one closure; slots: two per group, group 0 included;
 # start: the sets one of which the first char of a match is in, or None when a match may start anywhere;
 # bits: the bit-parallel form, for programs of at most 32 instructions without word boundaries.
 type Regex is Data:
-  Regex{prog: List<&2, Inst>, fuel: Nat, slots: Nat, start: Maybe<&2, List<&2, Inst>>, bits: Maybe<&2, Bits>}
+  Regex{prog: Trie<Inst>, fuel: Nat, slots: Nat, start: Maybe<&2, List<&2, Inst>>, bits: Maybe<&2, Bits>}
 
 def build(+node: Node, +n: U32) -> Regex:
-  +prog = {ISave{0} <> emit(node, 1, [ISave{1}, IMatch{}]) : List<&2, Inst>}
-  +fuel = Nat.add(Nat.mul(3n, List.length(&2, Inst, prog)), 2n)
-  Regex{prog, fuel, U32.to_nat((2 * n : U32)), first(fuel, prog, Fs{[0], Nil{}, Nil{}}), bits(fuel, prog)}
+  +insts = {ISave{0} <> emit(node, 1, [ISave{1}, IMatch{}]) : List<&2, Inst>}
+  +fuel = Nat.add(Nat.mul(3n, List.length(&2, Inst, insts)), 2n)
+  Regex{trie.from(Inst, insts, 0, TTip{}), fuel, U32.to_nat((2 * n : U32)), first(fuel, insts, Fs{[0], Nil{}, Nil{}}), bits(fuel, insts)}
 
 def compile.fin(st: Ps) -> Maybe<&2, Regex>:
   match st:
@@ -809,16 +875,16 @@ type Th is Data:
 # The epsilon closure as a depth-first walk: stack is the work left, seen the pcs
 # visited at this position, out the threads that wait on a char or match (reversed).
 type Cl is Data:
-  Cl{stack: List<&2, Th>, seen: List<&2, U32>, out: List<&2, Th>}
+  Cl{stack: List<&2, Th>, seen: Trie<Unit>, out: List<&2, Th>}
 
-def close.assert(ok: Bool, +pc: U32, caps: List<&2, Maybe<&2, U32>>, stack: List<&2, Th>, seen: List<&2, U32>, out: List<&2, Th>) -> Cl:
+def close.assert(ok: Bool, +pc: U32, caps: List<&2, Maybe<&2, U32>>, stack: List<&2, Th>, seen: Trie<Unit>, out: List<&2, Th>) -> Cl:
   match ok:
     case True{}:
       Cl{Th{(pc + 1 : U32), caps} <> stack, seen, out}
     case False{}:
       Cl{stack, seen, out}
 
-def close.inst(i: Maybe<&2, Inst>, +pc: U32, +caps: List<&2, Maybe<&2, U32>>, stack: List<&2, Th>, seen: List<&2, U32>, out: List<&2, Th>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Cl:
+def close.inst(i: Maybe<&2, Inst>, +pc: U32, +caps: List<&2, Maybe<&2, U32>>, stack: List<&2, Th>, seen: Trie<Unit>, out: List<&2, Th>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Cl:
   match i:
     case None{}:
       Cl{stack, seen, out}
@@ -835,21 +901,21 @@ def close.inst(i: Maybe<&2, Inst>, +pc: U32, +caps: List<&2, Maybe<&2, U32>>, st
     case Some{IMatch{}}:
       Cl{stack, seen, Th{pc, caps} <> out}
 
-# ponytail: list lookup and list membership make each step O(m) per thread, so a
-# match costs O(n * m^2) for n chars and m instructions; use arrays if m grows large.
-def close.seen(hit: Bool, +prog: List<&2, Inst>, +pc: U32, caps: List<&2, Maybe<&2, U32>>, stack: List<&2, Th>, seen: List<&2, U32>, out: List<&2, Th>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Cl:
+# ponytail: trie lookup and membership cost O(log m) per thread step, so a char costs
+# O(m log m) for m instructions; a sparse set over an Array would make a step O(1).
+def close.seen(hit: Bool, +prog: Trie<Inst>, +pc: U32, caps: List<&2, Maybe<&2, U32>>, stack: List<&2, Th>, seen: Trie<Unit>, out: List<&2, Th>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Cl:
   match hit:
     case True{}:
       Cl{stack, seen, out}
     case False{}:
-      close.inst(List.get(&2, Inst, prog, U32.to_nat(pc)), pc, caps, stack, pc <> seen, out, pos, prev, next)
+      close.inst(trie.at(Inst, prog, pc), pc, caps, stack, trie.set(Unit, seen, pc, Unit{}), out, pos, prev, next)
 
-def close.step(th: Th, stack: List<&2, Th>, +seen: List<&2, U32>, out: List<&2, Th>, +prog: List<&2, Inst>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Cl:
+def close.step(th: Th, stack: List<&2, Th>, +seen: Trie<Unit>, out: List<&2, Th>, +prog: Trie<Inst>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Cl:
   Th{+pc, caps} = th
-  close.seen(List.contains(~U32, ~U32.is_eq, seen, pc), prog, pc, caps, stack, seen, out, pos, prev, next)
+  close.seen(Maybe.is_some(&2, Unit, trie.at(Unit, seen, pc)), prog, pc, caps, stack, seen, out, pos, prev, next)
 
 # fuel: each pc expands once and pushes at most two threads.
-def close(fuel: Nat, +prog: List<&2, Inst>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>, st: Cl) -> List<&2, Th>:
+def close(fuel: Nat, +prog: Trie<Inst>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>, st: Cl) -> List<&2, Th>:
   match fuel:
     case 0n:
       Cl{stack, seen, out} = st
@@ -897,19 +963,19 @@ def scan.inst(i: Maybe<&2, Inst>, c: Maybe<&2, Char>, +any: Bool, +pc: U32, caps
     case _:
       Sc{items, best, False{}}
 
-def scan.go(stop: Bool, th: Th, +prog: List<&2, Inst>, c: Maybe<&2, Char>, +any: Bool, items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Sc:
+def scan.go(stop: Bool, th: Th, +prog: Trie<Inst>, c: Maybe<&2, Char>, +any: Bool, items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Sc:
   match stop:
     case True{}:
       Sc{items, best, True{}}
     case False{}:
       Th{+pc, caps} = th
-      scan.inst(List.get(&2, Inst, prog, U32.to_nat(pc)), c, any, pc, caps, items, best)
+      scan.inst(trie.at(Inst, prog, pc), c, any, pc, caps, items, best)
 
-def scan.step(st: Sc, th: Th, +prog: List<&2, Inst>, c: Maybe<&2, Char>, +any: Bool) -> Sc:
+def scan.step(st: Sc, th: Th, +prog: Trie<Inst>, c: Maybe<&2, Char>, +any: Bool) -> Sc:
   Sc{items, best, stop} = st
   scan.go(stop, th, prog, c, any, items, best)
 
-def scan(xs: List<&2, Th>, +prog: List<&2, Inst>, +c: Maybe<&2, Char>, +any: Bool, st: Sc) -> Sc:
+def scan(xs: List<&2, Th>, +prog: Trie<Inst>, +c: Maybe<&2, Char>, +any: Bool, st: Sc) -> Sc:
   match xs:
     case Nil{}:
       st
@@ -947,18 +1013,18 @@ def seed.skip(items: List<&2, Th>, best: Maybe<&2, List<&2, Maybe<&2, U32>>>, st
     case _ _ _ _:
       False{}
 
-def run.seed(skip: Bool, items: List<&2, Th>, +best: Maybe<&2, List<&2, Maybe<&2, U32>>>, +prog: List<&2, Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Vm:
+def run.seed(skip: Bool, items: List<&2, Th>, +best: Maybe<&2, List<&2, Maybe<&2, U32>>>, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Vm:
   match skip:
     case True{}:
       Vm{Nil{}, None{}}
     case False{}:
-      Vm{close(fuel, prog, pos, prev, next, Cl{seed(best, List.reverse(&2, Th, items), init), Nil{}, Nil{}}), best}
+      Vm{close(fuel, prog, pos, prev, next, Cl{seed(best, List.reverse(&2, Th, items), init), TTip{}, Nil{}}), best}
 
-def run.close(sc: Sc, +prog: List<&2, Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Vm:
+def run.close(sc: Sc, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +pos: U32, +prev: Maybe<&2, Char>, +next: Maybe<&2, Char>) -> Vm:
   Sc{+items, +best, stop} = sc
   run.seed(seed.skip(items, best, start, next), items, best, prog, fuel, init, pos, prev, next)
 
-def run.step(st: Vm, +prog: List<&2, Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +pos: U32, +c: Char, +next: Maybe<&2, Char>) -> Vm:
+def run.step(st: Vm, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +pos: U32, +c: Char, +next: Maybe<&2, Char>) -> Vm:
   Vm{ths, best} = st
   run.close(scan(ths, prog, Some{c}, any, Sc{Nil{}, best, False{}}), prog, fuel, init, start, pos, Some{c}, next)
 
@@ -967,7 +1033,7 @@ def run.end(sc: Sc) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
   best
 
 # pos: the position of s's head. Once a match exists and no thread is live, the rest of s cannot change it.
-def run(s: String, +prog: List<&2, Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +pos: U32, st: Vm) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
+def run(s: String, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +pos: U32, st: Vm) -> Maybe<&2, List<&2, Maybe<&2, U32>>>:
   match s:
     case SNil{}:
       Vm{ths, best} = st

@@ -74,3 +74,9 @@ if want("find_early"):
 if want("redos"):
     t0 = time.perf_counter()
     lap("redos", t0, chk_groups(re_redos.search("a" * REDOS_N), 1))
+
+if want("large"):
+    s_large = "x" * 1000 + "y"
+    re_large = re.compile(r"(?:x?){1000}y")
+    t0 = time.perf_counter()
+    lap("large", t0, chk_groups(re_large.search(s_large), 1))

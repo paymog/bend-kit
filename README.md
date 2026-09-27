@@ -23,7 +23,7 @@ A name and its hash import the same package. Each version is a distinct type: `h
 | [`bytes`](bytes) | `0x49814d83de8f70993a43e1002be29ecd/bytes.bend` | Byte buffers packed four bytes to a `U32`, with bounds-checked access, endian integers, search, hex, and base64. |
 | [`encoding`](encoding) | `0xaec630f7a2f6b6ef96750f95d6e4195b/encoding.bend` | UTF-8 and hex encoding for byte strings. |
 | [`json`](json) | `0xaaa10a97bf5ac6990143da2c863f8a3f/json.bend` | JSON values, parsed and encoded as RFC 8259. |
-| [`zlib`](zlib) | `0xe01785b64266bf3ba0068183b9f9f5e3/zlib.bend` | DEFLATE, gzip, and zlib decoding (RFC 1951, 1952, 1950). |
+| [`zlib`](zlib) | `0xe01785b64266bf3ba0068183b9f9f5e3/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950). |
 | [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, and percent-encoding (RFC 3986). |
 | [`wire`](wire) | `0x8a1034c8824c5fdecbaa2e3d762aadad/wire.bend` | Byte-exact TCP, UDP, and TLS sockets. |
 | [`dns`](dns) | `0xa12defba527c5f86a84d6fb74968f8ef/dns.bend` | DNS A-record lookup over UDP. |

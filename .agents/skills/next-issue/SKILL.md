@@ -8,7 +8,7 @@ description: Lists the top 10 open GitHub issues in bend-kit that are ready to p
 ## Important
 
 - Run the script. Do not rebuild the query by hand. It is one GraphQL call.
-- Priority is the `tier-N` label: `tier-1` first, then `tier-2`, then `tier-3`, then no tier. Ties go to the lower issue number.
+- Priority is the `pri-*` label: `pri-high` first, then `pri-med`, then `pri-low`, then none. Ties go to the lower issue number. Give every new issue one of these labels.
 - Do not start work until the user picks an issue. Then the first action is to add the `in-progress` label.
 
 ## Instructions
@@ -17,14 +17,14 @@ description: Lists the top 10 open GitHub issues in bend-kit that are ready to p
 
 Run `.agents/skills/next-issue/scripts/ready.sh` from the repo root. Pass a number to change the count (default 10).
 
-Each output line has tab-separated fields: `#number`, `tier`, `assignees`, `title`, `url`. The script drops an issue when:
+Each output line has tab-separated fields: `#number`, `priority` (`high`, `med`, `low`, or `-`), `assignees`, `title`, `url`. The script drops an issue when:
 - it has the `in-progress` label,
 - it has an open sub-issue (it is not a leaf), or
 - it, or any ancestor up to 4 levels, is blocked by an open issue.
 
 ### Step 2: Present the list
 
-Show a numbered table with the columns number, tier, title, and assignee. Mark assigned issues, because someone may already be working on them. Then ask the user which issue to work on.
+Show a numbered table with the columns number, priority, title, and assignee. Mark assigned issues, because someone may already be working on them. Then ask the user which issue to work on.
 
 ### Step 3: Set up the worktree
 
@@ -52,7 +52,7 @@ Link the issue with a GitHub keyword in the PR body:
 ### Example 1
 User says: "what can I pick up next?"
 Actions:
-1. Run `ready.sh`. The output shows `#20 tier-1`, `#21 tier-1`, `#24 tier-1`, `#31 tier-2`, and more.
+1. Run `ready.sh`. The output shows `#20 high`, `#21 high`, `#24 high`, `#31 med`, and more.
 2. Show the table and ask which issue to work on.
 3. The user says "21". Create the worktree `issue-21-integer-types`, read #21, and implement it.
 
