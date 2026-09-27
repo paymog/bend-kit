@@ -37,9 +37,10 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`parse`](parse) | `0x154e0a68ef9a0223bacaacefc589cad8/parse.bend` | Parser combinators over text, with positioned errors: sequence, choice, `many`, `sep_by`, `opt`, and `rec` for nested grammars. `parse/json.bend` is a JSON grammar on it. |
 | [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | Fixed-width `U8`, `U16`, `U64`, `I32`, and `I64`, with wrapping, checked, and saturating arithmetic, text in radix 2 to 36, and conversions to `U32` and `Nat`. `U8`, `U16`, and `I32` run at native speed on Base's `U32`. `U64` and `I64` use `Word(64n)` and are slow. |
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `format`, padding, and the shortest `F32` text that reads back to the same value. |
+| [`hash`](hash) | `bend-kit-hash@0.1.0.0/hash.bend` | Non-cryptographic hashes over `Bytes`, or over a byte string with the `.str` forms: FNV-1a (32 and 64), xxHash (32 and 64), SipHash-1-3, CRC-32, and Adler-32. 64-bit results are `Hash.W64{hi, lo}`, two `U32` halves; `int`'s `U64` is a bit list and too slow for hashing. |
 | [`crypto`](crypto) | `bend-kit-crypto@0.1.0.0/crypto.bend` | SHA-256, SHA-512, SHA-1, HMAC, HKDF, secure random bytes, and constant-time compare through OpenSSL 3 libcrypto (`BEND_LIBCRYPTO` overrides the path). |
 
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, and `fmt@0.1.0.0`.
+Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.4.0.0`, `zlib@0.1.3.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, and `hash@0.1.0.0`.
 
 `wire`, `zlib`, `http`, `files`, `process`, and `crypto` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
 
