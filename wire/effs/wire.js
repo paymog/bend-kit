@@ -64,6 +64,57 @@ function wire_timedout() {
   return io_sys().mac ? 60 : 110;
 }
 
+function wire_ip_lib() {
+  if (globalThis.BEND_WIRE_IP === undefined) {
+    const ffi = require("bun:ffi");
+    const mac = process.platform === "darwin";
+    globalThis.BEND_WIRE_IP = {
+      ffi,
+      mac,
+      c: ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6", {
+        inet_pton: { args: ["i32", "cstring", "ptr"], returns: "i32" },
+        inet_ntop: { args: ["i32", "ptr", "ptr", "u64"], returns: "ptr" },
+      }).symbols,
+    };
+  }
+  return globalThis.BEND_WIRE_IP;
+}
+
+function wire_numeric_addr(host, port) {
+  if (host.includes("\0") || port > 65535) {
+    return null;
+  }
+  const v4 = io_addr(host, port);
+  if (v4 !== null) {
+    return v4;
+  }
+  const { ffi, mac, c } = wire_ip_lib();
+  const family = mac ? 30 : 10;
+  const ip = new Uint8Array(16);
+  if (c.inet_pton(family, Buffer.from(host + "\0"), ffi.ptr(ip)) !== 1) {
+    return null;
+  }
+  const addr = new Uint8Array(28);
+  if (mac) {
+    addr[0] = 28;
+    addr[1] = family;
+  } else {
+    addr[0] = family;
+  }
+  addr[2] = (port >> 8) & 255;
+  addr[3] = port & 255;
+  addr.set(ip, 8);
+  return addr;
+}
+
+function wire_ipv6_text(peer) {
+  const { ffi, mac, c } = wire_ip_lib();
+  const out = new Uint8Array(46);
+  c.inet_ntop(mac ? 30 : 10, ffi.ptr(peer.subarray(8, 24)), ffi.ptr(out), out.length);
+  return Buffer.from(out).toString("utf8").replace(/\0.*/, "");
+}
+
+
 function recv(socket, max, ms, k) {
   return wire_recv(socket, max, ms, k, wire_text);
 }
@@ -135,10 +186,11 @@ function recv_from(socket, max, ms, k) {
   const sys = io_sys();
   const fd = socket;
   const b = new Uint8Array(Math.max(Number(max), 1));
-  const peer = new Uint8Array(16);
-  const len = new Uint32Array([16]);
+  const peer = new Uint8Array(28);
+  const len = new Uint32Array([peer.length]);
   const deadline = wire_deadline(ms);
   const go = () => {
+    len[0] = peer.length;
     const n = Number(sys.recvfrom(fd, sys.ptr(b), Number(max), 0, sys.ptr(peer),
       sys.ptr(len)));
     if (n < 0) {
@@ -152,7 +204,13 @@ function recv_from(socket, max, ms, k) {
       }
       return io_tup(socket, io_fail(code));
     }
-    const host = peer[4] + "." + peer[5] + "." + peer[6] + "." + peer[7];
+    const family = sys.mac ? peer[1] : peer[0] | (peer[1] << 8);
+    const host = family === (sys.mac ? 30 : 10)
+      ? wire_ipv6_text(peer)
+      : family === 2 ? peer[4] + "." + peer[5] + "." + peer[6] + "." + peer[7] : null;
+    if (host === null) {
+      return io_tup(socket, io_fail(22));
+    }
     const port = (peer[2] << 8) | peer[3];
     return io_tup(socket, io_done(io_tup(host, port, wire_text(b, n))));
   };
@@ -163,13 +221,13 @@ function recv_from(socket, max, ms, k) {
 function send_to(socket, host, port, data, k) {
   const sys = io_sys();
   const fd = socket;
-  const at = io_addr(host, Number(port));
+  const at = wire_numeric_addr(host, Number(port));
   const b = wire_octets(data);
   if (at === null || b === null) {
     return io_tup(socket, io_fail(22));
   }
   const go = () => {
-    const sent = sys.sendto(fd, sys.ptr(b), b.length, 0, sys.ptr(at), 16);
+    const sent = sys.sendto(fd, sys.ptr(b), b.length, 0, sys.ptr(at), at.length);
     if (Number(sent) < 0) {
       const code = sys.errno();
       if (code === (sys.mac ? 35 : 11)) {
@@ -432,11 +490,11 @@ function tls_close(socket) {
 // Twin of connect in wire.c: a TCP connect with a deadline.
 function connect(host, port, ms, k) {
   const sys = io_sys();
-  const addr = io_addr(host, Number(port));
+  const addr = wire_numeric_addr(host, Number(port));
   if (addr === null) {
     return io_fail(22);
   }
-  const fd = sys.socket(2, 1, 0);
+  const fd = sys.socket(addr.length === 28 ? (sys.mac ? 30 : 10) : 2, 1, 0);
   if (fd < 0) {
     return io_fail(sys.errno());
   }
@@ -464,7 +522,7 @@ function connect(host, port, ms, k) {
     if (failed !== 0) {
       return end(failed);
     }
-    const code = sys.connect(fd, sys.ptr(addr), 16) >= 0 ? 0 : sys.errno();
+    const code = sys.connect(fd, sys.ptr(addr), addr.length) >= 0 ? 0 : sys.errno();
     if (code === 0 || code === done) {
       return end(0);
     }
