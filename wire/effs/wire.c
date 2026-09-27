@@ -462,29 +462,6 @@ static void wire_tls_drop(int fd) {
 
 #if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn))
 
-// Comma-separated protocol names to the ALPN wire form (RFC 7301).
-static bool wire_alpn_pack(const char* list, u64 len, unsigned char* buf, unsigned int* n, unsigned int max) {
-  u64 i = 0;
-  *n    = 0;
-  while (i <= len) {
-    u64 start = i;
-    while (i < len && list[i] != ',') {
-      i += 1;
-    }
-    u64 plen = i - start;
-    if (plen == 0 || plen > 255 || *n + 1 + plen > max) {
-      return false;
-    }
-    buf[(*n)++] = (unsigned char)plen;
-    memcpy(buf + *n, list + start, plen);
-    *n += (unsigned int)plen;
-    if (i < len) {
-      i += 1;
-    }
-  }
-  return true;
-}
-
 static Term wire_tls_connect_end(Env e, IoWork* w, Term r) {
   free(w->text);
   return io_tup(e, io_hand(w->hand), r);
@@ -528,6 +505,10 @@ static Term wire_tls_connect_start(Env e, IoWork* w, int fd, void* ssl) {
   return wire_tls_connect_more(e, w);
 }
 
+#endif
+
+#ifdef CID(tls.connect)
+
 Term tls_connect_run(Env e, Term* f, IoWork* w) {
   uint64_t hn = 0;
   w->hand = (intptr_t)io_hand_v(f[0]);
@@ -556,6 +537,26 @@ static void __attribute__((constructor)) tls_connect_use(void) {
 
 #ifdef CID(tls.connect.alpn)
 
+// Comma-separated protocol names to the ALPN wire form (RFC 7301).
+static bool wire_alpn_pack(const char* list, u64 len, unsigned char* buf, unsigned int* n, unsigned int max) {
+  u64 start = 0;
+  *n        = 0;
+  for (u64 i = 0; i <= len; i += 1) {
+    if (i < len && list[i] != ',') {
+      continue;
+    }
+    u64 plen = i - start;
+    if (plen == 0 || plen > 255 || *n + 1 + plen > max) {
+      return false;
+    }
+    buf[(*n)++] = (unsigned char)plen;
+    memcpy(buf + *n, list + start, plen);
+    *n += (unsigned int)plen;
+    start = i + 1;
+  }
+  return true;
+}
+
 Term tls_connect_alpn_run(Env e, Term* f, IoWork* w) {
   uint64_t hn = 0;
   uint64_t pn = 0;
@@ -567,11 +568,13 @@ Term tls_connect_alpn_run(Env e, Term* f, IoWork* w) {
   unsigned char abuf[256];
   unsigned int  alen;
   int           fd = (int)w->hand;
+  bool bad = fd < 0 || fd >= WIRE_TLS_FDS || io_nul(w->text, hn) || io_nul(plist, pn)
+    || !wire_alpn_pack(plist, pn, abuf, &alen, sizeof(abuf));
+  free(plist);
   if (!wire_tls_load()) {
     return wire_tls_connect_end(e, w, io_fail(e, ENOENT, "TLS needs OpenSSL 3 (libssl.3); set BEND_LIBSSL to its path"));
   }
-  if (fd < 0 || fd >= WIRE_TLS_FDS || io_nul(w->text, hn) || io_nul(plist, pn)
-    || !wire_alpn_pack(plist, pn, abuf, &alen, sizeof(abuf))) {
+  if (bad) {
     return wire_tls_connect_end(e, w, io_fail(e, EINVAL, NULL));
   }
   void* ssl = wire_tls.ssl_new(wire_tls.ctx);

@@ -3,6 +3,7 @@ import Base
 import ../../time/time.bend as Time
 import ../json.bend as J
 import ../../json/json.bend as Json
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 # Checksum: h = h*31 + c, u32, then add the length.
 def hash(s: String, h: U32, n: U32) -> U32:
@@ -16,14 +17,14 @@ def lap(+name: String, t0: Time.Duration, t1: Time.Duration, out: String) -> IO(
   IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(hash(out, 0, 0)))
 
 # The checksum is not timed.
-def op.parsed(t0: Time.Duration, m: Maybe<&2, Json.Val>) -> IO(Unit):
+def op.parsed(t0: Time.Duration, m: Maybe<&2, J.Val>) -> IO(Unit):
   match m:
     case None{}:
       IO.print("parse\t0\tfailed")
     case Some{+v}:
       do IO<Unit>:
         t1 : Time.Duration <- Time.mono()
-        lap("parse", t0, t1, Json.encode(v))
+        lap("parse", t0, t1, Bytes.to_string(Json.encode.bytes(J.to_json(v))))
 
 def op.parse(s: String) -> IO(Unit):
   do IO<Unit>:

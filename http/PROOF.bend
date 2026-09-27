@@ -217,6 +217,12 @@ def Laws.text_utf8():
 def Laws.json_flag():
   {==}
 
+def Laws.json_utf8():
+  {==}
+
+def Laws.json_bad_utf8_none():
+  {==}
+
 def Laws.frame_100_waits():
   {==}
 

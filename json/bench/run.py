@@ -7,7 +7,7 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 RECORDS = int(sys.argv[2]) if len(sys.argv) > 2 else 4000
-OPS = ["parse", "encode", "parse.bytes", "encode.bytes"]
+OPS = ["parse.bytes", "encode.bytes"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 # name -> (build argv or None, run argv). Every program reads out/doc.json and prints `op<TAB>ms<TAB>checksum` per op.
@@ -63,7 +63,7 @@ def main():
     print("| op | " + " | ".join(names) + " |")
     print("|---|" + "---:|" * len(names))
     for op in OPS:
-        best = min(t[op] for t in table.values())
+        best = max(min(t[op] for t in table.values()), 1e-9)
         cells = [f"{table[n][op]:,.1f} ({table[n][op] / best:.1f}x)" for n in names]
         print(f"| {op} | " + " | ".join(cells) + " |")
 
