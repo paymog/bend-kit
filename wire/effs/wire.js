@@ -313,7 +313,8 @@ function wire_tls() {
     + " SSL_CTX_ctrl:pilp>l SSL_new:p>p SSL_set_fd:pi>i"
     + " SSL_ctrl:pilp>l SSL_set1_host:pp>i SSL_connect:p>i SSL_read:ppi>i"
     + " SSL_write:ppi>i SSL_get_error:pi>i SSL_shutdown:p>i SSL_free:p>v"
-    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c SSL_set_alpn_protos:ppi>i SSL_get0_alpn_selected:ppp>v").split(" ").map((s) => {
+    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c SSL_set_alpn_protos:ppi>i SSL_get0_alpn_selected:ppp>v"
+    + " SSL_use_certificate_chain_file:pc>i SSL_use_PrivateKey_file:pci>i SSL_check_private_key:p>i").split(" ").map((s) => {
     const [name, args, ret] = s.split(/[:>]/);
     return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
   }));
@@ -404,7 +405,7 @@ function wire_tls_connect_go(t, socket, ssl, at, k, done) {
   return go();
 }
 
-function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
+function wire_tls_connect_setup(socket, host, ms, k, setup, done, loadErr) {
   const at = wire_deadline(ms);
   const t = wire_tls();
   if (t === null) {
@@ -419,24 +420,24 @@ function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
   }
   t.by.set(fd, ssl);
   const name = wire_cstr(t, host);
-  const fail = (why) => {
+  const fail = (why, code) => {
     s.SSL_free(ssl);
     t.by.delete(fd);
-    return io_tup(socket, { $: CID(Fail), error: io_tup(100, why) });
+    return io_tup(socket, { $: CID(Fail), error: io_tup(code, why) });
   };
   if (s.SSL_set_fd(ssl, fd) !== 1 || Number(s.SSL_ctrl(ssl, 55, 0n, name.p)) !== 1
     || s.SSL_set1_host(ssl, name.p) !== 1) {
-    return fail("TLS setup failed");
+    return fail("TLS setup failed", 100);
   }
   const err = setup(t, ssl);
   if (err !== null) {
-    return fail(err);
+    return fail(err, loadErr);
   }
   return wire_tls_connect_go(t, socket, ssl, at, k, done);
 }
 
 function tls_connect(socket, host, ms, k) {
-  return wire_tls_connect_setup(socket, host, ms, k, () => null, () => ({ $: CID(Unit) }));
+  return wire_tls_connect_setup(socket, host, ms, k, () => null, () => ({ $: CID(Unit) }), 100);
 }
 
 function tls_connect_alpn(socket, host, ms, protos, k) {
@@ -449,9 +450,29 @@ function tls_connect_alpn(socket, host, ms, protos, k) {
       return "ALPN setup failed";
     }
     return null;
-  }, (t, ssl) => wire_alpn_selected(t, ssl));
+  }, (t, ssl) => wire_alpn_selected(t, ssl), 100);
 }
 
+function wire_tls_load_client_cert(t, ssl, certPath, keyPath) {
+  const cert = wire_cstr(t, certPath);
+  const key = wire_cstr(t, keyPath);
+  if (t.s.SSL_use_certificate_chain_file(ssl, cert.p) !== 1) {
+    return "client certificate load failed";
+  }
+  if (t.s.SSL_use_PrivateKey_file(ssl, key.p, 1) !== 1) {
+    return "client key load failed";
+  }
+  if (t.s.SSL_check_private_key(ssl) !== 1) {
+    return "client key does not match certificate";
+  }
+  return null;
+}
+
+function tls_connect_cert(socket, host, ms, certPath, keyPath, k) {
+  return wire_tls_connect_setup(socket, host, ms, k, (t, ssl) =>
+    wire_tls_load_client_cert(t, ssl, certPath, keyPath),
+  () => ({ $: CID(Unit) }), 22);
+}
 
 function tls_send(socket, data, k) {
   return wire_tls_send(socket, wire_octets(data), k);
@@ -597,6 +618,7 @@ io_eff(CID(recv_from), recv_from);
 io_eff(CID(send_to), send_to);
 io_eff(CID(tls.connect), tls_connect);
 io_eff(CID(tls.connect.alpn), tls_connect_alpn);
+io_eff(CID(tls.connect.cert), tls_connect_cert);
 io_eff(CID(tls.send), tls_send);
 io_eff(CID(tls.recv), tls_recv);
 io_eff(CID(tls.close), tls_close);

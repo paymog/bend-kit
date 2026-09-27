@@ -89,7 +89,49 @@ def ipv6.loop(+port: U32) -> IO(Unit):
     u : Unit <- IO.join(Unit, chan)
     IO.pure(Unit, u)
 
+
+
+def mtls.port() -> U32:
+  38403
+
+def mtls.serve(+port: U32) -> IO(Unit):
+  import "./effs/mtls_serve.c"
+  import "./effs/mtls_serve.js"
+
+def mtls.done(+port: U32, tr: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match tr:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "tls.connect.cert failed: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{_}):
+      do IO<Unit>:
+        IO.print("ok mtls:" ++ U32.show(port))
+        Wire.tls.close(s)
+
+def mtls.open(+port: U32, cr: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match cr:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "mtls connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{sock}:
+      do IO<Unit>:
+        tr : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect.cert(
+          sock, "localhost", 10000, "test/mtls/client.pem", "test/mtls/client.key")
+        mtls.done(port, tr)
+
+def mtls.client(+port: U32) -> IO(Unit):
+  do IO<Unit>:
+    cr : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", port, 5000)
+    mtls.open(port, cr)
+
+def mtls.loop(+port: U32) -> IO(Unit):
+  do IO<Unit>:
+    chan : Chan(Unit) <- IO.fork(Unit, mtls.serve(port))
+    _ : Unit <- IO.sleep(800)
+    mtls.client(port)
+    u : Unit <- IO.join(Unit, chan)
+    IO.pure(Unit, u)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     ipv6.loop(ipv6.port())
+    mtls.loop(mtls.port())
     alpn.host("nghttp2.org")

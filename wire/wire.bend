@@ -45,6 +45,12 @@ def tls.connect.alpn(sock: Socket, host: String, ms: U32, protos: String) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# PEM client certificate and key paths; load errors are separate from handshake failures.
+def tls.connect.cert(sock: Socket, host: String, ms: U32, cert_path: String, key_path: String) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 def tls.send(sock: Socket, data: String) ->
   IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
