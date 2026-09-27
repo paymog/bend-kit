@@ -77,57 +77,6 @@ function zlib_in(ffi, b) {
   return ffi.ptr(b.length ? b : new Uint8Array(1));
 }
 
-// Bun's node:zlib zstd stops after the first frame and passes truncated input, so call libzstd.
-function zstd_words(max, n, words) {
-  const b = zlib_words_octets(n, words);
-  if (b === null) {
-    return io_fail(22);
-  }
-  const z = zlib_lib("zstd", "BEND_LIBZSTD", ["/opt/homebrew/lib/libzstd.1.dylib",
-    "/usr/local/lib/libzstd.1.dylib", "libzstd.1.dylib", "libzstd.so.1"], {
-    ZSTD_createDCtx: { args: [], returns: "ptr" },
-    ZSTD_freeDCtx: { args: ["ptr"], returns: "u64" },
-    ZSTD_decompressStream: { args: ["ptr", "ptr", "ptr"], returns: "u64" },
-    ZSTD_isError: { args: ["u64"], returns: "u32" },
-    ZSTD_getErrorName: { args: ["u64"], returns: "cstring" },
-  });
-  if (z === null) {
-    return zlib_fail(2, "zstd needs libzstd.1; set BEND_LIBZSTD to its path");
-  }
-  const { s, ffi } = z;
-  const o = zlib_buf(ffi, b.length, Number(max));
-  // ZSTD_inBuffer and ZSTD_outBuffer: pointer, size, pos.
-  const src = new BigUint64Array([BigInt(zlib_in(ffi, b)), BigInt(b.length), 0n]);
-  const dst = new BigUint64Array(3);
-  const dctx = s.ZSTD_createDCtx();
-  let fail = null;
-  for (;;) {
-    dst[0] = BigInt(o.ptr());
-    dst[1] = BigInt(o.cap - o.have);
-    dst[2] = 0n;
-    const r = s.ZSTD_decompressStream(dctx, ffi.ptr(dst), ffi.ptr(src));
-    o.have += Number(dst[2]);
-    if (s.ZSTD_isError(r)) {
-      fail = zlib_fail(22, s.ZSTD_getErrorName(r).toString());
-      break;
-    }
-    if (Number(r) === 0 && src[2] === src[1]) {
-      break;
-    }
-    if (o.have === o.cap) {
-      if (!o.grow()) {
-        fail = zlib_fail(27, "zstd output is larger than max");
-        break;
-      }
-    } else if (src[2] === src[1]) {
-      fail = zlib_fail(22, "zstd input ends inside a frame");
-      break;
-    }
-  }
-  s.ZSTD_freeDCtx(dctx);
-  return fail ?? io_done(zlib_words(o.out, o.have));
-}
-
 function zlib_z() {
   return zlib_lib("z", "BEND_LIBZ", ["/usr/lib/libz.1.dylib", "libz.1.dylib", "libz.so.1"], {
     zlibVersion: { args: [], returns: "ptr" },
@@ -142,66 +91,230 @@ function zlib_z() {
   });
 }
 
+function zlib_br() {
+  return zlib_lib("brotli", "BEND_LIBBROTLIDEC", ["/opt/homebrew/lib/libbrotlidec.1.dylib",
+    "/usr/local/lib/libbrotlidec.1.dylib", "libbrotlidec.1.dylib", "libbrotlidec.so.1"], {
+    BrotliDecoderCreateInstance: { args: ["ptr", "ptr", "ptr"], returns: "ptr" },
+    BrotliDecoderDestroyInstance: { args: ["ptr"], returns: "void" },
+    BrotliDecoderDecompressStream: { args: ["ptr", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+    BrotliDecoderGetErrorCode: { args: ["ptr"], returns: "i32" },
+    BrotliDecoderErrorString: { args: ["i32"], returns: "cstring" },
+  });
+}
+
+// Bun's node:zlib zstd stops after the first frame and passes truncated input, so call libzstd.
+function zlib_zstd() {
+  return zlib_lib("zstd", "BEND_LIBZSTD", ["/opt/homebrew/lib/libzstd.1.dylib",
+    "/usr/local/lib/libzstd.1.dylib", "libzstd.1.dylib", "libzstd.so.1"], {
+    ZSTD_createDCtx: { args: [], returns: "ptr" },
+    ZSTD_freeDCtx: { args: ["ptr"], returns: "u64" },
+    ZSTD_decompressStream: { args: ["ptr", "ptr", "ptr"], returns: "u64" },
+    ZSTD_isError: { args: ["u64"], returns: "u32" },
+    ZSTD_getErrorName: { args: ["u64"], returns: "cstring" },
+  });
+}
+
 // z_stream on LP64 (64-bit macOS and Linux): 112 bytes, fields at these offsets.
 const ZLIB_Z = { size: 112, next_in: 0, avail_in: 8, next_out: 24, avail_out: 32, msg: 48 };
 
-function zlib_z_stream() {
-  const b = new Uint8Array(ZLIB_Z.size);
-  return { b, v: new DataView(b.buffer) };
+// Kind 0 is gzip or zlib (found from the header), 1 is brotli, 2 is zstd.
+const ZLIB_DEC = [
+  { lib: zlib_z, need: "inflate needs libz.1; set BEND_LIBZ to its path", short: "inflate input ends inside a stream" },
+  { lib: zlib_br, need: "brotli needs libbrotlidec.1; set BEND_LIBBROTLIDEC to its path", short: "brotli input ends inside the stream" },
+  { lib: zlib_zstd, need: "zstd needs libzstd.1; set BEND_LIBZSTD to its path", short: "zstd input ends inside a frame" },
+];
+
+// A decoder, or a failure. done: the input so far ends at the end of a stream (a gzip member or a zstd frame).
+// The z_stream stays in d.z: zlib checks that it does not move between calls.
+function zlib_dec_open(kind) {
+  const z = ZLIB_DEC[kind].lib();
+  if (z === null) {
+    return zlib_fail(2, ZLIB_DEC[kind].need);
+  }
+  const { s, ffi } = z;
+  const d = { kind, done: false, s, ffi };
+  if (kind === 0) {
+    d.z = new Uint8Array(ZLIB_Z.size);
+    d.v = new DataView(d.z.buffer);
+    // Window bits 15 + 32: a gzip or a zlib header, found from the first bytes.
+    return s.inflateInit2_(ffi.ptr(d.z), 15 + 32, s.zlibVersion(), ZLIB_Z.size) === 0 ? d : io_fail(12);
+  }
+  d.st = kind === 1 ? s.BrotliDecoderCreateInstance(null, null, null) : s.ZSTD_createDCtx();
+  return d.st ? d : io_fail(12);
 }
 
-function inflate_words(max, n, words) {
+function zlib_dec_close(d) {
+  if (d.kind === 0) {
+    d.s.inflateEnd(d.ffi.ptr(d.z));
+  } else if (d.kind === 1) {
+    d.s.BrotliDecoderDestroyInstance(d.st);
+  } else {
+    d.s.ZSTD_freeDCtx(d.st);
+  }
+}
+
+// gzip -d reads the next member when bytes follow the end of one.
+function zlib_inflate_feed(d, b, o) {
+  const { s, ffi, v } = d;
+  const zp = ffi.ptr(d.z);
+  v.setBigUint64(ZLIB_Z.next_in, BigInt(zlib_in(ffi, b)), true);
+  v.setUint32(ZLIB_Z.avail_in, b.length, true);
+  for (;;) {
+    if (d.done && v.getUint32(ZLIB_Z.avail_in, true) !== 0) {
+      s.inflateReset(zp);
+      d.done = false;
+    }
+    v.setBigUint64(ZLIB_Z.next_out, BigInt(o.ptr()), true);
+    v.setUint32(ZLIB_Z.avail_out, o.cap - o.have, true);
+    const r = s.inflate(zp, 0);
+    const room = v.getUint32(ZLIB_Z.avail_out, true);
+    o.have = o.cap - room;
+    if (r === 1) {
+      d.done = true;
+      if (v.getUint32(ZLIB_Z.avail_in, true) === 0) {
+        return null;
+      }
+      continue;
+    }
+    // Z_OK and Z_BUF_ERROR only ask for more room or input.
+    if (r !== 0 && r !== -5) {
+      const msg = Number(v.getBigUint64(ZLIB_Z.msg, true));
+      return zlib_fail(22, msg ? new ffi.CString(msg).toString() : "inflate failed");
+    }
+    if (room !== 0) {
+      return null;
+    }
+    if (!o.grow()) {
+      return zlib_fail(27, "inflate output is larger than max");
+    }
+  }
+}
+
+function zlib_brotli_feed(d, b, o) {
+  const { s, ffi } = d;
+  // available_in, next_in, available_out, next_out: each a size_t or a pointer the call moves.
+  const io = new BigUint64Array([BigInt(b.length), BigInt(zlib_in(ffi, b)), 0n, 0n]);
+  const at = (i) => ffi.ptr(io) + 8 * i;
+  for (;;) {
+    io[2] = BigInt(o.cap - o.have);
+    io[3] = BigInt(o.ptr());
+    const r = s.BrotliDecoderDecompressStream(d.st, at(0), at(1), at(2), at(3), null);
+    o.have = o.cap - Number(io[2]);
+    if (r === 1) {
+      d.done = true;
+      return io[0] !== 0n ? zlib_fail(22, "brotli input has bytes after the stream") : null;
+    }
+    if (r === 0) {
+      return zlib_fail(22, s.BrotliDecoderErrorString(s.BrotliDecoderGetErrorCode(d.st)).toString());
+    }
+    if (r === 2) {
+      return null;
+    }
+    if (!o.grow()) {
+      return zlib_fail(27, "brotli output is larger than max");
+    }
+  }
+}
+
+// Frames follow one another; a skippable frame gives no output.
+function zlib_zstd_feed(d, b, o) {
+  const { s, ffi } = d;
+  // ZSTD_inBuffer and ZSTD_outBuffer: pointer, size, pos.
+  const src = new BigUint64Array([BigInt(zlib_in(ffi, b)), BigInt(b.length), 0n]);
+  const dst = new BigUint64Array(3);
+  for (;;) {
+    dst[0] = BigInt(o.ptr());
+    dst[1] = BigInt(o.cap - o.have);
+    dst[2] = 0n;
+    const r = s.ZSTD_decompressStream(d.st, ffi.ptr(dst), ffi.ptr(src));
+    o.have += Number(dst[2]);
+    if (s.ZSTD_isError(r)) {
+      return zlib_fail(22, s.ZSTD_getErrorName(r).toString());
+    }
+    if (src[2] === src[1] && (Number(r) === 0 || dst[2] < dst[1])) {
+      d.done = b.length !== 0 ? Number(r) === 0 : d.done;
+      return null;
+    }
+    if (o.have === o.cap && !o.grow()) {
+      return zlib_fail(27, "zstd output is larger than max");
+    }
+  }
+}
+
+// Decodes b into o: null, or a failure.
+function zlib_dec_feed(d, b, o) {
+  return [zlib_inflate_feed, zlib_brotli_feed, zlib_zstd_feed][d.kind](d, b, o);
+}
+
+function zlib_whole(kind, max, n, words) {
   const b = zlib_words_octets(n, words);
   if (b === null) {
     return io_fail(22);
   }
-  const z = zlib_z();
-  if (z === null) {
-    return zlib_fail(2, "inflate needs libz.1; set BEND_LIBZ to its path");
+  const d = zlib_dec_open(kind);
+  if (d.$ !== undefined) {
+    return d;
   }
-  const { s, ffi } = z;
-  const st = zlib_z_stream();
-  const zp = ffi.ptr(st.b);
-  // Window bits 15 + 32: a gzip or a zlib header, found from the first bytes.
-  if (s.inflateInit2_(zp, 15 + 32, s.zlibVersion(), ZLIB_Z.size) !== 0) {
-    return io_fail(12);
+  const o = zlib_buf(d.ffi, b.length, Number(max));
+  let fail = zlib_dec_feed(d, b, o);
+  if (fail === null && !d.done) {
+    fail = zlib_fail(22, ZLIB_DEC[kind].short);
   }
-  const o = zlib_buf(ffi, b.length, Number(max));
-  st.v.setBigUint64(ZLIB_Z.next_in, BigInt(zlib_in(ffi, b)), true);
-  st.v.setUint32(ZLIB_Z.avail_in, b.length, true);
-  let fail = null;
-  for (;;) {
-    st.v.setBigUint64(ZLIB_Z.next_out, BigInt(o.ptr()), true);
-    st.v.setUint32(ZLIB_Z.avail_out, o.cap - o.have, true);
-    const r = s.inflate(zp, 0);
-    const room = st.v.getUint32(ZLIB_Z.avail_out, true);
-    const left = st.v.getUint32(ZLIB_Z.avail_in, true);
-    o.have = o.cap - room;
-    if (r === 1) {
-      // Z_STREAM_END: gzip -d reads the next member, if any.
-      if (left === 0) {
-        break;
-      }
-      s.inflateReset(zp);
-      continue;
-    }
-    if (r !== 0 && r !== -5) {
-      const msg = Number(st.v.getBigUint64(ZLIB_Z.msg, true));
-      fail = zlib_fail(22, msg ? new ffi.CString(msg).toString() : "inflate failed");
-      break;
-    }
-    if (room === 0) {
-      if (!o.grow()) {
-        fail = zlib_fail(27, "inflate output is larger than max");
-        break;
-      }
-    } else if (left === 0) {
-      fail = zlib_fail(22, "inflate input ends inside a stream");
-      break;
-    }
-  }
-  s.inflateEnd(zp);
+  zlib_dec_close(d);
   return fail ?? io_done(zlib_words(o.out, o.have));
+}
+
+function zstd_words(max, n, words) {
+  return zlib_whole(2, max, n, words);
+}
+
+function inflate_words(max, n, words) {
+  return zlib_whole(0, max, n, words);
+}
+
+function brotli_words(max, n, words) {
+  return zlib_whole(1, max, n, words);
+}
+
+// Open decoders by id; id 0 is never used.
+function zlib_decs() {
+  return (globalThis.BEND_ZLIB_DECS ??= { next: 1, by: new Map() });
+}
+
+function dec_open(kind) {
+  if (kind > 2) {
+    return io_fail(22);
+  }
+  const d = zlib_dec_open(kind);
+  if (d.$ !== undefined) {
+    return d;
+  }
+  const t = zlib_decs();
+  const id = t.next;
+  t.next = (t.next % 0xfffffffe) + 1;
+  t.by.set(id, d);
+  return io_done(id);
+}
+
+function dec_feed(id, max, n, words) {
+  const b = zlib_words_octets(n, words);
+  const d = zlib_decs().by.get(id);
+  if (b === null || d === undefined) {
+    return io_fail(b === null ? 22 : 9);
+  }
+  const o = zlib_buf(d.ffi, b.length, Number(max));
+  return zlib_dec_feed(d, b, o) ?? io_done(zlib_words(o.out, o.have));
+}
+
+function dec_finish(id) {
+  const t = zlib_decs();
+  const d = t.by.get(id);
+  if (d === undefined) {
+    return io_fail(9);
+  }
+  t.by.delete(id);
+  zlib_dec_close(d);
+  return d.done ? io_done({ $: CID(Unit) }) : zlib_fail(22, ZLIB_DEC[d.kind].short);
 }
 
 function gzip_words(n, words) {
@@ -214,80 +327,29 @@ function gzip_words(n, words) {
     return zlib_fail(2, "gzip needs libz.1; set BEND_LIBZ to its path");
   }
   const { s, ffi } = z;
-  const st = zlib_z_stream();
-  const zp = ffi.ptr(st.b);
+  const st = new Uint8Array(ZLIB_Z.size);
+  const v = new DataView(st.buffer);
+  const zp = ffi.ptr(st);
   // Level 6, window bits 15 + 16 (a gzip wrapper), memLevel 8, the default strategy.
   if (s.deflateInit2_(zp, 6, 8, 15 + 16, 8, 0, s.zlibVersion(), ZLIB_Z.size) !== 0) {
     return io_fail(12);
   }
   const cap = Number(s.deflateBound(zp, b.length));
   const out = new Uint8Array(cap + 1);
-  st.v.setBigUint64(ZLIB_Z.next_in, BigInt(zlib_in(ffi, b)), true);
-  st.v.setUint32(ZLIB_Z.avail_in, b.length, true);
-  st.v.setBigUint64(ZLIB_Z.next_out, BigInt(ffi.ptr(out)), true);
-  st.v.setUint32(ZLIB_Z.avail_out, cap, true);
+  v.setBigUint64(ZLIB_Z.next_in, BigInt(zlib_in(ffi, b)), true);
+  v.setUint32(ZLIB_Z.avail_in, b.length, true);
+  v.setBigUint64(ZLIB_Z.next_out, BigInt(ffi.ptr(out)), true);
+  v.setUint32(ZLIB_Z.avail_out, cap, true);
   const r = s.deflate(zp, 4);
-  const have = cap - st.v.getUint32(ZLIB_Z.avail_out, true);
+  const have = cap - v.getUint32(ZLIB_Z.avail_out, true);
   s.deflateEnd(zp);
   return r === 1 ? io_done(zlib_words(out, have)) : zlib_fail(22, "deflate did not finish");
-}
-
-function brotli_words(max, n, words) {
-  const b = zlib_words_octets(n, words);
-  if (b === null) {
-    return io_fail(22);
-  }
-  const z = zlib_lib("brotli", "BEND_LIBBROTLIDEC", ["/opt/homebrew/lib/libbrotlidec.1.dylib",
-    "/usr/local/lib/libbrotlidec.1.dylib", "libbrotlidec.1.dylib", "libbrotlidec.so.1"], {
-    BrotliDecoderCreateInstance: { args: ["ptr", "ptr", "ptr"], returns: "ptr" },
-    BrotliDecoderDestroyInstance: { args: ["ptr"], returns: "void" },
-    BrotliDecoderDecompressStream: { args: ["ptr", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
-    BrotliDecoderGetErrorCode: { args: ["ptr"], returns: "i32" },
-    BrotliDecoderErrorString: { args: ["i32"], returns: "cstring" },
-  });
-  if (z === null) {
-    return zlib_fail(2, "brotli needs libbrotlidec.1; set BEND_LIBBROTLIDEC to its path");
-  }
-  const { s, ffi } = z;
-  const st = s.BrotliDecoderCreateInstance(null, null, null);
-  if (!st) {
-    return io_fail(12);
-  }
-  const o = zlib_buf(ffi, b.length, Number(max));
-  // available_in, next_in, available_out, next_out: each a size_t or a pointer the call moves.
-  const io = new BigUint64Array([BigInt(b.length), BigInt(zlib_in(ffi, b)), 0n, 0n]);
-  const at = (i) => ffi.ptr(io) + 8 * i;
-  let fail = null;
-  for (;;) {
-    io[2] = BigInt(o.cap - o.have);
-    io[3] = BigInt(o.ptr());
-    const r = s.BrotliDecoderDecompressStream(st, at(0), at(1), at(2), at(3), null);
-    o.have = o.cap - Number(io[2]);
-    if (r === 1) {
-      if (io[0] !== 0n) {
-        fail = zlib_fail(22, "brotli input has bytes after the stream");
-      }
-      break;
-    }
-    if (r === 0) {
-      fail = zlib_fail(22, s.BrotliDecoderErrorString(s.BrotliDecoderGetErrorCode(st)).toString());
-      break;
-    }
-    if (r === 3) {
-      if (!o.grow()) {
-        fail = zlib_fail(27, "brotli output is larger than max");
-        break;
-      }
-    } else {
-      fail = zlib_fail(22, "brotli input ends inside the stream");
-      break;
-    }
-  }
-  s.BrotliDecoderDestroyInstance(st);
-  return fail ?? io_done(zlib_words(o.out, o.have));
 }
 
 io_eff(CID(zstd.words), zstd_words);
 io_eff(CID(inflate.words), inflate_words);
 io_eff(CID(gzip.words), gzip_words);
 io_eff(CID(brotli.words), brotli_words);
+io_eff(CID(dec.open), dec_open);
+io_eff(CID(dec.feed), dec_feed);
+io_eff(CID(dec.finish.id), dec_finish);
