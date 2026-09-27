@@ -15,6 +15,7 @@ VARIANTS = {
     "Node": (None, ["node", "--no-warnings", "bench.ts"]),
     "Python": (None, ["python3", "bench.py"]),
     "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
+    "Bend (libz)": (["bend", "native.bend", "-o", OUT / "native"], [OUT / "native"]),
 }
 
 # ~247 ASCII words; 1024 LCG-built sentences give gzip level-6 ratio near 4:1.
@@ -91,7 +92,8 @@ def plain_bytes(n: int) -> bytes:
 
 
 def mbps(n: int, ms: float) -> float:
-    return (n / 1_000_000) / (ms / 1000.0)
+    # Bend's clock counts whole ms, so a small input can time as 0.
+    return (n / 1_000_000) / (ms / 1000.0) if ms else float("inf")
 
 
 def main():
@@ -130,10 +132,11 @@ def main():
         print(f"{op} checksum {seen.pop()}", file=sys.stderr)
 
     # Bend's gzip output must decode with the system gzip, byte for byte.
-    ungz = subprocess.run(["gzip", "-dc", OUT / "bend.gz"], capture_output=True, check=True).stdout
-    if ungz != plain:
-        sys.exit("gzip -d of out/bend.gz does not match the plain text")
-    print(f"gzip -d out/bend.gz ok, crc32 {zlib.crc32(ungz)}", file=sys.stderr)
+    for f in ("bend.gz", "native.gz"):
+        ungz = subprocess.run(["gzip", "-dc", OUT / f], capture_output=True, check=True).stdout
+        if ungz != plain:
+            sys.exit(f"gzip -d of out/{f} does not match the plain text")
+        print(f"gzip -d out/{f} ok, crc32 {zlib.crc32(ungz)}", file=sys.stderr)
 
     names = list(table)
     print("| variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |")

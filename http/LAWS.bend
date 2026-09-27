@@ -485,13 +485,13 @@ law decoded_corrupt:
 law decoded_empty:
   {Http.res_body(Http.decoded.some(Http.Res{200, Http.set(Http.empty(), "content-encoding", "gzip"), Bytes.from_string("")})) == Bytes.from_string("") : Bytes.Bytes}
 
-# fetch asks for gzip and deflate unless the caller says otherwise.
+# fetch asks for the codings it can undo unless the caller says otherwise.
 law accept_enc_default:
-  {Http.header(Http.accept.enc(Http.empty()), "accept-encoding") == "gzip, deflate" : String}
+  {Http.header(Http.accept.enc(Http.empty(), "gzip, deflate, br"), "accept-encoding") == "gzip, deflate, br" : String}
 
 # A caller's own Accept-Encoding wins.
 law accept_enc_caller:
-  {Http.header(Http.accept.enc(Http.set(Http.empty(), "accept-encoding", "identity")), "accept-encoding") == "identity" : String}
+  {Http.header(Http.accept.enc(Http.set(Http.empty(), "accept-encoding", "identity"), "gzip, deflate"), "accept-encoding") == "identity" : String}
 
 # Chunk sizes are hex without leading zeros.
 law hex_chunk_size:
