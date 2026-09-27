@@ -34,18 +34,18 @@ After each timed op, every program prints `op<TAB>ms<TAB>checksum`:
 
 Expected: **nfc** `4037258967`, **graphemes** `509436`.
 
-Bend evaluates strictly: the result is computed before `IO.now()` is read for the stop time. UTF-8 encoding for the NFC checksum is not timed.
+Bend evaluates strictly: the result is computed before `Time.mono()` is read for the stop time. UTF-8 encoding for the NFC checksum is not timed.
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-26. Median of five runs (`python3 run.py 5`). Bend peak RSS about **39 MiB** on the 1 MiB input (`time -l ./out/bend`).
+M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Bend peak RSS about **39 MiB** on the 1 MiB input (`time -l ./out/bend`).
 
 | op | Bend ms | Bun ms | Node ms | Python ms | Bend MB/s | Bun MB/s | Node MB/s | Python MB/s |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| nfc | 22.0 | 1.4 | 1.1 | 11.4 | 45.45 | 702.74 | 922.51 | 87.89 |
-| graphemes | 6.0 | 19.0 | 28.0 | n/a | 166.67 | 52.56 | 35.72 | n/a |
+| nfc | 23.7 | 1.5 | 1.0 | 11.8 | 42.12 | 668.01 | 973.71 | 85.08 |
+| graphemes | 9.6 | 19.9 | 28.9 | n/a | 104.40 | 50.24 | 34.64 | n/a |
 
-Versions: Bend 2.0.28, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
 ## The calls
 
@@ -60,6 +60,6 @@ Python reads `out/input.txt` with `read_bytes().decode('utf-8')` so `\n` bytes a
 
 ## Caveats
 
-- Bend `IO.now` is whole milliseconds; other runtimes use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - Grapheme rules follow the engine (Bend: Unicode **17.0.0** tables; V8 `Intl.Segmenter` on this input agrees with Bend).
 - These are micro-benchmarks on one machine.

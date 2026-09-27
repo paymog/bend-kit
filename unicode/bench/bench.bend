@@ -1,5 +1,6 @@
 # Unicode benchmark: NFC and grapheme clusters on one fixed input (see README.md).
 import Base
+import ../../time/time.bend as Time
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import ../../encoding/encoding.bend as Enc
 import ../unicode.bend as U
@@ -47,27 +48,27 @@ def count(+gs: List<&2, String>, n: U32) -> U32:
     case Con{h, t}:
       count(t, (n + 1 : U32))
 
-def lap(+name: String, t0: Nat, t1: Nat, +chk: U32) -> IO(Unit):
-  IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(chk))
+def lap(+name: String, t0: Time.Duration, t1: Time.Duration, +chk: U32) -> IO(Unit):
+  IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk))
 
-def op.nfc_done(t0: Nat, out: String) -> IO(Unit):
+def op.nfc_done(t0: Time.Duration, out: String) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     lap("nfc", t0, t1, hash.bytes(Enc.utf8.encode(out)))
 
 def op.nfc(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.nfc_done(t0, U.nfc(s))
 
-def op.graphemes_done(t0: Nat, gs: List<&2, String>) -> IO(Unit):
+def op.graphemes_done(t0: Time.Duration, gs: List<&2, String>) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     lap("graphemes", t0, t1, count(gs, 0))
 
 def op.graphemes(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.graphemes_done(t0, U.graphemes(s))
 
 def run(+s: String) -> IO(Unit):

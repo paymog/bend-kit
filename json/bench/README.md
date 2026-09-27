@@ -22,18 +22,18 @@ Each program reads the file before any timer starts. `parse` times the parse of 
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-26. Median of five runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op. Bend's peak RSS was 81 MB for all four ops.
+M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op. Bend's peak RSS was 81 MB for all four ops.
 
 | op | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|
-| parse | 2.1 (1.0x) | 2.9 (1.4x) | 4.4 (2.1x) | 40.0 (19.0x) |
-| encode | 0.9 (1.0x) | 1.1 (1.2x) | 3.9 (4.6x) | 71.0 (82.0x) |
-| parse.bytes | 2.1 (1.0x) | 2.8 (1.3x) | 4.8 (2.2x) | 11.0 (5.1x) |
-| encode.bytes | 0.8 (1.0x) | 1.3 (1.6x) | 3.9 (4.7x) | 9.0 (10.7x) |
+| parse | 2.1 (1.0x) | 3.1 (1.5x) | 4.4 (2.1x) | 42.1 (20.2x) |
+| encode | 0.8 (1.0x) | 1.1 (1.4x) | 4.0 (5.1x) | 72.0 (91.0x) |
+| parse.bytes | 2.3 (1.0x) | 3.1 (1.3x) | 4.7 (2.1x) | 12.8 (5.6x) |
+| encode.bytes | 0.9 (1.0x) | 1.4 (1.6x) | 4.0 (4.7x) | 8.6 (10.1x) |
 
-The Bytes path is 3.6x faster to parse and 8x faster to encode than the text path. The text path also needs a UTF-8 decode before `parse`, which this table does not time.
+The Bytes path is 3.3x faster to parse and 8x faster to encode than the text path. The text path also needs a UTF-8 decode before `parse`, which this table does not time.
 
-Versions: Bend 2.0.29, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
 ## The calls
 
@@ -50,5 +50,5 @@ C and Rust have no JSON codec in their standard libraries, so they are left out.
 - Bend strings are lists, one cell per char, and objects are `Map`s. The other languages use flat strings and hash maps. The Bytes path reads and writes a flat buffer, but keys and string values are still `String`s.
 - Bend keeps each number's text. JavaScript and Python convert numbers to doubles or ints and print them back.
 - Bend's `Json.encode` sorts keys. The others keep insertion order, so they do not sort.
-- Bend's `IO.now` counts in whole ms. The other languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - These are micro-benchmarks on one machine.

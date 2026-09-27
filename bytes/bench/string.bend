@@ -1,5 +1,6 @@
 # Bytes benchmark: today's String-as-bytes layout (see README.md).
 import Base
+import ../../time/time.bend as Time
 
 # Bytes as today's String: one Char per byte. L = 26 (64 MiB): at 16 bytes per cell, 2^28 needs 4 GiB+.
 
@@ -88,48 +89,48 @@ def joinr(xs: List<String>, acc: String) -> String:
     case Con{c, t}:
       joinr(t, c ++ acc)
 
-def lap(+name: String, t0: Nat, +chk: U32) -> IO(Unit):
+def lap(+name: String, t0: Time.Duration, +chk: U32) -> IO(Unit):
   do IO<Unit>:
     IO.print("chk\t" ++ name ++ "\t" ++ U32.show(chk))
-    t1 : Nat <- IO.now()
-    IO.print("ms\t" ++ name ++ "\t" ++ Nat.show((t1 - t0 : Nat)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
 
 def op.equal(+s: String, +s2: String) -> IO(Unit):
   do IO<Unit>:
     IO.print("copy ready " ++ U32.show(last(s2, 0)))
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("equal", t0, Bool.pick(U32, String.eq(s, s2), 1, 0))
 
 def op.concat(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("concat", t0, ends(joinr(collect(1024n, 0, Nil{}), SNil{})))
     op.equal(s, fill())
 
 def op.slice(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("slice", t0, ends(take(33554432n, String.drop(s, 16777217n))))
     op.concat(s)
 
 def op.find(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("find", t0, find(s, 0, 4294967295, 0))
     op.slice(s)
 
 def op.sum(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("sum", t0, sum(s, 0))
     op.find(s)
 
-def op.fill.done(t0: Nat, +s: String) -> IO(Unit):
+def op.fill.done(t0: Time.Duration, +s: String) -> IO(Unit):
   do IO<Unit>:
     lap("fill", t0, (nth(12345n, s) + last(s, 0) : U32))
     op.sum(s)
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.fill.done(t0, fill())

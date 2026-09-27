@@ -36,7 +36,7 @@ def trip(n: Nat, +t: Int.I64, +step: Int.I64, +acc: U32) -> U32:
 def report(+t0: Time.Duration, +chk: U32) -> IO(Unit):
   do IO<Unit>:
     t1 : Time.Duration <- Time.mono()
-    IO.print("trip\t" ++ Int.I64.show(Time.Duration.to_ms(Time.Duration.sub(t1, t0))) ++ "\t" ++ U32.show(chk))
+    IO.print("trip\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk))
 
 def main() -> IO(Unit):
   do IO<Unit>:

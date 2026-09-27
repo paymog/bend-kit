@@ -40,14 +40,14 @@ Query parsing does not treat `+` as space (RFC 3986 query, not form-urlencoded).
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-25. Median of five runs. Times are in ms for 10,000 rounds; `Nx` is the multiple of the fastest variant for that op.
+M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Times are in ms for 10,000 rounds; `Nx` is the multiple of the fastest variant for that op.
 
 | op | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|
-| parse | 40.3 (1.3x) | 30.1 (1.0x) | 32.3 (1.1x) | 125.2 (4.2x) | 51.0 (1.7x) |
-| encode | 10.8 (1.0x) | 51.1 (4.7x) | 67.4 (6.3x) | 284.6 (26.4x) | 84.0 (7.8x) |
+| parse | 40.6 (1.3x) | 31.7 (1.0x) | 32.3 (1.0x) | 128.6 (4.1x) | 55.0 (1.7x) |
+| encode | 10.8 (1.0x) | 53.5 (5.0x) | 70.3 (6.5x) | 289.1 (26.9x) | 90.8 (8.4x) |
 
-Versions: Bend 2.0.28, rustc 1.91.0 with url 2.5.8 and percent-encoding 2.3.2, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.31, rustc 1.91.0 with url 2.5.8 and percent-encoding 2.3.2, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
 ## The calls
 
