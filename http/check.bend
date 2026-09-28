@@ -501,7 +501,7 @@ def local.proxy.tunnel.received(l: Listener,
           "\r\nProxy-Authorization: Basic dTpw\r\n\r\n"),
           "proxy CONNECT authorization")
         sent : Socket & Result<&1, &1, U32 & String, Unit> <-
-          Http.io.send(False{}, s, "HTTP/1.1 200 Connection Established\r\n\r\n")
+          Http.io.send.bytes(False{}, s, Bytes.from_string("HTTP/1.1 200 Connection Established\r\n\r\n"))
         Http.io.close(False{}, local.gz.sent(sent))
         Listener.close(l)
 

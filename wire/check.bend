@@ -127,18 +127,28 @@ def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
   import "./effs/ipv6_test.c"
   import "./effs/ipv6_test.js"
 
-def udp6.payload(+want: U32, s: Socket, r: Result<&1, &1, U32 & String, String & U32 & String>) -> IO(Unit):
+def udp6.last(+first: U32, pair: Array<U32> & U32) -> Bool:
+  (data, last) = pair
+  Bool.and(U32.is_eq(first, 1124040704), U32.is_eq(last, 7))
+
+def udp6.first(pair: Array<U32> & U32) -> Bool:
+  (data, first) = pair
+  udp6.last(first, Array.get(U32, data, 1))
+
+def udp6.payload(+want: U32, s: Socket, r: Result<&1, &1, U32 & String, String & U32 & (U32 & Array<U32>)>) -> IO(Unit):
   match r:
     case Fail{(+code, why)}:
       IO.die(Unit, 1, "IPv6 UDP recv: " ++ U32.show(code) ++ " " ++ why)
-    case Done{(host, port, data)}:
+    case Done{(host, port, (+len, data))}:
+      good = udp6.first(Array.get(U32, data, 0))
       do IO<Unit>:
         ok(String.eq(host, "::1"), "IPv6 UDP host", "wrong host")
         ok(U32.is_eq(port, want), "IPv6 UDP port", "wrong port")
-        ok(String.eq(data, "udp"), "IPv6 UDP body", "wrong body")
+        ok(U32.is_eq(len, 5), "IPv6 UDP length", U32.show(len))
+        ok(good, "IPv6 UDP payload", "wrong bytes")
         Socket.close(s)
 
-def udp6.recv(+want: U32, m: Socket & Result<&1, &1, U32 & String, String & U32 & String>) -> IO(Unit):
+def udp6.recv(+want: U32, m: Socket & Result<&1, &1, U32 & String, String & U32 & (U32 & Array<U32>)>) -> IO(Unit):
   (s, r) = m
   udp6.payload(want, s, r)
 
@@ -148,7 +158,8 @@ def udp6.sent(+want: U32, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(
       IO.die(Unit, 1, "IPv6 UDP send: " ++ U32.show(code) ++ " " ++ why)
     case (s, Done{u}):
       do IO<Unit>:
-        r : Socket & Result<&1, &1, U32 & String, String & U32 & String> <- Wire.recv_from(s, 8, 5000)
+        r : Socket & Result<&1, &1, U32 & String, String & U32 & (U32 & Array<U32>)> <-
+          Wire.recv_from.words(s, 8, 5000)
         udp6.recv(want, r)
 
 def udp6.opened(r: Result<&1, &1, U32 & String, Socket & U32>) -> IO(Unit):
@@ -157,7 +168,8 @@ def udp6.opened(r: Result<&1, &1, U32 & String, Socket & U32>) -> IO(Unit):
       IO.die(Unit, 1, "IPv6 UDP bind: " ++ U32.show(code) ++ " " ++ why)
     case Done{(s, +port)}:
       do IO<Unit>:
-        sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send_to(s, "::1", port, "udp")
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+          Wire.send_to.words(s, "::1", port, 5, Array.set(U32, [1124040704 : U32*2n], 1, 7))
         udp6.sent(port, sent)
 
 def udp6.check() -> IO(Unit):
