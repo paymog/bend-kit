@@ -62,7 +62,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Regex (linear time, RE2-style) (#32)
 - [x] Serialization (#33): `csv` (RFC 4180) and `cbor` (RFC 8949) over `Bytes`. Use [eztoml](https://github.com/Emerging-Patterns/eztoml) for TOML 1.0. MessagePack and YAML wait for a caller.
 - [x] CLI argument parsing (#34): use [shake](https://github.com/Emerging-Patterns/shake) from the hub
-- [ ] Logging (#35)
+- [x] Logging (#35): `notch`
 - [ ] Big numbers: BigInt, BigDecimal, rationals (#36)
 - [ ] F64: 64-bit floating point (#37)
 
