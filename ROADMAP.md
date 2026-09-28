@@ -73,7 +73,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Concurrency helpers: `par_map`, `par_reduce`, a worker pool, `select`, and `timeout` (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
 - [x] Redis and Valkey client: `redis`, RESP3 over `wire` (#205). Pub/sub, cluster, sentinel, and client-side caching come later.
-- [ ] Networking: WebSocket, cookies, multipart (#42)
+- [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
 - [ ] Templating and Markdown (#43)
 - [ ] Math and statistics (#44)
 - [ ] Proof library: reusable lemmas (#45)
@@ -91,7 +91,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 - [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist.
 - [ ] `Bytes` as map keys. Base's `Map` is a trie over `String` keys and takes no comparator, so `Bytes.cmp` cannot key it. Use `Bytes.to_string` as the key, or add an ordered map over `cmp`.
-- [ ] A cookie jar, proxies (`HTTP_PROXY`), ALPN, HTTP/2.
+- [ ] Proxies (`HTTP_PROXY`), ALPN, HTTP/2.
 - [ ] Windows support (the effects use POSIX sockets and `dlopen`).
 - [ ] Test on an x86_64 Mac.
 
