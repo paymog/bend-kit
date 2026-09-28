@@ -1,8 +1,8 @@
 // Crypto
 // ======
-// Hashes, HMAC, and HKDF through OpenSSL 3 libcrypto, loaded with dlopen; secure random bytes from the OS.
+// Hashes, HMAC, HKDF, and PBKDF2 through OpenSSL 3 libcrypto, loaded with dlopen; secure random bytes from the OS.
 
-#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(random.words)) || defined(CID(eq.ct.words))
+#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) || defined(CID(random.words)) || defined(CID(eq.ct.words))
 #ifndef CRYPTO_EFFS
 #define CRYPTO_EFFS
 #include <dlfcn.h>
@@ -52,7 +52,7 @@ static Term crypto_out(Env e, const unsigned char* p, u64 n) {
 #endif
 #endif
 
-#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words))
+#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words))
 #ifndef CRYPTO_LIB
 #define CRYPTO_LIB
 
@@ -73,6 +73,7 @@ static struct {
   int   (*set_key)(void*, const unsigned char*, int);
   int   (*add_info)(void*, const unsigned char*, int);
   int   (*derive)(void*, unsigned char*, size_t*);
+  int   (*pbkdf2)(const char*, int, const unsigned char*, int, int, const void*, int, unsigned char*);
 } crypto_lib;
 
 static bool crypto_load(void) {
@@ -102,9 +103,10 @@ static bool crypto_load(void) {
   crypto_lib.set_key     = dlsym(h, "EVP_PKEY_CTX_set1_hkdf_key");
   crypto_lib.add_info    = dlsym(h, "EVP_PKEY_CTX_add1_hkdf_info");
   crypto_lib.derive      = dlsym(h, "EVP_PKEY_derive");
+  crypto_lib.pbkdf2      = dlsym(h, "PKCS5_PBKDF2_HMAC");
   bool ok = crypto_lib.q_digest && crypto_lib.q_mac && crypto_lib.md_fetch && crypto_lib.md_free
     && crypto_lib.ctx_new && crypto_lib.ctx_free && crypto_lib.derive_init && crypto_lib.set_md
-    && crypto_lib.set_salt && crypto_lib.set_key && crypto_lib.add_info && crypto_lib.derive;
+    && crypto_lib.set_salt && crypto_lib.set_key && crypto_lib.add_info && crypto_lib.derive && crypto_lib.pbkdf2;
   crypto_lib.state = ok ? 1 : -1;
   return ok;
 }
@@ -227,6 +229,44 @@ Term hkdf_words_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) hkdf_words_use(void) {
   io_eff(CID(hkdf.words), hkdf_words_run, 0);
+}
+
+#endif
+
+#ifdef CID(pbkdf2.words)
+
+// ponytail: runs on the loop thread; move to io_work if iteration counts get big enough to stall other effects.
+Term pbkdf2_words_run(Env e, Term* f, IoWork* w) {
+  u64            alen  = 0;
+  char*          alg   = io_cstr(e, f[0], &alen);
+  u64            pn    = 0;
+  u64            sn    = 0;
+  u32            iters = (u32)f[5];
+  u64            n     = (u64)(u32)f[6];
+  bool           bad   = io_nul(alg, alen) || iters == 0 || iters > INT32_MAX || n == 0 || n > INT32_MAX;
+  unsigned char* pass  = crypto_words_octets(e, f[2], (u64)(u32)f[1], &pn, &bad);
+  unsigned char* salt  = crypto_words_octets(e, f[4], (u64)(u32)f[3], &sn, &bad);
+  unsigned char* out   = io_mem(malloc(bad ? 1 : n + 1));
+  Term           t;
+  if (bad || pn > INT32_MAX || sn > INT32_MAX) {
+    t = io_fail(e, EINVAL, NULL);
+  } else if (!crypto_load()) {
+    t = io_fail(e, ENOENT, CRYPTO_MISSING);
+  } else {
+    void* md = crypto_lib.md_fetch(NULL, alg, NULL);
+    bool  ok = md != NULL && crypto_lib.pbkdf2((const char*)pass, (int)pn, salt, (int)sn, (int)iters, md, (int)n, out) == 1;
+    crypto_lib.md_free(md);
+    t = ok ? crypto_out(e, out, n) : io_fail(e, EINVAL, "pbkdf2 failed; alg must name an OpenSSL digest");
+  }
+  free(alg);
+  free(pass);
+  free(salt);
+  free(out);
+  return t;
+}
+
+static void __attribute__((constructor)) pbkdf2_words_use(void) {
+  io_eff(CID(pbkdf2.words), pbkdf2_words_run, 0);
 }
 
 #endif

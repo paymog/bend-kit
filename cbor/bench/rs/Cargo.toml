@@ -1,16 +1,15 @@
 [package]
-name = "crypto-bench"
+name = "cbor-bench"
 version = "0.0.0"
 edition = "2021"
 publish = false
 
 [[bin]]
-name = "bench"
-path = "../bench.rs"
+name = "rs"
+path = "main.rs"
 
 [dependencies]
-pbkdf2 = "0.12"
-sha2 = "0.10"
+ciborium = "0.2"
 
 [profile.release]
 opt-level = 3

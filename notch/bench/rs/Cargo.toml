@@ -1,5 +1,5 @@
 [package]
-name = "crypto-bench"
+name = "notch-bench"
 version = "0.0.0"
 edition = "2021"
 publish = false
@@ -9,8 +9,7 @@ name = "bench"
 path = "../bench.rs"
 
 [dependencies]
-pbkdf2 = "0.12"
-sha2 = "0.10"
+serde_json = { version = "1", features = ["preserve_order"] }
 
 [profile.release]
 opt-level = 3
