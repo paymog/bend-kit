@@ -4,7 +4,7 @@ Hairpin is an HTTP client for Bend 2, built on `bend-kit-http`. One `Client` hol
 
 ```bend
 import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
-import bend-kit-http@0.23.0.0/http.bend as Http
+import bend-kit-http@0.23.0.1/http.bend as Http
 ```
 
 Hairpinning, or NAT loopback, is traffic that goes out and bends back. A request does the same.

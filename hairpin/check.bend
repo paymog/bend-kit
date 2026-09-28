@@ -1,6 +1,6 @@
 import Base
 import ./hairpin.bend as Hairpin
-import bend-kit-http@0.23.0.0/http.bend as Http
+import bend-kit-http@0.23.0.1/http.bend as Http
 import bend-kit-time@0.1.0.0/time.bend as Time
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
@@ -72,7 +72,7 @@ def client(now: Time.Instant) -> Hairpin.Client:
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen(47830))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47830))
     IO.spawn(Unit, serve(l))
     now : Time.Instant <- Time.now()
     r1 : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <-

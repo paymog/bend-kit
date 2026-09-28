@@ -1,7 +1,7 @@
 # 1000 sequential GETs on one client: a base URL, a default header, and keep-alive sockets.
 import Base
 import ../hairpin.bend as Hairpin
-import bend-kit-http@0.23.0.0/http.bend as Http
+import bend-kit-http@0.23.0.1/http.bend as Http
 import ../../time/time.bend as Time
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 

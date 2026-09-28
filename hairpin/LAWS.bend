@@ -1,6 +1,6 @@
 import Base
 import ./hairpin.bend as Hairpin
-import bend-kit-http@0.23.0.0/http.bend as Http
+import bend-kit-http@0.23.0.1/http.bend as Http
 
 def hs(k: String, v: String) -> Map<&2, List<&2, String>>:
   Http.set(Http.empty(), k, v)
