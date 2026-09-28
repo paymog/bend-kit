@@ -124,7 +124,7 @@ def local.ipv6(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
 
 def local.fallback() -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen(47812))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47812))
     IO.spawn(Unit, local.accept(l))
     result : Result<&1, &1, Http.Err, Http.Res> <- Http.get("http://localhost:47812/x")
     local.got("localhost:47812", result)
@@ -244,7 +244,7 @@ def local.gz.check(+want: String, +pieces: U32, r: Result<&1, &1, Http.Err, Http
 
 def local.gz.test() -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen(47813))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47813))
     IO.spawn(Unit, local.gz.serve(l))
     decoded : Result<&1, &1, Http.Err, Http.Stream> <-
       Http.open("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
@@ -455,7 +455,7 @@ def retry.check(+name: String, +status: U32, +want: String, r: Result<&1, &1, Ht
 # The body names the connection that answered, so "try 3" is the third try.
 def retry.test() -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen(47814))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47814))
     IO.spawn(Unit, retry.serve(l))
     flaky : Result<&1, &1, Http.Err, Http.Res> <-
       Http.fetch.retry(2, "GET", "http://127.0.0.1:47814/flaky", Http.empty(), Bytes.new(0))
@@ -565,7 +565,7 @@ def local.proxy.last(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) ->
 
 def local.proxy.test() -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen(47815))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47815))
     IO.spawn(Unit, local.proxy.serve(l))
     first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
       Http.pool.origin.choice(Http.pool.new(), "GET", 2000, Http.empty(),
@@ -658,7 +658,7 @@ def all.timed(t0: Nat, rs: List<Result<&1, &1, Http.Err, Http.Res>>) -> IO(Unit)
 
 def all.test() -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen(47816))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47816))
     IO.spawn(Unit, all.serve(16n, l))
     t0 : Nat <- IO.now()
     rs : List<Result<&1, &1, Http.Err, Http.Res>> <- Http.fetch.all(all.reqs(16n, 0), 8)
@@ -753,7 +753,7 @@ def cookie.pure(+now: Time.Instant) -> IO(Unit):
 def cookie.live(+now: Time.Instant) -> IO(Unit):
   do IO<Unit>:
     cookie.pure(now)
-    l : Listener <- IO.try(Listener, TCP.listen(47817))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47817))
     IO.spawn(Unit, cookie.serve(l))
     r : Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res> <-
       Http.pool.fetch.jar(Http.pool.new(), Http.jar.new(now), "GET", "http://127.0.0.1:47817/login", Http.empty(), Bytes.new(0))
@@ -774,7 +774,7 @@ def main() -> IO(Unit):
     IO.print(Bytes.to_string(Http.res_body(Http.parse_res("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"))))
     IO.print(Http.sanitize("a\rb\nc"))
     h2.check()
-    l : Listener <- IO.try(Listener, TCP.listen(47811))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", 47811))
     pool.run(Http.pool.new(), "yyn")
     pool.run(Http.pool.new.with(1), "ynn")
     Listener.close(l)
