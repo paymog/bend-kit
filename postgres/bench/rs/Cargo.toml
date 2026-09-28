@@ -1,0 +1,17 @@
+[package]
+name = "postgres-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "rs"
+path = "main.rs"
+
+[dependencies]
+postgres-protocol = "0.6.12"
+bytes = "1"
+fallible-iterator = "0.2"
+
+[profile.release]
+opt-level = 3
