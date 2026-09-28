@@ -27,7 +27,7 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`cbor`](cbor) | `bend-kit-cbor@0.1.0.0/cbor.bend` | CBOR values encoded and decoded as bytes (RFC 8949). |
 | [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming raw DEFLATE, gzip/zlib, Brotli, and Zstandard decoders. |
 | [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, bracketed IPv6 authorities, and percent-encoding (RFC 3986). |
-| [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets, including client certificates. |
+| [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets with packed-byte `.words` effects, including client certificates. |
 | [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |
 | [`http`](http) | `0xa32ae93500a5dfaef6edb45d6e7bcc3b/http.bend` | HTTP/1.1 client and server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
 | [`http2`](http2) | `bend-kit-http2@0.1.0.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
@@ -46,7 +46,8 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`websocket`](websocket) | `bend-kit-websocket@0.1.0.0/websocket.bend` | RFC 6455 client handshake and WebSocket frames. |
 | [`multipart`](multipart) | `bend-kit-multipart@0.1.0.0/multipart.bend` | RFC 7578 form-data encoding and streaming decoding. |
 | [`random`](random) | `bend-kit-random@0.1.0.0/random.bend` | Seeded xoshiro128** generator with unbiased ranges, `F32` in [0, 1), Fisher-Yates shuffles, and an OS-entropy seed. Not for cryptography. |
-| [`time`](time) | `bend-kit-time@0.1.0.0/time.bend` | Monotonic and wall clocks, `Duration` and `Instant` on `Int.I64` seconds plus nanoseconds, Gregorian dates for years 0 to 9999, RFC 3339 and HTTP-date (IMF-fixdate) text, and TZif time zones. |
+| [`property`](property) | `bend-kit-property@0.1.0.0/property.bend` | Pure seeded generators, greedy shrinking, and a reproducible property runner. See [property/README.md](property/README.md). |
+| [`time`](time) | `bend-kit-time@0.1.2.0/time.bend` | Monotonic and wall clocks, `Duration` and `Instant` on `Int.I64` seconds plus nanoseconds, Gregorian dates for years 0 to 9999, RFC 3339 and HTTP-date (IMF-fixdate) text, and TZif time zones with POSIX footer rules for later instants. |
 | [`notch`](notch) | `bend-kit-notch@0.1.0.0/notch.bend` | Leveled, structured logging. A logger value holds a minimum level, logfmt or JSON-lines format, and contextual fields. `Notch.info(lg, msg, fields)` writes to stderr with an RFC 3339 time; `Notch.file(handle, lg, level, msg, fields)` writes to a file and returns the handle; `Notch.line` returns the text for other sinks. Disabled levels skip the clock and rendering. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.1.0.0/concurrency.bend` | Parallel `par_map` and `par_reduce` over lists and arrays, a worker pool whose workers each own an affine state, `select` over channels, and `timeout`. See [concurrency/README.md](concurrency/README.md). |
 | [`redis`](redis) | `bend-kit-redis@0.1.0.0/redis.bend` | Redis and Valkey client: a RESP3 codec over bytes with an incremental reader, TCP or TLS connect with `HELLO 3`, `AUTH`, and `SELECT`, commands, pipelining, and a connection pool. |
@@ -55,7 +56,7 @@ A name and its hash import the same package. Each version is a distinct type, so
 
 Notch keeps fields in insertion order and does not deduplicate keys. Avoid `time`, `level`, and `msg` as field names in JSON output. `notch/check.bend` shows both formats and the level filter.
 
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.5.0.1`, `csv@0.1.0.0`, `cbor@0.1.0.0`, `zlib@0.1.4.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `http2@0.1.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, `crypto@0.1.0.0`, `websocket@0.1.0.0`, `multipart@0.1.0.0`, `random@0.1.0.0`, `time@0.1.0.0`, `concurrency@0.1.0.0`, `notch@0.1.0.0`, `redis@0.1.0.0`, `postgres@0.1.0.0`, and `llm@0.1.0.0`.
+Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.5.0.1`, `csv@0.1.0.0`, `cbor@0.1.0.0`, `zlib@0.1.4.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `http2@0.1.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, `crypto@0.1.0.0`, `websocket@0.1.0.0`, `multipart@0.1.0.0`, `random@0.1.0.0`, `property@0.1.0.0`, `time@0.1.0.0`, `concurrency@0.1.0.0`, `notch@0.1.0.0`, `redis@0.1.0.0`, `postgres@0.1.0.0`, and `llm@0.1.0.0`.
 
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). It covers datetimes, numbers, arrays, and tables; a second TOML parser is not part of this kit.
 

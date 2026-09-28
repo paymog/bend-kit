@@ -145,5 +145,29 @@ def Laws.before_first_transition():
 def Laws.tzif_footer():
   {==}
 
+def Laws.slim_2030_winter():
+  {==}
+
+def Laws.slim_2030_summer():
+  {==}
+
+def Laws.quoted_julian_leap():
+  {==}
+
+def Laws.quoted_julian_summer():
+  {==}
+
+def Laws.ordinal_leap_day():
+  {==}
+
+def Laws.southern_summer():
+  {==}
+
+def Laws.southern_winter():
+  {==}
+
+def Laws.extended_transition_hours():
+  {==}
+
 def Laws.tzif_bad_magic():
   {==}

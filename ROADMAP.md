@@ -51,14 +51,14 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [ ] Process and OS (#23)
 - [x] Generic collections (#24). A hash map can now build on `hash` (#27).
 - [x] Text formatting and number parsing (#25)
-- [x] Time: clock, Duration, Instant, dates, time zones (#26). The TZ rule in a TZif footer is not applied yet, so times past a zone's last transition keep its last offset (#198).
+- [x] Time: clock, Duration, Instant, dates, time zones (#26). POSIX TZif footer rules cover instants after the last explicit transition (#198).
 
 ### Tier 2
 
 - [x] Non-cryptographic hashing (#27): FNV-1a, xxHash, SipHash-1-3, CRC-32, and Adler-32 over `Bytes`. `zlib` still has its own CRC-32 and Adler-32.
 - [x] Cryptography: SHA-2, SHA-1, HMAC, HKDF, secure random (#28)
 - [x] Random numbers: seeded PRNGs and distributions (#29). `F64` distributions such as normal wait on F64 (#37).
-- [ ] Property-based testing (#30)
+- [x] Property-based testing (#30): seeded generators, shrinking, and a runner that prints the seed and smallest reachable failure.
 - [x] Regex (linear time, RE2-style) (#32)
 - [x] Serialization (#33): `csv` (RFC 4180) and `cbor` (RFC 8949) over `Bytes`. Use [eztoml](https://github.com/Emerging-Patterns/eztoml) for TOML 1.0. MessagePack and YAML wait for a caller.
 - [x] CLI argument parsing (#34): use [shake](https://github.com/Emerging-Patterns/shake) from the hub

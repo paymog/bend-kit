@@ -676,6 +676,445 @@ def tzif.parse(b: Bytes.Bytes) -> Maybe<&2, Zone>:
   +s = Bytes.to_string(b)
   tzif.go(U32.is_ge(u8(s, 4n), 50), s)
 
+# POSIX TZ offsets are seconds west of UTC; transition times are seconds from local midnight.
+type TzField is Data:
+  TzField{value: U32, rest: String}
+
+type TzText is Data:
+  TzText{value: String, rest: String}
+
+type TzClock is Data:
+  TzClock{value: Int.I64, rest: String}
+
+type TzDay is Data:
+  Julian{day: U32}
+  Ordinal{day: U32}
+  MonthWeek{month: U32, week: U32, weekday: U32}
+
+type TzDate is Data:
+  TzDate{day: TzDay, seconds: Int.I64}
+
+type TzDayPart is Data:
+  TzDayPart{day: TzDay, rest: String}
+
+type TzDatePart is Data:
+  TzDatePart{date: TzDate, rest: String}
+
+type TzRule is Data:
+  TzRule{std: Ttype, daylight: Ttype, start: TzDate, end: TzDate}
+
+def tz.digit(+c: U32) -> Bool:
+  Bool.and(U32.is_ge(c, 48), U32.is_le(c, 57))
+
+def tz.alpha(+c: U32) -> Bool:
+  Bool.or(Bool.and(U32.is_ge(c, 65), U32.is_le(c, 90)),
+    Bool.and(U32.is_ge(c, 97), U32.is_le(c, 122)))
+
+def tz.quoted(+c: U32) -> Bool:
+  Bool.or(tz.alpha(c), Bool.or(tz.digit(c), Bool.or(U32.is_eq(c, 43), U32.is_eq(c, 45))))
+
+def tz.number.stop(seen: Bool, acc: U32, s: String) -> Maybe<&2, TzField>:
+  match seen:
+    case True{}:
+      Some{TzField{acc, s}}
+    case False{}:
+      None{}
+
+def tz.number.step(digit: Bool, c: U32, t: String, acc: U32, seen: Bool, next: Unit -> Maybe<&2, TzField>) -> Maybe<&2, TzField>:
+  match digit:
+    case True{}:
+      next(Unit{})
+    case False{}:
+      tz.number.stop(seen, acc, SCon{Chr{c}, t})
+
+# Three digits suffice for POSIX hour, day, and month fields.
+def tz.number.go(s: String, +acc: U32, +seen: Bool) -> Maybe<&2, TzField>:
+  match s:
+    case SNil{}:
+      tz.number.stop(seen, acc, SNil{})
+    case SCon{Chr{+c}, +t}:
+      tz.number.step(Bool.and(tz.digit(c), U32.is_lt(acc, 100)),
+        c, t, acc, seen, _ => tz.number.go(t, ((acc * 10 + c - 48) : U32), True{}))
+
+def tz.number(s: String) -> Maybe<&2, TzField>:
+  tz.number.go(s, 0, False{})
+
+def tz.name.valid(ok: Bool, name: String, rest: String) -> Maybe<&2, TzText>:
+  match ok:
+    case True{}:
+      Some{TzText{name, rest}}
+    case False{}:
+      None{}
+
+def tz.name.done(rev: String, rest: String) -> Maybe<&2, TzText>:
+  +name = String.reverse(rev)
+  tz.name.valid(Nat.is_ge(String.length(name), 3n), name, rest)
+
+def tz.name.empty(quoted: Bool, rev: String) -> Maybe<&2, TzText>:
+  match quoted:
+    case True{}:
+      None{}
+    case False{}:
+      tz.name.done(rev, SNil{})
+
+def tz.name.branch(continue: Bool, rev: String, c: U32, rest: String, next: Unit -> Maybe<&2, TzText>) -> Maybe<&2, TzText>:
+  match continue:
+    case True{}:
+      next(Unit{})
+    case False{}:
+      tz.name.done(rev, SCon{Chr{c}, rest})
+
+def tz.name.allowed(ok: Bool, next: Unit -> Maybe<&2, TzText>) -> Maybe<&2, TzText>:
+  match ok:
+    case True{}:
+      next(Unit{})
+    case False{}:
+      None{}
+
+def tz.name.quoted(end: Bool, valid: Bool, rev: String, rest: String, next: Unit -> Maybe<&2, TzText>) -> Maybe<&2, TzText>:
+  match end:
+    case True{}:
+      tz.name.done(rev, rest)
+    case False{}:
+      tz.name.allowed(valid, next)
+
+def tz.name.char(quoted: Bool, end: Bool, alpha: Bool, valid: Bool, rev: String, c: U32, rest: String,
+  next: Unit -> Maybe<&2, TzText>) -> Maybe<&2, TzText>:
+  match quoted:
+    case True{}:
+      tz.name.quoted(end, valid, rev, rest, next)
+    case False{}:
+      tz.name.branch(alpha, rev, c, rest, next)
+
+def tz.name.go(s: String, +rev: String, +quoted: Bool) -> Maybe<&2, TzText>:
+  match s:
+    case SNil{}:
+      tz.name.empty(quoted, rev)
+    case SCon{Chr{+c}, +t}:
+      tz.name.char(quoted, U32.is_eq(c, 62), tz.alpha(c), tz.quoted(c), rev, c, t,
+        _ => tz.name.go(t, SCon{Chr{c}, rev}, quoted))
+
+def tz.name(s: String) -> Maybe<&2, TzText>:
+  match s:
+    case SCon{Chr{60}, t}:
+      tz.name.go(t, SNil{}, True{})
+    case _:
+      tz.name.go(s, SNil{}, False{})
+
+def tz.field.valid(ok: Bool, n: U32, rest: String) -> Maybe<&2, TzField>:
+  match ok:
+    case True{}:
+      Some{TzField{n, rest}}
+    case False{}:
+      None{}
+
+def tz.clock.tail(r: TzField, limit: U32) -> Maybe<&2, TzField>:
+  match r:
+    case TzField{+n, rest}:
+      tz.field.valid(U32.is_le(n, limit), n, rest)
+
+def tz.clock.part(s: String) -> Maybe<&2, TzField>:
+  match s:
+    case SCon{Chr{58}, t}:
+      do Maybe<&2, TzField>:
+        n : TzField <- tz.number(t)
+        tz.clock.tail(n, 59)
+    case _:
+      Some{TzField{0, s}}
+
+def tz.clock.valid(ok: Bool, +value: Int.I64, negative: Bool, rest: String) -> Maybe<&2, TzClock>:
+  match ok:
+    case False{}:
+      None{}
+    case True{}:
+      Some{TzClock{Bool.pick(Int.I64, negative, Int.I64.neg(value), value), rest}}
+
+def tz.clock.seconds(sec: TzField, +hours: U32, +minutes: U32, +max: U32, negative: Bool) -> Maybe<&2, TzClock>:
+  match sec:
+    case TzField{+seconds, rest}:
+      tz.clock.valid(U32.is_le(hours, max),
+        i64((hours * 3600 + minutes * 60 + seconds : U32)), negative, rest)
+
+def tz.clock.minutes(m: TzField, +hours: U32, +max: U32, +negative: Bool) -> Maybe<&2, TzClock>:
+  match m:
+    case TzField{+minutes, rest}:
+      do Maybe<&2, TzClock>:
+        sec : TzField <- tz.clock.part(rest)
+        tz.clock.seconds(sec, hours, minutes, max, negative)
+def tz.clock.finish(h: TzField, +max: U32, +negative: Bool) -> Maybe<&2, TzClock>:
+  match h:
+    case TzField{+hours, rest}:
+      do Maybe<&2, TzClock>:
+        m : TzField <- tz.clock.part(rest)
+        tz.clock.minutes(m, hours, max, negative)
+
+
+def tz.clock.read(s: String, max: U32, negative: Bool) -> Maybe<&2, TzClock>:
+  do Maybe<&2, TzClock>:
+    h : TzField <- tz.number(s)
+    tz.clock.finish(h, max, negative)
+def tz.clock.sign(s: String, max: U32) -> Maybe<&2, TzClock>:
+  match s:
+    case SCon{Chr{45}, t}:
+      tz.clock.read(t, max, True{})
+    case SCon{Chr{43}, t}:
+      tz.clock.read(t, max, False{})
+    case _:
+      tz.clock.read(s, max, False{})
+
+
+def tz.day.valid(ok: Bool, d: TzDay, rest: String) -> Maybe<&2, TzDayPart>:
+  match ok:
+    case True{}:
+      Some{TzDayPart{d, rest}}
+    case False{}:
+      None{}
+
+def tz.day.j(r: TzField) -> Maybe<&2, TzDayPart>:
+  match r:
+    case TzField{+n, rest}:
+      tz.day.valid(Bool.and(U32.is_ge(n, 1), U32.is_le(n, 365)), Julian{n}, rest)
+
+def tz.day.n(r: TzField) -> Maybe<&2, TzDayPart>:
+  match r:
+    case TzField{+n, rest}:
+      tz.day.valid(U32.is_le(n, 365), Ordinal{n}, rest)
+
+def tz.after(c: Char, s: String) -> String:
+  match s:
+    case SCon{h, t}:
+      Bool.pick(String, Char.is_eq(h, c), t, SNil{})
+    case SNil{}:
+      SNil{}
+
+def tz.day.weekday(c: TzField, +month: U32, +week: U32) -> Maybe<&2, TzDayPart>:
+  match c:
+    case TzField{+weekday, rest}:
+      tz.day.valid(Bool.and(U32.is_ge(month, 1), Bool.and(U32.is_le(month, 12),
+        Bool.and(U32.is_ge(week, 1), Bool.and(U32.is_le(week, 5), U32.is_le(weekday, 6))))),
+        MonthWeek{month, week, weekday}, rest)
+
+def tz.day.week(b: TzField, month: U32) -> Maybe<&2, TzDayPart>:
+  match b:
+    case TzField{week, rest}:
+      do Maybe<&2, TzDayPart>:
+        c : TzField <- tz.number(tz.after('.', rest))
+        tz.day.weekday(c, month, week)
+
+def tz.day.month(a: TzField) -> Maybe<&2, TzDayPart>:
+  match a:
+    case TzField{month, rest}:
+      do Maybe<&2, TzDayPart>:
+        b : TzField <- tz.number(tz.after('.', rest))
+        tz.day.week(b, month)
+
+def tz.day.m(s: String) -> Maybe<&2, TzDayPart>:
+  do Maybe<&2, TzDayPart>:
+    a : TzField <- tz.number(s)
+    tz.day.month(a)
+
+def tz.day(s: String) -> Maybe<&2, TzDayPart>:
+  match s:
+    case SCon{Chr{74}, t}:
+      do Maybe<&2, TzDayPart>:
+        n : TzField <- tz.number(t)
+        tz.day.j(n)
+    case SCon{Chr{77}, t}:
+      tz.day.m(t)
+    case _:
+      do Maybe<&2, TzDayPart>:
+        n : TzField <- tz.number(s)
+        tz.day.n(n)
+
+def tz.date.clock(d: TzDay, r: TzClock) -> Maybe<&2, TzDatePart>:
+  match r:
+    case TzClock{secs, end}:
+      Some{TzDatePart{TzDate{d, secs}, end}}
+
+def tz.date.time(d: TzDay, rest: String) -> Maybe<&2, TzDatePart>:
+  match rest:
+    case SCon{Chr{47}, t}:
+      do Maybe<&2, TzDatePart>:
+        r : TzClock <- tz.clock.sign(t, 167)
+        tz.date.clock(d, r)
+    case _:
+      Some{TzDatePart{TzDate{d, i64(7200)}, rest}}
+
+def tz.date.part(r: TzDayPart) -> Maybe<&2, TzDatePart>:
+  match r:
+    case TzDayPart{d, rest}:
+      tz.date.time(d, rest)
+
+def tz.date(s: String) -> Maybe<&2, TzDatePart>:
+  do Maybe<&2, TzDatePart>:
+    r : TzDayPart <- tz.day(s)
+    tz.date.part(r)
+
+def tz.rule.end(ok: Bool, standard: Ttype, daylight: Ttype, start: TzDate, end: TzDate) -> Maybe<&2, TzRule>:
+  match ok:
+    case True{}:
+      Some{TzRule{standard, daylight, start, end}}
+    case False{}:
+      None{}
+
+def tz.rule.finish(b: TzDatePart, standard: Ttype, daylight: Ttype, start: TzDate) -> Maybe<&2, TzRule>:
+  match b:
+    case TzDatePart{end, rest}:
+      tz.rule.end(String.is_empty(rest), standard, daylight, start, end)
+
+def tz.rule.start(a: TzDatePart, +standard: Ttype, +daylight: Ttype) -> Maybe<&2, TzRule>:
+  match a:
+    case TzDatePart{start, rest}:
+      do Maybe<&2, TzRule>:
+        b : TzDatePart <- tz.date(tz.after(',', rest))
+        tz.rule.finish(b, standard, daylight, start)
+
+def tz.rule.dates(+standard: Ttype, +daylight: Ttype, rest: String) -> Maybe<&2, TzRule>:
+  do Maybe<&2, TzRule>:
+    a : TzDatePart <- tz.date(tz.after(',', rest))
+    tz.rule.start(a, standard, daylight)
+
+def tz.rule.dstclock(r: TzClock, standard: Ttype, abbr: String) -> Maybe<&2, TzRule>:
+  match r:
+    case TzClock{west, rest}:
+      tz.rule.dates(standard, Ttype{Int.I64.neg(west), True{}, abbr}, rest)
+
+def tz.rule.offset(standard: Ttype, abbr: String, west: Int.I64, rest: String) -> Maybe<&2, TzRule>:
+  match rest:
+    case SCon{Chr{44}, t}:
+      tz.rule.dates(standard, Ttype{Int.I64.sub(i64(3600), west), True{}, abbr}, rest)
+    # POSIX leaves absent DST dates to the implementation; use the common US rules.
+    case SNil{}:
+      tz.rule.end(True{}, standard, Ttype{Int.I64.sub(i64(3600), west), True{}, abbr},
+        TzDate{MonthWeek{3, 2, 0}, i64(7200)}, TzDate{MonthWeek{11, 1, 0}, i64(7200)})
+    case _:
+      do Maybe<&2, TzRule>:
+        r : TzClock <- tz.clock.sign(rest, 24)
+        tz.rule.dstclock(r, standard, abbr)
+
+def tz.rule.named(name: TzText, standard: Ttype, west: Int.I64) -> Maybe<&2, TzRule>:
+  match name:
+    case TzText{abbr, rest}:
+      tz.rule.offset(standard, abbr, west, rest)
+
+def tz.rule.dst(+standard: Ttype, west: Int.I64, rest: String) -> Maybe<&2, TzRule>:
+  match rest:
+    case SNil{}:
+      Some{TzRule{standard, standard, TzDate{Ordinal{0}, i64(0)}, TzDate{Ordinal{0}, i64(0)}}}
+    case _:
+      do Maybe<&2, TzRule>:
+        name : TzText <- tz.name(rest)
+        tz.rule.named(name, standard, west)
+
+def tz.rule.stdclock(offset: TzClock, abbr: String) -> Maybe<&2, TzRule>:
+  match offset:
+    case TzClock{+west, rest}:
+      tz.rule.dst(Ttype{Int.I64.neg(west), False{}, abbr}, west, rest)
+
+def tz.rule.standard(name: TzText) -> Maybe<&2, TzRule>:
+  match name:
+    case TzText{abbr, rest}:
+      do Maybe<&2, TzRule>:
+        offset : TzClock <- tz.clock.sign(rest, 24)
+        tz.rule.stdclock(offset, abbr)
+
+def tz.rule(s: String) -> Maybe<&2, TzRule>:
+  do Maybe<&2, TzRule>:
+    name : TzText <- tz.name(s)
+    tz.rule.standard(name)
+
+# The day number of a rule in year y, relative to January 1.
+def tz.day.index(d: TzDay, +y: U32) -> U32:
+  match d:
+    case Julian{+n}:
+      (n - 1 + Bool.pick(U32, Bool.and(Date.is_leap(y), U32.is_ge(n, 60)), 1, 0) : U32)
+    case Ordinal{n}:
+      n
+    case MonthWeek{+month, +week, +weekday}:
+      +first_day = (Date.weekday(Date{y, month, 1}) % 7 : U32)
+      +day = (1 + ((weekday + 7 - first_day) % 7) + (week - 1) * 7 : U32)
+      +last = Date.days_in_month(y, month)
+      +actual = Bool.pick(U32, U32.is_gt(day, last), (day - 7 : U32), day)
+      Int.I64.to_u32(Int.I64.sub(Date.to_days(Date{y, month, actual}), Date.to_days(Date{y, 1, 1})))
+
+def tz.date.utc(d: TzDate, +y: U32, west: Int.I64) -> Int.I64:
+  match d:
+    case TzDate{day, sec}:
+      Int.I64.add(Int.I64.mul(Int.I64.add(Date.to_days(Date{y, 1, 1}), i64(tz.day.index(day, y))), i64(86400)),
+        Int.I64.add(sec, west))
+
+# Apply the two transitions for the UTC year and its neighbors. A /time may cross a year boundary.
+type TzEvent is Data:
+  TzEvent{when: Int.I64, dst: Bool}
+
+def tz.event.select(newer: Bool, old: Maybe<&2, TzEvent>, when: Int.I64, dst: Bool) -> Maybe<&2, TzEvent>:
+  match newer:
+    case True{}:
+      Some{TzEvent{when, dst}}
+    case False{}:
+      old
+
+def tz.event.new(+now: Int.I64, old: Maybe<&2, TzEvent>, +when: Int.I64, dst: Bool) -> Maybe<&2, TzEvent>:
+  match old:
+    case None{}:
+      tz.event.select(Int.I64.is_le(when, now), None{}, when, dst)
+    case Some{TzEvent{+prev, flag}}:
+      tz.event.select(Bool.and(Int.I64.is_le(when, now), Int.I64.is_gt(when, prev)),
+        Some{TzEvent{prev, flag}}, when, dst)
+
+def tz.event.year(+now: Int.I64, old: Maybe<&2, TzEvent>, +r: TzRule, +y: U32) -> Maybe<&2, TzEvent>:
+  match r:
+    case TzRule{Ttype{+off, _, _}, Ttype{+dstoff, _, _}, +start, +end}:
+      +first = tz.event.new(now, old, tz.date.utc(start, y, Int.I64.neg(off)), True{})
+      tz.event.new(now, first, tz.date.utc(end, y, Int.I64.neg(dstoff)), False{})
+
+def tz.event.prev(+now: Int.I64, old: Maybe<&2, TzEvent>, +r: TzRule, +y: U32) -> Maybe<&2, TzEvent>:
+  match y:
+    case 0:
+      old
+    case _:
+      tz.event.year(now, old, r, (y - 1 : U32))
+
+def tz.event.next.if(valid: Bool, now: Int.I64, old: Maybe<&2, TzEvent>, r: TzRule, y: U32) -> Maybe<&2, TzEvent>:
+  match valid:
+    case True{}:
+      tz.event.year(now, old, r, (y + 1 : U32))
+    case False{}:
+      old
+def tz.event.next(+now: Int.I64, old: Maybe<&2, TzEvent>, +r: TzRule, +y: U32) -> Maybe<&2, TzEvent>:
+  tz.event.next.if(U32.is_lt(y, 9999), now, old, r, y)
+
+
+def tz.event.type(ev: Maybe<&2, TzEvent>, +r: TzRule) -> Ttype:
+  match ev:
+    case Some{TzEvent{when, dst}}:
+      match r:
+        case TzRule{standard, daylight, start, end}:
+          Bool.pick(Ttype, dst, daylight, standard)
+    case None{}:
+      match r:
+        case TzRule{standard, daylight, start, end}:
+          standard
+
+def tz.rule.at(+r: TzRule, +secs: Int.I64, +year: U32) -> Ttype:
+  +a = tz.event.prev(secs, None{}, r, year)
+  +b = tz.event.year(secs, a, r, year)
+  tz.event.type(tz.event.next(secs, b, r, year), r)
+
+def tz.rule.date(d: Maybe<&2, DateTime>, r: TzRule, secs: Int.I64) -> Maybe<&2, Ttype>:
+  match d:
+    case None{}:
+      None{}
+    case Some{DateTime{Date{y, m, day}, h, mi, second, nanos}}:
+      Some{tz.rule.at(r, secs, y)}
+
+def tz.rule.lookup(rule: Maybe<&2, TzRule>, +secs: Int.I64) -> Maybe<&2, Ttype>:
+  match rule:
+    case None{}:
+      None{}
+    case Some{r}:
+      tz.rule.date(DateTime.of_instant(Instant.of_unix(secs)), r, secs)
+
 # The type index at secs: the last transition at or before it, or type 0 before the first.
 # ponytail: linear scan; bisect an Array if lookups get hot.
 def Zone.find(ts: List<&2, Trans>, +secs: Int.I64, +cur: U32) -> U32:
@@ -684,13 +1123,47 @@ def Zone.find(ts: List<&2, Trans>, +secs: Int.I64, +cur: U32) -> U32:
       cur
     case Con{Trans{t, k}, rest}:
       Zone.find(rest, secs, Bool.pick(U32, Int.I64.is_le(t, secs), k, cur))
+def Zone.last.go(ts: List<&2, Trans>, +secs: Int.I64, +last: Int.I64) -> Bool:
+  match ts:
+    case Nil{}:
+      Int.I64.is_gt(secs, last)
+    case Con{Trans{t, k}, rest}:
+      Zone.last.go(rest, secs, t)
+def Zone.last(ts: List<&2, Trans>, secs: Int.I64) -> Bool:
+  match ts:
+    case Nil{}:
+      True{}
+    case Con{Trans{t, k}, rest}:
+      Zone.last.go(rest, secs, t)
 
-# The local time type at i.
-# ponytail: past the last transition the last type holds; evaluate the footer TZ rule for slim files and years past 2037.
+
+def Zone.at.fallback(m: Maybe<&2, Ttype>, types: List<&2, Ttype>, ts: List<&2, Trans>, secs: Int.I64) -> Maybe<&2, Ttype>:
+  match m:
+    case Some{t}:
+      Some{t}
+    case None{}:
+      List.get(&2, Ttype, types, U32.to_nat(Zone.find(ts, secs, 0)))
+def Zone.at.footer(use: Bool, tz: String, types: List<&2, Ttype>, ts: List<&2, Trans>, +secs: Int.I64) -> Maybe<&2, Ttype>:
+  match use:
+    case False{}:
+      List.get(&2, Ttype, types, U32.to_nat(Zone.find(ts, secs, 0)))
+    case True{}:
+      Zone.at.fallback(tz.rule.lookup(tz.rule(tz), secs), types, ts, secs)
+
+def Zone.at.tz(empty: Bool, tz: String, types: List<&2, Ttype>, +ts: List<&2, Trans>, +secs: Int.I64) -> Maybe<&2, Ttype>:
+  match empty:
+    case True{}:
+      List.get(&2, Ttype, types, U32.to_nat(Zone.find(ts, secs, 0)))
+    case False{}:
+      Zone.at.footer(Zone.last(ts, secs), tz, types, ts, secs)
+
+
+
+# The local time type at i. The footer applies strictly after the final explicit transition.
 def Zone.at(z: Zone, i: Instant) -> Maybe<&2, Ttype>:
   match z i:
-    case Zone{ts, types, tz} Instant{s, n}:
-      List.get(&2, Ttype, types, U32.to_nat(Zone.find(ts, s, 0)))
+    case Zone{ts, types, +tz} Instant{s, n}:
+      Zone.at.tz(String.eq(tz, ""), tz, types, ts, s)
 
 def Zone.local.at(m: Maybe<&2, Ttype>, i: Instant) -> Maybe<&2, DateTime>:
   match m:

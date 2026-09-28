@@ -169,6 +169,10 @@ def ny.of(m: Maybe<&1, Bytes.Bytes>) -> Maybe<&2, Time.Zone>:
 def ny() -> Maybe<&2, Time.Zone>:
   ny.of(Bytes.from_hex("545a696632000000000000000000000000000000000000000000000000000000000000000000000100000004ffffb9b0000045535400545a6966320000000000000000000000000000000000000000000000000000000000000300000002000000080000000065472f600000000065ed5a700000000067271160000100ffffb9b00000ffffc7c0010445535400454454000a455354354544542c4d332e322e302c4d31312e312e300a"))
 
+# A slim TZif file with its last explicit transition in November 2007.
+def slim() -> Maybe<&2, Time.Zone>:
+  ny.of(Bytes.from_hex("545a696632000000000000000000000000000000000000000000000000000000000000000000000200000008ffffb9b00000ffffc7c001044553540045445400545a6966320000000000000000000000000000000000000000000000000000000000000200000002000000080000000045f3a8f000000000472d5fe00100ffffb9b00000ffffc7c0010445535400454454000a455354354544542c4d332e322e302c4d31312e312e300a"))
+
 def ny.type(m: Maybe<&2, Time.Zone>, s: Int.I64) -> Maybe<&2, Time.Ttype>:
   match m:
     case None{}:
@@ -212,6 +216,39 @@ law before_first_transition:
 
 law tzif_footer:
   {ny.tz(ny()) == "EST5EDT,M3.2.0,M11.1.0" : String}
+
+law slim_2030_winter:
+  {ny.type(slim(), u(1893456000)) == Some{Time.Ttype{neg(18000), False{}, "EST"}} : Maybe<&2, Time.Ttype>}
+
+law slim_2030_summer:
+  {ny.type(slim(), u(1909094400)) == Some{Time.Ttype{neg(14400), True{}, "EDT"}} : Maybe<&2, Time.Ttype>}
+
+def rule.type(tz: String, s: Int.I64) -> Maybe<&2, Time.Ttype>:
+  Time.Zone.at(Time.Zone{Nil{}, [Time.Ttype{u(0), False{}, "UTC"}], tz}, at(s))
+
+law quoted_julian_leap:
+  {rule.type("<+03>-3<+04>-4,J60/0,J300/0", u(1961625600)) ==
+    Some{Time.Ttype{u(10800), False{}, "+03"}} : Maybe<&2, Time.Ttype>}
+
+law quoted_julian_summer:
+  {rule.type("<+03>-3<+04>-4,J60/0,J300/0", u(1961712000)) ==
+    Some{Time.Ttype{u(14400), True{}, "+04"}} : Maybe<&2, Time.Ttype>}
+
+law ordinal_leap_day:
+  {rule.type("STD0DST,59/0,300/0", u(1961625600)) ==
+    Some{Time.Ttype{u(3600), True{}, "DST"}} : Maybe<&2, Time.Ttype>}
+
+law southern_summer:
+  {rule.type("AEST-10AEDT-11,M10.1.0,M4.1.0", u(1893456000)) ==
+    Some{Time.Ttype{u(39600), True{}, "AEDT"}} : Maybe<&2, Time.Ttype>}
+
+law southern_winter:
+  {rule.type("AEST-10AEDT-11,M10.1.0,M4.1.0", u(1909094400)) ==
+    Some{Time.Ttype{u(36000), False{}, "AEST"}} : Maybe<&2, Time.Ttype>}
+
+law extended_transition_hours:
+  {rule.type("STD0DST,J1/-167:59:59,J2/167:59:59", u(1893456000)) ==
+    Some{Time.Ttype{u(3600), True{}, "DST"}} : Maybe<&2, Time.Ttype>}
 
 law tzif_bad_magic:
   {ny.of(Bytes.from_hex("545a6967")) == None{} : Maybe<&2, Time.Zone>}
