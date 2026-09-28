@@ -1,0 +1,16 @@
+[package]
+name = "rs"
+version = "0.1.0"
+edition = "2021"
+# Resolve crate versions that build on this rustc (the aws crates raise their MSRV often).
+rust-version = "1.91"
+resolver = "3"
+
+[[bin]]
+name = "rs"
+path = "main.rs"
+
+[dependencies]
+aws-credential-types = "1"
+aws-sigv4 = "1"
+aws-smithy-runtime-api = { version = "1", features = ["client"] }
