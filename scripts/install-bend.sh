@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install the pinned Bend for CI (linux-x64) into ~/.bend. Bump VER and SHA together.
 set -euo pipefail
-VER=2.0.31
-SHA=f7dbecc8ef5991fe15d9953b8b33911bc62a120c735e2e5902aa031e22055bad
+VER=2.0.32
+SHA=5c365ddb12954d0933cef751802e0f7d9875f842edcb80f9661f89cd1a9ff7b6
 name="bend-$VER-linux-x64.tar.gz"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

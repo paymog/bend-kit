@@ -455,7 +455,7 @@ def resolve.q(ns: String, id: U32, q: Maybe<&2, String>) -> IO(Maybe<&2, String>
       none()
     case Some{bytes}:
       do IO<Maybe<&2, String>>:
-        u : Result<&1, &1, U32 & String, Socket> <- UDP.bind(0)
+        u : Result<&1, &1, U32 & String, Socket> <- UDP.bind("0.0.0.0", 0)
         resolve.sock(ns, id, bytes, u)
 
 # §7.3: a random id makes forged answers harder to land.

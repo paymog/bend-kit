@@ -252,77 +252,142 @@ def pairs.length(xs: List<&1, Val & Val>) -> List<&1, Val & Val> & Nat:
     case Con{h, t}:
       pairs.length.put(h, pairs.length(t))
 
-@unsafe
-def encode.go(items: List<&1, Item>, o: W) -> Maybe<&1, W>:
-  match items:
-    case Nil{}:
-      Some{o}
-    case Con{IGuard{ok}, rest}:
-      match ok:
-        case True{}:
-          encode.go(rest, o)
-        case False{}:
-          None{}
-    case Con{IText{value}, rest}:
-      (b, ok) = value
-      Bytes.Bytes{+len, buf} = b
-      encode.go(Con{IGuard{ok}, rest}, raw.bytes(Bytes.Bytes{len, buf}, head.u32(3, len, o)))
-    case Con{IArrLen{value}, rest}:
-      (xs, n) = value
-      encode.go(Con{IArr{xs}, rest}, head.u32(4, U32.from_nat(n), o))
-    case Con{IMapLen{value}, rest}:
-      (kvs, n) = value
-      encode.go(Con{IMap{kvs}, rest}, head.u32(5, U32.from_nat(n), o))
-    case Con{IArr{xs}, rest}:
-      match xs:
+def size.arr(h: Val, r: Val & Nat) -> Val & Nat:
+  (t, n) = r
+  match t:
+    case Arr{items}:
+      (Arr{Con{h, items}}, n)
+    case _:
+      (Arr{Nil{}}, n)
+
+def size.obj(k: Val, v: Val, r: Val & Nat) -> Val & Nat:
+  (t, n) = r
+  match t:
+    case Obj{items}:
+      (Obj{Con{(k, v), items}}, n)
+    case _:
+      (Obj{Nil{}}, n)
+
+def size.cons(hr: Val & Nat, r: Val & Nat) -> Val & Nat:
+  (h, a) = hr
+  (t, b) = r
+  size.arr(h, (t, (1n + a + b : Nat)))
+
+def size.pair(kr: Val & Nat, vr: Val & Nat, r: Val & Nat) -> Val & Nat:
+  (k, a) = kr
+  (v, b) = vr
+  (t, c) = r
+  size.obj(k, v, (t, (2n + a + b + c : Nat)))
+
+def size.tag(+number: W64, r: Val & Nat) -> Val & Nat:
+  (v, n) = r
+  (Tag{number, v}, (4n + n : Nat))
+
+# v, and at least the number of encode.go steps it takes.
+def size(v: Val) -> Val & Nat:
+  match v:
+    case Arr{items}:
+      match items:
         case Nil{}:
-          encode.go(rest, o)
+          (Arr{Nil{}}, 3n)
         case Con{h, t}:
-          encode.go(Con{IVal{h}, Con{IArr{t}, rest}}, o)
-    case Con{IMap{kvs}, rest}:
-      match kvs:
+          size.cons(size(h), size(Arr{t}))
+    case Obj{items}:
+      match items:
         case Nil{}:
-          encode.go(rest, o)
-        case Con{(k, v), t}:
-          encode.go(Con{IVal{k}, Con{IVal{v}, Con{IMap{t}, rest}}}, o)
-    case Con{IVal{value}, rest}:
-      match value:
-        case UInt{value}:
-          encode.go(rest, uint.bytes(0, value, o))
-        case NInt{value}:
-          encode.go(rest, uint.bytes(1, value, o))
-        case BStr{value}:
-          Bytes.Bytes{+len, buf} = value
-          encode.go(rest, raw.bytes.go(U32.to_nat(len), Bytes.peek(buf, 0), 0, head.u32(2, len, o)))
-        case TStr{value}:
-          encode.go(Con{IText{text.check(value)}, rest}, o)
-        case Arr{items}:
-          encode.go(Con{IArrLen{vals.length(items)}, rest}, o)
-        case Obj{items}:
-          encode.go(Con{IMapLen{pairs.length(items)}, rest}, o)
-        case Tag{number, value}:
-          encode.go(Con{IVal{value}, rest}, uint.bytes(6, number, o))
-        case Sim{value}:
+          (Obj{Nil{}}, 3n)
+        case Con{(k, x), t}:
+          size.pair(size(k), size(x), size(Obj{t}))
+    case Tag{number, value}:
+      size.tag(number, size(value))
+    case UInt{value}:
+      (UInt{value}, 3n)
+    case NInt{value}:
+      (NInt{value}, 3n)
+    case BStr{value}:
+      (BStr{value}, 3n)
+    case TStr{value}:
+      (TStr{value}, 3n)
+    case Sim{value}:
+      (Sim{value}, 3n)
+    case Flt{value}:
+      (Flt{value}, 3n)
+
+# fuel bounds the steps; size(v) gives enough, so the 0n arm is never reached.
+def encode.go(fuel: Nat, items: List<&1, Item>, o: W) -> Maybe<&1, W>:
+  match fuel:
+    case 0n:
+      None{}
+    case 1n+fuel:
+      match items:
+        case Nil{}:
+          Some{o}
+        case Con{IGuard{ok}, rest}:
+          match ok:
+            case True{}:
+              encode.go(fuel, rest, o)
+            case False{}:
+              None{}
+        case Con{IText{value}, rest}:
+          (b, ok) = value
+          Bytes.Bytes{+len, buf} = b
+          encode.go(fuel, Con{IGuard{ok}, rest}, raw.bytes(Bytes.Bytes{len, buf}, head.u32(3, len, o)))
+        case Con{IArrLen{value}, rest}:
+          (xs, n) = value
+          encode.go(fuel, Con{IArr{xs}, rest}, head.u32(4, U32.from_nat(n), o))
+        case Con{IMapLen{value}, rest}:
+          (kvs, n) = value
+          encode.go(fuel, Con{IMap{kvs}, rest}, head.u32(5, U32.from_nat(n), o))
+        case Con{IArr{xs}, rest}:
+          match xs:
+            case Nil{}:
+              encode.go(fuel, rest, o)
+            case Con{h, t}:
+              encode.go(fuel, Con{IVal{h}, Con{IArr{t}, rest}}, o)
+        case Con{IMap{kvs}, rest}:
+          match kvs:
+            case Nil{}:
+              encode.go(fuel, rest, o)
+            case Con{(k, v), t}:
+              encode.go(fuel, Con{IVal{k}, Con{IVal{v}, Con{IMap{t}, rest}}}, o)
+        case Con{IVal{value}, rest}:
           match value:
-            case SFalse{}:
-              encode.go(rest, byte(o, 244))
-            case STrue{}:
-              encode.go(rest, byte(o, 245))
-            case SNull{}:
-              encode.go(rest, byte(o, 246))
-            case SUndefined{}:
-              encode.go(rest, byte(o, 247))
-            case Other{+value}:
-              encode.go(Con{IGuard{simple.ok(value)}, rest}, head.u32(7, value, o))
-        case Flt{value}:
-          match value:
-            case Half{+bits}:
-              encode.go(Con{IGuard{U32.is_lt(bits, 65536)}, rest}, byte(byte(byte(o, 249), (bits >> 8n : U32)), bits))
-            case Single{+bits}:
-              encode.go(rest, raw.u32(byte(o, 250), bits))
-            case Double{+bits}:
-              W64{+hi, +lo} = bits
-              encode.go(rest, raw.u32(raw.u32(byte(o, 251), hi), lo))
+            case UInt{value}:
+              encode.go(fuel, rest, uint.bytes(0, value, o))
+            case NInt{value}:
+              encode.go(fuel, rest, uint.bytes(1, value, o))
+            case BStr{value}:
+              Bytes.Bytes{+len, buf} = value
+              encode.go(fuel, rest, raw.bytes.go(U32.to_nat(len), Bytes.peek(buf, 0), 0, head.u32(2, len, o)))
+            case TStr{value}:
+              encode.go(fuel, Con{IText{text.check(value)}, rest}, o)
+            case Arr{items}:
+              encode.go(fuel, Con{IArrLen{vals.length(items)}, rest}, o)
+            case Obj{items}:
+              encode.go(fuel, Con{IMapLen{pairs.length(items)}, rest}, o)
+            case Tag{number, value}:
+              encode.go(fuel, Con{IVal{value}, rest}, uint.bytes(6, number, o))
+            case Sim{value}:
+              match value:
+                case SFalse{}:
+                  encode.go(fuel, rest, byte(o, 244))
+                case STrue{}:
+                  encode.go(fuel, rest, byte(o, 245))
+                case SNull{}:
+                  encode.go(fuel, rest, byte(o, 246))
+                case SUndefined{}:
+                  encode.go(fuel, rest, byte(o, 247))
+                case Other{+value}:
+                  encode.go(fuel, Con{IGuard{simple.ok(value)}, rest}, head.u32(7, value, o))
+            case Flt{value}:
+              match value:
+                case Half{+bits}:
+                  encode.go(fuel, Con{IGuard{U32.is_lt(bits, 65536)}, rest}, byte(byte(byte(o, 249), (bits >> 8n : U32)), bits))
+                case Single{+bits}:
+                  encode.go(fuel, rest, raw.u32(byte(o, 250), bits))
+                case Double{+bits}:
+                  W64{+hi, +lo} = bits
+                  encode.go(fuel, rest, raw.u32(raw.u32(byte(o, 251), hi), lo))
 
 def encode.done(r: Maybe<&1, W>) -> Maybe<&1, Bytes.Bytes>:
   match r:
@@ -331,10 +396,14 @@ def encode.done(r: Maybe<&1, W>) -> Maybe<&1, Bytes.Bytes>:
     case None{}:
       None{}
 
+def encode.sized(r: Val & Nat) -> Maybe<&1, Bytes.Bytes>:
+  (v, n) = r
+  encode.done(encode.go((1n + n : Nat), Con{IVal{v}, Nil{}}, empty()))
+
 # Definite lengths and the shortest head for every length, integer, and tag; floats keep their width.
 # None when a TStr is not UTF-8, a Half has more than 16 bits, or Other is not a simple value 0..19 or 32..255.
 def encode(v: Val) -> Maybe<&1, Bytes.Bytes>:
-  encode.done(encode.go(Con{IVal{v}, Nil{}}, empty()))
+  encode.sized(size(v))
 
 def decode.other(ok: Bool, +value: U32) -> Maybe<&1, Val>:
   match ok:

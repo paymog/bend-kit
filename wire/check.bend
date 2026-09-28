@@ -243,4 +243,4 @@ def main() -> IO(Unit):
     ipv6.check()
     udp6.check()
     args : List<&1, String> <- IO.args()
-    mtls.args(args)
+    mtls.args(List.tail(&1, String, args))
