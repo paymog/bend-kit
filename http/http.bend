@@ -12,7 +12,7 @@ import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import 0x296c14c91cb121bd2f42e9d9f730480d/dns.bend as Dns
+import bend-kit-dns@0.4.0.2/dns.bend as Dns
 import 0x58bd522479d133cfe1b2c4451fc1a28f/zlib.bend as Zlib
 
 # HTTP/1.1 codec and client (RFC 9112) for http:// and https:// (OpenSSL 3 at run time).
@@ -5360,7 +5360,7 @@ def loop(~h: Req -> IO(Res), +max: Nat, l: Listener) -> IO(Unit):
 
 def serve.with(~h: Req -> IO(Res), +port: U32, +max: Nat) -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen(port))
+    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", port))
     IO.print("http://127.0.0.1:" ++ U32.show(port))
     loop(~h, max, l)
 

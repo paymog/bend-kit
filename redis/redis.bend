@@ -2,8 +2,7 @@
 import Base
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 import bend-kit-wire@0.4.2.0/wire.bend as Wire
-# bend-kit-dns@0.4.0.1
-import 0x296c14c91cb121bd2f42e9d9f730480d/dns.bend as Dns
+import bend-kit-dns@0.4.0.2/dns.bend as Dns
 
 # A RESP3 value (RESP2 replies decode into the same type). Text fields hold the raw
 # bytes of the line. Dict (a RESP3 map) and Attr keep their pairs flat, key then value, as
