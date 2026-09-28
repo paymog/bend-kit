@@ -209,7 +209,7 @@ static void __attribute__((constructor)) wire_send_words_use(void) {
 
 #endif
 
-#if defined(CID(connect)) || defined(CID(send_to))
+#if defined(CID(connect)) || defined(CID(send_to)) || defined(CID(send_to.words))
 
 // Accept only numeric addresses. The socket family and sockaddr length travel together.
 static int wire_addr(const char* host, u32 port, struct sockaddr_storage* out, socklen_t* size) {
@@ -241,18 +241,18 @@ static int wire_addr(const char* host, u32 port, struct sockaddr_storage* out, s
 
 #endif
 
-#ifdef CID(recv_from)
+#if defined(CID(recv_from)) || defined(CID(recv_from.words))
 
-static Term wire_recv_from_more(Env e, IoWork* w) {
+static Term wire_recv_from_go(Env e, IoWork* w, IoPack more, bool words) {
   struct sockaddr_storage at = { 0 };
   socklen_t alen = sizeof(at);
   char      host[INET6_ADDRSTRLEN];
   int       fd = (int)w->hand;
-  ssize_t   n  = io_sys_end(w, recvfrom(fd, w->data, (size_t)w->made, 0,
+  ssize_t   n = io_sys_end(w, recvfrom(fd, w->data, (size_t)w->made, 0,
     (struct sockaddr*)&at, &alen));
   if (w->code == EAGAIN) {
     if (!wire_late(w->size)) {
-      return io_wait_on(w, fd, POLLIN, w->size, wire_recv_from_more);
+      return io_wait_on(w, fd, POLLIN, w->size, more);
     }
     w->code = ETIMEDOUT;
   }
@@ -265,16 +265,29 @@ static Term wire_recv_from_more(Env e, IoWork* w) {
   const char* text = w->code ? NULL : inet_ntop(at.ss_family, ip, host, sizeof(host));
   Term r = w->code || text == NULL ? io_fail(e, w->code ? w->code : EINVAL, NULL)
     : io_done(e, io_tup(e, io_str(e, text, strlen(text)),
-      io_tup(e, ntohs(port), wire_bytes(e, w->data, (u64)n))));
+      io_tup(e, ntohs(port), words
+        ? wire_words(e, w->data, (u64)n) : wire_bytes(e, w->data, (u64)n))));
   free(w->data);
   return io_tup(e, io_hand(w->hand), r);
 }
 
-Term wire_recv_from_run(Env e, Term* f, IoWork* w) {
+static void wire_recv_from_init(Term* f, IoWork* w) {
   w->hand = (intptr_t)io_hand_v(f[0]);
   w->made = f[1] < INT32_MAX ? (intptr_t)f[1] : INT32_MAX;
   w->data = io_mem(malloc((size_t)w->made + 1));
   w->size = wire_deadline((u64)f[2]);
+}
+
+#endif
+
+#ifdef CID(recv_from)
+
+static Term wire_recv_from_more(Env e, IoWork* w) {
+  return wire_recv_from_go(e, w, wire_recv_from_more, false);
+}
+
+Term wire_recv_from_run(Env e, Term* f, IoWork* w) {
+  wire_recv_from_init(f, w);
   return wire_recv_from_more(e, w);
 }
 
@@ -284,14 +297,31 @@ static void __attribute__((constructor)) wire_recv_from_use(void) {
 
 #endif
 
-#ifdef CID(send_to)
+#ifdef CID(recv_from.words)
+
+static Term wire_recv_from_words_more(Env e, IoWork* w) {
+  return wire_recv_from_go(e, w, wire_recv_from_words_more, true);
+}
+
+Term wire_recv_from_words_run(Env e, Term* f, IoWork* w) {
+  wire_recv_from_init(f, w);
+  return wire_recv_from_words_more(e, w);
+}
+
+static void __attribute__((constructor)) wire_recv_from_words_use(void) {
+  io_eff(CID(recv_from.words), wire_recv_from_words_run, 0);
+}
+
+#endif
+
+#if defined(CID(send_to)) || defined(CID(send_to.words))
 
 static Term wire_send_to_more(Env e, IoWork* w) {
   struct sockaddr_storage at;
   socklen_t size = 0;
   int     fd = (int)w->hand;
-  ssize_t n  = -1;
-  errno      = EINVAL;
+  ssize_t n = -1;
+  errno     = EINVAL;
   if (w->code == 0 && wire_addr(w->text, (u32)w->made, &at, &size) >= 0) {
     n = sendto(fd, w->data, w->size, 0, (struct sockaddr*)&at, size);
   }
@@ -306,19 +336,44 @@ static Term wire_send_to_more(Env e, IoWork* w) {
   return io_tup(e, io_hand(w->hand), r);
 }
 
-Term wire_send_to_run(Env e, Term* f, IoWork* w) {
+static void wire_send_to_init(Env e, Term* f, IoWork* w) {
   uint64_t hn = 0;
-  bool     bad;
   w->hand = (intptr_t)io_hand_v(f[0]);
   w->text = io_cstr(e, f[1], &hn);
   w->made = (intptr_t)f[2];
+  w->code = io_nul(w->text, hn) ? EINVAL : 0;
+}
+
+#endif
+
+#ifdef CID(send_to)
+
+Term wire_send_to_run(Env e, Term* f, IoWork* w) {
+  bool bad;
+  wire_send_to_init(e, f, w);
   w->data = wire_octets(e, f[3], &w->size, &bad);
-  w->code = bad || io_nul(w->text, hn) ? EINVAL : 0;
+  if (bad) w->code = EINVAL;
   return wire_send_to_more(e, w);
 }
 
 static void __attribute__((constructor)) wire_send_to_use(void) {
   io_eff(CID(send_to), wire_send_to_run, 0);
+}
+
+#endif
+
+#ifdef CID(send_to.words)
+
+Term wire_send_to_words_run(Env e, Term* f, IoWork* w) {
+  bool bad;
+  wire_send_to_init(e, f, w);
+  w->data = wire_words_octets(e, f[4], (u64)f[3], &w->size, &bad);
+  if (bad) w->code = EINVAL;
+  return wire_send_to_more(e, w);
+}
+
+static void __attribute__((constructor)) wire_send_to_words_use(void) {
+  io_eff(CID(send_to.words), wire_send_to_words_run, 0);
 }
 
 #endif

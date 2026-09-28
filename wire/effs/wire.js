@@ -183,6 +183,14 @@ function wire_send(socket, b, k) {
 }
 
 function recv_from(socket, max, ms, k) {
+  return wire_recv_from(socket, max, ms, k, wire_text);
+}
+
+function recv_from_words(socket, max, ms, k) {
+  return wire_recv_from(socket, max, ms, k, wire_words);
+}
+
+function wire_recv_from(socket, max, ms, k, out) {
   const sys = io_sys();
   const fd = socket;
   const b = new Uint8Array(Math.max(Number(max), 1));
@@ -212,17 +220,24 @@ function recv_from(socket, max, ms, k) {
       return io_tup(socket, io_fail(22));
     }
     const port = (peer[2] << 8) | peer[3];
-    return io_tup(socket, io_done(io_tup(host, port, wire_text(b, n))));
+    return io_tup(socket, io_done(io_tup(host, port, out(b, n))));
   };
   return go();
 }
 
 
 function send_to(socket, host, port, data, k) {
+  return wire_send_to(socket, host, port, wire_octets(data), k);
+}
+
+function send_to_words(socket, host, port, n, words, k) {
+  return wire_send_to(socket, host, port, wire_words_octets(n, words), k);
+}
+
+function wire_send_to(socket, host, port, b, k) {
   const sys = io_sys();
   const fd = socket;
   const at = wire_numeric_addr(host, Number(port));
-  const b = wire_octets(data);
   if (at === null || b === null) {
     return io_tup(socket, io_fail(22));
   }
@@ -564,6 +579,8 @@ io_eff(CID(recv), recv);
 io_eff(CID(send), send);
 io_eff(CID(recv_from), recv_from);
 io_eff(CID(send_to), send_to);
+io_eff(CID(recv_from.words), recv_from_words);
+io_eff(CID(send_to.words), send_to_words);
 io_eff(CID(tls.connect), tls_connect);
 io_eff(CID(tls.connect.alpn), tls_connect_alpn);
 io_eff(CID(tls.connect.cert), tls_connect_cert);
