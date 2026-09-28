@@ -1,0 +1,13 @@
+[package]
+name = "rs"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rs"
+path = "main.rs"
+
+[dependencies]
+bytes = "1"
+eventsource-stream = "0.2"
+futures = "0.3"
