@@ -82,7 +82,7 @@ Each package is one folder at the root. The folder name is the package name:
   bench/           benchmarks (optional)
 ```
 
-`http` also has `smoke.bend`, which does live fetches, and `demo.bend`, a small server for the serve smoke test. `llm/smoke.bend` sends one reply and one stream to each API whose key is set (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, with optional `*_BASE_URL` and `*_MODEL`).
+`http` also has `smoke.bend`, which does live fetches, and `demo.bend`, a small server for the serve smoke test. `llm/smoke.bend` sends one reply and one stream to each API whose key is set (`ANTHROPIC_API_KEY` or the bearer `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`, with optional `*_BASE_URL` and `*_MODEL`).
 
 ## Checks
 

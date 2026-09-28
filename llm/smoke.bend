@@ -1,5 +1,5 @@
 # Live smoke: one reply and one stream per API whose key is set; the others are skipped.
-# ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL, ANTHROPIC_MODEL; OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL.
+# ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN (bearer), ANTHROPIC_BASE_URL, ANTHROPIC_MODEL; OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL.
 import Base
 import ./llm.bend as Llm
 import bend-kit-http@0.23.0.1/http.bend as Http
@@ -105,12 +105,16 @@ def run(+name: String, c: Llm.Client, +model: String) -> IO(Unit):
     c2 : Llm.Client <- streamed(name, y)
     Llm.close(c2)
 
-def anthropic(k: Maybe<&2, String>, base: String, +model: String) -> IO(Unit):
-  match k:
+def anthropic(t: Maybe<&2, String>, k: Maybe<&2, String>, base: String, +model: String) -> IO(Unit):
+  match t:
+    case Some{tok}:
+      run("anthropic", Llm.header(Llm.base(Llm.anthropic(""), base), "authorization", "Bearer " ++ tok), model)
     case None{}:
-      IO.print("skip anthropic: ANTHROPIC_API_KEY is not set")
-    case Some{key}:
-      run("anthropic", Llm.base(Llm.anthropic(key), base), model)
+      match k:
+        case None{}:
+          IO.print("skip anthropic: ANTHROPIC_API_KEY is not set")
+        case Some{key}:
+          run("anthropic", Llm.base(Llm.anthropic(key), base), model)
 
 def openai(k: Maybe<&2, String>, base: String, +model: String) -> IO(Unit):
   match k:
@@ -121,10 +125,11 @@ def openai(k: Maybe<&2, String>, base: String, +model: String) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
+    at : Result<&1, &1, U32 & String, String> <- IO.get_env("ANTHROPIC_AUTH_TOKEN")
     ak : Result<&1, &1, U32 & String, String> <- IO.get_env("ANTHROPIC_API_KEY")
     ab : Result<&1, &1, U32 & String, String> <- IO.get_env("ANTHROPIC_BASE_URL")
     am : Result<&1, &1, U32 & String, String> <- IO.get_env("ANTHROPIC_MODEL")
-    anthropic(env(ak), env.or(ab, "https://api.anthropic.com"), env.or(am, "claude-haiku-4-5"))
+    anthropic(env(at), env(ak), env.or(ab, "https://api.anthropic.com"), env.or(am, "claude-haiku-4-5"))
     ok : Result<&1, &1, U32 & String, String> <- IO.get_env("OPENAI_API_KEY")
     ob : Result<&1, &1, U32 & String, String> <- IO.get_env("OPENAI_BASE_URL")
     om : Result<&1, &1, U32 & String, String> <- IO.get_env("OPENAI_MODEL")
