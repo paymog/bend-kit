@@ -1,5 +1,6 @@
 # Wire benchmark: R localhost TCP echo round trips with send.words and recv.words (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../wire.bend as Wire
 import ../../bytes/bytes.bend as Bytes
 
@@ -107,8 +108,8 @@ def recv.full.check(fuel: Nat, sock: Socket, +off: U32, arr: Array<U32>) -> IO(S
 def recv.full(sock: Socket) -> IO(Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>):
   recv.full.check(recv.fuel(), sock, 0, recv.scratch())
 
-def lap(+name: String, t0: Nat, t1: Nat, +cs: U32) -> IO(Unit):
-  IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(cs))
+def lap(+name: String, t0: Time.Duration, t1: Time.Duration, +cs: U32) -> IO(Unit):
+  IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(cs))
 
 def echo.after.send(ms: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Socket):
   (sock, r) = ms
@@ -176,12 +177,12 @@ def server() -> IO(Unit):
     server.lr(lr)
 
 @unsafe
-def client.round.got(t0: Nat, +n: Nat, sock: Socket, pair: U32 & Array<U32>, +h: U32, +send: Array<U32>) -> IO(Unit):
+def client.round.got(t0: Time.Duration, +n: Nat, sock: Socket, pair: U32 & Array<U32>, +h: U32, +send: Array<U32>) -> IO(Unit):
   (ln, words) = pair
   client.round.go(t0, n, sock, send, hash.str(Bytes.to_string(Bytes.Bytes{ln, words}), h))
 
 @unsafe
-def client.round.recv(t0: Nat, n: Nat, mr: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>, +h: U32, +send: Array<U32>) -> IO(Unit):
+def client.round.recv(t0: Time.Duration, n: Nat, mr: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>, +h: U32, +send: Array<U32>) -> IO(Unit):
   (sock, r) = mr
   match r:
     case Fail{e}:
@@ -190,7 +191,7 @@ def client.round.recv(t0: Nat, n: Nat, mr: Socket & Result<&1, &1, U32 & String,
       client.round.got(t0, n, sock, pair, h, send)
 
 @unsafe
-def client.round.sent(t0: Nat, n: Nat, mr: Socket & Result<&1, &1, U32 & String, Unit>, +h: U32, +send: Array<U32>) -> IO(Unit):
+def client.round.sent(t0: Time.Duration, n: Nat, mr: Socket & Result<&1, &1, U32 & String, Unit>, +h: U32, +send: Array<U32>) -> IO(Unit):
   (sock, r) = mr
   match r:
     case Fail{e}:
@@ -201,11 +202,11 @@ def client.round.sent(t0: Nat, n: Nat, mr: Socket & Result<&1, &1, U32 & String,
         client.round.recv(t0, n, mr2, h, send)
 
 @unsafe
-def client.round.go(t0: Nat, n: Nat, sock: Socket, +send: Array<U32>, +h: U32) -> IO(Unit):
+def client.round.go(t0: Time.Duration, n: Nat, sock: Socket, +send: Array<U32>, +h: U32) -> IO(Unit):
   match n:
     case 0n:
       do IO<Unit>:
-        t1 : Nat <- IO.now()
+        t1 : Time.Duration <- Time.mono()
         lap("echo", t0, t1, h)
     case 1n+p:
       do IO<Unit>:
@@ -214,7 +215,7 @@ def client.round.go(t0: Nat, n: Nat, sock: Socket, +send: Array<U32>, +h: U32) -
 
 def client.echo(sock: Socket, words: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     client.round.go(t0, rounds(), sock, words, 0)
 
 def client.connected(sock: Socket) -> IO(Unit):

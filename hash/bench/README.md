@@ -27,19 +27,19 @@ You need `bend`, `clang` with zlib, `rustc`, `bun`, `node`, and `python3`. Binar
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-27, `hash` 0.1.0.0. Median of five runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
+M4 Pro, macOS 26.6.2, 2026-09-27, `hash` 0.1.0.0. Median of three runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| crc32 | 0.6 (1.0x) | n/a | 3.0 (5.5x) | 1.9 (3.4x) | 2.5 (4.5x) | 80.0 (145.2x) |
-| adler32 | 1.1 (1.0x) | n/a | 9.0 (8.2x) | n/a | 1.6 (1.4x) | 63.0 (57.1x) |
-| fnv1a32 | n/a | n/a | n/a | n/a | n/a | 55.0 (1.0x) |
-| fnv1a64 | n/a | n/a | n/a | n/a | n/a | 94.0 (1.0x) |
-| xxh32 | n/a | n/a | 3.0 (1.0x) | n/a | n/a | 4.0 (1.3x) |
-| xxh64 | n/a | n/a | 1.9 (1.0x) | n/a | n/a | 15.0 (8.0x) |
-| siphash13 | n/a | 6.2 (1.0x) | n/a | n/a | 7.8 (1.3x) | 13.0 (2.1x) |
+| crc32 | 0.5 (1.1x) | n/a | 1.7 (3.9x) | 0.6 (1.4x) | 0.4 (1.0x) | 32.9 (76.7x) |
+| adler32 | 0.9 (1.1x) | n/a | 4.5 (5.3x) | n/a | 0.8 (1.0x) | 21.8 (26.1x) |
+| fnv1a32 | n/a | n/a | n/a | n/a | n/a | 17.2 (1.0x) |
+| fnv1a64 | n/a | n/a | n/a | n/a | n/a | 34.5 (1.0x) |
+| xxh32 | n/a | n/a | 1.4 (1.0x) | n/a | n/a | 1.6 (1.2x) |
+| xxh64 | n/a | n/a | 0.7 (1.0x) | n/a | n/a | 5.1 (7.1x) |
+| siphash13 | n/a | 3.1 (1.0x) | n/a | n/a | 3.2 (1.0x) | 4.7 (1.5x) |
 
-Versions: Bend 2.0.29, Apple clang 17.0.0, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.31, Apple clang 17.0.0, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
 ## The calls
 
@@ -59,5 +59,5 @@ No language here has FNV-1a in its standard library or in one very popular libra
 - CRC-32, Adler-32, and FNV-1a take one byte per step, and a Bend step costs more than a C one. xxHash and SipHash take a word or a 64-bit lane per step, so Bend is within a small multiple there.
 - 64-bit hashes run on two `U32` halves, as `Hash.W64`. A 64-bit multiply is four 16-bit products.
 - Python's `hash` and Rust's `DefaultHasher` fix the key at zero here. They are not APIs for a chosen key.
-- Bend's `IO.now` counts in whole ms. The other languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - These are micro-benchmarks on one machine.

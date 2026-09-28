@@ -275,6 +275,24 @@ def DateTime.of_instant(i: Instant) -> Maybe<&2, DateTime>:
 def pad(+x: U32, w: Nat) -> String:
   Fmt.Fmt.pad_left(U32.show(x), w, '0')
 
+# Milliseconds with six decimal places.
+def Duration.show_ms.pos(d: Duration) -> String:
+  match d:
+    case Duration{s, +n}:
+      Int.I64.show(Duration.to_ms(Duration{s, n})) ++ "." ++ pad((n % 1000000 : U32), 6n)
+
+def Duration.show_ms.sign(neg: Bool, d: Duration) -> String:
+  match neg:
+    case True{}:
+      "-" ++ Duration.show_ms.pos(Duration.neg(d))
+    case False{}:
+      Duration.show_ms.pos(d)
+
+def Duration.show_ms(d: Duration) -> String:
+  match d:
+    case Duration{+s, n}:
+      Duration.show_ms.sign(Int.I64.is_neg(s), Duration{s, n})
+
 # The digits of n / 10^(9 - w), with trailing zeros cut. n is not 0.
 def frac.go(f: Nat, z: Bool, +n: U32, +w: Nat) -> String:
   match f:

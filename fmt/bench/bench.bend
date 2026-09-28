@@ -1,5 +1,6 @@
 # Shortest F32 benchmark: the Bend side (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../fmt.bend as Fmt
 
 def N() -> Nat:
@@ -39,8 +40,8 @@ def run(l: List<U32>, h: U32) -> U32:
 def main() -> IO(Unit):
   do IO<Unit>:
     l : List<U32> = gen(N(), 1, [])
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     h : U32 = run(l, 2166136261)
     IO.print("chk\tshort\t" ++ U32.show(h))
-    t1 : Nat <- IO.now()
-    IO.print("ms\tshort\t" ++ Nat.show((t1 - t0 : Nat)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print("ms\tshort\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))

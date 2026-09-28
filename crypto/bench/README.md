@@ -29,17 +29,17 @@ Bend peak RSS was about **38 MB**.
 
 ## Results
 
-M4 Pro, macOS 26.6.2, arm64, 2026-09-27. Median of five runs (`python3 run.py 5`). Times are in ms.
+M4 Pro, macOS 26.6.2, arm64, 2026-09-27. Median of three runs (`python3 run.py`). Times are in ms.
 
 | variant | sha256 ms | MB/s | vs fastest |
 |---:|---:|---:|---:|
-| C | 7.0 | 2,384 | 1.1x |
-| Rust | 30.3 | 553 | 4.8x |
-| Bun | 6.4 | 2,614 | 1.0x |
-| Node | 6.4 | 2,633 | 1.0x |
-| Python | 6.3 | 2,657 | 1.0x |
-| Bend | 13.0 | 1,291 | 2.1x |
+| C | 7.0 | 2,388 | 1.1x |
+| Rust | 30.2 | 556 | 4.8x |
+| Bun | 6.3 | 2,679 | 1.0x |
+| Node | 6.6 | 2,538 | 1.1x |
+| Python | 6.4 | 2,632 | 1.0x |
+| Bend | 13.0 | 1,290 | 2.1x |
 
 C, Bun, Node, Python, and Bend all hash in OpenSSL's SHA-256, so they differ only in setup. Bend's extra time is the copy from words to octets. Rust's `sha2` is its own implementation, not OpenSSL's.
 
-Versions: Bend 2.0.29, OpenSSL 3.6.3, Apple clang 17.0.0, Rust 1.91.0 (`sha2` 0.10.9), Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.31, OpenSSL 3.6.3, Apple clang 17.0.0, Rust 1.91.0 (`sha2` 0.10.9), Bun 1.3.14, Node 24.0.1, Python 3.14.6.

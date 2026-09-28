@@ -1,5 +1,6 @@
 # HTTP request parse phase breakdown (native). Same input as codec bench.
 import Base
+import ../../time/time.bend as Time
 import ../http.bend as Http
 
 def iters() -> Nat:
@@ -217,54 +218,54 @@ def loop.body_len(n: Nat, +raw: String, acc: U32) -> U32:
     case 1n+p:
       loop.body_len(p, raw, loop.body_len.score_hb(acc, head_parts(raw)))
 
-def stop(+name: String, t0: Nat, sum: U32) -> IO(Unit):
+def stop(+name: String, t0: Time.Duration, sum: U32) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
-    IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(sum))
+    t1 : Time.Duration <- Time.mono()
+    IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(sum))
 
 def run.full() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("full", t0, loop.full(iters(), req_raw(), 0))
 
 def run.split() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("split", t0, loop.split(iters(), req_raw(), 0))
 
 def run.whole() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("whole", t0, loop.whole(iters(), req_raw(), 0))
 
 def run.lines() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("lines", t0, loop.lines(iters(), req_raw(), 0))
 
 def run.start_line() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("start_line", t0, loop.start(iters(), req_raw(), 0))
 
 def run.field_ops() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("field_ops", t0, loop.field_ops(iters(), req_raw(), 0))
 
 def run.map_build() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("map_build", t0, loop.map_build(iters(), req_raw(), 0))
 
 def run.head_got() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("head_got", t0, loop.head_got(iters(), req_raw(), 0))
 
 def run.body_len() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("body_len", t0, loop.body_len(iters(), req_raw(), 0))
 
 def main() -> IO(Unit):

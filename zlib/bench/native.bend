@@ -1,5 +1,6 @@
 # Zlib benchmark through libz: inflate.words and gzip.words on the same inputs as bench.bend.
 import Base
+import ../../time/time.bend as Time
 import ../zlib.bend as Z
 import ../../bytes/bytes.bend as Bytes
 
@@ -25,8 +26,8 @@ def chk(s: String, h: U32) -> U32:
     case SCon{Chr{c}, t}:
       chk(t, (h * 31 + c : U32))
 
-def lap(+name: String, t0: Nat, t1: Nat, out: String) -> IO(Unit):
-  IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(chk(out, 0)))
+def lap(+name: String, t0: Time.Duration, t1: Time.Duration, out: String) -> IO(Unit):
+  IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk(out, 0)))
 
 def text(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> String:
   match r:
@@ -35,15 +36,15 @@ def text(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> String:
     case Done{(+len, buf)}:
       Bytes.to_string(Bytes.Bytes{len, buf})
 
-def op.inflated(t0: Nat, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+def op.inflated(t0: Time.Duration, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     lap("inflate", t0, t1, text(r))
 
 def op.inflate(b: Bytes.Bytes) -> IO(Unit):
   Bytes.Bytes{+len, buf} = b
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.inflate.words(16777216, len, buf)
     op.inflated(t0, r)
 
@@ -65,14 +66,14 @@ def back(b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   Z.inflate.words(16777216, len, buf)
 
 # The checksum is of the round trip; run.py also feeds out/native.gz to gzip -d.
-def op.deflated(t0: Nat, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+def op.deflated(t0: Time.Duration, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
   match r:
     case Fail{e}:
       IO.print("deflate\t0\tfailed")
     case Done{(+len, buf)}:
       +gz = Bytes.to_string(Bytes.Bytes{len, buf})
       do IO<Unit>:
-        t1 : Nat <- IO.now()
+        t1 : Time.Duration <- Time.mono()
         IO.print("size\t0\t" ++ U32.show(len))
         u : Result<&1, &1, U32 & String, U32 & Array<U32>> <- back(Bytes.from_string(gz))
         lap("deflate", t0, t1, text(u))
@@ -82,7 +83,7 @@ def op.deflated(t0: Nat, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> I
 def op.deflate(b: Bytes.Bytes) -> IO(Unit):
   Bytes.Bytes{+len, buf} = b
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.gzip.words(len, buf)
     op.deflated(t0, r)
 

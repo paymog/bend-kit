@@ -1,5 +1,6 @@
 # DNS benchmark: build one A query and parse one A response, N times (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../dns.bend as Dns
 
 def sum(s: String, acc: U32) -> U32:
@@ -41,19 +42,19 @@ def parse(n: Nat, +i: U32, acc: U32) -> U32:
     case 1n+p:
       parse(p, (i + 1 : U32), sum.some(Dns.answer(id(i), response(id(i))), acc))
 
-def lap(+name: String, t0: Nat, +chk: U32) -> IO(Unit):
+def lap(+name: String, t0: Time.Duration, +chk: U32) -> IO(Unit):
   do IO<Unit>:
     IO.print("chk\t" ++ name ++ "\t" ++ U32.show(chk))
-    t1 : Nat <- IO.now()
-    IO.print("ms\t" ++ name ++ "\t" ++ Nat.show((t1 - t0 : Nat)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
 
 def op.parse() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("parse", t0, parse(100000n, 0, 0))
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("build", t0, build(100000n, 0, 0))
     op.parse()

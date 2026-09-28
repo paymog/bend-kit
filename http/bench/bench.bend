@@ -1,5 +1,6 @@
 # HTTP codec benchmark: parse and encode one fixed request and response (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../http.bend as Http
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
@@ -103,32 +104,32 @@ def loop.encode_res(n: Nat, acc: U32) -> U32:
       loop.encode_res(p, (acc + blen(Http.length(enc.res())) : U32))
 
 # Bend evaluates strictly: the sum is built before t1 is read.
-def stop(+name: String, t0: Nat, sum: U32, extra: U32) -> IO(Unit):
+def stop(+name: String, t0: Time.Duration, sum: U32, extra: U32) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
-    IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show((sum + extra : U32)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show((sum + extra : U32)))
 
 # The output hash is built by the caller, before t0.
 def op.encode_res(extra: U32) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("encode_res", t0, loop.encode_res(iters(), 0), extra)
 
 def op.encode_req(extra: U32) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("encode_req", t0, loop.encode_req(iters(), 0), extra)
     op.encode_res(hash(Http.to_string(enc.res()), 0, 0))
 
 def op.parse_res(+raw: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("parse_res", t0, loop.parse_res(iters(), raw, 0), 0)
     op.encode_req(hash(Http.to_string(enc.req()), 0, 0))
 
 def op.parse_req(+raw: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("parse_req", t0, loop.parse_req(iters(), raw, 0), 0)
     op.parse_res(res_raw())
 

@@ -92,7 +92,6 @@ def plain_bytes(n: int) -> bytes:
 
 
 def mbps(n: int, ms: float) -> float:
-    # Bend's clock counts whole ms, so a small input can time as 0.
     return (n / 1_000_000) / (ms / 1000.0) if ms else float("inf")
 
 
