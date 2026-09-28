@@ -73,6 +73,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Concurrency helpers: `par_map`, `par_reduce`, a worker pool, `select`, and `timeout` (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
 - [x] Redis and Valkey client: `redis`, RESP3 over `wire` (#205). Pub/sub, cluster, sentinel, and client-side caching come later.
+- [x] LLM API client: `llm`, Anthropic Messages and OpenAI Chat Completions on `hairpin`, with an SSE parser (#250). Typed tool use, images, and pooled streams come later.
 - [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
 - [ ] Templating and Markdown (#43)
 - [ ] Math and statistics (#44)
