@@ -117,7 +117,7 @@ function zlib_zstd() {
 // z_stream on LP64 (64-bit macOS and Linux): 112 bytes, fields at these offsets.
 const ZLIB_Z = { size: 112, next_in: 0, avail_in: 8, next_out: 24, avail_out: 32, msg: 48 };
 
-// Kind 0 is gzip or zlib (found from the header), 1 is brotli, 2 is zstd.
+// Kind 0 accepts gzip, zlib, or raw DEFLATE; 1 is brotli, 2 is zstd.
 const ZLIB_DEC = [
   { lib: zlib_z, need: "inflate needs libz.1; set BEND_LIBZ to its path", short: "inflate input ends inside a stream" },
   { lib: zlib_br, need: "brotli needs libbrotlidec.1; set BEND_LIBBROTLIDEC to its path", short: "brotli input ends inside the stream" },
@@ -132,7 +132,7 @@ function zlib_dec_open(kind) {
     return zlib_fail(2, ZLIB_DEC[kind].need);
   }
   const { s, ffi } = z;
-  const d = { kind, done: false, s, ffi };
+  const d = { kind, done: false, started: false, pending: null, s, ffi };
   if (kind === 0) {
     d.z = new Uint8Array(ZLIB_Z.size);
     d.v = new DataView(d.z.buffer);
@@ -151,6 +151,23 @@ function zlib_dec_close(d) {
   } else {
     d.s.ZSTD_freeDCtx(d.st);
   }
+}
+
+function zlib_has_wrapper(a, b) {
+  return (a === 0x1f && b === 0x8b)
+    || ((a & 15) === 8 && (a >> 4) <= 7 && ((a * 256 + b) % 31) === 0);
+}
+
+function zlib_inflate_start(d, a, b) {
+  d.started = true;
+  if (zlib_has_wrapper(a, b)) {
+    return null;
+  }
+  d.s.inflateEnd(d.ffi.ptr(d.z));
+  d.z = new Uint8Array(ZLIB_Z.size);
+  d.v = new DataView(d.z.buffer);
+  return d.s.inflateInit2_(d.ffi.ptr(d.z), -15, d.s.zlibVersion(), ZLIB_Z.size) === 0
+    ? null : zlib_fail(12, "raw inflate initialization failed");
 }
 
 // gzip -d reads the next member when bytes follow the end of one.
@@ -189,6 +206,37 @@ function zlib_inflate_feed(d, b, o) {
     }
   }
 }
+
+function zlib_inflate_auto(d, b, o) {
+  if (!d.started) {
+    if (d.pending !== null) {
+      if (b.length === 0) {
+        return null;
+      }
+      const lead = d.pending;
+      d.pending = null;
+      const fail = zlib_inflate_start(d, lead, b[0]);
+      if (fail !== null) {
+        return fail;
+      }
+      const first = zlib_inflate_feed(d, Uint8Array.of(lead), o);
+      return first ?? zlib_inflate_feed(d, b, o);
+    }
+    if (b.length === 0) {
+      return null;
+    }
+    if (b.length === 1) {
+      d.pending = b[0];
+      return null;
+    }
+    const fail = zlib_inflate_start(d, b[0], b[1]);
+    if (fail !== null) {
+      return fail;
+    }
+  }
+  return zlib_inflate_feed(d, b, o);
+}
+
 
 function zlib_brotli_feed(d, b, o) {
   const { s, ffi } = d;
@@ -243,7 +291,7 @@ function zlib_zstd_feed(d, b, o) {
 
 // Decodes b into o: null, or a failure.
 function zlib_dec_feed(d, b, o) {
-  return [zlib_inflate_feed, zlib_brotli_feed, zlib_zstd_feed][d.kind](d, b, o);
+  return [zlib_inflate_auto, zlib_brotli_feed, zlib_zstd_feed][d.kind](d, b, o);
 }
 
 function zlib_whole(kind, max, n, words) {

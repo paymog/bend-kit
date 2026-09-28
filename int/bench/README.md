@@ -35,15 +35,15 @@ All arithmetic wraps. The `rem` dividends are `hi << 32 | lo`, where `hi` and `l
 
 ## Results
 
-M4 Pro, macOS, 2026-09-26. Bend 2.0.29, Apple clang 17.0.0 (`-O2`), rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6. Median of three runs. Times are in ms.
+M4 Pro, macOS, 2026-09-27. Bend 2.0.31, Apple clang 17.0.0 (`-O2`), rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6. Median of three runs. Times are in ms.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| lcg | 0.016 | 0.017 | 0.960 | 1.142 | 1.688 | 1,138 |
-| rem | 0.008 | 0.008 | 0.730 | 0.828 | 1.233 | 1,103 |
-| i32 | 10.2 | 10.0 | 11.1 | 11.0 | 2,897 | 11 |
-| u16 | 10.2 | 9.4 | 12.6 | 12.8 | 568 | 12 |
-| u8 | 10.3 | 9.7 | 13.4 | 14.3 | 404 | 12 |
+| lcg | 0.017 | 0.017 | 0.981 | 1.175 | 1.844 | 1,172.084 |
+| rem | 0.008 | 0.009 | 0.699 | 0.879 | 1.237 | 1,147.002 |
+| i32 | 10.181 | 10.254 | 11.199 | 11.192 | 3,021.166 | 11.020 |
+| u16 | 9.650 | 9.897 | 13.583 | 13.307 | 551.072 | 12.753 |
+| u8 | 9.996 | 10.176 | 14.066 | 14.624 | 393.604 | 12.644 |
 
 Every program prints the same checksum:
 
@@ -58,11 +58,11 @@ Every program prints the same checksum:
 ## Reading it
 
 - `I32`, `U16`, and `U8` keep their value in a Base `U32`, which the compiler lowers to a machine integer. They run at about 1 ns per step, level with C and Rust. The first version kept them in `Word(n)`: at N2 = 10^5 it took 3,787 ms for `i32`, 541 ms for `u16`, and 201 ms for `u8`, with the same checksums.
-- `U64` is still `Word(64n)`, a list of 64 `Bool` cells, and one multiply-add or remainder takes about 68 µs. That is about 650 to 900 times slower than Python. Native `U64` in Base (bendlang/bend#1027) would remove that cost.
+- `U64` is still `Word(64n)`, a list of 64 `Bool` cells, and one multiply-add or remainder takes about 70 µs. That is about 630 to 930 times slower than Python. Native `U64` in Base (bendlang/bend#1027) would remove that cost.
 
 ## Caveats
 
-- Bend's `IO.now` counts in whole ms, so the Bend rows for the small types are ±1 ms. The other languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - The small-type loops take their seed from the clock (`one(t)`), so the compiler cannot fold them at build time.
 - The C backend holds a known `Word(64n)` as 64 words, and a function with more than 247 live words does not build (bendlang/bend#1069). A loop that copies four `U64` values hits that limit, so `rem` walks a prebuilt list.
 - One machine, one thread.

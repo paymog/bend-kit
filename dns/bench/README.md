@@ -29,18 +29,18 @@ Rust, Python, and JavaScript are left out. Their standard libraries resolve name
 
 ## Results
 
-M4 Pro, macOS, 2026-09-25. Median of three runs. Times are in ms for 100,000 rounds; `Nx` is the multiple of the faster variant.
+M4 Pro, macOS, 2026-09-27. Median of three runs. Times are in ms for 100,000 rounds; `Nx` is the multiple of the faster variant.
 
-Versions: Bend 2.0.28, Apple clang 17.0.0.
+Versions: Bend 2.0.31, Apple clang 17.0.0.
 
 | op | C | Bend |
 |---|---:|---:|
-| build | 15.0 (1.0x) | 81.0 (5.4x) |
-| parse | 12.8 (1.0x) | 96.0 (7.5x) |
+| build | 17.6 (1.0x) | 87.1 (4.9x) |
+| parse | 13.6 (1.0x) | 103.5 (7.6x) |
 
 Checksums: build 167500816, parse 65900000. Both variants agree.
 
 ## Caveats
 
-- Bend's `IO.now` counts in whole ms. The C clock is sub-ms.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - Bend messages are `String`s, one `Char` list cell per byte. The gap measures that layout as much as the parser.

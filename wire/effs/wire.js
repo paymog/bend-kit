@@ -64,6 +64,57 @@ function wire_timedout() {
   return io_sys().mac ? 60 : 110;
 }
 
+function wire_ip_lib() {
+  if (globalThis.BEND_WIRE_IP === undefined) {
+    const ffi = require("bun:ffi");
+    const mac = process.platform === "darwin";
+    globalThis.BEND_WIRE_IP = {
+      ffi,
+      mac,
+      c: ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6", {
+        inet_pton: { args: ["i32", "cstring", "ptr"], returns: "i32" },
+        inet_ntop: { args: ["i32", "ptr", "ptr", "u64"], returns: "ptr" },
+      }).symbols,
+    };
+  }
+  return globalThis.BEND_WIRE_IP;
+}
+
+function wire_numeric_addr(host, port) {
+  if (host.includes("\0") || port > 65535) {
+    return null;
+  }
+  const v4 = io_addr(host, port);
+  if (v4 !== null) {
+    return v4;
+  }
+  const { ffi, mac, c } = wire_ip_lib();
+  const family = mac ? 30 : 10;
+  const ip = new Uint8Array(16);
+  if (c.inet_pton(family, Buffer.from(host + "\0"), ffi.ptr(ip)) !== 1) {
+    return null;
+  }
+  const addr = new Uint8Array(28);
+  if (mac) {
+    addr[0] = 28;
+    addr[1] = family;
+  } else {
+    addr[0] = family;
+  }
+  addr[2] = (port >> 8) & 255;
+  addr[3] = port & 255;
+  addr.set(ip, 8);
+  return addr;
+}
+
+function wire_ipv6_text(peer) {
+  const { ffi, mac, c } = wire_ip_lib();
+  const out = new Uint8Array(46);
+  c.inet_ntop(mac ? 30 : 10, ffi.ptr(peer.subarray(8, 24)), ffi.ptr(out), out.length);
+  return Buffer.from(out).toString("utf8").replace(/\0.*/, "");
+}
+
+
 function recv(socket, max, ms, k) {
   return wire_recv(socket, max, ms, k, wire_text);
 }
@@ -135,10 +186,11 @@ function recv_from(socket, max, ms, k) {
   const sys = io_sys();
   const fd = socket;
   const b = new Uint8Array(Math.max(Number(max), 1));
-  const peer = new Uint8Array(16);
-  const len = new Uint32Array([16]);
+  const peer = new Uint8Array(28);
+  const len = new Uint32Array([peer.length]);
   const deadline = wire_deadline(ms);
   const go = () => {
+    len[0] = peer.length;
     const n = Number(sys.recvfrom(fd, sys.ptr(b), Number(max), 0, sys.ptr(peer),
       sys.ptr(len)));
     if (n < 0) {
@@ -152,7 +204,13 @@ function recv_from(socket, max, ms, k) {
       }
       return io_tup(socket, io_fail(code));
     }
-    const host = peer[4] + "." + peer[5] + "." + peer[6] + "." + peer[7];
+    const family = sys.mac ? peer[1] : peer[0] | (peer[1] << 8);
+    const host = family === (sys.mac ? 30 : 10)
+      ? wire_ipv6_text(peer)
+      : family === 2 ? peer[4] + "." + peer[5] + "." + peer[6] + "." + peer[7] : null;
+    if (host === null) {
+      return io_tup(socket, io_fail(22));
+    }
     const port = (peer[2] << 8) | peer[3];
     return io_tup(socket, io_done(io_tup(host, port, wire_text(b, n))));
   };
@@ -163,13 +221,13 @@ function recv_from(socket, max, ms, k) {
 function send_to(socket, host, port, data, k) {
   const sys = io_sys();
   const fd = socket;
-  const at = io_addr(host, Number(port));
+  const at = wire_numeric_addr(host, Number(port));
   const b = wire_octets(data);
   if (at === null || b === null) {
     return io_tup(socket, io_fail(22));
   }
   const go = () => {
-    const sent = sys.sendto(fd, sys.ptr(b), b.length, 0, sys.ptr(at), 16);
+    const sent = sys.sendto(fd, sys.ptr(b), b.length, 0, sys.ptr(at), at.length);
     if (Number(sent) < 0) {
       const code = sys.errno();
       if (code === (sys.mac ? 35 : 11)) {
@@ -203,7 +261,8 @@ function wire_tls() {
     + " SSL_CTX_ctrl:pilp>l SSL_new:p>p SSL_set_fd:pi>i"
     + " SSL_ctrl:pilp>l SSL_set1_host:pp>i SSL_connect:p>i SSL_read:ppi>i"
     + " SSL_write:ppi>i SSL_get_error:pi>i SSL_shutdown:p>i SSL_free:p>v"
-    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c SSL_set_alpn_protos:ppi>i SSL_get0_alpn_selected:ppp>v").split(" ").map((s) => {
+    + " SSL_get_verify_result:p>l X509_verify_cert_error_string:l>c SSL_set_alpn_protos:ppi>i SSL_get0_alpn_selected:ppp>v"
+    + " SSL_use_certificate_chain_file:pp>i SSL_use_PrivateKey_file:ppi>i SSL_check_private_key:p>i").split(" ").map((s) => {
     const [name, args, ret] = s.split(/[:>]/);
     return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
   }));
@@ -309,10 +368,10 @@ function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
   }
   t.by.set(fd, ssl);
   const name = wire_cstr(t, host);
-  const fail = (why) => {
+  const fail = (why, code = 100) => {
     s.SSL_free(ssl);
     t.by.delete(fd);
-    return io_tup(socket, { $: CID(Fail), error: io_tup(100, why) });
+    return io_tup(socket, { $: CID(Fail), error: io_tup(code, why) });
   };
   if (s.SSL_set_fd(ssl, fd) !== 1 || Number(s.SSL_ctrl(ssl, 55, 0n, name.p)) !== 1
     || s.SSL_set1_host(ssl, name.p) !== 1) {
@@ -320,7 +379,7 @@ function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
   }
   const err = setup(t, ssl);
   if (err !== null) {
-    return fail(err);
+    return typeof err === "string" ? fail(err) : fail(err.why, err.code);
   }
   return wire_tls_connect_go(t, socket, ssl, at, k, done);
 }
@@ -340,6 +399,26 @@ function tls_connect_alpn(socket, host, ms, protos, k) {
     }
     return null;
   }, (t, ssl) => wire_alpn_selected(t, ssl));
+}
+
+function tls_connect_cert(socket, host, ms, cert, key, k) {
+  return wire_tls_connect_setup(socket, host, ms, k, (t, ssl) => {
+    if (!cert || cert.includes("\0") || !key || key.includes("\0")) {
+      return { code: 22, why: "Invalid TLS client certificate or key path" };
+    }
+    const certPath = wire_cstr(t, cert);
+    const keyPath = wire_cstr(t, key);
+    if (t.s.SSL_use_certificate_chain_file(ssl, certPath.p) !== 1) {
+      return { code: 22, why: "TLS client certificate load failed" };
+    }
+    if (t.s.SSL_use_PrivateKey_file(ssl, keyPath.p, 1) !== 1) {
+      return { code: 22, why: "TLS client key load failed" };
+    }
+    if (t.s.SSL_check_private_key(ssl) !== 1) {
+      return { code: 22, why: "TLS client key does not match certificate" };
+    }
+    return null;
+  }, () => ({ $: CID(Unit) }));
 }
 
 
@@ -432,11 +511,11 @@ function tls_close(socket) {
 // Twin of connect in wire.c: a TCP connect with a deadline.
 function connect(host, port, ms, k) {
   const sys = io_sys();
-  const addr = io_addr(host, Number(port));
+  const addr = wire_numeric_addr(host, Number(port));
   if (addr === null) {
     return io_fail(22);
   }
-  const fd = sys.socket(2, 1, 0);
+  const fd = sys.socket(addr.length === 28 ? (sys.mac ? 30 : 10) : 2, 1, 0);
   if (fd < 0) {
     return io_fail(sys.errno());
   }
@@ -464,7 +543,7 @@ function connect(host, port, ms, k) {
     if (failed !== 0) {
       return end(failed);
     }
-    const code = sys.connect(fd, sys.ptr(addr), 16) >= 0 ? 0 : sys.errno();
+    const code = sys.connect(fd, sys.ptr(addr), addr.length) >= 0 ? 0 : sys.errno();
     if (code === 0 || code === done) {
       return end(0);
     }
@@ -487,6 +566,7 @@ io_eff(CID(recv_from), recv_from);
 io_eff(CID(send_to), send_to);
 io_eff(CID(tls.connect), tls_connect);
 io_eff(CID(tls.connect.alpn), tls_connect_alpn);
+io_eff(CID(tls.connect.cert), tls_connect_cert);
 io_eff(CID(tls.send), tls_send);
 io_eff(CID(tls.recv), tls_recv);
 io_eff(CID(tls.close), tls_close);

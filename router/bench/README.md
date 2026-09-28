@@ -32,13 +32,13 @@ The checksum is `h = h*31 + x` in wrapping u32. For each request, `x` is the 1-b
 
 ## Results
 
-Apple M4 Pro, macOS 26.6.2, 2026-09-25. Median of five runs. Times are in ms for 160,000 requests; `Nx` is the multiple of the fastest variant.
+Apple M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Times are in ms for 160,000 requests; `Nx` is the multiple of the fastest variant.
 
 | op | Bun | Node | Bend |
 |---|---:|---:|---:|
-| route | 495.9 (1.0x) | 1,145.7 (2.3x) | 890.0 (1.8x) |
+| route | 505.1 (1.0x) | 1,157.6 (2.3x) | 985.7 (2.0x) |
 
-Versions: Bend 2.0.28, Bun 1.3.14, Node 24.0.1.
+Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1.
 
 ## The calls
 
@@ -53,5 +53,5 @@ C, Rust, and Python are left out. Their standard libraries have no route or path
 - `URLPattern` compiles each pattern to a regular expression and supports much more syntax than `:name` segments.
 - Bend drops empty segments, so it matches `/users/42/` and `//users/42` like `/users/42`. `URLPattern` does not. No request here has an empty segment.
 - Bend strings are lists, one cell per character. JavaScript strings are flat buffers.
-- Bend's `IO.now` counts in whole ms. JavaScript uses `performance.now`.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - These are micro-benchmarks on one machine.

@@ -1,5 +1,6 @@
 # Bytes benchmark: a packed Array<U32> byte buffer (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../bytes.bend as Bytes
 
 # Bytes as Array<U32>, 4 bytes per slot, little-endian: byte i = (w[i/4] >> 8*(i%4)) & 255.
@@ -186,11 +187,11 @@ def eq.start(ac: Array<U32> & Array<U32>) -> Array<U32> & U32:
   eq.go(67108864n, (a, 0), (c, 0), 4294967295, True{})
 
 # ops, timed in-process. The checksum is printed before the second clock read so it is forced.
-def lap(+name: String, t0: Nat, +chk: U32) -> IO(Unit):
+def lap(+name: String, t0: Time.Duration, +chk: U32) -> IO(Unit):
   do IO<Unit>:
     IO.print("chk\t" ++ name ++ "\t" ++ U32.show(chk))
-    t1 : Nat <- IO.now()
-    IO.print("ms\t" ++ name ++ "\t" ++ Nat.show((t1 - t0 : Nat)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
 
 def build.go(n: Nat, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:
   match n:
@@ -212,10 +213,10 @@ def build.done(b: Bytes.Bytes, +n: U32) -> U32:
 
 def op.build(+n: U32, +name: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap(name, t0, build.done(build.go(U32.to_nat(n), Bytes.new(0), 0), n))
 
-def op.equal.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.equal.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("equal", t0, v)
@@ -224,10 +225,10 @@ def op.equal.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def op.equal(ac: Array<U32> & Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.equal.done(t0, eq.start(ac))
 
-def op.random.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.random.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("random", t0, v)
@@ -235,10 +236,10 @@ def op.random.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def op.random(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.random.done(t0, rnd.go(16777216n, (a, 0), 1, 0))
 
-def op.concat.done(t0: Nat, a: Array<U32>, r: Array<U32> & U32) -> IO(Unit):
+def op.concat.done(t0: Time.Duration, a: Array<U32>, r: Array<U32> & U32) -> IO(Unit):
   (o, v) = r
   do IO<Unit>:
     lap("concat", t0, v)
@@ -246,25 +247,25 @@ def op.concat.done(t0: Nat, a: Array<U32>, r: Array<U32> & U32) -> IO(Unit):
 
 def op.concat(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.concat.done(t0, a, add2(byte(concat(), 0), 268435455))
 
-def op.slice.chk(t0: Nat, a: Array<U32>, r: Array<U32> & U32) -> IO(Unit):
+def op.slice.chk(t0: Time.Duration, a: Array<U32>, r: Array<U32> & U32) -> IO(Unit):
   (s, v) = r
   do IO<Unit>:
     lap("slice", t0, v)
     op.concat(a)
 
-def op.slice.done(t0: Nat, r: Array<U32> & Array<U32>) -> IO(Unit):
+def op.slice.done(t0: Time.Duration, r: Array<U32> & Array<U32>) -> IO(Unit):
   (a, s) = r
   op.slice.chk(t0, a, add2(byte(s, 0), 134217727))
 
 def op.slice(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.slice.done(t0, slice.start(Array.get(U32, a, 16777216)))
 
-def op.findw.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.findw.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("find_swar", t0, v)
@@ -272,10 +273,10 @@ def op.findw.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def op.findw(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.findw.done(t0, findw.go(67108864n, Array.get(U32, a, 0), (0, 4294967295), 0))
 
-def op.find.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.find.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("find", t0, v)
@@ -283,10 +284,10 @@ def op.find.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def op.find(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.find.done(t0, find.go(67108864n, Array.get(U32, a, 0), (0, 4294967295), 0))
 
-def op.sum2.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.sum2.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("sum_again", t0, v)
@@ -294,10 +295,10 @@ def op.sum2.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def op.sum2(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.sum2.done(t0, sum.go(67108864n, Array.get(U32, a, 0), 0, 0))
 
-def op.sumb.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.sumb.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("sum_bytewise", t0, v)
@@ -305,10 +306,10 @@ def op.sumb.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def op.sumb(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.sumb.done(t0, sumb.go(268435456n, byte(a, 0), 0, 0))
 
-def op.sum.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.sum.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("sum", t0, v)
@@ -316,10 +317,10 @@ def op.sum.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def op.sum(a: Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.sum.done(t0, sum.go(67108864n, Array.get(U32, a, 0), 0, 0))
 
-def op.fill.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
+def op.fill.done(t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
   (a, v) = r
   do IO<Unit>:
     lap("fill", t0, v)
@@ -327,5 +328,5 @@ def op.fill.done(t0: Nat, r: Array<U32> & U32) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.fill.done(t0, add2(byte(fill.all(), 12345), 268435455))

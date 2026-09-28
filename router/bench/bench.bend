@@ -1,5 +1,6 @@
 # Router benchmark: match 16 requests against 8 routes, N rounds (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../router.bend as R
 
 type Route is Data:
@@ -98,7 +99,7 @@ def rounds(n: Nat, h: U32) -> U32:
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     chk : U32 = rounds(10000n, 0)
-    t1 : Nat <- IO.now()
-    IO.print("route\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(chk))
+    t1 : Time.Duration <- Time.mono()
+    IO.print("route\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk))

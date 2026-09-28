@@ -30,10 +30,10 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 ### http
 
 - `Http.fetch(method, url, headers, body)` does http and https, DNS, redirects (20 hops), and a 30 s timeout per step. It runs on a pool of its own that it closes; `Http.pool.*` keeps up to 8 idle sockets per origin across calls (`pool.new.with(cap)`) and retries an idempotent request once when a reused socket fails before any response byte (`b566beb`). `fetch.with(..., ms)` sets the timeout. It returns `Result<Res, Err>`: bad URL, DNS, connect, TLS (errno and verify text), read, write, timeout, too many redirects, or a malformed response. `ETIMEDOUT` is 60 on macOS and 110 on Linux. Headers are a list per name. `header` is the first value. `Set-Cookie` is never joined. Encode writes one line per value.
-- Bodies are `Http.Body` (`Bytes.Bytes` from `bend-kit-bytes`, with `Http.from_string`, `to_string`, and `length`): `Req.body`, `Res.body`, request bodies, stream pieces, and the wire bytes of `encode`, `encode_req`, and `exchange`. The `String` parsers (`parse`, `frame`) stay as the spec. `Http.text` decodes UTF-8. `Http.json` parses the body with `Json.parse.bytes`. `Url.form` writes a form body. `fetch` sends `accept-encoding: gzip, deflate` and decodes gzip and deflate through the `zlib` package (`4787d29`); an unknown coding is left as sent. `Http.open`/`stream.read` and `Http.upload` stream bodies in pieces (`ec55a76`).
+- Bodies are `Http.Body` (`Bytes.Bytes` from `bend-kit-bytes`, with `Http.from_string`, `to_string`, and `length`): `Req.body`, `Res.body`, request bodies, stream pieces, and the wire bytes of `encode`, `encode_req`, and `exchange`. The `String` parsers (`parse`, `frame`) stay as the spec. `Http.text` decodes UTF-8. `Http.json` parses the body with `Json.parse.bytes`. `Url.form` writes a form body. `fetch` and `open` advertise gzip and deflate, plus br and zstd when their libraries load. They decode known Content-Encoding values in reverse order; an unknown coding stays as sent. `Http.open.raw` returns encoded stream pieces, and `Http.upload` streams request bodies.
 - A bad chunk or bad framing is `FrameBad` while the connection is still open. A close-delimited TLS body that ends without `close_notify` is a read error. Content-Length and chunked bodies do not wait for that close. `100` and `103` are skipped; `101` is final.
 - `fetch`, `exchange`, and streams read into `Bytes` and frame each read once: the head is parsed when it is whole, and chunk data runs are sliced whole. A Content-Length body of up to 16 MiB is allocated once from its length, and each read is written into it (#52). At 12 MiB a download takes about 8 ms in-process and peaks at 19 MB of RSS, down from 32 MB: the body sits in a 16 MiB array (arrays are a power of two in size). Chunked and close-delimited bodies still join their pieces at the end, and peak at about 33 MB. Streaming the same body with `Http.open` peaks at 2.4 MB. It took 1.1 s and 1.1 GB with Content-Length, and 27.5 s chunked, which re-framed the whole buffer after every read (`http/bench/fetch16.bend`). A `String` body alone held 434 MB. The cap is 16 MiB of body and 64 KiB of head; before, a body of exactly 16 MiB failed.
-- `Dns.resolve` checks `/etc/hosts`, then the first three nameservers. `resolve.at` asks one server. A silent server is 2 attempts × 5 s, then the next server. `Http.exchange` does one request on an open socket and says whether that socket can take another.
+- `Dns.resolve.all` returns the OS-ordered IPv6 and IPv4 addresses, and HTTP tries each one until TCP connects within the step timeout. A bracketed IPv6 URL keeps brackets in its `Host` field. `Dns.resolve.pure` checks `/etc/hosts`, then the first three nameservers; `resolve.at` asks one server. A silent server is 2 attempts × 5 s, then the next server. `Http.exchange` does one request on an open socket and says whether that socket can take another.
 - `Http.serve` reads into `Bytes`, parses the head once, and joins the body once; chunk data runs are sliced whole. A 16 MiB upload takes about 0.03 s, down from 2.7 s on a `String` buffer and 0.26 s with a `String` body (`f3ceb23`, `http/bench/serve16.bend`). A 12 MiB response goes out in about 25 ms. It sends 100 Continue when a request expects it. It keeps HTTP/1.1 connections open and answers pipelined requests in order (`a7d28f7`). `serve.with` sets the request cap; the default is 16 MiB. A bad request is 400, an oversized one 413, a head over 64 KiB 431. It sends the RFC 9110 reason phrase, no body for HEAD, 1xx, 204 and 304, and accepts `HTTP/1.0` without `Host`.
 - Header lines, request targets, and URLs parse in linear time. They were O(n²), so a 70 KB header or a 32 KB `Location` held a worker for 20 to 30 s (`05cbd5b`, `7487a84`). The `url` package has no `@unsafe` defs.
 - The README install and fetch example pass on clean Debian 12 containers (arm64 and amd64), in the runner and as a native build. The x86_64 Mac is not tested.
@@ -70,7 +70,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 - [x] Parser combinators (#38)
 - [x] Compression through libz, libzstd, and libbrotlidec, and `http` decoding with them (#142)
-- [ ] Concurrency helpers (#40)
+- [x] Concurrency helpers: `par_map`, `par_reduce`, a worker pool, `select`, and `timeout` (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
 - [ ] Networking: WebSocket, cookies, multipart (#42)
 - [ ] Templating and Markdown (#43)
@@ -90,8 +90,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 - [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist. `json.encode` is still `@unsafe` because it walks a work list.
 - [ ] `Bytes` as map keys. Base's `Map` is a trie over `String` keys and takes no comparator, so `Bytes.cmp` cannot key it. Use `Bytes.to_string` as the key, or add an ordered map over `cmp`.
-- [ ] Decoding inside streams.
-- [ ] A cookie jar, proxies (`HTTP_PROXY`), client certificates, ALPN, HTTP/2.
+- [ ] A cookie jar, proxies (`HTTP_PROXY`), ALPN, HTTP/2.
 - [ ] Windows support (the effects use POSIX sockets and `dlopen`).
 - [ ] Test on an x86_64 Mac.
 

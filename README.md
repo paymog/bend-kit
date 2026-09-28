@@ -25,11 +25,12 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`json`](json) | `0x584fc27920487ceab242392391418d7f/json.bend` | JSON values, parsed and encoded as RFC 8259. |
 | [`csv`](csv) | `bend-kit-csv@0.1.0.0/csv.bend` | CSV records over bytes (RFC 4180), with a record cursor, whole-document parse, and encoder. |
 | [`cbor`](cbor) | `bend-kit-cbor@0.1.0.0/cbor.bend` | CBOR values encoded and decoded as bytes (RFC 8949). |
-| [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming gzip/zlib, Brotli, and Zstandard decoders. |
-| [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, and percent-encoding (RFC 3986). |
-| [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact TCP, UDP, and TLS sockets. |
+| [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming raw DEFLATE, gzip/zlib, Brotli, and Zstandard decoders. |
+| [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, bracketed IPv6 authorities, and percent-encoding (RFC 3986). |
+| [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets, including client certificates. |
 | [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |
 | [`http`](http) | `0xa32ae93500a5dfaef6edb45d6e7bcc3b/http.bend` | HTTP/1.1 client and server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
+| [`http2`](http2) | `bend-kit-http2@0.1.0.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
 | [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |
@@ -43,8 +44,9 @@ A name and its hash import the same package. Each version is a distinct type: `p
 | [`crypto`](crypto) | `bend-kit-crypto@0.1.0.0/crypto.bend` | SHA-256, SHA-512, SHA-1, HMAC, HKDF, secure random bytes, and constant-time compare through OpenSSL 3 libcrypto (`BEND_LIBCRYPTO` overrides the path). |
 | [`random`](random) | `bend-kit-random@0.1.0.0/random.bend` | Seeded xoshiro128** generator with unbiased ranges, `F32` in [0, 1), Fisher-Yates shuffles, and an OS-entropy seed. Not for cryptography. |
 | [`time`](time) | `bend-kit-time@0.1.0.0/time.bend` | Monotonic and wall clocks, `Duration` and `Instant` on `Int.I64` seconds plus nanoseconds, Gregorian dates for years 0 to 9999, RFC 3339 and HTTP-date (IMF-fixdate) text, and TZif time zones. |
+| [`concurrency`](concurrency) | `bend-kit-concurrency@0.1.0.0/concurrency.bend` | Parallel `par_map` and `par_reduce` over lists and arrays, a worker pool whose workers each own an affine state, `select` over channels, and `timeout`. See [concurrency/README.md](concurrency/README.md). |
 
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.5.0.1`, `csv@0.1.0.0`, `cbor@0.1.0.0`, `zlib@0.1.4.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, `crypto@0.1.0.0`, `random@0.1.0.0`, and `time@0.1.0.0`.
+Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.5.0.1`, `csv@0.1.0.0`, `cbor@0.1.0.0`, `zlib@0.1.4.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `http2@0.1.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, `crypto@0.1.0.0`, `random@0.1.0.0`, `time@0.1.0.0`, and `concurrency@0.1.0.0`.
 
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). It covers datetimes, numbers, arrays, and tables; a second TOML parser is not part of this kit.
 

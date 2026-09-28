@@ -1,5 +1,6 @@
 # Integer benchmark: the Bend side (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../int.bend as Int
 
 def N() -> Nat:
@@ -13,17 +14,17 @@ def N2() -> Nat:
 def num(s: String) -> Int.U64:
   Maybe.default(&2, Int.U64, Int.U64.read(s), Int.U64.MIN())
 
-def stamp(+name: String, t0: Nat) -> IO(Unit):
+def stamp(+name: String, t0: Time.Duration) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
-    IO.print("ms\t" ++ name ++ "\t" ++ Nat.show((t1 - t0 : Nat)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
 
-def lap(+name: String, t0: Nat, +v: Int.U64) -> IO(Unit):
+def lap(+name: String, t0: Time.Duration, +v: Int.U64) -> IO(Unit):
   do IO<Unit>:
     IO.print("chk\t" ++ name ++ "\t" ++ Int.U64.show(v))
     stamp(name, t0)
 
-def lap.s(+name: String, t0: Nat, +v: String) -> IO(Unit):
+def lap.s(+name: String, t0: Time.Duration, +v: String) -> IO(Unit):
   do IO<Unit>:
     IO.print("chk\t" ++ name ++ "\t" ++ v)
     stamp(name, t0)
@@ -88,39 +89,45 @@ def rem(l: List<Int.U64>, +m: Int.U64, acc: Int.U64) -> Int.U64:
     case Con{x, t}:
       rem(t, m, Int.U64.add(acc, Int.U64.mod(x, m)))
 
-# The seed is 1 plus a zero read from the clock, so the compiler cannot fold the loop.
-def one(+t: Nat) -> U32:
-  U32.from_nat(((t - t : Nat) + 1n : Nat))
+# The seed is 1 plus a zero read from the clock (nanos are below 10^9), so the compiler cannot fold the loop.
+def one(t: Time.Duration) -> U32:
+  match t:
+    case Time.Duration{s, n}:
+      (n / 1000000000 + 1 : U32)
 
-def op.i32(+t: Nat) -> IO(Unit):
+def op.i32(+t: Time.Duration) -> IO(Unit):
   lap.s("i32", t, Int.I32.show(i32(N2(), Int.I32.from_u32(one(t)), Int.I32.from_u32(0))))
 
-def op.u16(+t: Nat) -> IO(Unit):
+def op.u16(+t: Time.Duration) -> IO(Unit):
   lap.s("u16", t, Int.U16.show(u16(N2(), Int.U16.from_u32(one(t)))))
 
-def op.u8(+t: Nat) -> IO(Unit):
+def op.u8(+t: Time.Duration) -> IO(Unit):
   lap.s("u8", t, Int.U8.show(u8(N2(), Int.U8.from_u32(one(t)))))
 
 def op.small() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.i32(t0)
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     op.u16(t1)
-    t2 : Nat <- IO.now()
+    t2 : Time.Duration <- Time.mono()
     op.u8(t2)
 
 def op.rem(l: List<Int.U64>) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     lap("rem", t0, rem(l, Int.U64.from_u32(1000003), Int.U64.MIN()))
     op.small()
 
-def run(+a: Int.U64, +c: Int.U64) -> IO(Unit):
+def run.lcg(f: Unit -> Int.U64) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
-    lap("lcg", t0, lcg(N(), a, c, Int.U64.from_u32(1)))
+    t0 : Time.Duration <- Time.mono()
+    lap("lcg", t0, f(Unit{}))
     op.rem(gen(N(), 1, []))
+
+# A closure holds a and c, so the clock's I64 does not push the C backend past 247 live words (bendlang/bend#1069).
+def run(+a: Int.U64, +c: Int.U64) -> IO(Unit):
+  run.lcg(u => lcg(N(), a, c, Int.U64.from_u32(1)))
 
 def main() -> IO(Unit):
   run(num("6364136223846793005"), num("1442695040888963407"))

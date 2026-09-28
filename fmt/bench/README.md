@@ -31,20 +31,22 @@ Each baseline reshapes its digits and exponent into `repr` style. That glue is t
 
 ## Results
 
-M4 Pro, macOS, 2026-09-27. Bend 2.0.29, Apple clang 17.0.0 (`-O2`), rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6 with numpy 2.4.2. Median of three runs. Times are in ms.
+M4 Pro, macOS, 2026-09-27. Bend 2.0.31, Apple clang 17.0.0 (`-O2`), rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6 with numpy 2.4.2. Median of three runs. Times are in ms.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| short | 44.1 | 46.4 | 103.4 | 95.7 | 135.4 | 1,844 |
+| short | 45.423 | 45.572 | 104.202 | 98.444 | 138.353 | 1,950.576 |
 
-Every program prints the checksum 3985549205.
+| op | checksum |
+|---|---:|
+| short | 3985549205 |
 
 ## Reading it
 
-- Bend takes about 37 µs per value, 40 times C. The digits come from exact integer arithmetic on 14 limbs of 16 bits: up to about 45 scalings by 10, then one subtraction loop per digit. Ryu would take a few 64-bit multiplies instead, but Base has no `U64` (bendlang/bend#1027).
+- Bend takes about 39 µs per value, 43 times C. The digits come from exact integer arithmetic on 14 limbs of 16 bits: up to about 45 scalings by 10, then one subtraction loop per digit. Ryu would take a few 64-bit multiplies instead, but Base has no `U64` (bendlang/bend#1027).
 - The C and Rust loops format up to nine times per value, so they are not the fastest possible printers either.
 
 ## Caveats
 
-- Bend's `IO.now` counts in whole ms. The other languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - One machine, one thread.

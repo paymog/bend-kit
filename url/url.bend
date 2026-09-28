@@ -341,10 +341,52 @@ def abs.hostok(scheme: String, host: String, port: Maybe<&2, U32>, rest: String,
     case True{}:
       abs.build(scheme, host, port, rest)
 
-# §3.2.2: hosts are case-insensitive. IPv6 literals are refused (IPv4-only runtime).
+# Bracket-free host in Abs; only the authority and Host field carry brackets.
 def abs.hostport(scheme: String, dflt: Maybe<&2, U32>, hp: String & String, rest: String) -> Maybe<&2, Abs>:
   (+host, ps) = hp
   abs.hostok(scheme, String.to_lower(host), abs.port(ps, dflt), rest, Bool.not(Bool.or(String.is_empty(host), String.starts_with(host, "["))))
+
+def abs.ipv6.ch(+c: U32) -> Bool:
+  Bool.or(U32.is_eq(c, 58), Bool.or(U32.is_eq(c, 46),
+    Bool.or(Bool.and(U32.is_le(48, c), U32.is_le(c, 57)),
+      Bool.or(Bool.and(U32.is_le(65, c), U32.is_le(c, 70)),
+        Bool.and(U32.is_le(97, c), U32.is_le(c, 102))))))
+
+def abs.ipv6.chars(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{Chr{+c}, t}:
+      Bool.and(abs.ipv6.ch(c), abs.ipv6.chars(t))
+
+def abs.ipv6.port(scheme: String, dflt: Maybe<&2, U32>, +host: String, suffix: String, rest: String) -> Maybe<&2, Abs>:
+  match suffix:
+    case SNil{}:
+      abs.hostok(scheme, String.to_lower(host), dflt, rest, Bool.and(has(host, 58), abs.ipv6.chars(host)))
+    case SCon{Chr{58}, ps}:
+      abs.hostok(scheme, String.to_lower(host), abs.port(ps, dflt), rest, Bool.and(has(host, 58), abs.ipv6.chars(host)))
+    case SCon{Chr{c}, t}:
+      None{}
+
+def abs.ipv6.split(scheme: String, dflt: Maybe<&2, U32>, hp: String & String, rest: String) -> Maybe<&2, Abs>:
+  (host, suffix) = hp
+  abs.ipv6.port(scheme, dflt, host, suffix, rest)
+
+def abs.ipv6.auth(+scheme: String, host: String, rest: String, closed: Bool) -> Maybe<&2, Abs>:
+  match closed:
+    case False{}:
+      None{}
+    case True{}:
+      abs.ipv6.split(scheme, default_port(scheme), take_to(host, 93), rest)
+
+def abs.auth.addr(auth: String, +scheme: String, rest: String) -> Maybe<&2, Abs>:
+  match auth:
+    case SCon{Chr{91}, +host}:
+      abs.ipv6.auth(scheme, host, rest, has(host, 93))
+    case SNil{}:
+      None{}
+    case SCon{Chr{c}, tail}:
+      abs.hostport(scheme, default_port(scheme), take_to(SCon{Chr{c}, tail}, 58), rest)
 
 # WHATWG fetch refuses URLs that carry credentials (user:pass@).
 def abs.auth.if(+scheme: String, auth: String, rest: String, creds: Bool) -> Maybe<&2, Abs>:
@@ -352,7 +394,7 @@ def abs.auth.if(+scheme: String, auth: String, rest: String, creds: Bool) -> May
     case True{}:
       None{}
     case False{}:
-      abs.hostport(scheme, default_port(scheme), take_to(auth, 58), rest)
+      abs.auth.addr(auth, scheme, rest)
 
 def abs.auth(scheme: String, ar: String & String) -> Maybe<&2, Abs>:
   (+auth, rest) = ar
@@ -380,10 +422,18 @@ def abs.port.dflt(m: Maybe<&2, U32>) -> U32:
     case Some{p}:
       p
 
-# RFC 9110 §7.2: the Host field; the default port may be left out.
+# RFC 9110 §7.2: bracket an IPv6 literal in Host, and omit the default port.
+def host_field.wrap(host: String, ipv6: Bool) -> String:
+  match ipv6:
+    case True{}:
+      "[" ++ host ++ "]"
+    case False{}:
+      host
+
 def host_field(a: Abs) -> String:
   Abs{+scheme, +host, +port, target} = a
-  Bool.pick(String, U32.is_eq(port, abs.port.dflt(default_port(scheme))), host, host ++ ":" ++ U32.show(port))
+  +field = host_field.wrap(host, has(host, 58))
+  Bool.pick(String, U32.is_eq(port, abs.port.dflt(default_port(scheme))), field, field ++ ":" ++ U32.show(port))
 
 # Reference resolution (RFC 3986 §5.2) for Location headers.
 # ----------------------------------------------------------

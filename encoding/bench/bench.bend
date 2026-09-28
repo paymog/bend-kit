@@ -1,5 +1,6 @@
 # Encoding benchmark: UTF-8 and hex over one fixed input (see README.md).
 import Base
+import ../../time/time.bend as Time
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import ../encoding.bend as Enc
 
@@ -43,41 +44,41 @@ def some(b: Maybe<&1, Bytes.Bytes>) -> String:
       Bytes.to_string(x)
 
 # Bend evaluates strictly: the output is built before t1 is read. The checksum is not timed.
-def stop(+name: String, t0: Nat, s: String) -> IO(Unit):
+def stop(+name: String, t0: Time.Duration, s: String) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
-    IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(hash(s, 0, 0)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(hash(s, 0, 0)))
 
-def stop.b(+name: String, t0: Nat, b: Bytes.Bytes) -> IO(Unit):
+def stop.b(+name: String, t0: Time.Duration, b: Bytes.Bytes) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
-    IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(hash(Bytes.to_string(b), 0, 0)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(hash(Bytes.to_string(b), 0, 0)))
 
-def stop.m(+name: String, t0: Nat, b: Maybe<&1, Bytes.Bytes>) -> IO(Unit):
+def stop.m(+name: String, t0: Time.Duration, b: Maybe<&1, Bytes.Bytes>) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
-    IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(hash(some(b), 0, 0)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(hash(some(b), 0, 0)))
 
 def op.hex_decode(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop.m("hex_decode", t0, Bytes.from_hex(s))
 
 def op.hex_encode(b: Bytes.Bytes) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("hex_encode", t0, Bytes.to_hex(b))
     op.hex_decode(hex())
 
 def op.utf8_decode(b: Bytes.Bytes) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop("utf8_decode", t0, Enc.utf8.decode(b))
     op.hex_encode(Bytes.from_string(octets()))
 
 def op.utf8_encode(+s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     stop.b("utf8_encode", t0, Enc.utf8.encode(s))
     op.utf8_decode(Bytes.from_string(octets()))
 

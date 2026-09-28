@@ -1,5 +1,6 @@
 # Collections benchmark: the Bend side (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../omap.bend as O
 import ../vec.bend as V
 import ../deque.bend as D
@@ -24,16 +25,16 @@ def lcg(+x: U32) -> U32:
 def mix(+acc: U32, +x: U32) -> U32:
   (acc * 31 + x : U32)
 
-def stamp(+name: String, t0: Nat) -> IO(Unit):
+def stamp(+name: String, t0: Time.Duration) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
-    IO.print("ms\t" ++ name ++ "\t" ++ Nat.show((t1 - t0 : Nat)))
+    t1 : Time.Duration <- Time.mono()
+    IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
 
 def chk(+name: String, +v: U32) -> IO(Unit):
   IO.print("chk\t" ++ name ++ "\t" ++ U32.show(v))
 
 # A computed checksum is printed before the clock stops, so it cannot be deferred.
-def lap(+name: String, t0: Nat, +v: U32) -> IO(Unit):
+def lap(+name: String, t0: Time.Duration, +v: U32) -> IO(Unit):
   do IO<Unit>:
     chk(name, v)
     stamp(name, t0)
@@ -128,74 +129,74 @@ def hpop(n: Nat, r: Maybe<&1, U32 & H.Heap<U32>>, +acc: U32) -> U32:
 
 # The ops run in sequence. A push op stops its clock first, then prints the size,
 # so a size walk (Deque.length) is not timed.
-def op.heap.popped(t0: Nat, +acc: U32) -> IO(Unit):
+def op.heap.popped(t0: Time.Duration, +acc: U32) -> IO(Unit):
   lap("heap_pop", t0, acc)
 
-def op.heap.pushed(t0: Nat, +h: H.Heap<U32>) -> IO(Unit):
+def op.heap.pushed(t0: Time.Duration, +h: H.Heap<U32>) -> IO(Unit):
   do IO<Unit>:
     stamp("heap_push", t0)
     chk("heap_push", U32.from_nat(H.Heap.size(U32, h)))
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     op.heap.popped(t1, hpop(N1(), H.Heap.pop(~U32, ~U32.is_le, h), 0))
 
 def op.heap() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.heap.pushed(t0, hpush(N(), H.Heap.new(U32), 1))
 
-def op.deque.popped(t0: Nat, r: U32 & D.Deque<&2, U32>) -> IO(Unit):
+def op.deque.popped(t0: Time.Duration, r: U32 & D.Deque<&2, U32>) -> IO(Unit):
   (acc, d) = r
   do IO<Unit>:
     lap("deque_pop", t0, acc)
     op.heap()
 
-def op.deque.half(t0: Nat, r: U32 & D.Deque<&2, U32>) -> IO(Unit):
+def op.deque.half(t0: Time.Duration, r: U32 & D.Deque<&2, U32>) -> IO(Unit):
   (acc, d) = r
   op.deque.popped(t0, dback(HALF1(), D.Deque.pop_back(&2, U32, d), acc))
 
-def op.deque.pushed(t0: Nat, +d: D.Deque<&2, U32>) -> IO(Unit):
+def op.deque.pushed(t0: Time.Duration, +d: D.Deque<&2, U32>) -> IO(Unit):
   do IO<Unit>:
     stamp("deque_push", t0)
     chk("deque_push", U32.from_nat(D.Deque.length(&2, U32, d)))
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     op.deque.half(t1, dfront(HALF1(), D.Deque.pop_front(&2, U32, d), 0))
 
 def op.deque() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.deque.pushed(t0, dpush(N(), D.Deque.new(&2, U32), 0))
 
-def op.vec.got(t0: Nat, +acc: U32) -> IO(Unit):
+def op.vec.got(t0: Time.Duration, +acc: U32) -> IO(Unit):
   do IO<Unit>:
     lap("vec_get", t0, acc)
     op.deque()
 
-def op.vec.pushed(t0: Nat, r: V.Vec<U32> & U32) -> IO(Unit):
+def op.vec.pushed(t0: Time.Duration, r: V.Vec<U32> & U32) -> IO(Unit):
   (v, n) = r
   do IO<Unit>:
     stamp("vec_push", t0)
     chk("vec_push", n)
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     op.vec.got(t1, vget(N(), (v, None{}), 1, 0))
 
 def op.vec() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.vec.pushed(t0, V.Vec.len(~U32, vpush(N(), V.Vec.new(~U32), 0)))
 
-def op.omap.got(t0: Nat, +acc: U32) -> IO(Unit):
+def op.omap.got(t0: Time.Duration, +acc: U32) -> IO(Unit):
   do IO<Unit>:
     lap("omap_get", t0, acc)
     op.vec()
 
-def op.omap.put(t0: Nat, +m: O.OMap<U32, U32>) -> IO(Unit):
+def op.omap.put(t0: Time.Duration, +m: O.OMap<U32, U32>) -> IO(Unit):
   do IO<Unit>:
     stamp("omap_put", t0)
     chk("omap_put", O.OMap.size(U32, U32, m))
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     op.omap.got(t1, mget(N(), m, 1, 0))
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.omap.put(t0, mput(N(), O.OMap.new(U32, U32), 1, 0))

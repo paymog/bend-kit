@@ -1,5 +1,6 @@
 # Zlib benchmark: gunzip one fixed member, and gzip its plain text (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../zlib.bend as Z
 
 def from_bytes(xs: List<&2, U32>) -> String:
@@ -24,21 +25,21 @@ def chk(s: String, h: U32) -> U32:
     case SCon{Chr{c}, t}:
       chk(t, (h * 31 + c : U32))
 
-def lap(+name: String, t0: Nat, t1: Nat, out: String) -> IO(Unit):
-  IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(chk(out, 0)))
+def lap(+name: String, t0: Time.Duration, t1: Time.Duration, out: String) -> IO(Unit):
+  IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk(out, 0)))
 
-def op.inflated(t0: Nat, m: Maybe<&2, String>) -> IO(Unit):
+def op.inflated(t0: Time.Duration, m: Maybe<&2, String>) -> IO(Unit):
   match m:
     case None{}:
       IO.print("inflate\t0\tfailed")
     case Some{+out}:
       do IO<Unit>:
-        t1 : Nat <- IO.now()
+        t1 : Time.Duration <- Time.mono()
         lap("inflate", t0, t1, out)
 
 def op.inflate(s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.inflated(t0, Z.gunzip(s))
 
 def unwrap(m: Maybe<&2, String>) -> String:
@@ -62,9 +63,9 @@ def save(+gz: String, r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
         saved(w)
 
 # The checksum is of the round trip; run.py also feeds out/bend.gz to gzip -d.
-def op.deflated(t0: Nat, +gz: String) -> IO(Unit):
+def op.deflated(t0: Time.Duration, +gz: String) -> IO(Unit):
   do IO<Unit>:
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     IO.print("size\t0\t" ++ U32.show(Z.slen(gz, 0)))
     lap("deflate", t0, t1, unwrap(Z.gunzip(gz)))
     f : Result<&1, &1, U32 & String, File> <- File.open("out/bend.gz", "w")
@@ -72,7 +73,7 @@ def op.deflated(t0: Nat, +gz: String) -> IO(Unit):
 
 def op.deflate(s: String) -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     op.deflated(t0, Z.gzip(s))
 
 def bytes.of(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> List<&2, U32>:

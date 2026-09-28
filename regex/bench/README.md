@@ -43,21 +43,31 @@ Rust's standard library has no regular expression engine, so Rust is left out.
 
 ## Results
 
-Apple M4 Pro, macOS, 2026-09-26. Median of three runs (`python3 run.py 3`). Times are ms for one match on the 1 MiB text (or 100k `a` for `redos`, 1001 chars for `large`).
+Apple M4 Pro, macOS, 2026-09-27. Median of three runs (`python3 run.py`). Times are ms for one match on the 1 MiB text (or 100k `a` for `redos`, 1001 chars for `large`).
 
-Versions: Bend 2.0.29, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0.1.
+Versions: Bend 2.0.31, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0.1.
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 1.0 |
-| is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 0.0 |
-| is_match_live | 9.3 | 1.0 | 0.1 | 7.8 | 78.0 |
-| find_captures | 15.8 | 2.8 | 0.8 | 0.7 | 214.0 |
-| find_early | 0.0 | 0.0 | 0.2 | 0.2 | 0.0 |
-| redos | 3.1 | timeout | 878.7 | timeout | 21.0 |
-| large | 2,301.4 | 0.0 | 0.1 | 0.1 | 931.0 |
+| is_match | 0.0 | 0.3 | 0.2 | 0.2 | 1.1 |
+| is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 0.1 |
+| is_match_live | 8.7 | 1.1 | 0.1 | 7.8 | 76.6 |
+| find_captures | 16.4 | 2.8 | 0.8 | 0.7 | 216.6 |
+| find_early | 0.0 | 0.0 | 0.2 | 0.2 | 0.6 |
+| redos | 3.1 | timeout | 876.4 | timeout | 21.3 |
+| large | 2,430.0 | 0.0 | 0.1 | 0.1 | 969.8 |
 
-Checksums (1 MiB text; 1001 chars for `large`): `is_match` 1, `is_match_early` 1, `is_match_live` 0, `find_captures` 3021334545, `find_early` 1923, `redos` 0, `large` 1001. All non-timeout variants agree.
+Checksums (1 MiB text; 1001 chars for `large`). All non-timeout variants agree.
+
+| op | checksum |
+|---|---:|
+| is_match | 1 |
+| is_match_early | 1 |
+| is_match_live | 0 |
+| find_captures | 3021334545 |
+| find_early | 1923 |
+| redos | 0 |
+| large | 1001 |
 
 ### Program size
 
@@ -88,4 +98,4 @@ Bend times in ms, median of three runs of the same bench against each version of
 - The skip only helps while no match is in progress. Where every char keeps threads live (`is_match_live`, and `find_captures`, where each `x` is a `\w`), each char still takes a step: a cached DFA transition for `find`, the bit NFA for `is_match`. That per-char cost is the gap to C and V8. `is_match` keeps the bit NFA on small programs: on `is_match_live` the DFA took about 136 ms against its 78.
 - `large` has about 1000 DFA states, more than the cache holds (8 for a text under 4 KiB, 256 above), so most of its chars take the plain Pike step.
 - POSIX ERE has no `\w`; `[[:alnum:]_]` is the documented equivalent for ASCII word characters.
-- `IO.now` in Bend is whole milliseconds; C and the scripting languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.

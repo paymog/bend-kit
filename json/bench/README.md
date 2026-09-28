@@ -22,12 +22,12 @@ Each program reads the file before any timer starts. `parse.bytes` starts from t
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-27. Median of five runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
+M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
 
 | op | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|
-| parse.bytes | 2.3 (1.0x) | 2.8 (1.2x) | 4.7 (2.0x) | 3.0 (1.3x) |
-| encode.bytes | 0.9 (1.0x) | 1.4 (1.5x) | 4.1 (4.5x) | 4.0 (4.3x) |
+| parse.bytes | 2.2 (1.0x) | 3.4 (1.5x) | 4.8 (2.2x) | 4.4 (2.0x) |
+| encode.bytes | 0.9 (1.0x) | 1.5 (1.7x) | 4.1 (4.7x) | 5.9 (6.8x) |
 
 Before strings, numbers, and keys were `Bytes` (json 0.4.0.0, same machine and Bend version), Bend took 12 ms to parse and 9 ms to encode. The parser takes a run of whitespace, plain string bytes, or digits in one inner loop. On a document ten times as big (`python3 run.py 1 40000`), that cut `parse.bytes` from 49 ms to 32 ms.
 
@@ -47,5 +47,5 @@ C and Rust have no JSON codec in their standard libraries, so they are left out.
 
 - Bend objects are lists of fields in document order. The other languages use hash maps.
 - Bend keeps each number's text. JavaScript and Python convert numbers to doubles or ints and print them back.
-- Bend's `IO.now` counts in whole ms. The other languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - These are micro-benchmarks on one machine.

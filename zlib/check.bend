@@ -28,6 +28,17 @@ def members() -> Bytes.Bytes:
 def brotli() -> Bytes.Bytes:
   Bytes.from_string(str.of([139, 5, 128, 104, 101, 108, 108, 111, 32, 98, 114, 111, 116, 108, 105, 3]))
 
+# "hello raw", with and without an RFC 1950 zlib wrapper.
+def raw() -> Bytes.Bytes:
+  Bytes.from_string(str.of([203, 72, 205, 201, 201, 87, 40, 74, 44, 7, 0]))
+
+def wrapped() -> Bytes.Bytes:
+  Bytes.from_string(str.of([120, 156, 203, 72, 205, 201, 201, 87, 40, 74, 44, 7, 0, 17, 143, 3, 127]))
+
+# A raw stored block begins with 0x78 but has no valid zlib header.
+def raw.like_header() -> Bytes.Bytes:
+  Bytes.from_string(str.of([120, 0, 0, 255, 255, 1, 1, 0, 254, 255, 65]))
+
 def dec(~eff: U32 -> U32 -> Array<U32> -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>), +max: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   Bytes.Bytes{+len, buf} = b
   eff(max, len, buf)
@@ -162,6 +173,12 @@ def main() -> IO(Unit):
     big(m)
     stream.test(0, "hello gzip", True{}, members())
     stream.test(0, "hello gzip", False{}, members())
+    stream.test(0, "hello raw", True{}, raw())
+    stream.test(0, "hello raw", False{}, raw())
+    stream.test(0, "hello raw", True{}, wrapped())
+    stream.test(0, "hello raw", False{}, wrapped())
+    stream.test(0, "A", True{}, raw.like_header())
+    stream.test(0, "A", False{}, raw.like_header())
     stream.test(1, "hello brotli", True{}, brotli())
     stream.test(1, "hello brotli", False{}, brotli())
     stream.test(2, "hello zstd", True{}, frames())

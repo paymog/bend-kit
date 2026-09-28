@@ -31,12 +31,12 @@ M4 Pro, macOS, 2026-09-27. Bend 2.0.31, Apple clang 17.0.0 (`-O2`), rustc 1.91.0
 
 | variant | trip ms | us per trip | vs fastest |
 |---:|---:|---:|---:|
-| C | 18.9 | 4.61 | 68.7x |
-| Rust | 0.3 | 0.07 | 1.0x |
-| Bun | 2.3 | 0.57 | 8.5x |
-| Node | 4.3 | 1.04 | 15.5x |
-| Python | 8.7 | 2.13 | 31.7x |
-| Bend | 1,032.0 | 251.95 | 3752.7x |
+| C | 14.9 | 3.64 | 81.9x |
+| Rust | 0.2 | 0.04 | 1.0x |
+| Bun | 2.3 | 0.55 | 12.4x |
+| Node | 4.3 | 1.04 | 23.4x |
+| Python | 8.9 | 2.18 | 49.1x |
+| Bend | 1,043.2 | 254.69 | 5731.9x |
 
 Every program prints the checksum 1872943518.
 
@@ -47,5 +47,5 @@ Every program prints the checksum 1872943518.
 
 ## Caveats
 
-- The Bend side times itself with `Time.mono`, in whole ms.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - One machine, one thread.

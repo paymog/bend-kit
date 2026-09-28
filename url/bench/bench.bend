@@ -1,5 +1,6 @@
 # URL benchmark: parse and encode a fixed origin-form list, N rounds (see README.md).
 import Base
+import ../../time/time.bend as Time
 import ../url.bend as Url
 
 def rounds() -> Nat:
@@ -105,16 +106,16 @@ def enc.rounds(n: Nat, acc: U32) -> U32:
     case 1n+p:
       enc.rounds(p, enc.each(parsed(), acc))
 
-def lap(+name: String, t0: Nat, t1: Nat, chk: U32) -> IO(Unit):
-  IO.print(name ++ "\t" ++ Nat.show((t1 - t0 : Nat)) ++ "\t" ++ U32.show(chk))
+def lap(+name: String, t0: Time.Duration, t1: Time.Duration, chk: U32) -> IO(Unit):
+  IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk))
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     pchk : U32 = parse.rounds(rounds(), 0)
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     lap("parse", t0, t1, pchk)
-    t0 : Nat <- IO.now()
+    t0 : Time.Duration <- Time.mono()
     echk : U32 = enc.rounds(rounds(), 0)
-    t1 : Nat <- IO.now()
+    t1 : Time.Duration <- Time.mono()
     lap("encode", t0, t1, echk)

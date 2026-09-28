@@ -17,11 +17,11 @@ The state is `{1, 2, 3, 4}`. Each program draws 16,777,216 `U32`s and folds them
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-27, `random` 0.1.0.0. Median of five runs. Times are in ms.
+M4 Pro, macOS 26.6.2, 2026-09-27, `random` 0.1.0.0. Median of three runs. Times are in ms.
 
 | op | Rust | Bend |
 |---|---:|---:|
-| next | 14.6 (1.0x) | 14.0 (1.0x) |
+| next | 14.9 (1.1x) | 14.1 (1.0x) |
 
 Versions: Bend 2.0.31, rustc 1.91.0, `rand_xoshiro` 0.8.1.
 
@@ -37,5 +37,5 @@ C, Python, and JavaScript are left out. Their standard libraries have no xoshiro
 ## Caveats
 
 - The checksum's `h*31` chain is serial, so both loops are bound by its latency, not by the generator.
-- Bend's `IO.now` counts in whole ms.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - This is a micro-benchmark on one machine.

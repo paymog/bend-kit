@@ -28,16 +28,16 @@ The parse checksum sums, over every message, the method and target lengths (for 
 
 ### Results
 
-M4 Pro, macOS 26.6.2, 2026-09-26. Median of five runs. Times are in ms for 20,000 messages; `Nx` is the multiple of the fastest variant for that op.
+M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Times are in ms for 20,000 messages; `Nx` is the multiple of the fastest variant for that op.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| parse_req | 4.8 (2.8x) | 1.7 (1.0x) | 17.0 (10.0x) | 19.9 (11.7x) | 440.2 (258.9x) | 453.0 (266.5x) |
-| parse_res | 2.9 (2.1x) | 1.4 (1.0x) | 12.2 (8.7x) | 15.0 (10.7x) | 314.5 (224.6x) | 400.0 (285.7x) |
-| encode_req | n/a | n/a | n/a | n/a | 313.7 (1.7x) | 181.0 (1.0x) |
-| encode_res | n/a | n/a | n/a | n/a | 270.6 (2.1x) | 127.0 (1.0x) |
+| parse_req | 3.7 (2.2x) | 1.7 (1.0x) | 17.3 (10.2x) | 21.0 (12.4x) | 460.7 (271.0x) | 493.9 (290.5x) |
+| parse_res | 2.3 (1.6x) | 1.4 (1.0x) | 12.6 (9.0x) | 15.8 (11.3x) | 324.4 (231.7x) | 423.9 (302.8x) |
+| encode_req | n/a | n/a | n/a | n/a | 371.7 (1.9x) | 190.8 (1.0x) |
+| encode_res | n/a | n/a | n/a | n/a | 277.4 (2.1x) | 132.6 (1.0x) |
 
-Versions: Bend 2.0.29, Apple clang 17.0.0 with llhttp 9.4.2, rustc 1.91.0 with httparse 1.10.1, Bun 1.3.14, Node 24.0.1, Python 3.14.6 with h11 0.16.0.
+Versions: Bend 2.0.31, Apple clang 17.0.0 with llhttp 9.4.2, rustc 1.91.0 with httparse 1.10.1, Bun 1.3.14, Node 24.0.1, Python 3.14.6 with h11 0.16.0.
 
 ### The calls
 
@@ -57,7 +57,7 @@ C, Rust, and JavaScript have no HTTP/1.1 message encoder short of a client or se
 - h11 reads a response only on a connection that has sent a request, and writes one only on a connection that has read one. `bench.py` makes those 20,000 connections before the timer starts.
 - C, Rust, and JavaScript reuse one parser. Python makes a connection per message. Bend has no parser state.
 - Bend strings are lists, one cell per byte. The others read flat buffers.
-- Bend's `IO.now` counts in whole ms. The others use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - These are micro-benchmarks on one machine.
 
 

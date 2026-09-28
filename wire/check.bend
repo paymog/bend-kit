@@ -48,5 +48,199 @@ def alpn.host(+host: String) -> IO(Unit):
     m : Maybe<&2, String> <- Dns.resolve(host)
     alpn.got(host, m)
 
+def test.listen6(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
+  import "./effs/ipv6_test.c"
+  import "./effs/ipv6_test.js"
+
+def ipv6.got(m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "IPv6 recv: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{+data}):
+      do IO<Unit>:
+        ok(String.eq(data, "ok"), "IPv6 round-trip", data)
+        Socket.close(s)
+
+def ipv6.replied(client: Socket, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "IPv6 send: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{u}):
+      do IO<Unit>:
+        Socket.close(s)
+        reply : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(client, 8, 5000)
+        ipv6.got(reply)
+
+def ipv6.received(client: Socket, m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "IPv6 recv: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{+data}):
+      do IO<Unit>:
+        ok(String.eq(data, "ping"), "IPv6 request", data)
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send(s, "ok")
+        ipv6.replied(client, sent)
+
+def ipv6.accepted(client: Socket, m: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match m:
+    case (l, Fail{(+code, why)}):
+      IO.die(Unit, 1, "IPv6 accept: " ++ U32.show(code) ++ " " ++ why)
+    case (l, Done{server}):
+      do IO<Unit>:
+        Listener.close(l)
+        req : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(server, 8, 5000)
+        ipv6.received(client, req)
+
+def ipv6.sent(l: Listener, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "IPv6 send: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{u}):
+      do IO<Unit>:
+        accepted : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+        ipv6.accepted(s, accepted)
+
+def ipv6.connected(l: Listener, r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "IPv6 connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{s}:
+      do IO<Unit>:
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send(s, "ping")
+        ipv6.sent(l, sent)
+
+def ipv6.listener(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "IPv6 listen: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(l, +port)}:
+      do IO<Unit>:
+        r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("::1", port, 5000)
+        ipv6.connected(l, r)
+
+def ipv6.check() -> IO(Unit):
+  do IO<Unit>:
+    l : Result<&1, &1, U32 & String, Listener & U32> <- test.listen6(0)
+    ipv6.listener(l)
+
+def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
+  import "./effs/ipv6_test.c"
+  import "./effs/ipv6_test.js"
+
+def udp6.payload(+want: U32, s: Socket, r: Result<&1, &1, U32 & String, String & U32 & String>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "IPv6 UDP recv: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(host, port, data)}:
+      do IO<Unit>:
+        ok(String.eq(host, "::1"), "IPv6 UDP host", "wrong host")
+        ok(U32.is_eq(port, want), "IPv6 UDP port", "wrong port")
+        ok(String.eq(data, "udp"), "IPv6 UDP body", "wrong body")
+        Socket.close(s)
+
+def udp6.recv(+want: U32, m: Socket & Result<&1, &1, U32 & String, String & U32 & String>) -> IO(Unit):
+  (s, r) = m
+  udp6.payload(want, s, r)
+
+def udp6.sent(+want: U32, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "IPv6 UDP send: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{u}):
+      do IO<Unit>:
+        r : Socket & Result<&1, &1, U32 & String, String & U32 & String> <- Wire.recv_from(s, 8, 5000)
+        udp6.recv(want, r)
+
+def udp6.opened(r: Result<&1, &1, U32 & String, Socket & U32>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "IPv6 UDP bind: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(s, +port)}:
+      do IO<Unit>:
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send_to(s, "::1", port, "udp")
+        udp6.sent(port, sent)
+
+def udp6.check() -> IO(Unit):
+  do IO<Unit>:
+    r : Result<&1, &1, U32 & String, Socket & U32> <- test.udp6(0)
+    udp6.opened(r)
+
+def mtls.no_cert(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      do IO<Unit>:
+        ok(U32.is_eq(code, 100), "mTLS rejects missing client cert", why)
+        Socket.close(s)
+    case (s, Done{u}):
+      do IO<Unit>:
+        Wire.tls.close(s)
+        IO.die(Unit, 1, "mTLS server accepted no client cert")
+
+def mtls.bad_path(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      do IO<Unit>:
+        ok(U32.is_eq(code, 22), "mTLS reports certificate load failure", why)
+        Socket.close(s)
+    case (s, Done{u}):
+      do IO<Unit>:
+        Wire.tls.close(s)
+        IO.die(Unit, 1, "mTLS accepted a missing certificate")
+
+def mtls.good(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match m:
+    case (s, Fail{(+code, why)}):
+      IO.die(Unit, 1, "mTLS handshake: " ++ U32.show(code) ++ " " ++ why)
+    case (s, Done{u}):
+      do IO<Unit>:
+        IO.print("ok mTLS client certificate")
+        Wire.tls.close(s)
+
+def mtls.no.socket(r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "mTLS TCP connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{s}:
+      do IO<Unit>:
+        m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect(s, "localhost", 5000)
+        mtls.no_cert(m)
+
+def mtls.bad.socket(+key: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "mTLS TCP connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{s}:
+      do IO<Unit>:
+        m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect.cert(s, "localhost", 5000, "/nonexistent/bend-kit.pem", key)
+        mtls.bad_path(m)
+
+def mtls.good.socket(+cert: String, +key: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, "mTLS TCP connect: " ++ U32.show(code) ++ " " ++ why)
+    case Done{s}:
+      do IO<Unit>:
+        m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect.cert(s, "localhost", 5000, cert, key)
+        mtls.good(m)
+
+def mtls.run(+cert: String, +key: String) -> IO(Unit):
+  do IO<Unit>:
+    r1 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
+    mtls.no.socket(r1)
+    r2 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
+    mtls.bad.socket(key, r2)
+    r3 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
+    mtls.good.socket(cert, key, r3)
+
+def mtls.args(args: List<&1, String>) -> IO(Unit):
+  match args:
+    case Con{cert, Con{key, Nil{}}}:
+      mtls.run(cert, key)
+    case _:
+      alpn.host("nghttp2.org")
 def main() -> IO(Unit):
-  alpn.host("nghttp2.org")
+  do IO<Unit>:
+    ipv6.check()
+    udp6.check()
+    args : List<&1, String> <- IO.args()
+    mtls.args(args)
