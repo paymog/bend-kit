@@ -275,5 +275,5 @@ def main() -> IO(Unit):
     keys(k1, k2)
     ok(round(65535, 8), "65535-byte frame uses the 16-bit length")
     ok(round(70000, 14), "70000-byte frame uses the 64-bit length")
-    l : Result<&1, &1, U32 & String, Listener> <- TCP.listen(port())
+    l : Result<&1, &1, U32 & String, Listener> <- TCP.listen("127.0.0.1", port())
     session(l)
