@@ -1,0 +1,15 @@
+[package]
+name = "redis-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "rs"
+path = "main.rs"
+
+[dependencies]
+redis = { version = "1.2", default-features = false }
+
+[profile.release]
+opt-level = 3

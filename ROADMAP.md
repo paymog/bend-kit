@@ -72,6 +72,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Compression through libz, libzstd, and libbrotlidec, and `http` decoding with them (#142)
 - [x] Concurrency helpers: `par_map`, `par_reduce`, a worker pool, `select`, and `timeout` (#40)
 - [ ] Databases: SQLite binding, Postgres client (#41)
+- [x] Redis and Valkey client: `redis`, RESP3 over `wire` (#205). Pub/sub, cluster, sentinel, and client-side caching come later.
 - [ ] Networking: WebSocket, cookies, multipart (#42)
 - [ ] Templating and Markdown (#43)
 - [ ] Math and statistics (#44)
