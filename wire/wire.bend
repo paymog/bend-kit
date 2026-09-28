@@ -12,6 +12,7 @@ def connect(host: String, port: U32, ms: U32) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# Octet-String TCP and UDP effects are the slow path: one Char cell per byte.
 def recv(sock: Socket, max: U32, ms: U32) ->
   IO(Socket & Result<&1, &1, U32 & String, String>):
   import "./effs/wire.c"
@@ -52,6 +53,7 @@ def tls.connect.alpn(sock: Socket, host: String, ms: U32, protos: String) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# The String TLS effects are the slow path: one Char cell per octet.
 def tls.send(sock: Socket, data: String) ->
   IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
@@ -77,6 +79,18 @@ def recv.words(sock: Socket, max: U32, ms: U32) ->
 
 # len past the end of words fails with EINVAL.
 def send.words(sock: Socket, len: U32, words: Array<U32>) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# UDP keeps the sender address and port beside the packed datagram.
+def recv_from.words(sock: Socket, max: U32, ms: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, String & U32 & (U32 & Array<U32>)>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# len past the end of words fails with EINVAL.
+def send_to.words(sock: Socket, host: String, port: U32, len: U32, words: Array<U32>) ->
   IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
   import "./effs/wire.js"

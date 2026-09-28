@@ -2456,13 +2456,6 @@ def io.recv.words(tls: Bool, s: Socket, max: U32, ms: U32) -> IO(Socket & Result
     case False{}:
       Wire.recv.words(s, max, ms)
 
-def io.send(tls: Bool, s: Socket, data: String) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
-  match tls:
-    case True{}:
-      Wire.tls.send(s, data)
-    case False{}:
-      Wire.send(s, data)
-
 def io.send.words(tls: Bool, s: Socket, +len: U32, buf: Array<U32>) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   match tls:
     case True{}:
@@ -3437,7 +3430,7 @@ def proxy.connect(s: Socket, +ms: U32, sni: String, authority: String,
     IO(Result<&1, &1, Err, Conn>):
   do IO<Result<&1, &1, Err, Conn>>:
     sent : Socket & Result<&1, &1, U32 & String, Unit> <-
-      io.send(False{}, s, proxy.connect.header(authority, authorization))
+      io.send.bytes(False{}, s, Bytes.from_string(proxy.connect.header(authority, authorization)))
     proxy.connect.sent(sent, ms, sni, cert)
 
 def proxy.route.tls(tls: Bool, s: Socket, +ms: U32, sni: String,
@@ -4938,7 +4931,7 @@ def up.conn(r: Result<&1, &1, Err, Conn>, +ms: U32, +head: Bool, wire: String) -
       match c:
         case Conn{+tls, s}:
           do IO<Result<&1, &1, Err, Up>>:
-            sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send(tls, s, wire)
+            sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(tls, s, Bytes.from_string(wire))
             return Done{up.sent(tls, ms, head, sent)}
         case ConnH2{s, client}:
           do IO<Result<&1, &1, Err, Up>>:
@@ -5015,7 +5008,7 @@ def upload.finish(up: Up) -> IO(Result<&1, &1, Err, Stream>):
         return Fail{e}
     case None{}:
       do IO<Result<&1, &1, Err, Stream>>:
-        sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send(tls, s, "0\r\n\r\n")
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(tls, s, Bytes.from_string("0\r\n\r\n"))
         stream.sent(tls, ms, head, sent)
 
 def reply.bytes(res: Res, head: Bool, close: Bool) -> Bytes.Bytes:
@@ -5321,7 +5314,8 @@ def talk.cont(cont: Bool, s: Socket) -> IO(Socket):
       IO.pure(Socket, s)
     case True{}:
       do IO<Socket>:
-        sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send(s, "HTTP/1.1 100 Continue\r\n\r\n")
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+          io.send.bytes(False{}, s, Bytes.from_string("HTTP/1.1 100 Continue\r\n\r\n"))
         return talk.cont.sent(sent)
 
 @unsafe
