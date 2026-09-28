@@ -14,7 +14,7 @@ Import a package at the top of your file. `bend` fetches it from the hub and che
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 ```
 
-A name and its hash import the same package. Each version is a distinct type: `process` still imports `bytes@0.2.0.0` (`0xbf22530d1ea11c951d1ecaa353ed1580`), so import that hash to pass a `Bytes.Bytes` to it.
+A name and its hash import the same package. Each version is a distinct type, so import the same version as the package you pass values to.
 
 ## Packages
 
