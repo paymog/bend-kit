@@ -55,6 +55,7 @@ function crypto_lib() {
     EVP_PKEY_CTX_set1_hkdf_key: { args: [p, p, i], returns: i },
     EVP_PKEY_CTX_add1_hkdf_info: { args: [p, p, i], returns: i },
     EVP_PKEY_derive: { args: [p, p, p], returns: i },
+    PKCS5_PBKDF2_HMAC: { args: [p, i, p, i, i, p, i, p], returns: i },
   };
   for (const path of [process.env.BEND_LIBCRYPTO, "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
     "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib", "libcrypto.3.dylib", "libcrypto.so.3"]) {
@@ -150,6 +151,29 @@ function hkdf_words(alg, sn, sw, kn, kw, iln, iw, n) {
   return io_done(crypto_words(out, n));
 }
 
+function pbkdf2_words(alg, pn, pw, sn, sw, iters, n) {
+  const pass = crypto_words_octets(pn, pw);
+  const salt = crypto_words_octets(sn, sw);
+  iters = Number(iters);
+  n = Number(n);
+  if (pass === null || salt === null || alg.includes("\0") || iters === 0 || iters > 0x7fffffff || n === 0 || n > 0x7fffffff) {
+    return io_fail(22);
+  }
+  const c = crypto_lib();
+  if (c === null) {
+    return crypto_fail(2, CRYPTO_MISSING);
+  }
+  const { s, ffi } = c;
+  const out = new Uint8Array(n);
+  const md = s.EVP_MD_fetch(null, crypto_ptr(ffi, crypto_cstr(alg)), null);
+  const ok = md && s.PKCS5_PBKDF2_HMAC(crypto_ptr(ffi, pass), pass.length, crypto_ptr(ffi, salt), salt.length, iters, md, n, ffi.ptr(out)) === 1;
+  s.EVP_MD_free(md);
+  if (!ok) {
+    return crypto_fail(22, "pbkdf2 failed; alg must name an OpenSSL digest");
+  }
+  return io_done(crypto_words(out, n));
+}
+
 // crypto.getRandomValues gives at most 65536 bytes a call.
 function random_words(n) {
   const out = new Uint8Array(Number(n));
@@ -176,5 +200,6 @@ function eq_ct_words(an, aw, bn, bw) {
 io_eff(CID(digest.words), digest_words);
 io_eff(CID(hmac.words), hmac_words);
 io_eff(CID(hkdf.words), hkdf_words);
+io_eff(CID(pbkdf2.words), pbkdf2_words);
 io_eff(CID(random.words), random_words);
 io_eff(CID(eq.ct.words), eq_ct_words);

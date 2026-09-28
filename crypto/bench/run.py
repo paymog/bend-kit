@@ -7,6 +7,7 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 N = 16_777_216
+OPS = ("sha256", "pbkdf2")
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1", "NODE_NO_WARNINGS": "1"}
 SSL = os.environ.get("OPENSSL_PREFIX", "/opt/homebrew/opt/openssl@3")
 
@@ -37,21 +38,22 @@ def main():
             r = subprocess.run(run, cwd=HERE, env=ENV, capture_output=True, text=True)
             if r.returncode != 0:
                 sys.exit(f"{name} failed:\n{r.stderr or r.stdout}")
-            op, ms, c = next(l for l in r.stdout.splitlines() if len(l.split("\t")) == 3).split("\t")
-            runs.append((float(ms), c))
-        table[name] = statistics.median(ms for ms, _ in runs)
-        checks[name] = runs[0][1]
+            runs.append({op: (float(ms), c) for op, ms, c in (l.split("\t") for l in r.stdout.splitlines() if len(l.split("\t")) == 3)})
+        table[name] = {op: statistics.median(run[op][0] for run in runs) for op in OPS}
+        checks[name] = tuple(runs[0][op][1] for op in OPS)
         print(f"ran {name}", file=sys.stderr)
 
     if len(set(checks.values())) != 1:
         sys.exit(f"checksum mismatch: {checks}")
-    print(f"sha256 checksum {next(iter(checks.values()))}", file=sys.stderr)
+    for op, c in zip(OPS, next(iter(checks.values()))):
+        print(f"{op} checksum {c}", file=sys.stderr)
 
-    best = min(table.values()) or 0.001
-    print("| variant | sha256 ms | MB/s | vs fastest |")
-    print("|---:|---:|---:|---:|")
-    for n, ms in table.items():
-        print(f"| {n} | {ms:,.1f} | {N / 1e6 / (ms / 1000):,.0f} | {ms / best:.1f}x |")
+    best = {op: min(t[op] for t in table.values()) or 0.001 for op in OPS}
+    print("| variant | sha256 ms | MB/s | vs fastest | pbkdf2 ms | vs fastest |")
+    print("|---:|---:|---:|---:|---:|---:|")
+    for n, t in table.items():
+        s, k = t["sha256"], t["pbkdf2"]
+        print(f"| {n} | {s:,.1f} | {N / 1e6 / (s / 1000):,.0f} | {s / best['sha256']:.1f}x | {k:,.1f} | {k / best['pbkdf2']:.1f}x |")
 
 
 if __name__ == "__main__":

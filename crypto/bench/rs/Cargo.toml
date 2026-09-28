@@ -9,6 +9,7 @@ name = "bench"
 path = "../bench.rs"
 
 [dependencies]
+pbkdf2 = "0.12"
 sha2 = "0.10"
 
 [profile.release]

@@ -32,6 +32,12 @@ def hkdf.words(alg: String, slen: U32, salt: Array<U32>, klen: U32, ikm: Array<U
   import "./effs/crypto.c"
   import "./effs/crypto.js"
 
+# PBKDF2 (RFC 8018 §5.2) with HMAC over alg: n octets from pass and salt. Fails with EINVAL when iters or n is 0.
+def pbkdf2.words(alg: String, plen: U32, pass: Array<U32>, slen: U32, salt: Array<U32>, iters: U32, n: U32) ->
+  IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/crypto.c"
+  import "./effs/crypto.js"
+
 # n octets from the OS secure random source (getentropy, crypto.getRandomValues). Needs no libcrypto.
 def random.words(n: U32) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/crypto.c"

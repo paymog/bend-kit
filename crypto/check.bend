@@ -61,6 +61,16 @@ def kdf(+alg: String, +name: String, +want: String, s: Bytes.Bytes, k: Bytes.Byt
     r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- kdf.run(alg, s, k, i, n)
     got(name, want, r)
 
+def pbkdf2.run(+alg: String, p: Bytes.Bytes, s: Bytes.Bytes, +iters: U32, +n: U32) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  Bytes.Bytes{+pn, pb} = p
+  Bytes.Bytes{+sn, sb} = s
+  C.pbkdf2.words(alg, pn, pb, sn, sb, iters, n)
+
+def pbkdf2(+alg: String, +name: String, +want: String, p: Bytes.Bytes, s: Bytes.Bytes, +iters: U32, +n: U32) -> IO(Unit):
+  do IO<Unit>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- pbkdf2.run(alg, p, s, iters, n)
+    got(name, want, r)
+
 def eq(+name: String, +want: Bool, a: Bytes.Bytes, b: Bytes.Bytes) -> IO(Unit):
   Bytes.Bytes{+an, ab} = a
   Bytes.Bytes{+bn, bb} = b
@@ -99,6 +109,12 @@ def bad.kdf() -> IO(Unit):
     fails("hkdf n = 0", r)
     s : Result<&1, &1, U32 & String, U32 & Array<U32>> <- kdf.run("SHA256", txt(""), hex(String.repeat("0b", 22n)), txt(""), 8161)
     fails("hkdf n > 255 * 32", s)
+    u : Result<&1, &1, U32 & String, U32 & Array<U32>> <- pbkdf2.run("SHA256", txt("passwd"), txt("salt"), 0, 32)
+    fails("pbkdf2 iters = 0", u)
+    v : Result<&1, &1, U32 & String, U32 & Array<U32>> <- pbkdf2.run("SHA256", txt("passwd"), txt("salt"), 1, 0)
+    fails("pbkdf2 n = 0", v)
+    x : Result<&1, &1, U32 & String, U32 & Array<U32>> <- pbkdf2.run("NOPE", txt("passwd"), txt("salt"), 1, 32)
+    fails("pbkdf2 unknown digest", x)
 
 def main() -> IO(Unit):
   do IO<Unit>:
@@ -130,6 +146,10 @@ def main() -> IO(Unit):
     kdf("SHA256", "hkdf case 2", "b11e398dc80327a1c8e7f78c596a49344f012eda2d4efad8a050cc4c19afa97c59045a99cac7827271cb41c65e590e09da3275600c2f09b8367793a9aca3db71cc30c58179ec3e87c14c01d5c1f3434f1d87", hex("606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeaf"), hex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f"), hex("b0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"), 82)
     kdf("SHA256", "hkdf case 3", "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8", txt(""), hex(String.repeat("0b", 22n)), txt(""), 42)
     kdf("SHA1", "hkdf case 4", "085a01ea1b10f36933068b56efa5ad81a4f14b822f5b091568a9cdd4f155fda2c22e422478d305f3f896", hex("000102030405060708090a0b0c"), hex(String.repeat("0b", 11n)), hex("f0f1f2f3f4f5f6f7f8f9"), 42)
+    # RFC 7914 §11 (PBKDF2-HMAC-SHA-256) and RFC 6070 §2 case 2 (SHA-1, 4096 iterations, as SCRAM uses).
+    pbkdf2("SHA256", "pbkdf2 sha256 c=1", "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783", txt("passwd"), txt("salt"), 1, 64)
+    pbkdf2("SHA256", "pbkdf2 sha256 c=80000", "4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d", txt("Password"), txt("NaCl"), 80000, 64)
+    pbkdf2("SHA1", "pbkdf2 sha1 c=4096", "4b007901b765489abead49d926f721d065a429c1", txt("password"), txt("salt"), 4096, 20)
     bad.alg(txt("abc"))
     bad.kdf()
     eq("eq.ct same", True{}, txt("same mac"), txt("same mac"))
