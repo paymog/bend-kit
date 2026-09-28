@@ -788,4 +788,4 @@ def main() -> IO(Unit):
     all.test()
     cookie.test()
     args : List<&1, String> <- IO.args()
-    mtls.args(args)
+    mtls.args(List.tail(&1, String, args))

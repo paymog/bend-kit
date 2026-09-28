@@ -25,6 +25,6 @@ def main() -> IO(Unit):
   do IO<Unit>:
     args : List<&1, String> <- IO.args()
     t0 : Time.Duration <- Time.mono()
-    r : Result<&1, &1, Http.Err, Http.Res> <- Http.fetch("GET", url(args), Http.set(Http.empty(), "accept-encoding", "identity"), Bytes.new(0))
+    r : Result<&1, &1, Http.Err, Http.Res> <- Http.fetch("GET", url(List.tail(&1, String, args)), Http.set(Http.empty(), "accept-encoding", "identity"), Bytes.new(0))
     t1 : Time.Duration <- Time.mono()
     report(t0, t1, r)
