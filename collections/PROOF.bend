@@ -1770,3 +1770,21 @@ def Laws.omap_g_put_matches():
 
 def Laws.omap_g_del_matches():
   {==}
+
+def Laws.hmap_get_put():
+  {==}
+
+def Laws.hmap_get_put_other():
+  {==}
+
+def Laws.hmap_collision():
+  {==}
+
+def Laws.hmap_replace_collision():
+  {==}
+
+def Laws.hmap_high_bit():
+  {==}
+
+def Laws.hmap_missing_collision():
+  {==}

@@ -20,6 +20,20 @@ def lap(name, t0, chk):
 
 
 t0 = time.perf_counter()
+m, x = {}, 1
+for i in range(N):
+    x = lcg(x)
+    m[x] = i
+lap("hmap_put", t0, len(m))
+
+t0 = time.perf_counter()
+x, acc = 1, 0
+for _ in range(N):
+    x = lcg(x)
+    acc = (acc + m.get(x, 0)) & M
+lap("hmap_get", t0, acc)
+
+t0 = time.perf_counter()
 v = []
 for i in range(N):
     v.append(i)
