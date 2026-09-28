@@ -35,16 +35,16 @@ Bend reads the files with `File.read_bytes` so the bytes are not UTF-8 decoded. 
 
 ## Results
 
-M4 Pro, macOS 26.6.2, arm64, 2026-09-27. Median of five runs (`python3 run.py 5`). Times are in ms.
+M4 Pro, macOS 26.6.2, arm64, 2026-09-27. Median of three runs. Times are in ms.
 
 | variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |
 |---:|---:|---:|---:|---:|---:|---:|
-| Bun | 5.8 | 720 | 37.2 | 113 | 1,063,003 | 3.95x |
-| Node | 5.8 | 718 | 70.2 | 60 | 1,045,511 | 4.01x |
-| Python | 2.7 | 1,579 | 108.2 | 39 | 1,050,286 | 3.99x |
-| Bend | 207.0 | 20 | 637.0 | 7 | 1,422,023 | 2.95x |
-| Bend (libz) | 4.0 | 1,049 | 115.0 | 36 | 1,050,286 | 3.99x |
+| Bun | 6.6 | 639 | 40.7 | 103 | 1,063,003 | 3.95x |
+| Node | 6.3 | 663 | 77.1 | 54 | 1,045,511 | 4.01x |
+| Python | 2.9 | 1,444 | 119.6 | 35 | 1,050,286 | 3.99x |
+| Bend | 217.8 | 19 | 688.0 | 6 | 1,422,023 | 2.95x |
+| Bend (libz) | 4.7 | 887 | 125.8 | 33 | 1,050,286 | 3.99x |
 
-The pure Bend ratio is lower because it writes one fixed-Huffman block with greedy matching; the others use dynamic Huffman trees and lazy matching. `Bend (libz)` and Python call the same libz at level 6, so their outputs are the same size. Bend's clock counts whole milliseconds.
+The pure Bend ratio is lower because it writes one fixed-Huffman block with greedy matching; the others use dynamic Huffman trees and lazy matching. `Bend (libz)` and Python call the same libz at level 6, so their outputs are the same size.
 
-Versions: Bend 2.0.29, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1, Python 3.14.6.

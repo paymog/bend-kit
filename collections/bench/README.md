@@ -39,18 +39,18 @@ A push op stops its clock before it reads the size, so the checksum does not add
 
 ## Results
 
-M4 Pro, macOS, 2026-09-25. Bend 2.0.28, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6. Median of three runs, except Python (one run). Times are in ms.
+M4 Pro, macOS, 2026-09-27. Bend 2.0.31, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6. Median of three runs, except Python (one run). Times are in ms.
 
 | op | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|
-| omap_put | 113.9 | n/a | n/a | n/a | 1,793.0 |
-| omap_get | 120.4 | n/a | n/a | n/a | 1,627.0 |
-| vec_push | 0.7 | 4.4 | 5.9 | 34.7 | 2.0 |
-| vec_get | 1.1 | 9.1 | 6.0 | 363.1 | 1.0 |
-| deque_push | 0.6 | n/a | n/a | 36.9 | 2.0 |
-| deque_pop | 0.8 | n/a | n/a | 117.2 | 8.0 |
-| heap_push | 8.2 | n/a | n/a | 157.5 | 436.0 |
-| heap_pop | 43.9 | n/a | n/a | 1,301.9 | 1,419.0 |
+| omap_put | 118.2 | n/a | n/a | n/a | 2,321.0 |
+| omap_get | 122.3 | n/a | n/a | n/a | 2,253.0 |
+| vec_push | 0.7 | 4.5 | 5.6 | 32.2 | 2.0 |
+| vec_get | 1.1 | 9.0 | 6.2 | 370.0 | 1.3 |
+| deque_push | 0.5 | n/a | n/a | 34.2 | 18.7 |
+| deque_pop | 0.8 | n/a | n/a | 114.1 | 67.8 |
+| heap_push | 8.4 | n/a | n/a | 161.3 | 470.2 |
+| heap_pop | 45.8 | n/a | n/a | 1,310.8 | 1,553.2 |
 
 Every program that runs an op prints the same checksum:
 
@@ -67,11 +67,11 @@ Every program that runs an op prints the same checksum:
 
 ## Reading it
 
-- `Vec` and `Deque` stay within a few ms of Rust. The vector sits on `Array`, and the deque on two lists with O(1) amortized ends.
-- `OMap` is about 15 times slower than `BTreeMap`, and takes about 1.7 µs per operation. The likely costs, not measured: every comparison goes through `Cmp.case` closures, every put rebuilds its path with a rebalance check at each level, and a B-tree keeps many keys per node.
-- `Heap` push is about 50 times slower than Rust's, and pop is within 10% of Python's `heapq`. `Heap` is a tree of nodes, not an array.
+- `Vec` stays within a few ms of Rust. `Deque` takes tens of ms more. The vector sits on `Array`, and the deque on two lists with O(1) amortized ends.
+- `OMap` is about 19 times slower than `BTreeMap`, and takes about 2.2 µs per operation. The likely costs, not measured: every comparison goes through `Cmp.case` closures, every put rebuilds its path with a rebalance check at each level, and a B-tree keeps many keys per node.
+- `Heap` push is about 56 times slower than Rust's, and pop is about 19% slower than Python's `heapq`. `Heap` is a tree of nodes, not an array.
 
 ## Caveats
 
-- Bend's `IO.now` counts in whole ms, so the `Vec` and `Deque` rows (1 to 8 ms) are ±1 ms. The other languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - One machine, one size, one thread. These measure the containers, not a program that uses them.

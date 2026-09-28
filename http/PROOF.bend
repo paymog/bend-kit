@@ -606,3 +606,96 @@ def Laws.stream_len_cut():
 
 def Laws.decoded_plain():
   {==}
+
+def Laws.retry_statuses():
+  {==}
+
+def Laws.retry_idempotent():
+  {==}
+
+def Laws.retry_connect():
+  {==}
+
+def Laws.retry_timeout():
+  {==}
+
+def Laws.retry_dns_stops():
+  {==}
+
+def Laws.retry_503():
+  {==}
+
+def Laws.retry_429_backoff():
+  {==}
+
+def Laws.retry_200_stops():
+  {==}
+
+def Laws.retry_post_stops():
+  {==}
+
+def Laws.retry_post_connect_stops():
+  {==}
+
+def Laws.retry_base():
+  {==}
+
+def Laws.retry_backoff():
+  {==}
+
+def Laws.retry_after_secs():
+  {==}
+
+def Laws.retry_after_date():
+  {==}
+
+def Laws.retry_after_bad():
+  {==}
+
+def Laws.retry_delay():
+  {==}
+
+def Laws.proxy_no_exact():
+  {==}
+
+def Laws.proxy_no_subdomain():
+  {==}
+
+def Laws.proxy_no_boundary():
+  {==}
+
+def Laws.proxy_no_port():
+  {==}
+
+def Laws.proxy_no_list():
+  {==}
+
+def Laws.proxy_no_wildcard():
+  {==}
+
+def Laws.proxy_no_ipv6():
+  {==}
+
+def Laws.proxy_absolute_request():
+  {==}
+
+def Laws.cookie_domain_match():
+  {==}
+
+def Laws.cookie_domain_scope():
+  {==}
+
+def Laws.cookie_path_match():
+  {==}
+
+def Laws.cookie_default_path():
+  {==}
+
+def Laws.cookie_path_scope():
+  {==}
+
+def Laws.cookie_date():
+  {==}
+
+def Laws.cookie_expiry():
+  {==}

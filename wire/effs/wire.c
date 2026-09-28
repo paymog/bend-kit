@@ -209,12 +209,44 @@ static void __attribute__((constructor)) wire_send_words_use(void) {
 
 #endif
 
+#if defined(CID(connect)) || defined(CID(send_to))
+
+// Accept only numeric addresses. The socket family and sockaddr length travel together.
+static int wire_addr(const char* host, u32 port, struct sockaddr_storage* out, socklen_t* size) {
+  if (port > 65535) {
+    return -1;
+  }
+  struct in_addr v4;
+  if (inet_pton(AF_INET, host, &v4) == 1) {
+    struct sockaddr_in* a = (struct sockaddr_in*)out;
+    memset(a, 0, sizeof(*a));
+    a->sin_family = AF_INET;
+    a->sin_port = htons((uint16_t)port);
+    a->sin_addr = v4;
+    *size = sizeof(*a);
+    return AF_INET;
+  }
+  struct in6_addr v6;
+  if (inet_pton(AF_INET6, host, &v6) == 1) {
+    struct sockaddr_in6* a = (struct sockaddr_in6*)out;
+    memset(a, 0, sizeof(*a));
+    a->sin6_family = AF_INET6;
+    a->sin6_port = htons((uint16_t)port);
+    a->sin6_addr = v6;
+    *size = sizeof(*a);
+    return AF_INET6;
+  }
+  return -1;
+}
+
+#endif
+
 #ifdef CID(recv_from)
 
 static Term wire_recv_from_more(Env e, IoWork* w) {
-  struct sockaddr_in at = { 0 };
+  struct sockaddr_storage at = { 0 };
   socklen_t alen = sizeof(at);
-  char      host[16];
+  char      host[INET6_ADDRSTRLEN];
   int       fd = (int)w->hand;
   ssize_t   n  = io_sys_end(w, recvfrom(fd, w->data, (size_t)w->made, 0,
     (struct sockaddr*)&at, &alen));
@@ -224,10 +256,16 @@ static Term wire_recv_from_more(Env e, IoWork* w) {
     }
     w->code = ETIMEDOUT;
   }
-  inet_ntop(AF_INET, &at.sin_addr, host, 16);
-  Term r = w->code ? io_fail(e, w->code, NULL)
-    : io_done(e, io_tup(e, io_str(e, host, strlen(host)),
-      io_tup(e, ntohs(at.sin_port), wire_bytes(e, w->data, (u64)n))));
+  const void* ip = at.ss_family == AF_INET6
+    ? (const void*)&((struct sockaddr_in6*)&at)->sin6_addr
+    : (const void*)&((struct sockaddr_in*)&at)->sin_addr;
+  uint16_t port = at.ss_family == AF_INET6
+    ? ((struct sockaddr_in6*)&at)->sin6_port
+    : ((struct sockaddr_in*)&at)->sin_port;
+  const char* text = w->code ? NULL : inet_ntop(at.ss_family, ip, host, sizeof(host));
+  Term r = w->code || text == NULL ? io_fail(e, w->code ? w->code : EINVAL, NULL)
+    : io_done(e, io_tup(e, io_str(e, text, strlen(text)),
+      io_tup(e, ntohs(port), wire_bytes(e, w->data, (u64)n))));
   free(w->data);
   return io_tup(e, io_hand(w->hand), r);
 }
@@ -249,12 +287,13 @@ static void __attribute__((constructor)) wire_recv_from_use(void) {
 #ifdef CID(send_to)
 
 static Term wire_send_to_more(Env e, IoWork* w) {
-  struct sockaddr_in at;
+  struct sockaddr_storage at;
+  socklen_t size = 0;
   int     fd = (int)w->hand;
   ssize_t n  = -1;
   errno      = EINVAL;
-  if (w->code == 0 && io_sys_addr(w->text, (u32)w->made, &at) == 0) {
-    n = sendto(fd, w->data, w->size, 0, (struct sockaddr*)&at, sizeof(at));
+  if (w->code == 0 && wire_addr(w->text, (u32)w->made, &at, &size) >= 0) {
+    n = sendto(fd, w->data, w->size, 0, (struct sockaddr*)&at, size);
   }
   io_sys_end(w, n);
   if (w->code == EAGAIN) {
@@ -299,7 +338,6 @@ static Term wire_connect_end(Env e, IoWork* w, int err) {
 }
 
 static Term wire_connect_more(Env e, IoWork* w) {
-  struct sockaddr_in at;
   int       fd  = (int)w->hand;
   int       err = 0;
   socklen_t len = sizeof(err);
@@ -307,8 +345,7 @@ static Term wire_connect_more(Env e, IoWork* w) {
     err = errno;
   }
   if (err == 0) {
-    io_sys_addr(w->data, (u32)w->made, &at);
-    err = connect(fd, (struct sockaddr*)&at, sizeof(at)) == 0 ? 0 : errno;
+    err = connect(fd, (struct sockaddr*)w->data, (socklen_t)w->made) == 0 ? 0 : errno;
   }
   if (err == 0 || err == EISCONN) {
     return wire_connect_end(e, w, 0);
@@ -323,15 +360,21 @@ static Term wire_connect_more(Env e, IoWork* w) {
 }
 
 Term connect_run(Env e, Term* f, IoWork* w) {
-  struct sockaddr_in at;
-  u64 hn  = 0;
-  w->data = io_cstr(e, f[0], &hn);
-  w->made = (intptr_t)f[1];
+  struct sockaddr_storage at;
+  socklen_t size = 0;
+  u64 hn = 0;
+  char* host = io_cstr(e, f[0], &hn);
+  int family = io_nul(host, hn) ? -1 : wire_addr(host, (u32)f[1], &at, &size);
+  free(host);
+  w->data = NULL;
   w->hand = -1;
-  if (io_nul(w->data, hn) || io_sys_addr(w->data, (u32)w->made, &at) != 0) {
+  if (family < 0) {
     return wire_connect_end(e, w, EINVAL);
   }
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  w->data = io_mem(malloc(size));
+  memcpy(w->data, &at, size);
+  w->made = size;
+  int fd = socket(family, SOCK_STREAM, 0);
   if (fd < 0) {
     return wire_connect_end(e, w, errno);
   }
@@ -355,8 +398,9 @@ static void __attribute__((constructor)) connect_use(void) {
 // object of a socket lives in a table keyed by its fd. Peer verification
 // (chain + host name) is always on; TLS 1.2 is the floor.
 
-#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.send)) || defined(CID(tls.recv)) \
-  || defined(CID(tls.close)) || defined(CID(tls.send.words)) || defined(CID(tls.recv.words))
+#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.connect.cert)) \
+  || defined(CID(tls.send)) || defined(CID(tls.recv)) || defined(CID(tls.close)) \
+  || defined(CID(tls.send.words)) || defined(CID(tls.recv.words))
 #ifndef WIRE_TLS
 #define WIRE_TLS
 #include <dlfcn.h>
@@ -378,6 +422,9 @@ typedef struct {
   const char* (*verify_text)(long);
   int   (*set_alpn_protos)(void*, const unsigned char*, unsigned int);
   void  (*get0_alpn_selected)(const void*, const unsigned char**, unsigned int*);
+  int   (*use_certificate_chain_file)(void*, const char*);
+  int   (*use_private_key_file)(void*, const char*, int);
+  int   (*check_private_key)(const void*);
 } WireTls;
 
 #define WIRE_TLS_FDS 65536
@@ -425,12 +472,17 @@ static bool wire_tls_load(void) {
   wire_tls.verify_text        = dlsym(h, "X509_verify_cert_error_string");
   wire_tls.set_alpn_protos    = dlsym(h, "SSL_set_alpn_protos");
   wire_tls.get0_alpn_selected = dlsym(h, "SSL_get0_alpn_selected");
+  wire_tls.use_certificate_chain_file = dlsym(h, "SSL_use_certificate_chain_file");
+  wire_tls.use_private_key_file = dlsym(h, "SSL_use_PrivateKey_file");
+  wire_tls.check_private_key = dlsym(h, "SSL_check_private_key");
   if (!method || !ctx_new || !paths || !verify || !ctx_ctrl
     || !wire_tls.ssl_new || !wire_tls.set_fd || !wire_tls.ctrl
     || !wire_tls.set1_host || !wire_tls.connect || !wire_tls.read
     || !wire_tls.write || !wire_tls.get_error || !wire_tls.shutdown
     || !wire_tls.ssl_free || !wire_tls.verify_result || !wire_tls.verify_text
-    || !wire_tls.set_alpn_protos || !wire_tls.get0_alpn_selected) {
+    || !wire_tls.set_alpn_protos || !wire_tls.get0_alpn_selected
+    || !wire_tls.use_certificate_chain_file || !wire_tls.use_private_key_file
+    || !wire_tls.check_private_key) {
     return false;
   }
   void* ctx = ctx_new(method());
@@ -460,7 +512,7 @@ static void wire_tls_drop(int fd) {
 #endif
 #endif
 
-#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn))
+#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.connect.cert))
 
 static Term wire_tls_connect_end(Env e, IoWork* w, Term r) {
   free(w->text);
@@ -590,6 +642,56 @@ Term tls_connect_alpn_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) tls_connect_alpn_use(void) {
   io_eff(CID(tls.connect.alpn), tls_connect_alpn_run, 0);
+}
+
+#endif
+
+#ifdef CID(tls.connect.cert)
+
+Term tls_connect_cert_run(Env e, Term* f, IoWork* w) {
+  uint64_t hn = 0, cn = 0, kn = 0;
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->text = io_cstr(e, f[1], &hn);
+  w->size = wire_deadline((u64)f[2]);
+  w->made = 0;
+  char* cert = io_cstr(e, f[3], &cn);
+  char* key = io_cstr(e, f[4], &kn);
+  int fd = (int)w->hand;
+  bool bad = fd < 0 || fd >= WIRE_TLS_FDS || io_nul(w->text, hn)
+    || io_nul(cert, cn) || io_nul(key, kn) || cn == 0 || kn == 0;
+  bool loaded = wire_tls_load();
+  if (!loaded || bad) {
+    free(cert);
+    free(key);
+    return wire_tls_connect_end(e, w, !loaded
+      ? io_fail(e, ENOENT, "TLS needs OpenSSL 3 (libssl.3); set BEND_LIBSSL to its path")
+      : io_fail(e, EINVAL, "Invalid TLS client certificate or key path"));
+  }
+  void* ssl = wire_tls.ssl_new(wire_tls.ctx);
+  if (ssl == NULL) {
+    free(cert);
+    free(key);
+    return wire_tls_connect_end(e, w, io_fail(e, ENOMEM, NULL));
+  }
+  const char* why = NULL;
+  if (wire_tls.use_certificate_chain_file(ssl, cert) != 1) {
+    why = "TLS client certificate load failed";
+  } else if (wire_tls.use_private_key_file(ssl, key, 1) != 1) {
+    why = "TLS client key load failed";
+  } else if (wire_tls.check_private_key(ssl) != 1) {
+    why = "TLS client key does not match certificate";
+  }
+  free(cert);
+  free(key);
+  if (why != NULL) {
+    wire_tls.ssl_free(ssl);
+    return wire_tls_connect_end(e, w, io_fail(e, EINVAL, why));
+  }
+  return wire_tls_connect_start(e, w, fd, ssl);
+}
+
+static void __attribute__((constructor)) tls_connect_cert_use(void) {
+  io_eff(CID(tls.connect.cert), tls_connect_cert_run, 0);
 }
 
 #endif

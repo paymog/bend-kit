@@ -20,15 +20,15 @@ Each program reads the file before the timer starts, and times the parse of the 
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-26. Median of five runs. Times are in ms; `Nx` is the multiple of the fastest. Bend's peak RSS was 68 MB.
+M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Times are in ms; `Nx` is the multiple of the fastest. Bend's peak RSS was 68 MB.
 
 | op | Rust | Bun | Python | Bend |
 |---|---:|---:|---:|---:|
-| parse | 10.3 (1.0x) | 106.1 (10.3x) | 1,366.6 (132.6x) | 148.0 (14.4x) |
+| parse | 10.4 (1.0x) | 123.0 (11.8x) | 1,529.5 (146.4x) | 162.9 (15.6x) |
 
-The hand-written state machine in `json/json.bend` takes 4 ms on the same document, from `Bytes` (`json/bench`, Bend 2.0.31).
+The hand-written state machine in `json/json.bend` takes 4.4 ms on the same document, from `Bytes` (`json/bench`, Bend 2.0.31).
 
-Versions: Bend 2.0.29, Rust 1.91.0 with nom 7.1.3, Bun 1.3.14 with Parsimmon 1.18.1, Python 3.14.6 with pyparsing 3.3.2.
+Versions: Bend 2.0.31, Rust 1.91.0 with nom 7.1.3, Bun 1.3.14 with Parsimmon 1.18.1, Python 3.14.6 with pyparsing 3.3.2.
 
 ## The libraries
 
@@ -46,5 +46,5 @@ C has no popular parser combinator library, so it is left out.
 - Bend strings are lists, one cell per char, and objects are `Map`s. The others use flat strings and hash or tree maps.
 - The Rust program and Bend keep each number's text. JavaScript and Python convert numbers to doubles or ints.
 - The Rust and Bend grammars decode string escapes char by char. The JavaScript and Python grammars match a whole string with one regex or `QuotedString`, then decode it.
-- Bend's `IO.now` counts in whole ms. The other languages use sub-ms clocks.
+- Bend times itself with `Time.mono`, a nanosecond clock.
 - These are micro-benchmarks on one machine.

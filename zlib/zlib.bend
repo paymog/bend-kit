@@ -1207,7 +1207,7 @@ def zstd.words(max: U32, len: U32, words: Array<U32>) ->
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
-# gzip or zlib data (RFC 1952, 1950) through libz, found from the header. Every gzip member is decoded in turn, as gzip -d does.
+# gzip, zlib, or raw DEFLATE data through libz, selected from the first two bytes. Every gzip member is decoded in turn, as gzip -d does.
 # Fails with EFBIG when the output passes max bytes, and ENOENT without libz.
 def inflate.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
@@ -1225,3 +1225,54 @@ def brotli.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/zlib.c"
   import "./effs/zlib.js"
+
+# A live native decoder. Call dec.finish even after a failed feed to release it.
+type Decoder is Type:
+  Decoder{id: U32}
+
+def dec.open(kind: U32) -> IO(Result<&1, &1, U32 & String, U32>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+def dec.new.got(r: Result<&1, &1, U32 & String, U32>) -> Result<&1, &1, U32 & String, Decoder>:
+  match r:
+    case Fail{e}:
+      Fail{e}
+    case Done{+id}:
+      Done{Decoder{id}}
+
+def dec.new(+kind: U32) -> IO(Result<&1, &1, U32 & String, Decoder>):
+  do IO<Result<&1, &1, U32 & String, Decoder>>:
+    r : Result<&1, &1, U32 & String, U32> <- dec.open(kind)
+    return dec.new.got(r)
+
+def inflate.new() -> IO(Result<&1, &1, U32 & String, Decoder>):
+  dec.new(0)
+
+def brotli.new() -> IO(Result<&1, &1, U32 & String, Decoder>):
+  dec.new(1)
+
+def zstd.new() -> IO(Result<&1, &1, U32 & String, Decoder>):
+  dec.new(2)
+
+def dec.feed(id: U32, max: U32, len: U32, words: Array<U32>) ->
+  IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+# max caps the output of this call, not the total output of the stream.
+def dec.feed.words(d: Decoder, +max: U32, +len: U32, words: Array<U32>) ->
+  IO(Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  Decoder{+id} = d
+  do IO<Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>>>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec.feed(id, max, len, words)
+    return (Decoder{id}, r)
+
+def dec.finish.id(id: U32) -> IO(Result<&1, &1, U32 & String, Unit>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
+# Finish validates the end marker and always releases the decoder.
+def dec.finish(d: Decoder) -> IO(Result<&1, &1, U32 & String, Unit>):
+  Decoder{+id} = d
+  dec.finish.id(id)
