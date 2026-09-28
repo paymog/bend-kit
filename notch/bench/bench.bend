@@ -1,6 +1,6 @@
 # Log line benchmark: the Bend side (see README.md).
 import Base
-import ../kerf.bend as Kerf
+import ../notch.bend as Notch
 
 def N() -> Nat:
   20000n
@@ -24,22 +24,22 @@ def fnv(s: String, h: U32) -> U32:
     case SCon{Chr{c}, t}:
       fnv(t, (U32.xor(h, c) * 16777619 : U32))
 
-def fields(+x: U32) -> List<&2, Kerf.Field>:
-  [Kerf.str("user", "u\"" ++ U32.show((x % 1000 : U32))), Kerf.num("id", x),
-    Kerf.flag("ok", U32.is_eq((x .&. 1 : U32), 1))]
+def fields(+x: U32) -> List<&2, Notch.Field>:
+  [Notch.str("user", "u\"" ++ U32.show((x % 1000 : U32))), Notch.num("id", x),
+    Notch.flag("ok", U32.is_eq((x .&. 1 : U32), 1))]
 
-def run(+lg: Kerf.Logger, l: List<U32>, h: U32) -> U32:
+def run(+lg: Notch.Logger, l: List<U32>, h: U32) -> U32:
   match l:
     case Nil{}:
       h
     case Con{x, t}:
-      run(lg, t, fnv("\n", fnv(Kerf.render(lg, Some{"2026-09-27T12:00:00Z"}, Kerf.Info{},
+      run(lg, t, fnv("\n", fnv(Notch.render(lg, Some{"2026-09-27T12:00:00Z"}, Notch.Info{},
         "request done", fields(x)), h)))
 
 def main() -> IO(Unit):
   do IO<Unit>:
     l : List<U32> = gen(N(), 1, [])
-    lg : Kerf.Logger = Kerf.with(Kerf.json(Kerf.Info{}), [Kerf.str("svc", "api")])
+    lg : Notch.Logger = Notch.with(Notch.json(Notch.Info{}), [Notch.str("svc", "api")])
     t0 : Nat <- IO.now()
     h : U32 = run(lg, l, 2166136261)
     t1 : Nat <- IO.now()

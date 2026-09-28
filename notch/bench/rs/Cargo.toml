@@ -1,5 +1,5 @@
 [package]
-name = "kerf-bench"
+name = "notch-bench"
 version = "0.0.0"
 edition = "2021"
 publish = false

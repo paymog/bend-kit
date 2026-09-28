@@ -1,6 +1,6 @@
 # JSON log-line benchmark
 
-This times Kerf's JSON-lines renderer against JSON serialization in Rust, JavaScript, and Python. C has no standard or comparably popular JSON serializer, so it is left out. No lines are written to a sink during timing.
+This times Notch's JSON-lines renderer against JSON serialization in Rust, JavaScript, and Python. C has no standard or comparably popular JSON serializer, so it is left out. No lines are written to a sink during timing.
 
 ## Run
 

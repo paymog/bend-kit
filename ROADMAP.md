@@ -62,7 +62,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Regex (linear time, RE2-style) (#32)
 - [ ] Serialization: CSV, TOML, CBOR/MessagePack, YAML (#33)
 - [x] CLI argument parsing (#34): use [shake](https://github.com/Emerging-Patterns/shake) from the hub
-- [x] Logging (#35): `kerf`
+- [x] Logging (#35): `notch`
 - [ ] Big numbers: BigInt, BigDecimal, rationals (#36)
 - [ ] F64: 64-bit floating point (#37)
 

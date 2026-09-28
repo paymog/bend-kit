@@ -1,4 +1,4 @@
-# Leveled, structured logging: a logger value, key-value fields, and logfmt or JSON-lines output. Source: https://github.com/paymog/bend-kit/tree/main/kerf
+# Leveled, structured logging: a logger value, key-value fields, and logfmt or JSON-lines output. Source: https://github.com/paymog/bend-kit/tree/main/notch
 import Base
 # bend-kit-time@0.1.0.0
 import 0x3bfb4ae4d3b87b90f01bfcd298211455/time.bend as Time
