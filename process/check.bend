@@ -1,6 +1,6 @@
 import Base
 import ./process.bend as Proc
-import 0xbf22530d1ea11c951d1ecaa353ed1580/bytes.bend as Bytes
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 def expect.yes(ok: Bool, message: String) -> IO(Unit):
   match ok:

@@ -1,6 +1,6 @@
 # Subprocesses and process-level OS access, with byte-exact input and output.
 import Base
-import 0xbf22530d1ea11c951d1ecaa353ed1580/bytes.bend as Bytes
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 # Environment entries are KEY=VALUE; they override inherited variables.
 # The command is an executable name or path, never a shell expression.

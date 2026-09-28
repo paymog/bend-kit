@@ -136,4 +136,4 @@ def run(+size: Nat, +only: String) -> IO(Unit):
 def main() -> IO(Unit):
   do IO<Unit>:
     args : List<&1, String> <- IO.args()
-    run(1048576n, first(args))
+    run(1048576n, first(List.tail(&1, String, args)))

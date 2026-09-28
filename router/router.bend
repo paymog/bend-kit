@@ -26,7 +26,6 @@ def segs(s: String) -> List<&2, String>:
 def param(+seg: String) -> Bool:
   String.starts_with(seg, ":")
 
-@unsafe
 def zip(pat: List<&2, String>, got: List<&2, String>, +m: Map<&2, String>) -> Maybe<&2, Map<&2, String>>:
   match pat:
     case Nil{}:

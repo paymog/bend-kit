@@ -240,25 +240,23 @@ def maybe(r: P.Res<Val>) -> Maybe<&2, Val>:
 def parse(+s: String) -> Maybe<&2, Val>:
   maybe(parse.res(s))
 
-@unsafe
-def to_json.arr(xs: List<&2, Val>) -> List<&1, Json.Val>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{x, t}:
-      Con{to_json(x), to_json.arr(t)}
+def to_json.cons(x: Json.Val, r: Json.Val) -> Json.Val:
+  match r:
+    case Json.Arr{xs}:
+      Json.Arr{Con{x, xs}}
+    case _:
+      Json.Arr{Nil{}}
 
-@unsafe
-def to_json.obj(kvs: List<&2, Sigma<&2, &2, String, _ => Val>>) -> List<&1, Bytes.Bytes & Json.Val>:
-  match kvs:
-    case Nil{}:
+def to_json.fields(r: Json.Val) -> List<&1, Bytes.Bytes & Json.Val>:
+  match r:
+    case Json.Obj{kvs}:
+      kvs
+    case _:
       Nil{}
-    case (k, v) <> t:
-      Con{(Json.utf8(k), to_json(v)), to_json.obj(t)}
 
 # v as a Json.Val, with object keys sorted. For output in the check and bench.
-@unsafe
-def to_json(v: Val) -> Json.Val:
+# An object's fields come before acc; other values ignore acc.
+def to_json.go(v: Val, acc: List<&1, Bytes.Bytes & Json.Val>) -> Json.Val:
   match v:
     case Null{}:
       Json.Null{}
@@ -269,6 +267,19 @@ def to_json(v: Val) -> Json.Val:
     case Str{s}:
       Json.Str{Json.utf8(s)}
     case Arr{xs}:
-      Json.Arr{to_json.arr(xs)}
+      match xs:
+        case Nil{}:
+          Json.Arr{Nil{}}
+        case Con{x, t}:
+          to_json.cons(to_json.go(x, Nil{}), to_json.go(Arr{t}, Nil{}))
     case Obj{m}:
-      Json.Obj{to_json.obj(Map.to_list(&2, Val, m))}
+      match m:
+        case MTip{}:
+          Json.Obj{acc}
+        case MLeaf{k, x}:
+          Json.Obj{Con{(Json.utf8(k), to_json.go(x, Nil{})), acc}}
+        case MNode{pos, lo, hi}:
+          to_json.go(Obj{lo}, to_json.fields(to_json.go(Obj{hi}, acc)))
+
+def to_json(v: Val) -> Json.Val:
+  to_json.go(v, Nil{})

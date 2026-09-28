@@ -173,7 +173,7 @@ def server.lr(lr: Result<&1, &1, U32 & String, Listener>) -> IO(Unit):
 
 def server() -> IO(Unit):
   do IO<Unit>:
-    lr : Result<&1, &1, U32 & String, Listener> <- TCP.listen(port())
+    lr : Result<&1, &1, U32 & String, Listener> <- TCP.listen("127.0.0.1", port())
     server.lr(lr)
 
 @unsafe

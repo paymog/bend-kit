@@ -34,12 +34,12 @@ M4 Pro, macOS 26.6.2, 2026-09-27. `python3 run.py 5`, median of five runs. Times
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| decode | 22.1 (1.2x) | 32.9 (1.8x) | 36.5 (2.0x) | 27.7 (1.5x) | 68.7 (3.8x) | 18.0 (1.0x) |
-| encode | 6.1 (1.0x) | 7.3 (1.2x) | 35.5 (5.8x) | 28.2 (4.6x) | 81.8 (13.4x) | 24.0 (3.9x) |
+| decode | 22.9 (1.3x) | 33.2 (1.8x) | 37.5 (2.1x) | 28.5 (1.6x) | 73.8 (4.1x) | 18.0 (1.0x) |
+| encode | 6.6 (1.0x) | 7.3 (1.1x) | 36.5 (5.5x) | 29.8 (4.5x) | 83.1 (12.5x) | 29.0 (4.4x) |
 
-Versions: Bend 2.0.31, Apple clang 17.0.0 with libcbor 0.13.0, rustc 1.91.0 with ciborium 0.2.2, Bun 1.3.14 and Node 24.0.1 with cbor-x 1.6.6, Python 3.14.6 with cbor2 6.1.4.
+Versions: Bend 2.0.32, Apple clang 17.0.0 with libcbor 0.13.0, rustc 1.91.0 with ciborium 0.2.2, Bun 1.3.14 and Node 24.0.1 with cbor-x 1.6.6, Python 3.14.6 with cbor2 6.1.4.
 
-Bend's `IO.now` counts whole ms, so Bend times are integers. On the 50-record run, most ops take under 1 ms and the table has no ratios. The Bend binary peaked at about 200 MB RSS on the full document (`/usr/bin/time -l out/bend`).
+Bend's `IO.now` counts whole ms, so Bend times are integers. Since cbor 0.1.0.1, `encode` first walks the value to bound its steps, so the checker can prove it ends; that took encode from 24 ms to 29 ms. On the 50-record run, most ops take under 1 ms and the table has no ratios. The Bend binary peaked at about 200 MB RSS on the full document (`/usr/bin/time -l out/bend`).
 
 ## The calls
 
