@@ -173,6 +173,8 @@ def main() -> IO(Unit):
 
 ## Versions
 
+`0.23.0.0` builds natively again: a program that imported `0.22.0.0` failed `bend file.bend -o app` with `an arity over 247` (bendlang/bend#1069). The cookie parser now keeps `Expires` as the date sent and `Max-Age` as seconds until it makes the cookie, so the internal helpers `Cav`, `cookie.max_age`, `cookie.av.put`, `cookie.av`, `cookie.avs`, and `cookie.make` changed signature. The jar behaves as before.
+
 `0.22.0.0` adds a pure RFC 6265bis cookie jar and `Http.pool.fetch.jar`. The redirect-loop helpers `pool.one`, `pool.next.move`, `pool.next`, `pool.hops.one`, `pool.hops`, and `pool.final` now pass an optional jar and use a `Hops` state record; code that calls these helpers must migrate.
 
 `0.21.1.0` adds `Http.Fetch` and `Http.fetch.all`, and imports `bend-kit-concurrency@0.1.0.0` for its worker pool.

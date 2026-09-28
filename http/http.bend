@@ -2119,9 +2119,10 @@ def cookie.date.fin(st: Cdate) -> Maybe<&2, Time.Instant>:
 def cookie.date(s: String) -> Maybe<&2, Time.Instant>:
   cookie.date.fin(cookie.date.fold(List.reverse(&2, String, cookie.date.tokens(s, (SNil{}, Nil{}))), Cdate{None{}, None{}, None{}, None{}}))
 
-# §5.6.1–§5.6.7: the last of each attribute. max_age and expires are already times.
+# §5.6.1–§5.6.7: the last of each attribute. expires is the date as sent; max_age is capped seconds.
+# Neither is a time from now yet: a Cav with a Time.Instant and now beside it is too wide (bendlang/bend#1069).
 type Cav is Data:
-  Cav{expires: Maybe<&2, Time.Instant>, max_age: Maybe<&2, Time.Instant>, domain: String, path: Maybe<&2, String>, secure: Bool, http_only: Bool, same_site: String}
+  Cav{expires: Maybe<&2, Time.Instant>, max_age: Maybe<&2, U32>, domain: String, path: Maybe<&2, String>, secure: Bool, http_only: Bool, same_site: String}
 
 def cookie.cav() -> Cav:
   Cav{None{}, None{}, "", None{}, False{}, False{}, "default"}
@@ -2181,8 +2182,8 @@ def cookie.max_age.at(+now: Time.Instant, m: Maybe<&2, U32>) -> Maybe<&2, Time.I
       Some{Bool.pick(Time.Instant, U32.is_eq(s, 0), Time.Instant.epoch(), cookie.later(now, U32.min(s, cookie.limit())))}
 
 # §5.6.2: DIGIT*, or "-" and DIGIT*. Anything else is ignored.
-def cookie.max_age(+now: Time.Instant, +v: String) -> Maybe<&2, Time.Instant>:
-  cookie.max_age.at(now, cookie.max_age.secs(v, String.starts_with(v, "-")))
+def cookie.max_age(+v: String) -> Maybe<&2, U32>:
+  cookie.max_age.secs(v, String.starts_with(v, "-"))
 
 def cookie.same_site(+v: String) -> String:
   +l = String.to_lower(v)
@@ -2202,12 +2203,12 @@ def cookie.av.kind(+k: String) -> Av:
   Bool.pick(Av, String.eq(k, "expires"), AvExpires{}, Bool.pick(Av, String.eq(k, "max-age"), AvMaxAge{}, Bool.pick(Av, String.eq(k, "domain"), AvDomain{}, Bool.pick(Av, String.eq(k, "path"), AvPath{}, Bool.pick(Av, String.eq(k, "secure"), AvSecure{}, Bool.pick(Av, String.eq(k, "httponly"), AvHttpOnly{}, Bool.pick(Av, String.eq(k, "samesite"), AvSameSite{}, AvOther{})))))))
 
 # An Expires or Max-Age that does not parse leaves the earlier one. A leading dot of Domain is dropped.
-def cookie.av.put(k: Av, a: Cav, +now: Time.Instant, +v: String) -> Cav:
+def cookie.av.put(k: Av, a: Cav, +v: String) -> Cav:
   match k a:
     case AvExpires{} Cav{e, m, d, p, s, h, ss}:
-      Cav{Maybe.or(&2, Time.Instant, cookie.expires.cap(now, cookie.date(v)), e), m, d, p, s, h, ss}
+      Cav{Maybe.or(&2, Time.Instant, cookie.date(v), e), m, d, p, s, h, ss}
     case AvMaxAge{} Cav{e, m, d, p, s, h, ss}:
-      Cav{e, Maybe.or(&2, Time.Instant, cookie.max_age(now, v), m), d, p, s, h, ss}
+      Cav{e, Maybe.or(&2, U32, cookie.max_age(v), m), d, p, s, h, ss}
     case AvDomain{} Cav{e, m, d, p, s, h, ss}:
       Cav{e, m, String.to_lower(Bool.pick(String, String.starts_with(v, "."), String.drop(v, 1n), v)), p, s, h, ss}
     case AvPath{} Cav{e, m, d, p, s, h, ss}:
@@ -2222,17 +2223,17 @@ def cookie.av.put(k: Av, a: Cav, +now: Time.Instant, +v: String) -> Cav:
       Cav{e, m, d, p, s, h, ss}
 
 # §5.6: name and value trimmed; a value over 1024 octets drops the attribute.
-def cookie.av(+now: Time.Instant, +a: Cav, kv: String & String & Bool) -> Cav:
+def cookie.av(+a: Cav, kv: String & String & Bool) -> Cav:
   (k, v, found) = kv
   +tv = trim(v)
-  Bool.pick(Cav, cookie.over(tv, 1024), a, cookie.av.put(cookie.av.kind(String.to_lower(trim(k))), a, now, tv))
+  Bool.pick(Cav, cookie.over(tv, 1024), a, cookie.av.put(cookie.av.kind(String.to_lower(trim(k))), a, tv))
 
-def cookie.avs(xs: List<&2, String>, +now: Time.Instant, a: Cav) -> Cav:
+def cookie.avs(xs: List<&2, String>, a: Cav) -> Cav:
   match xs:
     case Nil{}:
       a
     case Con{x, t}:
-      cookie.avs(t, now, cookie.av(now, a, cookie.cut(x, 61)))
+      cookie.avs(t, cookie.av(a, cookie.cut(x, 61)))
 
 # §5.6: with no "=", the name is empty and the pair is the value.
 def cookie.nv(r: String & String & Bool) -> String & String:
@@ -2275,16 +2276,19 @@ def cookie.make.dm(dm: Maybe<&1, String & Bool>, +name: String, +value: String, 
           Bool.and(String.is_empty(name), Bool.or(cookie.prefixed(value, "__secure-"), cookie.prefixed(value, "__host-")))))
       Bool.pick(Maybe<&2, Cookie>, bad, None{}, Some{Cookie{name, value, domain, host_only, path, secure, http_only, same_site, expiry}})
 
-# Max-Age wins over Expires, whatever their order (§5.7 step 6).
-def cookie.make(a: Url.Abs, +name: String, +value: String, c: Cav) -> Maybe<&2, Cookie>:
+# Max-Age wins over Expires, whatever their order (§5.7 step 6). Both count from now.
+def cookie.expiry(+now: Time.Instant, m: Maybe<&2, U32>, e: Maybe<&2, Time.Instant>) -> Maybe<&2, Time.Instant>:
+  Maybe.or(&2, Time.Instant, cookie.max_age.at(now, m), cookie.expires.cap(now, e))
+
+def cookie.make(+now: Time.Instant, a: Url.Abs, +name: String, +value: String, c: Cav) -> Maybe<&2, Cookie>:
   Url.Abs{scheme, host, port, target} = a
   Cav{e, m, d, +p, secure, http_only, same_site} = c
-  cookie.make.dm(cookie.domain.of(host, d), name, value, cookie.path.of(p, cookie.target_path(target)), Maybe.is_some(&2, String, p), secure, http_only, same_site, Maybe.or(&2, Time.Instant, m, e), String.eq(scheme, "https"))
+  cookie.make.dm(cookie.domain.of(host, d), name, value, cookie.path.of(p, cookie.target_path(target)), Maybe.is_some(&2, String, p), secure, http_only, same_site, cookie.expiry(now, m, e), String.eq(scheme, "https"))
 
 # An empty name and value, or more than 4096 octets of them, is ignored.
 def cookie.parse.nv(+now: Time.Instant, a: Url.Abs, nv: String & String, avs: List<&2, String>) -> Maybe<&2, Cookie>:
   (+name, +value) = nv
-  Bool.pick(Maybe<&2, Cookie>, Bool.or(Bool.and(String.is_empty(name), String.is_empty(value)), cookie.over(name ++ value, 4096)), None{}, cookie.make(a, name, value, cookie.avs(avs, now, cookie.cav())))
+  Bool.pick(Maybe<&2, Cookie>, Bool.or(Bool.and(String.is_empty(name), String.is_empty(value)), cookie.over(name ++ value, 4096)), None{}, cookie.make(now, a, name, value, cookie.avs(avs, cookie.cav())))
 
 def cookie.parse.go(+now: Time.Instant, a: Url.Abs, xs: List<&2, String>) -> Maybe<&2, Cookie>:
   match xs:
