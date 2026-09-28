@@ -51,7 +51,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [ ] Process and OS (#23)
 - [x] Generic collections (#24). A hash map can now build on `hash` (#27).
 - [x] Text formatting and number parsing (#25)
-- [x] Time: clock, Duration, Instant, dates, time zones (#26). The TZ rule in a TZif footer is not applied yet, so times past a zone's last transition keep its last offset (#198).
+- [x] Time: clock, Duration, Instant, dates, time zones (#26). POSIX TZif footer rules cover instants after the last explicit transition (#198).
 
 ### Tier 2
 
