@@ -21,10 +21,10 @@ M4 Pro, macOS, 2026-09-27. Bend 2.0.31, rustc 1.91.0 (`-C opt-level=3`), Bun 1.3
 
 | variant | json ms | µs per line | vs fastest |
 |---:|---:|---:|---:|
-| Rust | 14.2 | 0.71 | 1.0× |
-| Bun | 36.7 | 1.84 | 2.6× |
-| Node | 22.9 | 1.14 | 1.6× |
-| Python | 235.2 | 11.76 | 16.5× |
-| Bend | 45.0 | 2.25 | 3.2× |
+| Rust | 16.6 | 0.83 | 1.0× |
+| Bun | 28.4 | 1.42 | 1.7× |
+| Node | 22.9 | 1.15 | 1.4× |
+| Python | 251.4 | 12.57 | 15.1× |
+| Bend | 63.0 | 3.15 | 3.8× |
 
 Every program prints checksum `1359480221`. The clock has millisecond resolution in Bend; the others use sub-millisecond clocks. One machine, one thread.
