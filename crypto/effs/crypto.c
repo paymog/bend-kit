@@ -1,11 +1,15 @@
 // Crypto
 // ======
-// Hashes, HMAC, HKDF, and PBKDF2 through OpenSSL 3 libcrypto, loaded with dlopen; secure random bytes from the OS.
+// Hashes, HMAC, HKDF, PBKDF2, and RSA and ECDSA signatures through OpenSSL 3 libcrypto, loaded with dlopen;
+// secure random bytes from the OS.
 
-#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) || defined(CID(random.words)) || defined(CID(eq.ct.words))
+#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) || defined(CID(random.words)) || defined(CID(eq.ct.words)) \
+  || defined(CID(rsa.sign.words)) || defined(CID(rsa.verify.words)) || defined(CID(rsa.verify.jwk.words)) \
+  || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words))
 #ifndef CRYPTO_EFFS
 #define CRYPTO_EFFS
 #include <dlfcn.h>
+#include <string.h>
 #include <unistd.h>
 #ifdef __APPLE__
 #include <sys/random.h>
@@ -52,7 +56,9 @@ static Term crypto_out(Env e, const unsigned char* p, u64 n) {
 #endif
 #endif
 
-#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words))
+#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) \
+  || defined(CID(rsa.sign.words)) || defined(CID(rsa.verify.words)) || defined(CID(rsa.verify.jwk.words)) \
+  || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words))
 #ifndef CRYPTO_LIB
 #define CRYPTO_LIB
 
@@ -74,6 +80,23 @@ static struct {
   int   (*add_info)(void*, const unsigned char*, int);
   int   (*derive)(void*, unsigned char*, size_t*);
   int   (*pbkdf2)(const char*, int, const unsigned char*, int, int, const void*, int, unsigned char*);
+  void* (*bio_mem)(const void*, int);
+  int   (*bio_free)(void*);
+  void* (*pem_priv)(void*, void*, void*, void*);
+  void* (*pem_pub)(void*, void*, void*, void*);
+  void* (*d2i_pub)(void*, const unsigned char**, long);
+  void  (*pkey_free)(void*);
+  int   (*pkey_id)(const void*);
+  int   (*pkey_bits)(const void*);
+  int   (*group_name)(const void*, char*, size_t, size_t*);
+  void* (*md_ctx_new)(void);
+  void  (*md_ctx_free)(void*);
+  int   (*sign_init)(void*, void**, const char*, void*, const char*, void*, const void*);
+  int   (*sign)(void*, unsigned char*, size_t*, const unsigned char*, size_t);
+  int   (*verify_init)(void*, void**, const char*, void*, const char*, void*, const void*);
+  int   (*verify)(void*, const unsigned char*, size_t, const unsigned char*, size_t);
+  int   (*set_padding)(void*, int);
+  void  (*err_clear)(void);
 } crypto_lib;
 
 static bool crypto_load(void) {
@@ -104,9 +127,30 @@ static bool crypto_load(void) {
   crypto_lib.add_info    = dlsym(h, "EVP_PKEY_CTX_add1_hkdf_info");
   crypto_lib.derive      = dlsym(h, "EVP_PKEY_derive");
   crypto_lib.pbkdf2      = dlsym(h, "PKCS5_PBKDF2_HMAC");
+  crypto_lib.bio_mem     = dlsym(h, "BIO_new_mem_buf");
+  crypto_lib.bio_free    = dlsym(h, "BIO_free");
+  crypto_lib.pem_priv    = dlsym(h, "PEM_read_bio_PrivateKey");
+  crypto_lib.pem_pub     = dlsym(h, "PEM_read_bio_PUBKEY");
+  crypto_lib.d2i_pub     = dlsym(h, "d2i_PUBKEY");
+  crypto_lib.pkey_free   = dlsym(h, "EVP_PKEY_free");
+  crypto_lib.pkey_id     = dlsym(h, "EVP_PKEY_get_base_id");
+  crypto_lib.pkey_bits   = dlsym(h, "EVP_PKEY_get_bits");
+  crypto_lib.group_name  = dlsym(h, "EVP_PKEY_get_group_name");
+  crypto_lib.md_ctx_new  = dlsym(h, "EVP_MD_CTX_new");
+  crypto_lib.md_ctx_free = dlsym(h, "EVP_MD_CTX_free");
+  crypto_lib.sign_init   = dlsym(h, "EVP_DigestSignInit_ex");
+  crypto_lib.sign        = dlsym(h, "EVP_DigestSign");
+  crypto_lib.verify_init = dlsym(h, "EVP_DigestVerifyInit_ex");
+  crypto_lib.verify      = dlsym(h, "EVP_DigestVerify");
+  crypto_lib.set_padding = dlsym(h, "EVP_PKEY_CTX_set_rsa_padding");
+  crypto_lib.err_clear   = dlsym(h, "ERR_clear_error");
   bool ok = crypto_lib.q_digest && crypto_lib.q_mac && crypto_lib.md_fetch && crypto_lib.md_free
     && crypto_lib.ctx_new && crypto_lib.ctx_free && crypto_lib.derive_init && crypto_lib.set_md
-    && crypto_lib.set_salt && crypto_lib.set_key && crypto_lib.add_info && crypto_lib.derive && crypto_lib.pbkdf2;
+    && crypto_lib.set_salt && crypto_lib.set_key && crypto_lib.add_info && crypto_lib.derive && crypto_lib.pbkdf2
+    && crypto_lib.bio_mem && crypto_lib.bio_free && crypto_lib.pem_priv && crypto_lib.pem_pub && crypto_lib.d2i_pub
+    && crypto_lib.pkey_free && crypto_lib.pkey_id && crypto_lib.pkey_bits && crypto_lib.group_name
+    && crypto_lib.md_ctx_new && crypto_lib.md_ctx_free && crypto_lib.sign_init && crypto_lib.sign
+    && crypto_lib.verify_init && crypto_lib.verify && crypto_lib.set_padding && crypto_lib.err_clear;
   crypto_lib.state = ok ? 1 : -1;
   return ok;
 }
@@ -315,4 +359,327 @@ static void __attribute__((constructor)) eq_ct_words_use(void) {
   io_eff(CID(eq.ct.words), eq_ct_words_run, 0);
 }
 
+#endif
+
+#if defined(CID(rsa.sign.words)) || defined(CID(rsa.verify.words)) || defined(CID(rsa.verify.jwk.words)) \
+  || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words))
+#ifndef CRYPTO_PK
+#define CRYPTO_PK
+
+// EVP_PKEY_RSA and EVP_PKEY_EC.
+#define CRYPTO_RSA 6
+#define CRYPTO_EC  408
+
+// Each key type takes only its own digests, so an RS256 key can not verify an ES256 token or the reverse.
+static bool crypto_pk_alg(int kind, const char* alg) {
+  return strcmp(alg, "SHA256") == 0
+    || (kind == CRYPTO_RSA && (strcmp(alg, "SHA384") == 0 || strcmp(alg, "SHA512") == 0));
+}
+
+static const char* crypto_pk_alg_why(int kind) {
+  return kind == CRYPTO_RSA ? "rsa alg must be SHA256, SHA384, or SHA512" : "ecdsa alg must be SHA256";
+}
+
+// An RSA key of at least 2048 bits (RFC 7518 §3.3), or an EC key on P-256; RSA-PSS and other types fail.
+static bool crypto_pk_kind(void* k, int kind) {
+  char   g[32];
+  size_t gn = 0;
+  if (k == NULL || crypto_lib.pkey_id(k) != kind) {
+    return false;
+  }
+  if (kind == CRYPTO_RSA) {
+    return crypto_lib.pkey_bits(k) >= 2048;
+  }
+  return crypto_lib.group_name(k, g, sizeof g, &gn) == 1 && strcmp(g, "prime256v1") == 0;
+}
+
+// The empty passphrase stops OpenSSL from prompting on the terminal; an encrypted key fails to load.
+static void* crypto_pem(const unsigned char* p, u64 n, bool priv) {
+  void* bio = crypto_lib.bio_mem(p, (int)n);
+  void* k   = bio == NULL ? NULL : (priv ? crypto_lib.pem_priv : crypto_lib.pem_pub)(bio, NULL, NULL, (void*)"");
+  crypto_lib.bio_free(bio);
+  return k;
+}
+
+// A DER header and body: tag, length (short or long form), then the n octets at p. Returns the octets written.
+static u64 crypto_der(unsigned char* o, unsigned char tag, const unsigned char* p, u64 n) {
+  u64 h = 1;
+  u64 k = n < 128 ? 0 : n < 256 ? 1 : n < 65536 ? 2 : 3;
+  o[0]  = tag;
+  o[h++] = k == 0 ? (unsigned char)n : (unsigned char)(0x80 | k);
+  for (u64 i = k; i > 0; i -= 1) {
+    o[h++] = (unsigned char)(n >> (8 * (i - 1)));
+  }
+  memmove(o + h, p, n);
+  return h + n;
+}
+
+// A DER INTEGER of the unsigned big-endian octets at p: leading zeros dropped, one added if the top bit is set.
+static u64 crypto_der_uint(unsigned char* o, const unsigned char* p, u64 n) {
+  unsigned char b[2056];
+  while (n > 0 && p[0] == 0) {
+    p += 1;
+    n -= 1;
+  }
+  u64 pad = n == 0 || (p[0] & 0x80) ? 1 : 0;
+  b[0]    = 0;
+  memcpy(b + pad, p, n);
+  return crypto_der(o, 0x02, b, n + pad);
+}
+
+// The DER ECDSA-Sig-Value of a raw JOSE r || s signature (RFC 7518 §3.4).
+static u64 crypto_ec_der(unsigned char* o, const unsigned char* raw) {
+  unsigned char in[80];
+  u64           n = crypto_der_uint(in, raw, 32);
+  n += crypto_der_uint(in + n, raw + 32, 32);
+  return crypto_der(o, 0x30, in, n);
+}
+
+// The raw 64-octet r || s of a DER ECDSA-Sig-Value; false if it is malformed or a half is over 32 octets.
+static bool crypto_ec_raw(const unsigned char* d, u64 n, unsigned char* out) {
+  u64 i = 2;
+  if (n < 2 || d[0] != 0x30 || d[1] != n - 2) {
+    return false;
+  }
+  for (u64 h = 0; h < 2; h += 1) {
+    if (i + 2 > n || d[i] != 0x02 || i + 2 + d[i + 1] > n) {
+      return false;
+    }
+    const unsigned char* p = d + i + 2;
+    u64                  l = d[i + 1];
+    i += 2 + l;
+    while (l > 0 && p[0] == 0) {
+      p += 1;
+      l -= 1;
+    }
+    if (l > 32) {
+      return false;
+    }
+    memset(out + 32 * h, 0, 32 - l);
+    memcpy(out + 32 * h + 32 - l, p, l);
+  }
+  return i == n;
+}
+
+// A SubjectPublicKeyInfo key from JWK parts (RFC 7518 §6.2-6.3): RSA n and e, or P-256 x and y, as big-endian
+// octets. NULL if they do not fit; RSA also needs an odd e of at least 3, since e = 1 lets anyone sign.
+static void* crypto_jwk(int kind, const unsigned char* a, u64 an, const unsigned char* b, u64 bn) {
+  static const unsigned char rsa_id[] = { 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00 };
+  static const unsigned char ec_id[]  = { 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08,
+    0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07 };
+  unsigned char x[2200];
+  unsigned char y[2200];
+  u64           n;
+  if (kind == CRYPTO_EC) {
+    if (an != 32 || bn != 32) {
+      return NULL;
+    }
+    x[0] = 0;
+    x[1] = 4;
+    memcpy(x + 2, a, 32);
+    memcpy(x + 34, b, 32);
+    memcpy(y, ec_id, sizeof ec_id);
+    n = sizeof ec_id + crypto_der(y + sizeof ec_id, 0x03, x, 66);
+  } else {
+    u64 z = 0;
+    while (z < bn && b[z] == 0) {
+      z += 1;
+    }
+    // 16384 bits is OpenSSL's largest RSA modulus.
+    if (an > 2049 || bn - z == 0 || bn - z > 8 || (b[bn - 1] & 1) == 0 || (bn - z == 1 && b[z] < 3)) {
+      return NULL;
+    }
+    n    = crypto_der_uint(y, a, an);
+    n   += crypto_der_uint(y + n, b, bn);
+    x[0] = 0;
+    n    = 1 + crypto_der(x + 1, 0x30, y, n);
+    memcpy(y, rsa_id, sizeof rsa_id);
+    n = sizeof rsa_id + crypto_der(y + sizeof rsa_id, 0x03, x, n);
+  }
+  n                      = crypto_der(x, 0x30, y, n);
+  const unsigned char* p = x;
+  return crypto_lib.d2i_pub(NULL, &p, (long)n);
+}
+
+// PKCS#1 v1.5 for RSA; ECDSA gives DER, turned into raw r || s. *o is always malloc'd; the caller frees it.
+static bool crypto_sign(void* k, int kind, const char* alg, const unsigned char* d, u64 dn, unsigned char** o, size_t* on) {
+  void*  ctx  = crypto_lib.md_ctx_new();
+  void*  pctx = NULL;
+  size_t n    = 0;
+  bool   ok   = ctx != NULL && crypto_lib.sign_init(ctx, &pctx, alg, NULL, NULL, k, NULL) == 1
+    && (kind != CRYPTO_RSA || crypto_lib.set_padding(pctx, 1) > 0)
+    && crypto_lib.sign(ctx, NULL, &n, d, dn) == 1;
+  unsigned char* s = io_mem(malloc(n + 1));
+  ok               = ok && crypto_lib.sign(ctx, s, &n, d, dn) == 1;
+  crypto_lib.md_ctx_free(ctx);
+  if (ok && kind == CRYPTO_EC) {
+    unsigned char* r = io_mem(malloc(64));
+    ok               = crypto_ec_raw(s, n, r);
+    free(s);
+    s = r;
+    n = 64;
+  }
+  *o  = s;
+  *on = n;
+  return ok;
+}
+
+// 1 for a valid signature, 0 for an invalid one (any length or encoding), -1 when OpenSSL can not set up.
+static int crypto_verify(void* k, int kind, const char* alg, const unsigned char* d, u64 dn, const unsigned char* s, u64 sn) {
+  unsigned char der[80];
+  if (kind == CRYPTO_EC) {
+    if (sn != 64) {
+      return 0;
+    }
+    sn = crypto_ec_der(der, s);
+    s  = der;
+  }
+  void* ctx  = crypto_lib.md_ctx_new();
+  void* pctx = NULL;
+  int   r    = ctx != NULL && crypto_lib.verify_init(ctx, &pctx, alg, NULL, NULL, k, NULL) == 1
+      && (kind != CRYPTO_RSA || crypto_lib.set_padding(pctx, 1) > 0)
+    ? crypto_lib.verify(ctx, s, sn, d, dn) == 1
+    : -1;
+  crypto_lib.md_ctx_free(ctx);
+  return r;
+}
+
+// ponytail: signatures run on the loop thread (about 1 ms for RSA-2048 signing); move to io_work if that stalls.
+static Term crypto_sign_run(Env e, Term* f, int kind) {
+  u64            alen = 0;
+  char*          alg  = io_cstr(e, f[0], &alen);
+  u64            kn   = 0;
+  u64            dn   = 0;
+  bool           bad  = io_nul(alg, alen);
+  unsigned char* key  = crypto_words_octets(e, f[2], (u64)(u32)f[1], &kn, &bad);
+  unsigned char* data = crypto_words_octets(e, f[4], (u64)(u32)f[3], &dn, &bad);
+  Term           t;
+  if (bad || kn > INT32_MAX) {
+    t = io_fail(e, EINVAL, NULL);
+  } else if (!crypto_pk_alg(kind, alg)) {
+    t = io_fail(e, EINVAL, crypto_pk_alg_why(kind));
+  } else if (!crypto_load()) {
+    t = io_fail(e, ENOENT, CRYPTO_MISSING);
+  } else {
+    void*          k   = crypto_pem(key, kn, true);
+    unsigned char* sig = NULL;
+    size_t         sn  = 0;
+    if (!crypto_pk_kind(k, kind)) {
+      t = io_fail(e, EINVAL, kind == CRYPTO_RSA ? "key must be an unencrypted PEM RSA private key of at least 2048 bits"
+                                               : "key must be an unencrypted PEM EC private key on P-256");
+    } else if (!crypto_sign(k, kind, alg, data, dn, &sig, &sn)) {
+      t = io_fail(e, EINVAL, "signing failed");
+    } else {
+      t = crypto_out(e, sig, sn);
+    }
+    free(sig);
+    crypto_lib.pkey_free(k);
+    crypto_lib.err_clear();
+  }
+  free(alg);
+  free(key);
+  free(data);
+  return t;
+}
+
+// A PEM key is f[1..2]; JWK parts are f[1..2] and f[3..4]. Data and signature follow.
+static Term crypto_verify_run(Env e, Term* f, int kind, bool jwk) {
+  u64            alen = 0;
+  char*          alg  = io_cstr(e, f[0], &alen);
+  u64            j    = jwk ? 2 : 0;
+  u64            an   = 0;
+  u64            bn   = 0;
+  u64            dn   = 0;
+  u64            sn   = 0;
+  bool           bad  = io_nul(alg, alen);
+  unsigned char* a    = crypto_words_octets(e, f[2], (u64)(u32)f[1], &an, &bad);
+  unsigned char* b    = jwk ? crypto_words_octets(e, f[4], (u64)(u32)f[3], &bn, &bad) : NULL;
+  unsigned char* d    = crypto_words_octets(e, f[4 + j], (u64)(u32)f[3 + j], &dn, &bad);
+  unsigned char* s    = crypto_words_octets(e, f[6 + j], (u64)(u32)f[5 + j], &sn, &bad);
+  Term           t;
+  if (bad || an > INT32_MAX) {
+    t = io_fail(e, EINVAL, NULL);
+  } else if (!crypto_pk_alg(kind, alg)) {
+    t = io_fail(e, EINVAL, crypto_pk_alg_why(kind));
+  } else if (!crypto_load()) {
+    t = io_fail(e, ENOENT, CRYPTO_MISSING);
+  } else {
+    void* k = jwk ? crypto_jwk(kind, a, an, b, bn) : crypto_pem(a, an, false);
+    int   r = crypto_pk_kind(k, kind) ? crypto_verify(k, kind, alg, d, dn, s, sn) : -2;
+    if (r == -2) {
+      t = io_fail(e, EINVAL, jwk ? (kind == CRYPTO_RSA ? "jwk must give an RSA n of at least 2048 bits and an odd e >= 3"
+                                                       : "jwk must give 32-octet x and y of a P-256 point")
+                                 : (kind == CRYPTO_RSA ? "key must be a PEM RSA public key of at least 2048 bits"
+                                                       : "key must be a PEM EC public key on P-256"));
+    } else if (r < 0) {
+      t = io_fail(e, EINVAL, "verify failed to start");
+    } else {
+      t = io_done(e, term_pak(r ? CID(True) : CID(False), 0));
+    }
+    crypto_lib.pkey_free(k);
+    crypto_lib.err_clear();
+  }
+  free(alg);
+  free(a);
+  free(b);
+  free(d);
+  free(s);
+  return t;
+}
+
+#endif
+#endif
+
+#ifdef CID(rsa.sign.words)
+Term rsa_sign_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_sign_run(e, f, CRYPTO_RSA);
+}
+static void __attribute__((constructor)) rsa_sign_words_use(void) {
+  io_eff(CID(rsa.sign.words), rsa_sign_words_run, 0);
+}
+#endif
+
+#ifdef CID(rsa.verify.words)
+Term rsa_verify_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_verify_run(e, f, CRYPTO_RSA, false);
+}
+static void __attribute__((constructor)) rsa_verify_words_use(void) {
+  io_eff(CID(rsa.verify.words), rsa_verify_words_run, 0);
+}
+#endif
+
+#ifdef CID(rsa.verify.jwk.words)
+Term rsa_verify_jwk_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_verify_run(e, f, CRYPTO_RSA, true);
+}
+static void __attribute__((constructor)) rsa_verify_jwk_words_use(void) {
+  io_eff(CID(rsa.verify.jwk.words), rsa_verify_jwk_words_run, 0);
+}
+#endif
+
+#ifdef CID(ecdsa.sign.words)
+Term ecdsa_sign_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_sign_run(e, f, CRYPTO_EC);
+}
+static void __attribute__((constructor)) ecdsa_sign_words_use(void) {
+  io_eff(CID(ecdsa.sign.words), ecdsa_sign_words_run, 0);
+}
+#endif
+
+#ifdef CID(ecdsa.verify.words)
+Term ecdsa_verify_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_verify_run(e, f, CRYPTO_EC, false);
+}
+static void __attribute__((constructor)) ecdsa_verify_words_use(void) {
+  io_eff(CID(ecdsa.verify.words), ecdsa_verify_words_run, 0);
+}
+#endif
+
+#ifdef CID(ecdsa.verify.jwk.words)
+Term ecdsa_verify_jwk_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_verify_run(e, f, CRYPTO_EC, true);
+}
+static void __attribute__((constructor)) ecdsa_verify_jwk_words_use(void) {
+  io_eff(CID(ecdsa.verify.jwk.words), ecdsa_verify_jwk_words_run, 0);
+}
 #endif
