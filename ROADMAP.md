@@ -88,7 +88,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Later
 
-- [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist. `json.encode` is still `@unsafe` because it walks a work list.
+- [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist.
 - [ ] `Bytes` as map keys. Base's `Map` is a trie over `String` keys and takes no comparator, so `Bytes.cmp` cannot key it. Use `Bytes.to_string` as the key, or add an ordered map over `cmp`.
 - [ ] A cookie jar, proxies (`HTTP_PROXY`), ALPN, HTTP/2.
 - [ ] Windows support (the effects use POSIX sockets and `dlopen`).

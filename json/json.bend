@@ -868,58 +868,48 @@ def w.str(b: Bytes.Bytes, o: W) -> W:
   Bytes.Bytes{+len, buf} = b
   w.str.go(U32.to_nat(len), Bytes.peek(buf, 0), 0, w.put(o, 34))
 
-type Item is Type:
-  ILit{s: String}
-  IKey{k: Bytes.Bytes}
-  IVal{v: Val}
-
-def items.sep(first: Bool, tail: List<&1, Item>) -> List<&1, Item>:
-  match first:
+# open: the container's first byte comes next; else a comma or its last byte.
+def w.lead(open: Bool, +c: U32, o: W) -> W:
+  match open:
     case True{}:
-      tail
+      w.put(o, c)
     case False{}:
-      Con{ILit{","}, tail}
+      w.put(o, 44)
 
-def items.arr(xs: List<&1, Val>, first: Bool, rest: List<&1, Item>) -> List<&1, Item>:
-  match xs:
-    case Nil{}:
-      Con{ILit{"]"}, rest}
-    case Con{x, t}:
-      items.sep(first, Con{IVal{x}, items.arr(t, False{}, rest)})
+def w.close(open: Bool, +a: U32, +z: U32, o: W) -> W:
+  match open:
+    case True{}:
+      w.put(w.put(o, a), z)
+    case False{}:
+      w.put(o, z)
 
-def items.obj(kvs: List<&1, Bytes.Bytes & Val>, first: Bool, rest: List<&1, Item>) -> List<&1, Item>:
-  match kvs:
-    case Nil{}:
-      Con{ILit{"}"}, rest}
-    case (k, v) <> t:
-      items.sep(first, Con{IKey{k}, Con{IVal{v}, items.obj(t, False{}, rest)}})
-
-# ponytail: @unsafe because it walks a work list, not the Val; each step
-# emits text or swaps a container for its strictly smaller parts.
-@unsafe
-def encb.go(items: List<&1, Item>, o: W) -> W:
-  match items:
-    case Nil{}:
-      o
-    case Con{ILit{s}, t}:
-      encb.go(t, w.text(s, o))
-    case Con{IKey{k}, t}:
-      encb.go(t, w.put(w.str(k, o), 58))
-    case Con{IVal{Null{}}, t}:
-      encb.go(t, w.text("null", o))
-    case Con{IVal{Flag{True{}}}, t}:
-      encb.go(t, w.text("true", o))
-    case Con{IVal{Flag{False{}}}, t}:
-      encb.go(t, w.text("false", o))
-    case Con{IVal{Num{n}}, t}:
-      encb.go(t, w.bytes(n, o))
-    case Con{IVal{Str{s}}, t}:
-      encb.go(t, w.str(s, o))
-    case Con{IVal{Arr{xs}}, t}:
-      encb.go(Con{ILit{"["}, items.arr(xs, True{}, t)}, o)
-    case Con{IVal{Obj{kvs}}, t}:
-      encb.go(Con{ILit{"{"}, items.obj(kvs, True{}, t)}, o)
+def encb.go(v: Val, open: Bool, o: W) -> W:
+  match v:
+    case Null{}:
+      w.text("null", o)
+    case Flag{on}:
+      match on:
+        case True{}:
+          w.text("true", o)
+        case False{}:
+          w.text("false", o)
+    case Num{n}:
+      w.bytes(n, o)
+    case Str{s}:
+      w.str(s, o)
+    case Arr{xs}:
+      match xs:
+        case Nil{}:
+          w.close(open, 91, 93, o)
+        case Con{x, t}:
+          encb.go(Arr{t}, False{}, encb.go(x, True{}, w.lead(open, 91, o)))
+    case Obj{kvs}:
+      match kvs:
+        case Nil{}:
+          w.close(open, 123, 125, o)
+        case (k, x) <> t:
+          encb.go(Obj{t}, False{}, encb.go(x, True{}, w.put(w.str(k, w.lead(open, 123, o)), 58)))
 
 # Compact JSON in UTF-8, with object fields in their order.
 def encode.bytes(v: Val) -> Bytes.Bytes:
-  w.done(encb.go(Con{IVal{v}, Nil{}}, W{Bytes.alloc(64), 16, 0, 0}))
+  w.done(encb.go(v, True{}, W{Bytes.alloc(64), 16, 0, 0}))
