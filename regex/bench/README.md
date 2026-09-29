@@ -84,18 +84,19 @@ The list grows about 4–6× per doubling of k (m²); the trie grows about 2.3×
 
 Bend times in ms, median of three runs of the same bench against each version of `regex.bend`. Rows up to #100 time the `String` API.
 
-| change | is_match | is_match_early | is_match_live | find_captures | find_early |
-|---|---:|---:|---:|---:|---:|
-| before #97 (0.2.0.0) | 174 | 17 | 282 | 750 | 17 |
-| #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 267 | 748 | 7 |
-| #98: skip chars that cannot start a match | 33 | 7 | 266 | 757 | 7 |
-| #100: bit-parallel NFA for `is_match` | 42 | 7 | 85 | 757 | 6 |
-| #144: match over `Bytes`; skip with a byte table | 1 | 0 | 76 | 760 | 0 |
-| #153: lazy DFA with capture operations for `find` | 1 | 0 | 78 | 214 | 0 |
+| change | is_match | is_match_early | is_match_live | find_captures | find_early | redos |
+|---|---:|---:|---:|---:|---:|---:|
+| before #97 (0.2.0.0) | 174 | 17 | 282 | 750 | 17 | — |
+| #97: stop once the match is settled; `is_match` skips captures | 152 | 7 | 267 | 748 | 7 | — |
+| #98: skip chars that cannot start a match | 33 | 7 | 266 | 757 | 7 | — |
+| #100: bit-parallel NFA for `is_match` | 42 | 7 | 85 | 757 | 6 | — |
+| #144: match over `Bytes`; skip with a byte table | 1 | 0 | 76 | 760 | 0 | — |
+| #153: lazy DFA with capture operations for `find` | 1 | 0 | 78 | 214 | 0 | 21 |
+| #163: spin through unchanged DFA transitions | 1 | 0 | 78 | 223 | 1 | 21 |
 
 ## Caveats
 
-- The skip only helps while no match is in progress. Where every char keeps threads live (`is_match_live`, and `find_captures`, where each `x` is a `\w`), each char still takes a step: a cached DFA transition for `find`, the bit NFA for `is_match`. That per-char cost is the gap to C and V8. `is_match` keeps the bit NFA on small programs: on `is_match_live` the DFA took about 136 ms against its 78.
+- An unchanged DFA transition must keep both the state and every capture. The `find_captures` fixture saves the end of a group on each `x`, so its cached transitions are not unchanged. Its measured time is 223 ms, against 214 ms before this change. The `redos` fixture also has no measured improvement. The small-program VM takes 128 ms on `is_match_live`; the bit NFA remains at 78 ms.
 - `large` has about 1000 DFA states, more than the cache holds (8 for a text under 4 KiB, 256 above), so most of its chars take the plain Pike step.
 - POSIX ERE has no `\w`; `[[:alnum:]_]` is the documented equivalent for ASCII word characters.
 - Bend times itself with `Time.mono`, a nanosecond clock.

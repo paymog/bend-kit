@@ -317,6 +317,24 @@ def Laws.dfa_cache_full():
 def Laws.dfa_non_ascii():
   {==}
 
+def Laws.dfa_same_run():
+  {==}
+
+def Laws.dfa_same_non_ascii():
+  {==}
+
+def Laws.dfa_same_last_byte():
+  {==}
+
+def Laws.dfa_spin_run():
+  {==}
+
+def Laws.dfa_spin_non_ascii():
+  {==}
+
+def Laws.dfa_spin_last_byte():
+  {==}
+
 def Laws.dfa_any_large_hit():
   {==}
 

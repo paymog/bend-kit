@@ -1407,6 +1407,7 @@ type Op is Data:
 # fresh: no match yet and every new thread comes from the seed, so the next state is a fresh start.
 type Tr is Data:
   TrNo{}
+  TrSame{}
   Tr{next: U32, hit: U32, outs: List<&2, Op>, fresh: Bool}
 
 type Sk is Data:
@@ -1522,6 +1523,29 @@ def sym.fresh(xs: List<&2, Op>) -> Bool:
     case Con{Op{+src, pc, saves}, t}:
       U32.is_eq(src, seed.id()) && sym.fresh(t)
 
+def op.same(saves: List<&2, U32>, +src: U32, +pc: U32, +i: U32, +old: U32) -> Bool:
+  match saves:
+    case Nil{}:
+      U32.is_eq(src, i) && U32.is_eq(pc, old)
+    case Con{h, t}:
+      False{}
+
+def ops.same(xs: List<&2, Op>, ths: List<&2, Th>, +i: U32) -> Bool:
+  match xs ths:
+    case Nil{} Nil{}:
+      True{}
+    case Con{Op{+src, +pc, saves}, t} Con{Th{+old, caps}, rest}:
+      op.same(saves, src, pc, i, old) && ops.same(t, rest, (i + 1 : U32))
+    case _ _:
+      False{}
+
+def tr.of(same: Bool, +next: U32, +hit: U32, +outs: List<&2, Op>, +fresh: Bool) -> Tr:
+  match same:
+    case True{}:
+      TrSame{}
+    case False{}:
+      Tr{next, hit, outs, fresh}
+
 def sym.lr(+hit: U32, +done: Bool, v: Vm) -> Lr:
   Vm{+ths, best} = v
   +outs = sym.outs(ths)
@@ -1615,31 +1639,35 @@ def replay.vm(fresh: Bool, +hit: U32, outs: List<&2, Op>, st: Vm, +init: List<&2
 # The DFA over Bytes: the buffer, the transitions by state and ASCII char, the interned states,
 # the current state, the offset i of the next char, that char, and the threads waiting on it.
 type Rq is Type:
-  Rq{a: Array<U32>, tab: Array<Tr>, keys: List<&2, Ix>, n: U32, id: U32, i: U32, d: Dc, st: Vm}
+  Rq{a: Array<U32>, tab: Array<Tr>, keys: List<&2, Ix>, n: U32, id: U32, i: U32, d: Dc, st: Vm, same: Bool}
 
 def rq.ik(ik: Ik, a: Array<U32>, tab: Array<Tr>, +j: U32, +d: Dc, st: Vm) -> Rq:
   Ik{keys, n, id} = ik
-  Rq{a, tab, keys, n, id, j, d, st}
+  Rq{a, tab, keys, n, id, j, d, st, False{}}
 
 def rq.of(r: Rb, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +cap: U32) -> Rq:
   Rb{a, +i, +d, +st} = r
   rq.ik(intern(keys, n, cap, vm.key(st)), a, tab, i, d, st)
 
-def rq.store(ik: Ik, a: Array<U32>, tab: Array<Tr>, +idx: U32, +hit: U32, +outs: List<&2, Op>, +fresh: Bool, +j: U32, +d: Dc, st: Vm, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>) -> Rq:
+def rq.store(ik: Ik, a: Array<U32>, tab: Array<Tr>, +idx: U32, +old: U32, +hit: U32, +outs: List<&2, Op>, +fresh: Bool, +j: U32, +d: Dc, st: Vm, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>) -> Rq:
   Ik{keys, +n, +id} = ik
-  Rq{a, Array.set(Tr, tab, idx, Tr{id, hit, outs, fresh}), keys, n, id, j, d, replay.vm(fresh, hit, outs, st, init, j, start, Dc.char(d))}
+  Vm{+ths, +best} = st
+  +same = U32.is_eq(id, old) && U32.is_eq(hit, 0) && ops.same(outs, ths, 0)
+  Rq{a, Array.set(Tr, tab, idx, tr.of(same, id, hit, outs, fresh)), keys, n, id, j, d, replay.vm(fresh, hit, outs, Vm{ths, best}, init, j, start, Dc.char(d)), same}
 
-def rq.learn(lr: Lr, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +idx: U32, +j: U32, +d: Dc, st: Vm, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +cap: U32) -> Rq:
+def rq.learn(lr: Lr, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +idx: U32, +old: U32, +j: U32, +d: Dc, st: Vm, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +cap: U32) -> Rq:
   Lr{+hit, +outs, +key, +fresh} = lr
-  rq.store(intern(keys, n, cap, key), a, tab, idx, hit, outs, fresh, j, d, st, init, start)
+  rq.store(intern(keys, n, cap, key), a, tab, idx, old, hit, outs, fresh, j, d, st, init, start)
 
 def rq.cached(r: Array<Tr> & Tr, a: Array<U32>, +keys: List<&2, Ix>, +n: U32, +idx: U32, +j: U32, +d: Dc, +st: Vm, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Rq:
   (tab, tr) = r
   match tr:
     case TrNo{}:
-      rq.learn(learn(st, c, prog, cfuel, slots, any), a, tab, keys, n, idx, j, d, st, init, start, cap)
+      rq.learn(learn(st, c, prog, cfuel, slots, any), a, tab, keys, n, idx, (idx / 128 : U32), j, d, st, init, start, cap)
+    case TrSame{}:
+      Rq{a, tab, keys, n, (idx / 128 : U32), j, d, st, True{}}
     case Tr{+next, +hit, outs, +fresh}:
-      Rq{a, tab, keys, n, next, j, d, replay.vm(fresh, hit, outs, st, init, j, start, Dc.char(d))}
+      Rq{a, tab, keys, n, next, j, d, replay.vm(fresh, hit, outs, st, init, j, start, Dc.char(d)), False{}}
 
 # With a full cache, skip building the key too.
 def rq.real(room: Bool, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +j: U32, +d: Dc, +st: Vm, +cap: U32) -> Rq:
@@ -1647,7 +1675,7 @@ def rq.real(room: Bool, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: 
     case True{}:
       rq.ik(intern(keys, n, cap, vm.key(st)), a, tab, j, d, st)
     case False{}:
-      Rq{a, tab, keys, n, seed.id(), j, d, st}
+      Rq{a, tab, keys, n, seed.id(), j, d, st, False{}}
 
 def rq.pick(ok: Bool, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +id: U32, +j: U32, +d: Dc, +st: Vm, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Rq:
   match ok:
@@ -1662,14 +1690,83 @@ def rq.step(r: Array<U32> & Dc, +j: U32, tab: Array<Tr>, +keys: List<&2, Ix>, +n
   (a, +d) = r
   rq.pick(U32.is_lt(c, 128) && U32.is_lt(id, cap) && Maybe.is_some(&2, Char, Dc.char(d)), a, tab, keys, n, id, j, d, st, c, prog, cfuel, init, start, any, slots, cap)
 
-# fuel: each step eats at least one byte, and the last one sees DEnd.
-def runq(fuel: Nat, r: Rq, +len: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +asc: Maybe<&2, Asc>, +any: Bool, +slots: Nat, +cap: U32) -> Array<U32> & Maybe<&2, List<&2, Maybe<&2, U32>>>:
+# A same transition leaves the VM and state id intact. Stop before the last byte:
+# its following end-of-text context needs the plain Pike step.
+type Spin is Type:
+  Spin{a: Array<U32>, tab: Array<Tr>, i: U32}
+
+type SpinStep is Type:
+  SpinStep{a: Array<U32>, tab: Array<Tr>, i: U32, tr: Tr}
+
+def spin.byte(last: Bool, a: Array<U32>, +i: U32) -> Array<U32> & U32:
+  match last:
+    case True{}:
+      (a, 128)
+    case False{}:
+      Bytes.peek(a, i)
+
+def spin.tr(ascii: Bool, tab: Array<Tr>, +id: U32, +c: U32) -> Array<Tr> & Tr:
+  match ascii:
+    case True{}:
+      Array.get(Tr, tab, ((id * 128) + c : U32))
+    case False{}:
+      (tab, TrNo{})
+
+def spin.state.tr(r: Array<Tr> & Tr, a: Array<U32>, +i: U32) -> SpinStep:
+  (tab, tr) = r
+  SpinStep{a, tab, i, tr}
+
+def spin.state(r: Array<U32> & U32, tab: Array<Tr>, +i: U32, +id: U32, +cap: U32) -> SpinStep:
+  (a, +c) = r
+  spin.state.tr(spin.tr(U32.is_lt(c, 128) && U32.is_lt(id, cap), tab, id, c), a, i)
+
+def spin(fuel: Nat, s: SpinStep, +len: U32, +id: U32, +cap: U32) -> Spin:
   match fuel:
     case 0n:
-      Rq{a, tab, keys, n, id, i, d, st} = r
+      SpinStep{a, tab, i, tr} = s
+      Spin{a, tab, i}
+    case 1n+f:
+      SpinStep{a, tab, +i, tr} = s
+      match tr:
+        case TrSame{}:
+          +j = (i + 1 : U32)
+          spin(f, spin.state(spin.byte(Bool.not(U32.is_lt((j + 1 : U32), len)), a, j), tab, j, id, cap), len, id, cap)
+        case TrNo{}:
+          Spin{a, tab, i}
+        case Tr{next, hit, outs, fresh}:
+          Spin{a, tab, i}
+
+def spin.dec.at(r: Array<U32> & Dc, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +id: U32, +i: U32, st: Vm) -> Rq:
+  (a, d) = r
+  Rq{a, tab, keys, n, id, i, d, st, False{}}
+
+def spin.dec.if(moved: Bool, a: Array<U32>, tab: Array<Tr>, +len: U32, +keys: List<&2, Ix>, +n: U32, +id: U32, +i: U32, d: Dc, st: Vm) -> Rq:
+  match moved:
+    case True{}:
+      spin.dec.at(dec(a, len, i), tab, keys, n, id, i, st)
+    case False{}:
+      Rq{a, tab, keys, n, id, i, d, st, False{}}
+
+def spin.dec(s: Spin, +old: U32, +len: U32, +keys: List<&2, Ix>, +n: U32, +id: U32, d: Dc, st: Vm) -> Rq:
+  Spin{a, tab, +i} = s
+  spin.dec.if(U32.is_ne(i, old), a, tab, len, keys, n, id, i, d, st)
+
+def rq.spin(r: Rq, +fuel: Nat, +len: U32, +cap: U32) -> Rq:
+  Rq{a, tab, keys, n, +id, +i, d, st, same} = r
+  match same:
+    case True{}:
+      spin.dec(spin(fuel, spin.state(spin.byte(Bool.not(U32.is_lt((i + 1 : U32), len)), a, i), tab, i, id, cap), len, id, cap), i, len, keys, n, id, d, st)
+    case False{}:
+      Rq{a, tab, keys, n, id, i, d, st, False{}}
+
+# fuel: each step eats at least one byte, and the last one sees DEnd.
+def runq(+fuel: Nat, r: Rq, +len: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +asc: Maybe<&2, Asc>, +any: Bool, +slots: Nat, +cap: U32) -> Array<U32> & Maybe<&2, List<&2, Maybe<&2, U32>>>:
+  match fuel:
+    case 0n:
+      Rq{a, tab, keys, n, id, i, d, st, same} = r
       (a, None{})
     case 1n+f:
-      Rq{a, tab, +keys, +n, +id, +i, d, st} = r
+      Rq{a, tab, +keys, +n, +id, +i, d, st, same} = r
       match d:
         case DEnd{}:
           Vm{ths, best} = st
@@ -1682,7 +1779,7 @@ def runq(fuel: Nat, r: Rq, +len: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: Lis
               runq(f, rq.of(rb.idle(asc, a, len, (i + w : U32), c, prog, cfuel, init, start, any), tab, keys, n, cap), len, prog, cfuel, init, start, asc, any, slots, cap)
             case Vm{+ths, +best}:
               +j = (i + w : U32)
-              runq(f, rq.step(dec(a, len, j), j, tab, keys, n, id, Vm{ths, best}, c, prog, cfuel, init, start, any, slots, cap), len, prog, cfuel, init, start, asc, any, slots, cap)
+              runq(f, rq.spin(rq.step(dec(a, len, j), j, tab, keys, n, id, Vm{ths, best}, c, prog, cfuel, init, start, any, slots, cap), f, len, cap), len, prog, cfuel, init, start, asc, any, slots, cap)
 
 def exec.bytes.fin(+len: U32, r: Array<U32> & Maybe<&2, List<&2, Maybe<&2, U32>>>) -> Bytes.Bytes & Maybe<&2, List<&2, Maybe<&2, U32>>>:
   (a, m) = r
