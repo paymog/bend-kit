@@ -37,14 +37,16 @@ When the user picks an issue:
 - Follow the repo AGENTS.md. Run `bend guide` before you write Bend code.
 - Run the checks from `.github/workflows/ci.yml` for each package you touched: `bend PROOF.bend` and `bend check.bend`.
 
-### Step 5: Always open a PR
+### Step 5: Open the PR and finish the issue
 
-Every run ends with a PR, even when the work is not complete. Read `skill://ce-commit-push-pr` and follow it. Leave the `in-progress` label on while the PR is open.
+Open a PR even when work is incomplete. Read `skill://ce-commit-push-pr` and follow it. Leave the `in-progress` label on while the PR is open.
 
 Link the issue with a GitHub keyword in the PR body:
 - Work complete: `Closes #<number>`. Merging the PR closes the issue.
 - Work not complete: open a draft PR (`gh pr create --draft`) and write `Refs #<number>`. The issue stays open. List what is done and what is left.
 - Add `Refs #<n>` for any other issue the PR touches, such as the parent.
+
+For a non-draft PR, follow `skill://ce-babysit-pr` to handle CI failures and review feedback. When checks are green, feedback is resolved, and GitHub reports the PR mergeable, merge it without asking for approval. Confirm that the issue closed, then remove its `in-progress` label. A draft or blocked PR stays open; report the blocker instead of calling the issue done.
 
 ## Examples
 
@@ -53,7 +55,7 @@ User says: "what can I pick up next?"
 Actions:
 1. Run `ready.sh`. The output shows `#20 high`, `#21 high`, `#24 high`, `#31 med`, and more.
 2. Show the table and ask which issue to work on.
-3. The user says "21". Read #21 and implement it.
+3. The user says "21". Read #21, implement it, open a PR, and merge it once green and mergeable.
 
 ## Common Issues
 
