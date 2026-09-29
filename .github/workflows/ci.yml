@@ -93,3 +93,8 @@ jobs:
           test "$(printf 'GET /old HTTP/1.0\r\n\r\n' | nc -q 3 127.0.0.1 18080 | tail -c 4)" = /old
           curl -s -o /dev/null -w '%{http_code}' -H 'Transfer-Encoding: gzip' -d x http://127.0.0.1:18080/ | grep -qx 400
           curl -s -o /dev/null -w '%{http_code}' -H "X-A: $(head -c 70000 /dev/zero | tr '\0' a)" http://127.0.0.1:18080/ | grep -qx 431
+      - name: Streamed request smoke
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          bend stream_demo.bend -o stream_demo
+          python3 stream_check.py ./stream_demo

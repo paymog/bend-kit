@@ -5365,3 +5365,127 @@ def serve.with(~h: Req -> IO(Res), +port: U32, +max: Nat) -> IO(Unit):
 
 def serve(~h: Req -> IO(Res), +port: U32) -> IO(Unit):
   serve.with(~h, port, serve.max())
+
+def serve.stream.nonempty(~S: Type, ~piece: S -> Bytes.Bytes -> IO(S & Bool), empty: Bool, state: S, b: Bytes.Bytes) -> IO(S & Bool):
+  match empty:
+    case True{}:
+      IO.pure(S & Bool, (state, False{}))
+    case False{}:
+      piece(state, b)
+
+# The piece callback returns True to discard the rest of this request body.
+def serve.stream.one(~S: Type, ~piece: S -> Bytes.Bytes -> IO(S & Bool), drop: Bool, state: S, b: Bytes.Bytes) -> IO(S & Bool):
+  match drop:
+    case True{}:
+      IO.pure(S & Bool, (state, True{}))
+    case False{}:
+      Bytes.Bytes{+len, buf} = b
+      serve.stream.nonempty(~S, ~piece, U32.is_eq(len, 0), state, Bytes.Bytes{len, buf})
+
+def serve.stream.parts(~S: Type, ~piece: S -> Bytes.Bytes -> IO(S & Bool), xs: List<&1, Bytes.Bytes>, st: S & Bool) -> IO(S & Bool):
+  match xs:
+    case Nil{}:
+      IO.pure(S & Bool, st)
+    case Con{b, rest}:
+      (state, drop) = st
+      do IO<S & Bool>:
+        next : S & Bool <- serve.stream.one(~S, ~piece, drop, state, b)
+        serve.stream.parts(~S, ~piece, rest, next)
+
+def serve.stream.feed(~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), req: Req, m: Maybe<&1, S & Bool>, parts: List<&1, Bytes.Bytes>) -> IO(S & Bool):
+  match m:
+    case None{}:
+      do IO<S & Bool>:
+        state : S <- start(req)
+        serve.stream.parts(~S, ~piece, parts, (state, False{}))
+    case Some{st}:
+      serve.stream.parts(~S, ~piece, parts, st)
+
+def serve.stream.recv(+max: Nat, s: Socket, sv: Sv, cont: Bool) -> IO(Socket & Turn):
+  do IO<Socket & Turn>:
+    s2 : Socket <- talk.cont(cont, s)
+    m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s2, 65536, 30000)
+    return talk.next(max, sv, m)
+
+def serve.stream.respond(~S: Type, ~finish: S -> IO(Res), +max: Nat, s: Socket, rest: Bytes.Bytes, +headers: Map<&2, List<&2, String>>, v11: Bool, +method: String, st: S & Bool) -> IO(Socket & Turn):
+  (state, dropped) = st
+  do IO<Socket & Turn>:
+    res : Res <- finish(state)
+    talk.send(max, s, rest, headers, v11, String.eq(method, "HEAD"), res)
+
+@unsafe
+def serve.stream.talk(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
+  ~finish: S -> IO(Res), +max: Nat, st: Socket & Turn, m: Maybe<&1, S & Bool>
+) -> IO(Unit):
+  (s, t) = st
+  match t:
+    case TurnClose{}:
+      Socket.close(s)
+    case TurnFail{status}:
+      reply_fail(s, status)
+    case TurnReq{req, rest, v11}:
+      Req{+method, path, +headers, body} = req
+      do IO<Unit>:
+        next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
+          Req{method, path, headers, Bytes.new(0)}, m, [body])
+        after : Socket & Turn <- serve.stream.respond(~S, ~finish, max, s, rest, headers, v11, method, next)
+        serve.stream.talk(~S, ~start, ~piece, ~finish, max, after, None{})
+    case TurnMore{sv, cont}:
+      match sv:
+        case SvHead{buf}:
+          do IO<Unit>:
+            next : Socket & Turn <- serve.stream.recv(max, s, SvHead{buf}, cont)
+            serve.stream.talk(~S, ~start, ~piece, ~finish, max, next, m)
+        case SvLen{req, +v11, +left, parts}:
+          Req{+method, +path, +headers, body} = req
+          do IO<Unit>:
+            next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
+              Req{method, path, headers, body}, m, List.reverse(&1, Bytes.Bytes, parts))
+            more : Socket & Turn <- serve.stream.recv(max, s,
+              SvLen{Req{method, path, headers, Bytes.new(0)}, v11, left, Nil{}}, cont)
+            serve.stream.talk(~S, ~start, ~piece, ~finish, max, more, Some{next})
+        case SvChunk{req, +v11, +n, st, parts}:
+          Req{+method, +path, +headers, body} = req
+          do IO<Unit>:
+            next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
+              Req{method, path, headers, body}, m, List.reverse(&1, Bytes.Bytes, parts))
+            more : Socket & Turn <- serve.stream.recv(max, s,
+              SvChunk{Req{method, path, headers, Bytes.new(0)}, v11, n, st, Nil{}}, cont)
+            serve.stream.talk(~S, ~start, ~piece, ~finish, max, more, Some{next})
+
+
+def serve.stream.conn(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
+  ~finish: S -> IO(Res), +max: Nat, m: Listener & Result<&1, &1, U32 & String, Socket>
+) -> IO(Listener):
+  (l, r) = m
+  do IO<Listener>:
+    s : Socket <- IO.pass(Socket, r)
+    IO.spawn(Unit, serve.stream.talk(~S, ~start, ~piece, ~finish, max,
+      (s, TurnMore{sv.none(), False{}}), None{}))
+    return l
+
+@unsafe
+def serve.stream.loop(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
+  ~finish: S -> IO(Res), +max: Nat, l: Listener
+) -> IO(Unit):
+  do IO<Unit>:
+    m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l2 : Listener <- serve.stream.conn(~S, ~start, ~piece, ~finish, max, m)
+    serve.stream.loop(~S, ~start, ~piece, ~finish, max, l2)
+
+def serve.stream.on.with(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
+  ~finish: S -> IO(Res), host: String, +port: U32, +max: Nat
+) -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen(host, port))
+    serve.stream.loop(~S, ~start, ~piece, ~finish, max, l)
+
+def serve.stream.with(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
+  ~finish: S -> IO(Res), +port: U32, +max: Nat
+) -> IO(Unit):
+  serve.stream.on.with(~S, ~start, ~piece, ~finish, "0.0.0.0", port, max)
