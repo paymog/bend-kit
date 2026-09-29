@@ -288,3 +288,114 @@ static void __attribute__((constructor)) temp_dir_use(void) {
 }
 
 #endif
+
+#if defined(CID(read.words)) || defined(CID(write.words))
+
+static Term files_words(Env e, const unsigned char* bytes, u64 n) {
+  u64 count = (n + 3) / 4;
+  u64 depth = 0;
+  Term zero = 0;
+  while ((1ull << depth) < count) {
+    depth++;
+  }
+  Term a = blk_new(e, false, depth, 0, 1, &zero);
+  u64 loc = blk_loc(e.mem, a);
+  for (u64 k = 0; k < count; k++) {
+    u32 word = 0;
+    for (u64 j = 0; j < 4 && k * 4 + j < n; j++) {
+      word |= (u32)bytes[k * 4 + j] << (8 * j);
+    }
+    blk_write(e.mem, false, loc, (u32)k, word);
+  }
+  return io_tup(e, (Term)n, a);
+}
+
+static Term files_handle_result(Env e, IoWork* w, Term value) {
+  free(w->data);
+  Term result = w->code ? io_fail(e, w->code, NULL) : io_done(e, value);
+  return io_tup(e, io_hand(w->hand), result);
+}
+
+#endif
+
+#ifdef CID(read.words)
+
+static void files_read_words_call(IoWork* w) {
+  ssize_t n;
+  do {
+    n = read((int)w->hand, w->data, w->size);
+  } while (n < 0 && errno == EINTR);
+  if (n < 0) {
+    w->code = errno;
+  } else {
+    w->made = n;
+    w->code = 0;
+  }
+}
+
+static Term files_read_words_pack(Env e, IoWork* w) {
+  Term value = w->code ? 0 : files_words(e, (unsigned char*)w->data, (u64)w->made);
+  return files_handle_result(e, w, value);
+}
+
+Term files_read_words_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->size = (u64)f[1] < 1048576 ? (u64)f[1] : 1048576;
+  w->data = io_mem(malloc(w->size ? w->size : 1));
+  return io_work(w, files_read_words_call, files_read_words_pack);
+}
+
+static void __attribute__((constructor)) files_read_words_use(void) {
+  io_eff(CID(read.words), files_read_words_run, 0);
+}
+
+#endif
+
+#ifdef CID(write.words)
+
+static void files_write_words_call(IoWork* w) {
+  u64 at = 0;
+  while (at < w->size) {
+    ssize_t n = write((int)w->hand, w->data + at, w->size - at);
+    if (n < 0 && errno == EINTR) {
+      continue;
+    }
+    if (n <= 0) {
+      w->code = n == 0 ? EIO : errno;
+      return;
+    }
+    at += (u64)n;
+  }
+  w->code = 0;
+}
+
+static Term files_write_words_pack(Env e, IoWork* w) {
+  return files_handle_result(e, w, term_pak(CID(Unit), 0));
+}
+
+Term files_write_words_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  u64 n = (u64)f[1];
+  Term a = f[2];
+  bool bad = term_tag(a) != TAG_BUF || n > (4ull << blk_cls(a));
+  w->size = bad ? 0 : n;
+  w->data = io_mem(malloc(w->size ? w->size : 1));
+  if (!bad) {
+    u64 loc = blk_loc(e.mem, a);
+    for (u64 i = 0; i < n; i++) {
+      w->data[i] = (char)(blk_read(e.mem, false, loc, (u32)(i / 4)) >> (8 * (i % 4)));
+    }
+  }
+  term_drop(e, a);
+  if (bad) {
+    w->code = EINVAL;
+    return files_write_words_pack(e, w);
+  }
+  return io_work(w, files_write_words_call, files_write_words_pack);
+}
+
+static void __attribute__((constructor)) files_write_words_use(void) {
+  io_eff(CID(write.words), files_write_words_run, 0);
+}
+
+#endif

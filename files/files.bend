@@ -1,5 +1,6 @@
 # POSIX paths plus directory and metadata effects. Source: https://github.com/paymog/bend-kit/tree/main/files
 import Base
+import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 
 # The path.* defs are pure and lexical: they never touch the disk.
 # The effects are thin OS calls; each failure is (errno, text).
@@ -164,6 +165,46 @@ def rename(from: String, to: String) ->
 def temp_dir() -> IO(Result<&1, &1, U32 & String, String>):
   import "./effs/files.c"
   import "./effs/files.js"
+
+# A successful zero-length read is EOF (or max = 0). Reads at most 1 MiB
+# per call; a short read is not necessarily EOF. Errors retain the File.
+def read.words(file: File, max: U32) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/files.c"
+  import "./effs/files.js"
+
+def read_bytes.wrap(result: Result<&1, &1, U32 & String, U32 & Array<U32>>) ->
+  Result<&1, &1, U32 & String, Bytes.Bytes>:
+  match result:
+    case Fail{err}:
+      Fail{err}
+    case Done{(len, words)}:
+      Done{Bytes.Bytes{len, words}}
+
+def read_bytes.pair(pair: File & Result<&1, &1, U32 & String, U32 & Array<U32>>) ->
+  File & Result<&1, &1, U32 & String, Bytes.Bytes>:
+  match pair:
+    case (handle, result):
+      (handle, read_bytes.wrap(result))
+
+# The existing Bytes layout, without an octet List or String.
+def read_bytes(file: File, max: U32) ->
+  IO(File & Result<&1, &1, U32 & String, Bytes.Bytes>):
+  do IO<File & Result<&1, &1, U32 & String, Bytes.Bytes>>:
+    pair : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- read.words(file, max)
+    return read_bytes.pair(pair)
+
+# Writes the entire buffer or fails. Errors retain the File; writes before
+# an error are not rolled back. A len beyond the word array fails EINVAL.
+def write.words(file: File, len: U32, words: Array<U32>) ->
+  IO(File & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/files.c"
+  import "./effs/files.js"
+
+def write_bytes(file: File, data: Bytes.Bytes) ->
+  IO(File & Result<&1, &1, U32 & String, Unit>):
+  Bytes.Bytes{len, buf} = data
+  write.words(file, len, buf)
 
 def list_dir.fin(r: Result<&1, &1, U32 & String, String>) ->
   Result<&1, &1, U32 & String, List<&2, String>>:
