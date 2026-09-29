@@ -1,11 +1,12 @@
 // Crypto
 // ======
-// Hashes, HMAC, HKDF, PBKDF2, and RSA and ECDSA signatures through OpenSSL 3 libcrypto, loaded with dlopen;
-// secure random bytes from the OS.
+// Hashes, HMAC, HKDF, PBKDF2, RSA and ECDSA signatures, and AES-256-GCM and ChaCha20-Poly1305 AEAD through
+// OpenSSL 3 libcrypto, loaded with dlopen; secure random bytes from the OS.
 
 #if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) || defined(CID(random.words)) || defined(CID(eq.ct.words)) \
   || defined(CID(rsa.sign.words)) || defined(CID(rsa.verify.words)) || defined(CID(rsa.verify.jwk.words)) \
-  || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words))
+  || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words)) \
+  || defined(CID(aead.seal.words)) || defined(CID(aead.open.words))
 #ifndef CRYPTO_EFFS
 #define CRYPTO_EFFS
 #include <dlfcn.h>
@@ -58,7 +59,8 @@ static Term crypto_out(Env e, const unsigned char* p, u64 n) {
 
 #if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) \
   || defined(CID(rsa.sign.words)) || defined(CID(rsa.verify.words)) || defined(CID(rsa.verify.jwk.words)) \
-  || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words))
+  || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words)) \
+  || defined(CID(aead.seal.words)) || defined(CID(aead.open.words))
 #ifndef CRYPTO_LIB
 #define CRYPTO_LIB
 
@@ -97,6 +99,14 @@ static struct {
   int   (*verify)(void*, const unsigned char*, size_t, const unsigned char*, size_t);
   int   (*set_padding)(void*, int);
   void  (*err_clear)(void);
+  void* (*cipher_fetch)(void*, const char*, const char*);
+  void  (*cipher_free)(void*);
+  void* (*cipher_ctx_new)(void);
+  void  (*cipher_ctx_free)(void*);
+  int   (*cipher_init)(void*, const void*, const unsigned char*, const unsigned char*, int, const void*);
+  int   (*cipher_update)(void*, unsigned char*, int*, const unsigned char*, int);
+  int   (*cipher_final)(void*, unsigned char*, int*);
+  int   (*cipher_ctrl)(void*, int, int, void*);
 } crypto_lib;
 
 static bool crypto_load(void) {
@@ -144,13 +154,23 @@ static bool crypto_load(void) {
   crypto_lib.verify      = dlsym(h, "EVP_DigestVerify");
   crypto_lib.set_padding = dlsym(h, "EVP_PKEY_CTX_set_rsa_padding");
   crypto_lib.err_clear   = dlsym(h, "ERR_clear_error");
+  crypto_lib.cipher_fetch    = dlsym(h, "EVP_CIPHER_fetch");
+  crypto_lib.cipher_free     = dlsym(h, "EVP_CIPHER_free");
+  crypto_lib.cipher_ctx_new  = dlsym(h, "EVP_CIPHER_CTX_new");
+  crypto_lib.cipher_ctx_free = dlsym(h, "EVP_CIPHER_CTX_free");
+  crypto_lib.cipher_init     = dlsym(h, "EVP_CipherInit_ex2");
+  crypto_lib.cipher_update   = dlsym(h, "EVP_CipherUpdate");
+  crypto_lib.cipher_final    = dlsym(h, "EVP_CipherFinal_ex");
+  crypto_lib.cipher_ctrl     = dlsym(h, "EVP_CIPHER_CTX_ctrl");
   bool ok = crypto_lib.q_digest && crypto_lib.q_mac && crypto_lib.md_fetch && crypto_lib.md_free
     && crypto_lib.ctx_new && crypto_lib.ctx_free && crypto_lib.derive_init && crypto_lib.set_md
     && crypto_lib.set_salt && crypto_lib.set_key && crypto_lib.add_info && crypto_lib.derive && crypto_lib.pbkdf2
     && crypto_lib.bio_mem && crypto_lib.bio_free && crypto_lib.pem_priv && crypto_lib.pem_pub && crypto_lib.d2i_pub
     && crypto_lib.pkey_free && crypto_lib.pkey_id && crypto_lib.pkey_bits && crypto_lib.group_name
     && crypto_lib.md_ctx_new && crypto_lib.md_ctx_free && crypto_lib.sign_init && crypto_lib.sign
-    && crypto_lib.verify_init && crypto_lib.verify && crypto_lib.set_padding && crypto_lib.err_clear;
+    && crypto_lib.verify_init && crypto_lib.verify && crypto_lib.set_padding && crypto_lib.err_clear
+    && crypto_lib.cipher_fetch && crypto_lib.cipher_free && crypto_lib.cipher_ctx_new && crypto_lib.cipher_ctx_free
+    && crypto_lib.cipher_init && crypto_lib.cipher_update && crypto_lib.cipher_final && crypto_lib.cipher_ctrl;
   crypto_lib.state = ok ? 1 : -1;
   return ok;
 }
@@ -681,5 +701,114 @@ Term ecdsa_verify_jwk_words_run(Env e, Term* f, IoWork* w) {
 }
 static void __attribute__((constructor)) ecdsa_verify_jwk_words_use(void) {
   io_eff(CID(ecdsa.verify.jwk.words), ecdsa_verify_jwk_words_run, 0);
+}
+#endif
+
+#if defined(CID(aead.seal.words)) || defined(CID(aead.open.words))
+#ifndef CRYPTO_AEAD
+#define CRYPTO_AEAD
+
+// EVP_CTRL_AEAD_GET_TAG and EVP_CTRL_AEAD_SET_TAG; both algs take a 32-octet key, 12-octet nonce, 16-octet tag.
+#define CRYPTO_GET_TAG 0x10
+#define CRYPTO_SET_TAG 0x11
+#define CRYPTO_TAG     16
+
+// Volatile stores, so the compiler can not drop the wipe of a buffer about to be freed.
+static void crypto_wipe(unsigned char* p, u64 n) {
+  volatile unsigned char* v = p;
+  for (u64 i = 0; i < n; i += 1) {
+    v[i] = 0;
+  }
+}
+
+// Seal writes the m octets of ciphertext at d to o, then the tag at o + m. Open reads the tag at d + m and writes
+// m octets of plaintext to o (o may be d); they are only authentic when this returns true.
+static bool crypto_aead(const char* name, bool enc, const unsigned char* key, const unsigned char* nonce,
+  const unsigned char* aad, u64 an, unsigned char* d, u64 m, unsigned char* o) {
+  void* c   = crypto_lib.cipher_fetch(NULL, name, NULL);
+  void* ctx = crypto_lib.cipher_ctx_new();
+  int   a   = 0;
+  int   n   = 0;
+  int   k   = 0;
+  bool  ok  = c != NULL && ctx != NULL && crypto_lib.cipher_init(ctx, c, key, nonce, enc ? 1 : 0, NULL) == 1
+    && (an == 0 || crypto_lib.cipher_update(ctx, NULL, &a, aad, (int)an) == 1)
+    && (m == 0 || crypto_lib.cipher_update(ctx, o, &n, d, (int)m) == 1)
+    && (enc || crypto_lib.cipher_ctrl(ctx, CRYPTO_SET_TAG, CRYPTO_TAG, d + m) > 0)
+    && crypto_lib.cipher_final(ctx, o + n, &k) == 1 && (u64)n + (u64)k == m
+    && (!enc || crypto_lib.cipher_ctrl(ctx, CRYPTO_GET_TAG, CRYPTO_TAG, o + m) > 0);
+  crypto_lib.cipher_ctx_free(ctx);
+  crypto_lib.cipher_free(c);
+  crypto_lib.err_clear();
+  return ok;
+}
+
+// f is alg, key, nonce, aad, data; lengths are at most INT32_MAX for EVP's int, so a sealed length fits a U32.
+// Open decrypts in place and wipes the stage, so plaintext leaves only once the tag checks out.
+static Term crypto_aead_run(Env e, Term* f, bool enc) {
+  u64            alen  = 0;
+  char*          alg   = io_cstr(e, f[0], &alen);
+  u64            kn    = 0;
+  u64            nn    = 0;
+  u64            an    = 0;
+  u64            dn    = 0;
+  u64            key_n = (u32)f[1];
+  u64            nonce_n = (u32)f[3];
+  u64            aad_n = (u32)f[5];
+  u64            data_n = (u32)f[7];
+  bool           bad = io_nul(alg, alen) || key_n != 32 || nonce_n != 12 || aad_n > INT32_MAX
+    || data_n > INT32_MAX || (!enc && data_n < CRYPTO_TAG);
+  unsigned char* key   = crypto_words_octets(e, f[2], bad ? 0 : key_n, &kn, &bad);
+  unsigned char* nonce = crypto_words_octets(e, f[4], bad ? 0 : nonce_n, &nn, &bad);
+  unsigned char* aad   = crypto_words_octets(e, f[6], bad ? 0 : aad_n, &an, &bad);
+  unsigned char* data  = crypto_words_octets(e, f[8], bad ? 0 : data_n, &dn, &bad);
+  const char*    name  = strcmp(alg, "AES-256-GCM") == 0 ? "AES-256-GCM"
+            : strcmp(alg, "CHACHA20-POLY1305") == 0 ? "ChaCha20-Poly1305"
+                                                    : NULL;
+  Term           t;
+  if (bad) {
+    t = io_fail(e, EINVAL, NULL);
+  } else if (name == NULL) {
+    t = io_fail(e, EINVAL, "aead alg must be AES-256-GCM or CHACHA20-POLY1305");
+  } else if (!crypto_load()) {
+    t = io_fail(e, ENOENT, CRYPTO_MISSING);
+  } else if (enc) {
+    unsigned char* out = io_mem(malloc(dn + CRYPTO_TAG));
+    t = crypto_aead(name, true, key, nonce, aad, an, data, dn, out) ? crypto_out(e, out, dn + CRYPTO_TAG)
+                                                                     : io_fail(e, EINVAL, "aead seal failed");
+    free(out);
+  } else {
+    u64 m = dn - CRYPTO_TAG;
+    t     = crypto_aead(name, false, key, nonce, aad, an, data, m, data)
+          ? crypto_out(e, data, m)
+          : io_fail(e, EINVAL, "aead open failed; ciphertext, tag, nonce, or aad do not authenticate");
+  }
+  crypto_wipe(key, kn);
+  crypto_wipe(data, dn);
+  free(alg);
+  free(key);
+  free(nonce);
+  free(aad);
+  free(data);
+  return t;
+}
+
+#endif
+#endif
+
+#ifdef CID(aead.seal.words)
+Term aead_seal_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_aead_run(e, f, true);
+}
+static void __attribute__((constructor)) aead_seal_words_use(void) {
+  io_eff(CID(aead.seal.words), aead_seal_words_run, 0);
+}
+#endif
+
+#ifdef CID(aead.open.words)
+Term aead_open_words_run(Env e, Term* f, IoWork* w) {
+  return crypto_aead_run(e, f, false);
+}
+static void __attribute__((constructor)) aead_open_words_use(void) {
+  io_eff(CID(aead.open.words), aead_open_words_run, 0);
 }
 #endif

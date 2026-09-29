@@ -73,6 +73,14 @@ function crypto_lib() {
     EVP_DigestVerify: { args: [p, p, z, p, z], returns: i },
     EVP_PKEY_CTX_set_rsa_padding: { args: [p, i], returns: i },
     ERR_clear_error: { args: [], returns: "void" },
+    EVP_CIPHER_fetch: { args: [p, p, p], returns: p },
+    EVP_CIPHER_free: { args: [p], returns: "void" },
+    EVP_CIPHER_CTX_new: { args: [], returns: p },
+    EVP_CIPHER_CTX_free: { args: [p], returns: "void" },
+    EVP_CipherInit_ex2: { args: [p, p, p, p, i, p], returns: i },
+    EVP_CipherUpdate: { args: [p, p, p, p, i], returns: i },
+    EVP_CipherFinal_ex: { args: [p, p, p], returns: i },
+    EVP_CIPHER_CTX_ctrl: { args: [p, i, i, p], returns: i },
   };
   for (const path of [process.env.BEND_LIBCRYPTO, "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
     "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib", "libcrypto.3.dylib", "libcrypto.so.3"]) {
@@ -455,6 +463,75 @@ function ecdsa_verify_jwk_words(alg, xn, xw, yn, yw, dn, dw, sn, sw) {
   return crypto_verify_run(CRYPTO_EC, true, alg, [xn, xw, yn, yw], dn, dw, sn, sw);
 }
 
+// EVP_CTRL_AEAD_GET_TAG and EVP_CTRL_AEAD_SET_TAG; both ciphers take a 32-octet key, 12-octet nonce, 16-octet tag.
+const CRYPTO_GET_TAG = 0x10;
+const CRYPTO_SET_TAG = 0x11;
+const CRYPTO_INT_MAX = 0x7fffffff;
+
+// Seal gives ciphertext || tag; open takes it and gives plaintext only once the tag checks. AAD and data stay
+// within the int EVP counts, so seal's output is at most INT_MAX + 16 octets and fits a U32.
+function crypto_aead(enc, alg, kn, kw, nn, nw, an, aw, dn, dw) {
+  if (alg.includes("\0") || kn !== 32 || nn !== 12 || an > CRYPTO_INT_MAX || dn > CRYPTO_INT_MAX || (!enc && dn < 16)) {
+    return io_fail(22);
+  }
+  const key = crypto_words_octets(kn, kw);
+  const nonce = crypto_words_octets(nn, nw);
+  const aad = crypto_words_octets(an, aw);
+  const data = crypto_words_octets(dn, dw);
+  if (key === null || nonce === null || aad === null || data === null) {
+    key?.fill(0);
+    data?.fill(0);
+    return io_fail(22);
+  }
+  if (alg !== "AES-256-GCM" && alg !== "CHACHA20-POLY1305") {
+    key.fill(0);
+    data.fill(0);
+    return crypto_fail(22, "aead alg must be AES-256-GCM or CHACHA20-POLY1305");
+  }
+  const c = crypto_lib();
+  if (c === null) {
+    key.fill(0);
+    data.fill(0);
+    return crypto_fail(2, CRYPTO_MISSING);
+  }
+  const { s, ffi } = c;
+  const n = enc ? data.length : data.length - 16;
+  const input = data.subarray(0, n);
+  const tag = enc ? null : data.slice(n);
+  // enc: n octets of ciphertext then the tag; open: the plaintext staging, wiped unless the tag checks.
+  const out = new Uint8Array(enc ? n + 16 : n);
+  const outl = new Int32Array(1);
+  const cipher = s.EVP_CIPHER_fetch(null, ffi.ptr(crypto_cstr(alg === "AES-256-GCM" ? alg : "ChaCha20-Poly1305")), null);
+  const ctx = s.EVP_CIPHER_CTX_new();
+  const ok = cipher && ctx && s.EVP_CipherInit_ex2(ctx, cipher, ffi.ptr(key), ffi.ptr(nonce), enc ? 1 : 0, null) === 1
+    && (aad.length === 0 || s.EVP_CipherUpdate(ctx, null, ffi.ptr(outl), ffi.ptr(aad), aad.length) === 1)
+    && (n === 0 || (s.EVP_CipherUpdate(ctx, ffi.ptr(out), ffi.ptr(outl), ffi.ptr(input), n) === 1 && outl[0] === n))
+    && (enc || s.EVP_CIPHER_CTX_ctrl(ctx, CRYPTO_SET_TAG, 16, ffi.ptr(tag)) === 1)
+    && s.EVP_CipherFinal_ex(ctx, crypto_ptr(ffi, out), ffi.ptr(outl)) === 1 && outl[0] === 0
+    && (!enc || s.EVP_CIPHER_CTX_ctrl(ctx, CRYPTO_GET_TAG, 16, ffi.ptr(out.subarray(n))) === 1);
+  s.EVP_CIPHER_CTX_free(ctx);
+  s.EVP_CIPHER_free(cipher);
+  s.ERR_clear_error();
+  key.fill(0);
+  if (!ok) {
+    out.fill(0);
+    data.fill(0);
+    return crypto_fail(22, enc ? "aead seal failed" : "aead open failed; ciphertext, tag, nonce, or aad do not authenticate");
+  }
+  const result = crypto_words(out, out.length);
+  out.fill(0);
+  data.fill(0);
+  return io_done(result);
+}
+
+function aead_seal_words(alg, kn, kw, nn, nw, an, aw, dn, dw) {
+  return crypto_aead(true, alg, kn, kw, nn, nw, an, aw, dn, dw);
+}
+
+function aead_open_words(alg, kn, kw, nn, nw, an, aw, dn, dw) {
+  return crypto_aead(false, alg, kn, kw, nn, nw, an, aw, dn, dw);
+}
+
 io_eff(CID(digest.words), digest_words);
 io_eff(CID(hmac.words), hmac_words);
 io_eff(CID(hkdf.words), hkdf_words);
@@ -467,3 +544,5 @@ io_eff(CID(rsa.verify.jwk.words), rsa_verify_jwk_words);
 io_eff(CID(ecdsa.sign.words), ecdsa_sign_words);
 io_eff(CID(ecdsa.verify.words), ecdsa_verify_words);
 io_eff(CID(ecdsa.verify.jwk.words), ecdsa_verify_jwk_words);
+io_eff(CID(aead.seal.words), aead_seal_words);
+io_eff(CID(aead.open.words), aead_open_words);

@@ -1,6 +1,7 @@
 import Base
 import ./crypto.bend as C
 import ../bytes/bytes.bend as Bytes
+import ./aead_check.bend as AE
 
 def hex.of(m: Maybe<&1, Bytes.Bytes>) -> Bytes.Bytes:
   match m:
@@ -346,3 +347,4 @@ def main() -> IO(Unit):
     eq("eq.ct lengths", False{}, txt("abc"), txt("ab"))
     rnd(300)
     sigs()
+    AE.run()
