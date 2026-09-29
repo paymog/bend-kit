@@ -71,6 +71,18 @@ def bboth(r: Maybe<&2, R.Regex>, +s: String) -> Maybe<&2, Bool> & Bool:
     case Some{+re}:
       (hbm(R.is_match.bytes.bits(re, Bytes.from_string(s))), hb(R.is_match.bytes.vm(re, Bytes.from_string(s))))
 
+def same.pos(s: R.Spin) -> U32:
+  R.Spin{a, tab, i} = s
+  i
+
+def same.bytes(b: Bytes.Bytes) -> U32:
+  Bytes.Bytes{+len, a} = b
+  tab = Array.set(R.Tr, Array.new(R.Tr, 7n, R.TrNo{}), 120, R.TrSame{})
+  same.pos(R.spin(64n, R.spin.state(R.spin.byte(Bool.not(U32.is_lt(1, len)), a, 0), tab, 0, 0, 1), len, 0, 1))
+
+def same(+s: String) -> U32:
+  same.bytes(Bytes.from_string(s))
+
 # Matches and captures. The expected spans are what Go's regexp (RE2) answers.
 law literal:
   {m("b", "abc") == Some{[sp(1, 2)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
@@ -400,6 +412,24 @@ law dfa_cache_full:
 # Non-ASCII chars take the plain step between cached ones.
 law dfa_non_ascii:
   {mb("(a+)\u{e9}(b+)", "xaa\u{c3}\u{a9}bbaa\u{c3}\u{a9}b") == Some{[sp(1, 7), sp(1, 3), sp(5, 7)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_same_run:
+  {mb("(\\w+)@(\\w+)\\.com", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx user@host.com") == Some{[sp(33, 46), sp(33, 37), sp(38, 42)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_same_non_ascii:
+  {mb("(\\w+)@(\\w+)\\.com", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u{c3}\u{a9} user@host.com") == Some{[sp(35, 48), sp(35, 39), sp(40, 44)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_same_last_byte:
+  {mb("(a+)b", "aaaaaaaaaaaaaaaab") == Some{[sp(0, 17), sp(0, 16)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law dfa_spin_run:
+  {same("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy") == 32 : U32}
+
+law dfa_spin_non_ascii:
+  {same("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\u{c3}\u{a9}y") == 32 : U32}
+
+law dfa_spin_last_byte:
+  {same("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") == 31 : U32}
 
 # is_match.bytes on a program over 32 instructions: the DFA with no captures.
 law dfa_any_large_hit:
