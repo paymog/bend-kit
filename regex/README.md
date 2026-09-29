@@ -43,4 +43,4 @@ Matching takes O(n·m·log m) steps for n chars and m instructions. Each char ad
 
 `is_match` on a program of at most 32 instructions with no `\b` or `\B` runs as a bit-parallel NFA instead: O(n·k) steps for k character sets. The table above times `find`.
 
-Over `Bytes`, a program with no `\b` or `\B` runs as a lazy DFA: each Pike VM step on an ASCII char is learned once per state, with the capture slots it saves, and replayed from a table after that. Non-ASCII chars, the last char, and states past the cache's size take the plain step.
+Over `Bytes`, a program without `\b` or `\B` can run as a lazy DFA: each Pike VM step on an ASCII char is learned once per state, with the capture slots it saves, and replayed from a table after that. Non-ASCII chars, the last char, and states past the cache's size take the plain step. Short texts with large programs use the plain VM instead of learning states they rarely revisit. Other short texts use eight states; long texts use 256 for small programs or 2048 for large programs (a 2 MiB transition table). State keys use a hash-indexed trie with collision checks.
