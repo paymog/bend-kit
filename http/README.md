@@ -166,10 +166,10 @@ def hello(req: Http.Req) -> IO(Http.Res):
   IO.pure(Http.Res, Http.Res{200, Http.empty(), Http.from_string(path)})
 
 def main() -> IO(Unit):
-  Http.serve(~hello, 18080)
+  Http.serve.on(~hello, "127.0.0.1", 18080)
 ```
 
-`Http.serve(~h, port)` reads each request until it is whole, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. `Http.serve.with(~h, port, max)` sets the maximum request size in bytes; `serve` defaults to 16 MiB. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
+`Http.serve.on(~h, host, port)` binds to an IPv4 address such as `127.0.0.1` for loopback or `0.0.0.0` for every interface. `Http.serve(~h, port)` defaults to `0.0.0.0`; neither writes a start message. `Http.serve.on.with(~h, host, port, max)` and `Http.serve.with(~h, port, max)` set the maximum request size in bytes; the other entry points default to 16 MiB. Each server reads a whole request, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
 
 ## Versions
 
