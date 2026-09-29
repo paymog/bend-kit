@@ -1,6 +1,6 @@
 # HTTP/1.1 and HTTP/2 client, with an HTTP/1.1 server. Source: https://github.com/paymog/bend-kit/tree/main/http
 import Base
-# By hash: bend-kit-url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -dns@0.4.0.1, -zlib@0.1.5.0.
+# By hash: bend-kit-url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -zlib@0.1.5.0.
 import bend-kit-wire@0.4.2.0/wire.bend as Wire
 import bend-kit-http2@0.1.2.0/http2.bend as H2
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
@@ -12,7 +12,7 @@ import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import bend-kit-dns@0.4.0.2/dns.bend as Dns
+import bend-kit-dns@0.5.0.0/dns.bend as Dns
 import 0x58bd522479d133cfe1b2c4451fc1a28f/zlib.bend as Zlib
 
 # HTTP/1.1 codec and client (RFC 9112) for http:// and https:// (OpenSSL 3 at run time).
