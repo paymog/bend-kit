@@ -1,6 +1,7 @@
 # Collections benchmark: the Bend side (see README.md).
 import Base
 import ../../time/time.bend as Time
+import ../hmap.bend as HM
 import ../omap.bend as O
 import ../vec.bend as V
 import ../deque.bend as D
@@ -38,6 +39,27 @@ def lap(+name: String, t0: Time.Duration, +v: U32) -> IO(Unit):
   do IO<Unit>:
     chk(name, v)
     stamp(name, t0)
+
+# hmap: the LCG keys are already mixed, so the hash is the key itself.
+def identity_hash(x: U32) -> U32:
+  x
+
+# hmap: same keys, values, and order as omap.
+def hput(n: Nat, m: HM.HMap<U32, U32>, +x: U32, +i: U32) -> HM.HMap<U32, U32>:
+  match n:
+    case 0n:
+      m
+    case 1n+p:
+      +k = lcg(x)
+      hput(p, HM.HMap.put(~U32, ~U32, ~identity_hash, ~U32.is_eq, m, k, i), k, (i + 1 : U32))
+
+def hget(n: Nat, +m: HM.HMap<U32, U32>, +x: U32, +acc: U32) -> U32:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      +k = lcg(x)
+      hget(p, m, k, (acc + Maybe.default(&2, U32, HM.HMap.get(~U32, ~U32, ~identity_hash, ~U32.is_eq, m, k), 0) : U32))
 
 # omap: put key lcg^i(1) with value i, then get every key in the same order.
 def mput(n: Nat, m: O.OMap<U32, U32>, +x: U32, +i: U32) -> O.OMap<U32, U32>:
@@ -196,7 +218,24 @@ def op.omap.put(t0: Time.Duration, +m: O.OMap<U32, U32>) -> IO(Unit):
     t1 : Time.Duration <- Time.mono()
     op.omap.got(t1, mget(N(), m, 1, 0))
 
-def main() -> IO(Unit):
+def op.omap() -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
     op.omap.put(t0, mput(N(), O.OMap.new(U32, U32), 1, 0))
+
+def op.hmap.got(t0: Time.Duration, +acc: U32) -> IO(Unit):
+  do IO<Unit>:
+    lap("hmap_get", t0, acc)
+    op.omap()
+
+def op.hmap.put(t0: Time.Duration, +m: HM.HMap<U32, U32>) -> IO(Unit):
+  do IO<Unit>:
+    stamp("hmap_put", t0)
+    chk("hmap_put", U32.from_nat(HM.HMap.size(U32, U32, m)))
+    t1 : Time.Duration <- Time.mono()
+    op.hmap.got(t1, hget(N(), m, 1, 0))
+
+def main() -> IO(Unit):
+  do IO<Unit>:
+    t0 : Time.Duration <- Time.mono()
+    op.hmap.put(t0, hput(N(), HM.HMap.new(U32, U32), 1, 0))

@@ -6,7 +6,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OPS = ["omap_put", "omap_get", "vec_push", "vec_get", "deque_push", "deque_pop", "heap_push", "heap_pop"]
+OPS = ["omap_put", "omap_get", "hmap_put", "hmap_get", "vec_push", "vec_get", "deque_push", "deque_pop", "heap_push", "heap_pop"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 # name -> (build argv or None, run argv). Every program runs N = 2^20.

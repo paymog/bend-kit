@@ -1,6 +1,6 @@
 // Collections benchmark: Rust std (see README.md).
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BinaryHeap, VecDeque};
+use std::collections::{BTreeMap, BinaryHeap, HashMap, VecDeque};
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -36,6 +36,23 @@ fn main() {
         acc = acc.wrapping_add(*m.get(&x).unwrap_or(&0));
     }
     lap("omap_get", t0, acc);
+
+    let t0 = Instant::now();
+    let mut m = HashMap::new();
+    let mut x = 1u32;
+    for i in 0..n as u32 {
+        x = lcg(x);
+        m.insert(x, i);
+    }
+    lap("hmap_put", t0, black_box(m.len() as u32));
+
+    let t0 = Instant::now();
+    let (mut x, mut acc) = (1u32, 0u32);
+    for _ in 0..n {
+        x = lcg(x);
+        acc = acc.wrapping_add(*m.get(&x).unwrap_or(&0));
+    }
+    lap("hmap_get", t0, acc);
 
     let t0 = Instant::now();
     let mut v = Vec::new();

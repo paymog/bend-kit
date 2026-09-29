@@ -1,5 +1,6 @@
 import Base
 import ./omap.bend as O
+import ./hmap.bend as M
 import ./vec.bend as V
 import ./deque.bend as D
 import ./heap.bend as H
@@ -403,3 +404,44 @@ law deque_ends:
 
 law heap_sort:
   {H.Heap.sort(~U32, ~U32.is_le, [3, 1, 4, 1, 5]) == [1, 1, 3, 4, 5] : List<&2, U32>}
+
+def hkey(k: U32) -> U32:
+  (k .&. 1 : U32)
+
+def hm() -> M.HMap<U32, U32>:
+  m = M.HMap.put(~U32, ~U32, ~hkey, ~U32.is_eq, M.HMap.new(U32, U32), 2, 20)
+  M.HMap.put(~U32, ~U32, ~hkey, ~U32.is_eq, m, 3, 30)
+
+law hmap_get_put:
+  {M.HMap.get(~U32, ~U32, ~hkey, ~U32.is_eq,
+     M.HMap.put(~U32, ~U32, ~hkey, ~U32.is_eq, hm(), 4, 40), 4)
+   == Some{40} : Maybe<&2, U32>}
+
+law hmap_get_put_other:
+  {M.HMap.get(~U32, ~U32, ~hkey, ~U32.is_eq,
+     M.HMap.put(~U32, ~U32, ~hkey, ~U32.is_eq, hm(), 4, 40), 3)
+   == M.HMap.get(~U32, ~U32, ~hkey, ~U32.is_eq, hm(), 3) : Maybe<&2, U32>}
+
+law hmap_collision:
+  {M.HMap.get(~U32, ~U32, ~hkey, ~U32.is_eq,
+     M.HMap.put(~U32, ~U32, ~hkey, ~U32.is_eq, hm(), 4, 40), 2)
+   == Some{20} : Maybe<&2, U32>}
+
+law hmap_replace_collision:
+  {M.HMap.get(~U32, ~U32, ~hkey, ~U32.is_eq,
+     M.HMap.put(~U32, ~U32, ~hkey, ~U32.is_eq, hm(), 2, 22), 2)
+   == Some{22} : Maybe<&2, U32>}
+
+def full(k: U32) -> U32:
+  k
+
+law hmap_high_bit:
+  {M.HMap.get(~U32, ~U32, ~full, ~U32.is_eq,
+     M.HMap.put(~U32, ~U32, ~full, ~U32.is_eq,
+       M.HMap.put(~U32, ~U32, ~full, ~U32.is_eq, M.HMap.new(U32, U32), 0, 10),
+       2147483648, 20), 0)
+   == Some{10} : Maybe<&2, U32>}
+
+law hmap_missing_collision:
+  {M.HMap.get(~U32, ~U32, ~hkey, ~U32.is_eq, hm(), 4)
+   == None{} : Maybe<&2, U32>}
