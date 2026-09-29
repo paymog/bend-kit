@@ -44,6 +44,18 @@ def HMap.entries.get(
         u => Some{val},
         u => HMap.entries.get(~K, ~V, ~eq, rest, k))
 
+def HMap.entries.del(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  xs: List<&2, Entry<K, V>>, +k: K
+) -> List<&2, Entry<K, V>>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{Entry{+key, +val}, +rest}:
+      HMap.bool(List<&2, Entry<K, V>>, eq(k, key),
+        u => rest,
+        u => Entry{key, val} <> HMap.entries.del(~K, ~V, ~eq, rest, k))
+
 def HMap.split.side(
   -K: Data, -V: Data, left: Bool, old: HMap<K, V>, fresh: HMap<K, V>
 ) -> HMap<K, V>:
@@ -132,6 +144,62 @@ def HMap.get(
   m: HMap<K, V>, +k: K
 ) -> Maybe<&2, V>:
   HMap.get.go(~K, ~V, ~eq, 32n, 1, m, hash(k), k)
+
+# An emptied bucket becomes HNil.
+def HMap.leaf(-K: Data, -V: Data, +hash: U32, xs: List<&2, Entry<K, V>>) -> HMap<K, V>:
+  match xs:
+    case Nil{}:
+      HNil{}
+    case Con{e, rest}:
+      HLeaf{hash, e <> rest}
+
+# Rebuilds a branch; one with two empty subtries becomes HNil.
+def HMap.join(-K: Data, -V: Data, lo: HMap<K, V>, hi: HMap<K, V>) -> HMap<K, V>:
+  match lo:
+    case HNil{}:
+      match hi:
+        case HNil{}:
+          HNil{}
+        case HLeaf{h, es}:
+          HBranch{HNil{}, HLeaf{h, es}}
+        case HBranch{a, b}:
+          HBranch{HNil{}, HBranch{a, b}}
+    case HLeaf{h, es}:
+      HBranch{HLeaf{h, es}, hi}
+    case HBranch{a, b}:
+      HBranch{HBranch{a, b}, hi}
+
+def HMap.del.go(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  +n: Nat, +mask: U32, m: HMap<K, V>, +hash: U32, +k: K
+) -> HMap<K, V>:
+  match n:
+    case 0n:
+      match m:
+        case HNil{}:
+          HNil{}
+        case HLeaf{oldhash, entries}:
+          HMap.leaf(K, V, oldhash, HMap.entries.del(~K, ~V, ~eq, entries, k))
+        case HBranch{lo, hi}:
+          HBranch{lo, hi}
+    case 1n+p:
+      match m:
+        case HNil{}:
+          HNil{}
+        case HLeaf{+oldhash, +entries}:
+          HMap.bool(HMap<K, V>, U32.is_eq(oldhash, hash),
+            u => HMap.leaf(K, V, oldhash, HMap.entries.del(~K, ~V, ~eq, entries, k)),
+            u => HLeaf{oldhash, entries})
+        case HBranch{+lo, +hi}:
+          HMap.bool(HMap<K, V>, U32.is_eq((hash .&. mask : U32), 0),
+            u => HMap.join(K, V, HMap.del.go(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hash, k), hi),
+            u => HMap.join(K, V, lo, HMap.del.go(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hash, k)))
+
+def HMap.del(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  m: HMap<K, V>, +k: K
+) -> HMap<K, V>:
+  HMap.del.go(~K, ~V, ~eq, 32n, 1, m, hash(k), k)
 
 def HMap.size(-K: Data, -V: Data, m: HMap<K, V>) -> Nat:
   match m:

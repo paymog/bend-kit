@@ -445,3 +445,236 @@ law hmap_high_bit:
 law hmap_missing_collision:
   {M.HMap.get(~U32, ~U32, ~hkey, ~U32.is_eq, hm(), 4)
    == None{} : Maybe<&2, U32>}
+
+# The HMap laws below hold for every eq that is reflexive (eq(x, x) is True)
+# and sound (eq(x, y) is True only when x == y), as each law states. Equal keys
+# then hash alike because hash is a function, so the hash needs no assumption.
+# They hold for well-formed maps: hmap_wf, which HMap.new, put and del keep.
+
+# No entry of xs has a key equal to k.
+def hmap_absent(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K
+) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{+key, val}, rest}:
+      Bool.not(eq(k, key)) && hmap_absent(~K, ~V, ~eq, rest, k)
+
+# No two entries of xs have equal keys.
+def hmap_distinct(~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{+key, val}, +rest}:
+      hmap_absent(~K, ~V, ~eq, rest, key) && hmap_distinct(~K, ~V, ~eq, rest)
+
+# Every key of xs hashes to h.
+def hmap_hashed(
+  ~K: Data, ~V: Data, ~hash: K -> U32, xs: List<&2, M.Entry<K, V>>, +h: U32
+) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{key, val}, rest}:
+      U32.is_eq(h, hash(key)) && hmap_hashed(~K, ~V, ~hash, rest, h)
+
+# A trie with n levels left: buckets hold distinct keys; above the last level,
+# a bucket's keys hash to its hash; the last level has no branches.
+def hmap_wf.go(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +n: Nat, m: M.HMap<K, V>
+) -> Bool:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          True{}
+        case M.HLeaf{h, es}:
+          hmap_distinct(~K, ~V, ~eq, es)
+        case M.HBranch{lo, hi}:
+          False{}
+    case 1n+p:
+      match m:
+        case M.HNil{}:
+          True{}
+        case M.HLeaf{h, +es}:
+          hmap_hashed(~K, ~V, ~hash, es, h) && hmap_distinct(~K, ~V, ~eq, es)
+        case M.HBranch{lo, hi}:
+          hmap_wf.go(~K, ~V, ~hash, ~eq, p, lo) && hmap_wf.go(~K, ~V, ~hash, ~eq, p, hi)
+
+def hmap_wf(~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, m: M.HMap<K, V>) -> Bool:
+  hmap_wf.go(~K, ~V, ~hash, ~eq, 32n, m)
+
+law hmap_new_wf:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  {hmap_wf(~K, ~V, ~hash, ~eq, M.HMap.new(K, V)) == True{} : Bool}
+
+law hmap_put_wf:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~refl: @x: K -> {eq(x, x) == True{} : Bool}
+  for ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K}
+  for m: M.HMap<K, V>
+  for wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k: K
+  for +v: V
+  {hmap_wf(~K, ~V, ~hash, ~eq, M.HMap.put(~K, ~V, ~hash, ~eq, m, k, v)) == True{} : Bool}
+
+law hmap_del_wf:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for m: M.HMap<K, V>
+  for wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k: K
+  {hmap_wf(~K, ~V, ~hash, ~eq, M.HMap.del(~K, ~V, ~hash, ~eq, m, k)) == True{} : Bool}
+
+law hmap_get_put_same:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~refl: @x: K -> {eq(x, x) == True{} : Bool}
+  for m: M.HMap<K, V>
+  for wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k: K
+  for +v: V
+  {M.HMap.get(~K, ~V, ~hash, ~eq, M.HMap.put(~K, ~V, ~hash, ~eq, m, k, v), k)
+   == Some{v} : Maybe<&2, V>}
+
+law hmap_get_put_other_key:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K}
+  for m: M.HMap<K, V>
+  for wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k2: K
+  for +k: K
+  for ne: {k2 != k : K}
+  for +v: V
+  {M.HMap.get(~K, ~V, ~hash, ~eq, M.HMap.put(~K, ~V, ~hash, ~eq, m, k2, v), k)
+   == M.HMap.get(~K, ~V, ~hash, ~eq, m, k) : Maybe<&2, V>}
+
+law hmap_get_del_same:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K}
+  for m: M.HMap<K, V>
+  for wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k: K
+  {M.HMap.get(~K, ~V, ~hash, ~eq, M.HMap.del(~K, ~V, ~hash, ~eq, m, k), k)
+   == None{} : Maybe<&2, V>}
+
+law hmap_get_del_other_key:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K}
+  for m: M.HMap<K, V>
+  for +k2: K
+  for +k: K
+  for ne: {k2 != k : K}
+  {M.HMap.get(~K, ~V, ~hash, ~eq, M.HMap.del(~K, ~V, ~hash, ~eq, m, k2), k)
+   == M.HMap.get(~K, ~V, ~hash, ~eq, m, k) : Maybe<&2, V>}
+
+law hmap_size_put_new:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K}
+  for m: M.HMap<K, V>
+  for wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k: K
+  for +v: V
+  for miss: {M.HMap.get(~K, ~V, ~hash, ~eq, m, k) == None{} : Maybe<&2, V>}
+  {M.HMap.size(K, V, M.HMap.put(~K, ~V, ~hash, ~eq, m, k, v))
+   == 1n+M.HMap.size(K, V, m) : Nat}
+
+law hmap_size_put_replace:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for m: M.HMap<K, V>
+  for +k: K
+  for +v: V
+  for -w: V
+  for hit: {M.HMap.get(~K, ~V, ~hash, ~eq, m, k) == Some{w} : Maybe<&2, V>}
+  {M.HMap.size(K, V, M.HMap.put(~K, ~V, ~hash, ~eq, m, k, v))
+   == M.HMap.size(K, V, m) : Nat}
+
+law hmap_size_del:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for m: M.HMap<K, V>
+  for +k: K
+  for -w: V
+  for hit: {M.HMap.get(~K, ~V, ~hash, ~eq, m, k) == Some{w} : Maybe<&2, V>}
+  {1n+M.HMap.size(K, V, M.HMap.del(~K, ~V, ~hash, ~eq, m, k))
+   == M.HMap.size(K, V, m) : Nat}
+
+law hmap_size_del_missing:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for m: M.HMap<K, V>
+  for +k: K
+  for miss: {M.HMap.get(~K, ~V, ~hash, ~eq, m, k) == None{} : Maybe<&2, V>}
+  {M.HMap.size(K, V, M.HMap.del(~K, ~V, ~hash, ~eq, m, k))
+   == M.HMap.size(K, V, m) : Nat}
+
+# Two distinct keys with one hash share a bucket; both stay reachable.
+law hmap_collision_get:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~refl: @x: K -> {eq(x, x) == True{} : Bool}
+  for ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K}
+  for +m: M.HMap<K, V>
+  for +wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k1: K
+  for +k2: K
+  for ne: {k2 != k1 : K}
+  for same: {hash(k1) == hash(k2) : U32}
+  for +v1: V
+  for +v2: V
+  {M.HMap.get(~K, ~V, ~hash, ~eq,
+     M.HMap.put(~K, ~V, ~hash, ~eq, M.HMap.put(~K, ~V, ~hash, ~eq, m, k1, v1), k2, v2), k1)
+   == Some{v1} : Maybe<&2, V>}
+
+law hmap_collision_size:
+  for ~K: Data
+  for ~V: Data
+  for ~hash: K -> U32
+  for ~eq: K -> K -> Bool
+  for ~refl: @x: K -> {eq(x, x) == True{} : Bool}
+  for ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K}
+  for +m: M.HMap<K, V>
+  for +wf: {hmap_wf(~K, ~V, ~hash, ~eq, m) == True{} : Bool}
+  for +k1: K
+  for +k2: K
+  for ne: {k1 != k2 : K}
+  for same: {hash(k1) == hash(k2) : U32}
+  for +v1: V
+  for +v2: V
+  for miss1: {M.HMap.get(~K, ~V, ~hash, ~eq, m, k1) == None{} : Maybe<&2, V>}
+  for miss2: {M.HMap.get(~K, ~V, ~hash, ~eq, m, k2) == None{} : Maybe<&2, V>}
+  {M.HMap.size(K, V,
+     M.HMap.put(~K, ~V, ~hash, ~eq, M.HMap.put(~K, ~V, ~hash, ~eq, m, k1, v1), k2, v2))
+   == 2n+M.HMap.size(K, V, m) : Nat}

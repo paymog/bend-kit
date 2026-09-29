@@ -1,6 +1,7 @@
 import Base
 import ./LAWS.bend as Laws
 import ./omap.bend as O
+import ./hmap.bend as M
 import ./nat_order.bend as Ord
 
 def Laws.omap_keys_ascending_puts():
@@ -1788,3 +1789,2258 @@ def Laws.hmap_high_bit():
 
 def Laws.hmap_missing_collision():
   {==}
+
+# --- hmap ------------------------------------------------------------------------
+
+def h.sb(-a: Bool, -b: Bool, e: {a == b : Bool}) -> {b == a : Bool}:
+  Equal.sym(Bool, a, b, e)
+
+def h.tf(-A: Type, -b: Bool, et: {b == True{} : Bool}, ef: {b == False{} : Bool}) -> A:
+  exfalso(A, absurd_b(Equal.trans(Bool, False{}, b, True{}, Equal.sym(Bool, b, False{}, ef), et)))
+
+def h.not_t(b: Bool, e: {Bool.not(b) == True{} : Bool}) -> {b == False{} : Bool}:
+  match b:
+    case True{}:
+      exfalso({True{} == False{} : Bool}, absurd_b(e))
+    case False{}:
+      {==}
+
+def h.isS(-V: Data, m: Maybe<&2, V>) -> Type:
+  match m:
+    case None{}:
+      Empty
+    case Some{x}:
+      Unit
+
+def h.some_none.e(-V: Data, -x: V, e: {Some{x} == None{} : Maybe<&2, V>}) -> Empty:
+  %e : h.isS(V, _)
+  Unit{}
+
+def h.some_none(-A: Type, -V: Data, -x: V, e: {Some{x} == None{} : Maybe<&2, V>}) -> A:
+  exfalso(A, h.some_none.e(V, x, e))
+
+def h.none_some(-A: Type, -V: Data, -x: V, e: {None{} == Some{x} : Maybe<&2, V>}) -> A:
+  exfalso(A, h.some_none.e(V, x, Equal.sym(Maybe<&2, V>, None{}, Some{x}, e)))
+
+# U32 equality is Word equality, so is_eq is reflexive and sound.
+def h.bcmp_refl(b: Bool) -> {Bool.cmp(b, b) == EQ{} : Cmp}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def h.wcmp_refl(n: Nat, w: Word(n)) -> {Word.cmp(n, w, w) == EQ{} : Cmp}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      match w:
+        case WCon{+b, +t}:
+          %Equal.sym(Cmp, Word.cmp(p, t, t), EQ{}, h.wcmp_refl(p, t)) : {Word.cmp.fin(b, b, _) == EQ{} : Cmp}
+          h.bcmp_refl(b)
+
+def h.u_refl(x: U32) -> {U32.is_eq(x, x) == True{} : Bool}:
+  match x:
+    case U32{+w}:
+      %Equal.sym(Cmp, Word.cmp(32n, w, w), EQ{}, h.wcmp_refl(32n, w)) : {Cmp.is_eq(_) == True{} : Bool}
+      {==}
+
+def h.fin_eq(t: Cmp, -x: Bool, -y: Bool, e: {Cmp.is_eq(Word.cmp.fin(x, y, t)) == True{} : Bool})
+  -> {Cmp.is_eq(t) == True{} : Bool}:
+  match t:
+    case LT{}:
+      exfalso({Cmp.is_eq(LT{}) == True{} : Bool}, absurd_b(e))
+    case EQ{}:
+      {==}
+    case GT{}:
+      exfalso({Cmp.is_eq(GT{}) == True{} : Bool}, absurd_b(e))
+
+def h.fin_hd(t: Cmp, x: Bool, y: Bool, e: {Cmp.is_eq(Word.cmp.fin(x, y, t)) == True{} : Bool})
+  -> {x == y : Bool}:
+  match t:
+    case LT{}:
+      exfalso({x == y : Bool}, absurd_b(e))
+    case EQ{}:
+      match x y:
+        case False{} False{}:
+          {==}
+        case False{} True{}:
+          exfalso({False{} == True{} : Bool}, absurd_b(e))
+        case True{} False{}:
+          exfalso({True{} == False{} : Bool}, absurd_b(e))
+        case True{} True{}:
+          {==}
+    case GT{}:
+      exfalso({x == y : Bool}, absurd_b(e))
+
+def h.wcmp_sound(+n: Nat, a: Word(n), b: Word(n), +e: {Cmp.is_eq(Word.cmp(n, a, b)) == True{} : Bool})
+  -> {a == b : Word(n)}:
+  match n:
+    case 0n:
+      match a b:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+p:
+      match a b:
+        case WCon{+x, +at} WCon{+y, +bt}:
+          +e1 = h.fin_hd(Word.cmp(p, at, bt), x, y, e)
+          +e2 = h.wcmp_sound(p, at, bt, h.fin_eq(Word.cmp(p, at, bt), x, y, e))
+          %e1 : {WCon{x, at} == WCon{_, bt} : Word(1n+p)}
+          %e2 : {WCon{x, at} == WCon{x, _} : Word(1n+p)}
+          {==}
+
+def h.u_sound(a: U32, b: U32, e: {U32.is_eq(a, b) == True{} : Bool}) -> {a == b : U32}:
+  match a b:
+    case U32{+x} U32{+y}:
+      %h.wcmp_sound(32n, x, y, e) : {U32{x} == U32{_} : U32}
+      {==}
+
+# A mask with at most one set bit routes every hash to one of two sides.
+def h.isz(n: Nat, w: Word(n)) -> Bool:
+  match n:
+    case 0n:
+      True{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          Bool.not(b) && h.isz(p, t)
+
+def h.at1(n: Nat, w: Word(n)) -> Bool:
+  match n:
+    case 0n:
+      True{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          match b:
+            case True{}:
+              h.isz(p, t)
+            case False{}:
+              h.at1(p, t)
+
+def h.onebit(m: U32) -> Bool:
+  match m:
+    case U32{w}:
+      h.at1(32n, w)
+
+def h.and_z(+n: Nat, x: Word(n), m: Word(n), e: {h.isz(n, m) == True{} : Bool})
+  -> {Word.and(n, x, m) == Word.zero(n) : Word(n)}:
+  match n:
+    case 0n:
+      match x m:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+p:
+      match x m:
+        case WCon{+a, +xt} WCon{True{}, +mt}:
+          exfalso({Word.and(1n+p, WCon{a, xt}, WCon{True{}, mt}) == Word.zero(1n+p) : Word(1n+p)},
+            absurd_b(e))
+        case WCon{True{}, +xt} WCon{False{}, +mt}:
+          Equal.cong(Word(p), Word(1n+p), w => WCon{False{}, w}, Word.and(p, xt, mt), Word.zero(p),
+            h.and_z(p, xt, mt, e))
+        case WCon{False{}, +xt} WCon{False{}, +mt}:
+          Equal.cong(Word(p), Word(1n+p), w => WCon{False{}, w}, Word.and(p, xt, mt), Word.zero(p),
+            h.and_z(p, xt, mt, e))
+
+def h.zc(+n: Nat, +x: Word(n), +m: Word(n), +e: {h.isz(n, m) == True{} : Bool})
+  -> {Word.cmp(n, Word.and(n, x, m), Word.zero(n)) == EQ{} : Cmp}:
+  %Equal.sym(Word(n), Word.and(n, x, m), Word.zero(n), h.and_z(n, x, m, e)) : {Word.cmp(n, _, Word.zero(n)) == EQ{} : Cmp}
+  h.wcmp_refl(n, Word.zero(n))
+
+def h.zc2(+n: Nat, +x: Word(n), +y: Word(n), +m: Word(n), +e: {h.isz(n, m) == True{} : Bool})
+  -> {Word.cmp(n, Word.and(n, x, m), Word.and(n, y, m)) == EQ{} : Cmp}:
+  %Equal.sym(Word(n), Word.and(n, x, m), Word.zero(n), h.and_z(n, x, m, e)) : {Word.cmp(n, _, Word.and(n, y, m)) == EQ{} : Cmp}
+  %Equal.sym(Word(n), Word.and(n, y, m), Word.zero(n), h.and_z(n, y, m, e)) : {Word.cmp(n, Word.zero(n), _) == EQ{} : Cmp}
+  h.wcmp_refl(n, Word.zero(n))
+
+# A head bit under a set mask bit, with the rest masked to zero, is set when the word is not zero.
+def h.hd_true(
+  a: Bool, +p: Nat, +xt: Word(p), +mt: Word(p), +em: {h.isz(p, mt) == True{} : Bool},
+  ex: {Cmp.is_eq(Word.cmp.fin(Bool.and(a, True{}), False{}, Word.cmp(p, Word.and(p, xt, mt), Word.zero(p)))) == False{} : Bool}
+) -> {a == True{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      Equal.sym(Bool, True{}, False{},
+        rw(Cmp, t => {Cmp.is_eq(Word.cmp.fin(False{}, False{}, t)) == False{} : Bool},
+          EQ{}, Word.cmp(p, Word.and(p, xt, mt), Word.zero(p)),
+          Equal.sym(Cmp, Word.cmp(p, Word.and(p, xt, mt), Word.zero(p)), EQ{}, h.zc(p, xt, mt, em)), ex))
+
+def h.low(a: Bool, t: Cmp, e: {Cmp.is_eq(Word.cmp.fin(Bool.and(a, False{}), False{}, t)) == False{} : Bool})
+  -> {Cmp.is_eq(t) == False{} : Bool}:
+  match a:
+    case True{}:
+      match t:
+        case LT{}:
+          e
+        case EQ{}:
+          e
+        case GT{}:
+          e
+    case False{}:
+      match t:
+        case LT{}:
+          e
+        case EQ{}:
+          e
+        case GT{}:
+          e
+
+def h.lift0(t: Cmp, ih: {Cmp.is_eq(t) == True{} : Bool})
+  -> {Cmp.is_eq(Word.cmp.fin(False{}, False{}, t)) == True{} : Bool}:
+  match t:
+    case LT{}:
+      ih
+    case EQ{}:
+      {==}
+    case GT{}:
+      ih
+
+def h.lift(a: Bool, c: Bool, t: Cmp, ih: {Cmp.is_eq(t) == True{} : Bool})
+  -> {Cmp.is_eq(Word.cmp.fin(Bool.and(a, False{}), Bool.and(c, False{}), t)) == True{} : Bool}:
+  match a c:
+    case True{} True{}:
+      h.lift0(t, ih)
+    case True{} False{}:
+      h.lift0(t, ih)
+    case False{} True{}:
+      h.lift0(t, ih)
+    case False{} False{}:
+      h.lift0(t, ih)
+
+def h.route_t(
+  +a: Bool, +c: Bool, +p: Nat, +xt: Word(p), +yt: Word(p), +mt: Word(p),
+  +em: {h.isz(p, mt) == True{} : Bool},
+  ex: {Cmp.is_eq(Word.cmp.fin(Bool.and(a, True{}), False{}, Word.cmp(p, Word.and(p, xt, mt), Word.zero(p)))) == False{} : Bool},
+  ey: {Cmp.is_eq(Word.cmp.fin(Bool.and(c, True{}), False{}, Word.cmp(p, Word.and(p, yt, mt), Word.zero(p)))) == False{} : Bool}
+) -> {Cmp.is_eq(Word.cmp.fin(Bool.and(a, True{}), Bool.and(c, True{}),
+       Word.cmp(p, Word.and(p, xt, mt), Word.and(p, yt, mt)))) == True{} : Bool}:
+  %Equal.sym(Bool, a, True{}, h.hd_true(a, p, xt, mt, em, ex))
+    : {Cmp.is_eq(Word.cmp.fin(Bool.and(_, True{}), Bool.and(c, True{}), Word.cmp(p, Word.and(p, xt, mt), Word.and(p, yt, mt)))) == True{} : Bool}
+  %Equal.sym(Bool, c, True{}, h.hd_true(c, p, yt, mt, em, ey))
+    : {Cmp.is_eq(Word.cmp.fin(True{}, Bool.and(_, True{}), Word.cmp(p, Word.and(p, xt, mt), Word.and(p, yt, mt)))) == True{} : Bool}
+  %Equal.sym(Cmp, Word.cmp(p, Word.and(p, xt, mt), Word.and(p, yt, mt)), EQ{}, h.zc2(p, xt, yt, mt, em))
+    : {Cmp.is_eq(Word.cmp.fin(True{}, True{}, _)) == True{} : Bool}
+  {==}
+
+def h.route_w(
+  +n: Nat, x: Word(n), y: Word(n), m: Word(n),
+  em: {h.at1(n, m) == True{} : Bool},
+  ex: {Cmp.is_eq(Word.cmp(n, Word.and(n, x, m), Word.zero(n))) == False{} : Bool},
+  ey: {Cmp.is_eq(Word.cmp(n, Word.and(n, y, m), Word.zero(n))) == False{} : Bool}
+) -> {Cmp.is_eq(Word.cmp(n, Word.and(n, x, m), Word.and(n, y, m))) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      match x y m:
+        case WCon{+a, +xt} WCon{+c, +yt} WCon{True{}, +mt}:
+          h.route_t(a, c, p, xt, yt, mt, em, ex, ey)
+        case WCon{+a, +xt} WCon{+c, +yt} WCon{False{}, +mt}:
+          h.lift(a, c, Word.cmp(p, Word.and(p, xt, mt), Word.and(p, yt, mt)),
+            h.route_w(p, xt, yt, mt, em,
+              h.low(a, Word.cmp(p, Word.and(p, xt, mt), Word.zero(p)), ex),
+              h.low(c, Word.cmp(p, Word.and(p, yt, mt), Word.zero(p)), ey)))
+
+def h.route(
+  x: U32, y: U32, m: U32, em: {h.onebit(m) == True{} : Bool},
+  ex: {U32.is_eq((x .&. m : U32), 0) == False{} : Bool},
+  ey: {U32.is_eq((y .&. m : U32), 0) == False{} : Bool}
+) -> {U32.is_eq((x .&. m : U32), (y .&. m : U32)) == True{} : Bool}:
+  match x y m:
+    case U32{xw} U32{yw} U32{+mw}:
+      h.route_w(32n, xw, yw, mw, em, ex, ey)
+
+def h.isz_put(n: Nat, t: Word(n), e: {h.isz(n, t) == True{} : Bool})
+  -> {h.isz(n, Word.shl.put(n, False{}, t)) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      match t:
+        case WCon{True{}, t2}:
+          exfalso({h.isz(1n+p, Word.shl.put(1n+p, False{}, WCon{True{}, t2})) == True{} : Bool}, absurd_b(e))
+        case WCon{False{}, t2}:
+          h.isz_put(p, t2, e)
+
+def h.at1_put.t(q: Nat, b: Bool, t2: Word(q), e: {h.isz(1n+q, WCon{b, t2}) == True{} : Bool})
+  -> {h.isz(q, Word.shl.put(q, b, t2)) == True{} : Bool}:
+  match b:
+    case True{}:
+      exfalso({h.isz(q, Word.shl.put(q, True{}, t2)) == True{} : Bool}, absurd_b(e))
+    case False{}:
+      h.isz_put(q, t2, e)
+
+def h.at1_put(p: Nat, t: Word(p), c: Bool, e: {h.at1(1n+p, WCon{c, t}) == True{} : Bool})
+  -> {h.at1(p, Word.shl.put(p, c, t)) == True{} : Bool}:
+  match p:
+    case 0n:
+      {==}
+    case 1n+q:
+      match t:
+        case WCon{b, t2}:
+          match c:
+            case True{}:
+              h.at1_put.t(q, b, t2, e)
+            case False{}:
+              h.at1_put(q, t2, b, e)
+
+def h.at1_shl(n: Nat, w: Word(n), e: {h.at1(n, w) == True{} : Bool})
+  -> {h.at1(n, Word.shl(n, w)) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          h.at1_put(p, t, b, e)
+
+def h.onebit_shl(m: U32, e: {h.onebit(m) == True{} : Bool}) -> {h.onebit((m << 1n : U32)) == True{} : Bool}:
+  match m:
+    case U32{w}:
+      h.at1_shl(32n, w, e)
+
+# --- buckets ---------------------------------------------------------------------
+
+def h.egc(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b: Bool, +val: V,
+  rest: List<&2, M.Entry<K, V>>, +k: K
+) -> Maybe<&2, V>:
+  M.HMap.bool(Maybe<&2, V>, b, u => Some{val}, u => M.HMap.entries.get(~K, ~V, ~eq, rest, k))
+
+def h.epc(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b: Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K, +v: V
+) -> List<&2, M.Entry<K, V>>:
+  M.HMap.bool(List<&2, M.Entry<K, V>>, b,
+    u => M.Entry{key, v} <> rest,
+    u => M.Entry{key, val} <> M.HMap.entries.put(~K, ~V, ~eq, rest, k, v))
+
+def h.edc(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b: Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K
+) -> List<&2, M.Entry<K, V>>:
+  M.HMap.bool(List<&2, M.Entry<K, V>>, b,
+    u => rest,
+    u => M.Entry{key, val} <> M.HMap.entries.del(~K, ~V, ~eq, rest, k))
+
+def h.egc2(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, c: Bool, +val: V,
+  +xs: List<&2, M.Entry<K, V>>, +ys: List<&2, M.Entry<K, V>>, +k: K,
+  e: {M.HMap.entries.get(~K, ~V, ~eq, xs, k) == M.HMap.entries.get(~K, ~V, ~eq, ys, k) : Maybe<&2, V>}
+) -> {h.egc(~K, ~V, ~eq, c, val, xs, k) == h.egc(~K, ~V, ~eq, c, val, ys, k) : Maybe<&2, V>}:
+  match c:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+# eq(k, k2) is False when k2 != k.
+def h.ne_f.c(
+  ~K: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +k2: K, +k: K, ne: {k2 != k : K}, b: Bool, eb: {b == eq(k, k2) : Bool}
+) -> {b == False{} : Bool}:
+  match b:
+    case True{}:
+      exfalso({True{} == False{} : Bool},
+        ne(Equal.sym(K, k, k2, sound(k, k2, h.sb(True{}, eq(k, k2), eb)))))
+    case False{}:
+      {==}
+
+def h.ne_f(
+  ~K: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +k2: K, +k: K, ne: {k2 != k : K}
+) -> {eq(k, k2) == False{} : Bool}:
+  h.ne_f.c(~K, ~eq, ~sound, k2, k, ne, eq(k, k2), {==})
+
+# eq(k, key) is False when key is equal to k2 and eq(k, k2) is False.
+def h.nk(
+  ~K: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +k2: K, +key: K, +k: K, e: {eq(k2, key) == True{} : Bool}, ne: {eq(k, k2) == False{} : Bool}
+) -> {eq(k, key) == False{} : Bool}:
+  rw(K, z => {eq(k, z) == False{} : Bool}, key, k2, Equal.sym(K, k2, key, sound(k2, key, e)), ne)
+
+def h.eg_put_same.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K, +v: V, b: Bool, eb: {b == eq(k, key) : Bool},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), k) == Some{v} : Maybe<&2, V>}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, h.epc(~K, ~V, ~eq, b, key, val, rest, k, v), k) == Some{v} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      %eb : {h.egc(~K, ~V, ~eq, _, v, rest, k) == Some{v} : Maybe<&2, V>}
+      {==}
+    case False{}:
+      %eb : {h.egc(~K, ~V, ~eq, _, val, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), k) == Some{v} : Maybe<&2, V>}
+      ih
+
+def h.eg_put_same(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  xs: List<&2, M.Entry<K, V>>, +k: K, +v: V
+) -> {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, xs, k, v), k) == Some{v} : Maybe<&2, V>}:
+  match xs:
+    case Nil{}:
+      %h.sb(eq(k, k), True{}, refl(k)) : {h.egc(~K, ~V, ~eq, _, v, Nil{}, k) == Some{v} : Maybe<&2, V>}
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      h.eg_put_same.c(~K, ~V, ~eq, key, val, rest, k, v, eq(k, key), {==},
+        h.eg_put_same(~K, ~V, ~eq, ~refl, rest, k, v))
+
+def h.eg_put_other.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +key: K, +val: V, +rest: List<&2, M.Entry<K, V>>, +k2: K, +k: K, +v: V,
+  +ne: {eq(k, k2) == False{} : Bool}, b: Bool, eb: {b == eq(k2, key) : Bool},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k2, v), k)
+       == M.HMap.entries.get(~K, ~V, ~eq, rest, k) : Maybe<&2, V>}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, h.epc(~K, ~V, ~eq, b, key, val, rest, k2, v), k)
+      == h.egc(~K, ~V, ~eq, eq(k, key), val, rest, k) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      +nk = h.nk(~K, ~eq, ~sound, k2, key, k, h.sb(True{}, eq(k2, key), eb), ne)
+      %h.sb(eq(k, key), False{}, nk)
+        : {h.egc(~K, ~V, ~eq, _, v, rest, k) == h.egc(~K, ~V, ~eq, eq(k, key), val, rest, k) : Maybe<&2, V>}
+      %h.sb(eq(k, key), False{}, nk)
+        : {M.HMap.entries.get(~K, ~V, ~eq, rest, k) == h.egc(~K, ~V, ~eq, _, val, rest, k) : Maybe<&2, V>}
+      {==}
+    case False{}:
+      h.egc2(~K, ~V, ~eq, eq(k, key), val, M.HMap.entries.put(~K, ~V, ~eq, rest, k2, v), rest, k, ih)
+
+def h.eg_put_other(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  xs: List<&2, M.Entry<K, V>>, +k2: K, +k: K, +v: V, +ne: {eq(k, k2) == False{} : Bool}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, xs, k2, v), k)
+      == M.HMap.entries.get(~K, ~V, ~eq, xs, k) : Maybe<&2, V>}:
+  match xs:
+    case Nil{}:
+      %h.sb(eq(k, k2), False{}, ne) : {h.egc(~K, ~V, ~eq, _, v, Nil{}, k) == None{} : Maybe<&2, V>}
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      h.eg_put_other.c(~K, ~V, ~eq, ~sound, key, val, rest, k2, k, v, ne, eq(k2, key), {==},
+        h.eg_put_other(~K, ~V, ~eq, ~sound, rest, k2, k, v, ne))
+
+# A bucket whose keys all hash to o holds no key hashing elsewhere.
+def h.eg_none_hashed.c(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +key: K, +val: V, +rest: List<&2, M.Entry<K, V>>, +o: U32, +k: K,
+  hk: {U32.is_eq(o, hash(k)) == False{} : Bool}, hh: {U32.is_eq(o, hash(key)) == True{} : Bool},
+  b: Bool, eb: {b == eq(k, key) : Bool},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, rest, k) == None{} : Maybe<&2, V>}
+) -> {h.egc(~K, ~V, ~eq, b, val, rest, k) == None{} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      h.tf({h.egc(~K, ~V, ~eq, True{}, val, rest, k) == None{} : Maybe<&2, V>}, U32.is_eq(o, hash(k)),
+        rw(K, z => {U32.is_eq(o, hash(z)) == True{} : Bool}, k, key,
+          sound(k, key, h.sb(True{}, eq(k, key), eb)), hh),
+        hk)
+    case False{}:
+      ih
+
+def h.eg_none_hashed(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  xs: List<&2, M.Entry<K, V>>, +o: U32, +k: K, +hk: {U32.is_eq(o, hash(k)) == False{} : Bool},
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, xs, o) == True{} : Bool}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, xs, k) == None{} : Maybe<&2, V>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      +hs = hs
+      h.eg_none_hashed.c(~K, ~V, ~hash, ~eq, ~sound, key, val, rest, o, k, hk,
+        and_l(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs),
+        eq(k, key), {==},
+        h.eg_none_hashed(~K, ~V, ~hash, ~eq, ~sound, rest, o, k, hk,
+          and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
+
+def h.len(-K: Data, -V: Data, xs: List<&2, M.Entry<K, V>>) -> Nat:
+  List.length(&2, M.Entry<K, V>, xs)
+
+def h.elen_put_new.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K, +v: V, b: Bool,
+  miss: {h.egc(~K, ~V, ~eq, b, val, rest, k) == None{} : Maybe<&2, V>},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, rest, k) == None{} : Maybe<&2, V>}
+    -> {h.len(K, V, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)) == 1n+h.len(K, V, rest) : Nat}
+) -> {h.len(K, V, h.epc(~K, ~V, ~eq, b, key, val, rest, k, v)) == 1n+1n+h.len(K, V, rest) : Nat}:
+  match b:
+    case True{}:
+      h.some_none({h.len(K, V, M.Entry{key, v} <> rest) == 1n+1n+h.len(K, V, rest) : Nat}, V, val, miss)
+    case False{}:
+      Equal.cong(Nat, Nat, x => 1n+x, h.len(K, V, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)),
+        1n+h.len(K, V, rest), ih(miss))
+
+def h.elen_put_new(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K, +v: V,
+  miss: {M.HMap.entries.get(~K, ~V, ~eq, xs, k) == None{} : Maybe<&2, V>}
+) -> {h.len(K, V, M.HMap.entries.put(~K, ~V, ~eq, xs, k, v)) == 1n+h.len(K, V, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      h.elen_put_new.c(~K, ~V, ~eq, key, val, rest, k, v, eq(k, key), miss,
+        e => h.elen_put_new(~K, ~V, ~eq, rest, k, v, e))
+
+def h.elen_put_hit.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K, +v: V, -w: V, b: Bool,
+  hit: {h.egc(~K, ~V, ~eq, b, val, rest, k) == Some{w} : Maybe<&2, V>},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, rest, k) == Some{w} : Maybe<&2, V>}
+    -> {h.len(K, V, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)) == h.len(K, V, rest) : Nat}
+) -> {h.len(K, V, h.epc(~K, ~V, ~eq, b, key, val, rest, k, v)) == 1n+h.len(K, V, rest) : Nat}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      Equal.cong(Nat, Nat, x => 1n+x, h.len(K, V, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)),
+        h.len(K, V, rest), ih(hit))
+
+def h.elen_put_hit(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K, +v: V, -w: V,
+  hit: {M.HMap.entries.get(~K, ~V, ~eq, xs, k) == Some{w} : Maybe<&2, V>}
+) -> {h.len(K, V, M.HMap.entries.put(~K, ~V, ~eq, xs, k, v)) == h.len(K, V, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      h.none_some({h.len(K, V, M.HMap.entries.put(~K, ~V, ~eq, Nil{}, k, v)) == 0n : Nat}, V, w, hit)
+    case Con{M.Entry{+key, +val}, +rest}:
+      h.elen_put_hit.c(~K, ~V, ~eq, key, val, rest, k, v, w, eq(k, key), hit,
+        e => h.elen_put_hit(~K, ~V, ~eq, rest, k, v, w, e))
+
+def h.elen_del_hit.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K, -w: V, b: Bool,
+  hit: {h.egc(~K, ~V, ~eq, b, val, rest, k) == Some{w} : Maybe<&2, V>},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, rest, k) == Some{w} : Maybe<&2, V>}
+    -> {1n+h.len(K, V, M.HMap.entries.del(~K, ~V, ~eq, rest, k)) == h.len(K, V, rest) : Nat}
+) -> {1n+h.len(K, V, h.edc(~K, ~V, ~eq, b, key, val, rest, k)) == 1n+h.len(K, V, rest) : Nat}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      Equal.cong(Nat, Nat, x => 1n+x, 1n+h.len(K, V, M.HMap.entries.del(~K, ~V, ~eq, rest, k)),
+        h.len(K, V, rest), ih(hit))
+
+def h.elen_del_hit(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K, -w: V,
+  hit: {M.HMap.entries.get(~K, ~V, ~eq, xs, k) == Some{w} : Maybe<&2, V>}
+) -> {1n+h.len(K, V, M.HMap.entries.del(~K, ~V, ~eq, xs, k)) == h.len(K, V, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      h.none_some({1n == 0n : Nat}, V, w, hit)
+    case Con{M.Entry{+key, +val}, +rest}:
+      h.elen_del_hit.c(~K, ~V, ~eq, key, val, rest, k, w, eq(k, key), hit,
+        e => h.elen_del_hit(~K, ~V, ~eq, rest, k, w, e))
+
+def h.edel_miss.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K, b: Bool,
+  miss: {h.egc(~K, ~V, ~eq, b, val, rest, k) == None{} : Maybe<&2, V>},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, rest, k) == None{} : Maybe<&2, V>}
+    -> {M.HMap.entries.del(~K, ~V, ~eq, rest, k) == rest : List<&2, M.Entry<K, V>>}
+) -> {h.edc(~K, ~V, ~eq, b, key, val, rest, k) == M.Entry{key, val} <> rest : List<&2, M.Entry<K, V>>}:
+  match b:
+    case True{}:
+      h.some_none({rest == M.Entry{key, val} <> rest : List<&2, M.Entry<K, V>>}, V, val, miss)
+    case False{}:
+      Equal.cong(List<&2, M.Entry<K, V>>, List<&2, M.Entry<K, V>>, t => M.Entry{key, val} <> t,
+        M.HMap.entries.del(~K, ~V, ~eq, rest, k), rest, ih(miss))
+
+def h.edel_miss(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K,
+  miss: {M.HMap.entries.get(~K, ~V, ~eq, xs, k) == None{} : Maybe<&2, V>}
+) -> {M.HMap.entries.del(~K, ~V, ~eq, xs, k) == xs : List<&2, M.Entry<K, V>>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      h.edel_miss.c(~K, ~V, ~eq, key, val, rest, k, eq(k, key), miss,
+        e => h.edel_miss(~K, ~V, ~eq, rest, k, e))
+
+def h.absent_none(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K,
+  ab: {Laws.hmap_absent(~K, ~V, ~eq, xs, k) == True{} : Bool}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, xs, k) == None{} : Maybe<&2, V>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      +ab = ab
+      %h.sb(eq(k, key), False{},
+        h.not_t(eq(k, key), and_l(Bool.not(eq(k, key)), Laws.hmap_absent(~K, ~V, ~eq, rest, k), ab)))
+        : {h.egc(~K, ~V, ~eq, _, val, rest, k) == None{} : Maybe<&2, V>}
+      h.absent_none(~K, ~V, ~eq, rest, k,
+        and_r(Bool.not(eq(k, key)), Laws.hmap_absent(~K, ~V, ~eq, rest, k), ab))
+
+def h.eg_del_same.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +key: K, +val: V, +rest: List<&2, M.Entry<K, V>>, +k: K, b: Bool, eb: {b == eq(k, key) : Bool},
+  ab: {Laws.hmap_absent(~K, ~V, ~eq, rest, key) == True{} : Bool},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), k) == None{} : Maybe<&2, V>}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, h.edc(~K, ~V, ~eq, b, key, val, rest, k), k) == None{} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      h.absent_none(~K, ~V, ~eq, rest, k,
+        rw(K, z => {Laws.hmap_absent(~K, ~V, ~eq, rest, z) == True{} : Bool}, k, key,
+          sound(k, key, h.sb(True{}, eq(k, key), eb)), ab))
+    case False{}:
+      %eb : {h.egc(~K, ~V, ~eq, _, val, M.HMap.entries.del(~K, ~V, ~eq, rest, k), k) == None{} : Maybe<&2, V>}
+      ih
+
+def h.eg_del_same(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  xs: List<&2, M.Entry<K, V>>, +k: K,
+  ds: {Laws.hmap_distinct(~K, ~V, ~eq, xs) == True{} : Bool}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, xs, k), k) == None{} : Maybe<&2, V>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      +ds = ds
+      h.eg_del_same.c(~K, ~V, ~eq, ~sound, key, val, rest, k, eq(k, key), {==},
+        and_l(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds),
+        h.eg_del_same(~K, ~V, ~eq, ~sound, rest, k,
+          and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
+
+def h.eg_del_other.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +key: K, +val: V, +rest: List<&2, M.Entry<K, V>>, +k2: K, +k: K,
+  +ne: {eq(k, k2) == False{} : Bool}, b: Bool, eb: {b == eq(k2, key) : Bool},
+  ih: {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k2), k)
+       == M.HMap.entries.get(~K, ~V, ~eq, rest, k) : Maybe<&2, V>}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, h.edc(~K, ~V, ~eq, b, key, val, rest, k2), k)
+      == h.egc(~K, ~V, ~eq, eq(k, key), val, rest, k) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      %h.sb(eq(k, key), False{}, h.nk(~K, ~eq, ~sound, k2, key, k, h.sb(True{}, eq(k2, key), eb), ne))
+        : {M.HMap.entries.get(~K, ~V, ~eq, rest, k) == h.egc(~K, ~V, ~eq, _, val, rest, k) : Maybe<&2, V>}
+      {==}
+    case False{}:
+      h.egc2(~K, ~V, ~eq, eq(k, key), val, M.HMap.entries.del(~K, ~V, ~eq, rest, k2), rest, k, ih)
+
+def h.eg_del_other(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  xs: List<&2, M.Entry<K, V>>, +k2: K, +k: K, +ne: {eq(k, k2) == False{} : Bool}
+) -> {M.HMap.entries.get(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, xs, k2), k)
+      == M.HMap.entries.get(~K, ~V, ~eq, xs, k) : Maybe<&2, V>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      h.eg_del_other.c(~K, ~V, ~eq, ~sound, key, val, rest, k2, k, ne, eq(k2, key), {==},
+        h.eg_del_other(~K, ~V, ~eq, ~sound, rest, k2, k, ne))
+
+# eq is symmetric on False, given refl and sound.
+def h.eq_sym_f.c(
+  ~K: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +k: K, +key: K, e: {eq(k, key) == False{} : Bool}, b: Bool, eb: {b == eq(key, k) : Bool}
+) -> {b == False{} : Bool}:
+  match b:
+    case True{}:
+      h.tf({True{} == False{} : Bool}, eq(k, k), refl(k),
+        rw(K, z => {eq(k, z) == False{} : Bool}, k, key,
+          Equal.sym(K, key, k, sound(key, k, h.sb(True{}, eq(key, k), eb))), e))
+    case False{}:
+      {==}
+
+def h.eq_sym_f(
+  ~K: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +k: K, +key: K, e: {eq(k, key) == False{} : Bool}
+) -> {eq(key, k) == False{} : Bool}:
+  h.eq_sym_f.c(~K, ~eq, ~refl, ~sound, k, key, e, eq(key, k), {==})
+
+def h.absent_put.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key2: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +key: K, +k: K, +v: V, b: Bool,
+  +ab: {Laws.hmap_absent(~K, ~V, ~eq, M.Entry{key2, val} <> rest, key) == True{} : Bool},
+  ih: {Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), key) == True{} : Bool}
+) -> {Laws.hmap_absent(~K, ~V, ~eq, h.epc(~K, ~V, ~eq, b, key2, val, rest, k, v), key) == True{} : Bool}:
+  match b:
+    case True{}:
+      ab
+    case False{}:
+      and_i(Bool.not(eq(key, key2)),
+        Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), key),
+        and_l(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), ih)
+
+def h.absent_put(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  xs: List<&2, M.Entry<K, V>>, +key: K, +k: K, +v: V,
+  ab: {Laws.hmap_absent(~K, ~V, ~eq, xs, key) == True{} : Bool},
+  +nk: {eq(k, key) == False{} : Bool}
+) -> {Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, xs, k, v), key) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      %h.sb(eq(key, k), False{}, h.eq_sym_f(~K, ~eq, ~refl, ~sound, k, key, nk))
+        : {Bool.and(Bool.not(_), True{}) == True{} : Bool}
+      {==}
+    case Con{M.Entry{+key2, +val}, +rest}:
+      +ab = ab
+      h.absent_put.c(~K, ~V, ~eq, key2, val, rest, key, k, v, eq(k, key2), ab,
+        h.absent_put(~K, ~V, ~eq, ~refl, ~sound, rest, key, k, v,
+          and_r(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), nk))
+
+def h.distinct_put.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +key: K, +val: V, +rest: List<&2, M.Entry<K, V>>, +k: K, +v: V, b: Bool, eb: {b == eq(k, key) : Bool},
+  +ds: {Laws.hmap_distinct(~K, ~V, ~eq, M.Entry{key, val} <> rest) == True{} : Bool},
+  ih: {Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)) == True{} : Bool}
+) -> {Laws.hmap_distinct(~K, ~V, ~eq, h.epc(~K, ~V, ~eq, b, key, val, rest, k, v)) == True{} : Bool}:
+  match b:
+    case True{}:
+      ds
+    case False{}:
+      and_i(Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), key),
+        Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)),
+        h.absent_put(~K, ~V, ~eq, ~refl, ~sound, rest, key, k, v,
+          and_l(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds),
+          h.sb(False{}, eq(k, key), eb)),
+        ih)
+
+def h.distinct_put(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  xs: List<&2, M.Entry<K, V>>, +k: K, +v: V,
+  ds: {Laws.hmap_distinct(~K, ~V, ~eq, xs) == True{} : Bool}
+) -> {Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, xs, k, v)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      +ds = ds
+      h.distinct_put.c(~K, ~V, ~eq, ~refl, ~sound, key, val, rest, k, v, eq(k, key), {==}, ds,
+        h.distinct_put(~K, ~V, ~eq, ~refl, ~sound, rest, k, v,
+          and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
+
+def h.hashed_put.c(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +o: U32, +k: K, +v: V, b: Bool,
+  +hs: {Laws.hmap_hashed(~K, ~V, ~hash, M.Entry{key, val} <> rest, o) == True{} : Bool},
+  ih: {Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), o) == True{} : Bool}
+) -> {Laws.hmap_hashed(~K, ~V, ~hash, h.epc(~K, ~V, ~eq, b, key, val, rest, k, v), o) == True{} : Bool}:
+  match b:
+    case True{}:
+      hs
+    case False{}:
+      and_i(U32.is_eq(o, hash(key)),
+        Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), o),
+        and_l(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs), ih)
+
+def h.hashed_put(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  xs: List<&2, M.Entry<K, V>>, +o: U32, +k: K, +v: V,
+  +hk: {U32.is_eq(o, hash(k)) == True{} : Bool},
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, xs, o) == True{} : Bool}
+) -> {Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, xs, k, v), o) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      %h.sb(U32.is_eq(o, hash(k)), True{}, hk) : {Bool.and(_, True{}) == True{} : Bool}
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      +hs = hs
+      h.hashed_put.c(~K, ~V, ~hash, ~eq, key, val, rest, o, k, v, eq(k, key), hs,
+        h.hashed_put(~K, ~V, ~hash, ~eq, rest, o, k, v, hk,
+          and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
+
+def h.absent_del.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key2: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +key: K, +k: K, b: Bool,
+  +ab: {Laws.hmap_absent(~K, ~V, ~eq, M.Entry{key2, val} <> rest, key) == True{} : Bool},
+  ih: {Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), key) == True{} : Bool}
+) -> {Laws.hmap_absent(~K, ~V, ~eq, h.edc(~K, ~V, ~eq, b, key2, val, rest, k), key) == True{} : Bool}:
+  match b:
+    case True{}:
+      and_r(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab)
+    case False{}:
+      and_i(Bool.not(eq(key, key2)),
+        Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), key),
+        and_l(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), ih)
+
+def h.absent_del(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +key: K, +k: K,
+  ab: {Laws.hmap_absent(~K, ~V, ~eq, xs, key) == True{} : Bool}
+) -> {Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, xs, k), key) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key2, +val}, +rest}:
+      +ab = ab
+      h.absent_del.c(~K, ~V, ~eq, key2, val, rest, key, k, eq(k, key2), ab,
+        h.absent_del(~K, ~V, ~eq, rest, key, k,
+          and_r(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab)))
+
+def h.distinct_del.c(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +k: K, b: Bool,
+  +ds: {Laws.hmap_distinct(~K, ~V, ~eq, M.Entry{key, val} <> rest) == True{} : Bool},
+  ih: {Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k)) == True{} : Bool}
+) -> {Laws.hmap_distinct(~K, ~V, ~eq, h.edc(~K, ~V, ~eq, b, key, val, rest, k)) == True{} : Bool}:
+  match b:
+    case True{}:
+      and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)
+    case False{}:
+      and_i(Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), key),
+        Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k)),
+        h.absent_del(~K, ~V, ~eq, rest, key, k,
+          and_l(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)),
+        ih)
+
+def h.distinct_del(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K,
+  ds: {Laws.hmap_distinct(~K, ~V, ~eq, xs) == True{} : Bool}
+) -> {Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, xs, k)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      +ds = ds
+      h.distinct_del.c(~K, ~V, ~eq, key, val, rest, k, eq(k, key), ds,
+        h.distinct_del(~K, ~V, ~eq, rest, k,
+          and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
+
+def h.hashed_del.c(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +key: K, +val: V,
+  +rest: List<&2, M.Entry<K, V>>, +o: U32, +k: K, b: Bool,
+  +hs: {Laws.hmap_hashed(~K, ~V, ~hash, M.Entry{key, val} <> rest, o) == True{} : Bool},
+  ih: {Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, rest, k), o) == True{} : Bool}
+) -> {Laws.hmap_hashed(~K, ~V, ~hash, h.edc(~K, ~V, ~eq, b, key, val, rest, k), o) == True{} : Bool}:
+  match b:
+    case True{}:
+      and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)
+    case False{}:
+      and_i(U32.is_eq(o, hash(key)),
+        Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, rest, k), o),
+        and_l(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs), ih)
+
+def h.hashed_del(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  xs: List<&2, M.Entry<K, V>>, +o: U32, +k: K,
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, xs, o) == True{} : Bool}
+) -> {Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, xs, k), o) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+key, +val}, +rest}:
+      +hs = hs
+      h.hashed_del.c(~K, ~V, ~hash, ~eq, key, val, rest, o, k, eq(k, key), hs,
+        h.hashed_del(~K, ~V, ~hash, ~eq, rest, o, k,
+          and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
+
+# --- tries -----------------------------------------------------------------------
+
+def h.G(~K: Data, ~V: Data, ~eq: K -> K -> Bool, +n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K) -> Maybe<&2, V>:
+  M.HMap.get.go(~K, ~V, ~eq, n, mask, m, hk, k)
+
+def h.P(~K: Data, ~V: Data, ~eq: K -> K -> Bool, +n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K, +v: V) -> M.HMap<K, V>:
+  M.HMap.put.go(~K, ~V, ~eq, n, mask, m, hk, k, v)
+
+def h.D(~K: Data, ~V: Data, ~eq: K -> K -> Bool, +n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K) -> M.HMap<K, V>:
+  M.HMap.del.go(~K, ~V, ~eq, n, mask, m, hk, k)
+
+def h.S(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +n: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V
+) -> M.HMap<K, V>:
+  M.HMap.split(~K, ~V, ~eq, n, mask, o, es, hk, k, v)
+
+def h.EG(~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K) -> Maybe<&2, V>:
+  M.HMap.entries.get(~K, ~V, ~eq, xs, k)
+
+def h.WF(~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +n: Nat, m: M.HMap<K, V>) -> Bool:
+  Laws.hmap_wf.go(~K, ~V, ~hash, ~eq, n, m)
+
+def h.Sz(-K: Data, -V: Data, m: M.HMap<K, V>) -> Nat:
+  M.HMap.size(K, V, m)
+
+# The branches of put.go, split, and del.go, with their test as a parameter.
+def h.pl(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b: Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V
+) -> M.HMap<K, V>:
+  M.HMap.bool(M.HMap<K, V>, b,
+    u => M.HLeaf{o, M.HMap.entries.put(~K, ~V, ~eq, es, k, v)},
+    u => M.HMap.split(~K, ~V, ~eq, 1n+p, mask, o, es, hk, k, v))
+
+def h.pb(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b: Bool, +p: Nat, +mask: U32,
+  +lo: M.HMap<K, V>, +hi: M.HMap<K, V>, +hk: U32, +k: K, +v: V
+) -> M.HMap<K, V>:
+  M.HMap.bool(M.HMap<K, V>, b,
+    u => M.HBranch{M.HMap.put.go(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v), hi},
+    u => M.HBranch{lo, M.HMap.put.go(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)})
+
+def h.sp(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b1: Bool, +b2: Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V
+) -> M.HMap<K, V>:
+  M.HMap.bool(M.HMap<K, V>, b1,
+    u => M.HMap.bool(M.HMap<K, V>, b2,
+      x => M.HBranch{M.HMap.split(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v), M.HNil{}},
+      x => M.HBranch{M.HNil{}, M.HMap.split(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v)}),
+    u => M.HMap.split.side(K, V, b2, M.HLeaf{o, es}, M.HLeaf{hk, [M.Entry{k, v}]}))
+
+def h.dl(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b: Bool, +o: U32, +es: List<&2, M.Entry<K, V>>, +k: K
+) -> M.HMap<K, V>:
+  M.HMap.bool(M.HMap<K, V>, b,
+    u => M.HMap.leaf(K, V, o, M.HMap.entries.del(~K, ~V, ~eq, es, k)),
+    u => M.HLeaf{o, es})
+
+def h.db(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, b: Bool, +p: Nat, +mask: U32,
+  +lo: M.HMap<K, V>, +hi: M.HMap<K, V>, +hk: U32, +k: K
+) -> M.HMap<K, V>:
+  M.HMap.bool(M.HMap<K, V>, b,
+    u => M.HMap.join(K, V, M.HMap.del.go(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k), hi),
+    u => M.HMap.join(K, V, lo, M.HMap.del.go(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)))
+
+# get on a bucket, as get.go sees it above the last level.
+def h.R(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +k: K
+) -> Maybe<&2, V>:
+  M.HMap.bool(Maybe<&2, V>, U32.is_eq(o, hash(k)), u => M.HMap.entries.get(~K, ~V, ~eq, es, k), u => None{})
+
+def h.bool_none(-V: Data, b: Bool, -x: Maybe<&2, V>, e: {x == None{} : Maybe<&2, V>})
+  -> {M.HMap.bool(Maybe<&2, V>, b, u => x, u => None{}) == None{} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      e
+    case False{}:
+      {==}
+
+def h.bnn(-V: Data, b: Bool, -x: Maybe<&2, V>, +e: {x == None{} : Maybe<&2, V>})
+  -> {None{} == M.HMap.bool(Maybe<&2, V>, b, u => x, u => x) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      Equal.sym(Maybe<&2, V>, x, None{}, e)
+    case False{}:
+      Equal.sym(Maybe<&2, V>, x, None{}, e)
+
+def h.bool_l(-A: Type, b: Bool, -x1: A, -x2: A, -y: A, e: {x1 == x2 : A})
+  -> {M.HMap.bool(A, b, u => x1, u => y) == M.HMap.bool(A, b, u => x2, u => y) : A}:
+  match b:
+    case True{}:
+      e
+    case False{}:
+      {==}
+
+def h.bool_r(-A: Type, b: Bool, -x: A, -y1: A, -y2: A, e: {y1 == y2 : A})
+  -> {M.HMap.bool(A, b, u => x, u => y1) == M.HMap.bool(A, b, u => x, u => y2) : A}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      e
+
+def h.bsel(
+  -A: Type, b: Bool, -x: A, -y: A, -z: A,
+  ht: {b == True{} : Bool} -> {x == z : A}, hf: {b == False{} : Bool} -> {y == z : A}
+) -> {M.HMap.bool(A, b, u => x, u => y) == z : A}:
+  match b:
+    case True{}:
+      ht({==})
+    case False{}:
+      hf({==})
+
+def h.cnc(c: Bool, e: {c == Bool.not(c) : Bool}) -> Empty:
+  match c:
+    case True{}:
+      absurd_b(Equal.sym(Bool, True{}, False{}, e))
+    case False{}:
+      absurd_b(e)
+
+# Routing facts about hashes and a mask.
+def h.u_ne0.c(
+  +x: U32, +y: U32, e1: {U32.is_eq(x, y) == False{} : Bool}, e2: {U32.is_eq(x, 0) == True{} : Bool},
+  b: Bool, eb: {b == U32.is_eq(y, 0) : Bool}
+) -> {b == False{} : Bool}:
+  match b:
+    case True{}:
+      h.tf({True{} == False{} : Bool}, U32.is_eq(x, y),
+        rw(U32, z => {U32.is_eq(x, z) == True{} : Bool}, y, 0,
+          h.u_sound(y, 0, h.sb(True{}, U32.is_eq(y, 0), eb)), e2),
+        e1)
+    case False{}:
+      {==}
+
+def h.u_ne0(
+  +x: U32, +y: U32, e1: {U32.is_eq(x, y) == False{} : Bool}, e2: {U32.is_eq(x, 0) == True{} : Bool}
+) -> {U32.is_eq(y, 0) == False{} : Bool}:
+  h.u_ne0.c(x, y, e1, e2, U32.is_eq(y, 0), {==})
+
+def h.u_route_t.c(
+  +o: U32, +hk: U32, +mask: U32, ob: {h.onebit(mask) == True{} : Bool},
+  e1: {U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)) == False{} : Bool},
+  e2: {U32.is_eq((o .&. mask : U32), 0) == False{} : Bool},
+  b: Bool, eb: {b == U32.is_eq((hk .&. mask : U32), 0) : Bool}
+) -> {b == True{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      h.tf({False{} == True{} : Bool}, U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)),
+        h.route(o, hk, mask, ob, e2, h.sb(False{}, U32.is_eq((hk .&. mask : U32), 0), eb)),
+        e1)
+
+def h.u_route_t(
+  +o: U32, +hk: U32, +mask: U32, ob: {h.onebit(mask) == True{} : Bool},
+  e1: {U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)) == False{} : Bool},
+  e2: {U32.is_eq((o .&. mask : U32), 0) == False{} : Bool}
+) -> {U32.is_eq((hk .&. mask : U32), 0) == True{} : Bool}:
+  h.u_route_t.c(o, hk, mask, ob, e1, e2, U32.is_eq((hk .&. mask : U32), 0), {==})
+
+def h.u_same0(
+  +o: U32, +hk: U32, +mask: U32, -c: Bool,
+  e1: {U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)) == True{} : Bool},
+  e2: {U32.is_eq((o .&. mask : U32), 0) == c : Bool}
+) -> {U32.is_eq((hk .&. mask : U32), 0) == c : Bool}:
+  rw(U32, z => {U32.is_eq(z, 0) == c : Bool}, (hk .&. mask : U32), (o .&. mask : U32),
+    Equal.sym(U32, (o .&. mask : U32), (hk .&. mask : U32),
+      h.u_sound((o .&. mask : U32), (hk .&. mask : U32), e1)),
+    e2)
+
+def h.u_diff.c(
+  +o: U32, +hk: U32, +mask: U32, +c: Bool,
+  e2: {U32.is_eq((o .&. mask : U32), 0) == c : Bool},
+  ed: {U32.is_eq((hk .&. mask : U32), 0) == Bool.not(c) : Bool},
+  b: Bool, eb: {b == U32.is_eq(o, hk) : Bool}
+) -> {b == False{} : Bool}:
+  match b:
+    case True{}:
+      +e3 = rw(U32, z => {U32.is_eq((z .&. mask : U32), 0) == c : Bool}, hk, o,
+        Equal.sym(U32, o, hk, h.u_sound(o, hk, h.sb(True{}, U32.is_eq(o, hk), eb))), e2)
+      exfalso({True{} == False{} : Bool},
+        h.cnc(c, Equal.trans(Bool, c, U32.is_eq((hk .&. mask : U32), 0), Bool.not(c),
+          Equal.sym(Bool, U32.is_eq((hk .&. mask : U32), 0), c, e3), ed)))
+    case False{}:
+      {==}
+
+def h.u_diff(
+  +o: U32, +hk: U32, +mask: U32, +c: Bool,
+  e2: {U32.is_eq((o .&. mask : U32), 0) == c : Bool},
+  ed: {U32.is_eq((hk .&. mask : U32), 0) == Bool.not(c) : Bool}
+) -> {U32.is_eq(o, hk) == False{} : Bool}:
+  h.u_diff.c(o, hk, mask, c, e2, ed, U32.is_eq(o, hk), {==})
+
+# Unfolding get.go by a known test, simple side first.
+def h.g_lo(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, e: {U32.is_eq((hk .&. mask : U32), 0) == True{} : Bool}
+) -> {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)
+      == h.G(~K, ~V, ~eq, 1n+p, mask, M.HBranch{lo, hi}, hk, k) : Maybe<&2, V>}:
+  %h.sb(U32.is_eq((hk .&. mask : U32), 0), True{}, e)
+    : {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)
+       == M.HMap.bool(Maybe<&2, V>, _, u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+         u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) : Maybe<&2, V>}
+  {==}
+
+def h.g_hi(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, e: {U32.is_eq((hk .&. mask : U32), 0) == False{} : Bool}
+) -> {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)
+      == h.G(~K, ~V, ~eq, 1n+p, mask, M.HBranch{lo, hi}, hk, k) : Maybe<&2, V>}:
+  %h.sb(U32.is_eq((hk .&. mask : U32), 0), False{}, e)
+    : {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)
+       == M.HMap.bool(Maybe<&2, V>, _, u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+         u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) : Maybe<&2, V>}
+  {==}
+
+def h.g_lf_t(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, e: {U32.is_eq(o, hk) == True{} : Bool}
+) -> {h.EG(~K, ~V, ~eq, es, k) == h.G(~K, ~V, ~eq, 1n+p, mask, M.HLeaf{o, es}, hk, k) : Maybe<&2, V>}:
+  %h.sb(U32.is_eq(o, hk), True{}, e)
+    : {h.EG(~K, ~V, ~eq, es, k)
+       == M.HMap.bool(Maybe<&2, V>, _, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) : Maybe<&2, V>}
+  {==}
+
+def h.gnil(~K: Data, ~V: Data, ~eq: K -> K -> Bool, n: Nat, +mask: U32, +hk: U32, +k: K)
+  -> {h.G(~K, ~V, ~eq, n, mask, M.HNil{}, hk, k) == None{} : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+def h.g_nil_leaf(~K: Data, ~V: Data, ~eq: K -> K -> Bool, n: Nat, +mask: U32, +o: U32, +hk: U32, +k: K)
+  -> {h.G(~K, ~V, ~eq, n, mask, M.HLeaf{o, Nil{}}, hk, k) == h.G(~K, ~V, ~eq, n, mask, M.HNil{}, hk, k) : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      h.bool_none(V, U32.is_eq(o, hk), None{}, {==})
+
+def h.get_leaf(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +n: Nat, +mask: U32, +o: U32,
+  xs: List<&2, M.Entry<K, V>>, +hk: U32, +k: K
+) -> {h.G(~K, ~V, ~eq, n, mask, M.HLeaf{o, xs}, hk, k)
+      == h.G(~K, ~V, ~eq, n, mask, M.HMap.leaf(K, V, o, xs), hk, k) : Maybe<&2, V>}:
+  match xs:
+    case Nil{}:
+      h.g_nil_leaf(~K, ~V, ~eq, n, mask, o, hk, k)
+    case Con{e, rest}:
+      {==}
+
+def h.size_leaf(-K: Data, -V: Data, +o: U32, xs: List<&2, M.Entry<K, V>>)
+  -> {h.len(K, V, xs) == h.Sz(K, V, M.HMap.leaf(K, V, o, xs)) : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{e, rest}:
+      {==}
+
+def h.get_join(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, lo: M.HMap<K, V>,
+  hi: M.HMap<K, V>, +hk: U32, +k: K
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, M.HBranch{lo, hi}, hk, k)
+      == h.G(~K, ~V, ~eq, 1n+p, mask, M.HMap.join(K, V, lo, hi), hk, k) : Maybe<&2, V>}:
+  match lo:
+    case M.HNil{}:
+      match hi:
+        case M.HNil{}:
+          Equal.sym(Maybe<&2, V>, None{},
+            M.HMap.bool(Maybe<&2, V>, U32.is_eq((hk .&. mask : U32), 0),
+              u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), M.HNil{}, hk, k),
+              u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), M.HNil{}, hk, k)),
+            h.bnn(V, U32.is_eq((hk .&. mask : U32), 0),
+              h.G(~K, ~V, ~eq, p, (mask << 1n : U32), M.HNil{}, hk, k),
+              h.gnil(~K, ~V, ~eq, p, (mask << 1n : U32), hk, k)))
+        case M.HLeaf{a, b}:
+          {==}
+        case M.HBranch{a, b}:
+          {==}
+    case M.HLeaf{a, b}:
+      {==}
+    case M.HBranch{a, b}:
+      {==}
+
+def h.size_join(-K: Data, -V: Data, lo: M.HMap<K, V>, hi: M.HMap<K, V>)
+  -> {Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) == h.Sz(K, V, M.HMap.join(K, V, lo, hi)) : Nat}:
+  match lo:
+    case M.HNil{}:
+      match hi:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{a, b}:
+          {==}
+        case M.HBranch{a, b}:
+          {==}
+    case M.HLeaf{a, b}:
+      {==}
+    case M.HBranch{a, b}:
+      {==}
+
+def h.wf_nil(~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, n: Nat)
+  -> {h.WF(~K, ~V, ~hash, ~eq, n, M.HNil{}) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+def h.wf_leaf(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +n: Nat, +o: U32,
+  xs: List<&2, M.Entry<K, V>>, w: {h.WF(~K, ~V, ~hash, ~eq, n, M.HLeaf{o, xs}) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, n, M.HMap.leaf(K, V, o, xs)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      h.wf_nil(~K, ~V, ~hash, ~eq, n)
+    case Con{e, rest}:
+      w
+
+def h.wf_join(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, lo: M.HMap<K, V>,
+  hi: M.HMap<K, V>, wl: {h.WF(~K, ~V, ~hash, ~eq, p, lo) == True{} : Bool},
+  wh: {h.WF(~K, ~V, ~hash, ~eq, p, hi) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, M.HMap.join(K, V, lo, hi)) == True{} : Bool}:
+  match lo:
+    case M.HNil{}:
+      match hi:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+a, +b}:
+          and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{a, b}), wl, wh)
+        case M.HBranch{+a, +b}:
+          and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), h.WF(~K, ~V, ~hash, ~eq, p, M.HBranch{a, b}), wl, wh)
+    case M.HLeaf{+a, +b}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{a, b}), h.WF(~K, ~V, ~hash, ~eq, p, hi), wl, wh)
+    case M.HBranch{+a, +b}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HBranch{a, b}), h.WF(~K, ~V, ~hash, ~eq, p, hi), wl, wh)
+
+# get after put, same key.
+def h.fresh_get(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  p: Nat, +mm: U32, +hk: U32, +k: K, +v: V
+) -> {h.G(~K, ~V, ~eq, p, mm, M.HLeaf{hk, [M.Entry{k, v}]}, hk, k) == Some{v} : Maybe<&2, V>}:
+  match p:
+    case 0n:
+      h.eg_put_same(~K, ~V, ~eq, ~refl, Nil{}, k, v)
+    case 1n+q:
+      %h.g_lf_t(~K, ~V, ~eq, q, mm, hk, [M.Entry{k, v}], hk, k, h.u_refl(hk)) : {_ == Some{v} : Maybe<&2, V>}
+      h.eg_put_same(~K, ~V, ~eq, ~refl, Nil{}, k, v)
+
+def h.split_same.b(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V, ob: {h.onebit(mask) == True{} : Bool},
+  b1: Bool, b2: Bool,
+  e1: {b1 == U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)) : Bool},
+  e2: {b2 == U32.is_eq((o .&. mask : U32), 0) : Bool},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>},
+  fr: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), M.HLeaf{hk, [M.Entry{k, v}]}, hk, k) == Some{v} : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.sp(~K, ~V, ~eq, b1, b2, p, mask, o, es, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>}:
+  match b1 b2:
+    case True{} True{}:
+      %h.g_lo(~K, ~V, ~eq, p, mask, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v), M.HNil{}, hk, k,
+        h.u_same0(o, hk, mask, True{},
+          h.sb(True{}, U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)), e1),
+          h.sb(True{}, U32.is_eq((o .&. mask : U32), 0), e2)))
+        : {_ == Some{v} : Maybe<&2, V>}
+      ih
+    case True{} False{}:
+      %h.g_hi(~K, ~V, ~eq, p, mask, M.HNil{}, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v), hk, k,
+        h.u_same0(o, hk, mask, False{},
+          h.sb(True{}, U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)), e1),
+          h.sb(False{}, U32.is_eq((o .&. mask : U32), 0), e2)))
+        : {_ == Some{v} : Maybe<&2, V>}
+      ih
+    case False{} True{}:
+      %h.g_hi(~K, ~V, ~eq, p, mask, M.HLeaf{o, es}, M.HLeaf{hk, [M.Entry{k, v}]}, hk, k,
+        h.u_ne0((o .&. mask : U32), (hk .&. mask : U32),
+          h.sb(False{}, U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)), e1),
+          h.sb(True{}, U32.is_eq((o .&. mask : U32), 0), e2)))
+        : {_ == Some{v} : Maybe<&2, V>}
+      fr
+    case False{} False{}:
+      %h.g_lo(~K, ~V, ~eq, p, mask, M.HLeaf{hk, [M.Entry{k, v}]}, M.HLeaf{o, es}, hk, k,
+        h.u_route_t(o, hk, mask, ob,
+          h.sb(False{}, U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)), e1),
+          h.sb(False{}, U32.is_eq((o .&. mask : U32), 0), e2)))
+        : {_ == Some{v} : Maybe<&2, V>}
+      fr
+
+def h.split_same(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  n: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V,
+  +ob: {h.onebit(mask) == True{} : Bool}
+) -> {h.G(~K, ~V, ~eq, n, mask, h.S(~K, ~V, ~eq, n, mask, o, es, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      h.eg_put_same(~K, ~V, ~eq, ~refl, es, k, v)
+    case 1n+(+p):
+      h.split_same.b(~K, ~V, ~eq, p, mask, o, es, hk, k, v, ob,
+        U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)), U32.is_eq((o .&. mask : U32), 0), {==}, {==},
+        h.split_same(~K, ~V, ~eq, ~refl, p, (mask << 1n : U32), o, es, hk, k, v, h.onebit_shl(mask, ob)),
+        h.fresh_get(~K, ~V, ~eq, ~refl, p, (mask << 1n : U32), hk, k, v))
+
+def h.gp_same.lf(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  +p: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V,
+  b: Bool, eb: {b == U32.is_eq(o, hk) : Bool},
+  sp: {h.G(~K, ~V, ~eq, 1n+p, mask, h.S(~K, ~V, ~eq, 1n+p, mask, o, es, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.pl(~K, ~V, ~eq, b, p, mask, o, es, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      %h.g_lf_t(~K, ~V, ~eq, p, mask, o, M.HMap.entries.put(~K, ~V, ~eq, es, k, v), hk, k,
+        h.sb(True{}, U32.is_eq(o, hk), eb)) : {_ == Some{v} : Maybe<&2, V>}
+      h.eg_put_same(~K, ~V, ~eq, ~refl, es, k, v)
+    case False{}:
+      sp
+
+def h.gp_same.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, +v: V,
+  b: Bool, eb: {b == U32.is_eq((hk .&. mask : U32), 0) : Bool},
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.pb(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      %h.g_lo(~K, ~V, ~eq, p, mask, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v), hi, hk, k,
+        h.sb(True{}, U32.is_eq((hk .&. mask : U32), 0), eb)) : {_ == Some{v} : Maybe<&2, V>}
+      il
+    case False{}:
+      %h.g_hi(~K, ~V, ~eq, p, mask, lo, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v), hk, k,
+        h.sb(False{}, U32.is_eq((hk .&. mask : U32), 0), eb)) : {_ == Some{v} : Maybe<&2, V>}
+      ih
+
+def h.gp_same(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K, +v: V,
+  +ob: {h.onebit(mask) == True{} : Bool}, +wf: {h.WF(~K, ~V, ~hash, ~eq, n, m) == True{} : Bool}
+) -> {h.G(~K, ~V, ~eq, n, mask, h.P(~K, ~V, ~eq, n, mask, m, hk, k, v), hk, k) == Some{v} : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          h.eg_put_same(~K, ~V, ~eq, ~refl, Nil{}, k, v)
+        case M.HLeaf{o, es}:
+          h.eg_put_same(~K, ~V, ~eq, ~refl, es, k, v)
+        case M.HBranch{lo, hi}:
+          exfalso({h.G(~K, ~V, ~eq, 0n, mask, M.HBranch{lo, hi}, hk, k) == Some{v} : Maybe<&2, V>}, absurd_b(wf))
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          %h.g_lf_t(~K, ~V, ~eq, p, mask, hk, [M.Entry{k, v}], hk, k, h.u_refl(hk)) : {_ == Some{v} : Maybe<&2, V>}
+          h.eg_put_same(~K, ~V, ~eq, ~refl, Nil{}, k, v)
+        case M.HLeaf{+o, +es}:
+          h.gp_same.lf(~K, ~V, ~eq, ~refl, p, mask, o, es, hk, k, v, U32.is_eq(o, hk), {==},
+            h.split_same(~K, ~V, ~eq, ~refl, 1n+p, mask, o, es, hk, k, v, ob))
+        case M.HBranch{+lo, +hi}:
+          h.gp_same.br(~K, ~V, ~eq, p, mask, lo, hi, hk, k, v, U32.is_eq((hk .&. mask : U32), 0), {==},
+            h.gp_same(~K, ~V, ~hash, ~eq, ~refl, p, (mask << 1n : U32), lo, hk, k, v, h.onebit_shl(mask, ob),
+              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+            h.gp_same(~K, ~V, ~hash, ~eq, ~refl, p, (mask << 1n : U32), hi, hk, k, v, h.onebit_shl(mask, ob),
+              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+
+# get after put, other key.
+def h.r_eg.c(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +o: U32, +es: List<&2, M.Entry<K, V>>, +k: K,
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  b: Bool, eb: {b == U32.is_eq(o, hash(k)) : Bool}
+) -> {h.EG(~K, ~V, ~eq, es, k)
+      == M.HMap.bool(Maybe<&2, V>, b, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      h.eg_none_hashed(~K, ~V, ~hash, ~eq, ~sound, es, o, k, h.sb(False{}, U32.is_eq(o, hash(k)), eb), hs)
+
+def h.r_eg(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +o: U32, +es: List<&2, M.Entry<K, V>>, +k: K,
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool}
+) -> {h.EG(~K, ~V, ~eq, es, k) == h.R(~K, ~V, ~hash, ~eq, o, es, k) : Maybe<&2, V>}:
+  h.r_eg.c(~K, ~V, ~hash, ~eq, ~sound, o, es, k, hs, U32.is_eq(o, hash(k)), {==})
+
+def h.r_none(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +k: K, ne: {U32.is_eq(o, hash(k)) == False{} : Bool}
+) -> {None{} == h.R(~K, ~V, ~hash, ~eq, o, es, k) : Maybe<&2, V>}:
+  %h.sb(U32.is_eq(o, hash(k)), False{}, ne)
+    : {None{} == M.HMap.bool(Maybe<&2, V>, _, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) : Maybe<&2, V>}
+  {==}
+
+def h.g_leaf_r(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  p: Nat, +mm: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +k: K,
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool}
+) -> {h.G(~K, ~V, ~eq, p, mm, M.HLeaf{o, es}, hash(k), k) == h.R(~K, ~V, ~hash, ~eq, o, es, k) : Maybe<&2, V>}:
+  match p:
+    case 0n:
+      h.r_eg(~K, ~V, ~hash, ~eq, ~sound, o, es, k, hs)
+    case 1n+q:
+      {==}
+
+def h.g_fresh_none(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  p: Nat, +mm: U32, +h2: U32, +k2: K, +hk: U32, +k: K, +v: V, +nk: {eq(k, k2) == False{} : Bool}
+) -> {h.G(~K, ~V, ~eq, p, mm, M.HLeaf{h2, [M.Entry{k2, v}]}, hk, k) == None{} : Maybe<&2, V>}:
+  match p:
+    case 0n:
+      h.eg_put_other(~K, ~V, ~eq, ~sound, Nil{}, k2, k, v, nk)
+    case 1n+q:
+      h.bool_none(V, U32.is_eq(h2, hk), h.EG(~K, ~V, ~eq, [M.Entry{k2, v}], k),
+        h.eg_put_other(~K, ~V, ~eq, ~sound, Nil{}, k2, k, v, nk))
+
+def h.split_other.b(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +p: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +h2: U32, +k2: K, +k: K, +v: V,
+  +hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  +nk: {eq(k, k2) == False{} : Bool},
+  b1: Bool, b2: Bool,
+  e2: {b2 == U32.is_eq((o .&. mask : U32), 0) : Bool},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, h2, k2, v), hash(k), k)
+       == h.R(~K, ~V, ~hash, ~eq, o, es, k) : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.sp(~K, ~V, ~eq, b1, b2, p, mask, o, es, h2, k2, v), hash(k), k)
+      == h.R(~K, ~V, ~hash, ~eq, o, es, k) : Maybe<&2, V>}:
+  match b1 b2:
+    case True{} True{}:
+      +mm = (mask << 1n : U32)
+      +d = U32.is_eq((hash(k) .&. mask : U32), 0)
+      +sub = h.S(~K, ~V, ~eq, p, mm, o, es, h2, k2, v)
+      +old = {M.HLeaf{o, es} : M.HMap<K, V>}
+      +fresh = {M.HLeaf{h2, [M.Entry{k2, v}]} : M.HMap<K, V>}
+      +r = h.R(~K, ~V, ~hash, ~eq, o, es, k)
+      h.bsel(Maybe<&2, V>, d, h.G(~K, ~V, ~eq, p, mm, sub, hash(k), k),
+        h.G(~K, ~V, ~eq, p, mm, M.HNil{}, hash(k), k), r,
+        ed => ih,
+        ed => Equal.trans(Maybe<&2, V>, h.G(~K, ~V, ~eq, p, mm, M.HNil{}, hash(k), k), None{}, r,
+          h.gnil(~K, ~V, ~eq, p, mm, hash(k), k),
+          h.r_none(~K, ~V, ~hash, ~eq, o, es, k,
+            h.u_diff(o, hash(k), mask, True{}, h.sb(True{}, U32.is_eq((o .&. mask : U32), 0), e2), ed))))
+    case True{} False{}:
+      +mm = (mask << 1n : U32)
+      +d = U32.is_eq((hash(k) .&. mask : U32), 0)
+      +sub = h.S(~K, ~V, ~eq, p, mm, o, es, h2, k2, v)
+      +old = {M.HLeaf{o, es} : M.HMap<K, V>}
+      +fresh = {M.HLeaf{h2, [M.Entry{k2, v}]} : M.HMap<K, V>}
+      +r = h.R(~K, ~V, ~hash, ~eq, o, es, k)
+      h.bsel(Maybe<&2, V>, d, h.G(~K, ~V, ~eq, p, mm, M.HNil{}, hash(k), k),
+        h.G(~K, ~V, ~eq, p, mm, sub, hash(k), k), r,
+        ed => Equal.trans(Maybe<&2, V>, h.G(~K, ~V, ~eq, p, mm, M.HNil{}, hash(k), k), None{}, r,
+          h.gnil(~K, ~V, ~eq, p, mm, hash(k), k),
+          h.r_none(~K, ~V, ~hash, ~eq, o, es, k,
+            h.u_diff(o, hash(k), mask, False{}, h.sb(False{}, U32.is_eq((o .&. mask : U32), 0), e2), ed))),
+        ed => ih)
+    case False{} True{}:
+      +mm = (mask << 1n : U32)
+      +d = U32.is_eq((hash(k) .&. mask : U32), 0)
+      +sub = h.S(~K, ~V, ~eq, p, mm, o, es, h2, k2, v)
+      +old = {M.HLeaf{o, es} : M.HMap<K, V>}
+      +fresh = {M.HLeaf{h2, [M.Entry{k2, v}]} : M.HMap<K, V>}
+      +r = h.R(~K, ~V, ~hash, ~eq, o, es, k)
+      h.bsel(Maybe<&2, V>, d, h.G(~K, ~V, ~eq, p, mm, old, hash(k), k),
+        h.G(~K, ~V, ~eq, p, mm, fresh, hash(k), k), r,
+        ed => h.g_leaf_r(~K, ~V, ~hash, ~eq, ~sound, p, mm, o, es, k, hs),
+        ed => Equal.trans(Maybe<&2, V>, h.G(~K, ~V, ~eq, p, mm, fresh, hash(k), k), None{}, r,
+          h.g_fresh_none(~K, ~V, ~eq, ~sound, p, mm, h2, k2, hash(k), k, v, nk),
+          h.r_none(~K, ~V, ~hash, ~eq, o, es, k,
+            h.u_diff(o, hash(k), mask, True{}, h.sb(True{}, U32.is_eq((o .&. mask : U32), 0), e2), ed))))
+    case False{} False{}:
+      +mm = (mask << 1n : U32)
+      +d = U32.is_eq((hash(k) .&. mask : U32), 0)
+      +sub = h.S(~K, ~V, ~eq, p, mm, o, es, h2, k2, v)
+      +old = {M.HLeaf{o, es} : M.HMap<K, V>}
+      +fresh = {M.HLeaf{h2, [M.Entry{k2, v}]} : M.HMap<K, V>}
+      +r = h.R(~K, ~V, ~hash, ~eq, o, es, k)
+      h.bsel(Maybe<&2, V>, d, h.G(~K, ~V, ~eq, p, mm, fresh, hash(k), k),
+        h.G(~K, ~V, ~eq, p, mm, old, hash(k), k), r,
+        ed => Equal.trans(Maybe<&2, V>, h.G(~K, ~V, ~eq, p, mm, fresh, hash(k), k), None{}, r,
+          h.g_fresh_none(~K, ~V, ~eq, ~sound, p, mm, h2, k2, hash(k), k, v, nk),
+          h.r_none(~K, ~V, ~hash, ~eq, o, es, k,
+            h.u_diff(o, hash(k), mask, False{}, h.sb(False{}, U32.is_eq((o .&. mask : U32), 0), e2), ed))),
+        ed => h.g_leaf_r(~K, ~V, ~hash, ~eq, ~sound, p, mm, o, es, k, hs))
+
+def h.split_other(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  n: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +h2: U32, +k2: K, +k: K, +v: V,
+  +hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  +nk: {eq(k, k2) == False{} : Bool}
+) -> {h.G(~K, ~V, ~eq, n, mask, h.S(~K, ~V, ~eq, n, mask, o, es, h2, k2, v), hash(k), k)
+      == h.R(~K, ~V, ~hash, ~eq, o, es, k) : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      Equal.trans(Maybe<&2, V>, h.EG(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, es, k2, v), k),
+        h.EG(~K, ~V, ~eq, es, k), h.R(~K, ~V, ~hash, ~eq, o, es, k),
+        h.eg_put_other(~K, ~V, ~eq, ~sound, es, k2, k, v, nk),
+        h.r_eg(~K, ~V, ~hash, ~eq, ~sound, o, es, k, hs))
+    case 1n+(+p):
+      h.split_other.b(~K, ~V, ~hash, ~eq, ~sound, p, mask, o, es, h2, k2, k, v, hs, nk,
+        U32.is_eq((o .&. mask : U32), (h2 .&. mask : U32)), U32.is_eq((o .&. mask : U32), 0), {==},
+        h.split_other(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), o, es, h2, k2, k, v, hs, nk))
+
+def h.gp_other.lf(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +p: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +h2: U32, +k2: K, +k: K, +v: V,
+  +nk: {eq(k, k2) == False{} : Bool}, b: Bool,
+  sp: {h.G(~K, ~V, ~eq, 1n+p, mask, h.S(~K, ~V, ~eq, 1n+p, mask, o, es, h2, k2, v), hash(k), k)
+       == h.G(~K, ~V, ~eq, 1n+p, mask, M.HLeaf{o, es}, hash(k), k) : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.pl(~K, ~V, ~eq, b, p, mask, o, es, h2, k2, v), hash(k), k)
+      == h.G(~K, ~V, ~eq, 1n+p, mask, M.HLeaf{o, es}, hash(k), k) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      h.bool_l(Maybe<&2, V>, U32.is_eq(o, hash(k)),
+        h.EG(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, es, k2, v), k), h.EG(~K, ~V, ~eq, es, k), None{},
+        h.eg_put_other(~K, ~V, ~eq, ~sound, es, k2, k, v, nk))
+    case False{}:
+      sp
+
+def h.gp_other.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +h2: U32, +k2: K, +hk: U32, +k: K, +v: V, b: Bool,
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, h2, k2, v), hk, k)
+       == h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k) : Maybe<&2, V>},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, h2, k2, v), hk, k)
+       == h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k) : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.pb(~K, ~V, ~eq, b, p, mask, lo, hi, h2, k2, v), hk, k)
+      == h.G(~K, ~V, ~eq, 1n+p, mask, M.HBranch{lo, hi}, hk, k) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      h.bool_l(Maybe<&2, V>, U32.is_eq((hk .&. mask : U32), 0),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, h2, k2, v), hk, k),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k), il)
+    case False{}:
+      h.bool_r(Maybe<&2, V>, U32.is_eq((hk .&. mask : U32), 0),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, h2, k2, v), hk, k),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k), ih)
+
+def h.gp_other(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  n: Nat, +mask: U32, m: M.HMap<K, V>, +h2: U32, +k2: K, +k: K, +v: V,
+  +wf: {h.WF(~K, ~V, ~hash, ~eq, n, m) == True{} : Bool}, +nk: {eq(k, k2) == False{} : Bool}
+) -> {h.G(~K, ~V, ~eq, n, mask, h.P(~K, ~V, ~eq, n, mask, m, h2, k2, v), hash(k), k)
+      == h.G(~K, ~V, ~eq, n, mask, m, hash(k), k) : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          h.eg_put_other(~K, ~V, ~eq, ~sound, Nil{}, k2, k, v, nk)
+        case M.HLeaf{o, es}:
+          h.eg_put_other(~K, ~V, ~eq, ~sound, es, k2, k, v, nk)
+        case M.HBranch{lo, hi}:
+          {==}
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          h.bool_none(V, U32.is_eq(h2, hash(k)), h.EG(~K, ~V, ~eq, [M.Entry{k2, v}], k),
+            h.eg_put_other(~K, ~V, ~eq, ~sound, Nil{}, k2, k, v, nk))
+        case M.HLeaf{+o, +es}:
+          h.gp_other.lf(~K, ~V, ~hash, ~eq, ~sound, p, mask, o, es, h2, k2, k, v, nk, U32.is_eq(o, h2),
+            h.split_other(~K, ~V, ~hash, ~eq, ~sound, 1n+p, mask, o, es, h2, k2, k, v,
+              and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf), nk))
+        case M.HBranch{+lo, +hi}:
+          h.gp_other.br(~K, ~V, ~eq, p, mask, lo, hi, h2, k2, hash(k), k, v, U32.is_eq((h2 .&. mask : U32), 0),
+            h.gp_other(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), lo, h2, k2, k, v,
+              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), nk),
+            h.gp_other(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), hi, h2, k2, k, v,
+              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), nk))
+
+# get after del.
+def h.gd_same.lf(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, b: Bool, eb: {b == U32.is_eq(o, hk) : Bool},
+  ed: {h.EG(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, es, k), k) == None{} : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.dl(~K, ~V, ~eq, b, o, es, k), hk, k) == None{} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      %h.get_leaf(~K, ~V, ~eq, 1n+p, mask, o, M.HMap.entries.del(~K, ~V, ~eq, es, k), hk, k) : {_ == None{} : Maybe<&2, V>}
+      h.bool_none(V, U32.is_eq(o, hk), h.EG(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, es, k), k), ed)
+    case False{}:
+      %eb : {M.HMap.bool(Maybe<&2, V>, _, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == None{} : Maybe<&2, V>}
+      {==}
+
+def h.gd_same.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, b: Bool, eb: {b == U32.is_eq((hk .&. mask : U32), 0) : Bool},
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k), hk, k) == None{} : Maybe<&2, V>},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k), hk, k) == None{} : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.db(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k), hk, k) == None{} : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      +dlo = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)
+      +dhi = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)
+      %h.get_join(~K, ~V, ~eq, p, mask, dlo, hi, hk, k) : {_ == None{} : Maybe<&2, V>}
+      %h.g_lo(~K, ~V, ~eq, p, mask, dlo, hi, hk, k, h.sb(True{}, U32.is_eq((hk .&. mask : U32), 0), eb))
+        : {_ == None{} : Maybe<&2, V>}
+      il
+    case False{}:
+      +dlo = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)
+      +dhi = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)
+      %h.get_join(~K, ~V, ~eq, p, mask, lo, dhi, hk, k) : {_ == None{} : Maybe<&2, V>}
+      %h.g_hi(~K, ~V, ~eq, p, mask, lo, dhi, hk, k, h.sb(False{}, U32.is_eq((hk .&. mask : U32), 0), eb))
+        : {_ == None{} : Maybe<&2, V>}
+      ih
+
+def h.gd_same(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K,
+  +wf: {h.WF(~K, ~V, ~hash, ~eq, n, m) == True{} : Bool}
+) -> {h.G(~K, ~V, ~eq, n, mask, h.D(~K, ~V, ~eq, n, mask, m, hk, k), hk, k) == None{} : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          %h.get_leaf(~K, ~V, ~eq, 0n, mask, o, M.HMap.entries.del(~K, ~V, ~eq, es, k), hk, k) : {_ == None{} : Maybe<&2, V>}
+          h.eg_del_same(~K, ~V, ~eq, ~sound, es, k, wf)
+        case M.HBranch{lo, hi}:
+          {==}
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          h.gd_same.lf(~K, ~V, ~eq, p, mask, o, es, hk, k, U32.is_eq(o, hk), {==},
+            h.eg_del_same(~K, ~V, ~eq, ~sound, es, k,
+              and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf)))
+        case M.HBranch{+lo, +hi}:
+          h.gd_same.br(~K, ~V, ~eq, p, mask, lo, hi, hk, k, U32.is_eq((hk .&. mask : U32), 0), {==},
+            h.gd_same(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), lo, hk, k,
+              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+            h.gd_same(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), hi, hk, k,
+              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+
+def h.gd_other.lf(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +p: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +k2: K, +hk: U32, +k: K,
+  +nk: {eq(k, k2) == False{} : Bool}, b: Bool
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.dl(~K, ~V, ~eq, b, o, es, k2), hk, k)
+      == h.G(~K, ~V, ~eq, 1n+p, mask, M.HLeaf{o, es}, hk, k) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      %h.get_leaf(~K, ~V, ~eq, 1n+p, mask, o, M.HMap.entries.del(~K, ~V, ~eq, es, k2), hk, k)
+        : {_ == h.G(~K, ~V, ~eq, 1n+p, mask, M.HLeaf{o, es}, hk, k) : Maybe<&2, V>}
+      h.bool_l(Maybe<&2, V>, U32.is_eq(o, hk),
+        h.EG(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, es, k2), k), h.EG(~K, ~V, ~eq, es, k), None{},
+        h.eg_del_other(~K, ~V, ~eq, ~sound, es, k2, k, nk))
+    case False{}:
+      {==}
+
+def h.gd_other.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +h2: U32, +k2: K, +hk: U32, +k: K, b: Bool,
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, h2, k2), hk, k)
+       == h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k) : Maybe<&2, V>},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, h2, k2), hk, k)
+       == h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k) : Maybe<&2, V>}
+) -> {h.G(~K, ~V, ~eq, 1n+p, mask, h.db(~K, ~V, ~eq, b, p, mask, lo, hi, h2, k2), hk, k)
+      == h.G(~K, ~V, ~eq, 1n+p, mask, M.HBranch{lo, hi}, hk, k) : Maybe<&2, V>}:
+  match b:
+    case True{}:
+      +dlo = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, h2, k2)
+      +dhi = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, h2, k2)
+      +d = U32.is_eq((hk .&. mask : U32), 0)
+      %h.get_join(~K, ~V, ~eq, p, mask, dlo, hi, hk, k)
+        : {_ == h.G(~K, ~V, ~eq, 1n+p, mask, M.HBranch{lo, hi}, hk, k) : Maybe<&2, V>}
+      h.bool_l(Maybe<&2, V>, d, h.G(~K, ~V, ~eq, p, (mask << 1n : U32), dlo, hk, k),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k), h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k), il)
+    case False{}:
+      +dlo = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, h2, k2)
+      +dhi = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, h2, k2)
+      +d = U32.is_eq((hk .&. mask : U32), 0)
+      %h.get_join(~K, ~V, ~eq, p, mask, lo, dhi, hk, k)
+        : {_ == h.G(~K, ~V, ~eq, 1n+p, mask, M.HBranch{lo, hi}, hk, k) : Maybe<&2, V>}
+      h.bool_r(Maybe<&2, V>, d, h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+        h.G(~K, ~V, ~eq, p, (mask << 1n : U32), dhi, hk, k), h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k), ih)
+
+def h.gd_other(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  n: Nat, +mask: U32, m: M.HMap<K, V>, +h2: U32, +k2: K, +hk: U32, +k: K,
+  +nk: {eq(k, k2) == False{} : Bool}
+) -> {h.G(~K, ~V, ~eq, n, mask, h.D(~K, ~V, ~eq, n, mask, m, h2, k2), hk, k)
+      == h.G(~K, ~V, ~eq, n, mask, m, hk, k) : Maybe<&2, V>}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          %h.get_leaf(~K, ~V, ~eq, 0n, mask, o, M.HMap.entries.del(~K, ~V, ~eq, es, k2), hk, k)
+            : {_ == h.EG(~K, ~V, ~eq, es, k) : Maybe<&2, V>}
+          h.eg_del_other(~K, ~V, ~eq, ~sound, es, k2, k, nk)
+        case M.HBranch{lo, hi}:
+          {==}
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          h.gd_other.lf(~K, ~V, ~eq, ~sound, p, mask, o, es, k2, hk, k, nk, U32.is_eq(o, h2))
+        case M.HBranch{+lo, +hi}:
+          h.gd_other.br(~K, ~V, ~eq, p, mask, lo, hi, h2, k2, hk, k, U32.is_eq((h2 .&. mask : U32), 0),
+            h.gd_other(~K, ~V, ~eq, ~sound, p, (mask << 1n : U32), lo, h2, k2, hk, k, nk),
+            h.gd_other(~K, ~V, ~eq, ~sound, p, (mask << 1n : U32), hi, h2, k2, hk, k, nk))
+
+
+# size after put and del.
+def h.split_size.b(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V, b1: Bool, b2: Bool,
+  ih: {h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v)) == 1n+h.len(K, V, es) : Nat}
+) -> {h.Sz(K, V, h.sp(~K, ~V, ~eq, b1, b2, p, mask, o, es, hk, k, v)) == 1n+h.len(K, V, es) : Nat}:
+  match b1 b2:
+    case True{} True{}:
+      Ord.tr(Nat.add(h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v)), 0n),
+        h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v)), 1n+h.len(K, V, es),
+        Ord.add_zero_right(h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v))), ih)
+    case True{} False{}:
+      ih
+    case False{} True{}:
+      Ord.tr(Nat.add(h.len(K, V, es), 1n), 1n+Nat.add(h.len(K, V, es), 0n), 1n+h.len(K, V, es),
+        Ord.add_succ_right(h.len(K, V, es), 0n),
+        Equal.cong(Nat, Nat, x => 1n+x, Nat.add(h.len(K, V, es), 0n), h.len(K, V, es),
+          Ord.add_zero_right(h.len(K, V, es))))
+    case False{} False{}:
+      {==}
+
+def h.split_size(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, n: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V,
+  +miss: {h.EG(~K, ~V, ~eq, es, k) == None{} : Maybe<&2, V>}
+) -> {h.Sz(K, V, h.S(~K, ~V, ~eq, n, mask, o, es, hk, k, v)) == 1n+h.len(K, V, es) : Nat}:
+  match n:
+    case 0n:
+      h.elen_put_new(~K, ~V, ~eq, es, k, v, miss)
+    case 1n+(+p):
+      h.split_size.b(~K, ~V, ~eq, p, mask, o, es, hk, k, v,
+        U32.is_eq((o .&. mask : U32), (hk .&. mask : U32)), U32.is_eq((o .&. mask : U32), 0),
+        h.split_size(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v, miss))
+
+def h.sz_put_new.lf(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +p: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +k: K, +v: V,
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  b: Bool, eb: {b == U32.is_eq(o, hash(k)) : Bool},
+  miss: {h.R(~K, ~V, ~hash, ~eq, o, es, k) == None{} : Maybe<&2, V>}
+) -> {h.Sz(K, V, h.pl(~K, ~V, ~eq, b, p, mask, o, es, hash(k), k, v)) == 1n+h.len(K, V, es) : Nat}:
+  match b:
+    case True{}:
+      h.elen_put_new(~K, ~V, ~eq, es, k, v,
+        rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == None{} : Maybe<&2, V>},
+          True{}, U32.is_eq(o, hash(k)), eb, miss))
+    case False{}:
+      h.split_size(~K, ~V, ~eq, 1n+p, mask, o, es, hash(k), k, v,
+        h.eg_none_hashed(~K, ~V, ~hash, ~eq, ~sound, es, o, k, h.sb(False{}, U32.is_eq(o, hash(k)), eb), hs))
+
+def h.sz_put_new.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, +v: V, b: Bool, eb: {b == U32.is_eq((hk .&. mask : U32), 0) : Bool},
+  miss: {M.HMap.bool(Maybe<&2, V>, U32.is_eq((hk .&. mask : U32), 0),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == None{} : Maybe<&2, V>},
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k) == None{} : Maybe<&2, V>}
+    -> {h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)) == 1n+h.Sz(K, V, lo) : Nat},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k) == None{} : Maybe<&2, V>}
+    -> {h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)) == 1n+h.Sz(K, V, hi) : Nat}
+) -> {h.Sz(K, V, h.pb(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k, v))
+      == 1n+Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}:
+  match b:
+    case True{}:
+      Ord.cong_add(h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)), 1n+h.Sz(K, V, lo),
+        h.Sz(K, V, hi), h.Sz(K, V, hi),
+        il(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == None{} : Maybe<&2, V>},
+          True{}, U32.is_eq((hk .&. mask : U32), 0), eb, miss)),
+        {==})
+    case False{}:
+      Ord.tr(Nat.add(h.Sz(K, V, lo), h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v))),
+        Nat.add(h.Sz(K, V, lo), 1n+h.Sz(K, V, hi)), 1n+Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)),
+        Ord.cong_add(h.Sz(K, V, lo), h.Sz(K, V, lo),
+          h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)), 1n+h.Sz(K, V, hi), {==},
+          ih(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+              u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+              u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == None{} : Maybe<&2, V>},
+            False{}, U32.is_eq((hk .&. mask : U32), 0), eb, miss))),
+        Ord.add_succ_right(h.Sz(K, V, lo), h.Sz(K, V, hi)))
+
+def h.sz_put_new(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  n: Nat, +mask: U32, m: M.HMap<K, V>, +k: K, +v: V,
+  +wf: {h.WF(~K, ~V, ~hash, ~eq, n, m) == True{} : Bool},
+  miss: {h.G(~K, ~V, ~eq, n, mask, m, hash(k), k) == None{} : Maybe<&2, V>}
+) -> {h.Sz(K, V, h.P(~K, ~V, ~eq, n, mask, m, hash(k), k, v)) == 1n+h.Sz(K, V, m) : Nat}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{o, es}:
+          h.elen_put_new(~K, ~V, ~eq, es, k, v, miss)
+        case M.HBranch{lo, hi}:
+          exfalso({h.Sz(K, V, M.HBranch{lo, hi}) == 1n+h.Sz(K, V, M.HBranch{lo, hi}) : Nat}, absurd_b(wf))
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          h.sz_put_new.lf(~K, ~V, ~hash, ~eq, ~sound, p, mask, o, es, k, v,
+            and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            U32.is_eq(o, hash(k)), {==}, miss)
+        case M.HBranch{+lo, +hi}:
+          h.sz_put_new.br(~K, ~V, ~eq, p, mask, lo, hi, hash(k), k, v, U32.is_eq((hash(k) .&. mask : U32), 0), {==},
+            miss,
+            e => h.sz_put_new(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), lo, k, v,
+              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), e),
+            e => h.sz_put_new(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), hi, k, v,
+              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), e))
+
+def h.sz_put_hit.lf(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, +v: V, -w: V,
+  b: Bool, eb: {b == U32.is_eq(o, hk) : Bool},
+  hit: {M.HMap.bool(Maybe<&2, V>, U32.is_eq(o, hk), u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == Some{w} : Maybe<&2, V>}
+) -> {h.Sz(K, V, h.pl(~K, ~V, ~eq, b, p, mask, o, es, hk, k, v)) == h.len(K, V, es) : Nat}:
+  match b:
+    case True{}:
+      h.elen_put_hit(~K, ~V, ~eq, es, k, v, w,
+        rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == Some{w} : Maybe<&2, V>},
+          True{}, U32.is_eq(o, hk), eb, hit))
+    case False{}:
+      h.none_some({h.Sz(K, V, h.S(~K, ~V, ~eq, 1n+p, mask, o, es, hk, k, v)) == h.len(K, V, es) : Nat}, V, w,
+        rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == Some{w} : Maybe<&2, V>},
+          False{}, U32.is_eq(o, hk), eb, hit))
+
+def h.sz_put_hit.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, +v: V, -w: V, b: Bool, eb: {b == U32.is_eq((hk .&. mask : U32), 0) : Bool},
+  hit: {M.HMap.bool(Maybe<&2, V>, U32.is_eq((hk .&. mask : U32), 0),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == Some{w} : Maybe<&2, V>},
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k) == Some{w} : Maybe<&2, V>}
+    -> {h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)) == h.Sz(K, V, lo) : Nat},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k) == Some{w} : Maybe<&2, V>}
+    -> {h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)) == h.Sz(K, V, hi) : Nat}
+) -> {h.Sz(K, V, h.pb(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k, v))
+      == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}:
+  match b:
+    case True{}:
+      Ord.cong_add(h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)), h.Sz(K, V, lo),
+        h.Sz(K, V, hi), h.Sz(K, V, hi),
+        il(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == Some{w} : Maybe<&2, V>},
+          True{}, U32.is_eq((hk .&. mask : U32), 0), eb, hit)),
+        {==})
+    case False{}:
+      Ord.cong_add(h.Sz(K, V, lo), h.Sz(K, V, lo),
+        h.Sz(K, V, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)), h.Sz(K, V, hi), {==},
+        ih(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == Some{w} : Maybe<&2, V>},
+          False{}, U32.is_eq((hk .&. mask : U32), 0), eb, hit)))
+
+def h.sz_put_hit(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K, +v: V, -w: V,
+  hit: {h.G(~K, ~V, ~eq, n, mask, m, hk, k) == Some{w} : Maybe<&2, V>}
+) -> {h.Sz(K, V, h.P(~K, ~V, ~eq, n, mask, m, hk, k, v)) == h.Sz(K, V, m) : Nat}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          h.none_some({h.Sz(K, V, M.HLeaf{hk, [M.Entry{k, v}]}) == 0n : Nat}, V, w, hit)
+        case M.HLeaf{o, es}:
+          h.elen_put_hit(~K, ~V, ~eq, es, k, v, w, hit)
+        case M.HBranch{lo, hi}:
+          {==}
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          h.none_some({h.Sz(K, V, M.HLeaf{hk, [M.Entry{k, v}]}) == 0n : Nat}, V, w, hit)
+        case M.HLeaf{+o, +es}:
+          h.sz_put_hit.lf(~K, ~V, ~eq, p, mask, o, es, hk, k, v, w, U32.is_eq(o, hk), {==}, hit)
+        case M.HBranch{+lo, +hi}:
+          h.sz_put_hit.br(~K, ~V, ~eq, p, mask, lo, hi, hk, k, v, w, U32.is_eq((hk .&. mask : U32), 0), {==}, hit,
+            e => h.sz_put_hit(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v, w, e),
+            e => h.sz_put_hit(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v, w, e))
+
+def h.sz_del_hit.lf(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K, -w: V,
+  b: Bool, eb: {b == U32.is_eq(o, hk) : Bool},
+  hit: {M.HMap.bool(Maybe<&2, V>, U32.is_eq(o, hk), u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == Some{w} : Maybe<&2, V>}
+) -> {1n+h.Sz(K, V, h.dl(~K, ~V, ~eq, b, o, es, k)) == h.len(K, V, es) : Nat}:
+  match b:
+    case True{}:
+      %h.size_leaf(K, V, o, M.HMap.entries.del(~K, ~V, ~eq, es, k)) : {1n+_ == h.len(K, V, es) : Nat}
+      h.elen_del_hit(~K, ~V, ~eq, es, k, w,
+        rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == Some{w} : Maybe<&2, V>},
+          True{}, U32.is_eq(o, hk), eb, hit))
+    case False{}:
+      h.none_some({1n+h.len(K, V, es) == h.len(K, V, es) : Nat}, V, w,
+        rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == Some{w} : Maybe<&2, V>},
+          False{}, U32.is_eq(o, hk), eb, hit))
+
+def h.sz_del_hit.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, -w: V, b: Bool, eb: {b == U32.is_eq((hk .&. mask : U32), 0) : Bool},
+  hit: {M.HMap.bool(Maybe<&2, V>, U32.is_eq((hk .&. mask : U32), 0),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == Some{w} : Maybe<&2, V>},
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k) == Some{w} : Maybe<&2, V>}
+    -> {1n+h.Sz(K, V, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)) == h.Sz(K, V, lo) : Nat},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k) == Some{w} : Maybe<&2, V>}
+    -> {1n+h.Sz(K, V, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == h.Sz(K, V, hi) : Nat}
+) -> {1n+h.Sz(K, V, h.db(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k))
+      == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}:
+  match b:
+    case True{}:
+      +dlo = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)
+      %h.size_join(K, V, dlo, hi) : {1n+_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
+      Ord.cong_add(1n+h.Sz(K, V, dlo), h.Sz(K, V, lo), h.Sz(K, V, hi), h.Sz(K, V, hi),
+        il(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == Some{w} : Maybe<&2, V>},
+          True{}, U32.is_eq((hk .&. mask : U32), 0), eb, hit)),
+        {==})
+    case False{}:
+      +dhi = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)
+      %h.size_join(K, V, lo, dhi) : {1n+_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
+      %Ord.add_succ_right(h.Sz(K, V, lo), h.Sz(K, V, dhi)) : {_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
+      Ord.cong_add(h.Sz(K, V, lo), h.Sz(K, V, lo), 1n+h.Sz(K, V, dhi), h.Sz(K, V, hi), {==},
+        ih(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == Some{w} : Maybe<&2, V>},
+          False{}, U32.is_eq((hk .&. mask : U32), 0), eb, hit)))
+
+def h.sz_del_hit(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K, -w: V,
+  hit: {h.G(~K, ~V, ~eq, n, mask, m, hk, k) == Some{w} : Maybe<&2, V>}
+) -> {1n+h.Sz(K, V, h.D(~K, ~V, ~eq, n, mask, m, hk, k)) == h.Sz(K, V, m) : Nat}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          h.none_some({1n == 0n : Nat}, V, w, hit)
+        case M.HLeaf{+o, +es}:
+          %h.size_leaf(K, V, o, M.HMap.entries.del(~K, ~V, ~eq, es, k)) : {1n+_ == h.len(K, V, es) : Nat}
+          h.elen_del_hit(~K, ~V, ~eq, es, k, w, hit)
+        case M.HBranch{+lo, +hi}:
+          h.none_some({1n+h.Sz(K, V, M.HBranch{lo, hi}) == h.Sz(K, V, M.HBranch{lo, hi}) : Nat}, V, w, hit)
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          h.none_some({1n == 0n : Nat}, V, w, hit)
+        case M.HLeaf{+o, +es}:
+          h.sz_del_hit.lf(~K, ~V, ~eq, o, es, hk, k, w, U32.is_eq(o, hk), {==}, hit)
+        case M.HBranch{+lo, +hi}:
+          h.sz_del_hit.br(~K, ~V, ~eq, p, mask, lo, hi, hk, k, w, U32.is_eq((hk .&. mask : U32), 0), {==}, hit,
+            e => h.sz_del_hit(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, w, e),
+            e => h.sz_del_hit(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, w, e))
+
+def h.sz_del_miss.lf(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +hk: U32, +k: K,
+  b: Bool, eb: {b == U32.is_eq(o, hk) : Bool},
+  miss: {M.HMap.bool(Maybe<&2, V>, U32.is_eq(o, hk), u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == None{} : Maybe<&2, V>}
+) -> {h.Sz(K, V, h.dl(~K, ~V, ~eq, b, o, es, k)) == h.len(K, V, es) : Nat}:
+  match b:
+    case True{}:
+      %h.size_leaf(K, V, o, M.HMap.entries.del(~K, ~V, ~eq, es, k)) : {_ == h.len(K, V, es) : Nat}
+      Equal.cong(List<&2, M.Entry<K, V>>, Nat, xs => h.len(K, V, xs), M.HMap.entries.del(~K, ~V, ~eq, es, k), es,
+        h.edel_miss(~K, ~V, ~eq, es, k,
+          rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z, u => h.EG(~K, ~V, ~eq, es, k), u => None{}) == None{} : Maybe<&2, V>},
+            True{}, U32.is_eq(o, hk), eb, miss)))
+    case False{}:
+      {==}
+
+def h.sz_del_miss.br(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, b: Bool, eb: {b == U32.is_eq((hk .&. mask : U32), 0) : Bool},
+  miss: {M.HMap.bool(Maybe<&2, V>, U32.is_eq((hk .&. mask : U32), 0),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+    u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == None{} : Maybe<&2, V>},
+  il: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k) == None{} : Maybe<&2, V>}
+    -> {h.Sz(K, V, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)) == h.Sz(K, V, lo) : Nat},
+  ih: {h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k) == None{} : Maybe<&2, V>}
+    -> {h.Sz(K, V, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == h.Sz(K, V, hi) : Nat}
+) -> {h.Sz(K, V, h.db(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k))
+      == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}:
+  match b:
+    case True{}:
+      +dlo = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)
+      %h.size_join(K, V, dlo, hi) : {_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
+      Ord.cong_add(h.Sz(K, V, dlo), h.Sz(K, V, lo), h.Sz(K, V, hi), h.Sz(K, V, hi),
+        il(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == None{} : Maybe<&2, V>},
+          True{}, U32.is_eq((hk .&. mask : U32), 0), eb, miss)),
+        {==})
+    case False{}:
+      +dhi = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)
+      %h.size_join(K, V, lo, dhi) : {_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
+      Ord.cong_add(h.Sz(K, V, lo), h.Sz(K, V, lo), h.Sz(K, V, dhi), h.Sz(K, V, hi), {==},
+        ih(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
+            u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == None{} : Maybe<&2, V>},
+          False{}, U32.is_eq((hk .&. mask : U32), 0), eb, miss)))
+
+def h.sz_del_miss(
+  ~K: Data, ~V: Data, ~eq: K -> K -> Bool, n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K,
+  miss: {h.G(~K, ~V, ~eq, n, mask, m, hk, k) == None{} : Maybe<&2, V>}
+) -> {h.Sz(K, V, h.D(~K, ~V, ~eq, n, mask, m, hk, k)) == h.Sz(K, V, m) : Nat}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          %h.size_leaf(K, V, o, M.HMap.entries.del(~K, ~V, ~eq, es, k)) : {_ == h.len(K, V, es) : Nat}
+          Equal.cong(List<&2, M.Entry<K, V>>, Nat, xs => h.len(K, V, xs), M.HMap.entries.del(~K, ~V, ~eq, es, k), es,
+            h.edel_miss(~K, ~V, ~eq, es, k, miss))
+        case M.HBranch{lo, hi}:
+          {==}
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          h.sz_del_miss.lf(~K, ~V, ~eq, o, es, hk, k, U32.is_eq(o, hk), {==}, miss)
+        case M.HBranch{+lo, +hi}:
+          h.sz_del_miss.br(~K, ~V, ~eq, p, mask, lo, hi, hk, k, U32.is_eq((hk .&. mask : U32), 0), {==}, miss,
+            e => h.sz_del_miss(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, e),
+            e => h.sz_del_miss(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, e))
+
+# put and del keep the map well formed.
+def h.wf_fresh(~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, p: Nat, +k: K, +v: V)
+  -> {h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{hash(k), [M.Entry{k, v}]}) == True{} : Bool}:
+  match p:
+    case 0n:
+      {==}
+    case 1n+q:
+      %h.sb(U32.is_eq(hash(k), hash(k)), True{}, h.u_refl(hash(k)))
+        : {Bool.and(Bool.and(_, True{}), True{}) == True{} : Bool}
+      {==}
+
+def h.wf_leaf_o(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, p: Nat, +o: U32,
+  +es: List<&2, M.Entry<K, V>>,
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  ds: {Laws.hmap_distinct(~K, ~V, ~eq, es) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{o, es}) == True{} : Bool}:
+  match p:
+    case 0n:
+      ds
+    case 1n+q:
+      and_i(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), hs, ds)
+
+def h.split_wf.b(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +k: K, +v: V,
+  +hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  +ds: {Laws.hmap_distinct(~K, ~V, ~eq, es) == True{} : Bool},
+  b1: Bool, b2: Bool,
+  ih: {h.WF(~K, ~V, ~hash, ~eq, p, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hash(k), k, v)) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.sp(~K, ~V, ~eq, b1, b2, p, mask, o, es, hash(k), k, v)) == True{} : Bool}:
+  match b1 b2:
+    case True{} True{}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hash(k), k, v)),
+        h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), ih, h.wf_nil(~K, ~V, ~hash, ~eq, p))
+    case True{} False{}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}),
+        h.WF(~K, ~V, ~hash, ~eq, p, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hash(k), k, v)),
+        h.wf_nil(~K, ~V, ~hash, ~eq, p), ih)
+    case False{} True{}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{o, es}),
+        h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{hash(k), [M.Entry{k, v}]}),
+        h.wf_leaf_o(~K, ~V, ~hash, ~eq, p, o, es, hs, ds), h.wf_fresh(~K, ~V, ~hash, ~eq, p, k, v))
+    case False{} False{}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{hash(k), [M.Entry{k, v}]}),
+        h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{o, es}),
+        h.wf_fresh(~K, ~V, ~hash, ~eq, p, k, v), h.wf_leaf_o(~K, ~V, ~hash, ~eq, p, o, es, hs, ds))
+
+def h.split_wf(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  n: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +k: K, +v: V,
+  +hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  +ds: {Laws.hmap_distinct(~K, ~V, ~eq, es) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, n, h.S(~K, ~V, ~eq, n, mask, o, es, hash(k), k, v)) == True{} : Bool}:
+  match n:
+    case 0n:
+      h.distinct_put(~K, ~V, ~eq, ~refl, ~sound, es, k, v, ds)
+    case 1n+(+p):
+      h.split_wf.b(~K, ~V, ~hash, ~eq, p, mask, o, es, k, v, hs, ds,
+        U32.is_eq((o .&. mask : U32), (hash(k) .&. mask : U32)), U32.is_eq((o .&. mask : U32), 0),
+        h.split_wf(~K, ~V, ~hash, ~eq, ~refl, ~sound, p, (mask << 1n : U32), o, es, k, v, hs, ds))
+
+def h.wf_put.lf(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  +p: Nat, +mask: U32, +o: U32, +es: List<&2, M.Entry<K, V>>, +k: K, +v: V,
+  hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  ds: {Laws.hmap_distinct(~K, ~V, ~eq, es) == True{} : Bool},
+  b: Bool, eb: {b == U32.is_eq(o, hash(k)) : Bool},
+  sp: {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.S(~K, ~V, ~eq, 1n+p, mask, o, es, hash(k), k, v)) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.pl(~K, ~V, ~eq, b, p, mask, o, es, hash(k), k, v)) == True{} : Bool}:
+  match b:
+    case True{}:
+      and_i(Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, es, k, v), o),
+        Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, es, k, v)),
+        h.hashed_put(~K, ~V, ~hash, ~eq, es, o, k, v, h.sb(True{}, U32.is_eq(o, hash(k)), eb), hs),
+        h.distinct_put(~K, ~V, ~eq, ~refl, ~sound, es, k, v, ds))
+    case False{}:
+      sp
+
+def h.wf_put.br(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, +v: V, b: Bool,
+  wl: {h.WF(~K, ~V, ~hash, ~eq, p, lo) == True{} : Bool},
+  wh: {h.WF(~K, ~V, ~hash, ~eq, p, hi) == True{} : Bool},
+  il: {h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)) == True{} : Bool},
+  ih: {h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.pb(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k, v)) == True{} : Bool}:
+  match b:
+    case True{}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)),
+        h.WF(~K, ~V, ~hash, ~eq, p, hi), il, wh)
+    case False{}:
+      and_i(h.WF(~K, ~V, ~hash, ~eq, p, lo),
+        h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)), wl, ih)
+
+def h.wf_put(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
+  ~sound: @x: K -> @y: K -> {eq(x, y) == True{} : Bool} -> {x == y : K},
+  n: Nat, +mask: U32, m: M.HMap<K, V>, +k: K, +v: V,
+  +wf: {h.WF(~K, ~V, ~hash, ~eq, n, m) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, n, h.P(~K, ~V, ~eq, n, mask, m, hash(k), k, v)) == True{} : Bool}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{o, es}:
+          h.distinct_put(~K, ~V, ~eq, ~refl, ~sound, es, k, v, wf)
+        case M.HBranch{lo, hi}:
+          wf
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          h.wf_fresh(~K, ~V, ~hash, ~eq, 1n+p, k, v)
+        case M.HLeaf{+o, +es}:
+          h.wf_put.lf(~K, ~V, ~hash, ~eq, ~refl, ~sound, p, mask, o, es, k, v,
+            and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            U32.is_eq(o, hash(k)), {==},
+            h.split_wf(~K, ~V, ~hash, ~eq, ~refl, ~sound, 1n+p, mask, o, es, k, v,
+              and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+              and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf)))
+        case M.HBranch{+lo, +hi}:
+          h.wf_put.br(~K, ~V, ~hash, ~eq, p, mask, lo, hi, hash(k), k, v, U32.is_eq((hash(k) .&. mask : U32), 0),
+            and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            h.wf_put(~K, ~V, ~hash, ~eq, ~refl, ~sound, p, (mask << 1n : U32), lo, k, v,
+              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+            h.wf_put(~K, ~V, ~hash, ~eq, ~refl, ~sound, p, (mask << 1n : U32), hi, k, v,
+              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+
+def h.wf_del.lf(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, +o: U32,
+  +es: List<&2, M.Entry<K, V>>, +k: K,
+  +hs: {Laws.hmap_hashed(~K, ~V, ~hash, es, o) == True{} : Bool},
+  +ds: {Laws.hmap_distinct(~K, ~V, ~eq, es) == True{} : Bool}, b: Bool
+) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.dl(~K, ~V, ~eq, b, o, es, k)) == True{} : Bool}:
+  match b:
+    case True{}:
+      h.wf_leaf(~K, ~V, ~hash, ~eq, 1n+p, o, M.HMap.entries.del(~K, ~V, ~eq, es, k),
+        and_i(Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, es, k), o),
+          Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, es, k)),
+          h.hashed_del(~K, ~V, ~hash, ~eq, es, o, k, hs), h.distinct_del(~K, ~V, ~eq, es, k, ds)))
+    case False{}:
+      and_i(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), hs, ds)
+
+def h.wf_del.br(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
+  +hi: M.HMap<K, V>, +hk: U32, +k: K, b: Bool,
+  wl: {h.WF(~K, ~V, ~hash, ~eq, p, lo) == True{} : Bool},
+  wh: {h.WF(~K, ~V, ~hash, ~eq, p, hi) == True{} : Bool},
+  il: {h.WF(~K, ~V, ~hash, ~eq, p, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k)) == True{} : Bool},
+  ih: {h.WF(~K, ~V, ~hash, ~eq, p, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.db(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k)) == True{} : Bool}:
+  match b:
+    case True{}:
+      h.wf_join(~K, ~V, ~hash, ~eq, p, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k), hi, il, wh)
+    case False{}:
+      h.wf_join(~K, ~V, ~hash, ~eq, p, lo, h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k), wl, ih)
+
+def h.wf_del(
+  ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
+  n: Nat, +mask: U32, m: M.HMap<K, V>, +hk: U32, +k: K,
+  +wf: {h.WF(~K, ~V, ~hash, ~eq, n, m) == True{} : Bool}
+) -> {h.WF(~K, ~V, ~hash, ~eq, n, h.D(~K, ~V, ~eq, n, mask, m, hk, k)) == True{} : Bool}:
+  match n:
+    case 0n:
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          h.wf_leaf(~K, ~V, ~hash, ~eq, 0n, o, M.HMap.entries.del(~K, ~V, ~eq, es, k),
+            h.distinct_del(~K, ~V, ~eq, es, k, wf))
+        case M.HBranch{lo, hi}:
+          wf
+    case 1n+(+p):
+      match m:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+o, +es}:
+          h.wf_del.lf(~K, ~V, ~hash, ~eq, p, o, es, k,
+            and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            U32.is_eq(o, hk))
+        case M.HBranch{+lo, +hi}:
+          h.wf_del.br(~K, ~V, ~hash, ~eq, p, mask, lo, hi, hk, k, U32.is_eq((hk .&. mask : U32), 0),
+            and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            h.wf_del(~K, ~V, ~hash, ~eq, p, (mask << 1n : U32), lo, hk, k,
+              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+            h.wf_del(~K, ~V, ~hash, ~eq, p, (mask << 1n : U32), hi, hk, k,
+              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+
+# --- hmap laws -------------------------------------------------------------------
+
+def Laws.hmap_new_wf(K, V, hash, eq):
+  {==}
+
+def Laws.hmap_put_wf(K, V, hash, eq, refl, sound, m, wf, k, v):
+  h.wf_put(~K, ~V, ~hash, ~eq, ~refl, ~sound, 32n, 1, m, k, v, wf)
+
+def Laws.hmap_del_wf(K, V, hash, eq, m, wf, k):
+  h.wf_del(~K, ~V, ~hash, ~eq, 32n, 1, m, hash(k), k, wf)
+
+def Laws.hmap_get_put_same(K, V, hash, eq, refl, m, wf, k, v):
+  h.gp_same(~K, ~V, ~hash, ~eq, ~refl, 32n, 1, m, hash(k), k, v, {==}, wf)
+
+def Laws.hmap_get_put_other_key(K, V, hash, eq, sound, m, wf, k2, k, ne, v):
+  h.gp_other(~K, ~V, ~hash, ~eq, ~sound, 32n, 1, m, hash(k2), k2, k, v, wf,
+    h.ne_f(~K, ~eq, ~sound, k2, k, ne))
+
+def Laws.hmap_get_del_same(K, V, hash, eq, sound, m, wf, k):
+  h.gd_same(~K, ~V, ~hash, ~eq, ~sound, 32n, 1, m, hash(k), k, wf)
+
+def Laws.hmap_get_del_other_key(K, V, hash, eq, sound, m, k2, k, ne):
+  h.gd_other(~K, ~V, ~eq, ~sound, 32n, 1, m, hash(k2), k2, hash(k), k, h.ne_f(~K, ~eq, ~sound, k2, k, ne))
+
+def Laws.hmap_size_put_new(K, V, hash, eq, sound, m, wf, k, v, miss):
+  h.sz_put_new(~K, ~V, ~hash, ~eq, ~sound, 32n, 1, m, k, v, wf, miss)
+
+def Laws.hmap_size_put_replace(K, V, hash, eq, m, k, v, w, hit):
+  h.sz_put_hit(~K, ~V, ~eq, 32n, 1, m, hash(k), k, v, w, hit)
+
+def Laws.hmap_size_del(K, V, hash, eq, m, k, w, hit):
+  h.sz_del_hit(~K, ~V, ~eq, 32n, 1, m, hash(k), k, w, hit)
+
+def Laws.hmap_size_del_missing(K, V, hash, eq, m, k, miss):
+  h.sz_del_miss(~K, ~V, ~eq, 32n, 1, m, hash(k), k, miss)
+
+def Laws.hmap_collision_get(K, V, hash, eq, refl, sound, m, wf, k1, k2, ne, same, v1, v2):
+  +m1 = M.HMap.put(~K, ~V, ~hash, ~eq, m, k1, v1)
+  Equal.trans(Maybe<&2, V>,
+    M.HMap.get(~K, ~V, ~hash, ~eq, M.HMap.put(~K, ~V, ~hash, ~eq, m1, k2, v2), k1),
+    M.HMap.get(~K, ~V, ~hash, ~eq, m1, k1), Some{v1},
+    h.gp_other(~K, ~V, ~hash, ~eq, ~sound, 32n, 1, m1, hash(k2), k2, k1, v2,
+      h.wf_put(~K, ~V, ~hash, ~eq, ~refl, ~sound, 32n, 1, m, k1, v1, wf),
+      h.ne_f(~K, ~eq, ~sound, k2, k1, ne)),
+    h.gp_same(~K, ~V, ~hash, ~eq, ~refl, 32n, 1, m, hash(k1), k1, v1, {==}, wf))
+
+def Laws.hmap_collision_size(K, V, hash, eq, refl, sound, m, wf, k1, k2, ne, same, v1, v2, miss1, miss2):
+  +m1 = M.HMap.put(~K, ~V, ~hash, ~eq, m, k1, v1)
+  Equal.trans(Nat, M.HMap.size(K, V, M.HMap.put(~K, ~V, ~hash, ~eq, m1, k2, v2)),
+    1n+M.HMap.size(K, V, m1), 2n+M.HMap.size(K, V, m),
+    Laws.hmap_size_put_new(~K, ~V, ~hash, ~eq, ~sound, m1,
+      Laws.hmap_put_wf(~K, ~V, ~hash, ~eq, ~refl, ~sound, m, wf, k1, v1), k2, v2,
+      Equal.trans(Maybe<&2, V>, M.HMap.get(~K, ~V, ~hash, ~eq, m1, k2),
+        M.HMap.get(~K, ~V, ~hash, ~eq, m, k2), None{},
+        Laws.hmap_get_put_other_key(~K, ~V, ~hash, ~eq, ~sound, m, wf, k1, k2, ne, v1), miss2)),
+    Equal.cong(Nat, Nat, x => 1n+x, M.HMap.size(K, V, m1), 1n+M.HMap.size(K, V, m),
+      Laws.hmap_size_put_new(~K, ~V, ~hash, ~eq, ~sound, m, wf, k1, v1, miss1)))
