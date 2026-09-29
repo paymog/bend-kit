@@ -1,6 +1,7 @@
 # DNS benchmark: build one A query and parse one A response, N times (see README.md).
 import Base
 import ../../time/time.bend as Time
+import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 import ../dns.bend as Dns
 
 def sum(s: String, acc: U32) -> U32:
@@ -17,6 +18,21 @@ def sum.some(m: Maybe<&2, String>, acc: U32) -> U32:
     case Some{s}:
       sum(s, acc)
 
+def sum.go(n: Nat, r: Array<U32> & U32, +i: U32, acc: U32) -> U32:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      (a, c) = r
+      sum.go(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), (acc + c : U32))
+
+def sum.bytes(m: Maybe<&1, Bytes.Bytes>, acc: U32) -> U32:
+  match m:
+    case None{}:
+      acc
+    case Some{Bytes.Bytes{+len, buf}}:
+      sum.go(U32.to_nat(len), Bytes.peek(buf, 0), 0, acc)
+
 # The id changes each round, so no round can reuse another's work.
 def id(+i: U32) -> U32:
   (i .&. 65535 : U32)
@@ -26,14 +42,14 @@ def build(n: Nat, +i: U32, acc: U32) -> U32:
     case 0n:
       acc
     case 1n+p:
-      build(p, (i + 1 : U32), sum.some(Dns.query(id(i), "www.example.com"), acc))
+      build(p, (i + 1 : U32), sum.bytes(Dns.query(id(i), "www.example.com"), acc))
 
-# The answer to the query above: one A record, 93.184.216.34, named by a pointer to the question.
-def tail() -> String:
-  "\u{81}\u{80}\u{0}\u{1}\u{0}\u{1}\u{0}\u{0}\u{0}\u{0}\u{3}www\u{7}example\u{3}com\u{0}\u{0}\u{1}\u{0}\u{1}\u{c0}\u{c}\u{0}\u{1}\u{0}\u{1}\u{0}\u{0}\u{0}\u{3c}\u{0}\u{4}\u{5d}\u{b8}\u{d8}\u{22}"
+# The answer to the query above, id zeroed: one A record, 93.184.216.34, named by a pointer to the question.
+def zero() -> String:
+  "\u{0}\u{0}\u{81}\u{80}\u{0}\u{1}\u{0}\u{1}\u{0}\u{0}\u{0}\u{0}\u{3}www\u{7}example\u{3}com\u{0}\u{0}\u{1}\u{0}\u{1}\u{c0}\u{c}\u{0}\u{1}\u{0}\u{1}\u{0}\u{0}\u{0}\u{3c}\u{0}\u{4}\u{5d}\u{b8}\u{d8}\u{22}"
 
-def response(+id: U32) -> String:
-  SCon{Chr{U32.shrn(id, 8n)}, SCon{Chr{(id .&. 255 : U32)}, tail()}}
+def response(+id: U32) -> Bytes.Bytes:
+  Bytes.set.u16be(Bytes.from_string(zero()), 0, id)
 
 def parse(n: Nat, +i: U32, acc: U32) -> U32:
   match n:
