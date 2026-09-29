@@ -83,6 +83,13 @@ cd http/bench && bend parse_phases.bend -o out/parse_phases && ./out/parse_phase
 
 Each row after `split` includes the rows it builds on. The `Map` build (about 175 ms) and `String.lines` (about 120 ms) are now the largest costs. `String.ends_with`, `String.trim_end`, and the old `drop_cr` each made a reversed copy; the single-pass versions removed most of the time they took.
 
+The 2026-09-29 header scan consumes lines as it builds the map instead of making
+`String.lines`' intermediate list. On one M4 Pro phase run, `full` changed from
+554 ms to 508 ms for 20,000 requests. The codec benchmark (five-run median)
+measured 607 ms for `parse_req` and 476 ms for `parse_res`, with the same
+checksums as C, Rust, JavaScript, and Python. Phase times and codec times are
+separate runs; do not compare their absolute values.
+
 ## Network
 
 `fetch16.bend` and `serve16.bend` time a live download and upload in Bend only. They measure the socket and the runtime along with the codec. See the comment at the top of each file.

@@ -165,12 +165,12 @@ def loop.field_ops(n: Nat, +raw: String, acc: U32) -> U32:
     case 1n+p:
       loop.field_ops(p, raw, loop.field_ops.score_hb(acc, head_parts(raw)))
 
-def loop.map_build.lr(acc: U32, lr: String & List<&2, String>) -> U32:
-  (+line, xs) = lr
-  (acc + score.headers(Http.parse.headers(xs, Http.FieldsOk{Http.empty()})) : U32)
+def loop.map_build.lr(acc: U32, lr: String & String) -> U32:
+  (line, headers) = lr
+  (acc + score.headers(Http.parse.headers.raw(headers)) : U32)
 
 def loop.map_build.h(acc: U32, +head: String) -> U32:
-  loop.map_build.lr(acc, first_rest(header_lines(head)))
+  loop.map_build.lr(acc, Http.parse.first(head, SNil{}))
 
 def loop.map_build.score_hb(acc: U32, hb: String & String) -> U32:
   (+head, +rest) = hb
@@ -200,12 +200,12 @@ def loop.body_len.fs(acc: U32, fs: Maybe<&2, Map<&2, List<&2, String>>>, +rest: 
     case Some{+h}:
       loop.body_len.tick(acc, Http.parse.body(h, rest))
 
-def loop.body_len.lr(acc: U32, +rest: String, lr: String & List<&2, String>) -> U32:
-  (+line, xs) = lr
-  loop.body_len.fs(acc, Http.parse.headers(xs, Http.FieldsOk{Http.empty()}), rest)
+def loop.body_len.lr(acc: U32, +rest: String, lr: String & String) -> U32:
+  (line, headers) = lr
+  loop.body_len.fs(acc, Http.parse.headers.raw(headers), rest)
 
 def loop.body_len.h(acc: U32, +head: String, +rest: String) -> U32:
-  loop.body_len.lr(acc, rest, first_rest(header_lines(head)))
+  loop.body_len.lr(acc, rest, Http.parse.first(head, SNil{}))
 
 def loop.body_len.score_hb(acc: U32, hb: String & String) -> U32:
   (+head, +rest) = hb

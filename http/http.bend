@@ -343,12 +343,34 @@ def parse.headers.done(acc: Fields) -> Maybe<&2, Map<&2, List<&2, String>>>:
     case FieldsOk{m}:
       Some{m}
 
-def parse.headers(xs: List<&2, String>, acc: Fields) -> Maybe<&2, Map<&2, List<&2, String>>>:
-  match xs:
-    case Nil{}:
-      parse.headers.done(acc)
-    case Con{line, rest}:
-      parse.headers(rest, fields_put(acc, drop_cr(line)))
+
+def parse.headers.scan.line(acc: String, fields: Fields) -> Fields:
+  match acc:
+    case SCon{Chr{13}, t}:
+      fields_put(fields, String.reverse(t))
+    case other:
+      fields_put(fields, String.reverse(other))
+
+def parse.headers.scan(s: String, acc: String, fields: Fields) -> Fields:
+  match s:
+    case SNil{}:
+      parse.headers.scan.line(acc, fields)
+    case SCon{Chr{10}, t}:
+      parse.headers.scan(t, SNil{}, parse.headers.scan.line(acc, fields))
+    case SCon{c, t}:
+      parse.headers.scan(t, SCon{c, acc}, fields)
+
+def parse.headers.raw(s: String) -> Maybe<&2, Map<&2, List<&2, String>>>:
+  parse.headers.done(parse.headers.scan(s, SNil{}, FieldsOk{empty()}))
+
+def parse.first(s: String, acc: String) -> String & String:
+  match s:
+    case SNil{}:
+      (String.reverse(acc), SNil{})
+    case SCon{Chr{10}, t}:
+      (String.reverse(acc), t)
+    case SCon{c, t}:
+      parse.first(t, SCon{c, acc})
 
 def parse_u32.digit(+c: U32) -> Bool:
   Bool.and(U32.is_le(48, c), U32.is_le(c, 57))
@@ -801,37 +823,34 @@ def parse.fields(method: String, path: String, rest: String, v11: Bool, fs: Mayb
 def target_ok(+p: String) -> Bool:
   Bool.or(String.starts_with(p, "/"), Bool.or(String.eq(p, "*"), String.starts_with(p, "http://")))
 
-def parse.target(method: String, +path: String, headers: List<&2, String>, rest: String, v11: Bool, ok: Bool) -> Got:
+def parse.target(method: String, +path: String, headers: String, rest: String, v11: Bool, ok: Bool) -> Got:
   match ok:
     case False{}:
       GotBad{}
     case True{}:
-      parse.fields(method, path, rest, v11, parse.headers(headers, FieldsOk{empty()}))
+      parse.fields(method, path, rest, v11, parse.headers.raw(headers))
 
-def parse.ver(method: String, +path: String, +v: String, headers: List<&2, String>, rest: String, ok: Bool) -> Got:
+def parse.ver(method: String, +path: String, +v: String, headers: String, rest: String, ok: Bool) -> Got:
   match ok:
     case False{}:
       GotBad{}
     case True{}:
       parse.target(method, path, headers, rest, String.eq(v, "HTTP/1.1"), target_ok(path))
 
-def parse.empty_method(method: String, path: String, +v: String, headers: List<&2, String>, rest: String, empty: Bool) -> Got:
+def parse.empty_method(method: String, path: String, +v: String, headers: String, rest: String, empty: Bool) -> Got:
   match empty:
     case True{}:
       GotBad{}
     case False{}:
       parse.ver(method, path, v, headers, rest, Bool.or(String.eq(v, "HTTP/1.1"), String.eq(v, "HTTP/1.0")))
 
-def parse.start3(mpv: String & String & String, headers: List<&2, String>, rest: String) -> Got:
+def parse.start3(mpv: String & String & String, headers: String, rest: String) -> Got:
   (+method, path, v) = mpv
   parse.empty_method(method, path, v, headers, rest, String.is_empty(method))
 
-def parse.lines(xs: List<&2, String>, rest: String) -> Got:
-  match xs:
-    case Nil{}:
-      GotBad{}
-    case Con{line, headers}:
-      parse.start3(start_line(line), headers, rest)
+def parse.lines(lr: String & String, rest: String) -> Got:
+  (line, headers) = lr
+  parse.start3(start_line(line), headers, rest)
 
 
 def parse.head(+head: String, rest: String, whole: Bool) -> Got:
@@ -839,7 +858,7 @@ def parse.head(+head: String, rest: String, whole: Bool) -> Got:
     case False{}:
       GotMore{}
     case True{}:
-      parse.lines(String.lines(head), rest)
+      parse.lines(parse.first(head, SNil{}), rest)
 
 def parse.of(hb: String & String & Bool) -> Got:
   (head, rest, whole) = hb
@@ -956,37 +975,34 @@ def parse.res.fields(+status: U32, rest: String, fs: Maybe<&2, Map<&2, List<&2, 
     case Some{h}:
       frame.status(status, h, rest, closed, frame.nobody(status, head))
 
-def parse.res.num(code: Maybe<&2, U32>, headers: List<&2, String>, rest: String, closed: Bool, head: Bool) -> Frame:
+def parse.res.num(code: Maybe<&2, U32>, headers: String, rest: String, closed: Bool, head: Bool) -> Frame:
   match code:
     case None{}:
       FrameBad{}
     case Some{n}:
-      parse.res.fields(n, rest, parse.headers(headers, FieldsOk{empty()}), closed, head)
+      parse.res.fields(n, rest, parse.headers.raw(headers), closed, head)
 
-def parse.res.ver(code: String, headers: List<&2, String>, rest: String, closed: Bool, head: Bool, ok: Bool) -> Frame:
+def parse.res.ver(code: String, headers: String, rest: String, closed: Bool, head: Bool, ok: Bool) -> Frame:
   match ok:
     case False{}:
       FrameBad{}
     case True{}:
       parse.res.num(parse_u32(code), headers, rest, closed, head)
 
-def parse.res.start3(mpv: String & String & String, headers: List<&2, String>, rest: String, closed: Bool, head: Bool) -> Frame:
+def parse.res.start3(mpv: String & String & String, headers: String, rest: String, closed: Bool, head: Bool) -> Frame:
   (+ver, code, reason) = mpv
   parse.res.ver(code, headers, rest, closed, head, Bool.or(String.eq(ver, "HTTP/1.1"), String.eq(ver, "HTTP/1.0")))
 
-def parse.res.lines(xs: List<&2, String>, rest: String, closed: Bool, head: Bool) -> Frame:
-  match xs:
-    case Nil{}:
-      FrameBad{}
-    case Con{line, headers}:
-      parse.res.start3(start_line(line), headers, rest, closed, head)
+def parse.res.lines(lr: String & String, rest: String, closed: Bool, head: Bool) -> Frame:
+  (line, headers) = lr
+  parse.res.start3(start_line(line), headers, rest, closed, head)
 
 def parse.res.blank(hd: String, rest: String, +closed: Bool, head: Bool, ok: Bool) -> Frame:
   match ok:
     case False{}:
       frame.cut(closed)
     case True{}:
-      parse.res.lines(String.lines(hd), rest, closed, head)
+      parse.res.lines(parse.first(hd, SNil{}), rest, closed, head)
 
 def parse.res.of(hb: String & String, closed: Bool, head: Bool) -> Frame:
   (+hd, rest) = hb
