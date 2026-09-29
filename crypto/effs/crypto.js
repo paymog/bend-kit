@@ -56,6 +56,7 @@ function crypto_lib() {
     EVP_PKEY_CTX_add1_hkdf_info: { args: [p, p, i], returns: i },
     EVP_PKEY_derive: { args: [p, p, p], returns: i },
     PKCS5_PBKDF2_HMAC: { args: [p, i, p, i, i, p, i, p], returns: i },
+    EVP_PBE_scrypt: { args: [p, z, p, z, z, z, z, z, p, z], returns: i },
     BIO_new_mem_buf: { args: [p, i], returns: p },
     BIO_free: { args: [p], returns: i },
     PEM_read_bio_PrivateKey: { args: [p, p, p, p], returns: p },
@@ -197,6 +198,41 @@ function pbkdf2_words(alg, pn, pw, sn, sw, iters, n) {
     return crypto_fail(22, "pbkdf2 failed; alg must name an OpenSSL digest");
   }
   return io_done(crypto_words(out, n));
+}
+
+// scrypt (RFC 7914) takes 128 r (N + p + 2) octets of workspace; maxmem bounds that plus the n output octets.
+// Every U32 and their sums stay below 2^53, so Number math is exact.
+// ponytail: runs on the loop thread; move off it if large costs stall the loop.
+function scrypt_words(pn, pw, sn, sw, N, r, p, maxmem, n) {
+  [pn, sn, N, r, p, maxmem, n] = [pn, sn, N, r, p, maxmem, n].map(Number);
+  const block = 128 * r;
+  if (N < 2 || (N & (N - 1)) !== 0 || r === 0 || p === 0 || n === 0 || maxmem === 0 || r > Math.floor(maxmem / 128)
+    || N + p + 2 > Math.floor(maxmem / block) || n > maxmem - block * (N + p + 2)) {
+    return crypto_fail(22, "scrypt needs N a power of 2 >= 2, positive r, p, n, and 128 r (N + p + 2) + n <= maxmem");
+  }
+  if (pn > 4 * pw.length || sn > 4 * sw.length) {
+    return io_fail(22);
+  }
+  const pass = crypto_words_octets(pn, pw);
+  const salt = crypto_words_octets(sn, sw);
+  const c = crypto_lib();
+  if (c === null) {
+    pass.fill(0);
+    return crypto_fail(2, CRYPTO_MISSING);
+  }
+  const { s, ffi } = c;
+  const out = new Uint8Array(n);
+  const ok = s.EVP_PBE_scrypt(crypto_ptr(ffi, pass), pass.length, crypto_ptr(ffi, salt), salt.length,
+    N, r, p, maxmem, ffi.ptr(out), n) === 1;
+  pass.fill(0);
+  if (!ok) {
+    out.fill(0);
+    s.ERR_clear_error();
+    return crypto_fail(22, "scrypt failed; OpenSSL also needs N < 2^(16 r) and p r < 2^30");
+  }
+  const result = crypto_words(out, n);
+  out.fill(0);
+  return io_done(result);
 }
 
 // crypto.getRandomValues gives at most 65536 bytes a call.
@@ -536,6 +572,7 @@ io_eff(CID(digest.words), digest_words);
 io_eff(CID(hmac.words), hmac_words);
 io_eff(CID(hkdf.words), hkdf_words);
 io_eff(CID(pbkdf2.words), pbkdf2_words);
+io_eff(CID(scrypt.words), scrypt_words);
 io_eff(CID(random.words), random_words);
 io_eff(CID(eq.ct.words), eq_ct_words);
 io_eff(CID(rsa.sign.words), rsa_sign_words);

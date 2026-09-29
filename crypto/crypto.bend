@@ -38,6 +38,14 @@ def pbkdf2.words(alg: String, plen: U32, pass: Array<U32>, slen: U32, salt: Arra
   import "./effs/crypto.c"
   import "./effs/crypto.js"
 
+# Scrypt (RFC 7914): N >= 2 is a power of two; r and p are positive.
+# maxmem bounds the scrypt workspace plus output in octets; zero or over-budget costs fail with EINVAL.
+def scrypt.words(plen: U32, pass: Array<U32>, slen: U32, salt: Array<U32>,
+  N: U32, r: U32, p: U32, maxmem: U32, n: U32) ->
+  IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/crypto.c"
+  import "./effs/crypto.js"
+
 # n octets from the OS secure random source (getentropy, crypto.getRandomValues). Needs no libcrypto.
 def random.words(n: U32) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/crypto.c"

@@ -9,3 +9,9 @@
 **Never reuse a key and nonce pair for encryption.** Choose a unique nonce for every seal under a key. Generate keys with `random.words` or derive them securely; do not substitute a password directly for a key. The caller is responsible for storing and transmitting the nonce alongside the ciphertext and for supplying exactly the same AAD on open. These effects do not generate or persist nonces.
 
 `aead_check.bend` checks NIST AES-256-GCM and [RFC 8439 §2.8.2](https://www.rfc-editor.org/rfc/rfc8439#section-2.8.2) ChaCha20-Poly1305 vectors in both effects, including ciphertext, tag, nonce and AAD tampering. Run `../scripts/check.sh crypto`, then `bend aead_check.bend -o /tmp/aead-check && /tmp/aead-check` and `bend aead_check.bend -o /tmp/aead-check.js && bun /tmp/aead-check.js`. The cross-language throughput bench is in `bench/aead/`.
+
+## Password key derivation
+
+`scrypt.words(plen, password, slen, salt, N, r, p, maxmem, n)` derives `n` octets using [RFC 7914 scrypt](https://www.rfc-editor.org/rfc/rfc7914). `N` must be a power of two greater than one; `r`, `p` and `n` must be positive. `maxmem` is a required caller-supplied byte limit for the workspace **and output**. The effect rejects requests when `128 * r * (N + p + 2) + n` exceeds that limit, before deriving or allocating the output. OpenSSL also enforces `maxmem` internally. Invalid or over-budget requests return `Fail` with `EINVAL` (22); unavailable libcrypto returns `ENOENT` (2). Password and salt are arbitrary octets, including empty values for RFC test vectors.
+
+Generate a fresh random salt for each password and store it with `N`, `r`, `p` and the derived key for later verification. Set costs and the memory limit from your application's security and latency budget; the test vectors use small costs and are not password-storage recommendations. Run `../scripts/check.sh crypto`, then check both lanes with `scrypt_check.bend`; `bench/scrypt/` compares OpenSSL, Python and Bend.

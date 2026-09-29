@@ -2,6 +2,7 @@ import Base
 import ./crypto.bend as C
 import ../bytes/bytes.bend as Bytes
 import ./aead_check.bend as AE
+import ./scrypt_check.bend as Scrypt
 
 def hex.of(m: Maybe<&1, Bytes.Bytes>) -> Bytes.Bytes:
   match m:
@@ -348,3 +349,4 @@ def main() -> IO(Unit):
     rnd(300)
     sigs()
     AE.run()
+    Scrypt.run()

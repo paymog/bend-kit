@@ -1,9 +1,9 @@
 // Crypto
 // ======
-// Hashes, HMAC, HKDF, PBKDF2, RSA and ECDSA signatures, and AES-256-GCM and ChaCha20-Poly1305 AEAD through
+// Hashes, HMAC, HKDF, PBKDF2, scrypt, RSA and ECDSA signatures, and AES-256-GCM and ChaCha20-Poly1305 AEAD through
 // OpenSSL 3 libcrypto, loaded with dlopen; secure random bytes from the OS.
 
-#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) || defined(CID(random.words)) || defined(CID(eq.ct.words)) \
+#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) || defined(CID(scrypt.words)) || defined(CID(random.words)) || defined(CID(eq.ct.words)) \
   || defined(CID(rsa.sign.words)) || defined(CID(rsa.verify.words)) || defined(CID(rsa.verify.jwk.words)) \
   || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words)) \
   || defined(CID(aead.seal.words)) || defined(CID(aead.open.words))
@@ -54,10 +54,18 @@ static Term crypto_out(Env e, const unsigned char* p, u64 n) {
   return io_done(e, crypto_words(e, p, n));
 }
 
+// Volatile stores, so the compiler can not drop the wipe of a buffer about to be freed.
+static void crypto_wipe(unsigned char* p, u64 n) {
+  volatile unsigned char* v = p;
+  for (u64 i = 0; i < n; i += 1) {
+    v[i] = 0;
+  }
+}
+
 #endif
 #endif
 
-#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) \
+#if defined(CID(digest.words)) || defined(CID(hmac.words)) || defined(CID(hkdf.words)) || defined(CID(pbkdf2.words)) || defined(CID(scrypt.words)) \
   || defined(CID(rsa.sign.words)) || defined(CID(rsa.verify.words)) || defined(CID(rsa.verify.jwk.words)) \
   || defined(CID(ecdsa.sign.words)) || defined(CID(ecdsa.verify.words)) || defined(CID(ecdsa.verify.jwk.words)) \
   || defined(CID(aead.seal.words)) || defined(CID(aead.open.words))
@@ -82,6 +90,8 @@ static struct {
   int   (*add_info)(void*, const unsigned char*, int);
   int   (*derive)(void*, unsigned char*, size_t*);
   int   (*pbkdf2)(const char*, int, const unsigned char*, int, int, const void*, int, unsigned char*);
+  int   (*scrypt)(const char*, size_t, const unsigned char*, size_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    unsigned char*, size_t);
   void* (*bio_mem)(const void*, int);
   int   (*bio_free)(void*);
   void* (*pem_priv)(void*, void*, void*, void*);
@@ -137,6 +147,7 @@ static bool crypto_load(void) {
   crypto_lib.add_info    = dlsym(h, "EVP_PKEY_CTX_add1_hkdf_info");
   crypto_lib.derive      = dlsym(h, "EVP_PKEY_derive");
   crypto_lib.pbkdf2      = dlsym(h, "PKCS5_PBKDF2_HMAC");
+  crypto_lib.scrypt      = dlsym(h, "EVP_PBE_scrypt");
   crypto_lib.bio_mem     = dlsym(h, "BIO_new_mem_buf");
   crypto_lib.bio_free    = dlsym(h, "BIO_free");
   crypto_lib.pem_priv    = dlsym(h, "PEM_read_bio_PrivateKey");
@@ -165,6 +176,7 @@ static bool crypto_load(void) {
   bool ok = crypto_lib.q_digest && crypto_lib.q_mac && crypto_lib.md_fetch && crypto_lib.md_free
     && crypto_lib.ctx_new && crypto_lib.ctx_free && crypto_lib.derive_init && crypto_lib.set_md
     && crypto_lib.set_salt && crypto_lib.set_key && crypto_lib.add_info && crypto_lib.derive && crypto_lib.pbkdf2
+    && crypto_lib.scrypt
     && crypto_lib.bio_mem && crypto_lib.bio_free && crypto_lib.pem_priv && crypto_lib.pem_pub && crypto_lib.d2i_pub
     && crypto_lib.pkey_free && crypto_lib.pkey_id && crypto_lib.pkey_bits && crypto_lib.group_name
     && crypto_lib.md_ctx_new && crypto_lib.md_ctx_free && crypto_lib.sign_init && crypto_lib.sign
@@ -331,6 +343,56 @@ Term pbkdf2_words_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) pbkdf2_words_use(void) {
   io_eff(CID(pbkdf2.words), pbkdf2_words_run, 0);
+}
+
+#endif
+
+#ifdef CID(scrypt.words)
+
+// f is plen, pass, slen, salt, N, r, p, maxmem, n. OpenSSL needs 128*r*(N+p+2) octets of workspace; that plus the
+// n output octets must fit maxmem, checked before any staging, so a bad cost never copies or allocates big buffers.
+static bool crypto_scrypt_costs(u64 N, u64 r, u64 p, u64 maxmem, u64 n) {
+  if (N < 2 || (N & (N - 1)) != 0 || r == 0 || p == 0 || n == 0 || maxmem == 0 || r > maxmem / 128) {
+    return false;
+  }
+  u64 blocks = maxmem / (128 * r);
+  if (N > blocks || p > blocks - N || 2 > blocks - N - p) {
+    return false;
+  }
+  return n <= maxmem - 128 * r * (N + p + 2);
+}
+
+// ponytail: runs on the loop thread like pbkdf2, up to maxmem (<= 4 GiB) of work; move to io_work if it stalls effects.
+Term scrypt_words_run(Env e, Term* f, IoWork* w) {
+  u64            pn     = 0;
+  u64            sn     = 0;
+  u64            pass_n = (u32)f[0];
+  u64            salt_n = (u32)f[2];
+  u64            n      = (u32)f[8];
+  bool           bad    = !crypto_scrypt_costs((u32)f[4], (u32)f[5], (u32)f[6], (u32)f[7], n);
+  unsigned char* pass   = crypto_words_octets(e, f[1], bad ? 0 : pass_n, &pn, &bad);
+  unsigned char* salt   = crypto_words_octets(e, f[3], bad ? 0 : salt_n, &sn, &bad);
+  unsigned char* out    = io_mem(malloc(bad ? 1 : n));
+  Term           t;
+  if (bad) {
+    t = io_fail(e, EINVAL, NULL);
+  } else if (!crypto_load()) {
+    t = io_fail(e, ENOENT, CRYPTO_MISSING);
+  } else {
+    bool ok = crypto_lib.scrypt((const char*)pass, pn, salt, sn, (u32)f[4], (u32)f[5], (u32)f[6], (u32)f[7], out, n) == 1;
+    crypto_lib.err_clear();
+    t = ok ? crypto_out(e, out, n) : io_fail(e, EINVAL, "scrypt failed; N must be below 2^(16*r)");
+  }
+  crypto_wipe(pass, pn);
+  crypto_wipe(out, bad ? 0 : n);
+  free(pass);
+  free(salt);
+  free(out);
+  return t;
+}
+
+static void __attribute__((constructor)) scrypt_words_use(void) {
+  io_eff(CID(scrypt.words), scrypt_words_run, 0);
 }
 
 #endif
@@ -712,14 +774,6 @@ static void __attribute__((constructor)) ecdsa_verify_jwk_words_use(void) {
 #define CRYPTO_GET_TAG 0x10
 #define CRYPTO_SET_TAG 0x11
 #define CRYPTO_TAG     16
-
-// Volatile stores, so the compiler can not drop the wipe of a buffer about to be freed.
-static void crypto_wipe(unsigned char* p, u64 n) {
-  volatile unsigned char* v = p;
-  for (u64 i = 0; i < n; i += 1) {
-    v[i] = 0;
-  }
-}
 
 // Seal writes the m octets of ciphertext at d to o, then the tag at o + m. Open reads the tag at d + m and writes
 // m octets of plaintext to o (o may be d); they are only authentic when this returns true.
