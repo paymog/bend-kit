@@ -88,6 +88,8 @@ Each package is one folder at the root. The folder name is the package name:
   bench/           benchmarks (optional)
 ```
 
+Every package except `process` has a `bench/README.md` with its workload, run command, and cross-language results. Run benchmarks by hand; CI does not run them. The `process` benchmark was canceled because spawn-and-pipe timing would mostly measure OS scheduling and child startup, not package overhead. `process/check.bend` covers its behavior.
+
 `http` also has `smoke.bend`, which does live fetches, and `demo.bend`, a small server for the serve smoke test. `llm/smoke.bend` sends one reply and one stream to each API whose key is set (`ANTHROPIC_API_KEY` or the bearer `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`, with optional `*_BASE_URL` and `*_MODEL`).
 
 ## Checks
