@@ -324,6 +324,61 @@ function brotli_words(max, n, words) {
   return zlib_whole(1, max, n, words);
 }
 
+// One raw DEFLATE stream (a ZIP entry): no wrapper, no next member, nothing after its end.
+function inflate_raw_words(max, n, words) {
+  const b = zlib_words_octets(n, words);
+  if (b === null) {
+    return io_fail(22);
+  }
+  const z = zlib_z();
+  if (z === null) {
+    return zlib_fail(2, ZLIB_DEC[0].need);
+  }
+  const { s, ffi } = z;
+  const st = new Uint8Array(ZLIB_Z.size);
+  const v = new DataView(st.buffer);
+  const zp = ffi.ptr(st);
+  if (s.inflateInit2_(zp, -15, s.zlibVersion(), ZLIB_Z.size) !== 0) {
+    return zlib_fail(12, "raw inflate initialization failed");
+  }
+  const o = zlib_buf(ffi, b.length, Number(max));
+  v.setBigUint64(ZLIB_Z.next_in, BigInt(zlib_in(ffi, b)), true);
+  v.setUint32(ZLIB_Z.avail_in, b.length, true);
+  let fail = null;
+  for (;;) {
+    // The spare octet past cap shows output beyond max, even when max is 0.
+    v.setBigUint64(ZLIB_Z.next_out, BigInt(o.ptr()), true);
+    v.setUint32(ZLIB_Z.avail_out, o.cap + 1 - o.have, true);
+    const r = s.inflate(zp, 0);
+    const room = v.getUint32(ZLIB_Z.avail_out, true);
+    o.have = o.cap + 1 - room;
+    if (o.have > o.max) {
+      fail = zlib_fail(27, "inflate output is larger than max");
+      break;
+    }
+    if (r === 1) {
+      if (v.getUint32(ZLIB_Z.avail_in, true) !== 0) {
+        fail = zlib_fail(22, "raw inflate input has bytes after the stream");
+      }
+      break;
+    }
+    // Z_OK and Z_BUF_ERROR only ask for more room or input.
+    if (r !== 0 && r !== -5) {
+      const msg = Number(v.getBigUint64(ZLIB_Z.msg, true));
+      fail = zlib_fail(22, msg ? new ffi.CString(msg).toString() : "inflate failed");
+      break;
+    }
+    if (room !== 0) {
+      fail = zlib_fail(22, "raw inflate input ends inside the stream");
+      break;
+    }
+    // have is cap + 1 and at most max, so cap is below max and grows.
+    o.grow();
+  }
+  s.inflateEnd(zp);
+  return fail ?? io_done(zlib_words(o.out, o.have));
+}
+
 // Open decoders by id; id 0 is never used.
 function zlib_decs() {
   return (globalThis.BEND_ZLIB_DECS ??= { next: 1, by: new Map() });
@@ -396,6 +451,7 @@ function gzip_words(n, words) {
 
 io_eff(CID(zstd.words), zstd_words);
 io_eff(CID(inflate.words), inflate_words);
+io_eff(CID(inflate.raw.words), inflate_raw_words);
 io_eff(CID(gzip.words), gzip_words);
 io_eff(CID(brotli.words), brotli_words);
 io_eff(CID(dec.open), dec_open);

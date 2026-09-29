@@ -7,7 +7,7 @@
 #define ZLIB_DEC
 #endif
 
-#if defined(ZLIB_DEC) || defined(CID(gzip.words))
+#if defined(ZLIB_DEC) || defined(CID(gzip.words)) || defined(CID(inflate.raw.words))
 #ifndef ZLIB_EFFS
 #define ZLIB_EFFS
 #include <dlfcn.h>
@@ -449,6 +449,70 @@ Term inflate_words_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) inflate_words_use(void) {
   io_eff(CID(inflate.words), inflate_words_run, 0);
+}
+
+#endif
+
+#ifdef CID(inflate.raw.words)
+
+// One raw DEFLATE stream (window bits -15), as a ZIP entry holds: bytes after
+// its end, a stream that ends early, or output past max all fail.
+// The spare octet zlib_buf keeps past cap lets a stream of exactly max end.
+static int inflate_raw_feed(ZlibZ* z, const char* in, u64 n, ZlibBuf* b, const char** why) {
+  z->next_in  = (const unsigned char*)in;
+  z->avail_in = (unsigned)n;
+  for (;;) {
+    z->next_out  = (unsigned char*)b->p + b->have;
+    z->avail_out = (unsigned)(b->cap + 1 - b->have);
+    int r        = zlib_z.inflate(z, 0);
+    b->have      = b->cap + 1 - z->avail_out;
+    if (b->have > b->max) {
+      *why = "inflate output is larger than max";
+      return EFBIG;
+    }
+    if (r == 1) {  // Z_STREAM_END
+      *why = "raw inflate input has bytes after the stream";
+      return z->avail_in != 0 ? EINVAL : 0;
+    }
+    if (r != 0 && r != -5) {  // Z_OK and Z_BUF_ERROR only ask for more room or input.
+      *why = z->msg != NULL ? z->msg : "inflate failed";
+      return EINVAL;
+    }
+    if (z->avail_out != 0) {  // All input is in hand, so inflate stopped for want of more.
+      *why = "raw inflate input ends inside the stream";
+      return EINVAL;
+    }
+    zlib_grow(b);  // have is cap + 1 <= max here, so cap < max and this grows.
+  }
+}
+
+// f is max, len, words.
+Term inflate_raw_words_run(Env e, Term* f, IoWork* w) {
+  u64   n   = 0;
+  bool  bad = false;
+  char* in  = zlib_words_octets(e, f[2], (u64)(u32)f[1], &n, &bad);
+  if (bad) {
+    free(in);
+    return io_fail(e, EINVAL, NULL);
+  }
+  if (!zlib_z_load()) {
+    free(in);
+    return io_fail(e, ENOENT, "inflate needs libz.1; set BEND_LIBZ to its path");
+  }
+  ZlibZ z = { 0 };
+  if (zlib_z.inflate_init(&z, -15, zlib_z.version(), (int)sizeof(z)) != 0) {
+    free(in);
+    return io_fail(e, ENOMEM, "raw inflate initialization failed");
+  }
+  ZlibBuf     b    = zlib_buf(n, (u64)(u32)f[0]);
+  const char* why  = NULL;
+  int         code = inflate_raw_feed(&z, in, n, &b, &why);
+  zlib_z.inflate_end(&z);
+  return zlib_end(e, in, &b, code, why);
+}
+
+static void __attribute__((constructor)) inflate_raw_words_use(void) {
+  io_eff(CID(inflate.raw.words), inflate_raw_words_run, 0);
 }
 
 #endif
