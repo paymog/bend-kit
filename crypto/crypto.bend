@@ -86,3 +86,18 @@ def ecdsa.verify.jwk.words(alg: String, xlen: U32, x: Array<U32>, ylen: U32, y: 
   IO(Result<&1, &1, U32 & String, Bool>):
   import "./effs/crypto.c"
   import "./effs/crypto.js"
+
+# AEAD: alg is "AES-256-GCM" or "CHACHA20-POLY1305". Key: 32 octets; nonce: 12 octets.
+# Seal returns ciphertext followed by a 16-octet tag; open verifies the tag before returning plaintext.
+# Never reuse a (key, nonce) pair. Bad lengths, algorithm or authentication fail with EINVAL.
+def aead.seal.words(alg: String, klen: U32, key: Array<U32>, nlen: U32, nonce: Array<U32>,
+  alen: U32, aad: Array<U32>, dlen: U32, data: Array<U32>) ->
+  IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/crypto.c"
+  import "./effs/crypto.js"
+
+def aead.open.words(alg: String, klen: U32, key: Array<U32>, nlen: U32, nonce: Array<U32>,
+  alen: U32, aad: Array<U32>, dlen: U32, data: Array<U32>) ->
+  IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/crypto.c"
+  import "./effs/crypto.js"
