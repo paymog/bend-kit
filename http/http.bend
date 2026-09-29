@@ -5016,11 +5016,48 @@ def reply.bytes(res: Res, head: Bool, close: Bool) -> Bytes.Bytes:
   encode.on(Res{status, Bool.pick(Map<&2, List<&2, String>>, close, set(headers, "connection", "close"), headers), body}, head)
 
 def reply.fail.bytes(+status: U32) -> Res:
-  Res{status, empty(), Bytes.from_string(reason(status))}
+  Res{status, set(empty(), "connection", "close"), Bytes.from_string(reason(status))}
+
+def reply.drain.of(m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Socket & Bool:
+  (s, r) = m
+  match r:
+    case Fail{e}:
+      (s, False{})
+    case Done{data}:
+      (len, words) = data
+      (s, Bool.not(U32.is_zero(len)))
+
+# ponytail: cap drain at 32 MiB and 2.55 s; use socket half-close if larger peers need guaranteed delivery.
+def reply.drain(n: Nat, alive: Bool, +until: Time.Duration, st: Socket & Bool) -> IO(Unit):
+  match n:
+    case 0n:
+      (s, more) = st
+      Socket.close(s)
+    case 1n+p:
+      match alive:
+        case False{}:
+          (s, more) = st
+          Socket.close(s)
+        case True{}:
+          (s, more) = st
+          match more:
+            case False{}:
+              Socket.close(s)
+            case True{}:
+              do IO<Unit>:
+                got : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s, 65536, 50)
+                now : Time.Duration <- Time.mono()
+                reply.drain(p, Cmp.is_lt(Time.Duration.cmp(now, until)), until, reply.drain.of(got))
 
 def reply.sent.close(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (s, r) = m
-  Socket.close(s)
+  match r:
+    case Fail{e}:
+      Socket.close(s)
+    case Done{u}:
+      do IO<Unit>:
+        now : Time.Duration <- Time.mono()
+        reply.drain(U32.to_nat(512), True{}, Time.Duration.add(now, Time.Duration.of_ms(2500)), (s, True{}))
 
 def reply_fail(s: Socket, +status: U32) -> IO(Unit):
   do IO<Unit>:
