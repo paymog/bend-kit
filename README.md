@@ -29,6 +29,7 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, bracketed IPv6 authorities, and percent-encoding (RFC 3986). |
 | [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets with packed-byte `.words` effects, including client certificates. |
 | [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |
+| [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | Strict IPv4, IPv6, and CIDR values with RFC 5952 formatting and subnet membership. |
 | [`http`](http) | `bend-kit-http@0.24.2.0/http.bend` | HTTP/1.1 and HTTP/2 client and HTTP/1.1 server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
 | [`http2`](http2) | `bend-kit-http2@0.1.2.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.1.0.0/hairpin.bend` | An HTTP client on top of `http`: a base URL, default headers, a socket pool, a cookie jar, a client certificate, redirects, and retries in one `Client`. See [hairpin/README.md](hairpin/README.md). |
