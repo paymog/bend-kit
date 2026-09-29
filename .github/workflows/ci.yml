@@ -98,3 +98,8 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           bend stream_demo.bend -o stream_demo
           python3 stream_check.py ./stream_demo
+      - name: Response writer smoke
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          bend write_demo.bend -o write_demo
+          python3 write_check.py ./write_demo
