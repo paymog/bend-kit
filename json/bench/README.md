@@ -33,6 +33,10 @@ Before strings, numbers, and keys were `Bytes` (json 0.4.0.0, same machine and B
 
 Versions: Bend 2.0.32, Apple clang 17.0.0, cJSON 1.7.19, rustc 1.91.0, serde_json 1.0.151, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
+## Packed-word read experiment (2026-09-29)
+
+The parser was not changed. A fresh run on the 1,361,421-byte document measured `parse.bytes` at 5.0 ms before and 5.0 ms after the decision (the same implementation; median of five runs). A native Bend probe summed every input byte with `Bytes.peek`, then summed the same bytes while retaining a word and loading only at four-byte boundaries. Both sums were 72,604,734. Over five warmed runs, the medians were 0.249 ms for `Bytes.peek` and 0.565 ms for the cached-word loop. The entire direct scan cost about 0.25 ms, versus 5.0 ms for parsing; caching added a branch per byte and was slower in isolation. We kept the simpler parser.
+
 ## The calls
 
 | language | parse.bytes | encode.bytes |
