@@ -314,6 +314,39 @@ def Laws.dfa_nested():
 def Laws.dfa_cache_full():
   {==}
 
+def Laws.required_absent():
+  {==}
+
+def Laws.required_overlap():
+  {==}
+
+def Laws.required_repeated():
+  {==}
+
+def Laws.required_optional():
+  {==}
+
+def Laws.required_positive():
+  {==}
+
+def Laws.required_candidates():
+  {==}
+
+def Laws.required_alternatives():
+  {==}
+
+def Laws.required_priority():
+  {==}
+
+
+def Laws.required_non_ascii():
+  {==}
+
+def Laws.required_dense():
+  {==}
+
+
+
 def Laws.dfa_non_ascii():
   {==}
 

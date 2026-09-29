@@ -50,6 +50,8 @@ re_redos = re.compile(r"(a*)*b")
 re_x = re.compile(r"x")
 re_early = re.compile(r"(x)x")
 re_live = re.compile(r"xy")
+re_sparse = re.compile(r"x@host\.org")
+re_sparse_hit = re.compile(r"x.{0,4}@host\.org")
 
 if want("is_match"):
     t0 = time.perf_counter()
@@ -66,6 +68,15 @@ if want("is_match_live"):
 if want("find_captures"):
     t0 = time.perf_counter()
     lap("find_captures", t0, chk_groups(re_email.search(s), 3))
+
+if want("sparse"):
+    t0 = time.perf_counter()
+    lap("sparse", t0, chk_groups(re_sparse.search(s), 1))
+if want("sparse_hit"):
+    hit = "x" * (SIZE - 9) + "@host.org"
+    t0 = time.perf_counter()
+    lap("sparse_hit", t0, chk_groups(re_sparse_hit.search(hit), 1))
+
 
 if want("find_early"):
     t0 = time.perf_counter()
