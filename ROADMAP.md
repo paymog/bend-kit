@@ -78,7 +78,6 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
 - [ ] Templating and Markdown (#43)
 - [ ] Math and statistics (#44)
-- [ ] Proof library: reusable lemmas (#45)
 - [ ] Diff and text utilities (#46)
 
 ### Existing packages
