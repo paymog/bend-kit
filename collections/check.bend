@@ -2,6 +2,7 @@ import Base
 import ./omap.bend as O
 import ./hmap.bend as M
 import ./vec.bend as V
+import ./hmap_check.bend as HCheck
 
 def scmp.fin(r: (String & String) & Cmp) -> Cmp:
   (ab, c) = r
@@ -28,3 +29,4 @@ def main() -> IO(Unit):
           M.HMap.put(~U32, ~U32, ~identity, ~U32.is_eq, M.HMap.new(U32, U32), 0, 10),
           2147483648, 20), 0)))
     IO.print(List.show(~&2, ~U32, ~U32.show, V.Vec.to_list(~U32, V.Vec.push(~U32, V.Vec.from_list(~U32, [1, 2]), 3))))
+    HCheck.run()
