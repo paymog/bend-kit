@@ -66,10 +66,6 @@ A package's `bench/` times its hot path on one fixed input, in Bend and in C, Ru
 - `bench/README.md` records the command, the input, the language versions, and the times. Every program prints a checksum, and the checksums agree.
 - Run a bench by hand. `scripts/check.sh` and CI do not run it.
 
-## Worktrees
-
-Do all work in a git worktree. Never edit or commit on the primary checkout. Read `skill://ce-worktree` and follow it before the first edit.
-
 ## Delivery
 
 - Finish coding work with a pull request. Commit and push the branch, then open a PR before reporting the work done.

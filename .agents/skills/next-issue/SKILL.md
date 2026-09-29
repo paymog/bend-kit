@@ -1,6 +1,6 @@
 ---
 name: next-issue
-description: Lists the top 10 open GitHub issues in bend-kit that are ready to pick up, sorted by priority. A ready issue is a leaf with no open sub-issues, no open blockers, and no open blockers on any ancestor. After the user picks one, the agent implements it in a git worktree. Use when the user asks "what's next", "what can I pick up", "next issue", "ready issues", "unblocked issues", or "top issues".
+description: Lists the top 10 open GitHub issues in bend-kit that are ready to pick up, sorted by priority. A ready issue is a leaf with no open sub-issues, no open blockers, and no open blockers on any ancestor. After the user picks one, the agent implements it. Use when the user asks "what's next", "what can I pick up", "next issue", "ready issues", "unblocked issues", or "top issues".
 ---
 
 # Next Issue
@@ -26,12 +26,11 @@ Each output line has tab-separated fields: `#number`, `priority` (`high`, `med`,
 
 Show a numbered table with the columns number, priority, title, and assignee. Mark assigned issues, because someone may already be working on them. Then ask the user which issue to work on.
 
-### Step 3: Set up the worktree
+### Step 3: Start the issue
 
 When the user picks an issue:
 1. Mark it first, before any other step: `gh issue edit <number> --add-label in-progress`.
-2. Read `skill://ce-worktree` and follow it. Name the branch `issue-<number>-<short-slug>`.
-3. Read the issue: `gh issue view <number> --comments`. Also read its parent issue, if it has one, for context.
+2. Read the issue: `gh issue view <number> --comments`. Also read its parent issue, if it has one, for context.
 
 ### Step 4: Do the work
 
@@ -54,7 +53,7 @@ User says: "what can I pick up next?"
 Actions:
 1. Run `ready.sh`. The output shows `#20 high`, `#21 high`, `#24 high`, `#31 med`, and more.
 2. Show the table and ask which issue to work on.
-3. The user says "21". Create the worktree `issue-21-integer-types`, read #21, and implement it.
+3. The user says "21". Read #21 and implement it.
 
 ## Common Issues
 
