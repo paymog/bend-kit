@@ -5489,3 +5489,241 @@ def serve.stream.with(
   ~finish: S -> IO(Res), +port: U32, +max: Nat
 ) -> IO(Unit):
   serve.stream.on.with(~S, ~start, ~piece, ~finish, "0.0.0.0", port, max)
+
+type WriterMode is Data:
+  WriteKnown{left: U32}
+  WriteChunk{}
+  WriteNone{}
+
+type Writer is Type:
+  Writer{s: Socket, mode: WriterMode, failed: Bool}
+
+type WriteHead<-S: Type> is Type:
+  WriteHead{status: U32, headers: Map<&2, List<&2, String>>, length: Maybe<&2, U32>, state: S}
+
+def writer.sent(+mode: WriterMode, m: Socket & Result<&1, &1, U32 & String, Unit>) -> Writer:
+  (s, r) = m
+  match r:
+    case Fail{e}:
+      Writer{s, mode, True{}}
+    case Done{u}:
+      Writer{s, mode, False{}}
+
+def writer.raw(w: Writer, b: Bytes.Bytes) -> IO(Writer):
+  Writer{s, +mode, failed} = w
+  match failed:
+    case True{}:
+      IO.pure(Writer, Writer{s, mode, True{}})
+    case False{}:
+      do IO<Writer>:
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(False{}, s, b)
+        return writer.sent(mode, sent)
+
+def writer.chunk(s: Socket, b: Bytes.Bytes, +len: U32) -> IO(Writer):
+  do IO<Writer>:
+    head : Writer <- writer.raw(Writer{s, WriteChunk{}, False{}}, Bytes.from_string(hex(len) ++ "\r\n"))
+    data : Writer <- writer.raw(head, b)
+    writer.raw(data, Bytes.from_string("\r\n"))
+
+def writer.known(ok: Bool, s: Socket, +left: U32, +len: U32, b: Bytes.Bytes) -> IO(Writer):
+  match ok:
+    case False{}:
+      IO.pure(Writer, Writer{s, WriteKnown{left}, True{}})
+    case True{}:
+      writer.raw(Writer{s, WriteKnown{(left - len : U32)}, False{}}, b)
+
+def writer.chunk.go(empty: Bool, s: Socket, b: Bytes.Bytes, +len: U32) -> IO(Writer):
+  match empty:
+    case True{}:
+      IO.pure(Writer, Writer{s, WriteChunk{}, False{}})
+    case False{}:
+      writer.chunk(s, b, len)
+
+def writer.write.mode(s: Socket, mode: WriterMode, b: Bytes.Bytes) -> IO(Writer):
+  match mode:
+    case WriteNone{}:
+      IO.pure(Writer, Writer{s, WriteNone{}, False{}})
+    case WriteKnown{+left}:
+      Bytes.Bytes{+len, buf} = b
+      writer.known(U32.is_le(len, left), s, left, len, Bytes.Bytes{len, buf})
+    case WriteChunk{}:
+      Bytes.Bytes{+len, buf} = b
+      writer.chunk.go(U32.is_zero(len), s, Bytes.Bytes{len, buf}, len)
+
+def writer.write(w: Writer, b: Bytes.Bytes) -> IO(Writer):
+  Writer{s, mode, failed} = w
+  match failed:
+    case True{}:
+      IO.pure(Writer, Writer{s, mode, True{}})
+    case False{}:
+      writer.write.mode(s, mode, b)
+
+
+def writer.result(w: Writer) -> Socket & Bool:
+  Writer{s, mode, failed} = w
+  (s, Bool.not(failed))
+
+def writer.finish.mode(s: Socket, mode: WriterMode) -> IO(Socket & Bool):
+  match mode:
+    case WriteNone{}:
+      IO.pure(Socket & Bool, (s, True{}))
+    case WriteKnown{+left}:
+      IO.pure(Socket & Bool, (s, U32.is_zero(left)))
+    case WriteChunk{}:
+      do IO<Socket & Bool>:
+        end : Writer <- writer.raw(Writer{s, WriteChunk{}, False{}}, Bytes.from_string("0\r\n\r\n"))
+        return writer.result(end)
+
+def writer.finish(w: Writer) -> IO(Socket & Bool):
+  Writer{s, mode, failed} = w
+  match failed:
+    case True{}:
+      IO.pure(Socket & Bool, (s, False{}))
+    case False{}:
+      writer.finish.mode(s, mode)
+
+def writer.header.one(m: Map<&2, List<&2, String>>, +key: String, vs: List<&2, String>, framing: Bool) -> Map<&2, List<&2, String>>:
+  match framing:
+    case True{}:
+      m
+    case False{}:
+      Map.set(&2, List<&2, String>, m, key, vs)
+
+def writer.headers(xs: List<&2, Sigma<&2, &2, String, _ => List<&2, String>>>, m: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
+  match xs:
+    case Nil{}:
+      m
+    case (k, vs) <> rest:
+      +key = String.to_lower(k)
+      +framing = Bool.or(String.eq(key, "content-length"), String.eq(key, "transfer-encoding"))
+      writer.headers(rest, writer.header.one(m, key, vs, framing))
+
+def writer.plan.body(headers: Map<&2, List<&2, String>>, length: Maybe<&2, U32>) -> WriterMode & Map<&2, List<&2, String>>:
+  match length:
+    case Some{+n}:
+      (WriteKnown{n}, set(headers, "content-length", U32.show(n)))
+    case None{}:
+      (WriteChunk{}, set(headers, "transfer-encoding", "chunked"))
+
+def writer.plan(nobody: Bool, headers: Map<&2, List<&2, String>>, length: Maybe<&2, U32>) -> WriterMode & Map<&2, List<&2, String>>:
+  match nobody:
+    case True{}:
+      (WriteNone{}, headers)
+    case False{}:
+      writer.plan.body(headers, length)
+
+def serve.write.after(+max: Nat, keep: Bool, rest: Bytes.Bytes, m: Socket & Bool) -> Socket & Turn:
+  (s, ok) = m
+  match ok:
+    case False{}:
+      (s, TurnClose{})
+    case True{}:
+      talk.after.keep(keep, max, rest, s)
+
+def serve.write.finish(+max: Nat, keep: Bool, rest: Bytes.Bytes, w: Writer) -> IO(Socket & Turn):
+  do IO<Socket & Turn>:
+    done : Socket & Bool <- writer.finish(w)
+    return serve.write.after(max, keep, rest, done)
+
+def serve.write.body(~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, +keep: Bool, rest: Bytes.Bytes, state: S, s: Socket, mode: WriterMode, suppress: Bool) -> IO(Socket & Turn):
+  match suppress:
+    case True{}:
+      serve.write.finish(max, keep, rest, Writer{s, WriteNone{}, False{}})
+    case False{}:
+      do IO<Socket & Turn>:
+        w : Writer <- write(state, Writer{s, mode, False{}})
+        serve.write.finish(max, keep, rest, w)
+
+def serve.write.open(~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, +keep: Bool, rest: Bytes.Bytes, state: S, mode: WriterMode, suppress: Bool, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Socket & Turn):
+  (s, r) = m
+  match r:
+    case Fail{e}:
+      IO.pure(Socket & Turn, (s, TurnClose{}))
+    case Done{u}:
+      serve.write.body(~S, ~write, max, keep, rest, state, s, mode, suppress)
+
+def writer.connection(keep: Bool, headers: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
+  match keep:
+    case True{}:
+      headers
+    case False{}:
+      set(headers, "connection", "close")
+
+def serve.write.send.plan(
+  ~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, s: Socket, rest: Bytes.Bytes,
+  +keep: Bool, +head: Bool, +status: U32, state: S, plan: WriterMode & Map<&2, List<&2, String>>
+) -> IO(Socket & Turn):
+  (mode, headers) = plan
+  sent_headers = writer.connection(keep, headers)
+  do IO<Socket & Turn>:
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+      io.send.bytes(False{}, s, Bytes.from_string(response(status, sent_headers, "")))
+    serve.write.open(~S, ~write, max, keep, rest, state, mode,
+      frame.nobody(status, head), sent)
+
+def serve.write.send(
+  ~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, s: Socket, rest: Bytes.Bytes,
+  +headers: Map<&2, List<&2, String>>, v11: Bool, +head: Bool, out: WriteHead<S>
+) -> IO(Socket & Turn):
+  WriteHead{+status, rh, length, state} = out
+  +normalized = writer.headers(Map.to_list(&2, List<&2, String>, rh), empty())
+  +keep = serve.keep(headers, v11, status, normalized)
+  serve.write.send.plan(~S, ~write, max, s, rest, keep, head, status, state,
+    writer.plan(frame.nobody(status, False{}), normalized, length))
+
+@unsafe
+def serve.write.talk(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
+  +max: Nat, st: Socket & Turn
+) -> IO(Unit):
+  (s, t) = st
+  match t:
+    case TurnMore{sv, cont}:
+      do IO<Unit>:
+        more : Socket & Turn <- serve.stream.recv(max, s, sv, cont)
+        serve.write.talk(~S, ~start, ~write, max, more)
+    case TurnReq{req, rest, v11}:
+      Req{+method, path, +headers, body} = req
+      do IO<Unit>:
+        out : WriteHead<S> <- start(Req{method, path, headers, body})
+        after : Socket & Turn <- serve.write.send(~S, ~write, max, s, rest, headers, v11, String.eq(method, "HEAD"), out)
+        serve.write.talk(~S, ~start, ~write, max, after)
+    case TurnFail{status}:
+      reply_fail(s, status)
+    case TurnClose{}:
+      Socket.close(s)
+
+def serve.write.conn(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
+  +max: Nat, m: Listener & Result<&1, &1, U32 & String, Socket>
+) -> IO(Listener):
+  (l, r) = m
+  do IO<Listener>:
+    s : Socket <- IO.pass(Socket, r)
+    IO.spawn(Unit, serve.write.talk(~S, ~start, ~write, max,
+      (s, TurnMore{sv.none(), False{}})))
+    return l
+
+@unsafe
+def serve.write.loop(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
+  +max: Nat, l: Listener
+) -> IO(Unit):
+  do IO<Unit>:
+    m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l2 : Listener <- serve.write.conn(~S, ~start, ~write, max, m)
+    serve.write.loop(~S, ~start, ~write, max, l2)
+
+def serve.write.on.with(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
+  host: String, +port: U32, +max: Nat
+) -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen(host, port))
+    serve.write.loop(~S, ~start, ~write, max, l)
+
+def serve.write.with(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
+  +port: U32, +max: Nat
+) -> IO(Unit):
+  serve.write.on.with(~S, ~start, ~write, "0.0.0.0", port, max)
