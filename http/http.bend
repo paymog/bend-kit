@@ -5352,11 +5352,16 @@ def loop(~h: Req -> IO(Res), +max: Nat, l: Listener) -> IO(Unit):
     l2 : Listener <- conn(~h, max, m)
     loop(~h, max, l2)
 
-def serve.with(~h: Req -> IO(Res), +port: U32, +max: Nat) -> IO(Unit):
+def serve.on.with(~h: Req -> IO(Res), host: String, +port: U32, +max: Nat) -> IO(Unit):
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("0.0.0.0", port))
-    IO.print("http://127.0.0.1:" ++ U32.show(port))
+    l : Listener <- IO.try(Listener, TCP.listen(host, port))
     loop(~h, max, l)
+
+def serve.on(~h: Req -> IO(Res), host: String, +port: U32) -> IO(Unit):
+  serve.on.with(~h, host, port, serve.max())
+
+def serve.with(~h: Req -> IO(Res), +port: U32, +max: Nat) -> IO(Unit):
+  serve.on.with(~h, "0.0.0.0", port, max)
 
 def serve(~h: Req -> IO(Res), +port: U32) -> IO(Unit):
   serve.with(~h, port, serve.max())

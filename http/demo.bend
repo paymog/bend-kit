@@ -6,4 +6,4 @@ def hello(req: Http.Req) -> IO(Http.Res):
   IO.pure(Http.Res, Http.Res{200, Http.empty(), Http.from_string(path)})
 
 def main() -> IO(Unit):
-  Http.serve(~hello, 18080)
+  Http.serve.on(~hello, "127.0.0.1", 18080)
