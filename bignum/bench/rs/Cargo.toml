@@ -1,0 +1,16 @@
+[package]
+name = "bignum-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "bench"
+path = "../bench.rs"
+
+[dependencies]
+num-bigint = "0.4"
+num-integer = "0.1"
+
+[profile.release]
+opt-level = 3
