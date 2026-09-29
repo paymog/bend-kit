@@ -32,6 +32,8 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`http`](http) | `0xa32ae93500a5dfaef6edb45d6e7bcc3b/http.bend` | HTTP/1.1 client and server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
 | [`http2`](http2) | `bend-kit-http2@0.1.0.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.1.0.0/hairpin.bend` | An HTTP client on top of `http`: a base URL, default headers, a socket pool, a cookie jar, a client certificate, redirects, and retries in one `Client`. See [hairpin/README.md](hairpin/README.md). |
+| [`oauth2`](oauth2) | `bend-kit-oauth2@0.1.0.0/oauth2.bend` | OAuth2 client credentials, refresh tokens, and authorization code with PKCE over `hairpin`; expiry-aware bearer requests. |
+| [`jwt`](jwt) | `bend-kit-jwt@0.1.0.0/jwt.bend` | JWT signing and verification with pinned HS256/384/512, RS256, or ES256; claim validation and JWKS key lookup over `hairpin`. |
 | [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |

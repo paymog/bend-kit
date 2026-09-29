@@ -1,0 +1,16 @@
+[package]
+name = "jwt-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "bench"
+path = "../bench.rs"
+
+[dependencies]
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+serde = { version = "1", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
