@@ -1214,6 +1214,12 @@ def inflate.words(max: U32, len: U32, words: Array<U32>) ->
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
+# One raw DEFLATE stream through libz. Trailing bytes, truncated input and output above max fail.
+def inflate.raw.words(max: U32, len: U32, words: Array<U32>) ->
+  IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/zlib.c"
+  import "./effs/zlib.js"
+
 # One gzip member at level 6 through libz.
 def gzip.words(len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):

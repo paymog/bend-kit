@@ -83,6 +83,13 @@ def big(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
     case Done{p}:
       IO.die(Unit, 1, "decoder passed max")
 
+def malformed(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+  match r:
+    case Fail{(+c, why)}:
+      code(U32.is_eq(c, 22), why)
+    case Done{p}:
+      IO.die(Unit, 1, "raw decoder accepted trailing or cut input")
+
 def stream.new(r: Result<&1, &1, U32 & String, Z.Decoder>) -> IO(Z.Decoder):
   match r:
     case Fail{(+code, why)}:
@@ -178,6 +185,14 @@ def main() -> IO(Unit):
     stream.test(0, "hello raw", True{}, wrapped())
     stream.test(0, "hello raw", False{}, wrapped())
     stream.test(0, "A", True{}, raw.like_header())
+    one : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 1000, raw())
+    got("hello raw", one)
+    twice : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 1000, Bytes.append(raw(), raw()))
+    malformed(twice)
+    cut : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 1000, Bytes.snd(Bytes.slice(raw(), 0, 10)))
+    malformed(cut)
+    bounded : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 5, raw())
+    big(bounded)
     stream.test(0, "A", False{}, raw.like_header())
     stream.test(1, "hello brotli", True{}, brotli())
     stream.test(1, "hello brotli", False{}, brotli())
