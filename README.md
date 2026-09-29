@@ -35,6 +35,7 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`oauth2`](oauth2) | `bend-kit-oauth2@0.1.0.0/oauth2.bend` | OAuth2 client credentials, refresh tokens, and authorization code with PKCE over `hairpin`; expiry-aware bearer requests. |
 | [`jwt`](jwt) | `bend-kit-jwt@0.1.0.0/jwt.bend` | JWT signing and verification with pinned HS256/384/512, RS256, or ES256; claim validation and JWKS key lookup over `hairpin`. |
 | [`sigv4`](sigv4) | `bend-kit-sigv4@0.1.0.0/sigv4.bend` | AWS Signature V4 request signing and S3 object storage over `hairpin`. |
+| [`webhooks`](webhooks) | `bend-kit-webhooks@0.1.0.0/webhooks.bend` | Standard Webhooks signing, verified delivery and retries over `hairpin`; Stripe and GitHub signature verification. See [webhooks/README.md](webhooks/README.md). |
 | [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |
