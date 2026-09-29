@@ -83,6 +83,12 @@ def op.find_captures(+s: String) -> IO(Unit):
 def op.find_early(+s: String) -> IO(Unit):
   with_re(R.compile("(x)x"), s, "find_early")
 
+def op.sparse(+s: String) -> IO(Unit):
+  with_re(R.compile("x@host\\.org"), s, "sparse")
+def op.sparse_hit(+s: String) -> IO(Unit):
+  with_re(R.compile("x.{0,4}@host\\.org"), String.repeat("x", (String.length(s) - 9n : Nat)) ++ "@host.org", "sparse_hit")
+
+
 def op.redos() -> IO(Unit):
   do IO<Unit>:
     with_re(R.compile("(a*)*b"), String.repeat("a", 100000n), "redos")
@@ -98,6 +104,8 @@ def run_all(+s: String) -> IO(Unit):
     op.is_match_early(s)
     op.is_match_live(s)
     op.find_captures(s)
+    op.sparse(s)
+    op.sparse_hit(s)
     op.find_early(s)
     op.redos()
     op.large()
@@ -116,6 +124,10 @@ def run_text(+s: String, +only: String) -> IO(Unit):
       op.find_captures(s)
     case "find_early":
       op.find_early(s)
+    case "sparse":
+      op.sparse(s)
+    case "sparse_hit":
+      op.sparse_hit(s)
     case "redos":
       op.redos()
     case "large":

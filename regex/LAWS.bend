@@ -409,6 +409,39 @@ law dfa_nested:
 law dfa_cache_full:
   {mb("(x?){12}(y)", "xxxxxxxxxxxxy") == m("(x?){12}(y)", "xxxxxxxxxxxxy") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
 
+law required_absent:
+  {mb("x+@z", "xxxxxxxx") == m("x+@z", "xxxxxxxx") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_overlap:
+  {mb("ab+a", "abbabba") == m("ab+a", "abbabba") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_repeated:
+  {mb("(ab)+", "zabab") == m("(ab)+", "zabab") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_optional:
+  {mb("a?b", "b") == m("a?b", "b") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_positive:
+  {mb("(ab)+c", "zababc") == m("(ab)+c", "zababc") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_candidates:
+  {mb("(ab)+c", "zabcabc") == m("(ab)+c", "zabcabc") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_alternatives:
+  {mb("ab(c|d)ef", "zabcef") == m("ab(c|d)ef", "zabcef") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_priority:
+  {mb("(a|aa)+b", "aab") == m("(a|aa)+b", "aab") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+
+law required_non_ascii:
+  {mb("a.*c", "a\u{c3}\u{a9}c") == m("a.*c", "a\u{c3}\u{a9}c") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+law required_dense:
+  {mb("(ab)+c", "ababcababcababcababcababcababcababcababc") == m("(ab)+c", "ababcababcababcababcababcababcababcababc") : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}
+
+
+
 # Non-ASCII chars take the plain step between cached ones.
 law dfa_non_ascii:
   {mb("(a+)\u{e9}(b+)", "xaa\u{c3}\u{a9}bbaa\u{c3}\u{a9}b") == Some{[sp(1, 7), sp(1, 3), sp(5, 7)]} : Maybe<&2, List<&2, Maybe<&2, R.Span>>>}

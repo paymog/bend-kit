@@ -87,6 +87,21 @@ int main(int argc, char **argv) {
     if (run_one("([[:alnum:]_]+)@([[:alnum:]_]+)\\.com", s, 3, &ms, &chk) != 0) return 1;
     printf("find_captures\t%.3f\t%u\n", ms, chk);
   }
+  if (want(only, "sparse")) {
+    if (run_one("x@host\\.org", s, 1, &ms, &chk) != 0) return 1;
+    printf("sparse\t%.3f\t%u\n", ms, chk);
+  }
+  if (want(only, "sparse_hit")) {
+    char *hit = malloc(size + 1);
+    if (!hit) return 1;
+    memset(hit, 'x', size - 9);
+    memcpy(hit + size - 9, "@host.org", 9);
+    hit[size] = 0;
+    if (run_one("x.{0,4}@host\\.org", hit, 1, &ms, &chk) != 0) return 1;
+    printf("sparse_hit\t%.3f\t%u\n", ms, chk);
+    free(hit);
+  }
+
 
   if (want(only, "find_early")) {
     if (run_one("(x)x", s, 2, &ms, &chk) != 0) return 1;

@@ -20,6 +20,8 @@ Text is built deterministically at **N = 2^20** code points (about 1 MiB of ASCI
 3. At **N − 20**, write `helloworld12` (12 code points).
 
 The ReDoS input is **100 000** `a` with no trailing `b`. The `large` input is **1000** `x` then one `y`.
+The `sparse_hit` input is **N − 9** `x` followed by `@host.org`, with a match near the end.
+
 
 ## Cases
 
@@ -30,6 +32,8 @@ The ReDoS input is **100 000** `a` with no trailing `b`. The `large` input is **
 | `is_match_live` | `xy` | `xy` | is there a match (none; each char can start one) | 0 |
 | `find_captures` | `(\w+)@(\w+)\.com` | `([[:alnum:]_]+)@([[:alnum:]_]+)\.com` | leftmost match with two captures | hash of groups 0–2 spans |
 | `find_early` | `(x)x` | `(x)x` | leftmost match with one capture, at position 0 | hash of groups 0–1 spans |
+| `sparse` | `x@host\.org` | `x@host\.org` | no match on 1 MiB of `x` with an unrelated `@host.com`; `x` can start everywhere | 0 |
+| `sparse_hit` | `x.{0,4}@host\.org` | `x.{0,4}@host\.org` | a rare literal after many possible starts; find the leftmost span | hash of group-0 span |
 | `redos` | `(a*)*b` | `(a*)*b` | no match on 100k `a` | 0 |
 | `large` | `(?:x?){1000}y` | `((x?){250}){4}y` | about 2000 instructions; each char walks a closure over most of them | u32 hash of group-0 span |
 
@@ -49,13 +53,15 @@ Versions: Bend 2.0.32, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
-| is_match | 0.0 | 0.3 | 0.9 | 0.2 | 1.3 |
+| is_match | 0.0 | 0.3 | 0.8 | 0.2 | 1.2 |
 | is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 0.1 |
-| is_match_live | 8.5 | 1.1 | 0.1 | 7.6 | 95.4 |
-| find_captures | 15.8 | 2.8 | 1.4 | 0.7 | 309.8 |
-| find_early | 0.0 | 0.0 | 0.2 | 0.2 | 0.6 |
-| redos | 3.0 | timeout | 869.3 | timeout | 14.2 |
-| large | 2,263.7 | 0.0 | 0.1 | 0.1 | 1,379.9 |
+| is_match_live | 12.0 | 1.0 | 0.1 | 7.8 | 95.9 |
+| find_captures | 16.8 | 3.0 | 1.3 | 0.7 | 248.6 |
+| find_early | 0.0 | 0.0 | 0.2 | 0.1 | 0.6 |
+| sparse | 11.8 | 1.1 | 0.2 | 0.2 | 2.0 |
+| sparse_hit | 59.2 | 8.7 | 4.9 | 10.9 | 2.7 |
+| redos | 3.5 | timeout | 870.0 | timeout | 0.3 |
+| large | 2,266.2 | 0.0 | 0.1 | 0.1 | 1,195.2 |
 
 Checksums (1 MiB text; 1001 chars for `large`). All non-timeout variants agree.
 
@@ -66,6 +72,8 @@ Checksums (1 MiB text; 1001 chars for `large`). All non-timeout variants agree.
 | is_match_live | 0 |
 | find_captures | 3021334545 |
 | find_early | 1923 |
+| sparse | 0 |
+| sparse_hit | 33553998 |
 | redos | 0 |
 | large | 1001 |
 
@@ -99,5 +107,6 @@ Bend times in ms, median of three runs of the same bench against each version of
 
 - Identity transitions alone did not help `find_captures`: it saves a capture end on each `x`. Reusable thread arrays reduce its time from 223 to 143 ms and `redos` from 21 to 14 ms, without changing capture results. The small-program VM takes 128 ms on `is_match_live`; the bit NFA remains at 78 ms.
 - `large` is 1001 bytes, so it uses the plain VM. Enlarging its cache was slower (4,208 ms versus 1,055 ms) because this case does not revisit most learned states. Long texts with large programs can use up to 2048 states; 262,144 transition slots cost at least 2 MiB.
+- The required-byte scan rejects `sparse` without running the VM (89.9 ms before the scan, 1.7–2.0 ms after). On `sparse_hit`, a reverse bitset DFA finds the start near the end; Bend takes 2.7 ms versus 59.2 ms for C on this input. A 4096-byte reverse scan bound avoids slowing `find_captures` when its match begins at the start of the text.
 - POSIX ERE has no `\w`; `[[:alnum:]_]` is the documented equivalent for ASCII word characters.
 - Bend times itself with `Time.mono`, a nanosecond clock.

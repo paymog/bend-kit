@@ -54,6 +54,8 @@ const reRedos = /(a*)*b/;
 const reX = /x/;
 const reEarly = /(x)x/;
 const reLive = /xy/;
+const reSparse = /x@host\.org/;
+const reSparseHit = /x.{0,4}@host\.org/;
 if (want("is_match")) {
   let t0 = performance.now();
   let hit = reHello.test(s);
@@ -73,6 +75,17 @@ if (want("find_captures")) {
   let t0 = performance.now();
   let m = reEmail.exec(s);
   lap("find_captures", t0, chkGroups(m, 3));
+}
+if (want("sparse")) {
+  let t0 = performance.now();
+  let m = reSparse.exec(s);
+  lap("sparse", t0, chkGroups(m, 1));
+}
+if (want("sparse_hit")) {
+  const hit = "x".repeat(SIZE - 9) + "@host.org";
+  let t0 = performance.now();
+  let m = reSparseHit.exec(hit);
+  lap("sparse_hit", t0, chkGroups(m, 1));
 }
 if (want("find_early")) {
   let t0 = performance.now();
