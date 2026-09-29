@@ -6,13 +6,13 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Current baseline
 
-- All 20 packages are named `bend-kit-<package>` on the Bend hub; [README.md](README.md) lists each version and hash. Each description links to its source folder. `http` and `dns` import their siblings by hash, so callers share their types.
-- Laws: http 176, url 57, json 40, hash 41, bytes 122, regex 54, unicode 35, zlib 22, dns 18, random 13, encoding 12, router 3. Run `scripts/check.sh` to check them all.
+- Published packages use `bend-kit-<package>` on the Bend hub; [README.md](README.md) lists their imports. Each hub description links to its source folder. `http` and `dns` pin shared dependencies by hash or version, so callers can share their types.
+- Run `scripts/check.sh` to check package laws and examples.
 - Big bodies need a native build (`bend file.bend -o app`). The `bend file.bend` runner overflows on strings over about 30 KB.
 
 ### bytes
 
-- `bytes@0.1.0` (`67341da`) is a byte buffer packed four bytes to a `U32` `Array` slot. It has bounds-checked `get`/`set`, `slice`, `append`, `concat`, `find`, and `eq`, and it converts to and from byte strings. `bytes/bench` measures the layout.
+- `bytes` is a byte buffer packed four bytes to a `U32` `Array` slot. It has bounds-checked `get`/`set`, `slice`, `append`, `concat`, `find`, and `eq`, and it converts to and from byte strings. `bytes/bench` measures the layout.
 - `bytes` also reads and writes u16, u32, and u64 in both byte orders (`get.u32be`, `set.u16le`, `get.u64be`, ...), searches with `find.from`, `rfind`, `starts_with`, `ends_with`, and `split`, orders buffers with `cmp`, and converts to and from hex and padded base64. The u64 forms use `int`'s `Int.U64`, which is slow until Base has a native `U64`. `append` writes into the left buffer while it has room and at least doubles it when it does not, so building 200 K bytes one at a time takes 0.6 s instead of 215 s.
 
 ### wire
@@ -21,11 +21,11 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ### unicode
 
-- `unicode` has Unicode 17.0.0 general category, canonical combining class, NFC and NFD, full case folding, and extended grapheme clusters, in pure Bend. `gen.py` generates the tables from the UCD. `conformance.py` passes every line of `NormalizationTest.txt` (NFC and NFD) and `GraphemeBreakTest.txt`. It is not published yet.
+- `unicode` has Unicode 17.0.0 general category, canonical combining class, NFC and NFD, full case folding, and extended grapheme clusters, in pure Bend. `gen.py` generates the tables from the UCD. `conformance.py` passes every line of `NormalizationTest.txt` (NFC and NFD) and `GraphemeBreakTest.txt`.
 
 ### regex
 
-- `regex` compiles RE2 syntax to a Pike VM with capture groups and matches in linear time: `(a*)*b` against 200 000 a's takes 267 ms. Its fixtures agree with Go's `regexp`. It is not published yet.
+- `regex` compiles RE2 syntax to a Pike VM with capture groups and matches in linear time: `(a*)*b` against 200 000 a's takes 267 ms. Its fixtures agree with Go's `regexp`.
 
 ### http
 
@@ -36,7 +36,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - `Dns.resolve.all` returns the OS-ordered IPv6 and IPv4 addresses, and HTTP tries each one until TCP connects within the step timeout. A bracketed IPv6 URL keeps brackets in its `Host` field. `Dns.resolve.pure` checks `/etc/hosts`, then the first three nameservers; `resolve.at` asks one server. A silent server is 2 attempts × 5 s, then the next server. `Http.exchange` does one request on an open socket and says whether that socket can take another.
 - `Http.serve` reads into `Bytes`, parses the head once, and joins the body once; chunk data runs are sliced whole. A 16 MiB upload takes about 0.03 s, down from 2.7 s on a `String` buffer and 0.26 s with a `String` body (`f3ceb23`, `http/bench/serve16.bend`). A 12 MiB response goes out in about 25 ms. It sends 100 Continue when a request expects it. It keeps HTTP/1.1 connections open and answers pipelined requests in order (`a7d28f7`). `serve.with` sets the request cap; the default is 16 MiB. A bad request is 400, an oversized one 413, a head over 64 KiB 431. It sends the RFC 9110 reason phrase, no body for HEAD, 1xx, 204 and 304, and accepts `HTTP/1.0` without `Host`.
 - Header lines, request targets, and URLs parse in linear time. They were O(n²), so a 70 KB header or a 32 KB `Location` held a worker for 20 to 30 s (`05cbd5b`, `7487a84`). The `url` package has no `@unsafe` defs.
-- The README install and fetch example pass on clean Debian 12 containers (arm64 and amd64), in the runner and as a native build. The x86_64 Mac is not tested.
+- The README fetch example builds natively with its published HTTP import.
 
 ## Next
 
@@ -45,10 +45,10 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ### Tier 1
 
-- [ ] Bytes: endian ints, builder, search, compare (#20)
+- [x] Bytes: endian ints, builder, search, compare (#20)
 - [x] Integer types: U8, U16, U64, I32, I64 (#21)
-- [ ] Filesystem and paths (#22)
-- [ ] Process and OS (#23)
+- [x] Filesystem and paths (#22)
+- [x] Process and OS (#23)
 - [x] Generic collections (#24). A hash map can now build on `hash` (#27).
 - [x] Text formatting and number parsing (#25)
 - [x] Time: clock, Duration, Instant, dates, time zones (#26). POSIX TZif footer rules cover instants after the last explicit transition (#198).
@@ -71,7 +71,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Parser combinators (#38)
 - [x] Compression through libz, libzstd, and libbrotlidec, and `http` decoding with them (#142)
 - [x] Concurrency helpers: `par_map`, `par_reduce`, a worker pool, `select`, and `timeout` (#40)
-- [ ] Databases: SQLite binding, Postgres client (#41)
+- [x] Databases: SQLite binding and Postgres client (#41)
 - [x] Redis and Valkey client: `redis`, RESP3 over `wire` (#205). Pub/sub, cluster, sentinel, and client-side caching come later.
 - [x] LLM API client: `llm`, Anthropic Messages and OpenAI Chat Completions on `hairpin`, with an SSE parser (#250). Typed tool use, images, and pooled streams come later.
 - [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
@@ -84,15 +84,12 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 - [ ] **Decode bodies without a `String` copy.** `decoded` turns a compressed body into a `String` for `zlib` and the result back into `Bytes`. The native effects in #142 take and return the `Bytes` layout, which removes both copies.
 - [ ] **Speed up JSON.** On the 1.36 MB bench document, `Json.parse.bytes` takes 3 ms and `Json.encode.bytes` 4 ms; Bun takes about 2 ms and 1 ms. The encoder still takes one step per byte.
-- [ ] **Stream in the server.** `serve` hands the handler a whole `Req` and sends a whole `Res`. Add a handler form that reads the request body and writes the response in pieces, on the same `Rb`/`ck` framing the client streams use.
+- [ ] **Stream responses from the server.** `Http.serve.stream` reads request bodies in pieces, but handlers still return a whole `Res`.
 - [ ] **Lingering close in `serve`.** After a 400, 413, or 431, `serve` closes with unread client bytes, so the client may get an RST instead of the response. Stop writing, drain for a moment, then close.
-- [ ] **IPv6.** `Dns.resolve` goes through `getaddrinfo` (#93) but asks for `AF_INET` only, and the runtime's `io_sys_addr` connects over IPv4 only. Ask for AAAA too and add IPv6 connect.
 
 ## Later
 
 - [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist.
-- [ ] `Bytes` as map keys. Base's `Map` is a trie over `String` keys and takes no comparator, so `Bytes.cmp` cannot key it. Use `Bytes.to_string` as the key, or add an ordered map over `cmp`.
-- [ ] Proxies (`HTTP_PROXY`), ALPN, HTTP/2.
 - [ ] Windows support (the effects use POSIX sockets and `dlopen`).
 - [ ] Test on an x86_64 Mac.
 

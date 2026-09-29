@@ -3,7 +3,7 @@
 HTTP/1.1 and HTTP/2 client, and HTTP/1.1 server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).
 
 ```bend
-import bend-kit-http@0.22.0.0/http.bend as Http
+import bend-kit-http@0.24.2.0/http.bend as Http
 ```
 
 `http` imports `bytes`, `wire`, `url`, `json`, `encoding`, `dns`, `zlib`, `http2`, `time`, `int`, and `concurrency` from the hub. `Http.Body` keeps its pinned `bytes` type; the HTTP/2 client uses a newer `bytes` version internally and transfers the packed body without copying.
@@ -14,6 +14,7 @@ HTTPS needs OpenSSL 3 at run time. On macOS, `brew install openssl@3`. The clien
 
 ```bend
 import Base
+import bend-kit-http@0.24.2.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
