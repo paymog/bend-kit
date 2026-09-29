@@ -2256,7 +2256,6 @@ def exec.bytes.must(m: Maybe<&2, U32>, rev: Maybe<&2, Bits>, b: Bytes.Bytes, +pl
     case Some{c}:
       exec.bytes.must.hit(b, rev, c, plain, prog, fuel, init, start, asc, any, slots)
 
-
 def exec.bytes(re: Regex, b: Bytes.Bytes, +any: Bool) -> Bytes.Bytes & Maybe<&2, List<&2, Maybe<&2, U32>>>:
   Regex{+prog, +fuel, +slots, +start, bits, +asc, plain, must, reverse} = re
   +sl = Bool.pick(Nat, any, 0n, slots)
