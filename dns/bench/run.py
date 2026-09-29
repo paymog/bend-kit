@@ -8,14 +8,20 @@ OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 OPS = ["build", "parse"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
+DNSPYTHON = "2.8.0"
+# name -> (build argv or None, run argv).
 VARIANTS = {
     "C": (["clang", "-O2", "-o", OUT / "c", "bench.c", "-lresolv"], [OUT / "c", "100000"]),
+    "Rust": (["cargo", "build", "--release", "-q", "--locked", "--manifest-path", "rs/Cargo.toml", "--target-dir", OUT / "rs"], [OUT / "rs" / "release" / "rs", "100000"]),
+    "Bun": (["sh", "-c", "mkdir -p out/js && cp js/package*.json out/js/ && npm ci -s --prefix out/js && cp bench.mjs out/js/"], ["bun", OUT / "js" / "bench.mjs"]),
+    "Node": (None, ["node", OUT / "js" / "bench.mjs"]),
+    "Python": (None, ["uv", "run", "-q", "--no-project", "--with", f"dnspython=={DNSPYTHON}", "python3", "bench.py"]),
     "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
 }
 
 
 def parse(text):
-    """-> {op: (ms, checksum)}. C prints `op ms chk`; Bend prints `chk op v` then `ms op v`."""
+    """-> {op: (ms, checksum)}. Most variants print `op ms chk`; Bend prints `chk op v` then `ms op v`."""
     got, chk = {}, {}
     for p in (line.split("\t") for line in text.splitlines()):
         if len(p) != 3:
@@ -32,7 +38,7 @@ def parse(text):
 OUT.mkdir(exist_ok=True)
 table, checks = {}, {}
 for name, (build, run) in VARIANTS.items():
-    if subprocess.run(build, cwd=HERE, env=ENV).returncode != 0:
+    if build and subprocess.run(build, cwd=HERE, env=ENV).returncode != 0:
         sys.exit(f"build failed: {name}")
     runs = [parse(subprocess.run(run, cwd=HERE, env=ENV, capture_output=True, text=True, check=True).stdout) for _ in range(RUNS)]
     table[name] = {op: statistics.median(r[op][0] for r in runs) for op in OPS}

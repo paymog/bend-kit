@@ -8,11 +8,16 @@ OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 OPS = ["utf8_encode", "utf8_decode", "hex_encode", "hex_decode"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
+SODIUM = subprocess.check_output(["pkg-config", "--cflags", "--libs", "libsodium"], text=True).split()
 
 # name -> (build argv or None, run argv). Every program prints `op<TAB>ms<TAB>checksum` per op.
 VARIANTS = {
-    "C": (["clang", "-O2", "-o", OUT / "c", "bench.c"], [OUT / "c"]),
-    "Rust": (["rustc", "-C", "opt-level=3", "-C", "target-cpu=native", "-o", OUT / "rs", "bench.rs"], [OUT / "rs"]),
+    "C": (["clang", "-O2", "bench.c", *SODIUM, "-o", OUT / "c"], [OUT / "c"]),
+    "Rust": (
+        ["cargo", "rustc", "-q", "--release", "--locked", "--manifest-path", "rs/Cargo.toml", "--target-dir", OUT / "rs-target",
+         "--", "-C", "target-cpu=native"],
+        [OUT / "rs-target" / "release" / "bench"],
+    ),
     "Bun": (None, ["bun", "bench.ts"]),
     "Node": (None, ["node", "bench.ts"]),
     "Python": (None, ["python3", "bench.py"]),
@@ -37,17 +42,17 @@ def main():
         print(f"ran {name}", file=sys.stderr)
 
     for op in OPS:
-        seen = {checks[n][op] for n in checks if op in checks[n]}
+        seen = {checks[n][op] for n in checks}
         if len(seen) != 1:
-            sys.exit(f"checksum mismatch in {op}: {[(n, checks[n].get(op)) for n in checks]}")
+            sys.exit(f"checksum mismatch in {op}: {[(n, checks[n][op]) for n in checks]}")
         print(f"{op} checksum {seen.pop()}", file=sys.stderr)
 
     names = list(table)
     print("| op | " + " | ".join(names) + " |")
     print("|---|" + "---:|" * len(names))
     for op in OPS:
-        best = min(t[op] for t in table.values() if op in t)
-        cells = [f"{table[n][op]:,.1f} ({table[n][op] / best:.1f}x)" if op in table[n] else "n/a" for n in names]
+        best = min(t[op] for t in table.values())
+        cells = [f"{table[n][op]:,.1f} ({table[n][op] / best:.1f}x)" for n in names]
         print(f"| {op} | " + " | ".join(cells) + " |")
 
 
