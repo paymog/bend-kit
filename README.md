@@ -24,16 +24,17 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`encoding`](encoding) | `0xcfc8be7b076f41f95c8e118383892d55/encoding.bend` | UTF-8 and hex encoding for byte strings. |
 | [`json`](json) | `0x584fc27920487ceab242392391418d7f/json.bend` | JSON values, parsed and encoded as RFC 8259. |
 | [`csv`](csv) | `bend-kit-csv@0.1.0.0/csv.bend` | CSV records over bytes (RFC 4180), with a record cursor, whole-document parse, and encoder. |
-| [`cbor`](cbor) | `bend-kit-cbor@0.1.0.0/cbor.bend` | CBOR values encoded and decoded as bytes (RFC 8949). |
+| [`cbor`](cbor) | `bend-kit-cbor@0.1.0.1/cbor.bend` | CBOR values encoded and decoded as bytes (RFC 8949). |
 | [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming raw DEFLATE, gzip/zlib, Brotli, and Zstandard decoders. |
 | [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, bracketed IPv6 authorities, and percent-encoding (RFC 3986). |
 | [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets with packed-byte `.words` effects, including client certificates. |
 | [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |
-| [`http`](http) | `0xa32ae93500a5dfaef6edb45d6e7bcc3b/http.bend` | HTTP/1.1 client and server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
-| [`http2`](http2) | `bend-kit-http2@0.1.0.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
+| [`http`](http) | `bend-kit-http@0.24.2.0/http.bend` | HTTP/1.1 and HTTP/2 client and HTTP/1.1 server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
+| [`http2`](http2) | `bend-kit-http2@0.1.2.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.1.0.0/hairpin.bend` | An HTTP client on top of `http`: a base URL, default headers, a socket pool, a cookie jar, a client certificate, redirects, and retries in one `Client`. See [hairpin/README.md](hairpin/README.md). |
 | [`oauth2`](oauth2) | `bend-kit-oauth2@0.1.0.0/oauth2.bend` | OAuth2 client credentials, refresh tokens, and authorization code with PKCE over `hairpin`; expiry-aware bearer requests. |
 | [`jwt`](jwt) | `bend-kit-jwt@0.1.0.0/jwt.bend` | JWT signing and verification with pinned HS256/384/512, RS256, or ES256; claim validation and JWKS key lookup over `hairpin`. |
+| [`sigv4`](sigv4) | `bend-kit-sigv4@0.1.0.0/sigv4.bend` | AWS Signature V4 request signing and S3 object storage over `hairpin`. |
 | [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |
@@ -54,11 +55,10 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.1.0.0/concurrency.bend` | Parallel `par_map` and `par_reduce` over lists and arrays, a worker pool whose workers each own an affine state, `select` over channels, and `timeout`. See [concurrency/README.md](concurrency/README.md). |
 | [`redis`](redis) | `bend-kit-redis@0.1.0.0/redis.bend` | Redis and Valkey client: a RESP3 codec over bytes with an incremental reader, TCP or TLS connect with `HELLO 3`, `AUTH`, and `SELECT`, commands, pipelining, and a connection pool. |
 | [`postgres`](postgres) | `bend-kit-postgres@0.1.0.0/postgres.bend` | Postgres client over protocol 3.0 in pure Bend: a message codec over bytes with an incremental reader, SSLRequest then TLS with certificate and host name checks, cleartext and SCRAM-SHA-256 auth, prepared queries (Parse/Bind/Describe/Execute/Sync) with text parameters and results, typed server errors with SQLSTATE, and a connection pool. `postgres/smoke.bend` runs against a live server. |
+| [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.0/sqlite.bend` | Prepared SQLite statements through libsqlite3, with parameter binding and typed column reads. |
 | [`llm`](llm) | `bend-kit-llm@0.1.0.0/llm.bend` | LLM client on top of `hairpin` for the Anthropic Messages and OpenAI Chat Completions APIs: typed requests and replies, a raw JSON path for tools and images, retries on 408, 409, 429, and 5xx, and streaming through an incremental SSE parser (`llm/sse.bend`). |
 
 Notch keeps fields in insertion order and does not deduplicate keys. Avoid `time`, `level`, and `msg` as field names in JSON output. `notch/check.bend` shows both formats and the level filter.
-
-Each package is named `bend-kit-<package>` on the hub. The hub versions are `bytes@0.3.0.0`, `encoding@0.3.0.0`, `json@0.5.0.1`, `csv@0.1.0.0`, `cbor@0.1.0.0`, `zlib@0.1.4.0`, `url@0.4.0.0`, `wire@0.4.0.3`, `dns@0.3.2.1`, `http@0.16.0.0`, `http2@0.1.0.0`, `router@0.1.1.0`, `files@0.1.0.0`, `process@0.1.0.1`, `collections@0.1.0.0`, `unicode@0.1.0.0`, `regex@0.6.0.0`, `parse@0.1.0.0`, `int@0.2.0.0`, `fmt@0.1.0.0`, `hash@0.1.0.0`, `crypto@0.1.0.0`, `websocket@0.1.0.0`, `multipart@0.1.0.0`, `random@0.1.0.0`, `property@0.1.0.0`, `time@0.1.0.0`, `concurrency@0.1.0.0`, `notch@0.1.0.0`, `redis@0.1.0.0`, `postgres@0.1.0.0`, and `llm@0.1.0.0`.
 
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). It covers datetimes, numbers, arrays, and tables; a second TOML parser is not part of this kit.
 
