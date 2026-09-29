@@ -1418,7 +1418,7 @@ type Ix is Data:
 
 # The interned states, how many there are, and the id of one.
 type Ik is Data:
-  Ik{keys: List<&2, Ix>, n: U32, id: U32}
+  Ik{keys: Trie<List<&2, Ix>>, n: U32, id: U32}
 
 # A learned transition, with the next state's key in place of its id.
 type Lr is Data:
@@ -1449,7 +1449,17 @@ def sk.eq(a: Sk, b: Sk) -> Bool:
   Sk{q, y} = b
   Bool.not(Bool.xor(x, y)) && pcs.eq(p, q)
 
-# ponytail: a linear scan over at most cap states, run only when a transition is learned; hash the keys if cap grows.
+def pcs.hash(xs: List<&2, U32>, +h: U32) -> U32:
+  match xs:
+    case Nil{}:
+      h
+    case Con{+pc, rest}:
+      pcs.hash(rest, (U32.xor(h, pc) * 16777619 : U32))
+
+def sk.hash(k: Sk) -> U32:
+  Sk{pcs, done} = k
+  U32.and(pcs.hash(pcs, Bool.pick(U32, done, 2166136260, 2166136261)), 2147483647)
+
 def ix.find(xs: List<&2, Ix>, +k: Sk) -> U32:
   match xs:
     case Nil{}:
@@ -1457,24 +1467,38 @@ def ix.find(xs: List<&2, Ix>, +k: Sk) -> U32:
     case Con{Ix{key, +id}, t}:
       Bool.pick(U32, sk.eq(key, k), id, ix.find(t, k))
 
-def intern.if(miss: Bool, +found: U32, keys: List<&2, Ix>, +n: U32, +k: Sk) -> Ik:
+def intern.bucket(m: Maybe<&2, List<&2, Ix>>, +k: Sk) -> U32:
+  match m:
+    case None{}:
+      seed.id()
+    case Some{xs}:
+      ix.find(xs, k)
+
+def intern.add(m: Maybe<&2, List<&2, Ix>>, +k: Sk, +n: U32) -> List<&2, Ix>:
+  match m:
+    case None{}:
+      [Ix{k, n}]
+    case Some{xs}:
+      Ix{k, n} <> xs
+
+def intern.if(miss: Bool, +found: U32, +keys: Trie<List<&2, Ix>>, +n: U32, +k: Sk, +hash: U32) -> Ik:
   match miss:
     case True{}:
-      Ik{Ix{k, n} <> keys, (n + 1 : U32), n}
+      Ik{trie.set(List<&2, Ix>, keys, hash, intern.add(trie.at(List<&2, Ix>, keys, hash), k, n)), (n + 1 : U32), n}
     case False{}:
       Ik{keys, n, found}
 
-def intern.full(room: Bool, +keys: List<&2, Ix>, +n: U32, +k: Sk) -> Ik:
+def intern.full(room: Bool, +keys: Trie<List<&2, Ix>>, +n: U32, +k: Sk) -> Ik:
   match room:
     case True{}:
-      +found = ix.find(keys, k)
-      intern.if(U32.is_eq(found, seed.id()), found, keys, n, k)
+      +hash = sk.hash(k)
+      +found = intern.bucket(trie.at(List<&2, Ix>, keys, hash), k)
+      intern.if(U32.is_eq(found, seed.id()), found, keys, n, k, hash)
     case False{}:
       Ik{keys, n, seed.id()}
 
-# The id of state k, added when new; seed.id() when the cache is full. A full cache is not
-# searched: with many states the search would cost more than the step it saves.
-def intern(+keys: List<&2, Ix>, +n: U32, +cap: U32, +k: Sk) -> Ik:
+# A full cache is not searched; the plain Pike VM handles the remaining text.
+def intern(+keys: Trie<List<&2, Ix>>, +n: U32, +cap: U32, +k: Sk) -> Ik:
   intern.full(U32.is_lt(n, cap), keys, n, k)
 
 def sym.caps(+slots: Nat, +i: U32) -> List<&2, Maybe<&2, U32>>:
@@ -1639,13 +1663,13 @@ def replay.vm(fresh: Bool, +hit: U32, outs: List<&2, Op>, st: Vm, +init: List<&2
 # The DFA over Bytes: the buffer, the transitions by state and ASCII char, the interned states,
 # the current state, the offset i of the next char, that char, and the threads waiting on it.
 type Rq is Type:
-  Rq{a: Array<U32>, tab: Array<Tr>, keys: List<&2, Ix>, n: U32, id: U32, i: U32, d: Dc, st: Vm, same: Bool}
+  Rq{a: Array<U32>, tab: Array<Tr>, keys: Trie<List<&2, Ix>>, n: U32, id: U32, i: U32, d: Dc, st: Vm, same: Bool}
 
 def rq.ik(ik: Ik, a: Array<U32>, tab: Array<Tr>, +j: U32, +d: Dc, st: Vm) -> Rq:
   Ik{keys, n, id} = ik
   Rq{a, tab, keys, n, id, j, d, st, False{}}
 
-def rq.of(r: Rb, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +cap: U32) -> Rq:
+def rq.of(r: Rb, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +cap: U32) -> Rq:
   Rb{a, +i, +d, +st} = r
   rq.ik(intern(keys, n, cap, vm.key(st)), a, tab, i, d, st)
 
@@ -1655,12 +1679,12 @@ def rq.store(ik: Ik, a: Array<U32>, tab: Array<Tr>, +idx: U32, +old: U32, +hit: 
   +same = U32.is_eq(id, old) && U32.is_eq(hit, 0) && ops.same(outs, ths, 0)
   Rq{a, Array.set(Tr, tab, idx, tr.of(same, id, hit, outs, fresh)), keys, n, id, j, d, replay.vm(fresh, hit, outs, Vm{ths, best}, init, j, start, Dc.char(d)), same}
 
-def rq.learn(lr: Lr, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +idx: U32, +old: U32, +j: U32, +d: Dc, st: Vm, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +cap: U32) -> Rq:
+def rq.learn(lr: Lr, a: Array<U32>, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +idx: U32, +old: U32, +j: U32, +d: Dc, st: Vm, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +cap: U32) -> Rq:
   Lr{+hit, +outs, +key, +fresh} = lr
   rq.store(intern(keys, n, cap, key), a, tab, idx, old, hit, outs, fresh, j, d, st, init, start)
 
 # With a full cache, skip building the key too.
-def rq.real(room: Bool, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +j: U32, +d: Dc, +st: Vm, +cap: U32) -> Rq:
+def rq.real(room: Bool, a: Array<U32>, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +j: U32, +d: Dc, +st: Vm, +cap: U32) -> Rq:
   match room:
     case True{}:
       rq.ik(intern(keys, n, cap, vm.key(st)), a, tab, j, d, st)
@@ -1840,7 +1864,7 @@ def qa.status(ar: Ar) -> Qst:
   qa.status.if(U32.is_zero(count), old, spare, count, cap, best)
 
 type Qa is Type:
-  Qa{a: Array<U32>, tab: Array<Tr>, keys: List<&2, Ix>, n: U32, id: U32, i: U32, d: Dc, ar: Qst, same: Bool}
+  Qa{a: Array<U32>, tab: Array<Tr>, keys: Trie<List<&2, Ix>>, n: U32, id: U32, i: U32, d: Dc, ar: Qst, same: Bool}
 
 def qa.seed(r: Rq, +init: List<&2, Maybe<&2, U32>>) -> Qa:
   Rq{a, tab, keys, n, id, i, d, st, same} = r
@@ -1857,19 +1881,19 @@ def qa.from(r: Rq, ar: Ar, +init: List<&2, Maybe<&2, U32>>, +cap: U32) -> Qa:
   Rq{a, tab, keys, n, +id, i, d, st, same} = r
   Qa{a, tab, keys, n, id, i, d, qa.from.state(U32.is_lt(id, cap), st, ar, init), same}
 
-def qa.learn.vm(r: Ar & Vm, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +idx: U32, +j: U32, +d: Dc, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
+def qa.learn.vm(r: Ar & Vm, a: Array<U32>, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +idx: U32, +j: U32, +d: Dc, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
   (ar, +st) = r
   qa.from(rq.learn(learn(st, c, prog, cfuel, slots, any), a, tab, keys, n, idx, (idx / 128 : U32), j, d, st, init, start, cap), ar, init, cap)
 
-def qa.real.vm(r: Ar & Vm, s: Array<U32> & Dc, +j: U32, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +cap: U32) -> Qa:
+def qa.real.vm(r: Ar & Vm, s: Array<U32> & Dc, +j: U32, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +cap: U32) -> Qa:
   (ar, st) = r
   (a, +d) = s
   qa.from(rq.real(U32.is_lt(n, cap), a, tab, keys, n, j, d, run.step(st, prog, cfuel, init, start, any, j, Chr{c}, Dc.char(d)), cap), ar, init, cap)
 
-def qa.real(s: Array<U32> & Dc, +j: U32, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +cap: U32) -> Qa:
+def qa.real(s: Array<U32> & Dc, +j: U32, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +cap: U32) -> Qa:
   qa.real.vm(ar.vm(ar), s, j, tab, keys, n, c, prog, cfuel, init, start, any, cap)
 
-def qa.cached(r: Array<Tr> & Tr, a: Array<U32>, +keys: List<&2, Ix>, +n: U32, +idx: U32, +j: U32, +d: Dc, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
+def qa.cached(r: Array<Tr> & Tr, a: Array<U32>, +keys: Trie<List<&2, Ix>>, +n: U32, +idx: U32, +j: U32, +d: Dc, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
   (tab, tr) = r
   match tr:
     case TrNo{}:
@@ -1879,7 +1903,7 @@ def qa.cached(r: Array<Tr> & Tr, a: Array<U32>, +keys: List<&2, Ix>, +n: U32, +i
     case Tr{+next, +hit, +outs, +fresh}:
       Qa{a, tab, keys, n, next, j, d, qa.status(ar.cached(fresh, hit, outs, ar, init, j, start, Dc.char(d))), False{}}
 
-def qa.pick(ok: Bool, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +id: U32, +j: U32, +d: Dc, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
+def qa.pick(ok: Bool, a: Array<U32>, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +id: U32, +j: U32, +d: Dc, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
   match ok:
     case True{}:
       +idx = ((id * 128) + c : U32)
@@ -1887,26 +1911,26 @@ def qa.pick(ok: Bool, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U3
     case False{}:
       qa.real((a, d), j, tab, keys, n, ar, c, prog, cfuel, init, start, any, cap)
 
-def qa.step(s: Array<U32> & Dc, +j: U32, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +id: U32, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
+def qa.step(s: Array<U32> & Dc, +j: U32, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +id: U32, ar: Ar, +c: U32, +prog: Trie<Inst>, +cfuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +any: Bool, +slots: Nat, +cap: U32) -> Qa:
   (a, +d) = s
   qa.pick(U32.is_lt(c, 128) && U32.is_lt(id, cap) && Maybe.is_some(&2, Char, Dc.char(d)), a, tab, keys, n, id, j, d, ar, c, prog, cfuel, init, start, any, slots, cap)
 
-def qa.spin.read(s: Array<U32> & Dc, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +id: U32, +i: U32, ar: Qst) -> Qa:
+def qa.spin.read(s: Array<U32> & Dc, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +id: U32, +i: U32, ar: Qst) -> Qa:
   (a, d) = s
   Qa{a, tab, keys, n, id, i, d, ar, False{}}
 
-def qa.spin.dec(moved: Bool, a: Array<U32>, tab: Array<Tr>, +len: U32, +keys: List<&2, Ix>, +n: U32, +id: U32, +i: U32, d: Dc, ar: Qst) -> Qa:
+def qa.spin.dec(moved: Bool, a: Array<U32>, tab: Array<Tr>, +len: U32, +keys: Trie<List<&2, Ix>>, +n: U32, +id: U32, +i: U32, d: Dc, ar: Qst) -> Qa:
   match moved:
     case True{}:
       qa.spin.read(dec(a, len, i), tab, keys, n, id, i, ar)
     case False{}:
       Qa{a, tab, keys, n, id, i, d, ar, False{}}
 
-def qa.spin.at(s: Spin, +old: U32, +len: U32, +keys: List<&2, Ix>, +n: U32, +id: U32, d: Dc, ar: Qst) -> Qa:
+def qa.spin.at(s: Spin, +old: U32, +len: U32, +keys: Trie<List<&2, Ix>>, +n: U32, +id: U32, d: Dc, ar: Qst) -> Qa:
   Spin{a, tab, +i} = s
   qa.spin.dec(U32.is_ne(i, old), a, tab, len, keys, n, id, i, d, ar)
 
-def qa.spin.if(same: Bool, a: Array<U32>, tab: Array<Tr>, +keys: List<&2, Ix>, +n: U32, +id: U32, +i: U32, d: Dc, ar: Qst, +fuel: Nat, +len: U32, +cap: U32) -> Qa:
+def qa.spin.if(same: Bool, a: Array<U32>, tab: Array<Tr>, +keys: Trie<List<&2, Ix>>, +n: U32, +id: U32, +i: U32, d: Dc, ar: Qst, +fuel: Nat, +len: U32, +cap: U32) -> Qa:
   match same:
     case True{}:
       qa.spin.at(spin(fuel, spin.state(spin.byte(Bool.not(U32.is_lt((i + 1 : U32), len)), a, i), tab, i, id, cap), len, id, cap), i, len, keys, n, id, d, ar)
@@ -1963,15 +1987,19 @@ def exec.bytes.fin(+len: U32, r: Array<U32> & Maybe<&2, List<&2, Maybe<&2, U32>>
   (a, m) = r
   (Bytes.Bytes{len, a}, m)
 
-# Short texts get a small cache: 8 states, so learning costs little.
-def exec.bytes.go(plain: Bool, +len: U32, buf: Array<U32>, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +asc: Maybe<&2, Asc>, +any: Bool, +slots: Nat) -> Array<U32> & Maybe<&2, List<&2, Maybe<&2, U32>>>:
-  match plain:
+# Short large programs use the plain VM; long large programs can use 2048 states.
+def exec.bytes.go.if(use: Bool, +len: U32, buf: Array<U32>, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +asc: Maybe<&2, Asc>, +any: Bool, +slots: Nat) -> Array<U32> & Maybe<&2, List<&2, Maybe<&2, U32>>>:
+  match use:
     case True{}:
       +small = U32.is_lt(len, 4096)
-      +cap = Bool.pick(U32, small, 8, 256)
-      runqa(Nat.add(U32.to_nat(len), 2n), qa.seed(rq.of(rb.seed(dec(buf, len, 0), 0, prog, fuel, init, start), Array.new(Tr, Bool.pick(Nat, small, 10n, 15n), TrNo{}), Nil{}, 0, cap), init), len, prog, fuel, init, start, asc, any, slots, cap)
+      +wide = Nat.is_ge(fuel, 300n)
+      +cap = Bool.pick(U32, small, 8, Bool.pick(U32, wide, 2048, 256))
+      runqa(Nat.add(U32.to_nat(len), 2n), qa.seed(rq.of(rb.seed(dec(buf, len, 0), 0, prog, fuel, init, start), Array.new(Tr, Bool.pick(Nat, small, 10n, Bool.pick(Nat, wide, 18n, 15n)), TrNo{}), TTip{}, 0, cap), init), len, prog, fuel, init, start, asc, any, slots, cap)
     case False{}:
       runb(Nat.add(U32.to_nat(len), 2n), rb.seed(dec(buf, len, 0), 0, prog, fuel, init, start), len, prog, fuel, init, start, asc, any)
+
+def exec.bytes.go(plain: Bool, +len: U32, buf: Array<U32>, +prog: Trie<Inst>, +fuel: Nat, +init: List<&2, Maybe<&2, U32>>, +start: Maybe<&2, List<&2, Inst>>, +asc: Maybe<&2, Asc>, +any: Bool, +slots: Nat) -> Array<U32> & Maybe<&2, List<&2, Maybe<&2, U32>>>:
+  exec.bytes.go.if(plain && (U32.is_le(4096, len) || Bool.not(Nat.is_ge(fuel, 300n))), len, buf, prog, fuel, init, start, asc, any, slots)
 
 def exec.bytes(re: Regex, b: Bytes.Bytes, +any: Bool) -> Bytes.Bytes & Maybe<&2, List<&2, Maybe<&2, U32>>>:
   Regex{+prog, +fuel, +slots, +start, bits, +asc, plain} = re
