@@ -43,19 +43,19 @@ Rust's standard library has no regular expression engine, so Rust is left out.
 
 ## Results
 
-Apple M4 Pro, macOS, 2026-09-27. Median of three runs (`python3 run.py`). Times are ms for one match on the 1 MiB text (or 100k `a` for `redos`, 1001 chars for `large`).
+Apple M4 Pro, macOS, 2026-09-28. Median of three runs (`python3 run.py 3`). Times are ms for one match on the 1 MiB text (or 100k `a` for `redos`, 1001 chars for `large`).
 
-Versions: Bend 2.0.31, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0.1.
+Versions: Bend 2.0.32, Apple clang 17.0.0, Python 3.14.6, Bun 1.3.14, Node v24.0.1.
 
 | op | C | Python | Bun | Node | Bend |
 |---|---:|---:|---:|---:|---:|
 | is_match | 0.0 | 0.3 | 0.2 | 0.2 | 1.1 |
 | is_match_early | 0.0 | 0.0 | 0.1 | 0.1 | 0.1 |
-| is_match_live | 8.7 | 1.1 | 0.1 | 7.8 | 76.6 |
-| find_captures | 16.4 | 2.8 | 0.8 | 0.7 | 216.6 |
+| is_match_live | 9.0 | 1.1 | 0.1 | 7.8 | 77.9 |
+| find_captures | 16.2 | 2.9 | 0.9 | 0.7 | 142.8 |
 | find_early | 0.0 | 0.0 | 0.2 | 0.2 | 0.6 |
-| redos | 3.1 | timeout | 876.4 | timeout | 21.3 |
-| large | 2,430.0 | 0.0 | 0.1 | 0.1 | 969.8 |
+| redos | 3.0 | timeout | 890.0 | timeout | 14.0 |
+| large | 2,396.4 | 0.0 | 0.1 | 0.1 | 954.4 |
 
 Checksums (1 MiB text; 1001 chars for `large`). All non-timeout variants agree.
 
@@ -93,10 +93,11 @@ Bend times in ms, median of three runs of the same bench against each version of
 | #144: match over `Bytes`; skip with a byte table | 1 | 0 | 76 | 760 | 0 | — |
 | #153: lazy DFA with capture operations for `find` | 1 | 0 | 78 | 214 | 0 | 21 |
 | #163: spin through unchanged DFA transitions | 1 | 0 | 78 | 223 | 1 | 21 |
+| #163: reuse arrays for live DFA threads | 1 | 0 | 78 | 143 | 1 | 14 |
 
 ## Caveats
 
-- An unchanged DFA transition must keep both the state and every capture. The `find_captures` fixture saves the end of a group on each `x`, so its cached transitions are not unchanged. Its measured time is 223 ms, against 214 ms before this change. The `redos` fixture also has no measured improvement. The small-program VM takes 128 ms on `is_match_live`; the bit NFA remains at 78 ms.
+- Identity transitions alone did not help `find_captures`: it saves a capture end on each `x`. Reusable thread arrays reduce its time from 223 to 143 ms and `redos` from 21 to 14 ms, without changing capture results. The small-program VM takes 128 ms on `is_match_live`; the bit NFA remains at 78 ms.
 - `large` has about 1000 DFA states, more than the cache holds (8 for a text under 4 KiB, 256 above), so most of its chars take the plain Pike step.
 - POSIX ERE has no `\w`; `[[:alnum:]_]` is the documented equivalent for ASCII word characters.
 - Bend times itself with `Time.mono`, a nanosecond clock.
