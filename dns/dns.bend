@@ -1,63 +1,11 @@
 # DNS codec and host lookup. Source: https://github.com/paymog/bend-kit/tree/main/dns
 import Base
-# bend-kit-wire@0.4.0.3
-import 0x096635686408886b7d907f16c4550317/wire.bend as Wire
+import bend-kit-wire@0.4.3.0/wire.bend as Wire
+import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 
 # query, answer, and resolve.pure are pure; PROOF.bend covers them, not effs/.
 # resolve.all uses the OS resolver (IPv4 and IPv6); resolve keeps the first address.
-#   import bend-kit-dns@0.4.0.0/dns.bend as Dns
-
-type Cur is Data:
-  Cur{v: U32, rest: String}
-
-type RR is Data:
-  RRBad{}
-  RRA{ip: String}
-  RRSkip{rest: String}
-
-def u8(s: String) -> Maybe<&2, Cur>:
-  match s:
-    case SNil{}:
-      None{}
-    case SCon{Chr{c}, t}:
-      Some{Cur{c, t}}
-
-def u16.lo(hi: U32, m: Maybe<&2, Cur>) -> Maybe<&2, Cur>:
-  match m:
-    case None{}:
-      None{}
-    case Some{Cur{lo, r}}:
-      Some{Cur{(hi * 256 + lo : U32), r}}
-
-def u16.go(m: Maybe<&2, Cur>) -> Maybe<&2, Cur>:
-  match m:
-    case None{}:
-      None{}
-    case Some{Cur{hi, r}}:
-      u16.lo(hi, u8(r))
-
-def u16(s: String) -> Maybe<&2, Cur>:
-  u16.go(u8(s))
-
-def skip.if(+s: String, +n: Nat, short: Bool) -> Maybe<&2, String>:
-  match short:
-    case True{}:
-      None{}
-    case False{}:
-      Some{String.drop(s, n)}
-
-def skip(+s: String, +n: Nat) -> Maybe<&2, String>:
-  skip.if(s, n, Nat.is_lt(String.length(s), n))
-
-def then(m: Maybe<&2, String>, n: Nat) -> Maybe<&2, String>:
-  match m:
-    case None{}:
-      None{}
-    case Some{r}:
-      skip(r, n)
-
-def push16(+n: U32, acc: String) -> String:
-  SCon{Chr{U32.and(n, 255)}, SCon{Chr{U32.shrn(n, 8n)}, acc}}
+#   import bend-kit-dns@0.5.0.0/dns.bend as Dns
 
 # Query
 # -----
@@ -80,22 +28,40 @@ def labels.ok(xs: List<&2, String>) -> Bool:
     case Con{+l, t}:
       Bool.and(Bool.and(label.ok(l), label.ascii(l)), labels.ok(t))
 
-def labels.put(xs: List<&2, String>, acc: String) -> String:
+# QNAME's length without its final zero octet.
+def labels.len(xs: List<&2, String>, +n: U32) -> U32:
   match xs:
     case Nil{}:
-      acc
+      n
     case Con{+l, t}:
-      labels.put(t, String.reverse(l) ++ SCon{Chr{U32.from_nat(String.length(l))}, acc})
+      labels.len(t, (n + 1 + U32.from_nat(String.length(l)) : U32))
 
-def query.if(+id: U32, xs: List<&2, String>, ok: Bool) -> Maybe<&2, String>:
+def label.put(s: String, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:
+  match s:
+    case SNil{}:
+      b
+    case SCon{Chr{c}, t}:
+      label.put(t, Bytes.set(b, i, c), (i + 1 : U32))
+
+# Each label as its length octet, then its octets. The zero octet that ends QNAME is already there.
+def labels.put(xs: List<&2, String>, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:
+  match xs:
+    case Nil{}:
+      b
+    case Con{+l, t}:
+      +n = U32.from_nat(String.length(l))
+      labels.put(t, label.put(l, Bytes.set(b, i, n), (i + 1 : U32)), (i + 1 + n : U32))
+
+def query.if(+id: U32, +xs: List<&2, String>, ok: Bool) -> Maybe<&1, Bytes.Bytes>:
   match ok:
     case False{}:
       None{}
     case True{}:
-      # header: id, RD, QDCOUNT 1; question: QNAME, QTYPE A, QCLASS IN
-      Some{String.reverse(push16(1, push16(1, SCon{Chr{0}, labels.put(xs, push16(0, push16(0, push16(0, push16(1, push16(256, push16(id, SNil{})))))))})))}
+      # header: id, RD, QDCOUNT 1; question: QNAME, QTYPE A, QCLASS IN. Other fields stay zero.
+      +n = (labels.len(xs, 0) + 17 : U32)
+      Some{Bytes.set.u16be(Bytes.set.u16be(labels.put(xs, Bytes.set.u16be(Bytes.set.u16be(Bytes.set.u16be(Bytes.new(n), 0, id), 2, 256), 4, 1), 12), (n - 4 : U32), 1), (n - 2 : U32), 1)}
 
-def query.labels(+id: U32, +xs: List<&2, String>) -> Maybe<&2, String>:
+def query.labels(+id: U32, +xs: List<&2, String>) -> Maybe<&1, Bytes.Bytes>:
   query.if(id, xs, labels.ok(xs))
 
 def strip_dot.if(+s: String, dot: Bool) -> String:
@@ -109,172 +75,205 @@ def strip_dot(+s: String) -> String:
   strip_dot.if(s, String.ends_with(s, "."))
 
 # RFC 1035 §4.1: a standard query for the A record of name.
-def query(id: U32, name: String) -> Maybe<&2, String>:
+def query(id: U32, name: String) -> Maybe<&1, Bytes.Bytes>:
   query.labels(id, String.split(strip_dot(name), '.'))
 
 # Answer
 # ------
 
-# §4.1.4: a name is labels ending in a zero octet, or a two-octet pointer.
-def name.skip(fuel: Nat, s: String) -> Maybe<&2, String>:
-  match fuel:
-    case 0n:
-      None{}
-    case 1n+f:
-      match s:
-        case SNil{}:
-          None{}
-        case SCon{Chr{+l}, +t}:
-          Bool.pick(Maybe<&2, String>, U32.is_eq(l, 0), Some{t}, Bool.pick(Maybe<&2, String>, U32.is_le(192, l), skip(t, 1n), Bool.pick(Maybe<&2, String>, U32.is_le(64, l), None{}, name.skip(f, String.drop(t, U32.to_nat(l))))))
+# One step through a name: go on at the next label, or stop with the offset past the name.
+type Step is Data:
+  Go{at: U32}
+  Stop{end: Maybe<&2, U32>}
 
-def name.then(m: Maybe<&2, String>, n: Nat) -> Maybe<&2, String>:
+# §4.1.4: l, the octet at i, is 0 at the end, 192..255 for a two-octet pointer, 64..191 reserved.
+def name.step.of(+i: U32, +l: U32) -> Step:
+  Bool.pick(Step, U32.is_eq(l, 0), Stop{Some{(i + 1 : U32)}}, Bool.pick(Step, U32.is_le(192, l), Stop{Some{(i + 2 : U32)}}, Bool.pick(Step, U32.is_le(64, l), Stop{None{}}, Go{(i + 1 + l : U32)})))
+
+def name.step(+i: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Step:
+  (b, m) = r
   match m:
     case None{}:
-      None{}
-    case Some{+r}:
-      then(name.skip(String.length(r), r), n)
+      (b, Stop{None{}})
+    case Some{l}:
+      (b, name.step.of(i, l))
 
-def dotted(s: String) -> String:
-  match s:
-    case SNil{}:
-      ""
-    case SCon{Chr{c}, t}:
-      match t:
-        case SNil{}:
-          U32.show(c)
-        case SCon{_, _}:
-          U32.show(c) ++ "." ++ dotted(t)
+def name.walk(fuel: Nat, r: Bytes.Bytes & Step) -> Bytes.Bytes & Maybe<&2, U32>:
+  match fuel:
+    case 0n:
+      (b, s) = r
+      (b, None{})
+    case 1n+f:
+      (b, s) = r
+      match s:
+        case Stop{end}:
+          (b, end)
+        case Go{+at}:
+          name.walk(f, name.step(at, Bytes.get(b, at)))
 
-def rr.f(+r: String, +len: U32, a: Bool) -> RR:
+# The offset past the name at i. §2.3.4: a name is at most 255 octets, so 128 steps are enough.
+def name.skip(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Maybe<&2, U32>:
+  name.walk(128n, name.step(i, Bytes.get(b, i)))
+
+type RR is Data:
+  RRBad{}
+  RRA{ip: String}
+  RRSkip{at: U32}
+
+def dotted(+ip: U32) -> String:
+  U32.show(U32.shrn(ip, 24n)) ++ "." ++ U32.show(Bytes.b8(U32.shrn(ip, 16n))) ++ "." ++ U32.show(Bytes.b8(U32.shrn(ip, 8n))) ++ "." ++ U32.show(Bytes.b8(ip))
+
+def rr.a(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
+  (b, m) = r
+  match m:
+    case None{}:
+      (b, RRBad{})
+    case Some{ip}:
+      (b, RRA{dotted(ip)})
+
+# RDATA at i holds len octets. A skipped record past the end fails at the next read.
+def rr.data(a: Bool, b: Bytes.Bytes, +i: U32, +len: U32) -> Bytes.Bytes & RR:
   match a:
     case True{}:
-      RRA{dotted(String.take(r, 4n))}
+      rr.a(Bytes.get.u32be(b, i))
     case False{}:
-      RRSkip{String.drop(r, U32.to_nat(len))}
+      (b, RRSkip{(i + len : U32)})
 
-def rr.data(+r: String, +len: U32, a: Bool, short: Bool) -> RR:
-  match short:
-    case True{}:
-      RRBad{}
-    case False{}:
-      rr.f(r, len, a)
-
-def rr.e(+ty: U32, +cl: U32, m: Maybe<&2, Cur>) -> RR:
+def rr.len(+o: U32, +ty: U32, +cl: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
+  (b, m) = r
   match m:
     case None{}:
-      RRBad{}
-    case Some{Cur{+len, +r}}:
-      rr.data(r, len, Bool.and(Bool.and(U32.is_eq(ty, 1), U32.is_eq(cl, 1)), U32.is_eq(len, 4)), Nat.is_lt(String.length(r), U32.to_nat(len)))
+      (b, RRBad{})
+    case Some{+len}:
+      rr.data(Bool.and(Bool.and(U32.is_eq(ty, 1), U32.is_eq(cl, 1)), U32.is_eq(len, 4)), b, (o + 10 : U32), len)
 
-def rr.d(ty: U32, cl: U32, m: Maybe<&2, String>) -> RR:
+def rr.cl(+o: U32, +ty: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
+  (b, m) = r
   match m:
     case None{}:
-      RRBad{}
-    case Some{r}:
-      rr.e(ty, cl, u16(r))
+      (b, RRBad{})
+    case Some{cl}:
+      rr.len(o, ty, cl, Bytes.get.u16be(b, (o + 8 : U32)))
 
-def rr.c(ty: U32, m: Maybe<&2, Cur>) -> RR:
+def rr.ty(+o: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
+  (b, m) = r
   match m:
     case None{}:
-      RRBad{}
-    case Some{Cur{cl, r}}:
-      rr.d(ty, cl, skip(r, 4n))
+      (b, RRBad{})
+    case Some{ty}:
+      rr.cl(o, ty, Bytes.get.u16be(b, (o + 2 : U32)))
 
-def rr.b(m: Maybe<&2, Cur>) -> RR:
+def rr.name(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
+  (b, m) = r
   match m:
     case None{}:
-      RRBad{}
-    case Some{Cur{ty, r}}:
-      rr.c(ty, u16(r))
-
-def rr.a(m: Maybe<&2, String>) -> RR:
-  match m:
-    case None{}:
-      RRBad{}
-    case Some{r}:
-      rr.b(u16(r))
+      (b, RRBad{})
+    case Some{+o}:
+      rr.ty(o, Bytes.get.u16be(b, o))
 
 # §4.1.3: NAME, TYPE, CLASS, TTL, RDLENGTH, RDATA.
-def rr(+s: String) -> RR:
-  rr.a(name.skip(String.length(s), s))
+def rr(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & RR:
+  rr.name(name.skip(b, i))
 
 # fuel = records left. The first A record wins; CNAMEs before it are skipped.
-def answers.scan(fuel: Nat, r: RR) -> Maybe<&2, String>:
+def answers.scan(fuel: Nat, r: Bytes.Bytes & RR) -> Maybe<&2, String>:
   match fuel:
     case 0n:
       None{}
     case 1n+f:
-      match r:
+      (b, x) = r
+      match x:
         case RRBad{}:
           None{}
         case RRA{ip}:
           Some{ip}
-        case RRSkip{s}:
-          answers.scan(f, rr(s))
+        case RRSkip{+at}:
+          answers.scan(f, rr(b, at))
 
-def questions(fuel: Nat, m: Maybe<&2, String>) -> Maybe<&2, String>:
+# QTYPE and QCLASS follow the name.
+def question.end(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
+  (b, m) = r
+  match m:
+    case None{}:
+      (b, None{})
+    case Some{e}:
+      (b, Some{(e + 4 : U32)})
+
+def questions(fuel: Nat, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
   match fuel:
     case 0n:
-      m
+      (b, m) = r
+      (b, m)
     case 1n+f:
-      questions(f, name.then(m, 4n))
+      (b, m) = r
+      match m:
+        case None{}:
+          (b, None{})
+        case Some{+at}:
+          questions(f, question.end(name.skip(b, at)))
 
-def body.go(an: U32, m: Maybe<&2, String>) -> Maybe<&2, String>:
+def body.go(+an: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (b, m) = r
   match m:
     case None{}:
       None{}
-    case Some{s}:
-      answers.scan(U32.to_nat(an), rr(s))
+    case Some{+at}:
+      answers.scan(U32.to_nat(an), rr(b, at))
 
-def body.an(qd: U32, m: Maybe<&2, Cur>) -> Maybe<&2, String>:
+# The 12-octet header ends with NSCOUNT and ARCOUNT; the questions follow.
+def body.an(+qd: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (b, m) = r
   match m:
     case None{}:
       None{}
-    case Some{Cur{an, r}}:
-      body.go(an, questions(U32.to_nat(qd), skip(r, 4n)))
+    case Some{an}:
+      body.go(an, questions(U32.to_nat(qd), (b, Some{12})))
 
-def body.qd(m: Maybe<&2, Cur>) -> Maybe<&2, String>:
+def body.qd(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (b, m) = r
   match m:
     case None{}:
       None{}
-    case Some{Cur{qd, r}}:
-      body.an(qd, u16(r))
+    case Some{qd}:
+      body.an(qd, Bytes.get.u16be(b, 6))
 
 # §4.1.1: QR set, opcode QUERY, not truncated, RCODE 0.
 def flags.ok(+f: U32) -> Bool:
   Bool.and(Bool.and(U32.is_eq(U32.and(f, 32768), 32768), U32.is_eq(U32.and(f, 30720), 0)), Bool.and(U32.is_eq(U32.and(f, 512), 0), U32.is_eq(U32.and(f, 15), 0)))
 
-def head.flags.if(r: String, ok: Bool) -> Maybe<&2, String>:
+def head.flags.if(ok: Bool, b: Bytes.Bytes) -> Maybe<&2, String>:
   match ok:
     case False{}:
       None{}
     case True{}:
-      body.qd(u16(r))
+      body.qd(Bytes.get.u16be(b, 4))
 
-def head.flags(m: Maybe<&2, Cur>) -> Maybe<&2, String>:
+def head.flags(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (b, m) = r
   match m:
     case None{}:
       None{}
-    case Some{Cur{+f, r}}:
-      head.flags.if(r, flags.ok(f))
+    case Some{f}:
+      head.flags.if(flags.ok(f), b)
 
-def head.id.if(r: String, ok: Bool) -> Maybe<&2, String>:
+def head.id.if(ok: Bool, b: Bytes.Bytes) -> Maybe<&2, String>:
   match ok:
     case False{}:
       None{}
     case True{}:
-      head.flags(u16(r))
+      head.flags(Bytes.get.u16be(b, 2))
 
-def head.id(id: U32, m: Maybe<&2, Cur>) -> Maybe<&2, String>:
+def head.id(+id: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (b, m) = r
   match m:
     case None{}:
       None{}
-    case Some{Cur{got, r}}:
-      head.id.if(r, U32.is_eq(id, got))
+    case Some{got}:
+      head.id.if(U32.is_eq(id, got), b)
 
 # The IPv4 address the response gives for the query with this id.
-def answer(id: U32, msg: String) -> Maybe<&2, String>:
-  head.id(id, u16(msg))
+def answer(id: U32, msg: Bytes.Bytes) -> Maybe<&2, String>:
+  head.id(id, Bytes.get.u16be(msg, 0))
 
 # resolv.conf
 # -----------
@@ -386,11 +385,12 @@ def try.pure(s: Socket, t: Try) -> IO(Socket & Try):
   IO.pure(Socket & Try, (s, t))
 
 # A datagram from anyone but the nameserver's port 53 is ignored (retried).
-def try.from(s: Socket, +ns: String, id: U32, hpd: String & U32 & String) -> IO(Socket & Try):
+def try.from(s: Socket, +ns: String, id: U32, hpd: String & U32 & (U32 & Array<U32>)) -> IO(Socket & Try):
   (h, +p, d) = hpd
-  try.pure(s, Bool.pick(Try, Bool.and(String.eq(h, ns), U32.is_eq(p, 53)), Got{answer(id, d)}, Again{}))
+  (n, w) = d
+  try.pure(s, Bool.pick(Try, Bool.and(String.eq(h, ns), U32.is_eq(p, 53)), Got{answer(id, Bytes.Bytes{n, w})}, Again{}))
 
-def try.back(ns: String, id: U32, m: Socket & Result<&1, &1, U32 & String, String & U32 & String>) -> IO(Socket & Try):
+def try.back(ns: String, id: U32, m: Socket & Result<&1, &1, U32 & String, String & U32 & (U32 & Array<U32>)>) -> IO(Socket & Try):
   (s, r) = m
   match r:
     case Fail{e}:
@@ -406,13 +406,21 @@ def try.sent(ns: String, id: U32, m: Socket & Result<&1, &1, U32 & String, Unit>
       try.pure(s, Again{})
     case Done{u}:
       do IO<Socket & Try>:
-        back : Socket & Result<&1, &1, U32 & String, String & U32 & String> <- Wire.recv_from(s, 512, 5000)
+        back : Socket & Result<&1, &1, U32 & String, String & U32 & (U32 & Array<U32>)> <- Wire.recv_from.words(s, 512, 5000)
         try.back(ns, id, back)
 
-def try.once(s: Socket, +ns: String, id: U32, q: String) -> IO(Socket & Try):
-  do IO<Socket & Try>:
-    sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send_to(s, ns, 53, q)
-    try.sent(ns, id, sent)
+# Bytes cannot be copied, so each attempt builds its own query. A name that query rejects ends the tries.
+def try.send(s: Socket, +ns: String, id: U32, q: Maybe<&1, Bytes.Bytes>) -> IO(Socket & Try):
+  match q:
+    case None{}:
+      try.pure(s, Got{None{}})
+    case Some{Bytes.Bytes{n, w}}:
+      do IO<Socket & Try>:
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send_to.words(s, ns, 53, n, w)
+        try.sent(ns, id, sent)
+
+def try.once(s: Socket, +ns: String, +id: U32, name: String) -> IO(Socket & Try):
+  try.send(s, ns, id, query(id, name))
 
 def try.close(s: Socket, r: Maybe<&2, String>) -> IO(Maybe<&2, String>):
   do IO<Maybe<&2, String>>:
@@ -428,7 +436,7 @@ def tries.end(st: Socket & Try) -> IO(Maybe<&2, String>):
       try.close(s, None{})
 
 # fuel: attempts left (resolv.conf's default is 2).
-def tries(fuel: Nat, +ns: String, +id: U32, +q: String, st: Socket & Try) -> IO(Maybe<&2, String>):
+def tries(fuel: Nat, +ns: String, +id: U32, +name: String, st: Socket & Try) -> IO(Maybe<&2, String>):
   match fuel:
     case 0n:
       tries.end(st)
@@ -439,24 +447,15 @@ def tries(fuel: Nat, +ns: String, +id: U32, +q: String, st: Socket & Try) -> IO(
           try.close(s, ip)
         case Again{}:
           do IO<Maybe<&2, String>>:
-            next : Socket & Try <- try.once(s, ns, id, q)
-            tries(f, ns, id, q, next)
+            next : Socket & Try <- try.once(s, ns, id, name)
+            tries(f, ns, id, name, next)
 
-def resolve.sock(ns: String, id: U32, q: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Maybe<&2, String>):
+def resolve.sock(ns: String, id: U32, name: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Maybe<&2, String>):
   match r:
     case Fail{e}:
       none()
     case Done{s}:
-      tries(2n, ns, id, q, (s, Again{}))
-
-def resolve.q(ns: String, id: U32, q: Maybe<&2, String>) -> IO(Maybe<&2, String>):
-  match q:
-    case None{}:
-      none()
-    case Some{bytes}:
-      do IO<Maybe<&2, String>>:
-        u : Result<&1, &1, U32 & String, Socket> <- UDP.bind("0.0.0.0", 0)
-        resolve.sock(ns, id, bytes, u)
+      tries(2n, ns, id, name, (s, Again{}))
 
 # §7.3: a random id makes forged answers harder to land.
 def resolve.id(name: String, ns: String, r: Result<&1, &1, U32 & String, U32>) -> IO(Maybe<&2, String>):
@@ -464,8 +463,9 @@ def resolve.id(name: String, ns: String, r: Result<&1, &1, U32 & String, U32>) -
     case Fail{e}:
       none()
     case Done{x}:
-      +id = U32.and(x, 65535)
-      resolve.q(ns, id, query(id, name))
+      do IO<Maybe<&2, String>>:
+        u : Result<&1, &1, U32 & String, Socket> <- UDP.bind("0.0.0.0", 0)
+        resolve.sock(ns, U32.and(x, 65535), name, u)
 
 def resolve.ns(name: String, ns: Maybe<&2, String>) -> IO(Maybe<&2, String>):
   match ns:
