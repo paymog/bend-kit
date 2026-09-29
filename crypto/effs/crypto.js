@@ -56,6 +56,23 @@ function crypto_lib() {
     EVP_PKEY_CTX_add1_hkdf_info: { args: [p, p, i], returns: i },
     EVP_PKEY_derive: { args: [p, p, p], returns: i },
     PKCS5_PBKDF2_HMAC: { args: [p, i, p, i, i, p, i, p], returns: i },
+    BIO_new_mem_buf: { args: [p, i], returns: p },
+    BIO_free: { args: [p], returns: i },
+    PEM_read_bio_PrivateKey: { args: [p, p, p, p], returns: p },
+    PEM_read_bio_PUBKEY: { args: [p, p, p, p], returns: p },
+    d2i_PUBKEY: { args: [p, p, "i64"], returns: p },
+    EVP_PKEY_free: { args: [p], returns: "void" },
+    EVP_PKEY_get_base_id: { args: [p], returns: i },
+    EVP_PKEY_get_bits: { args: [p], returns: i },
+    EVP_PKEY_get_group_name: { args: [p, p, z, p], returns: i },
+    EVP_MD_CTX_new: { args: [], returns: p },
+    EVP_MD_CTX_free: { args: [p], returns: "void" },
+    EVP_DigestSignInit_ex: { args: [p, p, p, p, p, p, p], returns: i },
+    EVP_DigestSign: { args: [p, p, p, p, z], returns: i },
+    EVP_DigestVerifyInit_ex: { args: [p, p, p, p, p, p, p], returns: i },
+    EVP_DigestVerify: { args: [p, p, z, p, z], returns: i },
+    EVP_PKEY_CTX_set_rsa_padding: { args: [p, i], returns: i },
+    ERR_clear_error: { args: [], returns: "void" },
   };
   for (const path of [process.env.BEND_LIBCRYPTO, "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
     "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib", "libcrypto.3.dylib", "libcrypto.so.3"]) {
@@ -197,9 +214,256 @@ function eq_ct_words(an, aw, bn, bw) {
   return d === 0;
 }
 
+// EVP_PKEY_RSA and EVP_PKEY_EC.
+const CRYPTO_RSA = 6;
+const CRYPTO_EC = 408;
+
+// Each key type takes only its own digests, so an RS256 key can not verify an ES256 token or the reverse.
+function crypto_pk_alg(kind, alg) {
+  return alg === "SHA256" || (kind === CRYPTO_RSA && (alg === "SHA384" || alg === "SHA512"));
+}
+
+function crypto_pk_alg_why(kind) {
+  return kind === CRYPTO_RSA ? "rsa alg must be SHA256, SHA384, or SHA512" : "ecdsa alg must be SHA256";
+}
+
+// An RSA key of at least 2048 bits (RFC 7518 §3.3), or an EC key on P-256; RSA-PSS and other types fail.
+function crypto_pk_kind(c, k, kind) {
+  const { s, ffi } = c;
+  if (!k || s.EVP_PKEY_get_base_id(k) !== kind) {
+    return false;
+  }
+  if (kind === CRYPTO_RSA) {
+    return s.EVP_PKEY_get_bits(k) >= 2048;
+  }
+  const g = new Uint8Array(32);
+  const gn = new BigUint64Array(1);
+  return s.EVP_PKEY_get_group_name(k, ffi.ptr(g), g.length, ffi.ptr(gn)) === 1
+    && new TextDecoder().decode(g.subarray(0, Number(gn[0]))) === "prime256v1";
+}
+
+// The empty passphrase stops OpenSSL from prompting on the terminal; an encrypted key fails to load.
+function crypto_pem(c, p, priv) {
+  const { s, ffi } = c;
+  const bio = s.BIO_new_mem_buf(crypto_ptr(ffi, p), p.length);
+  const pass = crypto_cstr("");
+  const k = bio ? (priv ? s.PEM_read_bio_PrivateKey : s.PEM_read_bio_PUBKEY)(bio, null, null, ffi.ptr(pass)) : null;
+  s.BIO_free(bio);
+  return k;
+}
+
+// A DER header and body: tag, length (short or long form), then the octets of p.
+function crypto_der(tag, p) {
+  const n = p.length;
+  const len = [];
+  for (let m = n; m > 0; m = Math.floor(m / 256)) {
+    len.unshift(m & 255);
+  }
+  return [tag, ...(n < 128 ? [n] : [0x80 | len.length, ...len]), ...p];
+}
+
+// A DER INTEGER of unsigned big-endian octets: leading zeros dropped, one added if the top bit is set.
+function crypto_der_uint(p) {
+  let i = 0;
+  while (i < p.length && p[i] === 0) {
+    i += 1;
+  }
+  const b = Array.from(p.subarray(i));
+  return crypto_der(0x02, b.length === 0 || b[0] & 0x80 ? [0, ...b] : b);
+}
+
+// The DER ECDSA-Sig-Value of a raw JOSE r || s signature (RFC 7518 §3.4).
+function crypto_ec_der(raw) {
+  return crypto_der(0x30, [...crypto_der_uint(raw.subarray(0, 32)), ...crypto_der_uint(raw.subarray(32, 64))]);
+}
+
+// The raw 64-octet r || s of a DER ECDSA-Sig-Value; null if it is malformed or a half is over 32 octets.
+function crypto_ec_raw(d) {
+  const out = new Uint8Array(64);
+  let i = 2;
+  if (d.length < 2 || d[0] !== 0x30 || d[1] !== d.length - 2) {
+    return null;
+  }
+  for (let h = 0; h < 2; h += 1) {
+    if (i + 2 > d.length || d[i] !== 0x02 || i + 2 + d[i + 1] > d.length) {
+      return null;
+    }
+    let p = d.subarray(i + 2, i + 2 + d[i + 1]);
+    i += 2 + d[i + 1];
+    while (p.length > 0 && p[0] === 0) {
+      p = p.subarray(1);
+    }
+    if (p.length > 32) {
+      return null;
+    }
+    out.set(p, 32 * h + 32 - p.length);
+  }
+  return i === d.length ? out : null;
+}
+
+// A SubjectPublicKeyInfo key from JWK parts (RFC 7518 §6.2-6.3): RSA n and e, or P-256 x and y, as big-endian
+// octets. null if they do not fit; RSA also needs an odd e of at least 3, since e = 1 lets anyone sign.
+function crypto_jwk(c, kind, a, b) {
+  const { s, ffi } = c;
+  let spki;
+  if (kind === CRYPTO_EC) {
+    if (a.length !== 32 || b.length !== 32) {
+      return null;
+    }
+    const id = [0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07];
+    spki = crypto_der(0x30, [...id, ...crypto_der(0x03, [0, 4, ...a, ...b])]);
+  } else {
+    let z = 0;
+    while (z < b.length && b[z] === 0) {
+      z += 1;
+    }
+    // 16384 bits is OpenSSL's largest RSA modulus.
+    const en = b.length - z;
+    if (a.length > 2049 || en === 0 || en > 8 || (b[b.length - 1] & 1) === 0 || (en === 1 && b[z] < 3)) {
+      return null;
+    }
+    const id = [0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00];
+    const key = crypto_der(0x30, [...crypto_der_uint(a), ...crypto_der_uint(b)]);
+    spki = crypto_der(0x30, [...id, ...crypto_der(0x03, [0, ...key])]);
+  }
+  const der = new Uint8Array(spki);
+  const pp = new BigUint64Array([BigInt(ffi.ptr(der))]);
+  return s.d2i_PUBKEY(null, ffi.ptr(pp), der.length);
+}
+
+// PKCS#1 v1.5 for RSA; ECDSA gives DER, turned into raw r || s. null on failure.
+function crypto_sign(c, k, kind, alg, d) {
+  const { s, ffi } = c;
+  const ctx = s.EVP_MD_CTX_new();
+  const pctx = new BigUint64Array(1);
+  const n = new BigUint64Array(1);
+  const name = crypto_cstr(alg);
+  let sig = null;
+  if (ctx && s.EVP_DigestSignInit_ex(ctx, ffi.ptr(pctx), ffi.ptr(name), null, null, k, null) === 1
+    && (kind !== CRYPTO_RSA || s.EVP_PKEY_CTX_set_rsa_padding(Number(pctx[0]), 1) > 0)
+    && s.EVP_DigestSign(ctx, null, ffi.ptr(n), crypto_ptr(ffi, d), d.length) === 1) {
+    const out = new Uint8Array(Number(n[0]));
+    if (s.EVP_DigestSign(ctx, ffi.ptr(out), ffi.ptr(n), crypto_ptr(ffi, d), d.length) === 1) {
+      sig = out.subarray(0, Number(n[0]));
+    }
+  }
+  s.EVP_MD_CTX_free(ctx);
+  return sig !== null && kind === CRYPTO_EC ? crypto_ec_raw(sig) : sig;
+}
+
+// 1 for a valid signature, 0 for an invalid one (any length or encoding), -1 when OpenSSL can not set up.
+function crypto_verify(c, k, kind, alg, d, sig) {
+  const { s, ffi } = c;
+  if (kind === CRYPTO_EC) {
+    if (sig.length !== 64) {
+      return 0;
+    }
+    sig = new Uint8Array(crypto_ec_der(sig));
+  }
+  const ctx = s.EVP_MD_CTX_new();
+  const pctx = new BigUint64Array(1);
+  const name = crypto_cstr(alg);
+  const r = ctx && s.EVP_DigestVerifyInit_ex(ctx, ffi.ptr(pctx), ffi.ptr(name), null, null, k, null) === 1
+    && (kind !== CRYPTO_RSA || s.EVP_PKEY_CTX_set_rsa_padding(Number(pctx[0]), 1) > 0)
+    ? (s.EVP_DigestVerify(ctx, crypto_ptr(ffi, sig), sig.length, crypto_ptr(ffi, d), d.length) === 1 ? 1 : 0)
+    : -1;
+  s.EVP_MD_CTX_free(ctx);
+  return r;
+}
+
+function crypto_sign_run(kind, alg, kn, kw, dn, dw) {
+  const key = crypto_words_octets(kn, kw);
+  const data = crypto_words_octets(dn, dw);
+  if (key === null || data === null || alg.includes("\0")) {
+    return io_fail(22);
+  }
+  if (!crypto_pk_alg(kind, alg)) {
+    return crypto_fail(22, crypto_pk_alg_why(kind));
+  }
+  const c = crypto_lib();
+  if (c === null) {
+    return crypto_fail(2, CRYPTO_MISSING);
+  }
+  const k = crypto_pem(c, key, true);
+  let r;
+  if (!crypto_pk_kind(c, k, kind)) {
+    r = crypto_fail(22, kind === CRYPTO_RSA ? "key must be an unencrypted PEM RSA private key of at least 2048 bits"
+      : "key must be an unencrypted PEM EC private key on P-256");
+  } else {
+    const sig = crypto_sign(c, k, kind, alg, data);
+    r = sig === null ? crypto_fail(22, "signing failed") : io_done(crypto_words(sig, sig.length));
+  }
+  c.s.EVP_PKEY_free(k);
+  c.s.ERR_clear_error();
+  return r;
+}
+
+// parts is [len, words] of the PEM key, or of both JWK parts.
+function crypto_verify_run(kind, jwk, alg, parts, dn, dw, sn, sw) {
+  const a = crypto_words_octets(parts[0], parts[1]);
+  const b = jwk ? crypto_words_octets(parts[2], parts[3]) : new Uint8Array(0);
+  const data = crypto_words_octets(dn, dw);
+  const sig = crypto_words_octets(sn, sw);
+  if (a === null || b === null || data === null || sig === null || alg.includes("\0")) {
+    return io_fail(22);
+  }
+  if (!crypto_pk_alg(kind, alg)) {
+    return crypto_fail(22, crypto_pk_alg_why(kind));
+  }
+  const c = crypto_lib();
+  if (c === null) {
+    return crypto_fail(2, CRYPTO_MISSING);
+  }
+  const k = jwk ? crypto_jwk(c, kind, a, b) : crypto_pem(c, a, false);
+  let r;
+  if (!crypto_pk_kind(c, k, kind)) {
+    r = crypto_fail(22, jwk ? (kind === CRYPTO_RSA ? "jwk must give an RSA n of at least 2048 bits and an odd e >= 3"
+      : "jwk must give 32-octet x and y of a P-256 point")
+      : (kind === CRYPTO_RSA ? "key must be a PEM RSA public key of at least 2048 bits"
+        : "key must be a PEM EC public key on P-256"));
+  } else {
+    const v = crypto_verify(c, k, kind, alg, data, sig);
+    r = v < 0 ? crypto_fail(22, "verify failed to start") : io_done(v === 1);
+  }
+  c.s.EVP_PKEY_free(k);
+  c.s.ERR_clear_error();
+  return r;
+}
+
+// ponytail: signatures run on the loop thread (about 1 ms for RSA-2048 signing); move off it if that stalls.
+function rsa_sign_words(alg, kn, kw, dn, dw) {
+  return crypto_sign_run(CRYPTO_RSA, alg, kn, kw, dn, dw);
+}
+
+function rsa_verify_words(alg, kn, kw, dn, dw, sn, sw) {
+  return crypto_verify_run(CRYPTO_RSA, false, alg, [kn, kw], dn, dw, sn, sw);
+}
+
+function rsa_verify_jwk_words(alg, nn, nw, en, ew, dn, dw, sn, sw) {
+  return crypto_verify_run(CRYPTO_RSA, true, alg, [nn, nw, en, ew], dn, dw, sn, sw);
+}
+
+function ecdsa_sign_words(alg, kn, kw, dn, dw) {
+  return crypto_sign_run(CRYPTO_EC, alg, kn, kw, dn, dw);
+}
+
+function ecdsa_verify_words(alg, kn, kw, dn, dw, sn, sw) {
+  return crypto_verify_run(CRYPTO_EC, false, alg, [kn, kw], dn, dw, sn, sw);
+}
+
+function ecdsa_verify_jwk_words(alg, xn, xw, yn, yw, dn, dw, sn, sw) {
+  return crypto_verify_run(CRYPTO_EC, true, alg, [xn, xw, yn, yw], dn, dw, sn, sw);
+}
+
 io_eff(CID(digest.words), digest_words);
 io_eff(CID(hmac.words), hmac_words);
 io_eff(CID(hkdf.words), hkdf_words);
 io_eff(CID(pbkdf2.words), pbkdf2_words);
 io_eff(CID(random.words), random_words);
 io_eff(CID(eq.ct.words), eq_ct_words);
+io_eff(CID(rsa.sign.words), rsa_sign_words);
+io_eff(CID(rsa.verify.words), rsa_verify_words);
+io_eff(CID(rsa.verify.jwk.words), rsa_verify_jwk_words);
+io_eff(CID(ecdsa.sign.words), ecdsa_sign_words);
+io_eff(CID(ecdsa.verify.words), ecdsa_verify_words);
+io_eff(CID(ecdsa.verify.jwk.words), ecdsa_verify_jwk_words);

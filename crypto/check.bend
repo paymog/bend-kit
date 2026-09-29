@@ -116,6 +116,195 @@ def bad.kdf() -> IO(Unit):
     x : Result<&1, &1, U32 & String, U32 & Array<U32>> <- pbkdf2.run("NOPE", txt("passwd"), txt("salt"), 1, 32)
     fails("pbkdf2 unknown digest", x)
 
+# RFC 7515 A.2 (RS256) and A.3 (ES256) keys, as PEM exported by Bun from the RFC's JWKs.
+def pem.rsa.priv() -> Bytes.Bytes:
+  txt("-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCh+BYK4uPJtGXO\njS1lYmM2K5J9vinh8CR3/BYlzJChNuOL2TSXxbbqY913EeZ8dCn5VrD7io8ImtxL\naYk8wTM/U+3QGbh3hCUv7JFP5IV3aVlL6kKA0ywPVb9ilE8TA5a8bpvfbr3SvaNn\njuygxmj3AbONv/s4yDQs4v5tJ/reSlpIdJed1LnPmt7Ex1sFhSwsD174pcF1A5L5\nROjtZMEQxrZHYJqkeDrrnGya11UxMFBji4NmXG9veoKjlnAqH2QbgtPr8jkiGUkf\ntoaHLFcW9Qr4NY2ai50Xw0Byj3+H2JoY2PyrZ62EWQwuz3WTOTY8BwNNb2BvniHg\nVFbK5emhAgMBAAECggEAEq5xpGnNCivDflJsRQBXHx1hdR1k6Ulwe2JZD50LpXyW\nPEAeP88vLNO97IjlA7/GQ5sLKMgvfTeXZx9SE+7YwVol2NXOoAJe46sui395IW/G\nO+pWJ1O0BkTGoVEn2bKVRUCgu+GjBVaYLU6f3l9kJfFNS3E0QbVdxzubSu3Mkqzj\nkn439X0M/V51gfpRLI9JYanrC4D4qAdGcopV/0ZHHzQlBjudU2QvXt4ehNYTCBr6\nXCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl/x/jTj3ccPDVZFD9pIuhLhBOneufuBiB\n4cS98l2SR/RQyGWSeWjnczT0QU91p1DhOVRuOopznQKBgQDgHMQQ60imZV1URk0K\npLttoLhyt3SmqdEf/kgHePDdtzEafpAu+cS191R2JiuoF2yzWXnwFDcqGigp5BNr\n0AHQfD8/Lk8l1Mk09jxxCfui5nYooNyac8YFjm3vItzVCVDnEd3BbVWG8qf6deqE\nlMGAg+C2V0L4oNXnP7LZcPAZRwKBgQC5A8R+CZW2MvRTLLHzwZkUXV866cff7tx6\nkqa0finGG0KgeqlaZPxgCZnFp7AeAcCMtiynVlJ7vMVgePsLq6XtON4tB5kP9jAP\nrq3rbAOal78eUH5OcED6eNuCV8ixEu1eWcPNCS/l1OW1EnXUEoEHKl54Xrrz2uNw\nkgMTP1FZ1wKBgAcCn1dwJKufzBWQxWQp1vsM5fggqPN1qGb5y0MAk3g7/Ls5bkUp\n5u9SN0Ai3Ya6hNnvWJMb7sXQX6U/zyO2M/hTip7tUeh7CXgwo59dkpN75gJLVds2\n9+DAncu3KXU4f2Fa+7bLNrur53k8KwPOq2bbuTG69QtV7Jr5MR0AHWKNAoGBAIf/\nevpitUf+4JYbLpvNXWcY052Mpz22aR84mY3nh3F2LF2mjMJDpTg7FmuyPcVw6EcG\nyoAe9fa65iNqCq+jdw6PVNGo2hxfjSiZ8IIzHdsPXI89//pMjZcQK9r+CCoRjaZj\nOYiIDktVWZzmevJuv6WywUqd57LE3Zar3dLSIkx1AoGAIYd7DHOhrWvxkwPQsRM2\ntOgrjbcrfvtQJipd+DlcxyVuuM9sQLdgjVk2oy26F0EmpScGLq2MowX7fhd/QJQ3\nydy5cY7YIBi87w93IKLEdfnbJtoOPLUW0ITrJReOgo1cq9SbsxYawBgfp/gh6A56\n03k2+ZQwVK0JKSHuLFkuQ3U=\n-----END PRIVATE KEY-----\n")
+
+def pem.rsa.priv.pkcs1() -> Bytes.Bytes:
+  txt("-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAofgWCuLjybRlzo0tZWJjNiuSfb4p4fAkd/wWJcyQoTbji9k0\nl8W26mPddxHmfHQp+Vaw+4qPCJrcS2mJPMEzP1Pt0Bm4d4QlL+yRT+SFd2lZS+pC\ngNMsD1W/YpRPEwOWvG6b32690r2jZ47soMZo9wGzjb/7OMg0LOL+bSf63kpaSHSX\nndS5z5rexMdbBYUsLA9e+KXBdQOS+UTo7WTBEMa2R2CapHg665xsmtdVMTBQY4uD\nZlxvb3qCo5ZwKh9kG4LT6/I5IhlJH7aGhyxXFvUK+DWNmoudF8NAco9/h9iaGNj8\nq2ethFkMLs91kzk2PAcDTW9gb54h4FRWyuXpoQIDAQABAoIBABKucaRpzQorw35S\nbEUAVx8dYXUdZOlJcHtiWQ+dC6V8ljxAHj/PLyzTveyI5QO/xkObCyjIL303l2cf\nUhPu2MFaJdjVzqACXuOrLot/eSFvxjvqVidTtAZExqFRJ9mylUVAoLvhowVWmC1O\nn95fZCXxTUtxNEG1Xcc7m0rtzJKs45J+N/V9DP1edYH6USyPSWGp6wuA+KgHRnKK\nVf9GRx80JQY7nVNkL17eHoTWEwga+lwi0FEoW9Y7lDtWXYmKBWhUE+U8PGxlJf8f\n40493HDw1WRQ/aSLoS4QTp3rn7gYgeHEvfJdkkf0UMhlknlo53M09EFPdadQ4TlU\nbjqKc50CgYEA4BzEEOtIpmVdVEZNCqS7baC4crd0pqnRH/5IB3jw3bcxGn6QLvnE\ntfdUdiYrqBdss1l58BQ3KhooKeQTa9AB0Hw/Py5PJdTJNPY8cQn7ouZ2KKDcmnPG\nBY5t7yLc1QlQ5xHdwW1VhvKn+nXqhJTBgIPgtldC+KDV5z+y2XDwGUcCgYEAuQPE\nfgmVtjL0Uyyx88GZFF1fOunH3+7cepKmtH4pxhtCoHqpWmT8YAmZxaewHgHAjLYs\np1ZSe7zFYHj7C6ul7TjeLQeZD/YwD66t62wDmpe/HlB+TnBA+njbglfIsRLtXlnD\nzQkv5dTltRJ11BKBBypeeF6689rjcJIDEz9RWdcCgYAHAp9XcCSrn8wVkMVkKdb7\nDOX4IKjzdahm+ctDAJN4O/y7OW5FKebvUjdAIt2GuoTZ71iTG+7F0F+lP88jtjP4\nU4qe7VHoewl4MKOfXZKTe+YCS1XbNvfgwJ3Ltyl1OH9hWvu2yza7q+d5PCsDzqtm\n27kxuvULVeya+TEdAB1ijQKBgQCH/3r6YrVH/uCWGy6bzV1nGNOdjKc9tmkfOJmN\n54dxdixdpozCQ6U4OxZrsj3FcOhHBsqAHvX2uuYjagqvo3cOj1TRqNocX40omfCC\nMx3bD1yPPf/6TI2XECva/ggqEY2mYzmIiA5LVVmc5nrybr+lssFKneeyxN2Wq93S\n0iJMdQKBgCGHewxzoa1r8ZMD0LETNrToK423K377UCYqXfg5XMclbrjPbEC3YI1Z\nNqMtuhdBJqUnBi6tjKMF+34Xf0CUN8ncuXGO2CAYvO8PdyCixHX52ybaDjy1FtCE\n6yUXjoKNXKvUm7MWGsAYH6f4IegOetN5NvmUMFStCSkh7ixZLkN1\n-----END RSA PRIVATE KEY-----\n")
+
+def pem.rsa.pub() -> Bytes.Bytes:
+  txt("-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAofgWCuLjybRlzo0tZWJj\nNiuSfb4p4fAkd/wWJcyQoTbji9k0l8W26mPddxHmfHQp+Vaw+4qPCJrcS2mJPMEz\nP1Pt0Bm4d4QlL+yRT+SFd2lZS+pCgNMsD1W/YpRPEwOWvG6b32690r2jZ47soMZo\n9wGzjb/7OMg0LOL+bSf63kpaSHSXndS5z5rexMdbBYUsLA9e+KXBdQOS+UTo7WTB\nEMa2R2CapHg665xsmtdVMTBQY4uDZlxvb3qCo5ZwKh9kG4LT6/I5IhlJH7aGhyxX\nFvUK+DWNmoudF8NAco9/h9iaGNj8q2ethFkMLs91kzk2PAcDTW9gb54h4FRWyuXp\noQIDAQAB\n-----END PUBLIC KEY-----\n")
+
+def pem.ec.priv() -> Bytes.Bytes:
+  txt("-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgjpsQnnGQmL+YBIff\nH1136cspYG6+0iY7X1fCE9+E9LKhRANCAAR/zc4ncPbEXUGDy+5v20t7WAczNXvp\n7xO6z248e9FURcfxRM0bvZt+hyzf7bnuufSzaV1uqQskrYpGIyiFiOWt\n-----END PRIVATE KEY-----\n")
+
+def pem.ec.pub() -> Bytes.Bytes:
+  txt("-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEf83OJ3D2xF1Bg8vub9tLe1gHMzV7\n6e8Tus9uPHvRVEXH8UTNG72bfocs3+257rn0s2ldbqkLJK2KRiMohYjlrQ==\n-----END PUBLIC KEY-----\n")
+
+def pem.small.pub() -> Bytes.Bytes:
+  txt("-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDIn5LzIy9+Ybo8wo0UVuja0SBB\nzjbFo/mxu8K63xLJG4ntbPPnTLeFYZWl364gDaCacBXYgZePMytjnfJtaXED5HLK\n2NBRw7+6IIM74GQTQUvNCxwDIVVD3G50biVmTCvVpv0OO0xL76euFA6E7HKH2HYb\nFRuCAy5DvPFXqr9g7wIDAQAB\n-----END PUBLIC KEY-----\n")
+
+def vec.n() -> Bytes.Bytes:
+  hex("a1f8160ae2e3c9b465ce8d2d656263362b927dbe29e1f02477fc1625cc90a136e38bd93497c5b6ea63dd7711e67c7429f956b0fb8a8f089adc4b69893cc1333f53edd019b87784252fec914fe4857769594bea4280d32c0f55bf62944f130396bc6e9bdf6ebdd2bda3678eeca0c668f701b38dbffb38c8342ce2fe6d27fade4a5a4874979dd4b9cf9adec4c75b05852c2c0f5ef8a5c1750392f944e8ed64c110c6b647609aa4783aeb9c6c9ad755313050638b83665c6f6f7a82a396702a1f641b82d3ebf2392219491fb686872c5716f50af8358d9a8b9d17c340728f7f87d89a18d8fcab67ad84590c2ecf759339363c07034d6f606f9e21e05456cae5e9a1")
+
+def vec.e() -> Bytes.Bytes:
+  hex("010001")
+
+def vec.x() -> Bytes.Bytes:
+  hex("7fcdce2770f6c45d4183cbee6fdb4b7b580733357be9ef13bacf6e3c7bd15445")
+
+def vec.y() -> Bytes.Bytes:
+  hex("c7f144cd1bbd9b7e872cdfedb9eeb9f4b3695d6ea90b24ad8a4623288588e5ad")
+
+def vec.rs.sig() -> Bytes.Bytes:
+  hex("702e218943e88fd11eb5d82dbf7845f34106ae1b81fff7731116add1717d83656d420afd3c96eedd73a2663e5166687b000b87226e0187ed1073f945e582adfcef16d85a798ee8c66ddb3db8975b17d09402beedd5d9d97007108db28160d5f8040ca7445762b81fbe7ff9d92e0ae76f24f25b33bbe6f44ae61eb1040acb20044d3ef9128ed40130795bd4bd3b41eecad066ab651981fde48df77f372dc38b9fafdd3befb18b5da3cc3c2eb02f9e3a41d612caad15911273a05f23b9e838faaf849d698429ef5a1e88798236c3d40e604522a544c8f27a7a2db80663d16cf7caea56de405cb2215a45b2c25566b55ac1a748a070dfc8a32a469543d019eefb47")
+
+def vec.es.sig() -> Bytes.Bytes:
+  hex("0ed1215379636c483c2f7f155807d402a3b228033af97c7e17819ac3169ea665c50a07d38c3c70e5d8f12daf084a5480a66590c5f293509a8f3f7f8a83a354d5")
+
+def rs.in() -> Bytes.Bytes:
+  txt("eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ")
+
+def es.in() -> Bytes.Bytes:
+  txt("eyJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ")
+
+def sig.rsa(+alg: String, k: Bytes.Bytes, d: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  Bytes.Bytes{+kn, kb} = k
+  Bytes.Bytes{+dn, db} = d
+  C.rsa.sign.words(alg, kn, kb, dn, db)
+
+def sig.ec(+alg: String, k: Bytes.Bytes, d: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  Bytes.Bytes{+kn, kb} = k
+  Bytes.Bytes{+dn, db} = d
+  C.ecdsa.sign.words(alg, kn, kb, dn, db)
+
+def sig.run(pick: Bool, +alg: String, k: Bytes.Bytes, d: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  match pick:
+    case True{}:
+      sig.rsa(alg, k, d)
+    case False{}:
+      sig.ec(alg, k, d)
+
+def ver.rsa(+alg: String, k: Bytes.Bytes, d: Bytes.Bytes, s: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bool>):
+  Bytes.Bytes{+kn, kb} = k
+  Bytes.Bytes{+dn, db} = d
+  Bytes.Bytes{+sn, sb} = s
+  C.rsa.verify.words(alg, kn, kb, dn, db, sn, sb)
+
+def ver.ec(+alg: String, k: Bytes.Bytes, d: Bytes.Bytes, s: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bool>):
+  Bytes.Bytes{+kn, kb} = k
+  Bytes.Bytes{+dn, db} = d
+  Bytes.Bytes{+sn, sb} = s
+  C.ecdsa.verify.words(alg, kn, kb, dn, db, sn, sb)
+
+def ver.run(pick: Bool, +alg: String, k: Bytes.Bytes, d: Bytes.Bytes, s: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bool>):
+  match pick:
+    case True{}:
+      ver.rsa(alg, k, d, s)
+    case False{}:
+      ver.ec(alg, k, d, s)
+
+def jwk.rsa(+alg: String, a: Bytes.Bytes, b: Bytes.Bytes, d: Bytes.Bytes, s: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bool>):
+  Bytes.Bytes{+an, ab} = a
+  Bytes.Bytes{+bn, bb} = b
+  Bytes.Bytes{+dn, db} = d
+  Bytes.Bytes{+sn, sb} = s
+  C.rsa.verify.jwk.words(alg, an, ab, bn, bb, dn, db, sn, sb)
+
+def jwk.ec(+alg: String, a: Bytes.Bytes, b: Bytes.Bytes, d: Bytes.Bytes, s: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bool>):
+  Bytes.Bytes{+an, ab} = a
+  Bytes.Bytes{+bn, bb} = b
+  Bytes.Bytes{+dn, db} = d
+  Bytes.Bytes{+sn, sb} = s
+  C.ecdsa.verify.jwk.words(alg, an, ab, bn, bb, dn, db, sn, sb)
+
+def jwk.run(pick: Bool, +alg: String, a: Bytes.Bytes, b: Bytes.Bytes, d: Bytes.Bytes, s: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bool>):
+  match pick:
+    case True{}:
+      jwk.rsa(alg, a, b, d, s)
+    case False{}:
+      jwk.ec(alg, a, b, d, s)
+
+def verify.is(+name: String, +want: Bool, r: Result<&1, &1, U32 & String, Bool>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, name ++ " failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{+b}:
+      ok(Bool.not(Bool.xor(b, want)), name, Bool.show(b))
+
+def rejects(+name: String, r: Result<&1, &1, U32 & String, Bool>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      ok(U32.is_eq(code, 22), name, U32.show(code) ++ " " ++ why)
+    case Done{b}:
+      IO.die(Unit, 1, name ++ " did not fail")
+
+# ECDSA signs with a fresh nonce, so check the length and that each signature verifies, not the octets.
+# Two signatures, one per verify, as each Array is used once; shaped like rnd.two.
+def es.round(+name: String, r: Result<&1, &1, U32 & String, U32 & Array<U32>>, s: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, 1, name ++ " failed: " ++ U32.show(code) ++ " " ++ why)
+    case Done{(+an, ab)}:
+      match s:
+        case Fail{(+code, why)}:
+          IO.die(Unit, 1, name ++ " failed: " ++ U32.show(code) ++ " " ++ why)
+        case Done{(+bn, bb)}:
+          do IO<Unit>:
+            ok(U32.is_eq(an, 64), name ++ " length", U32.show(an))
+            v : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA256", pem.ec.pub(), es.in(), Bytes.Bytes{an, ab})
+            verify.is(name ++ " verifies", True{}, v)
+            w : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA256", pem.ec.pub(), rs.in(), Bytes.Bytes{bn, bb})
+            verify.is(name ++ " other data", False{}, w)
+
+def sigs() -> IO(Unit):
+  do IO<Unit>:
+    # RFC 7515 A.2: PKCS#1 v1.5 is deterministic, so the signature must match octet for octet.
+    a : Result<&1, &1, U32 & String, U32 & Array<U32>> <- sig.run(True{}, "SHA256", pem.rsa.priv(), rs.in())
+    got("rs256 sign pkcs8", Bytes.to_hex(vec.rs.sig()), a)
+    b : Result<&1, &1, U32 & String, U32 & Array<U32>> <- sig.run(True{}, "SHA256", pem.rsa.priv.pkcs1(), rs.in())
+    got("rs256 sign pkcs1", Bytes.to_hex(vec.rs.sig()), b)
+    c : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA256", pem.rsa.pub(), rs.in(), vec.rs.sig())
+    verify.is("rs256 verify", True{}, c)
+    d : Result<&1, &1, U32 & String, Bool> <- jwk.run(True{}, "SHA256", vec.n(), vec.e(), rs.in(), vec.rs.sig())
+    verify.is("rs256 verify jwk", True{}, d)
+    e : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA256", pem.rsa.pub(), es.in(), vec.rs.sig())
+    verify.is("rs256 other data", False{}, e)
+    f : Result<&1, &1, U32 & String, Bool> <- jwk.run(True{}, "SHA256", vec.n(), vec.e(), rs.in(), hex(String.repeat("00", 256n)))
+    verify.is("rs256 zero signature", False{}, f)
+    g : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA256", pem.rsa.pub(), rs.in(), vec.es.sig())
+    verify.is("rs256 short signature", False{}, g)
+    h : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA512", pem.rsa.pub(), rs.in(), vec.rs.sig())
+    verify.is("rs256 signature as rs512", False{}, h)
+    # RFC 7515 A.3: the raw r || s signature verifies from the JWK and from PEM.
+    i : Result<&1, &1, U32 & String, Bool> <- jwk.run(False{}, "SHA256", vec.x(), vec.y(), es.in(), vec.es.sig())
+    verify.is("es256 verify jwk", True{}, i)
+    j : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA256", pem.ec.pub(), es.in(), vec.es.sig())
+    verify.is("es256 verify", True{}, j)
+    k : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA256", pem.ec.pub(), rs.in(), vec.es.sig())
+    verify.is("es256 other data", False{}, k)
+    l : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA256", pem.ec.pub(), es.in(), hex(String.repeat("00", 64n)))
+    verify.is("es256 zero signature", False{}, l)
+    m : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA256", pem.ec.pub(), es.in(), vec.rs.sig())
+    verify.is("es256 long signature", False{}, m)
+    n : Result<&1, &1, U32 & String, U32 & Array<U32>> <- sig.run(False{}, "SHA256", pem.ec.priv(), es.in())
+    n2 : Result<&1, &1, U32 & String, U32 & Array<U32>> <- sig.run(False{}, "SHA256", pem.ec.priv(), es.in())
+    es.round("es256 sign", n, n2)
+    # Wrong alg, wrong key type, weak keys, and keys of the wrong kind fail rather than verify.
+    o : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA256", pem.ec.pub(), rs.in(), vec.rs.sig())
+    rejects("rsa verify with ec key", o)
+    p : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA256", pem.rsa.pub(), es.in(), vec.es.sig())
+    rejects("ecdsa verify with rsa key", p)
+    q : Result<&1, &1, U32 & String, Bool> <- ver.run(False{}, "SHA384", pem.ec.pub(), es.in(), vec.es.sig())
+    rejects("ecdsa alg SHA384", q)
+    r : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA1", pem.rsa.pub(), rs.in(), vec.rs.sig())
+    rejects("rsa alg SHA1", r)
+    s : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA256", pem.small.pub(), rs.in(), vec.rs.sig())
+    rejects("rsa 1024-bit key", s)
+    t : Result<&1, &1, U32 & String, Bool> <- ver.run(True{}, "SHA256", pem.rsa.priv(), rs.in(), vec.rs.sig())
+    rejects("rsa verify with private pem", t)
+    u : Result<&1, &1, U32 & String, Bool> <- jwk.run(True{}, "SHA256", vec.n(), hex("01"), rs.in(), vec.rs.sig())
+    rejects("rsa jwk e = 1", u)
+    w : Result<&1, &1, U32 & String, Bool> <- jwk.run(False{}, "SHA256", vec.x(), vec.x(), es.in(), vec.es.sig())
+    rejects("ec jwk point off curve", w)
+    x : Result<&1, &1, U32 & String, U32 & Array<U32>> <- sig.run(True{}, "SHA256", pem.rsa.pub(), rs.in())
+    fails("rsa sign with public pem", x)
+    y : Result<&1, &1, U32 & String, U32 & Array<U32>> <- sig.run(False{}, "SHA256", pem.rsa.priv(), es.in())
+    fails("ecdsa sign with rsa key", y)
+    z : Result<&1, &1, U32 & String, U32 & Array<U32>> <- sig.run(True{}, "SHA256", txt("not a key"), rs.in())
+    fails("rsa sign with junk key", z)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     # NIST CAVP (FIPS 180-2 examples): one block, empty, and two blocks.
@@ -156,3 +345,4 @@ def main() -> IO(Unit):
     eq("eq.ct differ", False{}, txt("same mac"), txt("same mad"))
     eq("eq.ct lengths", False{}, txt("abc"), txt("ab"))
     rnd(300)
+    sigs()
