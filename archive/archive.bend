@@ -1,7 +1,9 @@
 # ZIP archives read over Bytes: stored and DEFLATE entries, checked against their CRC-32 and sizes. Source: https://github.com/paymog/bend-kit/tree/main/archive
 import Base
 import ../bytes/bytes.bend as Bytes
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as HubBytes
 import ../zlib/zlib.bend as Zlib
+import bend-kit-hash@0.1.0.0/hash.bend as Hash
 
 # One member: its name and contents as raw bytes, its method (0 stored, 8 DEFLATE), and its CRC-32.
 type Entry is Type:
@@ -16,28 +18,18 @@ type Header is Data:
 def supported(+method: U32) -> Bool:
   Bool.or(U32.is_eq(method, 0), U32.is_eq(method, 8))
 
-# CRC-32 (the one zlib and ZIP use) over the bytes, with Zlib's 256-word table.
-def crc.go(n: Nat, r: Array<U32> & U32, st: Array<U32> & U32, +i: U32) -> Array<U32> & Array<U32> & U32:
-  match n:
-    case 0n:
-      (buf, v) = r
-      (buf, st)
-    case 1n+p:
-      (buf, +v) = r
-      crc.go(p, Bytes.peek(buf, (i + 1 : U32)), Zlib.crc.step(st, v), (i + 1 : U32))
+# Hash uses the published Bytes type; transfer the array without copying.
+def crc.local(r: HubBytes.Bytes & U32) -> Bytes.Bytes & U32:
+  (HubBytes.Bytes{len, buf}, crc) = r
+  (Bytes.Bytes{len, buf}, crc)
 
-def crc.end(+len: U32, r: Array<U32> & Array<U32> & U32) -> Bytes.Bytes & U32:
-  (buf, st) = r
-  (Bytes.Bytes{len, buf}, Zlib.crc.of(st))
-
-# The buffer back, and its CRC-32.
 def crc.bytes(b: Bytes.Bytes) -> Bytes.Bytes & U32:
-  Bytes.Bytes{+len, buf} = b
-  crc.end(len, crc.go(U32.to_nat(len), Bytes.peek(buf, 0), (Zlib.crc.table(), 4294967295), 0))
+  Bytes.Bytes{len, buf} = b
+  crc.local(Hash.crc32(HubBytes.Bytes{len, buf}))
 
 def crc.value(r: Bytes.Bytes & U32) -> U32:
-  (b, c) = r
-  c
+  (b, crc) = r
+  crc
 
 def crc32(b: Bytes.Bytes) -> U32:
   crc.value(crc.bytes(b))
