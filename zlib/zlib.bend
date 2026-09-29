@@ -1,5 +1,6 @@
 # DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over byte strings, plus gzip, zstd, and brotli through the C libraries. Source: https://github.com/paymog/bend-kit/tree/main/zlib
 import Base
+import bend-kit-hash@0.1.0.0/hash.bend as Hash
 
 # Bytes are one Char per octet (0..255), as everywhere in bend-kit.
 
@@ -655,60 +656,12 @@ def inflate.out(m: Maybe<&2, Inflated>) -> Maybe<&2, String>:
 def inflate(+s: String) -> Maybe<&2, String>:
   inflate.out(inflate.rest(s))
 
-# CRC-32 (RFC 1952 §8), reflected, polynomial 0xEDB88320.
-def crc.bit(+c: U32) -> U32:
-  Bool.pick(U32, U32.is_eq(U32.and(c, 1), 1), U32.xor(U32.shr(c), 3988292384), U32.shr(c))
-
-def crc.bits(k: Nat, +c: U32) -> U32:
-  match k:
-    case 0n:
-      c
-    case 1n+p:
-      crc.bits(p, crc.bit(c))
-
-def crc.fill(k: Nat, +i: U32, a: Array<U32>) -> Array<U32>:
-  match k:
-    case 0n:
-      a
-    case 1n+p:
-      crc.fill(p, (i + 1 : U32), Array.set(U32, a, i, crc.bits(8n, i)))
-
-def crc.table() -> Array<U32>:
-  crc.fill(256n, 0, Array.new(U32, 8n, 0))
-
-def crc.mix(av: Array<U32> & U32, +c: U32) -> Array<U32> & U32:
-  (a, +t) = av
-  (a, U32.xor(t, U32.shrn(c, 8n)))
-
-def crc.step(st: Array<U32> & U32, +b: U32) -> Array<U32> & U32:
-  (a, +c) = st
-  crc.mix(Array.get(U32, a, U32.and(U32.xor(c, b), 255)), c)
-
-def crc.go(s: String, st: Array<U32> & U32) -> Array<U32> & U32:
-  match s:
-    case SNil{}:
-      st
-    case SCon{h, t}:
-      crc.go(t, crc.step(st, byte(h)))
-
-def crc.of(st: Array<U32> & U32) -> U32:
-  (a, +c) = st
-  U32.xor(c, 4294967295)
-
+# Checksum views for byte strings; hash owns the algorithms.
 def crc32(s: String) -> U32:
-  crc.of(crc.go(s, (crc.table(), 4294967295)))
-
-# Adler-32 (RFC 1950 §9).
-def adler.go(s: String, +a: U32, +b: U32) -> U32:
-  match s:
-    case SNil{}:
-      U32.or(U32.shln(b, 16n), a)
-    case SCon{h, t}:
-      +a2 = U32.mod((a + byte(h) : U32), 65521)
-      adler.go(t, a2, U32.mod((b + a2 : U32), 65521))
+  Hash.crc32.str(s)
 
 def adler32(s: String) -> U32:
-  adler.go(s, 1, 0)
+  Hash.adler32.str(s)
 
 # Little- and big-endian 32-bit words at the front of s.
 def le32(s: String) -> Maybe<&2, U32>:
