@@ -9,9 +9,12 @@ RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 RECORDS = int(sys.argv[2]) if len(sys.argv) > 2 else 4000
 OPS = ["parse.bytes", "encode.bytes"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
+CJSON = subprocess.check_output(["pkg-config", "--cflags", "--libs", "libcjson"], text=True).split()
 
 # name -> (build argv or None, run argv). Every program reads out/doc.json and prints `op<TAB>ms<TAB>checksum` per op.
 VARIANTS = {
+    "C": (["cc", "-O2", "bench.c", *CJSON, "-o", OUT / "c"], [OUT / "c"]),
+    "Rust": (["cargo", "build", "--release", "-q", "--locked", "--manifest-path", "rs/Cargo.toml", "--target-dir", OUT / "rs"], [OUT / "rs" / "release" / "rs"]),
     "Bun": (None, ["bun", "bench.ts"]),
     "Node": (None, ["node", "bench.ts"]),
     "Python": (None, ["python3", "bench.py"]),

@@ -7,11 +7,16 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
+R3 = subprocess.check_output(["pkg-config", "--cflags", "--libs", "r3"], text=True).split()
+STARLETTE = "1.7.0"
 
 # name -> (build argv or None, run argv). Every program prints `route<TAB>ms<TAB>checksum`.
 VARIANTS = {
+    "C": (["cc", "-O2", "bench.c", *R3, "-o", OUT / "c"], [OUT / "c"]),
+    "Rust": (["cargo", "build", "--release", "-q", "--locked", "--manifest-path", "rs/Cargo.toml", "--target-dir", OUT / "rs"], [OUT / "rs" / "release" / "rs"]),
     "Bun": (None, ["bun", "bench.ts"]),
     "Node": (None, ["node", "--no-warnings", "bench.ts"]),
+    "Python": (None, ["uv", "run", "-q", "--no-project", "--with", f"starlette=={STARLETTE}", "python3", "bench.py"]),
     "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
 }
 

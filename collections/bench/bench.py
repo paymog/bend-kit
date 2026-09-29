@@ -1,6 +1,8 @@
-"""Collections benchmark: Python (see README.md). Python has no sorted map, so omap is left out."""
+"""Collections benchmark: Python (see README.md). omap uses sortedcontainers.SortedDict."""
 import heapq, sys, time
 from collections import deque
+
+from sortedcontainers import SortedDict
 
 L = int(sys.argv[1]) if len(sys.argv) > 1 else 20
 N = 1 << L
@@ -18,6 +20,21 @@ def mix(acc, x):
 def lap(name, t0, chk):
     print(f"{name}\t{(time.perf_counter() - t0) * 1000:.3f}\t{chk}")
 
+
+t0 = time.perf_counter()
+m, x = SortedDict(), 1
+for i in range(N):
+    x = lcg(x)
+    m[x] = i
+lap("omap_put", t0, len(m))
+
+t0 = time.perf_counter()
+x, acc = 1, 0
+for _ in range(N):
+    x = lcg(x)
+    acc = (acc + m.get(x, 0)) & M
+lap("omap_get", t0, acc)
+del m
 
 t0 = time.perf_counter()
 m, x = {}, 1

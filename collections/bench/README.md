@@ -1,6 +1,6 @@
 # Collections benchmark
 
-This times insert and lookup on `OMap` and `HMap`, push and index on `Vec`, push and pop on `Deque`, and push and pop on `Heap`. It compares each against the closest standard-library container in Rust, Python, and JavaScript.
+This times insert and lookup on `OMap` and `HMap`, push and index on `Vec`, push and pop on `Deque`, and push and pop on `Heap`. It compares each against the closest standard-library container in Rust, Python, and JavaScript, plus `sortedcontainers` for Python and `js-sdsl` for JavaScript sorted maps.
 
 ## Run
 
@@ -9,7 +9,7 @@ python3 run.py      # 3 runs per variant, median; Python runs once
 python3 run.py 5    # 5 runs
 ```
 
-You need `bend`, `rustc`, `bun`, `node`, and `python3`. Binaries go to `out/`, which git ignores. It exits non-zero if a build fails, or if two programs disagree on a checksum.
+You need `bend`, `rustc`, `bun`, `node`, `npm`, `uv`, and `python3`. `run.py` installs `js-sdsl@4.4.2` into `out/js` and uses `uv` to run Python with `sortedcontainers==2.4.0`. Binaries also go to `out/`, which git ignores. It exits non-zero if a build or install fails, or if two programs disagree on a checksum.
 
 ## The ops
 
@@ -32,29 +32,31 @@ Every op uses N = 2^20 elements. `bench.rs`, `bench.py`, and `bench.ts` take log
 |---|---|---|---|---|---|
 | Bend | `OMap` | `HMap` | `Vec` | `Deque` | `Heap` |
 | Rust | `BTreeMap` | `HashMap` | `Vec` | `VecDeque` | `BinaryHeap<Reverse<u32>>` |
-| Python | none | `dict` | `list` | `collections.deque` | `heapq` |
-| JavaScript | none | `Map` | `Array` | none | none |
+| Python | `sortedcontainers.SortedDict` | `dict` | `list` | `collections.deque` | `heapq` |
+| JavaScript | `js-sdsl.OrderedMap` | `Map` | `Array` | `js-sdsl.Deque` | `js-sdsl.PriorityQueue` |
 
-C is left out: its standard library has no containers. Python and JavaScript have no sorted map. JavaScript also has no deque or heap. `Array.shift` is not a deque.
+C is left out: its standard library has no containers, and no single commonly used C library covers the same set of containers. Python's standard library has no sorted map, so omap uses `sortedcontainers.SortedDict`. `SortedDict` is a `dict` plus a sorted key list: `omap_put` pays for the sorted insert, but `omap_get` is a hash lookup, not a tree search. JavaScript uses `js-sdsl` for the ordered map, deque, and min-heap; its standard library has no equivalent.
 
 A push op stops its clock before it reads the size, so the checksum does not add time. That matters for `Deque.length`, which walks the lists.
 
 ## Results
 
-M4 Pro, macOS, 2026-09-28. One run (`python3 run.py 1`), in ms. Other runs can vary.
+M4 Pro, macOS 26.6, 2026-09-28. Five runs (`python3 run.py 5`), in ms; Python runs once. Other runs can vary.
+
+Versions: Bend 2.0.32, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, js-sdsl 4.4.2, Python 3.14.6, sortedcontainers 2.4.0.
 
 | op | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|
-| omap_put | 135.3 | n/a | n/a | n/a | 3,169.6 |
-| omap_get | 123.1 | n/a | n/a | n/a | 2,976.1 |
-| hmap_put | 23.2 | 58.3 | 96.4 | 193.7 | 960.5 |
-| hmap_get | 15.5 | 34.9 | 59.6 | 272.8 | 1,827.4 |
-| vec_push | 0.6 | 5.4 | 12.8 | 31.6 | 2.2 |
-| vec_get | 1.2 | 19.9 | 6.2 | 413.1 | 1.3 |
-| deque_push | 0.9 | n/a | n/a | 34.9 | 130.0 |
-| deque_pop | 0.8 | n/a | n/a | 116.9 | 952.9 |
-| heap_push | 8.2 | n/a | n/a | 180.5 | 544.0 |
-| heap_pop | 45.3 | n/a | n/a | 1,275.6 | 1,829.8 |
+| omap_put | 128.7 | 531.7 | 550.7 | 1,352.0 | 3,027.9 |
+| omap_get | 122.8 | 386.7 | 603.6 | 243.7 | 2,852.0 |
+| hmap_put | 22.9 | 53.8 | 117.7 | 159.4 | 882.2 |
+| hmap_get | 14.5 | 32.7 | 58.0 | 257.4 | 1,816.8 |
+| vec_push | 0.6 | 6.5 | 4.4 | 32.1 | 2.1 |
+| vec_get | 1.2 | 19.1 | 6.5 | 376.5 | 1.3 |
+| deque_push | 0.8 | 6.1 | 7.6 | 34.2 | 129.9 |
+| deque_pop | 0.8 | 19.5 | 11.1 | 117.1 | 909.3 |
+| heap_push | 8.3 | 22.9 | 20.7 | 164.3 | 536.6 |
+| heap_pop | 44.6 | 152.4 | 119.8 | 1,194.1 | 1,748.9 |
 
 Every program that runs an op prints the same checksum:
 

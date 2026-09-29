@@ -12,9 +12,9 @@ ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 # name -> (build argv or None, run argv). Every program runs N = 2^20.
 VARIANTS = {
     "Rust": (["rustc", "-C", "opt-level=3", "-C", "target-cpu=native", "-o", OUT / "rs", "bench.rs"], [OUT / "rs", "20"]),
-    "Bun": (None, ["bun", "bench.ts", "20"]),
-    "Node": (None, ["node", "--no-warnings", "bench.ts", "20"]),
-    "Python": (None, ["python3", "bench.py", "20"]),
+    "Bun": (["sh", "-c", "npm install -s --prefix out/js js-sdsl@4.4.2 && cp bench.ts out/js/"], ["bun", OUT / "js" / "bench.ts", "20"]),
+    "Node": (None, ["node", "--no-warnings", OUT / "js" / "bench.ts", "20"]),
+    "Python": (None, ["uv", "run", "-q", "--no-project", "--with", "sortedcontainers==2.4.0", "python3", "bench.py", "20"]),
     "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
 }
 
@@ -49,12 +49,12 @@ def main():
             if r.returncode != 0:
                 sys.exit(f"{name} failed:\n{r.stderr}")
             runs.append(parse(r.stdout))
-        table[name] = {op: statistics.median(x[op][0] for x in runs) for op in OPS if op in runs[0]}
-        checks[name] = {op: runs[0][op][1] for op in OPS if op in runs[0]}
+        table[name] = {op: statistics.median(x[op][0] for x in runs) for op in OPS}
+        checks[name] = {op: runs[0][op][1] for op in OPS}
         print(f"ran {name}", file=sys.stderr)
 
     for op in OPS:
-        seen = {n: c[op] for n, c in checks.items() if op in c}
+        seen = {n: c[op] for n, c in checks.items()}
         if len(set(seen.values())) > 1:
             sys.exit(f"checksum mismatch in {op}: {seen}")
 
@@ -62,12 +62,12 @@ def main():
     print("| op | " + " | ".join(names) + " |")
     print("|---|" + "---:|" * len(names))
     for op in OPS:
-        print(f"| {op} | " + " | ".join(f"{table[n][op]:,.1f}" if op in table[n] else "n/a" for n in names) + " |")
+        print(f"| {op} | " + " | ".join(f"{table[n][op]:,.1f}" for n in names) + " |")
     print()
     print("| op | checksum |")
     print("|---|---:|")
     for op in OPS:
-        print(f"| {op} | {next(c[op] for c in checks.values() if op in c)} |")
+        print(f"| {op} | {next(iter(checks.values()))[op]} |")
 
 
 main()

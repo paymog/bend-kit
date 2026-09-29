@@ -1,0 +1,15 @@
+[package]
+name = "router-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "rs"
+path = "main.rs"
+
+[dependencies]
+matchit = "=0.9.2"
+
+[profile.release]
+opt-level = 3
