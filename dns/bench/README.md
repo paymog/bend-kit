@@ -32,16 +32,18 @@ Every library builds the query from the name as text and the type, with recursio
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-29. Median of five runs (`python3 run.py 5`). Times are in ms for 100,000 rounds; `Nx` is the multiple of the fastest variant.
+M4 Pro, macOS 26.6.2, 2026-09-30. Median of five runs (`python3 run.py 5`). Times are in ms for 100,000 rounds; `Nx` is the multiple of the fastest variant.
 
-Versions: Bend 2.0.32, Apple clang 17.0.0, rustc 1.91.0, hickory-proto 0.26.3, Bun 1.3.14, Node 24.0.1, dns-packet 5.6.1, @leichtgewicht/ip-codec 2.0.5, Python 3.14.6, dnspython 2.8.0.
+Versions: Bend 2.0.34, Apple clang 17.0.0, rustc 1.91.0, hickory-proto 0.26.3, Bun 1.3.14, Node 24.0.1, dns-packet 5.6.1, @leichtgewicht/ip-codec 2.0.5, Python 3.14.6, dnspython 2.8.0.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| build | 19.8 (1.0x) | 32.1 (1.6x) | 44.1 (2.2x) | 44.0 (2.2x) | 2,122.2 (107.2x) | 45.8 (2.3x) |
-| parse | 13.4 (1.0x) | 21.2 (1.6x) | 60.6 (4.5x) | 61.8 (4.6x) | 3,015.3 (225.0x) | 20.6 (1.5x) |
+| build | 15.4 (1.0x) | 31.3 (2.0x) | 38.4 (2.5x) | 37.0 (2.4x) | 1,751.9 (113.8x) | 41.6 (2.7x) |
+| parse | 12.4 (1.0x) | 20.7 (1.7x) | 55.5 (4.5x) | 55.4 (4.5x) | 2,563.3 (206.7x) | 13.6 (1.1x) |
 
 Checksums: build 167500816, parse 65900000. All variants agree.
+
+On the same compiler and input, the pre-cursor baseline (`python3 run.py 3`) took 41.5 ms to build and 18.8 ms to parse. The cursor decoder takes 13.6 ms, about 28% less time. Its bounded RDATA regions retain the original wire validation.
 
 ## Caveats
 

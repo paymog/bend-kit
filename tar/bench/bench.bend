@@ -1,7 +1,7 @@
 # Tar benchmark: decode one fixed archive written by Python's tarfile, and encode its entries back (see README.md).
 import Base
 import ../tar.bend as Tar
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 import ../../time/time.bend as Time
 
 # h = h*31 + b over the first n bytes of the buffer.

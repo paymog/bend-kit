@@ -1,7 +1,7 @@
 # DNS benchmark: build one A query and parse one A response, N times (see README.md).
 import Base
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 import ../dns.bend as Dns
 
 def sum(s: String, acc: U32) -> U32:

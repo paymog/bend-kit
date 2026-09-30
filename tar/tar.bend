@@ -1,6 +1,6 @@
 # tar archives (POSIX ustar with PAX path and size records) of regular files and directories over Bytes. Source: https://github.com/paymog/bend-kit/tree/main/tar
 import Base
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 
 # An archive is a list of entries in order. Names are raw bytes (UTF-8 by convention), kept byte for byte;
 # a directory keeps whatever trailing '/' its name has. Nothing here touches the filesystem.
@@ -70,38 +70,45 @@ def cstr(a: Array<U32>, +j: U32, +w: U32) -> Array<U32> & U32:
   cstr.go(U32.to_nat(w), Bytes.peek(a, j), j, 0, False{})
 
 type Dec is Data:
-  Dec{v: U32, j: U32, ok: Bool}
+  Dec{v: U32, digits: U32, stop: U32, ended: Bool, ok: Bool}
 
-def dpk.of(r: Array<U32> & U32) -> Array<U32> & U32 & Bool:
-  (a, +c) = r
-  (a, c, Bytes.in(48, c, 57))
+type DByte is Data:
+  DByte{byte: U32, digit: Bool}
 
-# Byte j, and whether it is a decimal digit before end.
-def dpk(ok: Bool, a: Array<U32>, +j: U32) -> Array<U32> & U32 & Bool:
-  match ok:
-    case True{}:
-      dpk.of(Bytes.peek(a, j))
-    case False{}:
-      (a, 0, False{})
+def dec.byte.of(+len: U32, r: Array<U32> & U32) -> Bytes.Bytes & Maybe<&2, DByte>:
+  (a, +b) = r
+  (Bytes.Bytes{len, a}, Some{DByte{b, Bytes.in(48, b, 57)}})
 
-def dec.go(n: Nat, r: Array<U32> & U32 & Bool, +j: U32, +end: U32, +acc: U32, +ok: Bool) -> Array<U32> & Dec:
+def dec.byte(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Maybe<&2, DByte>:
+  Bytes.Bytes{+len, a} = b
+  dec.byte.of(len, Bytes.peek(a, i))
+
+# Consume decimal digits and, when present, their first non-digit delimiter.
+def dec.go(n: Nat, r: Bytes.Cursor & Maybe<&2, DByte>, +acc: U32, +digits: U32, +ok: Bool) -> Bytes.Cursor & Dec:
   match n:
     case 0n:
-      (a, c, d) = r
-      (a, Dec{acc, j, ok})
+      (c, m) = r
+      (c, Dec{acc, digits, 0, True{}, ok})
     case 1n+p:
-      (a, c, d) = r
-      match d:
-        case False{}:
-          (a, Dec{acc, j, ok})
-        case True{}:
-          +v = (c - 48 : U32)
-          +fit = U32.is_lt(acc, 429496729) || (U32.is_eq(acc, 429496729) && U32.is_le(v, 5))
-          dec.go(p, dpk(U32.is_lt((j + 1 : U32), end), a, (j + 1 : U32)), (j + 1 : U32), end, ((acc * 10) + v : U32), ok && fit)
+      (c, m) = r
+      match m:
+        case None{}:
+          (c, Dec{acc, digits, 0, True{}, False{}})
+        case Some{DByte{+b, digit}}:
+          match digit:
+            case False{}:
+              (c, Dec{acc, digits, b, False{}, ok})
+            case True{}:
+              +v = (b - 48 : U32)
+              +fit = U32.is_lt(acc, 429496729) || (U32.is_eq(acc, 429496729) && U32.is_le(v, 5))
+              dec.go(p, Bytes.Cursor.read(~DByte, ~dec.byte, c, 1), ((acc * 10) + v : U32), (digits + 1 : U32), ok && fit)
 
-# Decimal digits from j up to end: the value, the index after the last digit, and whether it fits a U32.
-def dec(a: Array<U32>, +j: U32, +end: U32) -> Array<U32> & Dec:
-  dec.go(U32.to_nat(Bool.pick(U32, U32.is_le(j, end), (end - j : U32), 0)), dpk(U32.is_lt(j, end), a, j), j, end, 0, True{})
+def dec.start(r: Bytes.Cursor & U32) -> Bytes.Cursor & Dec:
+  (c, +n) = r
+  dec.go(U32.to_nat(n), Bytes.Cursor.read(~DByte, ~dec.byte, c, 1), 0, 0, True{})
+
+def dec(c: Bytes.Cursor) -> Bytes.Cursor & Dec:
+  dec.start(Bytes.Cursor.remaining(c))
 
 # ---- decode ----
 
@@ -144,9 +151,38 @@ type Pax is Type:
   Pax{path: Maybe<&1, Bytes.Bytes>, size: Maybe<&2, U32>}
 
 type Pst is Type:
-  PGo{p: U32, pax: Pax}
+  PGo{pax: Pax}
   PEnd{pax: Pax}
   PBad{}
+
+type PKey is Data:
+  PPath{}
+  PSize{}
+  POther{}
+
+def pr.key.size(hit: Bool, +len: U32, a: Array<U32>) -> Bytes.Bytes & Maybe<&2, PKey>:
+  match hit:
+    case True{}:
+      (Bytes.Bytes{len, a}, Some{PSize{}})
+    case False{}:
+      (Bytes.Bytes{len, a}, Some{POther{}})
+
+def pr.key.sized(+len: U32, r: Array<U32> & Bool) -> Bytes.Bytes & Maybe<&2, PKey>:
+  (a, hit) = r
+  pr.key.size(hit, len, a)
+
+def pr.key.path(+i: U32, +len: U32, r: Array<U32> & Bool) -> Bytes.Bytes & Maybe<&2, PKey>:
+  (a, hit) = r
+  match hit:
+    case True{}:
+      (Bytes.Bytes{len, a}, Some{PPath{}})
+    case False{}:
+      pr.key.sized(len, Bytes.at(a, "size=", i))
+
+# The cursor bounds both fixed keyword probes; short or unknown bodies are skipped.
+def pr.key(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Maybe<&2, PKey>:
+  Bytes.Bytes{+len, a} = b
+  pr.key.path(i, len, Bytes.at(a, "path=", i))
 
 def pr.opt(has: Bool, b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
   match has:
@@ -155,105 +191,189 @@ def pr.opt(has: Bool, b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
     case False{}:
       None{}
 
-# An empty value unsets the keyword (POSIX pax), so the header's own name applies.
-def pr.setpath(+next: U32, +m: U32, pax: Pax, r: Array<U32> & Array<U32>) -> Array<U32> & Pst:
-  Pax{old, +size} = pax
-  (a, o) = r
-  (a, PGo{next, Pax{pr.opt(U32.is_ne(m, 0), Bytes.Bytes{m, o}), size}})
+# An empty value unsets the keyword, so the header's own name applies.
+def pr.path.done(+start: U32, +end: U32, +n: U32, pax: Pax, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Cursor & Pst:
+  Pax{old, size} = pax
+  (b, value) = r
+  (Bytes.Cursor{b, end, start, end}, PGo{Pax{pr.opt(U32.is_ne(n, 0), value), size}})
 
-def pr.putsize(+next: U32, +v: U32, pax: Pax) -> Pst:
+def pr.path(c: Bytes.Cursor, pax: Pax) -> Bytes.Cursor & Pst:
+  Bytes.Cursor{b, +pos, +start, +end} = c
+  pr.path.done(start, end, (end - pos : U32), pax, Bytes.slice(b, pos, (end - pos : U32)))
+
+def pr.size.valid(ok: Bool, c: Bytes.Cursor, +v: U32, path: Maybe<&1, Bytes.Bytes>) -> Bytes.Cursor & Pst:
+  match ok:
+    case True{}:
+      (c, PGo{Pax{path, Some{v}}})
+    case False{}:
+      (c, PBad{})
+
+def pr.size.done(pax: Pax, r: Bytes.Cursor & Dec) -> Bytes.Cursor & Pst:
   Pax{path, old} = pax
-  PGo{next, Pax{path, Some{v}}}
+  (c, d) = r
+  Dec{+v, +digits, stop, +ended, +ok} = d
+  pr.size.valid(ok && ended && U32.is_ne(digits, 0), c, v, path)
 
-def pr.sized(ok: Bool, a: Array<U32>, +next: U32, +v: U32, pax: Pax) -> Array<U32> & Pst:
+def pr.checked(r: Bytes.Cursor & Bool, pax: Pax) -> Bytes.Cursor & Pst:
+  (c, ok) = r
   match ok:
     case True{}:
-      (a, pr.putsize(next, v, pax))
+      (c, PGo{pax})
     case False{}:
-      (a, PBad{})
+      (c, PBad{})
 
-def pr.setsize(+vs: U32, +e: U32, +next: U32, pax: Pax, r: Array<U32> & Dec) -> Array<U32> & Pst:
-  (a, d) = r
-  Dec{+v, +j, +ok} = d
-  pr.sized(ok && (U32.is_eq(j, e) && U32.is_lt(vs, j)), a, next, v, pax)
+def pr.skip(c: Bytes.Cursor, pax: Pax) -> Bytes.Cursor & Pst:
+  Bytes.Cursor{b, pos, start, +end} = c
+  pr.checked(Bytes.Cursor.seek(Bytes.Cursor{b, pos, start, end}, end), pax)
 
-def pr.size(hit: Bool, a: Array<U32>, +q: U32, +e: U32, +next: U32, pax: Pax) -> Array<U32> & Pst:
-  match hit:
-    case True{}:
-      pr.setsize((q + 6 : U32), e, next, pax, dec(a, (q + 6 : U32), e))
-    case False{}:
-      (a, PGo{next, pax})
+def pr.value(pax: Pax, r: Bytes.Cursor & Maybe<&2, PKey>) -> Bytes.Cursor & Pst:
+  (c, key) = r
+  match key:
+    case None{}:
+      pr.skip(c, pax)
+    case Some{k}:
+      match k:
+        case PPath{}:
+          pr.path(c, pax)
+        case PSize{}:
+          pr.size.done(pax, dec(c))
+        case POther{}:
+          pr.skip(c, pax)
 
-def pr.ksize(+q: U32, +e: U32, +next: U32, pax: Pax, r: Array<U32> & Bool) -> Array<U32> & Pst:
-  (a, hit) = r
-  pr.size(hit && U32.is_le((q + 6 : U32), e), a, q, e, next, pax)
+def pr.nl(pax: Pax, r: Bytes.Cursor & Maybe<&2, U32>) -> Bytes.Cursor & Pst:
+  (c, m) = r
+  match m:
+    case None{}:
+      (c, PBad{})
+    case Some{+b}:
+      pr.checked((c, U32.is_eq(b, 10)), pax)
 
-def pr.path(hit: Bool, a: Array<U32>, +q: U32, +e: U32, +next: U32, pax: Pax) -> Array<U32> & Pst:
-  match hit:
-    case True{}:
-      +m = (e - q - 6 : U32)
-      pr.setpath(next, m, pax, Bytes.copy(m, a, Bytes.alloc(m), (q + 6 : U32), 0))
-    case False{}:
-      pr.ksize(q, e, next, pax, Bytes.at(a, "size=", (q + 1 : U32)))
+def pr.close(limit: Bytes.CursorLimit, r: Bytes.Cursor & Pst) -> Bytes.Cursor & Pst:
+  (c, st) = r
+  match st:
+    case PGo{pax}:
+      pr.nl(pax, Bytes.Cursor.u8(Bytes.Cursor.leave(c, limit)))
+    case PEnd{pax}:
+      (Bytes.Cursor.leave(c, limit), PBad{})
+    case PBad{}:
+      (Bytes.Cursor.leave(c, limit), PBad{})
 
-def pr.kpath(+q: U32, +e: U32, +next: U32, pax: Pax, r: Array<U32> & Bool) -> Array<U32> & Pst:
-  (a, hit) = r
-  pr.path(hit && U32.is_le((q + 6 : U32), e), a, q, e, next, pax)
+def pr.body(pax: Pax, r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> Bytes.Cursor & Pst:
+  (c, m) = r
+  match m:
+    case None{}:
+      (c, PBad{})
+    case Some{limit}:
+      pr.close(limit, pr.value(pax, Bytes.Cursor.read(~PKey, ~pr.key, c, 5)))
 
-# Unknown keywords (mtime, uid, ...) are skipped.
-def pr.rec(ok: Bool, a: Array<U32>, +q: U32, +e: U32, pax: Pax) -> Array<U32> & Pst:
+def pr.len.valid(ok: Bool, c: Bytes.Cursor, +body: U32, pax: Pax) -> Bytes.Cursor & Pst:
   match ok:
-    case True{}:
-      pr.kpath(q, e, (e + 1 : U32), pax, Bytes.at(a, "path=", (q + 1 : U32)))
     case False{}:
-      (a, PBad{})
-
-def pr.nl(+good: Bool, +q: U32, +e: U32, pax: Pax, r: Array<U32> & Bool) -> Array<U32> & Pst:
-  (a, lf) = r
-  pr.rec(good && lf, a, q, e, pax)
-
-def pr.sp(+good: Bool, +q: U32, +e: U32, pax: Pax, r: Array<U32> & Bool) -> Array<U32> & Pst:
-  (a, sp) = r
-  pr.nl(good && sp, q, e, pax, Bytes.at(a, "\n", e))
-
-# A record is "<len> <key>=<value>\n", len counting the whole record; q is the space, e the newline.
-def pr.len(+p: U32, +end: U32, pax: Pax, r: Array<U32> & Dec) -> Array<U32> & Pst:
-  (a, d) = r
-  Dec{+l, +q, +ok} = d
-  +e = (p + l - 1 : U32)
-  +good = ok && (U32.is_lt(p, q) && (U32.is_lt((q - p + 1 : U32), l) && U32.is_le(l, (end - p : U32))))
-  pr.sp(good, q, e, pax, Bytes.at(a, " ", q))
-
-def pr.more(more: Bool, a: Array<U32>, +p: U32, +end: U32, pax: Pax) -> Array<U32> & Pst:
-  match more:
+      (c, PBad{})
     case True{}:
-      pr.len(p, end, pax, dec(a, p, end))
-    case False{}:
-      (a, PEnd{pax})
+      pr.body(pax, Bytes.Cursor.region(c, body))
 
-# Each record takes at least three bytes; allow one step to reach the end and one to return it.
-def pr.run(fuel: Nat, r: Array<U32> & Pst, +end: U32) -> Array<U32> & Maybe<&1, Pax>:
+# Length includes its digits, the space, the bounded body and its final newline.
+def pr.len(+available: U32, pax: Pax, r: Bytes.Cursor & Dec) -> Bytes.Cursor & Pst:
+  (c, d) = r
+  Dec{+len, +digits, +stop, +ended, +ok} = d
+  pr.len.valid(ok && Bool.not(ended) && U32.is_eq(stop, 32) && U32.is_ne(digits, 0) && U32.is_lt((digits + 1 : U32), len) && U32.is_le(len, available), c, (len - digits - 2 : U32), pax)
+
+def pr.more.if(done: Bool, c: Bytes.Cursor, +n: U32, pax: Pax) -> Bytes.Cursor & Pst:
+  match done:
+    case True{}:
+      (c, PEnd{pax})
+    case False{}:
+      pr.len(n, pax, dec(c))
+
+def pr.more(pax: Pax, r: Bytes.Cursor & U32) -> Bytes.Cursor & Pst:
+  (c, +n) = r
+  pr.more.if(U32.is_eq(n, 0), c, n, pax)
+
+# Each record consumes at least three bytes; leave fuel for the end transition.
+def pr.run(fuel: Nat, r: Bytes.Cursor & Pst) -> Bytes.Cursor & Maybe<&1, Pax>:
   match fuel:
     case 0n:
-      (a, st) = r
-      (a, None{})
+      (c, st) = r
+      (c, None{})
     case 1n+f:
-      (a, st) = r
+      (c, st) = r
       match st:
-        case PGo{+p, pax}:
-          pr.run(f, pr.more(U32.is_lt(p, end), a, p, end, pax), end)
+        case PGo{pax}:
+          pr.run(f, pr.more(pax, Bytes.Cursor.remaining(c)))
         case PEnd{pax}:
-          (a, Some{pax})
+          (c, Some{pax})
         case PBad{}:
-          (a, None{})
+          (c, None{})
 
-def pr.parse(a: Array<U32>, +s: U32, +size: U32, pax: Pax) -> Array<U32> & Maybe<&1, Pax>:
-  pr.run(U32.to_nat(((size >> 1n) + 2 : U32)), (a, PGo{s, pax}), (s + size : U32))
+def pr.start(pax: Pax, r: Bytes.Cursor & U32) -> Bytes.Cursor & Maybe<&1, Pax>:
+  (c, +n) = r
+  pr.run(U32.to_nat(((n >> 1n) + 2 : U32)), (c, PGo{pax}))
+
+# c is already bounded to exactly the PAX payload, without block padding.
+def pr.parse(c: Bytes.Cursor, pax: Pax) -> Bytes.Cursor & Maybe<&1, Pax>:
+  pr.start(pax, Bytes.Cursor.remaining(c))
 
 type St is Type:
-  SHead{i: U32, pax: Pax, acc: List<&1, Entry>}
+  SHead{pax: Pax, acc: List<&1, Entry>}
   SOk{entries: List<&1, Entry>}
   SFail{}
+
+# Header metadata is Data so a checked read can advance without copying the header.
+type Hdr is Data:
+  Hdr{sum: U32, ok: Bool, size: U32, size_ok: Bool, kind: U32}
+
+def hdr.kind(+len: U32, +sum: U32, +ok: Bool, +size: U32, +size_ok: Bool, r: Array<U32> & U32) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  (a, t) = r
+  (Bytes.Bytes{len, a}, Some{Hdr{sum, ok, size, size_ok, t}})
+
+def hdr.size(+len: U32, +i: U32, +sum: U32, +ok: Bool, r: Array<U32> & U32 & Bool) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  (a, size, size_ok) = r
+  hdr.kind(len, sum, ok, size, size_ok, Bytes.peek(a, (i + 156 : U32)))
+
+def hdr.valid(ok: Bool, +len: U32, +i: U32, +sum: U32, a: Array<U32>) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  match ok:
+    case True{}:
+      hdr.size(len, i, sum, True{}, oct(a, (i + 124 : U32), 12))
+    case False{}:
+      (Bytes.Bytes{len, a}, Some{Hdr{sum, False{}, 0, False{}, 0}})
+
+# The checksum's eight bytes count as spaces.
+def hdr.ck3(+len: U32, +i: U32, +sum: U32, +ck: U32, +ok: Bool, +x: U32, r: Array<U32> & U32) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  (a, +w) = r
+  hdr.valid(ok && U32.is_eq(ck, (sum - x - wsum(w) + 256 : U32)), len, i, sum, a)
+
+def hdr.ck2(+len: U32, +i: U32, +sum: U32, +ck: U32, +ok: Bool, r: Array<U32> & U32) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  (a, +w) = r
+  hdr.ck3(len, i, sum, ck, ok, wsum(w), Array.get(U32, a, ((i >> 2n) + 38 : U32)))
+
+def hdr.check(+len: U32, +i: U32, +sum: U32, r: Array<U32> & U32 & Bool) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  (a, ck, ok) = r
+  hdr.ck2(len, i, sum, ck, ok, Array.get(U32, a, ((i >> 2n) + 37 : U32)))
+
+def hdr.zero(zero: Bool, +len: U32, +i: U32, +sum: U32, a: Array<U32>) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  match zero:
+    case True{}:
+      (Bytes.Bytes{len, a}, Some{Hdr{0, False{}, 0, True{}, 0}})
+    case False{}:
+      hdr.check(len, i, sum, oct(a, (i + 148 : U32), 8))
+
+def hdr.sum(+len: U32, +i: U32, r: Array<U32> & U32) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  (a, +sum) = r
+  hdr.zero(U32.is_eq(sum, 0), len, i, sum, a)
+
+# Cursor.read establishes that all fixed offsets below belong to a complete block.
+def hdr.read(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Maybe<&2, Hdr>:
+  Bytes.Bytes{+len, a} = b
+  hdr.sum(len, i, bsum(a, (i >> 2n : U32)))
+
+def zero.sum(+len: U32, r: Array<U32> & U32) -> Bytes.Bytes & Maybe<&2, U32>:
+  (a, sum) = r
+  (Bytes.Bytes{len, a}, Some{sum})
+
+def zero.read(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Maybe<&2, U32>:
+  Bytes.Bytes{+len, a} = b
+  zero.sum(len, bsum(a, (i >> 2n : U32)))
 
 def name.of(path: Maybe<&1, Bytes.Bytes>, a: Array<U32>, +i: U32) -> Array<U32> & Bytes.Bytes:
   match path:
@@ -262,94 +382,116 @@ def name.of(path: Maybe<&1, Bytes.Bytes>, a: Array<U32>, +i: U32) -> Array<U32> 
     case None{}:
       header.name(a, i)
 
-def file.data(+next: U32, +size: U32, name: Bytes.Bytes, acc: List<&1, Entry>, r: Array<U32> & Array<U32>) -> Array<U32> & St:
+def entry.named(+len: U32, +pos: U32, start: U32, end: U32, r: Array<U32> & Bytes.Bytes) -> Bytes.Cursor & Bytes.Bytes:
+  (a, name) = r
+  (Bytes.Cursor{Bytes.Bytes{len, a}, pos, start, end}, name)
+
+# The header begins one block before the payload cursor; no separate header index survives.
+def entry.name(c: Bytes.Cursor, path: Maybe<&1, Bytes.Bytes>) -> Bytes.Cursor & Bytes.Bytes:
+  Bytes.Cursor{Bytes.Bytes{+len, a}, +pos, start, end} = c
+  entry.named(len, pos, start, end, name.of(path, a, (pos - 512 : U32)))
+
+def file.data(+len: U32, pos: U32, start: U32, end: U32, +size: U32, name: Bytes.Bytes, acc: List<&1, Entry>, r: Array<U32> & Array<U32>) -> Bytes.Cursor & St:
   (a, o) = r
-  (a, SHead{next, Pax{None{}, None{}}, Con{File{name, Bytes.Bytes{size, o}}, acc}})
+  (Bytes.Cursor{Bytes.Bytes{len, a}, pos, start, end}, SHead{Pax{None{}, None{}}, Con{File{name, Bytes.Bytes{size, o}}, acc}})
 
-def file.name(+i: U32, +size: U32, +next: U32, acc: List<&1, Entry>, r: Array<U32> & Bytes.Bytes) -> Array<U32> & St:
-  (a, name) = r
-  file.data(next, size, name, acc, Bytes.copy(size, a, Bytes.alloc(size), (i + 512 : U32), 0))
+def file.name(+size: U32, acc: List<&1, Entry>, r: Bytes.Cursor & Bytes.Bytes) -> Bytes.Cursor & St:
+  (c, name) = r
+  Bytes.Cursor{Bytes.Bytes{+len, a}, +pos, start, end} = c
+  file.data(len, pos, start, end, size, name, acc, Bytes.copy(size, a, Bytes.alloc(size), pos, 0))
 
-def entry.file(+i: U32, +size: U32, +next: U32, acc: List<&1, Entry>, pax: Pax, a: Array<U32>) -> Array<U32> & St:
+def entry.file(c: Bytes.Cursor, +size: U32, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
   Pax{path, s} = pax
-  file.name(i, size, next, acc, name.of(path, a, i))
+  file.name(size, acc, entry.name(c, path))
 
-def dir.name(+next: U32, acc: List<&1, Entry>, r: Array<U32> & Bytes.Bytes) -> Array<U32> & St:
-  (a, name) = r
-  (a, SHead{next, Pax{None{}, None{}}, Con{Dir{name}, acc}})
+def dir.name(acc: List<&1, Entry>, r: Bytes.Cursor & Bytes.Bytes) -> Bytes.Cursor & St:
+  (c, name) = r
+  (c, SHead{Pax{None{}, None{}}, Con{Dir{name}, acc}})
 
-# A directory's size field is skipped over like data.
-def entry.dir(+i: U32, +next: U32, acc: List<&1, Entry>, pax: Pax, a: Array<U32>) -> Array<U32> & St:
+# Leaving the payload region skips a directory's data, as it does global PAX records.
+def entry.dir(c: Bytes.Cursor, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
   Pax{path, s} = pax
-  dir.name(next, acc, name.of(path, a, i))
+  dir.name(acc, entry.name(c, path))
 
-def step.pax(+next: U32, acc: List<&1, Entry>, r: Array<U32> & Maybe<&1, Pax>) -> Array<U32> & St:
-  (a, m) = r
+def step.pax(acc: List<&1, Entry>, r: Bytes.Cursor & Maybe<&1, Pax>) -> Bytes.Cursor & St:
+  (c, m) = r
   match m:
     case Some{pax}:
-      (a, SHead{next, pax, acc})
+      (c, SHead{pax, acc})
     case None{}:
-      (a, SFail{})
+      (c, SFail{})
 
-# '0' and NUL are regular files, '5' directories, 'x' PAX records for the next entry,
-# 'g' global PAX records (skipped). Links, devices, FIFOs, GNU extensions and the rest fail.
-def step.type(+t: U32, a: Array<U32>, +i: U32, +size: U32, +next: U32, pax: Pax, acc: List<&1, Entry>) -> Array<U32> & St:
+# '0'/NUL are files, '5' directories, 'x' local PAX and 'g' ignored global PAX.
+# Links, devices, FIFOs, GNU extensions and all other types fail.
+def step.type(+t: U32, c: Bytes.Cursor, +size: U32, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
   match t:
     case 0:
-      entry.file(i, size, next, acc, pax, a)
+      entry.file(c, size, pax, acc)
     case 48:
-      entry.file(i, size, next, acc, pax, a)
+      entry.file(c, size, pax, acc)
     case 53:
-      entry.dir(i, next, acc, pax, a)
+      entry.dir(c, pax, acc)
     case 120:
-      step.pax(next, acc, pr.parse(a, (i + 512 : U32), size, pax))
+      step.pax(acc, pr.parse(c, pax))
     case 103:
-      (a, SHead{next, pax, acc})
+      (c, SHead{pax, acc})
     case _:
-      (a, SFail{})
+      (c, SFail{})
 
-def step.kind(fit: Bool, +t: U32, a: Array<U32>, +i: U32, +size: U32, +next: U32, pax: Pax, acc: List<&1, Entry>) -> Array<U32> & St:
-  match fit:
-    case True{}:
-      step.type(t, a, i, size, next, pax, acc)
-    case False{}:
-      (a, SFail{})
-
-# The data and its padding to a whole block must be in the archive.
-def step.fit(+len: U32, +i: U32, +size: U32, +ok: Bool, pax: Pax, acc: List<&1, Entry>, r: Array<U32> & U32) -> Array<U32> & St:
-  (a, +t) = r
-  +pd = pad(size)
-  +fit = ok && (U32.is_le(size, pd) && Bytes.fits(len, (i + 512 : U32), pd))
-  step.kind(fit, t, a, i, size, (i + 512 + pd : U32), pax, acc)
-
-
-# A PAX size overrides the header's field, which then need not parse.
-def step.size(+len: U32, +i: U32, pax: Pax, acc: List<&1, Entry>, r: Array<U32> & U32 & Bool) -> Array<U32> & St:
-  Pax{path, +psize} = pax
-  (a, v, ok) = r
-  step.fit(len, i, Maybe.default(&2, U32, psize, v), Maybe.is_some(&2, U32, psize) || ok, Pax{path, psize}, acc, Bytes.peek(a, (i + 156 : U32)))
-
-def step.hdr(ok: Bool, a: Array<U32>, +len: U32, +i: U32, pax: Pax, acc: List<&1, Entry>) -> Array<U32> & St:
+def frame.padded(outer: Bytes.CursorLimit, st: St, r: Bytes.Cursor & Bool) -> Bytes.Cursor & St:
+  (c, ok) = r
   match ok:
     case True{}:
-      step.size(len, i, pax, acc, oct(a, (i + 124 : U32), 12))
+      (Bytes.Cursor.leave(c, outer), st)
     case False{}:
-      (a, SFail{})
+      (Bytes.Cursor.leave(c, outer), SFail{})
 
-# The checksum counts the 8 checksum bytes (words 37 and 38) as spaces.
-def step.ck3(+len: U32, +i: U32, +s: U32, +ck: U32, +ok: Bool, +x: U32, pax: Pax, acc: List<&1, Entry>, r: Array<U32> & U32) -> Array<U32> & St:
-  (a, +w) = r
-  step.hdr(ok && U32.is_eq(ck, (s - x - wsum(w) + 256 : U32)), a, len, i, pax, acc)
+def frame.body(inner: Bytes.CursorLimit, outer: Bytes.CursorLimit, +padding: U32, r: Bytes.Cursor & St) -> Bytes.Cursor & St:
+  (c, st) = r
+  frame.padded(outer, st, Bytes.Cursor.skip(Bytes.Cursor.leave(c, inner), padding))
 
-def step.ck2(+len: U32, +i: U32, +s: U32, +ck: U32, +ok: Bool, pax: Pax, acc: List<&1, Entry>, r: Array<U32> & U32) -> Array<U32> & St:
-  (a, +w) = r
-  step.ck3(len, i, s, ck, ok, wsum(w), pax, acc, Array.get(U32, a, ((i >> 2n) + 38 : U32)))
+def frame.payload(+t: U32, +size: U32, +padding: U32, outer: Bytes.CursorLimit, pax: Pax, acc: List<&1, Entry>, r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> Bytes.Cursor & St:
+  (c, m) = r
+  match m:
+    case Some{inner}:
+      frame.body(inner, outer, padding, step.type(t, c, size, pax, acc))
+    case None{}:
+      (Bytes.Cursor.leave(c, outer), SFail{})
 
-def step.ck(+len: U32, +i: U32, +s: U32, pax: Pax, acc: List<&1, Entry>, r: Array<U32> & U32 & Bool) -> Array<U32> & St:
-  (a, ck, ok) = r
-  step.ck2(len, i, s, ck, ok, pax, acc, Array.get(U32, a, ((i >> 2n) + 37 : U32)))
+# First bound the complete padded body, then restrict PAX to the exact payload.
+# Limits are left in reverse order; neither region slices or copies the backing buffer.
+def frame.region(+t: U32, +size: U32, +pd: U32, pax: Pax, acc: List<&1, Entry>, r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> Bytes.Cursor & St:
+  (c, m) = r
+  match m:
+    case Some{outer}:
+      frame.payload(t, size, (pd - size : U32), outer, pax, acc, Bytes.Cursor.region(c, size))
+    case None{}:
+      (c, SFail{})
 
-# The end: a second zero block, with no PAX records left waiting for an entry.
+def step.fit(ok: Bool, +t: U32, c: Bytes.Cursor, +size: U32, +pd: U32, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
+  match ok:
+    case True{}:
+      frame.region(t, size, pd, pax, acc, Bytes.Cursor.region(c, pd))
+    case False{}:
+      (c, SFail{})
+
+def step.pad(+t: U32, c: Bytes.Cursor, +size: U32, +ok: Bool, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
+  +pd = pad(size)
+  step.fit(ok && U32.is_le(size, pd), t, c, size, pd, pax, acc)
+
+# A pending PAX size overrides the header field for every type, even when that field is malformed.
+def step.size(+t: U32, c: Bytes.Cursor, +v: U32, +ok: Bool, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
+  Pax{path, +psize} = pax
+  step.pad(t, c, Maybe.default(&2, U32, psize, v), Maybe.is_some(&2, U32, psize) || ok, Pax{path, psize}, acc)
+
+def step.hdr(ok: Bool, +t: U32, c: Bytes.Cursor, +size: U32, +size_ok: Bool, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
+  match ok:
+    case True{}:
+      step.size(t, c, size, size_ok, pax, acc)
+    case False{}:
+      (c, SFail{})
+
+# Two zero blocks are required and no local PAX records may remain pending.
 def end.pax(pax: Pax, acc: List<&1, Entry>) -> St:
   Pax{p, s} = pax
   match p s:
@@ -365,51 +507,45 @@ def end.of(ok: Bool, pax: Pax, acc: List<&1, Entry>) -> St:
     case False{}:
       SFail{}
 
-def end.sum(pax: Pax, acc: List<&1, Entry>, r: Array<U32> & U32) -> Array<U32> & St:
-  (a, +s) = r
-  (a, end.of(U32.is_eq(s, 0), pax, acc))
+def end.sum(pax: Pax, acc: List<&1, Entry>, r: Bytes.Cursor & Maybe<&2, U32>) -> Bytes.Cursor & St:
+  (c, m) = r
+  match m:
+    case Some{+sum}:
+      (c, end.of(U32.is_eq(sum, 0), pax, acc))
+    case None{}:
+      (c, SFail{})
 
-def end.fits(ok: Bool, a: Array<U32>, +i: U32, pax: Pax, acc: List<&1, Entry>) -> Array<U32> & St:
-  match ok:
-    case True{}:
-      end.sum(pax, acc, bsum(a, ((i + 512 : U32) >> 2n : U32)))
-    case False{}:
-      (a, SFail{})
-
-def step.zero(zero: Bool, a: Array<U32>, +len: U32, +i: U32, +s: U32, pax: Pax, acc: List<&1, Entry>) -> Array<U32> & St:
+def step.zero(zero: Bool, +ok: Bool, +size: U32, +size_ok: Bool, +t: U32, c: Bytes.Cursor, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
   match zero:
     case True{}:
-      end.fits(Bytes.fits(len, (i + 512 : U32), 512), a, i, pax, acc)
+      end.sum(pax, acc, Bytes.Cursor.read(~U32, ~zero.read, c, 512))
     case False{}:
-      step.ck(len, i, s, pax, acc, oct(a, (i + 148 : U32), 8))
+      step.hdr(ok, t, c, size, size_ok, pax, acc)
 
-def step.sum(+len: U32, +i: U32, pax: Pax, acc: List<&1, Entry>, r: Array<U32> & U32) -> Array<U32> & St:
-  (a, +s) = r
-  step.zero(U32.is_eq(s, 0), a, len, i, s, pax, acc)
+def step.read(pax: Pax, acc: List<&1, Entry>, r: Bytes.Cursor & Maybe<&2, Hdr>) -> Bytes.Cursor & St:
+  (c, m) = r
+  match m:
+    case Some{Hdr{+sum, +ok, +size, +size_ok, +t}}:
+      step.zero(U32.is_eq(sum, 0), ok, size, size_ok, t, c, pax, acc)
+    case None{}:
+      (c, SFail{})
 
-def step.fits(ok: Bool, a: Array<U32>, +len: U32, +i: U32, pax: Pax, acc: List<&1, Entry>) -> Array<U32> & St:
-  match ok:
-    case True{}:
-      step.sum(len, i, pax, acc, bsum(a, (i >> 2n : U32)))
-    case False{}:
-      (a, SFail{})
+def step(c: Bytes.Cursor, pax: Pax, acc: List<&1, Entry>) -> Bytes.Cursor & St:
+  step.read(pax, acc, Bytes.Cursor.read(~Hdr, ~hdr.read, c, 512))
 
-def step(a: Array<U32>, +len: U32, +i: U32, pax: Pax, acc: List<&1, Entry>) -> Array<U32> & St:
-  step.fits(Bytes.fits(len, i, 512), a, len, i, pax, acc)
-
-def run(fuel: Nat, r: Array<U32> & St, +len: U32) -> Maybe<&1, List<&1, Entry>>:
+def run(fuel: Nat, r: Bytes.Cursor & St) -> Maybe<&1, List<&1, Entry>>:
   match fuel:
     case 0n:
       None{}
     case 1n+f:
-      (a, st) = r
+      (c, st) = r
       match st:
         case SOk{xs}:
           Some{xs}
         case SFail{}:
           None{}
-        case SHead{+i, pax, acc}:
-          run(f, step(a, len, i, pax, acc), len)
+        case SHead{pax, acc}:
+          run(f, step(c, pax, acc))
 
 # The entries in archive order. None for a bad header checksum, a malformed size or PAX record,
 # an entry or its padding cut short, a missing end (two zero blocks), or any type but file,
@@ -417,7 +553,7 @@ def run(fuel: Nat, r: Array<U32> & St, +len: U32) -> Maybe<&1, List<&1, Entry>>:
 # fuel: each header step eats a block, so len / 512 + 2 steps are enough.
 def decode(archive: Bytes.Bytes) -> Maybe<&1, List<&1, Entry>>:
   Bytes.Bytes{+len, buf} = archive
-  run(U32.to_nat(((len >> 9n) + 2 : U32)), (buf, SHead{0, Pax{None{}, None{}}, Nil{}}), len)
+  run(U32.to_nat(((len >> 9n) + 2 : U32)), (Bytes.Cursor.new(Bytes.Bytes{len, buf}), SHead{Pax{None{}, None{}}, Nil{}}))
 
 # ---- encode ----
 

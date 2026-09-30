@@ -1,11 +1,11 @@
 # DNS codec and host lookup. Source: https://github.com/paymog/bend-kit/tree/main/dns
 import Base
 import bend-kit-wire@0.4.3.0/wire.bend as Wire
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 
 # query, answer, and resolve.pure are pure; PROOF.bend covers them, not effs/.
 # resolve.all uses the OS resolver (IPv4 and IPv6); resolve keeps the first address.
-#   import bend-kit-dns@0.5.0.0/dns.bend as Dns
+#   import bend-kit-dns@0.6.0.0/dns.bend as Dns
 
 # Query
 # -----
@@ -36,30 +36,44 @@ def labels.len(xs: List<&2, String>, +n: U32) -> U32:
     case Con{+l, t}:
       labels.len(t, (n + 1 + U32.from_nat(String.length(l)) : U32))
 
-def label.put(s: String, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:
+# The query buffer is allocated to its exact size before writing.
+def written(r: Bytes.Cursor & Bool) -> Bytes.Cursor:
+  (c, ok) = r
+  c
+
+def label.put(s: String, c: Bytes.Cursor) -> Bytes.Cursor:
   match s:
     case SNil{}:
-      b
-    case SCon{Chr{c}, t}:
-      label.put(t, Bytes.set(b, i, c), (i + 1 : U32))
+      c
+    case SCon{Chr{v}, t}:
+      label.put(t, written(Bytes.Cursor.put.u8(c, v)))
 
-# Each label as its length octet, then its octets. The zero octet that ends QNAME is already there.
-def labels.put(xs: List<&2, String>, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:
+def labels.put(xs: List<&2, String>, c: Bytes.Cursor) -> Bytes.Cursor:
   match xs:
     case Nil{}:
-      b
+      written(Bytes.Cursor.put.u8(c, 0))
     case Con{+l, t}:
-      +n = U32.from_nat(String.length(l))
-      labels.put(t, label.put(l, Bytes.set(b, i, n), (i + 1 : U32)), (i + 1 + n : U32))
+      labels.put(t, label.put(l, written(Bytes.Cursor.put.u8(c, U32.from_nat(String.length(l))))))
+
+def query.done(r: Bytes.Bytes & U32) -> Maybe<&1, Bytes.Bytes>:
+  (b, pos) = r
+  Some{b}
 
 def query.if(+id: U32, +xs: List<&2, String>, ok: Bool) -> Maybe<&1, Bytes.Bytes>:
   match ok:
     case False{}:
       None{}
     case True{}:
-      # header: id, RD, QDCOUNT 1; question: QNAME, QTYPE A, QCLASS IN. Other fields stay zero.
-      +n = (labels.len(xs, 0) + 17 : U32)
-      Some{Bytes.set.u16be(Bytes.set.u16be(labels.put(xs, Bytes.set.u16be(Bytes.set.u16be(Bytes.set.u16be(Bytes.new(n), 0, id), 2, 256), 4, 1), 12), (n - 4 : U32), 1), (n - 2 : U32), 1)}
+      # header: id, RD, QDCOUNT 1; question: QNAME, QTYPE A, QCLASS IN.
+      c = Bytes.Cursor.new(Bytes.new((labels.len(xs, 0) + 17 : U32)))
+      c = written(Bytes.Cursor.put.u16be(c, id))
+      c = written(Bytes.Cursor.put.u16be(c, 256))
+      c = written(Bytes.Cursor.put.u16be(c, 1))
+      c = written(Bytes.Cursor.skip(c, 6))
+      c = labels.put(xs, c)
+      c = written(Bytes.Cursor.put.u16be(c, 1))
+      c = written(Bytes.Cursor.put.u16be(c, 1))
+      query.done(Bytes.Cursor.finish(c))
 
 def query.labels(+id: U32, +xs: List<&2, String>) -> Maybe<&1, Bytes.Bytes>:
   query.if(id, xs, labels.ok(xs))
@@ -81,199 +95,240 @@ def query(id: U32, name: String) -> Maybe<&1, Bytes.Bytes>:
 # Answer
 # ------
 
-# One step through a name: go on at the next label, or stop with the offset past the name.
+# One step through a name: continue at the next label or stop after the name.
 type Step is Data:
-  Go{at: U32}
-  Stop{end: Maybe<&2, U32>}
+  Go{}
+  Stop{ok: Bool}
 
-# §4.1.4: l, the octet at i, is 0 at the end, 192..255 for a two-octet pointer, 64..191 reserved.
-def name.step.of(+i: U32, +l: U32) -> Step:
-  Bool.pick(Step, U32.is_eq(l, 0), Stop{Some{(i + 1 : U32)}}, Bool.pick(Step, U32.is_le(192, l), Stop{Some{(i + 2 : U32)}}, Bool.pick(Step, U32.is_le(64, l), Stop{None{}}, Go{(i + 1 + l : U32)})))
+def name.advance(stop: Bool, r: Bytes.Cursor & Bool) -> Bytes.Cursor & Step:
+  (c, ok) = r
+  match ok:
+    case False{}:
+      (c, Stop{False{}})
+    case True{}:
+      (c, Bool.pick(Step, stop, Stop{True{}}, Go{}))
 
-def name.step(+i: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Step:
-  (b, m) = r
+# §4.1.4: zero terminates, 192..255 starts a pointer, 64..191 is reserved.
+def name.label(ok: Bool, c: Bytes.Cursor, l: U32) -> Bytes.Cursor & Step:
+  match ok:
+    case False{}:
+      (c, Stop{False{}})
+    case True{}:
+      name.advance(False{}, Bytes.Cursor.skip(c, l))
+
+def name.pointer(pointer: Bool, +l: U32, c: Bytes.Cursor) -> Bytes.Cursor & Step:
+  match pointer:
+    case True{}:
+      name.advance(True{}, Bytes.Cursor.skip(c, 1))
+    case False{}:
+      name.label(U32.is_lt(l, 64), c, l)
+
+def name.step.of(+l: U32, c: Bytes.Cursor) -> Bytes.Cursor & Step:
+  match l:
+    case 0:
+      (c, Stop{True{}})
+    case _:
+      name.pointer(U32.is_le(192, l), l, c)
+
+def name.step(r: Bytes.Cursor & Maybe<&2, U32>) -> Bytes.Cursor & Step:
+  (c, m) = r
   match m:
     case None{}:
-      (b, Stop{None{}})
+      (c, Stop{False{}})
     case Some{l}:
-      (b, name.step.of(i, l))
+      name.step.of(l, c)
 
-def name.walk(fuel: Nat, r: Bytes.Bytes & Step) -> Bytes.Bytes & Maybe<&2, U32>:
+def name.walk(fuel: Nat, r: Bytes.Cursor & Step) -> Bytes.Cursor & Bool:
   match fuel:
     case 0n:
-      (b, s) = r
-      (b, None{})
+      (c, s) = r
+      (c, False{})
     case 1n+f:
-      (b, s) = r
+      (c, s) = r
       match s:
-        case Stop{end}:
-          (b, end)
-        case Go{+at}:
-          name.walk(f, name.step(at, Bytes.get(b, at)))
+        case Stop{ok}:
+          (c, ok)
+        case Go{}:
+          name.walk(f, name.step(Bytes.Cursor.u8(c)))
 
-# The offset past the name at i. §2.3.4: a name is at most 255 octets, so 128 steps are enough.
-def name.skip(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Maybe<&2, U32>:
-  name.walk(128n, name.step(i, Bytes.get(b, i)))
+# §2.3.4: a name is at most 255 octets, so retain the 128-step limit.
+def name.skip(c: Bytes.Cursor) -> Bytes.Cursor & Bool:
+  name.walk(128n, name.step(Bytes.Cursor.u8(c)))
 
 type RR is Data:
   RRBad{}
   RRA{ip: String}
-  RRSkip{at: U32}
+  RRSkip{}
 
 def dotted(+ip: U32) -> String:
   U32.show(U32.shrn(ip, 24n)) ++ "." ++ U32.show(Bytes.b8(U32.shrn(ip, 16n))) ++ "." ++ U32.show(Bytes.b8(U32.shrn(ip, 8n))) ++ "." ++ U32.show(Bytes.b8(ip))
 
-def rr.a(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
-  (b, m) = r
+def rr.a(limit: Bytes.CursorLimit, r: Bytes.Cursor & Maybe<&2, U32>) -> Bytes.Cursor & RR:
+  (c, m) = r
   match m:
     case None{}:
-      (b, RRBad{})
+      (Bytes.Cursor.leave(c, limit), RRBad{})
     case Some{ip}:
-      (b, RRA{dotted(ip)})
+      (Bytes.Cursor.leave(c, limit), RRA{dotted(ip)})
 
-# RDATA at i holds len octets. A skipped record past the end fails at the next read.
-def rr.data(a: Bool, b: Bytes.Bytes, +i: U32, +len: U32) -> Bytes.Bytes & RR:
+def rr.data.some(a: Bool, c: Bytes.Cursor, limit: Bytes.CursorLimit) -> Bytes.Cursor & RR:
   match a:
     case True{}:
-      rr.a(Bytes.get.u32be(b, i))
+      rr.a(limit, Bytes.Cursor.u32be(c))
     case False{}:
-      (b, RRSkip{(i + len : U32)})
+      (Bytes.Cursor.leave(c, limit), RRSkip{})
 
-def rr.len(+o: U32, +ty: U32, +cl: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
-  (b, m) = r
+# Bound RDATA in the original packed buffer, then resume after the entire region.
+def rr.data(a: Bool, r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> Bytes.Cursor & RR:
+  (c, m) = r
   match m:
     case None{}:
-      (b, RRBad{})
+      (c, RRBad{})
+    case Some{limit}:
+      rr.data.some(a, c, limit)
+
+def rr.len(+ty: U32, +cl: U32, r: Bytes.Cursor & Maybe<&2, U32>) -> Bytes.Cursor & RR:
+  (c, m) = r
+  match m:
+    case None{}:
+      (c, RRBad{})
     case Some{+len}:
-      rr.data(Bool.and(Bool.and(U32.is_eq(ty, 1), U32.is_eq(cl, 1)), U32.is_eq(len, 4)), b, (o + 10 : U32), len)
+      rr.data(Bool.and(Bool.and(U32.is_eq(ty, 1), U32.is_eq(cl, 1)), U32.is_eq(len, 4)), Bytes.Cursor.region(c, len))
 
-def rr.cl(+o: U32, +ty: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
-  (b, m) = r
+def rr.ttl(+ty: U32, +cl: U32, r: Bytes.Cursor & Bool) -> Bytes.Cursor & RR:
+  (c, ok) = r
+  match ok:
+    case False{}:
+      (c, RRBad{})
+    case True{}:
+      rr.len(ty, cl, Bytes.Cursor.u16be(c))
+
+def rr.cl(+ty: U32, r: Bytes.Cursor & Maybe<&2, U32>) -> Bytes.Cursor & RR:
+  (c, m) = r
   match m:
     case None{}:
-      (b, RRBad{})
+      (c, RRBad{})
     case Some{cl}:
-      rr.len(o, ty, cl, Bytes.get.u16be(b, (o + 8 : U32)))
+      rr.ttl(ty, cl, Bytes.Cursor.skip(c, 4))
 
-def rr.ty(+o: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
-  (b, m) = r
+def rr.ty(r: Bytes.Cursor & Maybe<&2, U32>) -> Bytes.Cursor & RR:
+  (c, m) = r
   match m:
     case None{}:
-      (b, RRBad{})
+      (c, RRBad{})
     case Some{ty}:
-      rr.cl(o, ty, Bytes.get.u16be(b, (o + 2 : U32)))
+      rr.cl(ty, Bytes.Cursor.u16be(c))
 
-def rr.name(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & RR:
-  (b, m) = r
-  match m:
-    case None{}:
-      (b, RRBad{})
-    case Some{+o}:
-      rr.ty(o, Bytes.get.u16be(b, o))
+def rr.name(r: Bytes.Cursor & Bool) -> Bytes.Cursor & RR:
+  (c, ok) = r
+  match ok:
+    case False{}:
+      (c, RRBad{})
+    case True{}:
+      rr.ty(Bytes.Cursor.u16be(c))
 
 # §4.1.3: NAME, TYPE, CLASS, TTL, RDLENGTH, RDATA.
-def rr(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & RR:
-  rr.name(name.skip(b, i))
+def rr(c: Bytes.Cursor) -> Bytes.Cursor & RR:
+  rr.name(name.skip(c))
 
 # fuel = records left. The first A record wins; CNAMEs before it are skipped.
-def answers.scan(fuel: Nat, r: Bytes.Bytes & RR) -> Maybe<&2, String>:
+def answers.scan(fuel: Nat, r: Bytes.Cursor & RR) -> Maybe<&2, String>:
   match fuel:
     case 0n:
       None{}
     case 1n+f:
-      (b, x) = r
+      (c, x) = r
       match x:
         case RRBad{}:
           None{}
         case RRA{ip}:
           Some{ip}
-        case RRSkip{+at}:
-          answers.scan(f, rr(b, at))
+        case RRSkip{}:
+          answers.scan(f, rr(c))
 
 # QTYPE and QCLASS follow the name.
-def question.end(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
-  (b, m) = r
-  match m:
-    case None{}:
-      (b, None{})
-    case Some{e}:
-      (b, Some{(e + 4 : U32)})
+def question.end(r: Bytes.Cursor & Bool) -> Bytes.Cursor & Bool:
+  (c, ok) = r
+  match ok:
+    case False{}:
+      (c, False{})
+    case True{}:
+      Bytes.Cursor.skip(c, 4)
 
-def questions(fuel: Nat, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
+def questions(fuel: Nat, r: Bytes.Cursor & Bool) -> Bytes.Cursor & Bool:
   match fuel:
     case 0n:
-      (b, m) = r
-      (b, m)
+      r
     case 1n+f:
-      (b, m) = r
-      match m:
-        case None{}:
-          (b, None{})
-        case Some{+at}:
-          questions(f, question.end(name.skip(b, at)))
+      (c, ok) = r
+      match ok:
+        case False{}:
+          (c, False{})
+        case True{}:
+          questions(f, question.end(name.skip(c)))
 
-def body.go(+an: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
-  (b, m) = r
-  match m:
-    case None{}:
+def body.go(+an: U32, r: Bytes.Cursor & Bool) -> Maybe<&2, String>:
+  (c, ok) = r
+  match ok:
+    case False{}:
       None{}
-    case Some{+at}:
-      answers.scan(U32.to_nat(an), rr(b, at))
+    case True{}:
+      answers.scan(U32.to_nat(an), rr(c))
 
-# The 12-octet header ends with NSCOUNT and ARCOUNT; the questions follow.
-def body.an(+qd: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
-  (b, m) = r
+# The header ends with NSCOUNT and ARCOUNT; questions follow.
+def body.an(+qd: U32, r: Bytes.Cursor & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (c, m) = r
   match m:
     case None{}:
       None{}
     case Some{an}:
-      body.go(an, questions(U32.to_nat(qd), (b, Some{12})))
+      body.go(an, questions(U32.to_nat(qd), Bytes.Cursor.skip(c, 4)))
 
-def body.qd(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
-  (b, m) = r
+def body.qd(r: Bytes.Cursor & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (c, m) = r
   match m:
     case None{}:
       None{}
     case Some{qd}:
-      body.an(qd, Bytes.get.u16be(b, 6))
+      body.an(qd, Bytes.Cursor.u16be(c))
 
 # §4.1.1: QR set, opcode QUERY, not truncated, RCODE 0.
 def flags.ok(+f: U32) -> Bool:
   Bool.and(Bool.and(U32.is_eq(U32.and(f, 32768), 32768), U32.is_eq(U32.and(f, 30720), 0)), Bool.and(U32.is_eq(U32.and(f, 512), 0), U32.is_eq(U32.and(f, 15), 0)))
 
-def head.flags.if(ok: Bool, b: Bytes.Bytes) -> Maybe<&2, String>:
+def head.flags.if(ok: Bool, c: Bytes.Cursor) -> Maybe<&2, String>:
   match ok:
     case False{}:
       None{}
     case True{}:
-      body.qd(Bytes.get.u16be(b, 4))
+      body.qd(Bytes.Cursor.u16be(c))
 
-def head.flags(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
-  (b, m) = r
+def head.flags(r: Bytes.Cursor & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (c, m) = r
   match m:
     case None{}:
       None{}
     case Some{f}:
-      head.flags.if(flags.ok(f), b)
+      head.flags.if(flags.ok(f), c)
 
-def head.id.if(ok: Bool, b: Bytes.Bytes) -> Maybe<&2, String>:
+def head.id.if(ok: Bool, c: Bytes.Cursor) -> Maybe<&2, String>:
   match ok:
     case False{}:
       None{}
     case True{}:
-      head.flags(Bytes.get.u16be(b, 2))
+      head.flags(Bytes.Cursor.u16be(c))
 
-def head.id(+id: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, String>:
-  (b, m) = r
+def head.id(+id: U32, r: Bytes.Cursor & Maybe<&2, U32>) -> Maybe<&2, String>:
+  (c, m) = r
   match m:
     case None{}:
       None{}
     case Some{got}:
-      head.id.if(U32.is_eq(id, got), b)
+      head.id.if(U32.is_eq(id, got), c)
 
 # The IPv4 address the response gives for the query with this id.
 def answer(id: U32, msg: Bytes.Bytes) -> Maybe<&2, String>:
-  head.id(id, Bytes.get.u16be(msg, 0))
+  head.id(id, Bytes.Cursor.u16be(Bytes.Cursor.new(msg)))
 
 # resolv.conf
 # -----------

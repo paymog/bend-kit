@@ -34,16 +34,18 @@ The checksum is taken over entries, not archive bytes, because each library writ
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-28. `python3 run.py 5`: 2,000 entries, 3,891,200 archive bytes, checksum `2676630000` for both operations in all six variants. Times are ms, median of five runs; ratios compare with the fastest variant for that operation.
+M4 Pro, macOS 26.6.2, 2026-09-30. `python3 run.py 5`: 2,000 entries, 3,891,200 archive bytes, checksum `2676630000` for both operations in all six variants. Times are ms, median of five runs; ratios compare with the fastest variant for that operation.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| decode | 3.1 (2.9x) | 1.9 (1.8x) | 10.9 (10.3x) | 14.7 (13.9x) | 26.3 (24.8x) | 1.1 (1.0x) |
-| encode | 3.5 (2.7x) | 1.3 (1.0x) | 9.5 (7.4x) | 13.7 (10.7x) | 29.3 (22.9x) | 2.4 (1.9x) |
+| decode | 3.2 (3.3x) | 1.6 (1.7x) | 10.4 (10.8x) | 14.4 (15.0x) | 25.4 (26.4x) | 1.0 (1.0x) |
+| encode | 3.7 (3.4x) | 1.1 (1.0x) | 9.1 (8.3x) | 13.7 (12.6x) | 28.7 (26.3x) | 2.4 (2.2x) |
 
-Versions: Bend 2.0.32, Apple clang 17.0.0 with libarchive 3.8.2, rustc 1.91.0 with tar 0.4, Bun 1.3.14 and Node 24.0.1 with tar-stream 3.2.1, Python 3.14.6.
+Versions: Bend 2.0.34, Apple clang 17.0.0 with libarchive 3.8.2, rustc 1.91.0 with tar 0.4, Bun 1.3.14 and Node 24.0.1 with tar-stream 3.2.1, Python 3.14.6.
 
 Bend uses `Time.mono` for sub-millisecond timing.
+
+The original five-run baseline took 0.9 ms to decode and 2.4 ms to encode. To control sub-millisecond timing variation, the original and final cursor binaries were also run 15 times each in alternating order on the same input. Median decode time was 0.921 ms before and 0.918 ms after; encode was 2.351 ms before and 2.323 ms after. Every run produced checksum `2676630000` for both operations.
 
 ## The calls
 
