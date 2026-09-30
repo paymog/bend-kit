@@ -11,7 +11,7 @@ You need [Bend 2.0.32 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2
 Import a package at the top of your file. `bend` fetches it from the hub and checks it against its hash:
 
 ```bend
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 ```
 
 A name and its hash import the same package. Each version is a distinct type, so import the same version as the package you pass values to.
@@ -20,15 +20,16 @@ A name and its hash import the same package. Each version is a distinct type, so
 
 | Package | Import | What it does |
 |---|---|---|
-| [`bytes`](bytes) | `0x49814d83de8f70993a43e1002be29ecd/bytes.bend` | Byte buffers packed four bytes to a `U32`, with bounds-checked access, endian integers, search, hex, and base64. |
+| [`bytes`](bytes) | `bend-kit-bytes@0.3.2.0/bytes.bend` | Packed byte buffers with bounded positional cursors, endian integers, search, hex, and base64. |
 | [`encoding`](encoding) | `0xcfc8be7b076f41f95c8e118383892d55/encoding.bend` | UTF-8 and hex encoding for byte strings. |
 | [`json`](json) | `0x584fc27920487ceab242392391418d7f/json.bend` | JSON values, parsed and encoded as RFC 8259. |
 | [`csv`](csv) | `bend-kit-csv@0.1.0.0/csv.bend` | CSV records over bytes (RFC 4180), with a record cursor, whole-document parse, and encoder. |
 | [`cbor`](cbor) | `bend-kit-cbor@0.1.0.1/cbor.bend` | CBOR values encoded and decoded as bytes (RFC 8949). |
+| [`tar`](tar) | `bend-kit-tar@0.2.0.0/tar.bend` | POSIX ustar and PAX archives over packed bytes with bounded header and record parsing. |
 | [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming raw DEFLATE, gzip/zlib, Brotli, and Zstandard decoders. |
 | [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, bracketed IPv6 authorities, and percent-encoding (RFC 3986). |
 | [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets with packed-byte `.words` effects, including client certificates. |
-| [`dns`](dns) | `0xc10a5eaaa9c896e1570e279945f4241e/dns.bend` | DNS A-record lookup over UDP. |
+| [`dns`](dns) | `bend-kit-dns@0.6.0.0/dns.bend` | DNS A-record codec over packed bytes and host lookup for IPv4 and IPv6. |
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | Strict IPv4, IPv6, and CIDR values with RFC 5952 formatting and subnet membership. |
 | [`http`](http) | `bend-kit-http@0.24.2.0/http.bend` | HTTP/1.1 and HTTP/2 client and HTTP/1.1 server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
 | [`http2`](http2) | `bend-kit-http2@0.1.2.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
