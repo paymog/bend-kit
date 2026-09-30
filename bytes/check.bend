@@ -112,8 +112,129 @@ def dec(m: Maybe<&1, Bytes.Bytes>) -> String:
     case Some{b}:
       str(b)
 
+def cursor.sought(r: Bytes.Cursor & Bool) -> Bytes.Cursor:
+  (c, ok) = r
+  c
+
+def cursor.at(+i: U32, +n: U32) -> Bytes.Cursor:
+  cursor.sought(Bytes.Cursor.seek(Bytes.Cursor.new(Bytes.new(n)), i))
+
+def cursor.roundtrip.read(+expected: U32, +ok: Bool, r: Bytes.Cursor & Maybe<&2, U32>) -> Bool:
+  (Bytes.Cursor{b, pos, start, end}, value) = r
+  ok && U32.is_eq(pos, expected) && has(value, 171)
+
+def cursor.roundtrip.wrote(~read: Bytes.Cursor -> Bytes.Cursor & Maybe<&2, U32>, +width: U32, +at: U32, r: Bytes.Cursor & Bool) -> Bool:
+  (Bytes.Cursor{b, pos, start, end}, wrote) = r
+  +expected = (at + width : U32)
+  cursor.roundtrip.read(expected, wrote && U32.is_eq(pos, expected), read(Bytes.Cursor{b, at, start, end}))
+
+def cursor.roundtrip(~read: Bytes.Cursor -> Bytes.Cursor & Maybe<&2, U32>, ~write: Bytes.Cursor -> U32 -> Bytes.Cursor & Bool, +width: U32, +at: U32) -> Bool:
+  cursor.roundtrip.wrote(~read, width, at, write(cursor.at(at, 16), 171))
+
+def cursor.boundary(xs: List<&2, U32>) -> IO(Unit):
+  match xs:
+    case Nil{}:
+      IO.pure(Unit, Unit{})
+    case Con{+at, rest}:
+      do IO<Unit>:
+        expect("cursor u8 at " ++ U32.show(at), cursor.roundtrip(~Bytes.Cursor.u8, ~Bytes.Cursor.put.u8, 1, at))
+        expect("cursor u16be at " ++ U32.show(at), cursor.roundtrip(~Bytes.Cursor.u16be, ~Bytes.Cursor.put.u16be, 2, at))
+        expect("cursor u16le at " ++ U32.show(at), cursor.roundtrip(~Bytes.Cursor.u16le, ~Bytes.Cursor.put.u16le, 2, at))
+        expect("cursor u32be at " ++ U32.show(at), cursor.roundtrip(~Bytes.Cursor.u32be, ~Bytes.Cursor.put.u32be, 4, at))
+        expect("cursor u32le at " ++ U32.show(at), cursor.roundtrip(~Bytes.Cursor.u32le, ~Bytes.Cursor.put.u32le, 4, at))
+        cursor.boundary(rest)
+
+def cursor.failed.wrote(+ok: Bool, +at: U32, +n: U32, r: Bytes.Cursor & Bool) -> Bool:
+  (Bytes.Cursor{b, pos, start, end}, wrote) = r
+  ok && Bool.not(wrote) && U32.is_eq(pos, at) && String.eq(str(b), rep(U32.to_nat(n), ""))
+
+def cursor.failed.read(+at: U32, r: Bytes.Cursor & Maybe<&2, U32>) -> Bool:
+  (Bytes.Cursor{b, +pos, start, end}, m) = r
+  +ok = none(m) && U32.is_eq(pos, at)
+  cursor.failed.wrote(ok, at, 4, Bytes.Cursor.put.u32le(Bytes.Cursor{b, pos, start, end}, 4294967295))
+
+def cursor.failed() -> Bool:
+  cursor.failed.read(1, Bytes.Cursor.u32be(Bytes.Cursor{of("aaaa"), 1, 0, 4}))
+
+def cursor.end() -> Bool:
+  cursor.failed.read(4, Bytes.Cursor.u8(Bytes.Cursor{of("aaaa"), 4, 0, 4}))
+
+def cursor.region.left(c: Bytes.Cursor, +ok: Bool) -> Bool:
+  Bytes.Cursor{b, pos, start, end} = c
+  ok && U32.is_eq(pos, 3) && U32.is_eq(start, 0) && U32.is_eq(end, 8) && String.eq(str(b), bytes([0, 18, 52, 0, 0, 0, 0, 0]))
+
+def cursor.region.wrote(limit: Bytes.CursorLimit, +ok: Bool, r: Bytes.Cursor & Bool) -> Bool:
+  (Bytes.Cursor{b, +pos, start, +end}, wrote) = r
+  cursor.region.left(Bytes.Cursor.leave(Bytes.Cursor{b, pos, start, end}, limit), ok && wrote && U32.is_eq(pos, end))
+
+def cursor.region.read(limit: Bytes.CursorLimit, r: Bytes.Cursor & Maybe<&2, U32>) -> Bool:
+  (c, bad) = r
+  cursor.region.wrote(limit, none(bad), Bytes.Cursor.put.u16be(c, 4660))
+
+def cursor.region.result(r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> Bool:
+  (c, m) = r
+  match m:
+    case None{}:
+      False{}
+    case Some{limit}:
+      cursor.region.read(limit, Bytes.Cursor.u32be(c))
+
+def cursor.wide.read(+want: String, +expected: U32, +ok: Bool, r: Bytes.Cursor & Maybe<&2, Int.U64>) -> Bool:
+  (Bytes.Cursor{b, pos, start, end}, m) = r
+  ok && U32.is_eq(pos, expected) && has64((b, m), want)
+
+def cursor.wide.wrote(~read: Bytes.Cursor -> Bytes.Cursor & Maybe<&2, Int.U64>, +want: String, +at: U32, r: Bytes.Cursor & Bool) -> Bool:
+  (Bytes.Cursor{b, +pos, start, end}, ok) = r
+  cursor.wide.read(want, (at + 8 : U32), ok && U32.is_eq(pos, (at + 8 : U32)), read(Bytes.Cursor{b, at, start, end}))
+
+def cursor.wide() -> Bool:
+  cursor.wide.wrote(~Bytes.Cursor.u64be, "18446744073709551615", 3, Bytes.Cursor.put.u64be(cursor.at(3, 11), Int.U64.MAX()))
+
+def cursor.wide.le() -> Bool:
+  cursor.wide.wrote(~Bytes.Cursor.u64le, "16909060", 1, Bytes.Cursor.put.u64le(cursor.at(1, 9), Int.U64.from_u32(16909060)))
+
+def cursor.seek.rejected(r: Bytes.Cursor & Bool) -> Bool:
+  (Bytes.Cursor{b, pos, start, end}, ok) = r
+  Bool.not(ok) && U32.is_eq(pos, 2) && U32.is_eq(start, 1) && U32.is_eq(end, 3) && String.eq(str(b), "aaaa")
+
+def cursor.nested.remaining(r: Bytes.Cursor & U32) -> Bool:
+  (Bytes.Cursor{b, pos, start, end}, n) = r
+  U32.is_eq(n, 2) && U32.is_eq(pos, 6) && U32.is_eq(start, 0) && U32.is_eq(end, 8) && String.eq(str(b), "abcdefgh")
+
+def cursor.nested.left(c: Bytes.Cursor) -> Bool:
+  cursor.nested.remaining(Bytes.Cursor.remaining(c))
+
+def cursor.nested.inner(outer: Bytes.CursorLimit, r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> Bool:
+  (c, m) = r
+  match m:
+    case None{}:
+      False{}
+    case Some{inner}:
+      cursor.nested.left(Bytes.Cursor.leave(Bytes.Cursor.leave(c, inner), outer))
+
+def cursor.nested.skipped(outer: Bytes.CursorLimit, r: Bytes.Cursor & Bool) -> Bool:
+  (c, ok) = r
+  Bool.and(ok, cursor.nested.inner(outer, Bytes.Cursor.region(c, 2)))
+
+def cursor.nested(r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> Bool:
+  (c, m) = r
+  match m:
+    case None{}:
+      False{}
+    case Some{outer}:
+      cursor.nested.skipped(outer, Bytes.Cursor.skip(c, 1))
+
 def main() -> IO(Unit):
   do IO<Unit>:
+    cursor.boundary([0, 1, 3, 4, 12])
+    expect("cursor failed operations are atomic", cursor.failed())
+    expect("cursor at end", cursor.end())
+    expect("cursor bounded region", cursor.region.result(Bytes.Cursor.region(cursor.at(1, 8), 2)))
+    expect("cursor u64be unaligned", cursor.wide())
+    expect("cursor u64le unaligned", cursor.wide.le())
+    expect("cursor region rejects crossing write", cursor.failed.read(2, Bytes.Cursor.u32be(Bytes.Cursor{of("aaaa"), 2, 1, 3})))
+    expect("cursor seek rejects before region", cursor.seek.rejected(Bytes.Cursor.seek(Bytes.Cursor{of("aaaa"), 2, 1, 3}, 0)))
+    expect("cursor nested regions restore bounds and skip unread bytes", cursor.nested(Bytes.Cursor.region(Bytes.Cursor{of("abcdefgh"), 1, 0, 8}, 5)))
     expect("roundtrip", String.eq(str(of("hello, world")), "hello, world"))
     expect("roundtrip octets", String.eq(str(of(bytes([0, 128, 255, 13, 10]))), bytes([0, 128, 255, 13, 10])))
     expect("roundtrip 10 KB", String.eq(str(of(big())), big()))

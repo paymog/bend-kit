@@ -497,3 +497,113 @@ def same.dec(m: Maybe<&1, Bytes.Bytes>, +s: String) -> Bool:
 # Pad bits that are not 0 are dropped (RFC 4648 §3.5 lets a decoder accept them), and stay out of the buffer.
 law from_base64_pad_bits:
   {same.dec(Bytes.from_base64("Zh=="), "f") == True{} : Bool}
+
+def cursor.read(r: Bytes.Cursor & Maybe<&2, U32>) -> String & U32 & Maybe<&2, U32>:
+  (Bytes.Cursor{b, pos, start, end}, m) = r
+  (str(b), pos, m)
+
+def cursor.write(r: Bytes.Cursor & Bool) -> String & U32 & Bool:
+  (Bytes.Cursor{b, pos, start, end}, ok) = r
+  (str(b), pos, ok)
+
+def cursor.sought(r: Bytes.Cursor & Bool) -> Bytes.Cursor:
+  (c, ok) = r
+  c
+
+def cursor.at(b: Bytes.Bytes, i: U32) -> Bytes.Cursor:
+  cursor.sought(Bytes.Cursor.seek(Bytes.Cursor.new(b), i))
+
+law cursor_read_crosses_word:
+  {cursor.read(Bytes.Cursor.u16be(cursor.at(of("abcdef"), 3))) == ("abcdef", 5, Some{25701}) : String & U32 & Maybe<&2, U32>}
+
+law cursor_read_incomplete:
+  {cursor.read(Bytes.Cursor.u32le(cursor.at(of("abcd"), 1))) == ("abcd", 1, None{}) : String & U32 & Maybe<&2, U32>}
+
+law cursor_write_incomplete:
+  {cursor.write(Bytes.Cursor.put.u32be(cursor.at(of("abcd"), 1), 0)) == ("abcd", 1, False{}) : String & U32 & Bool}
+
+law cursor_write_crosses_word:
+  {cursor.write(Bytes.Cursor.put.u16le(cursor.at(of("abcdef"), 3), 16961)) == ("abcABf", 5, True{}) : String & U32 & Bool}
+
+law cursor_skip_overflow:
+  {cursor.write(Bytes.Cursor.skip(cursor.at(of("abcd"), 1), 4294967295)) == ("abcd", 1, False{}) : String & U32 & Bool}
+
+def cursor.region(r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> String & U32 & Maybe<&2, U32>:
+  (c, m) = r
+  match m:
+    case None{}:
+      ("", 0, Some{0})
+    case Some{limit}:
+      cursor.read(Bytes.Cursor.u32be(c))
+
+law cursor_region_bounds:
+  {cursor.region(Bytes.Cursor.region(cursor.at(of("abcdef"), 1), 2)) == ("abcdef", 1, None{}) : String & U32 & Maybe<&2, U32>}
+
+def cursor.region.state(r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> String & U32 & U32 & U32 & Bool:
+  (Bytes.Cursor{b, pos, start, end}, m) = r
+  match m:
+    case None{}:
+      (str(b), pos, start, end, False{})
+    case Some{limit}:
+      (str(b), pos, start, end, True{})
+
+law cursor_region_enters:
+  {cursor.region.state(Bytes.Cursor.region(cursor.at(of("abcdef"), 1), 2)) == ("abcdef", 1, 1, 3, True{}) : String & U32 & U32 & U32 & Bool}
+
+law cursor_region_incomplete:
+  {cursor.region.state(Bytes.Cursor.region(cursor.at(of("abcd"), 1), 4)) == ("abcd", 1, 0, 4, False{}) : String & U32 & U32 & U32 & Bool}
+
+law cursor_region_empty:
+  {cursor.region.state(Bytes.Cursor.region(cursor.at(of("abcdef"), 1), 0)) == ("abcdef", 1, 1, 1, True{}) : String & U32 & U32 & U32 & Bool}
+
+def cursor.state(c: Bytes.Cursor) -> String & U32 & U32 & U32:
+  Bytes.Cursor{b, pos, start, end} = c
+  (str(b), pos, start, end)
+
+def cursor.left(r: Bytes.Cursor & Maybe<&1, Bytes.CursorLimit>) -> String & U32 & U32 & U32:
+  (c, m) = r
+  match m:
+    case None{}:
+      cursor.state(c)
+    case Some{limit}:
+      cursor.state(Bytes.Cursor.leave(c, limit))
+
+law cursor_leave_skips_unread:
+  {cursor.left(Bytes.Cursor.region(cursor.at(of("abcdef"), 1), 2)) == ("abcdef", 3, 0, 6) : String & U32 & U32 & U32}
+
+law cursor_region_seek_before_start:
+  {cursor.write(Bytes.Cursor.seek(Bytes.Cursor{of("abcdef"), 2, 1, 3}, 0)) == ("abcdef", 2, False{}) : String & U32 & Bool}
+
+law cursor_region_write_incomplete:
+  {cursor.write(Bytes.Cursor.put.u32be(Bytes.Cursor{of("abcdef"), 1, 1, 3}, 0)) == ("abcdef", 1, False{}) : String & U32 & Bool}
+
+law cursor_skip_advances:
+  {cursor.write(Bytes.Cursor.skip(cursor.at(of("abcdef"), 1), 3)) == ("abcdef", 4, True{}) : String & U32 & Bool}
+
+law cursor_skip_to_end:
+  {cursor.write(Bytes.Cursor.skip(cursor.at(of("abcd"), 1), 3)) == ("abcd", 4, True{}) : String & U32 & Bool}
+
+law cursor_skip_zero:
+  {cursor.write(Bytes.Cursor.skip(cursor.at(of("abcd"), 1), 0)) == ("abcd", 1, True{}) : String & U32 & Bool}
+
+law cursor_seek_past_end:
+  {cursor.write(Bytes.Cursor.seek(cursor.at(of("abcd"), 1), 5)) == ("abcd", 1, False{}) : String & U32 & Bool}
+
+law cursor_seek_to_end:
+  {cursor.write(Bytes.Cursor.seek(cursor.at(of("abcd"), 1), 4)) == ("abcd", 4, True{}) : String & U32 & Bool}
+
+law cursor_read_empty:
+  {cursor.read(Bytes.Cursor.u8(Bytes.Cursor.new(of("")))) == ("", 0, None{}) : String & U32 & Maybe<&2, U32>}
+
+def cursor.read64(r: Bytes.Cursor & Maybe<&2, Int.U64>) -> String & U32 & Maybe<&2, Int.U64>:
+  (Bytes.Cursor{b, pos, start, end}, m) = r
+  (str(b), pos, m)
+
+law cursor_u64be:
+  {cursor.read64(Bytes.Cursor.u64be(cursor.at(of("0123456789"), 1))) == ("0123456789", 9, Some{w64(825373492, 892745528)}) : String & U32 & Maybe<&2, Int.U64>}
+
+law cursor_u64le:
+  {cursor.read64(Bytes.Cursor.u64le(cursor.at(of("0123456789"), 1))) == ("0123456789", 9, Some{w64(943142453, 875770417)}) : String & U32 & Maybe<&2, Int.U64>}
+
+law cursor_u64_incomplete:
+  {cursor.read64(Bytes.Cursor.u64be(cursor.at(of("01234567"), 1))) == ("01234567", 1, None{}) : String & U32 & Maybe<&2, Int.U64>}
