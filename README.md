@@ -40,6 +40,7 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`webhooks`](webhooks) | `bend-kit-webhooks@0.1.0.0/webhooks.bend` | Standard Webhooks signing, verified delivery and retries over `hairpin`; Stripe and GitHub signature verification. See [webhooks/README.md](webhooks/README.md). |
 | [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
+| [`stream`](stream) | `bend-kit-stream@0.1.0.0/stream.bend` | Bounded packed-byte transfers between files and TCP/TLS sockets, with byte caps, surviving handles, and completed-chunk counts. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |
 | [`collections`](collections) | `bend-kit-collections@0.1.2.0/collections.bend` | Ordered maps and sets, a hash trie with collision-safe put/get/del, a vector, a deque, and a priority queue. Import the file you need, such as `omap.bend` or `hmap.bend`. Hash maps require equal keys to hash alike. |
 | [`unicode`](unicode) | `0x6c784a08486e2e02415e89c5249e9e8a/unicode.bend` | Unicode 17.0 general category, NFC/NFD, full case folding, and grapheme clusters. See [unicode/README.md](unicode/README.md). |
@@ -66,6 +67,8 @@ Notch keeps fields in insertion order and does not deduplicate keys. Avoid `time
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). It covers datetimes, numbers, arrays, and tables; a second TOML parser is not part of this kit.
 
 `wire`, `zlib`, `http`, `files`, `process`, `crypto`, `random`, and `time` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
+`stream` composes the packed effects in `files` and `wire`. Its transfer loop does not decode octets into text.
+
 
 In `process`, `env` entries are `KEY=VALUE` overrides of the inherited environment. Close the
 spawned child's stdin to send EOF, drain stdout and stderr, then call `wait`.
