@@ -406,3 +406,66 @@ def Laws.from_base64_foob():
 
 def Laws.from_base64_pad_bits():
   {==}
+
+def Laws.cursor_read_crosses_word():
+  {==}
+
+def Laws.cursor_read_incomplete():
+  {==}
+
+def Laws.cursor_write_incomplete():
+  {==}
+
+def Laws.cursor_write_crosses_word():
+  {==}
+
+def Laws.cursor_skip_overflow():
+  {==}
+
+def Laws.cursor_region_bounds():
+  {==}
+
+def Laws.cursor_region_enters():
+  {==}
+
+def Laws.cursor_region_incomplete():
+  {==}
+
+def Laws.cursor_region_empty():
+  {==}
+
+def Laws.cursor_leave_skips_unread():
+  {==}
+
+def Laws.cursor_region_seek_before_start():
+  {==}
+
+def Laws.cursor_region_write_incomplete():
+  {==}
+
+def Laws.cursor_skip_advances():
+  {==}
+
+def Laws.cursor_skip_to_end():
+  {==}
+
+def Laws.cursor_skip_zero():
+  {==}
+
+def Laws.cursor_seek_past_end():
+  {==}
+
+def Laws.cursor_seek_to_end():
+  {==}
+
+def Laws.cursor_read_empty():
+  {==}
+
+def Laws.cursor_u64be():
+  {==}
+
+def Laws.cursor_u64le():
+  {==}
+
+def Laws.cursor_u64_incomplete():
+  {==}

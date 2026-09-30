@@ -754,3 +754,138 @@ def from_base64(+s: String) -> Maybe<&1, Bytes>:
   +n = count(s, 0)
   +pads = b64.pads(s, 0)
   unb64.if(Bool.and(U32.is_eq((n .&. 3 : U32), 0), U32.is_le(pads, 2)), s, n, pads)
+
+# A cursor owns the same packed buffer; start and end bound a region without slicing it.
+type Cursor is Type:
+  Cursor{bytes: Bytes, pos: U32, start: U32, end: U32}
+
+type CursorLimit is Type:
+  CursorLimit{resume: U32, start: U32, end: U32}
+
+def Cursor.new(b: Bytes) -> Cursor:
+  Bytes{+len, buf} = b
+  Cursor{Bytes{len, buf}, 0, 0, len}
+
+def Cursor.finish(c: Cursor) -> Bytes & U32:
+  Cursor{b, pos, start, end} = c
+  (b, pos)
+
+def Cursor.position(c: Cursor) -> Cursor & U32:
+  Cursor{b, +pos, start, end} = c
+  (Cursor{b, pos, start, end}, pos)
+
+def Cursor.remaining(c: Cursor) -> Cursor & U32:
+  Cursor{b, +pos, start, +end} = c
+  (Cursor{b, pos, start, end}, (end - U32.min(pos, end) : U32))
+
+def Cursor.fits(+len: U32, +pos: U32, +start: U32, +end: U32, +n: U32) -> Bool:
+  U32.is_le(start, pos) && U32.is_le(end, len) && fits(end, pos, n)
+
+def Cursor.seek.if(ok: Bool, c: Cursor, +pos: U32) -> Cursor & Bool:
+  match ok:
+    case False{}:
+      (c, False{})
+    case True{}:
+      Cursor{b, old, start, end} = c
+      (Cursor{b, pos, start, end}, True{})
+
+def Cursor.seek(c: Cursor, +pos: U32) -> Cursor & Bool:
+  Cursor{Bytes{+len, buf}, old, +start, +end} = c
+  Cursor.seek.if(Cursor.fits(len, pos, start, end, 0), Cursor{Bytes{len, buf}, old, start, end}, pos)
+
+def Cursor.skip(c: Cursor, +n: U32) -> Cursor & Bool:
+  Cursor{Bytes{+len, buf}, +pos, +start, +end} = c
+  Cursor.seek.if(Cursor.fits(len, pos, start, end, n), Cursor{Bytes{len, buf}, pos, start, end}, (pos + n : U32))
+
+# On success, read inside the region, then leave with the returned affine limit.
+def Cursor.region.if(ok: Bool, c: Cursor, +n: U32) -> Cursor & Maybe<&1, CursorLimit>:
+  match ok:
+    case False{}:
+      (c, None{})
+    case True{}:
+      Cursor{b, +pos, start, end} = c
+      +resume = (pos + n : U32)
+      (Cursor{b, pos, pos, resume}, Some{CursorLimit{resume, start, end}})
+
+def Cursor.region(c: Cursor, +n: U32) -> Cursor & Maybe<&1, CursorLimit>:
+  Cursor{Bytes{+len, buf}, +pos, +start, +end} = c
+  Cursor.region.if(Cursor.fits(len, pos, start, end, n), Cursor{Bytes{len, buf}, pos, start, end}, n)
+
+def Cursor.leave(c: Cursor, limit: CursorLimit) -> Cursor:
+  Cursor{b, pos, start, end} = c
+  CursorLimit{resume, outer_start, outer_end} = limit
+  Cursor{b, resume, outer_start, outer_end}
+
+def Cursor.read.done(~T: Data, +pos: U32, start: U32, end: U32, +n: U32, r: Bytes & Maybe<&2, T>) -> Cursor & Maybe<&2, T>:
+  (b, m) = r
+  match m:
+    case None{}:
+      (Cursor{b, pos, start, end}, None{})
+    case Some{v}:
+      (Cursor{b, (pos + n : U32), start, end}, Some{v})
+
+def Cursor.read.if(~T: Data, ~read: Bytes -> @+i:U32 -> Bytes & Maybe<&2, T>, ok: Bool, c: Cursor, +n: U32) -> Cursor & Maybe<&2, T>:
+  match ok:
+    case False{}:
+      (c, None{})
+    case True{}:
+      Cursor{b, +pos, start, end} = c
+      Cursor.read.done(~T, pos, start, end, n, read(b, pos))
+
+def Cursor.read(~T: Data, ~read: Bytes -> @+i:U32 -> Bytes & Maybe<&2, T>, c: Cursor, +n: U32) -> Cursor & Maybe<&2, T>:
+  Cursor{Bytes{+len, buf}, +pos, +start, +end} = c
+  Cursor.read.if(~T, ~read, Cursor.fits(len, pos, start, end, n), Cursor{Bytes{len, buf}, pos, start, end}, n)
+
+def Cursor.u8(c: Cursor) -> Cursor & Maybe<&2, U32>:
+  Cursor.read(~U32, ~get, c, 1)
+
+def Cursor.u16be(c: Cursor) -> Cursor & Maybe<&2, U32>:
+  Cursor.read(~U32, ~get.u16be, c, 2)
+
+def Cursor.u16le(c: Cursor) -> Cursor & Maybe<&2, U32>:
+  Cursor.read(~U32, ~get.u16le, c, 2)
+
+def Cursor.u32be(c: Cursor) -> Cursor & Maybe<&2, U32>:
+  Cursor.read(~U32, ~get.u32be, c, 4)
+
+def Cursor.u32le(c: Cursor) -> Cursor & Maybe<&2, U32>:
+  Cursor.read(~U32, ~get.u32le, c, 4)
+
+def Cursor.u64be(c: Cursor) -> Cursor & Maybe<&2, Int.U64>:
+  Cursor.read(~Int.U64, ~get.u64be, c, 8)
+
+def Cursor.u64le(c: Cursor) -> Cursor & Maybe<&2, Int.U64>:
+  Cursor.read(~Int.U64, ~get.u64le, c, 8)
+
+def Cursor.write.if(~T: Data, ~write: Bytes -> @+i:U32 -> @+v:T -> Bytes, ok: Bool, c: Cursor, +n: U32, v: T) -> Cursor & Bool:
+  match ok:
+    case False{}:
+      (c, False{})
+    case True{}:
+      Cursor{b, +pos, start, end} = c
+      (Cursor{write(b, pos, v), (pos + n : U32), start, end}, True{})
+
+def Cursor.write(~T: Data, ~write: Bytes -> @+i:U32 -> @+v:T -> Bytes, c: Cursor, +n: U32, v: T) -> Cursor & Bool:
+  Cursor{Bytes{+len, buf}, +pos, +start, +end} = c
+  Cursor.write.if(~T, ~write, Cursor.fits(len, pos, start, end, n), Cursor{Bytes{len, buf}, pos, start, end}, n, v)
+
+def Cursor.put.u8(c: Cursor, v: U32) -> Cursor & Bool:
+  Cursor.write(~U32, ~set, c, 1, v)
+
+def Cursor.put.u16be(c: Cursor, v: U32) -> Cursor & Bool:
+  Cursor.write(~U32, ~set.u16be, c, 2, v)
+
+def Cursor.put.u16le(c: Cursor, v: U32) -> Cursor & Bool:
+  Cursor.write(~U32, ~set.u16le, c, 2, v)
+
+def Cursor.put.u32be(c: Cursor, v: U32) -> Cursor & Bool:
+  Cursor.write(~U32, ~set.u32be, c, 4, v)
+
+def Cursor.put.u32le(c: Cursor, v: U32) -> Cursor & Bool:
+  Cursor.write(~U32, ~set.u32le, c, 4, v)
+
+def Cursor.put.u64be(c: Cursor, v: Int.U64) -> Cursor & Bool:
+  Cursor.write(~Int.U64, ~set.u64be, c, 8, v)
+
+def Cursor.put.u64le(c: Cursor, v: Int.U64) -> Cursor & Bool:
+  Cursor.write(~Int.U64, ~set.u64le, c, 8, v)
