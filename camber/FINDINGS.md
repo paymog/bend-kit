@@ -4,7 +4,7 @@ Date: 2026-10-01. These are experiment findings, not guarantees of an implemente
 
 ## Verdict
 
-The application-layer design fits Bend when reusable configuration and route descriptions are `Data`, execution is supplied through closed templates, and affine resources move through request work explicitly. A copied callback registry does not fit that model. The application behavior contract is coherent, but public interface ergonomics and the live transport integration remain unproved.
+The application-layer design fits Bend when reusable configuration and route descriptions are `Data`, execution is supplied through closed templates, and affine resources move through request work explicitly. A copied callback registry does not fit that model. A finite live transport probe now passes runtime context explicitly and reaches the same application dispatch in both lanes. The application behavior contract is coherent, but public interface ergonomics and production transport integration remain unproved.
 
 Native small-request dispatch looks promising in this experiment. Repeated matching with the current router does not scale well. No HTTP throughput, production-safety, or release-overhead claim follows from these measurements.
 
@@ -14,9 +14,10 @@ Native small-request dispatch looks promising in this experiment. Repeated match
 python3 camber/run_ownership.py
 python3 camber/run_dispatch.py 1000 3
 python3 camber/run_dispatch.py 10000 3
+python3 -B camber/run_live.py
 ```
 
-The first command builds and runs both ownership and reusable-interface checks in native and Bun/JavaScript lanes. The measurement runner starts with 10 iterations, then runs the requested trial size. It warms each workload for 100 iterations, checks the expected result checksum, samples process RSS, kills a process above 20 GiB RSS, and applies command deadlines. Both runners remove their temporary binaries and journals.
+The first command builds and runs both ownership and reusable-interface checks in native and Bun/JavaScript lanes. The measurement runner starts with 10 iterations, then runs the requested trial size. It warms each workload for 100 iterations, checks the expected result checksum, samples process RSS, kills a process above 20 GiB RSS, and applies command deadlines. The live runner exercises loopback sockets and bundled dependencies. All runners remove their temporary binaries and journals.
 
 The separate [deadlock probe](deadlock_probe.bend) is intentionally unsuccessful. Build and run it in either lane:
 
@@ -78,7 +79,7 @@ a template applied to closed ~ arguments
 (queue is a variable here, not comptime: pass it at run time)
 ```
 
-The same failure was observed at the actual `Http.serve.on` call. Its current handler parameter is a closed template and the serve function has no runtime application-context parameter. The compiled worker example is therefore not yet a live server adapter.
+The same failure was observed at the actual `Http.serve.on` call. Its current handler parameter is a closed template and the serve function has no runtime application-context parameter. The original worker example cannot be adapted through that unchanged entry point. The live probe below passes runtime context explicitly instead.
 
 **Required transport work:** provide an explicit runtime typed-context seam alongside the handler template. Channels may live in copyable context; File handles must remain in their affine owner set. This requirement is additional to the startup, write-outcome, admission, deadlines, and shutdown work already listed in T1-T6.
 
@@ -86,7 +87,38 @@ The same failure was observed at the actual `Http.serve.on` call. Its current ha
 
 The deadlock probe uses two bounded channels containing real File handles. Request A obtains the first set's instance. Request B obtains the second set's instance. A barrier ensures both hold one instance before either requests the other. Both runtimes report a deadlock.
 
-R2.5's bounded queues do not prevent this failure. Before public signatures are fixed, dependency acquisition needs a rule: worker-owned resource bundles acquired before serving, atomic bundle acquisition, or a globally ordered acquisition protocol with bounded waiting. The experiment does not choose among these. A multi-connection pool must also be distinguished from a single checked-out connection; exclusive ownership of a whole pool can serialize otherwise independent work.
+R2.5's bounded queues do not prevent this failure. The live experiment below uses worker-owned resource bundles created before serving, so no request performs nested dependency checkout. That is a validated candidate, not a frozen public policy. Atomic bundle acquisition or a globally ordered acquisition protocol remain alternatives. A multi-connection pool must also be distinguished from a single checked-out connection; exclusive ownership of a whole pool can serialize otherwise independent work.
+
+## Live transport and bundled dependencies
+
+`python3 -B camber/run_live.py` passed all four scenarios in both native and Bun/JavaScript lanes. [live_check.bend](live_check.bend) uses [http/context_probe.bend](../http/context_probe.bend) as a finite transport probe. The probe reuses HTTP's existing framing state machine, packed receive effects, response writer, keep-alive decisions, and pipelined-rest handling. Its handler template receives copyable runtime context explicitly. It adds no foreign effects and no `@unsafe` definitions.
+
+The live and direct paths call the same `Registry.invoke` executor. Each worker owns a bundle containing a real `Users.Store` journal and a separate real diagnostic File. Both handles are opened before listening and stay together; requests do not acquire resources in opposing orders. GET work can exercise Store first or diagnostic File first without nested checkout. The diagnostic File records POST attempts, including rejected application inputs; it is not a transaction log or a second business-data commit.
+
+| Scenario | Observed result in both lanes |
+| --- | --- |
+| Four routes and packed-body handler | Correct health, parameter lookup, principal, creation, Location, and read-after-create; unauthorized malformed input rejects; repeated keys reject; NUL/high-octet echo remains exact |
+| Keep-alive, pipelining, fragmented sends | Sequential requests reuse a connection; three pipelined responses preserve order; fragmented 1 KiB JSON creates the expected second user |
+| Two occupied bundles | Deterministic barriers establish both slots in use; owner reports `busy=2, mask=3`; a third creation receives `503` and reaches neither journal |
+| Return and recovery | Opposite operation orders return Alice and Bob correctly; owner reports `busy=0, mask=0`; another request succeeds after exhaustion |
+| Store write failure | A read-only Store journal causes `500`, leaves the user absent, preserves both handles, and supports later lookup plus another failed write |
+| Diagnostic File write failure | A read-only diagnostic handle causes `500` before application creation; Store stays unchanged; later lookup and another failed attempt work |
+| Orderly drain | Listener closes while admitted requests remain held; no bundle closes then; after release, every slot closes once following the final leave event |
+
+The route scenario finishes with 14 completed jobs and no rejection. The exhaustion scenario finishes with four completed jobs and one rejection. Each failure scenario finishes with five completed jobs, no rejection, and no user creation. The runner verifies actual journal contents, public response bytes, and final owner counters. Its separate direct-dispatch journal contains only the expected creation.
+
+One existing transport behavior matters: `Http.serve.keep` closes connections for any `400`, including application input rejection. The live check therefore observes EOF after repeated-key rejection and uses another connection for later work. This is not a new Camber policy. The probe also preserves HTTP's bodyless `204` framing: no Content-Length or Transfer-Encoding is sent.
+
+### Limits of this result
+
+The fixture accepts one to four connections, bounds each connection to 64 framing steps, and has fixed owner/worker fuel. Its message channel has eight slots, and its job queue and admission count are bounded by the one or two bundles. It rejects resource exhaustion instead of building a waiting job queue. The bounds make this validation finite; they are not the release admission, timeout, shutdown, or cancellation design.
+
+The `/_capacity`, `/_release`, `x-hold`, and `x-order` controls are test instrumentation, not Camber API proposals. Ordinary application routing and typed principal work still use the existing experiment. Shared database consistency, crashes, stuck-handler cancellation, startup failure cleanup, client-pool semantics, full target/method handling, scoped transforms, and mapper recovery remain unproved. No production HTTP entry point, package version, or human-owned law changed.
+
+The final live runner build observed 17.806 seconds and 5,254.45 MiB sampled compiler-process RSS for native, and 3.743 seconds and 2,920.83 MiB for JS. A preceding native build sampled 5,537.06 MiB. These are compilation observations, not request costs or total process-tree memory. Builds and server processes run sequentially with host deadlines and a 20 GiB RSS ceiling.
+
+The existing affected-package gate, `scripts/check.sh http`, also exited 0. It ran the entry check, existing proof gate, and HTTP checks. Its expected unsafe/foreign dependency report is accepted by the repository's existing verdict wrapper; this is not a claim that host IO has a formal proof. The gate was monitored with a 180-second deadline and a 20 GiB process-group RSS ceiling.
+
 
 ## Performance evidence
 
@@ -146,9 +178,9 @@ Before release, demonstrate an application change through the intended public in
 
 ## Next work
 
-1. **Close the runtime transport-context seam.** Compile an adapter that receives the application plan and bounded owner channels at runtime, then prove a live socket reaches the same application dispatch. Do not try to capture runtime values inside `~handler` or construct affine dependencies per request.
-2. **Set the resource acquisition contract.** Extend the compiled example to two real affine dependencies and exhaustion. Verify progress, return on expected failure, capacity reporting, and orderly closing. Choose a bundle or ordering policy, and distinguish a pool from a loaned connection.
-3. **Test the intended public application surface.** Hide the protocol machinery, demonstrate affine typed input as well as copyable models, and exercise scoped hooks and error mapping. Record the chosen ownership mechanism only once its live integration works. Gate 1 also still needs the equivalent raw HTTP baseline and a recorded overhead budget.
+1. **Test the intended public application surface.** Hide the now-tested worker protocol, demonstrate affine typed input as well as copyable models, and exercise scoped hooks and error mapping. Independent-agent usability still needs a separate trial when that is permitted.
+2. **Review the bundled acquisition contract.** Worker-owned Store/File bundles now demonstrate progress, exhaustion rejection, return on failures, capacity reporting, and orderly close. Decide whether this resource grouping fits real application dependencies; keep pools distinct from checked-out connections. Do not freeze signatures or amend the human-owned spec from this experiment alone.
+3. **Integrate the tested context seam into production transport.** The finite HTTP probe proves the explicit runtime-context mechanism, not a new public serving API. Production lifecycle, admission, write outcomes, and cancellation still need their own evidence. Gate 1 also needs an equivalent raw HTTP baseline and a recorded overhead budget.
 4. **Then implement the prepared router and strict JSON prerequisites.** Preserve the spec's route semantics. Establish actual framework and transport measurements before claiming performance. Runtime cancellation remains an independent release blocker.
 
 Do not broaden the initial feature set. The next work is making the existing ownership and application contract implementable and usable, not adding plugins, schema generators, or streaming.
