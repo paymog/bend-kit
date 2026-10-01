@@ -1,6 +1,6 @@
 # Camber design validation
 
-Date: 2026-10-01. These are experiment findings, not guarantees of an implemented or published Camber package. The proposed [SPEC](SPEC.md) is unchanged. The experiment is tracked in [PR #315](https://github.com/paymog/bend-kit/pull/315).
+Date: 2026-10-01. These are experiment findings, not guarantees of an implemented or published Camber package. The proposed local `camber/SPEC.md` is unchanged and excluded from the PR. The experiment is tracked in [PR #315](https://github.com/paymog/bend-kit/pull/315).
 
 ## Verdict
 
