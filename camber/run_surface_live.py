@@ -13,7 +13,7 @@ from run_surface import ALL_EXIT, AUTH_ENTER, DECODE, DOCUMENT, GROUP_EXIT, HAND
 
 ERROR_BODIES = {"bad-document": "invalid document", "unauthorized": "", "forbidden": "forbidden",
                 "unsupported": "unsupported media type", "missing": "not found", "write": "store unavailable",
-                "transform": "transform failed", "invalid-response": "invalid response"}
+                "transform": "transform failed", "invalid-response": "invalid response", "bad-target": "invalid target", "method": ""}
 
 
 def expected_body(body, trace):
@@ -51,13 +51,13 @@ def serve(command, journal, mode, fault, mapper, requests):
                 peer.send(inputs.get("method", "POST"), inputs.get("target", "/documents"),
                           payload if isinstance(payload, bytes) else payload.encode(), token=inputs.get("token", "Bearer alice"),
                           **{"content-type": inputs.get("media", "application/json"), "x-group-control": inputs.get("control", "")})
-                fields = peer.response(status, expected_body(body, trace))
+                fields = peer.response(status, expected_body(body, trace), head=inputs.get("method") == "HEAD")
                 for policy in POLICIES:
                     assert fields.get("x-" + policy + "-policy", "") == ("yes" if policy in policies else ""), (policy, fields)
                 assert fields.get("www-authenticate", "") == ("Bearer" if status == 401 else ""), fields
                 assert fields.get("x-unsafe") is None and fields.get("injected") is None and fields.get("transfer-encoding") is None, fields
-                if status == 405:
-                    assert fields.get("allow") == "POST", fields
+                if status in (405, 204):
+                    assert fields.get("allow") == inputs.get("expected_allow", "POST"), fields
         finally:
             peer.close()
         stdout, rss, seconds = future.result()
@@ -177,7 +177,7 @@ def main():
             command = [str(executable), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(executable)]
             results[lane] = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss,
                              "scenarios": exercise(command, temp, lane)}
-        (ROOT / "camber/surface_live_results.json").write_text(json.dumps(results, indent=2) + "\n")
+        (ROOT / "camber/router_surface_live_results.json").write_text(json.dumps(results, indent=2) + "\n")
 
 
 if __name__ == "__main__":

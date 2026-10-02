@@ -244,10 +244,11 @@ def bundles(count: Nat, +slot: U32, +path: String, +store_mode: String, +audit_m
       IO.pure(List<Bundle>, Nil{})
     case 1n+p:
       do IO<List<Bundle>>:
+        plan : Registry.Plan<Registry.Action, Registry.Config> <- Registry.application("live")
         store : Users.Store <- Users.open(path ++ "-store-" ++ U32.show(slot), store_mode)
         file : File <- IO.try(File, File.open(path ++ "-audit-" ++ U32.show(slot), audit_mode))
         rest : List<Bundle> <- bundles(p, (slot + 1 : U32), path, store_mode, audit_mode, messages, release)
-        return Bundle{slot, store, file, Registry.application("live"), messages, release} <> rest
+        return Bundle{slot, store, file, plan, messages, release} <> rest
 
 def close(states: List<Bundle>) -> IO(Unit):
   match states:
@@ -261,8 +262,8 @@ def close(states: List<Bundle>) -> IO(Unit):
         close(rest)
 
 def direct(+path: String) -> IO(Unit):
-  +plan = Registry.application("live")
   do IO<Unit>:
+    +plan : Registry.Plan<Registry.Action, Registry.Config> <- Registry.application("live")
     s0 : Users.Store <- Users.open(path ++ "-direct", "w")
     s1 : Users.Store <- Registry.exercise(plan, s0, Registry.req("GET", "/health", ""), 200, "{\"ok\":true}", "live")
     s2 : Users.Store <- Registry.exercise(plan, s1, Registry.req("GET", "/users/7", ""), 200, "{\"id\":7,\"name\":\"Alice\"}", "live")

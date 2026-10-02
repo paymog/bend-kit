@@ -35,7 +35,7 @@ class Peer:
         head = f"{method} {path} HTTP/1.1\r\n" + "".join(f"{key}: {value}\r\n" for key, value in fields.items()) + "\r\n"
         self.socket.sendall(head.encode("ascii") + body)
 
-    def response(self, status, body):
+    def response(self, status, body, head=False):
         line = self.reader.readline()
         assert line.startswith(f"HTTP/1.1 {status} ".encode()), line
         headers = http.client.parse_headers(self.reader)
@@ -43,8 +43,8 @@ class Peer:
             assert body == b"" and headers.get("content-length") is None and headers.get("transfer-encoding") is None, headers
         else:
             assert headers.get_all("content-length") == [str(len(body))], headers
-        got = self.reader.read(len(body))
-        assert got == body, (got, body)
+        got = self.reader.read(0 if head else len(body))
+        assert got == (b"" if head else body), (got, body)
         return headers
 
     def capacity(self, expected):
@@ -157,12 +157,14 @@ def routes(command, prefix):
             ("POST", "/users", b"not JSON", "", 401, b""),
             ("GET", "/alias", b"", "Bearer bob", 200, b'{"id":8,"name":"Bob"}'),
             ("POST", "/echo", bytes(range(256)) * 16, "Bearer alice", 200, bytes(range(256)) * 16),
+            ("HEAD", "http://example.test/users/%37?tag=a&tag=b", b"", "Bearer alice", 200, b'{"id":7,"name":"Alice"}'),
+            ("GET", "/users/m%65", b"", "Bearer bob", 200, b'{"id":8,"name":"Bob"}'),
             ("GET", "/missing", b"", "Bearer alice", 404, b'{"error":"not found"}'),
             ("POST", "/users", b'{"name":"Cara","name":"Other"}', "Bearer alice", 400, b'{"error":"invalid input"}'),
         ]
         for method, path, body, token, status, expected in cases:
             peer.send(method, path, body, token)
-            headers = peer.response(status, expected)
+            headers = peer.response(status, expected, head=method == "HEAD")
             if status == 201:
                 assert headers.get("location") == "/users/9", headers
         assert peer.reader.read(1) == b"", "400 response did not close today's transport connection"
@@ -183,7 +185,7 @@ def routes(command, prefix):
         headers = fragmented.response(201, b'{"id":10,"name":"Dana"}')
         assert headers.get("location") == "/users/10", headers
         assert fragmented.reader.read(1) == b""
-        server.final(14)
+        server.final(16)
         assert server.records() == [{"id": 9, "name": "Cara"}, {"id": 10, "name": "Dana"}]
         assert server.audit_bytes() == b"attempt\n" * 6
 

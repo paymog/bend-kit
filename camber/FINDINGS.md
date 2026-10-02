@@ -1,12 +1,12 @@
 # Camber design validation
 
-Date: 2026-10-01. These are experiment findings, not guarantees of an implemented or published Camber package. The proposed local `camber/SPEC.md` is unchanged and excluded from the PR. The experiment is tracked in [PR #315](https://github.com/paymog/bend-kit/pull/315).
+Date: 2026-10-02. These are experiment findings, not guarantees of an implemented or published Camber package. The proposed local `camber/SPEC.md` is unchanged and excluded from the PR. The experiment is tracked in [PR #315](https://github.com/paymog/bend-kit/pull/315).
 
 ## Verdict
 
 The application-layer design fits Bend when reusable configuration and route descriptions are `Data`, execution is supplied through closed templates, and affine resources move through request work explicitly. A copied callback registry does not fit that model. The typed/scoped application now runs through finite real-socket transport in both lanes. Its behavior contract is coherent, but public interface ergonomics and production serving remain unproved.
 
-Native direct overhead passed the frozen allowances in all 18 paired controls. A tighter five-workload recheck passed all native comparison gates, but three Bend-on-Bun direct overhead failures persisted. Routing, strict JSON, and cancellation probes found release blockers. Loopback throughput is measured; production capacity, complete-framework overhead, and release safety are not established.
+Native direct overhead passed the frozen allowances in all 18 paired controls. A tighter five-workload recheck passed all native comparison gates, but three Bend-on-Bun direct overhead failures persisted. Historical routing, strict JSON, and cancellation probes found release blockers. The shared prepared router now corrects the routing gaps below; JSON and cancellation remain unresolved. Loopback throughput is measured; production capacity, complete-framework overhead, and release safety are not established.
 
 ## External framework performance comparison
 
@@ -16,7 +16,29 @@ Bend scoped fixed text measured about 24k requests/s, versus axum 107k, Fastify 
 
 These are exploratory loopback observations, not production capacity or complete Camber overhead. Generator scaling changes Hyper throughput materially, and longer focused measurements retain large swings. Client CPU and scheduling still matter; no non-limiting generator claim is made. Fastify beats the simple Node adapter in most cells, while FastAPI loses throughput at 1,000 literal routes. Neither difference isolates pure framework overhead. The report records feature and routing differences, CPU/RSS definitions, all trial data, and unstable tails.
 
-The next performance investigation should profile native HTTP transport/body work. This comparison does not resolve routing, strict JSON, cancellation, or application release blockers. SPEC and human-owned laws remain unchanged.
+The next performance investigation should profile native HTTP transport/body work. The comparison predates the prepared-router cutover; its measured source revision is `f441c13`, and its datasets remain unchanged. It does not resolve strict JSON, cancellation, or application release blockers. SPEC and human-owned laws remain unchanged.
+
+## Prepared router prerequisite
+
+The shared `router` now prepares and validates route descriptions before dispatch. Camber's reusable plans and scoped fixture use that table; the superseded callback-free list selector is removed. This is the local breaking `router` release `0.2.0.0`, pending merge and CI publication, not a published Camber API.
+
+Selection is path-first and independent of registration order. The table rejects duplicate method/shape pairs and conflicting ancestry, preserves each method's capture names, exposes hidden methods, and supplies explicit/generated HEAD and OPTIONS plus sorted Allow sets. Targets retain exact slashes and case, decode segments once with strict UTF-8, preserve ordered repeated query fields, and reject invalid targets. Absolute-form authority replaces application Host.
+
+Generated 405 and OPTIONS enter the selected group but skip route hooks, decoding, and business work. Group authorization and early responses still apply. `OPTIONS *` enters only the root scope. The reusable executor now receives the selected capture map; lookup no longer reparses the target or repeats method selection. Direct HEAD retains the GET body, while socket transport suppresses it.
+
+Runtime evidence in both native and JavaScript lanes:
+
+- `run_surface.py`: 47 direct cases; `run_surface_live.py`: 51 socket scenarios, including grouped method outcomes, invalid targets, HEAD, absolute/encoded paths, journal invariants, queued work, disconnects, and packed plain-handler bodies. New socket observations are retained in [router_surface_live_results.json](router_surface_live_results.json); the earlier dataset remains unchanged.
+- `run_ownership.py`: ownership and reusable-plan checks; the reusable fixture also covers HEAD lookup, absolute-form encoded lookup with repeated query fields, and an encoded static route.
+- `run_live.py`: all four bundled scenarios, with the route scenario extended for absolute-form HEAD lookup and encoded static selection.
+- Prepared-router assertions pass in the checker and native/JavaScript builds. The unchanged entry/proof gates pass. A throwaway real-handler smoke observed `Host: example.test:8080` instead of the supplied `wrong.test` in both lanes.
+- The 10-iteration dispatch smoke passes in both lanes with 10/100/1,000 prepared registrations. This is correctness smoke, not a replacement for retained performance budgets.
+- The [router benchmark](../router/bench/README.md#prepared-router-results) agrees on checksum `3019866368` across C, Rust, Bun, Node, Python, and Bend. The final three-trial native Bend median is 472.5 ms for 160,000 requests; this includes strict target handling and remains a linear scan.
+
+The asterisk/root pairwise regression failed before its fix and passes afterward. A new HEAD lookup check also exposed obsolete second-stage method dispatch; passing the prepared capture map to the business endpoint removes that second selection. Both fixes have retained behavior checks.
+
+Preparation remains O(routes²), and resolution O(routes × segments). New routing/target guarantees have runtime evidence, not new quantified laws. General group construction, typed query access, final authoring signatures, completion notifications, strict JSON, cancellation, and production transport remain open. This does not satisfy the complete SPEC or revalidate earlier framework-overhead budgets.
+
 
 ## Reproduce
 
@@ -170,7 +192,7 @@ Worker plumbing can stay outside application code. The decoder and scoped hook c
 
 The checker distinguishes `K -> ...` from `@+config: K -> ...` even when `K` is Data. The `.go` adapters keep the callback's affine parameter signature and let its helper reuse copyable configuration or metadata. This avoids rebuilding application records to satisfy the template signature, but adds author-facing boilerplate.
 
-The new dispatcher reuses `Registry.choose` and the existing pairwise router. The first 27-scenario revision was direct-only and validated status only. The later socket and response-safety results below supersede those limitations. RFC 9457 defaults, completion notifications, strict JSON, prepared routing, cancellation, and production lifecycle remain outside the implemented probes.
+The original dispatcher reused the callback-free list selector and pairwise router. The first 27-scenario revision was direct-only and validated status only. The later socket and response-safety results superseded those limits; the prepared-router cutover above now replaces that selector. RFC 9457 defaults, completion notifications, strict JSON, cancellation, and production lifecycle remain outside the implemented probes.
 
 Simplification ran inline under the no-subagent constraint. It replaced key-to-String conversion with the existing packed `Bytes.eq` and removed an unused runner input fallback. No separate linter is configured for these experiment files. The retained runner compiles and exercises both lanes; existing unaffected HTTP/live/performance gates were not rerun.
 
@@ -222,7 +244,7 @@ The descriptor/template split is one workable interface direction, not the final
 
 The original ownership fixture's generic decoder restricts input to `Data`. The direct surface probe now accepts a `Type` model containing `Json.Val`, and its generic hook contexts are also `Type`. This removes that assumption from the new candidate without changing the older fixture. It does not freeze the final decoder signature.
 
-Scope inheritance, transform unwind, single-pass mapper recovery, and final response safety now have direct and finite-socket evidence. General group construction, completion notifications, strict target parsing, and prepared route registration remain unimplemented by these probes.
+Scope inheritance, transform unwind, single-pass mapper recovery, and final response safety have direct and finite-socket evidence. The prepared-router cutover adds strict targets and validated registration. General group construction, typed query access, and completion notifications remain unimplemented by these probes.
 
 ## Will agents be able to use it?
 
@@ -237,7 +259,7 @@ The direct surface example now demonstrates an affine typed route, typed authent
 1. **Complete the full-application performance comparison.** The raw baseline, minimal paired lifecycle control, and tighter recheck are recorded below. The measured control is not the complete typed/scoped application. Preserve the budgets and address the persistent JS overhead failures before claiming a pass. No public signature is fixed.
 2. **Review the bundled acquisition contract.** Worker-owned Store/File bundles now demonstrate progress, exhaustion rejection, return on failures, capacity reporting, and orderly close. Decide whether this resource grouping fits real application dependencies; keep pools distinct from checked-out connections. Do not freeze signatures or amend the human-owned spec from this experiment alone.
 3. **Integrate the tested context seam and lifecycle into production transport.** The typed/scoped lifecycle now passes finite socket checks. This is not a public serving API. Production admission, observable write outcomes, orderly shutdown under active work, and cancellation still need their own evidence.
-4. **Implement the prepared router and strict JSON prerequisites.** The executable probes below demonstrate current contract gaps. Runtime cancellation is also a confirmed independent release blocker.
+4. **Publish the prepared router and implement strict JSON prerequisites.** The local router cutover corrects the historical routing gaps; CI publication remains a merge dependency before Camber can use its hub import. Strict JSON and runtime cancellation remain confirmed independent release blockers.
 
 Do not broaden the initial feature set. The next work is making the existing ownership and application contract implementable and usable, not adding plugins, schema generators, or streaming.
 
@@ -393,7 +415,7 @@ Six added application scenarios inject unsafe values, framing, or names in a roo
 
 ## Executed prerequisite and cancellation blockers
 
-`prerequisites.bend` prints observations rather than pinning current defects as desired behavior. Build it in either lane and pass an owned temporary journal path. `prerequisite_results.json` retains both outputs and timing/memory observations.
+`prerequisites.bend` prints observations rather than pinning defects as desired behavior. Build it in either lane and pass an owned temporary journal path. `prerequisite_results.json` retains the historical pre-cutover outputs below; [router_prerequisite_results.json](router_prerequisite_results.json) records the corrected routing outputs in both lanes, with JSON rejection still false and a side effect still occurring after the deadline returns.
 
 | Proposed contract | Native and Bend-on-Bun observation |
 | --- | --- |
@@ -406,7 +428,7 @@ Six added application scenarios inject unsafe values, framing, or names in a roo
 
 With a nominal 10 ms timeout, the deadline observation was at 13.850 ms native and 21.913 ms JS; the actual late side effect was at 256.286 ms and 256.930 ms. The journal contains `late` followed by LF after process exit. Timing is measured, not an exact-deadline guarantee. This is the documented behavior of `Conc.timeout`, not a compiler bug or genuine cancellation.
 
-Prepared routing belongs in `router`; strict surrogate, nested-duplicate, and configurable depth rejection belong in `json`; real cancellation needs runtime support. These are release blockers, not hidden adapters or requirements removed from SPEC. This validation does not implement those prerequisites or claim the full SPEC is satisfied.
+Prepared routing belongs in `router` and now has the implementation and runtime evidence above. Strict surrogate, nested-duplicate, and configurable depth rejection belong in `json`; real cancellation needs runtime support. Those remain release blockers, not hidden adapters or requirements removed from SPEC. The historical observations do not claim the full SPEC is satisfied.
 
 The final inline reuse/quality/efficiency pass removed unused imports, reused existing socket/effect/scope helpers, and kept body ownership unchanged. The affected direct and socket surfaces and response checker were exercised in both lanes. Unaffected ownership and older finite-live suites were not rerun. No independent review, publication, production deployment, or PR watcher was performed.
 

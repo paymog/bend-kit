@@ -15,6 +15,10 @@ def error_kind(error: Example.Err) -> String:
       "unsupported"
     case Example.Missing{}:
       "missing"
+    case Example.BadTarget{}:
+      "bad-target"
+    case Example.NoMethod{allow}:
+      "method"
     case Example.WriteFailed{}:
       "write"
     case Example.TransformFailed{}:
@@ -77,6 +81,7 @@ def observed(mode: String, result: Example.State & Http.Res) -> IO(Unit):
     (Json.utf8("public"), Json.Str{Json.utf8(Http.header(headers, "x-public-policy"))}),
     (Json.utf8("ping"), Json.Str{Json.utf8(Http.header(headers, "x-ping-policy"))}),
     (Json.utf8("authenticate"), Json.Str{Json.utf8(Http.header(headers, "www-authenticate"))}),
+    (Json.utf8("allow"), Json.Str{Json.utf8(Http.header(headers, "allow"))}),
     (Json.utf8("trace"), Json.Arr{events(List.reverse(&2, Example.Stage, trace))})]}
   observe.mode(mode, journal, report)
 
@@ -91,8 +96,9 @@ def mapper_mode(mode: String) -> Example.MapperMode:
 
 def run(path: String, +mode: String, fault: String, mapper: String, method: String, target: String, token: String, media: String, body: String, control: String) -> IO(Unit):
   do IO<Unit>:
+    application : Example.Application <- Example.application(fault, mapper_mode(mapper))
     journal : File <- IO.try(File, File.open(path, mode))
-    result : Example.State & Http.Res <- Example.dispatch(Example.State{journal, Nil{}}, Example.application(fault, mapper_mode(mapper)), Http.Req{method, target, Http.set(Http.set(Http.set(Http.empty(), "authorization", token), "content-type", media), "x-group-control", control), Json.utf8(body)})
+    result : Example.State & Http.Res <- Example.dispatch(Example.State{journal, Nil{}}, application, Http.Req{method, target, Http.set(Http.set(Http.set(Http.empty(), "authorization", token), "content-type", media), "x-group-control", control), Json.utf8(body)})
     observed(mode, result)
 
 def args(xs: List<&1, String>) -> IO(Unit):

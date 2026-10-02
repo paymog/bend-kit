@@ -67,8 +67,8 @@ def close(mode: String, returned: List<Bundle>) -> IO(Unit):
       IO.die(Unit, 1, "scoped worker did not return its affine state")
 
 def start(path: String, +mode: String, fault: String, mapper: String, port: U32, connections: U32) -> IO(Unit):
-  +application = Example.application(fault, Check.mapper_mode(mapper))
   do IO<Unit>:
+    +application : Example.Application <- Example.application(fault, Check.mapper_mode(mapper))
     journal : File <- IO.try(File, File.open(path, mode))
     jobs0 : Chan(Http.Req & Chan(Http.Res)) <- Chan.new(Http.Req & Chan(Http.Res), 1)
     +jobs : Chan(Http.Req & Chan(Http.Res)) = jobs0

@@ -7,6 +7,7 @@ import ./ownership.bend as Users
 import ./interface_check.bend as Registry
 import ./surface.bend as Surface
 import ./response.bend as Response
+import ../router/router.bend as Router
 
 type Hook is Data:
   RootAfter{}
@@ -36,6 +37,8 @@ type Err is Data:
   Forbidden{}
   Unsupported{}
   Missing{}
+  BadTarget{}
+  NoMethod{allow: String}
   WriteFailed{}
   TransformFailed{}
   InvalidResponse{}
@@ -55,8 +58,8 @@ type Action is Data:
 def Application() -> Data:
   Registry.Plan<Action, Config>
 
-def application(fault: String, mapper: MapperMode) -> Application:
-  Registry.Plan{[Registry.Entry{"POST", "/documents", Upload{}}, Registry.Entry{"GET", "/public", Ping{}}], Config{Surface.policy(~Hook, [RootAfter{}]), Surface.policy(~Hook, [UsersFirst{}, UsersSecond{}]), Surface.policy(~Hook, [DocumentFirst{}, DocumentSecond{}]), Surface.policy(~Hook, [PublicAfter{}]), Surface.policy(~Hook, [PingAfter{}]), fault, mapper}}
+def application(fault: String, mapper: MapperMode) -> IO(Application):
+  Registry.build(~Action, ~Config, [Router.Entry{"POST", "/documents", Upload{}, [1]}, Router.Entry{"GET", "/public", Ping{}, [2]}], Config{Surface.policy(~Hook, [RootAfter{}]), Surface.policy(~Hook, [UsersFirst{}, UsersSecond{}]), Surface.policy(~Hook, [DocumentFirst{}, DocumentSecond{}]), Surface.policy(~Hook, [PublicAfter{}]), Surface.policy(~Hook, [PingAfter{}]), fault, mapper})
 
 def record(state: State, event: Stage) -> State:
   State{journal, events} = state
@@ -98,6 +101,10 @@ def error_response(error: Err) -> Http.Res:
       Http.Res{415, Http.empty(), Http.from_string("unsupported media type")}
     case Missing{}:
       Http.Res{404, Http.empty(), Http.from_string("not found")}
+    case BadTarget{}:
+      Http.Res{400, Http.empty(), Http.from_string("invalid target")}
+    case NoMethod{allow}:
+      Http.Res{405, Http.set(Http.empty(), "allow", allow), Http.from_string("")}
     case WriteFailed{}:
       Http.Res{503, Http.empty(), Http.from_string("store unavailable")}
     case TransformFailed{}:
@@ -339,19 +346,75 @@ def public_group.go(state: State, +app: Application, meta: Registry.Metadata, co
 def public_group(state: State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(State & Surface.Flow):
   public_group.go(state, app, meta, context, body)
 
-def chosen(action: Maybe<&2, Action>, state: State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(State & Surface.Flow):
+type Generated is Data:
+  Generated{options: Bool, allow: String}
+
+def generated.terminal(options: Bool, allow: String, state: State, app: Application) -> IO(State & Surface.Flow):
+  match options:
+    case True{}:
+      IO.pure(State & Surface.Flow, (state, Surface.Flow{Http.Res{204, Http.set(Http.empty(), "allow", allow), Http.from_string("")}, False{}, False{}}))
+    case False{}:
+      Surface.failed(~State, ~Application, ~Err, ~mapper, ~validate, state, app, NoMethod{allow}, False{})
+
+def generated.endpoint(state: State, app: Application, meta: Registry.Metadata, decision: Generated, body: Http.Body) -> IO(State & Surface.Flow):
+  Generated{options, allow} = decision
+  generated.terminal(options, allow, state, app)
+
+def generated.checked(~C: Type, decision: Generated, result: State & Surface.Step<Err, C>) -> State & Surface.Step<Err, Generated>:
+  (state, step) = result
+  match step:
+    case Surface.Continue{context}:
+      (state, Surface.Continue{decision})
+    case Surface.Early{response}:
+      (state, Surface.Early{response})
+    case Surface.Reject{error}:
+      (state, Surface.Reject{error})
+
+def generated.users_enter(state: State, app: Application, meta: Registry.Metadata, decision: Generated) -> IO(State & Surface.Step<Err, Generated>):
+  do IO<State & Surface.Step<Err, Generated>>:
+    result : State & Surface.Step<Err, Users.Principal> <- users_before(state, app, meta, Unit{})
+    return generated.checked(~Users.Principal, decision, result)
+
+def generated.public_enter(state: State, app: Application, meta: Registry.Metadata, decision: Generated) -> IO(State & Surface.Step<Err, Generated>):
+  do IO<State & Surface.Step<Err, Generated>>:
+    result : State & Surface.Step<Err, Unit> <- public_before(state, app, meta, Unit{})
+    return generated.checked(~Unit, decision, result)
+
+def generated.group(groups: List<&2, U32>, state: State, +app: Application, meta: Registry.Metadata, decision: Generated, body: Http.Body) -> IO(State & Surface.Flow):
+  match groups:
+    case Nil{}:
+      generated.endpoint(state, app, meta, decision, body)
+    case 1 <> Nil{}:
+      Surface.scope(~State, ~Application, ~Err, ~Generated, ~Generated, ~Hook, ~generated.users_enter, ~generated.endpoint, ~after, ~mapper, ~validate, policy.users(settings(app)), state, app, meta, decision, body)
+    case 2 <> Nil{}:
+      Surface.scope(~State, ~Application, ~Err, ~Generated, ~Generated, ~Hook, ~generated.public_enter, ~generated.endpoint, ~after, ~mapper, ~validate, policy.public(settings(app)), state, app, meta, decision, body)
+    case _:
+      IO.die(State & Surface.Flow, 1, "unknown fixture route group")
+
+def chosen(action: Router.Choice<Action>, state: State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(State & Surface.Flow):
   match action:
-    case None{}:
+    case Router.NotFound{}:
       Surface.failed(~State, ~Application, ~Err, ~mapper, ~validate, state, app, Missing{}, False{})
-    case Some{Upload{}}:
+    case Router.Found{Upload{}, params, groups, method, pattern}:
       users_group(state, app, meta, context, body)
-    case Some{Ping{}}:
+    case Router.Found{Ping{}, params, groups, method, pattern}:
       public_group(state, app, meta, context, body)
+    case Router.MethodMissing{groups, allow}:
+      generated.group(groups, state, app, meta, Generated{False{}, allow}, body)
+    case Router.Options{groups, allow}:
+      generated.group(groups, state, app, meta, Generated{True{}, allow}, body)
+
+def root.resolved(result: Result<&2, &2, Router.Error, Router.Resolved<Action>>, state: State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(State & Surface.Flow):
+  match result:
+    case Fail{error}:
+      Surface.failed(~State, ~Application, ~Err, ~mapper, ~validate, state, app, BadTarget{}, False{})
+    case Done{Router.Resolved{target, action}}:
+      chosen(action, state, app, Registry.with_target(target, meta), context, body)
 
 def root_inside.go(state: State, +app: Application, +meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(State & Surface.Flow):
-  Registry.Plan{entries, config} = app
+  Registry.Plan{table, config} = app
   Registry.Metadata{method, target, headers} = meta
-  chosen(Registry.choose(~Action, entries, method, target), state, app, meta, context, body)
+  root.resolved(Router.resolve(~Action, table, method, target), state, app, meta, context, body)
 
 def root_inside(state: State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(State & Surface.Flow):
   root_inside.go(state, app, meta, context, body)

@@ -1,17 +1,15 @@
-# Data route descriptions plus a template executor; this is not the prepared-router implementation.
+# Prepared Data routes plus a template executor; this is not Camber's public API.
 import Base
 import ./ownership.bend as Users
 import ../http/http.bend as Http
 import ../router/router.bend as Router
+import ../router/target.bend as Target
 
 type Metadata is Data:
   Metadata{method: String, target: String, headers: Map<&2, List<&2, String>>}
 
-type Entry<-R: Data> is Data:
-  Entry{method: String, pattern: String, action: R}
-
 type Plan<-R: Data, -C: Data> is Data:
-  Plan{entries: List<&2, Entry<R>>, config: C}
+  Plan{table: Router.Table<R>, config: C}
 
 def require(ok: Bool, message: String) -> IO(Unit):
   match ok:
@@ -20,46 +18,69 @@ def require(ok: Bool, message: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, message)
 
-def choose.next(~R: Data, matched: Maybe<&2, Map<&2, String>>, action: R, later: Unit -> Maybe<&2, R>) -> Maybe<&2, R>:
-  match matched:
-    case Some{params}:
-      Some{action}
+def built(~R: Data, ~C: Data, result: Result<&2, &2, Router.Error, Router.Table<R>>, config: C) -> IO(Plan<R, C>):
+  match result:
+    case Fail{error}:
+      IO.die(Plan<R, C>, 1, "invalid route registration")
+    case Done{table}:
+      IO.pure(Plan<R, C>, Plan{table, config})
+
+def build(~R: Data, ~C: Data, entries: List<&2, Router.Entry<R>>, config: C) -> IO(Plan<R, C>):
+  built(~R, ~C, Router.prepare(~R, entries), config)
+
+def with_authority(authority: Maybe<&2, String>, meta: Metadata) -> Metadata:
+  match authority:
     case None{}:
-      later(Unit{})
+      meta
+    case Some{host}:
+      Metadata{method, target, headers} = meta
+      Metadata{method, target, Http.set(headers, "host", host)}
 
-def choose(~R: Data, entries: List<&2, Entry<R>>, +method: String, +target: String) -> Maybe<&2, R>:
-  match entries:
-    case Nil{}:
-      None{}
-    case Entry{want, pattern, action} <> rest:
-      choose.next(~R, Router.route(want, method, pattern, target), action, u => choose(~R, rest, method, target))
+def with_target(target: Target.Target, meta: Metadata) -> Metadata:
+  Target.Target{segments, query, authority, star} = target
+  with_authority(authority, meta)
 
-def invoke.chosen(
+def invoke.choice(
   ~S: Type, ~R: Data, ~C: Data,
-  ~run: R -> C -> S -> Metadata -> Http.Body -> IO(S & Http.Res),
-  chosen: Maybe<&2, R>, config: C, state: S, meta: Metadata, body: Http.Body
+  ~run: R -> C -> S -> Metadata -> Map<&2, String> -> Http.Body -> IO(S & Http.Res),
+  chosen: Router.Choice<R>, config: C, state: S, meta: Metadata, body: Http.Body
 ) -> IO(S & Http.Res):
   match chosen:
-    case None{}:
+    case Router.NotFound{}:
       IO.pure(S & Http.Res, (state, Users.error(Users.NotFound{})))
-    case Some{action}:
-      run(action, config, state, meta, body)
+    case Router.MethodMissing{groups, allow}:
+      IO.pure(S & Http.Res, (state, Http.Res{405, Http.set(Http.empty(), "allow", allow), Http.from_string("")}))
+    case Router.Options{groups, allow}:
+      IO.pure(S & Http.Res, (state, Http.Res{204, Http.set(Http.empty(), "allow", allow), Http.from_string("")}))
+    case Router.Found{action, params, groups, method, pattern}:
+      run(action, config, state, meta, params, body)
+
+def invoke.resolved(
+  ~S: Type, ~R: Data, ~C: Data,
+  ~run: R -> C -> S -> Metadata -> Map<&2, String> -> Http.Body -> IO(S & Http.Res),
+  result: Result<&2, &2, Router.Error, Router.Resolved<R>>, config: C, state: S, meta: Metadata, body: Http.Body
+) -> IO(S & Http.Res):
+  match result:
+    case Fail{error}:
+      IO.pure(S & Http.Res, (state, Users.error(Users.BadInput{})))
+    case Done{Router.Resolved{target, chosen}}:
+      invoke.choice(~S, ~R, ~C, ~run, chosen, config, state, with_target(target, meta), body)
 
 def invoke.req(
   ~S: Type, ~R: Data, ~C: Data,
-  ~run: R -> C -> S -> Metadata -> Http.Body -> IO(S & Http.Res),
-  req: Http.Req, entries: List<&2, Entry<R>>, config: C, state: S
+  ~run: R -> C -> S -> Metadata -> Map<&2, String> -> Http.Body -> IO(S & Http.Res),
+  req: Http.Req, table: Router.Table<R>, config: C, state: S
 ) -> IO(S & Http.Res):
   Http.Req{+method, +target, +headers, body} = req
-  invoke.chosen(~S, ~R, ~C, ~run, choose(~R, entries, method, target), config, state, Metadata{method, target, headers}, body)
+  invoke.resolved(~S, ~R, ~C, ~run, Router.resolve(~R, table, method, target), config, state, Metadata{method, target, headers}, body)
 
 def invoke(
   ~S: Type, ~R: Data, ~C: Data,
-  ~run: R -> C -> S -> Metadata -> Http.Body -> IO(S & Http.Res),
+  ~run: R -> C -> S -> Metadata -> Map<&2, String> -> Http.Body -> IO(S & Http.Res),
   plan: Plan<R, C>, state: S, req: Http.Req
 ) -> IO(S & Http.Res):
-  Plan{entries, config} = plan
-  invoke.req(~S, ~R, ~C, ~run, req, entries, config, state)
+  Plan{table, config} = plan
+  invoke.req(~S, ~R, ~C, ~run, req, table, config, state)
 
 def plain(req: Http.Req) -> IO(Http.Res):
   Http.Req{method, target, headers, body} = req
@@ -113,7 +134,19 @@ def run.path(path: Users.Path, store: Users.Store, req: Http.Req) -> IO(Users.St
   Http.Req{method, target, headers, body} = req
   Users.dispatch.path(path, store, method, headers, body)
 
-def run.user(action: Action, store: Users.Store, req: Http.Req) -> IO(Users.Store & Http.Res):
+def lookup.auth(principal: Maybe<&2, Users.Principal>, value: String, store: Users.Store) -> IO(Users.Store & Http.Res):
+  match principal:
+    case None{}:
+      IO.pure(Users.Store & Http.Res, (store, Users.error(Users.Unauthorized{})))
+    case Some{typed}:
+      Users.endpoint.decoded(~U32, ~Users.lookup, store, typed, Users.id(value), 200)
+
+def lookup.value(pair: Map<&2, String> & String, store: Users.Store, req: Http.Req) -> IO(Users.Store & Http.Res):
+  (params, value) = pair
+  Http.Req{method, target, headers, body} = req
+  lookup.auth(Users.auth(Http.header(headers, "authorization")), value, store)
+
+def run.user(action: Action, store: Users.Store, req: Http.Req, params: Map<&2, String>) -> IO(Users.Store & Http.Res):
   match action:
     case Echo{}:
       adapt(~plain, store, req)
@@ -124,7 +157,7 @@ def run.user(action: Action, store: Users.Store, req: Http.Req) -> IO(Users.Stor
     case Create{}:
       run.path(Users.Users{}, store, req)
     case Lookup{}:
-      Users.dispatch(store, req)
+      lookup.value(Map.get(String, "", params, "id"), store, req)
 
 def label.result(config: Config, result: Users.Store & Http.Res) -> Users.Store & Http.Res:
   Config{label} = config
@@ -132,21 +165,21 @@ def label.result(config: Config, result: Users.Store & Http.Res) -> Users.Store 
   Http.Res{status, headers, body} = res
   (store, Http.Res{status, Http.set(headers, "x-app", label), body})
 
-def run(action: Action, config: Config, store: Users.Store, meta: Metadata, body: Http.Body) -> IO(Users.Store & Http.Res):
+def run(action: Action, config: Config, store: Users.Store, meta: Metadata, params: Map<&2, String>, body: Http.Body) -> IO(Users.Store & Http.Res):
   Metadata{method, target, headers} = meta
   do IO<Users.Store & Http.Res>:
-    result : Users.Store & Http.Res <- run.user(action, store, Http.Req{method, target, headers, body})
+    result : Users.Store & Http.Res <- run.user(action, store, Http.Req{method, target, headers, body}, params)
     return label.result(config, result)
 
-def application(label: String) -> Plan<Action, Config>:
-  Plan{[
-    Entry{"GET", "/health", Health{}},
-    Entry{"GET", "/users/me", Me{}},
-    Entry{"GET", "/alias", Me{}},
-    Entry{"GET", "/users/:id", Lookup{}},
-    Entry{"POST", "/users", Create{}},
-    Entry{"POST", "/echo", Echo{}}
-  ], Config{label}}
+def application(label: String) -> IO(Plan<Action, Config>):
+  build(~Action, ~Config, [
+    Router.Entry{"GET", "/health", Health{}, []},
+    Router.Entry{"GET", "/users/me", Me{}, []},
+    Router.Entry{"GET", "/alias", Me{}, []},
+    Router.Entry{"GET", "/users/:id", Lookup{}, []},
+    Router.Entry{"POST", "/users", Create{}, []},
+    Router.Entry{"POST", "/echo", Echo{}, []}
+  ], Config{label})
 
 def req(method: String, path: String, body: String) -> Http.Req:
   Http.Req{method, path, Http.set(Http.set(Http.empty(), "authorization", "Bearer alice"), "content-type", "application/json"), Http.from_string(body)}
@@ -166,9 +199,9 @@ def exercise(+plan: Plan<Action, Config>, store: Users.Store, request: Http.Req,
     check(result, status, body, label)
 
 def scenario(path: String) -> IO(Unit):
-  +alpha = application("alpha")
-  +beta = application("beta")
   do IO<Unit>:
+    +alpha : Plan<Action, Config> <- application("alpha")
+    +beta : Plan<Action, Config> <- application("beta")
     s0 : Users.Store <- Users.open(path, "w")
     s1 : Users.Store <- exercise(alpha, s0, req("GET", "/health", ""), 200, "{\"ok\":true}", "alpha")
     s2 : Users.Store <- exercise(beta, s1, req("GET", "/users/me", ""), 200, "{\"id\":7,\"name\":\"Alice\"}", "beta")
@@ -179,7 +212,10 @@ def scenario(path: String) -> IO(Unit):
     s7 : Users.Store <- exercise(beta, s6, req("GET", "/alias", ""), 200, "{\"id\":7,\"name\":\"Alice\"}", "beta")
     s8 : Users.Store <- exercise(alpha, s7, Http.Req{"GET", "/users/me", Http.empty(), Http.from_string("not JSON")}, 401, "", "alpha")
     s9 : Users.Store <- exercise(beta, s8, Http.Req{"GET", "/health", Http.empty(), Http.from_string("")}, 200, "{\"ok\":true}", "beta")
-    Users.close(s9)
+    s10 : Users.Store <- exercise(alpha, s9, req("HEAD", "/users/7", ""), 200, "{\"id\":7,\"name\":\"Alice\"}", "alpha")
+    s11 : Users.Store <- exercise(beta, s10, req("HEAD", "http://example.test/users/%37?tag=a&tag=b", ""), 200, "{\"id\":7,\"name\":\"Alice\"}", "beta")
+    s12 : Users.Store <- exercise(alpha, s11, req("GET", "/users/m%65", ""), 200, "{\"id\":7,\"name\":\"Alice\"}", "alpha")
+    Users.close(s12)
     IO.print("reusable Data plans, typed before hook, runtime config, template executor, plain packed-body handler: PASS")
 
 def args(xs: List<&1, String>) -> IO(Unit):

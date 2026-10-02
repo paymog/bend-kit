@@ -36,6 +36,23 @@ def cases():
         case("group-early", 409, GROUP_ENTER + GROUP_EXIT + ROOT_EXIT, ("root", "users"), body="closed", control="early", input_body="not JSON"),
         case("group-reject", 403, GROUP_ENTER + [["map", "forbidden"]] + GROUP_EXIT + ROOT_EXIT, ("root", "users"), control="reject", input_body="not JSON"),
     ]
+    public_trace = ROOT_ENTER + [["before", 3, 1], ["after", "ping"], ["after", "public"]] + ROOT_EXIT
+    rows.extend([
+        case("path-method-group", 405, GROUP_ENTER + [["map", "method"]] + GROUP_EXIT + ROOT_EXIT, ("root", "users"), "", method="GET", expected_allow="OPTIONS, POST"),
+        case("path-options-group", 204, GROUP_ENTER + GROUP_EXIT + ROOT_EXIT, ("root", "users"), "", method="OPTIONS", expected_allow="OPTIONS, POST"),
+        case("path-method-auth", 401, AUTH_ENTER + [["map", "unauthorized"]] + GROUP_EXIT + ROOT_EXIT, ("root", "users"), "", method="GET", token=""),
+        case("path-options-auth", 401, AUTH_ENTER + [["map", "unauthorized"]] + GROUP_EXIT + ROOT_EXIT, ("root", "users"), "", method="OPTIONS", token=""),
+        case("head-public", 200, public_trace, ("root", "public", "ping"), "public", method="HEAD", target="/public", token="", input_body="not JSON"),
+        case("options-public", 204, ROOT_ENTER + [["before", 3, 1], ["after", "public"]] + ROOT_EXIT, ("root", "public"), "", method="OPTIONS", target="/public", expected_allow="GET, HEAD, OPTIONS"),
+        case("options-star", 204, ROOT_ENTER + ROOT_EXIT, ("root",), "", method="OPTIONS", target="*", expected_allow="GET, HEAD, OPTIONS, POST"),
+        case("star-misuse", 400, ROOT_ENTER + [["map", "bad-target"]] + ROOT_EXIT, ("root",), "invalid target", method="GET", target="*"),
+        case("bad-path-escape", 400, ROOT_ENTER + [["map", "bad-target"]] + ROOT_EXIT, ("root",), "invalid target", target="/documents%GG"),
+        case("bad-query-utf8", 400, ROOT_ENTER + [["map", "bad-target"]] + ROOT_EXIT, ("root",), "invalid target", method="GET", target="/public?x=%FF"),
+        case("encoded-public", 200, public_trace, ("root", "public", "ping"), "public", method="GET", target="/pub%6Cic?tag=a&tag=b", token=""),
+        case("absolute-public", 200, public_trace, ("root", "public", "ping"), "public", method="GET", target="http://example.test/public", token=""),
+        case("trailing-slash-miss", 404, ROOT_ENTER + [["map", "missing"]] + ROOT_EXIT, ("root",), "not found", method="GET", target="/public/"),
+        case("generated-group-early", 409, GROUP_ENTER + GROUP_EXIT + ROOT_EXIT, ("root", "users"), "closed", method="OPTIONS", control="early", input_body="not JSON"),
+    ])
     for name, body in (
         ("malformed-json", "not JSON"),
         ("wrong-shape", "[]"),
@@ -85,6 +102,7 @@ def exercise(command, directory, lane):
         assert response["trace"] == trace, (name, response)
         assert {key: response[key] for key in POLICIES} == {key: "yes" if key in policies else "" for key in POLICIES}, (name, response)
         assert response["authenticate"] == ("Bearer" if status == 401 else ""), (name, response)
+        assert response["allow"] == inputs.get("expected_allow", ""), (name, response)
         if body is not None:
             assert response["body"] == body, (name, response)
         if mode == "r":

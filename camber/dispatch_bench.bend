@@ -2,6 +2,7 @@
 import Base
 import ./ownership.bend as Users
 import ./interface_check.bend as Interface
+import ../router/router.bend as Router
 import ../http/http.bend as Http
 import ../time/time.bend as Time
 
@@ -37,7 +38,7 @@ def sample(job: Workload, store: Users.Store) -> IO(Users.Store & U32):
       IO.pure(Users.Store & U32, (store, decoded(Users.name(Http.from_string(payload)))))
     case Echo{payload}:
       do IO<Users.Store & U32>:
-        result : Users.Store & Http.Res <- Interface.run(Interface.Echo{}, Interface.Config{"bench"}, store, Interface.Metadata{"POST", "/echo", Http.set(Http.set(Http.empty(), "authorization", "Bearer alice"), "content-type", "application/json")}, Http.from_string(payload))
+        result : Users.Store & Http.Res <- Interface.run(Interface.Echo{}, Interface.Config{"bench"}, store, Interface.Metadata{"POST", "/echo", Http.set(Http.set(Http.empty(), "authorization", "Bearer alice"), "content-type", "application/json")}, Map.new(&2, String), Http.from_string(payload))
         return response(result)
     case Registry{plan, payload}:
       do IO<Users.Store & U32>:
@@ -77,23 +78,25 @@ def timed(label: String, n: Nat, +job: Workload, store: Users.Store) -> IO(Users
     warm : Users.Store & U32 <- loops(100n, job, (store, 0))
     timed.warmed(label, n, job, warm)
 
-def entries(n: Nat, tail: List<&2, Interface.Entry<Interface.Action>>) -> List<&2, Interface.Entry<Interface.Action>>:
+def entries(n: Nat, tail: List<&2, Router.Entry<Interface.Action>>) -> List<&2, Router.Entry<Interface.Action>>:
   match n:
     case 0n:
       tail
     case 1n+ +p:
-      entries(p, Interface.Entry{"POST", "/noise/" ++ Nat.show(p), Interface.Echo{}} <> tail)
+      entries(p, Router.Entry{"POST", "/noise/" ++ Nat.show(p), Interface.Echo{}, []} <> tail)
 
-def registry(size: Nat, payload: String) -> Workload:
-  Registry{Interface.Plan{entries(Nat.sub(size, 1n), [Interface.Entry{"POST", "/echo", Interface.Echo{}}]), Interface.Config{"bench"}}, payload}
+def registry(size: Nat, payload: String) -> IO(Workload):
+  do IO<Workload>:
+    plan : Interface.Plan<Interface.Action, Interface.Config> <- Interface.build(~Interface.Action, ~Interface.Config, entries(Nat.sub(size, 1n), [Router.Entry{"POST", "/echo", Interface.Echo{}, []}]), Interface.Config{"bench"})
+    return Registry{plan, payload}
 
 def scenario(+n: Nat, path: String) -> IO(Unit):
   +json_payload = "{\"name\":\"Cara\"}" ++ String.repeat(" ", 1009n)
   +echo_payload = String.repeat("x", 1024n)
-  +ten = registry(10n, echo_payload)
-  +hundred = registry(100n, echo_payload)
-  +thousand = registry(1000n, echo_payload)
   do IO<Unit>:
+    +ten : Workload <- registry(10n, echo_payload)
+    +hundred : Workload <- registry(100n, echo_payload)
+    +thousand : Workload <- registry(1000n, echo_payload)
     s0 : Users.Store <- Users.open(path, "w")
     s2 : Users.Store <- timed("health", n, Dispatch{"GET", "/health"}, s0)
     s3 : Users.Store <- timed("parameter", n, Dispatch{"GET", "/users/7"}, s2)

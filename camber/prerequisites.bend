@@ -1,6 +1,5 @@
 # Observe prerequisite contract gaps; this is not a conformance gate.
 import Base
-import ./interface_check.bend as Registry
 import ../router/router.bend as Router
 import ../json/json.bend as Json
 import ../concurrency/concurrency.bend as Conc
@@ -22,10 +21,19 @@ def rejected(result: Maybe<&1, Json.Val>) -> Bool:
     case None{}: True{}
     case Some{value}: False{}
 
-def static(result: Maybe<&2, U32>) -> Bool:
+def static.got(result: Result<&2, &2, Router.Error, Router.Resolved<U32>>) -> Bool:
   match result:
-    case None{}: False{}
-    case Some{value}: U32.is_eq(value, 2)
+    case Done{Router.Resolved{target, Router.Found{value, params, groups, method, pattern}}}:
+      U32.is_eq(value, 2)
+    case _:
+      False{}
+
+def static(result: Result<&2, &2, Router.Error, Router.Table<U32>>) -> Bool:
+  match result:
+    case Fail{error}:
+      False{}
+    case Done{table}:
+      static.got(Router.resolve(~U32, table, "GET", "/users/new"))
 
 def nest(depth: Nat) -> String:
   match depth:
@@ -62,8 +70,8 @@ def run(path: String) -> IO(Unit):
   do IO<Unit>:
     observed("double-slash-distinct", absent(Router.route("GET", "GET", "/users/:id", "/users//7")))
     observed("trailing-slash-distinct", absent(Router.route("GET", "GET", "/users/7", "/users/7/")))
-    observed("static-first-in-parameter-first-registry", static(Registry.choose(~U32, [Registry.Entry{"GET", "/users/:id", 1}, Registry.Entry{"GET", "/users/new", 2}], "GET", "/users/new")))
-    observed("static-first-in-static-first-registry", static(Registry.choose(~U32, [Registry.Entry{"GET", "/users/new", 2}, Registry.Entry{"GET", "/users/:id", 1}], "GET", "/users/new")))
+    observed("static-first-in-parameter-first-registry", static(Router.prepare(~U32, [Router.Entry{"GET", "/users/:id", 1, []}, Router.Entry{"GET", "/users/new", 2, []}])))
+    observed("static-first-in-static-first-registry", static(Router.prepare(~U32, [Router.Entry{"GET", "/users/new", 2, []}, Router.Entry{"GET", "/users/:id", 1, []}])))
     observed("unpaired-surrogate-rejected", rejected(Json.parse.bytes(Json.utf8("\"\\uD800\""))))
     observed("nested-duplicate-rejected", rejected(Json.parse.bytes(Json.utf8("{\"outer\":{\"id\":1,\"id\":2}}"))))
     observed("depth-65-rejected", rejected(Json.parse.bytes(Json.utf8(nest(65n)))))
