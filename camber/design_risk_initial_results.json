@@ -1,0 +1,524 @@
+{
+  "date": "2026-10-02",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "timer_delay_ms": 100,
+  "forced_timer_budget_ms": 100,
+  "forced_operation": "IO.die(Unit, 1, ...)",
+  "host_deadline_seconds": 12,
+  "rss_limit_kib": 20971520,
+  "lanes": {
+    "native": {
+      "build_seconds": 10.396102249971591,
+      "sampled_build_peak_rss_kib": 2466480,
+      "cases": {
+        "yield_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.12529450003057718,
+          "sampled_peak_rss_kib": 1776,
+          "events": [
+            {
+              "seconds": 0.0034524999791756272,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.003492833930067718,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.10843979194760323,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.1049872919684276,
+          "force_within_scaled_budget": true,
+          "explicit_resource_close_observed": false,
+          "unrelated_work_completed": false
+        },
+        "cpu_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.12738737498875707,
+          "sampled_peak_rss_kib": 1776,
+          "events": [
+            {
+              "seconds": 0.01157633401453495,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.01159683393780142,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.011598041979596019,
+              "text": "WORK_END 3444138497"
+            },
+            {
+              "seconds": 0.011674708919599652,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 0.10873624996747822,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\nlate\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.09715991595294327,
+          "force_within_scaled_budget": true,
+          "explicit_resource_close_observed": true,
+          "unrelated_work_completed": false
+        },
+        "cooperative": {
+          "returncode": 0,
+          "wall_seconds": 0.5496645419625565,
+          "sampled_peak_rss_kib": 1792,
+          "events": [
+            {
+              "seconds": 0.0035415419843047857,
+              "text": "COOPERATIVE_STOP"
+            },
+            {
+              "seconds": 0.003575374954380095,
+              "text": "COOPERATIVE_RETURN"
+            },
+            {
+              "seconds": 0.003576416987925768,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 0.5057841249508783,
+              "text": "UNRELATED_DONE"
+            },
+            {
+              "seconds": 0.5058060829760507,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": "unrelated completed\n"
+        },
+        "abandoned": {
+          "returncode": 0,
+          "wall_seconds": 1.5440385839901865,
+          "sampled_peak_rss_kib": 1776,
+          "events": [
+            {
+              "seconds": 0.0034270420437678695,
+              "text": "AFFINE_RESULT_DROPPED"
+            },
+            {
+              "seconds": 0.003465334069915116,
+              "text": "INSPECT_OPEN_FILES"
+            },
+            {
+              "seconds": 1.5094399590743706,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "file_descriptor_remains_open_after_drop": true,
+          "descriptor_evidence": [
+            "n/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-design-risks-s6z1z6td/native-abandoned"
+          ]
+        },
+        "idle": {
+          "returncode": 0,
+          "wall_seconds": 6.358805374940857,
+          "sampled_peak_rss_kib": 1872,
+          "events": [
+            {
+              "seconds": 0.003469457966275513,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.006440000026486814,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 6.357611499959603,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 6.357626999961212,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "listener_close_seconds": 0.006440000026486814,
+          "new_connections_rejected": true,
+          "observation_seconds_after_listener_close": 6.25,
+          "process_alive_before_client_release": true,
+          "idle_socket_closed_before_client_release": false
+        }
+      },
+      "cpu_calibration": [
+        {
+          "iterations": 10000,
+          "returncode": 0,
+          "wall_seconds": 0.29086320905480534,
+          "sampled_peak_rss_kib": 32,
+          "events": [
+            {
+              "seconds": 0.23148787498939782,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.23155945900361985,
+              "text": "WORK_END 4089345937"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 7.158401422202587e-05
+        },
+        {
+          "iterations": 250000,
+          "returncode": 0,
+          "wall_seconds": 0.047649791929870844,
+          "sampled_peak_rss_kib": 0,
+          "events": [
+            {
+              "seconds": 0.013205708004534245,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.013226832961663604,
+              "text": "WORK_END 3265584401"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 2.1124957129359245e-05
+        },
+        {
+          "iterations": 1000000,
+          "returncode": 0,
+          "wall_seconds": 0.013463958050124347,
+          "sampled_peak_rss_kib": 0,
+          "events": [
+            {
+              "seconds": 0.006925874971784651,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.006995290983468294,
+              "text": "WORK_END 366300225"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 6.941601168364286e-05
+        },
+        {
+          "iterations": 4000000,
+          "returncode": 0,
+          "wall_seconds": 0.01130212505813688,
+          "sampled_peak_rss_kib": 1712,
+          "events": [
+            {
+              "seconds": 0.007204500027000904,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.007217500009573996,
+              "text": "WORK_END 4149391617"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 1.2999982573091984e-05
+        },
+        {
+          "iterations": 8000000,
+          "returncode": 0,
+          "wall_seconds": 0.018769084010273218,
+          "sampled_peak_rss_kib": 1728,
+          "events": [
+            {
+              "seconds": 0.011483917012810707,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.011503209010697901,
+              "text": "WORK_END 3444138497"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 1.9291997887194157e-05
+        }
+      ],
+      "selected_iterations": 8000000
+    },
+    "javascript": {
+      "build_seconds": 1.8655638330383226,
+      "sampled_build_peak_rss_kib": 1924912,
+      "cases": {
+        "yield_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.17957362497691065,
+          "sampled_peak_rss_kib": 33280,
+          "events": [
+            {
+              "seconds": 0.019302875036373734,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.01963999995496124,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.13755179103463888,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.11824891599826515,
+          "force_within_scaled_budget": true,
+          "explicit_resource_close_observed": false,
+          "unrelated_work_completed": false
+        },
+        "cpu_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.1270867499988526,
+          "sampled_peak_rss_kib": 39168,
+          "events": [
+            {
+              "seconds": 0.017292584059759974,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.017617959063500166,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.07114012504462153,
+              "text": "WORK_END 3444138497"
+            },
+            {
+              "seconds": 0.07147529209032655,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 0.1250520000467077,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\nlate\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.10775941598694772,
+          "force_within_scaled_budget": true,
+          "explicit_resource_close_observed": true,
+          "unrelated_work_completed": false
+        },
+        "cooperative": {
+          "returncode": 0,
+          "wall_seconds": 0.5535619590664282,
+          "sampled_peak_rss_kib": 33328,
+          "events": [
+            {
+              "seconds": 0.018017875030636787,
+              "text": "COOPERATIVE_STOP"
+            },
+            {
+              "seconds": 0.018045749980956316,
+              "text": "COOPERATIVE_RETURN"
+            },
+            {
+              "seconds": 0.018134874990209937,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 0.5277204170124605,
+              "text": "UNRELATED_DONE"
+            },
+            {
+              "seconds": 0.5277540420647711,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": "unrelated completed\n"
+        },
+        "abandoned": {
+          "returncode": 0,
+          "wall_seconds": 1.5630697909509763,
+          "sampled_peak_rss_kib": 33152,
+          "events": [
+            {
+              "seconds": 0.0352514999685809,
+              "text": "AFFINE_RESULT_DROPPED"
+            },
+            {
+              "seconds": 0.035443915985524654,
+              "text": "INSPECT_OPEN_FILES"
+            },
+            {
+              "seconds": 1.5439359999727458,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "file_descriptor_remains_open_after_drop": true,
+          "descriptor_evidence": [
+            "n/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-design-risks-s6z1z6td/javascript-abandoned"
+          ]
+        },
+        "idle": {
+          "returncode": 0,
+          "wall_seconds": 6.384072833927348,
+          "sampled_peak_rss_kib": 33600,
+          "events": [
+            {
+              "seconds": 0.02389641699846834,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.02471241692546755,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 6.381290124962106,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 6.38131099997554,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "listener_close_seconds": 0.02471241692546755,
+          "new_connections_rejected": true,
+          "observation_seconds_after_listener_close": 6.25,
+          "process_alive_before_client_release": true,
+          "idle_socket_closed_before_client_release": false
+        }
+      },
+      "cpu_calibration": [
+        {
+          "iterations": 10000,
+          "returncode": 0,
+          "wall_seconds": 0.18085633404552937,
+          "sampled_peak_rss_kib": 38512,
+          "events": [
+            {
+              "seconds": 0.12963604205287993,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.13095891708508134,
+              "text": "WORK_END 4089345937"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.0013228750322014093
+        },
+        {
+          "iterations": 250000,
+          "returncode": 0,
+          "wall_seconds": 0.03936345793772489,
+          "sampled_peak_rss_kib": 4464,
+          "events": [
+            {
+              "seconds": 0.01751095801591873,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.023950250004418194,
+              "text": "WORK_END 3265584401"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.006439291988499463
+        },
+        {
+          "iterations": 1000000,
+          "returncode": 0,
+          "wall_seconds": 0.03584945807233453,
+          "sampled_peak_rss_kib": 4768,
+          "events": [
+            {
+              "seconds": 0.01741291698999703,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.02702224999666214,
+              "text": "WORK_END 366300225"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.00960933300666511
+        },
+        {
+          "iterations": 4000000,
+          "returncode": 0,
+          "wall_seconds": 0.07701908296439797,
+          "sampled_peak_rss_kib": 25152,
+          "events": [
+            {
+              "seconds": 0.032576375058852136,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.06115012499503791,
+              "text": "WORK_END 4149391617"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.028573749936185777
+        },
+        {
+          "iterations": 8000000,
+          "returncode": 0,
+          "wall_seconds": 0.08555658394470811,
+          "sampled_peak_rss_kib": 34640,
+          "events": [
+            {
+              "seconds": 0.029409749899059534,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.08281479193829,
+              "text": "WORK_END 3444138497"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.053405042039230466
+        }
+      ],
+      "selected_iterations": 8000000
+    }
+  },
+  "bend": "bend 2.0.34"
+}

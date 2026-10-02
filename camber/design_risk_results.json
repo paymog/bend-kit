@@ -1,0 +1,580 @@
+{
+  "date": "2026-10-02",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "timer_delay_ms": 100,
+  "forced_timer_budget_ms": 100,
+  "forced_operation": "IO.die(Unit, 1, ...)",
+  "host_deadline_seconds": 12,
+  "rss_limit_kib": 20971520,
+  "lanes": {
+    "native": {
+      "build_seconds": 8.834656207938679,
+      "sampled_build_peak_rss_kib": 2450688,
+      "cases": {
+        "yield_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.13184150005690753,
+          "sampled_peak_rss_kib": 1776,
+          "events": [
+            {
+              "seconds": 0.0027350420132279396,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.0027642500353977084,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.10415875003673136,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.10142370802350342,
+          "force_within_scaled_budget": true,
+          "explicit_resource_close_observed": false,
+          "unrelated_work_completed": false
+        },
+        "cpu_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.506531500024721,
+          "sampled_peak_rss_kib": 1776,
+          "events": [
+            {
+              "seconds": 0.0035707090282812715,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.0036136250710114837,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.5014420420629904,
+              "text": "WORK_END 3867261413"
+            },
+            {
+              "seconds": 0.5014680840540677,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\nlate\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.49789737502578646,
+          "force_within_scaled_budget": false,
+          "explicit_resource_close_observed": false,
+          "unrelated_work_completed": false
+        },
+        "cooperative": {
+          "returncode": 0,
+          "wall_seconds": 0.549290333990939,
+          "sampled_peak_rss_kib": 1776,
+          "events": [
+            {
+              "seconds": 0.002762584015727043,
+              "text": "COOPERATIVE_STOP"
+            },
+            {
+              "seconds": 0.002799042034894228,
+              "text": "COOPERATIVE_RETURN"
+            },
+            {
+              "seconds": 0.0028001670725643635,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 0.5081114170607179,
+              "text": "UNRELATED_DONE"
+            },
+            {
+              "seconds": 0.508140959078446,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": "unrelated completed\n"
+        },
+        "abandoned": {
+          "returncode": 0,
+          "wall_seconds": 1.5493187500396743,
+          "sampled_peak_rss_kib": 1760,
+          "events": [
+            {
+              "seconds": 0.004738375078886747,
+              "text": "AFFINE_RESULT_DROPPED"
+            },
+            {
+              "seconds": 0.004761708085425198,
+              "text": "INSPECT_OPEN_FILES"
+            },
+            {
+              "seconds": 1.509824875043705,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "file_descriptor_remains_open_after_drop": true,
+          "descriptor_evidence": [
+            "n/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-design-risks-j1b8xonq/native-abandoned"
+          ]
+        },
+        "idle": {
+          "returncode": 0,
+          "wall_seconds": 6.359100166009739,
+          "sampled_peak_rss_kib": 1856,
+          "events": [
+            {
+              "seconds": 0.003091166028752923,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.005472250049933791,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 6.357867541024461,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 6.357883249991573,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "listener_close_seconds": 0.005472250049933791,
+          "new_connections_rejected": true,
+          "observation_seconds_after_listener_close": 6.25,
+          "process_alive_before_client_release": true,
+          "idle_socket_closed_before_client_release": false
+        }
+      },
+      "cpu_calibration": [
+        {
+          "iterations": 10000,
+          "returncode": 0,
+          "wall_seconds": 0.296021124930121,
+          "sampled_peak_rss_kib": 32,
+          "events": [
+            {
+              "seconds": 0.25464349996764213,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.2546846659388393,
+              "text": "WORK_END 2022786209"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 4.11659711971879e-05
+        },
+        {
+          "iterations": 250000,
+          "returncode": 0,
+          "wall_seconds": 0.006289124954491854,
+          "sampled_peak_rss_kib": 0,
+          "events": [
+            {
+              "seconds": 0.003542874939739704,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.003861791919916868,
+              "text": "WORK_END 1576537013"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.0003189169801771641
+        },
+        {
+          "iterations": 1000000,
+          "returncode": 0,
+          "wall_seconds": 0.00657487497664988,
+          "sampled_peak_rss_kib": 0,
+          "events": [
+            {
+              "seconds": 0.0034964170772582293,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.0048223750200122595,
+              "text": "WORK_END 3157935350"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.0013259579427540302
+        },
+        {
+          "iterations": 8000000,
+          "returncode": 0,
+          "wall_seconds": 0.020817958982661366,
+          "sampled_peak_rss_kib": 1744,
+          "events": [
+            {
+              "seconds": 0.002945624990388751,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.012882334063760936,
+              "text": "WORK_END 541331090"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.009936709073372185
+        },
+        {
+          "iterations": 32000000,
+          "returncode": 0,
+          "wall_seconds": 0.03941249998752028,
+          "sampled_peak_rss_kib": 1744,
+          "events": [
+            {
+              "seconds": 0.0029597500106319785,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.03608350001741201,
+              "text": "WORK_END 1884850379"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.03312375000678003
+        },
+        {
+          "iterations": 128000000,
+          "returncode": 0,
+          "wall_seconds": 0.1270908749429509,
+          "sampled_peak_rss_kib": 1744,
+          "events": [
+            {
+              "seconds": 0.002853624988347292,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.1247368329204619,
+              "text": "WORK_END 1358412173"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.1218832079321146
+        },
+        {
+          "iterations": 512000000,
+          "returncode": 0,
+          "wall_seconds": 0.49657462490722537,
+          "sampled_peak_rss_kib": 1760,
+          "events": [
+            {
+              "seconds": 0.006925082998350263,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.49472249997779727,
+              "text": "WORK_END 2225792906"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.487797416979447
+        }
+      ],
+      "selected_iterations": 512000000
+    },
+    "javascript": {
+      "build_seconds": 1.7719112089835107,
+      "sampled_build_peak_rss_kib": 1947824,
+      "cases": {
+        "yield_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.1803112500347197,
+          "sampled_peak_rss_kib": 33248,
+          "events": [
+            {
+              "seconds": 0.01758695801254362,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.017903457977809012,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.13099491596221924,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.11340795794967562,
+          "force_within_scaled_budget": true,
+          "explicit_resource_close_observed": false,
+          "unrelated_work_completed": false
+        },
+        "cpu_exit": {
+          "returncode": 1,
+          "wall_seconds": 0.8728723330423236,
+          "sampled_peak_rss_kib": 35584,
+          "events": [
+            {
+              "seconds": 0.0190586659591645,
+              "text": "TIMER_ARMED"
+            },
+            {
+              "seconds": 0.01939291600137949,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.8370814579539001,
+              "text": "WORK_END 2082681062"
+            },
+            {
+              "seconds": 0.8373570829862729,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 0.8416803330183029,
+              "text": "FORCE_PROGRAM_HALT"
+            }
+          ],
+          "stderr": "forced whole-program halt, not scoped cancellation\n",
+          "journal": "committed\nlate\n",
+          "unrelated_journal": null,
+          "timer_to_force_seconds": 0.8226216670591384,
+          "force_within_scaled_budget": false,
+          "explicit_resource_close_observed": true,
+          "unrelated_work_completed": false
+        },
+        "cooperative": {
+          "returncode": 0,
+          "wall_seconds": 0.5595658750971779,
+          "sampled_peak_rss_kib": 35376,
+          "events": [
+            {
+              "seconds": 0.01671404205262661,
+              "text": "COOPERATIVE_STOP"
+            },
+            {
+              "seconds": 0.016736541991122067,
+              "text": "COOPERATIVE_RETURN"
+            },
+            {
+              "seconds": 0.016841083066537976,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 0.5245262080570683,
+              "text": "UNRELATED_DONE"
+            },
+            {
+              "seconds": 0.524548958055675,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": "unrelated completed\n"
+        },
+        "abandoned": {
+          "returncode": 0,
+          "wall_seconds": 1.5804396669846028,
+          "sampled_peak_rss_kib": 33200,
+          "events": [
+            {
+              "seconds": 0.019963124999776483,
+              "text": "AFFINE_RESULT_DROPPED"
+            },
+            {
+              "seconds": 0.020010832929983735,
+              "text": "INSPECT_OPEN_FILES"
+            },
+            {
+              "seconds": 1.528326457948424,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "file_descriptor_remains_open_after_drop": true,
+          "descriptor_evidence": [
+            "n/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-design-risks-j1b8xonq/javascript-abandoned"
+          ]
+        },
+        "idle": {
+          "returncode": 0,
+          "wall_seconds": 6.38991879101377,
+          "sampled_peak_rss_kib": 33680,
+          "events": [
+            {
+              "seconds": 0.031108165974728763,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.031989082926884294,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 6.387361124972813,
+              "text": "OWNED_FILE_CLOSED"
+            },
+            {
+              "seconds": 6.387384374975227,
+              "text": "SERVER_WORK_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "listener_close_seconds": 0.031989082926884294,
+          "new_connections_rejected": true,
+          "observation_seconds_after_listener_close": 6.25,
+          "process_alive_before_client_release": true,
+          "idle_socket_closed_before_client_release": false
+        }
+      },
+      "cpu_calibration": [
+        {
+          "iterations": 10000,
+          "returncode": 0,
+          "wall_seconds": 0.13145779201295227,
+          "sampled_peak_rss_kib": 16480,
+          "events": [
+            {
+              "seconds": 0.10753658402245492,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.11030912504065782,
+              "text": "WORK_END 481580306"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.002772541018202901
+        },
+        {
+          "iterations": 250000,
+          "returncode": 0,
+          "wall_seconds": 0.04047454195097089,
+          "sampled_peak_rss_kib": 6576,
+          "events": [
+            {
+              "seconds": 0.01620395900681615,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.02300962491426617,
+              "text": "WORK_END 3981177903"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.00680566590745002
+        },
+        {
+          "iterations": 1000000,
+          "returncode": 0,
+          "wall_seconds": 0.03793041699100286,
+          "sampled_peak_rss_kib": 4720,
+          "events": [
+            {
+              "seconds": 0.015987167018465698,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.025553917046636343,
+              "text": "WORK_END 4236030496"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.009566750028170645
+        },
+        {
+          "iterations": 8000000,
+          "returncode": 0,
+          "wall_seconds": 0.07529608404729515,
+          "sampled_peak_rss_kib": 34848,
+          "events": [
+            {
+              "seconds": 0.016026084078475833,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.06687462504487485,
+              "text": "WORK_END 2670890055"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.050848540966399014
+        },
+        {
+          "iterations": 32000000,
+          "returncode": 0,
+          "wall_seconds": 0.23104208300355822,
+          "sampled_peak_rss_kib": 34896,
+          "events": [
+            {
+              "seconds": 0.016087124939076602,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.21644683298654854,
+              "text": "WORK_END 3564757549"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.20035970804747194
+        },
+        {
+          "iterations": 128000000,
+          "returncode": 0,
+          "wall_seconds": 0.8324582910863683,
+          "sampled_peak_rss_kib": 34880,
+          "events": [
+            {
+              "seconds": 0.016131457989104092,
+              "text": "WORK_BEGIN"
+            },
+            {
+              "seconds": 0.8227495410246775,
+              "text": "WORK_END 3871387222"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "observed_work_seconds": 0.8066180830355734
+        }
+      ],
+      "selected_iterations": 128000000
+    }
+  },
+  "bend": "bend 2.0.34"
+}
