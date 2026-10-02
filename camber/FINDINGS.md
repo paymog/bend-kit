@@ -224,9 +224,77 @@ The direct surface example now demonstrates an affine typed route, typed authent
 
 ## Next work
 
-1. **Establish the raw HTTP baseline and overhead budget.** Affine typed input, scoped hooks, and error mapping now have direct native/JS evidence. Measure an equivalent raw HTTP baseline and record the budget before measuring this additional lifecycle overhead. Final surface design and independent-agent usability still need validation; no public signature is fixed.
+1. **Measure Camber against the raw HTTP control.** The raw native/JS measurements and pre-Camber budgets below are recorded. Apply the same workloads to the scoped application lifecycle before claiming its overhead passes. Final surface design and independent-agent usability still need validation; no public signature is fixed.
 2. **Review the bundled acquisition contract.** Worker-owned Store/File bundles now demonstrate progress, exhaustion rejection, return on failures, capacity reporting, and orderly close. Decide whether this resource grouping fits real application dependencies; keep pools distinct from checked-out connections. Do not freeze signatures or amend the human-owned spec from this experiment alone.
 3. **Integrate the tested context seam and lifecycle into production transport.** The finite HTTP probe proves the explicit runtime-context mechanism, not a new public serving API. Connect the separately tested application lifecycle before claiming it works over sockets. Production admission, write outcomes, shutdown, and cancellation still need their own evidence.
 4. **Then implement the prepared router and strict JSON prerequisites.** Preserve the spec's route semantics. Establish actual framework and transport measurements before claiming performance. Runtime cancellation remains an independent release blocker.
 
 Do not broaden the initial feature set. The next work is making the existing ownership and application contract implementable and usable, not adding plugins, schema generators, or streaming.
+
+## Raw HTTP control and pre-Camber budgets
+
+Run `python3 -B camber/run_raw.py --output camber/raw_results.json`. The retained JSON contains every measured trial, build/artifact observations, verified startup, server/client CPU, latency percentiles, and sampled RSS. `camber/raw_budget.json` freezes numeric per-workload limits and their policy before any new Camber timing. These are raw measurements and chosen engineering limits, not a passed Camber overhead gate.
+
+Environment: Apple M4 Pro, macOS 26.6.2 arm64, Bend 2.0.34, Bun 1.3.14, Python 3.14.6.
+
+The same raw handlers serve direct calls and the actual `Http.serve.on.with` entry point. Profile 0 handles text, JSON, parameters, decode, hooks, and byte echo. Separate profiles register exactly 10, 100, or 1,000 canonical `/route/<id>` paths. Generated numeric predicates avoid runtime table construction. This specialized route family is not a general prepared router or a route-count scaling claim; an optimizing compiler can simplify contiguous numeric cases. A JS compiler probe showed that a template Map expression rebuilds its table on each lookup, so it was rejected for this control.
+
+Both lanes use an 8 MiB body limit, the same headers and payload bytes, two keep-alive connections, and no pipelining. Native uses `--threads 1 --gpu off`; Bun uses its event loop. No affinity, exclusive-core allocation, or host-frequency control is applied. The host also runs the Python generator and RSS monitor. Route misses and method failures are successful expected 404/405 responses, not errors. Method failure skips ID response encoding.
+
+Direct trials have ten warmup iterations and 10,000 timed iterations, except 4 MiB echo uses 50. Header construction is outside the timer; fresh request/body construction, handler work, response-length/status consumption, and disposal are inside. The JSON body is `{"name":"Cara"}` plus 1,009 spaces; echo bodies repeat octets `7f 80 00 ff`. Large bodies stay packed. Exact socket checks include both echo sizes, authorization/name rejection, canonical IDs, first/last registered IDs, route boundaries, and method errors.
+
+Live rows have three one-second closed-loop trials and three fixed-rate trials. Each connection warms up before a shared start barrier. Fixed rate is 50% of that row's median closed-loop rate and stays identical across its three trials. Fixed-rate latency starts at scheduled arrival, so client lateness and queued arrivals remain visible; missed schedules are not discarded. Completion timestamps precede body/header comparison, but generator work still affects throughput and later arrivals. Trials drain started requests before stopping. Unexpected responses or transport failures abort rather than producing a successful result.
+
+**Measurement limits:** closed-loop concurrency two measures this generator/server pair; it does not establish server or host saturation capacity. Python scheduling, GIL contention, body validation, and local sockets can limit it. Fixed-rate tails are sometimes tens of milliseconds even when closed-loop response times are submillisecond. Do not interpret those tails as isolated server service time. The CPU observations help expose generator pressure but do not prove the client is non-limiting. One-second trials and low sample counts for 4 MiB echo are exploratory evidence, not sustained-load or precise tail guarantees.
+
+`ps` samples direct-process RSS approximately every 100 ms. Server RSS in trial rows is the cumulative observed peak for that profile, not a fresh per-trial peak, a kernel peak, or process-tree memory. Server CPU is sampled cumulative `ps time` with its platform resolution; phase deltas include connection warmup and monitoring boundaries. Client CPU is the Python process delta, including the monitor thread. Direct-process samples can miss short native runs. Startup timing starts after `Popen` returns and ends at a verified HTTP response, so host process-creation overhead is excluded. Servers are host-terminated after client work drains; graceful shutdown is not claimed.
+
+### Construction, build, startup, and memory
+
+Generating the exact registrations took 0.341 ms and produced 29,940 source bytes. Registrations are compiled ahead of runtime; no runtime table-construction latency is invented.
+
+| Observation | Native | Bun/JS |
+| --- | ---: | ---: |
+| Build wall time | 18.861 s | 8.780 s |
+| Artifact size | 2,013,480 bytes | 602,645 bytes |
+| Sampled compiler-process peak RSS | 6,985.39 MiB | 4,834.86 MiB |
+| Profile 0 post-spawn-to-verified-ready | 4.795 ms | 53.235 ms |
+| Route-profile post-spawn-to-verified-ready range | 23.271–25.749 ms | 26.676–29.807 ms |
+| Largest sampled server-process RSS | 31.56 MiB | 550.22 MiB |
+
+All 18 workloads passed direct checksum and exact live-response checks in both lanes. All 216 recorded live trials had zero unexpected errors. CPU, all latency percentiles, absolute offered rates, and trial sample counts are retained in `raw_results.json`.
+
+### Chosen comparison policy
+
+- Direct added median cost is at most `min(10 us, max(2 us, 0.20 * raw median))`. The floor tolerates small-call overhead; the cap prevents expensive body work from hiding framework cost.
+- Closed-loop expected-response throughput is at least 90% of the paired raw median under the same generator and concurrency.
+- Both p95 and p99 are at most `raw median percentile + max(0.25 ms, 0.20 * raw median percentile)`, separately for closed-loop and fixed-rate phases.
+- Correctness requires zero unexpected status, header, framing, body, or transport errors. Preserve hook counts and rejection behavior, not only payload lengths.
+- Future Camber runs must use the recorded absolute fixed rates, identical payload construction, behavior, limits, headers, connection reuse, client concurrency, and scheduler controls. Run three paired raw/Camber trials and compare medians. Historical fixture timings above are not an equivalent Camber candidate. Re-measure raw controls to detect host drift; do not adjust budgets after seeing Camber results.
+
+N means native. Displayed values are rounded; `raw_budget.json` retains the unrounded limits, including both p95 and p99 for both live phases.
+
+| Workload | Direct raw N / JS (us) | Direct ceiling N / JS (us) | Closed-loop raw N / JS (responses/s) | Throughput floor N / JS (responses/s) | Fixed p99 ceiling N / JS (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| text | 0.466 / 1.237 | 2.466 / 3.237 | 22632 / 6852 | 20369 / 6167 | 34.267 / 13.202 |
+| json | 1.021 / 1.524 | 3.021 / 3.524 | 22619 / 7056 | 20357 / 6350 | 32.637 / 1.468 |
+| parameter | 1.304 / 4.828 | 3.304 / 6.828 | 22279 / 6784 | 20051 / 6105 | 40.788 / 16.482 |
+| json-1k | 12.868 / 79.434 | 15.441 / 89.434 | 21225 / 5441 | 19103 / 4897 | 41.230 / 1.581 |
+| hooks-0 | 0.426 / 1.801 | 2.426 / 3.801 | 22168 / 6836 | 19951 / 6153 | 33.702 / 11.926 |
+| hooks-1 | 1.716 / 3.881 | 3.716 / 5.881 | 21474 / 6684 | 19327 / 6016 | 34.730 / 19.951 |
+| hooks-5 | 5.318 / 11.315 | 7.318 / 13.579 | 20253 / 6424 | 18228 / 5782 | 9.867 / 13.890 |
+| hit-10 | 1.715 / 4.885 | 3.715 / 6.885 | 22127 / 6544 | 19914 / 5890 | 2.551 / 1.674 |
+| miss-10 | 1.661 / 3.862 | 3.661 / 5.862 | 22032 / 6838 | 19829 / 6154 | 43.184 / 8.051 |
+| method-10 | 1.477 / 3.374 | 3.477 / 5.374 | 23068 / 7061 | 20761 / 6355 | 38.763 / 1.713 |
+| hit-100 | 1.935 / 5.291 | 3.935 / 7.291 | 22017 / 6646 | 19815 / 5981 | 31.709 / 17.587 |
+| miss-100 | 2.249 / 4.053 | 4.249 / 6.053 | 23048 / 6963 | 20743 / 6267 | 35.218 / 28.185 |
+| method-100 | 2.238 / 3.709 | 4.238 / 5.709 | 23586 / 6835 | 21228 / 6151 | 31.237 / 24.042 |
+| hit-1000 | 2.044 / 8.209 | 4.044 / 10.209 | 23073 / 6558 | 20765 / 5902 | 34.653 / 21.838 |
+| miss-1000 | 1.748 / 5.176 | 3.748 / 7.176 | 22618 / 6071 | 20357 / 5464 | 5.808 / 22.743 |
+| method-1000 | 2.685 / 5.928 | 4.685 / 7.928 | 22368 / 6727 | 20131 / 6054 | 3.014 / 1.801 |
+| echo-64k | 4.198 / 3.980 | 6.198 / 5.980 | 3833 / 976 | 3450 / 878 | 3.095 / 5.165 |
+| echo-4m | 297.880 / 222.687 | 307.880 / 232.687 | 84 / 27 | 75 / 24 | 22.806 / 59.856 |
+
+The limits are engineering policy, not requirements silently added to the human-owned SPEC. This control records CPU and memory but does not establish production admission, cancellation, retained-memory bounds, overload recovery, cross-language framework comparisons, or release readiness. Earlier unaffected ownership, surface, and finite-live checks were not rerun.
+
+Reuse, quality, and efficiency checks ran inline under the no-subagent constraint. The control reuses HTTP serving/framing, Router extraction, and the existing ID/name/JSON operations. An unused forwarding helper was removed. The published Time import matches HTTP to avoid duplicate foreign clock symbols. No separate linter is configured for these experiment files. The retained runner compiles and exercises both lanes. The independent-review skip above still applies.
