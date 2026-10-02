@@ -113,12 +113,58 @@ One existing transport behavior matters: `Http.serve.keep` closes connections fo
 
 The fixture accepts one to four connections, bounds each connection to 64 framing steps, and has fixed owner/worker fuel. Its message channel has eight slots, and its job queue and admission count are bounded by the one or two bundles. It rejects resource exhaustion instead of building a waiting job queue. The bounds make this validation finite; they are not the release admission, timeout, shutdown, or cancellation design.
 
-The `/_capacity`, `/_release`, `x-hold`, and `x-order` controls are test instrumentation, not Camber API proposals. Ordinary application routing and typed principal work still use the existing experiment. Shared database consistency, crashes, stuck-handler cancellation, startup failure cleanup, client-pool semantics, full target/method handling, scoped transforms, and mapper recovery remain unproved. No production HTTP entry point, package version, or human-owned law changed.
+The `/_capacity`, `/_release`, `x-hold`, and `x-order` controls are test instrumentation, not Camber API proposals. Ordinary application routing and typed principal work still use the existing experiment. Shared database consistency, crashes, stuck-handler cancellation, startup failure cleanup, client-pool semantics, and full target/method handling remain unproved. Scoped transforms and mapper recovery are checked separately by the direct surface probe below, not by this live fixture. No production HTTP entry point, package version, or human-owned law changed.
 
 The final live runner build observed 17.806 seconds and 5,254.45 MiB sampled compiler-process RSS for native, and 3.743 seconds and 2,920.83 MiB for JS. A preceding native build sampled 5,537.06 MiB. These are compilation observations, not request costs or total process-tree memory. Builds and server processes run sequentially with host deadlines and a 20 GiB RSS ceiling.
 
 The existing affected-package gate, `scripts/check.sh http`, also exited 0. It ran the entry check, existing proof gate, and HTTP checks. Its expected unsafe/foreign dependency report is accepted by the repository's existing verdict wrapper; this is not a claim that host IO has a formal proof. The gate was monitored with a 180-second deadline and a 20 GiB process-group RSS ceiling.
 
+
+## Direct application-author surface
+
+Run `python3 -B camber/run_surface.py`. All 27 scenarios passed in native and Bun/JS. The final builds took 6.192 seconds and 2.268 seconds, with sampled compiler-process RSS of 3,001.78 MiB and 2,010.14 MiB respectively. The runner reuses the existing host deadline and 20 GiB RSS guard and runs one build or executable at a time.
+
+`surface_app.bend` is the application example. It declares routes, typed before hooks, response transforms, a decoder, a handler, and an error mapper. It owns a File in its application state. It contains no channels, workers, acquisition messages, or HTTP framing code. `surface.bend` supplies provisional typed lifecycle primitives. This is an interface experiment, not a public API or a published package.
+
+### Affine input and typed hook transitions
+
+The input is genuinely affine:
+
+```bend
+type Document is Type:
+  Document{principal: Users.Principal, value: Json.Val}
+```
+
+Authentication establishes `Users.Principal` before body decoding. The generic endpoint accepts `I: Type` and consumes the decoded input once. The decoder accepts exactly one `doc` envelope field, moves its arbitrary JSON value into `Document`, and rejects malformed JSON, missing/wrong/extra envelope fields, and duplicate envelope fields. Bodies and keys stay packed during decoding. The handler consumes the parsed value into a JSON response after one real receipt write.
+
+Observed responses retained the correct Alice/Bob principal, UTF-8 text, and the exact number text `1e+02`. An escaped spelling of `doc` was accepted after JSON decoding. These are not the SPEC's four-route application or strict JSON prerequisites.
+
+### Entered scopes and single-pass mapping
+
+Semantic stage traces, HTTP policy headers, response bodies, and actual journal bytes establish:
+
+- Before hooks run root, group, route. Two group hooks run in declaration order and pass a typed principal between them.
+- Transforms run route, group, root, in reverse declaration order within each scope. The public route's identity entry adapter has no application before hook, but its transform still runs.
+- The public sibling gets no user/document policy. An unknown path gets only root policy.
+- Authentication rejection precedes parsing. A group early response or expected failure skips the route, decoder, and handler but retains group/root transforms. The early response does not invoke the mapper.
+- Decoder rejection has no receipt write. An actual write through a read-only File fails, maps once, and returns a usable handle: the observer reads the original seed through that same handle before closing it.
+- Transform failure stops all remaining transforms, including outer scopes. A previously unmapped failure maps once; failure after mapping produces a fixed empty-body `500` without another mapping.
+- Mapper failure or invalid mapped status produces that same minimal `500`, without recursion or further transforms. Final invalid status maps once, or falls back without a second mapping if the response was already mapped.
+- A successful handler write followed by transform, mapper, or status-validation failure leaves exactly one receipt. Recovery does not replay or undo the handler.
+
+The mapper trace includes the actual error kind, so the checks distinguish decoder, authorization, domain IO, transform, and validation failures. Fault controls and stage traces are fixture instrumentation, not proposed public configuration.
+
+### Ergonomics and limits
+
+Worker plumbing can stay outside application code. The decoder and scoped hook contexts no longer need a blanket `Data` restriction. However, this surface still requires explicit template types/functions, quantity adapters, scope wrappers, an action enum, and an action-to-route match. It proves implementability, not a small final interface or independent-agent usability.
+
+The checker distinguishes `K -> ...` from `@+config: K -> ...` even when `K` is Data. The `.go` adapters keep the callback's affine parameter signature and let its helper reuse copyable configuration or metadata. This avoids rebuilding application records to satisfy the template signature, but adds author-facing boilerplate.
+
+The new dispatcher reuses `Registry.choose` and the existing pairwise router. The earlier live fixture still uses `Registry.invoke`; it does not exercise this new lifecycle. These 27 scenarios are direct-dispatch evidence only. Full header/framing response validation, RFC 9457 defaults, completion notifications, strict JSON depth/surrogate behavior, prepared routing, live integration, cancellation, and production lifecycle remain outside this result. The status-only guard is not the full R5.7 response validator.
+
+Simplification ran inline under the no-subagent constraint. It replaced key-to-String conversion with the existing packed `Bytes.eq` and removed an unused runner input fallback. No separate linter is configured for these experiment files. The retained runner compiles and exercises both lanes; existing unaffected HTTP/live/performance gates were not rerun.
+
+Code review: skipped (ce-code-review unavailable) — its independent-agent workflow cannot run under the user's no-subagent constraint. No independent review is claimed.
 
 ## Performance evidence
 
@@ -164,9 +210,9 @@ The behavioral contract makes sense. Explicit input decoding, typed principal es
 
 The descriptor/template split is one workable interface direction, not the final public interface. It exposes an action enum, a route-description table, and an action-to-handler match. That repeats registration information and could become administrative work in a larger application. Camber should hide worker/channel plumbing. It should not claim ergonomic parity with callback-based frameworks until an application author has exercised its actual public surface.
 
-The original ownership fixture's generic decoder restricts input to `Data`. Do not infer that all valid typed request models are copyable: Bytes, Json.Val, and records containing affine fields are `Type`. The final decoder design must account for those models or state a deliberate restriction. The plain-handler probe establishes an affine raw-body path, not a general affine typed-decoder interface.
+The original ownership fixture's generic decoder restricts input to `Data`. The direct surface probe now accepts a `Type` model containing `Json.Val`, and its generic hook contexts are also `Type`. This removes that assumption from the new candidate without changing the older fixture. It does not freeze the final decoder signature.
 
-General group inheritance, response-transform unwind, completion notifications, single-pass mapper recovery, response validation, strict target parsing, and prepared route registration are not implemented by these probes.
+Scope inheritance, transform unwind, and single-pass mapper recovery now have direct fixture evidence. General group construction, completion notifications, full response validation, strict target parsing, and prepared route registration remain unimplemented by these probes.
 
 ## Will agents be able to use it?
 
@@ -174,13 +220,13 @@ The design has useful properties for agents: inspectable static descriptions, ex
 
 That is a design assessment, not a measured agent-usability result. No subagents or independent application-writing agents were used. These probes were authored and checked in the same session. They do not measure how reliably another agent can add a route, choose quantities, interpret errors, or maintain an application without editing framework internals.
 
-Before release, demonstrate an application change through the intended public interface: add a route with an affine typed input, attach a typed authentication hook, map an expected error, and verify it through direct dispatch. The author should not need the worker protocol or HTTP framing implementation to do that.
+The direct surface example now demonstrates an affine typed route, typed authentication, and expected-error mapping without worker or framing code. Before release, an independent author must exercise the intended public interface rather than these provisional primitives.
 
 ## Next work
 
-1. **Test the intended public application surface.** Hide the now-tested worker protocol, demonstrate affine typed input as well as copyable models, and exercise scoped hooks and error mapping. Independent-agent usability still needs a separate trial when that is permitted.
+1. **Establish the raw HTTP baseline and overhead budget.** Affine typed input, scoped hooks, and error mapping now have direct native/JS evidence. Measure an equivalent raw HTTP baseline and record the budget before measuring this additional lifecycle overhead. Final surface design and independent-agent usability still need validation; no public signature is fixed.
 2. **Review the bundled acquisition contract.** Worker-owned Store/File bundles now demonstrate progress, exhaustion rejection, return on failures, capacity reporting, and orderly close. Decide whether this resource grouping fits real application dependencies; keep pools distinct from checked-out connections. Do not freeze signatures or amend the human-owned spec from this experiment alone.
-3. **Integrate the tested context seam into production transport.** The finite HTTP probe proves the explicit runtime-context mechanism, not a new public serving API. Production lifecycle, admission, write outcomes, and cancellation still need their own evidence. Gate 1 also needs an equivalent raw HTTP baseline and a recorded overhead budget.
+3. **Integrate the tested context seam and lifecycle into production transport.** The finite HTTP probe proves the explicit runtime-context mechanism, not a new public serving API. Connect the separately tested application lifecycle before claiming it works over sockets. Production admission, write outcomes, shutdown, and cancellation still need their own evidence.
 4. **Then implement the prepared router and strict JSON prerequisites.** Preserve the spec's route semantics. Establish actual framework and transport measurements before claiming performance. Runtime cancellation remains an independent release blocker.
 
 Do not broaden the initial feature set. The next work is making the existing ownership and application contract implementable and usable, not adding plugins, schema generators, or streaming.
