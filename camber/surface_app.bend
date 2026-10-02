@@ -6,6 +6,7 @@ import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import ./ownership.bend as Users
 import ./interface_check.bend as Registry
 import ./surface.bend as Surface
+import ./response.bend as Response
 
 type Hook is Data:
   RootAfter{}
@@ -120,8 +121,7 @@ def mapper.config(config: Config, state: State, +error: Err) -> IO(State & Resul
 def mapper(state: State, app: Application, error: Err) -> IO(State & Result<&2, &1, Err, Http.Res>):
   mapper.config(settings(app), state, error)
 
-# This probe validates status only, not the full R5.7 response contract.
-def validate.status(valid: Bool, response: Http.Res) -> Result<&2, &1, Err, Http.Res>:
+def validate.checked(valid: Bool, response: Http.Res) -> Result<&2, &1, Err, Http.Res>:
   match valid:
     case True{}:
       Done{response}
@@ -129,8 +129,8 @@ def validate.status(valid: Bool, response: Http.Res) -> Result<&2, &1, Err, Http
       Fail{InvalidResponse{}}
 
 def validate(response: Http.Res) -> Result<&2, &1, Err, Http.Res>:
-  Http.Res{+status, headers, body} = response
-  validate.status(U32.is_ge(status, 200) && U32.is_le(status, 599), Http.Res{status, headers, body})
+  Http.Res{+status, +headers, body} = response
+  validate.checked(Response.valid(status, headers), Http.Res{status, headers, body})
 
 def hook.name(hook: Hook) -> String:
   match hook:
@@ -177,9 +177,39 @@ def after.fault(fail: Bool, invalid: Bool, state: State, hook: Hook, response: H
     case False{}:
       IO.pure(State & Result<&2, &1, Err, Http.Res>, (state, Done{after.changed(invalid, hook, response)}))
 
+def after.unsafe(kind: U32, response: Http.Res) -> Http.Res:
+  match kind:
+    case 0:
+      Http.Res{status, headers, body} = response
+      Http.Res{status, Http.set(headers, "x-unsafe", "private\r\ninjected: yes"), body}
+    case 1:
+      Http.Res{status, headers, body} = response
+      Http.Res{status, Http.set(headers, "transfer-encoding", "chunked"), body}
+    case _:
+      Http.Res{status, headers, body} = response
+      Http.Res{status, Http.set(headers, "Content-Length", "999"), body}
+
+def after.root(hook: Hook, kind: U32, response: Http.Res) -> Http.Res:
+  match hook:
+    case RootAfter{}:
+      after.unsafe(kind, response)
+    case _:
+      response
+
+def after.inject(fault: String, hook: Hook, response: Http.Res) -> Http.Res:
+  match fault:
+    case "header/root":
+      after.root(hook, 0, response)
+    case "framing/root":
+      after.root(hook, 1, response)
+    case "name/root":
+      after.root(hook, 2, response)
+    case _:
+      response
+
 def after.config(config: Config, +hook: Hook, state: State, response: Http.Res) -> IO(State & Result<&2, &1, Err, Http.Res>):
   Config{root, users, document, public, ping, +fault, mode} = config
-  after.fault(String.eq(fault, hook.name(hook)), String.eq(fault, "invalid/" ++ hook.name(hook)), record(state, Transform{hook}), hook, response)
+  after.fault(String.eq(fault, hook.name(hook)), String.eq(fault, "invalid/" ++ hook.name(hook)), record(state, Transform{hook}), hook, after.inject(fault, hook, response))
 
 def after(hook: Hook, state: State, app: Application, response: Http.Res) -> IO(State & Result<&2, &1, Err, Http.Res>):
   after.config(settings(app), hook, state, response)

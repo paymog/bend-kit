@@ -33,7 +33,7 @@ def cases():
         case("public-sibling", 200, ROOT_ENTER + [["before", 3, 1], ["after", "ping"], ["after", "public"]] + ROOT_EXIT, ("root", "public", "ping"), "public", method="GET", target="/public", token="", input_body="not JSON"),
         case("unknown-path", 404, ROOT_ENTER + [["map", "missing"]] + ROOT_EXIT, ("root",), target="/missing", token=""),
         case("auth-before-decode", 401, AUTH_ENTER + [["map", "unauthorized"]] + GROUP_EXIT + ROOT_EXIT, ("root", "users"), "", token="", input_body="not JSON"),
-        case("group-early", 409, GROUP_ENTER + GROUP_EXIT + ROOT_EXIT, ("root", "users"), control="early", input_body="not JSON"),
+        case("group-early", 409, GROUP_ENTER + GROUP_EXIT + ROOT_EXIT, ("root", "users"), body="closed", control="early", input_body="not JSON"),
         case("group-reject", 403, GROUP_ENTER + [["map", "forbidden"]] + GROUP_EXIT + ROOT_EXIT, ("root", "users"), control="reject", input_body="not JSON"),
     ]
     for name, body in (
@@ -60,6 +60,9 @@ def cases():
         case("validation-before-map", 500, HANDLED + ALL_EXIT + [["map", "invalid-response"]], owner=7, fault="invalid/root"),
         case("validation-after-map", 500, AUTH_ENTER + [["map", "unauthorized"]] + GROUP_EXIT + ROOT_EXIT, body="", token="", fault="invalid/root"),
     ])
+    for fault in ("header/root", "framing/root", "name/root"):
+        rows.append(case("unsafe-" + fault.split("/")[0], 500, HANDLED + ALL_EXIT + [["map", "invalid-response"]], owner=7, body="invalid response", fault=fault))
+        rows.append(case("unsafe-" + fault.split("/")[0] + "-after-map", 500, AUTH_ENTER + [["map", "unauthorized"]] + GROUP_EXIT + ROOT_EXIT, body="", token="", fault=fault))
     return rows
 
 

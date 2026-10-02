@@ -72,12 +72,12 @@ def cpu_seconds(value):
 
 
 class Server:
-    def __init__(self, command, profile, ready):
+    def __init__(self, command, profile, ready, operation="serve"):
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
             self.port = reservation.getsockname()[1]
         self.log = tempfile.TemporaryFile()
-        self.process = subprocess.Popen(command + ["serve", str(profile), str(self.port)], env=ENV,
+        self.process = subprocess.Popen(command + [operation, str(profile), str(self.port)], env=ENV,
                                         stdout=self.log, stderr=self.log, start_new_session=True)
         self.started = time.perf_counter()
         self.peak_kib = 0
@@ -110,7 +110,7 @@ class Server:
         fields = result.stdout.split()
         if fields:
             self.peak_kib = max(self.peak_kib, int(fields[0]))
-            self.cpu = cpu_seconds(fields[1])
+            self.cpu = max(self.cpu, cpu_seconds(fields[1]))
 
     def watch(self):
         try:
@@ -153,6 +153,7 @@ def trial(server, row, duration, concurrency, rate=None):
 
     def worker(index):
         samples = []
+        lateness = []
         with server.peer() as peer:
             # A verified warmup on each connection precedes the measurement barrier.
             exchange(peer, row)
@@ -168,15 +169,17 @@ def trial(server, row, duration, concurrency, rate=None):
                     remaining = scheduled - time.perf_counter()
                     if remaining > 0:
                         time.sleep(remaining)
+                lateness.append(max(0.0, time.perf_counter() - scheduled) * 1000)
                 finished = exchange(peer, row)
                 samples.append((finished - scheduled) * 1000)
                 number += concurrency
-        return samples
+        return samples, lateness
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
         groups = list(pool.map(worker, range(concurrency)))
     finish = time.perf_counter()
-    samples = sorted(value for group in groups for value in group)
+    samples = sorted(value for group, _ in groups for value in group)
+    lateness = sorted(value for _, group in groups for value in group)
     assert samples, row[0]
     server.sample()
     percentile = lambda p: samples[max(0, math.ceil(p * len(samples)) - 1)]
@@ -184,7 +187,9 @@ def trial(server, row, duration, concurrency, rate=None):
             "elapsed_seconds": finish - start, "p50_ms": percentile(.5), "p95_ms": percentile(.95),
             "p99_ms": percentile(.99), "errors": 0, "server_cpu_seconds": server.cpu - cpu_before,
             "client_cpu_seconds": time.process_time() - client_before, "sampled_server_peak_rss_kib": server.peak_kib,
-            "offered_requests_per_second": rate}
+            "offered_requests_per_second": rate,
+            "client_schedule_lateness_p95_ms": lateness[max(0, math.ceil(.95 * len(lateness)) - 1)],
+            "client_schedule_lateness_p99_ms": lateness[max(0, math.ceil(.99 * len(lateness)) - 1)]}
 
 
 def probes(server, profile):

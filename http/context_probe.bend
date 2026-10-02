@@ -1,5 +1,5 @@
 # Finite validation transport with explicit runtime context; not a published server API.
-# ponytail: 64 framing steps per connection; production needs HTTP lifecycle and cancellation.
+# ponytail: 512 framing steps per connection; production needs HTTP lifecycle and cancellation.
 import Base
 import ./http.bend as Http
 import bend-kit-wire@0.4.2.0/wire.bend as Wire
@@ -39,7 +39,7 @@ def accepted(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), context: C, max:
   (listener, got) = result
   do IO<AcceptState>:
     socket : Socket <- IO.pass(Socket, got)
-    finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~handler, 64n, context, max, (socket, Http.TurnMore{Http.sv.none(), False{}})))
+    finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~handler, 512n, context, max, (socket, Http.TurnMore{Http.sv.none(), False{}})))
     return Connected{listener, finished}
 
 def accept.close(state: AcceptState, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):

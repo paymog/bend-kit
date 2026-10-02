@@ -4,9 +4,9 @@ Date: 2026-10-01. These are experiment findings, not guarantees of an implemente
 
 ## Verdict
 
-The application-layer design fits Bend when reusable configuration and route descriptions are `Data`, execution is supplied through closed templates, and affine resources move through request work explicitly. A copied callback registry does not fit that model. A finite live transport probe now passes runtime context explicitly and reaches the same application dispatch in both lanes. The application behavior contract is coherent, but public interface ergonomics and production transport integration remain unproved.
+The application-layer design fits Bend when reusable configuration and route descriptions are `Data`, execution is supplied through closed templates, and affine resources move through request work explicitly. A copied callback registry does not fit that model. The typed/scoped application now runs through finite real-socket transport in both lanes. Its behavior contract is coherent, but public interface ergonomics and production serving remain unproved.
 
-Native small-request dispatch looks promising in this experiment. Repeated matching with the current router does not scale well. No HTTP throughput, production-safety, or release-overhead claim follows from these measurements.
+Native direct overhead passed the frozen allowances in all 18 paired controls. A tighter five-workload recheck passed all native comparison gates, but three Bend-on-Bun direct overhead failures persisted. Routing, strict JSON, and cancellation probes found release blockers. Loopback throughput is measured; production capacity, complete-framework overhead, and release safety are not established.
 
 ## Reproduce
 
@@ -122,7 +122,7 @@ The existing affected-package gate, `scripts/check.sh http`, also exited 0. It r
 
 ## Direct application-author surface
 
-Run `python3 -B camber/run_surface.py`. All 27 scenarios passed in native and Bun/JS. The final builds took 6.192 seconds and 2.268 seconds, with sampled compiler-process RSS of 3,001.78 MiB and 2,010.14 MiB respectively. The runner reuses the existing host deadline and 20 GiB RSS guard and runs one build or executable at a time.
+Run `python3 -B camber/run_surface.py`. All 33 scenarios passed in native and Bend compiled to JS and run on Bun. The latest builds took 8.483 seconds and 2.619 seconds, with sampled compiler-process RSS of 4,270.16 MiB and 2,258.75 MiB respectively. The runner reuses the existing host deadline and 20 GiB RSS guard and runs one build or executable at a time.
 
 `surface_app.bend` is the application example. It declares routes, typed before hooks, response transforms, a decoder, a handler, and an error mapper. It owns a File in its application state. It contains no channels, workers, acquisition messages, or HTTP framing code. `surface.bend` supplies provisional typed lifecycle primitives. This is an interface experiment, not a public API or a published package.
 
@@ -160,7 +160,7 @@ Worker plumbing can stay outside application code. The decoder and scoped hook c
 
 The checker distinguishes `K -> ...` from `@+config: K -> ...` even when `K` is Data. The `.go` adapters keep the callback's affine parameter signature and let its helper reuse copyable configuration or metadata. This avoids rebuilding application records to satisfy the template signature, but adds author-facing boilerplate.
 
-The new dispatcher reuses `Registry.choose` and the existing pairwise router. The earlier live fixture still uses `Registry.invoke`; it does not exercise this new lifecycle. These 27 scenarios are direct-dispatch evidence only. Full header/framing response validation, RFC 9457 defaults, completion notifications, strict JSON depth/surrogate behavior, prepared routing, live integration, cancellation, and production lifecycle remain outside this result. The status-only guard is not the full R5.7 response validator.
+The new dispatcher reuses `Registry.choose` and the existing pairwise router. The first 27-scenario revision was direct-only and validated status only. The later socket and response-safety results below supersede those limitations. RFC 9457 defaults, completion notifications, strict JSON, prepared routing, cancellation, and production lifecycle remain outside the implemented probes.
 
 Simplification ran inline under the no-subagent constraint. It replaced key-to-String conversion with the existing packed `Bytes.eq` and removed an unused runner input fallback. No separate linter is configured for these experiment files. The retained runner compiles and exercises both lanes; existing unaffected HTTP/live/performance gates were not rerun.
 
@@ -212,7 +212,7 @@ The descriptor/template split is one workable interface direction, not the final
 
 The original ownership fixture's generic decoder restricts input to `Data`. The direct surface probe now accepts a `Type` model containing `Json.Val`, and its generic hook contexts are also `Type`. This removes that assumption from the new candidate without changing the older fixture. It does not freeze the final decoder signature.
 
-Scope inheritance, transform unwind, and single-pass mapper recovery now have direct fixture evidence. General group construction, completion notifications, full response validation, strict target parsing, and prepared route registration remain unimplemented by these probes.
+Scope inheritance, transform unwind, single-pass mapper recovery, and final response safety now have direct and finite-socket evidence. General group construction, completion notifications, strict target parsing, and prepared route registration remain unimplemented by these probes.
 
 ## Will agents be able to use it?
 
@@ -224,10 +224,10 @@ The direct surface example now demonstrates an affine typed route, typed authent
 
 ## Next work
 
-1. **Measure Camber against the raw HTTP control.** The raw native/JS measurements and pre-Camber budgets below are recorded. Apply the same workloads to the scoped application lifecycle before claiming its overhead passes. Final surface design and independent-agent usability still need validation; no public signature is fixed.
+1. **Complete the full-application performance comparison.** The raw baseline, minimal paired lifecycle control, and tighter recheck are recorded below. The measured control is not the complete typed/scoped application. Preserve the budgets and address the persistent JS overhead failures before claiming a pass. No public signature is fixed.
 2. **Review the bundled acquisition contract.** Worker-owned Store/File bundles now demonstrate progress, exhaustion rejection, return on failures, capacity reporting, and orderly close. Decide whether this resource grouping fits real application dependencies; keep pools distinct from checked-out connections. Do not freeze signatures or amend the human-owned spec from this experiment alone.
-3. **Integrate the tested context seam and lifecycle into production transport.** The finite HTTP probe proves the explicit runtime-context mechanism, not a new public serving API. Connect the separately tested application lifecycle before claiming it works over sockets. Production admission, write outcomes, shutdown, and cancellation still need their own evidence.
-4. **Then implement the prepared router and strict JSON prerequisites.** Preserve the spec's route semantics. Establish actual framework and transport measurements before claiming performance. Runtime cancellation remains an independent release blocker.
+3. **Integrate the tested context seam and lifecycle into production transport.** The typed/scoped lifecycle now passes finite socket checks. This is not a public serving API. Production admission, observable write outcomes, orderly shutdown under active work, and cancellation still need their own evidence.
+4. **Implement the prepared router and strict JSON prerequisites.** The executable probes below demonstrate current contract gaps. Runtime cancellation is also a confirmed independent release blocker.
 
 Do not broaden the initial feature set. The next work is making the existing ownership and application contract implementable and usable, not adding plugins, schema generators, or streaming.
 
@@ -298,3 +298,106 @@ N means native. Displayed values are rounded; `raw_budget.json` retains the unro
 The limits are engineering policy, not requirements silently added to the human-owned SPEC. This control records CPU and memory but does not establish production admission, cancellation, retained-memory bounds, overload recovery, cross-language framework comparisons, or release readiness. Earlier unaffected ownership, surface, and finite-live checks were not rerun.
 
 Reuse, quality, and efficiency checks ran inline under the no-subagent constraint. The control reuses HTTP serving/framing, Router extraction, and the existing ID/name/JSON operations. An unused forwarding helper was removed. The published Time import matches HTTP to avoid duplicate foreign clock symbols. No separate linter is configured for these experiment files. The retained runner compiles and exercises both lanes. The independent-review skip above still applies.
+
+## Paired lifecycle controls
+
+The initial `lifecycle_results.json` retains all 18 workloads in both lanes, including all budget failures. There were 432 live trials with zero unexpected response or transport errors. Direct trials alternated raw/scoped order. The first live experiment grouped controls by profile, so paired observations could be separated by about a minute.
+
+The control uses the same numeric registrations, raw business work, payload construction, transport, and exact responses. The scoped side adds one scope, an affine body-owning input adapter, recovery machinery, and real zero/one/five before callbacks. It has no response transforms, File state, or stage trace. Its response validator checks status only. JSON business validation stays in the raw work. This isolates a minimal lifecycle cost; it does not price the full typed application or the later header guard.
+
+Direct medians are microseconds per request. All native added costs passed the frozen allowances.
+
+| Workload | Native raw / scoped | Bend-on-Bun raw / scoped |
+| --- | ---: | ---: |
+| text | 0.253 / 0.818 | 1.153 / 2.976 |
+| json | 0.264 / 0.807 | 1.472 / 3.358 |
+| parameter | 1.358 / 1.922 | 4.841 / 7.070 |
+| json-1k | 13.336 / 13.916 | 80.463 / 83.438 |
+| hooks-0 | 0.369 / 1.044 | 1.819 / 4.217 |
+| hooks-1 | 1.356 / 1.935 | 4.144 / 5.846 |
+| hooks-5 | 5.193 / 6.075 | 11.460 / 14.238 |
+| hit-10 | 1.661 / 2.232 | 4.923 / 6.731 |
+| miss-10 | 1.467 / 2.069 | 3.822 / 5.541 |
+| method-10 | 1.510 / 2.064 | 3.356 / 5.069 |
+| hit-100 | 1.722 / 2.275 | 5.313 / 7.241 |
+| miss-100 | 1.510 / 2.079 | 4.205 / 5.950 |
+| method-100 | 1.556 / 2.131 | 3.673 / 5.529 |
+| hit-1000 | 1.954 / 2.494 | 8.296 / 11.096 |
+| miss-1000 | 1.586 / 2.164 | 5.185 / 7.381 |
+| method-1000 | 1.771 / 2.427 | 5.798 / 8.740 |
+| echo-64k | 4.301 / 4.859 | 4.049 / 5.958 |
+| echo-4m | 263.680 / 261.460 | 226.403 / 253.633 |
+
+Initial JS direct failures: parameter, hooks-0, hooks-5, hit-1000, miss-1000, method-1000, and echo-4m. Native live throughput failed for json, parameter, hooks-0, hooks-1, hooks-5, method-10, and echo-64k. JS live throughput failed for echo-4m. Of the 72 percentile comparisons per lane, 33 failed in native and 15 in JS. No threshold was relaxed.
+
+Native scoped parameter throughput fell across trials while server CPU also fell, and later workloads recovered. This does not establish a cause. Client lateness explains much of several fixed-rate tails: native raw text p99 was 30.361 ms with scheduling lateness p99 30.186 ms; native scoped JSON-1k was 18.956/18.769 ms; JS scoped JSON-1k was 16.804/16.074 ms. Completion latency still includes lateness. It is not subtracted, and it does not explain every closed-loop failure.
+
+The paired builds took 33.287 seconds native and 12.555 seconds JS, with sampled compiler RSS 7,457,392 KiB and 6,212,448 KiB. Direct warmup is 100 iterations, not the historical raw run's ten. Artifacts and every trial remain described in the JSON.
+
+### Tighter recheck
+
+The current runner pairs each workload/trial closely, alternates AB/BA order, and starts only one server at a time. Absolute offered rates and budgets stay frozen. This recheck targets the original live swings and large-body outlier; it is not a new all-18 pass.
+
+```sh
+python3 -B camber/run_lifecycle.py --output camber/lifecycle_recheck.json \
+  --workload text --workload parameter --workload hooks-0 \
+  --workload hooks-5 --workload echo-4m
+```
+
+All 120 live trials passed exact responses without unexpected errors. All five native direct, throughput, and percentile gates passed. All five JS throughput gates passed, but parameter, hooks-0, and hooks-5 failed direct added-cost allowances; hooks-0 also failed closed-loop p99.
+
+| Workload | Native added cost (us) | Native throughput ratio | JS added cost (us) | JS throughput ratio |
+| --- | ---: | ---: | ---: | ---: |
+| text | 0.583 | 0.987 | 1.729 | 0.969 |
+| parameter | 0.689 | 1.024 | 2.034 | 0.983 |
+| hooks-0 | 0.669 | 0.969 | 2.294 | 0.937 |
+| hooks-5 | 0.840 | 0.972 | 2.822 | 1.157 |
+| echo-4m | -7.400 | 1.003 | -4.479 | 0.997 |
+
+Negative added costs are measurement variation, not a claimed lifecycle speedup. The 4 MiB JS direct failure did not reproduce; three small-workload failures did. Better pairing substantially changed the live results, so the first profile-blocked run is not defensible as an isolated framework regression. Both datasets are retained. Host/generator limits, short trials, and low large-body sample counts still apply. These are native Bend versus Bend compiled to JS on Bun, not a comparison with `Bun.serve`.
+
+## Scoped application over sockets and final response safety
+
+Run `python3 -B camber/run_surface_live.py`. Both lanes passed all 33 direct scenario contracts through actual HTTP framing, plus four focused scenarios. Exact statuses, bodies, policy/auth headers, chronological stages, actual journal bytes, returned-handle readback, listener close, and natural process exit are checked.
+
+- A same-worker sequence rejects an unauthenticated malformed request, accepts Alice, serves the public sibling, then accepts Bob. Receipts contain owners 7 and 8 exactly once; policy and principal state do not carry into the next request.
+- Alice's successful request is deliberately held after its journal write. Bob's malformed request is submitted through a second connection while that write is observable. Alice returns 201, Bob returns 400, and only Alice has a receipt. The single worker returns its affine state.
+- After an actual receipt is observable, the client resets the connection before a held response is released. The handler is not replayed, the receipt remains exactly once, the worker returns its handle, and the process exits naturally. The fixture does not expose the response-write outcome, so no observed write-failure notification or cancellation guarantee is claimed.
+- An author-owned plain handler echoes every octet, including NUL and invalid UTF-8, at 64 KiB and 4 MiB. A wrong method returns 405 with `Allow: POST`. No receipt is written.
+
+The initial 64-step finite connection probe could not carry a 4 MiB request plus headers: each read accepts at most 65,536 bytes, so 64 reads exhaust fuel before dispatch. This produced a connection reset. The finite probe now allows 512 framing steps; both binary sizes pass in both lanes. It still has a known finite horizon and is not production admission or cancellation policy.
+
+The socket fixture builds took 14.280 seconds native and 2.824 seconds JS, with sampled compiler RSS 4,752,336 KiB and 2,547,952 KiB. Per-scenario sampled RSS and wall times are retained in `surface_live_results.json`; very short runs can evade RSS sampling.
+
+### Confirmed guard defect and regression
+
+The old application validator accepted an unsafe framing header. `response_check.bend` failed before the fix with `unsafe header accepted`. The shared application callback now uses `response.bend` to check status 200–599, nonempty lowercase token names, safe octet values, and framing/connection ownership before handing a response to transport.
+
+It rejects CRLF injection, NUL/other controls, DEL, non-octet code points, uppercase/non-token names, and `content-length`, `transfer-encoding`, `keep-alive`, `upgrade`, `te`, `trailer`, and `proxy-connection`. `connection` values must be exactly `close`. HTAB, token punctuation, obs-text, repeated ordered cookies, and the original packed body are preserved. The checker passed natively and on Bun.
+
+Six added application scenarios inject unsafe values, framing, or names in a root transform, before or after an earlier error mapping. Direct and socket checks confirm one mapper at most, a safe 500 result, no unsafe wire headers, and no replay of a completed journal write. Header checking walks the existing Map tree without building an intermediate field list.
+
+### Authoring assessment
+
+`author_app.bend` adds a plain `Http.Req -> IO(Http.Res)` handler inside existing root/public policies without changing `surface.bend`. This is a same-author exercise, not independent usability evidence. Its small handler still needs explicit template arguments, quantity adapters, scope wrappers, metadata reconstruction, and an application dispatch adapter. The hardcoded route branch is not prepared registration. Reusing the lifecycle works; the intended small public authoring surface is not yet demonstrated.
+
+## Executed prerequisite and cancellation blockers
+
+`prerequisites.bend` prints observations rather than pinning current defects as desired behavior. Build it in either lane and pass an owned temporary journal path. `prerequisite_results.json` retains both outputs and timing/memory observations.
+
+| Proposed contract | Native and Bend-on-Bun observation |
+| --- | --- |
+| Preserve double/trailing slash distinctions | `/users//7` and `/users/7/` match collapsed paths |
+| Static precedence independent of registration order | Parameter-first registry selects the parameter; static-first selects the static route |
+| Reject an unpaired surrogate during parsing | A lone high-surrogate escape is accepted |
+| Reject duplicate keys in nested objects | `{"outer":{"id":1,"id":2}}` is accepted |
+| Default depth 64 enforced during parsing | A depth-65 array is accepted |
+| Deadline cancels pending work | Deadline returns, then the delayed action writes `late` and closes its File |
+
+With a nominal 10 ms timeout, the deadline observation was at 13.850 ms native and 21.913 ms JS; the actual late side effect was at 256.286 ms and 256.930 ms. The journal contains `late` followed by LF after process exit. Timing is measured, not an exact-deadline guarantee. This is the documented behavior of `Conc.timeout`, not a compiler bug or genuine cancellation.
+
+Prepared routing belongs in `router`; strict surrogate, nested-duplicate, and configurable depth rejection belong in `json`; real cancellation needs runtime support. These are release blockers, not hidden adapters or requirements removed from SPEC. This validation does not implement those prerequisites or claim the full SPEC is satisfied.
+
+The final inline reuse/quality/efficiency pass removed unused imports, reused existing socket/effect/scope helpers, and kept body ownership unchanged. The affected direct and socket surfaces and response checker were exercised in both lanes. Unaffected ownership and older finite-live suites were not rerun. No independent review, publication, production deployment, or PR watcher was performed.
+
+The affected HTTP gate was run sequentially with the RSS/deadline guard: `http/http.bend --check-only`, `http/PROOF.bend --check-only`, then `http/check.bend`. Entry/proof checks produced the existing accepted foreign/unsafe dependency report, with no `LAWS` failure; the HTTP runtime checks exited 0. This is the same verdict policy as `scripts/check.sh http`, not a proof of foreign IO.
