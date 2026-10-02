@@ -8,6 +8,16 @@ The application-layer design fits Bend when reusable configuration and route des
 
 Native direct overhead passed the frozen allowances in all 18 paired controls. A tighter five-workload recheck passed all native comparison gates, but three Bend-on-Bun direct overhead failures persisted. Routing, strict JSON, and cancellation probes found release blockers. Loopback throughput is measured; production capacity, complete-framework overhead, and release safety are not established.
 
+## External framework performance comparison
+
+The [benchmark report](bench/README.md) and [all retained samples](bench/frameworks/results.json) compare native Bend raw/scoped controls with Hyper/axum, Node HTTP/Fastify, and plain ASGI/FastAPI on Uvicorn. All eight variants passed 19 workloads with three closed-loop and three corrected fixed-rate trials each: 912 measured trials, with no transport errors or unexpected statuses and exact aggregate response bytes.
+
+Bend scoped fixed text measured about 24k requests/s, versus axum 107k, Fastify 80k, and FastAPI 22k. The scoped/raw throughput ratio is 0.93–1.19 across the corpus. Four-MiB echoes expose a larger gap: Bend scoped about 75/s versus axum 1,041/s, Fastify 692/s, and FastAPI 806/s. At the common 37/s rate, Bend scoped corrected p99 is about 110 ms versus 11–13 ms for the other controls.
+
+These are exploratory loopback observations, not production capacity or complete Camber overhead. Generator scaling changes Hyper throughput materially, and longer focused measurements retain large swings. Client CPU and scheduling still matter; no non-limiting generator claim is made. Fastify beats the simple Node adapter in most cells, while FastAPI loses throughput at 1,000 literal routes. Neither difference isolates pure framework overhead. The report records feature and routing differences, CPU/RSS definitions, all trial data, and unstable tails.
+
+The next performance investigation should profile native HTTP transport/body work. This comparison does not resolve routing, strict JSON, cancellation, or application release blockers. SPEC and human-owned laws remain unchanged.
+
 ## Reproduce
 
 ```sh
