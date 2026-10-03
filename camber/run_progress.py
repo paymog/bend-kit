@@ -14,7 +14,7 @@ from run_live import Peer
 from run_risks import event_time, observe
 
 
-def interact(port):
+def interact(port, body, status, response, first_ready, ordinary_delay):
     def run(process, wait_for):
         partial = ordinary = cpu = None
         details = {}
@@ -22,20 +22,24 @@ def interact(port):
             wait_for("READY")
             partial = socket.create_connection(("127.0.0.1", port), timeout=5)
             partial.sendall(b"GET /partial HTTP/1.1\r\n")
-            armed = wait_for("DEADLINE_ARMED")
+            armed = wait_for(first_ready)
             cpu = Peer(port)
-            cpu.send("GET", "/cpu", token="", close=True)
+            body_sent = time.monotonic()
+            cpu.send("POST" if body else "GET", "/cpu", body=body, token="", close=True)
             wait_for("CPU_ARMED")
+            details["host_body_send_to_work_armed_seconds"] = time.monotonic() - body_sent
             ordinary = Peer(port)
             beginning = wait_for("CPU_BEGIN")
             anchor = time.monotonic()
-            details.update(deadline_armed_event_seconds=armed["seconds"], cpu_begin_event_seconds=beginning["seconds"])
+            details.update(first_ready_prefix=first_ready, first_ready_event_seconds=armed["seconds"],
+                           cpu_begin_event_seconds=beginning["seconds"])
 
             def request():
-                time.sleep(.025)
+                time.sleep(ordinary_delay)
                 sent = time.monotonic()
                 ordinary.send("GET", "/ordinary", token="")
                 ordinary.response(200, b"ok")
+                details["ordinary_response_exact"] = True
                 received = time.monotonic()
                 return {"ordinary_sent_after_cpu_seen_seconds": sent - anchor,
                         "ordinary_response_after_cpu_seen_seconds": received - anchor,
@@ -56,7 +60,8 @@ def interact(port):
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
                 ordinary_result = pool.submit(request)
                 deadline_result = pool.submit(expired)
-                cpu.response(200, b"cpu")
+                cpu.response(status, response)
+                details["workload_response_exact"] = True
                 details["cpu_response_after_cpu_seen_seconds"] = time.monotonic() - anchor
                 details.update(ordinary_result.result(timeout=6))
                 details.update(deadline_result.result(timeout=6))
@@ -116,7 +121,8 @@ def main():
                         with socket.socket() as reservation:
                             reservation.bind(("127.0.0.1", 0))
                             port = reservation.getsockname()[1]
-                        record = observe(command + [mode, str(count), str(port)], temp / "unused", interact(port))
+                        record = observe(command + [mode, str(count), str(port)], temp / "unused",
+                                         interact(port, b"", 200, b"cpu", "DEADLINE_ARMED", .025))
                         record.update(mode=mode, iterations=count, trial=trial)
                         classify(record)
                         lane["cases"].append(record)

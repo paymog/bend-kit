@@ -217,6 +217,8 @@ The actionable direction is to profile native HTTP transport/body work before ad
 
 A separate [progress-under-load probe](../FINDINGS.md#progress-under-cpu-load) now shows ordinary-request and client-visible socket-close delays during serial pure CPU work in native single/default-thread and JS configurations. Those 21 observations are not part of this throughput dataset, and do not change its budgets or samples. They motivate measuring worst-case permitted parsing and handler work before claiming responsive production serving.
 
+The [bounded real-JSON follow-on](../FINDINGS.md#progress-during-real-json-parsing-and-validation) retains 126 corrected observations, plus both earlier timing-limited runs and two original-helper smokes. A 1 MiB dense numeric array yields median ordinary latency of 26–29 ms native and 558 ms JS; JS's timed socket closes about 610 ms after its 200 ms read was armed. Native marker buffering was corrected before using its timing. These are fresh-process progress observations, not sustained throughput, a full decoder, or revised acceptance budgets.
+
 ## Validation and review
 
 Actual servers passed the matched pre/post socket checks and the load accounting gates. The runner's cleaned CLI was exercised after removal of two unused imports. Reuse, quality, and efficiency checks ran inline under the user's no-subagent constraint: existing Bend workloads/server guards are reused and each language shares its business work between controls. No new permanent tests or production package changes were needed for these experiment fixtures.

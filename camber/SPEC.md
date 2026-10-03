@@ -211,6 +211,8 @@ Use warmup, repeated trials, documented versions and commands, and both saturati
 
 Measure ordinary-request progress beside yielding work and CPU-heavy work, including worst-case permitted parsing and validation. Record ordinary latency, actual client-visible IO timeout behavior, and recovery after compute completion. Compare native single-thread, native default CPU-thread configuration, and JS separately. A bounded request count or an IO timeout does not establish scheduler isolation; do not infer responsiveness from the ability of an external supervisor to terminate the process.
 
+Record internal monotonic work time separately from client latency and host receipt of buffered logs. Show that a progress request overlaps the work rather than starting after the work finished. Exercise bounded inputs at admitted concurrency as well as one at a time; a body/depth limit alone does not establish an aggregate CPU or memory bound.
+
 No absolute throughput promise is made. Published hello-world rankings are not evidence that Camber meets this contract.
 
 ## Dependencies and proof boundary

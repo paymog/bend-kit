@@ -21,7 +21,9 @@ Live serving targets a dedicated supervised process. Runtime cancellation and em
 
 `python3 -B camber/run_progress.py` completed 21 observations. [FINDINGS.md](FINDINGS.md#progress-under-cpu-load) and [progress_results.json](progress_results.json) retain the evidence. Yielding controls keep ordinary requests responsive; serial pure work delays them until compute finishes in native single/default-thread and JS configurations. A 200 ms Wire read timeout is followed by socket closure after about 541–543 ms native and 875 ms JS during CPU work. This is not an absolute HTTP phase-deadline test.
 
-The next investigation is worst-case permitted parsing and real handler work. Bounded compute chunks with explicit yielding, nonblocking native effects, and separate execution are candidates to measure, not implemented fixes. More CPU threads did not solve the tested serial-work case.
+The [real JSON follow-on](FINDINGS.md#progress-during-real-json-parsing-and-validation) adds 126 corrected observations within a 1 MiB body cap and depth-64 corpus. A dense 1 MiB numeric array delays ordinary requests about 26–29 ms native and 558 ms JS; the JS timed socket closes after about 610 ms despite its 200 ms read setting. Oversized-name validation also pays for a full UTF-8-to-String conversion before rejecting its 100-code-point bound. Native buffered-log timing was corrected with a pre-work flush/yield checkpoint and an internal monotonic clock; both earlier runs remain retained.
+
+Next measure aggregate/burst work, shared body transport, and response encoding. Check whether a bounded name-validation scan can avoid needless linked-text construction without changing Unicode or rejection semantics. Bounded compute chunks, nonblocking native effects, and separate execution remain candidates, not implemented fixes. More CPU threads do not solve the tested serial-work cases.
 
 
 ## Deliberately not chosen
@@ -34,4 +36,4 @@ The next investigation is worst-case permitted parsing and real handler work. Bo
 
 ## Remaining uncertainty
 
-The design has no confirmed existential incompatibility under dedicated-process scope. The synthetic CPU probe now establishes a shared event-loop progress risk, not its severity for normal application inputs. Transport correctness, strict JSON, and complete-application overhead still need evidence. A supervisor can terminate a stalled instance; it does not keep that instance responsive or roll back remote side effects.
+The design has no confirmed existential incompatibility under dedicated-process scope. Bounded real JSON work now shows a material progress cost, especially in JS; native measurements also do not establish burst or production capacity. Transport correctness, strict JSON, and complete-application overhead still need evidence. A supervisor can terminate a stalled instance; it does not keep that instance responsive or roll back remote side effects.

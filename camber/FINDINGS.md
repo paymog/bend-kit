@@ -115,7 +115,44 @@ This is shared event-loop head-of-line blocking, consistent with `bend guide`: e
 
 The timed read reports actual error 60, `Operation timed out`, in every case. We observe error delivery and explicit socket closure, not the instant the host timeout expires internally. The partial peer confirms client-visible closure, whose timestamp is retained separately. This does not test an absolute HTTP header deadline or a `408` response; those production controls remain missing. It shows that a configured IO timeout does not by itself bound the subsequent same-runtime reaction while pure work occupies the event loop.
 
-Dedicated-process supervision still supplies a termination fallback, not responsiveness. Next, profile worst-case permitted parsing and application work. Consider bounded compute chunks with explicit yielding, measured nonblocking native effects, or separate execution for justified heavy work. None of these mitigations was implemented or validated here. Preserve admission accounting while work remains active, and do not assume more CPU threads or worker channels solve the observed scheduling behavior.
+Dedicated-process supervision still supplies a termination fallback, not responsiveness. The bounded JSON investigation below measures real parsing and application validation. Consider bounded compute chunks with explicit yielding, measured nonblocking native effects, or separate execution for justified heavy work. None of these mitigations was implemented or validated here. Preserve admission accounting while work remains active, and do not assume more CPU threads or worker channels solve the observed scheduling behavior.
+
+#### Progress during real JSON parsing and validation
+
+Run `python3 -B camber/run_json_progress.py`. [json_progress_results.json](json_progress_results.json) retains 126 corrected observations: 14 workloads, three trials each, in native single/default CPU-thread and Bun/JS configurations. Every process starts fresh. Both native configurations reuse one compiled binary. The fixture consumes actual HTTP bodies through the existing packed transport, then calls the existing `Json.parse.bytes` or `Users.name`. It does not implement another parser or model validator.
+
+Inputs include a valid 1 KiB name request, exactly 100 Unicode code points, 64 KiB and 1 MiB strings, dense numeric arrays, objects with unique keys, escaped strings, a depth-64 document, oversized names that the application must reject, and malformed JSON with its invalid byte at the end of a 1 MiB body. All bodies fit the proposed 1 MiB cap. This is an adverse bounded corpus, not an exhaustive worst-case proof.
+
+Selected medians in milliseconds. Each cell is **work / ordinary-request latency**:
+
+| Workload | Native, one CPU thread | Native, default CPU threads | Bun/JS |
+| --- | ---: | ---: | ---: |
+| Valid 1 KiB name | 0.049 / 0.228 | 0.048 / 0.542 | 2.519 / 7.896 |
+| 1 MiB JSON string | 0.862 / 1.070 | 1.531 / 2.187 | 100.773 / 110.868 |
+| 1 MiB dense numeric array | 25.780 / 26.421 | 28.241 / 28.904 | 548.401 / 558.264 |
+| 1 MiB object with unique keys | 9.038 / 9.394 | 10.203 / 10.349 | 175.340 / 179.955 |
+| 1 MiB oversized name, rejected | 23.684 / 24.337 | 25.313 / 25.920 | 218.041 / 231.221 |
+| Small depth-64 document | 0.074 / 0.810 | 0.065 / 0.287 | 1.782 / 4.905 |
+
+The same actual 200 ms Wire read runs beside the work. It starts after the body is fully framed, so upload/framing cannot consume its budget before parsing starts. A 50 ms release delay lets the timed read arm first. Ordinary requests are sent 1 ms after the host sees CPU_BEGIN.
+
+| Workload | Native single: read arm to close | Native default: read arm to close | Bun/JS: read arm to close |
+| --- | ---: | ---: | ---: |
+| 1 MiB dense numeric array | 203.256 ms | 205.291 ms | 610.299 ms |
+| 1 MiB object with unique keys | 205.393 ms | 202.903 ms | 231.625 ms |
+| 1 MiB oversized name | 203.965 ms | 203.076 ms | 284.202 ms |
+
+All 126 corrected cases return the exact expected workload, ordinary, and recovery responses. Oversized names and malformed JSON return `400`; accepted inputs return `200`. Every actual timed read reports the host's `ETIMEDOUT` (60 here), the partial peer sees EOF, and the process exits naturally with status 0. The largest sampled runtime RSS is 37.563 MiB native single, 37.688 MiB native default, and 329.922 MiB JS. Sampling is not a kernel peak. Maximum observed recovery latency is 4.237, 1.874, and 31.234 ms respectively.
+
+**Timing correction:** native stdout is buffered. The [native flush helper](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L5573-L5583) is called [before the IO loop waits](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L5806-L5816). The host can receive CPU_BEGIN and CPU_END together after a short computation. The first hypothesis of early pure evaluation was not confirmed; adding a body channel alone did not fix marker delivery. [The initial run](json_progress_initial_results.json) and [body-channel-only run](json_progress_channel_results.json) retain all 252 earlier observations with that limitation. Their native marker deltas and scheduled overlap are not used for the corrected conclusions.
+
+The retained fixture now pauses 1 ms immediately after CPU_BEGIN, before any parsing, so native stdout can flush while all work is parked. It receives the affine body from a one-shot channel after the internal start clock. `Time.mono` measures work until the result is constructed, independently of host log arrival. Work includes that body transfer, parsing or name validation, value disposal, and the tiny response construction; it excludes the pre-work pause and network response write. No yielding is added inside the parser. Host marker durations remain in the data but are not the work-time column above. Two additional native/JS small-input smokes confirm the original synthetic fixture still works through the extended shared interaction helper. The final errno assertion was also checked against all retained corrected observations without repeating the runtime suite.
+
+**Interpretation:** a single default-limit request can delay an ordinary request about 26–29 ms natively and over half a second in JS for this dense array. Native default CPU threads do not remove serial parse work. Native cases in this corpus finish before the 200 ms read budget; JS dense arrays exceed it. The oversized-name path also converts the entire decoded byte string and walks its length before rejecting the 100-code-point bound (`Users.name.value`). That is a measured optimization candidate, not a changed validation policy.
+
+This is not a full Camber decoder, strict-JSON conformance, sustained/burst capacity, or a production deadline gate. In-parse depth enforcement, unpaired-surrogate rejection, and nested repeated-key validation remain required. Small controls can finish before an ordinary request arrives; their rows are baselines, not concurrent-progress guarantees. Exact public output contents, storage effects, and response encoding of a large tree are not measured by the parse-only route. The raw read observes result delivery, explicit closure, and peer EOF, not internal expiry or an absolute HTTP phase deadline.
+
+The native result permits continued design validation; it does not justify calling the scheduling risk harmless. Keep the unfavorable JS result. Next measure aggregate/burst work and shared transport/body costs before selecting limits or an execution strategy. Do not infer production capacity from three fresh-process trials.
 
 
 
@@ -372,7 +409,7 @@ The direct surface example now demonstrates an affine typed route, typed authent
 1. **Integrate the dedicated-process lifecycle.** Preserve cooperative drain and explicit cleanup through shared transport controls. Document an external supervisor that enforces grace and forced termination even if Bend stops making progress, and verify actual process exit. Do not reintroduce embedded isolation or require runtime cancellation.
 2. **Prove resource and transport lifecycle recovery.** Preserve resource-bearing replies until explicit cleanup. Exercise startup failure, bounded admission, write outcomes, idle/active connection teardown, and grace completion through shared `http`/`wire` controls. Keep worker-owned bundles distinct from checked-out connections and pools.
 3. **Validate agent-oriented authoring.** Preserve explicit types, quantities, and state return. Remove duplicate route decisions and caller-owned lifecycle protocols, not useful annotations. Exercise the actual interface with an independent author when allowed, judging correctness and overhead rather than line count. General group construction and typed query access remain open; no signature is frozen.
-4. **Measure complete-application costs and worst-case progress.** The new CPU probe confirms shared event-loop blocking in native single/default-thread and JS configurations. Profile permitted body parsing and application work; evaluate yielding or offload only against measured costs. Preserve the raw controls, failed JS allowances, and external samples. Revalidate the final interface and prepared routing rather than treating historical minimal controls as a complete Camber gate.
+4. **Measure complete-application costs and worst-case progress.** Synthetic work and the bounded JSON corpus establish shared event-loop blocking. A default-limit dense JSON array delays ordinary requests about 26–29 ms native and 558 ms JS in the corrected medians. Measure aggregate/burst work, response encoding, and shared body transport; evaluate yielding or offload only against measured costs. Preserve raw controls, failed JS allowances, and external samples. Revalidate the final interface and prepared routing rather than treating historical minimal controls as a complete Camber gate.
 
 The prepared router still needs merge and CI publication. Strict JSON remains an independent release prerequisite. Neither removes the measured progress risk or the missing resource/transport lifecycle controls.
 
