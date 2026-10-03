@@ -213,7 +213,7 @@ All 912 main trials passed status/error/aggregate-byte validation. The 152 calib
 - Raw Hyper hit-1000 has original trial rates 13.5k, 42.5k, and 124.5k/s; scoped Bend text has a 9.2k/s trial versus two near 24k/s. Low CPU in several slow trials is consistent with scheduling gaps [INFERENCE], but no profiler proves their cause. Do not interpret the 2.84 axum/Hyper ratio for that cell as an isolated routing win.
 - Calibration contains similarly low plain-ASGI trials; the common rates remain frozen from those observations, not retuned to flattering later medians. Corrected latency includes client scheduling and initial connections. Tail rankings across ordinary cells are unstable; the tables preserve them rather than claiming a winner.
 
-The actionable direction is to profile native HTTP transport/body work before adding framework machinery. The existing routing, strict JSON, and cancellation release blockers remain open; this comparison fixes none of them.
+The actionable direction is to profile native HTTP transport/body work before adding framework machinery. This comparison fixes none of the original routing, strict JSON, or cancellation findings. Later prepared routing addresses the routing gaps; the user-approved dedicated-process contract removes runtime cancellation as a release dependency, not the strict JSON or production transport requirements.
 
 ## Validation and review
 

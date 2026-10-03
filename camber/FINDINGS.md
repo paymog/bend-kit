@@ -1,12 +1,12 @@
 # Camber design validation
 
-Date: 2026-10-02. These are experiment findings, not guarantees of an implemented or published Camber package. The proposed local `camber/SPEC.md` is unchanged and excluded from the PR. The experiment is tracked in [PR #315](https://github.com/paymog/bend-kit/pull/315).
+Date: 2026-10-02. These are experiment findings, not guarantees of an implemented or published Camber package. The user-approved [SPEC](SPEC.md) now targets a dedicated supervised server process and is included in [PR #315](https://github.com/paymog/bend-kit/pull/315).
 
 ## Verdict
 
 The application-layer design fits Bend when reusable configuration and route descriptions are `Data`, execution is supplied through closed templates, and affine resources move through request work explicitly. A copied callback registry does not fit that model. The typed/scoped application now runs through finite real-socket transport in both lanes. Its behavior contract is coherent, but public interface ergonomics and production serving remain unproved.
 
-Native direct overhead passed the frozen allowances in all 18 paired controls. A tighter five-workload recheck passed all native comparison gates, but three Bend-on-Bun direct overhead failures persisted. Historical routing, strict JSON, and cancellation probes found release blockers. The shared prepared router now corrects the routing gaps below; JSON and cancellation remain unresolved. Loopback throughput is measured; production capacity, complete-framework overhead, and release safety are not established.
+Native direct overhead passed the frozen allowances in all 18 paired controls. A tighter five-workload recheck passed all native comparison gates, but three Bend-on-Bun direct overhead failures persisted. Historical routing, strict JSON, and cancellation probes found blockers under the earlier contract. Prepared routing now corrects the routing gaps below; strict JSON remains unresolved. The user removed runtime cancellation and embedded lifecycle isolation from the release contract, not from the recorded observations. Loopback throughput is measured; production capacity, complete-framework overhead, and release safety are not established.
 
 ## Design risks, in priority order
 
@@ -14,14 +14,14 @@ The lifecycle experiments ran sequentially in native and Bun/JavaScript lanes wi
 
 | Priority | Risk | Assessment |
 | --- | --- | --- |
-| 1 | Cancellation and containment | Cooperative stop works; bounded interruption and server-owned cancellation remain blocked |
+| 1 | Dedicated-process lifecycle | External termination works in the probes; integrated graceful drain and supervisor deployment remain unproved |
 | 2 | Resource recovery and transport lifecycle | Affine ownership does not establish descriptor cleanup or socket teardown |
 | 3 | Composition and authoring | Typed/scoped mechanisms work; the small final authoring interface remains unproved |
 | 4 | Performance | Large-body transport risk and JS overhead failures remain; complete-framework costs are unknown |
 
 ### 1. Cancellation and containment
 
-The candidate forced operation is Base `IO.die(Unit, 1, ...)`, invoked by spawned work after a 100 ms timer. It halts the whole program, not just server-owned work. With a sleeping worker, the halt marker arrived after 101 ms native and 113 ms JS. Neither worker explicitly closed its File, and unrelated work scheduled to write after 500 ms did not complete. This is not the embedded shutdown required by R7.4. Runtime-crash containment is not promised by R6.8.
+The candidate forced operation is Base `IO.die(Unit, 1, ...)`, invoked by spawned work after a 100 ms timer. It halts the whole program, not just server-owned work. With a sleeping worker, the halt marker arrived after 101 ms native and 113 ms JS. Neither worker explicitly closed its File, and unrelated work scheduled to write after 500 ms did not complete. This failed the earlier embedded-shutdown requirement, which the user has now removed. Runtime-crash containment is not promised by R6.8.
 
 Pure CPU work was calibrated to at least 300 ms before testing its interaction with that timer:
 
@@ -53,7 +53,9 @@ Run `python3 -B camber/run_supervision.py`. It reuses the retained CPU iteration
 
 The CPU worker has not emitted its end marker when killed. Both journals retain only `committed`; the later write does not occur. The idle peer observes closure after termination. No explicit File-close marker appears. The surviving unrelated work is an actual Python-parent task, not a computation embedded in the terminated Bend process. Recorded overall wall time includes waiting for that parent work; signal-to-reap time measures child termination.
 
-This proves an external termination boundary for these dedicated-process workloads, not real-time OS scheduling, graceful drain, restart safety, descendant cleanup, or an implemented Bend supervisor. It cannot substitute for same-process server-owned shutdown or affine-resource recovery in the unchanged SPEC. Preserving that embedded requirement needs runtime changes or a different execution boundary; dedicated-process-only scope requires the user's explicit approval.
+This proves an external termination boundary for these dedicated-process workloads, not real-time OS scheduling, graceful drain, restart safety, descendant cleanup, or an implemented Bend supervisor. On 2026-10-02 the user explicitly chose dedicated-process serving and dropped embedded lifecycle isolation and preemptive handler cancellation. R7.4/R7.5 now permit an external supervisor to terminate the whole server process after grace expires. These probes support that fallback boundary, but do not establish the full serving contract or its default shutdown budgets.
+
+The deployment must document its external supervisor, shutdown trigger, grace period, forced-termination action, and observed process exit. Cooperative work still returns its affine instances for explicit cleanup. Forced termination may skip cleanup, flushes, and completion notifications; remote side effects may outlive the process. Timeouts and disconnects do not release a dependency still held by running work. Direct dispatch remains supported without promising an independently stoppable embedded server.
 
 
 ### 2. Affine-resource recovery and transport lifecycle
@@ -82,7 +84,7 @@ The larger admission fixture deliberately calls the existing start helper with 1
 
 The write probe uses the same `Http.reply.bytes` and `Http.io.send.bytes` writer as `Http.talk.send`, observes its actual result, then passes that result through the existing `Http.talk.after` with non-keepalive policy. It adds only observation between writer and transition. Both success and real reset failure yield `TurnClose`, so the information is lost at that transition, not guessed from client disconnect. No completion-notification API was supplied or exercised. T5 must preserve the result before R6.7 can report it honestly.
 
-The user chose to keep cancellation blocked and the SPEC intact while validating these transport gates. These observations do not resolve cancellation, startup rollback, production connection/buffer limits, write-outcome reporting, or notifications. Previous failure datasets and performance budgets remain unchanged.
+The user initially kept cancellation blocked while these transport gates ran, then explicitly relaxed the contract to dedicated supervised serving. The raw observations remain unchanged. Runtime cancellation is no longer a release prerequisite; startup rollback, production connection/buffer limits, write-outcome reporting, notifications, and integrated graceful shutdown remain outstanding. Previous failure datasets and performance budgets remain unchanged.
 
 
 ### 3. Application composition and authoring
@@ -104,7 +106,7 @@ Bend scoped fixed text measured about 24k requests/s, versus axum 107k, Fastify 
 
 These are exploratory loopback observations, not production capacity or complete Camber overhead. Generator scaling changes Hyper throughput materially, and longer focused measurements retain large swings. Client CPU and scheduling still matter; no non-limiting generator claim is made. Fastify beats the simple Node adapter in most cells, while FastAPI loses throughput at 1,000 literal routes. Neither difference isolates pure framework overhead. The report records feature and routing differences, CPU/RSS definitions, all trial data, and unstable tails.
 
-The next performance investigation should profile native HTTP transport/body work. The comparison predates the prepared-router cutover; its measured source revision is `f441c13`, and its datasets remain unchanged. It does not resolve strict JSON, cancellation, or application release blockers. SPEC and human-owned laws remain unchanged.
+The next performance investigation should profile native HTTP transport/body work. The comparison predates the prepared-router cutover; its measured source revision is `f441c13`, and its datasets remain unchanged. It does not resolve strict JSON or production serving gaps. The later user-approved lifecycle scope change does not alter these measurements or human-owned laws.
 
 ## Prepared router prerequisite
 
@@ -125,7 +127,7 @@ Runtime evidence in both native and JavaScript lanes:
 
 The asterisk/root pairwise regression failed before its fix and passes afterward. A new HEAD lookup check also exposed obsolete second-stage method dispatch; passing the prepared capture map to the business endpoint removes that second selection. Both fixes have retained behavior checks.
 
-Preparation remains O(routes²), and resolution O(routes × segments). New routing/target guarantees have runtime evidence, not new quantified laws. General group construction, typed query access, final authoring signatures, completion notifications, strict JSON, cancellation, and production transport remain open. This does not satisfy the complete SPEC or revalidate earlier framework-overhead budgets.
+Preparation remains O(routes²), and resolution O(routes × segments). New routing/target guarantees have runtime evidence, not new quantified laws. General group construction, typed query access, final authoring signatures, completion notifications, strict JSON, and production transport remain open. Dedicated-process supervision replaces runtime cancellation as the release lifecycle boundary. This does not satisfy the complete SPEC or revalidate earlier framework-overhead budgets.
 
 
 ## Reproduce
@@ -344,7 +346,7 @@ The direct surface example now demonstrates an affine typed route, typed authent
 
 ## Next work
 
-1. **Resolve the runtime cancellation boundary.** Prove server-owned work ends under CPU and socket stalls while unrelated application work survives. A whole-program halt or returned deadline is not that proof. Keep R7.4/R7.5 intact and do not freeze a serving API before this gate is resolved.
+1. **Integrate the dedicated-process lifecycle.** Preserve cooperative drain and explicit cleanup through shared transport controls. Document an external supervisor that enforces grace and forced termination even if Bend stops making progress, and verify actual process exit. Do not reintroduce embedded isolation or require runtime cancellation.
 2. **Prove resource and transport lifecycle recovery.** Preserve resource-bearing replies until explicit cleanup. Exercise startup failure, bounded admission, write outcomes, idle/active connection teardown, and grace completion through shared `http`/`wire` controls. Keep worker-owned bundles distinct from checked-out connections and pools.
 3. **Validate the intended small authoring interface.** Reduce template/quantity/dispatch glue without copying callbacks or affine state. Exercise that actual surface with an independent author before claiming usability. General group construction and typed query access remain open; no signature is frozen.
 4. **Measure complete-application costs and profile transport/body work.** Preserve the raw controls, failed JS allowances, and external samples. Revalidate the final interface and prepared routing rather than treating historical minimal controls as a complete Camber gate.
@@ -503,7 +505,7 @@ Six added application scenarios inject unsafe values, framing, or names in a roo
 
 `author_app.bend` adds a plain `Http.Req -> IO(Http.Res)` handler inside existing root/public policies without changing `surface.bend`. This is a same-author exercise, not independent usability evidence. Its small handler still needs explicit template arguments, quantity adapters, scope wrappers, metadata reconstruction, and an application dispatch adapter. The hardcoded route branch is not prepared registration. Reusing the lifecycle works; the intended small public authoring surface is not yet demonstrated.
 
-## Executed prerequisite and cancellation blockers
+## Executed prerequisite and cancellation limitations
 
 `prerequisites.bend` prints observations rather than pinning defects as desired behavior. Build it in either lane and pass an owned temporary journal path. `prerequisite_results.json` retains the historical pre-cutover outputs below; [router_prerequisite_results.json](router_prerequisite_results.json) records the corrected routing outputs in both lanes, with JSON rejection still false and a side effect still occurring after the deadline returns.
 
@@ -518,7 +520,7 @@ Six added application scenarios inject unsafe values, framing, or names in a roo
 
 With a nominal 10 ms timeout, the deadline observation was at 13.850 ms native and 21.913 ms JS; the actual late side effect was at 256.286 ms and 256.930 ms. The journal contains `late` followed by LF after process exit. Timing is measured, not an exact-deadline guarantee. This is the documented behavior of `Conc.timeout`, not a compiler bug or genuine cancellation.
 
-Prepared routing belongs in `router` and now has the implementation and runtime evidence above. Strict surrogate, nested-duplicate, and configurable depth rejection belong in `json`; real cancellation needs runtime support. Those remain release blockers, not hidden adapters or requirements removed from SPEC. The historical observations do not claim the full SPEC is satisfied.
+Prepared routing belongs in `router` and now has the implementation and runtime evidence above. Strict surrogate, nested-duplicate, and configurable depth rejection belong in `json` and remain release blockers. Real cancellation still needs runtime support, but the user-approved dedicated-process contract no longer requires it. The historical observations do not claim the full revised SPEC is satisfied.
 
 The final inline reuse/quality/efficiency pass removed unused imports, reused existing socket/effect/scope helpers, and kept body ownership unchanged. The affected direct and socket surfaces and response checker were exercised in both lanes. Unaffected ownership and older finite-live suites were not rerun. No independent review, publication, production deployment, or PR watcher was performed.
 
