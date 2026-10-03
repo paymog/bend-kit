@@ -1,0 +1,29 @@
+{
+  "before_first_submission_judging": true,
+  "revisions": [
+    {
+      "file": "run.py",
+      "original_sha256": "59a63aae440cd7e556bd7147ec7d54ed2e4848afd5c8d18f0b96d0995be26efc",
+      "current_sha256": "44cfc4652016f9e1e6291d78da759f93ec9304546c7bb282d743177d08de2895",
+      "reason": "Optional independent verdict skips when Lean/BENDTT is unavailable. Environment failure is not scored as an author failure. Task, laws, types, runtime cases, and oracle semantics are unchanged."
+    },
+    {
+      "files": [
+        "live_driver.bend",
+        "run_live.py"
+      ],
+      "reason": "Apply the already fixed application acceptance cases over the existing finite HTTP transport; adds no author requirement."
+    },
+    {
+      "file": "run.py",
+      "reason": "Before author judging: reject numeric published=1 and enforce public JSON field types; Python equality treats 1 as True. Negative oracle self-check added. Fixed cases/task/types/laws unchanged."
+    },
+    {
+      "files": [
+        "evidence/setup/callback-driver.bend",
+        "evidence/setup/callback-native-results.json"
+      ],
+      "reason": "After initial judging: exercise pre-existing TASK dispatch signature as a typed consumer. Native IO main avoids foreign-code gate from an entry without main. Grok received exact signature diagnostic in repair round 2."
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "fixed_materials_unchanged": {
+    "TASK.md": true,
+    "RUBRIC.md": true,
+    "contract.bend": true,
+    "driver.bend": true,
+    "grok/LAWS.bend": true,
+    "opus/LAWS.bend": true,
+    "evidence/setup/bend-guide.txt": true
+  },
+  "author_implementations_edited_by_host": false,
+  "mutations_only_in_owned_scratch": true
+}

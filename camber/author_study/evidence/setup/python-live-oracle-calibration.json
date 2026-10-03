@@ -1,0 +1,22 @@
+{
+  "observations": [
+    {
+      "response": {
+        "status": 503,
+        "body": "store unavailable",
+        "authenticate": "",
+        "allow": "",
+        "root": "",
+        "protected": "",
+        "publish": "",
+        "public": "",
+        "trace": []
+      },
+      "readback": "{\"seed\":true}\n"
+    }
+  ],
+  "stdout": "LISTENER CLOSED\nTRACE []\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+  "sampled_peak_rss_kib": 1744,
+  "seconds": 0.11035533307585865,
+  "unexpected_write_rejected": "(b'calibration\\n', b'')"
+}

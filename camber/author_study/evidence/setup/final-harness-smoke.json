@@ -1,0 +1,38 @@
+{
+  "build_stdout": "",
+  "build_rss_kib": 3967984,
+  "build_seconds": 12.72328416700475,
+  "live": {
+    "observations": [
+      {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "authenticate": "",
+          "allow": "",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    ],
+    "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+    "sampled_peak_rss_kib": 32,
+    "seconds": 0.22381900006439537
+  },
+  "parent_preparation_errors": [
+    "First helper import resolved camber/run_live.py rather than the study module; loaded the study module explicitly.",
+    "First scratch smoke still contained the deliberately mutated secret-as-title domain; public projection oracle rejected CANARY. Restored the copied final domain and rebuilt before this passing smoke."
+  ]
+}

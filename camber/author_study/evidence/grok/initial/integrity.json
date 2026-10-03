@@ -1,0 +1,31 @@
+{
+  "fixed_materials_unchanged": {
+    "TASK.md": true,
+    "RUBRIC.md": true,
+    "contract.bend": true,
+    "driver.bend": true,
+    "grok/LAWS.bend": true,
+    "opus/LAWS.bend": true,
+    "evidence/setup/bend-guide.txt": true
+  },
+  "model_changes": [
+    {
+      "type": "model_change",
+      "id": "6bfea8d3",
+      "parentId": null,
+      "timestamp": "2026-10-03T18:37:52.924Z",
+      "model": "xai-oauth/grok-4.7",
+      "resolvedModelIsFallback": false
+    },
+    {
+      "type": "model_change",
+      "id": "d70ba39c",
+      "parentId": "2d16121d",
+      "timestamp": "2026-10-03T18:37:52.925Z",
+      "model": "xai-oauth/grok-4.7",
+      "role": "subagent:GrokStudy",
+      "resolvedModelIsFallback": false
+    }
+  ],
+  "author_source_repair_by_host": false
+}

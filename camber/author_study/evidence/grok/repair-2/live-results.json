@@ -1,0 +1,966 @@
+{
+  "author": "grok",
+  "round": "repair-2",
+  "scenarios": [
+    {
+      "name": "alice",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.21844687510747463
+    },
+    {
+      "name": "bob",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":8,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.12889354198705405
+    },
+    {
+      "name": "already-published",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10906395793426782
+    },
+    {
+      "name": "encoded-route",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11127104191109538
+    },
+    {
+      "name": "absolute-target",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11117699998430908
+    },
+    {
+      "name": "escaped-key",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":7,\"title\":\"plain\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10661145800258964
+    },
+    {
+      "name": "missing-auth",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 401,
+            "body": "",
+            "authenticate": "Bearer",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "map/unauthorized",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11123791604768485
+    },
+    {
+      "name": "wrong-auth",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 401,
+            "body": "",
+            "authenticate": "Bearer",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "map/unauthorized",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10843008302617818
+    },
+    {
+      "name": "wrong-scheme",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 401,
+            "body": "",
+            "authenticate": "Bearer",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "map/unauthorized",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10757845803163946
+    },
+    {
+      "name": "malformed",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11100620892830193
+    },
+    {
+      "name": "wrong-shape",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.1154097500257194
+    },
+    {
+      "name": "missing-title",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11047449999023229
+    },
+    {
+      "name": "missing-secret",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10804491606540978
+    },
+    {
+      "name": "missing-published",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10941362497396767
+    },
+    {
+      "name": "extra-owner",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.1089819580083713
+    },
+    {
+      "name": "title-type",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10980870807543397
+    },
+    {
+      "name": "secret-type",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11053483292926103
+    },
+    {
+      "name": "published-type",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11119258299004287
+    },
+    {
+      "name": "duplicate-title",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10889241599943489
+    },
+    {
+      "name": "escaped-duplicate",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.12926145805977285
+    },
+    {
+      "name": "duplicate-secret",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11058866698294878
+    },
+    {
+      "name": "duplicate-published",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 400,
+            "body": "invalid input",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/input",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10870979097671807
+    },
+    {
+      "name": "missing-media",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 415,
+            "body": "unsupported media type",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/media",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/media\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11032966698985547
+    },
+    {
+      "name": "unsupported-media",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 415,
+            "body": "unsupported media type",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "map/media",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"map/media\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11048016708809882
+    },
+    {
+      "name": "real-write-failure",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 503,
+            "body": "store unavailable",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "map/write",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"map/write\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11124587501399219
+    },
+    {
+      "name": "public",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 200,
+            "body": "public",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "",
+            "publish": "",
+            "public": "yes",
+            "trace": [
+              "root-before",
+              "public-before",
+              "public-handle",
+              "public-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"public-before\",\"public-handle\",\"public-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11086741602048278
+    },
+    {
+      "name": "encoded-public",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 200,
+            "body": "public",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "",
+            "publish": "",
+            "public": "yes",
+            "trace": [
+              "root-before",
+              "public-before",
+              "public-handle",
+              "public-after",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"public-before\",\"public-handle\",\"public-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11116908304393291
+    },
+    {
+      "name": "missing-route",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 404,
+            "body": "",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "",
+            "publish": "",
+            "public": "",
+            "trace": [
+              "root-before",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.10943170799873769
+    },
+    {
+      "name": "wrong-method",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 405,
+            "body": "",
+            "authenticate": "",
+            "allow": "OPTIONS, POST",
+            "root": "yes",
+            "protected": "",
+            "publish": "",
+            "public": "",
+            "trace": [
+              "root-before",
+              "root-after"
+            ]
+          },
+          "readback": "{\"seed\":true}\n"
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"root-after\"]\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11014474998228252
+    },
+    {
+      "name": "same-worker-principal-and-public-isolation",
+      "passed": true,
+      "observations": [
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        },
+        {
+          "response": {
+            "status": 200,
+            "body": "public",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "",
+            "publish": "",
+            "public": "yes",
+            "trace": [
+              "root-before",
+              "public-before",
+              "public-handle",
+              "public-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        },
+        {
+          "response": {
+            "status": 201,
+            "body": "{\"owner\":8,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+            "authenticate": "",
+            "allow": "",
+            "root": "yes",
+            "protected": "yes",
+            "publish": "yes",
+            "public": "",
+            "trace": [
+              "root-before",
+              "auth",
+              "decode",
+              "handle",
+              "publish-after",
+              "protected-after",
+              "root-after"
+            ]
+          },
+          "readback": ""
+        }
+      ],
+      "stdout": "LISTENER CLOSED\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\nTRACE [\"root-before\",\"public-before\",\"public-handle\",\"public-after\",\"root-after\"]\nTRACE [\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 1984,
+      "seconds": 0.11129233299288899
+    }
+  ],
+  "build": {
+    "passed": true,
+    "stdout": "",
+    "sampled_peak_rss_kib": 4282512,
+    "seconds": 13.068536875071004
+  },
+  "passed": true
+}

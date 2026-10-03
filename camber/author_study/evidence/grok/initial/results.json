@@ -1,0 +1,1235 @@
+{
+  "author": "grok",
+  "round": "initial",
+  "scenarios": [
+    {
+      "name": "alice",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "bob",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":8,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "already-published",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "encoded-route",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "absolute-target",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "escaped-key",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"plain\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "missing-auth",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 401,
+          "body": "",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "",
+          "public": "",
+          "authenticate": "Bearer",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "map/unauthorized",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-auth",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 401,
+          "body": "",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "",
+          "public": "",
+          "authenticate": "Bearer",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "map/unauthorized",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-scheme",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 401,
+          "body": "",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "",
+          "public": "",
+          "authenticate": "Bearer",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "map/unauthorized",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "malformed",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-shape",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-title",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-secret",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-published",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "extra-owner",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "title-type",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "secret-type",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "published-type",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "duplicate-title",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "escaped-duplicate",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "duplicate-secret",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "duplicate-published",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-media",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 415,
+          "body": "unsupported media type",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/media",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "unsupported-media",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 415,
+          "body": "unsupported media type",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/media",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "real-write-failure",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 503,
+          "body": "store unavailable",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "map/write",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "public",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 200,
+          "body": "public",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "yes",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "public-before",
+            "public-handle",
+            "public-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "encoded-public",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 200,
+          "body": "public",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "yes",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "public-before",
+            "public-handle",
+            "public-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-route",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 404,
+          "body": "",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-method",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 405,
+          "body": "",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "",
+          "authenticate": "",
+          "allow": "OPTIONS, POST",
+          "trace": [
+            "root-before",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "bend",
+        "/Users/paymahn/code/bend-kit2/camber/author_study/grok/PROOF.bend"
+      ],
+      "passed": false,
+      "error": "command failed: ['bend', PosixPath('/Users/paymahn/code/bend-kit2/camber/author_study/grok/PROOF.bend')]\n\nSOME PROOFS FAIL\nError: 275 defs rely on unsafe or foreign code:\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.connect\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.recv\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.send\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.recv_from\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.send_to\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.connect\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.connect.cert\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.connect.alpn\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.send\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.recv\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.close\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.recv.words\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.send.words\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.recv.words\n- 0xa3dc0f6e3963608e4608a1017272cf4f/wire.tls.send.words\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.wall.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.now\n- 0x584fc27920487ceab242392391418d7f/json.encb.go\n- 0x584fc27920487ceab242392391418d7f/json.encode.bytes\n- 0x4e8235741fad6df1605249df49ecae86/wire.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.cert\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.alpn\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.close\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send.words\n- 0x446af397a026226591f85538ecbba2c4/dns.try.sent\n- 0x446af397a026226591f85538ecbba2c4/dns.try.send\n- 0x446af397a026226591f85538ecbba2c4/dns.try.once\n- 0x446af397a026226591f85538ecbba2c4/dns.tries\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.sock\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.id\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.ns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.at\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n3\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n1b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.list\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.read\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.conf\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.lookup.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.os\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.from\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.text\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.opened\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.hosts\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.ask\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.raw.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.gzip.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.open\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish.id\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish\n- ../../../http/http.io.recv.words\n- ../../../http/http.io.send.words\n- ../../../http/http.io.send.bytes\n- ../../../http/http.io.close\n- ../../../http/http.fetch.close\n- ../../../http/http.fetch.bad\n- ../../../http/http.fetch.shut\n- ../../../http/http.fetch.hold.go\n- ../../../http/http.fetch.hold\n- ../../../http/http.fetch.failout\n- ../../../http/http.fetch.loop\n- ../../../http/http.exchange.sent\n- ../../../http/http.exchange.go\n- ../../../http/http.exchange\n- ../../../http/http.conn.close\n- ../../../http/http.conns.cut\n- ../../../http/http.pool.give.of\n- ../../../http/http.pool.give\n- ../../../http/http.pool.close.go\n- ../../../http/http.pool.close\n- ../../../http/http.conn.tls\n- ../../../http/http.conn.h2.sent\n- ../../../http/http.conn.h2.start\n- ../../../http/http.conn.tls.protocol\n- ../../../http/http.conn.tls.alpn\n- ../../../http/http.conn.secure.no.cert\n- ../../../http/http.conn.secure.tls\n- ../../../http/http.conn.secure\n- ../../../http/http.conn.made\n- ../../../http/http.conn.open\n- ../../../http/http.conn.dial.time\n- ../../../http/http.conn.dial.with\n- ../../../http/http.conn.dial.try\n- ../../../http/http.conn.dial.after\n- ../../../http/http.conn.dial.more\n- ../../../http/http.conn.dial.fold\n- ../../../http/http.conn.dial.all\n- ../../../http/http.conn.open.all\n- ../../../http/http.h2.send.report\n- ../../../http/http.h2.send.one\n- ../../../http/http.h2.send.fold\n- ../../../http/http.h2.send\n- ../../../http/http.h2.fail\n- ../../../http/http.h2.loop\n- ../../../http/http.h2.exchange\n- ../../../http/http.proxy.connect.fail\n- ../../../http/http.proxy.connect.extra\n- ../../../http/http.proxy.connect.status\n- ../../../http/http.proxy.connect.finish\n- ../../../http/http.proxy.connect.loop\n- ../../../http/http.proxy.connect.sent\n- ../../../http/http.proxy.connect\n- ../../../http/http.proxy.route.tls\n- ../../../http/http.proxy.route.connected\n- ../../../http/http.proxy.route.open\n- ../../../http/http.route.open\n- ../../../http/http.conn.ex.h1\n- ../../../http/http.pool.keep.s\n- ../../../http/http.pool.keep.m\n- ../../../http/http.pool.keep\n- ../../../http/http.pool.after\n- ../../../http/http.pool.h2.keep\n- ../../../http/http.pool.h2.result\n- ../../../http/http.pool.h2.ex\n- ../../../http/http.pool.fresh.conn\n- ../../../http/http.pool.fresh\n- ../../../http/http.pool.stale\n- ../../../http/http.pool.reused\n- ../../../http/http.pool.idle.h1.bodies\n- ../../../http/http.pool.idle.h1\n- ../../../http/http.pool.idle.reuse\n- ../../../http/http.pool.idle\n- ../../../http/http.pool.origin.proxy\n- ../../../http/http.pool.origin.choice\n- ../../../http/http.pool.origin\n- ../../../http/http.pool.one.of\n- ../../../http/http.pool.one\n- ../../../http/http.pool.hops.one\n- ../../../http/http.pool.hops\n- ../../../http/http.ce.io.zstd\n- ../../../http/http.ce.io.br\n- ../../../http/http.ce.io.gz\n- ../../../http/http.ce.io.go\n- ../../../http/http.decoded.io.run\n- ../../../http/http.decoded.io.go\n- ../../../http/http.decoded.io\n- ../../../http/http.codings\n- ../../../http/http.fetch.final\n- ../../../http/http.pool.final\n- ../../../http/http.pool.how.enc\n- ../../../http/http.pool.how.cert\n- ../../../http/http.pool.how\n- ../../../http/http.pool.fetch.with\n- ../../../http/http.pool.fetch\n- ../../../http/http.pool.fetch.cert.with\n- ../../../http/http.pool.fetch.cert\n- ../../../http/http.fetch.all.job\n- ../../../http/http.fetch.all.close\n- ../../../http/http.fetch.all.done\n- ../../../http/http.fetch.all.go\n- ../../../http/http.fetch.all.of\n- ../../../http/http.fetch.all\n- ../../../http/http.pool.jar.final\n- ../../../http/http.pool.jar.enc\n- ../../../http/http.pool.fetch.jar\n- ../../../http/http.fetch.end\n- ../../../http/http.fetch.how\n- ../../../http/http.fetch.with\n- ../../../http/http.fetch.cert.with\n- ../../../http/http.fetch.cert\n- ../../../http/http.fetch\n- ../../../http/http.get\n- ../../../http/http.post.json\n- ../../../http/http.retry.sleep\n- ../../../http/http.retry.one\n- ../../../http/http.retry.go\n- ../../../http/http.retry.start\n- ../../../http/http.fetch.retry\n- ../../../http/http.stream.feed.step\n- ../../../http/http.stream.feed.one\n- ../../../http/http.stream.feed.all\n- ../../../http/http.stream.feed.st\n- ../../../http/http.stream.finish\n- ../../../http/http.stream.read\n- ../../../http/http.stream.close\n- ../../../http/http.stream.head\n- ../../../http/http.stream.sent\n- ../../../http/http.stream.conn\n- ../../../http/http.stream.origin\n- ../../../http/http.stream.one.of\n- ../../../http/http.stream.one\n- ../../../http/http.stream.hops\n- ../../../http/http.stream.open.zstd\n- ../../../http/http.stream.open.br\n- ../../../http/http.stream.open.gz\n- ../../../http/http.stream.open.step\n- ../../../http/http.stream.open.one\n- ../../../http/http.stream.open.all\n- ../../../http/http.stream.init.opened\n- ../../../http/http.stream.init.known\n- ../../../http/http.stream.init.st\n- ../../../http/http.stream.init\n- ../../../http/http.open.raw.with\n- ../../../http/http.open.raw\n- ../../../http/http.open.with.enc\n- ../../../http/http.open.with\n- ../../../http/http.open\n- ../../../http/http.up.conn\n- ../../../http/http.up.origin\n- ../../../http/http.up.url\n- ../../../http/http.upload.with\n- ../../../http/http.upload\n- ../../../http/http.up.put\n- ../../../http/http.up.chunk\n- ../../../http/http.upload.write\n- ../../../http/http.upload.finish\n- ../../../http/http.reply.drain\n- ../../../http/http.reply.sent.close\n- ../../../http/http.reply_fail\n- ../../../http/http.talk.send\n- ../../../http/http.talk.cont\n- ../../../http/http.talk\n- ../../../http/http.conn\n- ../../../http/http.loop\n- ../../../http/http.serve.on.with\n- ../../../http/http.serve.on\n- ../../../http/http.serve.with\n- ../../../http/http.serve\n- ../../../http/http.serve.stream.recv\n- ../../../http/http.serve.stream.respond\n- ../../../http/http.serve.stream.talk\n- ../../../http/http.serve.stream.conn\n- ../../../http/http.serve.stream.loop\n- ../../../http/http.serve.stream.on.with\n- ../../../http/http.serve.stream.with\n- ../../../http/http.writer.raw\n- ../../../http/http.writer.chunk\n- ../../../http/http.writer.known\n- ../../../http/http.writer.chunk.go\n- ../../../http/http.writer.write.mode\n- ../../../http/http.writer.write\n- ../../../http/http.writer.finish.mode\n- ../../../http/http.writer.finish\n- ../../../http/http.serve.write.finish\n- ../../../http/http.serve.write.body\n- ../../../http/http.serve.write.open\n- ../../../http/http.serve.write.send.plan\n- ../../../http/http.serve.write.send\n- ../../../http/http.serve.write.talk\n- ../../../http/http.serve.write.conn\n- ../../../http/http.serve.write.loop\n- ../../../http/http.serve.write.on.with\n- ../../../http/http.serve.write.with\n"
+    },
+    {
+      "argv": [
+        "bend",
+        "/Users/paymahn/code/bend-kit2/camber/author_study/grok/driver.bend",
+        "-o",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app"
+      ],
+      "passed": true,
+      "stdout": "",
+      "sampled_peak_rss_kib": 4580752,
+      "seconds": 9.574923167005181
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/alice",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.2202726670075208
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/bob",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer bob",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":8,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10726937500294298
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/already-published",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": true}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10680700000375509
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/encoded-route",
+        "w",
+        "POST",
+        "/pub%6Cish?x=1&x=2",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.1102032499620691
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/absolute-target",
+        "w",
+        "POST",
+        "http://example.test/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10785008408129215
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/escaped-key",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"t\\u0069tle\":\"plain\",\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"plain\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10933725000359118
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/missing-auth",
+        "r",
+        "POST",
+        "/publish",
+        "",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":401,\"body\":\"\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"Bearer\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.108763667056337
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/wrong-auth",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer mallory",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":401,\"body\":\"\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"Bearer\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11053862504195422
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/wrong-scheme",
+        "r",
+        "POST",
+        "/publish",
+        "Basic alice",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":401,\"body\":\"\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"Bearer\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11070216703228652
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/malformed",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10723199998028576
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/wrong-shape",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "[]"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11091695795767009
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/missing-title",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10830700001679361
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/missing-secret",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10646895901300013
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/missing-published",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\"}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10843433300033212
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/extra-owner",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\",\"published\":false,\"owner\":999}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11062654200941324
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/title-type",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":1,\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10761345806531608
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/secret-type",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":null,\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.12848475005012006
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/published-type",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\",\"published\":0}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11029945802874863
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/duplicate-title",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"one\",\"title\":\"two\",\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10986162500921637
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/escaped-duplicate",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"one\",\"t\\u0069tle\":\"two\",\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.1084047919139266
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/duplicate-secret",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"one\",\"secret\":\"two\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10773662501014769
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/duplicate-published",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\",\"published\":false,\"published\":true}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10839850001502782
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/missing-media",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":415,\"body\":\"unsupported media type\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/media\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10815616592299193
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/unsupported-media",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "text/plain",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":415,\"body\":\"unsupported media type\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/media\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10737941705156118
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/real-write-failure",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":503,\"body\":\"store unavailable\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"map/write\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11001566599588841
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/public",
+        "r",
+        "GET",
+        "/public",
+        "",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":200,\"body\":\"public\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"yes\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"public-before\",\"public-handle\",\"public-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.1081655410816893
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/encoded-public",
+        "r",
+        "GET",
+        "/pub%6Cic?x=1",
+        "",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":200,\"body\":\"public\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"yes\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"public-before\",\"public-handle\",\"public-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11070004105567932
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/missing-route",
+        "r",
+        "POST",
+        "/missing",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":404,\"body\":\"\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10902441700454801
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-2ml24thu/wrong-method",
+        "r",
+        "GET",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":405,\"body\":\"\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"OPTIONS, POST\",\"trace\":[\"root-before\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.1088820839067921
+    }
+  ],
+  "hashes": {
+    "app.bend": "36078203921b90d7edb58f66b5c21891208556b11c123cf33c4ff8abbc67156d",
+    "domain.bend": "b5eb52650fc545f27b64632b631aa31ca21e9690eface07b6d3975221352d3de",
+    "PROOF.bend": "0cb77ec5b5b27b4b78250683da49def0faa0c7477c80378ba35c401c84b42c9b",
+    "LAWS.bend": "a70797d6b7728c25486798d44cced4cd8af152cda9cfbcc07291c3aa5c0ed3ef"
+  },
+  "independent_verdict": "not reached",
+  "runtime_passed": true
+}

@@ -1,0 +1,25 @@
+{
+  "baseline_commit": "a42fecc",
+  "grok": {
+    "agent": "GrokStudy",
+    "session_id": "01a1030e-eeb8-740e-809e-24b9b5c0a61d",
+    "timestamp": "2026-10-03T18:37:52.924Z",
+    "resolved_model": "xai-oauth/grok-4.7",
+    "resolved_model_is_fallback": false,
+    "thinking_level": "high",
+    "receipt_source": "Native session JSONL model_change and thinking_level_change entries",
+    "backend_identity_attestation": "not independently attested by this receipt"
+  },
+  "opus": {
+    "agent": "OpusStudy",
+    "session_id": "01a1030e-eeac-737b-9b5d-9c6707a29d25",
+    "timestamp": "2026-10-03T18:37:52.810Z",
+    "resolved_model": "cursor/claude-opus-5-5",
+    "resolved_model_is_fallback": false,
+    "thinking_level": "high",
+    "receipt_source": "Native session JSONL model_change and thinking_level_change entries",
+    "backend_identity_attestation": "not independently attested by this receipt"
+  },
+  "prompt_control": "Same shared task/context and solution-space description; task item differs only in assigned submission directory and fixed law path.",
+  "restrictions": "File-only tools are enforced by agent definitions. Path ownership and read-set boundaries are cooperative, not an OS sandbox. Compiler/runtime/Git are host-owned."
+}

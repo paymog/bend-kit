@@ -585,3 +585,11 @@ Prepared routing belongs in `router` and now has the implementation and runtime 
 The final inline reuse/quality/efficiency pass removed unused imports, reused existing socket/effect/scope helpers, and kept body ownership unchanged. The affected direct and socket surfaces and response checker were exercised in both lanes. Unaffected ownership and older finite-live suites were not rerun. No independent review, publication, production deployment, or PR watcher was performed.
 
 The affected HTTP gate was run sequentially with the RSS/deadline guard: `http/http.bend --check-only`, `http/PROOF.bend --check-only`, then `http/check.bend`. Entry/proof checks produced the existing accepted foreign/unsafe dependency report, with no `LAWS` failure; the HTTP runtime checks exited 0. This is the same verdict policy as `scripts/check.sh http`, not a proof of foreign IO.
+
+## Independent LLM authoring and proof study
+
+[The completed comparison](author_study/RESULTS.md) retains initial submissions, bounded same-author repairs, visible transcripts, model receipts, and runtime/proof/mutation evidence. Grok 4.7 ran through `xai-oauth/grok-4.7`; Opus 5.5 ran through `cursor/claude-opus-5-5`.
+
+Neither initial submission passed every gate. Grok initially passed 29 direct and 30 socket scenarios but failed the proof dependency gate and exact affine dispatch signature; it needed two repairs. Opus initially passed the four ordinary proofs but failed application compilation on computed-local matching; it needed one repair. Both final candidates pass four ordinary laws, the typed native consumer, 29 direct cases, 30 socket scenarios, and both proof/runtime mutation checks.
+
+This is not a clean blinded comparison: Grok read the parent runtime oracle, Opus consulted unrelated proof examples, and both exceeded the cooperative read boundary. Final semantic success does not erase those protocol deviations. Independent Lean-kernel attestation is unavailable. The study supports documenting proof-safe Bytes dependencies, affine callback adapters, and parameter-matching decoder patterns; it does not establish a model ranking, full SPEC conformance, IO proofs, or production readiness. No submitted implementation was repaired by the host.

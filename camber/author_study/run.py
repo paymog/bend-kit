@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from run_dispatch import ROOT, guarded
+from run_dispatch import ENV, guarded
 
 STUDY = Path(__file__).resolve().parent
 SEED = b'{"seed":true}\n'
@@ -78,7 +78,9 @@ def check(case, observation, journal):
     assert response["allow"] == case["inputs"].get("allow", ""), (case["name"], "allow", response)
     if case["owner"] is not None:
         expected = dict(owner=case["owner"], title=case["title"], published=True)
-        assert json.loads(response["body"]) == expected, (case["name"], "public projection", response)
+        projected = json.loads(response["body"])
+        assert projected == expected, (case["name"], "public projection", response)
+        assert type(projected["owner"]) is int and type(projected["title"]) is str and type(projected["published"]) is bool, (case["name"], "public field types", response)
         assert journal == response["body"].encode() + b"\n", (case["name"], "journal", journal)
     elif case["expected_body"] is not None:
         assert response["body"] == case["expected_body"], (case["name"], "body", response)
@@ -100,6 +102,7 @@ def self_check():
     check(case, observation, body.encode() + b"\n")
     for field, wrong in (("status", 200), ("trace", []), ("public", "yes"),
                           ("body", json.dumps(dict(owner=7, title=TITLE, published=False))),
+                          ("body", json.dumps(dict(owner=7, title=TITLE, published=1))),
                           ("body", json.dumps(dict(owner=7, title=TITLE, published=True, secret="CANARY")))):
         bad = copy.deepcopy(observation)
         bad["response"][field] = wrong
@@ -149,8 +152,13 @@ def judge(author, round_name):
     shutil.copyfile(STUDY / "driver.bend", driver)
     try:
         command(["bend", source / "PROOF.bend"], 120)
+        report["independent_verdict"] = "not reached"
         if report["commands"][-1]["passed"]:
-            command(["bend", source / "PROOF.bend", "--verdict"], 120)
+            if shutil.which("lean") or shutil.which(ENV.get("BENDTT", "")):
+                command(["bend", source / "PROOF.bend", "--verdict"], 120)
+                report["independent_verdict"] = "passed" if report["commands"][-1]["passed"] else "failed"
+            else:
+                report["independent_verdict"] = "unavailable: Lean v4.34.0 or a built BENDTT kernel is required"
         with tempfile.TemporaryDirectory(prefix="camber-author-study-") as directory:
             temp = Path(directory)
             executable = temp / "app"

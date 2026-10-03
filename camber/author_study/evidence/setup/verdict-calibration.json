@@ -1,0 +1,5 @@
+{
+  "available": false,
+  "error": "The independent kernel did not build: lean is not on PATH. bend --verdict requires Lean v4.34.0 or BENDTT pointing to a built kernel.",
+  "impact": "Independent kernel attestation unavailable; ordinary proof checker calibration passed. This is an environment limitation, not an author error."
+}

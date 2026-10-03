@@ -1,0 +1,20 @@
+{
+  "changed": [
+    "camber/author_study/grok/domain.bend",
+    "camber/author_study/grok/app.bend"
+  ],
+  "unchanged": [
+    "camber/author_study/grok/PROOF.bend",
+    "camber/author_study/grok/LAWS.bend"
+  ],
+  "verification": "not run",
+  "repair": "Proof gate failed because domain imported http, whose closure includes foreign wire, dns, zlib, and published JSON. publish and view are unchanged and still the functions the laws quantify over. encode still calls the local JSON encoder, but no longer imports http.",
+  "assumptions": [
+    "Owner digits are ASCII, so Json.utf8(U32.show(owner)) is the same number text previously produced by Http.from_string.",
+    "Local json and bytes were already in the proof closure and were not on the unsafe list; only the http import chain was."
+  ],
+  "adapters": [
+    "encode now returns Bytes.Bytes, the type Http.Body names, so the proof file does not load http.",
+    "written accepts Bytes.Bytes for that same body."
+  ]
+}
