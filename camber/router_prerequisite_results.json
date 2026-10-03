@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-02",
+  "bend": "2.0.34",
+  "platform": "macOS 26.6.2 arm64",
+  "historical_results": "prerequisite_results.json",
+  "results": {
+    "native": {
+      "stdout": "double-slash-distinct=true\ntrailing-slash-distinct=true\nstatic-first-in-parameter-first-registry=true\nstatic-first-in-static-first-registry=true\nunpaired-surrogate-rejected=false\nnested-duplicate-rejected=false\ndepth-65-rejected=false\ndeadline-returned\ndeadline\t0\t11386000\nlate-side-effect\t0\t251367000\n",
+      "build_seconds": 9.615074208006263,
+      "build_peak_kib": 965136,
+      "runtime_seconds": 0.4304212499409914,
+      "runtime_peak_kib": 2128
+    },
+    "javascript": {
+      "stdout": "double-slash-distinct=true\ntrailing-slash-distinct=true\nstatic-first-in-parameter-first-registry=true\nstatic-first-in-static-first-registry=true\nunpaired-surrogate-rejected=false\nnested-duplicate-rejected=false\ndepth-65-rejected=false\ndeadline-returned\ndeadline\t0\t25858083\nlate-side-effect\t0\t252948833\n",
+      "build_seconds": 0.8177244169637561,
+      "build_peak_kib": 506112,
+      "runtime_seconds": 0.4111972500104457,
+      "runtime_peak_kib": 59376
+    }
+  }
+}

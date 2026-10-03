@@ -1,0 +1,310 @@
+{
+  "native": {
+    "build_seconds": 14.280314125004224,
+    "sampled_build_peak_rss_kib": 4752336,
+    "scenarios": {
+      "typed-alice": {
+        "sampled_peak_rss_kib": 32,
+        "wall_seconds": 0.21565970790106803
+      },
+      "typed-bob": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11144837492611259
+      },
+      "escaped-key": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11146095802541822
+      },
+      "public-sibling": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11180258297827095
+      },
+      "unknown-path": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10718937497586012
+      },
+      "auth-before-decode": {
+        "sampled_peak_rss_kib": 0,
+        "wall_seconds": 0.11768924992065877
+      },
+      "group-early": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10984879196621478
+      },
+      "group-reject": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10904633300378919
+      },
+      "malformed-json": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11062704201322049
+      },
+      "wrong-shape": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.111060458002612
+      },
+      "missing-field": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10858508409000933
+      },
+      "wrong-field": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10932812502142042
+      },
+      "extra-field": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11141233297530562
+      },
+      "duplicate-field": {
+        "sampled_peak_rss_kib": 0,
+        "wall_seconds": 0.11874737509060651
+      },
+      "missing-media": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.13487779209390283
+      },
+      "unsupported-media": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10850116703659296
+      },
+      "real-write-failure": {
+        "sampled_peak_rss_kib": 1808,
+        "wall_seconds": 0.1082456250442192
+      },
+      "transform-before-map": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.1057210830040276
+      },
+      "group-transform-before-map": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10662429209332913
+      },
+      "transform-after-map": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11093908397015184
+      },
+      "early-transform-failure": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11175712500698864
+      },
+      "mapper-fails": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10962916701100767
+      },
+      "mapper-invalid": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.1098743750480935
+      },
+      "transform-mapper-fails": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10823920799884945
+      },
+      "transform-mapper-invalid": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10958695795852691
+      },
+      "validation-before-map": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10822520800866187
+      },
+      "validation-after-map": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.1092553751077503
+      },
+      "unsafe-header": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.1114141249563545
+      },
+      "unsafe-header-after-map": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10903325001709163
+      },
+      "unsafe-framing": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11085024999920279
+      },
+      "unsafe-framing-after-map": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10835729201789945
+      },
+      "unsafe-name": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11435491708107293
+      },
+      "unsafe-name-after-map": {
+        "sampled_peak_rss_kib": 0,
+        "wall_seconds": 0.11759212496690452
+      },
+      "same-worker-principal-isolation": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.10952937498223037
+      },
+      "disconnect-after-side-effect": {
+        "sampled_peak_rss_kib": 2352,
+        "wall_seconds": 0.3262385840062052
+      },
+      "queued-principal-and-failure-isolation": {
+        "sampled_peak_rss_kib": 2384,
+        "wall_seconds": 0.21940750000067055
+      },
+      "plain-author-packed-body": {
+        "sampled_peak_rss_kib": 1792,
+        "wall_seconds": 0.11117412499152124
+      }
+    }
+  },
+  "js": {
+    "build_seconds": 2.8238682500086725,
+    "sampled_build_peak_rss_kib": 2547952,
+    "scenarios": {
+      "typed-alice": {
+        "sampled_peak_rss_kib": 38656,
+        "wall_seconds": 0.22841550002340227
+      },
+      "typed-bob": {
+        "sampled_peak_rss_kib": 11808,
+        "wall_seconds": 0.12250575004145503
+      },
+      "escaped-key": {
+        "sampled_peak_rss_kib": 6544,
+        "wall_seconds": 0.11110266705509275
+      },
+      "public-sibling": {
+        "sampled_peak_rss_kib": 6032,
+        "wall_seconds": 0.10921141703147441
+      },
+      "unknown-path": {
+        "sampled_peak_rss_kib": 3888,
+        "wall_seconds": 0.11047745903488249
+      },
+      "auth-before-decode": {
+        "sampled_peak_rss_kib": 4128,
+        "wall_seconds": 0.11129254102706909
+      },
+      "group-early": {
+        "sampled_peak_rss_kib": 4192,
+        "wall_seconds": 0.10914325003977865
+      },
+      "group-reject": {
+        "sampled_peak_rss_kib": 3888,
+        "wall_seconds": 0.11129150004126132
+      },
+      "malformed-json": {
+        "sampled_peak_rss_kib": 4592,
+        "wall_seconds": 0.10839541698805988
+      },
+      "wrong-shape": {
+        "sampled_peak_rss_kib": 4384,
+        "wall_seconds": 0.11093037505634129
+      },
+      "missing-field": {
+        "sampled_peak_rss_kib": 7376,
+        "wall_seconds": 0.1177535830065608
+      },
+      "wrong-field": {
+        "sampled_peak_rss_kib": 6672,
+        "wall_seconds": 0.1112657500198111
+      },
+      "extra-field": {
+        "sampled_peak_rss_kib": 5232,
+        "wall_seconds": 0.11042758298572153
+      },
+      "duplicate-field": {
+        "sampled_peak_rss_kib": 4384,
+        "wall_seconds": 0.10951287497300655
+      },
+      "missing-media": {
+        "sampled_peak_rss_kib": 6832,
+        "wall_seconds": 0.11173604195937514
+      },
+      "unsupported-media": {
+        "sampled_peak_rss_kib": 4416,
+        "wall_seconds": 0.10763070802204311
+      },
+      "real-write-failure": {
+        "sampled_peak_rss_kib": 4384,
+        "wall_seconds": 0.11060487502254546
+      },
+      "transform-before-map": {
+        "sampled_peak_rss_kib": 6688,
+        "wall_seconds": 0.10729341709520668
+      },
+      "group-transform-before-map": {
+        "sampled_peak_rss_kib": 4656,
+        "wall_seconds": 0.10700725007336587
+      },
+      "transform-after-map": {
+        "sampled_peak_rss_kib": 6944,
+        "wall_seconds": 0.11590537498705089
+      },
+      "early-transform-failure": {
+        "sampled_peak_rss_kib": 4784,
+        "wall_seconds": 0.1109645840479061
+      },
+      "mapper-fails": {
+        "sampled_peak_rss_kib": 6688,
+        "wall_seconds": 0.11029687500558794
+      },
+      "mapper-invalid": {
+        "sampled_peak_rss_kib": 4672,
+        "wall_seconds": 0.11148937500547618
+      },
+      "transform-mapper-fails": {
+        "sampled_peak_rss_kib": 3888,
+        "wall_seconds": 0.11000754206907004
+      },
+      "transform-mapper-invalid": {
+        "sampled_peak_rss_kib": 6896,
+        "wall_seconds": 0.11140012508258224
+      },
+      "validation-before-map": {
+        "sampled_peak_rss_kib": 4656,
+        "wall_seconds": 0.10755175002850592
+      },
+      "validation-after-map": {
+        "sampled_peak_rss_kib": 4384,
+        "wall_seconds": 0.10800554195884615
+      },
+      "unsafe-header": {
+        "sampled_peak_rss_kib": 4112,
+        "wall_seconds": 0.10719666595105082
+      },
+      "unsafe-header-after-map": {
+        "sampled_peak_rss_kib": 11728,
+        "wall_seconds": 0.1199147499864921
+      },
+      "unsafe-framing": {
+        "sampled_peak_rss_kib": 6720,
+        "wall_seconds": 0.10683658393099904
+      },
+      "unsafe-framing-after-map": {
+        "sampled_peak_rss_kib": 5776,
+        "wall_seconds": 0.10692816704977304
+      },
+      "unsafe-name": {
+        "sampled_peak_rss_kib": 4384,
+        "wall_seconds": 0.11070958303753287
+      },
+      "unsafe-name-after-map": {
+        "sampled_peak_rss_kib": 4912,
+        "wall_seconds": 0.11127487500198185
+      },
+      "same-worker-principal-isolation": {
+        "sampled_peak_rss_kib": 4816,
+        "wall_seconds": 0.11090291698928922
+      },
+      "disconnect-after-side-effect": {
+        "sampled_peak_rss_kib": 43168,
+        "wall_seconds": 0.32287216605618596
+      },
+      "queued-principal-and-failure-isolation": {
+        "sampled_peak_rss_kib": 46368,
+        "wall_seconds": 0.3664655410684645
+      },
+      "plain-author-packed-body": {
+        "sampled_peak_rss_kib": 122176,
+        "wall_seconds": 0.21502712497022003
+      }
+    }
+  }
+}

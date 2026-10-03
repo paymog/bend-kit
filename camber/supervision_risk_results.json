@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-02",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "bend": "bend 2.0.34",
+  "bun": "1.3.14",
+  "boundary": "Python parent supervising a dedicated Bend child; not embedded cancellation",
+  "signal": "SIGKILL",
+  "pre_signal_delay_ms": 100,
+  "forced_teardown_budget_ms": 100,
+  "inspected_runtime_source_revision": "7d8a3eb036042c6549461054d25a10f26d361c5c",
+  "lanes": {
+    "native": {
+      "build_seconds": 8.999763250001706,
+      "sampled_build_peak_rss_kib": 2582480,
+      "reused_cpu_iterations": 512000000,
+      "cases": {
+        "external_cpu": {
+          "returncode": -9,
+          "wall_seconds": 0.7665725419064984,
+          "sampled_peak_rss_kib": 1776,
+          "events": [
+            {
+              "seconds": 0.2580179999349639,
+              "text": "WORK_BEGIN"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "child_alive_before_signal": true,
+          "ready_to_signal_seconds": 0.10396024992223829,
+          "signal_to_reap_seconds": 0.0013085000682622194,
+          "within_scaled_teardown_budget": true,
+          "idle_socket_closed_after_termination": null,
+          "parent_journal": "unrelated parent work completed\n"
+        },
+        "idle": {
+          "returncode": -9,
+          "wall_seconds": 0.5149452919140458,
+          "sampled_peak_rss_kib": 1856,
+          "events": [
+            {
+              "seconds": 0.007395791937597096,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.011662874952889979,
+              "text": "LISTENER CLOSED"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "child_alive_before_signal": true,
+          "ready_to_signal_seconds": 0.10483370895963162,
+          "signal_to_reap_seconds": 0.0013326250482350588,
+          "within_scaled_teardown_budget": true,
+          "idle_socket_closed_after_termination": true,
+          "parent_journal": "unrelated parent work completed\n"
+        }
+      }
+    },
+    "javascript": {
+      "build_seconds": 1.8618217499461025,
+      "sampled_build_peak_rss_kib": 1984320,
+      "reused_cpu_iterations": 128000000,
+      "cases": {
+        "external_cpu": {
+          "returncode": -9,
+          "wall_seconds": 0.6236565000144765,
+          "sampled_peak_rss_kib": 47184,
+          "events": [
+            {
+              "seconds": 0.11757266707718372,
+              "text": "WORK_BEGIN"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "child_alive_before_signal": true,
+          "ready_to_signal_seconds": 0.10513566702138633,
+          "signal_to_reap_seconds": 0.0035945000126957893,
+          "within_scaled_teardown_budget": true,
+          "idle_socket_closed_after_termination": null,
+          "parent_journal": "unrelated parent work completed\n"
+        },
+        "idle": {
+          "returncode": -9,
+          "wall_seconds": 0.5484760419931263,
+          "sampled_peak_rss_kib": 33840,
+          "events": [
+            {
+              "seconds": 0.04330695897806436,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.04480058397166431,
+              "text": "LISTENER CLOSED"
+            }
+          ],
+          "stderr": "",
+          "journal": "committed\n",
+          "unrelated_journal": null,
+          "child_alive_before_signal": true,
+          "ready_to_signal_seconds": 0.10406708298251033,
+          "signal_to_reap_seconds": 0.001294041983783245,
+          "within_scaled_teardown_budget": true,
+          "idle_socket_closed_after_termination": true,
+          "parent_journal": "unrelated parent work completed\n"
+        }
+      }
+    }
+  }
+}

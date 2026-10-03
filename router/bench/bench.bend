@@ -3,8 +3,8 @@ import Base
 import ../../time/time.bend as Time
 import ../router.bend as R
 
-type Route is Data:
-  Route{want: String, pat: String, names: List<&2, String>}
+type Action is Data:
+  Action{index: U32, names: List<&2, String>}
 
 type Req is Data:
   Req{method: String, path: String}
@@ -36,31 +36,30 @@ def params(ns: List<&2, String>, st: Map<&2, String> & U32) -> U32:
 def hit(+i: U32, ns: List<&2, String>, m: Map<&2, String>, h: U32) -> U32:
   params(ns, (m, mix(h, i)))
 
-def find(routes: List<&2, Route>, got: Maybe<&2, Map<&2, String>>, ns: List<&2, String>, +i: U32, +method: String, +path: String, h: U32) -> U32:
-  match routes:
-    case Nil{}:
-      match got:
-        case None{}:
-          mix(h, 0)
-        case Some{m}:
-          hit(i, ns, m, h)
-    case Con{Route{want, pat, names}, t}:
-      match got:
-        case Some{m}:
-          hit(i, ns, m, h)
-        case None{}:
-          find(t, R.route(want, method, pat, path), names, (i + 1 : U32), method, path, h)
+def chosen(choice: R.Choice<Action>, h: U32) -> U32:
+  match choice:
+    case R.Found{Action{i, names}, params, groups, method, pattern}:
+      hit(i, names, params, h)
+    case _:
+      mix(h, 0)
 
-def routes() -> List<&2, Route>:
+def resolved(result: Result<&2, &2, R.Error, R.Resolved<Action>>, h: U32) -> U32:
+  match result:
+    case Fail{error}:
+      mix(h, 0)
+    case Done{R.Resolved{target, choice}}:
+      chosen(choice, h)
+
+def routes() -> List<&2, R.Entry<Action>>:
   [
-    Route{"GET", "/health", []},
-    Route{"GET", "/users", []},
-    Route{"POST", "/users", []},
-    Route{"GET", "/users/:id", ["id"]},
-    Route{"PUT", "/users/:id", ["id"]},
-    Route{"GET", "/users/:id/posts", ["id"]},
-    Route{"GET", "/users/:id/posts/:post", ["id", "post"]},
-    Route{"GET", "/orgs/:org/repos/:repo/issues/:num", ["org", "repo", "num"]}
+    R.Entry{"GET", "/health", Action{1, []}, []},
+    R.Entry{"GET", "/users", Action{2, []}, []},
+    R.Entry{"POST", "/users", Action{3, []}, []},
+    R.Entry{"GET", "/users/:id", Action{4, ["id"]}, []},
+    R.Entry{"PUT", "/users/:id", Action{5, ["id"]}, []},
+    R.Entry{"GET", "/users/:id/posts", Action{6, ["id"]}, []},
+    R.Entry{"GET", "/users/:id/posts/:post", Action{7, ["id", "post"]}, []},
+    R.Entry{"GET", "/orgs/:org/repos/:repo/issues/:num", Action{8, ["org", "repo", "num"]}, []}
   ]
 
 def requests() -> List<&2, Req>:
@@ -83,23 +82,31 @@ def requests() -> List<&2, Req>:
     Req{"GET", "/orgs/paymog/repos/bend-kit/issues/73"}
   ]
 
-def each(rs: List<&2, Req>, h: U32) -> U32:
+def each(rs: List<&2, Req>, +table: R.Table<Action>, h: U32) -> U32:
   match rs:
     case Nil{}:
       h
     case Con{Req{method, path}, t}:
-      each(t, find(routes(), None{}, Nil{}, 0, method, path, h))
+      each(t, table, resolved(R.resolve(~Action, table, method, path), h))
 
-def rounds(n: Nat, h: U32) -> U32:
+def rounds(n: Nat, +table: R.Table<Action>, h: U32) -> U32:
   match n:
     case 0n:
       h
     case 1n+p:
-      rounds(p, each(requests(), h))
+      rounds(p, table, each(requests(), table, h))
+
+def ready(result: Result<&2, &2, R.Error, R.Table<Action>>) -> IO(R.Table<Action>):
+  match result:
+    case Fail{error}:
+      IO.die(R.Table<Action>, 1, "benchmark registration rejected")
+    case Done{table}:
+      IO.pure(R.Table<Action>, table)
 
 def main() -> IO(Unit):
   do IO<Unit>:
+    table : R.Table<Action> <- ready(R.prepare(~Action, routes()))
     t0 : Time.Duration <- Time.mono()
-    chk : U32 = rounds(10000n, 0)
+    chk : U32 = rounds(10000n, table, 0)
     t1 : Time.Duration <- Time.mono()
     IO.print("route\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk))
