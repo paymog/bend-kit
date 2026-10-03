@@ -157,10 +157,21 @@ def idle(+path: String, port: U32) -> IO(Unit):
     IO.print("OWNED_FILE_CLOSED")
     IO.print("SERVER_WORK_DONE")
 
+def external(path: String, n: Nat) -> IO(Unit):
+  do IO<Unit>:
+    file : File <- IO.try(File, File.open(path, "w"))
+    committed : File <- write(file, "committed\n")
+    cpu(n)
+    done : File <- write(committed, "late\n")
+    File.close(done)
+    IO.print("OWNED_FILE_CLOSED")
+
 def run(mode: String, path: String, count: Maybe<&2, Nat>, port: Maybe<&2, U32>) -> IO(Unit):
   match mode count port:
     case "cpu_only" Some{n} Some{p}:
       cpu(n)
+    case "external_cpu" Some{n} Some{p}:
+      external(path, n)
     case "yield_exit" Some{n} Some{p}:
       forced("yield_exit", path, n)
     case "cpu_exit" Some{n} Some{p}:

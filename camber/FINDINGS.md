@@ -38,6 +38,24 @@ The initial CPU fixture never reached its calibration floor and completed work b
 
 The `process` package also has a separate capability defect. A minimal `Process.exit(77)` using the published hash exits 1 with `bend: an alien request` in native. Its JS build fails before main with `no effect registers .../process.exit.raw`. The relative native import failed too: emitted `CID____PROCESS_PROCESS_EXIT_RAW` does not match the adapter's literal registration guards. [process_exit_risk_results.json](process_exit_risk_results.json) retains those failures and the minimal source. The current effects guide requires namespace-aware `CID(name)` registration; these legacy adapters do not use it. This is adapter compatibility evidence, not an established compiler defect or a supported process-exit implementation.
 
+#### Upstream boundary and external supervision
+
+This is not an assumed pending runtime feature. Upstream [#1034](https://github.com/bendlang/bend/issues/1034#issuecomment-5857296248) was closed after adding the deadline race; cancellation of the losing blocking effect was explicitly excluded. Bend 2.0.34's [WONTFIX](https://github.com/bendlang/bend/blob/v2.0.34/WONTFIX.txt) lists that exclusion under capacity limits. The `v2.0.34` tag resolves to source revision `7d8a3eb036042c6549461054d25a10f26d361c5c`.
+
+The [native scheduler](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L5970-L6010) evaluates a continuation synchronously before handling its next IO request; a Halt calls process `exit`. The [JS scheduler](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L6416-L6455) invokes continuations synchronously and returns from the whole IO runner on Halt. Pure work therefore can delay reaching the timer continuation. The runtime does not expose a server-owned cancellation/cleanup control through Base spawn or fork.
+
+Run `python3 -B camber/run_supervision.py`. It reuses the retained CPU iteration counts, runs a dedicated Bend child, and sends OS `SIGKILL` after a 100 ms host-side delay. [supervision_risk_results.json](supervision_risk_results.json) retains all four observations:
+
+| Lane | CPU signal to child reaping | Idle-socket signal to child reaping | Idle peer closes | Unrelated parent work |
+| --- | ---: | ---: | --- | --- |
+| Native | 1.309 ms | 1.333 ms | yes | completes |
+| Bun/JavaScript | 3.595 ms | 1.294 ms | yes | completes |
+
+The CPU worker has not emitted its end marker when killed. Both journals retain only `committed`; the later write does not occur. The idle peer observes closure after termination. No explicit File-close marker appears. The surviving unrelated work is an actual Python-parent task, not a computation embedded in the terminated Bend process. Recorded overall wall time includes waiting for that parent work; signal-to-reap time measures child termination.
+
+This proves an external termination boundary for these dedicated-process workloads, not real-time OS scheduling, graceful drain, restart safety, descendant cleanup, or an implemented Bend supervisor. It cannot substitute for same-process server-owned shutdown or affine-resource recovery in the unchanged SPEC. Preserving that embedded requirement needs runtime changes or a different execution boundary; dedicated-process-only scope requires the user's explicit approval.
+
+
 ### 2. Affine-resource recovery and transport lifecycle
 
 After a worker sends its actual File into a closed result channel, `Chan.send` reports false and the worker finishes. `lsof` still finds that File's descriptor in the live process in both lanes. The probe stays alive for inspection, then exits naturally. Erasing the affine result is not observed File cleanup. A timeout or shutdown design must preserve an owner and a recovery path rather than drop the resource-bearing reply.
