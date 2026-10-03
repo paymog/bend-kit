@@ -1,0 +1,48 @@
+{
+  "build": {
+    "stdout": "",
+    "sampled_peak_rss_kib": 1996048,
+    "seconds": 5.182894666912034
+  },
+  "observations": [
+    {
+      "mode": "w",
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "calibration",
+          "root": "",
+          "protected": "",
+          "publish": "",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": []
+        },
+        "readback": ""
+      },
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.22017058299388736
+    },
+    {
+      "mode": "r",
+      "observation": {
+        "response": {
+          "status": 503,
+          "body": "store unavailable",
+          "root": "",
+          "protected": "",
+          "publish": "",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": []
+        },
+        "readback": "{\"seed\":true}\n"
+      },
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11331995797809213
+    }
+  ],
+  "note": "Synthetic driver calibration only; not a Camber author solution or score."
+}
