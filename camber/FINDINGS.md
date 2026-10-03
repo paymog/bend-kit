@@ -62,7 +62,28 @@ After a worker sends its actual File into a closed result channel, `Chan.send` r
 
 Closing the finite transport's listener refuses new connections in both lanes. An already accepted idle socket and the process remain alive 6.25 seconds later, beyond the SPEC's default combined shutdown budgets. Only after the client releases the socket does this fixture join the connection and close its File. This is not a shutdown invocation: it tests whether listener closure alone supplies the missing lifecycle behavior. It does not.
 
-Source inspection supplies two additional limits, not new runtime results. `Http.talk.after` turns write failure into `TurnClose`, while successful non-keepalive writes can produce the same value; this seam cannot provide R6.7's actual write outcome. The bundled live fixture has no stalled-worker termination or startup-error resource-return protocol. Its finite connection count and bounded worker queue do not prove production T3 admission bounds. These controls belong in `http`/`wire`, not a second Camber transport.
+Source inspection identifies the shared seams: `Http.talk.after` loses the write outcome, the bundled fixture starts workers before `IO.try` on listen, and worker admission follows complete body framing. The follow-up runtime probes below exercise those paths. Their finite connection count and bounded job queue are not production T3 admission controls. Bind-result propagation and socket/write controls belong in `http`/`wire`; cleanup of opened application bundles belongs to their owner. Camber must not add a second transport.
+
+#### Executed startup, admission, and write-outcome gates
+
+Run `python3 -B camber/run_transport_risks.py`. [transport_risk_results.json](transport_risk_results.json) retains five scenarios in each lane: occupied-port startup, small and larger incomplete-body admission, healthy write, and reset-peer write. This validates current boundaries, not a public serving interface or passing transport contract.
+
+| Gate | Observed in both lanes | Limit |
+| --- | --- | --- |
+| Startup bind failure | Store and audit files are created; exit code 48 and `Address already in use`; no READY or explicit bundle-close marker | Terminal diagnostics, not a returned startup result with logical resource cleanup |
+| One held worker plus incomplete bodies | The small run has 3 live server endpoints; the larger run has 131 with one worker busy and 129 incomplete-body peers | Worker permits do not bound accepted sockets or pre-handler buffered work |
+| Business overload and normal drain | Extra complete business request gets 503 without audit writes; release restores `busy=0`, then ordinary drain closes the bundle | Positive worker recovery, not forced shutdown or production admission |
+| Healthy response write | Peer receives exact `200`/`ok`; raw IO result succeeds; public continuation is `TurnClose` | Closure does not identify successful write |
+| Peer reset before response write | Actual IO result fails; the same public continuation is `TurnClose` | Failure is erased before completion reporting |
+
+The bind-failure path is the existing `Live.start`: bundles open and workers start before `TCP.listen`, whose failure is passed through `IO.try`. This whole-program failure does not falsely signal listening. No explicit bundle-close marker appears before exit; OS process cleanup is not a resource-return protocol to an embedded owner. No live-process descriptor leak after exit is claimed.
+
+The larger admission fixture deliberately calls the existing start helper with 132 lifetime accepts, rather than its original four-connection CLI horizon. `lsof` counts 131 actual established endpoints after the overload connection closes: held handler, control peer, and 129 incomplete-body peers. Each incomplete body declares 4,096 bytes and has sent 1,024. This exceeds the proposed 128-connection default, but that default is not configured or implemented in the fixture. It shows why the one-worker cap cannot supply T3. The measurements do not distinguish bytes in kernel receive queues from bytes already retained by Bend. Production `Http.conn` likewise spawns each accepted socket without an admission counter.
+
+The write probe uses the same `Http.reply.bytes` and `Http.io.send.bytes` writer as `Http.talk.send`, observes its actual result, then passes that result through the existing `Http.talk.after` with non-keepalive policy. It adds only observation between writer and transition. Both success and real reset failure yield `TurnClose`, so the information is lost at that transition, not guessed from client disconnect. No completion-notification API was supplied or exercised. T5 must preserve the result before R6.7 can report it honestly.
+
+The user chose to keep cancellation blocked and the SPEC intact while validating these transport gates. These observations do not resolve cancellation, startup rollback, production connection/buffer limits, write-outcome reporting, or notifications. Previous failure datasets and performance budgets remain unchanged.
+
 
 ### 3. Application composition and authoring
 
