@@ -1,0 +1,1755 @@
+{
+  "date": "2026-10-02",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "bend": "bend 2.0.34",
+  "bun": "1.3.14",
+  "configured_wire_read_timeout_ms": 200,
+  "ordinary_send_delay_ms": 25,
+  "cpu_release_delay_ms": 50,
+  "host_deadline_seconds": 12,
+  "scope": "Finite HTTP transport plus a separate real Wire timed read; not absolute HTTP phase deadlines or a production server",
+  "lanes": {
+    "native_single": {
+      "runtime_arguments": [
+        "--threads",
+        "1",
+        "--gpu",
+        "off"
+      ],
+      "build_seconds": 7.8639387500006706,
+      "sampled_build_peak_rss_kib": 2210224,
+      "cases": [
+        {
+          "returncode": 0,
+          "wall_seconds": 0.44303075002972037,
+          "sampled_peak_rss_kib": 2176,
+          "events": [
+            {
+              "seconds": 0.23177837498951703,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.23580570903141052,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.2358265840448439,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.23704650008585304,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.23726595903281122,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.23726979200728238,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.2918791670817882,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.2921042500529438,
+              "text": "CPU_END 567059575"
+            },
+            {
+              "seconds": 0.32372874999418855,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.440916792023927,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.44094029208645225,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.44136975007131696,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.44137424998916686,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.2358265840448439,
+          "cpu_begin_event_seconds": 0.2918791670817882,
+          "cpu_response_after_cpu_seen_seconds": 0.0021727499552071095,
+          "ordinary_sent_after_cpu_seen_seconds": 0.03154358395840973,
+          "ordinary_response_after_cpu_seen_seconds": 0.032002124935388565,
+          "ordinary_latency_seconds": 0.00045854097697883844,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14905499992892146,
+          "recovery_latency_seconds": 0.0003575420705601573,
+          "recovery_response_exact": true,
+          "mode": "small",
+          "iterations": 10000,
+          "trial": 0,
+          "cpu_work_seconds": 0.00022508297115564346,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.20511370804160833,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5670264579821378,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.004447749932296574,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.004952042014338076,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.004956457996740937,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.005358833004720509,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.00551133300177753,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.0055172499269247055,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05898745800368488,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.0866364169633016,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.2089278749190271,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.2089562499895692,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5650476249866188,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5655005419394001,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.565503416932188,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.004956457996740937,
+          "cpu_begin_event_seconds": 0.05898745800368488,
+          "cpu_response_after_cpu_seen_seconds": 0.5061460409779102,
+          "ordinary_sent_after_cpu_seen_seconds": 0.02676262496970594,
+          "ordinary_response_after_cpu_seen_seconds": 0.027779166004620492,
+          "ordinary_latency_seconds": 0.0010165410349145532,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.1498832079814747,
+          "recovery_latency_seconds": 0.00019033404532819986,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 0,
+          "cpu_work_seconds": 0.5060601669829339,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.20399979199282825,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5629574999911711,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.0034823339665308595,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.0038612090284004807,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.0038657920667901635,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.004300875007174909,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.004452583962120116,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.004458458977751434,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05930391699075699,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.08980883401818573,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.20692591706756502,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.20695137500297278,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5610830000368878,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5614528340520337,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.561456499970518,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.0038657920667901635,
+          "cpu_begin_event_seconds": 0.05930391699075699,
+          "cpu_response_after_cpu_seen_seconds": 0.5018732079770416,
+          "ordinary_sent_after_cpu_seen_seconds": 0.030154375010170043,
+          "ordinary_response_after_cpu_seen_seconds": 0.03062208299525082,
+          "ordinary_latency_seconds": 0.0004677079850807786,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14761520794127136,
+          "recovery_latency_seconds": 0.00018283305689692497,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 1,
+          "cpu_work_seconds": 0.5017790830461308,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.20308558293618262,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5648298329906538,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.002941375016234815,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003286750055849552,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.0032892919844016433,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.003611500025726855,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.0037254580529406667,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.0037307500606402755,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05846566706895828,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.08616904204245657,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.2077441670699045,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.2077624580124393,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5624689580872655,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5632752500241622,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5632812920957804,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.0032892919844016433,
+          "cpu_begin_event_seconds": 0.05846566706895828,
+          "cpu_response_after_cpu_seen_seconds": 0.5043032499961555,
+          "ordinary_sent_after_cpu_seen_seconds": 0.027420583995990455,
+          "ordinary_response_after_cpu_seen_seconds": 0.02779424993786961,
+          "ordinary_latency_seconds": 0.00037366594187915325,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.1492458339780569,
+          "recovery_latency_seconds": 0.0002965000458061695,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 2,
+          "cpu_work_seconds": 0.5040032910183072,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.20447316602803767,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5556190829956904,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.0037508748937398195,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.00418716692365706,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.004190624924376607,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.004511791979894042,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.004656707984395325,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.00466024992056191,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05934862489812076,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.5537605419522151,
+              "text": "CPU_END 2623899001"
+            },
+            {
+              "seconds": 0.5537832499248907,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.5537846249062568,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5537852919660509,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5541873750044033,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5541890829335898,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.004190624924376607,
+          "cpu_begin_event_seconds": 0.05934862489812076,
+          "cpu_response_after_cpu_seen_seconds": 0.4945657909847796,
+          "ordinary_sent_after_cpu_seen_seconds": 0.028919957927428186,
+          "ordinary_response_after_cpu_seen_seconds": 0.4946017910260707,
+          "ordinary_latency_seconds": 0.46568183309864253,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.4944256249582395,
+          "recovery_latency_seconds": 0.00017529097385704517,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 512000000,
+          "trial": 0,
+          "cpu_work_seconds": 0.4944119170540944,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.5495939999818802,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.538453417015262,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.0030230000847950578,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.00329783302731812,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.0033016250235959888,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.0035880000796169043,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.0037332919891923666,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.0037355830427259207,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.056513417046517134,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.5366440830985084,
+              "text": "CPU_END 2305774608"
+            },
+            {
+              "seconds": 0.5366672920063138,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.53666887502186,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5366696250857785,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5370407920563594,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5370424170978367,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.0033016250235959888,
+          "cpu_begin_event_seconds": 0.056513417046517134,
+          "cpu_response_after_cpu_seen_seconds": 0.4802911670412868,
+          "ordinary_sent_after_cpu_seen_seconds": 0.026485832990147173,
+          "ordinary_response_after_cpu_seen_seconds": 0.4803236670559272,
+          "ordinary_latency_seconds": 0.45383783406578004,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.4801447920035571,
+          "recovery_latency_seconds": 0.00014441600069403648,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 512000000,
+          "trial": 1,
+          "cpu_work_seconds": 0.4801306660519913,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.533367249998264,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.548536584014073,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.0032250420190393925,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003579749958589673,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.003583458950743079,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.003944749943912029,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.004072458948940039,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.004076833953149617,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05612258391920477,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.5466091670095921,
+              "text": "CPU_END 2730744544"
+            },
+            {
+              "seconds": 0.5466490839608014,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.5466532919090241,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5466544999508187,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5470314170233905,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5470343339256942,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.003583458950743079,
+          "cpu_begin_event_seconds": 0.05612258391920477,
+          "cpu_response_after_cpu_seen_seconds": 0.4906654580263421,
+          "ordinary_sent_after_cpu_seen_seconds": 0.029568915953859687,
+          "ordinary_response_after_cpu_seen_seconds": 0.4906916660256684,
+          "ordinary_latency_seconds": 0.4611227500718087,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.49052087496966124,
+          "recovery_latency_seconds": 0.00015008402988314629,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 512000000,
+          "trial": 2,
+          "cpu_work_seconds": 0.4904865830903873,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.543069832958281,
+          "raw_read_failed": true
+        }
+      ],
+      "summary": {
+        "small": {
+          "median_ordinary_ms": 0.45854097697883844,
+          "median_read_arm_to_close_ms": 205.11370804160833,
+          "median_cpu_ms": 0.22508297115564346
+        },
+        "yield": {
+          "median_ordinary_ms": 0.4677079850807786,
+          "median_read_arm_to_close_ms": 203.99979199282825,
+          "median_cpu_ms": 504.0032910183072
+        },
+        "cpu": {
+          "median_ordinary_ms": 461.1227500718087,
+          "median_read_arm_to_close_ms": 543.069832958281,
+          "median_cpu_ms": 490.4865830903873
+        }
+      }
+    },
+    "native_default_threads": {
+      "runtime_arguments": [
+        "--gpu",
+        "off"
+      ],
+      "build_seconds": 7.8639387500006706,
+      "sampled_build_peak_rss_kib": 2210224,
+      "cases": [
+        {
+          "returncode": 0,
+          "wall_seconds": 0.20949899998959154,
+          "sampled_peak_rss_kib": 2176,
+          "events": [
+            {
+              "seconds": 0.002931874943897128,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003302333992905915,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.00330566696356982,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.0035947089781984687,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.0037247089203447104,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.0037278339732438326,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05791212490294129,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.05813337489962578,
+              "text": "CPU_END 2889536717"
+            },
+            {
+              "seconds": 0.08788299991283566,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.20758462499361485,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.20760954194702208,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.20791537500917912,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.20791925000958145,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.00330566696356982,
+          "cpu_begin_event_seconds": 0.05791212490294129,
+          "cpu_response_after_cpu_seen_seconds": 0.00039179204031825066,
+          "ordinary_sent_after_cpu_seen_seconds": 0.029740208061411977,
+          "ordinary_response_after_cpu_seen_seconds": 0.030061792000196874,
+          "ordinary_latency_seconds": 0.00032158393878489733,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.1496924579842016,
+          "recovery_latency_seconds": 0.00026741705369204283,
+          "recovery_response_exact": true,
+          "mode": "small",
+          "iterations": 10000,
+          "trial": 0,
+          "cpu_work_seconds": 0.00022124999668449163,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.20430387498345226,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5658932910300791,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.0032787909731268883,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.0036094579845666885,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.0036122080637142062,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.003926291014067829,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.004070125054568052,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.004072624957188964,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05802754103206098,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.08855850005056709,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.20792791596613824,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.20794587500859052,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5639252080582082,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5644681249978021,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5644726660102606,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.0036122080637142062,
+          "cpu_begin_event_seconds": 0.05802754103206098,
+          "cpu_response_after_cpu_seen_seconds": 0.5060323340585455,
+          "ordinary_sent_after_cpu_seen_seconds": 0.030186417046934366,
+          "ordinary_response_after_cpu_seen_seconds": 0.03065483400132507,
+          "ordinary_latency_seconds": 0.00046841695439070463,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14991800009738654,
+          "recovery_latency_seconds": 0.00025170808658003807,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 0,
+          "cpu_work_seconds": 0.5058976670261472,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.2043336669448763,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5638088330160826,
+          "sampled_peak_rss_kib": 2176,
+          "events": [
+            {
+              "seconds": 0.002968542044982314,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003301333053968847,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.003304957994259894,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.0035769580863416195,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.0037275420036166906,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.003753917058929801,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05878541700076312,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.08860162505879998,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.2068001669831574,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.20682620804291219,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5618850419996306,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5623216250678524,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5623263750458136,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.003304957994259894,
+          "cpu_begin_event_seconds": 0.05878541700076312,
+          "cpu_response_after_cpu_seen_seconds": 0.5032512079924345,
+          "ordinary_sent_after_cpu_seen_seconds": 0.02951691602356732,
+          "ordinary_response_after_cpu_seen_seconds": 0.029914958053268492,
+          "ordinary_latency_seconds": 0.0003980420297011733,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14803958300035447,
+          "recovery_latency_seconds": 0.00020529201719909906,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 1,
+          "cpu_work_seconds": 0.5030996249988675,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.2035212500486523,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5667031669290736,
+          "sampled_peak_rss_kib": 2192,
+          "events": [
+            {
+              "seconds": 0.0038826250238344073,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.004257541964761913,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.0042634999845176935,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.004684458952397108,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.004944249987602234,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.0049534590216353536,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05913624993991107,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.08793333393987268,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.20668979198671877,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.20671695901546627,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.56472995900549,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5651591669302434,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5651642919983715,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.0042634999845176935,
+          "cpu_begin_event_seconds": 0.05913624993991107,
+          "cpu_response_after_cpu_seen_seconds": 0.505730582983233,
+          "ordinary_sent_after_cpu_seen_seconds": 0.02852320799138397,
+          "ordinary_response_after_cpu_seen_seconds": 0.028899500030092895,
+          "ordinary_latency_seconds": 0.00037629203870892525,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.1475695000262931,
+          "recovery_latency_seconds": 0.00019316701218485832,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 2,
+          "cpu_work_seconds": 0.5055937090655789,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.20245345903094858,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5468771249288693,
+          "sampled_peak_rss_kib": 2176,
+          "events": [
+            {
+              "seconds": 0.0033288749400526285,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003750082920305431,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.003758625010959804,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.004060167004354298,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.004289916949346662,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.00429258297663182,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.059287791955284774,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.5449127919273451,
+              "text": "CPU_END 2297408980"
+            },
+            {
+              "seconds": 0.5449454999761656,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.5449470420135185,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5449477919610217,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.545355457928963,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5453572919359431,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.003758625010959804,
+          "cpu_begin_event_seconds": 0.059287791955284774,
+          "cpu_response_after_cpu_seen_seconds": 0.4856996660819277,
+          "ordinary_sent_after_cpu_seen_seconds": 0.026412041042931378,
+          "ordinary_response_after_cpu_seen_seconds": 0.4857685409951955,
+          "ordinary_latency_seconds": 0.45935649995226413,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.48571862501557916,
+          "recovery_latency_seconds": 0.00018808396998792887,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 512000000,
+          "trial": 0,
+          "cpu_work_seconds": 0.4856249999720603,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.5411884170025587,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5522573330672458,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.003312167013064027,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003640291979536414,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.0036428329767659307,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.00407916703261435,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.004248458077199757,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.004251083009876311,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.0598613329930231,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.5503499170299619,
+              "text": "CPU_END 1344993359"
+            },
+            {
+              "seconds": 0.5503790420480072,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.5503807080676779,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5503814580151811,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5508288330165669,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5508306249976158,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.0036428329767659307,
+          "cpu_begin_event_seconds": 0.0598613329930231,
+          "cpu_response_after_cpu_seen_seconds": 0.4906010829145089,
+          "ordinary_sent_after_cpu_seen_seconds": 0.029946666909381747,
+          "ordinary_response_after_cpu_seen_seconds": 0.49064445798285306,
+          "ordinary_latency_seconds": 0.4606977910734713,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.490457332925871,
+          "recovery_latency_seconds": 0.00016120797954499722,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 512000000,
+          "trial": 1,
+          "cpu_work_seconds": 0.49048858403693885,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.546737875090912,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5383357079699636,
+          "sampled_peak_rss_kib": 2160,
+          "events": [
+            {
+              "seconds": 0.0032542500412091613,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.0035399580374360085,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.0035427080001682043,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.003843083046376705,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.003958082990720868,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.003961332957260311,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.05722183303441852,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.5364394170464948,
+              "text": "CPU_END 3732926629"
+            },
+            {
+              "seconds": 0.5364653749857098,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.5364668749971315,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5364676249446347,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5368372079683468,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5368388330098242,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.0035427080001682043,
+          "cpu_begin_event_seconds": 0.05722183303441852,
+          "cpu_response_after_cpu_seen_seconds": 0.4793121669208631,
+          "ordinary_sent_after_cpu_seen_seconds": 0.026920833974145353,
+          "ordinary_response_after_cpu_seen_seconds": 0.47934237495064735,
+          "ordinary_latency_seconds": 0.452421540976502,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.4791757089551538,
+          "recovery_latency_seconds": 0.00012374995276331902,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 512000000,
+          "trial": 2,
+          "cpu_work_seconds": 0.47921758401207626,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.5329241669969633,
+          "raw_read_failed": true
+        }
+      ],
+      "summary": {
+        "small": {
+          "median_ordinary_ms": 0.3215839387848973,
+          "median_read_arm_to_close_ms": 204.30387498345226,
+          "median_cpu_ms": 0.22124999668449163
+        },
+        "yield": {
+          "median_ordinary_ms": 0.3980420297011733,
+          "median_read_arm_to_close_ms": 203.5212500486523,
+          "median_cpu_ms": 505.5937090655789
+        },
+        "cpu": {
+          "median_ordinary_ms": 459.35649995226413,
+          "median_read_arm_to_close_ms": 541.1884170025587,
+          "median_cpu_ms": 485.6249999720603
+        }
+      }
+    },
+    "javascript": {
+      "runtime_arguments": [
+        "bun",
+        "<compiled-js>"
+      ],
+      "build_seconds": 1.6195221249945462,
+      "sampled_build_peak_rss_kib": 1667056,
+      "cases": [
+        {
+          "returncode": 0,
+          "wall_seconds": 0.333369291969575,
+          "sampled_peak_rss_kib": 53424,
+          "events": [
+            {
+              "seconds": 0.12250554200727493,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.12370925000868738,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.12372095801401883,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.1280461250571534,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.1284120420459658,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.12844166706781834,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.18312425003387034,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.18539025005884469,
+              "text": "CPU_END 4183624036"
+            },
+            {
+              "seconds": 0.2145274580689147,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.32802320807240903,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.32805841707158834,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.32910587498918176,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.3293799579842016,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.12372095801401883,
+          "cpu_begin_event_seconds": 0.18312425003387034,
+          "cpu_response_after_cpu_seen_seconds": 0.0036041249986737967,
+          "ordinary_sent_after_cpu_seen_seconds": 0.029525625053793192,
+          "ordinary_response_after_cpu_seen_seconds": 0.031709833070635796,
+          "ordinary_latency_seconds": 0.0021842080168426037,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14491308305878192,
+          "recovery_latency_seconds": 0.0010990829905495048,
+          "recovery_response_exact": true,
+          "mode": "small",
+          "iterations": 10000,
+          "trial": 0,
+          "cpu_work_seconds": 0.002266000024974346,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.2043374590575695,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.58755862491671,
+          "sampled_peak_rss_kib": 42688,
+          "events": [
+            {
+              "seconds": 0.021176957990974188,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.022230500006116927,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.02228437492158264,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.025669624912552536,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.02599200000986457,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.026022457983344793,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.07817945792339742,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.10831275000236928,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.22358608292415738,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.22362412500660866,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5812638750066981,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5830971249379218,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5835268329828978,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.02228437492158264,
+          "cpu_begin_event_seconds": 0.07817945792339742,
+          "cpu_response_after_cpu_seen_seconds": 0.5038828329415992,
+          "ordinary_sent_after_cpu_seen_seconds": 0.02912008296698332,
+          "ordinary_response_after_cpu_seen_seconds": 0.03083916602190584,
+          "ordinary_latency_seconds": 0.0017190830549225211,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14542474993504584,
+          "recovery_latency_seconds": 0.0009001670405268669,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 0,
+          "cpu_work_seconds": 0.5030844170833007,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.20133975008502603,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.5955301249632612,
+          "sampled_peak_rss_kib": 42688,
+          "events": [
+            {
+              "seconds": 0.02318629203364253,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.024254041956737638,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.024319374933838844,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.0284428340382874,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.02884820895269513,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.028872583992779255,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.08457695902325213,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.11590400000568479,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.22970704198814929,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.2297670419793576,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5893794170115143,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.5913092090049759,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.5915188749786466,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.024319374933838844,
+          "cpu_begin_event_seconds": 0.08457695902325213,
+          "cpu_response_after_cpu_seen_seconds": 0.5057038749800995,
+          "ordinary_sent_after_cpu_seen_seconds": 0.02984775009099394,
+          "ordinary_response_after_cpu_seen_seconds": 0.03222633304540068,
+          "ordinary_latency_seconds": 0.0023785829544067383,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14516791608184576,
+          "recovery_latency_seconds": 0.0008761669741943479,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 1,
+          "cpu_work_seconds": 0.5048024579882622,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.20544766704551876,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.6041972090024501,
+          "sampled_peak_rss_kib": 41888,
+          "events": [
+            {
+              "seconds": 0.03117299999576062,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.03289395896717906,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.032911708927713335,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.03756354202050716,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.03825262503232807,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.038259249995462596,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.09382137493230402,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.12115399993490428,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.2375620419625193,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.2375876249279827,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.5983222089707851,
+              "text": "CPU_END yield"
+            },
+            {
+              "seconds": 0.599714000010863,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.6001562919700518,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.032911708927713335,
+          "cpu_begin_event_seconds": 0.09382137493230402,
+          "cpu_response_after_cpu_seen_seconds": 0.5049753329949453,
+          "ordinary_sent_after_cpu_seen_seconds": 0.026356957969255745,
+          "ordinary_response_after_cpu_seen_seconds": 0.028033874928951263,
+          "ordinary_latency_seconds": 0.001676916959695518,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.14375333301723003,
+          "recovery_latency_seconds": 0.0011127910111099482,
+          "recovery_response_exact": true,
+          "mode": "yield",
+          "iterations": 0,
+          "trial": 2,
+          "cpu_work_seconds": 0.5045008340384811,
+          "ordinary_handler_before_cpu_end": true,
+          "observed_read_arm_to_close_seconds": 0.20467591600026935,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.8905940420227125,
+          "sampled_peak_rss_kib": 41744,
+          "events": [
+            {
+              "seconds": 0.026383957942016423,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.02734166698064655,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.02736395795363933,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.030965083045884967,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.031296542030759156,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.03132866695523262,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.08601441700011492,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.8839232500176877,
+              "text": "CPU_END 345895348"
+            },
+            {
+              "seconds": 0.8848177919862792,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.8848423749441281,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.8855108750285581,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.8863952920073643,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.8866537919966504,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.02736395795363933,
+          "cpu_begin_event_seconds": 0.08601441700011492,
+          "cpu_response_after_cpu_seen_seconds": 0.7987412500660866,
+          "ordinary_sent_after_cpu_seen_seconds": 0.027974000084213912,
+          "ordinary_response_after_cpu_seen_seconds": 0.7996525000780821,
+          "ordinary_latency_seconds": 0.7716784999938682,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.7988218331011012,
+          "recovery_latency_seconds": 0.0007262920262292027,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 128000000,
+          "trial": 0,
+          "cpu_work_seconds": 0.7979088330175728,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.8574784169904888,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.9020560840144753,
+          "sampled_peak_rss_kib": 41728,
+          "events": [
+            {
+              "seconds": 0.020701166940853,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.02165487501770258,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.021673458977602422,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.02479229192249477,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.025130499969236553,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.025157792028039694,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.08040641702245921,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.8956349589861929,
+              "text": "CPU_END 1277110150"
+            },
+            {
+              "seconds": 0.8964924169704318,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.8965266669401899,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.8972363750217482,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.8979622919578105,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.8981705839978531,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.021673458977602422,
+          "cpu_begin_event_seconds": 0.08040641702245921,
+          "cpu_response_after_cpu_seen_seconds": 0.815945666981861,
+          "ordinary_sent_after_cpu_seen_seconds": 0.029815834015607834,
+          "ordinary_response_after_cpu_seen_seconds": 0.8169613749487326,
+          "ordinary_latency_seconds": 0.7871455409331247,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.8160639590350911,
+          "recovery_latency_seconds": 0.0005918749375268817,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 128000000,
+          "trial": 1,
+          "cpu_work_seconds": 0.8152285419637337,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.8748532079625875,
+          "raw_read_failed": true
+        },
+        {
+          "returncode": 0,
+          "wall_seconds": 0.9075551249552518,
+          "sampled_peak_rss_kib": 41728,
+          "events": [
+            {
+              "seconds": 0.021471915999427438,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.022475000005215406,
+              "text": "PARTIAL_READ 23"
+            },
+            {
+              "seconds": 0.022504832944832742,
+              "text": "DEADLINE_ARMED"
+            },
+            {
+              "seconds": 0.02587899996433407,
+              "text": "CPU_ARMED"
+            },
+            {
+              "seconds": 0.026250415947288275,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.02627945796120912,
+              "text": "LOAD_ARMED"
+            },
+            {
+              "seconds": 0.08185233292169869,
+              "text": "CPU_BEGIN"
+            },
+            {
+              "seconds": 0.9011241659754887,
+              "text": "CPU_END 3557719329"
+            },
+            {
+              "seconds": 0.9020612909225747,
+              "text": "DEADLINE_READ_FAILED 60 Operation timed out"
+            },
+            {
+              "seconds": 0.9020873749395832,
+              "text": "DEADLINE_CLOSED"
+            },
+            {
+              "seconds": 0.9026952079730108,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.9034877079539001,
+              "text": "ORDINARY_HANDLED"
+            },
+            {
+              "seconds": 0.9037004159763455,
+              "text": "SERVER_DONE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "deadline_armed_event_seconds": 0.022504832944832742,
+          "cpu_begin_event_seconds": 0.08185233292169869,
+          "cpu_response_after_cpu_seen_seconds": 0.8200972499325871,
+          "ordinary_sent_after_cpu_seen_seconds": 0.030170624959282577,
+          "ordinary_response_after_cpu_seen_seconds": 0.8209883329691365,
+          "ordinary_latency_seconds": 0.790817708009854,
+          "partial_peer_outcome": "eof",
+          "partial_close_after_cpu_seen_seconds": 0.8201986670028418,
+          "recovery_latency_seconds": 0.0006465829210355878,
+          "recovery_response_exact": true,
+          "mode": "cpu",
+          "iterations": 128000000,
+          "trial": 2,
+          "cpu_work_seconds": 0.81927183305379,
+          "ordinary_handler_before_cpu_end": false,
+          "observed_read_arm_to_close_seconds": 0.8795825419947505,
+          "raw_read_failed": true
+        }
+      ],
+      "summary": {
+        "small": {
+          "median_ordinary_ms": 2.1842080168426037,
+          "median_read_arm_to_close_ms": 204.3374590575695,
+          "median_cpu_ms": 2.266000024974346
+        },
+        "yield": {
+          "median_ordinary_ms": 1.7190830549225211,
+          "median_read_arm_to_close_ms": 204.67591600026935,
+          "median_cpu_ms": 504.5008340384811
+        },
+        "cpu": {
+          "median_ordinary_ms": 787.1455409331247,
+          "median_read_arm_to_close_ms": 874.8532079625875,
+          "median_cpu_ms": 815.2285419637337
+        }
+      }
+    }
+  }
+}

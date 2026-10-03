@@ -16,7 +16,7 @@ The lifecycle experiments ran sequentially in native and Bun/JavaScript lanes wi
 | --- | --- | --- |
 | 1 | Dedicated-process lifecycle | External termination works in the probes; integrated graceful drain and supervisor deployment remain unproved |
 | 2 | Resource recovery and transport lifecycle | Affine ownership does not establish descriptor cleanup or socket teardown |
-| 3 | Composition and authoring | Typed/scoped mechanisms work; the small final authoring interface remains unproved |
+| 3 | Composition and agent authoring | Typed/scoped mechanisms work; reliable agent use and duplication-free registration remain unproved |
 | 4 | Performance | Large-body transport risk and JS overhead failures remain; complete-framework costs are unknown |
 
 ### 1. Cancellation and containment
@@ -89,13 +89,34 @@ The user initially kept cancellation blocked while these transport gates ran, th
 
 ### 3. Application composition and authoring
 
-The retained direct and socket results support typed authentication, affine inputs, entered scopes, single-pass expected-error mapping, public sibling isolation, and plain packed-body handlers. They were not rerun to reconfirm known results. `author_app.bend` still needs explicit templates, quantity adapters, scope wrappers, metadata reconstruction, and a hardcoded route branch. The mechanism fits Bend; a small final public interface has not been demonstrated. Same-author examples do not establish independent-author usability, and no independent author or subagent was used.
+The retained direct and socket results support typed authentication, affine inputs, entered scopes, single-pass expected-error mapping, public sibling isolation, and plain packed-body handlers. They were not rerun to reconfirm known results. `author_app.bend` still needs explicit templates, quantity adapters, scope wrappers, metadata reconstruction, and a hardcoded route branch. The user prioritizes agent-understandable correctness and performance over concise authoring. Explicit annotations are acceptable; duplicate routing decisions and caller-managed lifecycle protocols are not. Same-author examples do not establish independent-author usability, and no independent author or subagent was used.
 
 ### 4. Performance
 
 The retained external comparison shows 4 MiB Bend raw/scoped echo throughput of 72/75 requests/s, against 1,041 for axum, 692 for Fastify, and 806 for FastAPI. At 37/s, corrected Bend raw/scoped p99 is 166/110 ms, against about 11–13 ms for those controls. The minimal scoped/raw ratio does not explain that large gap by itself. Transport/body profiling is warranted; an exact bottleneck is not established.
 
 The native tighter recheck passed its frozen gates, while JS direct overhead and one p99 failure persisted. These measurements predate prepared routing and do not price the full typed application. Generator sensitivity prevents a clean capacity ranking. No performance comparison was rerun or budget relaxed during this risk validation.
+
+#### Progress under CPU load
+
+Run `python3 -B camber/run_progress.py`. [progress_results.json](progress_results.json) retains 21 observations: one small-input control, three yielding controls, and three CPU trials per configuration. Each process serves two real HTTP peers through the existing finite `Transport.accept`/`Http.talk.send` path. A third peer sends incomplete headers to a separate actual `Wire.recv.words` read configured for 200 ms. The ordinary request is sent 25 ms after the host observes CPU_BEGIN. No application pool, business queue, or dependency checkout blocks that request.
+
+| Configuration | Yielding-control ordinary latency | CPU-work duration | Ordinary latency during CPU work | Read arm to explicit socket close during CPU work |
+| --- | ---: | ---: | ---: | ---: |
+| Native, `--threads 1 --gpu off` | 0.468 ms | 490.487 ms | 461.123 ms | 543.070 ms |
+| Native, default CPU threads, `--gpu off` | 0.398 ms | 485.625 ms | 459.356 ms | 541.188 ms |
+| Bun/JS | 1.719 ms | 815.229 ms | 787.146 ms | 874.853 ms |
+
+These are medians of three trials, not tail percentiles or production capacity. The yielding worker sleeps for about 500 ms; ordinary handlers and timed socket closure progress before it finishes. Control read-arm-to-close medians are 204.000, 203.521, and 204.676 ms respectively. In all nine CPU trials, the first ordinary handler and timed socket closure occur only after CPU_END. Every case receives exact `200` bodies, the partial peer sees EOF, recovery requests succeed, and the process exits naturally. Recovery latency after CPU completion ranges from 0.144–0.175 ms for native single-thread, 0.124–0.188 ms for default native threads, and 0.592–0.726 ms for JS in the CPU trials.
+
+The CPU input is runtime-seeded serial arithmetic, reusing the earlier calibrated iteration counts: 512 million native and 128 million JS. It is not a measured JSON-decoder or real application workload. The native default-thread case changes the CPU-thread setting, not the workload into parallel code. GPU work is disabled. Raising CPU threads did not make these IO computations independently progress.
+
+This is shared event-loop head-of-line blocking, consistent with `bend guide`: each computation evaluates pure code up to its next effect. The tagged [native IO step](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L5970-L6010) calls `corpus_eval` synchronously; the [JS runner](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L6416-L6455) likewise runs continuations synchronously. It is not evidence of a new compiler bug, dependency deadlock, or Camber hook overhead.
+
+The timed read reports actual error 60, `Operation timed out`, in every case. We observe error delivery and explicit socket closure, not the instant the host timeout expires internally. The partial peer confirms client-visible closure, whose timestamp is retained separately. This does not test an absolute HTTP header deadline or a `408` response; those production controls remain missing. It shows that a configured IO timeout does not by itself bound the subsequent same-runtime reaction while pure work occupies the event loop.
+
+Dedicated-process supervision still supplies a termination fallback, not responsiveness. Next, profile worst-case permitted parsing and application work. Consider bounded compute chunks with explicit yielding, measured nonblocking native effects, or separate execution for justified heavy work. None of these mitigations was implemented or validated here. Preserve admission accounting while work remains active, and do not assume more CPU threads or worker channels solve the observed scheduling behavior.
+
 
 
 ## External framework performance comparison
@@ -278,7 +299,7 @@ The mapper trace includes the actual error kind, so the checks distinguish decod
 
 ### Ergonomics and limits
 
-Worker plumbing can stay outside application code. The decoder and scoped hook contexts no longer need a blanket `Data` restriction. However, this surface still requires explicit template types/functions, quantity adapters, scope wrappers, an action enum, and an action-to-route match. It proves implementability, not a small final interface or independent-agent usability.
+Worker plumbing can stay outside application code. The decoder and scoped hook contexts no longer need a blanket `Data` restriction. This surface still requires explicit template types/functions, quantity adapters, scope wrappers, an action enum, and an action-to-route match. The user accepts verbosity for agent consumers; the relevant uncertainty is reliable use, duplication, and ownership mistakes, not line count. These probes establish implementability, not independent-agent usability.
 
 The checker distinguishes `K -> ...` from `@+config: K -> ...` even when `K` is Data. The `.go` adapters keep the callback's affine parameter signature and let its helper reuse copyable configuration or metadata. This avoids rebuilding application records to satisfy the template signature, but adds author-facing boilerplate.
 
@@ -330,7 +351,7 @@ The shorter run sampled 2.59 MiB native runtime RSS and 179.02 MiB JS runtime RS
 
 The behavioral contract makes sense. Explicit input decoding, typed principal establishment, returned responses, and one shared dispatch path are useful, distinct concepts.
 
-The descriptor/template split is one workable interface direction, not the final public interface. It exposes an action enum, a route-description table, and an action-to-handler match. That repeats registration information and could become administrative work in a larger application. Camber should hide worker/channel plumbing. It should not claim ergonomic parity with callback-based frameworks until an application author has exercised its actual public surface.
+The descriptor/template split is one workable interface direction, not the final public interface. Explicit action enums and handler matches can suit agent consumers. Method, path, policy, and dispatch identity must not be repeated in independent selectors; the prepared table should remain canonical. Camber should hide worker/channel protocols but retain visible ownership and types. Compactness or ergonomic parity with callback-based frameworks is not a release goal.
 
 The original ownership fixture's generic decoder restricts input to `Data`. The direct surface probe now accepts a `Type` model containing `Json.Val`, and its generic hook contexts are also `Type`. This removes that assumption from the new candidate without changing the older fixture. It does not freeze the final decoder signature.
 
@@ -340,6 +361,8 @@ Scope inheritance, transform unwind, single-pass mapper recovery, and final resp
 
 The design has useful properties for agents: inspectable static descriptions, explicit resource flow, typed hook transitions, deterministic rejection, compiler feedback, and a port-free execution path. A complete small example gives an agent a pattern to copy rather than an invitation to invent ownership rules.
 
+Most or all consumers are expected to be AI agents. Correctness and performance take priority over concise authoring. Verbose declarations are useful when they carry types, ownership, and explicit transitions. Evaluate success by adding an authenticated route with an affine dependency and expected failure without framework-internal edits, policy leakage, resource loss, or excess overhead. [DESIGN_IDEAS.md](DESIGN_IDEAS.md) records the directions and their tradeoffs; they are not frozen interfaces.
+
 That is a design assessment, not a measured agent-usability result. No subagents or independent application-writing agents were used. These probes were authored and checked in the same session. They do not measure how reliably another agent can add a route, choose quantities, interpret errors, or maintain an application without editing framework internals.
 
 The direct surface example now demonstrates an affine typed route, typed authentication, and expected-error mapping without worker or framing code. Before release, an independent author must exercise the intended public interface rather than these provisional primitives.
@@ -348,10 +371,10 @@ The direct surface example now demonstrates an affine typed route, typed authent
 
 1. **Integrate the dedicated-process lifecycle.** Preserve cooperative drain and explicit cleanup through shared transport controls. Document an external supervisor that enforces grace and forced termination even if Bend stops making progress, and verify actual process exit. Do not reintroduce embedded isolation or require runtime cancellation.
 2. **Prove resource and transport lifecycle recovery.** Preserve resource-bearing replies until explicit cleanup. Exercise startup failure, bounded admission, write outcomes, idle/active connection teardown, and grace completion through shared `http`/`wire` controls. Keep worker-owned bundles distinct from checked-out connections and pools.
-3. **Validate the intended small authoring interface.** Reduce template/quantity/dispatch glue without copying callbacks or affine state. Exercise that actual surface with an independent author before claiming usability. General group construction and typed query access remain open; no signature is frozen.
-4. **Measure complete-application costs and profile transport/body work.** Preserve the raw controls, failed JS allowances, and external samples. Revalidate the final interface and prepared routing rather than treating historical minimal controls as a complete Camber gate.
+3. **Validate agent-oriented authoring.** Preserve explicit types, quantities, and state return. Remove duplicate route decisions and caller-owned lifecycle protocols, not useful annotations. Exercise the actual interface with an independent author when allowed, judging correctness and overhead rather than line count. General group construction and typed query access remain open; no signature is frozen.
+4. **Measure complete-application costs and worst-case progress.** The new CPU probe confirms shared event-loop blocking in native single/default-thread and JS configurations. Profile permitted body parsing and application work; evaluate yielding or offload only against measured costs. Preserve the raw controls, failed JS allowances, and external samples. Revalidate the final interface and prepared routing rather than treating historical minimal controls as a complete Camber gate.
 
-The prepared router still needs merge and CI publication. Strict JSON remains an independent release prerequisite. Neither should displace the higher-risk cancellation and resource-lifecycle gates.
+The prepared router still needs merge and CI publication. Strict JSON remains an independent release prerequisite. Neither removes the measured progress risk or the missing resource/transport lifecycle controls.
 
 Do not broaden the initial feature set. The next work is making the existing ownership and application contract implementable and usable, not adding plugins, schema generators, or streaming.
 

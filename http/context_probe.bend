@@ -1,5 +1,5 @@
 # Finite validation transport with explicit runtime context; not a published server API.
-# ponytail: 512 framing steps per connection; production needs HTTP lifecycle and cancellation.
+# ponytail: 512 framing steps per connection; production needs bounded admission and graceful lifecycle controls.
 import Base
 import ./http.bend as Http
 import bend-kit-wire@0.4.2.0/wire.bend as Wire

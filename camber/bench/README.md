@@ -215,6 +215,8 @@ All 912 main trials passed status/error/aggregate-byte validation. The 152 calib
 
 The actionable direction is to profile native HTTP transport/body work before adding framework machinery. This comparison fixes none of the original routing, strict JSON, or cancellation findings. Later prepared routing addresses the routing gaps; the user-approved dedicated-process contract removes runtime cancellation as a release dependency, not the strict JSON or production transport requirements.
 
+A separate [progress-under-load probe](../FINDINGS.md#progress-under-cpu-load) now shows ordinary-request and client-visible socket-close delays during serial pure CPU work in native single/default-thread and JS configurations. Those 21 observations are not part of this throughput dataset, and do not change its budgets or samples. They motivate measuring worst-case permitted parsing and handler work before claiming responsive production serving.
+
 ## Validation and review
 
 Actual servers passed the matched pre/post socket checks and the load accounting gates. The runner's cleaned CLI was exercised after removal of two unused imports. Reuse, quality, and efficiency checks ran inline under the user's no-subagent constraint: existing Bend workloads/server guards are reused and each language shares its business work between controls. No new permanent tests or production package changes were needed for these experiment fixtures.

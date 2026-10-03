@@ -4,6 +4,8 @@ Status: proposed behavior contract. Camber is not implemented or published. This
 
 Camber is a small HTTP framework for Bend 2 JSON APIs and services. It combines typed inputs, returned responses, scoped hooks, and explicit ownership. It builds on bend-kit-http rather than implementing another server. Framework influences and their limitations are recorded separately in local research notes, outside this release contract.
 
+Most or all consumers are expected to be AI agents. Correctness and performance take priority over concise authoring. Explicit types, quantities, and ownership transfers are acceptable even when verbose. The interface should minimize duplicate decisions and hidden ordering rules, not line count. Framework code owns routing and lifecycle protocols; application authors supply explicit policies, decoders, handlers, and resource state.
+
 ## Scope
 
 The initial release includes method/path routing, named parameters, route groups, typed request context, explicit body decoding, response helpers, response validation, error mapping, optional access logging, in-process dispatch, and safe HTTP/1.1 server operation.
@@ -206,6 +208,8 @@ The package benchmark must include idiomatic C, Rust, Python, and JavaScript com
 The research note's chi and Phoenix candidates are left out to keep the four-language harness. Status, required headers, and body checksums must agree for shared fixtures; incompatible semantics are documented, not hidden.
 
 Use warmup, repeated trials, documented versions and commands, and both saturation and fixed-offered-rate loads. Sustained overload must show bounded retained memory and recovery after load falls. Native and JS results are reported separately. Run one Bend process at a time, start small, and enforce the repository's memory safety limits.
+
+Measure ordinary-request progress beside yielding work and CPU-heavy work, including worst-case permitted parsing and validation. Record ordinary latency, actual client-visible IO timeout behavior, and recovery after compute completion. Compare native single-thread, native default CPU-thread configuration, and JS separately. A bounded request count or an IO timeout does not establish scheduler isolation; do not infer responsiveness from the ability of an external supervisor to terminate the process.
 
 No absolute throughput promise is made. Published hello-world rankings are not evidence that Camber meets this contract.
 
