@@ -1,6 +1,6 @@
 # Camber
 
-Status: initial release behavior contract. The independent bounded dependency owner is implemented in `camber.bend`; the remaining HTTP framework is not yet implemented or published. "Must", "must not", and "may" state requirements. Other text explains a requirement or describes a dependency as it exists today.
+Status: staged release behavior contract. The bounded dependency owner and fixed prepared registration/direct dispatch are implemented in `camber.bend`. Hooks, body decoders, error mapping, response validation, and HTTP serving remain unimplemented. "Must", "must not", and "may" state requirements. Other text explains a requirement or describes a dependency as it exists today.
 
 Camber is a small HTTP framework for Bend 2 JSON APIs and services. It combines typed inputs, returned responses, scoped hooks, and explicit ownership. It builds on bend-kit-http rather than implementing another server. Framework influences and their limitations are recorded separately in local research notes, outside this release contract.
 
