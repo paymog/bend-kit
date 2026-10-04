@@ -110,12 +110,12 @@ def handler(bundle: Bundle, principal: U32, input: Input) -> IO(Bundle & Result<
     returned : Bundle <- writes(Bundle{slot, first, second}, reverse, principal)
     return (returned, outcome(fail, principal))
 
-def started(result: Result<&2, &2, U32, Camber.Context<Bundle, U32, Input, U32, U32>>) -> IO(Camber.Context<Bundle, U32, Input, U32, U32>):
+def started(result: Result<&2, &1, U32, Camber.Owner<Bundle, U32, Input, U32, U32>>) -> IO(Camber.Owner<Bundle, U32, Input, U32, U32>):
   match result:
     case Fail{error}:
-      IO.die(Camber.Context<Bundle, U32, Input, U32, U32>, 1, "unexpected startup failure")
+      IO.die(Camber.Owner<Bundle, U32, Input, U32, U32>, 1, "unexpected startup failure")
     case Done{context}:
-      IO.pure(Camber.Context<Bundle, U32, Input, U32, U32>, context)
+      IO.pure(Camber.Owner<Bundle, U32, Input, U32, U32>, context)
 
 def counts(value: Maybe<&2, Camber.Counts>, busy: Nat, completed: Nat, rejected: Nat) -> IO(Unit):
   match value:
@@ -146,21 +146,23 @@ def exhausted(result: Camber.Outcome<U32, U32>) -> IO(Unit):
     case _:
       IO.die(Unit, 1, "exhaustion did not reject")
 
-def busy(result: Camber.CloseResult) -> IO(Unit):
+def busy(result: Camber.OwnerClose<Bundle, U32, Input, U32, U32>) -> IO(Camber.Owner<Bundle, U32, Input, U32, U32>):
   match result:
-    case Camber.Busy{Camber.Counts{capacity, in_use, completed, rejected}}:
-      require(Nat.is_eq(in_use, 2n), "close lost occupied capacity")
-    case Camber.Closed{}:
-      IO.die(Unit, 1, "closed active resources")
+    case Camber.OwnerBusy{owner, Camber.Counts{capacity, in_use, completed, rejected}}:
+      do IO<Camber.Owner<Bundle, U32, Input, U32, U32>>:
+        require(Nat.is_eq(in_use, 2n), "close lost occupied capacity")
+        return owner
+    case Camber.OwnerClosed{}:
+      IO.die(Camber.Owner<Bundle, U32, Input, U32, U32>, 1, "closed active resources")
 
-def closed(result: Camber.CloseResult) -> IO(Unit):
+def closed(result: Camber.OwnerClose<Bundle, U32, Input, U32, U32>) -> IO(Unit):
   match result:
-    case Camber.Closed{}:
+    case Camber.OwnerClosed{}:
       IO.pure(Unit, Unit{})
-    case Camber.Busy{counts}:
+    case Camber.OwnerBusy{owner, counts}:
       IO.die(Unit, 1, "idle close failed")
 
-def failed.start(result: Result<&2, &2, U32, Camber.Context<Bundle, U32, Input, U32, U32>>) -> IO(Unit):
+def failed.start(result: Result<&2, &1, U32, Camber.Owner<Bundle, U32, Input, U32, U32>>) -> IO(Unit):
   match result:
     case Fail{error}:
       require(U32.is_eq(error, 91), "wrong startup error")
@@ -207,11 +209,11 @@ def bind.failed(result: Result<&1, &1, U32 & String, Listener>) -> IO(Unit):
         Listener.close(listener)
         IO.die(Unit, 1, "invalid bind unexpectedly succeeded")
 
-def scenario(+path: String) -> IO(Unit):
+def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: String) -> IO(Unit):
+  Camber.Owner{+context, finished} = opened
   do IO<Unit>:
     IO.print("JOURNAL " ++ path)
-    startup : Result<&2, &2, U32, Camber.Context<Bundle, U32, Input, U32, U32>> <- Camber.start(~Config, ~Bundle, ~U32, ~Input, ~U32, ~U32, ~create, ~handler, ~destroy, Config{path, False{}}, 2n, 8)
-    +context : Camber.Context<Bundle, U32, Input, U32, U32> <- started(startup)
+    owner : Camber.Owner<Bundle, U32, Input, U32, U32> = Camber.Owner{context, finished}
     ready0 : Chan(Nat) <- Chan.new(Nat, 8)
     +ready : Chan(Nat) = ready0
     release0 : Chan(Unit) <- Chan.new(Unit, 2)
@@ -230,8 +232,8 @@ def scenario(+path: String) -> IO(Unit):
     counts(held, 2n, 0n, 0n)
     overflow : Camber.Outcome<U32, U32> <- Camber.call(Bundle, U32, Input, U32, U32, context, 9, Input{False{}, False{}, False{}, ready, release})
     exhausted(overflow)
-    close_busy : Camber.CloseResult <- Camber.close(Bundle, U32, Input, U32, U32, context)
-    busy(close_busy)
+    close_busy : Camber.OwnerClose<Bundle, U32, Input, U32, U32> <- Camber.close(Bundle, U32, Input, U32, U32, owner)
+    returned_owner : Camber.Owner<Bundle, U32, Input, U32, U32> <- busy(close_busy)
     still_held : Maybe<&2, Camber.Counts> <- Camber.inspect(Bundle, U32, Input, U32, U32, context)
     counts(still_held, 2n, 0n, 1n)
     release_a : Bool <- Chan.send(Unit, release, Unit{})
@@ -258,26 +260,32 @@ def scenario(+path: String) -> IO(Unit):
     recovered_slot : Nat <- Camber.receive(Nat, ready)
     final : Maybe<&2, Camber.Counts> <- Camber.inspect(Bundle, U32, Input, U32, U32, context)
     counts(final, 0n, 4n, 1n)
-    close_idle : Camber.CloseResult <- Camber.close(Bundle, U32, Input, U32, U32, context)
+    close_idle : Camber.OwnerClose<Bundle, U32, Input, U32, U32> <- Camber.close(Bundle, U32, Input, U32, U32, returned_owner)
     closed(close_idle)
     after : Camber.Outcome<U32, U32> <- Camber.call(Bundle, U32, Input, U32, U32, context, 11, Input{False{}, False{}, False{}, ready, release})
     stopped(after)
     Chan.close(Nat, ready)
     Chan.close(Unit, release)
-    failed : Result<&2, &2, U32, Camber.Context<Bundle, U32, Input, U32, U32>> <- Camber.start(~Config, ~Bundle, ~U32, ~Input, ~U32, ~U32, ~create, ~handler, ~destroy, Config{path ++ "-startup", True{}}, 2n, 8)
+    failed : Result<&2, &1, U32, Camber.Owner<Bundle, U32, Input, U32, U32>> <- Camber.start(~Config, ~Bundle, ~U32, ~Input, ~U32, ~U32, ~create, ~handler, ~destroy, Config{path ++ "-startup", True{}}, 2n, 8)
     failed.start(failed)
-    late_start : Result<&2, &2, U32, Camber.Context<Bundle, U32, Input, U32, U32>> <- Camber.start(~Config, ~Bundle, ~U32, ~Input, ~U32, ~U32, ~create, ~handler, ~destroy, Config{path ++ "-bind", False{}}, 2n, 8)
-    late_context : Camber.Context<Bundle, U32, Input, U32, U32> <- started(late_start)
+    late_start : Result<&2, &1, U32, Camber.Owner<Bundle, U32, Input, U32, U32>> <- Camber.start(~Config, ~Bundle, ~U32, ~Input, ~U32, ~U32, ~create, ~handler, ~destroy, Config{path ++ "-bind", False{}}, 2n, 8)
+    late_owner : Camber.Owner<Bundle, U32, Input, U32, U32> <- started(late_start)
     bind_result : Result<&1, &1, U32 & String, Listener> <- TCP.listen("not-an-ipv4-address", 0)
     bind.failed(bind_result)
-    late_closed : Camber.CloseResult <- Camber.close(Bundle, U32, Input, U32, U32, late_context)
+    late_closed : Camber.OwnerClose<Bundle, U32, Input, U32, U32> <- Camber.close(Bundle, U32, Input, U32, U32, late_owner)
     closed(late_closed)
     IO.print("camber owner: PASS")
+
+def scenario(+path: String) -> IO(Unit):
+  do IO<Unit>:
+    startup : Result<&2, &1, U32, Camber.Owner<Bundle, U32, Input, U32, U32>> <- Camber.start(~Config, ~Bundle, ~U32, ~Input, ~U32, ~U32, ~create, ~handler, ~destroy, Config{path, False{}}, 2n, 8)
+    opened : Camber.Owner<Bundle, U32, Input, U32, U32> <- started(startup)
+    scenario.opened(opened, path)
 
 def main() -> IO(Unit):
   do IO<Unit>:
     seed : U32 <- IO.try(U32, IO.random_u32())
-    scenario("/tmp/camber-owner-331-" ++ U32.show(seed))
+    scenario("camber-owner-336-" ++ U32.show(seed))
     Dispatch.main()
     Response.main()
     Scoped.check()

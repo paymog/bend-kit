@@ -1,6 +1,6 @@
 # Camber
 
-`camber.bend` delivers fixed prepared registration, immutable scoped before/transform policies, once-only error mapping, application completion, explicit input/output choices, final response validation, and an independent bounded dependency owner. HTTP serving remains separate work. Package version: `0.4.0.0`; CI publishes after merge, never by hand.
+`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.30.0.0. Package version: `0.5.0.0`; CI publishes after merge, never by hand. Entered-policy notifications, durations and optional access logging remain separate work.
 
 ## API
 
@@ -12,7 +12,7 @@ The application retains prepared `GroupPlan` chains for method misses and genera
 
 `describe(~A, ~C, ~P, app)` returns the published Router descriptions, including registered method/pattern/group membership and parameter-route methods hidden by a more specific literal path. No listener is needed.
 
-`dispatch(~A, ~S, ~K, ~E, ~H, ~before, ~after, ~run, ~mapper, app, state, req)` returns `IO(Completion<S,H>)` through one prepared Router selection pipeline. All five types are `Data`; `S` is copied request-local state, not an affine resource bundle. The executor has type `A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2,&1,Error<E>,Http.Res>)`. It performs its explicit decoding and business work only after selected before hooks. An ordinary `Http.Req -> IO(Http.Res)` handler fits by returning its response as `Done`, without calling `plain` first or converting its packed body.
+`dispatch(~A, ~S, ~K, ~E, ~H, ~before, ~after, ~run, ~mapper, app, state, req)` returns `IO(Completion<S,H>)` through one prepared Router selection pipeline. `S` is `Type`: a whole affine resource bundle or ordinary request-local Data, threaded exactly once through hooks, handlers, mapping and recovery. The other four types remain `Data`. The executor has type `A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2,&1,Error<E>,Http.Res>)`. It performs explicit decoding and business work only after selected before hooks. An ordinary `Http.Req -> IO(Http.Res)` handler fits by returning its response as `Done`, without converting its packed body.
 
 Before hooks receive `H -> S -> K -> Metadata -> IO(Step<S,E>)`, where `Metadata{method,target,headers}` contains no body. `Continue{state}`, `Early{state,response}`, and `Reject{state,error}` preserve the request-local state; early exits skip subsequent scopes, decoding, and the executor. Root hooks precede target parsing. Path groups run for 405/generated OPTIONS, but route hooks do not. Empty scopes are entered too. Transforms receive `H -> S -> K -> Http.Res -> IO(S & Result<Error<E>,Http.Res>)` and unwind only entered scopes, inner-to-outer in reversed declaration order.
 
@@ -46,42 +46,40 @@ Input helpers return `Result<&2,&1,U32,I>`, with expected status400/415. `C.inpu
 
 `validate(response)` returns `Done` with the original packed body and repeated header values, or expected `Fail{InvalidResponse{}}`. It accepts status 200..599, lowercase RFC token names, and octet field values without controls except HTAB. Header values must be 0..255: shared Http concatenates header Strings and packs each Char's low eight bits, so accepting a larger code point could truncate into CR/LF. Encode non-ASCII header/URL bytes explicitly. Obs-text 128..255 is preserved.
 
-Content-Length, Transfer-Encoding, Keep-Alive, Upgrade, TE, Trailer, and Proxy-Connection are prohibited. Every Connection value must be exactly `close`. Validation neither strips nor coerces invalid output. Standalone `validate`/`plain` return expected failures before transport. Scoped `dispatch` maps them once after transforms and returns the final safe response. No serving adapter is supplied here.
+Content-Length, Transfer-Encoding, Keep-Alive, Upgrade, TE, Trailer, and Proxy-Connection are prohibited. Every Connection value must be exactly `close`. Validation neither strips nor coerces invalid output. Standalone `validate`/`plain` return expected failures before transport. Scoped `dispatch` maps them once after transforms and returns the final safe response; public serving runs that same dispatch.
 
 This is a breaking dispatch/application-policy change from 0.2.0.0. All public dispatch consumers now inspect application completion; ordinary handler inputs and `IO(Http.Res)` outputs remain unchanged.
 
 
 ### Bounded dependency owner
 
-`start(~K, ~R, ~P, ~I, ~E, ~O, ~create, ~handler, ~destroy, config, capacity, room)` opens exactly `capacity` complete affine bundles before starting its owner. Runtime configuration `K`, principal `P`, input `I`, expected error `E`, and output `O` are typed `Data`; bundle `R` is `Type`. The closed initializer receives runtime configuration and a slot index, and returns `Result<E, R>`. It must close partial handles on failure within one bundle. Camber closes all previously completed bundles on expected initialization failure. Expected startup failure is returned, not passed to `IO.try` internally.
+`start(~K, ~R, ~P, ~I, ~E, ~O, ~create, ~handler, ~destroy, config, capacity, room)` returns `IO(Result<&2,&1,E,Owner<R,P,I,E,O>>)` after opening exactly `capacity` complete affine bundles. Runtime configuration `K`, principal `P`, input `I`, expected error `E`, and output `O` remain typed `Data`; bundle `R` and completion owner `Owner` are `Type`. The closed initializer receives configuration and a slot index, and returns `Result<E,R>`. It must close partial handles within a failed bundle; Camber closes all previously completed bundles on expected initialization failure.
 
-A copied `Context<R,P,I,E,O>` is usable by concurrent requests. `call(..., context, principal, input)` returns `Success`, `Expected`, `Exhausted`, or `Stopped`. The closed handler receives one whole resource bundle and the request's typed principal/input, and returns that bundle beside success or expected failure. There is no per-request resource creation or separate dependency checkout. Opposite operation orders within a bundle cannot produce the two-set acquisition deadlock.
+`owner.context(..., owner)` returns the same affine owner beside a copied `Context<R,P,I,E,O>` for concurrent requests. Only the inbox is copied; the actual `IO.fork` completion future remains owned once. `call(..., context, principal, input)` returns `Success`, `Expected`, `Exhausted`, or `Stopped`. The closed handler receives and returns one whole resource bundle. Opposite operation orders inside one bundle cannot cause separate-set acquisition deadlock.
 
-Only disposable `Data` outcomes cross caller reply channels. Perform business operations here and encode an affine HTTP response outside the operation. Resource handles never cross caller replies. `submit(..., context, principal, input, reply)` is the asynchronous variant; callers own a fresh, one-slot reply channel, receive at most one outcome, and close it. Closing that reply early does not strand the bundle or capacity.
+Only disposable `Data` outcomes cross caller replies; external resource handles return through the private inbox first. `submit(..., context, principal, input, reply)` is asynchronous: callers own a fresh one-slot reply, receive at most one outcome, and close it. Early reply disposal does not strand bundles or capacity. Serving uses wrapper-owned, one-slot body/response pipes containing only disposable packed HTTP buffers, never external handles. It consumes the response only after the Data owner reply confirms bundle restoration, and drains/closes both pipes on success or capacity rejection.
 
 `inspect(..., context)` returns counts (`capacity`, `in_use`, `completed`, `rejected`) or `None` after closure. `in_use` includes a handler that stalls or loses its bundle; capacity never silently replenishes. Available capacity is `capacity - in_use`.
 
-`close(..., context)` returns `Busy{counts}` immediately while an operation still owns a bundle. Stop external admissions, wait for admitted operations, then retry close. Idle close explicitly runs the destructor once per returned bundle and ends the owner. Repeated close is harmless; calls afterward return `Stopped`. On a later startup failure (for example transport bind rejection), explicitly close the successfully initialized idle owner. Forced process termination cannot promise close or rollback.
+`close(..., owner)` consumes the affine owner and returns `OwnerClose<R,P,I,E,O>`. `OwnerBusy{owner,counts}` preserves the same owner/future for retry; no resources are closed while work holds them. `OwnerClosed{}` follows explicit bundle destruction and joining the actual actor result. Close cannot be repeated or raced through copied request contexts; only stop controls are copyable. Calls through retained contexts afterward return `Stopped`. This breaking lifecycle migration replaces context-based close; forced process termination still cannot promise cleanup.
 
-### Cooperative transport shutdown (HTTP 0.30.0.0)
+### Public shared-transport serving
 
-The shared HTTP owner now provides `server.control`, copied `server.stop`,
-and actual `ServerExit`/drained-count results. A stop acknowledgment is only an
-admission transition: retain and run/close the affine server, join its actual
-completion, then explicitly close the separate idle Camber dependency owner.
-Busy dependencies or stalled callbacks remain counted; a timer does not return
-their instances. Stream abort and skipped-writer disposal callbacks consume
-actual application state and must explicitly return/close its external handles.
+`server.config(port)` explicitly chooses loopback `127.0.0.1`, body1048576 bytes, headers65536 bytes,128 connections,128 active requests,128 buffered reservations, header5000ms and body/idle/write30000ms. Public binding and raised limits require an explicit `Http.ServerConfig`; no transport defaults leak into Camber.
 
-[`../http/drain_results.json`](../http/drain_results.json) records 64 native/JS
-socket cases, including the scoped `lifecycle_http.serve` adapter over the same
-HTTP owner, natural cooperative exit, delayed/stuck work, and actual File
-descriptor closure. This is not a new Camber serving implementation or #339's
-supervisor deployment. Forced SIGKILL/reaping observations are distinct from
-explicit application cleanup; historical pre-control supervision evidence stays
-separate in [`supervision_risk_results.json`](supervision_risk_results.json).
-Published Wire 0.4.5.0 is `0x1435aec27074c8141b74747909079afc`; local HTTP
-0.30.0.0 awaits merge and automatic publication. No manual publish is required.
+`server.start(~A,~S,~K,~E,~H,~before,~after,~run,~mapper,~destroy,registration,config,bundles)` consumes preowned `List<S>` and the fallible `application(...)` result. It returns `Result<&2,&1,StartupError,Server<A,S,K,H>>`. Registration/configuration/empty-bundle errors precede listening. Real bind failure explicitly destroys every owned bundle once before returning `TransportFailed`; no affine value is silently erased. Only successful binding starts the existing bounded dependency owner. Startup success owns an accepting listener; announce readiness only after inspecting `Done`.
+
+`server.control(...,server)` retains the server and returns a copied `Http.ServerControl`. `Http.server.stop(control)` requests quiescence; its Boolean does not attest drain. `server.observer` similarly exposes transport stats. `server.dependencies` returns a copied dependency context for `inspect` counts while retaining the affine owner.
+
+`server.run(~A,~S,~K,~H,~done,~observe,server)` consumes the transport owner, runs the sole `dispatch`, waits for published HTTP's actual `ServerExit`, then explicitly closes and joins the dependency owner. `server.close` performs the same cleanup for a started server whose run loop has not been launched. `ServerExit<A,S,K,H>` is affine and contains the transport exit plus `OwnerClosed` or a preserved `OwnerBusy` for retry; Busy is never encoded as a disposable completion. `serve(...)` combines start/run and returns expected startup failure or that actual exit; owners needing readiness and stop controls use start/run separately.
+
+`done` receives published `TransportCompletion.Completion<ApplicationReport<H>>`. `Dispatched{entered,mapped,stopped}` preserves application metadata separately from status and the actual transport outcome; `CapacityRejected{}` means no application scope/business work entered. `observe` receives status/outcome for transport-generated responses too. These explicit raw receipts are not entered-policy notifications, duration collection or optional logging. Use a closed no-op callback when no observation is wanted. Host acceptance does not prove peer receipt.
+
+Plain `Http.Req -> IO(Http.Res)` handlers remain usable inside Camber and beside it through the same published transport. Direct dispatch and live serving share status, application headers and packed body; only live transport adds framing and suppresses HEAD/204/304 body bytes. Exhausted bundles produce503 and close without business work. An inbox wait remains inside HTTP's active/buffered reservations until the wrapper actually returns.
+
+`serving_check.bend` and `run_serving.py` exercise real File bundles and explicit yielding gates through a plain published-HTTP control listener. No timers release held work. The smallest native/JS bind-close smoke passed; full direct/live and overload/drain receipts are recorded in [`serving_results.json`](serving_results.json). Historical experimental socket transports, failures and budgets remain separate; they are not the public server. No arbitrary cancellation, handler replay, hard CPU deadline or embedded-server isolation is promised.
+
+Published HTTP0.30.0.0 is `0x8bc87dd4d1e610fe1bf336b567537a8c`; Wire0.4.5.0 is `0x1435aec27074c8141b74747909079afc`. Existing shared HTTP drain evidence remains in [`../http/drain_results.json`](../http/drain_results.json). External-supervisor deployment remains separate work.
 
 
 ## Bounds and trust
@@ -90,7 +88,7 @@ The command inbox has `room` buffered slots (zero uses rendezvous). Resource exh
 
 The lifecycle receive loop uses `@unsafe` because its termination depends on an external orderly-close command, not structurally shrinking input. The post-close drain is structurally bounded by the inbox's slot count. Base channel/file effects also lie outside mathematical proofs. No human-authored Camber pure laws have been supplied: `LAWS.bend` contains only that disclosure, and `PROOF.bend` imports the empty inventory. There is no mathematical proof coverage beyond type checking and the structurally checked pure helpers; a clean empty proof gate does not attest IO correctness.
 
-`check.bend` is a real native/JS consumer with two File handles per bundle, deterministic held principals, opposite operation orders, expected failure, exhaustion, counts, closed caller reply, partial startup cleanup, actual TCP bind rejection with owner cleanup, and explicit close. Run `python3 camber/run_owner.py` for the package gate and both compiled lanes, with disk/RSS/deadline guards and journal verification/cleanup. No extra serving scaffold exists. The owner-specific observations and proof exclusions are recorded in [OWNER_EVIDENCE.md](OWNER_EVIDENCE.md).
+`check.bend` remains the native/JS owner consumer with real two-File bundles, held principals, expected failures, exhaustion, counts, disposed caller replies, partial startup cleanup and Busy→same-owner retry. `python3 camber/run_serving.py --checks` runs the affected package gate and both actual compiled owner/serving lanes sequentially, with aggregate descendant RSS/disk guards and explicit listener release. [OWNER_EVIDENCE.md](OWNER_EVIDENCE.md) preserves the original owner receipts rather than rewriting historical measurements.
 
 ## Registration/direct-dispatch verification
 
@@ -149,3 +147,15 @@ A guarded native `bend camber/input_check.bend -o <temporary-binary>` smoke exer
 The exact final `python3 camber/run_inputs.py` exited0 in130.00 seconds. [The current receipt](input_results.json) records134 cases in each native/direct, native/live, JS/direct and JS/live set (536 checked outcomes), including all14 charset additions. Each set observed39 status200, two201,62 expected400, two auth401 and29 expected415. Exact direct/live responses and effect journals passed, as did the same package/publication, owner/dispatch/helpers/scoped and genuine recovered-safe-response live regressions described above. The final receipt's `adverse` array is empty; the earlier checker failures remain recorded here as historical development evidence, not erased or presented as final runtime failures.
 
 The maximum sampled final-gate RSS was6,168,160KiB; the entry still discloses278 inherited unsafe/foreign dependencies. The exclusive verification slot was released with no matched compiler/runtime processes, no listeners on18335/18333,34,305,249,280 bytes free, and all temporary smoke/gate binaries and journals removed. No runtimes were started after release.
+
+## Public serving0.5 verification
+
+The controlled native/JS `python3 camber/run_serving.py` matrix exited0 (`PUBLIC SERVING PASS`). Each lane compared14 direct/live responses: packed plain echo, strict JSON success/failures, pre-decoding auth rejection, one mapper call,404/405 and Allow, malformed target, and HEAD/204/304 suppression only at transport. A genuine plain published-HTTP handler beside Camber echoed the same binary bytes.
+
+With an explicitly held File bundle, each lane observed24 exact503 rejects, no rejected business journal, active/buffered counts1/1 before and after actual stop, and no cleanup while held. Explicit release produced the admitted200, journal `BUSINESS hold\nCLOSED\n`, descriptor1→0 while the beside server still lived, then real application/transport joins. A separately blocked dependency reply retained active/buffered1/1 and an empty journal until explicit release. Both application/control listener ports rebound after actual zero exits; rebind uses SO_REUSEADDR for TCP TIME_WAIT, not SO_REUSEPORT.
+
+The affected package gate exited0 and disclosed315 unsafe/foreign-dependent definitions; the empty human law gate is not IO proof. The migrated owner passed both native/JS Busy→same affine owner retry, disposed Data reply, startup rollback and close. Its paired File journals independently matched principals7/8/10/12; destructor markers matched once per returned bundle and partial cleanup. Peak aggregate RSS in the final serving/owner matrix was6,561,968KiB (native owner compilation), below the20GiB descendant ceiling. Very short native executions with0/32KiB sampled peaks are not memory benchmarks.
+
+A temporary guarded verification script reused the existing input/response consumers without overwriting their historical evidence. It verified134 input cases per lane directly and live (536 comparisons/journals total),21 plain invalid responses with zero bytes plus21 routed safe mapped500 responses per lane, and repeated Set-Cookie preservation. The finite input fixture now stops and joins published HTTP's owner rather than calling an obsolete template-only socket loop. Historical dispatch benchmark native/JS eight checksums matched at3 measured iterations; this is not final public-dispatch release/performance proof. `bash scripts/publish.sh --check camber` exited0: `bend-kit-camber@0.5.0.0 will publish`; no manual publication occurred.
+
+[`serving_results.json`](serving_results.json) preserves every command/output, peak, observed process identity/release, descriptor/rebind observation and retained journal receipt. It retains the five initial compile failures, owner tuple-let rejection, wrong fixture auth mapping and its forced failure cleanup (never success), initial TIME_WAIT rebind failure, and later input/writer API migration failures. Successful final commands used no forced cleanup. Temporary binaries, retained-script scaffold and owned test journals were removed. Historical failures/budgets, unsafe/foreign exclusions and external-supervisor limitations remain unchanged.
