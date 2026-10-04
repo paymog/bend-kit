@@ -5,6 +5,7 @@ import bend-kit-router@0.2.0.0/router.bend as Router
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-json@0.5.1.0/json.bend as Json
 import ./response.bend as Response
+import ./input.bend as Input
 
 type ResponseError is Data:
   InvalidResponse{}
@@ -505,6 +506,29 @@ type Error<-E: Data> is Data:
   ApplicationError{error: E}
   Framework{status: U32, allow: String}
   ResponseInvalid{}
+
+# Adapt reusable input status failures to the existing one-pass dispatch mapper.
+def input(~I: Type, ~E: Data, outcome: Result<&2, &1, U32, I>) -> Result<&2, &1, Error<E>, I>:
+  match outcome:
+    case Fail{status}: Fail{Framework{status, ""}}
+    case Done{value}: Done{value}
+
+def execute.decoded(~I: Type, ~S: Data, ~K: Data, ~E: Data,
+  ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  outcome: Result<&2, &1, Error<E>, I>, state: S, config: K
+) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
+  match outcome:
+    case Fail{error}: IO.pure(S & Result<&2, &1, Error<E>, Http.Res>, (state, Fail{error}))
+    case Done{value}: handler(state, config, value)
+
+# An executor, not a second dispatcher: call from dispatch's run template, after
+# all applicable before hooks. Only validated typed input reaches business IO.
+def execute(~I: Type, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~decoder: K -> Match<Policy<H>> -> Http.Req -> Result<&2, &1, Error<E>, I>,
+  ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  state: S, +config: K, selected: Match<Policy<H>>, req: Http.Req
+) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
+  execute.decoded(~I, ~S, ~K, ~E, ~handler, decoder(config, selected, req), state, config)
 
 type Step<-S: Data, -E: Data> is Type:
   Continue{state: S}
