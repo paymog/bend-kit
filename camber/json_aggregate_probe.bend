@@ -1,6 +1,7 @@
 # Observe bounded JSON batches beside ordinary HTTP and a real timed socket read.
 import Base
 import ./json_progress_probe.bend as JsonProgress
+import ./json_disposal_control.bend as JsonDisposal
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
@@ -15,6 +16,8 @@ def work(mode: String, body: Http.Body, started: Time.Duration) -> IO(Http.Res):
       do IO<Http.Res>:
         IO.sleep(500)
         JsonProgress.result(True{}, started)
+    case "json-dispose":
+      JsonDisposal.work(body, started)
     case _:
       JsonProgress.work("json", body, started)
 
@@ -109,7 +112,7 @@ def args(values: List<&1, String>) -> IO(Unit):
     case program <> mode <> count <> port <> Nil{}:
       numbers(mode, U32.read(count), U32.read(port))
     case _:
-      IO.die(Unit, 1, "usage: json_aggregate_probe <json|yield> <count> <port>")
+      IO.die(Unit, 1, "usage: json_aggregate_probe <json|yield|json-dispose> <count> <port>")
 
 def main() -> IO(Unit):
   do IO<Unit>:
