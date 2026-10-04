@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>org.bend-kit.camber.tls</string>
+  <key>ProgramArguments</key><array>
+    <string>/opt/camber/bin/nginx</string>
+    <string>-p</string><string>/var/lib/camber/proxy/</string>
+    <string>-c</string><string>/var/lib/camber/proxy/nginx.conf</string>
+  </array>
+  <key>UserName</key><string>camber</string>
+  <key>GroupName</key><string>camber</string>
+  <key>WorkingDirectory</key><string>/var/lib/camber/proxy</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+  <key>ExitTimeOut</key><integer>5</integer>
+  <key>Umask</key><integer>63</integer>
+  <key>StandardOutPath</key><string>/var/log/camber/proxy-owner.log</string>
+  <key>StandardErrorPath</key><string>/dev/null</string>
+  <key>HardResourceLimits</key><dict><key>Core</key><integer>0</integer></dict>
+</dict></plist>

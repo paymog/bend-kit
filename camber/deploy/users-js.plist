@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>org.bend-kit.camber.users-js</string>
+  <key>ProgramArguments</key><array>
+    <!-- Requires root-owned /opt/camber/signals.c beside users.js and Bun FFI cc enabled. -->
+    <string>/opt/camber/bin/bun</string><string>/opt/camber/users.js</string>
+    <string>19441</string><string>19442</string>
+    <string>/var/lib/camber/journal</string>
+  </array>
+  <key>UserName</key><string>camber</string>
+  <key>GroupName</key><string>camber</string>
+  <key>WorkingDirectory</key><string>/var/lib/camber</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+  <key>ExitTimeOut</key><integer>5</integer>
+  <key>Umask</key><integer>63</integer>
+  <key>EnvironmentVariables</key><dict><key>BEND_NO_TELEMETRY</key><string>1</string></dict>
+  <key>StandardOutPath</key><string>/var/log/camber/owners.log</string>
+  <key>StandardErrorPath</key><string>/var/log/camber/errors.log</string>
+  <key>HardResourceLimits</key><dict><key>Core</key><integer>0</integer></dict>
+</dict></plist>
