@@ -2,32 +2,30 @@
 # ponytail: 512 framing steps per connection; production needs bounded admission and graceful lifecycle controls.
 import Base
 import ./http.bend as Http
-import bend-kit-wire@0.4.2.0/wire.bend as Wire
 
-def close(st: Socket & Http.Turn) -> IO(Unit):
-  (socket, turn) = st
+def close(st: Http.Serving) -> IO(Unit):
+  Http.Serving{(socket, turn), phase} = st
   Socket.close(socket)
 
-def talk(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), fuel: Nat, +context: C, +max: Nat, st: Socket & Http.Turn) -> IO(Unit):
+def talk(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), fuel: Nat, +context: C, +max: Nat, st: Http.Serving) -> IO(Unit):
   match fuel:
     case 0n:
       close(st)
     case 1n+p:
-      (socket, turn) = st
+      Http.Serving{(socket, turn), phase} = st
       match turn:
         case Http.TurnMore{state, cont}:
           do IO<Unit>:
-            next_socket : Socket <- Http.talk.cont(cont, socket)
-            received : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(next_socket, 65536, 30000)
-            talk(~C, ~handler, p, context, max, Http.talk.next(max, state, received))
+            received : (Socket & Http.Turn) & Http.Phase <- Http.talk.recv(Http.limits(max), socket, state, cont, phase)
+            talk(~C, ~handler, p, context, max, Http.talk.state(received))
         case Http.TurnReq{request, rest, v11}:
           Http.Req{+method, path, +headers, body} = request
           do IO<Unit>:
             response : Http.Res <- handler(context, Http.Req{method, path, headers, body})
-            next : Socket & Http.Turn <- Http.talk.send(max, socket, rest, headers, v11, String.eq(method, "HEAD"), response)
-            talk(~C, ~handler, p, context, max, next)
+            next : Socket & Http.Turn <- Http.talk.send(Http.limits(max), socket, rest, headers, v11, String.eq(method, "HEAD"), response)
+            talk(~C, ~handler, p, context, max, Http.Serving{next, None{}})
         case Http.TurnFail{status}:
-          Http.reply_fail(socket, status)
+          Http.reply_fail(socket, status, 30000)
         case Http.TurnClose{}:
           Socket.close(socket)
 
@@ -39,7 +37,7 @@ def accepted(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), context: C, max:
   (listener, got) = result
   do IO<AcceptState>:
     socket : Socket <- IO.pass(Socket, got)
-    finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~handler, 512n, context, max, (socket, Http.TurnMore{Http.sv.none(), False{}})))
+    finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~handler, 512n, context, max, Http.Serving{(socket, Http.TurnMore{Http.sv.none(), False{}}), None{}}))
     return Connected{listener, finished}
 
 def accept.close(state: AcceptState, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):

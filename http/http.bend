@@ -1,7 +1,7 @@
 # HTTP/1.1 and HTTP/2 client, with an HTTP/1.1 server. Source: https://github.com/paymog/bend-kit/tree/main/http
 import Base
 # By hash: bend-kit-url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -zlib@0.2.0.0.
-import bend-kit-wire@0.4.2.0/wire.bend as Wire
+import bend-kit-wire@0.4.4.0/wire.bend as Wire
 import bend-kit-http2@0.1.2.0/http2.bend as H2
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
@@ -5027,6 +5027,53 @@ def upload.finish(up: Up) -> IO(Result<&1, &1, Err, Stream>):
         sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(tls, s, Bytes.from_string("0\r\n\r\n"))
         stream.sent(tls, ms, head, sent)
 
+type ServerConfig is Data:
+  ServerConfig{host: String, port: U32, body_bytes: U32, header_bytes: U32,
+    connections: U32, requests: U32, header_ms: U32, body_ms: U32,
+    idle_ms: U32, write_ms: U32}
+
+# Shared transport settings; admission remains owned by its separate leaf.
+type Limits is Data:
+  Limits{body: Nat, headers: U32, header_ms: U32, body_ms: U32, idle_ms: U32, write_ms: U32}
+
+def limits(max: Nat) -> Limits:
+  Limits{max, 65536, 5000, 30000, 30000, 30000}
+
+def limits.config(config: ServerConfig) -> Limits:
+  ServerConfig{host, port, body, headers, connections, requests, header_ms, body_ms, idle_ms, write_ms} = config
+  Limits{U32.to_nat(body), headers, header_ms, body_ms, idle_ms, write_ms}
+
+# One absolute deadline, never replenished by progress.
+type Phase is Data:
+  Phase{kind: U32, until: Time.Duration}
+
+def phase.new(+kind: U32, ms: U32, now: Time.Duration) -> Phase:
+  Phase{kind, Time.Duration.add(now, Time.Duration.of_ms(ms))}
+
+def phase.remaining(+until: Time.Duration, +now: Time.Duration) -> U32:
+  Bool.pick(U32, Cmp.is_lt(Time.Duration.cmp(now, until)),
+    U32.max(1, Int.I64.to_u32(Time.Duration.to_ms(Time.Duration.sub(until, now)))), 0)
+
+def bounded.sent(m: Socket & (U32 & Result<&1, &1, U32 & String, Unit>)) -> Socket & Result<&1, &1, U32 & String, Unit>:
+  (s, (accepted, result)) = m
+  (s, result)
+
+def bounded.send.ready(expired: Bool, s: Socket, b: Bytes.Bytes, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  match expired:
+    case True{}:
+      IO.pure(Socket & Result<&1, &1, U32 & String, Unit>, (s, Fail{(60, "write deadline expired")}))
+    case False{}:
+      Bytes.Bytes{len, words} = b
+      do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
+        sent : Socket & (U32 & Result<&1, &1, U32 & String, Unit>) <- Wire.send.words.deadline(s, len, words, ms)
+        return bounded.sent(sent)
+
+def bounded.send(s: Socket, b: Bytes.Bytes, until: Time.Duration) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
+    now : Time.Duration <- Time.mono()
+    +ms : U32 = phase.remaining(until, now)
+    bounded.send.ready(U32.is_zero(ms), s, b, ms)
+
 def reply.bytes(res: Res, head: Bool, close: Bool) -> Bytes.Bytes:
   Res{+status, +headers, body} = res
   encode.on(Res{status, Bool.pick(Map<&2, List<&2, String>>, close, set(headers, "connection", "close"), headers), body}, head)
@@ -5075,9 +5122,11 @@ def reply.sent.close(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit)
         now : Time.Duration <- Time.mono()
         reply.drain(U32.to_nat(512), True{}, Time.Duration.add(now, Time.Duration.of_ms(2500)), (s, True{}))
 
-def reply_fail(s: Socket, +status: U32) -> IO(Unit):
+def reply_fail(s: Socket, +status: U32, ms: U32) -> IO(Unit):
   do IO<Unit>:
-    sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(False{}, s, encode(reply.fail.bytes(status)))
+    now : Time.Duration <- Time.mono()
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+      bounded.send(s, encode(reply.fail.bytes(status)), Time.Duration.add(now, Time.Duration.of_ms(ms)))
     reply.sent.close(sent)
 
 
@@ -5141,17 +5190,37 @@ def sv.chunk.of(req: Req, +v11: Bool, +n: U32, c: Ck) -> Turn:
     case DcTr{j}:
       TurnMore{SvChunk{req, v11, n, DcTr{j}, parts}, False{}}
 
-def sv.chunk.cap(big: Bool, req: Req, +v11: Bool, +n: U32, st: Dc, parts: List<&1, Bytes.Bytes>, piece: Bytes.Bytes) -> Turn:
+def sv.chunk.parts.cons(+len: U32, buf: Array<U32>, counted: List<&1, Bytes.Bytes> & Nat) -> List<&1, Bytes.Bytes> & Nat:
+  (rest, n) = counted
+  (Con{Bytes.Bytes{len, buf}, rest}, Nat.add(U32.to_nat(len), n))
+
+def sv.chunk.parts(xs: List<&1, Bytes.Bytes>, old: List<&1, Bytes.Bytes>) -> List<&1, Bytes.Bytes> & Nat:
+  match xs:
+    case Nil{}:
+      (old, 0n)
+    case Con{b, tail}:
+      Bytes.Bytes{+len, buf} = b
+      sv.chunk.parts.cons(len, buf, sv.chunk.parts(tail, old))
+
+def sv.chunk.cap(big: Bool, req: Req, +v11: Bool, n: U32, st: Dc, parts: List<&1, Bytes.Bytes>, rest: Bytes.Bytes) -> Turn:
   match big:
     case True{}:
       TurnFail{413}
     case False{}:
-      sv.chunk.of(req, v11, n, ck(piece, st, parts))
+      sv.chunk.of(req, v11, n, Ck{st, parts, rest})
+
+def sv.chunk.counted(+max: Nat, req: Req, v11: Bool, n: U32, st: Dc, rest: Bytes.Bytes, counted: List<&1, Bytes.Bytes> & Nat) -> Turn:
+  (parts, size) = counted
+  +total = Nat.add(U32.to_nat(n), size)
+  sv.chunk.cap(Nat.is_lt(max, total) || Nat.is_lt(U32.to_nat(4294967295), total), req, v11,
+    U32.from_nat(total), st, parts, rest)
+
+def sv.chunk.decoded(max: Nat, req: Req, v11: Bool, n: U32, old: List<&1, Bytes.Bytes>, c: Ck) -> Turn:
+  Ck{st, parts, rest} = c
+  sv.chunk.counted(max, req, v11, n, st, rest, sv.chunk.parts(parts, old))
 
 def sv.chunk(+max: Nat, req: Req, +v11: Bool, +n: U32, st: Dc, parts: List<&1, Bytes.Bytes>, piece: Bytes.Bytes) -> Turn:
-  Bytes.Bytes{+len, buf} = piece
-  +n2 = (n + len : U32)
-  sv.chunk.cap(Bool.or(U32.is_lt(n2, n), Nat.is_lt(max, U32.to_nat(n2))), req, v11, n2, st, parts, Bytes.Bytes{len, buf})
+  sv.chunk.decoded(max, req, v11, n, parts, ck(piece, st, Nil{}))
 
 # RFC 9110 §10.1.1: answer 100 Continue only when the body is still to come.
 def sv.cont(want: Bool, t: Turn) -> Turn:
@@ -5224,31 +5293,31 @@ def sv.hit.some(big: Bool, +max: Nat, +hlen: U32, +len: U32, buf: Bytes.Bytes) -
     case False{}:
       sv.split(max, hlen, len, Bytes.slice(buf, 0, hlen))
 
-# RFC 6585 §5: a head over 64 KiB is refused.
-def sv.hit(+max: Nat, +len: U32, buf: Bytes.Bytes, at: Maybe<&2, U32>) -> Turn:
+# RFC 6585 §5: refuse a head over the configured byte limit.
+def sv.hit(+max: Nat, +headers: U32, +len: U32, buf: Bytes.Bytes, at: Maybe<&2, U32>) -> Turn:
   match at:
     case None{}:
-      sv.hit.none(U32.is_lt(65536, len), buf)
+      sv.hit.none(U32.is_lt(headers, len), buf)
     case Some{+i}:
       +hlen = (i + 4 : U32)
-      sv.hit.some(U32.is_lt(65536, hlen), max, hlen, len, buf)
+      sv.hit.some(U32.is_lt(headers, hlen), max, hlen, len, buf)
 
-def sv.seek.of(+max: Nat, +len: U32, +from: U32, buf: Bytes.Bytes, r: Bytes.Bytes & Maybe<&2, U32>) -> Turn:
+def sv.seek.of(+max: Nat, +headers: U32, +len: U32, +from: U32, buf: Bytes.Bytes, r: Bytes.Bytes & Maybe<&2, U32>) -> Turn:
   (tail, m) = r
-  sv.hit(max, len, buf, found.at(from, m))
+  sv.hit(max, headers, len, buf, found.at(from, m))
 
-def sv.seek(+max: Nat, +len: U32, +from: U32, r: Bytes.Bytes & Bytes.Bytes) -> Turn:
+def sv.seek(+max: Nat, +headers: U32, +len: U32, +from: U32, r: Bytes.Bytes & Bytes.Bytes) -> Turn:
   (buf, tail) = r
-  sv.seek.of(max, len, from, buf, Bytes.find(tail, "\r\n\r\n"))
+  sv.seek.of(max, headers, len, from, buf, Bytes.find(tail, "\r\n\r\n"))
 
 # Only the new bytes, and the 3 before them, can finish the blank line.
-def sv.head.at(+max: Nat, +from: U32, buf: Bytes.Bytes) -> Turn:
+def sv.head.at(+max: Nat, +headers: U32, +from: U32, buf: Bytes.Bytes) -> Turn:
   Bytes.Bytes{+len, b} = buf
-  sv.seek(max, len, from, Bytes.slice(Bytes.Bytes{len, b}, from, (len - from : U32)))
+  sv.seek(max, headers, len, from, Bytes.slice(Bytes.Bytes{len, b}, from, (len - from : U32)))
 
-def sv.head(+max: Nat, buf: Bytes.Bytes, piece: Bytes.Bytes) -> Turn:
+def sv.head(+max: Nat, +headers: U32, buf: Bytes.Bytes, piece: Bytes.Bytes) -> Turn:
   Bytes.Bytes{+ol, ob} = buf
-  sv.head.at(max, Bool.pick(U32, U32.is_lt(ol, 3), 0, (ol - 3 : U32)), Bytes.append(Bytes.Bytes{ol, ob}, piece))
+  sv.head.at(max, headers, Bool.pick(U32, U32.is_lt(ol, 3), 0, (ol - 3 : U32)), Bytes.append(Bytes.Bytes{ol, ob}, piece))
 
 def sv.closed.pick(empty: Bool) -> Turn:
   match empty:
@@ -5262,7 +5331,7 @@ def sv.closed.head(buf: Bytes.Bytes) -> Turn:
   sv.closed.pick(U32.is_eq(len, 0))
 
 # A close mid-request is a request cut short (RFC 9112 §8).
-def sv.step(closed: Bool, +max: Nat, sv: Sv, piece: Bytes.Bytes) -> Turn:
+def sv.step(closed: Bool, +max: Nat, +headers: U32, sv: Sv, piece: Bytes.Bytes) -> Turn:
   match closed:
     case True{}:
       match sv:
@@ -5275,7 +5344,7 @@ def sv.step(closed: Bool, +max: Nat, sv: Sv, piece: Bytes.Bytes) -> Turn:
     case False{}:
       match sv:
         case SvHead{buf}:
-          sv.head(max, buf, piece)
+          sv.head(max, headers, buf, piece)
         case SvLen{req, +v11, +left, parts}:
           sv.len(req, v11, left, parts, piece)
         case SvChunk{req, +v11, +n, st, parts}:
@@ -5300,7 +5369,7 @@ def sv.frame.go(xs: List<&2, String>, t: Turn) -> Maybe<&1, String & String>:
     case Con{+x, rest}:
       match t:
         case TurnMore{sv, c}:
-          sv.frame.go(rest, sv.step(False{}, serve.max(), sv, Bytes.from_string(x)))
+          sv.frame.go(rest, sv.step(False{}, serve.max(), 65536, sv, Bytes.from_string(x)))
         case TurnReq{req, r, v11}:
           sv.frame.req(TurnReq{req, r, v11})
         case TurnFail{s}:
@@ -5312,103 +5381,228 @@ def sv.frame.go(xs: List<&2, String>, t: Turn) -> Maybe<&1, String & String>:
 def serve.frame(xs: List<&2, String>) -> Maybe<&1, String & String>:
   sv.frame.go(xs, TurnMore{sv.none(), False{}})
 
-def talk.piece(+max: Nat, sv: Sv, p: U32 & Array<U32>) -> Turn:
+def talk.piece(settings: Limits, sv: Sv, p: U32 & Array<U32>) -> Turn:
+  Limits{max, headers, hm, bm, im, wm} = settings
   (+len, buf) = p
-  sv.step(U32.is_eq(len, 0), max, sv, Bytes.Bytes{len, buf})
+  sv.step(U32.is_eq(len, 0), max, headers, sv, Bytes.Bytes{len, buf})
 
-def talk.next(+max: Nat, sv: Sv, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Socket & Turn:
+def talk.next(settings: Limits, sv: Sv, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Socket & Turn:
   (s, r) = m
   match r:
-    case Fail{e}:
-      (s, TurnClose{})
+    case Fail{(code, message)}:
+      (s, Bool.pick(Turn, err.late(code), TurnFail{408}, TurnClose{}))
     case Done{p}:
-      (s, talk.piece(max, sv, p))
+      (s, talk.piece(settings, sv, p))
 
-def talk.after.pick(empty: Bool, +max: Nat, rest: Bytes.Bytes) -> Turn:
+def talk.after.pick(empty: Bool, settings: Limits, rest: Bytes.Bytes) -> Turn:
   match empty:
     case True{}:
       TurnMore{sv.none(), False{}}
     case False{}:
-      sv.step(False{}, max, sv.none(), rest)
+      Limits{max, headers, hm, bm, im, wm} = settings
+      sv.step(False{}, max, headers, sv.none(), rest)
 
-def talk.after.rest(+max: Nat, rest: Bytes.Bytes, s: Socket) -> Socket & Turn:
+def talk.after.rest(settings: Limits, rest: Bytes.Bytes, s: Socket) -> Socket & Turn:
   Bytes.Bytes{+len, buf} = rest
-  (s, talk.after.pick(U32.is_eq(len, 0), max, Bytes.Bytes{len, buf}))
+  (s, talk.after.pick(U32.is_eq(len, 0), settings, Bytes.Bytes{len, buf}))
 
-def talk.after.keep(keep: Bool, +max: Nat, rest: Bytes.Bytes, s: Socket) -> Socket & Turn:
+def talk.after.keep(keep: Bool, settings: Limits, rest: Bytes.Bytes, s: Socket) -> Socket & Turn:
   match keep:
     case False{}:
       (s, TurnClose{})
     case True{}:
-      talk.after.rest(max, rest, s)
+      talk.after.rest(settings, rest, s)
 
-def talk.after(+max: Nat, keep: Bool, rest: Bytes.Bytes, m: Socket & Result<&1, &1, U32 & String, Unit>) -> Socket & Turn:
+def talk.after(settings: Limits, keep: Bool, rest: Bytes.Bytes, m: Socket & Result<&1, &1, U32 & String, Unit>) -> Socket & Turn:
   (s, r) = m
   match r:
     case Fail{e}:
       (s, TurnClose{})
     case Done{u}:
-      talk.after.keep(keep, max, rest, s)
+      talk.after.keep(keep, settings, rest, s)
 
-def talk.send(+max: Nat, s: Socket, rest: Bytes.Bytes, +headers: Map<&2, List<&2, String>>, v11: Bool, +head: Bool, res: Res) -> IO(Socket & Turn):
+def talk.send(+settings: Limits, s: Socket, rest: Bytes.Bytes, +headers: Map<&2, List<&2, String>>, v11: Bool, +head: Bool, res: Res) -> IO(Socket & Turn):
+  Limits{max, cap, hm, bm, im, wm} = settings
   Res{+status, +rh, body} = res
   +keep = serve.keep(headers, v11, status, rh)
   do IO<Socket & Turn>:
-    sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(False{}, s, reply.bytes(Res{status, rh, body}, head, Bool.not(keep)))
-    return talk.after(max, keep, rest, sent)
+    now : Time.Duration <- Time.mono()
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+      bounded.send(s, reply.bytes(Res{status, rh, body}, head, Bool.not(keep)), Time.Duration.add(now, Time.Duration.of_ms(wm)))
+    return talk.after(settings, keep, rest, sent)
 
-def talk.cont.sent(m: Socket & Result<&1, &1, U32 & String, Unit>) -> Socket:
-  (s, r) = m
-  s
-
-def talk.cont(cont: Bool, s: Socket) -> IO(Socket):
+def talk.cont(cont: Bool, s: Socket, ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   match cont:
     case False{}:
-      IO.pure(Socket, s)
+      IO.pure(Socket & Result<&1, &1, U32 & String, Unit>, (s, Done{Unit{}}))
     case True{}:
-      do IO<Socket>:
-        sent : Socket & Result<&1, &1, U32 & String, Unit> <-
-          io.send.bytes(False{}, s, Bytes.from_string("HTTP/1.1 100 Continue\r\n\r\n"))
-        return talk.cont.sent(sent)
+      do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
+        now : Time.Duration <- Time.mono()
+        bounded.send(s, Bytes.from_string("HTTP/1.1 100 Continue\r\n\r\n"), Time.Duration.add(now, Time.Duration.of_ms(ms)))
+
+def phase.head(empty: Bool, settings: Limits, now: Time.Duration) -> Phase:
+  match empty:
+    case True{}:
+      Limits{max, cap, hm, bm, im, wm} = settings
+      phase.new(0, im, now)
+    case False{}:
+      Limits{max, cap, hm, bm, im, wm} = settings
+      phase.new(1, hm, now)
+
+def phase.start(settings: Limits, sv: Sv, now: Time.Duration) -> Phase & Sv:
+  Limits{max, cap, hm, bm, im, wm} = settings
+  match sv:
+    case SvHead{buf}:
+      Bytes.Bytes{+len, words} = buf
+      (phase.head(U32.is_zero(len), Limits{max, cap, hm, bm, im, wm}, now), SvHead{Bytes.Bytes{len, words}})
+    case SvLen{req, v11, left, parts}:
+      (phase.new(2, bm, now), SvLen{req, v11, left, parts})
+    case SvChunk{req, v11, n, st, parts}:
+      (phase.new(2, bm, now), SvChunk{req, v11, n, st, parts})
+
+def phase.select(settings: Limits, sv: Sv, now: Time.Duration, previous: Maybe<&2, Phase>) -> Phase & Sv:
+  match previous:
+    case None{}:
+      phase.start(settings, sv, now)
+    case Some{phase}:
+      (phase, sv)
+
+# Buffered pipelined headers have already ended before upload callbacks run.
+def phase.body(previous: Maybe<&2, Phase>, settings: Limits, now: Time.Duration) -> Phase:
+  match previous:
+    case Some{phase}:
+      phase
+    case None{}:
+      Limits{max, cap, hm, bm, im, wm} = settings
+      phase.new(2, bm, now)
+
+def phase.after(+settings: Limits, +now: Time.Duration, +phase: Phase, t: Turn) -> Turn & Phase:
+  Limits{max, cap, hm, bm, im, wm} = settings
+  Phase{+kind, until} = phase
+  match t:
+    case TurnMore{sv, cont}:
+      match sv:
+        case SvHead{buf}:
+          (TurnMore{SvHead{buf}, cont}, Bool.pick(Phase, U32.is_zero(kind), phase.new(1, hm, now), phase))
+        case SvLen{req, v11, left, parts}:
+          (TurnMore{SvLen{req, v11, left, parts}, cont}, Bool.pick(Phase, U32.is_eq(kind, 2), phase, phase.new(2, bm, now)))
+        case SvChunk{req, v11, n, st, parts}:
+          (TurnMore{SvChunk{req, v11, n, st, parts}, cont}, Bool.pick(Phase, U32.is_eq(kind, 2), phase, phase.new(2, bm, now)))
+    case TurnReq{req, rest, v11}:
+      (TurnReq{req, rest, v11}, phase)
+    case TurnFail{+status}:
+      (Bool.pick(Turn, U32.is_zero(kind) && U32.is_eq(status, 408), TurnClose{}, TurnFail{status}), phase)
+    case TurnClose{}:
+      (TurnClose{}, phase)
+
+def phase.expired(phase: Phase) -> Turn:
+  Phase{kind, until} = phase
+  Bool.pick(Turn, U32.is_zero(kind), TurnClose{}, TurnFail{408})
+
+def talk.received.state(s: Socket, next: Turn & Phase) -> (Socket & Turn) & Phase:
+  (t, p) = next
+  ((s, t), p)
+
+def talk.received.phase(settings: Limits, phase: Phase, now: Time.Duration, next: Socket & Turn) -> (Socket & Turn) & Phase:
+  (s, t) = next
+  talk.received.state(s, phase.after(settings, now, phase, t))
+
+def talk.received.late(expired: Bool, +settings: Limits, +phase: Phase, now: Time.Duration, sv: Sv, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> (Socket & Turn) & Phase:
+  match expired:
+    case True{}:
+      (s, r) = m
+      ((s, phase.expired(phase)), phase)
+    case False{}:
+      talk.received.phase(settings, phase, now, talk.next(settings, sv, m))
+
+def talk.read.ready(expired: Bool, +settings: Limits, s: Socket, sv: Sv, +phase: Phase, ms: U32) -> IO((Socket & Turn) & Phase):
+  match expired:
+    case True{}:
+      IO.pure((Socket & Turn) & Phase, ((s, phase.expired(phase)), phase))
+    case False{}:
+      Phase{kind, +until} = phase
+      do IO<(Socket & Turn) & Phase>:
+        m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s, 65536, ms)
+        +now : Time.Duration <- Time.mono()
+        return talk.received.late(Bool.not(Cmp.is_lt(Time.Duration.cmp(now, until))), settings, phase, now, sv, m)
+
+def talk.read(+settings: Limits, sv: Sv, +phase: Phase, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO((Socket & Turn) & Phase):
+  Phase{kind, until} = phase
+  (s, r) = m
+  match r:
+    case Fail{e}:
+      IO.pure((Socket & Turn) & Phase, ((s, TurnClose{}), phase))
+    case Done{u}:
+      do IO<(Socket & Turn) & Phase>:
+        now : Time.Duration <- Time.mono()
+        +ms : U32 = phase.remaining(until, now)
+        talk.read.ready(U32.is_zero(ms), settings, s, sv, phase, ms)
+
+def talk.recv.selected(+settings: Limits, s: Socket, cont: Bool, selected: Phase & Sv) -> IO((Socket & Turn) & Phase):
+  Limits{max, cap, hm, bm, im, wm} = settings
+  (phase, state) = selected
+  do IO<(Socket & Turn) & Phase>:
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <- talk.cont(cont, s, wm)
+    talk.read(settings, state, phase, sent)
+
+def talk.recv(+settings: Limits, s: Socket, sv: Sv, cont: Bool, previous: Maybe<&2, Phase>) -> IO((Socket & Turn) & Phase):
+  do IO<(Socket & Turn) & Phase>:
+    now : Time.Duration <- Time.mono()
+    talk.recv.selected(settings, s, cont, phase.select(settings, sv, now, previous))
+
+type Serving is Type:
+  Serving{connection: Socket & Turn, phase: Maybe<&2, Phase>}
+
+def talk.state(received: (Socket & Turn) & Phase) -> Serving:
+  (connection, phase) = received
+  Serving{connection, Some{phase}}
+
+def serve.write.state(after: Maybe<&1, Socket & Turn>) -> Maybe<&1, Serving>:
+  match after:
+    case None{}:
+      None{}
+    case Some{connection}:
+      Some{Serving{connection, None{}}}
 
 @unsafe
-def talk(~C: Data, ~h: C -> Req -> IO(Res), +context: C, +max: Nat, st: Socket & Turn) -> IO(Unit):
-  (s, t) = st
+def talk(~C: Data, ~h: C -> Req -> IO(Res), +context: C, +settings: Limits, st: Serving) -> IO(Unit):
+  Limits{max, cap, hm, bm, im, wm} = settings
+  Serving{connection, phase} = st
+  (s, t) = connection
   match t:
     case TurnMore{sv, cont}:
       do IO<Unit>:
-        s2 : Socket <- talk.cont(cont, s)
-        m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s2, 65536, 30000)
-        talk(~C, ~h, context, max, talk.next(max, sv, m))
+        received : (Socket & Turn) & Phase <- talk.recv(settings, s, sv, cont, phase)
+        talk(~C, ~h, context, settings, talk.state(received))
     case TurnReq{req, rest, v11}:
       Req{+method, path, +headers, body} = req
       do IO<Unit>:
         res : Res <- h(context, Req{method, path, headers, body})
-        next : Socket & Turn <- talk.send(max, s, rest, headers, v11, String.eq(method, "HEAD"), res)
-        talk(~C, ~h, context, max, next)
+        next : Socket & Turn <- talk.send(settings, s, rest, headers, v11, String.eq(method, "HEAD"), res)
+        talk(~C, ~h, context, settings, Serving{next, None{}})
     case TurnFail{status}:
-      reply_fail(s, status)
+      reply_fail(s, status, wm)
     case TurnClose{}:
       Socket.close(s)
 
-def conn(~h: Req -> IO(Res), +max: Nat, m: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
+def conn(~h: Req -> IO(Res), +settings: Limits, m: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   (l, r) = m
   do IO<Listener>:
     s : Socket <- IO.pass(Socket, r)
-    IO.spawn(Unit, talk(~Unit, ~(context => req => h(req)), Unit{}, max, (s, TurnMore{sv.none(), False{}})))
+    IO.spawn(Unit, talk(~Unit, ~(context => req => h(req)), Unit{}, settings, Serving{(s, TurnMore{sv.none(), False{}}), None{}}))
     return l
 
 @unsafe
-def loop(~h: Req -> IO(Res), +max: Nat, l: Listener) -> IO(Unit):
+def loop(~h: Req -> IO(Res), +settings: Limits, l: Listener) -> IO(Unit):
   do IO<Unit>:
     m  : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- conn(~h, max, m)
-    loop(~h, max, l2)
+    l2 : Listener <- conn(~h, settings, m)
+    loop(~h, settings, l2)
 
 def serve.on.with(~h: Req -> IO(Res), host: String, +port: U32, +max: Nat) -> IO(Unit):
   do IO<Unit>:
     l : Listener <- IO.try(Listener, TCP.listen(host, port))
-    loop(~h, max, l)
+    loop(~h, limits(max), l)
 
 def serve.on(~h: Req -> IO(Res), host: String, +port: U32) -> IO(Unit):
   serve.on.with(~h, host, port, serve.max())
@@ -5419,13 +5613,8 @@ def serve.with(~h: Req -> IO(Res), +port: U32, +max: Nat) -> IO(Unit):
 def serve(~h: Req -> IO(Res), +port: U32) -> IO(Unit):
   serve.with(~h, port, serve.max())
 
-# Finite positive settings, not zero/unlimited sentinels. Admission and phase
-# deadline enforcement are the dependent transport leaves; validation is not enforcement.
-type ServerConfig is Data:
-  ServerConfig{host: String, port: U32, body_bytes: U32, header_bytes: U32,
-    connections: U32, requests: U32, header_ms: U32, body_ms: U32,
-    idle_ms: U32, write_ms: U32}
-
+# Finite positive settings, not zero/unlimited sentinels. Size/phase settings are
+# enforced; admission bounds and final public write outcomes remain separate leaves.
 type StartupError is Data:
   InvalidConfig{}
   BindError{code: U32, message: String}
@@ -5483,7 +5672,7 @@ def server.accepted(~C: Data, ~h: C -> Req -> IO(Res), +context: C, +config: Ser
       IO.pure(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>, (Server{listener, context, config}, Fail{error}))
     case Done{socket}:
       do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
-        finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~h, context, U32.to_nat(body), (socket, TurnMore{sv.none(), False{}})))
+        finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~h, context, limits.config(config), Serving{(socket, TurnMore{sv.none(), False{}}), None{}}))
         return (Server{listener, context, config}, Done{finished})
 
 # One accepting step, so the caller retains explicit listener ownership.
@@ -5553,80 +5742,80 @@ def serve.stream.feed(~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -
     case Some{st}:
       serve.stream.parts(~S, ~piece, parts, st)
 
-def serve.stream.recv(+max: Nat, s: Socket, sv: Sv, cont: Bool) -> IO(Socket & Turn):
-  do IO<Socket & Turn>:
-    s2 : Socket <- talk.cont(cont, s)
-    m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s2, 65536, 30000)
-    return talk.next(max, sv, m)
-
-def serve.stream.respond(~S: Type, ~finish: S -> IO(Res), +max: Nat, s: Socket, rest: Bytes.Bytes, +headers: Map<&2, List<&2, String>>, v11: Bool, +method: String, st: S & Bool) -> IO(Socket & Turn):
+def serve.stream.respond(~S: Type, ~finish: S -> IO(Res), +settings: Limits, s: Socket, rest: Bytes.Bytes, +headers: Map<&2, List<&2, String>>, v11: Bool, +method: String, st: S & Bool) -> IO(Socket & Turn):
   (state, dropped) = st
   do IO<Socket & Turn>:
     res : Res <- finish(state)
-    talk.send(max, s, rest, headers, v11, String.eq(method, "HEAD"), res)
+    talk.send(settings, s, rest, headers, v11, String.eq(method, "HEAD"), res)
 
 @unsafe
 def serve.stream.talk(
   ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Res), +max: Nat, st: Socket & Turn, m: Maybe<&1, S & Bool>
+  ~finish: S -> IO(Res), +settings: Limits, st: Serving, m: Maybe<&1, S & Bool>
 ) -> IO(Unit):
-  (s, t) = st
+  Limits{max, cap, hm, bm, im, wm} = settings
+  Serving{connection, phase} = st
+  (s, t) = connection
   match t:
     case TurnClose{}:
       Socket.close(s)
     case TurnFail{status}:
-      reply_fail(s, status)
+      reply_fail(s, status, wm)
     case TurnReq{req, rest, v11}:
       Req{+method, path, +headers, body} = req
       do IO<Unit>:
         next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
           Req{method, path, headers, Bytes.new(0)}, m, [body])
-        after : Socket & Turn <- serve.stream.respond(~S, ~finish, max, s, rest, headers, v11, method, next)
-        serve.stream.talk(~S, ~start, ~piece, ~finish, max, after, None{})
+        after : Socket & Turn <- serve.stream.respond(~S, ~finish, settings, s, rest, headers, v11, method, next)
+        serve.stream.talk(~S, ~start, ~piece, ~finish, settings, Serving{after, None{}}, None{})
     case TurnMore{sv, cont}:
       match sv:
         case SvHead{buf}:
           do IO<Unit>:
-            next : Socket & Turn <- serve.stream.recv(max, s, SvHead{buf}, cont)
-            serve.stream.talk(~S, ~start, ~piece, ~finish, max, next, m)
+            received : (Socket & Turn) & Phase <- talk.recv(settings, s, SvHead{buf}, cont, phase)
+            serve.stream.talk(~S, ~start, ~piece, ~finish, settings, talk.state(received), m)
         case SvLen{req, +v11, +left, parts}:
           Req{+method, +path, +headers, body} = req
           do IO<Unit>:
+            now : Time.Duration <- Time.mono()
+            reading : Phase = phase.body(phase, settings, now)
             next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
               Req{method, path, headers, body}, m, List.reverse(&1, Bytes.Bytes, parts))
-            more : Socket & Turn <- serve.stream.recv(max, s,
-              SvLen{Req{method, path, headers, Bytes.new(0)}, v11, left, Nil{}}, cont)
-            serve.stream.talk(~S, ~start, ~piece, ~finish, max, more, Some{next})
+            received : (Socket & Turn) & Phase <- talk.recv(settings, s,
+              SvLen{Req{method, path, headers, Bytes.new(0)}, v11, left, Nil{}}, cont, Some{reading})
+            serve.stream.talk(~S, ~start, ~piece, ~finish, settings, talk.state(received), Some{next})
         case SvChunk{req, +v11, +n, st, parts}:
           Req{+method, +path, +headers, body} = req
           do IO<Unit>:
+            now : Time.Duration <- Time.mono()
+            reading : Phase = phase.body(phase, settings, now)
             next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
               Req{method, path, headers, body}, m, List.reverse(&1, Bytes.Bytes, parts))
-            more : Socket & Turn <- serve.stream.recv(max, s,
-              SvChunk{Req{method, path, headers, Bytes.new(0)}, v11, n, st, Nil{}}, cont)
-            serve.stream.talk(~S, ~start, ~piece, ~finish, max, more, Some{next})
+            received : (Socket & Turn) & Phase <- talk.recv(settings, s,
+              SvChunk{Req{method, path, headers, Bytes.new(0)}, v11, n, st, Nil{}}, cont, Some{reading})
+            serve.stream.talk(~S, ~start, ~piece, ~finish, settings, talk.state(received), Some{next})
 
 
 def serve.stream.conn(
   ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Res), +max: Nat, m: Listener & Result<&1, &1, U32 & String, Socket>
+  ~finish: S -> IO(Res), +settings: Limits, m: Listener & Result<&1, &1, U32 & String, Socket>
 ) -> IO(Listener):
   (l, r) = m
   do IO<Listener>:
     s : Socket <- IO.pass(Socket, r)
-    IO.spawn(Unit, serve.stream.talk(~S, ~start, ~piece, ~finish, max,
-      (s, TurnMore{sv.none(), False{}}), None{}))
+    IO.spawn(Unit, serve.stream.talk(~S, ~start, ~piece, ~finish, settings,
+      Serving{(s, TurnMore{sv.none(), False{}}), None{}}, None{}))
     return l
 
 @unsafe
 def serve.stream.loop(
   ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Res), +max: Nat, l: Listener
+  ~finish: S -> IO(Res), +settings: Limits, l: Listener
 ) -> IO(Unit):
   do IO<Unit>:
     m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- serve.stream.conn(~S, ~start, ~piece, ~finish, max, m)
-    serve.stream.loop(~S, ~start, ~piece, ~finish, max, l2)
+    l2 : Listener <- serve.stream.conn(~S, ~start, ~piece, ~finish, settings, m)
+    serve.stream.loop(~S, ~start, ~piece, ~finish, settings, l2)
 
 def serve.stream.on.with(
   ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
@@ -5634,7 +5823,7 @@ def serve.stream.on.with(
 ) -> IO(Unit):
   do IO<Unit>:
     l : Listener <- IO.try(Listener, TCP.listen(host, port))
-    serve.stream.loop(~S, ~start, ~piece, ~finish, max, l)
+    serve.stream.loop(~S, ~start, ~piece, ~finish, limits(max), l)
 
 def serve.stream.with(
   ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
@@ -5642,97 +5831,131 @@ def serve.stream.with(
 ) -> IO(Unit):
   serve.stream.on.with(~S, ~start, ~piece, ~finish, "0.0.0.0", port, max)
 
+def serve.stream.started(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), ~finish: S -> IO(Res),
+  result: Unit & Result<&2, &1, StartupError, Server<Unit>>
+) -> IO(Result<&2, &2, StartupError, Unit>):
+  (owner, got) = result
+  match got:
+    case Fail{error}:
+      IO.pure(Result<&2, &2, StartupError, Unit>, Fail{error})
+    case Done{server}:
+      Server{listener, context, config} = server
+      do IO<Result<&2, &2, StartupError, Unit>>:
+        serve.stream.loop(~S, ~start, ~piece, ~finish, limits.config(config), listener)
+        return Done{Unit{}}
+
+def serve.stream.config(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), ~finish: S -> IO(Res),
+  config: ServerConfig
+) -> IO(Result<&2, &2, StartupError, Unit>):
+  do IO<Result<&2, &2, StartupError, Unit>>:
+    started : Unit & Result<&2, &1, StartupError, Server<Unit>> <- server.start(~Unit, ~Unit, Unit{}, Unit{}, config)
+    serve.stream.started(~S, ~start, ~piece, ~finish, started)
+
 type WriterMode is Data:
   WriteKnown{left: U32}
   WriteChunk{}
   WriteNone{}
 
 type Writer is Type:
-  Writer{s: Socket, mode: WriterMode, failed: Bool}
+  Writer{s: Maybe<&1, Socket>, mode: WriterMode, until: Time.Duration}
 
 type WriteHead<-S: Type> is Type:
   WriteHead{status: U32, headers: Map<&2, List<&2, String>>, length: Maybe<&2, U32>, state: S}
 
-def writer.sent(+mode: WriterMode, m: Socket & Result<&1, &1, U32 & String, Unit>) -> Writer:
+def writer.sent(+mode: WriterMode, +until: Time.Duration, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Writer):
   (s, r) = m
   match r:
     case Fail{e}:
-      Writer{s, mode, True{}}
+      do IO<Writer>:
+        Socket.close(s)
+        return Writer{None{}, mode, until}
     case Done{u}:
-      Writer{s, mode, False{}}
+      IO.pure(Writer, Writer{Some{s}, mode, until})
 
 def writer.raw(w: Writer, b: Bytes.Bytes) -> IO(Writer):
-  Writer{s, +mode, failed} = w
-  match failed:
-    case True{}:
-      IO.pure(Writer, Writer{s, mode, True{}})
-    case False{}:
+  Writer{socket, +mode, +until} = w
+  match socket:
+    case None{}:
+      IO.pure(Writer, Writer{None{}, mode, until})
+    case Some{s}:
       do IO<Writer>:
-        sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(False{}, s, b)
-        return writer.sent(mode, sent)
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- bounded.send(s, b, until)
+        writer.sent(mode, until, sent)
 
-def writer.chunk(s: Socket, b: Bytes.Bytes, +len: U32) -> IO(Writer):
+def writer.chunk(s: Socket, b: Bytes.Bytes, +len: U32, until: Time.Duration) -> IO(Writer):
   do IO<Writer>:
-    head : Writer <- writer.raw(Writer{s, WriteChunk{}, False{}}, Bytes.from_string(hex(len) ++ "\r\n"))
+    head : Writer <- writer.raw(Writer{Some{s}, WriteChunk{}, until}, Bytes.from_string(hex(len) ++ "\r\n"))
     data : Writer <- writer.raw(head, b)
     writer.raw(data, Bytes.from_string("\r\n"))
 
-def writer.known(ok: Bool, s: Socket, +left: U32, +len: U32, b: Bytes.Bytes) -> IO(Writer):
+def writer.known(ok: Bool, s: Socket, +left: U32, len: U32, b: Bytes.Bytes, +until: Time.Duration) -> IO(Writer):
   match ok:
     case False{}:
-      IO.pure(Writer, Writer{s, WriteKnown{left}, True{}})
+      do IO<Writer>:
+        Socket.close(s)
+        return Writer{None{}, WriteKnown{left}, until}
     case True{}:
-      writer.raw(Writer{s, WriteKnown{(left - len : U32)}, False{}}, b)
+      writer.raw(Writer{Some{s}, WriteKnown{(left - len : U32)}, until}, b)
 
-def writer.chunk.go(empty: Bool, s: Socket, b: Bytes.Bytes, +len: U32) -> IO(Writer):
+def writer.chunk.go(empty: Bool, s: Socket, b: Bytes.Bytes, len: U32, until: Time.Duration) -> IO(Writer):
   match empty:
     case True{}:
-      IO.pure(Writer, Writer{s, WriteChunk{}, False{}})
+      IO.pure(Writer, Writer{Some{s}, WriteChunk{}, until})
     case False{}:
-      writer.chunk(s, b, len)
+      writer.chunk(s, b, len, until)
 
-def writer.write.mode(s: Socket, mode: WriterMode, b: Bytes.Bytes) -> IO(Writer):
+def writer.write.mode(s: Socket, mode: WriterMode, b: Bytes.Bytes, until: Time.Duration) -> IO(Writer):
   match mode:
     case WriteNone{}:
-      IO.pure(Writer, Writer{s, WriteNone{}, False{}})
+      IO.pure(Writer, Writer{Some{s}, WriteNone{}, until})
     case WriteKnown{+left}:
       Bytes.Bytes{+len, buf} = b
-      writer.known(U32.is_le(len, left), s, left, len, Bytes.Bytes{len, buf})
+      writer.known(U32.is_le(len, left), s, left, len, Bytes.Bytes{len, buf}, until)
     case WriteChunk{}:
       Bytes.Bytes{+len, buf} = b
-      writer.chunk.go(U32.is_zero(len), s, Bytes.Bytes{len, buf}, len)
+      writer.chunk.go(U32.is_zero(len), s, Bytes.Bytes{len, buf}, len, until)
 
 def writer.write(w: Writer, b: Bytes.Bytes) -> IO(Writer):
-  Writer{s, mode, failed} = w
-  match failed:
+  Writer{socket, mode, until} = w
+  match socket:
+    case None{}:
+      IO.pure(Writer, Writer{None{}, mode, until})
+    case Some{s}:
+      writer.write.mode(s, mode, b, until)
+
+def writer.result(w: Writer) -> Maybe<&1, Socket>:
+  Writer{socket, mode, until} = w
+  socket
+
+def writer.finish.known(complete: Bool, s: Socket) -> IO(Maybe<&1, Socket>):
+  match complete:
     case True{}:
-      IO.pure(Writer, Writer{s, mode, True{}})
+      IO.pure(Maybe<&1, Socket>, Some{s})
     case False{}:
-      writer.write.mode(s, mode, b)
+      do IO<Maybe<&1, Socket>>:
+        Socket.close(s)
+        return None{}
 
-
-def writer.result(w: Writer) -> Socket & Bool:
-  Writer{s, mode, failed} = w
-  (s, Bool.not(failed))
-
-def writer.finish.mode(s: Socket, mode: WriterMode) -> IO(Socket & Bool):
+def writer.finish.mode(s: Socket, mode: WriterMode, until: Time.Duration) -> IO(Maybe<&1, Socket>):
   match mode:
     case WriteNone{}:
-      IO.pure(Socket & Bool, (s, True{}))
-    case WriteKnown{+left}:
-      IO.pure(Socket & Bool, (s, U32.is_zero(left)))
+      IO.pure(Maybe<&1, Socket>, Some{s})
+    case WriteKnown{left}:
+      writer.finish.known(U32.is_zero(left), s)
     case WriteChunk{}:
-      do IO<Socket & Bool>:
-        end : Writer <- writer.raw(Writer{s, WriteChunk{}, False{}}, Bytes.from_string("0\r\n\r\n"))
+      do IO<Maybe<&1, Socket>>:
+        end : Writer <- writer.raw(Writer{Some{s}, WriteChunk{}, until}, Bytes.from_string("0\r\n\r\n"))
         return writer.result(end)
 
-def writer.finish(w: Writer) -> IO(Socket & Bool):
-  Writer{s, mode, failed} = w
-  match failed:
-    case True{}:
-      IO.pure(Socket & Bool, (s, False{}))
-    case False{}:
-      writer.finish.mode(s, mode)
+def writer.finish(w: Writer) -> IO(Maybe<&1, Socket>):
+  Writer{socket, mode, until} = w
+  match socket:
+    case None{}:
+      IO.pure(Maybe<&1, Socket>, None{})
+    case Some{s}:
+      writer.finish.mode(s, mode, until)
 
 def writer.header.one(m: Map<&2, List<&2, String>>, +key: String, vs: List<&2, String>, framing: Bool) -> Map<&2, List<&2, String>>:
   match framing:
@@ -5764,35 +5987,36 @@ def writer.plan(nobody: Bool, headers: Map<&2, List<&2, String>>, length: Maybe<
     case False{}:
       writer.plan.body(headers, length)
 
-def serve.write.after(+max: Nat, keep: Bool, rest: Bytes.Bytes, m: Socket & Bool) -> Socket & Turn:
-  (s, ok) = m
-  match ok:
-    case False{}:
-      (s, TurnClose{})
-    case True{}:
-      talk.after.keep(keep, max, rest, s)
+def serve.write.after(settings: Limits, keep: Bool, rest: Bytes.Bytes, socket: Maybe<&1, Socket>) -> Maybe<&1, Socket & Turn>:
+  match socket:
+    case None{}:
+      None{}
+    case Some{s}:
+      Some{talk.after.keep(keep, settings, rest, s)}
 
-def serve.write.finish(+max: Nat, keep: Bool, rest: Bytes.Bytes, w: Writer) -> IO(Socket & Turn):
-  do IO<Socket & Turn>:
-    done : Socket & Bool <- writer.finish(w)
-    return serve.write.after(max, keep, rest, done)
+def serve.write.finish(settings: Limits, keep: Bool, rest: Bytes.Bytes, w: Writer) -> IO(Maybe<&1, Socket & Turn>):
+  do IO<Maybe<&1, Socket & Turn>>:
+    done : Maybe<&1, Socket> <- writer.finish(w)
+    return serve.write.after(settings, keep, rest, done)
 
-def serve.write.body(~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, +keep: Bool, rest: Bytes.Bytes, state: S, s: Socket, mode: WriterMode, suppress: Bool) -> IO(Socket & Turn):
+def serve.write.body(~S: Type, ~write: S -> Writer -> IO(Writer), settings: Limits, keep: Bool, rest: Bytes.Bytes, state: S, s: Socket, mode: WriterMode, suppress: Bool, until: Time.Duration) -> IO(Maybe<&1, Socket & Turn>):
   match suppress:
     case True{}:
-      serve.write.finish(max, keep, rest, Writer{s, WriteNone{}, False{}})
+      serve.write.finish(settings, keep, rest, Writer{Some{s}, WriteNone{}, until})
     case False{}:
-      do IO<Socket & Turn>:
-        w : Writer <- write(state, Writer{s, mode, False{}})
-        serve.write.finish(max, keep, rest, w)
+      do IO<Maybe<&1, Socket & Turn>>:
+        w : Writer <- write(state, Writer{Some{s}, mode, until})
+        serve.write.finish(settings, keep, rest, w)
 
-def serve.write.open(~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, +keep: Bool, rest: Bytes.Bytes, state: S, mode: WriterMode, suppress: Bool, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Socket & Turn):
+def serve.write.open(~S: Type, ~write: S -> Writer -> IO(Writer), settings: Limits, keep: Bool, rest: Bytes.Bytes, state: S, mode: WriterMode, suppress: Bool, until: Time.Duration, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Maybe<&1, Socket & Turn>):
   (s, r) = m
   match r:
     case Fail{e}:
-      IO.pure(Socket & Turn, (s, TurnClose{}))
+      do IO<Maybe<&1, Socket & Turn>>:
+        Socket.close(s)
+        return None{}
     case Done{u}:
-      serve.write.body(~S, ~write, max, keep, rest, state, s, mode, suppress)
+      serve.write.body(~S, ~write, settings, keep, rest, state, s, mode, suppress, until)
 
 def writer.connection(keep: Bool, headers: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
   match keep:
@@ -5802,69 +6026,76 @@ def writer.connection(keep: Bool, headers: Map<&2, List<&2, String>>) -> Map<&2,
       set(headers, "connection", "close")
 
 def serve.write.send.plan(
-  ~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, s: Socket, rest: Bytes.Bytes,
+  ~S: Type, ~write: S -> Writer -> IO(Writer), +settings: Limits, s: Socket, rest: Bytes.Bytes,
   +keep: Bool, +head: Bool, +status: U32, state: S, plan: WriterMode & Map<&2, List<&2, String>>
-) -> IO(Socket & Turn):
+) -> IO(Maybe<&1, Socket & Turn>):
+  Limits{max, cap, hm, bm, im, wm} = settings
   (mode, headers) = plan
   sent_headers = writer.connection(keep, headers)
-  do IO<Socket & Turn>:
+  do IO<Maybe<&1, Socket & Turn>>:
+    now : Time.Duration <- Time.mono()
+    +until : Time.Duration = Time.Duration.add(now, Time.Duration.of_ms(wm))
     sent : Socket & Result<&1, &1, U32 & String, Unit> <-
-      io.send.bytes(False{}, s, Bytes.from_string(response(status, sent_headers, "")))
-    serve.write.open(~S, ~write, max, keep, rest, state, mode,
-      frame.nobody(status, head), sent)
+      bounded.send(s, Bytes.from_string(response(status, sent_headers, "")), until)
+    serve.write.open(~S, ~write, settings, keep, rest, state, mode,
+      frame.nobody(status, head), until, sent)
 
 def serve.write.send(
-  ~S: Type, ~write: S -> Writer -> IO(Writer), +max: Nat, s: Socket, rest: Bytes.Bytes,
+  ~S: Type, ~write: S -> Writer -> IO(Writer), settings: Limits, s: Socket, rest: Bytes.Bytes,
   +headers: Map<&2, List<&2, String>>, v11: Bool, +head: Bool, out: WriteHead<S>
-) -> IO(Socket & Turn):
+) -> IO(Maybe<&1, Socket & Turn>):
   WriteHead{+status, rh, length, state} = out
   +normalized = writer.headers(Map.to_list(&2, List<&2, String>, rh), empty())
   +keep = serve.keep(headers, v11, status, normalized)
-  serve.write.send.plan(~S, ~write, max, s, rest, keep, head, status, state,
+  serve.write.send.plan(~S, ~write, settings, s, rest, keep, head, status, state,
     writer.plan(frame.nobody(status, False{}), normalized, length))
 
 @unsafe
 def serve.write.talk(
   ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
-  +max: Nat, st: Socket & Turn
+  +settings: Limits, st: Maybe<&1, Serving>
 ) -> IO(Unit):
-  (s, t) = st
-  match t:
-    case TurnMore{sv, cont}:
-      do IO<Unit>:
-        more : Socket & Turn <- serve.stream.recv(max, s, sv, cont)
-        serve.write.talk(~S, ~start, ~write, max, more)
-    case TurnReq{req, rest, v11}:
-      Req{+method, path, +headers, body} = req
-      do IO<Unit>:
-        out : WriteHead<S> <- start(Req{method, path, headers, body})
-        after : Socket & Turn <- serve.write.send(~S, ~write, max, s, rest, headers, v11, String.eq(method, "HEAD"), out)
-        serve.write.talk(~S, ~start, ~write, max, after)
-    case TurnFail{status}:
-      reply_fail(s, status)
-    case TurnClose{}:
-      Socket.close(s)
+  Limits{max, cap, hm, bm, im, wm} = settings
+  match st:
+    case None{}:
+      IO.pure(Unit, Unit{})
+    case Some{Serving{(s, t), phase}}:
+      match t:
+        case TurnMore{sv, cont}:
+          do IO<Unit>:
+            received : (Socket & Turn) & Phase <- talk.recv(settings, s, sv, cont, phase)
+            serve.write.talk(~S, ~start, ~write, settings, Some{talk.state(received)})
+        case TurnReq{req, rest, v11}:
+          Req{+method, path, +headers, body} = req
+          do IO<Unit>:
+            out : WriteHead<S> <- start(Req{method, path, headers, body})
+            after : Maybe<&1, Socket & Turn> <- serve.write.send(~S, ~write, settings, s, rest, headers, v11, String.eq(method, "HEAD"), out)
+            serve.write.talk(~S, ~start, ~write, settings, serve.write.state(after))
+        case TurnFail{status}:
+          reply_fail(s, status, wm)
+        case TurnClose{}:
+          Socket.close(s)
 
 def serve.write.conn(
   ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
-  +max: Nat, m: Listener & Result<&1, &1, U32 & String, Socket>
+  +settings: Limits, m: Listener & Result<&1, &1, U32 & String, Socket>
 ) -> IO(Listener):
   (l, r) = m
   do IO<Listener>:
     s : Socket <- IO.pass(Socket, r)
-    IO.spawn(Unit, serve.write.talk(~S, ~start, ~write, max,
-      (s, TurnMore{sv.none(), False{}})))
+    IO.spawn(Unit, serve.write.talk(~S, ~start, ~write, settings,
+      Some{Serving{(s, TurnMore{sv.none(), False{}}), None{}}}))
     return l
 
 @unsafe
 def serve.write.loop(
   ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
-  +max: Nat, l: Listener
+  +settings: Limits, l: Listener
 ) -> IO(Unit):
   do IO<Unit>:
     m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- serve.write.conn(~S, ~start, ~write, max, m)
-    serve.write.loop(~S, ~start, ~write, max, l2)
+    l2 : Listener <- serve.write.conn(~S, ~start, ~write, settings, m)
+    serve.write.loop(~S, ~start, ~write, settings, l2)
 
 def serve.write.on.with(
   ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
@@ -5872,10 +6103,31 @@ def serve.write.on.with(
 ) -> IO(Unit):
   do IO<Unit>:
     l : Listener <- IO.try(Listener, TCP.listen(host, port))
-    serve.write.loop(~S, ~start, ~write, max, l)
+    serve.write.loop(~S, ~start, ~write, limits(max), l)
 
 def serve.write.with(
   ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
   +port: U32, +max: Nat
 ) -> IO(Unit):
   serve.write.on.with(~S, ~start, ~write, "0.0.0.0", port, max)
+
+def serve.write.started(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer),
+  result: Unit & Result<&2, &1, StartupError, Server<Unit>>
+) -> IO(Result<&2, &2, StartupError, Unit>):
+  (owner, got) = result
+  match got:
+    case Fail{error}:
+      IO.pure(Result<&2, &2, StartupError, Unit>, Fail{error})
+    case Done{server}:
+      Server{listener, context, config} = server
+      do IO<Result<&2, &2, StartupError, Unit>>:
+        serve.write.loop(~S, ~start, ~write, limits.config(config), listener)
+        return Done{Unit{}}
+
+def serve.write.config(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> IO(Writer), config: ServerConfig
+) -> IO(Result<&2, &2, StartupError, Unit>):
+  do IO<Result<&2, &2, StartupError, Unit>>:
+    started : Unit & Result<&2, &1, StartupError, Server<Unit>> <- server.start(~Unit, ~Unit, Unit{}, Unit{}, config)
+    serve.write.started(~S, ~start, ~write, started)
