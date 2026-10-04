@@ -1,6 +1,6 @@
 # http
 
-## Runtime context and startup ownership (0.26.0.0)
+## Runtime context, startup ownership, and phase limits (0.27.0.0)
 
 `Http.server.start(~C, ~O, context, owner, config)` returns
 `IO(O & Result<&2, &1, Http.StartupError, Http.Server<C>>)`.
@@ -33,19 +33,32 @@ must be positive; zero is an error, never a disabled-limit sentinel. Deadlines
 must also fit signed host milliseconds (at most 2147483647). Ports 0–65535
 are accepted (0 requests an OS-assigned port).
 
-**Staged transport contract:** this leaf validates all configuration fields and
-enforces the body cap. The framing machine still fixes headers at 64 KiB, reads
-still time out per receive at 30 seconds, accepted tasks are not admission-bounded,
-and writes have no deadline. The positive connection/request and phase-deadline
-values are policy inputs for #327/#328, **not currently enforced guarantees**.
-Do not deploy relying on those limits until the dependent transport leaves land.
-Validation is not enforcement; these settings have no zero/unlimited fallback.
-#329 adds write outcomes; #330 extends this same owner path with cooperative lifecycle controls.
+**Enforced transport contract:** configured servers enforce independent header
+and transfer-decoded body caps, and absolute header/body/idle/write deadlines.
+Headers start with the first received byte; bodies start after headers finish.
+Progress does not replenish either budget. Header/body expiry returns `408` and
+closes when a response remains possible; idle expiry closes silently. Header,
+body, and malformed-framing rejections remain `431`, `413`, and `400`.
+Chunk framing, trailers, and pipelined remainder do not count toward body bytes.
+An at-cap header plus an at-cap body is valid even in one larger socket read.
+Writes use published Wire 0.4.4.0's bounded packed-write operation; conversion,
+framing, and successive pieces share one deadline. Failure closes without replay.
+
+Connection/request admission fields are still validated policy inputs, **not
+enforced bounds** (#328). Final public response-write outcomes remain #329 work.
+#330 owns cooperative stop/drain and application-resource lifecycle integration.
+These deadlines do not cancel handlers or preempt CPU work. On failed streamed
+uploads, transport closes but does not explicitly recover/close generic
+application-owned callback state; do not infer affine-resource cleanup.
 
 The plain `serve`, `serve.on`, and `.with` convenience APIs keep their existing
-closed-handler contract. Internal `talk` now takes `~C`, the context-aware handler,
-and a runtime context before the body cap; no repository caller used its old
-signature. Streamed request/response APIs remain unchanged.
+closed-handler contract and use 64 KiB headers and 5/30/30/30-second phases.
+Their `.with` body cap remains independent. `serve.stream.config` and
+`serve.write.config` return validated startup errors and enforce `ServerConfig`.
+Internal serving helpers now take `Limits`; `Serving` carries the read phase.
+`Writer` owns `Maybe<Socket>` and one absolute deadline; failure immediately
+closes and stores `None`, so subsequent writes cannot replay. `writer.finish`
+returns `IO(Maybe<Socket>)`. This is a breaking helper/Writer contract.
 
 Run `python3 -B http/startup_check.py` for compiled native and Bun real-socket
 checks: returned bind failure without readiness, returned affine file recovery
@@ -55,6 +68,20 @@ real request exercises `server.run` before host termination; that is not drain p
 `startup_results.json` records command/output and sampled direct-process RSS.
 IO and the unbounded `talk`/`server.run.loop` loops depend on foreign or unsafe
 code and are excluded from pure proof guarantees; the package laws are unchanged.
+
+Run `python3 http/limits_check.py` for the deterministic compiled native/JS socket
+regression; `limits_results.json` records 146 observed scenarios across whole,
+stream, and writer paths. With 600 ms phase budgets, trickle expiry was about
+600–607 ms despite progress at 150/300/450 ms; assertions require less than
+900 ms, below a per-progress reset's 1050 ms. Idle expiry was about 800–805 ms.
+Pipelined body deadlines begin before upload callbacks. Slow readers receive
+only a response prefix then EOF; failed writers close before callbacks return.
+Existing native/JS startup, stream, writer suppression/framing, and rejection
+delivery scenarios also passed. `limits_verification.json` retains package,
+probe, publication-check, and adverse earlier receipts. The HTTP entry's 291
+unsafe/foreign exclusions are not mathematical evidence for host socket IO.
+No failing-before runtime baseline was run: execution required the coordinator's
+exclusive verification slot. Human laws are unchanged.
 
 
 HTTP/1.1 and HTTP/2 client, and HTTP/1.1 server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).

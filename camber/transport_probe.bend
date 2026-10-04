@@ -9,11 +9,11 @@ def written(result: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Socket & 
     case Fail{error}:
       do IO<Socket & Http.Turn>:
         IO.print("WRITE_FAILED")
-        return Http.talk.after(65536n, False{}, Http.from_string(""), (socket, Fail{error}))
+        return Http.talk.after(Http.limits(65536n), False{}, Http.from_string(""), (socket, Fail{error}))
     case Done{unit}:
       do IO<Socket & Http.Turn>:
         IO.print("WRITE_SUCCEEDED")
-        return Http.talk.after(65536n, False{}, Http.from_string(""), (socket, Done{unit}))
+        return Http.talk.after(Http.limits(65536n), False{}, Http.from_string(""), (socket, Done{unit}))
 
 def finish(result: Socket & Http.Turn) -> IO(Unit):
   (socket, turn) = result

@@ -91,7 +91,7 @@ def local.handler(req: Http.Req) -> IO(Http.Res):
 def local.accept(l: Listener) -> IO(Unit):
   do IO<Unit>:
     m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- Http.conn(~local.handler, 1048576n, m)
+    l2 : Listener <- Http.conn(~local.handler, Http.limits(1048576n), m)
     Listener.close(l2)
 
 def local.ok(good: Bool, +name: String) -> IO(Unit):
@@ -429,19 +429,19 @@ def retry.s7(req: Http.Req) -> IO(Http.Res):
 def retry.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l1 : Listener <- Http.conn(~retry.s1, 1048576n, a)
+    l1 : Listener <- Http.conn(~retry.s1, Http.limits(1048576n), a)
     b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
-    l2 : Listener <- Http.conn(~retry.s2, 1048576n, b)
+    l2 : Listener <- Http.conn(~retry.s2, Http.limits(1048576n), b)
     c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
-    l3 : Listener <- Http.conn(~retry.s3, 1048576n, c)
+    l3 : Listener <- Http.conn(~retry.s3, Http.limits(1048576n), c)
     d : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l3)
-    l4 : Listener <- Http.conn(~retry.s4, 1048576n, d)
+    l4 : Listener <- Http.conn(~retry.s4, Http.limits(1048576n), d)
     e : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l4)
-    l5 : Listener <- Http.conn(~retry.s5, 1048576n, e)
+    l5 : Listener <- Http.conn(~retry.s5, Http.limits(1048576n), e)
     f : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l5)
-    l6 : Listener <- Http.conn(~retry.s6, 1048576n, f)
+    l6 : Listener <- Http.conn(~retry.s6, Http.limits(1048576n), f)
     g : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l6)
-    l7 : Listener <- Http.conn(~retry.s7, 1048576n, g)
+    l7 : Listener <- Http.conn(~retry.s7, Http.limits(1048576n), g)
     Listener.close(l7)
 
 def retry.check(+name: String, +status: U32, +want: String, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
@@ -521,7 +521,7 @@ def local.proxy.tunnel.accept(m: Listener & Result<&1, &1, U32 & String, Socket>
 
 def local.proxy.http.accept(m: Listener & Result<&1, &1, U32 & String, Socket>) ->
     IO(Listener):
-  Http.conn(~local.proxy.http, 1048576n, m)
+  Http.conn(~local.proxy.http, Http.limits(1048576n), m)
 
 def local.proxy.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
@@ -593,7 +593,7 @@ def all.serve(n: Nat, l: Listener) -> IO(Unit):
     case 1n+p:
       do IO<Unit>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        l1 : Listener <- Http.conn(~all.slow, 1048576n, a)
+        l1 : Listener <- Http.conn(~all.slow, Http.limits(1048576n), a)
         all.serve(p, l1)
 
 def all.path(+i: U32) -> String:
@@ -684,11 +684,11 @@ def cookie.srv(req: Http.Req) -> IO(Http.Res):
 def cookie.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l1 : Listener <- Http.conn(~cookie.srv, 1048576n, a)
+    l1 : Listener <- Http.conn(~cookie.srv, Http.limits(1048576n), a)
     b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
-    l2 : Listener <- Http.conn(~cookie.srv, 1048576n, b)
+    l2 : Listener <- Http.conn(~cookie.srv, Http.limits(1048576n), b)
     c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
-    l3 : Listener <- Http.conn(~cookie.srv, 1048576n, c)
+    l3 : Listener <- Http.conn(~cookie.srv, Http.limits(1048576n), c)
     Listener.close(l3)
 
 def cookie.got(+name: String, +want: String, r: Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool & Http.Jar):
@@ -764,8 +764,24 @@ def cookie.test() -> IO(Unit):
   do IO<Unit>:
     now : Time.Instant <- Time.now()
     cookie.live(now)
+
+def limits.overflow(turn: Http.Turn) -> Bool:
+  match turn:
+    case Http.TurnFail{status}:
+      U32.is_eq(status, 413)
+    case _:
+      False{}
+
+def limits.counter() -> IO(Unit):
+  local.ok(limits.overflow(Http.sv.chunk(
+    Nat.add(U32.to_nat(4294967295), 1n),
+    Http.Req{"POST", "/", Http.empty(), Bytes.new(0)}, True{}, 4294967295,
+    Http.DcData{1}, Nil{}, Bytes.from_string("x"))),
+    "decoded body counter rejects representability overflow")
+
 def main() -> IO(Unit):
   do IO<Unit>:
+    limits.counter()
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
     show(Http.parse("GET /x HTTP/1.1\r\nHost: x\r\n\r\nhello"))
     show(Http.parse("GET /x HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello"))
