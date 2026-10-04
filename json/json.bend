@@ -3,9 +3,9 @@ import Base
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 # JSON (RFC 8259) as UTF-8 in Bytes. Strings, numbers and object keys are
-# UTF-8 Bytes too. Nesting has no depth limit other than input size: the parser
-# keeps its own stack, since a Bend def cannot call itself through another def.
-#   import ./json/json.bend as Json
+# UTF-8 Bytes too. The shared parser keeps its own stack. parse.bytes preserves
+# the RFC §8.2 replacement contract; parse.strict.bytes rejects lone surrogates
+# and limits open arrays/objects before parsing their contents.
 
 # Num keeps the number's exact text, so no precision is lost. Obj keeps its
 # fields in document order, repeated keys included.
@@ -301,51 +301,58 @@ def str.b.done(key: Bool, s: Bytes.Bytes, +i: U32, stack: List<&1, Open>) -> Sb:
     case False{}:
       BAfter{Str{s}, i, stack}
 
-def esc.b.lo.if(ok: Bool, +i: U32, +hi: U32, +lo: U32, acc: W, key: Bool, stack: List<&1, Open>) -> Sb:
+def esc.b.lone(strict: Bool, +i: U32, acc: W, key: Bool, stack: List<&1, Open>) -> Sb:
+  match strict:
+    case True{}:
+      BFail{}
+    case False{}:
+      BEsc{(i + 6 : U32), w.cp(65533, acc), key, stack}
+
+def esc.b.lo.if(ok: Bool, strict: Bool, +i: U32, +hi: U32, +lo: U32, acc: W, key: Bool, stack: List<&1, Open>) -> Sb:
   match ok:
     case True{}:
       BEsc{(i + 12 : U32), w.cp((65536 + (hi - 55296 : U32) * 1024 + (lo - 56320 : U32) : U32), acc), key, stack}
     case False{}:
-      BEsc{(i + 6 : U32), w.cp(65533, acc), key, stack}
+      esc.b.lone(strict, i, acc, key, stack)
 
-def esc.b.lo(+i: U32, +hi: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
+def esc.b.lo(strict: Bool, +i: U32, +hi: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
   (a, +lo) = r
-  (a, esc.b.lo.if(is_lo(lo), i, hi, lo, acc, key, stack))
+  (a, esc.b.lo.if(is_lo(lo), strict, i, hi, lo, acc, key, stack))
 
-# §8.2: a high surrogate pairs with a following \uDC00-\uDFFF; a lone one is U+FFFD.
-def esc.b.pair(+len: U32, +i: U32, +hi: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & Bool) -> Array<U32> & Sb:
+# A high surrogate must pair in strict mode; RFC §8.2 mode replaces a lone one.
+def esc.b.pair(+strict: Bool, +len: U32, +i: U32, +hi: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & Bool) -> Array<U32> & Sb:
   (a, ok) = r
   match ok:
     case True{}:
-      esc.b.lo(i, hi, acc, key, stack, hex4.b(a, len, (i + 8 : U32)))
+      esc.b.lo(strict, i, hi, acc, key, stack, hex4.b(a, len, (i + 8 : U32)))
     case False{}:
-      (a, BEsc{(i + 6 : U32), w.cp(65533, acc), key, stack})
+      (a, esc.b.lone(strict, i, acc, key, stack))
 
 # 0: not four hex digits; 1: high surrogate; 2: low surrogate; 3: other.
 def u.class(+v: U32) -> U32:
   Bool.pick(U32, U32.is_eq(v, 65536), 0, Bool.pick(U32, is_hi(v), 1, Bool.pick(U32, is_lo(v), 2, 3)))
 
-def esc.b.u.of(+k: U32, a: Array<U32>, +len: U32, +i: U32, +v: U32, acc: W, key: Bool, stack: List<&1, Open>) -> Array<U32> & Sb:
+def esc.b.u.of(+k: U32, strict: Bool, a: Array<U32>, +len: U32, +i: U32, +v: U32, acc: W, key: Bool, stack: List<&1, Open>) -> Array<U32> & Sb:
   match k:
     case 0:
       (a, BFail{})
     case 1:
-      esc.b.pair(len, i, v, acc, key, stack, word(a, len, "\\u", (i + 6 : U32)))
+      esc.b.pair(strict, len, i, v, acc, key, stack, word(a, len, "\\u", (i + 6 : U32)))
     case 2:
-      (a, BEsc{(i + 6 : U32), w.cp(65533, acc), key, stack})
+      (a, esc.b.lone(strict, i, acc, key, stack))
     case _:
       (a, BEsc{(i + 6 : U32), w.cp(v, acc), key, stack})
 
-def esc.b.u(+len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
+def esc.b.u(strict: Bool, +len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
   (a, +v) = r
-  esc.b.u.of(u.class(v), a, len, i, v, acc, key, stack)
+  esc.b.u.of(u.class(v), strict, a, len, i, v, acc, key, stack)
 
 # The escape whose backslash is at i.
-def esc.b.one(+len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
+def esc.b.one(strict: Bool, +len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32) -> Array<U32> & Sb:
   (a, +e) = r
   match e:
     case 117:
-      esc.b.u(len, i, acc, key, stack, hex4.b(a, len, (i + 2 : U32)))
+      esc.b.u(strict, len, i, acc, key, stack, hex4.b(a, len, (i + 2 : U32)))
     case _:
       +v = esc.simple(e)
       (a, Bool.pick(Sb, U32.is_eq(v, 99), BFail{}, BEsc{(i + 2 : U32), w.put(acc, v), key, stack}))
@@ -363,13 +370,13 @@ def esc.b.other(ascii: Bool, +c: U32, a: Array<U32>, +len: U32, +i: U32, acc: W,
       esc.b.cp(acc, key, stack, i, utf8.at(a, len, i, c))
 
 # A string after its first escape.
-def esc.b(r: Array<U32> & U32, +len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>) -> Array<U32> & Sb:
+def esc.b(strict: Bool, r: Array<U32> & U32, +len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>) -> Array<U32> & Sb:
   (a, +c) = r
   match c:
     case 34:
       (a, str.b.done(key, w.done(acc), (i + 1 : U32), stack))
     case 92:
-      esc.b.one(len, i, acc, key, stack, pk(a, len, (i + 1 : U32)))
+      esc.b.one(strict, len, i, acc, key, stack, pk(a, len, (i + 1 : U32)))
     case 256:
       (a, BFail{})
     case _:
@@ -379,9 +386,9 @@ def str.b.close(key: Bool, +i: U32, stack: List<&1, Open>, r: Array<U32> & Bytes
   (a, s) = r
   (a, str.b.done(key, s, (i + 1 : U32), stack))
 
-def str.b.esc(+len: U32, +i: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & Bytes.Bytes) -> Array<U32> & Sb:
+def str.b.esc(strict: Bool, +len: U32, +i: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & Bytes.Bytes) -> Array<U32> & Sb:
   (a, s) = r
-  esc.b.one(len, i, w.of(s), key, stack, pk(a, len, (i + 1 : U32)))
+  esc.b.one(strict, len, i, w.of(s), key, stack, pk(a, len, (i + 1 : U32)))
 
 def str.b.cp(+start: U32, key: Bool, stack: List<&1, Open>, +i: U32, r: Array<U32> & Cp) -> Array<U32> & Sb:
   (a, Cp{+c, +n}) = r
@@ -395,13 +402,13 @@ def str.b.other(ascii: Bool, +c: U32, a: Array<U32>, +len: U32, +i: U32, +start:
       str.b.cp(start, key, stack, i, utf8.at(a, len, i, c))
 
 # A string whose text so far starts at start and has no escape.
-def str.b(r: Array<U32> & U32, +len: U32, +i: U32, +start: U32, key: Bool, stack: List<&1, Open>) -> Array<U32> & Sb:
+def str.b(strict: Bool, r: Array<U32> & U32, +len: U32, +i: U32, +start: U32, key: Bool, stack: List<&1, Open>) -> Array<U32> & Sb:
   (a, +c) = r
   match c:
     case 34:
       str.b.close(key, i, stack, slice((i - start : U32), start, a))
     case 92:
-      str.b.esc(len, i, key, stack, slice((i - start : U32), start, a))
+      str.b.esc(strict, len, i, key, stack, slice((i - start : U32), start, a))
     case 256:
       (a, BFail{})
     case _:
@@ -612,9 +619,24 @@ def value.r(+len: U32, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Arra
   (a, i, c) = r
   value.b((a, c), len, i, stack)
 
-def first.r(open: Open, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
-  (a, i, c) = r
-  first.b((a, c), i, open, stack)
+def level.r(depth: U32, r: Array<U32> & Sb) -> Array<U32> & Sb & U32:
+  (a, sb) = r
+  (a, sb, depth)
+
+def first.at(a: Array<U32>, +c: U32, i: U32, +depth: U32, open: Open, stack: List<&1, Open>) -> Array<U32> & Sb & U32:
+  level.r(Bool.pick(U32, U32.is_eq(c, 93) || U32.is_eq(c, 125), depth, (depth + 1 : U32)), first.b((a, c), i, open, stack))
+
+def first.r(ok: Bool, +depth: U32, open: Open, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb & U32:
+  match ok:
+    case False{}:
+      (a, i, c) = r
+      (a, BFail{}, depth)
+    case True{}:
+      (a, i, c) = r
+      first.at(a, c, i, depth, open, stack)
+
+def first.limit(cap: U32, +depth: U32, open: Open, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb & U32:
+  first.r(U32.is_lt(depth, cap), depth, open, stack, r)
 
 def key.r(stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
   (a, i, c) = r
@@ -624,17 +646,20 @@ def colon.r(k: Bytes.Bytes, stack: List<&1, Open>, r: Array<U32> & U32 & U32) ->
   (a, i, c) = r
   colon.b((a, c), k, i, stack)
 
-def str.r(+len: U32, +s: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+def str.r(strict: Bool, +len: U32, +s: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
   (a, i, c) = r
-  str.b((a, c), len, i, s, key, stack)
+  str.b(strict, (a, c), len, i, s, key, stack)
 
 def num.r(+s: U32, +st: U32, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
   (a, i, c) = r
   num.b((a, c), i, s, st, stack)
 
-def sep.r(open: Open, up: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+def sep.at(a: Array<U32>, +c: U32, i: U32, +depth: U32, open: Open, up: List<&1, Open>) -> Array<U32> & Sb & U32:
+  level.r(Bool.pick(U32, U32.is_eq(c, 93) || U32.is_eq(c, 125), (depth - 1 : U32), depth), sep.b((a, c), i, open, up))
+
+def sep.r(+depth: U32, open: Open, up: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb & U32:
   (a, i, c) = r
-  sep.b((a, c), i, open, up)
+  sep.at(a, c, i, depth, open, up)
 
 def end.r(v: Val, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
   (a, i, c) = r
@@ -649,14 +674,14 @@ def w.span.go(n: Nat, r: Array<U32> & U32, +i: U32, o: W) -> Array<U32> & W:
       (a, +c) = r
       w.span.go(k, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), w.put(o, c))
 
-def esc.r.go(+len: U32, +j: U32, c: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & W) -> Array<U32> & Sb:
+def esc.r.go(strict: Bool, +len: U32, +j: U32, c: U32, key: Bool, stack: List<&1, Open>, r: Array<U32> & W) -> Array<U32> & Sb:
   (a, acc) = r
-  esc.b((a, c), len, j, acc, key, stack)
+  esc.b(strict, (a, c), len, j, acc, key, stack)
 
 # The plain bytes from i to the run's end go onto acc in one loop.
-def esc.r(+len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
+def esc.r(strict: Bool, +len: U32, +i: U32, acc: W, key: Bool, stack: List<&1, Open>, r: Array<U32> & U32 & U32) -> Array<U32> & Sb:
   (a, +j, c) = r
-  esc.r.go(len, j, c, key, stack, w.span.go(U32.to_nat((j - i : U32)), Bytes.peek(a, i), i, acc))
+  esc.r.go(strict, len, j, c, key, stack, w.span.go(U32.to_nat((j - i : U32)), Bytes.peek(a, i), i, acc))
 
 # States 3, 5 and 8 take digits until the number's part ends.
 def num.run(loop: Bool, +g: Nat, a: Array<U32>, +len: U32, +i: U32) -> Array<U32> & U32 & U32:
@@ -667,42 +692,49 @@ def num.run(loop: Bool, +g: Nat, a: Array<U32>, +len: U32, +i: U32) -> Array<U32
       pos(a, len, i)
 
 # fuel: a step eats a byte, or ends a number, a value, or an opening bracket, so 4 * len + 4 steps are enough.
-def runb(+fuel: Nat, r: Array<U32> & Sb, +len: U32) -> Maybe<&1, Val>:
+def runb(+fuel: Nat, r: Array<U32> & Sb & U32, +len: U32, +strict: Bool, +cap: U32) -> Maybe<&1, Val>:
   match fuel:
     case 0n:
       None{}
     case 1n+f:
-      (a, sb) = r
+      (a, sb, depth) = r
       match sb:
         case BOk{v}:
           Some{v}
         case BFail{}:
           None{}
         case BValue{+i, stack}:
-          runb(f, value.r(len, stack, run(~is_ws, f, a, len, i)), len)
+          runb(f, level.r(depth, value.r(len, stack, run(~is_ws, f, a, len, i))), len, strict, cap)
         case BFirst{+i, open, stack}:
-          runb(f, first.r(open, stack, run(~is_ws, f, a, len, i)), len)
+          runb(f, first.limit(cap, depth, open, stack, run(~is_ws, f, a, len, i)), len, strict, cap)
         case BKey{+i, stack}:
-          runb(f, key.r(stack, run(~is_ws, f, a, len, i)), len)
+          runb(f, level.r(depth, key.r(stack, run(~is_ws, f, a, len, i))), len, strict, cap)
         case BColon{k, +i, stack}:
-          runb(f, colon.r(k, stack, run(~is_ws, f, a, len, i)), len)
+          runb(f, level.r(depth, colon.r(k, stack, run(~is_ws, f, a, len, i))), len, strict, cap)
         case BStr{+i, +s, k, stack}:
-          runb(f, str.r(len, s, k, stack, run(~plain, f, a, len, i)), len)
+          runb(f, level.r(depth, str.r(strict, len, s, k, stack, run(~plain, f, a, len, i))), len, strict, cap)
         case BEsc{+i, acc, k, stack}:
-          runb(f, esc.r(len, i, acc, k, stack, run(~plain, f, a, len, i)), len)
+          runb(f, level.r(depth, esc.r(strict, len, i, acc, k, stack, run(~plain, f, a, len, i))), len, strict, cap)
         case BNum{+i, +s, +st, stack}:
-          runb(f, num.r(s, st, stack, num.run(U32.is_eq(st, 3) || U32.is_eq(st, 5) || U32.is_eq(st, 8), f, a, len, i)), len)
+          runb(f, level.r(depth, num.r(s, st, stack, num.run(U32.is_eq(st, 3) || U32.is_eq(st, 5) || U32.is_eq(st, 8), f, a, len, i))), len, strict, cap)
         case BAfter{v, +i, stack}:
-          runb(f, (a, after.b(v, i, stack)), len)
+          runb(f, (a, after.b(v, i, stack), depth), len, strict, cap)
         case BSep{+i, open, stack}:
-          runb(f, sep.r(open, stack, run(~is_ws, f, a, len, i)), len)
+          runb(f, sep.r(depth, open, stack, run(~is_ws, f, a, len, i)), len, strict, cap)
         case BEnd{v, +i}:
-          runb(f, end.r(v, run(~is_ws, f, a, len, i)), len)
+          runb(f, level.r(depth, end.r(v, run(~is_ws, f, a, len, i))), len, strict, cap)
 
-# One JSON text in UTF-8. None for bad JSON or bad UTF-8 (RFC 8259 §8.1).
+# One JSON text in UTF-8, with RFC §8.2 surrogate replacement and input-sized depth.
 def parse.bytes(b: Bytes.Bytes) -> Maybe<&1, Val>:
   Bytes.Bytes{+len, buf} = b
-  runb(Nat.add(Nat.mul(U32.to_nat(len), 4n), 4n), (buf, BValue{0, Nil{}}), len)
+  runb(Nat.add(Nat.mul(U32.to_nat(len), 4n), 4n), (buf, BValue{0, Nil{}}, 0), len, False{}, len)
+
+# Strict UTF-8 JSON: reject lone surrogate escapes and more than cap nested
+# arrays/objects, including empty containers. Scalars have depth zero.
+# The limit is checked at each opening, before any contents are parsed.
+def parse.strict.bytes(b: Bytes.Bytes, cap: U32) -> Maybe<&1, Val>:
+  Bytes.Bytes{+len, buf} = b
+  runb(Nat.add(Nat.mul(U32.to_nat(len), 4n), 4n), (buf, BValue{0, Nil{}}, 0), len, True{}, cap)
 
 # Access
 # ------
