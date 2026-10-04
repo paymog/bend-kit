@@ -5372,20 +5372,20 @@ def talk.cont(cont: Bool, s: Socket) -> IO(Socket):
         return talk.cont.sent(sent)
 
 @unsafe
-def talk(~h: Req -> IO(Res), +max: Nat, st: Socket & Turn) -> IO(Unit):
+def talk(~C: Data, ~h: C -> Req -> IO(Res), +context: C, +max: Nat, st: Socket & Turn) -> IO(Unit):
   (s, t) = st
   match t:
     case TurnMore{sv, cont}:
       do IO<Unit>:
         s2 : Socket <- talk.cont(cont, s)
         m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s2, 65536, 30000)
-        talk(~h, max, talk.next(max, sv, m))
+        talk(~C, ~h, context, max, talk.next(max, sv, m))
     case TurnReq{req, rest, v11}:
       Req{+method, path, +headers, body} = req
       do IO<Unit>:
-        res : Res <- h(Req{method, path, headers, body})
+        res : Res <- h(context, Req{method, path, headers, body})
         next : Socket & Turn <- talk.send(max, s, rest, headers, v11, String.eq(method, "HEAD"), res)
-        talk(~h, max, next)
+        talk(~C, ~h, context, max, next)
     case TurnFail{status}:
       reply_fail(s, status)
     case TurnClose{}:
@@ -5395,7 +5395,7 @@ def conn(~h: Req -> IO(Res), +max: Nat, m: Listener & Result<&1, &1, U32 & Strin
   (l, r) = m
   do IO<Listener>:
     s : Socket <- IO.pass(Socket, r)
-    IO.spawn(Unit, talk(~h, max, (s, TurnMore{sv.none(), False{}})))
+    IO.spawn(Unit, talk(~Unit, ~(context => req => h(req)), Unit{}, max, (s, TurnMore{sv.none(), False{}})))
     return l
 
 @unsafe
@@ -5418,6 +5418,105 @@ def serve.with(~h: Req -> IO(Res), +port: U32, +max: Nat) -> IO(Unit):
 
 def serve(~h: Req -> IO(Res), +port: U32) -> IO(Unit):
   serve.with(~h, port, serve.max())
+
+# Finite positive settings, not zero/unlimited sentinels. Admission and phase
+# deadline enforcement are the dependent transport leaves; validation is not enforcement.
+type ServerConfig is Data:
+  ServerConfig{host: String, port: U32, body_bytes: U32, header_bytes: U32,
+    connections: U32, requests: U32, header_ms: U32, body_ms: U32,
+    idle_ms: U32, write_ms: U32}
+
+type StartupError is Data:
+  InvalidConfig{}
+  BindError{code: U32, message: String}
+
+# Application-owned affine dependencies never enter this transport owner.
+type Server<-C: Data> is Type:
+  Server{listener: Listener, context: C, config: ServerConfig}
+
+def server.config(host: String, port: U32) -> ServerConfig:
+  ServerConfig{host, port, 16777216, 65536, 128, 128, 5000, 30000, 30000, 30000}
+
+# Host deadline effects use signed 32-bit milliseconds.
+def server.deadline.valid(+ms: U32) -> Bool:
+  U32.is_gt(ms, 0) && U32.is_le(ms, 2147483647)
+
+def server.config.valid(config: ServerConfig) -> Bool:
+  ServerConfig{host, port, body, headers, connections, requests, header_ms, body_ms, idle_ms, write_ms} = config
+  U32.is_le(port, 65535) && U32.is_gt(body, 0) && U32.is_gt(headers, 0) &&
+    U32.is_gt(connections, 0) && U32.is_gt(requests, 0) &&
+    server.deadline.valid(header_ms) && server.deadline.valid(body_ms) &&
+    server.deadline.valid(idle_ms) && server.deadline.valid(write_ms)
+
+def server.started(~C: Data, ~O: Type, context: C, owner: O, config: ServerConfig, result: Result<&1, &1, U32 & String, Listener>) -> O & Result<&2, &1, StartupError, Server<C>>:
+  match result:
+    case Fail{error}:
+      (code, message) = error
+      (owner, Fail{BindError{code, message}})
+    case Done{listener}:
+      (owner, Done{Server{listener, context, config}})
+
+def server.start.valid(~C: Data, ~O: Type, valid: Bool, context: C, owner: O, +config: ServerConfig) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
+  match valid:
+    case False{}:
+      IO.pure(O & Result<&2, &1, StartupError, Server<C>>, (owner, Fail{InvalidConfig{}}))
+    case True{}:
+      ServerConfig{host, port, body, headers, connections, requests, header_ms, body_ms, idle_ms, write_ms} = config
+      do IO<O & Result<&2, &1, StartupError, Server<C>>>:
+        result : Result<&1, &1, U32 & String, Listener> <- TCP.listen(host, port)
+        return server.started(~C, ~O, context, owner, config, result)
+
+# Done is the readiness signal: TCP.listen has installed an accepting socket.
+# Both branches return the preopened application owner unchanged.
+def server.start(~C: Data, ~O: Type, context: C, owner: O, +config: ServerConfig) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
+  server.start.valid(~C, ~O, server.config.valid(config), context, owner, config)
+
+def server.close(~C: Data, server: Server<C>) -> IO(Unit):
+  Server{listener, context, config} = server
+  Listener.close(listener)
+
+def server.accepted(~C: Data, ~h: C -> Req -> IO(Res), +context: C, +config: ServerConfig, result: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
+  ServerConfig{host, port, body, headers, connections, requests, header_ms, body_ms, idle_ms, write_ms} = config
+  (listener, got) = result
+  match got:
+    case Fail{error}:
+      IO.pure(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>, (Server{listener, context, config}, Fail{error}))
+    case Done{socket}:
+      do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
+        finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~h, context, U32.to_nat(body), (socket, TurnMore{sv.none(), False{}})))
+        return (Server{listener, context, config}, Done{finished})
+
+# One accepting step, so the caller retains explicit listener ownership.
+def server.accept(~C: Data, ~h: C -> Req -> IO(Res), server: Server<C>) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
+  Server{listener, context, config} = server
+  do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
+    result : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
+    server.accepted(~C, ~h, context, config, result)
+
+type ServerLoop<-C: Data> is Type:
+  ServerListening{server: Server<C>}
+  ServerAccepted{result: Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>}
+
+# A single recursive state machine avoids recursion hidden inside a template.
+@unsafe
+def server.run.loop(~C: Data, ~h: C -> Req -> IO(Res), step: ServerLoop<C>) -> IO(Server<C> & (U32 & String)):
+  match step:
+    case ServerListening{server}:
+      do IO<Server<C> & (U32 & String)>:
+        result : Server<C> & Result<&1, &1, U32 & String, Chan(Unit)> <- server.accept(~C, ~h, server)
+        server.run.loop(~C, ~h, ServerAccepted{result})
+    case ServerAccepted{accepted}:
+      (server, result) = accepted
+      match result:
+        case Fail{error}:
+          IO.pure(Server<C> & (U32 & String), (server, error))
+        case Done{finished}:
+          do IO<Server<C> & (U32 & String)>:
+            Chan.close(Unit, finished)
+            server.run.loop(~C, ~h, ServerListening{server})
+
+def server.run(~C: Data, ~h: C -> Req -> IO(Res), server: Server<C>) -> IO(Server<C> & (U32 & String)):
+  server.run.loop(~C, ~h, ServerListening{server})
 
 def serve.stream.nonempty(~S: Type, ~piece: S -> Bytes.Bytes -> IO(S & Bool), empty: Bool, state: S, b: Bytes.Bytes) -> IO(S & Bool):
   match empty:

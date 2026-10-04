@@ -1,5 +1,62 @@
 # http
 
+## Runtime context and startup ownership (0.26.0.0)
+
+`Http.server.start(~C, ~O, context, owner, config)` returns
+`IO(O & Result<&2, &1, Http.StartupError, Http.Server<C>>)`.
+`C` is copyable `Data` (configuration and shared channels); `O` is the application's
+affine owner, such as preopened files or worker bundles. Both startup branches
+return `O` unchanged. Invalid configuration returns `InvalidConfig`; listen failure
+returns `BindError{code, message}` rather than terminating through `IO.try`.
+The caller can explicitly close or recover its dependencies on either branch.
+
+`Done{server}` is the ready signal: the listener has successfully bound and is
+accepting TCP connections. Failure never returns a ready value. The application
+may notify its supervisor only after matching `Done`; there is no speculative
+readiness callback. `Http.server.accept(~C, ~handler, server)` accepts one socket,
+starts the existing HTTP connection machine, and returns the server owner plus
+the accept result (`Result<&1, &1, U32 & String, Chan(Unit)>`). A successful result
+includes a completion channel; joining it observes the whole connection task,
+including its final write/close. Listener closure alone is not task completion.
+`handler: C -> Http.Req -> IO(Http.Res)` receives the same runtime
+context on every request, including keep-alive and pipelined requests.
+`Http.server.run` repeats accepting and returns the listener owner and OS error
+if accepting fails. It closes unused completion observers without cancelling
+connection tasks; use `server.accept` to retain and join individual task results.
+`Http.server.close` explicitly closes the listener; it does not drain
+already-started handlers or close application dependencies.
+
+`Http.server.config(host, port)` supplies a 16 MiB body cap, 64 KiB headers,
+128 connections, 128 active requests, and 5/30/30/30-second header/body/idle/write
+settings. All size, admission and deadline fields are finite `U32` values and
+must be positive; zero is an error, never a disabled-limit sentinel. Deadlines
+must also fit signed host milliseconds (at most 2147483647). Ports 0–65535
+are accepted (0 requests an OS-assigned port).
+
+**Staged transport contract:** this leaf validates all configuration fields and
+enforces the body cap. The framing machine still fixes headers at 64 KiB, reads
+still time out per receive at 30 seconds, accepted tasks are not admission-bounded,
+and writes have no deadline. The positive connection/request and phase-deadline
+values are policy inputs for #327/#328, **not currently enforced guarantees**.
+Do not deploy relying on those limits until the dependent transport leaves land.
+Validation is not enforcement; these settings have no zero/unlimited fallback.
+#329 adds write outcomes; #330 extends this same owner path with cooperative lifecycle controls.
+
+The plain `serve`, `serve.on`, and `.with` convenience APIs keep their existing
+closed-handler contract. Internal `talk` now takes `~C`, the context-aware handler,
+and a runtime context before the body cap; no repository caller used its old
+signature. Streamed request/response APIs remain unchanged.
+
+Run `python3 -B http/startup_check.py` for compiled native and Bun real-socket
+checks: returned bind failure without readiness, returned affine file recovery
+and close, rejection of every zero policy field, overflowing deadlines and an out-of-range port, and
+three requests on two sockets sharing one runtime context/channel. A separate
+real request exercises `server.run` before host termination; that is not drain proof.
+`startup_results.json` records command/output and sampled direct-process RSS.
+IO and the unbounded `talk`/`server.run.loop` loops depend on foreign or unsafe
+code and are excluded from pure proof guarantees; the package laws are unchanged.
+
+
 HTTP/1.1 and HTTP/2 client, and HTTP/1.1 server for Bend 2: `http://` and `https://`, DNS, redirects, and timeouts. Bodies are packed bytes (`Http.Body`).
 
 ```bend
