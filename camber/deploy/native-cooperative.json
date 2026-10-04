@@ -1,0 +1,1536 @@
+{
+  "invocations": [
+    {
+      "started_ns": 1791142261910434000,
+      "invocation": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "camber/deploy/run.py",
+        "--lane",
+        "native",
+        "--case",
+        "cooperative",
+        "--output",
+        "camber/deploy/native-cooperative.json"
+      ],
+      "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+      "status": "failed",
+      "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+      "source_sha256": {
+        "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+        "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+        "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+        "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+        "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+        "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+        "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+        "camber/deploy/users.bend": "2e6835634d1f45bffb625de36066a2d2b65602d250cea23f407382908de0daaf",
+        "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+      },
+      "boundary": "launchd-owned dedicated complete-users processes; observed kernel exit and platform reap",
+      "grace_seconds": 5.0,
+      "teardown_seconds": 1.0,
+      "cases": [],
+      "commands": [
+        {
+          "argv": [
+            "bend",
+            "version"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816891.362603041,
+          "status": 0,
+          "root_pid": 78693,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "78693": "Sun Oct  4 14:31:01 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "bend 2.0.35\n",
+          "stderr": "",
+          "elapsed_seconds": 0.18727291701361537
+        },
+        {
+          "argv": [
+            "bend",
+            "/Users/paymahn/code/bend-kit-issue-339/camber/deploy/users.bend",
+            "-o",
+            "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-3fsd_2li/users"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816891.553106916,
+          "status": 1,
+          "root_pid": 78814,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "78814": "Sun Oct  4 14:31:02 2026    "
+          },
+          "surviving_observed_processes": {},
+          "failure": "RuntimeError('command exited 1')",
+          "observed_descendants_released": true,
+          "stdout": "",
+          "stderr": "SOME PROOFS FAIL\nError:\n- expected : a defined name\n- observed : TCP.close\nContext:\n- socket  : Socket\n- outcome : Result<&1, &1, Sigma<&1, &1, U32, _ => String>, String>\nLocation: io.returned\n16 |   (socket, outcome) = result\n17>|   TCP.close(socket)\n   |   ^^^^^^^^^\n18 | \n",
+          "elapsed_seconds": 1.8621868749614805
+        }
+      ],
+      "platform_jobs": [],
+      "guard_failures": [],
+      "published": {
+        "camber": "0.6.0.0",
+        "http": "0.30.0.0",
+        "wire": "0.4.5.0"
+      },
+      "bend_version": {
+        "argv": [
+          "bend",
+          "version"
+        ],
+        "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+        "started_monotonic": 816891.362603041,
+        "status": 0,
+        "root_pid": 78693,
+        "root_reaped": true,
+        "forced_cleanup": false,
+        "observed_process_identities": {
+          "78693": "Sun Oct  4 14:31:01 2026    "
+        },
+        "surviving_observed_processes": {},
+        "observed_descendants_released": true,
+        "stdout": "bend 2.0.35\n",
+        "stderr": "",
+        "elapsed_seconds": 0.18727291701361537
+      },
+      "owned_temporary_directory": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-3fsd_2li",
+      "failure": "RuntimeError({'argv': ['bend', '/Users/paymahn/code/bend-kit-issue-339/camber/deploy/users.bend', '-o', '/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-3fsd_2li/users'], 'cwd': '/Users/paymahn/code/bend-kit-issue-339', 'started_monotonic': 816891.553106916, 'status': 1, 'root_pid': 78814, 'root_reaped': True, 'forced_cleanup': False, 'observed_process_identities': {78814: 'Sun Oct  4 14:31:02 2026    '}, 'surviving_observed_processes': {}, 'failure': \"RuntimeError('command exited 1')\", 'observed_descendants_released': True, 'stdout': '', 'stderr': 'SOME PROOFS FAIL\\nError:\\n- expected : a defined name\\n- observed : TCP.close\\nContext:\\n- socket  : Socket\\n- outcome : Result<&1, &1, Sigma<&1, &1, U32, _ => String>, String>\\nLocation: io.returned\\n16 |   (socket, outcome) = result\\n17>|   TCP.close(socket)\\n   |   ^^^^^^^^^\\n18 | \\n', 'elapsed_seconds': 1.8621868749614805})",
+      "guard_release": {
+        "guard_failure": null,
+        "sampled_aggregate_peak_rss_kib": 1652256,
+        "forced_cleanup": false,
+        "observed_process_identities": {
+          "78692": "Sun Oct  4 14:31:01 2026    ",
+          "78676": "Sun Oct  4 14:31:01 2026    ",
+          "78693": "Sun Oct  4 14:31:01 2026    ",
+          "78694": "Sun Oct  4 14:31:01 2026    ",
+          "78695": "Sun Oct  4 14:31:02 2026    ",
+          "78714": "Sun Oct  4 14:31:02 2026    ",
+          "78770": "Sun Oct  4 14:31:02 2026    ",
+          "78782": "Sun Oct  4 14:31:02 2026    ",
+          "78814": "Sun Oct  4 14:31:02 2026    ",
+          "78815": "Sun Oct  4 14:31:02 2026    ",
+          "78816": "Sun Oct  4 14:31:02 2026    ",
+          "78817": "Sun Oct  4 14:31:02 2026    ",
+          "78820": "Sun Oct  4 14:31:02 2026    ",
+          "78821": "Sun Oct  4 14:31:02 2026    ",
+          "78824": "Sun Oct  4 14:31:02 2026    ",
+          "78825": "Sun Oct  4 14:31:02 2026    ",
+          "78829": "Sun Oct  4 14:31:02 2026    ",
+          "78837": "Sun Oct  4 14:31:02 2026    ",
+          "78838": "Sun Oct  4 14:31:02 2026    ",
+          "78839": "Sun Oct  4 14:31:02 2026    ",
+          "78842": "Sun Oct  4 14:31:02 2026    ",
+          "78915": "Sun Oct  4 14:31:03 2026    ",
+          "78928": "Sun Oct  4 14:31:03 2026    ",
+          "78929": "Sun Oct  4 14:31:03 2026    ",
+          "78932": "Sun Oct  4 14:31:03 2026    ",
+          "78933": "Sun Oct  4 14:31:03 2026    ",
+          "78934": "Sun Oct  4 14:31:03 2026    ",
+          "78937": "Sun Oct  4 14:31:03 2026    ",
+          "79005": "Sun Oct  4 14:31:03 2026    ",
+          "79063": "Sun Oct  4 14:31:03 2026    ",
+          "79090": "Sun Oct  4 14:31:03 2026    ",
+          "79096": "Sun Oct  4 14:31:03 2026    ",
+          "79098": "Sun Oct  4 14:31:03 2026    ",
+          "79099": "Sun Oct  4 14:31:03 2026    "
+        },
+        "surviving_observed_processes": {}
+      },
+      "source_sha256_after": {
+        "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+        "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+        "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+        "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+        "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+        "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+        "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+        "camber/deploy/users.bend": "2e6835634d1f45bffb625de36066a2d2b65602d250cea23f407382908de0daaf",
+        "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+      },
+      "all_platform_jobs_released": true,
+      "owned_temporary_directory_removed": true,
+      "finished_ns": 1791142264033548000
+    },
+    {
+      "started_ns": 1791142288769794000,
+      "invocation": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "camber/deploy/run.py",
+        "--lane",
+        "native",
+        "--case",
+        "cooperative",
+        "--output",
+        "camber/deploy/native-cooperative.json"
+      ],
+      "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+      "status": "failed",
+      "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+      "source_sha256": {
+        "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+        "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+        "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+        "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+        "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+        "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+        "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+        "camber/deploy/users.bend": "15a279fd048e67c13010184cf406d3aada89db383bf7ec82a83a3b7bf64a6710",
+        "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+      },
+      "boundary": "launchd-owned dedicated complete-users processes; observed kernel exit and platform reap",
+      "grace_seconds": 5.0,
+      "teardown_seconds": 1.0,
+      "cases": [],
+      "commands": [
+        {
+          "argv": [
+            "bend",
+            "version"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816918.216108041,
+          "status": 0,
+          "root_pid": 83209,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "83209": "Sun Oct  4 14:31:28 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "bend 2.0.35\n",
+          "stderr": "",
+          "elapsed_seconds": 0.1000256669940427
+        },
+        {
+          "argv": [
+            "bend",
+            "/Users/paymahn/code/bend-kit-issue-339/camber/deploy/users.bend",
+            "-o",
+            "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-k25gxt3g/users"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816918.318806916,
+          "status": 1,
+          "root_pid": 83241,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "83241": "Sun Oct  4 14:31:28 2026    "
+          },
+          "surviving_observed_processes": {},
+          "failure": "RuntimeError('command exited 1')",
+          "observed_descendants_released": true,
+          "stdout": "",
+          "stderr": "SOME PROOFS FAIL\nError:\n- expected : @_:String -> @_:U.State -> @_:U.Config -> @_:C.Metadata -> @-R:Type -> @k:(@_:C.Step<U.State, String> -> IO.OP<R>) -> IO.OP<R>\n- observed : @+hook:String -> @state:U.State -> @config:U.Config -> @meta:C.Metadata -> @-R:Type -> @k:(@_:C.Step<U.State, String> -> IO.OP<R>) -> IO.OP<R>\nLocation: prepared\n174 |     result : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- C.server.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,\n175>|       ~before, ~U.after, ~run, ~U.mapper, ~U.destroy, U.application(config, False{}), C.server.config(port), [U.fresh(), U.fresh(), U.fresh(), U.fresh()])\n    |        ^^^^^^\n176 |     server.started(result, owner, admin_port)\n",
+          "elapsed_seconds": 1.9178784999530762
+        }
+      ],
+      "platform_jobs": [],
+      "guard_failures": [],
+      "published": {
+        "camber": "0.6.0.0",
+        "http": "0.30.0.0",
+        "wire": "0.4.5.0"
+      },
+      "bend_version": {
+        "argv": [
+          "bend",
+          "version"
+        ],
+        "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+        "started_monotonic": 816918.216108041,
+        "status": 0,
+        "root_pid": 83209,
+        "root_reaped": true,
+        "forced_cleanup": false,
+        "observed_process_identities": {
+          "83209": "Sun Oct  4 14:31:28 2026    "
+        },
+        "surviving_observed_processes": {},
+        "observed_descendants_released": true,
+        "stdout": "bend 2.0.35\n",
+        "stderr": "",
+        "elapsed_seconds": 0.1000256669940427
+      },
+      "owned_temporary_directory": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-k25gxt3g",
+      "failure": "RuntimeError({'argv': ['bend', '/Users/paymahn/code/bend-kit-issue-339/camber/deploy/users.bend', '-o', '/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-k25gxt3g/users'], 'cwd': '/Users/paymahn/code/bend-kit-issue-339', 'started_monotonic': 816918.318806916, 'status': 1, 'root_pid': 83241, 'root_reaped': True, 'forced_cleanup': False, 'observed_process_identities': {83241: 'Sun Oct  4 14:31:28 2026    '}, 'surviving_observed_processes': {}, 'failure': \"RuntimeError('command exited 1')\", 'observed_descendants_released': True, 'stdout': '', 'stderr': 'SOME PROOFS FAIL\\nError:\\n- expected : @_:String -> @_:U.State -> @_:U.Config -> @_:C.Metadata -> @-R:Type -> @k:(@_:C.Step<U.State, String> -> IO.OP<R>) -> IO.OP<R>\\n- observed : @+hook:String -> @state:U.State -> @config:U.Config -> @meta:C.Metadata -> @-R:Type -> @k:(@_:C.Step<U.State, String> -> IO.OP<R>) -> IO.OP<R>\\nLocation: prepared\\n174 |     result : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- C.server.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,\\n175>|       ~before, ~U.after, ~run, ~U.mapper, ~U.destroy, U.application(config, False{}), C.server.config(port), [U.fresh(), U.fresh(), U.fresh(), U.fresh()])\\n    |        ^^^^^^\\n176 |     server.started(result, owner, admin_port)\\n', 'elapsed_seconds': 1.9178784999530762})",
+      "guard_release": {
+        "guard_failure": null,
+        "sampled_aggregate_peak_rss_kib": 1758096,
+        "forced_cleanup": false,
+        "observed_process_identities": {
+          "83169": "Sun Oct  4 14:31:28 2026    ",
+          "83198": "Sun Oct  4 14:31:28 2026    ",
+          "83210": "Sun Oct  4 14:31:28 2026    ",
+          "83209": "Sun Oct  4 14:31:28 2026    ",
+          "83227": "Sun Oct  4 14:31:28 2026    ",
+          "83236": "Sun Oct  4 14:31:28 2026    ",
+          "83237": "Sun Oct  4 14:31:28 2026    ",
+          "83242": "Sun Oct  4 14:31:28 2026    ",
+          "83241": "Sun Oct  4 14:31:28 2026    ",
+          "83243": "Sun Oct  4 14:31:28 2026    ",
+          "83244": "Sun Oct  4 14:31:29 2026    ",
+          "83320": "Sun Oct  4 14:31:29 2026    ",
+          "83339": "Sun Oct  4 14:31:29 2026    ",
+          "83342": "Sun Oct  4 14:31:29 2026    ",
+          "83343": "Sun Oct  4 14:31:29 2026    ",
+          "83344": "Sun Oct  4 14:31:29 2026    ",
+          "83347": "Sun Oct  4 14:31:29 2026    ",
+          "83350": "Sun Oct  4 14:31:29 2026    ",
+          "83353": "Sun Oct  4 14:31:29 2026    ",
+          "83354": "Sun Oct  4 14:31:29 2026    ",
+          "83355": "Sun Oct  4 14:31:29 2026    ",
+          "83356": "Sun Oct  4 14:31:29 2026    ",
+          "83359": "Sun Oct  4 14:31:29 2026    ",
+          "83383": "Sun Oct  4 14:31:30 2026    ",
+          "83455": "Sun Oct  4 14:31:30 2026    ",
+          "83462": "Sun Oct  4 14:31:30 2026    ",
+          "83465": "Sun Oct  4 14:31:30 2026    ",
+          "83466": "Sun Oct  4 14:31:30 2026    ",
+          "83467": "Sun Oct  4 14:31:30 2026    ",
+          "83468": "Sun Oct  4 14:31:30 2026    ",
+          "83471": "Sun Oct  4 14:31:30 2026    ",
+          "83472": "Sun Oct  4 14:31:30 2026    ",
+          "83474": "Sun Oct  4 14:31:30 2026    ",
+          "83473": "Sun Oct  4 14:31:30 2026    "
+        },
+        "surviving_observed_processes": {}
+      },
+      "source_sha256_after": {
+        "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+        "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+        "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+        "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+        "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+        "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+        "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+        "camber/deploy/users.bend": "15a279fd048e67c13010184cf406d3aada89db383bf7ec82a83a3b7bf64a6710",
+        "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+      },
+      "all_platform_jobs_released": true,
+      "owned_temporary_directory_removed": true,
+      "finished_ns": 1791142290851236000
+    },
+    {
+      "started_ns": 1791142313290898000,
+      "invocation": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "camber/deploy/run.py",
+        "--lane",
+        "native",
+        "--case",
+        "cooperative",
+        "--output",
+        "camber/deploy/native-cooperative.json"
+      ],
+      "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+      "status": "passed",
+      "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+      "source_sha256": {
+        "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+        "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+        "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+        "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+        "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+        "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+        "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+        "camber/deploy/users.bend": "c07cd6d23a6c36605e8f67da931301e263ff88b3a934f3570bce6d1c2fbb5515",
+        "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+      },
+      "boundary": "launchd-owned dedicated complete-users processes; observed kernel exit and platform reap",
+      "grace_seconds": 5.0,
+      "teardown_seconds": 1.0,
+      "cases": [
+        {
+          "lane": "native",
+          "mode": "cooperative",
+          "source_sha256": {
+            "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+            "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+            "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+            "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+            "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+            "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+            "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+            "camber/deploy/users.bend": "c07cd6d23a6c36605e8f67da931301e263ff88b3a934f3570bce6d1c2fbb5515",
+            "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+            "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+            "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+          },
+          "passed": true,
+          "pid": 91168,
+          "parent_pid": "1",
+          "platform_job": {
+            "target": "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative",
+            "rendered_plist": {
+              "Label": "org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative",
+              "ProgramArguments": [
+                "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/users",
+                "--threads",
+                "1",
+                "--gpu",
+                "off",
+                "19441",
+                "19442",
+                "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/journal",
+                "cooperative"
+              ],
+              "WorkingDirectory": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative",
+              "RunAtLoad": true,
+              "KeepAlive": false,
+              "ExitTimeOut": 5,
+              "Umask": 63,
+              "EnvironmentVariables": {
+                "BEND_NO_TELEMETRY": "1"
+              },
+              "StandardOutPath": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative.out",
+              "StandardErrorPath": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative.err",
+              "HardResourceLimits": {
+                "Core": 0
+              }
+            },
+            "platform_commands": [
+              {
+                "argv": [
+                  "launchctl",
+                  "bootstrap",
+                  "gui/502",
+                  "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative.plist"
+                ],
+                "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+                "started_monotonic": 816968.99006375,
+                "status": 0,
+                "root_pid": 91166,
+                "root_reaped": true,
+                "forced_cleanup": false,
+                "observed_process_identities": {
+                  "91166": "Sun Oct  4 14:32:19 2026    "
+                },
+                "surviving_observed_processes": {},
+                "observed_descendants_released": true,
+                "stdout": "",
+                "stderr": "",
+                "elapsed_seconds": 0.09817012504208833
+              },
+              {
+                "argv": [
+                  "launchctl",
+                  "print",
+                  "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+                ],
+                "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+                "started_monotonic": 816969.089048416,
+                "status": 0,
+                "root_pid": 91173,
+                "root_reaped": true,
+                "forced_cleanup": false,
+                "observed_process_identities": {
+                  "91173": "Sun Oct  4 14:32:19 2026    "
+                },
+                "surviving_observed_processes": {},
+                "observed_descendants_released": true,
+                "stdout": "state = running\nexit timeout = 5\nruns = 1\npid = 91168\n",
+                "stderr": "",
+                "elapsed_seconds": 0.10063454194460064
+              },
+              {
+                "argv": [
+                  "launchctl",
+                  "stop",
+                  "org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+                ],
+                "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+                "started_monotonic": 816969.330656333,
+                "status": 0,
+                "root_pid": 91191,
+                "root_reaped": true,
+                "forced_cleanup": false,
+                "observed_process_identities": {
+                  "91191": "Sun Oct  4 14:32:19 2026    "
+                },
+                "surviving_observed_processes": {},
+                "observed_descendants_released": true,
+                "stdout": "",
+                "stderr": "",
+                "elapsed_seconds": 0.09941741696093231
+              },
+              {
+                "argv": [
+                  "launchctl",
+                  "list"
+                ],
+                "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+                "started_monotonic": 816970.356754875,
+                "status": 0,
+                "root_pid": 91330,
+                "root_reaped": true,
+                "forced_cleanup": false,
+                "observed_process_identities": {
+                  "91330": "Sun Oct  4 14:32:20 2026    "
+                },
+                "surviving_observed_processes": {},
+                "observed_descendants_released": true,
+                "stdout": "-\t0\torg.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative",
+                "stderr": "",
+                "elapsed_seconds": 0.09991679096128792
+              },
+              {
+                "argv": [
+                  "launchctl",
+                  "bootout",
+                  "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+                ],
+                "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+                "started_monotonic": 816970.497295541,
+                "status": 0,
+                "root_pid": 91417,
+                "root_reaped": true,
+                "forced_cleanup": false,
+                "observed_process_identities": {
+                  "91417": "Sun Oct  4 14:32:21 2026    "
+                },
+                "surviving_observed_processes": {},
+                "observed_descendants_released": true,
+                "stdout": "",
+                "stderr": "",
+                "elapsed_seconds": 0.09562979196198285
+              },
+              {
+                "argv": [
+                  "launchctl",
+                  "print",
+                  "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+                ],
+                "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+                "started_monotonic": 816970.617075458,
+                "status": 113,
+                "root_pid": 91432,
+                "root_reaped": true,
+                "forced_cleanup": false,
+                "observed_process_identities": {
+                  "91432": "Sun Oct  4 14:32:21 2026    "
+                },
+                "surviving_observed_processes": {},
+                "observed_descendants_released": true,
+                "stdout": "\n",
+                "stderr": "launchctl diagnostic omitted; see command status",
+                "elapsed_seconds": 0.09586104191839695
+              }
+            ],
+            "observed_markers": [
+              {
+                "marker": "READY DEDICATED USERS",
+                "observed_monotonic": 816969.312133625
+              },
+              {
+                "marker": "WORK ADMITTED",
+                "observed_monotonic": 816969.329165541
+              },
+              {
+                "marker": "WORK COMPLETED",
+                "observed_monotonic": 816970.460777875
+              },
+              {
+                "marker": "APPLICATION JOINED",
+                "observed_monotonic": 816970.462334583
+              },
+              {
+                "marker": "TRANSPORT OWNER COMPLETED",
+                "observed_monotonic": 816970.463971291
+              },
+              {
+                "marker": "STORE CLOSED",
+                "observed_monotonic": 816970.46558575
+              },
+              {
+                "marker": "STORE JOINED",
+                "observed_monotonic": 816970.467775666
+              },
+              {
+                "marker": "ADMIN OWNER COMPLETED",
+                "observed_monotonic": 816970.469359083
+              },
+              {
+                "marker": "NATURAL EXIT READY",
+                "observed_monotonic": 816970.470819083
+              }
+            ],
+            "source_sha256": {
+              "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+              "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+              "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+              "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+              "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+              "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+              "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+              "camber/deploy/users.bend": "c07cd6d23a6c36605e8f67da931301e263ff88b3a934f3570bce6d1c2fbb5515",
+              "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+              "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+              "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+            },
+            "pid": 91168,
+            "root_identity": "Sun Oct  4 14:32:19 2026    ",
+            "parent_pid": "1",
+            "launchd_initial_state": "state = running\nexit timeout = 5\nruns = 1\npid = 91168\n",
+            "platform_stop_requested_monotonic": 816969.329976541,
+            "exit": {
+              "kernel_note_exit": 2147483648,
+              "platform_last_exit_status": 0,
+              "kernel_exit_not_yet_observed_monotonic_samples": [
+                816970.3213805
+              ],
+              "exit_observed_monotonic": 816970.332449625,
+              "reap_observed_monotonic": 816970.356700041,
+              "stop_to_exit_seconds": 1.0024730840232223,
+              "stop_to_reap_seconds": 1.026723499991931
+            },
+            "release": {
+              "forced_cleanup": false,
+              "errors": [],
+              "job_unregistered": true,
+              "observed_process_identities": {
+                "91168": "Sun Oct  4 14:32:19 2026    "
+              },
+              "surviving_observed_processes": {},
+              "observed_descendants_released": true,
+              "released": true
+            },
+            "stdout": "READY DEDICATED USERS\nTRANSFORM route\nTRANSFORM root\nNOTICE 2 host_accepted\nNOTICE 0 host_accepted\nSTORE HELD\nWORK ADMITTED\nSIGNAL STOP REQUESTED\nSTOP CONTROLS ACCEPTED\nWORK COMPLETED\nTRANSFORM route\nTRANSFORM group\nTRANSFORM root\nNOTICE 2 host_accepted\nNOTICE 1 host_accepted\nNOTICE 0 host_accepted\nSTATE CLOSED\nSTATE CLOSED\nSTATE CLOSED\nSTATE CLOSED\nAPPLICATION JOINED\nTRANSPORT OWNER COMPLETED\nSTORE CLOSED\nSTORE JOINED\nADMIN OWNER COMPLETED\nNATURAL EXIT READY\n",
+            "stderr": ""
+          },
+          "kernel_note_exit": 2147483648,
+          "platform_last_exit_status": 0,
+          "kernel_exit_not_yet_observed_monotonic_samples": [
+            816970.3213805
+          ],
+          "exit_observed_monotonic": 816970.332449625,
+          "reap_observed_monotonic": 816970.356700041,
+          "stop_to_exit_seconds": 1.0024730840232223,
+          "stop_to_reap_seconds": 1.026723499991931,
+          "listener_refused_monotonic": 816969.357042916,
+          "idle_closed_monotonic": 816969.370185958,
+          "admitted_status": 200,
+          "admitted_body": "{\"id\":7,\"name\":\"Alice\"}",
+          "admitted_completed_monotonic": 816970.321267375,
+          "listener_refused_before_completion": true,
+          "idle_closed_before_completion": true,
+          "forced_cleanup": false,
+          "release": {
+            "forced_cleanup": false,
+            "errors": [],
+            "job_unregistered": true,
+            "observed_process_identities": {
+              "91168": "Sun Oct  4 14:32:19 2026    "
+            },
+            "surviving_observed_processes": {},
+            "observed_descendants_released": true,
+            "released": true
+          },
+          "released_ports": {
+            "19441": true,
+            "19442": true,
+            "19443": true,
+            "19444": true
+          }
+        }
+      ],
+      "commands": [
+        {
+          "argv": [
+            "bend",
+            "version"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816942.735609,
+          "status": 0,
+          "root_pid": 86815,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "86815": "Sun Oct  4 14:31:53 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "bend 2.0.35\n",
+          "stderr": "",
+          "elapsed_seconds": 0.0972740410361439
+        },
+        {
+          "argv": [
+            "bend",
+            "/Users/paymahn/code/bend-kit-issue-339/camber/deploy/users.bend",
+            "-o",
+            "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/users"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816942.835601541,
+          "status": 0,
+          "root_pid": 86821,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "86821": "Sun Oct  4 14:31:53 2026    ",
+            "88071": "Sun Oct  4 14:32:00 2026    ",
+            "88090": "Sun Oct  4 14:32:01 2026    ",
+            "88143": "Sun Oct  4 14:32:01 2026    ",
+            "91157": "Sun Oct  4 14:32:19 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "",
+          "stderr": "",
+          "elapsed_seconds": 26.152036666986533
+        },
+        {
+          "argv": [
+            "launchctl",
+            "bootstrap",
+            "gui/502",
+            "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative.plist"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816968.99006375,
+          "status": 0,
+          "root_pid": 91166,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "91166": "Sun Oct  4 14:32:19 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "",
+          "stderr": "",
+          "elapsed_seconds": 0.09817012504208833
+        },
+        {
+          "argv": [
+            "launchctl",
+            "print",
+            "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816969.089048416,
+          "status": 0,
+          "root_pid": 91173,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "91173": "Sun Oct  4 14:32:19 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "state = running\nexit timeout = 5\nruns = 1\npid = 91168\n",
+          "stderr": "",
+          "elapsed_seconds": 0.10063454194460064
+        },
+        {
+          "argv": [
+            "ps",
+            "-o",
+            "ppid=",
+            "-p",
+            "91168"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816969.213987583,
+          "status": 0,
+          "root_pid": 91181,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "91181": "Sun Oct  4 14:32:19 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "    1\n",
+          "stderr": "",
+          "elapsed_seconds": 0.09630691702477634
+        },
+        {
+          "argv": [
+            "launchctl",
+            "stop",
+            "org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816969.330656333,
+          "status": 0,
+          "root_pid": 91191,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "91191": "Sun Oct  4 14:32:19 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "",
+          "stderr": "",
+          "elapsed_seconds": 0.09941741696093231
+        },
+        {
+          "argv": [
+            "launchctl",
+            "list"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816970.356754875,
+          "status": 0,
+          "root_pid": 91330,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "91330": "Sun Oct  4 14:32:20 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "-\t0\torg.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative\n",
+          "stderr": "",
+          "elapsed_seconds": 0.09991679096128792
+        },
+        {
+          "argv": [
+            "launchctl",
+            "bootout",
+            "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816970.497295541,
+          "status": 0,
+          "root_pid": 91417,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "91417": "Sun Oct  4 14:32:21 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "",
+          "stderr": "",
+          "elapsed_seconds": 0.09562979196198285
+        },
+        {
+          "argv": [
+            "launchctl",
+            "print",
+            "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+          "started_monotonic": 816970.617075458,
+          "status": 113,
+          "root_pid": 91432,
+          "root_reaped": true,
+          "forced_cleanup": false,
+          "observed_process_identities": {
+            "91432": "Sun Oct  4 14:32:21 2026    "
+          },
+          "surviving_observed_processes": {},
+          "observed_descendants_released": true,
+          "stdout": "\n",
+          "stderr": "launchctl diagnostic omitted; see command status",
+          "elapsed_seconds": 0.09586104191839695
+        }
+      ],
+      "platform_jobs": [
+        {
+          "target": "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative",
+          "rendered_plist": {
+            "Label": "org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative",
+            "ProgramArguments": [
+              "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/users",
+              "--threads",
+              "1",
+              "--gpu",
+              "off",
+              "19441",
+              "19442",
+              "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/journal",
+              "cooperative"
+            ],
+            "WorkingDirectory": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative",
+            "RunAtLoad": true,
+            "KeepAlive": false,
+            "ExitTimeOut": 5,
+            "Umask": 63,
+            "EnvironmentVariables": {
+              "BEND_NO_TELEMETRY": "1"
+            },
+            "StandardOutPath": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative.out",
+            "StandardErrorPath": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative.err",
+            "HardResourceLimits": {
+              "Core": 0
+            }
+          },
+          "platform_commands": [
+            {
+              "argv": [
+                "launchctl",
+                "bootstrap",
+                "gui/502",
+                "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7/native-cooperative/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative.plist"
+              ],
+              "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+              "started_monotonic": 816968.99006375,
+              "status": 0,
+              "root_pid": 91166,
+              "root_reaped": true,
+              "forced_cleanup": false,
+              "observed_process_identities": {
+                "91166": "Sun Oct  4 14:32:19 2026    "
+              },
+              "surviving_observed_processes": {},
+              "observed_descendants_released": true,
+              "stdout": "",
+              "stderr": "",
+              "elapsed_seconds": 0.09817012504208833
+            },
+            {
+              "argv": [
+                "launchctl",
+                "print",
+                "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+              ],
+              "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+              "started_monotonic": 816969.089048416,
+              "status": 0,
+              "root_pid": 91173,
+              "root_reaped": true,
+              "forced_cleanup": false,
+              "observed_process_identities": {
+                "91173": "Sun Oct  4 14:32:19 2026    "
+              },
+              "surviving_observed_processes": {},
+              "observed_descendants_released": true,
+              "stdout": "state = running\nexit timeout = 5\nruns = 1\npid = 91168\n",
+              "stderr": "",
+              "elapsed_seconds": 0.10063454194460064
+            },
+            {
+              "argv": [
+                "launchctl",
+                "stop",
+                "org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+              ],
+              "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+              "started_monotonic": 816969.330656333,
+              "status": 0,
+              "root_pid": 91191,
+              "root_reaped": true,
+              "forced_cleanup": false,
+              "observed_process_identities": {
+                "91191": "Sun Oct  4 14:32:19 2026    "
+              },
+              "surviving_observed_processes": {},
+              "observed_descendants_released": true,
+              "stdout": "",
+              "stderr": "",
+              "elapsed_seconds": 0.09941741696093231
+            },
+            {
+              "argv": [
+                "launchctl",
+                "list"
+              ],
+              "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+              "started_monotonic": 816970.356754875,
+              "status": 0,
+              "root_pid": 91330,
+              "root_reaped": true,
+              "forced_cleanup": false,
+              "observed_process_identities": {
+                "91330": "Sun Oct  4 14:32:20 2026    "
+              },
+              "surviving_observed_processes": {},
+              "observed_descendants_released": true,
+              "stdout": "-\t0\torg.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative",
+              "stderr": "",
+              "elapsed_seconds": 0.09991679096128792
+            },
+            {
+              "argv": [
+                "launchctl",
+                "bootout",
+                "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+              ],
+              "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+              "started_monotonic": 816970.497295541,
+              "status": 0,
+              "root_pid": 91417,
+              "root_reaped": true,
+              "forced_cleanup": false,
+              "observed_process_identities": {
+                "91417": "Sun Oct  4 14:32:21 2026    "
+              },
+              "surviving_observed_processes": {},
+              "observed_descendants_released": true,
+              "stdout": "",
+              "stderr": "",
+              "elapsed_seconds": 0.09562979196198285
+            },
+            {
+              "argv": [
+                "launchctl",
+                "print",
+                "gui/502/org.bend-kit.camber.verify.86809.1791142313290898000.native.cooperative"
+              ],
+              "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+              "started_monotonic": 816970.617075458,
+              "status": 113,
+              "root_pid": 91432,
+              "root_reaped": true,
+              "forced_cleanup": false,
+              "observed_process_identities": {
+                "91432": "Sun Oct  4 14:32:21 2026    "
+              },
+              "surviving_observed_processes": {},
+              "observed_descendants_released": true,
+              "stdout": "\n",
+              "stderr": "launchctl diagnostic omitted; see command status",
+              "elapsed_seconds": 0.09586104191839695
+            }
+          ],
+          "observed_markers": [
+            {
+              "marker": "READY DEDICATED USERS",
+              "observed_monotonic": 816969.312133625
+            },
+            {
+              "marker": "WORK ADMITTED",
+              "observed_monotonic": 816969.329165541
+            },
+            {
+              "marker": "WORK COMPLETED",
+              "observed_monotonic": 816970.460777875
+            },
+            {
+              "marker": "APPLICATION JOINED",
+              "observed_monotonic": 816970.462334583
+            },
+            {
+              "marker": "TRANSPORT OWNER COMPLETED",
+              "observed_monotonic": 816970.463971291
+            },
+            {
+              "marker": "STORE CLOSED",
+              "observed_monotonic": 816970.46558575
+            },
+            {
+              "marker": "STORE JOINED",
+              "observed_monotonic": 816970.467775666
+            },
+            {
+              "marker": "ADMIN OWNER COMPLETED",
+              "observed_monotonic": 816970.469359083
+            },
+            {
+              "marker": "NATURAL EXIT READY",
+              "observed_monotonic": 816970.470819083
+            }
+          ],
+          "source_sha256": {
+            "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+            "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+            "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+            "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+            "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+            "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+            "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+            "camber/deploy/users.bend": "c07cd6d23a6c36605e8f67da931301e263ff88b3a934f3570bce6d1c2fbb5515",
+            "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+            "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+            "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+          },
+          "pid": 91168,
+          "root_identity": "Sun Oct  4 14:32:19 2026    ",
+          "parent_pid": "1",
+          "launchd_initial_state": "state = running\nexit timeout = 5\nruns = 1\npid = 91168\n",
+          "platform_stop_requested_monotonic": 816969.329976541,
+          "exit": {
+            "kernel_note_exit": 2147483648,
+            "platform_last_exit_status": 0,
+            "kernel_exit_not_yet_observed_monotonic_samples": [
+              816970.3213805
+            ],
+            "exit_observed_monotonic": 816970.332449625,
+            "reap_observed_monotonic": 816970.356700041,
+            "stop_to_exit_seconds": 1.0024730840232223,
+            "stop_to_reap_seconds": 1.026723499991931
+          },
+          "release": {
+            "forced_cleanup": false,
+            "errors": [],
+            "job_unregistered": true,
+            "observed_process_identities": {
+              "91168": "Sun Oct  4 14:32:19 2026    "
+            },
+            "surviving_observed_processes": {},
+            "observed_descendants_released": true,
+            "released": true
+          },
+          "stdout": "READY DEDICATED USERS\nTRANSFORM route\nTRANSFORM root\nNOTICE 2 host_accepted\nNOTICE 0 host_accepted\nSTORE HELD\nWORK ADMITTED\nSIGNAL STOP REQUESTED\nSTOP CONTROLS ACCEPTED\nWORK COMPLETED\nTRANSFORM route\nTRANSFORM group\nTRANSFORM root\nNOTICE 2 host_accepted\nNOTICE 1 host_accepted\nNOTICE 0 host_accepted\nSTATE CLOSED\nSTATE CLOSED\nSTATE CLOSED\nSTATE CLOSED\nAPPLICATION JOINED\nTRANSPORT OWNER COMPLETED\nSTORE CLOSED\nSTORE JOINED\nADMIN OWNER COMPLETED\nNATURAL EXIT READY\n",
+          "stderr": ""
+        }
+      ],
+      "guard_failures": [],
+      "published": {
+        "camber": "0.6.0.0",
+        "http": "0.30.0.0",
+        "wire": "0.4.5.0"
+      },
+      "bend_version": {
+        "argv": [
+          "bend",
+          "version"
+        ],
+        "cwd": "/Users/paymahn/code/bend-kit-issue-339",
+        "started_monotonic": 816942.735609,
+        "status": 0,
+        "root_pid": 86815,
+        "root_reaped": true,
+        "forced_cleanup": false,
+        "observed_process_identities": {
+          "86815": "Sun Oct  4 14:31:53 2026    "
+        },
+        "surviving_observed_processes": {},
+        "observed_descendants_released": true,
+        "stdout": "bend 2.0.35\n",
+        "stderr": "",
+        "elapsed_seconds": 0.0972740410361439
+      },
+      "owned_temporary_directory": "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-launchd-8wxrguz7",
+      "guard_release": {
+        "guard_failure": null,
+        "sampled_aggregate_peak_rss_kib": 5164208,
+        "forced_cleanup": false,
+        "observed_process_identities": {
+          "86809": "Sun Oct  4 14:31:53 2026    ",
+          "86814": "Sun Oct  4 14:31:53 2026    ",
+          "86816": "Sun Oct  4 14:31:53 2026    ",
+          "86815": "Sun Oct  4 14:31:53 2026    ",
+          "86817": "Sun Oct  4 14:31:53 2026    ",
+          "86818": "Sun Oct  4 14:31:53 2026    ",
+          "86819": "Sun Oct  4 14:31:53 2026    ",
+          "86821": "Sun Oct  4 14:31:53 2026    ",
+          "86822": "Sun Oct  4 14:31:53 2026    ",
+          "86823": "Sun Oct  4 14:31:53 2026    ",
+          "86824": "Sun Oct  4 14:31:53 2026    ",
+          "86827": "Sun Oct  4 14:31:53 2026    ",
+          "86885": "Sun Oct  4 14:31:53 2026    ",
+          "86948": "Sun Oct  4 14:31:53 2026    ",
+          "86981": "Sun Oct  4 14:31:53 2026    ",
+          "86982": "Sun Oct  4 14:31:53 2026    ",
+          "86985": "Sun Oct  4 14:31:54 2026    ",
+          "87062": "Sun Oct  4 14:31:54 2026    ",
+          "87093": "Sun Oct  4 14:31:54 2026    ",
+          "87094": "Sun Oct  4 14:31:54 2026    ",
+          "87097": "Sun Oct  4 14:31:54 2026    ",
+          "87098": "Sun Oct  4 14:31:54 2026    ",
+          "87099": "Sun Oct  4 14:31:54 2026    ",
+          "87100": "Sun Oct  4 14:31:54 2026    ",
+          "87102": "Sun Oct  4 14:31:54 2026    ",
+          "87104": "Sun Oct  4 14:31:54 2026    ",
+          "87105": "Sun Oct  4 14:31:54 2026    ",
+          "87107": "Sun Oct  4 14:31:54 2026    ",
+          "87152": "Sun Oct  4 14:31:54 2026    ",
+          "87215": "Sun Oct  4 14:31:55 2026    ",
+          "87240": "Sun Oct  4 14:31:55 2026    ",
+          "87241": "Sun Oct  4 14:31:55 2026    ",
+          "87242": "Sun Oct  4 14:31:55 2026    ",
+          "87245": "Sun Oct  4 14:31:55 2026    ",
+          "87246": "Sun Oct  4 14:31:55 2026    ",
+          "87247": "Sun Oct  4 14:31:55 2026    ",
+          "87248": "Sun Oct  4 14:31:55 2026    ",
+          "87250": "Sun Oct  4 14:31:55 2026    ",
+          "87252": "Sun Oct  4 14:31:55 2026    ",
+          "87254": "Sun Oct  4 14:31:55 2026    ",
+          "87255": "Sun Oct  4 14:31:55 2026    ",
+          "87331": "Sun Oct  4 14:31:56 2026    ",
+          "87389": "Sun Oct  4 14:31:56 2026    ",
+          "87390": "Sun Oct  4 14:31:56 2026    ",
+          "87391": "Sun Oct  4 14:31:56 2026    ",
+          "87392": "Sun Oct  4 14:31:56 2026    ",
+          "87395": "Sun Oct  4 14:31:56 2026    ",
+          "87396": "Sun Oct  4 14:31:56 2026    ",
+          "87397": "Sun Oct  4 14:31:56 2026    ",
+          "87401": "Sun Oct  4 14:31:56 2026    ",
+          "87408": "Sun Oct  4 14:31:56 2026    ",
+          "87410": "Sun Oct  4 14:31:56 2026    ",
+          "87414": "Sun Oct  4 14:31:56 2026    ",
+          "87423": "Sun Oct  4 14:31:57 2026    ",
+          "87505": "Sun Oct  4 14:31:57 2026    ",
+          "87507": "Sun Oct  4 14:31:57 2026    ",
+          "87532": "Sun Oct  4 14:31:57 2026    ",
+          "87533": "Sun Oct  4 14:31:57 2026    ",
+          "87534": "Sun Oct  4 14:31:57 2026    ",
+          "87537": "Sun Oct  4 14:31:57 2026    ",
+          "87538": "Sun Oct  4 14:31:57 2026    ",
+          "87539": "Sun Oct  4 14:31:57 2026    ",
+          "87540": "Sun Oct  4 14:31:57 2026    ",
+          "87543": "Sun Oct  4 14:31:57 2026    ",
+          "87544": "Sun Oct  4 14:31:57 2026    ",
+          "87584": "Sun Oct  4 14:31:58 2026    ",
+          "87676": "Sun Oct  4 14:31:58 2026    ",
+          "87679": "Sun Oct  4 14:31:58 2026    ",
+          "87680": "Sun Oct  4 14:31:58 2026    ",
+          "87681": "Sun Oct  4 14:31:58 2026    ",
+          "87682": "Sun Oct  4 14:31:58 2026    ",
+          "87683": "Sun Oct  4 14:31:58 2026    ",
+          "87686": "Sun Oct  4 14:31:58 2026    ",
+          "87745": "Sun Oct  4 14:31:58 2026    ",
+          "87799": "Sun Oct  4 14:31:58 2026    ",
+          "87832": "Sun Oct  4 14:31:58 2026    ",
+          "87839": "Sun Oct  4 14:31:58 2026    ",
+          "87871": "Sun Oct  4 14:31:59 2026    ",
+          "87925": "Sun Oct  4 14:31:59 2026    ",
+          "87926": "Sun Oct  4 14:31:59 2026    ",
+          "87929": "Sun Oct  4 14:31:59 2026    ",
+          "87930": "Sun Oct  4 14:31:59 2026    ",
+          "87931": "Sun Oct  4 14:31:59 2026    ",
+          "87932": "Sun Oct  4 14:31:59 2026    ",
+          "87935": "Sun Oct  4 14:31:59 2026    ",
+          "87936": "Sun Oct  4 14:31:59 2026    ",
+          "87940": "Sun Oct  4 14:31:59 2026    ",
+          "87945": "Sun Oct  4 14:31:59 2026    ",
+          "87949": "Sun Oct  4 14:31:59 2026    ",
+          "87952": "Sun Oct  4 14:32:00 2026    ",
+          "88036": "Sun Oct  4 14:32:00 2026    ",
+          "88058": "Sun Oct  4 14:32:00 2026    ",
+          "88059": "Sun Oct  4 14:32:00 2026    ",
+          "88062": "Sun Oct  4 14:32:00 2026    ",
+          "88064": "Sun Oct  4 14:32:00 2026    ",
+          "88065": "Sun Oct  4 14:32:00 2026    ",
+          "88068": "Sun Oct  4 14:32:00 2026    ",
+          "88069": "Sun Oct  4 14:32:00 2026    ",
+          "88070": "Sun Oct  4 14:32:00 2026    ",
+          "88071": "Sun Oct  4 14:32:00 2026    ",
+          "88072": "Sun Oct  4 14:32:00 2026    ",
+          "88090": "Sun Oct  4 14:32:01 2026    ",
+          "88108": "Sun Oct  4 14:32:01 2026    ",
+          "88162": "Sun Oct  4 14:32:01 2026    ",
+          "88143": "Sun Oct  4 14:32:01 2026    ",
+          "88163": "Sun Oct  4 14:32:01 2026    ",
+          "88164": "Sun Oct  4 14:32:01 2026    ",
+          "88165": "Sun Oct  4 14:32:01 2026    ",
+          "88168": "Sun Oct  4 14:32:01 2026    ",
+          "88169": "Sun Oct  4 14:32:01 2026    ",
+          "88170": "Sun Oct  4 14:32:01 2026    ",
+          "88171": "Sun Oct  4 14:32:01 2026    ",
+          "88174": "Sun Oct  4 14:32:01 2026    ",
+          "88202": "Sun Oct  4 14:32:01 2026    ",
+          "88212": "Sun Oct  4 14:32:01 2026    ",
+          "88246": "Sun Oct  4 14:32:02 2026    ",
+          "88322": "Sun Oct  4 14:32:02 2026    ",
+          "88323": "Sun Oct  4 14:32:02 2026    ",
+          "88324": "Sun Oct  4 14:32:02 2026    ",
+          "88329": "Sun Oct  4 14:32:02 2026    ",
+          "88336": "Sun Oct  4 14:32:02 2026    ",
+          "88339": "Sun Oct  4 14:32:02 2026    ",
+          "88340": "Sun Oct  4 14:32:02 2026    ",
+          "88341": "Sun Oct  4 14:32:02 2026    ",
+          "88343": "Sun Oct  4 14:32:02 2026    ",
+          "88350": "Sun Oct  4 14:32:02 2026    ",
+          "88354": "Sun Oct  4 14:32:02 2026    ",
+          "88389": "Sun Oct  4 14:32:03 2026    ",
+          "88442": "Sun Oct  4 14:32:03 2026    ",
+          "88445": "Sun Oct  4 14:32:03 2026    ",
+          "88446": "Sun Oct  4 14:32:03 2026    ",
+          "88447": "Sun Oct  4 14:32:03 2026    ",
+          "88448": "Sun Oct  4 14:32:03 2026    ",
+          "88451": "Sun Oct  4 14:32:03 2026    ",
+          "88452": "Sun Oct  4 14:32:03 2026    ",
+          "88484": "Sun Oct  4 14:32:03 2026    ",
+          "88555": "Sun Oct  4 14:32:03 2026    ",
+          "88584": "Sun Oct  4 14:32:03 2026    ",
+          "88605": "Sun Oct  4 14:32:03 2026    ",
+          "88620": "Sun Oct  4 14:32:04 2026    ",
+          "88717": "Sun Oct  4 14:32:04 2026    ",
+          "88721": "Sun Oct  4 14:32:04 2026    ",
+          "88723": "Sun Oct  4 14:32:04 2026    ",
+          "88724": "Sun Oct  4 14:32:04 2026    ",
+          "88725": "Sun Oct  4 14:32:04 2026    ",
+          "88727": "Sun Oct  4 14:32:04 2026    ",
+          "88730": "Sun Oct  4 14:32:04 2026    ",
+          "88733": "Sun Oct  4 14:32:04 2026    ",
+          "88734": "Sun Oct  4 14:32:04 2026    ",
+          "88735": "Sun Oct  4 14:32:04 2026    ",
+          "88738": "Sun Oct  4 14:32:04 2026    ",
+          "88784": "Sun Oct  4 14:32:04 2026    ",
+          "88832": "Sun Oct  4 14:32:05 2026    ",
+          "88871": "Sun Oct  4 14:32:05 2026    ",
+          "88872": "Sun Oct  4 14:32:05 2026    ",
+          "88875": "Sun Oct  4 14:32:05 2026    ",
+          "88876": "Sun Oct  4 14:32:05 2026    ",
+          "88877": "Sun Oct  4 14:32:05 2026    ",
+          "88878": "Sun Oct  4 14:32:05 2026    ",
+          "88881": "Sun Oct  4 14:32:05 2026    ",
+          "88882": "Sun Oct  4 14:32:05 2026    ",
+          "88883": "Sun Oct  4 14:32:05 2026    ",
+          "88885": "Sun Oct  4 14:32:05 2026    ",
+          "88894": "Sun Oct  4 14:32:05 2026    ",
+          "88919": "Sun Oct  4 14:32:06 2026    ",
+          "89030": "Sun Oct  4 14:32:06 2026    ",
+          "89031": "Sun Oct  4 14:32:06 2026    ",
+          "89034": "Sun Oct  4 14:32:06 2026    ",
+          "89035": "Sun Oct  4 14:32:06 2026    ",
+          "89036": "Sun Oct  4 14:32:06 2026    ",
+          "89037": "Sun Oct  4 14:32:06 2026    ",
+          "89040": "Sun Oct  4 14:32:06 2026    ",
+          "89041": "Sun Oct  4 14:32:06 2026    ",
+          "89042": "Sun Oct  4 14:32:06 2026    ",
+          "89043": "Sun Oct  4 14:32:06 2026    ",
+          "89046": "Sun Oct  4 14:32:06 2026    ",
+          "89069": "Sun Oct  4 14:32:07 2026    ",
+          "89132": "Sun Oct  4 14:32:07 2026    ",
+          "89133": "Sun Oct  4 14:32:07 2026    ",
+          "89134": "Sun Oct  4 14:32:07 2026    ",
+          "89161": "Sun Oct  4 14:32:07 2026    ",
+          "89162": "Sun Oct  4 14:32:07 2026    ",
+          "89163": "Sun Oct  4 14:32:07 2026    ",
+          "89164": "Sun Oct  4 14:32:07 2026    ",
+          "89167": "Sun Oct  4 14:32:07 2026    ",
+          "89168": "Sun Oct  4 14:32:07 2026    ",
+          "89169": "Sun Oct  4 14:32:07 2026    ",
+          "89170": "Sun Oct  4 14:32:07 2026    ",
+          "89171": "Sun Oct  4 14:32:07 2026    ",
+          "89219": "Sun Oct  4 14:32:08 2026    ",
+          "89282": "Sun Oct  4 14:32:08 2026    ",
+          "89283": "Sun Oct  4 14:32:08 2026    ",
+          "89308": "Sun Oct  4 14:32:08 2026    ",
+          "89310": "Sun Oct  4 14:32:08 2026    ",
+          "89312": "Sun Oct  4 14:32:08 2026    ",
+          "89313": "Sun Oct  4 14:32:08 2026    ",
+          "89314": "Sun Oct  4 14:32:08 2026    ",
+          "89370": "Sun Oct  4 14:32:08 2026    ",
+          "89430": "Sun Oct  4 14:32:08 2026    ",
+          "89462": "Sun Oct  4 14:32:08 2026    ",
+          "89464": "Sun Oct  4 14:32:08 2026    ",
+          "89471": "Sun Oct  4 14:32:08 2026    ",
+          "89550": "Sun Oct  4 14:32:09 2026    ",
+          "89559": "Sun Oct  4 14:32:09 2026    ",
+          "89560": "Sun Oct  4 14:32:09 2026    ",
+          "89561": "Sun Oct  4 14:32:09 2026    ",
+          "89562": "Sun Oct  4 14:32:09 2026    ",
+          "89566": "Sun Oct  4 14:32:09 2026    ",
+          "89567": "Sun Oct  4 14:32:09 2026    ",
+          "89568": "Sun Oct  4 14:32:09 2026    ",
+          "89569": "Sun Oct  4 14:32:09 2026    ",
+          "89572": "Sun Oct  4 14:32:09 2026    ",
+          "89573": "Sun Oct  4 14:32:09 2026    ",
+          "89574": "Sun Oct  4 14:32:09 2026    ",
+          "89575": "Sun Oct  4 14:32:10 2026    ",
+          "89642": "Sun Oct  4 14:32:10 2026    ",
+          "89685": "Sun Oct  4 14:32:10 2026    ",
+          "89686": "Sun Oct  4 14:32:10 2026    ",
+          "89687": "Sun Oct  4 14:32:10 2026    ",
+          "89688": "Sun Oct  4 14:32:10 2026    ",
+          "89691": "Sun Oct  4 14:32:10 2026    ",
+          "89692": "Sun Oct  4 14:32:10 2026    ",
+          "89693": "Sun Oct  4 14:32:10 2026    ",
+          "89694": "Sun Oct  4 14:32:10 2026    ",
+          "89697": "Sun Oct  4 14:32:10 2026    ",
+          "89698": "Sun Oct  4 14:32:10 2026    ",
+          "89699": "Sun Oct  4 14:32:10 2026    ",
+          "89765": "Sun Oct  4 14:32:11 2026    ",
+          "89786": "Sun Oct  4 14:32:11 2026    ",
+          "89789": "Sun Oct  4 14:32:11 2026    ",
+          "89790": "Sun Oct  4 14:32:11 2026    ",
+          "89791": "Sun Oct  4 14:32:11 2026    ",
+          "89792": "Sun Oct  4 14:32:11 2026    ",
+          "89795": "Sun Oct  4 14:32:11 2026    ",
+          "89796": "Sun Oct  4 14:32:11 2026    ",
+          "89798": "Sun Oct  4 14:32:11 2026    ",
+          "89799": "Sun Oct  4 14:32:11 2026    ",
+          "89800": "Sun Oct  4 14:32:11 2026    ",
+          "89804": "Sun Oct  4 14:32:11 2026    ",
+          "89831": "Sun Oct  4 14:32:11 2026    ",
+          "89896": "Sun Oct  4 14:32:12 2026    ",
+          "89945": "Sun Oct  4 14:32:12 2026    ",
+          "89948": "Sun Oct  4 14:32:12 2026    ",
+          "89949": "Sun Oct  4 14:32:12 2026    ",
+          "89950": "Sun Oct  4 14:32:12 2026    ",
+          "89951": "Sun Oct  4 14:32:12 2026    ",
+          "89956": "Sun Oct  4 14:32:12 2026    ",
+          "89957": "Sun Oct  4 14:32:12 2026    ",
+          "89958": "Sun Oct  4 14:32:12 2026    ",
+          "89959": "Sun Oct  4 14:32:12 2026    ",
+          "89960": "Sun Oct  4 14:32:12 2026    ",
+          "89963": "Sun Oct  4 14:32:12 2026    ",
+          "90030": "Sun Oct  4 14:32:13 2026    ",
+          "90049": "Sun Oct  4 14:32:13 2026    ",
+          "90050": "Sun Oct  4 14:32:13 2026    ",
+          "90053": "Sun Oct  4 14:32:13 2026    ",
+          "90055": "Sun Oct  4 14:32:13 2026    ",
+          "90056": "Sun Oct  4 14:32:13 2026    ",
+          "90057": "Sun Oct  4 14:32:13 2026    ",
+          "90058": "Sun Oct  4 14:32:13 2026    ",
+          "90102": "Sun Oct  4 14:32:13 2026    ",
+          "90171": "Sun Oct  4 14:32:13 2026    ",
+          "90207": "Sun Oct  4 14:32:13 2026    ",
+          "90208": "Sun Oct  4 14:32:13 2026    ",
+          "90211": "Sun Oct  4 14:32:14 2026    ",
+          "90278": "Sun Oct  4 14:32:14 2026    ",
+          "90319": "Sun Oct  4 14:32:14 2026    ",
+          "90320": "Sun Oct  4 14:32:14 2026    ",
+          "90323": "Sun Oct  4 14:32:14 2026    ",
+          "90324": "Sun Oct  4 14:32:14 2026    ",
+          "90325": "Sun Oct  4 14:32:14 2026    ",
+          "90326": "Sun Oct  4 14:32:14 2026    ",
+          "90328": "Sun Oct  4 14:32:14 2026    ",
+          "90330": "Sun Oct  4 14:32:14 2026    ",
+          "90331": "Sun Oct  4 14:32:14 2026    ",
+          "90332": "Sun Oct  4 14:32:14 2026    ",
+          "90334": "Sun Oct  4 14:32:14 2026    ",
+          "90391": "Sun Oct  4 14:32:15 2026    ",
+          "90474": "Sun Oct  4 14:32:15 2026    ",
+          "90475": "Sun Oct  4 14:32:15 2026    ",
+          "90476": "Sun Oct  4 14:32:15 2026    ",
+          "90479": "Sun Oct  4 14:32:15 2026    ",
+          "90480": "Sun Oct  4 14:32:15 2026    ",
+          "90481": "Sun Oct  4 14:32:15 2026    ",
+          "90482": "Sun Oct  4 14:32:15 2026    ",
+          "90484": "Sun Oct  4 14:32:15 2026    ",
+          "90486": "Sun Oct  4 14:32:15 2026    ",
+          "90487": "Sun Oct  4 14:32:15 2026    ",
+          "90488": "Sun Oct  4 14:32:15 2026    ",
+          "90489": "Sun Oct  4 14:32:16 2026    ",
+          "90559": "Sun Oct  4 14:32:16 2026    ",
+          "90599": "Sun Oct  4 14:32:16 2026    ",
+          "90625": "Sun Oct  4 14:32:16 2026    ",
+          "90626": "Sun Oct  4 14:32:16 2026    ",
+          "90627": "Sun Oct  4 14:32:16 2026    ",
+          "90630": "Sun Oct  4 14:32:16 2026    ",
+          "90631": "Sun Oct  4 14:32:16 2026    ",
+          "90632": "Sun Oct  4 14:32:16 2026    ",
+          "90633": "Sun Oct  4 14:32:16 2026    ",
+          "90636": "Sun Oct  4 14:32:16 2026    ",
+          "90637": "Sun Oct  4 14:32:16 2026    ",
+          "90638": "Sun Oct  4 14:32:16 2026    ",
+          "90653": "Sun Oct  4 14:32:17 2026    ",
+          "90724": "Sun Oct  4 14:32:17 2026    ",
+          "90727": "Sun Oct  4 14:32:17 2026    ",
+          "90728": "Sun Oct  4 14:32:17 2026    ",
+          "90753": "Sun Oct  4 14:32:17 2026    ",
+          "90754": "Sun Oct  4 14:32:17 2026    ",
+          "90757": "Sun Oct  4 14:32:17 2026    ",
+          "90758": "Sun Oct  4 14:32:17 2026    ",
+          "90759": "Sun Oct  4 14:32:17 2026    ",
+          "90761": "Sun Oct  4 14:32:17 2026    ",
+          "90765": "Sun Oct  4 14:32:17 2026    ",
+          "90766": "Sun Oct  4 14:32:17 2026    ",
+          "90767": "Sun Oct  4 14:32:18 2026    ",
+          "90842": "Sun Oct  4 14:32:18 2026    ",
+          "90877": "Sun Oct  4 14:32:18 2026    ",
+          "90885": "Sun Oct  4 14:32:18 2026    ",
+          "90911": "Sun Oct  4 14:32:18 2026    ",
+          "90912": "Sun Oct  4 14:32:18 2026    ",
+          "90913": "Sun Oct  4 14:32:18 2026    ",
+          "90916": "Sun Oct  4 14:32:18 2026    ",
+          "90917": "Sun Oct  4 14:32:18 2026    ",
+          "91011": "Sun Oct  4 14:32:18 2026    ",
+          "91045": "Sun Oct  4 14:32:18 2026    ",
+          "91065": "Sun Oct  4 14:32:18 2026    ",
+          "91066": "Sun Oct  4 14:32:18 2026    ",
+          "91112": "Sun Oct  4 14:32:19 2026    ",
+          "91152": "Sun Oct  4 14:32:19 2026    ",
+          "91155": "Sun Oct  4 14:32:19 2026    ",
+          "91156": "Sun Oct  4 14:32:19 2026    ",
+          "91157": "Sun Oct  4 14:32:19 2026    ",
+          "91158": "Sun Oct  4 14:32:19 2026    ",
+          "91159": "Sun Oct  4 14:32:19 2026    ",
+          "91160": "Sun Oct  4 14:32:19 2026    ",
+          "91162": "Sun Oct  4 14:32:19 2026    ",
+          "91161": "Sun Oct  4 14:32:19 2026    ",
+          "91166": "Sun Oct  4 14:32:19 2026    ",
+          "91167": "Sun Oct  4 14:32:19 2026    ",
+          "91170": "Sun Oct  4 14:32:19 2026    ",
+          "91169": "Sun Oct  4 14:32:19 2026    ",
+          "91173": "Sun Oct  4 14:32:19 2026    ",
+          "91174": "Sun Oct  4 14:32:19 2026    ",
+          "91175": "Sun Oct  4 14:32:19 2026    ",
+          "91176": "Sun Oct  4 14:32:19 2026    ",
+          "91178": "Sun Oct  4 14:32:19 2026    ",
+          "91179": "Sun Oct  4 14:32:19 2026    ",
+          "91180": "Sun Oct  4 14:32:19 2026    ",
+          "91168": "Sun Oct  4 14:32:19 2026    ",
+          "91181": "Sun Oct  4 14:32:19 2026    ",
+          "91182": "Sun Oct  4 14:32:19 2026    ",
+          "91183": "Sun Oct  4 14:32:19 2026    ",
+          "91184": "Sun Oct  4 14:32:19 2026    ",
+          "91190": "Sun Oct  4 14:32:19 2026    ",
+          "91191": "Sun Oct  4 14:32:19 2026    ",
+          "91192": "Sun Oct  4 14:32:19 2026    ",
+          "91193": "Sun Oct  4 14:32:19 2026    ",
+          "91195": "Sun Oct  4 14:32:19 2026    ",
+          "91196": "Sun Oct  4 14:32:19 2026    ",
+          "91281": "Sun Oct  4 14:32:20 2026    ",
+          "91304": "Sun Oct  4 14:32:20 2026    ",
+          "91305": "Sun Oct  4 14:32:20 2026    ",
+          "91308": "Sun Oct  4 14:32:20 2026    ",
+          "91309": "Sun Oct  4 14:32:20 2026    ",
+          "91310": "Sun Oct  4 14:32:20 2026    ",
+          "91311": "Sun Oct  4 14:32:20 2026    ",
+          "91315": "Sun Oct  4 14:32:20 2026    ",
+          "91320": "Sun Oct  4 14:32:20 2026    ",
+          "91324": "Sun Oct  4 14:32:20 2026    ",
+          "91325": "Sun Oct  4 14:32:20 2026    ",
+          "91326": "Sun Oct  4 14:32:20 2026    ",
+          "91327": "Sun Oct  4 14:32:20 2026    ",
+          "91330": "Sun Oct  4 14:32:20 2026    ",
+          "91331": "Sun Oct  4 14:32:20 2026    ",
+          "91332": "Sun Oct  4 14:32:20 2026    ",
+          "91333": "Sun Oct  4 14:32:20 2026    ",
+          "91334": "Sun Oct  4 14:32:20 2026    ",
+          "91408": "Sun Oct  4 14:32:21 2026    ",
+          "91388": "Sun Oct  4 14:32:21 2026    ",
+          "91417": "Sun Oct  4 14:32:21 2026    ",
+          "91421": "Sun Oct  4 14:32:21 2026    ",
+          "91426": "Sun Oct  4 14:32:21 2026    ",
+          "91427": "Sun Oct  4 14:32:21 2026    ",
+          "91428": "Sun Oct  4 14:32:21 2026    ",
+          "91432": "Sun Oct  4 14:32:21 2026    ",
+          "91433": "Sun Oct  4 14:32:21 2026    ",
+          "91434": "Sun Oct  4 14:32:21 2026    ",
+          "91435": "Sun Oct  4 14:32:21 2026    "
+        },
+        "surviving_observed_processes": {}
+      },
+      "source_sha256_after": {
+        "camber/deploy/nginx.conf": "cbf04d7c7658885178448c430887272b7dc7a70a9e11d12eede1b6091bc03425",
+        "camber/deploy/nginx.plist": "a2ccde9e0add78a702bc0e163ec90b72a5fb56dcb32f7f56a7ec57c33ef88f41",
+        "camber/deploy/run.py": "e03294e88cf609d6ac1b29fad0b298fc14bf5516c0e9b7d7c38ac113199c0497",
+        "camber/deploy/signals.bend": "8bddf643520c2ddb07cbb6a6b36262ea465599e45c3cde770c2396ec637c11db",
+        "camber/deploy/signals.c": "60ce2bd9ef105ac4d50d649144ee4cf49e220d9f2a85f5cd416bd3e2be00378a",
+        "camber/deploy/signals.js": "a3904a2fb2f3d97e57ffa538631c3647a6b4150d75e0154315fcadc4b324102a",
+        "camber/deploy/users-js.plist": "075733f8beb4f5d27d30c6b8004352ee5b8e352b0a0d51006e8d707a9648b603",
+        "camber/deploy/users.bend": "c07cd6d23a6c36605e8f67da931301e263ff88b3a934f3570bce6d1c2fbb5515",
+        "camber/deploy/users.plist": "100c4bfa8f6ce86ba46565c770e40027d9cb6a5e6c0af4aae5676e123e9d23ee",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd"
+      },
+      "all_platform_jobs_released": true,
+      "owned_temporary_directory_removed": true,
+      "finished_ns": 1791142341331368000
+    }
+  ]
+}
