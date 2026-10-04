@@ -1,5 +1,130 @@
 # http
 
+## Finite admission and copied observations (0.28.0.0)
+
+`ServerConfig` adds `buffered` immediately after `requests`. Every production
+whole/context, upload-stream, response-writer, configured, and convenience path
+reserves connection and buffered-work capacity before spawning its reader or
+allocating its initial framing buffer. Exhaustion does not enqueue a reader:
+the accepting task closes the unsafe, unread excess socket synchronously.
+There is one transient close-only accept slot in addition to admitted sockets;
+it has no read buffer, handler, or spawned task. The counters count admitted
+ownership, not the kernel's listen backlog or that close-only slot.
+
+A buffered-work unit is **one connection's retained input**, including its
+incomplete headers/body, parsed request, and pipelined remainder. It remains
+reserved until that connection operation actually returns and its retained
+input is erased. Idle sockets deliberately retain their reservation too:
+`buffered < connections` therefore reduces admitted sockets to `buffered`.
+This conservative policy avoids both a waiting queue and a second parser.
+Only one request per connection is framed/handled at a time; a pipelined suffix
+is bounded bytes, not a queue of independently parsed requests.
+
+Active capacity is acquired before any whole/writer handler or initial upload
+callback. It stays held across subsequent upload callbacks, retained stream
+state, response writes, and actual writer callback return. A safely parsed
+capacity rejection sends `503` with `Connection: close`, with no application
+callback and normal HEAD body suppression. Peer disconnection, write expiry,
+and a closed completion observer
+cannot replace still-running work. Capacity is returned exactly once after
+the actual operation returns; a process crash or permanently stalled operation
+does not provide recovery in the still-running process.
+
+`Http.server.observer(~C, server)` returns the listener owner unchanged beside
+a copyable `Http.ServerStats`. `Http.server.stats(observer)` returns
+`IO(Maybe<&2, Http.ServerCounts>)`, so an owner can monitor while `server.run`
+owns the affine listener. Counts contain current connection/active/buffered
+ownership, each high-water mark, and separate cumulative connection/active/
+buffered rejections. Replies contain only copied data. `None` means the private
+accounting controller has closed after the listener and its retained operations
+ended; it is not a drain receipt or response-write outcome. Snapshots use a
+rendezvous command inbox and fresh one-shot copied replies: a successful send
+was received, and a failed post-close send returns `None` without joining an
+unanswered reply. The reusable private inbox uses `Chan.recv`, never `IO.join`.
+
+### Quantitative input retention
+
+Let `H = header_bytes`, `B = body_bytes`, `R = 65536` (one packed socket read),
+and `T = H + B + R + 1`, using unbounded arithmetic for these bounds. A stable
+connection framing state retains at most `H + B + R` logical input octets:
+one incomplete header or parsed metadata, one decoded body, and at most one
+read's pipelined suffix. During framing, a conservative **`8*T` logical-octet
+bound per reserved unit** also includes the old and new header append buffers,
+header/suffix slices, the current recv buffer, chunk slices, and simultaneous
+body fragments plus their joined body. Repeated progress never accumulates
+wire framing or trailers: those are discarded by the existing chunk decoder.
+
+Logical octets are not heap bytes. Additional retained input representation
+is quantitatively bounded as follows; these bounds deliberately do not rely on
+sharing or compact `Nat` representation:
+
+- Packed buffers use power-of-two U32 arrays. For a positive `n`-byte fragment,
+  there are at most `n` U32 slots (one-byte fragments are the worst rounding);
+  zero-length buffers add only a fixed number of slots. The aggregate input
+  array-slot bound is `8*T + 16`, not one ideal flat `B`-byte allocation.
+- Nonempty decoded fragments number at most `B + R`: each contains at least
+  one decoded byte, including the one-read over-cap rejection overshoot.
+  Original/reversed fragment lists and joining can retain at most
+  `2*(B + R) + 16` list/byte-buffer wrappers concurrently.
+- Header conversion and parsing retain bounded linked `String` characters,
+  not UTF-8 bodies. Conservatively allow `16*(H + 1)` character cells for
+  header text, field-line/key/value/path slices, lowercasing, and temporary
+  key traversal copies, plus `4*(H + 1)` map/value-list nodes. Patricia-map
+  branch positions are at most `33*H`; a unary position representation would
+  therefore add at most `132*H*(H + 1)` position cells. This explicitly counts
+  metadata overhead rather than equating a 64 KiB header cap with 64 KiB RSS.
+- Together, `128*T + 256*H*(H + 1)` retained input term fields is a conservative
+  structural envelope, including fixed parser state and array/list/tree
+  bookkeeping. At eight bytes per native term field, its term-field-byte bound
+  is eight times that expression. Allocation headers/arena reservation,
+  scheduler/IO bookkeeping, JS object layout, kernel queues, application
+  allocations/response bodies, and callback-spawned work are **not** that bound
+  or an RSS guarantee. Stream state is application-owned and can itself grow.
+
+Multiply the per-unit bounds by `buffered` for the admitted transport input
+envelope. Rejection draining retains only one `R`-byte scratch read at a time
+inside the same connection reservation; its existing total wire drain limit
+remains 32 MiB and about 2.5 seconds.
+
+The maximum representable header/body cap is precisely `4294901756`:
+`cap + R + 3 <= 4294967295`. The fixed receive overshoot must fit before
+`Bytes.words` rounds `len` with `len + 3` in U32; header append and decoded
+body accounting must not wrap. Configured and legacy `.with` entry points
+reject the first value beyond this boundary, not an arbitrary 1 GiB ceiling.
+All three admission capacities remain positive finite U32 values.
+
+### Exercised admission evidence
+
+`python3 -B http/admission_check.py` passed real native and JavaScript sockets
+in all three whole/stream/writer modes, independently exceeding connection,
+active-operation, and buffered-input caps (18 bursts). Copied public observations
+stayed within their caps and matched exact rejection counts; rejected IDs never
+entered the business journal. Each profile returned to zero and served a healthy
+request. Active tests kept disconnected callbacks and a reset pipelined request
+counted until actual return; writer tests first witnessed an actual failed
+`Writer` and then kept that callback's capacity until it returned. Parsed HEAD
+overload returned bodyless `503` with close and no business effect.
+
+Both lanes also passed concurrent copied snapshots, 128 post-close `None`
+results, and explicit joins of both observer tasks. Continuous burst servers
+were host-terminated after the checks; that is not graceful-drain evidence.
+[`admission_results.json`](admission_results.json) preserves counts and journals;
+[`admission_verification.json`](admission_verification.json) preserves commands,
+initial own-source checker failures, exclusions, and regression/benchmark output.
+Human laws are unchanged; pure checks do not establish unsafe or foreign IO.
+
+The retained limits runner passed all 146 native/JS scenarios; startup passed
+sixteen invalid configurations per lane, the exact representability boundary,
+bind rollback, readiness, and shared-context requests. The HTTP package gate
+passed with 304 entry unsafe/foreign exclusions, and the six-language codec
+benchmark kept matching checksums. The migrated Camber transport probe retained
+one busy dependency and zero creation effects while 129 incomplete peers were
+attempted: quiescent server endpoints were 128 in each lane, versus the retained
+historical 131. It recovered and explicitly closed the dependency bundle.
+The legacy probe still exits 48 on bind failure without rollback markers, and
+its public `TurnClose` still conflates healthy and failed writes; those unchanged
+observations are not claims that T4/T5 or application lifecycle work is complete.
+
 ## Runtime context, startup ownership, and phase limits (0.27.0.0)
 
 `Http.server.start(~C, ~O, context, owner, config)` returns
@@ -27,8 +152,8 @@ connection tasks; use `server.accept` to retain and join individual task results
 already-started handlers or close application dependencies.
 
 `Http.server.config(host, port)` supplies a 16 MiB body cap, 64 KiB headers,
-128 connections, 128 active requests, and 5/30/30/30-second header/body/idle/write
-settings. All size, admission and deadline fields are finite `U32` values and
+128 connections, 128 active requests, 128 buffered-input units, and
+5/30/30/30-second header/body/idle/write settings. All size, admission and deadline fields are finite `U32` values and
 must be positive; zero is an error, never a disabled-limit sentinel. Deadlines
 must also fit signed host milliseconds (at most 2147483647). Ports 0–65535
 are accepted (0 requests an OS-assigned port).
@@ -44,9 +169,9 @@ An at-cap header plus an at-cap body is valid even in one larger socket read.
 Writes use published Wire 0.4.4.0's bounded packed-write operation; conversion,
 framing, and successive pieces share one deadline. Failure closes without replay.
 
-Connection/request admission fields are still validated policy inputs, **not
-enforced bounds** (#328). Final public response-write outcomes remain #329 work.
-#330 owns cooperative stop/drain and application-resource lifecycle integration.
+HTTP 0.28.0.0 enforces the finite admission contract above. Final public
+response-write outcomes remain #329 work; #330 owns cooperative stop/drain
+and application-resource lifecycle integration.
 These deadlines do not cancel handlers or preempt CPU work. On failed streamed
 uploads, transport closes but does not explicitly recover/close generic
 application-owned callback state; do not infer affine-resource cleanup.

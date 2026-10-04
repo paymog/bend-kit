@@ -65,6 +65,11 @@ def success(mode: String, file: File, calls: Chan(Unit), server: Http.Server<Con
         IO.print("READY")
         result : Http.Server<Context> & (U32 & String) <- Http.server.run(~Context, ~handle, server)
         stopped(file, result)
+    case "boundary":
+      do IO<Unit>:
+        IO.print("READY")
+        Http.server.close(~Context, server)
+        cleanup(file, "representability boundary accepted\n")
     case _:
       do IO<Unit>:
         IO.print("READY")
@@ -90,13 +95,17 @@ def started(mode: String, +calls: Chan(Unit), result: File & Result<&2, &1, Http
 def setting(+mode: String, name: String, value: U32) -> U32:
   Bool.pick(U32, String.eq(mode, name), 0, value)
 
+def size(+mode: String, +name: String, value: U32) -> U32:
+  Bool.pick(U32, String.eq(mode, "boundary"), Http.limits.representable(),
+    Bool.pick(U32, String.eq(mode, name ++ "_over"), (Http.limits.representable() + 1 : U32), setting(mode, name, value)))
+
 def deadline(+mode: String, +name: String, value: U32) -> U32:
   Bool.pick(U32, String.eq(mode, "huge_" ++ name), 2147483648, setting(mode, name, value))
 
 def config(+mode: String, port: U32) -> Http.ServerConfig:
   Http.ServerConfig{"127.0.0.1", Bool.pick(U32, String.eq(mode, "port"), 65536, port),
-    setting(mode, "body", 16777216), setting(mode, "headers", 65536),
-    setting(mode, "connections", 128), setting(mode, "requests", 128),
+    size(mode, "body", 16777216), size(mode, "headers", 65536),
+    setting(mode, "connections", 128), setting(mode, "requests", 128), setting(mode, "buffered", 128),
     deadline(mode, "header_ms", 5000), deadline(mode, "body_ms", 30000),
     deadline(mode, "idle_ms", 30000), deadline(mode, "write_ms", 30000)}
 

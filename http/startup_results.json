@@ -4,22 +4,22 @@
       "bend",
       "http/startup_check.bend",
       "-o",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup"
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup"
     ],
     "status": 0,
     "output": "",
-    "peak_sampled_rss_kib": 2001776
+    "peak_sampled_rss_kib": 2260384
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "bind",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-failure"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-failure"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nBIND FAILED 48\nOWNER CLOSED\n",
@@ -27,14 +27,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "body",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-body"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-body"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -42,14 +42,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "headers",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-headers"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-headers"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -57,14 +57,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "connections",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-connections"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-connections"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -72,14 +72,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "requests",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-requests"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-requests"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -87,14 +87,29 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "buffered",
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-buffered"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "header_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-header_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-header_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -102,14 +117,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "body_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-body_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-body_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -117,14 +132,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "idle_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-idle_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-idle_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -132,14 +147,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "write_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-write_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-write_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -147,14 +162,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "port",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-port"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-port"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -162,14 +177,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "huge_header_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-huge_header_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-huge_header_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -177,14 +192,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "huge_body_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-huge_body_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-huge_body_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -192,14 +207,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "huge_idle_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-huge_idle_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-huge_idle_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -207,14 +222,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "huge_write_ms",
-      "51894",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-huge_write_ms"
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-huge_write_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -222,14 +237,59 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "body_over",
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-body_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "headers_over",
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-headers_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "boundary",
+      "65254",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-boundary"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "success",
-      "51895",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-success"
+      "65255",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-success"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\nTHREE CALLS\n",
@@ -237,14 +297,14 @@
   },
   {
     "command": [
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup",
       "--threads",
       "1",
       "--gpu",
       "off",
       "run",
-      "51895",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/native-run"
+      "65255",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/native-run"
     ],
     "status": -15,
     "output": "CONTEXT CREATED\nREADY\n",
@@ -255,31 +315,31 @@
       "bend",
       "http/startup_check.bend",
       "-o",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js"
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js"
     ],
     "status": 0,
     "output": "",
-    "peak_sampled_rss_kib": 1603952
+    "peak_sampled_rss_kib": 1647952
   },
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "bind",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-failure"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-failure"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nBIND FAILED 48\nOWNER CLOSED\n",
-    "peak_sampled_rss_kib": 33584
+    "peak_sampled_rss_kib": 0
   },
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "body",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-body"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-body"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -288,10 +348,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "headers",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-headers"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-headers"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -300,10 +360,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "connections",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-connections"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-connections"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -312,10 +372,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "requests",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-requests"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-requests"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -324,10 +384,22 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
+      "buffered",
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-buffered"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "header_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-header_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-header_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -336,10 +408,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "body_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-body_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-body_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -348,10 +420,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "idle_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-idle_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-idle_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -360,10 +432,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "write_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-write_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-write_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -372,10 +444,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "port",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-port"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-port"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -384,10 +456,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "huge_header_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-huge_header_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-huge_header_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -396,10 +468,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "huge_body_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-huge_body_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-huge_body_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -408,10 +480,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "huge_idle_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-huge_idle_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-huge_idle_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -420,10 +492,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "huge_write_ms",
-      "51900",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-huge_write_ms"
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-huge_write_ms"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
@@ -432,10 +504,46 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
+      "body_over",
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-body_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
+      "headers_over",
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-headers_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
+      "boundary",
+      "65260",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-boundary"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "success",
-      "51901",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-success"
+      "65261",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-success"
     ],
     "status": 0,
     "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\nTHREE CALLS\n",
@@ -444,10 +552,10 @@
   {
     "command": [
       "bun",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/startup.js",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/startup.js",
       "run",
-      "51901",
-      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-7ppodlwm/js-run"
+      "65261",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-jq21df22/js-run"
     ],
     "status": -15,
     "output": "CONTEXT CREATED\nREADY\n",

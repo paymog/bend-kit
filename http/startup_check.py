@@ -94,11 +94,15 @@ def run_lane(lane, executable, folder):
         assert 'BIND FAILED ' in output and 'READY' not in output
         assert path.read_text() == 'bind recovered\n'
         assert 'OWNER CLOSED' in output
-    for field in ('body', 'headers', 'connections', 'requests', 'header_ms', 'body_ms', 'idle_ms', 'write_ms', 'port', 'huge_header_ms', 'huge_body_ms', 'huge_idle_ms', 'huge_write_ms'):
+    for field in ('body', 'headers', 'connections', 'requests', 'buffered', 'header_ms', 'body_ms', 'idle_ms', 'write_ms', 'port', 'huge_header_ms', 'huge_body_ms', 'huge_idle_ms', 'huge_write_ms', 'body_over', 'headers_over'):
         path = folder / (lane + '-' + field)
         output = finish(start(executable + [field, str(port), str(path)], env=env))
         assert 'INVALID\n' in output and 'READY' not in output
         assert path.read_text() == 'invalid recovered\n'
+    path = folder / (lane + '-boundary')
+    output = finish(start(executable + ['boundary', str(port), str(path)], env=env))
+    assert 'READY\n' in output and 'OWNER CLOSED\n' in output
+    assert path.read_text() == 'representability boundary accepted\n'
     with socket.socket() as reserved:
         reserved.bind(('127.0.0.1', 0))
         port = reserved.getsockname()[1]
@@ -141,7 +145,7 @@ def run_lane(lane, executable, folder):
         if handle[0].poll() is None:
             handle[0].kill()
             finish(handle, expected=-9)
-    print(lane + ': bind rollback, thirteen invalid configs, accepting readiness, three shared-context requests PASS')
+    print(lane + ': bind rollback, sixteen invalid configs, exact representability boundary, accepting readiness, three shared-context requests PASS')
 
 
 def main():
