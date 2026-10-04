@@ -1,0 +1,35 @@
+{
+  "author": "opus",
+  "round": "initial",
+  "scenarios": [],
+  "commands": [
+    {
+      "argv": [
+        "bend",
+        "/Users/paymahn/code/bend-kit2/camber/author_study/opus/PROOF.bend"
+      ],
+      "passed": true,
+      "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+      "sampled_peak_rss_kib": 270128,
+      "seconds": 0.4419782089535147
+    },
+    {
+      "argv": [
+        "bend",
+        "/Users/paymahn/code/bend-kit2/camber/author_study/opus/driver.bend",
+        "-o",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-41s3alih/app"
+      ],
+      "passed": false,
+      "error": "command failed: ['bend', PosixPath('/Users/paymahn/code/bend-kit2/camber/author_study/opus/driver.bend'), '-o', PosixPath('/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-41s3alih/app')]\n\nSOME PROOFS FAIL\nError:\n- message  : a parameter or field scrutinee (a match cannot scrutinize a local binder: give it its own def)\nLocation:\n166 |       Slots{title, secret, published, ok} = slots\n167>|       filled = fill(~String, title, text(value))\n    |       ^^^^^^\n168 |       (kept, fine) = filled\n"
+    }
+  ],
+  "hashes": {
+    "app.bend": "55f6ea45a228ff54e733dd13bf313ff7d6997af17e37e4242f6e7d988eb38638",
+    "domain.bend": "4532a77488721d17086fe52c2c39c915d84948d607122f49082159416dcfe884",
+    "PROOF.bend": "0cb77ec5b5b27b4b78250683da49def0faa0c7477c80378ba35c401c84b42c9b",
+    "LAWS.bend": "a70797d6b7728c25486798d44cced4cd8af152cda9cfbcc07291c3aa5c0ed3ef"
+  },
+  "independent_verdict": "unavailable: Lean v4.34.0 or a built BENDTT kernel is required",
+  "runtime_passed": false
+}

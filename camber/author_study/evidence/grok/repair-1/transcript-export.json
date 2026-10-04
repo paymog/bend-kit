@@ -1,0 +1,7 @@
+{
+  "export": "Visible messages/tool calls/results, displayed repair feedback, and local model-resolution receipts only; private reasoning, credentials, and session configuration excluded.",
+  "native_full_session_sha256": "0c26b9015750772f262279b52aa11fb914aeddfe4ecdb76b11af90afc20ba3d7",
+  "exported_records": 131,
+  "removed_private_blocks_this_export": 38,
+  "cumulative_through_round": "repair-1"
+}

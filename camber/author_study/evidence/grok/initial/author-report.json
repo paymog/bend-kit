@@ -1,0 +1,25 @@
+{
+  "changed": [
+    "camber/author_study/grok/app.bend",
+    "camber/author_study/grok/domain.bend",
+    "camber/author_study/grok/PROOF.bend"
+  ],
+  "unchanged": [
+    "camber/author_study/grok/LAWS.bend"
+  ],
+  "verification": "not run",
+  "assumptions": [
+    "Content-Type must be exactly application/json; other media, including a missing header, is 415. Charset and case variants are not accepted.",
+    "401, 404, and 405 bodies are empty. 400 is invalid input, 415 is unsupported media type, 503 is store unavailable, GET /public is public, and 201 is the encoded public JSON with no content-type.",
+    "404 and method mismatch record only root-before and root-after and do not enter the protected group. Allow comes from the prepared table.",
+    "OPTIONS and malformed targets are exhaustive router cases, not specified by the task: 204 with allow, and 400 with an empty body, both root-only.",
+    "Public JSON field order is owner, title, published. The journal is that encoding plus a newline. The same File from state or File.write is returned on every path; it is never reopened."
+  ],
+  "adapters": [
+    "dispatch takes +app because the copyable plan is used for policy lookup, the root scope, and finish.",
+    "Decoded input is an affine Input wrapper around Contract.Record so it fits Surface.endpoint's Result<&2, &1, E, I> slot.",
+    "Auth context is Owner{id: U32}, not a token string. Bearer alice is 7 and Bearer bob is 8.",
+    "Template callbacks stay affine. Extra uses of the plan, metadata, hook, and error are in .go helpers, as in surface_app.bend.",
+    "File.write is used as IO(File & Result<&1, &1, U32 & String, Unit>). The journal string is Enc.utf8.decode of encode, because Http.from_string is one character per octet."
+  ]
+}

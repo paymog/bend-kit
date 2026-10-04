@@ -1,0 +1,178 @@
+[
+  {
+    "author": "opus",
+    "mutation": "publication-unchanged",
+    "source_sha256": "d3401fc72146d5e5cfbf7c08b68e52f39f0c549b872c77f2abd3759c5e67be94",
+    "proof": {
+      "passed": false,
+      "diagnostic": "command failed: ['bend', PosixPath('/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/opus/PROOF.bend')]\n\nSOME PROOFS FAIL\nError:\n- expected : Contract.Record{owner, title, secret, published}\n- observed : Contract.Record{owner, title, secret, True{}}\nContext:\n- owner     : U32\n- title     : String\n- secret    : String\n- published : Bool\nLocation: Laws.publish_spec\n5 | def Laws.publish_spec(owner, title, secret, published):\n6>|   {==}\n  |   ^^^^\n7 | \n"
+    },
+    "build": {
+      "stdout": "",
+      "sampled_peak_rss_kib": 4180336,
+      "seconds": 8.146929207956418
+    },
+    "runtime": {
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":false}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "accepted": false,
+      "error": "('alice', 'public projection', {'status': 201, 'body': '{\"owner\":7,\"title\":\"h\u00e9llo\\\\n\\\\\"\\\\\\\\\u96ea\",\"published\":false}', 'root': 'yes', 'protected': 'yes', 'publish': 'yes', 'public': '', 'authenticate': '', 'allow': '', 'trace': ['root-before', 'auth', 'decode', 'handle', 'publish-after', 'protected-after', 'root-after']})",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.22060337499715388
+    },
+    "original_source_sha256": "4532a77488721d17086fe52c2c39c915d84948d607122f49082159416dcfe884",
+    "commands": [
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/opus/PROOF.bend"
+      ],
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/opus/driver.bend",
+        "-o",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/opus-publication-unchanged"
+      ],
+      [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/opus-publication-unchanged",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/opus-publication-unchanged-journal",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ]
+    ]
+  },
+  {
+    "author": "opus",
+    "mutation": "secret-as-title",
+    "source_sha256": "9f6f52c41a92bb227fdb2ce810cf34c9ef67792fa30789f8fcfb499751123b6f",
+    "proof": {
+      "passed": false,
+      "diagnostic": "command failed: ['bend', PosixPath('/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/opus/PROOF.bend')]\n\nSOME PROOFS FAIL\nError:\n- expected : Contract.Public{owner, secret, published}\n- observed : Contract.Public{owner, title, published}\nContext:\n- owner     : U32\n- title     : String\n- secret    : String\n- published : Bool\nLocation: Laws.view_spec\n 8 | def Laws.view_spec(owner, title, secret, published):\n 9>|   {==}\n   |   ^^^^\n10 | \n"
+    },
+    "build": {
+      "stdout": "",
+      "sampled_peak_rss_kib": 4239904,
+      "seconds": 8.163164707948454
+    },
+    "runtime": {
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"CANARY\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "accepted": false,
+      "error": "('alice', 'public projection', {'status': 201, 'body': '{\"owner\":7,\"title\":\"CANARY\",\"published\":true}', 'root': 'yes', 'protected': 'yes', 'publish': 'yes', 'public': '', 'authenticate': '', 'allow': '', 'trace': ['root-before', 'auth', 'decode', 'handle', 'publish-after', 'protected-after', 'root-after']})",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.32368425000458956
+    },
+    "original_source_sha256": "4532a77488721d17086fe52c2c39c915d84948d607122f49082159416dcfe884",
+    "commands": [
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/opus/PROOF.bend"
+      ],
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/opus/driver.bend",
+        "-o",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/opus-secret-as-title"
+      ],
+      [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/opus-secret-as-title",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/opus-secret-as-title-journal",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ]
+    ]
+  },
+  {
+    "author": "grok",
+    "mutation": "publication-unchanged",
+    "source_sha256": "c68fcfe22056b9872d4b574cba79a601b56a5852289329d8791aa2ba96253483",
+    "proof": {
+      "passed": false,
+      "diagnostic": "command failed: ['bend', PosixPath('/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/grok/PROOF.bend')]\n\nSOME PROOFS FAIL\nError:\n- expected : Contract.Record{owner, title, secret, published}\n- observed : Contract.Record{owner, title, secret, True{}}\nContext:\n- owner     : U32\n- title     : String\n- secret    : String\n- published : Bool\nLocation: Laws.publish_spec\n5 | def Laws.publish_spec(owner, title, secret, published):\n6>|   {==}\n  |   ^^^^\n7 | \n"
+    },
+    "build": {
+      "stdout": "",
+      "sampled_peak_rss_kib": 4177296,
+      "seconds": 8.488519291975535
+    },
+    "runtime": {
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":false}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "accepted": false,
+      "error": "('alice', 'public projection', {'status': 201, 'body': '{\"owner\":7,\"title\":\"h\u00e9llo\\\\n\\\\\"\\\\\\\\\u96ea\",\"published\":false}', 'root': 'yes', 'protected': 'yes', 'publish': 'yes', 'public': '', 'authenticate': '', 'allow': '', 'trace': ['root-before', 'auth', 'decode', 'handle', 'publish-after', 'protected-after', 'root-after']})",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.23847637500148267
+    },
+    "original_source_sha256": "aace398b4ca906196353defbb62b2038b45b7b2be9e2ff141d58630a3e3b1686",
+    "commands": [
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/grok/PROOF.bend"
+      ],
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/grok/driver.bend",
+        "-o",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/grok-publication-unchanged"
+      ],
+      [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/grok-publication-unchanged",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/grok-publication-unchanged-journal",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ]
+    ]
+  },
+  {
+    "author": "grok",
+    "mutation": "secret-as-title",
+    "source_sha256": "08fd1b1d3d98a78c1df3edca47c1d62244c5c0e91483b00ac7598b2e5f555587",
+    "proof": {
+      "passed": false,
+      "diagnostic": "command failed: ['bend', PosixPath('/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/grok/PROOF.bend')]\n\nSOME PROOFS FAIL\nError:\n- expected : Contract.Public{owner, secret, published}\n- observed : Contract.Public{owner, title, published}\nContext:\n- owner     : U32\n- title     : String\n- secret    : String\n- published : Bool\nLocation: Laws.view_spec\n 8 | def Laws.view_spec(owner, title, secret, published):\n 9>|   {==}\n   |   ^^^^\n10 | \n"
+    },
+    "build": {
+      "stdout": "",
+      "sampled_peak_rss_kib": 4497984,
+      "seconds": 8.51770879200194
+    },
+    "runtime": {
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"CANARY\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "accepted": false,
+      "error": "('alice', 'public projection', {'status': 201, 'body': '{\"owner\":7,\"title\":\"CANARY\",\"published\":true}', 'root': 'yes', 'protected': 'yes', 'publish': 'yes', 'public': '', 'authenticate': '', 'allow': '', 'trace': ['root-before', 'auth', 'decode', 'handle', 'publish-after', 'protected-after', 'root-after']})",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.2189749589888379
+    },
+    "original_source_sha256": "aace398b4ca906196353defbb62b2038b45b7b2be9e2ff141d58630a3e3b1686",
+    "commands": [
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/grok/PROOF.bend"
+      ],
+      [
+        "bend",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/camber/author_study/grok/driver.bend",
+        "-o",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/grok-secret-as-title"
+      ],
+      [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/grok-secret-as-title",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-sensitivity-5z74e33g/grok-secret-as-title-journal",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ]
+    ]
+  }
+]

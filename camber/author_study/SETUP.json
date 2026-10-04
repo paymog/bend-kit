@@ -1,0 +1,28 @@
+{
+  "models": {
+    "grok": {
+      "requested": "Grok 4.7",
+      "selector": "xai-oauth/grok-4.7",
+      "route": "xAI OAuth through native OMP provider"
+    },
+    "opus": {
+      "requested": "Opus 5.5",
+      "selector": "cursor/claude-opus-5-5",
+      "route": "Cursor through native OMP provider"
+    }
+  },
+  "fixed_sha256": {
+    "TASK.md": "87a5713eb8f382575eca3ab2948ad69f0f04ce6b526c8956e54784d287637301",
+    "RUBRIC.md": "5fe7b110f6244d4a7d72801b6c42b73721f0839cf1d0fd53a26aa25b4cede92c",
+    "contract.bend": "613317f6b77d7dbfceca077bb44a8565078af949db6344767e90495250445301",
+    "driver.bend": "756990a106d5f5505b9232970c22a62880f35fecb84b0fec4c1b4e2d563e4b5d",
+    "run.py": "59a63aae440cd7e556bd7147ec7d54ed2e4848afd5c8d18f0b96d0995be26efc",
+    "grok/LAWS.bend": "a70797d6b7728c25486798d44cced4cd8af152cda9cfbcc07291c3aa5c0ed3ef",
+    "opus/LAWS.bend": "a70797d6b7728c25486798d44cced4cd8af152cda9cfbcc07291c3aa5c0ed3ef",
+    "evidence/setup/bend-guide.txt": "9001a4ac112e92dc0c069c8b9d5812e114c2557427d9f962cddeef1ef6c292b6"
+  },
+  "context_isolation": "Fresh independent native agent sessions; disjoint three-file write sets in the shared worktree. File-only tools. Read/write path boundaries are cooperative, not an OS sandbox.",
+  "compiler_access": "Host-mediated; serialized guarded builds and diagnostics; at most two repair rounds.",
+  "author_input": "Shared task, fixed laws/types, recorded guide, public experimental surface/spec, one compiling example. No parent conversation or other author output.",
+  "served_identity": "Native catalog selectors verified before dispatch; serving-backend attestation must be recorded separately from local model resolution."
+}

@@ -1,0 +1,12 @@
+{
+  "changed": [
+    "camber/author_study/grok/app.bend"
+  ],
+  "unchanged": [
+    "camber/author_study/grok/domain.bend",
+    "camber/author_study/grok/PROOF.bend",
+    "camber/author_study/grok/LAWS.bend"
+  ],
+  "verification": "not run",
+  "repair": "Exported dispatch now has an affine app binder, matching Contract.State -> Application -> Http.Req -> IO(Contract.State & Http.Res). The previous copying body is dispatch.go; the affine entry passes app once. Proof imports and runtime behavior are unchanged."
+}

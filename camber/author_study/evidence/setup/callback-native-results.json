@@ -1,0 +1,30 @@
+[
+  {
+    "author": "opus",
+    "round": "repair-1",
+    "build_stdout": "",
+    "build_rss_kib": 4432560,
+    "build_seconds": 8.327518500038423,
+    "smoke": {
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "accepted": true,
+      "error": null,
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.21874004101846367
+    }
+  },
+  {
+    "author": "grok",
+    "round": "repair-2",
+    "build_stdout": "",
+    "build_rss_kib": 4557504,
+    "build_seconds": 8.473059084033594,
+    "smoke": {
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "accepted": true,
+      "error": null,
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.22665062500163913
+    }
+  }
+]

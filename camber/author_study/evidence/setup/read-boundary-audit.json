@@ -1,0 +1,24 @@
+{
+  "audit": [
+    {
+      "author": "grok",
+      "other_author_or_findings_source_heading_hits": []
+    },
+    {
+      "author": "opus",
+      "other_author_or_findings_source_heading_hits": []
+    }
+  ],
+  "known_deviations": {
+    "grok": [
+      "Read parent driver.bend and run.py before initial submission; runtime oracle was not blinded.",
+      "Searched repository outside the named read set."
+    ],
+    "opus": [
+      "Read csv/PROOF.bend and searched unrelated repository proof/benchmark files outside the named read set.",
+      "A grep returned RUBRIC excerpts despite the final self-report saying RUBRIC was not read.",
+      "Two attempted bash-based Base discovery calls were denied: Tool \"bash\" not available; no author compiler process ran."
+    ]
+  },
+  "scope": "Visible tool-result source headings inspected for other-author app/domain/proof and FINDINGS contents; this is not an OS sandbox or proof of complete noninterference."
+}

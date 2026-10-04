@@ -1,0 +1,1237 @@
+{
+  "author": "opus",
+  "round": "repair-1",
+  "scenarios": [
+    {
+      "name": "alice",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "bob",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":8,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "already-published",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "encoded-route",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "absolute-target",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"h\u00e9llo\\n\\\"\\\\\u96ea\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "escaped-key",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 201,
+          "body": "{\"owner\":7,\"title\":\"plain\",\"published\":true}",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": ""
+      }
+    },
+    {
+      "name": "missing-auth",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 401,
+          "body": "",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "",
+          "public": "",
+          "authenticate": "Bearer",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "map/unauthorized",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-auth",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 401,
+          "body": "",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "",
+          "public": "",
+          "authenticate": "Bearer",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "map/unauthorized",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-scheme",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 401,
+          "body": "",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "",
+          "public": "",
+          "authenticate": "Bearer",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "map/unauthorized",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "malformed",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-shape",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-title",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-secret",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-published",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "extra-owner",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "title-type",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "secret-type",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "published-type",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "duplicate-title",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "escaped-duplicate",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "duplicate-secret",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "duplicate-published",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 400,
+          "body": "invalid input",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/input",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-media",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 415,
+          "body": "unsupported media type",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/media",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "unsupported-media",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 415,
+          "body": "unsupported media type",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "map/media",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "real-write-failure",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 503,
+          "body": "store unavailable",
+          "root": "yes",
+          "protected": "yes",
+          "publish": "yes",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "auth",
+            "decode",
+            "handle",
+            "map/write",
+            "publish-after",
+            "protected-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "public",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 200,
+          "body": "public",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "yes",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "public-before",
+            "public-handle",
+            "public-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "encoded-public",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 200,
+          "body": "public",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "yes",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "public-before",
+            "public-handle",
+            "public-after",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "missing-route",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 404,
+          "body": "not found",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "",
+          "authenticate": "",
+          "allow": "",
+          "trace": [
+            "root-before",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    },
+    {
+      "name": "wrong-method",
+      "passed": true,
+      "observation": {
+        "response": {
+          "status": 405,
+          "body": "",
+          "root": "yes",
+          "protected": "",
+          "publish": "",
+          "public": "",
+          "authenticate": "",
+          "allow": "OPTIONS, POST",
+          "trace": [
+            "root-before",
+            "root-after"
+          ]
+        },
+        "readback": "{\"seed\":true}\n"
+      }
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "bend",
+        "/Users/paymahn/code/bend-kit2/camber/author_study/opus/PROOF.bend"
+      ],
+      "passed": true,
+      "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+      "sampled_peak_rss_kib": 170128,
+      "seconds": 0.4329172919970006
+    },
+    {
+      "argv": [
+        "bend",
+        "/Users/paymahn/code/bend-kit2/camber/author_study/opus/driver.bend",
+        "-o",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app"
+      ],
+      "passed": true,
+      "stdout": "",
+      "sampled_peak_rss_kib": 4205552,
+      "seconds": 8.557326750014909
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/alice",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.3256395000498742
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/bob",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer bob",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":8,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10748362506274134
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/already-published",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": true}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11043741600587964
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/encoded-route",
+        "w",
+        "POST",
+        "/pub%6Cish?x=1&x=2",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10754383297171444
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/absolute-target",
+        "w",
+        "POST",
+        "http://example.test/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"h\u00e9llo\\\\n\\\\\\\"\\\\\\\\\u96ea\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10877412499394268
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/escaped-key",
+        "w",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"t\\u0069tle\":\"plain\",\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":201,\"body\":\"{\\\"owner\\\":7,\\\"title\\\":\\\"plain\\\",\\\"published\\\":true}\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11662229197099805
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/missing-auth",
+        "r",
+        "POST",
+        "/publish",
+        "",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":401,\"body\":\"\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"Bearer\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11059583409223706
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/wrong-auth",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer mallory",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":401,\"body\":\"\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"Bearer\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10841420805081725
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/wrong-scheme",
+        "r",
+        "POST",
+        "/publish",
+        "Basic alice",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":401,\"body\":\"\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"Bearer\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"map/unauthorized\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11039383301977068
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/malformed",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11086391599383205
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/wrong-shape",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "[]"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10877158294897527
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/missing-title",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.106057666009292
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/missing-secret",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10994358302559704
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/missing-published",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\"}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11038712493609637
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/extra-owner",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\",\"published\":false,\"owner\":999}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11965341703034937
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/title-type",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":1,\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11061037494800985
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/secret-type",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":null,\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11081716709304601
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/published-type",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\",\"published\":0}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10876333410851657
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/duplicate-title",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"one\",\"title\":\"two\",\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10878266696818173
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/escaped-duplicate",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"one\",\"t\\u0069tle\":\"two\",\"secret\":\"CANARY\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10979383403901011
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/duplicate-secret",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"one\",\"secret\":\"two\",\"published\":false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11006108403671533
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/duplicate-published",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\":\"plain\",\"secret\":\"CANARY\",\"published\":false,\"published\":true}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":400,\"body\":\"invalid input\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/input\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11081116704735905
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/missing-media",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":415,\"body\":\"unsupported media type\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/media\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10887941694818437
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/unsupported-media",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "text/plain",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":415,\"body\":\"unsupported media type\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"map/media\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10663329192902893
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/real-write-failure",
+        "r",
+        "POST",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":503,\"body\":\"store unavailable\",\"root\":\"yes\",\"protected\":\"yes\",\"publish\":\"yes\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"auth\",\"decode\",\"handle\",\"map/write\",\"publish-after\",\"protected-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10970525001175702
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/public",
+        "r",
+        "GET",
+        "/public",
+        "",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":200,\"body\":\"public\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"yes\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"public-before\",\"public-handle\",\"public-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.1097422499442473
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/encoded-public",
+        "r",
+        "GET",
+        "/pub%6Cic?x=1",
+        "",
+        "application/json",
+        "not JSON"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":200,\"body\":\"public\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"yes\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"public-before\",\"public-handle\",\"public-after\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11060254089534283
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/missing-route",
+        "r",
+        "POST",
+        "/missing",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":404,\"body\":\"not found\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"\",\"trace\":[\"root-before\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.10926745797041804
+    },
+    {
+      "argv": [
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/app",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-author-study-8muxupba/wrong-method",
+        "r",
+        "GET",
+        "/publish",
+        "Bearer alice",
+        "application/json",
+        "{\"title\": \"h\\u00e9llo\\n\\\"\\\\\\u96ea\", \"secret\": \"CANARY\", \"published\": false}"
+      ],
+      "passed": true,
+      "stdout": "{\"response\":{\"status\":405,\"body\":\"\",\"root\":\"yes\",\"protected\":\"\",\"publish\":\"\",\"public\":\"\",\"authenticate\":\"\",\"allow\":\"OPTIONS, POST\",\"trace\":[\"root-before\",\"root-after\"]},\"readback\":\"{\\\"seed\\\":true}\\n\"}\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.11023366695735604
+    }
+  ],
+  "hashes": {
+    "app.bend": "7804b1bc4d40955d487a5f399feeedaa5755e0c10f8605dcd137049ced4d54bc",
+    "domain.bend": "4532a77488721d17086fe52c2c39c915d84948d607122f49082159416dcfe884",
+    "PROOF.bend": "0cb77ec5b5b27b4b78250683da49def0faa0c7477c80378ba35c401c84b42c9b",
+    "LAWS.bend": "a70797d6b7728c25486798d44cced4cd8af152cda9cfbcc07291c3aa5c0ed3ef"
+  },
+  "independent_verdict": "unavailable: Lean v4.34.0 or a built BENDTT kernel is required",
+  "runtime_passed": true
+}

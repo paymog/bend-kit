@@ -1,0 +1,22 @@
+{
+  "build": {
+    "stdout": "",
+    "sampled_peak_rss_kib": 2625424,
+    "seconds": 11.831209540949203
+  },
+  "observations": [
+    {
+      "mode": "w",
+      "stdout": "LISTENER CLOSED\nTRACE []\n{\"response\":null,\"readback\":\"\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 32,
+      "seconds": 0.23498641699552536
+    },
+    {
+      "mode": "r",
+      "stdout": "LISTENER CLOSED\nTRACE []\n{\"response\":null,\"readback\":\"{\\\"seed\\\":true}\\n\"}\nSTUDY LIVE PASS\n",
+      "sampled_peak_rss_kib": 0,
+      "seconds": 0.12031737493816763
+    }
+  ],
+  "note": "Synthetic driver calibration only; not author behavior or a study score."
+}

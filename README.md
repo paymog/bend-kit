@@ -38,7 +38,7 @@ A name and its hash import the same package. Each version is a distinct type, so
 | [`jwt`](jwt) | `bend-kit-jwt@0.1.0.0/jwt.bend` | JWT signing and verification with pinned HS256/384/512, RS256, or ES256; claim validation and JWKS key lookup over `hairpin`. |
 | [`sigv4`](sigv4) | `bend-kit-sigv4@0.1.0.0/sigv4.bend` | AWS Signature V4 request signing and S3 object storage over `hairpin`. |
 | [`webhooks`](webhooks) | `bend-kit-webhooks@0.1.0.0/webhooks.bend` | Standard Webhooks signing, verified delivery and retries over `hairpin`; Stripe and GitHub signature verification. See [webhooks/README.md](webhooks/README.md). |
-| [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | Match an HTTP method and path to a handler. |
+| [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | The published revision is a pairwise matcher. Local `0.2.0.0` adds validated prepared routes, exact targets, path-first precedence, HEAD/OPTIONS, and Allow. See the [routing contract](router/bench/README.md#prepared-routing-contract); CI publishes the new API after merge. |
 | [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
 | [`stream`](stream) | `bend-kit-stream@0.1.0.0/stream.bend` | Bounded packed-byte transfers between files and TCP/TLS sockets, with byte caps, surviving handles, and completed-chunk counts. |
 | [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |

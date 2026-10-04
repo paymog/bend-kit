@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-02",
+  "bend": "2.0.34",
+  "scope": "Capability failures, not cancellation conformance",
+  "native_relative_import": {
+    "import": "../process/process.bend",
+    "scenario": "yield_exit",
+    "returncode": 1,
+    "wall_seconds": 0.12449637509416789,
+    "sampled_peak_rss_kib": 1776,
+    "events": [
+      {
+        "seconds": 0.0028000420425087214,
+        "text": "TIMER_ARMED"
+      },
+      {
+        "seconds": 0.0028234170749783516,
+        "text": "WORK_BEGIN"
+      },
+      {
+        "seconds": 0.10672587505541742,
+        "text": "FORCE_PROCESS_EXIT"
+      }
+    ],
+    "stderr": "bend: an alien request\n",
+    "journal": "committed\n",
+    "unrelated_journal": null,
+    "emitted_constructor": "CID____PROCESS_PROCESS_EXIT_RAW",
+    "adapter_registration_guard": "CID_EXIT_RAW, optionally aliased from CID_PROCESS_EXIT_RAW"
+  },
+  "native_published_import": {
+    "import": "0xb9c171843853f26eb0a0cfd88782e4d3/process.bend",
+    "source": "import Base\nimport 0xb9c171843853f26eb0a0cfd88782e4d3/process.bend as Process\n\ndef main() -> IO(Unit):\n  Process.exit(77)\n",
+    "command": "/tmp/camber-exit-smoke --threads 1 --gpu off",
+    "build_seconds": 0.7675286659505218,
+    "sampled_build_peak_rss_kib": 122064,
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "bend: an alien request\n"
+  },
+  "javascript_published_import": {
+    "import": "0xb9c171843853f26eb0a0cfd88782e4d3/process.bend",
+    "command": "bun /tmp/camber-exit-smoke.js",
+    "build_seconds": 0.1099895000224933,
+    "sampled_build_peak_rss_kib": 2352,
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "548 | \n549 | })();\n550 | \n551 | for (const k of [\"0xb9c171843853f26eb0a0cfd88782e4d3/process.exit.raw\"]) {\n552 |   if (!(k in $0eff)) {\n553 |     throw new Error(\"bend: no effect registers \" + k);\n                    ^\nerror: bend: no effect registers 0xb9c171843853f26eb0a0cfd88782e4d3/process.exit.raw\n      at <anonymous> (/private/tmp/camber-exit-smoke.js:553:15)\n\nBun v1.3.14 (macOS arm64)\n"
+  }
+}

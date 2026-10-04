@@ -1,0 +1,21 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "observations": {
+    "native": {
+      "stdout": "double-slash-distinct=false\ntrailing-slash-distinct=false\nstatic-first-in-parameter-first-registry=false\nstatic-first-in-static-first-registry=true\nunpaired-surrogate-rejected=false\nnested-duplicate-rejected=false\ndepth-65-rejected=false\ndeadline-returned\ndeadline\t0\t13850000\nlate-side-effect\t0\t256286000\n",
+      "build_seconds": 6.067292332998477,
+      "sampled_build_peak_rss_kib": 2479760,
+      "sampled_runtime_peak_rss_kib": 2064,
+      "process_wall_seconds": 0.5380478330189362,
+      "journal_after_process_exit": "late\n"
+    },
+    "js": {
+      "stdout": "double-slash-distinct=false\ntrailing-slash-distinct=false\nstatic-first-in-parameter-first-registry=false\nstatic-first-in-static-first-registry=true\nunpaired-surrogate-rejected=false\nnested-duplicate-rejected=false\ndepth-65-rejected=false\ndeadline-returned\ndeadline\t0\t21913375\nlate-side-effect\t0\t256930083\n",
+      "build_seconds": 2.09356866707094,
+      "sampled_build_peak_rss_kib": 2151024,
+      "sampled_runtime_peak_rss_kib": 54112,
+      "process_wall_seconds": 0.33108341600745916,
+      "journal_after_process_exit": "late\n"
+    }
+  }
+}
