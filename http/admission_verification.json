@@ -1,0 +1,1694 @@
+{
+  "issue": 328,
+  "base": "13cf7c113f77bec9e430ea4df3fa1d656274fe54",
+  "branch": "camber/issue-328",
+  "proposed_http_version": "0.28.0.0",
+  "requested_and_served_implementation_model": "openai-codex/gpt-6.1-sol",
+  "route": "medium",
+  "model_provenance": "Coordinator verified sole implementation chain; no child agents or additional reviewers.",
+  "bend": "2.0.35",
+  "exclusive_slot_release": {
+    "compiler_runtime_query": "pgrep -fl '(^|/)(bend|admission|startup|limits)( |$)|http328-|camber-transport-risks-|http-admission-|http-limits-|http-startup-'",
+    "query_exit_status": 1,
+    "owned_compiler_runtime_matches": [],
+    "listener_query": "lsof -nP -iTCP -sTCP:LISTEN",
+    "owned_transport_listeners": [],
+    "unrelated_user_listener_services_left_untouched": true,
+    "available_disk_kib": 33232760,
+    "peak_sampled_aggregate_descendant_rss_kib": 5953840,
+    "guard_adverse_events": [],
+    "owned_temporary_guard_smoke_receipt_files_removed": true,
+    "owned_benchmark_output_files_removed_individually_and_empty_directories_removed": true,
+    "released_to_coordinator": true
+  },
+  "source_sha256": {
+    "http/http.bend": "4de2c098205f976d1c79eb1d64d8c208e80bb36785c640fe76383f62f6da634a",
+    "http/admission.bend": "46aaab54c3047dc0d57a3c6355df6109211c9c522cfa1043f4d924a7d5c6bfee",
+    "http/admission_check.bend": "cd9af9a8594b1819bfbc887f54c04afa759efab04d29e96ab70afa29ee5c58aa",
+    "http/admission_check.py": "dec1d865816a9759d33ce498e442c63eb7c0de8ba1b31972a77499299cc006bb",
+    "http/context_probe.bend": "fb2e2bac99e9c68ace1a173438d1bb92ff2acd8c99637ac7c994ae9971d0b39d",
+    "http/check.bend": "dc3b97fcad7a935e0639b09adbd3f98524ce26d9ab66fdcb3d5aace0a9586ba2",
+    "http/limits_check.bend": "c42822a968b2945b02cf9823223d9f78b80ce24057a0540333f5a501526e1ac7",
+    "http/startup_check.bend": "bb372011b2ac6056e34a8cf490052c47b4f9a523059a3897117ad6ea44924038",
+    "http/startup_check.py": "21bc328bcdd6c2c044fa4e11f769c7de7d5b4094049d5d82baaca41bbc6c9624",
+    "camber/run_transport_risks.py": "faadd96df0005bfdf5a3c9de325a74417136e145886287a9702756dc626f1685"
+  },
+  "guarded_commands": [
+    {
+      "command": [
+        "bend",
+        "http/admission.bend",
+        "--check-only"
+      ],
+      "status": 1,
+      "elapsed_s": 0.128,
+      "peak_descendant_rss_kib": 0,
+      "adverse": [],
+      "output": "SOME PROOFS FAIL\nError:\n- message  : a parameter or field scrutinee (a match cannot scrutinize a computed value: give it its own def)\nLocation:\n80 |             case Acquire{kind, reply}:\n81>|               (next, admitted) = acquire(kind, caps, counts)\n   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n82 |               do IO<Unit>:\n"
+    },
+    {
+      "command": [
+        "bend",
+        "http/admission.bend",
+        "--check-only"
+      ],
+      "status": 1,
+      "elapsed_s": 0.068,
+      "peak_descendant_rss_kib": 0,
+      "adverse": [],
+      "output": "SOME PROOFS FAIL\nError: 3 defs rely on unsafe or foreign code:\n- loop\n- finish\n- open\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "/tmp/http328-smoke.py"
+      ],
+      "status": 1,
+      "elapsed_s": 0.743,
+      "peak_descendant_rss_kib": 550384,
+      "adverse": [],
+      "output": "Traceback (most recent call last):\n  File \"/tmp/http328-smoke.py\", line 10, in <module>\n    Harness.finish(Harness.start(['bend', 'http/admission_check.bend', '-o', str(target)]))\n    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/paymahn/code/bend-kit-issue-328/http/startup_check.py\", line 51, in finish\n    assert process.returncode == expected, receipt\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'command': ['bend', 'http/admission_check.bend', '-o', '/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http328-small-p4mkh1x6/admission'], 'status': 1, 'output': \"SOME PROOFS FAIL\\nError:\\n- expected : a term\\n- observed : '~'\\nLocation:\\n5644 |     case Some{next}:\\n5645>|       talk(~C, ~h, context, settings, inbox, Serving{next, None{}})\\n     |            ^\\n5646 | \\n\", 'peak_sampled_rss_kib': 576736}\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "/tmp/http328-smoke.py"
+      ],
+      "status": 1,
+      "elapsed_s": 0.786,
+      "peak_descendant_rss_kib": 624864,
+      "adverse": [],
+      "output": "Traceback (most recent call last):\n  File \"/tmp/http328-smoke.py\", line 10, in <module>\n    Harness.finish(Harness.start(['bend', 'http/admission_check.bend', '-o', str(target)]))\n    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/paymahn/code/bend-kit-issue-328/http/startup_check.py\", line 51, in finish\n    assert process.returncode == expected, receipt\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'command': ['bend', 'http/admission_check.bend', '-o', '/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http328-small-52ruyqa1/admission'], 'status': 1, 'output': \"SOME PROOFS FAIL\\nError:\\n- message  : 'settings' can't be matched in this position (it is matched after a local statement or after a match on a later binder, it was already matched, or it is a def)\\nLocation:\\n5644 |     case Some{Serving{(s, t), phase}}:\\n5645>|       Limits{max, cap, hm, bm, im, wm} = settings\\n     |                                          ^^^^^^^^\\n5646 |       match t:\\n\", 'peak_sampled_rss_kib': 548000}\n"
+    },
+    {
+      "command": [
+        "bend",
+        "http/http.bend",
+        "--check-only"
+      ],
+      "status": 1,
+      "elapsed_s": 0.691,
+      "peak_descendant_rss_kib": 540720,
+      "adverse": [],
+      "output": "SOME PROOFS FAIL\nError:\n- message  : 'config' can't be matched in this position (it is matched after a local statement or after a match on a later binder, it was already matched, or it is a def)\nLocation:\n5732 |     case Done{listener}:\n5733>|       ServerConfig{host, port, body, headers, connections, requests, buffered, hm, bm, im, wm} = config\n     |                                                                                                  ^^^^^^\n5734 |       do IO<O & Result<&2, &1, StartupError, Server<C>>>:\n"
+    },
+    {
+      "command": [
+        "bend",
+        "http/http.bend",
+        "--check-only"
+      ],
+      "status": 1,
+      "elapsed_s": 1.159,
+      "peak_descendant_rss_kib": 1233728,
+      "adverse": [],
+      "output": "SOME PROOFS FAIL\nError:\n- expected : headers\n- observed : headers (consumed more than once)\nContext:\n- host : String\n- port : U32\n- body : U32\nLocation: server.config.valid\n5719 | def server.config.valid(config: ServerConfig) -> Bool:\n5720>|   ServerConfig{host, port, body, headers, connections, requests, buffered, header_ms, body_ms, idle_ms, write_ms} = config\n     |                                  ^^^^^^^\n5721 |   U32.is_le(port, 65535) && U32.is_gt(body, 0) && U32.is_le(body, limits.representable()) &&\n"
+    },
+    {
+      "command": [
+        "bend",
+        "http/http.bend",
+        "--check-only"
+      ],
+      "status": 1,
+      "elapsed_s": 2.071,
+      "peak_descendant_rss_kib": 2159856,
+      "adverse": [],
+      "output": "SOME PROOFS FAIL\nError: 304 defs rely on unsafe or foreign code:\n- admission.loop\n- admission.finish\n- admission.open\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.connect\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv_from\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send_to\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect.cert\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect.alpn\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.send\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.recv\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.close\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send.words.deadline\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv_from.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send_to.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.recv.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.send.words\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.wall.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.now\n- 0x584fc27920487ceab242392391418d7f/json.encb.go\n- 0x584fc27920487ceab242392391418d7f/json.encode.bytes\n- 0x4e8235741fad6df1605249df49ecae86/wire.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.cert\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.alpn\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.close\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send.words\n- 0x446af397a026226591f85538ecbba2c4/dns.try.sent\n- 0x446af397a026226591f85538ecbba2c4/dns.try.send\n- 0x446af397a026226591f85538ecbba2c4/dns.try.once\n- 0x446af397a026226591f85538ecbba2c4/dns.tries\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.sock\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.id\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.ns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.at\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n3\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n1b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.list\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.read\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.conf\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.lookup.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.os\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.from\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.text\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.opened\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.hosts\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.ask\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.raw.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.gzip.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.open\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish.id\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish\n- io.recv.words\n- io.send.words\n- io.send.bytes\n- io.close\n- fetch.close\n- fetch.bad\n- fetch.shut\n- fetch.hold.go\n- fetch.hold\n- fetch.failout\n- fetch.loop\n- exchange.sent\n- exchange.go\n- exchange\n- conn.close\n- conns.cut\n- pool.give.of\n- pool.give\n- pool.close.go\n- pool.close\n- conn.tls\n- conn.h2.sent\n- conn.h2.start\n- conn.tls.protocol\n- conn.tls.alpn\n- conn.secure.no.cert\n- conn.secure.tls\n- conn.secure\n- conn.made\n- conn.open\n- conn.dial.time\n- conn.dial.with\n- conn.dial.try\n- conn.dial.after\n- conn.dial.more\n- conn.dial.fold\n- conn.dial.all\n- conn.open.all\n- h2.send.report\n- h2.send.one\n- h2.send.fold\n- h2.send\n- h2.fail\n- h2.loop\n- h2.exchange\n- proxy.connect.fail\n- proxy.connect.extra\n- proxy.connect.status\n- proxy.connect.finish\n- proxy.connect.loop\n- proxy.connect.sent\n- proxy.connect\n- proxy.route.tls\n- proxy.route.connected\n- proxy.route.open\n- route.open\n- conn.ex.h1\n- pool.keep.s\n- pool.keep.m\n- pool.keep\n- pool.after\n- pool.h2.keep\n- pool.h2.result\n- pool.h2.ex\n- pool.fresh.conn\n- pool.fresh\n- pool.stale\n- pool.reused\n- pool.idle.h1.bodies\n- pool.idle.h1\n- pool.idle.reuse\n- pool.idle\n- pool.origin.proxy\n- pool.origin.choice\n- pool.origin\n- pool.one.of\n- pool.one\n- pool.hops.one\n- pool.hops\n- ce.io.zstd\n- ce.io.br\n- ce.io.gz\n- ce.io.go\n- decoded.io.run\n- decoded.io.go\n- decoded.io\n- codings\n- fetch.final\n- pool.final\n- pool.how.enc\n- pool.how.cert\n- pool.how\n- pool.fetch.with\n- pool.fetch\n- pool.fetch.cert.with\n- pool.fetch.cert\n- fetch.all.job\n- fetch.all.close\n- fetch.all.done\n- fetch.all.go\n- fetch.all.of\n- fetch.all\n- pool.jar.final\n- pool.jar.enc\n- pool.fetch.jar\n- fetch.end\n- fetch.how\n- fetch.with\n- fetch.cert.with\n- fetch.cert\n- fetch\n- get\n- post.json\n- retry.sleep\n- retry.one\n- retry.go\n- retry.start\n- fetch.retry\n- stream.feed.step\n- stream.feed.one\n- stream.feed.all\n- stream.feed.st\n- stream.finish\n- stream.read\n- stream.close\n- stream.head\n- stream.sent\n- stream.conn\n- stream.origin\n- stream.one.of\n- stream.one\n- stream.hops\n- stream.open.zstd\n- stream.open.br\n- stream.open.gz\n- stream.open.step\n- stream.open.one\n- stream.open.all\n- stream.init.opened\n- stream.init.known\n- stream.init.st\n- stream.init\n- open.raw.with\n- open.raw\n- open.with.enc\n- open.with\n- open\n- up.conn\n- up.origin\n- up.url\n- upload.with\n- upload\n- up.put\n- up.chunk\n- upload.write\n- upload.finish\n- bounded.send.ready\n- bounded.send\n- reply.drain\n- reply.sent.close\n- reply_fail\n- talk.send\n- talk.cont\n- talk.read.ready\n- talk.read\n- talk.recv.selected\n- talk.recv\n- admission.reject\n- admission.request\n- talk\n- conn.admitted\n- conn\n- loop\n- serve.on.with\n- serve.on\n- serve.with\n- serve\n- server.started\n- server.start.valid\n- server.start\n- server.admitted\n- server.accepted\n- server.accept\n- server.run.loop\n- server.run\n- serve.stream.respond\n- serve.stream.talk\n- serve.stream.conn.admitted\n- serve.stream.conn\n- serve.stream.loop\n- serve.stream.on.with\n- serve.stream.with\n- serve.stream.started\n- serve.stream.config\n- writer.raw\n- writer.chunk\n- writer.known\n- writer.chunk.go\n- writer.write.mode\n- writer.write\n- writer.finish.mode\n- writer.finish\n- serve.write.finish\n- serve.write.body\n- serve.write.open\n- serve.write.send.plan\n- serve.write.send\n- admission.write\n- serve.write.talk\n- serve.write.conn.admitted\n- serve.write.conn\n- serve.write.loop\n- serve.write.on.with\n- serve.write.with\n- serve.write.started\n- serve.write.config\n"
+    },
+    {
+      "command": [
+        "bend",
+        "http/admission_check.bend",
+        "--check-only"
+      ],
+      "status": 1,
+      "elapsed_s": 0.677,
+      "peak_descendant_rss_kib": 595680,
+      "adverse": [],
+      "output": "SOME PROOFS FAIL\nError:\n- message  : a parameter or field scrutinee (a match cannot scrutinize a computed value: give it its own def)\nLocation:\n177 | def observed(mode: String, server: Http.Server<Unit>) -> IO(Unit):\n178>|   (returned, +observer) = Http.server.observer(~Unit, server)\n    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n179 |   do IO<Unit>:\n"
+    },
+    {
+      "command": [
+        "bend",
+        "http/admission_check.bend",
+        "--check-only"
+      ],
+      "status": 1,
+      "elapsed_s": 1.229,
+      "peak_descendant_rss_kib": 1445856,
+      "adverse": [],
+      "output": "SOME PROOFS FAIL\nError:\n- expected : Result<&1, &1, Sigma<&1, &1, U32, _ => String>, Http.Server<Unit>>\n- observed : Result<&2, &1, Http.StartupError, Http.Server<Unit>>\nContext:\n- mode  : String\n- owner : Unit\n- got   : Result<&2, &1, Http.StartupError, Http.Server<Unit>>\nLocation: started\n189 |   do IO<Unit>:\n190>|     server : Http.Server<Unit> <- IO.pass(Http.Server<Unit>, got)\n    |                                                              ^^^\n191 |     observed(mode, server)\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "/tmp/http328-smoke.py"
+      ],
+      "status": 0,
+      "elapsed_s": 13.272,
+      "peak_descendant_rss_kib": 3334320,
+      "adverse": [],
+      "output": "[{'lane': 'native', 'mode': 'whole', 'profile': 'connections', 'caps': (2, 16, 16), 'counts': [(0, 0, 0, 0, 0, 0, 0, 0, 0), (2, 0, 2, 2, 0, 2, 0, 0, 0), (2, 0, 2, 2, 0, 2, 8, 0, 0), (0, 0, 0, 2, 0, 2, 8, 0, 0)], 'journal': 'start /recovered\\nreturn /recovered\\n', 'command': ['/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http328-small-tuue8rav/admission', '--threads', '1', '--gpu', 'off', 'whole', 'connections', '64769'], 'exit_status': -15, 'peak_sampled_rss_kib': 32}]\nSmall native whole connection burst PASS\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "http/admission_check.py"
+      ],
+      "status": 0,
+      "elapsed_s": 42.267,
+      "peak_descendant_rss_kib": 3303024,
+      "adverse": [],
+      "output": "native/whole/connections: exact bounds, rejection journal, release/recovery PASS\nnative/whole/buffered: exact bounds, rejection journal, release/recovery PASS\nnative/whole/active: exact bounds, rejection journal, release/recovery PASS\nnative/stream/connections: exact bounds, rejection journal, release/recovery PASS\nnative/stream/buffered: exact bounds, rejection journal, release/recovery PASS\nnative/stream/active: exact bounds, rejection journal, release/recovery PASS\nnative/writer/connections: exact bounds, rejection journal, release/recovery PASS\nnative/writer/buffered: exact bounds, rejection journal, release/recovery PASS\nnative/writer/active: exact bounds, rejection journal, release/recovery PASS\njs/whole/connections: exact bounds, rejection journal, release/recovery PASS\njs/whole/buffered: exact bounds, rejection journal, release/recovery PASS\njs/whole/active: exact bounds, rejection journal, release/recovery PASS\njs/stream/connections: exact bounds, rejection journal, release/recovery PASS\njs/stream/buffered: exact bounds, rejection journal, release/recovery PASS\njs/stream/active: exact bounds, rejection journal, release/recovery PASS\njs/writer/connections: exact bounds, rejection journal, release/recovery PASS\njs/writer/buffered: exact bounds, rejection journal, release/recovery PASS\njs/writer/active: exact bounds, rejection journal, release/recovery PASS\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "http/limits_check.py"
+      ],
+      "status": 0,
+      "elapsed_s": 69.637,
+      "peak_descendant_rss_kib": 3152416,
+      "adverse": [],
+      "output": "native/whole: shared size/phase socket scenarios PASS\nnative/stream: shared size/phase socket scenarios PASS\nnative/writer: shared size/phase socket scenarios PASS\njs/whole: shared size/phase socket scenarios PASS\njs/stream: shared size/phase socket scenarios PASS\njs/writer: shared size/phase socket scenarios PASS\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "http/startup_check.py"
+      ],
+      "status": 0,
+      "elapsed_s": 13.824,
+      "peak_descendant_rss_kib": 3068688,
+      "adverse": [],
+      "output": "native: bind rollback, sixteen invalid configs, exact representability boundary, accepting readiness, three shared-context requests PASS\njs: bind rollback, sixteen invalid configs, exact representability boundary, accepting readiness, three shared-context requests PASS\n"
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/check.sh",
+        "http"
+      ],
+      "status": 0,
+      "elapsed_s": 70.079,
+      "peak_descendant_rss_kib": 3838544,
+      "adverse": [],
+      "output": "== http\nSOME PROOFS FAIL\nError: 304 defs rely on unsafe or foreign code:\n- admission.loop\n- admission.finish\n- admission.open\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.connect\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv_from\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send_to\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect.cert\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect.alpn\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.send\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.recv\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.close\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send.words.deadline\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv_from.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send_to.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.recv.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.send.words\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.wall.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.now\n- 0x584fc27920487ceab242392391418d7f/json.encb.go\n- 0x584fc27920487ceab242392391418d7f/json.encode.bytes\n- 0x4e8235741fad6df1605249df49ecae86/wire.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.cert\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.alpn\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.close\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send.words\n- 0x446af397a026226591f85538ecbba2c4/dns.try.sent\n- 0x446af397a026226591f85538ecbba2c4/dns.try.send\n- 0x446af397a026226591f85538ecbba2c4/dns.try.once\n- 0x446af397a026226591f85538ecbba2c4/dns.tries\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.sock\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.id\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.ns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.at\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n3\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n1b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.list\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.read\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.conf\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.lookup.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.os\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.from\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.text\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.opened\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.hosts\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.ask\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.raw.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.gzip.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.open\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish.id\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish\n- io.recv.words\n- io.send.words\n- io.send.bytes\n- io.close\n- fetch.close\n- fetch.bad\n- fetch.shut\n- fetch.hold.go\n- fetch.hold\n- fetch.failout\n- fetch.loop\n- exchange.sent\n- exchange.go\n- exchange\n- conn.close\n- conns.cut\n- pool.give.of\n- pool.give\n- pool.close.go\n- pool.close\n- conn.tls\n- conn.h2.sent\n- conn.h2.start\n- conn.tls.protocol\n- conn.tls.alpn\n- conn.secure.no.cert\n- conn.secure.tls\n- conn.secure\n- conn.made\n- conn.open\n- conn.dial.time\n- conn.dial.with\n- conn.dial.try\n- conn.dial.after\n- conn.dial.more\n- conn.dial.fold\n- conn.dial.all\n- conn.open.all\n- h2.send.report\n- h2.send.one\n- h2.send.fold\n- h2.send\n- h2.fail\n- h2.loop\n- h2.exchange\n- proxy.connect.fail\n- proxy.connect.extra\n- proxy.connect.status\n- proxy.connect.finish\n- proxy.connect.loop\n- proxy.connect.sent\n- proxy.connect\n- proxy.route.tls\n- proxy.route.connected\n- proxy.route.open\n- route.open\n- conn.ex.h1\n- pool.keep.s\n- pool.keep.m\n- pool.keep\n- pool.after\n- pool.h2.keep\n- pool.h2.result\n- pool.h2.ex\n- pool.fresh.conn\n- pool.fresh\n- pool.stale\n- pool.reused\n- pool.idle.h1.bodies\n- pool.idle.h1\n- pool.idle.reuse\n- pool.idle\n- pool.origin.proxy\n- pool.origin.choice\n- pool.origin\n- pool.one.of\n- pool.one\n- pool.hops.one\n- pool.hops\n- ce.io.zstd\n- ce.io.br\n- ce.io.gz\n- ce.io.go\n- decoded.io.run\n- decoded.io.go\n- decoded.io\n- codings\n- fetch.final\n- pool.final\n- pool.how.enc\n- pool.how.cert\n- pool.how\n- pool.fetch.with\n- pool.fetch\n- pool.fetch.cert.with\n- pool.fetch.cert\n- fetch.all.job\n- fetch.all.close\n- fetch.all.done\n- fetch.all.go\n- fetch.all.of\n- fetch.all\n- pool.jar.final\n- pool.jar.enc\n- pool.fetch.jar\n- fetch.end\n- fetch.how\n- fetch.with\n- fetch.cert.with\n- fetch.cert\n- fetch\n- get\n- post.json\n- retry.sleep\n- retry.one\n- retry.go\n- retry.start\n- fetch.retry\n- stream.feed.step\n- stream.feed.one\n- stream.feed.all\n- stream.feed.st\n- stream.finish\n- stream.read\n- stream.close\n- stream.head\n- stream.sent\n- stream.conn\n- stream.origin\n- stream.one.of\n- stream.one\n- stream.hops\n- stream.open.zstd\n- stream.open.br\n- stream.open.gz\n- stream.open.step\n- stream.open.one\n- stream.open.all\n- stream.init.opened\n- stream.init.known\n- stream.init.st\n- stream.init\n- open.raw.with\n- open.raw\n- open.with.enc\n- open.with\n- open\n- up.conn\n- up.origin\n- up.url\n- upload.with\n- upload\n- up.put\n- up.chunk\n- upload.write\n- upload.finish\n- bounded.send.ready\n- bounded.send\n- reply.drain\n- reply.sent.close\n- reply_fail\n- talk.send\n- talk.cont\n- talk.read.ready\n- talk.read\n- talk.recv.selected\n- talk.recv\n- admission.reject\n- admission.request\n- talk\n- conn.admitted\n- conn\n- loop\n- serve.on.with\n- serve.on\n- serve.with\n- serve\n- server.started\n- server.start.valid\n- server.start\n- server.admitted\n- server.accepted\n- server.accept\n- server.run.loop\n- server.run\n- serve.stream.respond\n- serve.stream.talk\n- serve.stream.conn.admitted\n- serve.stream.conn\n- serve.stream.loop\n- serve.stream.on.with\n- serve.stream.with\n- serve.stream.started\n- serve.stream.config\n- writer.raw\n- writer.chunk\n- writer.known\n- writer.chunk.go\n- writer.write.mode\n- writer.write\n- writer.finish.mode\n- writer.finish\n- serve.write.finish\n- serve.write.body\n- serve.write.open\n- serve.write.send.plan\n- serve.write.send\n- admission.write\n- serve.write.talk\n- serve.write.conn.admitted\n- serve.write.conn\n- serve.write.loop\n- serve.write.on.with\n- serve.write.with\n- serve.write.started\n- serve.write.config\nSOME PROOFS FAIL\nError: 304 defs rely on unsafe or foreign code:\n- admission.loop\n- admission.finish\n- admission.open\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.connect\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv_from\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send_to\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect.cert\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.connect.alpn\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.send\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.recv\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.close\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send.words.deadline\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.recv_from.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.send_to.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.recv.words\n- 0x247a5ed9b007fd4a3007e764c6b14986/wire.tls.send.words\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.wall.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.now\n- 0x584fc27920487ceab242392391418d7f/json.encb.go\n- 0x584fc27920487ceab242392391418d7f/json.encode.bytes\n- 0x4e8235741fad6df1605249df49ecae86/wire.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.cert\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.alpn\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.close\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send.words\n- 0x446af397a026226591f85538ecbba2c4/dns.try.sent\n- 0x446af397a026226591f85538ecbba2c4/dns.try.send\n- 0x446af397a026226591f85538ecbba2c4/dns.try.once\n- 0x446af397a026226591f85538ecbba2c4/dns.tries\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.sock\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.id\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.ns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.at\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n3\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n1b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.list\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.read\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.conf\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.lookup.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.os\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.from\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.text\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.opened\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.hosts\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.ask\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.raw.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.gzip.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.open\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish.id\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish\n- http.io.recv.words\n- http.io.send.words\n- http.io.send.bytes\n- http.io.close\n- http.fetch.close\n- http.fetch.bad\n- http.fetch.shut\n- http.fetch.hold.go\n- http.fetch.hold\n- http.fetch.failout\n- http.fetch.loop\n- http.exchange.sent\n- http.exchange.go\n- http.exchange\n- http.conn.close\n- http.conns.cut\n- http.pool.give.of\n- http.pool.give\n- http.pool.close.go\n- http.pool.close\n- http.conn.tls\n- http.conn.h2.sent\n- http.conn.h2.start\n- http.conn.tls.protocol\n- http.conn.tls.alpn\n- http.conn.secure.no.cert\n- http.conn.secure.tls\n- http.conn.secure\n- http.conn.made\n- http.conn.open\n- http.conn.dial.time\n- http.conn.dial.with\n- http.conn.dial.try\n- http.conn.dial.after\n- http.conn.dial.more\n- http.conn.dial.fold\n- http.conn.dial.all\n- http.conn.open.all\n- http.h2.send.report\n- http.h2.send.one\n- http.h2.send.fold\n- http.h2.send\n- http.h2.fail\n- http.h2.loop\n- http.h2.exchange\n- http.proxy.connect.fail\n- http.proxy.connect.extra\n- http.proxy.connect.status\n- http.proxy.connect.finish\n- http.proxy.connect.loop\n- http.proxy.connect.sent\n- http.proxy.connect\n- http.proxy.route.tls\n- http.proxy.route.connected\n- http.proxy.route.open\n- http.route.open\n- http.conn.ex.h1\n- http.pool.keep.s\n- http.pool.keep.m\n- http.pool.keep\n- http.pool.after\n- http.pool.h2.keep\n- http.pool.h2.result\n- http.pool.h2.ex\n- http.pool.fresh.conn\n- http.pool.fresh\n- http.pool.stale\n- http.pool.reused\n- http.pool.idle.h1.bodies\n- http.pool.idle.h1\n- http.pool.idle.reuse\n- http.pool.idle\n- http.pool.origin.proxy\n- http.pool.origin.choice\n- http.pool.origin\n- http.pool.one.of\n- http.pool.one\n- http.pool.hops.one\n- http.pool.hops\n- http.ce.io.zstd\n- http.ce.io.br\n- http.ce.io.gz\n- http.ce.io.go\n- http.decoded.io.run\n- http.decoded.io.go\n- http.decoded.io\n- http.codings\n- http.fetch.final\n- http.pool.final\n- http.pool.how.enc\n- http.pool.how.cert\n- http.pool.how\n- http.pool.fetch.with\n- http.pool.fetch\n- http.pool.fetch.cert.with\n- http.pool.fetch.cert\n- http.fetch.all.job\n- http.fetch.all.close\n- http.fetch.all.done\n- http.fetch.all.go\n- http.fetch.all.of\n- http.fetch.all\n- http.pool.jar.final\n- http.pool.jar.enc\n- http.pool.fetch.jar\n- http.fetch.end\n- http.fetch.how\n- http.fetch.with\n- http.fetch.cert.with\n- http.fetch.cert\n- http.fetch\n- http.get\n- http.post.json\n- http.retry.sleep\n- http.retry.one\n- http.retry.go\n- http.retry.start\n- http.fetch.retry\n- http.stream.feed.step\n- http.stream.feed.one\n- http.stream.feed.all\n- http.stream.feed.st\n- http.stream.finish\n- http.stream.read\n- http.stream.close\n- http.stream.head\n- http.stream.sent\n- http.stream.conn\n- http.stream.origin\n- http.stream.one.of\n- http.stream.one\n- http.stream.hops\n- http.stream.open.zstd\n- http.stream.open.br\n- http.stream.open.gz\n- http.stream.open.step\n- http.stream.open.one\n- http.stream.open.all\n- http.stream.init.opened\n- http.stream.init.known\n- http.stream.init.st\n- http.stream.init\n- http.open.raw.with\n- http.open.raw\n- http.open.with.enc\n- http.open.with\n- http.open\n- http.up.conn\n- http.up.origin\n- http.up.url\n- http.upload.with\n- http.upload\n- http.up.put\n- http.up.chunk\n- http.upload.write\n- http.upload.finish\n- http.bounded.send.ready\n- http.bounded.send\n- http.reply.drain\n- http.reply.sent.close\n- http.reply_fail\n- http.talk.send\n- http.talk.cont\n- http.talk.read.ready\n- http.talk.read\n- http.talk.recv.selected\n- http.talk.recv\n- http.admission.reject\n- http.admission.request\n- http.talk\n- http.conn.admitted\n- http.conn\n- http.loop\n- http.serve.on.with\n- http.serve.on\n- http.serve.with\n- http.serve\n- http.server.started\n- http.server.start.valid\n- http.server.start\n- http.server.admitted\n- http.server.accepted\n- http.server.accept\n- http.server.run.loop\n- http.server.run\n- http.serve.stream.respond\n- http.serve.stream.talk\n- http.serve.stream.conn.admitted\n- http.serve.stream.conn\n- http.serve.stream.loop\n- http.serve.stream.on.with\n- http.serve.stream.with\n- http.serve.stream.started\n- http.serve.stream.config\n- http.writer.raw\n- http.writer.chunk\n- http.writer.known\n- http.writer.chunk.go\n- http.writer.write.mode\n- http.writer.write\n- http.writer.finish.mode\n- http.writer.finish\n- http.serve.write.finish\n- http.serve.write.body\n- http.serve.write.open\n- http.serve.write.send.plan\n- http.serve.write.send\n- http.admission.write\n- http.serve.write.talk\n- http.serve.write.conn.admitted\n- http.serve.write.conn\n- http.serve.write.loop\n- http.serve.write.on.with\n- http.serve.write.with\n- http.serve.write.started\n- http.serve.write.config\nok decoded body counter rejects representability overflow\nnone\nGET /x []\nHTTP/1.1 200 OK\ncontent-length: 2\n\nok\nGET /x [hello]\nHTTP/1.1 200 OK\ncontent-length: 2\n\nok\nnone\nPOST / [hello]\nHTTP/1.1 200 OK\ncontent-length: 2\n\nok\nok\nabc\nok h2 Connection-nominated header\nok h2 caller pseudo-header\nok h2 regular header\nok h2 status has exactly three digits\nok h2 interim followed by final response\npool yyn\npool ynn\nok local status\nok local Host header\nok local status\nok local Host header\nok gzip stream bytes\nok gzip stream piece count\nok gzip stream bytes\nok gzip stream piece count\nok gzip stream bytes\nok gzip stream piece count\nok resolve https://api.example.com/v1/users/7?x=1\nok resolve https://api.example.com/health\nok resolve http://[::1]:8080/c\nok resolve http://b.example/y\nok resolve refuses a relative base\nok retry GET: 503, 500, then 200 on try 3 of 3\nok retry POST: one try, 503 kept\nok retry exhausted: last 504 kept\nok post.json\nok proxy HTTP method\nok proxy absolute-form\nok proxy origin Host\nok proxy HTTP authorization\nok proxy HTTP status\nok proxy HTTP body\nok proxy CONNECT authority\nok proxy CONNECT authorization\nok proxy CONNECT followed by TLS\nfetch.all: 16 requests of 100 ms on 8 workers in 217 ms\nok fetch.all: 16 distinct results in request order\nok fetch.all: 8 at once, well under 1600 ms serial\nok fetch.all: no requests, no results\nok fetch.all: n = 0 runs one worker; a bad URL fails in place\nok cookie Secure sent over https\nok cookie Secure not sent over http\nok cookie HttpOnly and SameSite kept\nok cookie Secure from http ignored\nok cookie SameSite=None without Secure ignored\nok cookie __Host- accepted\nok cookie __Host- with Domain ignored\nok cookie __Secure- without Secure ignored\nok cookie jar: redirect cookie reached the next hop (got sid=abc)\nok cookie jar: caller cookie and jar in one field (got pre=1; sid=abc; last=1)\nok cookie jar kept redirect and final Set-Cookie\nok cookie jar: host-only cookie not sent to another host\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "http/bench/run.py"
+      ],
+      "status": 0,
+      "elapsed_s": 17.875,
+      "peak_descendant_rss_kib": 2466784,
+      "adverse": [],
+      "output": "ran C\nran Rust\nran Bun\nran Node\nran Python\nran Bend\nparse_req checksum 8200000\nparse_res checksum 8300000\nencode_req checksum 954665139\nencode_res checksum 4171655946\n| op | C | Rust | Bun | Node | Python | Bend |\n|---|---:|---:|---:|---:|---:|---:|\n| parse_req | 3.6 (2.0x) | 1.8 (1.0x) | 17.0 (9.4x) | 20.0 (11.1x) | 446.9 (248.3x) | 525.7 (292.1x) |\n| parse_res | 2.3 (1.5x) | 1.5 (1.0x) | 12.5 (8.3x) | 15.0 (10.0x) | 316.9 (211.3x) | 434.3 (289.5x) |\n| encode_req | n/a | n/a | n/a | n/a | 317.2 (1.6x) | 195.7 (1.0x) |\n| encode_res | n/a | n/a | n/a | n/a | 272.1 (2.1x) | 131.8 (1.0x) |\n"
+    },
+    {
+      "command": [
+        "bend",
+        "version"
+      ],
+      "status": 0,
+      "elapsed_s": 0.016,
+      "peak_descendant_rss_kib": 0,
+      "adverse": [],
+      "output": "bend 2.0.35\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "camber/run_transport_risks.py"
+      ],
+      "status": 1,
+      "elapsed_s": 1.259,
+      "peak_descendant_rss_kib": 759856,
+      "adverse": [],
+      "output": "Traceback (most recent call last):\n  File \"/Users/paymahn/code/bend-kit-issue-328/camber/run_transport_risks.py\", line 157, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/paymahn/code/bend-kit-issue-328/camber/run_transport_risks.py\", line 118, in main\n    _, rss, seconds = guarded([\"bend\", ROOT / \"camber/transport_probe.bend\", \"-o\", binary], 180)\n                      ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/paymahn/code/bend-kit-issue-328/camber/run_dispatch.py\", line 51, in guarded\n    raise RuntimeError(f\"command failed: {command}\\n{stdout}\\n{stderr}\")\nRuntimeError: command failed: ['bend', PosixPath('/Users/paymahn/code/bend-kit-issue-328/camber/transport_probe.bend'), '-o', PosixPath('/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-transport-risks-befgt6yj/probe')]\n\nSOME PROOFS FAIL\nError:\n- message  : 'fuel' can't be matched in this position (it is matched after a local statement or after a match on a later binder, it was already matched, or it is a def)\nLocation:\n20 |     case AcceptListening{server}:\n21>|       match fuel:\n   |             ^^^^\n22 |         case 0n:\n\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "camber/run_transport_risks.py"
+      ],
+      "status": 0,
+      "elapsed_s": 25.992,
+      "peak_descendant_rss_kib": 5953840,
+      "adverse": [],
+      "output": "native/startup: returncode=48; readiness=False\nnative/admission-1: 3 endpoints; one busy worker\nnative/admission-129: 128 endpoints; one busy worker\nnative/write-reset-False: raw_failure=False; public_close=True\nnative/write-reset-True: raw_failure=True; public_close=True\njavascript/startup: returncode=48; readiness=False\njavascript/admission-1: 3 endpoints; one busy worker\njavascript/admission-129: 128 endpoints; one busy worker\njavascript/write-reset-False: raw_failure=False; public_close=True\njavascript/write-reset-True: raw_failure=True; public_close=True\n"
+    }
+  ],
+  "prior_unbounded_transport_observation": {
+    "date": "2026-10-02",
+    "bend": "bend 2.0.34",
+    "bun": "1.3.14",
+    "lanes": {
+      "native": {
+        "build_seconds": 17.644978791009635,
+        "sampled_build_peak_rss_kib": 5738560,
+        "cases": {
+          "startup_bind_failure": {
+            "returncode": 48,
+            "wall_seconds": 0.2375787920318544,
+            "sampled_peak_rss_kib": 32,
+            "events": [
+              {
+                "seconds": 0.2274112090235576,
+                "text": "DIRECT PASS"
+              }
+            ],
+            "stderr": "Address already in use\n",
+            "journal": null,
+            "unrelated_journal": null,
+            "resource_files_created": {
+              "store": true,
+              "audit": true
+            },
+            "readiness_reported": false,
+            "explicit_bundle_close_markers": []
+          },
+          "admission_1_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.06400562496855855,
+            "sampled_peak_rss_kib": 2384,
+            "events": [
+              {
+                "seconds": 0.003290542052127421,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.003398834029212594,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.0063255419954657555,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.007036459050141275,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.059546833974309266,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.061737666954286397,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.061764833983033895,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+              },
+              {
+                "seconds": 0.06176591699477285,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers": 1,
+            "partial_body_bytes_sent": 1024,
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 1
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 1
+            },
+            "established_server_endpoints": 3,
+            "endpoint_evidence": [
+              "nlocalhost:55927->localhost:55928",
+              "nlocalhost:55927->localhost:55929",
+              "nlocalhost:55927->localhost:55931"
+            ],
+            "exceeds_proposed_128_connection_default": false,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "admission_129_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.08870420895982534,
+            "sampled_peak_rss_kib": 5216,
+            "events": [
+              {
+                "seconds": 0.0026783340144902468,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.0027873750077560544,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.003171792021021247,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.013186375028453767,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.07904629199765623,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.0861776249948889,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.08636366704013199,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+              },
+              {
+                "seconds": 0.08636841701809317,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers": 129,
+            "partial_body_bytes_sent": 132096,
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 1
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 1
+            },
+            "established_server_endpoints": 131,
+            "endpoint_evidence": [
+              "nlocalhost:55932->localhost:55933",
+              "nlocalhost:55932->localhost:55934",
+              "nlocalhost:55932->localhost:55935",
+              "nlocalhost:55932->localhost:55936",
+              "nlocalhost:55932->localhost:55937",
+              "nlocalhost:55932->localhost:55938",
+              "nlocalhost:55932->localhost:55939",
+              "nlocalhost:55932->localhost:55940",
+              "nlocalhost:55932->localhost:55941",
+              "nlocalhost:55932->localhost:55942",
+              "nlocalhost:55932->localhost:55943",
+              "nlocalhost:55932->localhost:55944",
+              "nlocalhost:55932->localhost:55945",
+              "nlocalhost:55932->localhost:55946",
+              "nlocalhost:55932->localhost:55947",
+              "nlocalhost:55932->localhost:55948",
+              "nlocalhost:55932->localhost:55949",
+              "nlocalhost:55932->localhost:55950",
+              "nlocalhost:55932->localhost:55951",
+              "nlocalhost:55932->localhost:55952",
+              "nlocalhost:55932->localhost:55953",
+              "nlocalhost:55932->localhost:55954",
+              "nlocalhost:55932->localhost:55955",
+              "nlocalhost:55932->localhost:55956",
+              "nlocalhost:55932->localhost:55957",
+              "nlocalhost:55932->localhost:55958",
+              "nlocalhost:55932->localhost:55959",
+              "nlocalhost:55932->localhost:55960",
+              "nlocalhost:55932->localhost:55961",
+              "nlocalhost:55932->localhost:55962",
+              "nlocalhost:55932->localhost:55963",
+              "nlocalhost:55932->localhost:55964",
+              "nlocalhost:55932->localhost:55965",
+              "nlocalhost:55932->localhost:55966",
+              "nlocalhost:55932->localhost:55967",
+              "nlocalhost:55932->localhost:55968",
+              "nlocalhost:55932->localhost:55969",
+              "nlocalhost:55932->localhost:55970",
+              "nlocalhost:55932->localhost:55971",
+              "nlocalhost:55932->localhost:55972",
+              "nlocalhost:55932->localhost:55973",
+              "nlocalhost:55932->localhost:55974",
+              "nlocalhost:55932->localhost:55975",
+              "nlocalhost:55932->localhost:55977",
+              "nlocalhost:55932->localhost:55978",
+              "nlocalhost:55932->localhost:55979",
+              "nlocalhost:55932->localhost:55980",
+              "nlocalhost:55932->localhost:55981",
+              "nlocalhost:55932->localhost:55982",
+              "nlocalhost:55932->localhost:55983",
+              "nlocalhost:55932->localhost:55984",
+              "nlocalhost:55932->localhost:55985",
+              "nlocalhost:55932->localhost:55986",
+              "nlocalhost:55932->localhost:55987",
+              "nlocalhost:55932->localhost:55988",
+              "nlocalhost:55932->localhost:55989",
+              "nlocalhost:55932->localhost:55990",
+              "nlocalhost:55932->localhost:55991",
+              "nlocalhost:55932->localhost:55992",
+              "nlocalhost:55932->localhost:55993",
+              "nlocalhost:55932->localhost:55994",
+              "nlocalhost:55932->localhost:55995",
+              "nlocalhost:55932->localhost:55996",
+              "nlocalhost:55932->localhost:55997",
+              "nlocalhost:55932->localhost:55998",
+              "nlocalhost:55932->localhost:55999",
+              "nlocalhost:55932->localhost:56000",
+              "nlocalhost:55932->localhost:56001",
+              "nlocalhost:55932->localhost:56002",
+              "nlocalhost:55932->localhost:56003",
+              "nlocalhost:55932->localhost:56004",
+              "nlocalhost:55932->localhost:56005",
+              "nlocalhost:55932->localhost:56006",
+              "nlocalhost:55932->localhost:56007",
+              "nlocalhost:55932->localhost:56008",
+              "nlocalhost:55932->localhost:56009",
+              "nlocalhost:55932->localhost:56010",
+              "nlocalhost:55932->localhost:56011",
+              "nlocalhost:55932->localhost:56012",
+              "nlocalhost:55932->localhost:56013",
+              "nlocalhost:55932->localhost:56014",
+              "nlocalhost:55932->localhost:56015",
+              "nlocalhost:55932->localhost:56016",
+              "nlocalhost:55932->localhost:56017",
+              "nlocalhost:55932->localhost:56018",
+              "nlocalhost:55932->localhost:56019",
+              "nlocalhost:55932->localhost:56020",
+              "nlocalhost:55932->localhost:56021",
+              "nlocalhost:55932->localhost:56022",
+              "nlocalhost:55932->localhost:56023",
+              "nlocalhost:55932->localhost:56024",
+              "nlocalhost:55932->localhost:56025",
+              "nlocalhost:55932->localhost:56026",
+              "nlocalhost:55932->localhost:56027",
+              "nlocalhost:55932->localhost:56028",
+              "nlocalhost:55932->localhost:56029",
+              "nlocalhost:55932->localhost:56030",
+              "nlocalhost:55932->localhost:56031",
+              "nlocalhost:55932->localhost:56032",
+              "nlocalhost:55932->localhost:56033",
+              "nlocalhost:55932->localhost:56034",
+              "nlocalhost:55932->localhost:56035",
+              "nlocalhost:55932->localhost:56036",
+              "nlocalhost:55932->localhost:56037",
+              "nlocalhost:55932->localhost:56038",
+              "nlocalhost:55932->localhost:56039",
+              "nlocalhost:55932->localhost:56040",
+              "nlocalhost:55932->localhost:56041",
+              "nlocalhost:55932->localhost:56042",
+              "nlocalhost:55932->localhost:56043",
+              "nlocalhost:55932->localhost:56044",
+              "nlocalhost:55932->localhost:56045",
+              "nlocalhost:55932->localhost:56046",
+              "nlocalhost:55932->localhost:56047",
+              "nlocalhost:55932->localhost:56048",
+              "nlocalhost:55932->localhost:56049",
+              "nlocalhost:55932->localhost:56050",
+              "nlocalhost:55932->localhost:56051",
+              "nlocalhost:55932->localhost:56052",
+              "nlocalhost:55932->localhost:56053",
+              "nlocalhost:55932->localhost:56054",
+              "nlocalhost:55932->localhost:56055",
+              "nlocalhost:55932->localhost:56056",
+              "nlocalhost:55932->localhost:56057",
+              "nlocalhost:55932->localhost:56058",
+              "nlocalhost:55932->localhost:56059",
+              "nlocalhost:55932->localhost:56060",
+              "nlocalhost:55932->localhost:56061",
+              "nlocalhost:55932->localhost:56062",
+              "nlocalhost:55932->localhost:56063",
+              "nlocalhost:55932->localhost:56065"
+            ],
+            "exceeds_proposed_128_connection_default": true,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "write_healthy": {
+            "returncode": 0,
+            "wall_seconds": 0.21218133298680186,
+            "sampled_peak_rss_kib": 1760,
+            "events": [
+              {
+                "seconds": 0.006339707993902266,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.006696583004668355,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.21074687503278255,
+                "text": "WRITE_SUCCEEDED"
+              },
+              {
+                "seconds": 0.21076404105406255,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": false,
+            "response_bytes": "HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length: 2\r\n\r\nok",
+            "raw_write_succeeded": true,
+            "raw_write_failed": false,
+            "public_turn_close": true
+          },
+          "write_reset": {
+            "returncode": 0,
+            "wall_seconds": 0.2399456660496071,
+            "sampled_peak_rss_kib": 1760,
+            "events": [
+              {
+                "seconds": 0.002894166042096913,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.0031762500293552876,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.20920304104220122,
+                "text": "WRITE_FAILED"
+              },
+              {
+                "seconds": 0.20921825000550598,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": true,
+            "response_bytes": null,
+            "raw_write_succeeded": false,
+            "raw_write_failed": true,
+            "public_turn_close": true
+          }
+        }
+      },
+      "javascript": {
+        "build_seconds": 3.242686708108522,
+        "sampled_build_peak_rss_kib": 3357648,
+        "cases": {
+          "startup_bind_failure": {
+            "returncode": 48,
+            "wall_seconds": 0.1782779999775812,
+            "sampled_peak_rss_kib": 53440,
+            "events": [
+              {
+                "seconds": 0.12347925000358373,
+                "text": "DIRECT PASS"
+              }
+            ],
+            "stderr": "Address already in use\n",
+            "journal": null,
+            "unrelated_journal": null,
+            "resource_files_created": {
+              "store": true,
+              "audit": true
+            },
+            "readiness_reported": false,
+            "explicit_bundle_close_markers": []
+          },
+          "admission_1_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.09049974998924881,
+            "sampled_peak_rss_kib": 50544,
+            "events": [
+              {
+                "seconds": 0.023360124905593693,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.028251291951164603,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.03135283396113664,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.03446508396882564,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.0851983749307692,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.08765687490813434,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.08770354196894914,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+              },
+              {
+                "seconds": 0.08771187497768551,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers": 1,
+            "partial_body_bytes_sent": 1024,
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 1
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 1
+            },
+            "established_server_endpoints": 3,
+            "endpoint_evidence": [
+              "nlocalhost:56083->localhost:56084",
+              "nlocalhost:56083->localhost:56085",
+              "nlocalhost:56083->localhost:56087"
+            ],
+            "exceeds_proposed_128_connection_default": false,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "admission_129_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.1752785419812426,
+            "sampled_peak_rss_kib": 104880,
+            "events": [
+              {
+                "seconds": 0.022585792001336813,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.028143542003817856,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.03154508396983147,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.07014408393297344,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.15631358395330608,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.169716167030856,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.1697567090159282,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+              },
+              {
+                "seconds": 0.16976624995004386,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers": 129,
+            "partial_body_bytes_sent": 132096,
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 1
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 1
+            },
+            "established_server_endpoints": 131,
+            "endpoint_evidence": [
+              "nlocalhost:56088->localhost:56089",
+              "nlocalhost:56088->localhost:56090",
+              "nlocalhost:56088->localhost:56091",
+              "nlocalhost:56088->localhost:56092",
+              "nlocalhost:56088->localhost:56093",
+              "nlocalhost:56088->localhost:56094",
+              "nlocalhost:56088->localhost:56095",
+              "nlocalhost:56088->localhost:56096",
+              "nlocalhost:56088->localhost:56097",
+              "nlocalhost:56088->localhost:56098",
+              "nlocalhost:56088->localhost:56099",
+              "nlocalhost:56088->localhost:56100",
+              "nlocalhost:56088->localhost:56101",
+              "nlocalhost:56088->localhost:56102",
+              "nlocalhost:56088->localhost:56103",
+              "nlocalhost:56088->localhost:56104",
+              "nlocalhost:56088->localhost:56105",
+              "nlocalhost:56088->localhost:56106",
+              "nlocalhost:56088->localhost:56107",
+              "nlocalhost:56088->localhost:56108",
+              "nlocalhost:56088->localhost:56109",
+              "nlocalhost:56088->localhost:56110",
+              "nlocalhost:56088->localhost:56111",
+              "nlocalhost:56088->localhost:56112",
+              "nlocalhost:56088->localhost:56113",
+              "nlocalhost:56088->localhost:56114",
+              "nlocalhost:56088->localhost:56115",
+              "nlocalhost:56088->localhost:56116",
+              "nlocalhost:56088->localhost:56117",
+              "nlocalhost:56088->localhost:56118",
+              "nlocalhost:56088->localhost:56119",
+              "nlocalhost:56088->localhost:56120",
+              "nlocalhost:56088->localhost:56121",
+              "nlocalhost:56088->localhost:56122",
+              "nlocalhost:56088->localhost:56123",
+              "nlocalhost:56088->localhost:56124",
+              "nlocalhost:56088->localhost:56125",
+              "nlocalhost:56088->localhost:56126",
+              "nlocalhost:56088->localhost:56127",
+              "nlocalhost:56088->localhost:56128",
+              "nlocalhost:56088->localhost:56129",
+              "nlocalhost:56088->localhost:56130",
+              "nlocalhost:56088->localhost:56131",
+              "nlocalhost:56088->localhost:56132",
+              "nlocalhost:56088->localhost:56133",
+              "nlocalhost:56088->localhost:56134",
+              "nlocalhost:56088->localhost:56135",
+              "nlocalhost:56088->localhost:56136",
+              "nlocalhost:56088->localhost:56137",
+              "nlocalhost:56088->localhost:56138",
+              "nlocalhost:56088->localhost:56139",
+              "nlocalhost:56088->localhost:56140",
+              "nlocalhost:56088->localhost:56141",
+              "nlocalhost:56088->localhost:56142",
+              "nlocalhost:56088->localhost:56143",
+              "nlocalhost:56088->localhost:56144",
+              "nlocalhost:56088->localhost:56145",
+              "nlocalhost:56088->localhost:56146",
+              "nlocalhost:56088->localhost:56147",
+              "nlocalhost:56088->localhost:56148",
+              "nlocalhost:56088->localhost:56149",
+              "nlocalhost:56088->localhost:56150",
+              "nlocalhost:56088->localhost:56151",
+              "nlocalhost:56088->localhost:56152",
+              "nlocalhost:56088->localhost:56153",
+              "nlocalhost:56088->localhost:56154",
+              "nlocalhost:56088->localhost:56155",
+              "nlocalhost:56088->localhost:56156",
+              "nlocalhost:56088->localhost:56157",
+              "nlocalhost:56088->localhost:56158",
+              "nlocalhost:56088->localhost:56159",
+              "nlocalhost:56088->localhost:56160",
+              "nlocalhost:56088->localhost:56161",
+              "nlocalhost:56088->localhost:56162",
+              "nlocalhost:56088->localhost:56163",
+              "nlocalhost:56088->localhost:56164",
+              "nlocalhost:56088->localhost:56165",
+              "nlocalhost:56088->localhost:56166",
+              "nlocalhost:56088->localhost:56167",
+              "nlocalhost:56088->localhost:56168",
+              "nlocalhost:56088->localhost:56169",
+              "nlocalhost:56088->localhost:56170",
+              "nlocalhost:56088->localhost:56171",
+              "nlocalhost:56088->localhost:56172",
+              "nlocalhost:56088->localhost:56173",
+              "nlocalhost:56088->localhost:56174",
+              "nlocalhost:56088->localhost:56175",
+              "nlocalhost:56088->localhost:56176",
+              "nlocalhost:56088->localhost:56177",
+              "nlocalhost:56088->localhost:56178",
+              "nlocalhost:56088->localhost:56179",
+              "nlocalhost:56088->localhost:56180",
+              "nlocalhost:56088->localhost:56181",
+              "nlocalhost:56088->localhost:56182",
+              "nlocalhost:56088->localhost:56183",
+              "nlocalhost:56088->localhost:56184",
+              "nlocalhost:56088->localhost:56185",
+              "nlocalhost:56088->localhost:56186",
+              "nlocalhost:56088->localhost:56187",
+              "nlocalhost:56088->localhost:56188",
+              "nlocalhost:56088->localhost:56189",
+              "nlocalhost:56088->localhost:56190",
+              "nlocalhost:56088->localhost:56191",
+              "nlocalhost:56088->localhost:56192",
+              "nlocalhost:56088->localhost:56193",
+              "nlocalhost:56088->localhost:56194",
+              "nlocalhost:56088->localhost:56195",
+              "nlocalhost:56088->localhost:56196",
+              "nlocalhost:56088->localhost:56197",
+              "nlocalhost:56088->localhost:56198",
+              "nlocalhost:56088->localhost:56199",
+              "nlocalhost:56088->localhost:56200",
+              "nlocalhost:56088->localhost:56201",
+              "nlocalhost:56088->localhost:56202",
+              "nlocalhost:56088->localhost:56203",
+              "nlocalhost:56088->localhost:56204",
+              "nlocalhost:56088->localhost:56205",
+              "nlocalhost:56088->localhost:56206",
+              "nlocalhost:56088->localhost:56207",
+              "nlocalhost:56088->localhost:56208",
+              "nlocalhost:56088->localhost:56209",
+              "nlocalhost:56088->localhost:56210",
+              "nlocalhost:56088->localhost:56211",
+              "nlocalhost:56088->localhost:56212",
+              "nlocalhost:56088->localhost:56213",
+              "nlocalhost:56088->localhost:56214",
+              "nlocalhost:56088->localhost:56215",
+              "nlocalhost:56088->localhost:56216",
+              "nlocalhost:56088->localhost:56217",
+              "nlocalhost:56088->localhost:56218",
+              "nlocalhost:56088->localhost:56220"
+            ],
+            "exceeds_proposed_128_connection_default": true,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "write_healthy": {
+            "returncode": 0,
+            "wall_seconds": 0.22764933400321752,
+            "sampled_peak_rss_kib": 33808,
+            "events": [
+              {
+                "seconds": 0.021408834028989077,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.022064500022679567,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.2263007089495659,
+                "text": "WRITE_SUCCEEDED"
+              },
+              {
+                "seconds": 0.2263424169505015,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": false,
+            "response_bytes": "HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length: 2\r\n\r\nok",
+            "raw_write_succeeded": true,
+            "raw_write_failed": false,
+            "public_turn_close": true
+          },
+          "write_reset": {
+            "returncode": 0,
+            "wall_seconds": 0.2578467909479514,
+            "sampled_peak_rss_kib": 33904,
+            "events": [
+              {
+                "seconds": 0.024012958048842847,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.024599083000794053,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.22920308297034353,
+                "text": "WRITE_FAILED"
+              },
+              {
+                "seconds": 0.22923295805230737,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": true,
+            "response_bytes": null,
+            "raw_write_succeeded": false,
+            "raw_write_failed": true,
+            "public_turn_close": true
+          }
+        }
+      }
+    }
+  },
+  "current_transport_observation": {
+    "date": "2026-10-03",
+    "bend": "bend 2.0.35",
+    "bun": "1.3.14",
+    "lanes": {
+      "native": {
+        "build_seconds": 20.6451887920266,
+        "sampled_build_peak_rss_kib": 4983200,
+        "cases": {
+          "startup_bind_failure": {
+            "returncode": 48,
+            "wall_seconds": 0.2806187500245869,
+            "sampled_peak_rss_kib": 32,
+            "events": [
+              {
+                "seconds": 0.25903437507804483,
+                "text": "DIRECT PASS"
+              }
+            ],
+            "stderr": "Address already in use\n",
+            "journal": null,
+            "unrelated_journal": null,
+            "resource_files_created": {
+              "store": true,
+              "audit": true
+            },
+            "readiness_reported": false,
+            "explicit_bundle_close_markers": []
+          },
+          "admission_1_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.07322158303577453,
+            "sampled_peak_rss_kib": 3152,
+            "events": [
+              {
+                "seconds": 0.005298500065691769,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.007419666973873973,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.014379875035956502,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.017780042020604014,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.07093437504954636,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.0722357080085203,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.07223812502343208,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+              },
+              {
+                "seconds": 0.07223883306141943,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers_attempted": 1,
+            "partial_locally_completed_sendalls": 1,
+            "partial_body_bytes_locally_sent": 1024,
+            "unsafe_partial_close_events": [],
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 1
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 1
+            },
+            "transport_overflow": "parsed-application-503",
+            "admitted_connection_cap": 128,
+            "established_server_endpoints": 3,
+            "endpoint_evidence": [
+              "nlocalhost:49778->localhost:49779",
+              "nlocalhost:49778->localhost:49780",
+              "nlocalhost:49778->localhost:49781"
+            ],
+            "exceeds_proposed_128_connection_default": false,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "admission_129_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.19481899996753782,
+            "sampled_peak_rss_kib": 5648,
+            "events": [
+              {
+                "seconds": 0.0028758749831467867,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.0029820000054314733,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.003560708020813763,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.054116667015478015,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.12142554193269461,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.1604806249961257,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.16048895800486207,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":0}"
+              },
+              {
+                "seconds": 0.16049041703809053,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers_attempted": 129,
+            "partial_locally_completed_sendalls": 129,
+            "partial_body_bytes_locally_sent": 132096,
+            "unsafe_partial_close_events": [],
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 0
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 0
+            },
+            "transport_overflow": "ConnectionResetError",
+            "admitted_connection_cap": 128,
+            "established_server_endpoints": 128,
+            "endpoint_evidence": [
+              "nlocalhost:49783->localhost:49784",
+              "nlocalhost:49783->localhost:49785",
+              "nlocalhost:49783->localhost:49786",
+              "nlocalhost:49783->localhost:49787",
+              "nlocalhost:49783->localhost:49788",
+              "nlocalhost:49783->localhost:49789",
+              "nlocalhost:49783->localhost:49790",
+              "nlocalhost:49783->localhost:49791",
+              "nlocalhost:49783->localhost:49792",
+              "nlocalhost:49783->localhost:49793",
+              "nlocalhost:49783->localhost:49794",
+              "nlocalhost:49783->localhost:49795",
+              "nlocalhost:49783->localhost:49796",
+              "nlocalhost:49783->localhost:49797",
+              "nlocalhost:49783->localhost:49798",
+              "nlocalhost:49783->localhost:49799",
+              "nlocalhost:49783->localhost:49800",
+              "nlocalhost:49783->localhost:49801",
+              "nlocalhost:49783->localhost:49802",
+              "nlocalhost:49783->localhost:49803",
+              "nlocalhost:49783->localhost:49804",
+              "nlocalhost:49783->localhost:49805",
+              "nlocalhost:49783->localhost:49806",
+              "nlocalhost:49783->localhost:49807",
+              "nlocalhost:49783->localhost:49808",
+              "nlocalhost:49783->localhost:49809",
+              "nlocalhost:49783->localhost:49810",
+              "nlocalhost:49783->localhost:49811",
+              "nlocalhost:49783->localhost:49812",
+              "nlocalhost:49783->localhost:49813",
+              "nlocalhost:49783->localhost:49814",
+              "nlocalhost:49783->localhost:49815",
+              "nlocalhost:49783->localhost:49816",
+              "nlocalhost:49783->localhost:49817",
+              "nlocalhost:49783->localhost:49818",
+              "nlocalhost:49783->localhost:49819",
+              "nlocalhost:49783->localhost:49820",
+              "nlocalhost:49783->localhost:49821",
+              "nlocalhost:49783->localhost:49822",
+              "nlocalhost:49783->localhost:49823",
+              "nlocalhost:49783->localhost:49824",
+              "nlocalhost:49783->localhost:49825",
+              "nlocalhost:49783->localhost:49826",
+              "nlocalhost:49783->localhost:49827",
+              "nlocalhost:49783->localhost:49828",
+              "nlocalhost:49783->localhost:49829",
+              "nlocalhost:49783->localhost:49830",
+              "nlocalhost:49783->localhost:49831",
+              "nlocalhost:49783->localhost:49832",
+              "nlocalhost:49783->localhost:49833",
+              "nlocalhost:49783->localhost:49834",
+              "nlocalhost:49783->localhost:49835",
+              "nlocalhost:49783->localhost:49836",
+              "nlocalhost:49783->localhost:49837",
+              "nlocalhost:49783->localhost:49838",
+              "nlocalhost:49783->localhost:49839",
+              "nlocalhost:49783->localhost:49840",
+              "nlocalhost:49783->localhost:49841",
+              "nlocalhost:49783->localhost:49842",
+              "nlocalhost:49783->localhost:49843",
+              "nlocalhost:49783->localhost:49844",
+              "nlocalhost:49783->localhost:49845",
+              "nlocalhost:49783->localhost:49846",
+              "nlocalhost:49783->localhost:49847",
+              "nlocalhost:49783->localhost:49848",
+              "nlocalhost:49783->localhost:49849",
+              "nlocalhost:49783->localhost:49850",
+              "nlocalhost:49783->localhost:49851",
+              "nlocalhost:49783->localhost:49852",
+              "nlocalhost:49783->localhost:49853",
+              "nlocalhost:49783->localhost:49854",
+              "nlocalhost:49783->localhost:49855",
+              "nlocalhost:49783->localhost:49856",
+              "nlocalhost:49783->localhost:49857",
+              "nlocalhost:49783->localhost:49858",
+              "nlocalhost:49783->localhost:49859",
+              "nlocalhost:49783->localhost:49860",
+              "nlocalhost:49783->localhost:49861",
+              "nlocalhost:49783->localhost:49862",
+              "nlocalhost:49783->localhost:49863",
+              "nlocalhost:49783->localhost:49864",
+              "nlocalhost:49783->localhost:49865",
+              "nlocalhost:49783->localhost:49866",
+              "nlocalhost:49783->localhost:49867",
+              "nlocalhost:49783->localhost:49868",
+              "nlocalhost:49783->localhost:49869",
+              "nlocalhost:49783->localhost:49870",
+              "nlocalhost:49783->localhost:49871",
+              "nlocalhost:49783->localhost:49872",
+              "nlocalhost:49783->localhost:49873",
+              "nlocalhost:49783->localhost:49874",
+              "nlocalhost:49783->localhost:49875",
+              "nlocalhost:49783->localhost:49876",
+              "nlocalhost:49783->localhost:49877",
+              "nlocalhost:49783->localhost:49878",
+              "nlocalhost:49783->localhost:49879",
+              "nlocalhost:49783->localhost:49880",
+              "nlocalhost:49783->localhost:49881",
+              "nlocalhost:49783->localhost:49882",
+              "nlocalhost:49783->localhost:49883",
+              "nlocalhost:49783->localhost:49884",
+              "nlocalhost:49783->localhost:49885",
+              "nlocalhost:49783->localhost:49886",
+              "nlocalhost:49783->localhost:49887",
+              "nlocalhost:49783->localhost:49888",
+              "nlocalhost:49783->localhost:49889",
+              "nlocalhost:49783->localhost:49890",
+              "nlocalhost:49783->localhost:49891",
+              "nlocalhost:49783->localhost:49892",
+              "nlocalhost:49783->localhost:49893",
+              "nlocalhost:49783->localhost:49894",
+              "nlocalhost:49783->localhost:49895",
+              "nlocalhost:49783->localhost:49896",
+              "nlocalhost:49783->localhost:49897",
+              "nlocalhost:49783->localhost:49898",
+              "nlocalhost:49783->localhost:49899",
+              "nlocalhost:49783->localhost:49900",
+              "nlocalhost:49783->localhost:49901",
+              "nlocalhost:49783->localhost:49902",
+              "nlocalhost:49783->localhost:49903",
+              "nlocalhost:49783->localhost:49904",
+              "nlocalhost:49783->localhost:49905",
+              "nlocalhost:49783->localhost:49906",
+              "nlocalhost:49783->localhost:49907",
+              "nlocalhost:49783->localhost:49908",
+              "nlocalhost:49783->localhost:49909",
+              "nlocalhost:49783->localhost:49910",
+              "nlocalhost:49783->localhost:49911"
+            ],
+            "exceeds_proposed_128_connection_default": false,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "write_healthy": {
+            "returncode": 0,
+            "wall_seconds": 0.20910208392888308,
+            "sampled_peak_rss_kib": 1760,
+            "events": [
+              {
+                "seconds": 0.0030739170033484697,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.003359166905283928,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.20762970892246813,
+                "text": "WRITE_SUCCEEDED"
+              },
+              {
+                "seconds": 0.20765370898880064,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": false,
+            "response_bytes": "HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length: 2\r\n\r\nok",
+            "raw_write_succeeded": true,
+            "raw_write_failed": false,
+            "public_turn_close": true
+          },
+          "write_reset": {
+            "returncode": 0,
+            "wall_seconds": 0.2381702079437673,
+            "sampled_peak_rss_kib": 1760,
+            "events": [
+              {
+                "seconds": 0.003205207991413772,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.003548625041730702,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.20798908302094787,
+                "text": "WRITE_FAILED"
+              },
+              {
+                "seconds": 0.20800341595895588,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": true,
+            "response_bytes": null,
+            "raw_write_succeeded": false,
+            "raw_write_failed": true,
+            "public_turn_close": true
+          }
+        }
+      },
+      "javascript": {
+        "build_seconds": 3.062647666083649,
+        "sampled_build_peak_rss_kib": 2650560,
+        "cases": {
+          "startup_bind_failure": {
+            "returncode": 48,
+            "wall_seconds": 0.18404079193715006,
+            "sampled_peak_rss_kib": 56352,
+            "events": [
+              {
+                "seconds": 0.12415399996098131,
+                "text": "DIRECT PASS"
+              }
+            ],
+            "stderr": "Address already in use\n",
+            "journal": null,
+            "unrelated_journal": null,
+            "resource_files_created": {
+              "store": true,
+              "audit": true
+            },
+            "readiness_reported": false,
+            "explicit_bundle_close_markers": []
+          },
+          "admission_1_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.12396516697481275,
+            "sampled_peak_rss_kib": 59312,
+            "events": [
+              {
+                "seconds": 0.02445270901080221,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.02960479201283306,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.03489654196891934,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.036718333954922855,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.11739016696810722,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.12112083402462304,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.1211834589485079,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+              },
+              {
+                "seconds": 0.12119558395352215,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers_attempted": 1,
+            "partial_locally_completed_sendalls": 1,
+            "partial_body_bytes_locally_sent": 1024,
+            "unsafe_partial_close_events": [],
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 1
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 1
+            },
+            "transport_overflow": "parsed-application-503",
+            "admitted_connection_cap": 128,
+            "established_server_endpoints": 3,
+            "endpoint_evidence": [
+              "nlocalhost:49921->localhost:49922",
+              "nlocalhost:49921->localhost:49923",
+              "nlocalhost:49921->localhost:49924"
+            ],
+            "exceeds_proposed_128_connection_default": false,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "admission_129_incomplete": {
+            "returncode": 0,
+            "wall_seconds": 0.18839483300689608,
+            "sampled_peak_rss_kib": 108000,
+            "events": [
+              {
+                "seconds": 0.022975292056798935,
+                "text": "DIRECT PASS"
+              },
+              {
+                "seconds": 0.028098750044591725,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.0326476669870317,
+                "text": "ENTER 0"
+              },
+              {
+                "seconds": 0.0788556250045076,
+                "text": "LISTENER CLOSED"
+              },
+              {
+                "seconds": 0.14797050005290657,
+                "text": "LEAVE 0"
+              },
+              {
+                "seconds": 0.16924375004600734,
+                "text": "CLOSED 0"
+              },
+              {
+                "seconds": 0.1692904579686001,
+                "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":0}"
+              },
+              {
+                "seconds": 0.16929862496908754,
+                "text": "live bundled ownership: PASS"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "incomplete_body_peers_attempted": 129,
+            "partial_locally_completed_sendalls": 129,
+            "partial_body_bytes_locally_sent": 132096,
+            "unsafe_partial_close_events": [],
+            "active_handler_counts": {
+              "limit": 1,
+              "busy": 1,
+              "mask": 1,
+              "completed": 0,
+              "rejected": 0
+            },
+            "recovered_counts": {
+              "limit": 1,
+              "busy": 0,
+              "mask": 0,
+              "completed": 1,
+              "rejected": 0
+            },
+            "transport_overflow": "ConnectionResetError",
+            "admitted_connection_cap": 128,
+            "established_server_endpoints": 128,
+            "endpoint_evidence": [
+              "nlocalhost:49926->localhost:49927",
+              "nlocalhost:49926->localhost:49928",
+              "nlocalhost:49926->localhost:49929",
+              "nlocalhost:49926->localhost:49930",
+              "nlocalhost:49926->localhost:49931",
+              "nlocalhost:49926->localhost:49932",
+              "nlocalhost:49926->localhost:49933",
+              "nlocalhost:49926->localhost:49934",
+              "nlocalhost:49926->localhost:49935",
+              "nlocalhost:49926->localhost:49936",
+              "nlocalhost:49926->localhost:49937",
+              "nlocalhost:49926->localhost:49938",
+              "nlocalhost:49926->localhost:49939",
+              "nlocalhost:49926->localhost:49940",
+              "nlocalhost:49926->localhost:49941",
+              "nlocalhost:49926->localhost:49942",
+              "nlocalhost:49926->localhost:49943",
+              "nlocalhost:49926->localhost:49944",
+              "nlocalhost:49926->localhost:49945",
+              "nlocalhost:49926->localhost:49946",
+              "nlocalhost:49926->localhost:49947",
+              "nlocalhost:49926->localhost:49948",
+              "nlocalhost:49926->localhost:49949",
+              "nlocalhost:49926->localhost:49950",
+              "nlocalhost:49926->localhost:49951",
+              "nlocalhost:49926->localhost:49952",
+              "nlocalhost:49926->localhost:49953",
+              "nlocalhost:49926->localhost:49954",
+              "nlocalhost:49926->localhost:49955",
+              "nlocalhost:49926->localhost:49956",
+              "nlocalhost:49926->localhost:49957",
+              "nlocalhost:49926->localhost:49958",
+              "nlocalhost:49926->localhost:49959",
+              "nlocalhost:49926->localhost:49960",
+              "nlocalhost:49926->localhost:49961",
+              "nlocalhost:49926->localhost:49962",
+              "nlocalhost:49926->localhost:49963",
+              "nlocalhost:49926->localhost:49964",
+              "nlocalhost:49926->localhost:49965",
+              "nlocalhost:49926->localhost:49966",
+              "nlocalhost:49926->localhost:49967",
+              "nlocalhost:49926->localhost:49968",
+              "nlocalhost:49926->localhost:49969",
+              "nlocalhost:49926->localhost:49970",
+              "nlocalhost:49926->localhost:49971",
+              "nlocalhost:49926->localhost:49972",
+              "nlocalhost:49926->localhost:49973",
+              "nlocalhost:49926->localhost:49974",
+              "nlocalhost:49926->localhost:49975",
+              "nlocalhost:49926->localhost:49976",
+              "nlocalhost:49926->localhost:49977",
+              "nlocalhost:49926->localhost:49978",
+              "nlocalhost:49926->localhost:49979",
+              "nlocalhost:49926->localhost:49980",
+              "nlocalhost:49926->localhost:49981",
+              "nlocalhost:49926->localhost:49982",
+              "nlocalhost:49926->localhost:49983",
+              "nlocalhost:49926->localhost:49984",
+              "nlocalhost:49926->localhost:49985",
+              "nlocalhost:49926->localhost:49986",
+              "nlocalhost:49926->localhost:49987",
+              "nlocalhost:49926->localhost:49988",
+              "nlocalhost:49926->localhost:49989",
+              "nlocalhost:49926->localhost:49990",
+              "nlocalhost:49926->localhost:49991",
+              "nlocalhost:49926->localhost:49992",
+              "nlocalhost:49926->localhost:49993",
+              "nlocalhost:49926->localhost:49994",
+              "nlocalhost:49926->localhost:49995",
+              "nlocalhost:49926->localhost:49996",
+              "nlocalhost:49926->localhost:49997",
+              "nlocalhost:49926->localhost:49998",
+              "nlocalhost:49926->localhost:49999",
+              "nlocalhost:49926->localhost:50001",
+              "nlocalhost:49926->localhost:50002",
+              "nlocalhost:49926->localhost:50003",
+              "nlocalhost:49926->localhost:50004",
+              "nlocalhost:49926->localhost:50005",
+              "nlocalhost:49926->localhost:50006",
+              "nlocalhost:49926->localhost:50007",
+              "nlocalhost:49926->localhost:50008",
+              "nlocalhost:49926->localhost:50009",
+              "nlocalhost:49926->localhost:50010",
+              "nlocalhost:49926->localhost:50011",
+              "nlocalhost:49926->localhost:50012",
+              "nlocalhost:49926->localhost:50013",
+              "nlocalhost:49926->localhost:50014",
+              "nlocalhost:49926->localhost:50015",
+              "nlocalhost:49926->localhost:50016",
+              "nlocalhost:49926->localhost:50017",
+              "nlocalhost:49926->localhost:50018",
+              "nlocalhost:49926->localhost:50019",
+              "nlocalhost:49926->localhost:50020",
+              "nlocalhost:49926->localhost:50021",
+              "nlocalhost:49926->localhost:50022",
+              "nlocalhost:49926->localhost:50023",
+              "nlocalhost:49926->localhost:50024",
+              "nlocalhost:49926->localhost:50025",
+              "nlocalhost:49926->localhost:50026",
+              "nlocalhost:49926->localhost:50027",
+              "nlocalhost:49926->localhost:50028",
+              "nlocalhost:49926->localhost:50030",
+              "nlocalhost:49926->localhost:50031",
+              "nlocalhost:49926->localhost:50032",
+              "nlocalhost:49926->localhost:50033",
+              "nlocalhost:49926->localhost:50034",
+              "nlocalhost:49926->localhost:50035",
+              "nlocalhost:49926->localhost:50036",
+              "nlocalhost:49926->localhost:50037",
+              "nlocalhost:49926->localhost:50038",
+              "nlocalhost:49926->localhost:50039",
+              "nlocalhost:49926->localhost:50040",
+              "nlocalhost:49926->localhost:50041",
+              "nlocalhost:49926->localhost:50042",
+              "nlocalhost:49926->localhost:50043",
+              "nlocalhost:49926->localhost:50044",
+              "nlocalhost:49926->localhost:50045",
+              "nlocalhost:49926->localhost:50046",
+              "nlocalhost:49926->localhost:50047",
+              "nlocalhost:49926->localhost:50048",
+              "nlocalhost:49926->localhost:50049",
+              "nlocalhost:49926->localhost:50050",
+              "nlocalhost:49926->localhost:50051",
+              "nlocalhost:49926->localhost:50052",
+              "nlocalhost:49926->localhost:50053",
+              "nlocalhost:49926->localhost:50054",
+              "nlocalhost:49926->localhost:50055",
+              "nlocalhost:49926->localhost:50056"
+            ],
+            "exceeds_proposed_128_connection_default": false,
+            "audit_bytes": "",
+            "explicit_bundle_close_observed": true
+          },
+          "write_healthy": {
+            "returncode": 0,
+            "wall_seconds": 0.22944429202470928,
+            "sampled_peak_rss_kib": 34080,
+            "events": [
+              {
+                "seconds": 0.022378833033144474,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.022961042006500065,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.22793920803815126,
+                "text": "WRITE_SUCCEEDED"
+              },
+              {
+                "seconds": 0.22797037498094141,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": false,
+            "response_bytes": "HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length: 2\r\n\r\nok",
+            "raw_write_succeeded": true,
+            "raw_write_failed": false,
+            "public_turn_close": true
+          },
+          "write_reset": {
+            "returncode": 0,
+            "wall_seconds": 0.2590068340068683,
+            "sampled_peak_rss_kib": 34512,
+            "events": [
+              {
+                "seconds": 0.026314791990444064,
+                "text": "READY"
+              },
+              {
+                "seconds": 0.02700741693843156,
+                "text": "WRITE_ARMED"
+              },
+              {
+                "seconds": 0.23321029194630682,
+                "text": "WRITE_FAILED"
+              },
+              {
+                "seconds": 0.23324845894239843,
+                "text": "PUBLIC_TURN_CLOSE"
+              }
+            ],
+            "stderr": "",
+            "journal": null,
+            "unrelated_journal": null,
+            "client_reset_before_write": true,
+            "response_bytes": null,
+            "raw_write_succeeded": false,
+            "raw_write_failed": true,
+            "public_turn_close": true
+          }
+        }
+      }
+    }
+  },
+  "acceptance": {
+    "admission_scenarios": 20,
+    "retained_limits_scenarios": 146,
+    "native_and_javascript": true,
+    "observer_close_reads_per_lane": 128,
+    "observer_tasks_joined_per_lane": 2
+  },
+  "caveats": [
+    "Initial own-source checker failures are retained, not upstream compiler-bug claims.",
+    "Unsafe/foreign exclusions are not proof of host IO; HTTP entry reports304 exclusions.",
+    "Continuous burst servers are host-terminated, not graceful-drain evidence.",
+    "Quiescent Camber endpoints are bounded128; one transient close-only accept slot and kernel backlog are not admitted ownership.",
+    "Logical/structural retained-input bounds are not RSS bounds; allocator, kernel buffers, response bodies, application-owned allocations and callback-spawned work are excluded.",
+    "Generic streamed-state erasure is not external affine-resource cleanup.",
+    "T4 startup-bind and T5 raw-write observations remain adverse: legacy fixture exits48 on bind failure and public TurnClose distinguishes neither healthy nor failed writes.",
+    "No final public response-write outcome (#329) or stop/drain/cancellation (#330) claim."
+  ]
+}

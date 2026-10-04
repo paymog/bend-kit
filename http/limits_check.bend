@@ -4,7 +4,7 @@ import ./http.bend as Http
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 def config(port: U32) -> Http.ServerConfig:
-  Http.ServerConfig{"127.0.0.1", port, 8, 128, 128, 128, 600, 600, 800, 600}
+  Http.ServerConfig{"127.0.0.1", port, 8, 128, 128, 128, 128, 600, 600, 800, 600}
 
 def whole(context: String, req: Http.Req) -> IO(Http.Res):
   Http.Req{method, +path, headers, body} = req

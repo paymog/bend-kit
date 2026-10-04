@@ -29,18 +29,36 @@ def admission(port, partial_count):
             stack.callback(held.close)
             held.send("GET", "/users/me", close=True, **{"x-hold": "yes"})
             wait_for("ENTER 0")
-            for _ in range(partial_count):
-                peer = socket.create_connection(("127.0.0.1", port), timeout=3)
-                stack.callback(peer.close)
-                peer.sendall(b"POST /users HTTP/1.1\r\nHost: localhost\r\nContent-Length: 4096\r\nConnection: close\r\n\r\n" + b"x" * 1024)
-            overflow = Peer(port)
-            stack.callback(overflow.close)
-            overflow.send("POST", "/users", b'{"name":"Cara"}', close=True)
-            overflow.response(503, b"")
+            # Reserve the fixture's release/control socket before exhausting admission.
             control = Peer(port)
             stack.callback(control.close)
+            locally_sent = 0
+            unsafe_partial_closes = []
+            for index in range(partial_count):
+                peer = socket.create_connection(("127.0.0.1", port), timeout=3)
+                stack.callback(peer.close)
+                try:
+                    peer.sendall(b"POST /users HTTP/1.1\r\nHost: localhost\r\nContent-Length: 4096\r\nConnection: close\r\n\r\n" + b"x" * 1024)
+                    locally_sent += 1
+                except (ConnectionResetError, BrokenPipeError) as error:
+                    unsafe_partial_closes.append({"index": index, "close": type(error).__name__})
+            overflow = Peer(port)
+            stack.callback(overflow.close)
+            at_transport_cap = partial_count + 2 >= 128
+            if at_transport_cap:
+                try:
+                    overflow.send("POST", "/users", b'{"name":"Cara"}', close=True)
+                    assert overflow.reader.read(1) == b""
+                    transport_overflow = "eof"
+                except (ConnectionResetError, BrokenPipeError) as error:
+                    transport_overflow = type(error).__name__
+            else:
+                overflow.send("POST", "/users", b'{"name":"Cara"}', close=True)
+                overflow.response(503, b"")
+                transport_overflow = "parsed-application-503"
             wait_for("LISTENER CLOSED")
-            counts = {"limit": 1, "busy": 1, "mask": 1, "completed": 0, "rejected": 1}
+            rejected = int(not at_transport_cap)
+            counts = {"limit": 1, "busy": 1, "mask": 1, "completed": 0, "rejected": rejected}
             control.capacity(counts)
             listing = subprocess.run([shutil.which("lsof"), "-a", "-p", str(process.pid),
                                       "-iTCP", "-sTCP:ESTABLISHED", "-Fn"],
@@ -50,12 +68,16 @@ def admission(port, partial_count):
             control.send("POST", "/_release")
             control.response(204, b"")
             held.response(200, b'{"id":7,"name":"Alice"}')
-            recovered = {"limit": 1, "busy": 0, "mask": 0, "completed": 1, "rejected": 1}
+            recovered = {"limit": 1, "busy": 0, "mask": 0, "completed": 1, "rejected": rejected}
             control.capacity(recovered)
             control.send("GET", "/_capacity", close=True)
             control.response(200, json.dumps(recovered, separators=(",", ":")).encode())
-            return {"incomplete_body_peers": partial_count, "partial_body_bytes_sent": partial_count * 1024,
+            return {"incomplete_body_peers_attempted": partial_count,
+                    "partial_locally_completed_sendalls": locally_sent,
+                    "partial_body_bytes_locally_sent": locally_sent * 1024,
+                    "unsafe_partial_close_events": unsafe_partial_closes,
                     "active_handler_counts": counts, "recovered_counts": recovered,
+                    "transport_overflow": transport_overflow, "admitted_connection_cap": 128,
                     "established_server_endpoints": len(endpoints), "endpoint_evidence": endpoints,
                     "exceeds_proposed_128_connection_default": len(endpoints) > 128}
     return interact
@@ -117,7 +139,7 @@ def main():
                 data["cases"][f"admission_{partial}_incomplete"] = record
                 target.write_text(json.dumps(results, indent=2) + "\n")
                 assert record["returncode"] == 0 and record["audit_bytes"] == "" and record["explicit_bundle_close_observed"], record
-                assert record["established_server_endpoints"] >= partial + 2, record
+                assert 2 <= record["established_server_endpoints"] <= 128, record
                 print(f"{lane}/admission-{partial}: {record['established_server_endpoints']} endpoints; one busy worker", flush=True)
             for reset in (False, True):
                 port, path = free_port(), temp / f"{lane}-write-{reset}"

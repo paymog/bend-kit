@@ -58,6 +58,25 @@ completed in 18.412 seconds; peak sampled descendant RSS was 1,956,240 KiB.
 The full receipt is retained in `../limits_verification.json`. No claim of
 improvement over historical measurements or Camber application performance is made.
 
+### HTTP 0.28.0.0 verification
+
+`python3 -B http/bench/run.py` passed sequentially in the exclusive compiler slot
+on the arm64 macOS workstation with Bend 2.0.35. Three-run medians, in milliseconds
+for the same 20,000-message codec workload:
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| parse_req | 3.6 | 1.8 | 17.0 | 20.0 | 446.9 | 525.7 |
+| parse_res | 2.3 | 1.5 | 12.5 | 15.0 | 316.9 | 434.3 |
+| encode_req | n/a | n/a | n/a | n/a | 317.2 | 195.7 |
+| encode_res | n/a | n/a | n/a | n/a | 272.1 | 131.8 |
+
+All six variants agreed on `8200000`, `8300000`, `954665139`, and `4171655946`.
+The guarded run took 17.875 seconds; peak sampled aggregate descendant RSS was
+2,466,784 KiB. [`../admission_verification.json`](../admission_verification.json)
+keeps the full receipt. These are codec measurements, not admission throughput,
+an improvement claim, or Camber application performance.
+
 ### The calls
 
 | language | parse | encode |

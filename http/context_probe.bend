@@ -1,74 +1,44 @@
-# Finite validation transport with explicit runtime context; not a published server API.
-# ponytail: 512 framing steps per connection; production needs bounded admission and graceful lifecycle controls.
+# Finite fixture acceptance using the production transport and admission owner.
 import Base
 import ./http.bend as Http
+import ./admission.bend as Admission
 
-def close(st: Http.Serving) -> IO(Unit):
-  Http.Serving{(socket, turn), phase} = st
-  Socket.close(socket)
+def accept.closed(~C: Data, server: Http.Server<C>, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
+  do IO<List<Chan(Unit)>>:
+    Http.server.close(~C, server)
+    IO.print("LISTENER CLOSED")
+    return finished
 
-def talk(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), fuel: Nat, +context: C, +max: Nat, st: Http.Serving) -> IO(Unit):
-  match fuel:
-    case 0n:
-      close(st)
-    case 1n+p:
-      Http.Serving{(socket, turn), phase} = st
-      match turn:
-        case Http.TurnMore{state, cont}:
-          do IO<Unit>:
-            received : (Socket & Http.Turn) & Http.Phase <- Http.talk.recv(Http.limits(max), socket, state, cont, phase)
-            talk(~C, ~handler, p, context, max, Http.talk.state(received))
-        case Http.TurnReq{request, rest, v11}:
-          Http.Req{+method, path, +headers, body} = request
-          do IO<Unit>:
-            response : Http.Res <- handler(context, Http.Req{method, path, headers, body})
-            next : Socket & Http.Turn <- Http.talk.send(Http.limits(max), socket, rest, headers, v11, String.eq(method, "HEAD"), response)
-            talk(~C, ~handler, p, context, max, Http.Serving{next, None{}})
-        case Http.TurnFail{status}:
-          Http.reply_fail(socket, status, 30000)
-        case Http.TurnClose{}:
-          Socket.close(socket)
+type AcceptStep<-C: Data> is Type:
+  AcceptListening{server: Http.Server<C>}
+  AcceptReceived{result: Http.Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>}
 
-type AcceptState is Type:
-  Listening{listener: Listener}
-  Connected{listener: Listener, finished: Chan(Unit)}
-
-def accepted(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), context: C, max: Nat, result: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(AcceptState):
-  (listener, got) = result
-  do IO<AcceptState>:
-    socket : Socket <- IO.pass(Socket, got)
-    finished : Chan(Unit) <- IO.fork(Unit, talk(~C, ~handler, 512n, context, max, Http.Serving{(socket, Http.TurnMore{Http.sv.none(), False{}}), None{}}))
-    return Connected{listener, finished}
-
-def accept.close(state: AcceptState, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
-  match state:
-    case Listening{listener}:
-      do IO<List<Chan(Unit)>>:
-        Listener.close(listener)
-        IO.print("LISTENER CLOSED")
-        return finished
-    case Connected{listener, done}:
-      do IO<List<Chan(Unit)>>:
-        Listener.close(listener)
-        IO.print("LISTENER CLOSED")
-        return done <> finished
-
-def accept.go(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), fuel: Nat, +context: C, +max: Nat, state: AcceptState, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
-  match fuel:
-    case 0n:
-      accept.close(state, finished)
-    case 1n+p:
-      match state:
-        case Listening{listener}:
+@unsafe
+def accept.go(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), step: AcceptStep<C>,
+  fuel: Nat, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
+  match step:
+    case AcceptListening{server}:
+      match fuel:
+        case 0n:
+          accept.closed(~C, server, finished)
+        case 1n+p:
           do IO<List<Chan(Unit)>>:
-            got : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
-            next : AcceptState <- accepted(~C, ~handler, context, max, got)
-            accept.go(~C, ~handler, p, context, max, next, finished)
-        case Connected{listener, done}:
-          accept.go(~C, ~handler, p, context, max, Listening{listener}, done <> finished)
+            accepted : Http.Server<C> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~C, ~handler, server)
+            accept.go(~C, ~handler, AcceptReceived{accepted}, p, finished)
+    case AcceptReceived{accepted}:
+      (server, result) = accepted
+      match result:
+        case Fail{error}:
+          accept.go(~C, ~handler, AcceptListening{server}, fuel, finished)
+        case Done{done}:
+          accept.go(~C, ~handler, AcceptListening{server}, fuel, done <> finished)
 
-def accept(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat, context: C, max: Nat, listener: Listener) -> IO(List<Chan(Unit)>):
-  accept.go(~C, ~handler, (2n * count : Nat), context, max, Listening{listener}, Nil{})
+def accept(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat, context: C, +max: Nat, listener: Listener) -> IO(List<Chan(Unit)>):
+  do IO<List<Chan(Unit)>>:
+    Http.limits.validate(max)
+    inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
+    accept.go(~C, ~handler, AcceptListening{Http.Server{listener, context,
+      Http.ServerConfig{"127.0.0.1", 0, U32.from_nat(max), 65536, 128, 128, 128, 5000, 30000, 30000, 30000}, inbox}}, count, Nil{})
 
 def join(connections: List<Chan(Unit)>) -> IO(Unit):
   match connections:
