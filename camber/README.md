@@ -63,6 +63,27 @@ Only disposable `Data` outcomes cross caller reply channels. Perform business op
 
 `close(..., context)` returns `Busy{counts}` immediately while an operation still owns a bundle. Stop external admissions, wait for admitted operations, then retry close. Idle close explicitly runs the destructor once per returned bundle and ends the owner. Repeated close is harmless; calls afterward return `Stopped`. On a later startup failure (for example transport bind rejection), explicitly close the successfully initialized idle owner. Forced process termination cannot promise close or rollback.
 
+### Cooperative transport shutdown (HTTP 0.30.0.0)
+
+The shared HTTP owner now provides `server.control`, copied `server.stop`,
+and actual `ServerExit`/drained-count results. A stop acknowledgment is only an
+admission transition: retain and run/close the affine server, join its actual
+completion, then explicitly close the separate idle Camber dependency owner.
+Busy dependencies or stalled callbacks remain counted; a timer does not return
+their instances. Stream abort and skipped-writer disposal callbacks consume
+actual application state and must explicitly return/close its external handles.
+
+[`../http/drain_results.json`](../http/drain_results.json) records 64 native/JS
+socket cases, including the scoped `lifecycle_http.serve` adapter over the same
+HTTP owner, natural cooperative exit, delayed/stuck work, and actual File
+descriptor closure. This is not a new Camber serving implementation or #339's
+supervisor deployment. Forced SIGKILL/reaping observations are distinct from
+explicit application cleanup; historical pre-control supervision evidence stays
+separate in [`supervision_risk_results.json`](supervision_risk_results.json).
+Published Wire 0.4.5.0 is `0x1435aec27074c8141b74747909079afc`; local HTTP
+0.30.0.0 awaits merge and automatic publication. No manual publish is required.
+
+
 ## Bounds and trust
 
 The command inbox has `room` buffered slots (zero uses rendezvous). Resource exhaustion is rejected, never queued waiting for a bundle. Callers blocked submitting to the bounded inbox must be counted inside the caller's admission limit; this dependency owner does not replace transport admission. Reply channels must have one slot so abandoned receivers cannot block the owner. Do not forge protocol messages or close the context's internal owner channel; use the public lifecycle API. Bend has no module privacy enforcement.

@@ -3,7 +3,7 @@ import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 # By hash: bend-kit-url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -zlib@0.2.0.0.
-import bend-kit-wire@0.4.4.0/wire.bend as Wire
+import bend-kit-wire@0.4.5.0/wire.bend as Wire
 import bend-kit-http2@0.1.2.0/http2.bend as H2
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
@@ -5175,9 +5175,14 @@ type Sv is Type:
   SvLen{req: Req, v11: Bool, left: U32, parts: List<&1, Bytes.Bytes>}
   SvChunk{req: Req, v11: Bool, n: U32, st: Dc, parts: List<&1, Bytes.Bytes>}
 
+type InputOperation is Data:
+  ReadInput{}
+  SendContinue{}
+
 # More: read on, first answering 100 Continue when cont is set.
 type Turn is Type:
   TurnClose{}
+  TurnInputFailed{operation: InputOperation, code: U32, message: String}
   TurnFail{status: U32}
   TurnReq{req: Req, rest: Bytes.Bytes, v11: Bool}
   TurnMore{sv: Sv, cont: Bool}
@@ -5268,6 +5273,8 @@ def sv.cont(want: Bool, t: Turn) -> Turn:
       TurnMore{sv, want}
     case TurnClose{}:
       TurnClose{}
+    case TurnInputFailed{operation, code, message}:
+      TurnInputFailed{operation, code, message}
     case TurnFail{s}:
       TurnFail{s}
     case TurnReq{req, rest, v11}:
@@ -5400,6 +5407,8 @@ def sv.frame.req(t: Turn) -> Maybe<&1, String & String>:
       None{}
     case TurnClose{}:
       None{}
+    case TurnInputFailed{operation, code, message}:
+      None{}
 
 def sv.frame.go(xs: List<&2, String>, t: Turn) -> Maybe<&1, String & String>:
   match xs:
@@ -5415,6 +5424,8 @@ def sv.frame.go(xs: List<&2, String>, t: Turn) -> Maybe<&1, String & String>:
           None{}
         case TurnClose{}:
           None{}
+        case TurnInputFailed{operation, code, message}:
+          None{}
 
 # The body and the bytes after it, once the pieces make a whole request; None otherwise.
 def serve.frame(xs: List<&2, String>) -> Maybe<&1, String & String>:
@@ -5428,8 +5439,8 @@ def talk.piece(settings: Limits, sv: Sv, p: U32 & Array<U32>) -> Turn:
 def talk.next(settings: Limits, sv: Sv, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Socket & Turn:
   (s, r) = m
   match r:
-    case Fail{(code, message)}:
-      (s, Bool.pick(Turn, err.late(code), TurnFail{408}, TurnClose{}))
+    case Fail{(+code, message)}:
+      (s, Bool.pick(Turn, err.late(code), TurnFail{408}, TurnInputFailed{ReadInput{}, code, message}))
     case Done{p}:
       (s, talk.piece(settings, sv, p))
 
@@ -5566,6 +5577,8 @@ def phase.after(+settings: Limits, +now: Time.Duration, +phase: Phase, t: Turn) 
       (Bool.pick(Turn, U32.is_zero(kind) && U32.is_eq(status, 408), TurnClose{}, TurnFail{status}), phase)
     case TurnClose{}:
       (TurnClose{}, phase)
+    case TurnInputFailed{operation, code, message}:
+      (TurnInputFailed{operation, code, message}, phase)
 
 def phase.expired(phase: Phase) -> Turn:
   Phase{kind, until} = phase
@@ -5587,40 +5600,90 @@ def talk.received.late(expired: Bool, +settings: Limits, +phase: Phase, now: Tim
     case False{}:
       talk.received.phase(settings, phase, now, talk.next(settings, sv, m))
 
-def talk.read.ready(expired: Bool, +settings: Limits, s: Socket, sv: Sv, +phase: Phase, ms: U32) -> IO((Socket & Turn) & Phase):
-  match expired:
-    case True{}:
-      IO.pure((Socket & Turn) & Phase, ((s, phase.expired(phase)), phase))
-    case False{}:
-      Phase{kind, +until} = phase
-      do IO<(Socket & Turn) & Phase>:
-        m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s, 65536, ms)
-        +now : Time.Duration <- Time.mono()
-        return talk.received.late(Bool.not(Cmp.is_lt(Time.Duration.cmp(now, until))), settings, phase, now, sv, m)
+# A real host read slice returns its socket; no raced operation is abandoned.
+# The original absolute phase survives slice timeouts and stop observations.
+# Admitted streamed uploads retain their state and finish; unadmitted input closes.
+def talk.read.running(held: Bool, inbox: Chan(Admission.Command)) -> IO(Bool):
+  match held:
+    case True{}: IO.pure(Bool, True{})
+    case False{}: Admission.running(inbox)
 
-def talk.read(+settings: Limits, sv: Sv, +phase: Phase, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO((Socket & Turn) & Phase):
-  Phase{kind, until} = phase
+type ReadStep is Type:
+  ReadChecking{socket: Socket, state: Sv, phase: Phase}
+  ReadAllowed{running: Bool, socket: Socket, state: Sv, phase: Phase}
+  ReadBudget{ms: U32, socket: Socket, state: Sv, phase: Phase}
+  ReadReceived{state: Sv, phase: Phase, now: Time.Duration,
+    result: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>}
+  ReadFailed{retry: Bool, socket: Socket, state: Sv, phase: Phase,
+    now: Time.Duration, error: U32 & String}
+
+# One state machine owns the socket through each actual host return.
+@unsafe
+def talk.read.loop(+inbox: Chan(Admission.Command), +held: Bool, +settings: Limits,
+  step: ReadStep) -> IO((Socket & Turn) & Phase):
+  match step:
+    case ReadChecking{s, sv, phase}:
+      do IO<(Socket & Turn) & Phase>:
+        running : Bool <- talk.read.running(held, inbox)
+        talk.read.loop(inbox, held, settings, ReadAllowed{running, s, sv, phase})
+    case ReadAllowed{running, s, sv, +phase}:
+      match running:
+        case False{}:
+          IO.pure((Socket & Turn) & Phase, ((s, TurnClose{}), phase))
+        case True{}:
+          Phase{kind, until} = phase
+          do IO<(Socket & Turn) & Phase>:
+            now : Time.Duration <- Time.mono()
+            +ms : U32 = phase.remaining(until, now)
+            talk.read.loop(inbox, held, settings,
+              ReadBudget{Bool.pick(U32, held, ms, U32.min(ms, 50)), s, sv, phase})
+    case ReadBudget{ms, s, sv, +phase}:
+      match ms:
+        case 0:
+          IO.pure((Socket & Turn) & Phase, ((s, phase.expired(phase)), phase))
+        case _:
+          do IO<(Socket & Turn) & Phase>:
+            got : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Wire.recv.words(s, 65536, ms)
+            now : Time.Duration <- Time.mono()
+            talk.read.loop(inbox, held, settings, ReadReceived{sv, phase, now, got})
+    case ReadReceived{sv, +phase, +now, got}:
+      Phase{kind, until} = phase
+      (s, result) = got
+      match result:
+        case Fail{(+code, message)}:
+          talk.read.loop(inbox, held, settings,
+            ReadFailed{err.late(code) && Cmp.is_lt(Time.Duration.cmp(now, until)), s, sv, phase, now, (code, message)})
+        case Done{packed}:
+          IO.pure((Socket & Turn) & Phase,
+            talk.received.late(Bool.not(Cmp.is_lt(Time.Duration.cmp(now, until))), settings, phase, now, sv, (s, Done{packed})))
+    case ReadFailed{retry, s, sv, +phase, +now, error}:
+      match retry:
+        case True{}:
+          talk.read.loop(inbox, held, settings, ReadChecking{s, sv, phase})
+        case False{}:
+          Phase{kind, until} = phase
+          IO.pure((Socket & Turn) & Phase,
+            talk.received.late(Bool.not(Cmp.is_lt(Time.Duration.cmp(now, until))), settings, phase, now, sv, (s, Fail{error})))
+
+def talk.read(+inbox: Chan(Admission.Command), held: Bool, +settings: Limits, sv: Sv, phase: Phase, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO((Socket & Turn) & Phase):
   (s, r) = m
   match r:
-    case Fail{e}:
-      IO.pure((Socket & Turn) & Phase, ((s, TurnClose{}), phase))
+    case Fail{(code, message)}:
+      IO.pure((Socket & Turn) & Phase, ((s, TurnInputFailed{SendContinue{}, code, message}), phase))
     case Done{u}:
-      do IO<(Socket & Turn) & Phase>:
-        now : Time.Duration <- Time.mono()
-        +ms : U32 = phase.remaining(until, now)
-        talk.read.ready(U32.is_zero(ms), settings, s, sv, phase, ms)
+      talk.read.loop(inbox, held, settings, ReadChecking{s, sv, phase})
 
-def talk.recv.selected(+settings: Limits, s: Socket, cont: Bool, selected: Phase & Sv) -> IO((Socket & Turn) & Phase):
+def talk.recv.selected(+inbox: Chan(Admission.Command), held: Bool, +settings: Limits, s: Socket, cont: Bool, selected: Phase & Sv) -> IO((Socket & Turn) & Phase):
   Limits{max, cap, hm, bm, im, wm} = settings
   (phase, state) = selected
   do IO<(Socket & Turn) & Phase>:
     sent : Socket & Result<&1, &1, U32 & String, Unit> <- talk.cont(cont, s, wm)
-    talk.read(settings, state, phase, sent)
+    talk.read(inbox, held, settings, state, phase, sent)
 
-def talk.recv(+settings: Limits, s: Socket, sv: Sv, cont: Bool, previous: Maybe<&2, Phase>) -> IO((Socket & Turn) & Phase):
+def talk.recv(+inbox: Chan(Admission.Command), held: Bool, +settings: Limits, s: Socket, sv: Sv, cont: Bool, previous: Maybe<&2, Phase>) -> IO((Socket & Turn) & Phase):
   do IO<(Socket & Turn) & Phase>:
     now : Time.Duration <- Time.mono()
-    talk.recv.selected(settings, s, cont, phase.select(settings, sv, now, previous))
+    talk.recv.selected(inbox, held, settings, s, cont, phase.select(settings, sv, now, previous))
 
 type Serving is Type:
   Serving{connection: Socket & Turn, phase: Maybe<&2, Phase>}
@@ -5664,6 +5727,8 @@ def admission.turn.head(turn: Turn) -> Bool:
       False{}
     case TurnClose{}:
       False{}
+    case TurnInputFailed{operation, code, message}:
+      False{}
 
 # This rejection has parsed metadata, so normal HEAD body suppression still applies.
 def admission.reject(observer: Completion.Receipt, s: Socket, head: Bool, ms: U32) -> IO(Unit):
@@ -5702,7 +5767,7 @@ def talk(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.O
       match t:
         case TurnMore{sv, cont}:
           do IO<Unit>:
-            received : (Socket & Turn) & Phase <- talk.recv(settings, s, sv, cont, phase)
+            received : (Socket & Turn) & Phase <- talk.recv(inbox, False{}, settings, s, sv, cont, phase)
             talk(~C, ~h, ~observe, context, settings, inbox, Some{talk.state(received)})
         case TurnReq{req, rest, v11}:
           do IO<Unit>:
@@ -5712,6 +5777,8 @@ def talk(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.O
         case TurnFail{status}:
           reply_fail(Completion.Observed{status => outcome => observe(context, status, outcome)}, s, status, wm)
         case TurnClose{}:
+          Socket.close(s)
+        case TurnInputFailed{operation, code, message}:
           Socket.close(s)
 
 def conn.admitted(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), admitted: Bool, +settings: Limits, +inbox: Chan(Admission.Command), l: Listener, s: Socket) -> IO(Listener):
@@ -5733,29 +5800,6 @@ def conn(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), 
     admitted : Bool <- Admission.take(inbox, 0)
     conn.admitted(~h, ~observe, admitted, settings, inbox, l, s)
 
-@unsafe
-def loop(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +settings: Limits, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
-  do IO<Unit>:
-    m  : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- conn(~h, ~observe, settings, inbox, m)
-    loop(~h, ~observe, settings, inbox, l2)
-
-def serve.on.with(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), host: String, +port: U32, +max: Nat) -> IO(Unit):
-  do IO<Unit>:
-    limits.validate(max)
-    l : Listener <- IO.try(Listener, TCP.listen(host, port))
-    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
-    loop(~h, ~observe, limits(max), inbox, l)
-
-def serve.on(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), host: String, +port: U32) -> IO(Unit):
-  serve.on.with(~h, ~observe, host, port, serve.max())
-
-def serve.with(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +port: U32, +max: Nat) -> IO(Unit):
-  serve.on.with(~h, ~observe, "0.0.0.0", port, max)
-
-def serve(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +port: U32) -> IO(Unit):
-  serve.with(~h, ~observe, port, serve.max())
-
 # Finite positive settings, not zero/unlimited sentinels.
 type StartupError is Data:
   InvalidConfig{}
@@ -5763,10 +5807,13 @@ type StartupError is Data:
 
 # Application-owned affine dependencies never enter this transport owner.
 type Server<-C: Data> is Type:
-  Server{listener: Listener, context: C, config: ServerConfig, admission: Chan(Admission.Command)}
+  Server{listener: Listener, context: C, config: ServerConfig, admission: Chan(Admission.Command), drained: Chan(Admission.Counts)}
 
 def server.config(host: String, port: U32) -> ServerConfig:
   ServerConfig{host, port, 16777216, 65536, 128, 128, 128, 5000, 30000, 30000, 30000}
+
+def server.config.with(host: String, port: U32, max: Nat) -> ServerConfig:
+  ServerConfig{host, port, U32.from_nat(max), 65536, 128, 128, 128, 5000, 30000, 30000, 30000}
 
 # Host deadline effects use signed 32-bit milliseconds.
 def server.deadline.valid(+ms: U32) -> Bool:
@@ -5780,6 +5827,11 @@ def server.config.valid(config: ServerConfig) -> Bool:
     server.deadline.valid(header_ms) && server.deadline.valid(body_ms) &&
     server.deadline.valid(idle_ms) && server.deadline.valid(write_ms)
 
+def server.opened(~C: Data, ~O: Type, owner: O, listener: Listener, context: C,
+  config: ServerConfig, opened: Chan(Admission.Command) & Chan(Admission.Counts)) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
+  (inbox, drained) = opened
+  IO.pure(O & Result<&2, &1, StartupError, Server<C>>, (owner, Done{Server{listener, context, config, inbox, drained}}))
+
 def server.started(~C: Data, ~O: Type, context: C, owner: O, +config: ServerConfig, result: Result<&1, &1, U32 & String, Listener>) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
   ServerConfig{host, port, body, headers, connections, requests, buffered, hm, bm, im, wm} = config
   match result:
@@ -5788,8 +5840,8 @@ def server.started(~C: Data, ~O: Type, context: C, owner: O, +config: ServerConf
       IO.pure(O & Result<&2, &1, StartupError, Server<C>>, (owner, Fail{BindError{code, message}}))
     case Done{listener}:
       do IO<O & Result<&2, &1, StartupError, Server<C>>>:
-        inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{connections, requests, buffered})
-        return (owner, Done{Server{listener, context, config, inbox}})
+        opened : Chan(Admission.Command) & Chan(Admission.Counts) <- Admission.open.owner(Admission.Caps{connections, requests, buffered})
+        server.opened(~C, ~O, owner, listener, context, config, opened)
 
 def server.start.valid(~C: Data, ~O: Type, valid: Bool, context: C, owner: O, +config: ServerConfig) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
   match valid:
@@ -5806,11 +5858,6 @@ def server.start.valid(~C: Data, ~O: Type, valid: Bool, context: C, owner: O, +c
 def server.start(~C: Data, ~O: Type, context: C, owner: O, +config: ServerConfig) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
   server.start.valid(~C, ~O, server.config.valid(config), context, owner, config)
 
-def server.close(~C: Data, server: Server<C>) -> IO(Unit):
-  Server{listener, context, config, inbox} = server
-  do IO<Unit>:
-    Listener.close(listener)
-    Admission.close(inbox)
 
 # Copyable read-only observations remain usable while server.run owns the listener.
 type ServerStats is Data:
@@ -5822,8 +5869,8 @@ type ServerCounts is Data:
     connection_rejected: Nat, active_rejected: Nat, buffered_rejected: Nat}
 
 def server.observer(~C: Data, server: Server<C>) -> Server<C> & ServerStats:
-  Server{listener, context, config, +inbox} = server
-  (Server{listener, context, config, inbox}, ServerStats{inbox})
+  Server{listener, context, config, +inbox, drained} = server
+  (Server{listener, context, config, inbox, drained}, ServerStats{inbox})
 
 def server.counts(counts: Maybe<&2, Admission.Counts>) -> Maybe<&2, ServerCounts>:
   match counts:
@@ -5840,34 +5887,122 @@ def server.stats(observer: ServerStats) -> IO(Maybe<&2, ServerCounts>):
     counts : Maybe<&2, Admission.Counts> <- Admission.snapshot(inbox)
     return server.counts(counts)
 
-def server.admitted(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), admitted: Bool, +context: C, +config: ServerConfig, +inbox: Chan(Admission.Command), listener: Listener, socket: Socket) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
+type ServerControl is Data:
+  ServerControl{inbox: Chan(Admission.Command)}
+
+# Stop linearizes in Admission. It requests quiescence, never attests drain.
+def server.control(~C: Data, server: Server<C>) -> Server<C> & ServerControl:
+  Server{listener, context, config, +inbox, drained} = server
+  (Server{listener, context, config, inbox, drained}, ServerControl{inbox})
+
+def server.stop(control: ServerControl) -> IO(Bool):
+  ServerControl{inbox} = control
+  Admission.quiesce(inbox)
+
+def server.final.counts(counts: Admission.Counts) -> ServerCounts:
+  Admission.Counts{c, a, b, ch, ah, bh, cr, ar, br} = counts
+  ServerCounts{c, a, b, ch, ah, bh, cr, ar, br}
+
+# Only the listener owner closes it, after the current accept really returns.
+# Joining the controller waits for every real operation, including callbacks.
+def server.close(~C: Data, server: Server<C>) -> IO(ServerCounts):
+  Server{listener, context, config, +inbox, drained} = server
+  do IO<ServerCounts>:
+    requested : Bool <- Admission.quiesce(inbox)
+    Listener.close(listener)
+    Admission.close(inbox)
+    counts : Admission.Counts <- IO.join(Admission.Counts, drained)
+    return server.final.counts(counts)
+
+type ServerExit is Data:
+  ServerStopped{counts: ServerCounts}
+  ServerAcceptFailed{code: U32, message: String, counts: ServerCounts}
+
+def server.finished(stopped: Bool, error: U32 & String, counts: ServerCounts) -> ServerExit:
+  match stopped:
+    case True{}:
+      ServerStopped{counts}
+    case False{}:
+      (code, message) = error
+      ServerAcceptFailed{code, message, counts}
+
+def server.finish(~C: Data, stopped: Bool, error: U32 & String, server: Server<C>) -> IO(ServerExit):
+  do IO<ServerExit>:
+    counts : ServerCounts <- server.close(~C, server)
+    return server.finished(stopped, error, counts)
+
+def server.admitted(~C: Data, ~operation: C -> Limits -> Chan(Admission.Command) -> Socket -> IO(Unit), admitted: Bool, +context: C, +config: ServerConfig, +inbox: Chan(Admission.Command), drained: Chan(Admission.Counts), listener: Listener, socket: Socket) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
   match admitted:
     case False{}:
       do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
         Socket.close(socket)
-        return (Server{listener, context, config, inbox}, Fail{(11, "transport capacity exhausted")})
+        return (Server{listener, context, config, inbox, drained}, Fail{(11, "transport capacity exhausted")})
     case True{}:
       do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
-        finished : Chan(Unit) <- IO.fork(Unit, admission.done(inbox,
-          talk(~C, ~h, ~observe, context, limits.config(config), inbox, Some{Serving{(socket, TurnMore{sv.none(), False{}}), None{}}})))
-        return (Server{listener, context, config, inbox}, Done{finished})
+        finished : Chan(Unit) <- IO.fork(Unit, admission.done(inbox, operation(context, limits.config(config), inbox, socket)))
+        return (Server{listener, context, config, inbox, drained}, Done{finished})
 
-def server.accepted(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), +context: C, +config: ServerConfig, +inbox: Chan(Admission.Command), result: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
+def server.accepted(~C: Data, ~operation: C -> Limits -> Chan(Admission.Command) -> Socket -> IO(Unit), +context: C, +config: ServerConfig, +inbox: Chan(Admission.Command), drained: Chan(Admission.Counts), result: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
   (listener, got) = result
   match got:
     case Fail{error}:
-      IO.pure(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>, (Server{listener, context, config, inbox}, Fail{error}))
+      IO.pure(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>, (Server{listener, context, config, inbox, drained}, Fail{error}))
     case Done{socket}:
       do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
         admitted : Bool <- Admission.take(inbox, 0)
-        server.admitted(~C, ~h, ~observe, admitted, context, config, inbox, listener, socket)
+        server.admitted(~C, ~operation, admitted, context, config, inbox, drained, listener, socket)
 
 # One accepting step, so the caller retains explicit listener ownership.
+type AcceptStep<-C: Data> is Type:
+  AcceptChecking{server: Server<C>}
+  AcceptAllowed{running: Bool, server: Server<C>}
+  AcceptReceived{result: Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>}
+  AcceptFailed{retry: Bool, server: Server<C>, error: U32 & String}
+
+@unsafe
+def server.accept.loop(~C: Data, ~operation: C -> Limits -> Chan(Admission.Command) -> Socket -> IO(Unit),
+  step: AcceptStep<C>) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
+  match step:
+    case AcceptChecking{server}:
+      Server{listener, context, config, +inbox, drained} = server
+      do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
+        running : Bool <- Admission.running(inbox)
+        server.accept.loop(~C, ~operation, AcceptAllowed{running, Server{listener, context, config, inbox, drained}})
+    case AcceptAllowed{running, server}:
+      match running:
+        case False{}:
+          IO.pure(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>, (server, Fail{(0, "server stopped")}))
+        case True{}:
+          Server{listener, context, config, inbox, drained} = server
+          do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
+            result : Listener & Result<&1, &1, U32 & String, Socket> <- Wire.accept.deadline(listener, 50)
+            accepted : Server<C> & Result<&1, &1, U32 & String, Chan(Unit)> <-
+              server.accepted(~C, ~operation, context, config, inbox, drained, result)
+            server.accept.loop(~C, ~operation, AcceptReceived{accepted})
+    case AcceptReceived{accepted}:
+      (server, result) = accepted
+      match result:
+        case Fail{(+code, message)}:
+          server.accept.loop(~C, ~operation, AcceptFailed{err.late(code), server, (code, message)})
+        case Done{finished}:
+          IO.pure(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>, (server, Done{finished}))
+    case AcceptFailed{retry, server, error}:
+      match retry:
+        case True{}: server.accept.loop(~C, ~operation, AcceptChecking{server})
+        case False{}: IO.pure(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>, (server, Fail{error}))
+
+def server.accept.operation(~C: Data, ~operation: C -> Limits -> Chan(Admission.Command) -> Socket -> IO(Unit),
+  server: Server<C>) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
+  server.accept.loop(~C, ~operation, AcceptChecking{server})
+
 def server.accept(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), server: Server<C>) -> IO(Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>):
-  Server{listener, context, config, inbox} = server
-  do IO<Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>>:
-    result : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
-    server.accepted(~C, ~h, ~observe, context, config, inbox, result)
+  server.accept.operation(~C,
+    ~(context => settings => inbox => socket => talk(~C, ~h, ~observe, context, settings, inbox,
+      Some{Serving{(socket, TurnMore{sv.none(), False{}}), None{}}})), server)
+
+def error.stopped(error: U32 & String) -> Bool:
+  (code, message) = error
+  U32.is_zero(code) && String.eq(message, "server stopped")
 
 type ServerLoop<-C: Data> is Type:
   ServerListening{server: Server<C>}
@@ -5881,30 +6016,48 @@ def error.capacity(error: U32 & String) -> Bool:
 
 # A single recursive state machine avoids recursion hidden inside a template.
 @unsafe
-def server.run.loop(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), step: ServerLoop<C>) -> IO(Server<C> & (U32 & String)):
+def server.run.loop(~C: Data, ~operation: C -> Limits -> Chan(Admission.Command) -> Socket -> IO(Unit), step: ServerLoop<C>) -> IO(ServerExit):
   match step:
     case ServerListening{server}:
-      do IO<Server<C> & (U32 & String)>:
-        result : Server<C> & Result<&1, &1, U32 & String, Chan(Unit)> <- server.accept(~C, ~h, ~observe, server)
-        server.run.loop(~C, ~h, ~observe, ServerAccepted{result})
+      do IO<ServerExit>:
+        result : Server<C> & Result<&1, &1, U32 & String, Chan(Unit)> <- server.accept.operation(~C, ~operation, server)
+        server.run.loop(~C, ~operation, ServerAccepted{result})
     case ServerAccepted{accepted}:
       (server, result) = accepted
       match result:
         case Fail{+error}:
-          server.run.loop(~C, ~h, ~observe, ServerFailed{error.capacity(error), server, error})
+          server.run.loop(~C, ~operation, ServerFailed{error.capacity(error), server, error})
         case Done{finished}:
-          do IO<Server<C> & (U32 & String)>:
+          do IO<ServerExit>:
             Chan.close(Unit, finished)
-            server.run.loop(~C, ~h, ~observe, ServerListening{server})
-    case ServerFailed{retry, server, error}:
+            server.run.loop(~C, ~operation, ServerListening{server})
+    case ServerFailed{retry, server, +error}:
       match retry:
         case True{}:
-          server.run.loop(~C, ~h, ~observe, ServerListening{server})
+          server.run.loop(~C, ~operation, ServerListening{server})
         case False{}:
-          IO.pure(Server<C> & (U32 & String), (server, error))
+          server.finish(~C, error.stopped(error), error, server)
 
-def server.run(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), server: Server<C>) -> IO(Server<C> & (U32 & String)):
-  server.run.loop(~C, ~h, ~observe, ServerListening{server})
+def server.run(~C: Data, ~h: C -> Req -> IO(Reply), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), server: Server<C>) -> IO(ServerExit):
+  server.run.loop(~C,
+    ~(context => settings => inbox => socket => talk(~C, ~h, ~observe, context, settings, inbox,
+      Some{Serving{(socket, TurnMore{sv.none(), False{}}), None{}}})), ServerListening{server})
+
+# Convenience wrappers use the same owner and observe its actual exit/drain.
+def server.exited(result: ServerExit) -> IO(Unit):
+  match result:
+    case ServerStopped{counts}: IO.pure(Unit, Unit{})
+    case ServerAcceptFailed{code, message, counts}: IO.die(Unit, code, message)
+
+def server.start.failed(error: StartupError) -> IO(Unit):
+  match error:
+    case InvalidConfig{}: IO.die(Unit, 22, "invalid server configuration")
+    case BindError{code, message}: IO.die(Unit, code, message)
+
+def serve.config.result(result: Result<&2, &2, StartupError, Unit>) -> IO(Unit):
+  match result:
+    case Fail{error}: server.start.failed(error)
+    case Done{unit}: IO.pure(Unit, unit)
 
 def serve.stream.nonempty(~S: Type, ~piece: S -> Bytes.Bytes -> IO(S & Bool), empty: Bool, state: S, b: Bytes.Bytes) -> IO(S & Bool):
   match empty:
@@ -5963,6 +6116,8 @@ def admission.ready(t: Turn) -> Bool & Turn:
       (False{}, TurnFail{status})
     case TurnClose{}:
       (False{}, TurnClose{})
+    case TurnInputFailed{operation, code, message}:
+      (False{}, TurnInputFailed{operation, code, message})
 
 def admission.give.held(held: Bool, inbox: Chan(Admission.Command)) -> IO(Unit):
   match held:
@@ -5996,11 +6151,26 @@ def admission.stream.take(needed: Bool, inbox: Chan(Admission.Command)) -> IO(Bo
     case True{}:
       Admission.take(inbox, 1)
 
+type StreamAbort is Data:
+  StreamClosed{}
+  StreamFailed{status: U32}
+  StreamInputFailed{operation: InputOperation, code: U32, message: String}
+
+# The application consumes its real affine state on unsuccessful upload paths.
+# An abort that does not return remains admitted work, not a fabricated drain.
+def serve.stream.abort(~S: Type, ~abort: S -> StreamAbort -> IO(Unit),
+  reason: StreamAbort, state: Maybe<&1, S & Bool>) -> IO(Unit):
+  match state:
+    case None{}: IO.pure(Unit, Unit{})
+    case Some{pair}:
+      (value, dropped) = pair
+      abort(value, reason)
+
 # One recursive state machine keeps template callbacks out of mutual recursion.
 @unsafe
 def serve.stream.talk(
   ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +settings: Limits, +inbox: Chan(Admission.Command), step: StreamServing<S>
+  ~finish: S -> IO(Reply), ~abort: S -> StreamAbort -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit), +settings: Limits, +inbox: Chan(Admission.Command), step: StreamServing<S>
 ) -> IO(Unit):
   Limits{max, cap, hm, bm, im, wm} = settings
   match step:
@@ -6008,27 +6178,36 @@ def serve.stream.talk(
       IO.pure(Unit, Unit{})
     case StreamCheck{held, connection, state}:
       Serving{(socket, turn), phase} = connection
-      serve.stream.talk(~S, ~start, ~piece, ~finish, ~observe, settings, inbox,
+      serve.stream.talk(~S, ~start, ~piece, ~finish, ~abort, ~observe, settings, inbox,
         serve.stream.ready(~S, held, socket, phase, state, admission.ready(turn)))
     case StreamReady{+held, +ready, connection, state}:
       do IO<Unit>:
         admitted : Bool <- admission.stream.take(Bool.not(held) && ready, inbox)
-        serve.stream.talk(~S, ~start, ~piece, ~finish, ~observe, settings, inbox,
+        serve.stream.talk(~S, ~start, ~piece, ~finish, ~abort, ~observe, settings, inbox,
           StreamChecked{held || ready, admitted, connection, state})
-    case StreamChecked{held, admitted, connection, m}:
+    case StreamChecked{+held, admitted, connection, m}:
       match admitted:
         case False{}:
           Serving{(socket, turn), phase} = connection
-          admission.reject(Completion.Observed{status => outcome => observe(status, outcome)}, socket, admission.turn.head(turn), wm)
+          do IO<Unit>:
+            serve.stream.abort(~S, ~abort, StreamFailed{503}, m)
+            admission.reject(Completion.Observed{status => outcome => observe(status, outcome)}, socket, admission.turn.head(turn), wm)
         case True{}:
           Serving{(s, t), phase} = connection
           match t:
             case TurnClose{}:
               do IO<Unit>:
                 Socket.close(s)
+                serve.stream.abort(~S, ~abort, StreamClosed{}, m)
                 admission.give.held(held, inbox)
-            case TurnFail{status}:
+            case TurnInputFailed{operation, code, message}:
               do IO<Unit>:
+                Socket.close(s)
+                serve.stream.abort(~S, ~abort, StreamInputFailed{operation, code, message}, m)
+                admission.give.held(held, inbox)
+            case TurnFail{+status}:
+              do IO<Unit>:
+                serve.stream.abort(~S, ~abort, StreamFailed{status}, m)
                 reply_fail(Completion.Observed{status => outcome => observe(status, outcome)}, s, status, wm)
                 admission.give.held(held, inbox)
             case TurnReq{req, rest, v11}:
@@ -6038,14 +6217,14 @@ def serve.stream.talk(
                   Req{method, path, headers, Bytes.new(0)}, m, [body])
                 after : Maybe<&1, Socket & Turn> <- serve.stream.respond(~S, ~finish, ~observe, settings, s, rest, headers, v11, method, next)
                 Admission.give(inbox, 1)
-                serve.stream.talk(~S, ~start, ~piece, ~finish, ~observe, settings, inbox,
+                serve.stream.talk(~S, ~start, ~piece, ~finish, ~abort, ~observe, settings, inbox,
                   serve.stream.after(~S, after))
             case TurnMore{sv, cont}:
               match sv:
                 case SvHead{buf}:
                   do IO<Unit>:
-                    received : (Socket & Turn) & Phase <- talk.recv(settings, s, SvHead{buf}, cont, phase)
-                    serve.stream.talk(~S, ~start, ~piece, ~finish, ~observe, settings, inbox,
+                    received : (Socket & Turn) & Phase <- talk.recv(inbox, held, settings, s, SvHead{buf}, cont, phase)
+                    serve.stream.talk(~S, ~start, ~piece, ~finish, ~abort, ~observe, settings, inbox,
                       StreamCheck{held, talk.state(received), m})
                 case SvLen{req, +v11, +left, parts}:
                   Req{+method, +path, +headers, body} = req
@@ -6054,9 +6233,9 @@ def serve.stream.talk(
                     reading : Phase = phase.body(phase, settings, now)
                     next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
                       Req{method, path, headers, body}, m, List.reverse(&1, Bytes.Bytes, parts))
-                    received : (Socket & Turn) & Phase <- talk.recv(settings, s,
+                    received : (Socket & Turn) & Phase <- talk.recv(inbox, held, settings, s,
                       SvLen{Req{method, path, headers, Bytes.new(0)}, v11, left, Nil{}}, cont, Some{reading})
-                    serve.stream.talk(~S, ~start, ~piece, ~finish, ~observe, settings, inbox,
+                    serve.stream.talk(~S, ~start, ~piece, ~finish, ~abort, ~observe, settings, inbox,
                       StreamCheck{held, talk.state(received), Some{next}})
                 case SvChunk{req, +v11, +n, st, parts}:
                   Req{+method, +path, +headers, body} = req
@@ -6065,65 +6244,24 @@ def serve.stream.talk(
                     reading : Phase = phase.body(phase, settings, now)
                     next : S & Bool <- serve.stream.feed(~S, ~start, ~piece,
                       Req{method, path, headers, body}, m, List.reverse(&1, Bytes.Bytes, parts))
-                    received : (Socket & Turn) & Phase <- talk.recv(settings, s,
+                    received : (Socket & Turn) & Phase <- talk.recv(inbox, held, settings, s,
                       SvChunk{Req{method, path, headers, Bytes.new(0)}, v11, n, st, Nil{}}, cont, Some{reading})
-                    serve.stream.talk(~S, ~start, ~piece, ~finish, ~observe, settings, inbox,
+                    serve.stream.talk(~S, ~start, ~piece, ~finish, ~abort, ~observe, settings, inbox,
                       StreamCheck{held, talk.state(received), Some{next}})
 
 
-def serve.stream.conn.admitted(
-  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  admitted: Bool, +settings: Limits, +inbox: Chan(Admission.Command), l: Listener, s: Socket
-) -> IO(Listener):
-  match admitted:
-    case False{}:
-      do IO<Listener>:
-        Socket.close(s)
-        return l
-    case True{}:
-      do IO<Listener>:
-        IO.spawn(Unit, admission.done(inbox, serve.stream.talk(~S, ~start, ~piece, ~finish, ~observe, settings, inbox,
-          StreamCheck{False{}, Serving{(s, TurnMore{sv.none(), False{}}), None{}}, None{}})))
-        return l
-
-def serve.stream.conn(
+def server.stream.run(
   ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +settings: Limits, +inbox: Chan(Admission.Command), m: Listener & Result<&1, &1, U32 & String, Socket>
-) -> IO(Listener):
-  (l, r) = m
-  do IO<Listener>:
-    s : Socket <- IO.pass(Socket, r)
-    admitted : Bool <- Admission.take(inbox, 0)
-    serve.stream.conn.admitted(~S, ~start, ~piece, ~finish, ~observe, admitted, settings, inbox, l, s)
-
-@unsafe
-def serve.stream.loop(
-  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +settings: Limits, +inbox: Chan(Admission.Command), l: Listener
-) -> IO(Unit):
-  do IO<Unit>:
-    m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- serve.stream.conn(~S, ~start, ~piece, ~finish, ~observe, settings, inbox, m)
-    serve.stream.loop(~S, ~start, ~piece, ~finish, ~observe, settings, inbox, l2)
-
-def serve.stream.on.with(
-  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), host: String, +port: U32, +max: Nat
-) -> IO(Unit):
-  do IO<Unit>:
-    limits.validate(max)
-    l : Listener <- IO.try(Listener, TCP.listen(host, port))
-    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
-    serve.stream.loop(~S, ~start, ~piece, ~finish, ~observe, limits(max), inbox, l)
-
-def serve.stream.with(
-  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
-  ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +port: U32, +max: Nat
-) -> IO(Unit):
-  serve.stream.on.with(~S, ~start, ~piece, ~finish, ~observe, "0.0.0.0", port, max)
+  ~finish: S -> IO(Reply), ~abort: S -> StreamAbort -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit), server: Server<Unit>
+) -> IO(ServerExit):
+  server.run.loop(~Unit,
+    ~(context => settings => inbox => socket =>
+      serve.stream.talk(~S, ~start, ~piece, ~finish, ~abort, ~observe, settings, inbox,
+        StreamCheck{False{}, Serving{(socket, TurnMore{sv.none(), False{}}), None{}}, None{}})),
+    ServerListening{server})
 
 def serve.stream.started(
-  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), ~finish: S -> IO(Reply), ~abort: S -> StreamAbort -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
   result: Unit & Result<&2, &1, StartupError, Server<Unit>>
 ) -> IO(Result<&2, &2, StartupError, Unit>):
   (owner, got) = result
@@ -6131,18 +6269,18 @@ def serve.stream.started(
     case Fail{error}:
       IO.pure(Result<&2, &2, StartupError, Unit>, Fail{error})
     case Done{server}:
-      Server{listener, context, config, inbox} = server
       do IO<Result<&2, &2, StartupError, Unit>>:
-        serve.stream.loop(~S, ~start, ~piece, ~finish, ~observe, limits.config(config), inbox, listener)
+        exited : ServerExit <- server.stream.run(~S, ~start, ~piece, ~finish, ~abort, ~observe, server)
+        server.exited(exited)
         return Done{Unit{}}
 
 def serve.stream.config(
-  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), ~finish: S -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool), ~finish: S -> IO(Reply), ~abort: S -> StreamAbort -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
   config: ServerConfig
 ) -> IO(Result<&2, &2, StartupError, Unit>):
   do IO<Result<&2, &2, StartupError, Unit>>:
     started : Unit & Result<&2, &1, StartupError, Server<Unit>> <- server.start(~Unit, ~Unit, Unit{}, Unit{}, config)
-    serve.stream.started(~S, ~start, ~piece, ~finish, ~observe, started)
+    serve.stream.started(~S, ~start, ~piece, ~finish, ~abort, ~observe, started)
 
 type WriterMode is Data:
   WriteKnown{left: U32}
@@ -6305,18 +6443,20 @@ def serve.write.finish(observer: Completion.Receipt, receipt: Completion.Receipt
   settings: Limits, keep: Bool, rest: Bytes.Bytes, w: Writer) -> IO(Maybe<&1, Socket & Turn>):
   serve.write.returned(observer, status, settings, keep, rest, (w, receipt))
 
-def serve.write.body(~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt),
+def serve.write.body(~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit),
   observer: Completion.Receipt, receipt: Completion.Receipt, status: U32, settings: Limits,
   keep: Bool, rest: Bytes.Bytes, state: S, s: Socket, mode: WriterMode, suppress: Bool, until: Time.Duration) -> IO(Maybe<&1, Socket & Turn>):
   match suppress:
     case True{}:
-      serve.write.finish(observer, receipt, status, settings, keep, rest, Writer{Some{s}, WriteNone{}, until, Completion.HostAccepted{}})
+      do IO<Maybe<&1, Socket & Turn>>:
+        dispose(state)
+        serve.write.finish(observer, receipt, status, settings, keep, rest, Writer{Some{s}, WriteNone{}, until, Completion.HostAccepted{}})
     case False{}:
       do IO<Maybe<&1, Socket & Turn>>:
         result : Writer & Completion.Receipt <- write(state, Writer{Some{s}, mode, until, Completion.HostAccepted{}}, receipt)
         serve.write.returned(observer, status, settings, keep, rest, result)
 
-def serve.write.open(~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt),
+def serve.write.open(~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit),
   observer: Completion.Receipt, receipt: Completion.Receipt, +status: U32, settings: Limits,
   keep: Bool, rest: Bytes.Bytes, state: S, mode: WriterMode, suppress: Bool, until: Time.Duration,
   m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Maybe<&1, Socket & Turn>):
@@ -6326,11 +6466,12 @@ def serve.write.open(~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(W
       +failure = {Completion.WriteFailed{code, message} : Completion.Outcome}
       do IO<Maybe<&1, Socket & Turn>>:
         Socket.close(s)
+        dispose(state)
         Completion.report(observer, status, failure)
         Completion.report(receipt, status, failure)
         return None{}
     case Done{u}:
-      serve.write.body(~S, ~write, observer, receipt, status, settings, keep, rest, state, s, mode, suppress, until)
+      serve.write.body(~S, ~write, ~dispose, observer, receipt, status, settings, keep, rest, state, s, mode, suppress, until)
 
 def writer.connection(keep: Bool, headers: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
   match keep:
@@ -6340,7 +6481,7 @@ def writer.connection(keep: Bool, headers: Map<&2, List<&2, String>>) -> Map<&2,
       set(headers, "connection", "close")
 
 def serve.write.send.plan(
-  ~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt),
+  ~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit),
   observer: Completion.Receipt, receipt: Completion.Receipt, +settings: Limits, s: Socket, rest: Bytes.Bytes,
   +keep: Bool, +head: Bool, +status: U32, state: S, plan: WriterMode & Map<&2, List<&2, String>>
 ) -> IO(Maybe<&1, Socket & Turn>):
@@ -6352,21 +6493,21 @@ def serve.write.send.plan(
     +until : Time.Duration = Time.Duration.add(now, Time.Duration.of_ms(wm))
     sent : Socket & Result<&1, &1, U32 & String, Unit> <-
       bounded.send(s, Bytes.from_string(response(status, sent_headers, "")), until)
-    serve.write.open(~S, ~write, observer, receipt, status, settings, keep, rest, state, mode,
+    serve.write.open(~S, ~write, ~dispose, observer, receipt, status, settings, keep, rest, state, mode,
       frame.nobody(status, head), until, sent)
 
 def serve.write.send(
-  ~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), observer: Completion.Receipt, settings: Limits, s: Socket, rest: Bytes.Bytes,
+  ~S: Type, ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), observer: Completion.Receipt, settings: Limits, s: Socket, rest: Bytes.Bytes,
   +headers: Map<&2, List<&2, String>>, v11: Bool, +head: Bool, out: WriteHead<S>
 ) -> IO(Maybe<&1, Socket & Turn>):
   WriteHead{+status, rh, length, state, receipt} = out
   +normalized = writer.headers(Map.to_list(&2, List<&2, String>, rh), empty())
   +keep = serve.keep(headers, v11, status, normalized)
-  serve.write.send.plan(~S, ~write, observer, receipt, settings, s, rest, keep, head, status, state,
+  serve.write.send.plan(~S, ~write, ~dispose, observer, receipt, settings, s, rest, keep, head, status, state,
     writer.plan(frame.nobody(status, False{}), normalized, length))
 
 def admission.write(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
   admitted: Bool, +inbox: Chan(Admission.Command), +settings: Limits,
   s: Socket, req: Req, rest: Bytes.Bytes, v11: Bool
 ) -> IO(Maybe<&1, Socket & Turn>):
@@ -6380,13 +6521,13 @@ def admission.write(
       Req{+method, path, +headers, body} = req
       do IO<Maybe<&1, Socket & Turn>>:
         out : WriteHead<S> <- start(Req{method, path, headers, body})
-        after : Maybe<&1, Socket & Turn> <- serve.write.send(~S, ~write, Completion.Observed{status => outcome => observe(status, outcome)}, settings, s, rest, headers, v11, String.eq(method, "HEAD"), out)
+        after : Maybe<&1, Socket & Turn> <- serve.write.send(~S, ~write, ~dispose, Completion.Observed{status => outcome => observe(status, outcome)}, settings, s, rest, headers, v11, String.eq(method, "HEAD"), out)
         Admission.give(inbox, 1)
         return after
 
 @unsafe
 def serve.write.talk(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
   +settings: Limits, +inbox: Chan(Admission.Command), st: Maybe<&1, Serving>
 ) -> IO(Unit):
   Limits{max, cap, hm, bm, im, wm} = settings
@@ -6397,71 +6538,34 @@ def serve.write.talk(
       match t:
         case TurnMore{sv, cont}:
           do IO<Unit>:
-            received : (Socket & Turn) & Phase <- talk.recv(settings, s, sv, cont, phase)
-            serve.write.talk(~S, ~start, ~write, ~observe, settings, inbox, Some{talk.state(received)})
+            received : (Socket & Turn) & Phase <- talk.recv(inbox, False{}, settings, s, sv, cont, phase)
+            serve.write.talk(~S, ~start, ~write, ~dispose, ~observe, settings, inbox, Some{talk.state(received)})
         case TurnReq{req, rest, v11}:
           do IO<Unit>:
             admitted : Bool <- Admission.take(inbox, 1)
-            after : Maybe<&1, Socket & Turn> <- admission.write(~S, ~start, ~write, ~observe, admitted, inbox, settings, s, req, rest, v11)
-            serve.write.talk(~S, ~start, ~write, ~observe, settings, inbox, serve.write.state(after))
+            after : Maybe<&1, Socket & Turn> <- admission.write(~S, ~start, ~write, ~dispose, ~observe, admitted, inbox, settings, s, req, rest, v11)
+            serve.write.talk(~S, ~start, ~write, ~dispose, ~observe, settings, inbox, serve.write.state(after))
         case TurnFail{status}:
           reply_fail(Completion.Observed{status => outcome => observe(status, outcome)}, s, status, wm)
         case TurnClose{}:
           Socket.close(s)
+        case TurnInputFailed{operation, code, message}:
+          Socket.close(s)
 
-def serve.write.conn.admitted(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  admitted: Bool, +settings: Limits, +inbox: Chan(Admission.Command), l: Listener, s: Socket
-) -> IO(Listener):
-  match admitted:
-    case False{}:
-      do IO<Listener>:
-        Socket.close(s)
-        return l
-    case True{}:
-      do IO<Listener>:
-        IO.spawn(Unit, admission.done(inbox, serve.write.talk(~S, ~start, ~write, ~observe, settings, inbox,
-          Some{Serving{(s, TurnMore{sv.none(), False{}}), None{}}})))
-        return l
-
-def serve.write.conn(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  +settings: Limits, +inbox: Chan(Admission.Command), m: Listener & Result<&1, &1, U32 & String, Socket>
-) -> IO(Listener):
-  (l, r) = m
-  do IO<Listener>:
-    s : Socket <- IO.pass(Socket, r)
-    admitted : Bool <- Admission.take(inbox, 0)
-    serve.write.conn.admitted(~S, ~start, ~write, ~observe, admitted, settings, inbox, l, s)
-
-@unsafe
-def serve.write.loop(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  +settings: Limits, +inbox: Chan(Admission.Command), l: Listener
-) -> IO(Unit):
-  do IO<Unit>:
-    m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- serve.write.conn(~S, ~start, ~write, ~observe, settings, inbox, m)
-    serve.write.loop(~S, ~start, ~write, ~observe, settings, inbox, l2)
-
-def serve.write.on.with(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  host: String, +port: U32, +max: Nat
-) -> IO(Unit):
-  do IO<Unit>:
-    limits.validate(max)
-    l : Listener <- IO.try(Listener, TCP.listen(host, port))
-    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
-    serve.write.loop(~S, ~start, ~write, ~observe, limits(max), inbox, l)
-
-def serve.write.with(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  +port: U32, +max: Nat
-) -> IO(Unit):
-  serve.write.on.with(~S, ~start, ~write, ~observe, "0.0.0.0", port, max)
+def server.write.run(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>),
+  ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt),
+  ~dispose: S -> IO(Unit),
+  ~observe: U32 -> Completion.Outcome -> IO(Unit), server: Server<Unit>
+) -> IO(ServerExit):
+  server.run.loop(~Unit,
+    ~(context => settings => inbox => socket =>
+      serve.write.talk(~S, ~start, ~write, ~dispose, ~observe, settings, inbox,
+        Some{Serving{(socket, TurnMore{sv.none(), False{}}), None{}}})),
+    ServerListening{server})
 
 def serve.write.started(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
   result: Unit & Result<&2, &1, StartupError, Server<Unit>>
 ) -> IO(Result<&2, &2, StartupError, Unit>):
   (owner, got) = result
@@ -6469,14 +6573,73 @@ def serve.write.started(
     case Fail{error}:
       IO.pure(Result<&2, &2, StartupError, Unit>, Fail{error})
     case Done{server}:
-      Server{listener, context, config, inbox} = server
       do IO<Result<&2, &2, StartupError, Unit>>:
-        serve.write.loop(~S, ~start, ~write, ~observe, limits.config(config), inbox, listener)
+        exited : ServerExit <- server.write.run(~S, ~start, ~write, ~dispose, ~observe, server)
+        server.exited(exited)
         return Done{Unit{}}
 
 def serve.write.config(
-  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~observe: U32 -> Completion.Outcome -> IO(Unit), config: ServerConfig
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit), config: ServerConfig
 ) -> IO(Result<&2, &2, StartupError, Unit>):
   do IO<Result<&2, &2, StartupError, Unit>>:
     started : Unit & Result<&2, &1, StartupError, Server<Unit>> <- server.start(~Unit, ~Unit, Unit{}, Unit{}, config)
-    serve.write.started(~S, ~start, ~write, ~observe, started)
+    serve.write.started(~S, ~start, ~write, ~dispose, ~observe, started)
+
+def serve.started(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  started: Unit & Result<&2, &1, StartupError, Server<Unit>>) -> IO(Unit):
+  (owner, result) = started
+  match result:
+    case Fail{error}: server.start.failed(error)
+    case Done{server}:
+      do IO<Unit>:
+        exited : ServerExit <- server.run(~Unit, ~(context => req => h(req)),
+          ~(context => status => outcome => observe(status, outcome)), server)
+        server.exited(exited)
+
+def serve.on.with(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), host: String, +port: U32, +max: Nat) -> IO(Unit):
+  do IO<Unit>:
+    limits.validate(max)
+    started : Unit & Result<&2, &1, StartupError, Server<Unit>> <-
+      server.start(~Unit, ~Unit, Unit{}, Unit{}, server.config.with(host, port, max))
+    serve.started(~h, ~observe, started)
+
+def serve.on(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), host: String, +port: U32) -> IO(Unit):
+  serve.on.with(~h, ~observe, host, port, serve.max())
+
+def serve.with(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +port: U32, +max: Nat) -> IO(Unit):
+  serve.on.with(~h, ~observe, "0.0.0.0", port, max)
+
+def serve(~h: Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit), +port: U32) -> IO(Unit):
+  serve.with(~h, ~observe, port, serve.max())
+
+def serve.stream.on.with(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
+  ~finish: S -> IO(Reply), ~abort: S -> StreamAbort -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit), host: String, +port: U32, +max: Nat
+) -> IO(Unit):
+  do IO<Unit>:
+    limits.validate(max)
+    result : Result<&2, &2, StartupError, Unit> <-
+      serve.stream.config(~S, ~start, ~piece, ~finish, ~abort, ~observe, server.config.with(host, port, max))
+    serve.config.result(result)
+
+def serve.stream.with(
+  ~S: Type, ~start: Req -> IO(S), ~piece: S -> Bytes.Bytes -> IO(S & Bool),
+  ~finish: S -> IO(Reply), ~abort: S -> StreamAbort -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit), +port: U32, +max: Nat
+) -> IO(Unit):
+  serve.stream.on.with(~S, ~start, ~piece, ~finish, ~abort, ~observe, "0.0.0.0", port, max)
+
+def serve.write.on.with(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  host: String, +port: U32, +max: Nat
+) -> IO(Unit):
+  do IO<Unit>:
+    limits.validate(max)
+    result : Result<&2, &2, StartupError, Unit> <-
+      serve.write.config(~S, ~start, ~write, ~dispose, ~observe, server.config.with(host, port, max))
+    serve.config.result(result)
+
+def serve.write.with(
+  ~S: Type, ~start: Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
+  +port: U32, +max: Nat
+) -> IO(Unit):
+  serve.write.on.with(~S, ~start, ~write, ~dispose, ~observe, "0.0.0.0", port, max)

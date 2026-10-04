@@ -36,9 +36,9 @@ def second(file: File, +calls: Chan(Unit), first: Chan(Unit), result: Http.Serve
   (server, got) = result
   do IO<Unit>:
     finished : Chan(Unit) <- IO.pass(Chan(Unit), got)
-    Http.server.close(~Context, server)
     IO.join(Unit, first)
     IO.join(Unit, finished)
+    drained : Http.ServerCounts <- Http.server.close(~Context, server)
     IO.join(Unit, calls)
     IO.join(Unit, calls)
     IO.join(Unit, calls)
@@ -53,23 +53,17 @@ def accepted(file: File, calls: Chan(Unit), result: Http.Server<Context> & Resul
     result : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
     second(file, calls, finished, result)
 
-def stopped(file: File, result: Http.Server<Context> & (U32 & String)) -> IO(Unit):
-  (server, error) = result
-  do IO<Unit>:
-    Http.server.close(~Context, server)
-    cleanup(file, "accept failed recovered\n")
-
 def success(mode: String, file: File, calls: Chan(Unit), server: Http.Server<Context>) -> IO(Unit):
   match mode:
     case "run":
       do IO<Unit>:
         IO.print("READY")
-        result : Http.Server<Context> & (U32 & String) <- Http.server.run(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
-        stopped(file, result)
+        result : Http.ServerExit <- Http.server.run(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
+        cleanup(file, "server drained\n")
     case "boundary":
       do IO<Unit>:
         IO.print("READY")
-        Http.server.close(~Context, server)
+        drained : Http.ServerCounts <- Http.server.close(~Context, server)
         cleanup(file, "representability boundary accepted\n")
     case _:
       do IO<Unit>:

@@ -88,6 +88,10 @@ def upload.finish(state: Upload) -> IO(Http.Reply):
     done : Completion.Receipt <- receipt(path, 3)
     return Http.Reply{Http.Res{status(path), Http.empty(), response.large(String.eq(path, "/reset") || String.eq(path, "/deadline"))}, done}
 
+def upload.abort(state: Upload, reason: Http.StreamAbort) -> IO(Unit):
+  Upload{path, bytes} = state
+  IO.pure(Unit, Unit{})
+
 type Download is Data:
   Download{path: String}
 
@@ -119,20 +123,20 @@ def download.write(state: Download, writer: Http.Writer, initial: Completion.Rec
     final : Completion.Receipt <- receipt(path, 2)
     return (written, final)
 
+def download.dispose(state: Download) -> IO(Unit):
+  Download{path} = state
+  IO.pure(Unit, Unit{})
+
 def config(port: U32) -> Http.ServerConfig:
   Http.ServerConfig{"127.0.0.1", port, 8, 128, 16, 2, 16, 600, 600, 800, 600}
-
-def stopped(result: Http.Server<Unit> & (U32 & String)) -> IO(Unit):
-  (server, error) = result
-  Http.server.close(~Unit, server)
 
 def whole.observed(pair: Http.Server<Unit> & Http.ServerStats) -> IO(Unit):
   (server, observer) = pair
   do IO<Unit>:
     IO.spawn(Unit, Checks.monitor(U32.to_nat(2400), observer, Checks.Observe{}))
     IO.print("READY")
-    result : Http.Server<Unit> & (U32 & String) <- Http.server.run(~Unit, ~whole, ~owner.context, server)
-    stopped(result)
+    result : Http.ServerExit <- Http.server.run(~Unit, ~whole, ~owner.context, server)
+    return Unit{}
 
 def whole.started(result: Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Unit):
   (owner, started) = result
@@ -203,7 +207,7 @@ def late.accepted(+observers: Chan(Chan(Completion.Completion<Payload>)),
   do IO<Unit>:
     finished : Chan(Unit) <- IO.pass(Chan(Unit), result)
     IO.join(Unit, finished)
-    Http.server.close(~LateContext, server)
+    drained : Http.ServerCounts <- Http.server.close(~LateContext, server)
     IO.print("TRANSPORT RETURNED BEFORE OBSERVER RECEIVE")
     observer : Chan(Completion.Completion<Payload>) <- IO.join(Chan(Completion.Completion<Payload>), observers)
     event : Maybe<&1, Completion.Completion<Payload>> <- IO.within(Completion.Completion<Payload>, 1000,
@@ -213,12 +217,12 @@ def late.accepted(+observers: Chan(Chan(Completion.Completion<Payload>)),
 def late.ready(+observers: Chan(Chan(Completion.Completion<Payload>)),
   pair: Http.Server<LateContext> & Http.ServerStats) -> IO(Unit):
   (server, stats) = pair
-  Http.Server{listener, context, config, inbox} = server
+  Http.Server{listener, context, config, inbox, drained} = server
   do IO<Unit>:
     IO.print("READY")
     accepted : Http.Server<LateContext> & Result<&1, &1, U32 & String, Chan(Unit)> <-
       Http.server.accept(~LateContext, ~late.handle, ~late.owner,
-        Http.Server{listener, LateContext{observers, Some{stats}}, config, inbox})
+        Http.Server{listener, LateContext{observers, Some{stats}}, config, inbox, drained})
     late.accepted(observers, accepted)
 
 def late.started(+observers: Chan(Chan(Completion.Completion<Payload>)),
@@ -243,15 +247,15 @@ def run(mode: String, port: U32) -> IO(Unit):
         whole.started(started)
     case "stream":
       do IO<Unit>:
-        started : Result<&2, &2, Http.StartupError, Unit> <- Http.serve.stream.config(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~owner, config(port))
+        started : Result<&2, &2, Http.StartupError, Unit> <- Http.serve.stream.config(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~owner, config(port))
         checked(started)
     case "writer":
       do IO<Unit>:
-        started : Result<&2, &2, Http.StartupError, Unit> <- Http.serve.write.config(~Download, ~download.start, ~download.write, ~owner, config(port))
+        started : Result<&2, &2, Http.StartupError, Unit> <- Http.serve.write.config(~Download, ~download.start, ~download.write, ~download.dispose, ~owner, config(port))
         checked(started)
     case "whole-convenience": Http.serve.on.with(~whole.convenience, ~owner, "127.0.0.1", port, 8n)
-    case "stream-convenience": Http.serve.stream.on.with(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~owner, "127.0.0.1", port, 8n)
-    case "writer-convenience": Http.serve.write.on.with(~Download, ~download.start, ~download.write, ~owner, "127.0.0.1", port, 8n)
+    case "stream-convenience": Http.serve.stream.on.with(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~owner, "127.0.0.1", port, 8n)
+    case "writer-convenience": Http.serve.write.on.with(~Download, ~download.start, ~download.write, ~download.dispose, ~owner, "127.0.0.1", port, 8n)
     case _: IO.die(Unit, 1, "invalid mode")
 
 def port(mode: String, number: Maybe<&2, U32>) -> IO(Unit):

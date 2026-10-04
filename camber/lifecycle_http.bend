@@ -4,6 +4,7 @@ import ./raw_http.bend as Raw
 import ./surface.bend as Surface
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
+import ../http/completion.bend as Completion
 
 type Input is Type:
   Request{request: Http.Req, hooks: U32}
@@ -128,3 +129,18 @@ def dispatch(~business: U32 -> Http.Req -> IO(Http.Res), +profile: U32, req: Htt
     result : Unit & Surface.Flow <- Surface.scope(~Unit, ~U32, ~U32, ~U32, ~U32, ~Unit, ~enter, ~(state => profile => meta => count => body => endpoint(~business, state, profile, meta, count, body)), ~unchanged, ~mapper, ~validate, Surface.Policy{Nil{}}, Unit{}, profile, Registry.Metadata{method, target, headers}, 0, body)
     checked : Unit & Surface.Flow <- Surface.finish(~Unit, ~U32, ~U32, ~mapper, ~validate, profile, result)
     return response(checked)
+
+# The cooperative lifecycle probe uses this same scoped dispatch, the shared
+# transport owner and typed request-local completion, not a second server.
+def serve.reply(~business: U32 -> Http.Req -> IO(Http.Res),
+  ~done: Completion.Completion<String> -> IO(Unit), context: Unit, req: Http.Req) -> IO(Http.Reply):
+  Http.Req{method, +path, headers, body} = req
+  do IO<Http.Reply>:
+    response : Http.Res <- dispatch(~business, 0, Http.Req{method, path, headers, body})
+    return Http.reply.complete(~String, ~done, path, response)
+
+def serve(~business: U32 -> Http.Req -> IO(Http.Res),
+  ~done: Completion.Completion<String> -> IO(Unit),
+  ~observe: U32 -> Completion.Outcome -> IO(Unit), server: Http.Server<Unit>) -> IO(Http.ServerExit):
+  Http.server.run(~Unit, ~(context => req => serve.reply(~business, ~done, context, req)),
+    ~(context => status => outcome => observe(status, outcome)), server)
