@@ -22,8 +22,17 @@ def plain(req: H.Req) -> IO(H.Res):
   +status = H.header(headers, "x-status")
   IO.pure(H.Res, H.Res{Bool.pick(U32, String.eq(status, "199"), 199, Bool.pick(U32, String.eq(status, "600"), 600, 200)), headers, body})
 
-def run(action: U32, context: Unit, matched: C.Match<Unit>, req: H.Req) -> IO(H.Res):
-  plain(req)
+def run(action: U32, state: Unit, context: Unit, matched: C.Match<C.Policy<Unit>>, req: H.Req) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
+  do IO<Unit & Result<&2, &1, C.Error<Unit>, H.Res>>:
+    response : H.Res <- plain(req)
+    return (state, Done{response})
+
+def before(hook: Unit, state: Unit, context: Unit, meta: C.Metadata) -> IO(C.Step<Unit, Unit>):
+  IO.pure(C.Step<Unit, Unit>, C.Continue{state})
+
+def after(hook: Unit, state: Unit, context: Unit, response: H.Res) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
+  IO.pure(Unit & Result<&2, &1, C.Error<Unit>, H.Res>, (state, Done{response}))
+
 
 def sent(value: Socket & H.Turn) -> IO(Unit):
   (socket, turn) = value
@@ -51,26 +60,38 @@ def accepted(value: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Liste
   (listener, result) = value
   accepted.result(result, listener)
 
-def rejected(result: Result<&2, &1, C.ResponseError, H.Res>) -> Bool:
-  match result:
-    case Fail{C.InvalidResponse{}}: True{}
-    case _: False{}
 
-def ready(result: Result<&2, &2, C.RegistrationError, C.Application<U32, Unit, Unit>>) -> IO(C.Application<U32, Unit, Unit>):
+def ready(result: Result<&2, &2, C.RegistrationError, C.Application<U32, Unit, C.Policy<Unit>>>) -> IO(C.Application<U32, Unit, C.Policy<Unit>>):
   match result:
-    case Fail{error}: IO.die(C.Application<U32, Unit, Unit>, 1, "registration")
-    case Done{app}: IO.pure(C.Application<U32, Unit, Unit>, app)
+    case Fail{error}: IO.die(C.Application<U32, Unit, C.Policy<Unit>>, 1, "registration")
+    case Done{app}: IO.pure(C.Application<U32, Unit, C.Policy<Unit>>, app)
+def recovered(completion: C.Completion<Unit, Unit>, socket: Socket) -> IO(Unit):
+  C.Completed{state, H.Res{+status, +headers, body}, entered, mapped, stopped} = completion
+  do IO<Unit>:
+    Check.require(U32.is_eq(status, 500) && mapped && stopped, "invalid routed output not recovered")
+    value : Socket & H.Turn <- H.talk.send(1024n, socket, H.from_string(""), H.empty(), True{}, False{}, H.Res{status, headers, body})
+    sent(value)
+    IO.print("EXPECTED SAFE MAPPED500 WRITE")
 
-def invalid.accepted(pair: Listener & Socket, +status: U32, +name: String, +value: String, app: C.Application<U32, Unit, Unit>, next_case: Listener -> IO(Listener)) -> IO(Listener):
+def safety(routed: Bool, app: C.Application<U32, Unit, C.Policy<Unit>>, req: H.Req, socket: Socket) -> IO(Unit):
+  match routed:
+    case False{}:
+      do IO<Unit>:
+        response : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, req)
+        output(response, socket)
+    case True{}:
+      do IO<Unit>:
+        completion : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~Unit, ~Unit, ~Unit, ~before, ~after, ~run, ~C.default.mapper(~Unit, ~Unit, ~Unit), app, Unit{}, req)
+        recovered(completion, socket)
+
+
+def invalid.accepted(pair: Listener & Socket, status: U32, name: String, value: String, app: C.Application<U32, Unit, C.Policy<Unit>>, routed: Bool, next_case: Listener -> IO(Listener)) -> IO(Listener):
   (next, socket) = pair
   do IO<Listener>:
-    first : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, H.Req{"GET", "/", H.set(H.set(H.empty(), name, value), "x-status", U32.show(status)), H.from_string("private")})
-    Check.require(rejected(first), "plain output not rejected")
-    result : Result<&2, &1, C.ResponseError, H.Res> <- C.dispatch(~U32, ~Unit, ~Unit, ~run, app, H.Req{"GET", "/", H.set(H.set(H.empty(), name, value), "x-status", U32.show(status)), H.from_string("private")})
-    output(result, socket)
+    safety(routed, app, H.Req{"GET", "/", H.set(H.set(H.empty(), name, value), "x-status", U32.show(status)), H.from_string("private")}, socket)
     next_case(next)
 
-def invalid(xs: List<&2, Case>, listener: Listener, +app: C.Application<U32, Unit, Unit>) -> IO(Listener):
+def invalid(xs: List<&2, Case>, listener: Listener, +app: C.Application<U32, Unit, C.Policy<Unit>>, +routed: Bool) -> IO(Listener):
   match xs:
     case Nil{}:
       IO.pure(Listener, listener)
@@ -78,7 +99,7 @@ def invalid(xs: List<&2, Case>, listener: Listener, +app: C.Application<U32, Uni
       do IO<Listener>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
         pair : Listener & Socket <- accepted(a)
-        invalid.accepted(pair, status, name, value, app, next => invalid(rest, next, app))
+        invalid.accepted(pair, status, name, value, app, routed, next => invalid(rest, next, app, routed))
 
 
 def finish(pair: Listener & Socket) -> IO(Unit):
@@ -90,10 +111,11 @@ def finish(pair: Listener & Socket) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    app : C.Application<U32, Unit, Unit> <- ready(C.application(~U32, ~Unit, ~Unit, [C.Route{"GET", "/", 0, [], Unit{}}], [], Unit{}, Unit{}))
+    +app : C.Application<U32, Unit, C.Policy<Unit>> <- ready(C.application(~U32, ~Unit, ~C.Policy<Unit>, [C.Route{"GET", "/", 0, [], C.policy(~Unit, 1, Nil{}, Nil{})}], [], Unit{}, C.policy(~Unit, 0, Nil{}, Nil{})))
     listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 18333))
     IO.print("READY")
-    next : Listener <- invalid(cases(), listener, app)
+    plain_done : Listener <- invalid(cases(), listener, app, False{})
+    next : Listener <- invalid(cases(), plain_done, app, True{})
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(next)
     pair : Listener & Socket <- accepted(a)
     finish(pair)

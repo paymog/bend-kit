@@ -24,7 +24,7 @@ def live(command):
                     if time.monotonic() > deadline:
                         raise
                     time.sleep(0.05)
-            for index in range(22):
+            for index in range(43):
                 connection = first if index == 0 else socket.create_connection(("127.0.0.1", 18333), timeout=5)
                 with connection:
                     connection.settimeout(5)
@@ -37,6 +37,13 @@ def live(command):
                 received = b"".join(chunks)
                 if index < 21:
                     assert received == b"", (index, received)
+                elif index < 42:
+                    assert received.startswith(b"HTTP/1.1 500"), received
+                    assert received.count(b"HTTP/1.1 ") == 1, received
+                    head, body = received.split(b"\r\n\r\n", 1)
+                    assert body == b"", received
+                    assert b"private" not in received and b"secret" not in received, received
+                    assert b"x-status:" not in head and b"\r\nx:" not in head, received
                 else:
                     assert received.startswith(b"HTTP/1.1 200"), received
                     assert received.count(b"set-cookie: a=1\r\n") == 1, received
@@ -53,15 +60,16 @@ def live(command):
     if failures:
         raise failures[0]
     assert output.count("EXPECTED InvalidResponse NO WRITE") == 21, output
+    assert output.count("EXPECTED SAFE MAPPED500 WRITE") == 21, output
     assert "live response safety: PASS" in output, output
-    print("21 live invalid outputs: zero bytes; distinct Set-Cookie: PASS", flush=True)
+    print("21 plain invalid outputs: zero bytes; 21 routed outputs: one safe mapped500; distinct Set-Cookie: PASS", flush=True)
 
 
 def main():
     run(["bash", "scripts/check.sh", "camber"])
     run(["bash", "scripts/publish.sh", "--check", "camber"])
     with tempfile.TemporaryDirectory(prefix="camber-response-") as temp:
-        for source in ("dispatch_check", "response_check", "response_live"):
+        for source in ("dispatch_check", "response_check", "scoped_check", "response_live"):
             for extension in ("", ".js"):
                 target = str(Path(temp) / (source + extension))
                 run(["bend", f"camber/{source}.bend", "-o", target])
