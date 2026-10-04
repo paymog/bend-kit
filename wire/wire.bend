@@ -3,12 +3,21 @@ import Base
 
 # Socket IO on octets: one Char per byte (0..255). Base's TCP/UDP effects
 # decode UTF-8, which breaks byte counts and binary protocols.
-# ms arguments are deadlines in milliseconds (0: none); a miss is ETIMEDOUT.
+# ms arguments are deadlines in milliseconds (0: none unless stated otherwise).
+# A deadline miss is ETIMEDOUT.
 #   import ./wire.bend as Wire
 
 # TCP connect to a numeric IPv4 or IPv6 address, with a deadline.
 def connect(host: String, port: U32, ms: U32) ->
   IO(Result<&1, &1, U32 & String, Socket>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# One monotonic accept budget, ms: 1..2147483647. Every outcome returns the
+# actual listener; timeout leaves it usable. Cooperative scheduling does not
+# preempt arbitrary CPU work or blocking effects.
+def accept.deadline(listener: Listener, ms: U32) ->
+  IO(Listener & Result<&1, &1, U32 & String, Socket>):
   import "./effs/wire.c"
   import "./effs/wire.js"
 

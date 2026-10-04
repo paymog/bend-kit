@@ -94,6 +94,50 @@ static bool wire_late(u64 at) {
 
 #endif
 
+#ifdef CID(accept.deadline)
+
+// As Base TCP.accept, but park against one absolute budget. io_wait_on owns
+// word (the fd); hand and time survive parking, as in send.words.deadline.
+static Term wire_accept_deadline_more(Env e, IoWork* w) {
+  int fd = (int)w->hand;
+  for (;;) {
+    if (wire_late(w->time)) {
+      return io_tup(e, io_hand(fd), io_fail(e, ETIMEDOUT, NULL));
+    }
+    int got = accept(fd, NULL, NULL);
+    if (got >= 0) {
+      int flags = fcntl(got, F_GETFL);
+      if (flags < 0 || fcntl(got, F_SETFL, flags | O_NONBLOCK) < 0) {
+        int code = errno;
+        close(got);
+        return io_tup(e, io_hand(fd), io_fail(e, code, NULL));
+      }
+      return io_tup(e, io_hand(fd), io_done(e, io_hand(got)));
+    }
+    int code = errno;
+    if (code == EINTR) continue;
+    if (code == EAGAIN || code == EWOULDBLOCK) {
+      return io_wait_on(w, fd, POLLIN, w->time, wire_accept_deadline_more);
+    }
+    return io_tup(e, io_hand(fd), io_fail(e, code, NULL));
+  }
+}
+
+Term wire_accept_deadline_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  if (f[1] == 0 || f[1] > INT32_MAX) {
+    return io_tup(e, io_hand(w->hand), io_fail(e, EINVAL, NULL));
+  }
+  w->time = wire_deadline((u64)f[1]);
+  return wire_accept_deadline_more(e, w);
+}
+
+static void __attribute__((constructor)) wire_accept_deadline_use(void) {
+  io_eff(CID(accept.deadline), wire_accept_deadline_run, 0);
+}
+
+#endif
+
 #if defined(CID(recv)) || defined(CID(recv.words))
 
 // Not IO_READ: that would wait for readability before run, with no deadline.
