@@ -156,6 +156,45 @@ function send_words(socket, n, words, k) {
   return wire_send(socket, wire_words_octets(n, words), k);
 }
 
+function send_words_deadline(socket, len, words, ms, k) {
+  const sys = io_sys();
+  let made = 0;
+  let b = null;
+  const end = (code) => {
+    b = null; // Release the host copy; the consumed Bend array is not retained.
+    return io_tup(socket, io_tup(made,
+      code ? io_fail(code) : io_done({ $: CID(Unit) })));
+  };
+  if (!Number.isInteger(ms) || ms < 1 || ms > 2147483647
+      || !Number.isInteger(len) || len < 0 || len > 4294967295
+      || len > 4 * words.length) {
+    return end(22);
+  }
+  const deadline = wire_deadline(ms);
+  b = wire_words_octets(len, words);
+  words = null;
+  const go = () => {
+    while (made < b.length) {
+      if (wire_late(deadline)) return end(wire_timedout());
+      const part = b.subarray(made);
+      const n = Number(sys.send(socket, sys.ptr(part), part.length, 0));
+      if (n < 0) {
+        const code = sys.errno();
+        if (code === 4) continue; // EINTR, without resetting the budget.
+        if (code === (sys.mac ? 35 : 11)) {
+          io_park_on(socket, true, k, go, deadline);
+          return undefined;
+        }
+        return end(code);
+      }
+      if (n === 0) return end(32); // EPIPE: no progress must not spin forever.
+      made += n;
+    }
+    return end(0);
+  };
+  return go();
+}
+
 function wire_send(socket, b, k) {
   const sys = io_sys();
   const fd = socket;
@@ -589,5 +628,6 @@ io_eff(CID(tls.recv), tls_recv);
 io_eff(CID(tls.close), tls_close);
 io_eff(CID(recv.words), recv_words);
 io_eff(CID(send.words), send_words);
+io_eff(CID(send.words.deadline), send_words_deadline);
 io_eff(CID(tls.recv.words), tls_recv_words);
 io_eff(CID(tls.send.words), tls_send_words);

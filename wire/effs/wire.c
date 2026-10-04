@@ -209,6 +209,63 @@ static void __attribute__((constructor)) wire_send_words_use(void) {
 
 #endif
 
+#ifdef CID(send.words.deadline)
+
+// io_wait_on owns word (the fd); time is its unchanged absolute u64 deadline.
+// Recheck these runtime fields on compiler upgrades, as with packed BUF access.
+static Term wire_send_words_deadline_more(Env e, IoWork* w) {
+  int fd = (int)w->hand;
+  while (w->code == 0 && (u64)w->made < w->size) {
+    if (wire_late(w->time)) {
+      w->code = ETIMEDOUT;
+      break;
+    }
+    ssize_t n = send(fd, w->data + w->made, w->size - (u64)w->made, 0);
+    if (n < 0) {
+      int code = errno;
+      if (code == EINTR) continue;
+      if (code == EAGAIN || code == EWOULDBLOCK) {
+        return io_wait_on(w, fd, POLLOUT, w->time, wire_send_words_deadline_more);
+      }
+      w->code = code;
+      break;
+    }
+    if (n == 0) {
+      w->code = EPIPE;
+      break;
+    }
+    w->made += n;
+  }
+  Term result = w->code ? io_fail(e, w->code, NULL)
+    : io_done(e, term_pak(CID(Unit), 0));
+  free(w->data);
+  return io_tup(e, io_hand(w->hand), io_tup(e, (Term)w->made, result));
+}
+
+Term wire_send_words_deadline_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->made = 0;
+  w->size = 0;
+  w->data = NULL;
+  w->code = 0;
+  if (f[3] == 0 || f[3] > INT32_MAX) {
+    term_drop(e, f[2]);
+    w->code = EINVAL;
+  } else {
+    w->time = wire_deadline((u64)f[3]);
+    bool bad;
+    w->data = wire_words_octets(e, f[2], (u64)f[1], &w->size, &bad);
+    w->code = bad ? EINVAL : 0;
+  }
+  return wire_send_words_deadline_more(e, w);
+}
+
+static void __attribute__((constructor)) wire_send_words_deadline_use(void) {
+  io_eff(CID(send.words.deadline), wire_send_words_deadline_run, 0);
+}
+
+#endif
+
 #if defined(CID(connect)) || defined(CID(send_to)) || defined(CID(send_to.words))
 
 // Accept only numeric addresses. The socket family and sockaddr length travel together.
