@@ -97,6 +97,26 @@ also compiled; no application throughput comparison was rerun or claimed.
 [`../outcome_verification.json`](../outcome_verification.json) retains full
 commands, outputs, and adverse receipts. Historical measurements remain intact.
 
+### HTTP 0.30.0.0 verification
+
+`python3 -B http/bench/run.py` passed sequentially in the exclusive verification
+slot. The unchanged checksums were `8200000`, `8300000`, `954665139`, and
+`4171655946`. Three-run medians in milliseconds for 20,000 messages:
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| parse_req | 3.6 | 1.6 | 17.4 | 20.2 | 453.0 | 530.2 |
+| parse_res | 2.3 | 1.4 | 12.6 | 15.6 | 317.3 | 439.0 |
+| encode_req | n/a | n/a | n/a | n/a | 323.0 | 196.7 |
+| encode_res | n/a | n/a | n/a | n/a | 275.8 | 132.6 |
+
+The guarded run took 18.115 seconds and sampled 2,588,464 KiB aggregate
+descendant RSS. Native/JS raw and scoped lifecycle boundaries also compiled
+and ran ten text dispatches with checksum `2030`; that is a smoke check,
+not an application throughput comparison. [`../drain_verification.json`](../drain_verification.json)
+retains commands, failures, proof exclusions, and prior regression journals.
+Historical performance and failed lifecycle evidence remain unchanged.
+
 ### The calls
 
 | language | parse | encode |

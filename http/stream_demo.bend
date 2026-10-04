@@ -28,5 +28,10 @@ def finish(st: Count) -> IO(Http.Reply):
   Count{path, +len, +hash} = st
   IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Http.from_string(path ++ ":" ++ U32.show(len) ++ ":" ++ U32.show(hash))}, Completion.Unobserved{}})
 
+# Count owns only managed values; an unsuccessful upload has no external handle.
+def abort(state: Count, reason: Http.StreamAbort) -> IO(Unit):
+  Count{path, length, hash} = state
+  IO.pure(Unit, Unit{})
+
 def main() -> IO(Unit):
-  Http.serve.stream.on.with(~Count, ~start, ~piece, ~finish, ~Completion.ignore, "127.0.0.1", 18081, 33554432n)
+  Http.serve.stream.on.with(~Count, ~start, ~piece, ~finish, ~abort, ~Completion.ignore, "127.0.0.1", 18081, 33554432n)

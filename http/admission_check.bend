@@ -55,6 +55,10 @@ def upload.finish(state: Upload) -> IO(Http.Reply):
   Upload{path, length} = state
   IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Http.from_string(U32.show(length))}, Completion.Unobserved{}})
 
+def upload.abort(state: Upload, reason: Http.StreamAbort) -> IO(Unit):
+  Upload{path, length} = state
+  IO.pure(Unit, Unit{})
+
 type Download is Type:
   Download{path: String, body: Http.Body}
 
@@ -92,6 +96,10 @@ def download.write(state: Download, writer: Http.Writer, receipt: Completion.Rec
     first : Http.Writer <- Http.writer.write(writer, body)
     returned : Http.Writer <- download.after(String.starts_with(path, "/failed"), path, first)
     return (returned, receipt)
+
+def download.dispose(state: Download) -> IO(Unit):
+  Download{path, body} = state
+  IO.pure(Unit, Unit{})
 
 def counts.show(counts: Http.ServerCounts) -> String:
   Http.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br} = counts
@@ -149,32 +157,32 @@ def config(+profile: String, port: U32) -> Http.ServerConfig:
     Bool.pick(U32, String.eq(profile, "buffered"), 2, 16),
     900, 900, 900, 400}
 
-def whole.stopped(result: Http.Server<Unit> & (U32 & String)) -> IO(Unit):
-  (returned, error) = result
-  Http.server.close(~Unit, returned)
-
 def serve(mode: String, server: Http.Server<Unit>, +observer: Http.ServerStats, first: Chan(Unit)) -> IO(Unit):
   match mode:
     case "whole":
       do IO<Unit>:
-        result : Http.Server<Unit> & (U32 & String) <- Http.server.run(~Unit, ~whole, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
-        whole.stopped(result)
+        result : Http.ServerExit <- Http.server.run(~Unit, ~whole, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
+        return Unit{}
     case "stream":
-      Http.Server{listener, context, config, inbox} = server
-      Http.serve.stream.loop(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~Completion.ignore, Http.limits.config(config), inbox, listener)
+      do IO<Unit>:
+        result : Http.ServerExit <- Http.server.stream.run(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~Completion.ignore, server)
+        return Unit{}
     case "writer":
-      Http.Server{listener, context, config, inbox} = server
-      Http.serve.write.loop(~Download, ~download.start, ~download.write, ~Completion.ignore, Http.limits.config(config), inbox, listener)
+      do IO<Unit>:
+        result : Http.ServerExit <- Http.server.write.run(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, server)
+        return Unit{}
     case "stats-close":
       do IO<Unit>:
         second : Chan(Unit) <- IO.fork(Unit, monitor(128n, observer, Observe{}))
-        Http.server.close(~Unit, server)
+        drained : Http.ServerCounts <- Http.server.close(~Unit, server)
         stats.after.close(128n, observer)
         IO.join(Unit, first)
         IO.join(Unit, second)
         IO.print("OBSERVERS JOINED")
     case _:
-      Http.server.close(~Unit, server)
+      do IO<Unit>:
+        drained : Http.ServerCounts <- Http.server.close(~Unit, server)
+        return Unit{}
 
 def observed.ready(mode: String, pair: Http.Server<Unit> & Http.ServerStats) -> IO(Unit):
   (returned, +observer) = pair

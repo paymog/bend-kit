@@ -4,6 +4,7 @@ import json
 import platform
 import signal
 import socket
+import sys
 import tempfile
 import threading
 import time
@@ -12,6 +13,9 @@ from pathlib import Path
 
 from run_dispatch import ROOT, guarded
 from run_risks import event_time, observe
+
+sys.path.insert(0, str(ROOT / "http"))
+import drain_check as Drain
 
 
 def interrupt(path, port):
@@ -65,12 +69,16 @@ def interrupt(path, port):
 
 
 def main():
+    Drain.disk_floor()
     prior = json.loads((ROOT / "camber/design_risk_results.json").read_text())
+    historical = json.loads((ROOT / "camber/supervision_risk_results.json").read_text())
+    historical = historical.get("historical_pre_stop_handle_evidence", historical)
     results = {"date": date.today().isoformat(), "platform": platform.platform(),
                "bend": guarded(["bend", "version"], 20)[0].strip(),
                "bun": guarded(["bun", "--version"], 20)[0].strip(),
                "boundary": "Python parent supervising a dedicated Bend child; not embedded cancellation",
                "signal": "SIGKILL", "pre_signal_delay_ms": 100, "forced_teardown_budget_ms": 100,
+               "historical_pre_stop_handle_evidence": historical,
                "inspected_runtime_source_revision": "7d8a3eb036042c6549461054d25a10f26d361c5c", "lanes": {}}
     target = ROOT / "camber/supervision_risk_results.json"
     with tempfile.TemporaryDirectory(prefix="camber-supervision-") as directory:
@@ -82,12 +90,8 @@ def main():
             data = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss,
                     "reused_cpu_iterations": prior["lanes"][lane]["selected_iterations"], "cases": {}}
             results["lanes"][lane] = data
-            for mode in ("external_cpu", "idle"):
+            for mode in ("external_cpu",):
                 port = 0
-                if mode == "idle":
-                    with socket.socket() as reservation:
-                        reservation.bind(("127.0.0.1", 0))
-                        port = reservation.getsockname()[1]
                 path = temp / (lane + "-" + mode)
                 record = observe(command + [mode, str(path), str(data["reused_cpu_iterations"]), str(port)],
                                  path, interrupt(path, port))
@@ -101,6 +105,13 @@ def main():
                     assert event_time(record, "WORK_END") is None, "CPU fixture completed before external stop"
                 print(f"{lane}/{mode}: signal-to-reap {record['signal_to_reap_seconds'] * 1000:.3f} ms; "
                       f"socket_closed={record['idle_socket_closed_after_termination']}", flush=True)
+            drain_binary = temp / ("public-drain" + suffix)
+            Drain.Process(["bend", str(ROOT / "http/drain_check.bend"), "-o", str(drain_binary)]).finish()
+            drain_command = [str(drain_binary), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(drain_binary)]
+            Drain.run_lane(lane, drain_command, temp)
+            data["public_http_stop_drain"] = [row for row in Drain.RESULTS if row["lane"] == lane]
+            results["public_http_commands"] = Drain.COMMANDS
+            target.write_text(json.dumps(results, indent=2) + "\n")
 
 
 if __name__ == "__main__":

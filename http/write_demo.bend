@@ -45,5 +45,10 @@ def start(req: Http.Req) -> IO(Http.WriteHead<Download>):
   +rh = Http.set(Http.set(Http.empty(), "Content-Length", "99"), "Transfer-Encoding", "gzip")
   IO.pure(Http.WriteHead<Download>, Http.WriteHead{status, rh, length, Download{path}, Completion.Unobserved{}})
 
+# Download owns only managed values; skipped writes have no external handle.
+def dispose(state: Download) -> IO(Unit):
+  Download{path} = state
+  IO.pure(Unit, Unit{})
+
 def main() -> IO(Unit):
-  Http.serve.write.on.with(~Download, ~start, ~body, ~Completion.ignore, "127.0.0.1", 18082, 1048576n)
+  Http.serve.write.on.with(~Download, ~start, ~body, ~dispose, ~Completion.ignore, "127.0.0.1", 18082, 1048576n)

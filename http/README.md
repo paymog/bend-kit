@@ -1,5 +1,67 @@
 # http
 
+## Cooperative stop and actual drain (0.30.0.0)
+
+`Http.server.control(~C, server)` returns the same affine `Server<C>` plus a
+copyable `ServerControl`. `Http.server.stop(control) -> IO(Bool)` atomically
+stops new connection/request admission: the first request returns `True`,
+repeated or post-close requests return `False`. **This requests stop, not drain.**
+The owner must still run or close its affine server and receive its real result.
+
+`Http.server.run(~C, ~handler, ~observe, server) -> IO(ServerExit)` consumes the
+owner. `ServerStopped{counts}` and `ServerAcceptFailed{code, message, counts}`
+arrive only after explicit listener closure and actual retained operation returns.
+`Http.server.close(~C, server) -> IO(ServerCounts)` similarly quiesces, closes
+the owned listener, and joins the real accounting actor. It can wait indefinitely
+for a handler, write, completion callback, or cleanup callback that does not return.
+Copied stats remain available while such work is held, then return `None`.
+Application dependency owners remain the application's responsibility: close them
+after transport drain; transport does not invent their destructors.
+
+Configured stream/writer owners use `server.stream.run` / `server.write.run`.
+All convenience entry points use that same accepting owner and connection machines;
+their bind addresses, `.with` body caps, admission caps, and phase defaults are unchanged.
+The sole accept path uses published `bend-kit-wire@0.4.5.0`
+(`0x1435aec27074c8141b74747909079afc`) and its real bounded accept operation.
+Accept and unadmitted reads use 50 ms host slices with their original absolute phase.
+Idle and unadmitted partial input closes after stop; buffered/keep-alive successors
+cannot invoke business handlers. A streamed upload already admitted at `start`
+continues under its original body deadline, rather than erasing its application state.
+These are cooperative checks, not a hard scheduling bound or effect cancellation.
+
+Stream APIs now require `~abort: S -> StreamAbort -> IO(Unit)` after `~finish`.
+The callback consumes the actual state on incomplete/failed uploads:
+`StreamClosed`, `StreamFailed{status}`, or
+`StreamInputFailed{operation, code, message}` with `ReadInput` / `SendContinue`.
+It must explicitly close/return external handles; failed uploads never call
+successful `finish`. Writer APIs require `~dispose: S -> IO(Unit)` after `~write`.
+HEAD/1xx/204/304 suppression and actual header failure consume state through
+`dispose`, without invoking the body writer or replacing the initial receipt.
+Cleanup must actually return before completion reporting and permit release.
+Neither affine value erasure nor socket closure is an application destructor.
+
+`python3 -B http/drain_check.py` verifies 64 real-socket scenarios across native
+and JS whole/context, stream, writer, and scoped Camber lifecycle adapters:
+listener refusal, idle/partial-input closure, successor rejection, admitted work,
+delayed/stuck callbacks, real failure notifications/writes, upload EOF/expiry/
+framing/RST aborts, and writer HEAD/204/304/header-RST disposal. Application Files
+are observed by `lsof` with descriptors changing 1 to 0 while cleanup remains
+counted. Cooperative cases join actual owner completion and exit naturally;
+stuck cases observe actual SIGKILL/reaping/peer closure and do not claim explicit
+application cleanup. See [`drain_results.json`](drain_results.json) and
+[`drain_verification.json`](drain_verification.json), which also preserve prior
+regression journals and the three initial quantity-check failures.
+The external supervisor must enforce a final process deadline for uncooperative
+work. There is no same-process isolation, rollback, or arbitrary-handler preemption.
+
+The preserved regression runs passed 168 outcomes plus 12 server journals,
+146 size/phase scenarios, 20 admission scenarios, and 40 startup runtime checks
+plus two builds. Scoped HTTP/Camber package gates passed with 304 HTTP and
+278 Camber unsafe/foreign exclusions; Camber's empty human-owned proof inventory
+does not prove IO behavior. Codec checksums are unchanged. The historical
+convenience-startup T4 exit 48 was not rerun or relabeled as a success.
+
+
 ## Actual final-response outcomes (0.29.0.0)
 
 Live whole/context handlers and upload `finish` callbacks now return
@@ -51,8 +113,8 @@ receive after natural transport return. That late callback queried live counts
 and [`outcome_verification.json`](outcome_verification.json), including adverse
 compiler/gate receipts and all 307 unsafe/foreign exclusions per proof entry.
 Human laws are unchanged; socket/clock behavior is runtime evidence, not proof.
-#330 still owns stop/drain; #337 owns actual entered policies, notifications,
-durations, and logging. This Data seam does not implement or verify those features.
+#337 still owns actual entered policies, notifications, durations, and logging.
+Transport completion and stop/drain do not implement those Camber features.
 
 ## Finite admission and copied observations (0.28.0.0)
 
@@ -200,11 +262,12 @@ includes a completion channel; joining it observes the whole connection task,
 including its final write/close. Listener closure alone is not task completion.
 `handler: C -> Http.Req -> IO(Http.Reply)` receives the same runtime
 context on every request, including keep-alive and pipelined requests.
-`Http.server.run` repeats accepting and returns the listener owner and OS error
-if accepting fails. It closes unused completion observers without cancelling
-connection tasks; use `server.accept` to retain and join individual task results.
-`Http.server.close` explicitly closes the listener; it does not drain
-already-started handlers or close application dependencies.
+`Http.server.run` repeats accepting through the sole bounded owner loop and
+returns `ServerExit` after actual drain, including the original accept error
+when accepting fails. It closes unused copied connection-result observers
+without cancelling connection tasks; use `server.accept` to join individual results.
+`Http.server.close` consumes its server, stops admission, explicitly closes the
+listener, and joins retained transport operations before returning final counts.
 
 `Http.server.config(host, port)` supplies a 16 MiB body cap, 64 KiB headers,
 128 connections, 128 active requests, 128 buffered-input units, and
@@ -221,14 +284,13 @@ closes when a response remains possible; idle expiry closes silently. Header,
 body, and malformed-framing rejections remain `431`, `413`, and `400`.
 Chunk framing, trailers, and pipelined remainder do not count toward body bytes.
 An at-cap header plus an at-cap body is valid even in one larger socket read.
-Writes use published Wire 0.4.4.0's bounded packed-write operation; conversion,
+Writes use published Wire 0.4.5.0's bounded packed-write operation; conversion,
 framing, and successive pieces share one deadline. Failure closes without replay.
 
-HTTP 0.29.0.0 also preserves final public response-write outcomes as above;
-#330 owns cooperative stop/drain and application-resource lifecycle integration.
-These deadlines do not cancel handlers or preempt CPU work. On failed streamed
-uploads, transport closes but does not explicitly recover/close generic
-application-owned callback state; do not infer affine-resource cleanup.
+HTTP 0.30.0.0 preserves 0.29.0.0's final response outcomes and adds cooperative
+stop/drain with explicit stream abort and skipped-writer disposal contracts above.
+Deadlines do not cancel handlers or preempt CPU work. Application callbacks,
+not affine-state erasure, explicitly close or return external dependencies.
 
 The plain `serve`, `serve.on`, and `.with` convenience APIs keep their existing
 closed-handler contract and use 64 KiB headers and 5/30/30/30-second phases.
@@ -441,11 +503,16 @@ def main() -> IO(Unit):
 
 On a rejected request, the server sends `Connection: close` and drains unread bytes before closing. The drain stops after 32 MiB or about 2.5 seconds. Each read waits at most 50 ms; a peer that sends beyond the bounds can still see a reset. The bounds prevent a slow sender from holding the connection indefinitely.
 
-For bounded uploads, `Http.serve.stream.on.with(~S, ~start, ~piece, ~finish, ~observe, host, port, max)` calls `start` with request headers and an empty body. Each `piece` receives decoded `Bytes.Bytes` and returns `IO(S & Bool)`: updated state and `True{}` to discard the rest, or `False{}` to keep receiving. After the body is read/discarded, `finish` returns `IO(Http.Reply)`. The server owns the connection throughout and reports after the final response write. Reads are at most 64 KiB; `max` retains the normal request-size limit. `Http.serve.stream.with` binds all IPv4 interfaces. See `stream_demo.bend` and `stream_check.py`.
+For bounded uploads, `Http.serve.stream.on.with(~S, ~start, ~piece, ~finish, ~abort, ~observe, host, port, max)` calls `start` with headers and an empty body. Each `piece` receives decoded packed bytes and returns updated state plus a discard flag. After complete body read/discard, `finish` consumes state and returns `IO(Http.Reply)`. On input failure, `abort` consumes state with its actual failure classification before capacity is released; it never calls successful `finish`. Reads remain at most 64 KiB, with the independent `max` cap and absolute body deadline. See `stream_demo.bend` and `stream_check.py`.
 
-For bounded downloads, `Http.serve.write.on.with(~S, ~start, ~write, ~observe, host, port, max)` calls `start` with a whole request and obtains `Http.WriteHead<S>{status, headers, length, state, receipt}`. `Some{n}` sends `Content-Length: n`; `None{}` sends chunked transfer coding. The callback takes state, `Http.Writer`, and the initial receipt, then returns `IO(Http.Writer & Completion.Receipt)` after `Http.writer.write` calls. Final completion includes chunk termination and actual callback return. Length mismatch or host failure closes without replay; HEAD, 1xx, 204, and 304 suppress the callback and retain its initial receipt. `Http.serve.write.with` binds all IPv4 interfaces. See `write_demo.bend` and `write_check.py`.
+For bounded downloads, `Http.serve.write.on.with(~S, ~start, ~write, ~dispose, ~observe, host, port, max)` obtains `WriteHead<S>{status, headers, length, state, receipt}` from a whole request. `Some{n}` sends Content-Length; `None` sends chunked coding. The writer consumes state and returns the actual Writer plus final receipt. Suppressed HEAD/1xx/204/304 bodies and actual header failure instead call `dispose(state)` before reporting with the initial receipt. No body replay occurs. Final completion includes actual callback return and framing; length mismatch and host failure close without replay. See `write_demo.bend` and `write_check.py`.
 
 ## Versions
+`0.30.0.0` breaks server owner results and stream/writer cleanup contracts:
+`server.run` returns actual `ServerExit`, `server.close` returns drained counts,
+stream entry points take `abort`, and writer entry points take `dispose`.
+Every convenience server uses the same bounded accept/accounting owner.
+
 `0.29.0.0` breaks live serving callback contracts: `Reply` carries typed completion
 beside affine `Res`, every serving path takes an owner outcome observer,
 `WriteHead` adds a receipt, and writer callbacks return writer plus final receipt.
