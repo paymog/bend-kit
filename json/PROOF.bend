@@ -1,6 +1,23 @@
 import Base
 import ./json.bend as Json
 import ./LAWS.bend as Laws
+import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+
+# Additional concrete strict-mode evidence; human-owned LAWS stay unchanged.
+def strict.high() -> {Json.parse.strict.bytes(Bytes.from_string("\"\\uD800\""), 64) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def strict.low() -> {Json.parse.strict.bytes(Bytes.from_string("\"\\uDC00\""), 64) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def strict.pair() -> {Json.parse.strict.bytes(Bytes.from_string("\"\\uD83D\\uDE00\""), 64) == Some{Json.Str{Json.utf8("😀")}} : Maybe<&1, Json.Val>}:
+  {==}
+
+def strict.depth() -> {Json.parse.strict.bytes(Bytes.from_string("[[]]"), 1) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def strict.number() -> {Json.parse.strict.bytes(Bytes.from_string("1e+02"), 0) == Some{Json.Num{Bytes.from_string("1e+02")}} : Maybe<&1, Json.Val>}:
+  {==}
 
 def Laws.parse_null():
   {==}

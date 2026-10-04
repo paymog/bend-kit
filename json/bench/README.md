@@ -53,3 +53,45 @@ The parser was not changed. A fresh run on the 1,361,421-byte document measured 
 - Bend keeps each number's text. C and JavaScript convert numbers to doubles, Rust and Python to ints or doubles, and they print them back.
 - Bend times itself with `Time.mono`, a nanosecond clock.
 - These are micro-benchmarks on one machine.
+
+## Strict bounded parsing (0.5.1.0)
+
+`Json.parse.strict.bytes(body, cap)` parses UTF-8 bytes with the same state
+machine as `Json.parse.bytes`. It rejects unpaired surrogate escapes instead
+of replacing them. `cap` counts nested arrays and objects, including empty
+containers; a scalar has depth zero. Choose `64` for Camber's default.
+The opening-container transition rejects a depth overflow before parsing
+its contents, not by traversing a completed tree. Both policies preserve
+number text and ordered repeated object entries. Applications still own
+duplicate-key validation. `parse.bytes` retains the separate RFC §8.2
+replacement policy required by the unchanged human-owned laws.
+
+Verification with Bend 2.0.35:
+
+```sh
+scripts/check.sh json
+bend json/check.bend -o /tmp/json-325-native
+/tmp/json-325-native --threads 1
+bend json/check.bend -o /tmp/json-325.js
+bun /tmp/json-325.js
+scripts/publish.sh --check json
+(cd json/bench && python3 run.py 1 40)
+```
+
+The package entry and all existing plus five added concrete proofs print
+`ALL PROOFS CHECK`; there are no unsafe/foreign proof exclusions in this
+package gate. These are pure parsing proofs, not host-IO attestations.
+The compiled native and JS consumers each pass all 31 strict cases: lone
+high/low surrogates (also in keys), valid pairs, array/object/empty depth
+64 versus 65, configured cap 65, cap zero, sibling depth restoration,
+depth 4,096 rejection, invalid UTF-8/BOM/empty rejection, exact number
+spellings, valid fixtures, and preserved repeated entries. The oversized
+case returns `None` at the opening transition, without building that
+subtree. This does not bound aggregate admitted memory or input-buffer size.
+
+The existing 40-record, 13,312-byte benchmark agrees across C, Rust, Bun,
+Node, Python, and Bend on checksum `356421233` for parsing and encoding.
+One-run native Bend times are 0.2 ms parse and 0.1 ms encode; this is a small
+correctness smoke, not a replacement for the historical performance results.
+The publication check reports `bend-kit-json@0.5.1.0 will publish`; merge CI
+owns publication.
