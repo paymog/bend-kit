@@ -78,6 +78,25 @@ The guarded run took 17.875 seconds; peak sampled aggregate descendant RSS was
 keeps the full receipt. These are codec measurements, not admission throughput,
 an improvement claim, or Camber application performance.
 
+### HTTP 0.29.0.0 verification
+
+`python3 -B http/bench/run.py` passed all six parser variants and the available
+Python/Bend encoders with unchanged checksums `8200000`, `8300000`, `954665139`,
+and `4171655946`. Three-run medians in milliseconds for 20,000 messages:
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| parse_req | 3.8 | 1.7 | 17.0 | 20.7 | 451.4 | 525.1 |
+| parse_res | 2.3 | 1.4 | 12.1 | 15.6 | 324.4 | 436.0 |
+| encode_req | n/a | n/a | n/a | n/a | 318.7 | 195.5 |
+| encode_res | n/a | n/a | n/a | n/a | 276.6 | 132.2 |
+
+The guarded command took 18.256 seconds and sampled 2,461,744 KiB aggregate
+descendant RSS. Native/JS migrated raw/lifecycle serving benchmark boundaries
+also compiled; no application throughput comparison was rerun or claimed.
+[`../outcome_verification.json`](../outcome_verification.json) retains full
+commands, outputs, and adverse receipts. Historical measurements remain intact.
+
 ### The calls
 
 | language | parse | encode |

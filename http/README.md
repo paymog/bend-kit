@@ -1,5 +1,59 @@
 # http
 
+## Actual final-response outcomes (0.29.0.0)
+
+Live whole/context handlers and upload `finish` callbacks now return
+`IO(Http.Reply)`: `Reply{response: Http.Res, receipt: Completion.Receipt}`.
+The codec's affine `Res` remains unchanged. Import `./completion.bend as
+Completion` beside `Http`; use `Unobserved{}` when no application completion
+is needed, or `Http.reply.complete(~D, ~done, payload, response)` for typed
+request-local `D: Data`. The closed `done` callback receives
+`Completion.Completion<D>{payload, status, outcome}` after the final write.
+Supported receipts capture Data only through `Completion.receipt`; never hide
+a File, Socket, response body, or other affine dependency in a disposable closure.
+
+Configured `server.accept`/`server.run` also require
+`~observe: C -> U32 -> Completion.Outcome -> IO(Unit)`. Convenience whole,
+stream, and writer entry points require
+`~observe: U32 -> Completion.Outcome -> IO(Unit)` after their handler templates.
+`Completion.ignore` explicitly opts out. The owner observer runs once for every
+final response attempted, including generated 400/408/413/431/503 responses
+without an application receipt. Interim `100 Continue`, EOF, silent idle expiry,
+and unread connection-cap closure do not fabricate final-response events.
+
+`HostAccepted{}` means the host accepted all final framing/body writes, **not**
+that the peer received them. `WriteFailed{code, message}` retains the real host
+send/deadline failure. `IncompleteResponse{}` distinguishes a known-length
+writer's short or overshooting body. Failure closes the socket without replay
+or a replacement HTTP response. Writer failure survives later writes and finish.
+Owner and application callbacks run inline outside the private accounting actor,
+before active capacity is released; callbacks may query `server.stats`.
+
+`WriteHead<S>` adds an initial receipt after `state`. The writer callback takes
+`S -> Writer -> Receipt -> IO(Writer & Receipt)`, returning the actual final
+request-local Data receipt. HEAD/204/304 suppression or header failure skips that
+callback and reports with the initial receipt. Otherwise completion follows
+callback return and the final chunk terminator, not merely a body prefix.
+
+`Completion.open(~D, payload)` optionally returns a receipt and dedicated
+one-slot copied-data observer. Its producer sends once without closing the
+queued value; the observer owner must `IO.join` or explicitly close it.
+Absent/closed observers do not hold transport resources or admission capacity.
+An unclosed observer remains its caller's channel-lifetime responsibility.
+
+`python3 -B http/outcome_check.py` passed 168 real-socket outcome cases across
+native/JS configured and convenience whole/stream/writer paths, plus 12 retained
+server journals. Evidence includes genuine RST, blocked-write deadlines,
+known-length short/overshoot, terminal-chunk failure, header-only suppression,
+exactly-once business effects, final writer state, observer disposal, and a late
+receive after natural transport return. That late callback queried live counts
+`(1,1,1)` before listener closure. See [`outcome_results.json`](outcome_results.json)
+and [`outcome_verification.json`](outcome_verification.json), including adverse
+compiler/gate receipts and all 307 unsafe/foreign exclusions per proof entry.
+Human laws are unchanged; socket/clock behavior is runtime evidence, not proof.
+#330 still owns stop/drain; #337 owns actual entered policies, notifications,
+durations, and logging. This Data seam does not implement or verify those features.
+
 ## Finite admission and copied observations (0.28.0.0)
 
 `ServerConfig` adds `buffered` immediately after `requests`. Every production
@@ -121,9 +175,10 @@ benchmark kept matching checksums. The migrated Camber transport probe retained
 one busy dependency and zero creation effects while 129 incomplete peers were
 attempted: quiescent server endpoints were 128 in each lane, versus the retained
 historical 131. It recovered and explicitly closed the dependency bundle.
-The legacy probe still exits 48 on bind failure without rollback markers, and
-its public `TurnClose` still conflates healthy and failed writes; those unchanged
-observations are not claims that T4/T5 or application lifecycle work is complete.
+The retained legacy probe exits 48 on bind failure without rollback markers;
+its historical `TurnClose` conflates healthy and failed writes. The current
+0.29 probe additionally exposes actual write outcomes, without repairing legacy
+startup or claiming application lifecycle completion.
 
 ## Runtime context, startup ownership, and phase limits (0.27.0.0)
 
@@ -138,12 +193,12 @@ The caller can explicitly close or recover its dependencies on either branch.
 `Done{server}` is the ready signal: the listener has successfully bound and is
 accepting TCP connections. Failure never returns a ready value. The application
 may notify its supervisor only after matching `Done`; there is no speculative
-readiness callback. `Http.server.accept(~C, ~handler, server)` accepts one socket,
+readiness callback. `Http.server.accept(~C, ~handler, ~observe, server)` accepts one socket,
 starts the existing HTTP connection machine, and returns the server owner plus
 the accept result (`Result<&1, &1, U32 & String, Chan(Unit)>`). A successful result
 includes a completion channel; joining it observes the whole connection task,
 including its final write/close. Listener closure alone is not task completion.
-`handler: C -> Http.Req -> IO(Http.Res)` receives the same runtime
+`handler: C -> Http.Req -> IO(Http.Reply)` receives the same runtime
 context on every request, including keep-alive and pipelined requests.
 `Http.server.run` repeats accepting and returns the listener owner and OS error
 if accepting fails. It closes unused completion observers without cancelling
@@ -169,9 +224,8 @@ An at-cap header plus an at-cap body is valid even in one larger socket read.
 Writes use published Wire 0.4.4.0's bounded packed-write operation; conversion,
 framing, and successive pieces share one deadline. Failure closes without replay.
 
-HTTP 0.28.0.0 enforces the finite admission contract above. Final public
-response-write outcomes remain #329 work; #330 owns cooperative stop/drain
-and application-resource lifecycle integration.
+HTTP 0.29.0.0 also preserves final public response-write outcomes as above;
+#330 owns cooperative stop/drain and application-resource lifecycle integration.
 These deadlines do not cancel handlers or preempt CPU work. On failed streamed
 uploads, transport closes but does not explicitly recover/close generic
 application-owned callback state; do not infer affine-resource cleanup.
@@ -371,23 +425,32 @@ The public-suffix check rejects only a single-label `Domain` such as `com`. Mult
 ## Serve
 
 ```bend
-def hello(req: Http.Req) -> IO(Http.Res):
+import Base
+import ./http.bend as Http
+import ./completion.bend as Completion
+
+def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
-  IO.pure(Http.Res, Http.Res{200, Http.empty(), Http.from_string(path)})
+  IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Http.from_string(path)}, Completion.Unobserved{}})
 
 def main() -> IO(Unit):
-  Http.serve.on(~hello, "127.0.0.1", 18080)
+  Http.serve.on(~hello, ~Completion.ignore, "127.0.0.1", 18080)
 ```
 
-`Http.serve.on(~h, host, port)` binds to an IPv4 address such as `127.0.0.1` for loopback or `0.0.0.0` for every interface. `Http.serve(~h, port)` defaults to `0.0.0.0`; neither writes a start message. `Http.serve.on.with(~h, host, port, max)` and `Http.serve.with(~h, port, max)` set the maximum request size in bytes; the other entry points default to 16 MiB. Each server reads a whole request, calls `h`, and sends the response. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. A malformed request gets 400, a request over the cap gets 413, and a header block over 64 KiB gets 431. Chunked bodies are decoded as they arrive, so a large upload costs time in proportion to its size. An idle client is dropped after 30 seconds. Responses use the RFC 9110 reason phrase. HEAD, 1xx, 204, and 304 responses have no body.
+`Http.serve.on(~h, ~observe, host, port)` binds to an IPv4 address such as `127.0.0.1` for loopback or `0.0.0.0` for every interface. `Http.serve(~h, ~observe, port)` defaults to `0.0.0.0`; neither writes a start message. `Http.serve.on.with(~h, ~observe, host, port, max)` and `Http.serve.with(~h, ~observe, port, max)` set the maximum request size in bytes; the other entry points default to 16 MiB. Each server reads a whole request, calls `h`, sends its `Reply`, and reports the actual final outcome. HTTP/1.1 connections stay open unless the request or response says `Connection: close`; HTTP/1.0 connections close after each response. Pipelined requests are handled in order. Malformed requests get 400, requests over the cap get 413, and header blocks over 64 KiB get 431. Responses use the RFC 9110 reason phrase; HEAD, 1xx, 204, and 304 have no body.
 
 On a rejected request, the server sends `Connection: close` and drains unread bytes before closing. The drain stops after 32 MiB or about 2.5 seconds. Each read waits at most 50 ms; a peer that sends beyond the bounds can still see a reset. The bounds prevent a slow sender from holding the connection indefinitely.
 
-For bounded uploads, `Http.serve.stream.on.with(~S, ~start, ~piece, ~finish, host, port, max)` calls `start` with request headers and an empty body. Each `piece` receives decoded `Bytes.Bytes` and returns `IO(S & Bool)`: the updated state and `True{}` to discard the rest of the body, or `False{}` to keep receiving pieces. `finish` receives the state only after the complete body has been read or discarded, then returns the response. The server owns the connection throughout, so the next pipelined request cannot run before that point. Reads are at most 64 KiB; `max` retains the normal request-size limit. `Http.serve.stream.with` binds all IPv4 interfaces. See `stream_demo.bend` and run `python3 stream_check.py ./stream_demo` after compiling it with `bend stream_demo.bend -o stream_demo`.
+For bounded uploads, `Http.serve.stream.on.with(~S, ~start, ~piece, ~finish, ~observe, host, port, max)` calls `start` with request headers and an empty body. Each `piece` receives decoded `Bytes.Bytes` and returns `IO(S & Bool)`: updated state and `True{}` to discard the rest, or `False{}` to keep receiving. After the body is read/discarded, `finish` returns `IO(Http.Reply)`. The server owns the connection throughout and reports after the final response write. Reads are at most 64 KiB; `max` retains the normal request-size limit. `Http.serve.stream.with` binds all IPv4 interfaces. See `stream_demo.bend` and `stream_check.py`.
 
-For bounded downloads, `Http.serve.write.on.with(~S, ~start, ~write, host, port, max)` calls `start` with a whole request. It returns `Http.WriteHead<S>{status, headers, length, state}`. A `Some{n}` length sends `Content-Length: n`; `None{}` sends chunked transfer coding. The `write` callback owns an `Http.Writer` and returns it after calls to `Http.writer.write(w, piece)`. The server ends a chunked response and reuses the connection only after `write` returns. A length mismatch or write failure closes the connection. HEAD, 1xx, 204, and 304 suppress the callback and send no body. `Http.serve.write.with` binds all IPv4 interfaces. See `write_demo.bend` and `write_check.py`.
+For bounded downloads, `Http.serve.write.on.with(~S, ~start, ~write, ~observe, host, port, max)` calls `start` with a whole request and obtains `Http.WriteHead<S>{status, headers, length, state, receipt}`. `Some{n}` sends `Content-Length: n`; `None{}` sends chunked transfer coding. The callback takes state, `Http.Writer`, and the initial receipt, then returns `IO(Http.Writer & Completion.Receipt)` after `Http.writer.write` calls. Final completion includes chunk termination and actual callback return. Length mismatch or host failure closes without replay; HEAD, 1xx, 204, and 304 suppress the callback and retain its initial receipt. `Http.serve.write.with` binds all IPv4 interfaces. See `write_demo.bend` and `write_check.py`.
 
 ## Versions
+`0.29.0.0` breaks live serving callback contracts: `Reply` carries typed completion
+beside affine `Res`, every serving path takes an owner outcome observer,
+`WriteHead` adds a receipt, and writer callbacks return writer plus final receipt.
+Pure codec/client response contracts remain unchanged.
+
 
 `0.23.0.0` builds natively again: a program that imported `0.22.0.0` failed `bend file.bend -o app` with `an arity over 247` (bendlang/bend#1069). The cookie parser now keeps `Expires` as the date sent and `Max-Age` as seconds until it makes the cookie, so the internal helpers `Cav`, `cookie.max_age`, `cookie.av.put`, `cookie.av`, `cookie.avs`, and `cookie.make` changed signature. The jar behaves as before.
 

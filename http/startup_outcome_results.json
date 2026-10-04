@@ -1,0 +1,564 @@
+[
+  {
+    "command": [
+      "bend",
+      "http/startup_check.bend",
+      "-o",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup"
+    ],
+    "status": 0,
+    "output": "",
+    "peak_sampled_rss_kib": 2113168
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "bind",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-failure"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nBIND FAILED 48\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 32
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "body",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-body"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "headers",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-headers"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "connections",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-connections"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "requests",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-requests"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "buffered",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-buffered"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "header_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "body_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "idle_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "write_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "port",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-port"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_header_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-huge_header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_body_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-huge_body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_idle_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-huge_idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_write_ms",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-huge_write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "body_over",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-body_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "headers_over",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-headers_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "boundary",
+      "65219",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-boundary"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "success",
+      "65238",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-success"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\nTHREE CALLS\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "run",
+      "65238",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/native-run"
+    ],
+    "status": -15,
+    "output": "CONTEXT CREATED\nREADY\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bend",
+      "http/startup_check.bend",
+      "-o",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js"
+    ],
+    "status": 0,
+    "output": "",
+    "peak_sampled_rss_kib": 1656576
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "bind",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-failure"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nBIND FAILED 48\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 39536
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "body",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-body"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "headers",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-headers"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "connections",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-connections"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "requests",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-requests"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "buffered",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-buffered"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "header_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "body_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "idle_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "write_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "port",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-port"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "huge_header_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-huge_header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "huge_body_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-huge_body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "huge_idle_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-huge_idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "huge_write_ms",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-huge_write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "body_over",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-body_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "headers_over",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-headers_over"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "boundary",
+      "65280",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-boundary"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "success",
+      "65300",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-success"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\nTHREE CALLS\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/startup.js",
+      "run",
+      "65300",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-j_mzighe/js-run"
+    ],
+    "status": -15,
+    "output": "CONTEXT CREATED\nREADY\n",
+    "peak_sampled_rss_kib": 0
+  }
+]

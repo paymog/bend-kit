@@ -1,6 +1,7 @@
 import Base
 import ./http.bend as Http
 import ./admission.bend as Admission
+import ./completion.bend as Completion
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
@@ -85,6 +86,11 @@ def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
   import "../wire/effs/ipv6_test.c"
   import "../wire/effs/ipv6_test.js"
 
+def local.reply(operation: IO(Http.Res)) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    response : Http.Res <- operation
+    return Http.Reply{response, Completion.Unobserved{}}
+
 def local.handler(req: Http.Req) -> IO(Http.Res):
   Http.Req{method, path, headers, body} = req
   IO.pure(Http.Res, Http.Res{200, Http.empty(), Bytes.from_string(Http.header(headers, "host"))})
@@ -93,7 +99,7 @@ def local.accept(l: Listener) -> IO(Unit):
   do IO<Unit>:
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     m : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- Http.conn(~local.handler, Http.limits(1048576n), inbox, m)
+    l2 : Listener <- Http.conn(~(req => local.reply(local.handler(req))), ~Completion.ignore, Http.limits(1048576n), inbox, m)
     Listener.close(l2)
     Admission.close(inbox)
 
@@ -433,19 +439,19 @@ def retry.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l1 : Listener <- Http.conn(~retry.s1, Http.limits(1048576n), inbox, a)
+    l1 : Listener <- Http.conn(~(req => local.reply(retry.s1(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
-    l2 : Listener <- Http.conn(~retry.s2, Http.limits(1048576n), inbox, b)
+    l2 : Listener <- Http.conn(~(req => local.reply(retry.s2(req))), ~Completion.ignore, Http.limits(1048576n), inbox, b)
     c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
-    l3 : Listener <- Http.conn(~retry.s3, Http.limits(1048576n), inbox, c)
+    l3 : Listener <- Http.conn(~(req => local.reply(retry.s3(req))), ~Completion.ignore, Http.limits(1048576n), inbox, c)
     d : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l3)
-    l4 : Listener <- Http.conn(~retry.s4, Http.limits(1048576n), inbox, d)
+    l4 : Listener <- Http.conn(~(req => local.reply(retry.s4(req))), ~Completion.ignore, Http.limits(1048576n), inbox, d)
     e : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l4)
-    l5 : Listener <- Http.conn(~retry.s5, Http.limits(1048576n), inbox, e)
+    l5 : Listener <- Http.conn(~(req => local.reply(retry.s5(req))), ~Completion.ignore, Http.limits(1048576n), inbox, e)
     f : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l5)
-    l6 : Listener <- Http.conn(~retry.s6, Http.limits(1048576n), inbox, f)
+    l6 : Listener <- Http.conn(~(req => local.reply(retry.s6(req))), ~Completion.ignore, Http.limits(1048576n), inbox, f)
     g : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l6)
-    l7 : Listener <- Http.conn(~retry.s7, Http.limits(1048576n), inbox, g)
+    l7 : Listener <- Http.conn(~(req => local.reply(retry.s7(req))), ~Completion.ignore, Http.limits(1048576n), inbox, g)
     Listener.close(l7)
     Admission.close(inbox)
 
@@ -526,7 +532,7 @@ def local.proxy.tunnel.accept(m: Listener & Result<&1, &1, U32 & String, Socket>
 
 def local.proxy.http.accept(inbox: Chan(Admission.Command), m: Listener & Result<&1, &1, U32 & String, Socket>) ->
     IO(Listener):
-  Http.conn(~local.proxy.http, Http.limits(1048576n), inbox, m)
+  Http.conn(~(req => local.reply(local.proxy.http(req))), ~Completion.ignore, Http.limits(1048576n), inbox, m)
 
 def local.proxy.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
@@ -602,7 +608,7 @@ def all.serve.loop(n: Nat, +inbox: Chan(Admission.Command), l: Listener) -> IO(U
     case 1n+p:
       do IO<Unit>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        l1 : Listener <- Http.conn(~all.slow, Http.limits(1048576n), inbox, a)
+        l1 : Listener <- Http.conn(~(req => local.reply(all.slow(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
         all.serve.loop(p, inbox, l1)
 
 def all.serve(n: Nat, l: Listener) -> IO(Unit):
@@ -699,11 +705,11 @@ def cookie.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l1 : Listener <- Http.conn(~cookie.srv, Http.limits(1048576n), inbox, a)
+    l1 : Listener <- Http.conn(~(req => local.reply(cookie.srv(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
-    l2 : Listener <- Http.conn(~cookie.srv, Http.limits(1048576n), inbox, b)
+    l2 : Listener <- Http.conn(~(req => local.reply(cookie.srv(req))), ~Completion.ignore, Http.limits(1048576n), inbox, b)
     c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
-    l3 : Listener <- Http.conn(~cookie.srv, Http.limits(1048576n), inbox, c)
+    l3 : Listener <- Http.conn(~(req => local.reply(cookie.srv(req))), ~Completion.ignore, Http.limits(1048576n), inbox, c)
     Listener.close(l3)
     Admission.close(inbox)
 
