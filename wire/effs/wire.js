@@ -64,6 +64,39 @@ function wire_timedout() {
   return io_sys().mac ? 60 : 110;
 }
 
+function accept_deadline(listener, ms, k) {
+  if (!Number.isInteger(ms) || ms < 1 || ms > 2147483647) {
+    return io_tup(listener, io_fail(22));
+  }
+  const sys = io_sys();
+  const deadline = wire_deadline(ms);
+  const go = () => {
+    for (;;) {
+      if (wire_late(deadline)) {
+        return io_tup(listener, io_fail(wire_timedout()));
+      }
+      const fd = sys.accept(listener, null, null);
+      if (fd >= 0) {
+        const flags = sys.fcntl(fd, 3, 0);
+        if (flags < 0 || sys.fcntl(fd, 4, flags | (sys.mac ? 4 : 0x800)) < 0) {
+          const code = sys.errno();
+          sys.close(fd);
+          return io_tup(listener, io_fail(code));
+        }
+        return io_tup(listener, io_done(fd));
+      }
+      const code = sys.errno();
+      if (code === 4) continue; // EINTR does not reset the budget.
+      if (code === (sys.mac ? 35 : 11)) {
+        io_park_on(listener, false, k, go, deadline);
+        return undefined;
+      }
+      return io_tup(listener, io_fail(code));
+    }
+  };
+  return go();
+}
+
 function wire_ip_lib() {
   if (globalThis.BEND_WIRE_IP === undefined) {
     const ffi = require("bun:ffi");
@@ -614,6 +647,7 @@ function connect(host, port, ms, k) {
 }
 
 io_eff(CID(connect), connect);
+io_eff(CID(accept.deadline), accept_deadline);
 io_eff(CID(recv), recv);
 io_eff(CID(send), send);
 io_eff(CID(recv_from), recv_from);

@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-04",
+  "platform": "macOS arm64",
+  "base": "2d0727c19435d841249afe65fa620a1a4fb37230",
+  "version": "0.4.5.0",
+  "route": "openai-codex/gpt-6.1-sol:medium",
+  "source_accepted_before_runtime": true,
+  "runtime_failures": [],
+  "pre_edit_runtime": "Excluded by coordinated source-acceptance gate",
+  "syscall_fault_injection": "Not performed; EINTR and accepted-fd setup failure paths source-inspected",
+  "acceptance": {
+    "native": {
+      "minimum": {"elapsed_ms": [1.408542], "results": ["FAIL 60"], "peak_rss_kib": 1648},
+      "empty": {"elapsed_ms": [45.058333], "results": ["FAIL 60"], "peak_rss_kib": 1872},
+      "queued": {"elapsed_ms": [0.095000], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 1664},
+      "delayed": {"elapsed_ms": [104.523917], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 1872},
+      "repeat": {"elapsed_ms": [43.312167, 42.699875, 0.378125], "results": ["FAIL 60", "FAIL 60", "DONE CLOSED_SOCKET"], "peak_rss_kib": 1888},
+      "invalid": {"elapsed_ms": [0.077500, 0.047292, 0.047875, 0.450250], "results": ["FAIL 22", "FAIL 22", "FAIL 22", "DONE CLOSED_SOCKET"], "peak_rss_kib": 1648},
+      "maximum": {"elapsed_ms": [0.094583], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 1680},
+      "port-zero": {"elapsed_ms": [0.100667], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 1648},
+      "scheduling": {"elapsed_ms": [40.910666], "results": ["FAIL 60"], "peak_rss_kib": 3248}
+    },
+    "js": {
+      "minimum": {"elapsed_ms": [4.090750], "results": ["FAIL 60"], "peak_rss_kib": 38848},
+      "empty": {"elapsed_ms": [45.791750], "results": ["FAIL 60"], "peak_rss_kib": 34848},
+      "queued": {"elapsed_ms": [0.627541], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 32256},
+      "delayed": {"elapsed_ms": [103.820541], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 34816},
+      "repeat": {"elapsed_ms": [45.928459, 45.139125, 0.438583], "results": ["FAIL 60", "FAIL 60", "DONE CLOSED_SOCKET"], "peak_rss_kib": 48288},
+      "invalid": {"elapsed_ms": [0.534042, 0.073500, 0.069084, 0.859958], "results": ["FAIL 22", "FAIL 22", "FAIL 22", "DONE CLOSED_SOCKET"], "peak_rss_kib": 31952},
+      "maximum": {"elapsed_ms": [0.557209], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 32256},
+      "port-zero": {"elapsed_ms": [2.386750], "results": ["DONE CLOSED_SOCKET"], "peak_rss_kib": 32048},
+      "scheduling": {"elapsed_ms": [175.105416], "results": ["FAIL 60"], "peak_rss_kib": 36912}
+    }
+  },
+  "every_accept_case": {"port_zero": true, "process_exit": 0, "accepted_socket_eof_when_successful": true, "listener_closed": true, "listener_rebound_without_retry": true, "live_observed_pids_after_exit": [], "descendant_rss_after_exit_kib": 0},
+  "emissions": {"c": {"exit": 0, "peak_rss_kib": 458608}, "js": {"exit": 0, "peak_rss_kib": 416368}, "native_build": {"exit": 0, "peak_rss_kib": 947184}},
+  "package_gate": {"exit": 0, "peak_rss_kib": 153824, "foreign_exclusions": ["connect", "accept.deadline", "recv", "send", "recv_from", "send_to", "tls.connect", "tls.connect.cert", "tls.connect.alpn", "tls.send", "tls.recv", "tls.close", "recv.words", "send.words", "send.words.deadline", "recv_from.words", "send_to.words", "tls.recv.words", "tls.send.words"], "checks": ["ok IPv6 request", "ok IPv6 round-trip", "ok IPv6 UDP host", "ok IPv6 UDP port", "ok IPv6 UDP length", "ok IPv6 UDP payload", "ok nghttp2.org alpn"]},
+  "write_deadline_gate": {"exit": 0, "peak_rss_kib": 1000064, "passed_scenarios_each_lane": ["success", "empty", "length", "zero-budget", "large-budget", "reset", "stall", "trickle"], "success_bytes": 4099, "reset": "FAIL 32 0", "invalid": "FAIL 22 0", "native_stall": {"result": "FAIL 60 678428", "elapsed_ms": 103.191}, "native_trickle": {"result": "FAIL 60 939740", "elapsed_ms": 103.697}, "js_stall": {"result": "FAIL 60 678428", "elapsed_ms": 104.610}, "js_trickle": {"result": "FAIL 60 939740", "elapsed_ms": 101.783}, "exact_prefix_receipt": true, "paced_reads_before_failure_each_lane": 9},
+  "benchmark": {"exit": 0, "runs_per_variant": 1, "checksum_all_variants": 3187671040, "peak_rss_kib": 558176, "elapsed_ms": {"C": 57.3, "Rust": 54.4, "Bun": 446.5, "Node": 102.5, "Python": 3411.6, "Bend": 494.8}},
+  "publish_check": {"exit": 0, "output": "== bend-kit-wire@0.4.5.0 will publish", "manual_publication": false},
+  "release": {"coordinator_acknowledged": true, "free_disk_kib": 30781972, "matching_processes": [], "benchmark_listener_lsof_exit": 1, "benchmark_listener_stdout": "", "owned_generated_files_removed": true},
+  "limits": {"minimum_free_disk_gib": 10, "aggregate_descendant_rss_ceiling_gib": 20, "scheduling": "Absolute IO budget, not arbitrary CPU/effect preemption; JS blocking Process.run delayed the 40ms continuation to 175.105416ms"}
+}
