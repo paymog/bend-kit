@@ -2,7 +2,8 @@
 import Base
 import ./camber.bend as C
 import ./dispatch_check.bend as Check
-import bend-kit-http@0.25.0.2/http.bend as H
+import bend-kit-http@0.30.0.0/http.bend as H
+import bend-kit-http@0.30.0.0/completion.bend as T
 
 type Case is Data:
   Case{status: U32, name: String, value: String}
@@ -34,8 +35,8 @@ def after(hook: Unit, state: Unit, context: Unit, response: H.Res) -> IO(Unit & 
   IO.pure(Unit & Result<&2, &1, C.Error<Unit>, H.Res>, (state, Done{response}))
 
 
-def sent(value: Socket & H.Turn) -> IO(Unit):
-  (socket, turn) = value
+def sent(value: (Socket & H.Turn) & T.Outcome) -> IO(Unit):
+  ((socket, turn), outcome) = value
   Socket.close(socket)
 
 def output(result: Result<&2, &1, C.ResponseError, H.Res>, socket: Socket) -> IO(Unit):
@@ -48,7 +49,7 @@ def output(result: Result<&2, &1, C.ResponseError, H.Res>, socket: Socket) -> IO
       IO.die(Unit, 1, "unexpected response failure")
     case Done{res}:
       do IO<Unit>:
-        value : Socket & H.Turn <- H.talk.send(1024n, socket, H.from_string(""), H.empty(), True{}, False{}, res)
+        value : (Socket & H.Turn) & T.Outcome <- H.talk.send(H.Limits{1024n, 65536, 5000, 30000, 30000, 30000}, socket, H.from_string(""), H.empty(), True{}, False{}, res)
         sent(value)
 
 def accepted.result(result: Result<&1, &1, U32 & String, Socket>, listener: Listener) -> IO(Listener & Socket):
@@ -69,7 +70,7 @@ def recovered(completion: C.Completion<Unit, Unit>, socket: Socket) -> IO(Unit):
   C.Completed{state, H.Res{+status, +headers, body}, entered, mapped, stopped} = completion
   do IO<Unit>:
     Check.require(U32.is_eq(status, 500) && mapped && stopped, "invalid routed output not recovered")
-    value : Socket & H.Turn <- H.talk.send(1024n, socket, H.from_string(""), H.empty(), True{}, False{}, H.Res{status, headers, body})
+    value : (Socket & H.Turn) & T.Outcome <- H.talk.send(H.Limits{1024n, 65536, 5000, 30000, 30000, 30000}, socket, H.from_string(""), H.empty(), True{}, False{}, H.Res{status, headers, body})
     sent(value)
     IO.print("EXPECTED SAFE MAPPED500 WRITE")
 

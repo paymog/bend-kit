@@ -1,11 +1,12 @@
 # Fixed prepared HTTP applications and bounded affine dependency bundles.
 import Base
-import bend-kit-http@0.25.0.2/http.bend as Http
+import bend-kit-http@0.30.0.0/http.bend as Http
 import bend-kit-router@0.2.0.0/router.bend as Router
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-json@0.5.1.0/json.bend as Json
 import ./response.bend as Response
 import ./input.bend as Input
+import bend-kit-http@0.30.0.0/completion.bend as TransportCompletion
 
 type ResponseError is Data:
   InvalidResponse{}
@@ -68,6 +69,20 @@ type Message<-R: Type, -P: Data, -I: Data, -E: Data, -O: Data> is Type:
 # callers must count blocked submissions inside their transport admission limit.
 type Context<-R: Type, -P: Data, -I: Data, -E: Data, -O: Data> is Data:
   Context{messages: Chan(Message<R, P, I, E, O>)}
+
+# The completion future has one affine owner; request contexts copy only inbox.
+type Owner<-R: Type, -P: Data, -I: Data, -E: Data, -O: Data> is Type:
+  Owner{context: Context<R, P, I, E, O>, finished: Chan(Unit)}
+
+type OwnerClose<-R: Type, -P: Data, -I: Data, -E: Data, -O: Data> is Type:
+  OwnerClosed{}
+  OwnerBusy{owner: Owner<R, P, I, E, O>, counts: Counts}
+
+def owner.context(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
+  owner: Owner<R, P, I, E, O>
+) -> Owner<R, P, I, E, O> & Context<R, P, I, E, O>:
+  Owner{+context, finished} = owner
+  (Owner{context, finished}, context)
 
 def outcome.value(-E: Data, -O: Data, result: Result<&2, &2, E, O>) -> Outcome<E, O>:
   match result:
@@ -238,16 +253,16 @@ def build(~K: Data, ~R: Type, ~E: Data, ~create: K -> Nat -> IO(Result<&2, &1, E
 def start.ready(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
   ~handler: R -> P -> I -> IO(R & Result<&2, &2, E, O>), ~destroy: R -> IO(Unit),
   capacity: Nat, +room: U32, result: Result<&2, &1, E, List<R>>
-) -> IO(Result<&2, &2, E, Context<R, P, I, E, O>>):
+) -> IO(Result<&2, &1, E, Owner<R, P, I, E, O>>):
   match result:
     case Fail{error}:
-      IO.pure(Result<&2, &2, E, Context<R, P, I, E, O>>, Fail{error})
+      IO.pure(Result<&2, &1, E, Owner<R, P, I, E, O>>, Fail{error})
     case Done{resources}:
-      do IO<Result<&2, &2, E, Context<R, P, I, E, O>>>:
+      do IO<Result<&2, &1, E, Owner<R, P, I, E, O>>>:
         channel : Chan(Message<R, P, I, E, O>) <- Chan.new(Message<R, P, I, E, O>, room)
         +messages : Chan(Message<R, P, I, E, O>) = channel
-        IO.spawn(Unit, owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, Counts{capacity, 0n, 0n, 0n}}))
-        return Done{Context{messages}}
+        finished : Chan(Unit) <- IO.fork(Unit, owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, Counts{capacity, 0n, 0n, 0n}}))
+        return Done{Owner{Context{messages}, finished}}
 
 # The initializer closes partial handles within a failed bundle; start closes
 # all prior whole bundles. No workers exist until the complete set opens.
@@ -255,8 +270,8 @@ def start(~K: Data, ~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
   ~create: K -> Nat -> IO(Result<&2, &1, E, R>),
   ~handler: R -> P -> I -> IO(R & Result<&2, &2, E, O>), ~destroy: R -> IO(Unit),
   config: K, +capacity: Nat, room: U32
-) -> IO(Result<&2, &2, E, Context<R, P, I, E, O>>):
-  do IO<Result<&2, &2, E, Context<R, P, I, E, O>>>:
+) -> IO(Result<&2, &1, E, Owner<R, P, I, E, O>>):
+  do IO<Result<&2, &1, E, Owner<R, P, I, E, O>>>:
     result : Result<&2, &1, E, List<R>> <- build(~K, ~R, ~E, ~create, ~destroy, capacity, config, Nil{})
     start.ready(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, capacity, room, result)
 
@@ -326,15 +341,33 @@ def close.sent(sent: Bool, +reply: Chan(CloseResult)) -> IO(CloseResult):
         Chan.close(CloseResult, reply)
         return value
 
+def close.join(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
+  owner: Owner<R, P, I, E, O>
+) -> IO(OwnerClose<R, P, I, E, O>):
+  Owner{context, finished} = owner
+  do IO<OwnerClose<R, P, I, E, O>>:
+    IO.join(Unit, finished)
+    return OwnerClosed{}
+
+def close.completed(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
+  result: CloseResult, owner: Owner<R, P, I, E, O>
+) -> IO(OwnerClose<R, P, I, E, O>):
+  match result:
+    case Closed{}:
+      close.join(R, P, I, E, O, owner)
+    case Busy{counts}:
+      IO.pure(OwnerClose<R, P, I, E, O>, OwnerBusy{owner, counts})
+
 # Stop external admissions before close. Busy preserves live context/capacity;
 # retry after admitted operations finish. Stalled operations remain observable.
-def close(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, context: Context<R, P, I, E, O>) -> IO(CloseResult):
-  Context{messages} = context
-  do IO<CloseResult>:
+def close(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, owner: Owner<R, P, I, E, O>) -> IO(OwnerClose<R, P, I, E, O>):
+  Owner{Context{+messages}, finished} = owner
+  do IO<OwnerClose<R, P, I, E, O>>:
     channel : Chan(CloseResult) <- Chan.new(CloseResult, 1)
     +reply : Chan(CloseResult) = channel
     sent : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Shutdown{reply})
-    close.sent(sent, reply)
+    result : CloseResult <- close.sent(sent, reply)
+    close.completed(R, P, I, E, O, result, Owner{Context{messages}, finished})
 
 # Policies are prepared Data, not callbacks. Later lifecycle stages can consume
 # these root-to-route declarations without splitting patterns or finding groups.
@@ -513,7 +546,7 @@ def input(~I: Type, ~E: Data, outcome: Result<&2, &1, U32, I>) -> Result<&2, &1,
     case Fail{status}: Fail{Framework{status, ""}}
     case Done{value}: Done{value}
 
-def execute.decoded(~I: Type, ~S: Data, ~K: Data, ~E: Data,
+def execute.decoded(~I: Type, ~S: Type, ~K: Data, ~E: Data,
   ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   outcome: Result<&2, &1, Error<E>, I>, state: S, config: K
 ) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
@@ -523,19 +556,19 @@ def execute.decoded(~I: Type, ~S: Data, ~K: Data, ~E: Data,
 
 # An executor, not a second dispatcher: call from dispatch's run template, after
 # all applicable before hooks. Only validated typed input reaches business IO.
-def execute(~I: Type, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def execute(~I: Type, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~decoder: K -> Match<Policy<H>> -> Http.Req -> Result<&2, &1, Error<E>, I>,
   ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   state: S, +config: K, selected: Match<Policy<H>>, req: Http.Req
 ) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
   execute.decoded(~I, ~S, ~K, ~E, ~handler, decoder(config, selected, req), state, config)
 
-type Step<-S: Data, -E: Data> is Type:
+type Step<-S: Type, -E: Data> is Type:
   Continue{state: S}
   Early{state: S, response: Http.Res}
   Reject{state: S, error: Error<E>}
 
-type Completion<-S: Data, -H: Data> is Type:
+type Completion<-S: Type, -H: Data> is Type:
   Completed{state: S, response: Http.Res, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool}
 
 # Application completion only: no socket write, duration, or peer-receipt claim.
@@ -571,17 +604,17 @@ def default.error(~E: Data, error: Error<E>) -> Http.Res:
     case _:
       minimal()
 
-def default.mapper(~S: Data, ~K: Data, ~E: Data, state: S, config: K, error: Error<E>) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
+def default.mapper(~S: Type, ~K: Data, ~E: Data, state: S, config: K, error: Error<E>) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
   IO.pure(S & Result<&2, &1, Error<E>, Http.Res>, (state, Done{default.error(~E, error)}))
 
-def mapped.checked(~S: Data, ~H: Data, state: S, entered: List<&2, Policy<H>>, stopped: Bool, result: Result<&2, &1, ResponseError, Http.Res>) -> Completion<S, H>:
+def mapped.checked(~S: Type, ~H: Data, state: S, entered: List<&2, Policy<H>>, stopped: Bool, result: Result<&2, &1, ResponseError, Http.Res>) -> Completion<S, H>:
   match result:
     case Fail{error}:
       Completed{state, minimal(), entered, True{}, True{}}
     case Done{response}:
       Completed{state, response, entered, True{}, stopped}
 
-def mapped.result(~S: Data, ~E: Data, ~H: Data, entered: List<&2, Policy<H>>, stopped: Bool, result: S & Result<&2, &1, Error<E>, Http.Res>) -> Completion<S, H>:
+def mapped.result(~S: Type, ~E: Data, ~H: Data, entered: List<&2, Policy<H>>, stopped: Bool, result: S & Result<&2, &1, Error<E>, Http.Res>) -> Completion<S, H>:
   (state, outcome) = result
   match outcome:
     case Fail{error}:
@@ -589,7 +622,7 @@ def mapped.result(~S: Data, ~E: Data, ~H: Data, entered: List<&2, Policy<H>>, st
     case Done{response}:
       mapped.checked(~S, ~H, state, entered, stopped, validate(response))
 
-def failed(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def failed(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   mapped: Bool, state: S, config: K, error: Error<E>, entered: List<&2, Policy<H>>, stopped: Bool
 ) -> IO(Completion<S, H>):
@@ -601,7 +634,7 @@ def failed(~S: Data, ~K: Data, ~E: Data, ~H: Data,
         result : S & Result<&2, &1, Error<E>, Http.Res> <- mapper(state, config, error)
         return mapped.result(~S, ~E, ~H, entered, stopped, result)
 
-def result(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def result(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   config: K, entered: List<&2, Policy<H>>, outcome: S & Result<&2, &1, Error<E>, Http.Res>
 ) -> IO(Completion<S, H>):
@@ -612,7 +645,7 @@ def result(~S: Data, ~K: Data, ~E: Data, ~H: Data,
     case Done{res}:
       IO.pure(Completion<S, H>, Completed{state, res, entered, False{}, False{}})
 
-def before.next(~S: Data, ~E: Data, step: Step<S, E>, next: S -> IO(Step<S, E>)) -> IO(Step<S, E>):
+def before.next(~S: Type, ~E: Data, step: Step<S, E>, next: S -> IO(Step<S, E>)) -> IO(Step<S, E>):
   match step:
     case Continue{state}:
       next(state)
@@ -621,7 +654,7 @@ def before.next(~S: Data, ~E: Data, step: Step<S, E>, next: S -> IO(Step<S, E>))
     case Reject{state, error}:
       IO.pure(Step<S, E>, Reject{state, error})
 
-def before(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def before(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
   hooks: List<&2, H>, state: S, +config: K, +meta: Metadata
 ) -> IO(Step<S, E>):
@@ -633,7 +666,7 @@ def before(~S: Data, ~K: Data, ~E: Data, ~H: Data,
         step : Step<S, E> <- hook(h, state, config, meta)
         before.next(~S, ~E, step, s => before(~S, ~K, ~E, ~H, ~hook, rest, s, config, meta))
 
-def transformed(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def transformed(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   config: K, entered: List<&2, Policy<H>>, mapped: Bool, outcome: S & Result<&2, &1, Error<E>, Http.Res>
 ) -> IO(Completion<S, H>):
@@ -644,7 +677,7 @@ def transformed(~S: Data, ~K: Data, ~E: Data, ~H: Data,
     case Done{res}:
       IO.pure(Completion<S, H>, Completed{state, res, entered, mapped, False{}})
 
-def transforms(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def transforms(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   hooks: List<&2, H>, +config: K, completion: Completion<S, H>
@@ -662,7 +695,7 @@ def transforms(~S: Data, ~K: Data, ~E: Data, ~H: Data,
             next : Completion<S, H> <- transformed(~S, ~K, ~E, ~H, ~mapper, config, entered, mapped, changed)
             transforms(~S, ~K, ~E, ~H, ~hook, ~mapper, rest, config, next)
 
-def entered.step(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def entered.step(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   config: K, entered: List<&2, Policy<H>>, body: Http.Body, step: Step<S, E>, next: S -> List<&2, Policy<H>> -> Http.Body -> IO(Completion<S, H>)
 ) -> IO(Completion<S, H>):
@@ -674,7 +707,7 @@ def entered.step(~S: Data, ~K: Data, ~E: Data, ~H: Data,
     case Reject{state, error}:
       failed(~S, ~K, ~E, ~H, ~mapper, False{}, state, config, error, entered, False{})
 
-def scopes(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def scopes(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
   ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
@@ -691,7 +724,7 @@ def scopes(~S: Data, ~K: Data, ~E: Data, ~H: Data,
         inner : Completion<S, H> <- entered.step(~S, ~K, ~E, ~H, ~mapper, config, scope <> entered, body, step, s => ids => b => scopes(~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~mapper, rest, s, config, meta, ids, b, next))
         transforms(~S, ~K, ~E, ~H, ~after_hook, ~mapper, unwind, config, inner)
 
-def finish.checked(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def finish.checked(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   state: S, config: K, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool, checked: Result<&2, &1, ResponseError, Http.Res>
 ) -> IO(Completion<S, H>):
@@ -701,7 +734,7 @@ def finish.checked(~S: Data, ~K: Data, ~E: Data, ~H: Data,
     case Fail{error}:
       failed(~S, ~K, ~E, ~H, ~mapper, mapped, state, config, ResponseInvalid{}, entered, True{})
 
-def finish(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def finish(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   config: K, completion: Completion<S, H>
 ) -> IO(Completion<S, H>):
@@ -716,7 +749,7 @@ def policies.tail(~H: Data, policies: List<&2, Policy<H>>) -> List<&2, Policy<H>
       rest
 
 
-def endpoint(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def endpoint(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   action: A, state: S, +config: K, selected: Match<Policy<H>>, meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body
@@ -726,7 +759,7 @@ def endpoint(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
     outcome : S & Result<&2, &1, Error<E>, Http.Res> <- run(action, state, config, selected, Http.Req{method, target, headers, body})
     result(~S, ~K, ~E, ~H, ~mapper, config, entered, outcome)
 
-def framework(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def framework(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   +status: U32, allow: String, state: S, config: K, entered: List<&2, Policy<H>>, body: Http.Body
 ) -> IO(Completion<S, H>):
@@ -736,7 +769,7 @@ def framework(~S: Data, ~K: Data, ~E: Data, ~H: Data,
     case _:
       failed(~S, ~K, ~E, ~H, ~mapper, False{}, state, config, Framework{status, allow}, entered, False{})
 
-def choice(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def choice(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
   ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
@@ -768,7 +801,7 @@ def metadata.authority(authority: Maybe<&2, String>, meta: Metadata) -> Metadata
       Metadata{method, target, headers} = meta
       Metadata{method, target, Http.set(headers, "host", host)}
 
-def resolved(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def resolved(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
   ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
@@ -783,7 +816,7 @@ def resolved(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
       Target.Target{segments, query, authority, star} = target
       choice(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, selected, target, groups, state, config, metadata.authority(authority, meta), entered, body)
 
-def dispatch(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+def dispatch(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
   ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
@@ -798,3 +831,256 @@ def dispatch(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
       s => entered => b => resolved(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper,
         Router.resolve(~Endpoint<A, Policy<H>>, table, method, path), groups, s, config, meta, entered, b))
     finish(~S, ~K, ~E, ~H, ~mapper, config, completion)
+
+# The wrapper owns both pipes until its admitted operation really returns.
+# Only disposable HTTP packed buffers cross them, never external handles.
+type BufferedRequest is Data:
+  BufferedRequest{metadata: Metadata, body: Chan(Http.Body), response: Chan(Http.Res)}
+
+type ApplicationReport<-H: Data> is Data:
+  Dispatched{entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool}
+  CapacityRejected{}
+
+type ServingContext<-A: Data, -S: Type, -K: Data, -H: Data> is Data:
+  ServingContext{application: Application<A, K, Policy<H>>,
+    owner: Context<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>}
+
+type Server<-A: Data, -S: Type, -K: Data, -H: Data> is Type:
+  Server{transport: Http.Server<ServingContext<A, S, K, H>>,
+    owner: Owner<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>}
+
+type StartupError is Data:
+  RegistrationFailed{error: RegistrationError}
+  TransportFailed{error: Http.StartupError}
+  EmptyBundles{}
+
+type ServerExit<-A: Data, -S: Type, -K: Data, -H: Data> is Type:
+  ServerExit{transport: Http.ServerExit, application: OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>}
+
+def server.config(port: U32) -> Http.ServerConfig:
+  Http.ServerConfig{"127.0.0.1", port, 1048576, 65536, 128, 128, 128, 5000, 30000, 30000, 30000}
+
+def server.bundles.cons(~S: Type, resource: S, counted: List<S> & Nat) -> List<S> & Nat:
+  (returned, count) = counted
+  (resource <> returned, 1n+count)
+
+def server.bundles(~S: Type, resources: List<S>) -> List<S> & Nat:
+  match resources:
+    case Nil{}: (Nil{}, 0n)
+    case resource <> rest:
+      server.bundles.cons(~S, resource, server.bundles(~S, rest))
+
+def server.work.completed(~S: Type, ~H: Data, response_channel: Chan(Http.Res),
+  completion: Completion<S, H>
+) -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>):
+  Completed{state, response, entered, mapped, stopped} = completion
+  do IO<S & Result<&2, &2, Unit, ApplicationReport<H>>>:
+    sent : Bool <- Chan.send(Http.Res, response_channel, response)
+    return (state, Done{Dispatched{entered, mapped, stopped}})
+
+def server.work(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  state: S, app: Application<A, K, Policy<H>>, input: BufferedRequest
+) -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>):
+  BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel} = input
+  do IO<S & Result<&2, &2, Unit, ApplicationReport<H>>>:
+    body : Http.Body <- receive(Http.Body, body_channel)
+    completion : Completion<S, H> <- dispatch(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper,
+      app, state, Http.Req{method, target, headers, body})
+    server.work.completed(~S, ~H, response_channel, completion)
+
+def server.response(~H: Data,
+  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  outcome: Outcome<Unit, ApplicationReport<H>>, +body: Chan(Http.Body), +response: Chan(Http.Res)
+) -> IO(Http.Reply):
+  match outcome:
+    case Success{report}:
+      do IO<Http.Reply>:
+        result : Http.Res <- receive(Http.Res, response)
+        Chan.close(Http.Body, body)
+        Chan.close(Http.Res, response)
+        return Http.reply.complete(~ApplicationReport<H>, ~done, report, result)
+    case _:
+      do IO<Http.Reply>:
+        # Closing alone retains buffered values in Base. Consume the rejected
+        # body before closing; the single room1 send has already completed.
+        discarded : Http.Body <- receive(Http.Body, body)
+        Chan.close(Http.Body, body)
+        Chan.close(Http.Res, response)
+        return Http.reply.complete(~ApplicationReport<H>, ~done, CapacityRejected{},
+          Http.Res{503, Http.set(Http.empty(), "connection", "close"), Http.from_string("")})
+
+def server.handle(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  context: ServingContext<A, S, K, H>, req: Http.Req
+) -> IO(Http.Reply):
+  ServingContext{app, owner} = context
+  Http.Req{method, target, headers, body} = req
+  do IO<Http.Reply>:
+    +body_channel : Chan(Http.Body) <- Chan.new(Http.Body, 1)
+    +response_channel : Chan(Http.Res) <- Chan.new(Http.Res, 1)
+    sent : Bool <- Chan.send(Http.Body, body_channel, body)
+    outcome : Outcome<Unit, ApplicationReport<H>> <- call(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>,
+      owner, app, BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel})
+    server.response(~H, ~done, outcome, body_channel, response_channel)
+
+
+def server.started(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  ~work: S -> Application<A, K, Policy<H>> -> BufferedRequest -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>),
+  ~destroy: S -> IO(Unit),
+  +context: Context<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>,
+  room: U32, capacity: Nat,
+  started: List<S> & Result<&2, &1, Http.StartupError, Http.Server<ServingContext<A, S, K, H>>>
+) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
+  Context{+messages} = context
+  (resources, result) = started
+  match result:
+    case Fail{error}:
+      do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
+        dispose(~S, ~destroy, resources)
+        Chan.close(Message<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>, messages)
+        return Fail{TransportFailed{error}}
+    case Done{transport}:
+      do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
+        finished : Chan(Unit) <- IO.fork(Unit, owner(~S, ~Application<A, K, Policy<H>>, ~BufferedRequest, ~Unit, ~ApplicationReport<H>,
+          ~work, ~destroy, messages, room, Waiting{resources, Counts{capacity, 0n, 0n, 0n}}))
+        return Done{Server{transport, Owner{Context{messages}, finished}}}
+
+def server.prepared(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  ~work: S -> Application<A, K, Policy<H>> -> BufferedRequest -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>),
+  ~destroy: S -> IO(Unit), app: Application<A, K, Policy<H>>, +config: Http.ServerConfig, resources: List<S> & Nat
+) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
+  Http.ServerConfig{host, port, body, headers, connections, requests, +buffered, hm, bm, im, wm} = config
+  (bundles, capacity) = resources
+  match capacity:
+    case 0n:
+      do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
+        dispose(~S, ~destroy, bundles)
+        return Fail{EmptyBundles{}}
+    case 1n+ +rest:
+      do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
+        messages : Chan(Message<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>) <-
+          Chan.new(Message<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>, buffered)
+        +context : Context<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>> = Context{messages}
+        started : List<S> & Result<&2, &1, Http.StartupError, Http.Server<ServingContext<A, S, K, H>>> <-
+          Http.server.start(~ServingContext<A, S, K, H>, ~List<S>, ServingContext{app, context}, bundles, config)
+        server.started(~A, ~S, ~K, ~H, ~work, ~destroy, context, buffered, 1n+rest, started)
+
+def server.valid(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  ~work: S -> Application<A, K, Policy<H>> -> BufferedRequest -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>),
+  ~destroy: S -> IO(Unit), valid: Bool, app: Application<A, K, Policy<H>>, config: Http.ServerConfig, resources: List<S>
+) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
+  match valid:
+    case False{}:
+      do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
+        dispose(~S, ~destroy, resources)
+        return Fail{TransportFailed{Http.InvalidConfig{}}}
+    case True{}:
+      server.prepared(~A, ~S, ~K, ~H, ~work, ~destroy, app, config, server.bundles(~S, resources))
+
+def server.registered(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  ~work: S -> Application<A, K, Policy<H>> -> BufferedRequest -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>),
+  ~destroy: S -> IO(Unit), registration: Result<&2, &2, RegistrationError, Application<A, K, Policy<H>>>,
+  +config: Http.ServerConfig, resources: List<S>
+) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
+  match registration:
+    case Fail{error}:
+      do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
+        dispose(~S, ~destroy, resources)
+        return Fail{RegistrationFailed{error}}
+    case Done{app}:
+      server.valid(~A, ~S, ~K, ~H, ~work, ~destroy, Http.server.config.valid(config), app, config, resources)
+
+def server.start(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~destroy: S -> IO(Unit),
+  registration: Result<&2, &2, RegistrationError, Application<A, K, Policy<H>>>,
+  config: Http.ServerConfig, resources: List<S>
+) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
+  server.registered(~A, ~S, ~K, ~H,
+    ~(state => app => input => server.work(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, state, app, input)),
+    ~destroy, registration, config, resources)
+
+def server.control.result(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  controlled: Http.Server<ServingContext<A, S, K, H>> & Http.ServerControl,
+  owner: Owner<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>
+) -> Server<A, S, K, H> & Http.ServerControl:
+  (returned, control) = controlled
+  (Server{returned, owner}, control)
+
+def server.control(~A: Data, ~S: Type, ~K: Data, ~H: Data, server: Server<A, S, K, H>) -> Server<A, S, K, H> & Http.ServerControl:
+  Server{transport, owner} = server
+  server.control.result(~A, ~S, ~K, ~H, Http.server.control(~ServingContext<A, S, K, H>, transport), owner)
+
+def server.observer.result(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  observed: Http.Server<ServingContext<A, S, K, H>> & Http.ServerStats,
+  owner: Owner<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>
+) -> Server<A, S, K, H> & Http.ServerStats:
+  (returned, stats) = observed
+  (Server{returned, owner}, stats)
+
+def server.observer(~A: Data, ~S: Type, ~K: Data, ~H: Data, server: Server<A, S, K, H>) -> Server<A, S, K, H> & Http.ServerStats:
+  Server{transport, owner} = server
+  server.observer.result(~A, ~S, ~K, ~H, Http.server.observer(~ServingContext<A, S, K, H>, transport), owner)
+
+def server.dependencies(~A: Data, ~S: Type, ~K: Data, ~H: Data, server: Server<A, S, K, H>
+) -> Server<A, S, K, H> & Context<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>:
+  Server{transport, Owner{+context, finished}} = server
+  (Server{transport, Owner{context, finished}}, context)
+
+def server.run(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  ~observe: U32 -> TransportCompletion.Outcome -> IO(Unit),
+  server: Server<A, S, K, H>
+) -> IO(ServerExit<A, S, K, H>):
+  Server{transport, owner} = server
+  do IO<ServerExit<A, S, K, H>>:
+    exited : Http.ServerExit <- Http.server.run(~ServingContext<A, S, K, H>,
+      ~(context => req => server.handle(~A, ~S, ~K, ~H, ~done, context, req)),
+      ~(context => status => outcome => observe(status, outcome)), transport)
+    closed : OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>> <- close(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>, owner)
+    return ServerExit{exited, closed}
+
+# Without starting the run loop, the caller still explicitly drains transport
+# and joins application cleanup. A stop request alone is never completion.
+def server.close(~A: Data, ~S: Type, ~K: Data, ~H: Data, server: Server<A, S, K, H>) -> IO(ServerExit<A, S, K, H>):
+  Server{transport, owner} = server
+  do IO<ServerExit<A, S, K, H>>:
+    counts : Http.ServerCounts <- Http.server.close(~ServingContext<A, S, K, H>, transport)
+    closed : OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>> <- close(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>, owner)
+    return ServerExit{Http.ServerStopped{counts}, closed}
+
+def serve.started(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  ~observe: U32 -> TransportCompletion.Outcome -> IO(Unit),
+  started: Result<&2, &1, StartupError, Server<A, S, K, H>>
+) -> IO(Result<&2, &1, StartupError, ServerExit<A, S, K, H>>):
+  match started:
+    case Fail{error}: IO.pure(Result<&2, &1, StartupError, ServerExit<A, S, K, H>>, Fail{error})
+    case Done{server}:
+      do IO<Result<&2, &1, StartupError, ServerExit<A, S, K, H>>>:
+        exited : ServerExit<A, S, K, H> <- server.run(~A, ~S, ~K, ~H, ~done, ~observe, server)
+        return Done{exited}
+
+# Owners that need readiness/control use server.start then server.run instead.
+def serve(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~destroy: S -> IO(Unit),
+  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  ~observe: U32 -> TransportCompletion.Outcome -> IO(Unit),
+  registration: Result<&2, &2, RegistrationError, Application<A, K, Policy<H>>>,
+  config: Http.ServerConfig, resources: List<S>
+) -> IO(Result<&2, &1, StartupError, ServerExit<A, S, K, H>>):
+  do IO<Result<&2, &1, StartupError, ServerExit<A, S, K, H>>>:
+    started : Result<&2, &1, StartupError, Server<A, S, K, H>> <-
+      server.start(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, ~destroy, registration, config, resources)
+    serve.started(~A, ~S, ~K, ~H, ~done, ~observe, started)

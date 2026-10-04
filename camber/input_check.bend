@@ -3,7 +3,8 @@ import Base
 import ./camber.bend as C
 import ./input_app.bend as App
 import ./input.bend as Input
-import bend-kit-http@0.25.0.2/http.bend as H
+import bend-kit-http@0.30.0.0/http.bend as H
+import bend-kit-http@0.30.0.0/completion.bend as T
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as B
 
 def ready(result: Result<&2, &2, C.RegistrationError, C.Application<Unit, App.Config, C.Policy<Unit>>>) -> IO(C.Application<Unit, App.Config, C.Policy<Unit>>):
@@ -44,54 +45,78 @@ def direct(method: String, target: String, media: String, encoding: String, auth
     cap : U32 <- integer(Input.u32(depth))
     direct.body(B.from_hex(hex), method, target, header(header(header(H.empty(), "content-type", media), "content-encoding", encoding), "authorization", auth), cap, journal)
 
-# Published Http owns buffering, framing and response writing. This finite fixture
-# uses its existing single-connection talk; it is not a production serving API.
-# The old published template-only transport has no runtime application context,
-# so this evidence caller constructs its prepared app per request; no perf claim.
-def live.args(values: List<&1, String>, req: H.Req) -> IO(H.Res):
-  match values:
-    case program <> "live" <> port <> count <> depth <> journal <> Nil{}:
-      do IO<H.Res>:
-        cap : U32 <- integer(Input.u32(depth))
-        dispatch(App.Config{journal, cap}, req)
-    case _: IO.die(H.Res, 1, "live arguments")
+# Finite evidence uses the same published server owner, not a socket loop.
+type Live is Data:
+  Live{config: App.Config, remaining: Chan(Nat), stop: Chan(H.ServerControl)}
 
-def live.handler(req: H.Req) -> IO(H.Res):
-  do IO<H.Res>:
-    values : List<&1, String> <- IO.args()
-    live.args(values, req)
+def live.handler(context: Live, req: H.Req) -> IO(H.Reply):
+  Live{config, remaining, stop} = context
+  do IO<H.Reply>:
+    res : H.Res <- dispatch(config, req)
+    return H.Reply{res, T.Unobserved{}}
 
-def live.accepted(pair: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
-  (listener, result) = pair
-  do IO<Listener>:
-    socket : Socket <- IO.pass(Socket, result)
-    H.talk(~live.handler, 1048576n, (socket, H.TurnMore{H.sv.none(), False{}}))
-    return listener
-
-def live.connections(count: Nat, listener: Listener) -> IO(Unit):
+def live.remaining(count: Nat, +remaining: Chan(Nat), stop: Chan(H.ServerControl)) -> IO(Unit):
   match count:
-    case 0n: Listener.close(listener)
+    case 0n: IO.die(Unit, 1, "unexpected extra completion")
     case 1n+rest:
-      do IO<Unit>:
-        accepted : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
-        listener : Listener <- live.accepted(accepted)
-        live.connections(rest, listener)
+      match rest:
+        case 0n:
+          do IO<Unit>:
+            control : H.ServerControl <- C.receive(H.ServerControl, stop)
+            accepted : Bool <- H.server.stop(control)
+            return Unit{}
+        case 1n+tail:
+          do IO<Unit>:
+            sent : Bool <- Chan.send(Nat, remaining, 1n+tail)
+            return Unit{}
 
-def live(port: String, count: String) -> IO(Unit):
+def live.observe(context: Live, status: U32, outcome: T.Outcome) -> IO(Unit):
+  Live{config, +remaining, stop} = context
+  do IO<Unit>:
+    count : Nat <- C.receive(Nat, remaining)
+    live.remaining(count, remaining, stop)
+
+def live.controlled(controlled: H.Server<Live> & H.ServerControl, context: Live) -> IO(Unit):
+  (server, control) = controlled
+  Live{config, remaining, +stop} = context
+  do IO<Unit>:
+    sent : Bool <- Chan.send(H.ServerControl, stop, control)
+    IO.print("READY")
+    exited : H.ServerExit <- H.server.run(~Live, ~live.handler, ~live.observe, server)
+    Chan.close(Nat, remaining)
+    Chan.close(H.ServerControl, stop)
+    IO.print("CLOSED")
+
+def live.started(started: Unit & Result<&2, &1, H.StartupError, H.Server<Live>>, context: Live) -> IO(Unit):
+  (owner, result) = started
+  match result:
+    case Fail{error}:
+      Live{config, remaining, stop} = context
+      do IO<Unit>:
+        Chan.close(Nat, remaining)
+        Chan.close(H.ServerControl, stop)
+        IO.die(Unit, 1, "live bind failed")
+    case Done{server}: live.controlled(H.server.control(~Live, server), context)
+
+def live(port: String, count: String, depth: String, journal: String) -> IO(Unit):
   do IO<Unit>:
     p : U32 <- integer(Input.u32(port))
     n : U32 <- integer(Input.u32(count))
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", p))
-    IO.print("READY")
-    live.connections(U32.to_nat(n), listener)
-    IO.print("CLOSED")
+    cap : U32 <- integer(Input.u32(depth))
+    +remaining : Chan(Nat) <- Chan.new(Nat, 1)
+    stop : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
+    sent : Bool <- Chan.send(Nat, remaining, U32.to_nat(n))
+    +context : Live = Live{App.Config{journal, cap}, remaining, stop}
+    started : Unit & Result<&2, &1, H.StartupError, H.Server<Live>> <-
+      H.server.start(~Live, ~Unit, context, Unit{}, C.server.config(p))
+    live.started(started, context)
 
 def args(values: List<&1, String>) -> IO(Unit):
   match values:
     case program <> "direct" <> method <> target <> media <> encoding <> auth <> hex <> depth <> journal <> Nil{}:
       direct(method, target, media, encoding, auth, hex, depth, journal)
     case program <> "live" <> port <> count <> depth <> journal <> Nil{}:
-      live(port, count)
+      live(port, count, depth, journal)
     case _: IO.die(Unit, 1, "usage: input_check direct <method> <target> <media|-> <encoding|-> <auth|-> <hex> <depth> <journal>; or live <port> <count> <depth> <journal>")
 
 def main() -> IO(Unit):
