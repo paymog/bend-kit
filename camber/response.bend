@@ -1,4 +1,4 @@
-# Pure response checks for the provisional application; transport owns framing.
+# Final application response safety; transport alone owns framing and suppression.
 import Base
 
 def token.extra(c: U32) -> Bool:

@@ -1,17 +1,75 @@
-# Consumer-visible response safety checks for the provisional scoped application.
+# Compiled public output helpers and consumer-visible final response safety.
 import Base
-import ./surface_app.bend as Example
-import ./interface_check.bend as Registry
-import ../http/http.bend as Http
+import ./camber.bend as Example
+import ./dispatch_check.bend as Registry
+import bend-kit-http@0.25.0.2/http.bend as Http
+import bend-kit-json@0.5.1.0/json.bend as Json
 
-def accepted(result: Result<&2, &1, Example.Err, Http.Res>) -> Bool:
+type Domain is Data:
+  Domain{name: String, secret: String, internal: U32}
+
+def public(value: Domain) -> Json.Val:
+  Domain{name, secret, internal} = value
+  Json.Obj{[(Json.utf8("name"), Json.Str{Json.utf8(name)})]}
+
+def body(response: Http.Res, +status: U32, content_type: String, value: String) -> Bool:
+  Http.Res{got, headers, bytes} = response
+  U32.is_eq(got, status) && String.eq(Http.header(headers, "content-type"), content_type) && String.eq(Http.to_string(bytes), value)
+
+def redirect(result: Result<&2, &1, Example.ResponseError, Http.Res>, +status: U32) -> Bool:
+  match result:
+    case Fail{error}:
+      False{}
+    case Done{Http.Res{got, headers, bytes}}:
+      U32.is_eq(got, status) && String.eq(Http.header(headers, "location"), "/next") && String.eq(Http.to_string(bytes), "")
+
+def redirects(statuses: List<&2, U32>) -> IO(Unit):
+  match statuses:
+    case Nil{}:
+      IO.pure(Unit, Unit{})
+    case +status <> rest:
+      do IO<Unit>:
+        Registry.require(redirect(Example.redirect(status, "/next"), status), "allowed redirect rejected")
+        redirects(rest)
+
+def redirect.bad(result: Result<&2, &1, Example.ResponseError, Http.Res>) -> Bool:
+  match result:
+    case Fail{Example.InvalidRedirect{}}: True{}
+    case _: False{}
+
+def direct.run(status: U32, context: String, matched: Example.Match<String>, req: Http.Req) -> IO(Http.Res):
+  Http.Req{method, path, headers, bytes} = req
+  IO.pure(Http.Res, Example.raw(status, bytes))
+
+def direct(+status: U32) -> IO(Unit):
+  do IO<Unit>:
+    app : Example.Application<U32, String, String> <- Registry.ready(Example.application(~U32, ~String, ~String, [Example.Route{"GET", "/", status, [], ""}], [], "", ""))
+    result : Result<&2, &1, Example.ResponseError, Http.Res> <- Example.dispatch(~U32, ~String, ~String, ~direct.run, app, Http.Req{"GET", "/", Http.empty(), Http.from_string("kept")})
+    response : Http.Res <- Registry.response(result)
+    Registry.require(body(response, status, "", "kept"), "direct dispatch suppressed 204/304 body")
+
+def helpers() -> IO(Unit):
+  do IO<Unit>:
+    Registry.require(body(Example.json(~Domain, ~public, 200, Domain{"visible", "secret", 42}), 200, "application/json", "{\"name\":\"visible\"}"), "public projection leaked internal fields")
+    Registry.require(body(Example.text(200, "café"), 200, "text/plain; charset=utf-8", "caf\u{C3}\u{A9}"), "text not UTF-8")
+    Registry.require(body(Example.raw(200, Http.from_string("\0\u{FF}")), 200, "", "\0\u{FF}"), "raw bytes changed")
+    Registry.require(body(Example.empty(204), 204, "", ""), "empty response")
+    direct(204)
+    direct(304)
+    redirects([301, 302, 303, 307, 308])
+    Registry.require(redirect.bad(Example.redirect(300, "/next")), "invalid redirect status")
+    Registry.require(redirect.bad(Example.redirect(304, "/next")), "304 redirect accepted")
+    Registry.require(redirect.bad(Example.redirect(302, "")), "missing Location")
+    Registry.require(redirect.bad(Example.redirect(302, "/next\r\nx: y")), "unsafe Location")
+
+def accepted(result: Result<&2, &1, Example.ResponseError, Http.Res>) -> Bool:
   match result:
     case Done{response}:
       True{}
     case Fail{error}:
       False{}
 
-def rejected(result: Result<&2, &1, Example.Err, Http.Res>) -> Bool:
+def rejected(result: Result<&2, &1, Example.ResponseError, Http.Res>) -> Bool:
   match result:
     case Done{response}:
       False{}
@@ -39,7 +97,7 @@ def cookies(values: List<&2, String>, body: Http.Body) -> Bool:
     case _:
       False{}
 
-def preserved(result: Result<&2, &1, Example.Err, Http.Res>) -> Bool:
+def preserved(result: Result<&2, &1, Example.ResponseError, Http.Res>) -> Bool:
   match result:
     case Done{Http.Res{200, headers, body}}:
       cookies(Http.fields(headers, "set-cookie"), body)
@@ -48,6 +106,7 @@ def preserved(result: Result<&2, &1, Example.Err, Http.Res>) -> Bool:
 
 def main() -> IO(Unit):
   do IO<Unit>:
+    helpers()
     Registry.require(rejected(Example.validate(Http.Res{199, Http.empty(), Http.from_string("private")})), "1xx application response accepted")
     Registry.require(rejected(Example.validate(Http.Res{600, Http.empty(), Http.from_string("private")})), "invalid status accepted")
     forbidden(["content-length", "transfer-encoding", "keep-alive", "upgrade", "te", "trailer", "proxy-connection"])

@@ -12,6 +12,13 @@ def require(ok: Bool, label: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, label)
 
+
+def response(result: Result<&2, &1, C.ResponseError, H.Res>) -> IO(H.Res):
+  match result:
+    case Fail{error}:
+      IO.die(H.Res, 1, "valid response rejected")
+    case Done{res}:
+      IO.pure(H.Res, res)
 def ready(result: Result<&2, &2, C.RegistrationError, C.Application<U32, String, String>>) -> IO(C.Application<U32, String, String>):
   match result:
     case Fail{error}:
@@ -46,7 +53,7 @@ def value(pair: Map<&2, String> & String) -> String:
 def run(action: U32, context: String, matched: C.Match<String>, req: H.Req) -> IO(H.Res):
   match action:
     case 99:
-      C.plain(~plain, req)
+      plain(req)
     case +id:
       C.Match{target, params, groups, selected, pattern, policies} = matched
       H.Req{method, path, headers, body} = req
@@ -69,7 +76,8 @@ def checked(res: H.Res, +status: U32, action: String, allow: String, method: Str
 
 def check(+app: C.Application<U32, String, String>, +method: String, path: String, +status: U32, action: String, allow: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
   do IO<Unit>:
-    res : H.Res <- C.dispatch(~U32, ~String, ~String, ~run, app, H.Req{method, path, H.set(H.empty(), "host", "received.test"), H.from_string("")})
+    result : Result<&2, &1, C.ResponseError, H.Res> <- C.dispatch(~U32, ~String, ~String, ~run, app, H.Req{method, path, H.set(H.empty(), "host", "received.test"), H.from_string("")})
+    res : H.Res <- response(result)
     checked(res, status, action, allow, Bool.pick(String, U32.is_eq(status, 200), method, ""), selected, capture, policies, host)
 
 def exercise(+app: C.Application<U32, String, String>) -> IO(Unit):
@@ -157,8 +165,12 @@ def packed.checked(res: H.Res) -> IO(Unit):
 def packed(app: C.Application<U32, String, String>) -> IO(Unit):
   # One little-endian packed word: NUL, FF, 80, slash. Not UTF-8 text.
   do IO<Unit>:
-    res : H.Res <- C.dispatch(~U32, ~String, ~String, ~run, app, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
+    dispatched : Result<&2, &1, C.ResponseError, H.Res> <- C.dispatch(~U32, ~String, ~String, ~run, app, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
+    res : H.Res <- response(dispatched)
     packed.checked(res)
+    adapted : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
+    plain_res : H.Res <- response(adapted)
+    packed.checked(plain_res)
 
 def main() -> IO(Unit):
   do IO<Unit>:

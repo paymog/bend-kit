@@ -2,6 +2,7 @@
 import Base
 import ./camber.bend as Camber
 import ./dispatch_check.bend as Dispatch
+import ./response_check.bend as Response
 
 type Bundle is Type:
   Bundle{slot: Nat, first: File, second: File}
@@ -277,3 +278,4 @@ def main() -> IO(Unit):
     seed : U32 <- IO.try(U32, IO.random_u32())
     scenario("/tmp/camber-owner-331-" ++ U32.show(seed))
     Dispatch.main()
+    Response.main()

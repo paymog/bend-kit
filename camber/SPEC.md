@@ -1,6 +1,6 @@
 # Camber
 
-Status: staged release behavior contract. The bounded dependency owner and fixed prepared registration/direct dispatch are implemented in `camber.bend`. Hooks, body decoders, error mapping, response validation, and HTTP serving remain unimplemented. "Must", "must not", and "may" state requirements. Other text explains a requirement or describes a dependency as it exists today.
+Status: staged release behavior contract. The bounded dependency owner, fixed prepared registration/direct dispatch, explicit output helpers, and final response validation are implemented in `camber.bend`. Hooks, body decoders, error mapping, and HTTP serving remain unimplemented. "Must", "must not", and "may" state requirements. Other text explains a requirement or describes a dependency as it exists today.
 
 Camber is a small HTTP framework for Bend 2 JSON APIs and services. It combines typed inputs, returned responses, scoped hooks, and explicit ownership. It builds on bend-kit-http rather than implementing another server. Framework influences and their limitations are recorded separately in local research notes, outside this release contract.
 
@@ -83,6 +83,8 @@ Deployment note: Camber matches the target as received. A reverse proxy that mer
   - no `Content-Length`, `Transfer-Encoding`, `Keep-Alive`, `Upgrade`, `TE`, `Trailer`, or `Proxy-Connection` header, and no `Connection` value other than `close`.
 
   Repeated values remain distinct, including `Set-Cookie`. A violation is an expected failure handled by R6.5; no bytes are sent first.
+
+  Delivered response boundary: `validate`, `plain`, and `dispatch` return expected `Result<&2, &1, ResponseError, Http.Res>` with `InvalidResponse`, rather than sending or mapping failures. The later R6.5 lifecycle consumes that seam. Field values are octet Strings (0..255), matching Http's byte packing; safe obs-text and HTAB remain intact. Output helper and native/JS loopback receipts are in `README.md`.
 
 Today transport removes CR and LF from header names and values without reporting it, and writes any `U32` as the status. It sets its own lowercase `content-length`, but would also send an application `Transfer-Encoding` header or a differently cased `Content-Length` header beside it. R5.7 closes those gaps at the Camber layer; transport stripping remains as defense in depth.
 
