@@ -149,4 +149,4 @@ def application(config: Config) -> Result<&2, &2, C.RegistrationError, C.Applica
   C.application(~Unit, ~Config, ~C.Policy<Unit>, [C.Route{"GET", "/users/:id", Unit{}, [1], route}, C.Route{"POST", "/raw", Unit{}, [1], route}, C.Route{"POST", "/text", Unit{}, [1], route}, C.Route{"POST", "/json", Unit{}, [1], route}, C.Route{"POST", "/number", Unit{}, [1], route}, C.Route{"POST", "/create", Unit{}, [1], route}], [C.Group{1, [], C.policy(~Unit, 1, [Unit{}], Nil{})}], config, C.policy(~Unit, 0, Nil{}, Nil{}))
 
 def dispatch(app: C.Application<Unit, Config, C.Policy<Unit>>, req: H.Req) -> IO(C.Completion<Unit, Unit>):
-  C.dispatch(~Unit, ~Unit, ~Config, ~Unit, ~Unit, ~before, ~after, ~run, ~mapper, app, Unit{}, req)
+  C.dispatch(~Unit, ~Unit, ~Config, ~Unit, ~Unit, ~Unit, ~before, ~after, ~run, ~mapper, ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, req)

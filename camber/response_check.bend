@@ -44,7 +44,7 @@ def direct.run(status: U32, state: Unit, context: String, matched: Example.Match
 def direct(+status: U32) -> IO(Unit):
   do IO<Unit>:
     app : Example.Application<U32, String, Example.Policy<Unit>> <- Registry.ready(Example.application(~U32, ~String, ~Example.Policy<Unit>, [Example.Route{"GET", "/", status, [], Example.policy(~Unit, 1, Nil{}, Nil{})}], [], "", Example.policy(~Unit, 0, Nil{}, Nil{})))
-    result : Example.Completion<Unit, Unit> <- Example.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Registry.empty.before, ~Registry.empty.after, ~direct.run, ~Example.default.mapper(~Unit, ~String, ~Unit), app, Unit{}, Http.Req{"GET", "/", Http.empty(), Http.from_string("kept")})
+    result : Example.Completion<Unit, Unit> <- Example.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Unit, ~Registry.empty.before, ~Registry.empty.after, ~direct.run, ~Example.default.mapper(~Unit, ~String, ~Unit), ~Example.notice.ignore(~Unit, ~Unit, ~Unit), ~Example.notice.error.ignore(~Unit, ~Unit), Unit{}, Example.access.disabled(~Unit, Unit{}), app, Unit{}, Http.Req{"GET", "/", Http.empty(), Http.from_string("kept")})
     response : Http.Res = Registry.completion(result)
     Registry.require(body(response, status, "", "kept"), "direct dispatch suppressed 204/304 body")
 

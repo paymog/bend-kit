@@ -82,7 +82,7 @@ def safety(routed: Bool, app: C.Application<U32, Unit, C.Policy<Unit>>, req: H.R
         output(response, socket)
     case True{}:
       do IO<Unit>:
-        completion : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~Unit, ~Unit, ~Unit, ~before, ~after, ~run, ~C.default.mapper(~Unit, ~Unit, ~Unit), app, Unit{}, req)
+        completion : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~Unit, ~Unit, ~Unit, ~Unit, ~before, ~after, ~run, ~C.default.mapper(~Unit, ~Unit, ~Unit), ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, req)
         recovered(completion, socket)
 
 
