@@ -1,6 +1,7 @@
 # Real-socket startup/context consumer; run with startup_check.py in both lanes.
 import Base
 import ./http.bend as Http
+import ./completion.bend as Completion
 
 type Context is Data:
   Context{token: String, calls: Chan(Unit)}
@@ -12,12 +13,12 @@ def require(ok: Bool) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, "startup check failed")
 
-def handle(context: Context, request: Http.Req) -> IO(Http.Res):
+def handle(context: Context, request: Http.Req) -> IO(Http.Reply):
   Context{token, calls} = context
-  do IO<Http.Res>:
+  do IO<Http.Reply>:
     sent : Bool <- Chan.send(Unit, calls, Unit{})
     require(sent)
-    return Http.Res{200, Http.empty(), Http.from_string(token)}
+    return Http.Reply{Http.Res{200, Http.empty(), Http.from_string(token)}, Completion.Unobserved{}}
 
 def cleanup.written(written: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (returned, result) = written
@@ -49,7 +50,7 @@ def accepted(file: File, calls: Chan(Unit), result: Http.Server<Context> & Resul
   (server, got) = result
   do IO<Unit>:
     finished : Chan(Unit) <- IO.pass(Chan(Unit), got)
-    result : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, server)
+    result : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
     second(file, calls, finished, result)
 
 def stopped(file: File, result: Http.Server<Context> & (U32 & String)) -> IO(Unit):
@@ -63,7 +64,7 @@ def success(mode: String, file: File, calls: Chan(Unit), server: Http.Server<Con
     case "run":
       do IO<Unit>:
         IO.print("READY")
-        result : Http.Server<Context> & (U32 & String) <- Http.server.run(~Context, ~handle, server)
+        result : Http.Server<Context> & (U32 & String) <- Http.server.run(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         stopped(file, result)
     case "boundary":
       do IO<Unit>:
@@ -73,7 +74,7 @@ def success(mode: String, file: File, calls: Chan(Unit), server: Http.Server<Con
     case _:
       do IO<Unit>:
         IO.print("READY")
-        first : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, server)
+        first : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         accepted(file, calls, first)
 
 def started(mode: String, +calls: Chan(Unit), result: File & Result<&2, &1, Http.StartupError, Http.Server<Context>>) -> IO(Unit):

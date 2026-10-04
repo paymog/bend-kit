@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observe current transport gaps without declaring them passing conformance."""
+"""Recheck shared transport outcomes while retaining historical gap evidence."""
 import json
 import shutil
 import socket
@@ -110,7 +110,7 @@ def main():
         raise RuntimeError("lsof is required to count actual accepted server endpoints")
     results = {"date": date.today().isoformat(), "bend": guarded(["bend", "version"], 20)[0].strip(),
                "bun": guarded(["bun", "--version"], 20)[0].strip(), "lanes": {}}
-    target = ROOT / "camber/transport_risk_results.json"
+    target = ROOT / "camber/transport_outcome_results.json"
     with tempfile.TemporaryDirectory(prefix="camber-transport-risks-") as directory:
         temp = Path(directory)
         for lane, suffix in (("native", ""), ("javascript", ".js")):
@@ -147,9 +147,13 @@ def main():
                 record["raw_write_succeeded"] = event_time(record, "WRITE_SUCCEEDED") is not None
                 record["raw_write_failed"] = event_time(record, "WRITE_FAILED") is not None
                 record["public_turn_close"] = event_time(record, "PUBLIC_TURN_CLOSE") is not None
+                record["public_write_accepted"] = event_time(record, "PUBLIC_WRITE_ACCEPTED") is not None
+                record["public_write_failed"] = event_time(record, "PUBLIC_WRITE_FAILED") is not None
                 data["cases"]["write_reset" if reset else "write_healthy"] = record
                 target.write_text(json.dumps(results, indent=2) + "\n")
                 assert record["returncode"] == 0 and (record["raw_write_failed"] if reset else record["raw_write_succeeded"]), record
+                assert record["public_write_failed"] == record["raw_write_failed"], record
+                assert record["public_write_accepted"] == record["raw_write_succeeded"], record
                 print(f"{lane}/write-reset-{reset}: raw_failure={record['raw_write_failed']}; public_close={record['public_turn_close']}", flush=True)
 
 

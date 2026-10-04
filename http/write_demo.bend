@@ -1,5 +1,6 @@
 import Base
 import ./http.bend as Http
+import ./completion.bend as Completion
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 type Download is Data:
@@ -27,9 +28,11 @@ def body.large(large: Bool, w: Http.Writer) -> IO(Http.Writer):
     case False{}:
       short(w)
 
-def body(st: Download, w: Http.Writer) -> IO(Http.Writer):
+def body(st: Download, w: Http.Writer, receipt: Completion.Receipt) -> IO(Http.Writer & Completion.Receipt):
   Download{+path} = st
-  body.large(String.eq(path, "/large"), w)
+  do IO<Http.Writer & Completion.Receipt>:
+    written : Http.Writer <- body.large(String.eq(path, "/large"), w)
+    return (written, receipt)
 
 def start(req: Http.Req) -> IO(Http.WriteHead<Download>):
   Http.Req{method, +path, headers, body} = req
@@ -40,7 +43,7 @@ def start(req: Http.Req) -> IO(Http.WriteHead<Download>):
     Bool.pick(Maybe<&2, U32>, String.eq(path, "/short"), Some{12},
       Bool.pick(Maybe<&2, U32>, String.eq(path, "/over"), Some{2}, None{})))
   +rh = Http.set(Http.set(Http.empty(), "Content-Length", "99"), "Transfer-Encoding", "gzip")
-  IO.pure(Http.WriteHead<Download>, Http.WriteHead{status, rh, length, Download{path}})
+  IO.pure(Http.WriteHead<Download>, Http.WriteHead{status, rh, length, Download{path}, Completion.Unobserved{}})
 
 def main() -> IO(Unit):
-  Http.serve.write.on.with(~Download, ~start, ~body, "127.0.0.1", 18082, 1048576n)
+  Http.serve.write.on.with(~Download, ~start, ~body, ~Completion.ignore, "127.0.0.1", 18082, 1048576n)

@@ -2,6 +2,13 @@
 import Base
 import ./http.bend as Http
 import ./admission.bend as Admission
+import ./completion.bend as Completion
+
+def accept.reply(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), context: C, request: Http.Req) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    response : Http.Res <- handler(context, request)
+    return Http.Reply{response, Completion.Unobserved{}}
+
 
 def accept.closed(~C: Data, server: Http.Server<C>, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
   do IO<List<Chan(Unit)>>:
@@ -23,7 +30,7 @@ def accept.go(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), step: AcceptSte
           accept.closed(~C, server, finished)
         case 1n+p:
           do IO<List<Chan(Unit)>>:
-            accepted : Http.Server<C> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~C, ~handler, server)
+            accepted : Http.Server<C> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~C, ~(context => req => accept.reply(~C, ~handler, context, req)), ~(context => status => outcome => Completion.ignore(status, outcome)), server)
             accept.go(~C, ~handler, AcceptReceived{accepted}, p, finished)
     case AcceptReceived{accepted}:
       (server, result) = accepted

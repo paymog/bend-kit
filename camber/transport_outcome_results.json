@@ -1,0 +1,741 @@
+{
+  "date": "2026-10-04",
+  "bend": "bend 2.0.35",
+  "bun": "1.3.14",
+  "lanes": {
+    "native": {
+      "build_seconds": 24.014879041002132,
+      "sampled_build_peak_rss_kib": 5142400,
+      "cases": {
+        "startup_bind_failure": {
+          "returncode": 48,
+          "wall_seconds": 0.23787058400921524,
+          "sampled_peak_rss_kib": 32,
+          "events": [
+            {
+              "seconds": 0.18615516694262624,
+              "text": "DIRECT PASS"
+            }
+          ],
+          "stderr": "Address already in use\n",
+          "journal": null,
+          "unrelated_journal": null,
+          "resource_files_created": {
+            "store": true,
+            "audit": true
+          },
+          "readiness_reported": false,
+          "explicit_bundle_close_markers": []
+        },
+        "admission_1_incomplete": {
+          "returncode": 0,
+          "wall_seconds": 0.0650147080887109,
+          "sampled_peak_rss_kib": 2464,
+          "events": [
+            {
+              "seconds": 0.0034075831063091755,
+              "text": "DIRECT PASS"
+            },
+            {
+              "seconds": 0.0035332500701770186,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.0067252080189064145,
+              "text": "ENTER 0"
+            },
+            {
+              "seconds": 0.008021875051781535,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.06251237506512552,
+              "text": "LEAVE 0"
+            },
+            {
+              "seconds": 0.06407487508840859,
+              "text": "CLOSED 0"
+            },
+            {
+              "seconds": 0.06407762505114079,
+              "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+            },
+            {
+              "seconds": 0.064078374998644,
+              "text": "live bundled ownership: PASS"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "incomplete_body_peers_attempted": 1,
+          "partial_locally_completed_sendalls": 1,
+          "partial_body_bytes_locally_sent": 1024,
+          "unsafe_partial_close_events": [],
+          "active_handler_counts": {
+            "limit": 1,
+            "busy": 1,
+            "mask": 1,
+            "completed": 0,
+            "rejected": 1
+          },
+          "recovered_counts": {
+            "limit": 1,
+            "busy": 0,
+            "mask": 0,
+            "completed": 1,
+            "rejected": 1
+          },
+          "transport_overflow": "parsed-application-503",
+          "admitted_connection_cap": 128,
+          "established_server_endpoints": 3,
+          "endpoint_evidence": [
+            "nlocalhost:65480->localhost:65481",
+            "nlocalhost:65480->localhost:65482",
+            "nlocalhost:65480->localhost:65483"
+          ],
+          "exceeds_proposed_128_connection_default": false,
+          "audit_bytes": "",
+          "explicit_bundle_close_observed": true
+        },
+        "admission_129_incomplete": {
+          "returncode": 0,
+          "wall_seconds": 0.19756724999751896,
+          "sampled_peak_rss_kib": 5616,
+          "events": [
+            {
+              "seconds": 0.0028114999877288938,
+              "text": "DIRECT PASS"
+            },
+            {
+              "seconds": 0.002948499983176589,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.0035386249655857682,
+              "text": "ENTER 0"
+            },
+            {
+              "seconds": 0.055274374899454415,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.1256219589849934,
+              "text": "LEAVE 0"
+            },
+            {
+              "seconds": 0.16572149994317442,
+              "text": "CLOSED 0"
+            },
+            {
+              "seconds": 0.16573004191741347,
+              "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":0}"
+            },
+            {
+              "seconds": 0.16573091689497232,
+              "text": "live bundled ownership: PASS"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "incomplete_body_peers_attempted": 129,
+          "partial_locally_completed_sendalls": 129,
+          "partial_body_bytes_locally_sent": 132096,
+          "unsafe_partial_close_events": [],
+          "active_handler_counts": {
+            "limit": 1,
+            "busy": 1,
+            "mask": 1,
+            "completed": 0,
+            "rejected": 0
+          },
+          "recovered_counts": {
+            "limit": 1,
+            "busy": 0,
+            "mask": 0,
+            "completed": 1,
+            "rejected": 0
+          },
+          "transport_overflow": "ConnectionResetError",
+          "admitted_connection_cap": 128,
+          "established_server_endpoints": 128,
+          "endpoint_evidence": [
+            "nlocalhost:65485->localhost:65486",
+            "nlocalhost:65485->localhost:65487",
+            "nlocalhost:65485->localhost:65488",
+            "nlocalhost:65485->localhost:65489",
+            "nlocalhost:65485->localhost:65490",
+            "nlocalhost:65485->localhost:65491",
+            "nlocalhost:65485->localhost:65492",
+            "nlocalhost:65485->localhost:65493",
+            "nlocalhost:65485->localhost:65494",
+            "nlocalhost:65485->localhost:65495",
+            "nlocalhost:65485->localhost:65496",
+            "nlocalhost:65485->localhost:65497",
+            "nlocalhost:65485->localhost:65498",
+            "nlocalhost:65485->localhost:65499",
+            "nlocalhost:65485->localhost:65500",
+            "nlocalhost:65485->localhost:65501",
+            "nlocalhost:65485->localhost:65502",
+            "nlocalhost:65485->localhost:65503",
+            "nlocalhost:65485->localhost:65504",
+            "nlocalhost:65485->localhost:65505",
+            "nlocalhost:65485->localhost:65506",
+            "nlocalhost:65485->localhost:65507",
+            "nlocalhost:65485->localhost:65508",
+            "nlocalhost:65485->localhost:65509",
+            "nlocalhost:65485->localhost:65510",
+            "nlocalhost:65485->localhost:65511",
+            "nlocalhost:65485->localhost:65512",
+            "nlocalhost:65485->localhost:65513",
+            "nlocalhost:65485->localhost:65514",
+            "nlocalhost:65485->localhost:65515",
+            "nlocalhost:65485->localhost:65516",
+            "nlocalhost:65485->localhost:65517",
+            "nlocalhost:65485->localhost:65518",
+            "nlocalhost:65485->localhost:65519",
+            "nlocalhost:65485->localhost:65520",
+            "nlocalhost:65485->localhost:65521",
+            "nlocalhost:65485->localhost:65522",
+            "nlocalhost:65485->localhost:65523",
+            "nlocalhost:65485->localhost:65524",
+            "nlocalhost:65485->localhost:65525",
+            "nlocalhost:65485->localhost:65526",
+            "nlocalhost:65485->localhost:65527",
+            "nlocalhost:65485->localhost:65528",
+            "nlocalhost:65485->localhost:65529",
+            "nlocalhost:65485->localhost:65530",
+            "nlocalhost:65485->localhost:65531",
+            "nlocalhost:65485->localhost:65532",
+            "nlocalhost:65485->localhost:65533",
+            "nlocalhost:65485->localhost:65534",
+            "nlocalhost:65485->localhost:65535",
+            "nlocalhost:65485->localhost:49152",
+            "nlocalhost:65485->localhost:49153",
+            "nlocalhost:65485->localhost:49154",
+            "nlocalhost:65485->localhost:49155",
+            "nlocalhost:65485->localhost:49156",
+            "nlocalhost:65485->localhost:49157",
+            "nlocalhost:65485->localhost:49158",
+            "nlocalhost:65485->localhost:49159",
+            "nlocalhost:65485->localhost:49160",
+            "nlocalhost:65485->localhost:49161",
+            "nlocalhost:65485->localhost:49162",
+            "nlocalhost:65485->localhost:49163",
+            "nlocalhost:65485->localhost:49164",
+            "nlocalhost:65485->localhost:49165",
+            "nlocalhost:65485->localhost:49166",
+            "nlocalhost:65485->localhost:49167",
+            "nlocalhost:65485->localhost:49168",
+            "nlocalhost:65485->localhost:49169",
+            "nlocalhost:65485->localhost:49170",
+            "nlocalhost:65485->localhost:49171",
+            "nlocalhost:65485->localhost:49172",
+            "nlocalhost:65485->localhost:49173",
+            "nlocalhost:65485->localhost:49174",
+            "nlocalhost:65485->localhost:49175",
+            "nlocalhost:65485->localhost:49176",
+            "nlocalhost:65485->localhost:49177",
+            "nlocalhost:65485->localhost:49178",
+            "nlocalhost:65485->localhost:49179",
+            "nlocalhost:65485->localhost:49180",
+            "nlocalhost:65485->localhost:49181",
+            "nlocalhost:65485->localhost:49182",
+            "nlocalhost:65485->localhost:49183",
+            "nlocalhost:65485->localhost:49184",
+            "nlocalhost:65485->localhost:49185",
+            "nlocalhost:65485->localhost:49186",
+            "nlocalhost:65485->localhost:49187",
+            "nlocalhost:65485->localhost:49188",
+            "nlocalhost:65485->localhost:49189",
+            "nlocalhost:65485->localhost:49190",
+            "nlocalhost:65485->localhost:49191",
+            "nlocalhost:65485->localhost:49192",
+            "nlocalhost:65485->localhost:49193",
+            "nlocalhost:65485->localhost:49194",
+            "nlocalhost:65485->localhost:49195",
+            "nlocalhost:65485->localhost:49196",
+            "nlocalhost:65485->localhost:49197",
+            "nlocalhost:65485->localhost:49198",
+            "nlocalhost:65485->localhost:49199",
+            "nlocalhost:65485->localhost:49200",
+            "nlocalhost:65485->localhost:49201",
+            "nlocalhost:65485->localhost:49202",
+            "nlocalhost:65485->localhost:49203",
+            "nlocalhost:65485->localhost:49204",
+            "nlocalhost:65485->localhost:49205",
+            "nlocalhost:65485->localhost:49206",
+            "nlocalhost:65485->localhost:49207",
+            "nlocalhost:65485->localhost:49208",
+            "nlocalhost:65485->localhost:49209",
+            "nlocalhost:65485->localhost:49210",
+            "nlocalhost:65485->localhost:49211",
+            "nlocalhost:65485->localhost:49212",
+            "nlocalhost:65485->localhost:49213",
+            "nlocalhost:65485->localhost:49214",
+            "nlocalhost:65485->localhost:49215",
+            "nlocalhost:65485->localhost:49216",
+            "nlocalhost:65485->localhost:49217",
+            "nlocalhost:65485->localhost:49218",
+            "nlocalhost:65485->localhost:49219",
+            "nlocalhost:65485->localhost:49220",
+            "nlocalhost:65485->localhost:49221",
+            "nlocalhost:65485->localhost:49222",
+            "nlocalhost:65485->localhost:49223",
+            "nlocalhost:65485->localhost:49224",
+            "nlocalhost:65485->localhost:49225",
+            "nlocalhost:65485->localhost:49226",
+            "nlocalhost:65485->localhost:49227",
+            "nlocalhost:65485->localhost:49228",
+            "nlocalhost:65485->localhost:49229"
+          ],
+          "exceeds_proposed_128_connection_default": false,
+          "audit_bytes": "",
+          "explicit_bundle_close_observed": true
+        },
+        "write_healthy": {
+          "returncode": 0,
+          "wall_seconds": 0.20779662497807294,
+          "sampled_peak_rss_kib": 1760,
+          "events": [
+            {
+              "seconds": 0.003010416985489428,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003387833945453167,
+              "text": "WRITE_ARMED"
+            },
+            {
+              "seconds": 0.20635174994822592,
+              "text": "WRITE_SUCCEEDED"
+            },
+            {
+              "seconds": 0.20636708394158632,
+              "text": "PUBLIC_WRITE_ACCEPTED"
+            },
+            {
+              "seconds": 0.2063679170096293,
+              "text": "PUBLIC_TURN_CLOSE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "client_reset_before_write": false,
+          "response_bytes": "HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length: 2\r\n\r\nok",
+          "raw_write_succeeded": true,
+          "raw_write_failed": false,
+          "public_turn_close": true,
+          "public_write_accepted": true,
+          "public_write_failed": false
+        },
+        "write_reset": {
+          "returncode": 0,
+          "wall_seconds": 0.235637667006813,
+          "sampled_peak_rss_kib": 1760,
+          "events": [
+            {
+              "seconds": 0.0031668751034885645,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.003470167052000761,
+              "text": "WRITE_ARMED"
+            },
+            {
+              "seconds": 0.20574837503954768,
+              "text": "WRITE_FAILED"
+            },
+            {
+              "seconds": 0.20575966709293425,
+              "text": "PUBLIC_WRITE_FAILED"
+            },
+            {
+              "seconds": 0.20576066710054874,
+              "text": "PUBLIC_TURN_CLOSE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "client_reset_before_write": true,
+          "response_bytes": null,
+          "raw_write_succeeded": false,
+          "raw_write_failed": true,
+          "public_turn_close": true,
+          "public_write_accepted": false,
+          "public_write_failed": true
+        }
+      }
+    },
+    "javascript": {
+      "build_seconds": 3.2429729589493945,
+      "sampled_build_peak_rss_kib": 2555424,
+      "cases": {
+        "startup_bind_failure": {
+          "returncode": 48,
+          "wall_seconds": 0.1834189579822123,
+          "sampled_peak_rss_kib": 58656,
+          "events": [
+            {
+              "seconds": 0.13439916702918708,
+              "text": "DIRECT PASS"
+            }
+          ],
+          "stderr": "Address already in use\n",
+          "journal": null,
+          "unrelated_journal": null,
+          "resource_files_created": {
+            "store": true,
+            "audit": true
+          },
+          "readiness_reported": false,
+          "explicit_bundle_close_markers": []
+        },
+        "admission_1_incomplete": {
+          "returncode": 0,
+          "wall_seconds": 0.09553445794153959,
+          "sampled_peak_rss_kib": 59968,
+          "events": [
+            {
+              "seconds": 0.023938249913044274,
+              "text": "DIRECT PASS"
+            },
+            {
+              "seconds": 0.029123540967702866,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.034225207986310124,
+              "text": "ENTER 0"
+            },
+            {
+              "seconds": 0.03630679100751877,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.08951933297794312,
+              "text": "LEAVE 0"
+            },
+            {
+              "seconds": 0.09256716596428305,
+              "text": "CLOSED 0"
+            },
+            {
+              "seconds": 0.09261458297260106,
+              "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":1}"
+            },
+            {
+              "seconds": 0.09262645791750401,
+              "text": "live bundled ownership: PASS"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "incomplete_body_peers_attempted": 1,
+          "partial_locally_completed_sendalls": 1,
+          "partial_body_bytes_locally_sent": 1024,
+          "unsafe_partial_close_events": [],
+          "active_handler_counts": {
+            "limit": 1,
+            "busy": 1,
+            "mask": 1,
+            "completed": 0,
+            "rejected": 1
+          },
+          "recovered_counts": {
+            "limit": 1,
+            "busy": 0,
+            "mask": 0,
+            "completed": 1,
+            "rejected": 1
+          },
+          "transport_overflow": "parsed-application-503",
+          "admitted_connection_cap": 128,
+          "established_server_endpoints": 3,
+          "endpoint_evidence": [
+            "nlocalhost:49242->localhost:49243",
+            "nlocalhost:49242->localhost:49244",
+            "nlocalhost:49242->localhost:49245"
+          ],
+          "exceeds_proposed_128_connection_default": false,
+          "audit_bytes": "",
+          "explicit_bundle_close_observed": true
+        },
+        "admission_129_incomplete": {
+          "returncode": 0,
+          "wall_seconds": 0.1900288340402767,
+          "sampled_peak_rss_kib": 107088,
+          "events": [
+            {
+              "seconds": 0.02412383398041129,
+              "text": "DIRECT PASS"
+            },
+            {
+              "seconds": 0.029217708972282708,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.03362062503583729,
+              "text": "ENTER 0"
+            },
+            {
+              "seconds": 0.07939141697715968,
+              "text": "LISTENER CLOSED"
+            },
+            {
+              "seconds": 0.15036349999718368,
+              "text": "LEAVE 0"
+            },
+            {
+              "seconds": 0.1718216249719262,
+              "text": "CLOSED 0"
+            },
+            {
+              "seconds": 0.17187012499198318,
+              "text": "FINAL {\"limit\":1,\"busy\":0,\"mask\":0,\"completed\":1,\"rejected\":0}"
+            },
+            {
+              "seconds": 0.17187420895788819,
+              "text": "live bundled ownership: PASS"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "incomplete_body_peers_attempted": 129,
+          "partial_locally_completed_sendalls": 129,
+          "partial_body_bytes_locally_sent": 132096,
+          "unsafe_partial_close_events": [],
+          "active_handler_counts": {
+            "limit": 1,
+            "busy": 1,
+            "mask": 1,
+            "completed": 0,
+            "rejected": 0
+          },
+          "recovered_counts": {
+            "limit": 1,
+            "busy": 0,
+            "mask": 0,
+            "completed": 1,
+            "rejected": 0
+          },
+          "transport_overflow": "ConnectionResetError",
+          "admitted_connection_cap": 128,
+          "established_server_endpoints": 128,
+          "endpoint_evidence": [
+            "nlocalhost:49248->localhost:49249",
+            "nlocalhost:49248->localhost:49250",
+            "nlocalhost:49248->localhost:49251",
+            "nlocalhost:49248->localhost:49252",
+            "nlocalhost:49248->localhost:49253",
+            "nlocalhost:49248->localhost:49254",
+            "nlocalhost:49248->localhost:49255",
+            "nlocalhost:49248->localhost:49256",
+            "nlocalhost:49248->localhost:49257",
+            "nlocalhost:49248->localhost:49258",
+            "nlocalhost:49248->localhost:49259",
+            "nlocalhost:49248->localhost:49260",
+            "nlocalhost:49248->localhost:49261",
+            "nlocalhost:49248->localhost:49262",
+            "nlocalhost:49248->localhost:49263",
+            "nlocalhost:49248->localhost:49264",
+            "nlocalhost:49248->localhost:49265",
+            "nlocalhost:49248->localhost:49266",
+            "nlocalhost:49248->localhost:49267",
+            "nlocalhost:49248->localhost:49268",
+            "nlocalhost:49248->localhost:49269",
+            "nlocalhost:49248->localhost:49270",
+            "nlocalhost:49248->localhost:49271",
+            "nlocalhost:49248->localhost:49272",
+            "nlocalhost:49248->localhost:49273",
+            "nlocalhost:49248->localhost:49274",
+            "nlocalhost:49248->localhost:49275",
+            "nlocalhost:49248->localhost:49276",
+            "nlocalhost:49248->localhost:49277",
+            "nlocalhost:49248->localhost:49278",
+            "nlocalhost:49248->localhost:49279",
+            "nlocalhost:49248->localhost:49280",
+            "nlocalhost:49248->localhost:49281",
+            "nlocalhost:49248->localhost:49282",
+            "nlocalhost:49248->localhost:49283",
+            "nlocalhost:49248->localhost:49284",
+            "nlocalhost:49248->localhost:49285",
+            "nlocalhost:49248->localhost:49286",
+            "nlocalhost:49248->localhost:49287",
+            "nlocalhost:49248->localhost:49288",
+            "nlocalhost:49248->localhost:49289",
+            "nlocalhost:49248->localhost:49290",
+            "nlocalhost:49248->localhost:49291",
+            "nlocalhost:49248->localhost:49292",
+            "nlocalhost:49248->localhost:49293",
+            "nlocalhost:49248->localhost:49294",
+            "nlocalhost:49248->localhost:49295",
+            "nlocalhost:49248->localhost:49296",
+            "nlocalhost:49248->localhost:49297",
+            "nlocalhost:49248->localhost:49298",
+            "nlocalhost:49248->localhost:49299",
+            "nlocalhost:49248->localhost:49300",
+            "nlocalhost:49248->localhost:49301",
+            "nlocalhost:49248->localhost:49302",
+            "nlocalhost:49248->localhost:49303",
+            "nlocalhost:49248->localhost:49304",
+            "nlocalhost:49248->localhost:49305",
+            "nlocalhost:49248->localhost:49306",
+            "nlocalhost:49248->localhost:49308",
+            "nlocalhost:49248->localhost:49309",
+            "nlocalhost:49248->localhost:49310",
+            "nlocalhost:49248->localhost:49311",
+            "nlocalhost:49248->localhost:49312",
+            "nlocalhost:49248->localhost:49313",
+            "nlocalhost:49248->localhost:49314",
+            "nlocalhost:49248->localhost:49315",
+            "nlocalhost:49248->localhost:49316",
+            "nlocalhost:49248->localhost:49317",
+            "nlocalhost:49248->localhost:49318",
+            "nlocalhost:49248->localhost:49319",
+            "nlocalhost:49248->localhost:49320",
+            "nlocalhost:49248->localhost:49321",
+            "nlocalhost:49248->localhost:49322",
+            "nlocalhost:49248->localhost:49323",
+            "nlocalhost:49248->localhost:49324",
+            "nlocalhost:49248->localhost:49325",
+            "nlocalhost:49248->localhost:49326",
+            "nlocalhost:49248->localhost:49327",
+            "nlocalhost:49248->localhost:49328",
+            "nlocalhost:49248->localhost:49329",
+            "nlocalhost:49248->localhost:49330",
+            "nlocalhost:49248->localhost:49331",
+            "nlocalhost:49248->localhost:49332",
+            "nlocalhost:49248->localhost:49333",
+            "nlocalhost:49248->localhost:49334",
+            "nlocalhost:49248->localhost:49335",
+            "nlocalhost:49248->localhost:49336",
+            "nlocalhost:49248->localhost:49337",
+            "nlocalhost:49248->localhost:49338",
+            "nlocalhost:49248->localhost:49339",
+            "nlocalhost:49248->localhost:49340",
+            "nlocalhost:49248->localhost:49341",
+            "nlocalhost:49248->localhost:49342",
+            "nlocalhost:49248->localhost:49344",
+            "nlocalhost:49248->localhost:49345",
+            "nlocalhost:49248->localhost:49346",
+            "nlocalhost:49248->localhost:49347",
+            "nlocalhost:49248->localhost:49348",
+            "nlocalhost:49248->localhost:49349",
+            "nlocalhost:49248->localhost:49350",
+            "nlocalhost:49248->localhost:49351",
+            "nlocalhost:49248->localhost:49352",
+            "nlocalhost:49248->localhost:49353",
+            "nlocalhost:49248->localhost:49354",
+            "nlocalhost:49248->localhost:49355",
+            "nlocalhost:49248->localhost:49356",
+            "nlocalhost:49248->localhost:49357",
+            "nlocalhost:49248->localhost:49358",
+            "nlocalhost:49248->localhost:49359",
+            "nlocalhost:49248->localhost:49360",
+            "nlocalhost:49248->localhost:49361",
+            "nlocalhost:49248->localhost:49362",
+            "nlocalhost:49248->localhost:49363",
+            "nlocalhost:49248->localhost:49364",
+            "nlocalhost:49248->localhost:49365",
+            "nlocalhost:49248->localhost:49366",
+            "nlocalhost:49248->localhost:49367",
+            "nlocalhost:49248->localhost:49368",
+            "nlocalhost:49248->localhost:49369",
+            "nlocalhost:49248->localhost:49370",
+            "nlocalhost:49248->localhost:49371",
+            "nlocalhost:49248->localhost:49372",
+            "nlocalhost:49248->localhost:49373",
+            "nlocalhost:49248->localhost:49374",
+            "nlocalhost:49248->localhost:49375",
+            "nlocalhost:49248->localhost:49376",
+            "nlocalhost:49248->localhost:49377",
+            "nlocalhost:49248->localhost:49378"
+          ],
+          "exceeds_proposed_128_connection_default": false,
+          "audit_bytes": "",
+          "explicit_bundle_close_observed": true
+        },
+        "write_healthy": {
+          "returncode": 0,
+          "wall_seconds": 0.22972133301664144,
+          "sampled_peak_rss_kib": 34176,
+          "events": [
+            {
+              "seconds": 0.02234966610558331,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.022818833007477224,
+              "text": "WRITE_ARMED"
+            },
+            {
+              "seconds": 0.22817891603335738,
+              "text": "WRITE_SUCCEEDED"
+            },
+            {
+              "seconds": 0.22822241601534188,
+              "text": "PUBLIC_WRITE_ACCEPTED"
+            },
+            {
+              "seconds": 0.22824850003235042,
+              "text": "PUBLIC_TURN_CLOSE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "client_reset_before_write": false,
+          "response_bytes": "HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length: 2\r\n\r\nok",
+          "raw_write_succeeded": true,
+          "raw_write_failed": false,
+          "public_turn_close": true,
+          "public_write_accepted": true,
+          "public_write_failed": false
+        },
+        "write_reset": {
+          "returncode": 0,
+          "wall_seconds": 0.2556942499941215,
+          "sampled_peak_rss_kib": 34224,
+          "events": [
+            {
+              "seconds": 0.02266445802524686,
+              "text": "READY"
+            },
+            {
+              "seconds": 0.023144791019149125,
+              "text": "WRITE_ARMED"
+            },
+            {
+              "seconds": 0.22552724997512996,
+              "text": "WRITE_FAILED"
+            },
+            {
+              "seconds": 0.22559099993668497,
+              "text": "PUBLIC_WRITE_FAILED"
+            },
+            {
+              "seconds": 0.22561216598842293,
+              "text": "PUBLIC_TURN_CLOSE"
+            }
+          ],
+          "stderr": "",
+          "journal": null,
+          "unrelated_journal": null,
+          "client_reset_before_write": true,
+          "response_bytes": null,
+          "raw_write_succeeded": false,
+          "raw_write_failed": true,
+          "public_turn_close": true,
+          "public_write_accepted": false,
+          "public_write_failed": true
+        }
+      }
+    }
+  }
+}

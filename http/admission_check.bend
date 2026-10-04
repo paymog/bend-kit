@@ -1,6 +1,7 @@
 # Real production admission paths; admission_check.py drives native/JS sockets.
 import Base
 import ./http.bend as Http
+import ./completion.bend as Completion
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
 def journal.closed(result: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
@@ -30,11 +31,11 @@ def begin(+path: String) -> IO(Unit):
     wait(String.starts_with(path, "/hold"))
     journal("return " ++ path)
 
-def whole(context: Unit, request: Http.Req) -> IO(Http.Res):
+def whole(context: Unit, request: Http.Req) -> IO(Http.Reply):
   Http.Req{method, +path, headers, body} = request
-  do IO<Http.Res>:
+  do IO<Http.Reply>:
     begin(path)
-    return Http.Res{200, Http.empty(), body}
+    return Http.Reply{Http.Res{200, Http.empty(), body}, Completion.Unobserved{}}
 
 type Upload is Type:
   Upload{path: String, length: U32}
@@ -50,9 +51,9 @@ def upload.piece(state: Upload, bytes: Http.Body) -> IO(Upload & Bool):
   Bytes.Bytes{size, words} = bytes
   IO.pure(Upload & Bool, (Upload{path, (length + size : U32)}, False{}))
 
-def upload.finish(state: Upload) -> IO(Http.Res):
+def upload.finish(state: Upload) -> IO(Http.Reply):
   Upload{path, length} = state
-  IO.pure(Http.Res, Http.Res{200, Http.empty(), Http.from_string(U32.show(length))})
+  IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Http.from_string(U32.show(length))}, Completion.Unobserved{}})
 
 type Download is Type:
   Download{path: String, body: Http.Body}
@@ -61,17 +62,17 @@ def download.start(request: Http.Req) -> IO(Http.WriteHead<Download>):
   Http.Req{method, +path, headers, body} = request
   do IO<Http.WriteHead<Download>>:
     begin(path)
-    return Http.WriteHead{200, Http.empty(), None{}, Download{path, body}}
+    return Http.WriteHead{200, Http.empty(), None{}, Download{path, body}, Completion.Unobserved{}}
 
 def download.observed(+path: String, writer: Http.Writer) -> IO(Http.Writer):
-  Http.Writer{socket, mode, until} = writer
+  Http.Writer{socket, mode, until, outcome} = writer
   match socket:
     case None{}:
       do IO<Http.Writer>:
         journal("write-aborted " ++ path)
         IO.sleep(1400)
         journal("writer-return " ++ path)
-        return Http.Writer{None{}, mode, until}
+        return Http.Writer{None{}, mode, until, outcome}
     case Some{live}:
       IO.die(Http.Writer, 1, "expected failed writer after peer reset")
 
@@ -85,11 +86,12 @@ def download.after(failed: Bool, +path: String, writer: Http.Writer) -> IO(Http.
         next : Http.Writer <- Http.writer.write(writer, Http.from_string("after-disconnect"))
         download.observed(path, next)
 
-def download.write(state: Download, writer: Http.Writer) -> IO(Http.Writer):
+def download.write(state: Download, writer: Http.Writer, receipt: Completion.Receipt) -> IO(Http.Writer & Completion.Receipt):
   Download{+path, body} = state
-  do IO<Http.Writer>:
+  do IO<Http.Writer & Completion.Receipt>:
     first : Http.Writer <- Http.writer.write(writer, body)
-    download.after(String.starts_with(path, "/failed"), path, first)
+    returned : Http.Writer <- download.after(String.starts_with(path, "/failed"), path, first)
+    return (returned, receipt)
 
 def counts.show(counts: Http.ServerCounts) -> String:
   Http.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br} = counts
@@ -155,14 +157,14 @@ def serve(mode: String, server: Http.Server<Unit>, +observer: Http.ServerStats, 
   match mode:
     case "whole":
       do IO<Unit>:
-        result : Http.Server<Unit> & (U32 & String) <- Http.server.run(~Unit, ~whole, server)
+        result : Http.Server<Unit> & (U32 & String) <- Http.server.run(~Unit, ~whole, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         whole.stopped(result)
     case "stream":
       Http.Server{listener, context, config, inbox} = server
-      Http.serve.stream.loop(~Upload, ~upload.start, ~upload.piece, ~upload.finish, Http.limits.config(config), inbox, listener)
+      Http.serve.stream.loop(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~Completion.ignore, Http.limits.config(config), inbox, listener)
     case "writer":
       Http.Server{listener, context, config, inbox} = server
-      Http.serve.write.loop(~Download, ~download.start, ~download.write, Http.limits.config(config), inbox, listener)
+      Http.serve.write.loop(~Download, ~download.start, ~download.write, ~Completion.ignore, Http.limits.config(config), inbox, listener)
     case "stats-close":
       do IO<Unit>:
         second : Chan(Unit) <- IO.fork(Unit, monitor(128n, observer, Observe{}))

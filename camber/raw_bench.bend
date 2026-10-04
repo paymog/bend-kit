@@ -2,6 +2,7 @@
 import Base
 import ./raw_http.bend as Raw
 import ../http/http.bend as Http
+import ../http/completion.bend as Completion
 import bend-kit-time@0.1.0.0/time.bend as Time
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import bend-kit-int@0.2.0.0/int.bend as Int
@@ -149,19 +150,25 @@ def direct.job(
       Job{profile, verb, target, input} = value
       timed(~r10, ~r100, ~r1000, label, U32.to_nat(n), value, headers(input))
 
+# Serving adds no request-local payload to the direct-dispatch benchmark.
+def served(operation: IO(Http.Res)) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    response : Http.Res <- operation
+    return Http.Reply{response, Completion.Unobserved{}}
+
 def serve(
   ~r10: U32 -> Bool, ~r100: U32 -> Bool, ~r1000: U32 -> Bool,
   profile: String, port: U32
 ) -> IO(Unit):
   match profile:
     case "0":
-      Http.serve.on.with(~basic, "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => served(basic(req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case "10":
-      Http.serve.on.with(~(req => Raw.routes(~r10, req)), "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => served(Raw.routes(~r10, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case "100":
-      Http.serve.on.with(~(req => Raw.routes(~r100, req)), "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => served(Raw.routes(~r100, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case "1000":
-      Http.serve.on.with(~(req => Raw.routes(~r1000, req)), "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => served(Raw.routes(~r1000, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case _:
       IO.die(Unit, 1, "invalid server profile")
 

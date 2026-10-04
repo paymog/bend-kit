@@ -3,6 +3,7 @@ import Base
 import ./raw_bench.bend as Raw
 import ./lifecycle_http.bend as Scoped
 import ../http/http.bend as Http
+import ../http/completion.bend as Completion
 import bend-kit-time@0.1.0.0/time.bend as Time
 
 def loops(~dispatch: U32 -> Http.Req -> IO(Http.Res), n: Nat, +work: Raw.Job, +fields: Map<&2, List<&2, String>>, total: U32) -> IO(U32):
@@ -34,13 +35,13 @@ def direct(~dispatch: U32 -> Http.Req -> IO(Http.Res), label: String, n: U32, wo
 def serve(~dispatch: U32 -> Http.Req -> IO(Http.Res), profile: String, port: U32) -> IO(Unit):
   match profile:
     case "0":
-      Http.serve.on.with(~(req => dispatch(0, req)), "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => Raw.served(dispatch(0, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case "10":
-      Http.serve.on.with(~(req => dispatch(10, req)), "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => Raw.served(dispatch(10, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case "100":
-      Http.serve.on.with(~(req => dispatch(100, req)), "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => Raw.served(dispatch(100, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case "1000":
-      Http.serve.on.with(~(req => dispatch(1000, req)), "127.0.0.1", port, 8388608n)
+      Http.serve.on.with(~(req => Raw.served(dispatch(1000, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
     case _:
       IO.die(Unit, 1, "invalid profile")
 
