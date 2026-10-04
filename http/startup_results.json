@@ -1,0 +1,456 @@
+[
+  {
+    "command": [
+      "bend",
+      "http/startup_check.bend",
+      "-o",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup"
+    ],
+    "status": 0,
+    "output": "",
+    "peak_sampled_rss_kib": 2053536
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "bind",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-failure"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nBIND FAILED 48\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 32
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "body",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-body"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "headers",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-headers"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "connections",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-connections"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "requests",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-requests"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "header_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "body_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "idle_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "write_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "port",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-port"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_header_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-huge_header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_body_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-huge_body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_idle_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-huge_idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "huge_write_ms",
+      "53167",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-huge_write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "success",
+      "53173",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-success"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\nTHREE CALLS\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup",
+      "--threads",
+      "1",
+      "--gpu",
+      "off",
+      "run",
+      "53173",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/native-run"
+    ],
+    "status": -15,
+    "output": "CONTEXT CREATED\nREADY\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bend",
+      "http/startup_check.bend",
+      "-o",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js"
+    ],
+    "status": 0,
+    "output": "",
+    "peak_sampled_rss_kib": 1620608
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "bind",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-failure"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nBIND FAILED 48\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 20896
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "body",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-body"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "headers",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-headers"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "connections",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-connections"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "requests",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-requests"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "header_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "body_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "idle_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "write_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "port",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-port"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "huge_header_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-huge_header_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "huge_body_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-huge_body_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "huge_idle_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-huge_idle_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "huge_write_ms",
+      "53187",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-huge_write_ms"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nINVALID\nOWNER CLOSED\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "success",
+      "53203",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-success"
+    ],
+    "status": 0,
+    "output": "CONTEXT CREATED\nREADY\nOWNER CLOSED\nTHREE CALLS\n",
+    "peak_sampled_rss_kib": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/startup.js",
+      "run",
+      "53203",
+      "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-startup-dixytzg8/js-run"
+    ],
+    "status": -15,
+    "output": "CONTEXT CREATED\nREADY\n",
+    "peak_sampled_rss_kib": 0
+  }
+]
