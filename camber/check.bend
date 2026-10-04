@@ -3,6 +3,7 @@ import Base
 import ./camber.bend as Camber
 import ./dispatch_check.bend as Dispatch
 import ./response_check.bend as Response
+import ./scoped_check.bend as Scoped
 
 type Bundle is Type:
   Bundle{slot: Nat, first: File, second: File}
@@ -279,3 +280,4 @@ def main() -> IO(Unit):
     scenario("/tmp/camber-owner-331-" ++ U32.show(seed))
     Dispatch.main()
     Response.main()
+    Scoped.check()

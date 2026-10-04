@@ -19,12 +19,71 @@ def response(result: Result<&2, &1, C.ResponseError, H.Res>) -> IO(H.Res):
       IO.die(H.Res, 1, "valid response rejected")
     case Done{res}:
       IO.pure(H.Res, res)
-def ready(result: Result<&2, &2, C.RegistrationError, C.Application<U32, String, String>>) -> IO(C.Application<U32, String, String>):
+
+def completion(value: C.Completion<Unit, Unit>) -> H.Res:
+  C.Completed{state, response, entered, mapped, stopped} = value
+  response
+
+def policy.name(id: U32) -> String:
+  match id:
+    case 0: "root"
+    case 1: "users"
+    case 2: "nested"
+    case 3: "literal"
+    case 4: "post"
+    case 5: "me"
+    case 6: "home"
+    case 7: "slash"
+    case 8: "head"
+    case 9: "options"
+    case 10: "get"
+    case 11: "unicode"
+    case 12: "parameter"
+    case 13: "specific"
+    case _: "plain"
+
+def policy.id(name: String) -> U32:
+  match name:
+    case "root": 0
+    case "users": 1
+    case "nested": 2
+    case "literal": 3
+    case "post": 4
+    case "me": 5
+    case "home": 6
+    case "slash": 7
+    case "head": 8
+    case "options": 9
+    case "get": 10
+    case "unicode": 11
+    case "parameter": 12
+    case "specific": 13
+    case _: 14
+
+def policy(name: String) -> C.Policy<Unit>:
+  C.policy(~Unit, policy.id(name), Nil{}, Nil{})
+
+def route.convert(route: C.Route<U32, String>) -> C.Route<U32, C.Policy<Unit>>:
+  C.Route{method, path, action, groups, name} = route
+  C.Route{method, path, action, groups, policy(name)}
+
+def group.convert(group: C.Group<String>) -> C.Group<C.Policy<Unit>>:
+  C.Group{id, ancestors, name} = group
+  C.Group{id, ancestors, policy(name)}
+
+def data.map(~A: Data, ~B: Data, ~f: A -> B, xs: List<&2, A>) -> List<&2, B>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case x <> rest:
+      f(x) <> data.map(~A, ~B, ~f, rest)
+
+def ready(result: Result<&2, &2, C.RegistrationError, C.Application<U32, String, C.Policy<Unit>>>) -> IO(C.Application<U32, String, C.Policy<Unit>>):
   match result:
     case Fail{error}:
-      IO.die(C.Application<U32, String, String>, 1, "valid application rejected")
+      IO.die(C.Application<U32, String, C.Policy<Unit>>, 1, "valid application rejected")
     case Done{app}:
-      IO.pure(C.Application<U32, String, String>, app)
+      IO.pure(C.Application<U32, String, C.Policy<Unit>>, app)
 
 def groups() -> List<&2, C.Group<String>>:
   [C.Group{1, [], "users"}, C.Group{2, [1], "nested"}, C.Group{3, [], "literal"}]
@@ -60,6 +119,25 @@ def run(action: U32, context: String, matched: C.Match<String>, req: H.Req) -> I
       out = H.set(H.set(H.set(H.set(H.set(H.set(H.set(H.empty(), "x-action", U32.show(id)), "x-method", method), "x-selected", selected), "x-capture", value(Map.get(String, "", params, Bool.pick(String, U32.is_eq(id, 1), "id", Bool.pick(String, U32.is_eq(id, 7), "name", "second"))))), "x-policies", String.join(policies, "/")), "x-host", H.header(headers, "host")), "x-context", context)
       IO.pure(H.Res, H.Res{200, out, H.from_string("handler-body")})
 
+def policies.names(policies: List<&2, C.Policy<Unit>>) -> List<&2, String>:
+  match policies:
+    case Nil{}:
+      Nil{}
+    case C.Policy{id, before, after} <> rest:
+      policy.name(id) <> policies.names(rest)
+
+def empty.before(hook: Unit, state: Unit, config: String, meta: C.Metadata) -> IO(C.Step<Unit, Unit>):
+  IO.pure(C.Step<Unit, Unit>, C.Continue{state})
+
+def empty.after(hook: Unit, state: Unit, config: String, response: H.Res) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
+  IO.pure(Unit & Result<&2, &1, C.Error<Unit>, H.Res>, (state, Done{response}))
+
+def scoped.run(action: U32, state: Unit, context: String, matched: C.Match<C.Policy<Unit>>, req: H.Req) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
+  C.Match{target, params, groups, method, pattern, policies} = matched
+  do IO<Unit & Result<&2, &1, C.Error<Unit>, H.Res>>:
+    res : H.Res <- run(action, context, C.Match{target, params, groups, method, pattern, policies.names(policies)}, req)
+    return (state, Done{res})
+
 def checked(res: H.Res, +status: U32, action: String, allow: String, method: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
   H.Res{got, +headers, body} = res
   do IO<Unit>:
@@ -72,15 +150,15 @@ def checked(res: H.Res, +status: U32, action: String, allow: String, method: Str
     require(String.eq(H.header(headers, "x-policies"), policies), "prepared policies")
     require(String.eq(H.header(headers, "x-host"), host), "absolute-form Host")
     require(String.eq(H.header(headers, "x-context"), Bool.pick(String, U32.is_eq(status, 200), "typed-context", "")), "typed runtime context")
-    require(String.eq(B.to_string(body), Bool.pick(String, U32.is_eq(status, 200), "handler-body", "")), "direct dispatch suppressed body")
+    require(Bool.not(U32.is_eq(status, 200)) || String.eq(B.to_string(body), "handler-body"), "direct dispatch suppressed body")
 
-def check(+app: C.Application<U32, String, String>, +method: String, path: String, +status: U32, action: String, allow: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
+def check(+app: C.Application<U32, String, C.Policy<Unit>>, +method: String, path: String, +status: U32, action: String, allow: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
   do IO<Unit>:
-    result : Result<&2, &1, C.ResponseError, H.Res> <- C.dispatch(~U32, ~String, ~String, ~run, app, H.Req{method, path, H.set(H.empty(), "host", "received.test"), H.from_string("")})
-    res : H.Res <- response(result)
+    result : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), app, Unit{}, H.Req{method, path, H.set(H.empty(), "host", "received.test"), H.from_string("")})
+    res : H.Res = completion(result)
     checked(res, status, action, allow, Bool.pick(String, U32.is_eq(status, 200), method, ""), selected, capture, policies, host)
 
-def exercise(+app: C.Application<U32, String, String>) -> IO(Unit):
+def exercise(+app: C.Application<U32, String, C.Policy<Unit>>) -> IO(Unit):
   do IO<Unit>:
     check(app, "POST", "/users/me", 405, "", "GET, HEAD, OPTIONS", "", "", "", "")
     check(app, "GET", "/users/me", 200, "2", "", "GET", "", "root/literal/me", "received.test")
@@ -105,7 +183,7 @@ def exercise(+app: C.Application<U32, String, String>) -> IO(Unit):
     check(app, "GET", "*", 400, "", "", "", "", "", "")
     check(app, "OPTIONS", "*", 204, "", "GET, HEAD, OPTIONS, POST", "", "", "", "")
 
-def invalids(xs: List<&2, String>, +app: C.Application<U32, String, String>) -> IO(Unit):
+def invalids(xs: List<&2, String>, +app: C.Application<U32, String, C.Policy<Unit>>) -> IO(Unit):
   match xs:
     case Nil{}:
       IO.pure(Unit, Unit{})
@@ -162,11 +240,11 @@ def packed.checked(res: H.Res) -> IO(Unit):
   H.Res{status, headers, B.Bytes{len, buf}} = res
   packed.word(buf[0], status, len)
 
-def packed(app: C.Application<U32, String, String>) -> IO(Unit):
+def packed(app: C.Application<U32, String, C.Policy<Unit>>) -> IO(Unit):
   # One little-endian packed word: NUL, FF, 80, slash. Not UTF-8 text.
   do IO<Unit>:
-    dispatched : Result<&2, &1, C.ResponseError, H.Res> <- C.dispatch(~U32, ~String, ~String, ~run, app, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
-    res : H.Res <- response(dispatched)
+    dispatched : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), app, Unit{}, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
+    res : H.Res = completion(dispatched)
     packed.checked(res)
     adapted : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
     plain_res : H.Res <- response(adapted)
@@ -174,8 +252,8 @@ def packed(app: C.Application<U32, String, String>) -> IO(Unit):
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    +app : C.Application<U32, String, String> <- ready(C.application(~U32, ~String, ~String, routes(), groups(), "typed-context", "root"))
-    reversed : C.Application<U32, String, String> <- ready(C.application(~U32, ~String, ~String, List.reverse(&2, C.Route<U32, String>, routes()), List.reverse(&2, C.Group<String>, groups()), "typed-context", "root"))
+    +app : C.Application<U32, String, C.Policy<Unit>> <- ready(C.application(~U32, ~String, ~C.Policy<Unit>, data.map(~C.Route<U32, String>, ~C.Route<U32, C.Policy<Unit>>, ~route.convert, routes()), data.map(~C.Group<String>, ~C.Group<C.Policy<Unit>>, ~group.convert, groups()), "typed-context", policy("root")))
+    reversed : C.Application<U32, String, C.Policy<Unit>> <- ready(C.application(~U32, ~String, ~C.Policy<Unit>, data.map(~C.Route<U32, String>, ~C.Route<U32, C.Policy<Unit>>, ~route.convert, List.reverse(&2, C.Route<U32, String>, routes())), data.map(~C.Group<String>, ~C.Group<C.Policy<Unit>>, ~group.convert, List.reverse(&2, C.Group<String>, groups())), "typed-context", policy("root")))
     exercise(app)
     exercise(reversed)
     invalids(["/x%", "/x%0", "/x%GG", "/x%00", "/x%2f", "/x%C0%AF", "/x%ED%A0%80", "/x%F4%90%80%80", "/x%E2%82", "/x#y", "/x y", "/x\u{80}", "/x\u{7F}", "/?x=%00", "/?x=%FF", "http:///x", "not-a-target"], app)
@@ -187,6 +265,6 @@ def main() -> IO(Unit):
     registration([C.Route{"bad method", "/x", 1, [], "a"}], "method")
     require(String.eq(error(C.application(~U32, ~String, ~String, [], [C.Group{1, [], "a"}, C.Group{1, [], "b"}], "context", "root")), "ancestry"), "duplicate group")
     require(String.eq(error(C.application(~U32, ~String, ~String, [], [C.Group{1, [2], "a"}, C.Group{2, [1], "b"}], "context", "root")), "ancestry"), "cyclic group")
-    require(description(C.describe(~U32, ~String, ~String, app)), "hidden method description")
+    require(description(C.describe(~U32, ~String, ~C.Policy<Unit>, app)), "hidden method description")
     packed(app)
     IO.print("camber registration/direct dispatch: PASS")

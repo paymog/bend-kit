@@ -340,6 +340,9 @@ def close(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, context: Context<R, 
 type Group<-P: Data> is Data:
   Group{id: U32, ancestors: List<&2, U32>, policy: P}
 
+type GroupPlan<-P: Data> is Data:
+  GroupPlan{ids: List<&2, U32>, policies: List<&2, P>}
+
 type Route<-A: Data, -P: Data> is Data:
   Route{method: String, pattern: String, action: A, groups: List<&2, U32>, policy: P}
 
@@ -347,7 +350,7 @@ type Endpoint<-A: Data, -P: Data> is Data:
   Endpoint{action: A, policies: List<&2, P>}
 
 type Application<-A: Data, -C: Data, -P: Data> is Data:
-  Application{table: Router.Table<Endpoint<A, P>>, context: C, root: P}
+  Application{table: Router.Table<Endpoint<A, P>>, context: C, root: P, groups: List<&2, GroupPlan<P>>}
 
 type RegistrationError is Data:
   RouteError{error: Router.Error}
@@ -435,37 +438,53 @@ def routes.prepare(~A: Data, ~P: Data, routes: List<&2, Route<A, P>>, +groups: L
         entries : List<&2, Router.Entry<Endpoint<A, P>>> <- routes.prepare(~A, ~P, rest, groups, root)
         return Router.Entry{method, pattern, Endpoint{action, root <> List.append(&2, P, policies, [policy])}, ids} <> entries
 
-def application.table(~A: Data, ~C: Data, ~P: Data, result: Result<&2, &2, Router.Error, Router.Table<Endpoint<A, P>>>, context: C, root: P) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
+def groups.prepare(~P: Data, groups: List<&2, Group<P>>, +all: List<&2, Group<P>>) -> Result<&2, &2, RegistrationError, List<&2, GroupPlan<P>>>:
+  match groups:
+    case Nil{}:
+      Done{Nil{}}
+    case Group{id, ancestors, policy} <> rest:
+      +ids = List.append(&2, U32, ancestors, [id])
+      do Result<&2, &2, RegistrationError, List<&2, GroupPlan<P>>>:
+        policies : List<&2, P> <- routes.policies(~P, groups.policies(~P, ids, all, Nil{}), ids)
+        plans : List<&2, GroupPlan<P>> <- groups.prepare(~P, rest, all)
+        return GroupPlan{ids, policies} <> plans
+
+def groups.select(~P: Data, same: Bool, policies: List<&2, P>, later: Unit -> List<&2, P>) -> List<&2, P>:
+  match same:
+    case True{}: policies
+    case False{}: later(Unit{})
+
+def groups.prepared(~P: Data, plans: List<&2, GroupPlan<P>>, +ids: List<&2, U32>) -> List<&2, P>:
+  match plans:
+    case Nil{}:
+      Nil{}
+    case GroupPlan{here, policies} <> rest:
+      groups.select(~P, groups.equal(here, ids), policies, u => groups.prepared(~P, rest, ids))
+
+def application.table(~A: Data, ~C: Data, ~P: Data, result: Result<&2, &2, Router.Error, Router.Table<Endpoint<A, P>>>, context: C, root: P, groups: List<&2, GroupPlan<P>>) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
   match result:
     case Fail{error}:
       Fail{RouteError{error}}
     case Done{table}:
-      Done{Application{table, context, root}}
+      Done{Application{table, context, root, groups}}
 
-def application.valid(~A: Data, ~C: Data, ~P: Data, valid: Bool, routes: List<&2, Route<A, P>>, groups: List<&2, Group<P>>, context: C, +root: P) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
+def application.valid(~A: Data, ~C: Data, ~P: Data, valid: Bool, routes: List<&2, Route<A, P>>, +groups: List<&2, Group<P>>, context: C, +root: P) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
   match valid:
     case False{}:
       Fail{InvalidGroups{Nil{}}}
     case True{}:
       do Result<&2, &2, RegistrationError, Application<A, C, P>>:
         entries : List<&2, Router.Entry<Endpoint<A, P>>> <- routes.prepare(~A, ~P, routes, groups, root)
-        application.table(~A, ~C, ~P, Router.prepare(~Endpoint<A, P>, entries), context, root)
+        plans : List<&2, GroupPlan<P>> <- groups.prepare(~P, groups, groups)
+        application.table(~A, ~C, ~P, Router.prepare(~Endpoint<A, P>, entries), context, root, plans)
 
 # Construction is pure and fallible; no listener or owner is started here.
 def application(~A: Data, ~C: Data, ~P: Data, routes: List<&2, Route<A, P>>, +groups: List<&2, Group<P>>, context: C, root: P) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
   application.valid(~A, ~C, ~P, groups.valid(~P, groups, groups), routes, groups, context, root)
 
 def describe(~A: Data, ~C: Data, ~P: Data, app: Application<A, C, P>) -> List<&2, Router.Description>:
-  Application{table, context, root} = app
+  Application{table, context, root, groups} = app
   Router.describe(~Endpoint<A, P>, table)
-
-def request.authority(authority: Maybe<&2, String>, req: Http.Req) -> Http.Req:
-  match authority:
-    case None{}:
-      req
-    case Some{host}:
-      Http.Req{method, path, headers, body} = req
-      Http.Req{method, path, Http.set(headers, "host", host), body}
 
 # A closed template can run repeatedly; an affine callback registry cannot.
 def plain(~handler: Http.Req -> IO(Http.Res), req: Http.Req) -> IO(Result<&2, &1, ResponseError, Http.Res>):
@@ -473,39 +492,285 @@ def plain(~handler: Http.Req -> IO(Http.Res), req: Http.Req) -> IO(Result<&2, &1
     response : Http.Res <- handler(req)
     return validate(response)
 
-def dispatch.choice(~A: Data, ~C: Data, ~P: Data,
-  ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
-  choice: Router.Choice<Endpoint<A, P>>, context: C, target: Target.Target, req: Http.Req
-) -> IO(Http.Res):
-  match choice:
-    case Router.NotFound{}:
-      IO.pure(Http.Res, Http.Res{404, Http.empty(), Http.from_string("")})
-    case Router.MethodMissing{groups, allow}:
-      IO.pure(Http.Res, Http.Res{405, Http.set(Http.empty(), "allow", allow), Http.from_string("")})
-    case Router.Options{groups, allow}:
-      IO.pure(Http.Res, Http.Res{204, Http.set(Http.empty(), "allow", allow), Http.from_string("")})
-    case Router.Found{Endpoint{action, policies}, params, groups, method, pattern}:
-      run(action, context, Match{target, params, groups, method, pattern, policies}, req)
+type Policy<-H: Data> is Data:
+  Policy{id: U32, before: List<&2, H>, transforms: List<&2, H>}
 
-def dispatch.resolved(~A: Data, ~C: Data, ~P: Data,
-  ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
-  result: Result<&2, &2, Router.Error, Router.Resolved<Endpoint<A, P>>>, context: C, req: Http.Req
-) -> IO(Http.Res):
+def policy(~H: Data, id: U32, before: List<&2, H>, transforms: List<&2, H>) -> Policy<H>:
+  Policy{id, before, List.reverse(&2, H, transforms)}
+
+type Metadata is Data:
+  Metadata{method: String, target: String, headers: Map<&2, List<&2, String>>}
+
+type Error<-E: Data> is Data:
+  ApplicationError{error: E}
+  Framework{status: U32, allow: String}
+  ResponseInvalid{}
+
+type Step<-S: Data, -E: Data> is Type:
+  Continue{state: S}
+  Early{state: S, response: Http.Res}
+  Reject{state: S, error: Error<E>}
+
+type Completion<-S: Data, -H: Data> is Type:
+  Completed{state: S, response: Http.Res, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool}
+
+# Application completion only: no socket write, duration, or peer-receipt claim.
+def minimal() -> Http.Res:
+  empty(500)
+
+def problem.allow(add: Bool, headers: Map<&2, List<&2, String>>, allow: String) -> Map<&2, List<&2, String>>:
+  match add:
+    case True{}: Http.set(headers, "allow", allow)
+    case False{}: headers
+
+def problem.response(allow: String, response: Http.Res) -> Http.Res:
+  Http.Res{+status, headers, body} = response
+  Http.Res{status, problem.allow(U32.is_eq(status, 405), Http.set(headers, "content-type", "application/problem+json"), allow), body}
+
+def problem(+status: U32, title: String, allow: String) -> Http.Res:
+  problem.response(allow, json(~Json.Val, ~(x => x), status, Json.Obj{[(Json.utf8("type"), Json.Str{Json.utf8("about:blank")}), (Json.utf8("title"), Json.Str{Json.utf8(title)}), (Json.utf8("status"), Json.Num{Json.utf8(U32.show(status))})]}))
+
+def default.error(~E: Data, error: Error<E>) -> Http.Res:
+  match error:
+    case Framework{status, allow}:
+      match status:
+        case 400:
+          problem(400, "Bad Request", allow)
+        case 404:
+          problem(404, "Not Found", allow)
+        case 405:
+          problem(405, "Method Not Allowed", allow)
+        case 415:
+          problem(415, "Unsupported Media Type", allow)
+        case _:
+          minimal()
+    case _:
+      minimal()
+
+def default.mapper(~S: Data, ~K: Data, ~E: Data, state: S, config: K, error: Error<E>) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
+  IO.pure(S & Result<&2, &1, Error<E>, Http.Res>, (state, Done{default.error(~E, error)}))
+
+def mapped.checked(~S: Data, ~H: Data, state: S, entered: List<&2, Policy<H>>, stopped: Bool, result: Result<&2, &1, ResponseError, Http.Res>) -> Completion<S, H>:
   match result:
     case Fail{error}:
-      IO.pure(Http.Res, Http.Res{400, Http.empty(), Http.from_string("")})
-    case Done{Router.Resolved{+target, choice}}:
-      Target.Target{segments, query, authority, star} = target
-      dispatch.choice(~A, ~C, ~P, ~run, choice, context, target, request.authority(authority, req))
+      Completed{state, minimal(), entered, True{}, True{}}
+    case Done{response}:
+      Completed{state, response, entered, True{}, stopped}
 
-# Dispatch moves the original packed body once and returns application bytes.
-# In particular it never performs transport's HEAD/204/304 body suppression.
-def dispatch(~A: Data, ~C: Data, ~P: Data,
-  ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
-  app: Application<A, C, P>, req: Http.Req
-) -> IO(Result<&2, &1, ResponseError, Http.Res>):
-  Application{table, context, root} = app
-  Http.Req{+method, +path, headers, body} = req
-  do IO<Result<&2, &1, ResponseError, Http.Res>>:
-    response : Http.Res <- dispatch.resolved(~A, ~C, ~P, ~run, Router.resolve(~Endpoint<A, P>, table, method, path), context, Http.Req{method, path, headers, body})
-    return validate(response)
+def mapped.result(~S: Data, ~E: Data, ~H: Data, entered: List<&2, Policy<H>>, stopped: Bool, result: S & Result<&2, &1, Error<E>, Http.Res>) -> Completion<S, H>:
+  (state, outcome) = result
+  match outcome:
+    case Fail{error}:
+      Completed{state, minimal(), entered, True{}, True{}}
+    case Done{response}:
+      mapped.checked(~S, ~H, state, entered, stopped, validate(response))
+
+def failed(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  mapped: Bool, state: S, config: K, error: Error<E>, entered: List<&2, Policy<H>>, stopped: Bool
+) -> IO(Completion<S, H>):
+  match mapped:
+    case True{}:
+      IO.pure(Completion<S, H>, Completed{state, minimal(), entered, True{}, True{}})
+    case False{}:
+      do IO<Completion<S, H>>:
+        result : S & Result<&2, &1, Error<E>, Http.Res> <- mapper(state, config, error)
+        return mapped.result(~S, ~E, ~H, entered, stopped, result)
+
+def result(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  config: K, entered: List<&2, Policy<H>>, outcome: S & Result<&2, &1, Error<E>, Http.Res>
+) -> IO(Completion<S, H>):
+  (state, response) = outcome
+  match response:
+    case Fail{error}:
+      failed(~S, ~K, ~E, ~H, ~mapper, False{}, state, config, error, entered, False{})
+    case Done{res}:
+      IO.pure(Completion<S, H>, Completed{state, res, entered, False{}, False{}})
+
+def before.next(~S: Data, ~E: Data, step: Step<S, E>, next: S -> IO(Step<S, E>)) -> IO(Step<S, E>):
+  match step:
+    case Continue{state}:
+      next(state)
+    case Early{state, response}:
+      IO.pure(Step<S, E>, Early{state, response})
+    case Reject{state, error}:
+      IO.pure(Step<S, E>, Reject{state, error})
+
+def before(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  hooks: List<&2, H>, state: S, +config: K, +meta: Metadata
+) -> IO(Step<S, E>):
+  match hooks:
+    case Nil{}:
+      IO.pure(Step<S, E>, Continue{state})
+    case h <> rest:
+      do IO<Step<S, E>>:
+        step : Step<S, E> <- hook(h, state, config, meta)
+        before.next(~S, ~E, step, s => before(~S, ~K, ~E, ~H, ~hook, rest, s, config, meta))
+
+def transformed(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  config: K, entered: List<&2, Policy<H>>, mapped: Bool, outcome: S & Result<&2, &1, Error<E>, Http.Res>
+) -> IO(Completion<S, H>):
+  (state, response) = outcome
+  match response:
+    case Fail{error}:
+      failed(~S, ~K, ~E, ~H, ~mapper, mapped, state, config, error, entered, True{})
+    case Done{res}:
+      IO.pure(Completion<S, H>, Completed{state, res, entered, mapped, False{}})
+
+def transforms(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  hooks: List<&2, H>, +config: K, completion: Completion<S, H>
+) -> IO(Completion<S, H>):
+  match hooks:
+    case Nil{}:
+      IO.pure(Completion<S, H>, completion)
+    case h <> rest:
+      match completion:
+        case Completed{state, response, entered, mapped, True{}}:
+          IO.pure(Completion<S, H>, Completed{state, response, entered, mapped, True{}})
+        case Completed{state, response, +entered, +mapped, False{}}:
+          do IO<Completion<S, H>>:
+            changed : S & Result<&2, &1, Error<E>, Http.Res> <- hook(h, state, config, response)
+            next : Completion<S, H> <- transformed(~S, ~K, ~E, ~H, ~mapper, config, entered, mapped, changed)
+            transforms(~S, ~K, ~E, ~H, ~hook, ~mapper, rest, config, next)
+
+def entered.step(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  config: K, entered: List<&2, Policy<H>>, body: Http.Body, step: Step<S, E>, next: S -> List<&2, Policy<H>> -> Http.Body -> IO(Completion<S, H>)
+) -> IO(Completion<S, H>):
+  match step:
+    case Continue{state}:
+      next(state, entered, body)
+    case Early{state, response}:
+      IO.pure(Completion<S, H>, Completed{state, response, entered, False{}, False{}})
+    case Reject{state, error}:
+      failed(~S, ~K, ~E, ~H, ~mapper, False{}, state, config, error, entered, False{})
+
+def scopes(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  policies: List<&2, Policy<H>>, state: S, +config: K, +meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body,
+  next: S -> List<&2, Policy<H>> -> Http.Body -> IO(Completion<S, H>)
+) -> IO(Completion<S, H>):
+  match policies:
+    case Nil{}:
+      next(state, entered, body)
+    case Policy{+id, +hooks, +unwind} <> rest:
+      scope = {Policy{id, hooks, unwind} : Policy<H>}
+      do IO<Completion<S, H>>:
+        step : Step<S, E> <- before(~S, ~K, ~E, ~H, ~before_hook, hooks, state, config, meta)
+        inner : Completion<S, H> <- entered.step(~S, ~K, ~E, ~H, ~mapper, config, scope <> entered, body, step, s => ids => b => scopes(~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~mapper, rest, s, config, meta, ids, b, next))
+        transforms(~S, ~K, ~E, ~H, ~after_hook, ~mapper, unwind, config, inner)
+
+def finish.checked(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  state: S, config: K, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool, checked: Result<&2, &1, ResponseError, Http.Res>
+) -> IO(Completion<S, H>):
+  match checked:
+    case Done{response}:
+      IO.pure(Completion<S, H>, Completed{state, response, entered, mapped, stopped})
+    case Fail{error}:
+      failed(~S, ~K, ~E, ~H, ~mapper, mapped, state, config, ResponseInvalid{}, entered, True{})
+
+def finish(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  config: K, completion: Completion<S, H>
+) -> IO(Completion<S, H>):
+  Completed{state, response, entered, mapped, stopped} = completion
+  finish.checked(~S, ~K, ~E, ~H, ~mapper, state, config, entered, mapped, stopped, validate(response))
+
+def policies.tail(~H: Data, policies: List<&2, Policy<H>>) -> List<&2, Policy<H>>:
+  match policies:
+    case Nil{}:
+      Nil{}
+    case root <> rest:
+      rest
+
+
+def endpoint(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  action: A, state: S, +config: K, selected: Match<Policy<H>>, meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body
+) -> IO(Completion<S, H>):
+  Metadata{method, target, headers} = meta
+  do IO<Completion<S, H>>:
+    outcome : S & Result<&2, &1, Error<E>, Http.Res> <- run(action, state, config, selected, Http.Req{method, target, headers, body})
+    result(~S, ~K, ~E, ~H, ~mapper, config, entered, outcome)
+
+def framework(~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  +status: U32, allow: String, state: S, config: K, entered: List<&2, Policy<H>>, body: Http.Body
+) -> IO(Completion<S, H>):
+  match status:
+    case 204:
+      IO.pure(Completion<S, H>, Completed{state, Http.Res{204, Http.set(Http.empty(), "allow", allow), Http.from_string("")}, entered, False{}, False{}})
+    case _:
+      failed(~S, ~K, ~E, ~H, ~mapper, False{}, state, config, Framework{status, allow}, entered, False{})
+
+def choice(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  selected: Router.Choice<Endpoint<A, Policy<H>>>, target: Target.Target,
+  groups: List<&2, GroupPlan<Policy<H>>>, state: S, +config: K, +meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body
+) -> IO(Completion<S, H>):
+  match selected:
+    case Router.NotFound{}:
+      framework(~S, ~K, ~E, ~H, ~mapper, 404, "", state, config, entered, body)
+    case Router.MethodMissing{ids, allow}:
+      policies = groups.prepared(~Policy<H>, groups, ids)
+      scopes(~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~mapper, policies, state, config, meta, entered, body,
+        s => entered => b => framework(~S, ~K, ~E, ~H, ~mapper, 405, allow, s, config, entered, b))
+    case Router.Options{ids, allow}:
+      policies = groups.prepared(~Policy<H>, groups, ids)
+      scopes(~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~mapper, policies, state, config, meta, entered, body,
+        s => entered => b => framework(~S, ~K, ~E, ~H, ~mapper, 204, allow, s, config, entered, b))
+    case Router.Found{Endpoint{action, +policies}, params, ids, method, pattern}:
+      selected = {Match{target, params, ids, method, pattern, policies} : Match<Policy<H>>}
+      scopes(~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~mapper, policies.tail(~H, policies), state, config, meta, entered, body,
+        s => entered => b => endpoint(~A, ~S, ~K, ~E, ~H, ~run, ~mapper, action, s, config, selected, meta, entered, b))
+
+def metadata.authority(authority: Maybe<&2, String>, meta: Metadata) -> Metadata:
+  match authority:
+    case None{}:
+      meta
+    case Some{host}:
+      Metadata{method, target, headers} = meta
+      Metadata{method, target, Http.set(headers, "host", host)}
+
+def resolved(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  outcome: Result<&2, &2, Router.Error, Router.Resolved<Endpoint<A, Policy<H>>>>,
+  groups: List<&2, GroupPlan<Policy<H>>>, state: S, config: K, meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body
+) -> IO(Completion<S, H>):
+  match outcome:
+    case Fail{error}:
+      framework(~S, ~K, ~E, ~H, ~mapper, 400, "", state, config, entered, body)
+    case Done{Router.Resolved{+target, selected}}:
+      Target.Target{segments, query, authority, star} = target
+      choice(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, selected, target, groups, state, config, metadata.authority(authority, meta), entered, body)
+
+def dispatch(~A: Data, ~S: Data, ~K: Data, ~E: Data, ~H: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  app: Application<A, K, Policy<H>>, state: S, req: Http.Req
+) -> IO(Completion<S, H>):
+  Application{table, +config, root, groups} = app
+  Http.Req{+method, +path, +headers, body} = req
+  +meta = {Metadata{method, path, headers} : Metadata}
+  do IO<Completion<S, H>>:
+    completion : Completion<S, H> <- scopes(~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~mapper, [root], state, config, meta, Nil{}, body,
+      s => entered => b => resolved(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper,
+        Router.resolve(~Endpoint<A, Policy<H>>, table, method, path), groups, s, config, meta, entered, b))
+    finish(~S, ~K, ~E, ~H, ~mapper, config, completion)

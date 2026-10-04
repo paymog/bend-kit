@@ -37,15 +37,15 @@ def redirect.bad(result: Result<&2, &1, Example.ResponseError, Http.Res>) -> Boo
     case Fail{Example.InvalidRedirect{}}: True{}
     case _: False{}
 
-def direct.run(status: U32, context: String, matched: Example.Match<String>, req: Http.Req) -> IO(Http.Res):
+def direct.run(status: U32, state: Unit, context: String, matched: Example.Match<Example.Policy<Unit>>, req: Http.Req) -> IO(Unit & Result<&2, &1, Example.Error<Unit>, Http.Res>):
   Http.Req{method, path, headers, bytes} = req
-  IO.pure(Http.Res, Example.raw(status, bytes))
+  IO.pure(Unit & Result<&2, &1, Example.Error<Unit>, Http.Res>, (state, Done{Example.raw(status, bytes)}))
 
 def direct(+status: U32) -> IO(Unit):
   do IO<Unit>:
-    app : Example.Application<U32, String, String> <- Registry.ready(Example.application(~U32, ~String, ~String, [Example.Route{"GET", "/", status, [], ""}], [], "", ""))
-    result : Result<&2, &1, Example.ResponseError, Http.Res> <- Example.dispatch(~U32, ~String, ~String, ~direct.run, app, Http.Req{"GET", "/", Http.empty(), Http.from_string("kept")})
-    response : Http.Res <- Registry.response(result)
+    app : Example.Application<U32, String, Example.Policy<Unit>> <- Registry.ready(Example.application(~U32, ~String, ~Example.Policy<Unit>, [Example.Route{"GET", "/", status, [], Example.policy(~Unit, 1, Nil{}, Nil{})}], [], "", Example.policy(~Unit, 0, Nil{}, Nil{})))
+    result : Example.Completion<Unit, Unit> <- Example.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Registry.empty.before, ~Registry.empty.after, ~direct.run, ~Example.default.mapper(~Unit, ~String, ~Unit), app, Unit{}, Http.Req{"GET", "/", Http.empty(), Http.from_string("kept")})
+    response : Http.Res = Registry.completion(result)
     Registry.require(body(response, status, "", "kept"), "direct dispatch suppressed 204/304 body")
 
 def helpers() -> IO(Unit):
@@ -54,6 +54,7 @@ def helpers() -> IO(Unit):
     Registry.require(body(Example.text(200, "café"), 200, "text/plain; charset=utf-8", "caf\u{C3}\u{A9}"), "text not UTF-8")
     Registry.require(body(Example.raw(200, Http.from_string("\0\u{FF}")), 200, "", "\0\u{FF}"), "raw bytes changed")
     Registry.require(body(Example.empty(204), 204, "", ""), "empty response")
+    Registry.require(body(Example.problem(400, "quote\"\\café\n", ""), 400, "application/problem+json", "{\"type\":\"about:blank\",\"title\":\"quote\\\"\\\\caf\u{C3}\u{A9}\\n\",\"status\":400}"), "Problem Details title not JSON escaped/UTF-8")
     direct(204)
     direct(304)
     redirects([301, 302, 303, 307, 308])
