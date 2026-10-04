@@ -14,7 +14,7 @@ from pathlib import Path
 from run_dispatch import ENV, ROOT, RSS_LIMIT_KIB, guarded
 
 
-def observe(command, path, interaction=None):
+def observe(command, path, interaction=None, *, timeout_seconds=12):
     events, notifications, peak = [], queue.Queue(), [0]
     started = time.monotonic()
     stop = threading.Event()
@@ -35,7 +35,7 @@ def observe(command, path, interaction=None):
                                      capture_output=True, text=True, timeout=3)
                 if rss.stdout.strip():
                     peak[0] = max(peak[0], int(rss.stdout))
-                reason = "rss_limit" if peak[0] > RSS_LIMIT_KIB else "host_deadline" if time.monotonic() - started > 12 else None
+                reason = "rss_limit" if peak[0] > RSS_LIMIT_KIB else "host_deadline" if time.monotonic() - started > timeout_seconds else None
                 if reason:
                     supervision.append(reason)
                     process.kill()
@@ -43,7 +43,7 @@ def observe(command, path, interaction=None):
                 stop.wait(.05)
 
         def wait_for(prefix):
-            deadline = time.monotonic() + 8
+            deadline = time.monotonic() + min(8, timeout_seconds)
             while True:
                 event = notifications.get(timeout=max(.01, deadline - time.monotonic()))
                 if event["text"].startswith(prefix):
@@ -58,7 +58,7 @@ def observe(command, path, interaction=None):
         try:
             if interaction:
                 details = interaction(process, wait_for)
-            code = process.wait(timeout=13)
+            code = process.wait(timeout=timeout_seconds + 1)
         finally:
             if process.poll() is None:
                 process.kill()

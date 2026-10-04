@@ -593,3 +593,45 @@ The affected HTTP gate was run sequentially with the RSS/deadline guard: `http/h
 Neither initial submission passed every gate. Grok initially passed 29 direct and 30 socket scenarios but failed the proof dependency gate and exact affine dispatch signature; it needed two repairs. Opus initially passed the four ordinary proofs but failed application compilation on computed-local matching; it needed one repair. Both final candidates pass four ordinary laws, the typed native consumer, 29 direct cases, 30 socket scenarios, and both proof/runtime mutation checks.
 
 This is not a clean blinded comparison: Grok read the parent runtime oracle, Opus consulted unrelated proof examples, and both exceeded the cooperative read boundary. Final semantic success does not erase those protocol deviations. Independent Lean-kernel attestation is unavailable. The study supports documenting proof-safe Bytes dependencies, affine callback adapters, and parameter-matching decoder patterns; it does not establish a model ranking, full SPEC conformance, IO proofs, or production readiness. No submitted implementation was repaired by the host.
+
+## Current validation status
+
+Production implementation is on hold while the remaining release risks are validated. The authoring study passed its final semantic checks, not the complete production release contract. Retained strict-JSON failures, missing production transport controls, and unfavorable performance observations remain open; they are not being rerun merely to confirm them.
+
+| Release checkpoint | Current evidence | Status |
+| --- | --- | --- |
+| Ownership and composition | Compiled resource-bundle pool, concurrent request checks, real failure/return/close observations | Mechanism demonstrated; final public library and recorded SPEC mechanism still pending |
+| Shared prerequisites before route slice | Prepared router is implemented but PR 315 remains open; strict surrogate, nested duplicate, and parse-time depth failures are retained | Blocked; no manual publication |
+| Complete production application slice | Experimental typed/scoped direct and socket paths work; independent author submissions converge after repairs | Not a finished public package; general groups, typed query access, defaults, and notifications remain open |
+| Production transport and lifecycle | Startup/admission/write-outcome gaps are observed; separate external-kill fallback is demonstrated | Integrated bounded transport and cooperative shutdown remain open |
+| Full-application performance | Raw/paired and external comparisons are retained; JS budget failures and large-body latency gaps remain | Not passed; no budget relaxation |
+
+The aggregate experiment uses held batches of 4, 16, and 126 dense 1 MiB JSON bodies, with a small-input smoke and a yielding control. The largest batch has 126 workload connections plus an ordinary connection and a timed-read connection: 128 sockets. Native single/default CPU-thread configurations and JS are measured separately. A 180-second host observation window permits the larger batch to finish; it is not an application deadline or a relaxed performance budget. The existing 20 GiB process-RSS kill guard remains in force.
+
+The aggregate experiment is complete: [39 retained observations](json_aggregate_results.json) cover native single/default CPU-thread configurations and JS. Every case returns all exact workload responses, the exact ordinary and recovery responses, a real ETIMEDOUT and peer EOF, and natural process exit. Functional success does not establish acceptable progress: ordinary work and timeout delivery wait behind the dense batch.
+
+At 126 dense 1 MiB workloads, median ordinary latency is 16.061 seconds native single-thread, 16.179 seconds native default threads, and 43.092 seconds JS. The configured 200 ms timed read closes after 16.113, 16.231, and 43.149 seconds respectively. No ordinary handler runs before the last workload completes in those nine trials. All three lanes recover with a median subsequent request below 1 ms.
+
+### Aggregate JSON work: results and limits
+
+Run `python3 -B camber/run_json_aggregate.py`. Preserve the existing dataset before another run; the runner refuses to overwrite it. Three trials per dense batch and yielding control, plus one small-input smoke, run in each lane. The same existing dense-array fixture is used; there is no hand-written parser or production change.
+
+| Lane | Held 1 MiB workloads | Median ordinary latency (ms) | 200 ms read: median arm to close (ms) | Maximum sampled process RSS (MiB) |
+| --- | ---: | ---: | ---: | ---: |
+| Native, one CPU thread | 4 | 108.836 | 203.667 | 35.8 |
+| Native, one CPU thread | 16 | 1,583.813 | 1,639.081 | 47.9 |
+| Native, one CPU thread | 126 | 16,060.868 | 16,112.921 | 158.4 |
+| Native, default CPU threads | 4 | 111.519 | 204.664 | 35.8 |
+| Native, default CPU threads | 16 | 1,572.515 | 1,626.971 | 47.8 |
+| Native, default CPU threads | 126 | 16,179.388 | 16,231.407 | 158.3 |
+| JS on Bun | 4 | 1,533.611 | 1,585.066 | 554.7 |
+| JS on Bun | 16 | 6,137.436 | 6,193.413 | 1,074.4 |
+| JS on Bun | 126 | 43,091.533 | 43,148.882 | 2,661.4 |
+
+The 126-workload yielding control has median ordinary latency 2.268 ms native single-thread, 2.283 ms native default threads, and 6.513 ms JS. Its timed reads close after 203.739, 203.147, and 204.502 ms. Many waiting computations alone do not explain the dense-batch delay. More native CPU threads do not resolve this serial parser/event-loop case.
+
+All bodies are framed and held in distinct one-shot channels before release. They are loaded sequentially, then released together; the ordinary request is sent 1 ms after the host sees the first CPU_BEGIN marker. Per-workload internal monotonic durations and their sums agree closely with observed batch completion, so the large stalls are not inferred from buffered start/end logs alone. The timer is a separate real Wire read, not an implemented absolute HTTP header/body/write deadline.
+
+The largest batch holds 126 MiB of input. Sampled JS process RSS reaches about 2.6 GiB; this is not a memory upper bound. Each case uses a fresh process, so these measurements do not establish steady-state reuse, absence of leaks, sustained-overload memory bounds, or memory recovery. The recovery measurement proves subsequent response progress, not RAM reclamation. No runtime reaches the 20 GiB kill guard.
+
+**Readiness consequence:** per-request body/depth limits and finite admitted counts do not establish aggregate CPU responsiveness. The proposed large-body/concurrency combination still needs a measured aggregate-work policy or a justified yielding/isolation design before production confidence. This fixture does not configure production admission, change the release budgets, prove scheduler isolation, or repair the shared transport. Strict JSON and integrated production transport/lifecycle blockers remain open.
