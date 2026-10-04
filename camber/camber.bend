@@ -1,5 +1,8 @@
-# Bounded affine dependency bundles with typed concurrent operations and explicit close.
+# Fixed prepared HTTP applications and bounded affine dependency bundles.
 import Base
+import bend-kit-http@0.25.0.2/http.bend as Http
+import bend-kit-router@0.2.0.0/router.bend as Router
+import bend-kit-router@0.2.0.0/target.bend as Target
 
 type Counts is Data:
   Counts{capacity: Nat, in_use: Nat, completed: Nat, rejected: Nat}
@@ -291,3 +294,174 @@ def close(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, context: Context<R, 
     +reply : Chan(CloseResult) = channel
     sent : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Shutdown{reply})
     close.sent(sent, reply)
+
+# Policies are prepared Data, not callbacks. Later lifecycle stages can consume
+# these root-to-route declarations without splitting patterns or finding groups.
+type Group<-P: Data> is Data:
+  Group{id: U32, ancestors: List<&2, U32>, policy: P}
+
+type Route<-A: Data, -P: Data> is Data:
+  Route{method: String, pattern: String, action: A, groups: List<&2, U32>, policy: P}
+
+type Endpoint<-A: Data, -P: Data> is Data:
+  Endpoint{action: A, policies: List<&2, P>}
+
+type Application<-A: Data, -C: Data, -P: Data> is Data:
+  Application{table: Router.Table<Endpoint<A, P>>, context: C, root: P}
+
+type RegistrationError is Data:
+  RouteError{error: Router.Error}
+  InvalidGroups{groups: List<&2, U32>}
+
+type Match<-P: Data> is Data:
+  Match{target: Target.Target, params: Map<&2, String>, groups: List<&2, U32>, method: String, pattern: String, policies: List<&2, P>}
+
+def groups.equal(xs: List<&2, U32>, ys: List<&2, U32>) -> Bool:
+  match xs ys:
+    case Nil{} Nil{}:
+      True{}
+    case x <> xt y <> yt:
+      U32.is_eq(x, y) && groups.equal(xt, yt)
+    case _ _:
+      False{}
+
+def group.pick(~P: Data, same: Bool, group: Group<P>, later: Unit -> Maybe<&2, Group<P>>) -> Maybe<&2, Group<P>>:
+  match same:
+    case True{}:
+      Some{group}
+    case False{}:
+      later(Unit{})
+
+def group.find(~P: Data, groups: List<&2, Group<P>>, +id: U32) -> Maybe<&2, Group<P>>:
+  match groups:
+    case Nil{}:
+      None{}
+    case Group{+here, ancestors, policy} <> rest:
+      group.pick(~P, U32.is_eq(here, id), Group{here, ancestors, policy}, u => group.find(~P, rest, id))
+
+def group.checked(~P: Data, same: Bool, policy: P) -> Maybe<&2, P>:
+  match same:
+    case False{}:
+      None{}
+    case True{}:
+      Some{policy}
+
+def group.policy(~P: Data, found: Maybe<&2, Group<P>>, ancestors: List<&2, U32>) -> Maybe<&2, P>:
+  match found:
+    case None{}:
+      None{}
+    case Some{Group{id, expected, policy}}:
+      group.checked(~P, groups.equal(expected, ancestors), policy)
+
+def groups.policies(~P: Data, ids: List<&2, U32>, +declared: List<&2, Group<P>>, +ancestors: List<&2, U32>) -> Maybe<&2, List<&2, P>>:
+  match ids:
+    case Nil{}:
+      Some{Nil{}}
+    case +id <> rest:
+      do Maybe<&2, List<&2, P>>:
+        policy : P <- group.policy(~P, group.find(~P, declared, id), ancestors)
+        policies : List<&2, P> <- groups.policies(~P, rest, declared, List.append(&2, U32, ancestors, [id]))
+        return policy <> policies
+
+def groups.unique(~P: Data, found: Maybe<&2, Group<P>>) -> Bool:
+  match found:
+    case None{}:
+      True{}
+    case Some{group}:
+      False{}
+
+def groups.valid(~P: Data, groups: List<&2, Group<P>>, +all: List<&2, Group<P>>) -> Bool:
+  match groups:
+    case Nil{}:
+      True{}
+    case Group{+id, +ancestors, policy} <> +rest:
+      chain = groups.policies(~P, List.append(&2, U32, ancestors, [id]), all, Nil{})
+      groups.unique(~P, group.find(~P, rest, id)) && Maybe.is_some(&2, List<&2, P>, chain) && groups.valid(~P, rest, all)
+
+def routes.policies(~P: Data, result: Maybe<&2, List<&2, P>>, ids: List<&2, U32>) -> Result<&2, &2, RegistrationError, List<&2, P>>:
+  match result:
+    case None{}:
+      Fail{InvalidGroups{ids}}
+    case Some{policies}:
+      Done{policies}
+
+def routes.prepare(~A: Data, ~P: Data, routes: List<&2, Route<A, P>>, +groups: List<&2, Group<P>>, +root: P) -> Result<&2, &2, RegistrationError, List<&2, Router.Entry<Endpoint<A, P>>>>:
+  match routes:
+    case Nil{}:
+      Done{Nil{}}
+    case Route{method, pattern, action, +ids, policy} <> rest:
+      do Result<&2, &2, RegistrationError, List<&2, Router.Entry<Endpoint<A, P>>>>:
+        policies : List<&2, P> <- routes.policies(~P, groups.policies(~P, ids, groups, Nil{}), ids)
+        entries : List<&2, Router.Entry<Endpoint<A, P>>> <- routes.prepare(~A, ~P, rest, groups, root)
+        return Router.Entry{method, pattern, Endpoint{action, root <> List.append(&2, P, policies, [policy])}, ids} <> entries
+
+def application.table(~A: Data, ~C: Data, ~P: Data, result: Result<&2, &2, Router.Error, Router.Table<Endpoint<A, P>>>, context: C, root: P) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
+  match result:
+    case Fail{error}:
+      Fail{RouteError{error}}
+    case Done{table}:
+      Done{Application{table, context, root}}
+
+def application.valid(~A: Data, ~C: Data, ~P: Data, valid: Bool, routes: List<&2, Route<A, P>>, groups: List<&2, Group<P>>, context: C, +root: P) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
+  match valid:
+    case False{}:
+      Fail{InvalidGroups{Nil{}}}
+    case True{}:
+      do Result<&2, &2, RegistrationError, Application<A, C, P>>:
+        entries : List<&2, Router.Entry<Endpoint<A, P>>> <- routes.prepare(~A, ~P, routes, groups, root)
+        application.table(~A, ~C, ~P, Router.prepare(~Endpoint<A, P>, entries), context, root)
+
+# Construction is pure and fallible; no listener or owner is started here.
+def application(~A: Data, ~C: Data, ~P: Data, routes: List<&2, Route<A, P>>, +groups: List<&2, Group<P>>, context: C, root: P) -> Result<&2, &2, RegistrationError, Application<A, C, P>>:
+  application.valid(~A, ~C, ~P, groups.valid(~P, groups, groups), routes, groups, context, root)
+
+def describe(~A: Data, ~C: Data, ~P: Data, app: Application<A, C, P>) -> List<&2, Router.Description>:
+  Application{table, context, root} = app
+  Router.describe(~Endpoint<A, P>, table)
+
+def request.authority(authority: Maybe<&2, String>, req: Http.Req) -> Http.Req:
+  match authority:
+    case None{}:
+      req
+    case Some{host}:
+      Http.Req{method, path, headers, body} = req
+      Http.Req{method, path, Http.set(headers, "host", host), body}
+
+# A closed template can run repeatedly; an affine callback registry cannot.
+def plain(~handler: Http.Req -> IO(Http.Res), req: Http.Req) -> IO(Http.Res):
+  handler(req)
+
+def dispatch.choice(~A: Data, ~C: Data, ~P: Data,
+  ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
+  choice: Router.Choice<Endpoint<A, P>>, context: C, target: Target.Target, req: Http.Req
+) -> IO(Http.Res):
+  match choice:
+    case Router.NotFound{}:
+      IO.pure(Http.Res, Http.Res{404, Http.empty(), Http.from_string("")})
+    case Router.MethodMissing{groups, allow}:
+      IO.pure(Http.Res, Http.Res{405, Http.set(Http.empty(), "allow", allow), Http.from_string("")})
+    case Router.Options{groups, allow}:
+      IO.pure(Http.Res, Http.Res{204, Http.set(Http.empty(), "allow", allow), Http.from_string("")})
+    case Router.Found{Endpoint{action, policies}, params, groups, method, pattern}:
+      run(action, context, Match{target, params, groups, method, pattern, policies}, req)
+
+def dispatch.resolved(~A: Data, ~C: Data, ~P: Data,
+  ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
+  result: Result<&2, &2, Router.Error, Router.Resolved<Endpoint<A, P>>>, context: C, req: Http.Req
+) -> IO(Http.Res):
+  match result:
+    case Fail{error}:
+      IO.pure(Http.Res, Http.Res{400, Http.empty(), Http.from_string("")})
+    case Done{Router.Resolved{+target, choice}}:
+      Target.Target{segments, query, authority, star} = target
+      dispatch.choice(~A, ~C, ~P, ~run, choice, context, target, request.authority(authority, req))
+
+# Dispatch moves the original packed body once and returns application bytes.
+# In particular it never performs transport's HEAD/204/304 body suppression.
+def dispatch(~A: Data, ~C: Data, ~P: Data,
+  ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
+  app: Application<A, C, P>, req: Http.Req
+) -> IO(Http.Res):
+  Application{table, context, root} = app
+  Http.Req{+method, +path, headers, body} = req
+  dispatch.resolved(~A, ~C, ~P, ~run, Router.resolve(~Endpoint<A, P>, table, method, path), context, Http.Req{method, path, headers, body})

@@ -1,6 +1,7 @@
 # Real File bundles, deterministic concurrent principals, failure and close checks.
 import Base
 import ./camber.bend as Camber
+import ./dispatch_check.bend as Dispatch
 
 type Bundle is Type:
   Bundle{slot: Nat, first: File, second: File}
@@ -275,3 +276,4 @@ def main() -> IO(Unit):
   do IO<Unit>:
     seed : U32 <- IO.try(U32, IO.random_u32())
     scenario("/tmp/camber-owner-331-" ++ U32.show(seed))
+    Dispatch.main()
