@@ -98,3 +98,9 @@ python3 -B camber/author_study/run_live.py opus --round replay-opus
 ```
 
 Run one Bend process at a time with swap headroom. The runners record outcomes; inspect proof commands and runtime results separately rather than treating CLI exit alone as the verdict. No package was published. Inline reuse/quality/efficiency review covered the parent harness; no independent code review or PR watcher is claimed.
+
+## Users consumer of published Camber
+
+The historical submissions and harness above remain unchanged. The later repository users consumer of published Camber is separate evidence: one affine Store owner, request-local identity, and the same public application exercised by separate direct and live consumers. These examples are not new modules in the already published Camber0.6.0.0 package. Their loopback owner-control listener is administrative demo control, trusts local processes, and must never be proxied or exposed; it is not production authentication or an external supervisor. Native/JS receipts, including failed compiler attempts and source hashes, remain cumulative in `camber/users_attempts.json` and `camber/users_results.json`.
+
+The full users invocation passed252 source-bound scenario records in native and JS:62 direct and62 live per lane plus construction and standalone records. The separate direct/live executable graphs compiled within the existing bounded guard; this does not establish a compiler defect. An exact packed-byte hex receipt replaced the initial lossy Unicode projection in the acceptance consumer. Expected File failure, principal isolation/restoration, held-owner exhaustion and retry, disposed replies, initializer and counter edges, actual default standalone operation and cooperative cleanup were exercised. This later evidence does not alter either author's laws, frozen submissions, old experiments, or performance budgets.

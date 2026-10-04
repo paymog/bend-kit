@@ -81,6 +81,32 @@ Plain `Http.Req -> IO(Http.Res)` handlers remain usable inside Camber and beside
 
 Published HTTP0.30.0.0 is `0x8bc87dd4d1e610fe1bf336b567537a8c`; Wire0.4.5.0 is `0x1435aec27074c8141b74747909079afc`. Existing shared HTTP drain evidence remains in [`../http/drain_results.json`](../http/drain_results.json). External-supervisor deployment remains separate work.
 
+`users.bend` is the reusable four-route consumer over published Camber0.6.0.0, HTTP0.30.0.0 and Json0.5.1.0. Its one affine Store owner holds the map and File; application configuration receives only the copied owner context. `users_direct.bend` and `users_live.bend` exercise that same public application and dispatcher separately. `users_demo.bend` adds a second loopback published-HTTP listener whose only administrative command is `POST /stop`. That listener trusts local processes, is not an authentication or supervisor boundary, and must never be proxied or exposed. It demonstrates cooperative application/store/control joins only; external forced-exit supervision remains #339.
+
+The `users*.bend` files are repository examples that consume published packages. They are not modules published at `bend-kit-camber@0.6.0.0/users.bend`; compile them from this checkout. No library entry or effect changes here, so the package version remains `0.6.0.0`.
+
+The demo uses `Bearer seven` for Alice/id7 and `Bearer eight` for Bob/id8. These fixed credentials are not an authentication product. The store is an in-memory map with an owned diagnostic File, not durable database storage. Default operation does not log requests, credentials, raw targets, query values, Host, or domain records. Trace and fault controls belong only to the separate acceptance consumers.
+
+```sh
+bend camber/users_demo.bend -o /tmp/camber-users
+/tmp/camber-users 8080 8081 /tmp/camber-users.journal
+```
+
+Use another terminal:
+
+```sh
+curl http://127.0.0.1:8080/health
+curl -H 'Authorization: Bearer seven' http://127.0.0.1:8080/users/7
+curl -H 'Authorization: Bearer eight' http://127.0.0.1:8080/users/me
+curl -H 'Authorization: Bearer seven' -H 'Content-Type: application/json' \
+  -d '{"name":"Cara"}' http://127.0.0.1:8080/users
+curl -X POST http://127.0.0.1:8081/stop
+```
+
+For JavaScript, compile to `/tmp/camber-users.js` and run it with `bun` using the same three arguments. `python3 camber/run_users.py --phase full --lane both` runs the sequential direct/live, owner, plain-byte and standalone acceptance. Cumulative source-bound successes and adverses are in [`users_results.json`](users_results.json) and [`users_attempts.json`](users_attempts.json). The successful full invocation contains252 scenario records, including grouped owner/overlap/standalone scenarios with several requests. This is runtime evidence, not a new pure proof, performance budget, or forced-exit guarantee.
+
+Two temporary application mutations proved that the existing acceptance checks catch missing name validation and internal-field disclosure. The first returned `201` and created an empty-name user where `400` was required. The second included the synthetic internal secret where exact `{id,name}` bytes were required. All six build/run commands exited naturally; each acceptance invocation failed as expected before live serving. Both mutations were restored to the exact original application hash, preserving the 252 good records. The supported package gate passed with 331 unsafe/foreign exclusions disclosed. Two earlier combined-consumer builds hit 120s/240s guard timeouts; those failures and their forced cleanup remain recorded, not successful compilation evidence.
+
 ### Completion notifications and access logging
 
 Import `notices.bend` as `Notices`. `Notice{status,duration,mapped,stopped,outcome}` contains an explicit `ApplicationOnly` or `Transport{outcome}` with published HTTP's actual `HostAccepted`, `WriteFailed`, or `IncompleteResponse`. Direct `notify` has type `N -> Policy<H> -> Notice -> IO(Result<&2,&2,E,Unit>)`; `report` is `N -> E -> IO(Unit)`. Live templates use application configuration `K` as the copied observer instead of a separate `N`: `notify: K -> Policy<H> -> Notice -> IO(Result<&2,&2,E,Unit>)`, `report: K -> E -> IO(Unit)`, and `access: K -> Notices.Access`. Expected notification failure invokes owner reporting, then continues remaining scopes; it cannot change the completed response, enter the mapper, or replay committed business effects. `notice.ignore` and `notice.error.ignore` are explicit closed no-op choices.
