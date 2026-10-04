@@ -187,7 +187,7 @@ def scenario(result: Result<&2, &2, C.RegistrationError, C.Application<U32, Stri
       IO.die(Unit, 1, "registration")
     case Done{app}:
       do IO<Unit>:
-        completion : C.Completion<State, String> <- C.dispatch(~U32, ~State, ~String, ~String, ~String, ~(h => s => k => m => before(h, s, k, m)), ~(h => s => k => r => after(h, s, k, r)), ~run, ~mapper, app, State{Nil{}, Principal{principal}}, H.Req{method, path, H.set(H.empty(), "x-principal", principal), H.from_string("raw-body")})
+        completion : C.Completion<State, String> <- C.dispatch(~U32, ~State, ~String, ~String, ~String, ~Unit, ~(h => s => k => m => before(h, s, k, m)), ~(h => s => k => r => after(h, s, k, r)), ~run, ~mapper, ~C.notice.ignore(~Unit, ~String, ~String), ~C.notice.error.ignore(~Unit, ~String), Unit{}, C.access.disabled(~Unit, Unit{}), app, State{Nil{}, Principal{principal}}, H.Req{method, path, H.set(H.empty(), "x-principal", principal), H.from_string("raw-body")})
         checked(completion, trace, scopes, status, mapped, principal)
 
 def check() -> IO(Unit):

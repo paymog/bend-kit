@@ -19566,5 +19566,1170 @@
     "free_disk_bytes": 29738549248,
     "temporary_builds_and_journals_remaining": [],
     "all_commands_serialized": true
+  },
+  {
+    "command": [
+      "bend",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving_check.bend",
+      "-o",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "",
+    "peak_aggregate_descendant_rss_kib": 6435296,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "38376": "Sun Oct  4 06:46:51 2026    ",
+      "39521": "Sun Oct  4 06:46:59 2026    ",
+      "39522": "Sun Oct  4 06:46:59 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "small",
+      "58589",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/small-journal",
+      "58590"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nJOINED CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 32,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "44588": "Sun Oct  4 06:47:32 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58589,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "invalid",
+      "58589",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/invalid",
+      "58590"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nSTARTUP FAILED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "registration",
+      "58589",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/registration",
+      "58590"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nSTARTUP FAILED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "bind",
+      "58591",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/bind",
+      "58590"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nSTARTUP FAILED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-0",
+      "POST",
+      "/plain",
+      "application/octet-stream",
+      "",
+      "00ff807061636b6564"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 201\nHEADER content-type=\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=packed\nHEADER x-mapped=\nBODY 00ff807061636b6564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-1",
+      "HEAD",
+      "/plain",
+      "application/octet-stream",
+      "",
+      "68656164"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 201\nHEADER content-type=\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=packed\nHEADER x-mapped=\nBODY 68656164\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-2",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "7b226e616d65223a22416461227d"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 201\nHEADER content-type=application/json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=\nBODY 7b226e616d65223a22416461227d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-3",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "7b2278223a312c2278223a327d"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-4",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "225c754438303022"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-5",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "22ff22"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-6",
+      "POST",
+      "/json",
+      "text/plain",
+      "",
+      "7b7d"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 415\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-7",
+      "POST",
+      "/json",
+      "application/json",
+      "yes",
+      "7b"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 401\nHEADER content-type=text/plain; charset=utf-8\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 556e617574686f72697a6564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-8",
+      "GET",
+      "/error",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 500\nHEADER content-type=\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY \nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-9",
+      "GET",
+      "/missing",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 404\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224e6f7420466f756e64222c22737461747573223a3430347d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-10",
+      "GET",
+      "/%FF",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-11",
+      "DELETE",
+      "/plain",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 405\nHEADER content-type=application/problem+json\nHEADER allow=GET, HEAD, OPTIONS, POST\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224d6574686f64204e6f7420416c6c6f776564222c22737461747573223a3430357d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-12",
+      "GET",
+      "/empty",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 204\nHEADER content-type=text/plain; charset=utf-8\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=\nBODY 73757070726573736564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-13",
+      "GET",
+      "/cached",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 304\nHEADER content-type=text/plain; charset=utf-8\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=\nBODY 73757070726573736564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "live",
+      "58589",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/live",
+      "58590"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "READY\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 415\nAPPLICATION 415\nTRANSPORT ACCEPTED 401\nAPPLICATION 401\nTRANSPORT ACCEPTED 500\nAPPLICATION 500\nTRANSPORT ACCEPTED 404\nAPPLICATION 404\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 405\nAPPLICATION 405\nTRANSPORT ACCEPTED 204\nAPPLICATION 204\nTRANSPORT ACCEPTED 304\nAPPLICATION 304\nBUNDLE CLOSED\nJOINED CLOSED\nCONTROL JOINED\n",
+    "peak_aggregate_descendant_rss_kib": 3936,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "44640": "Sun Oct  4 06:47:33 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58589,
+    "listener_released": true
+  },
+  {
+    "listener_port": 58590,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "/usr/sbin/lsof",
+      "-Fn",
+      "-p",
+      "44749"
+    ],
+    "status": 0,
+    "journal": "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/overload",
+    "open_journal_descriptors": 1
+  },
+  {
+    "command": [
+      "/usr/sbin/lsof",
+      "-Fn",
+      "-p",
+      "44749"
+    ],
+    "status": 0,
+    "journal": "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/overload",
+    "open_journal_descriptors": 0
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "overload",
+      "58589",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/overload",
+      "58590"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "READY\nHELD\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nSTOP REQUESTED\nTRANSPORT ACCEPTED 200\nAPPLICATION 200\nBUNDLE CLOSED\nJOINED CLOSED\nCONTROL JOINED\n",
+    "peak_aggregate_descendant_rss_kib": 3888,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "44749": "Sun Oct  4 06:47:33 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58589,
+    "listener_released": true
+  },
+  {
+    "listener_port": 58590,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving",
+      "wait",
+      "58589",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/wait",
+      "58590"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "READY\nDEPENDENCY RELEASED\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nBUNDLE CLOSED\nJOINED CLOSED\nCONTROL JOINED\n",
+    "peak_aggregate_descendant_rss_kib": 3824,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "44762": "Sun Oct  4 06:47:33 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58589,
+    "listener_released": true
+  },
+  {
+    "listener_port": 58590,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "bend",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving_check.bend",
+      "-o",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "",
+    "peak_aggregate_descendant_rss_kib": 2378240,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "44767": "Sun Oct  4 06:47:33 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "small",
+      "58644",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/small-journal",
+      "58645"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nJOINED CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 74192,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "45282": "Sun Oct  4 06:47:36 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58644,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "invalid",
+      "58644",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/invalid",
+      "58645"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nSTARTUP FAILED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "registration",
+      "58644",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/registration",
+      "58645"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nSTARTUP FAILED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "bind",
+      "58646",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/bind",
+      "58645"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "BUNDLE CLOSED\nSTARTUP FAILED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-0",
+      "POST",
+      "/plain",
+      "application/octet-stream",
+      "",
+      "00ff807061636b6564"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 201\nHEADER content-type=\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=packed\nHEADER x-mapped=\nBODY 00ff807061636b6564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-1",
+      "HEAD",
+      "/plain",
+      "application/octet-stream",
+      "",
+      "68656164"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 201\nHEADER content-type=\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=packed\nHEADER x-mapped=\nBODY 68656164\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-2",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "7b226e616d65223a22416461227d"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 201\nHEADER content-type=application/json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=\nBODY 7b226e616d65223a22416461227d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "45299": "Sun Oct  4 06:47:37 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-3",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "7b2278223a312c2278223a327d"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-4",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "225c754438303022"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-5",
+      "POST",
+      "/json",
+      "application/json",
+      "",
+      "22ff22"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-6",
+      "POST",
+      "/json",
+      "text/plain",
+      "",
+      "7b7d"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 415\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-7",
+      "POST",
+      "/json",
+      "application/json",
+      "yes",
+      "7b"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 401\nHEADER content-type=text/plain; charset=utf-8\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 556e617574686f72697a6564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-8",
+      "GET",
+      "/error",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 500\nHEADER content-type=\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=yes\nHEADER x-plain=\nHEADER x-mapped=once\nBODY \nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-9",
+      "GET",
+      "/missing",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 404\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224e6f7420466f756e64222c22737461747573223a3430347d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-10",
+      "GET",
+      "/%FF",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 400\nHEADER content-type=application/problem+json\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224261642052657175657374222c22737461747573223a3430307d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-11",
+      "DELETE",
+      "/plain",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 405\nHEADER content-type=application/problem+json\nHEADER allow=GET, HEAD, OPTIONS, POST\nHEADER x-root=yes\nHEADER x-group=yes\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=once\nBODY 7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a224d6574686f64204e6f7420416c6c6f776564222c22737461747573223a3430357d\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-12",
+      "GET",
+      "/empty",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 204\nHEADER content-type=text/plain; charset=utf-8\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=\nBODY 73757070726573736564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "direct",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/direct-13",
+      "GET",
+      "/cached",
+      "application/json",
+      "",
+      ""
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "STATUS 304\nHEADER content-type=text/plain; charset=utf-8\nHEADER allow=\nHEADER x-root=yes\nHEADER x-group=\nHEADER x-route=\nHEADER x-plain=\nHEADER x-mapped=\nBODY 73757070726573736564\nBUNDLE CLOSED\n",
+    "peak_aggregate_descendant_rss_kib": 0,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {},
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "live",
+      "58644",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/live",
+      "58645"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "READY\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 415\nAPPLICATION 415\nTRANSPORT ACCEPTED 401\nAPPLICATION 401\nTRANSPORT ACCEPTED 500\nAPPLICATION 500\nTRANSPORT ACCEPTED 404\nAPPLICATION 404\nTRANSPORT ACCEPTED 400\nAPPLICATION 400\nTRANSPORT ACCEPTED 405\nAPPLICATION 405\nTRANSPORT ACCEPTED 204\nAPPLICATION 204\nTRANSPORT ACCEPTED 304\nAPPLICATION 304\nBUNDLE CLOSED\nJOINED CLOSED\nCONTROL JOINED\n",
+    "peak_aggregate_descendant_rss_kib": 59936,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "45442": "Sun Oct  4 06:47:37 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58644,
+    "listener_released": true
+  },
+  {
+    "listener_port": 58645,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "/usr/sbin/lsof",
+      "-Fn",
+      "-p",
+      "45513"
+    ],
+    "status": 0,
+    "journal": "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/overload",
+    "open_journal_descriptors": 1
+  },
+  {
+    "command": [
+      "/usr/sbin/lsof",
+      "-Fn",
+      "-p",
+      "45513"
+    ],
+    "status": 0,
+    "journal": "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/overload",
+    "open_journal_descriptors": 0
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "overload",
+      "58644",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/overload",
+      "58645"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "READY\nHELD\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nTRANSPORT ACCEPTED 503\nCAPACITY REJECTED\nSTOP REQUESTED\nTRANSPORT ACCEPTED 200\nAPPLICATION 200\nBUNDLE CLOSED\nJOINED CLOSED\nCONTROL JOINED\n",
+    "peak_aggregate_descendant_rss_kib": 99696,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "45513": "Sun Oct  4 06:47:38 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58644,
+    "listener_released": true
+  },
+  {
+    "listener_port": 58645,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/serving.js",
+      "wait",
+      "58644",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/wait",
+      "58645"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "READY\nDEPENDENCY RELEASED\nTRANSPORT ACCEPTED 201\nAPPLICATION 201\nBUNDLE CLOSED\nJOINED CLOSED\nCONTROL JOINED\n",
+    "peak_aggregate_descendant_rss_kib": 61120,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "45569": "Sun Oct  4 06:47:38 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "listener_port": 58644,
+    "listener_released": true
+  },
+  {
+    "listener_port": 58645,
+    "listener_released": true
+  },
+  {
+    "command": [
+      "bend",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/check.bend",
+      "-o",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/owner"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "",
+    "peak_aggregate_descendant_rss_kib": 7311392,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "45575": "Sun Oct  4 06:47:38 2026    ",
+      "47609": "Sun Oct  4 06:47:51 2026    ",
+      "47610": "Sun Oct  4 06:47:51 2026    ",
+      "49902": "Sun Oct  4 06:48:06 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/owner"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "JOURNAL camber-owner-336-91014846\nCOUNTS capacity=2 in_use=2 completed=0 rejected=0\nCOUNTS capacity=2 in_use=2 completed=0 rejected=1\nSUCCESS principal=7\nEXPECTED principal=8\nSUCCESS principal=12\nCOUNTS capacity=2 in_use=0 completed=4 rejected=1\nCLOSED 1\nCLOSED 0\nPARTIAL CLOSED\nCLOSED 1\nCLOSED 0\nCLOSED 1\ncamber owner: PASS\ncamber registration/direct dispatch: PASS\nresponse safety: PASS\neffect:ba1:alice\neffect:ba2:alice\neffect:bg1:alice\neffect:bg2:alice\neffect:br1:alice\neffect:br2:alice\neffect:decode:alice\neffect:handler:alice\neffect:tr2:alice\neffect:tr1:alice\neffect:te:alice\neffect:tg2:alice\neffect:tg1:alice\neffect:ta2:alice\neffect:ta1:alice\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:bob\neffect:ba2:bob\neffect:bg1:bob\neffect:bg2:bob\neffect:br1:bob\neffect:br2:bob\neffect:decode:bob\neffect:handler:bob\neffect:tr2:bob\neffect:tr1:bob\neffect:te:bob\neffect:tg2:bob\neffect:tg1:bob\neffect:ta2:bob\neffect:ta1:bob\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:carol\neffect:ba2:carol\neffect:decode:carol\neffect:handler:carol\neffect:tp:carol\neffect:ts:carol\neffect:ta2:carol\neffect:ta1:carol\nPASS:ba1,ba2,decode,handler,tp,ts,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:map:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,map,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:map:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,map,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:tr2:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:ordinary\neffect:ba2:ordinary\neffect:bg1:ordinary\neffect:bg2:ordinary\neffect:br1:ordinary\neffect:br2:ordinary\neffect:handler:ordinary\neffect:tr2:ordinary\neffect:tr1:ordinary\neffect:te:ordinary\neffect:tg2:ordinary\neffect:tg1:ordinary\neffect:ta2:ordinary\neffect:ta1:ordinary\nPASS:ba1,ba2,bg1,bg2,br1,br2,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:parallel-alice\neffect:ba2:parallel-alice\neffect:bg1:parallel-alice\neffect:bg2:parallel-alice\neffect:br1:parallel-alice\neffect:br2:parallel-alice\neffect:decode:parallel-alice\neffect:handler:parallel-alice\neffect:tr2:parallel-alice\neffect:tr1:parallel-alice\neffect:te:parallel-alice\neffect:tg2:parallel-alice\neffect:tg1:parallel-alice\neffect:ta2:parallel-alice\neffect:ta1:parallel-alice\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:parallel-bob\neffect:ba2:parallel-bob\neffect:bg1:parallel-bob\neffect:bg2:parallel-bob\neffect:br1:parallel-bob\neffect:br2:parallel-bob\neffect:decode:parallel-bob\neffect:handler:parallel-bob\neffect:tr2:parallel-bob\neffect:tr1:parallel-bob\neffect:te:parallel-bob\neffect:tg2:parallel-bob\neffect:tg1:parallel-bob\neffect:ta2:parallel-bob\neffect:ta1:parallel-bob\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\n",
+    "peak_aggregate_descendant_rss_kib": 3008,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "49906": "Sun Oct  4 06:48:06 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "owner_journal": "/Users/paymahn/code/bend-kit-issue-337/camber-owner-336-91014846",
+    "paired_principals": [
+      "7",
+      "8",
+      "10",
+      "12"
+    ],
+    "partial_closed": 1,
+    "slot0_closed": 2,
+    "slot1_closed": 3
+  },
+  {
+    "command": [
+      "bend",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/check.bend",
+      "-o",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/owner.js"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "",
+    "peak_aggregate_descendant_rss_kib": 5243104,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "50019": "Sun Oct  4 06:48:07 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "command": [
+      "bun",
+      "/Users/paymahn/code/bend-kit-issue-337/camber/serving-hsbhzcx_/owner.js"
+    ],
+    "cwd": "/Users/paymahn/code/bend-kit-issue-337",
+    "status": 0,
+    "output": "JOURNAL camber-owner-336-1522083426\nCOUNTS capacity=2 in_use=2 completed=0 rejected=0\nCOUNTS capacity=2 in_use=2 completed=0 rejected=1\nSUCCESS principal=7\nEXPECTED principal=8\nSUCCESS principal=12\nCOUNTS capacity=2 in_use=0 completed=4 rejected=1\nCLOSED 1\nCLOSED 0\nPARTIAL CLOSED\nCLOSED 1\nCLOSED 0\nCLOSED 1\ncamber owner: PASS\ncamber registration/direct dispatch: PASS\nresponse safety: PASS\neffect:ba1:alice\neffect:ba2:alice\neffect:bg1:alice\neffect:bg2:alice\neffect:br1:alice\neffect:br2:alice\neffect:decode:alice\neffect:handler:alice\neffect:tr2:alice\neffect:tr1:alice\neffect:te:alice\neffect:tg2:alice\neffect:tg1:alice\neffect:ta2:alice\neffect:ta1:alice\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:bob\neffect:ba2:bob\neffect:bg1:bob\neffect:bg2:bob\neffect:br1:bob\neffect:br2:bob\neffect:decode:bob\neffect:handler:bob\neffect:tr2:bob\neffect:tr1:bob\neffect:te:bob\neffect:tg2:bob\neffect:tg1:bob\neffect:ta2:bob\neffect:ta1:bob\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:carol\neffect:ba2:carol\neffect:decode:carol\neffect:handler:carol\neffect:tp:carol\neffect:ts:carol\neffect:ta2:carol\neffect:ta1:carol\nPASS:ba1,ba2,decode,handler,tp,ts,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:map:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,map,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:map:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,map,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:tr2:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:ordinary\neffect:ba2:ordinary\neffect:bg1:ordinary\neffect:bg2:ordinary\neffect:br1:ordinary\neffect:br2:ordinary\neffect:handler:ordinary\neffect:tr2:ordinary\neffect:tr1:ordinary\neffect:te:ordinary\neffect:tg2:ordinary\neffect:tg1:ordinary\neffect:ta2:ordinary\neffect:ta1:ordinary\nPASS:ba1,ba2,bg1,bg2,br1,br2,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:parallel-alice\neffect:ba2:parallel-alice\neffect:bg1:parallel-alice\neffect:bg2:parallel-alice\neffect:br1:parallel-alice\neffect:br2:parallel-alice\neffect:decode:parallel-alice\neffect:handler:parallel-alice\neffect:tr2:parallel-alice\neffect:tr1:parallel-alice\neffect:te:parallel-alice\neffect:tg2:parallel-alice\neffect:tg1:parallel-alice\neffect:ta2:parallel-alice\neffect:ta1:parallel-alice\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:parallel-bob\neffect:ba2:parallel-bob\neffect:bg1:parallel-bob\neffect:bg2:parallel-bob\neffect:br1:parallel-bob\neffect:br2:parallel-bob\neffect:decode:parallel-bob\neffect:handler:parallel-bob\neffect:tr2:parallel-bob\neffect:tr1:parallel-bob\neffect:te:parallel-bob\neffect:tg2:parallel-bob\neffect:tg1:parallel-bob\neffect:ta2:parallel-bob\neffect:ta1:parallel-bob\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\n",
+    "peak_aggregate_descendant_rss_kib": 61616,
+    "guard_error": null,
+    "root_reaped": true,
+    "observed_process_identities": {
+      "50788": "Sun Oct  4 06:48:12 2026    "
+    },
+    "surviving_observed_processes": {},
+    "forced_group_cleanup": false,
+    "observed_descendants_released": true
+  },
+  {
+    "owner_journal": "/Users/paymahn/code/bend-kit-issue-337/camber-owner-336-1522083426",
+    "paired_principals": [
+      "7",
+      "8",
+      "10",
+      "12"
+    ],
+    "partial_closed": 1,
+    "slot0_closed": 2,
+    "slot1_closed": 3
   }
 ]

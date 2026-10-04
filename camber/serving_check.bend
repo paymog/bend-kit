@@ -209,7 +209,7 @@ def control.running(controlled: H.Server<Control> & H.ServerControl,
   do IO<Unit>:
     sent : Bool <- Chan.send(H.ServerControl, self, own_control)
     finished : Chan(C.ServerExit<U32, File, Config, String>) <- IO.fork(C.ServerExit<U32, File, Config, String>,
-      C.server.run(~U32, ~File, ~Config, ~String, ~done, ~observe, server))
+      C.server.run(~U32, ~File, ~Config, ~String, ~Unit, ~done, ~observe, ~C.notice.ignore(~Config, ~String, ~Unit), ~C.notice.error.ignore(~Config, ~Unit), ~C.access.disabled(~Config), server))
     IO.print("READY")
     control_exit : H.ServerExit <- H.server.run(~Control, ~control.reply, ~(context => status => outcome => T.ignore(status, outcome)), transport)
     exited : C.ServerExit<U32, File, Config, String> <- IO.join(C.ServerExit<U32, File, Config, String>, finished)
@@ -317,7 +317,8 @@ def direct.ready(app: Result<&2, &2, C.RegistrationError, C.Application<U32, Con
   match app body:
     case Done{application} Some{packed}:
       do IO<Unit>:
-        completion : C.Completion<File, String> <- C.dispatch(~U32, ~File, ~Config, ~Unit, ~String, ~before, ~after, ~run, ~mapper,
+        completion : C.Completion<File, String> <- C.dispatch(~U32, ~File, ~Config, ~Unit, ~String, ~Unit, ~before, ~after, ~run, ~mapper,
+          ~C.notice.ignore(~Unit, ~String, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}),
           application, file, H.Req{method, target, H.set(H.set(H.empty(), "content-type", media), "x-deny", deny), packed})
         direct.completed(completion)
     case _ _:

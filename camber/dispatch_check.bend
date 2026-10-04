@@ -154,7 +154,7 @@ def checked(res: H.Res, +status: U32, action: String, allow: String, method: Str
 
 def check(+app: C.Application<U32, String, C.Policy<Unit>>, +method: String, path: String, +status: U32, action: String, allow: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
   do IO<Unit>:
-    result : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), app, Unit{}, H.Req{method, path, H.set(H.empty(), "host", "received.test"), H.from_string("")})
+    result : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, H.Req{method, path, H.set(H.empty(), "host", "received.test"), H.from_string("")})
     res : H.Res = completion(result)
     checked(res, status, action, allow, Bool.pick(String, U32.is_eq(status, 200), method, ""), selected, capture, policies, host)
 
@@ -243,7 +243,7 @@ def packed.checked(res: H.Res) -> IO(Unit):
 def packed(app: C.Application<U32, String, C.Policy<Unit>>) -> IO(Unit):
   # One little-endian packed word: NUL, FF, 80, slash. Not UTF-8 text.
   do IO<Unit>:
-    dispatched : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), app, Unit{}, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
+    dispatched : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
     res : H.Res = completion(dispatched)
     packed.checked(res)
     adapted : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})

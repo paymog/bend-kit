@@ -7,6 +7,8 @@ import bend-kit-json@0.5.1.0/json.bend as Json
 import ./response.bend as Response
 import ./input.bend as Input
 import bend-kit-http@0.30.0.0/completion.bend as TransportCompletion
+import ./notices.bend as Notices
+import bend-kit-time@0.1.0.0/time.bend as Time
 
 type ResponseError is Data:
   InvalidResponse{}
@@ -816,7 +818,7 @@ def resolved(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
       Target.Target{segments, query, authority, star} = target
       choice(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, selected, target, groups, state, config, metadata.authority(authority, meta), entered, body)
 
-def dispatch(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
+def dispatch.application(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
   ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
   ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
@@ -831,6 +833,61 @@ def dispatch(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
       s => entered => b => resolved(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper,
         Router.resolve(~Endpoint<A, Policy<H>>, table, method, path), groups, s, config, meta, entered, b))
     finish(~S, ~K, ~E, ~H, ~mapper, config, completion)
+
+def access.disabled(~K: Data, config: K) -> Notices.Access:
+  Notices.Disabled{}
+
+def notice.ignore(~N: Data, ~H: Data, ~E: Data, observer: N, policy: Policy<H>, notice: Notices.Notice) -> IO(Result<&2, &2, E, Unit>):
+  IO.pure(Result<&2, &2, E, Unit>, Done{Unit{}})
+
+def notice.error.ignore(~N: Data, ~E: Data, observer: N, error: E) -> IO(Unit):
+  IO.pure(Unit, Unit{})
+
+def notice.result(~N: Data, ~E: Data, ~report: N -> E -> IO(Unit), observer: N, result: Result<&2, &2, E, Unit>) -> IO(Unit):
+  match result:
+    case Done{unit}: IO.pure(Unit, Unit{})
+    case Fail{error}: report(observer, error)
+
+def notices(~N: Data, ~H: Data, ~E: Data,
+  ~notify: N -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: N -> E -> IO(Unit),
+  entered: List<&2, Policy<H>>, +observer: N, +notice: Notices.Notice
+) -> IO(Unit):
+  match entered:
+    case Nil{}: IO.pure(Unit, Unit{})
+    case policy <> rest:
+      do IO<Unit>:
+        result : Result<&2, &2, E, Unit> <- notify(observer, policy, notice)
+        notice.result(~N, ~E, ~report, observer, result)
+        notices(~N, ~H, ~E, ~notify, ~report, rest, observer, notice)
+
+def dispatch.completed(~S: Type, ~N: Data, ~H: Data, ~E: Data,
+  ~notify: N -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: N -> E -> IO(Unit),
+  observer: N, access: Notices.Access, started: Time.Duration, completion: Completion<S, H>
+) -> IO(Completion<S, H>):
+  Completed{state, Http.Res{+status, headers, body}, +entered, +mapped, +stopped} = completion
+  do IO<Completion<S, H>>:
+    ended : Time.Duration <- Time.mono()
+    +notice : Notices.Notice = Notices.Notice{status, Time.Duration.sub(ended, started), mapped, stopped, Notices.ApplicationOnly{}}
+    notices(~N, ~H, ~E, ~notify, ~report, entered, observer, notice)
+    Notices.access(access, notice)
+    return Completed{state, Http.Res{status, headers, body}, entered, mapped, stopped}
+
+# The same application pipeline is used live; only this boundary emits direct notices.
+def dispatch(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data, ~N: Data,
+  ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
+  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~notify: N -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: N -> E -> IO(Unit),
+  observer: N, access: Notices.Access, app: Application<A, K, Policy<H>>, state: S, req: Http.Req
+) -> IO(Completion<S, H>):
+  do IO<Completion<S, H>>:
+    started : Time.Duration <- Time.mono()
+    completion : Completion<S, H> <- dispatch.application(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, app, state, req)
+    dispatch.completed(~S, ~N, ~H, ~E, ~notify, ~report, observer, access, started, completion)
 
 # The wrapper owns both pipes until its admitted operation really returns.
 # Only disposable HTTP packed buffers cross them, never external handles.
@@ -888,13 +945,59 @@ def server.work(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel} = input
   do IO<S & Result<&2, &2, Unit, ApplicationReport<H>>>:
     body : Http.Body <- receive(Http.Body, body_channel)
-    completion : Completion<S, H> <- dispatch(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper,
+    completion : Completion<S, H> <- dispatch.application(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper,
       app, state, Http.Req{method, target, headers, body})
     server.work.completed(~S, ~H, response_channel, completion)
 
-def server.response(~H: Data,
+type NoticePayload<-K: Data, -H: Data> is Data:
+  NoticePayload{config: K, started: Time.Duration, application: ApplicationReport<H>}
+
+def server.notified(~K: Data, ~H: Data, ~E: Data,
+  ~notify: K -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: K -> E -> IO(Unit), ~access: K -> Notices.Access,
   ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
-  outcome: Outcome<Unit, ApplicationReport<H>>, +body: Chan(Http.Body), +response: Chan(Http.Res)
+  +config: K, +notice: Notices.Notice, application: ApplicationReport<H>,
+  status: U32, outcome: TransportCompletion.Outcome
+) -> IO(Unit):
+  match application:
+    case Dispatched{+entered, +mapped, +stopped}:
+      do IO<Unit>:
+        notices(~K, ~H, ~E, ~notify, ~report, entered, config, notice)
+        Notices.access(access(config), notice)
+        done(TransportCompletion.Completion{Dispatched{entered, mapped, stopped}, status, outcome})
+    case CapacityRejected{}:
+      do IO<Unit>:
+        Notices.access(access(config), notice)
+        done(TransportCompletion.Completion{CapacityRejected{}, status, outcome})
+
+def server.completed.report(~K: Data, ~H: Data, ~E: Data,
+  ~notify: K -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: K -> E -> IO(Unit), ~access: K -> Notices.Access,
+  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  config: K, duration: Time.Duration, application: ApplicationReport<H>, +status: U32, +outcome: TransportCompletion.Outcome
+) -> IO(Unit):
+  match application:
+    case Dispatched{+entered, +mapped, +stopped}:
+      server.notified(~K, ~H, ~E, ~notify, ~report, ~access, ~done, config,
+        Notices.Notice{status, duration, mapped, stopped, Notices.Transport{outcome}}, Dispatched{entered, mapped, stopped}, status, outcome)
+    case CapacityRejected{}:
+      server.notified(~K, ~H, ~E, ~notify, ~report, ~access, ~done, config,
+        Notices.Notice{status, duration, False{}, False{}, Notices.Transport{outcome}}, CapacityRejected{}, status, outcome)
+
+def server.completed(~K: Data, ~H: Data, ~E: Data,
+  ~notify: K -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: K -> E -> IO(Unit), ~access: K -> Notices.Access,
+  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  completion: TransportCompletion.Completion<NoticePayload<K, H>>
+) -> IO(Unit):
+  TransportCompletion.Completion{NoticePayload{config, started, +application}, +status, +outcome} = completion
+  do IO<Unit>:
+    ended : Time.Duration <- Time.mono()
+    server.completed.report(~K, ~H, ~E, ~notify, ~report, ~access, ~done, config, Time.Duration.sub(ended, started), application, status, outcome)
+
+def server.response(~K: Data, ~H: Data,
+  ~done: TransportCompletion.Completion<NoticePayload<K, H>> -> IO(Unit),
+  config: K, started: Time.Duration, outcome: Outcome<Unit, ApplicationReport<H>>, +body: Chan(Http.Body), +response: Chan(Http.Res)
 ) -> IO(Http.Reply):
   match outcome:
     case Success{report}:
@@ -902,7 +1005,7 @@ def server.response(~H: Data,
         result : Http.Res <- receive(Http.Res, response)
         Chan.close(Http.Body, body)
         Chan.close(Http.Res, response)
-        return Http.reply.complete(~ApplicationReport<H>, ~done, report, result)
+        return Http.reply.complete(~NoticePayload<K, H>, ~done, NoticePayload{config, started, report}, result)
     case _:
       do IO<Http.Reply>:
         # Closing alone retains buffered values in Base. Consume the rejected
@@ -910,22 +1013,24 @@ def server.response(~H: Data,
         discarded : Http.Body <- receive(Http.Body, body)
         Chan.close(Http.Body, body)
         Chan.close(Http.Res, response)
-        return Http.reply.complete(~ApplicationReport<H>, ~done, CapacityRejected{},
+        return Http.reply.complete(~NoticePayload<K, H>, ~done, NoticePayload{config, started, CapacityRejected{}},
           Http.Res{503, Http.set(Http.empty(), "connection", "close"), Http.from_string("")})
 
 def server.handle(~A: Data, ~S: Type, ~K: Data, ~H: Data,
-  ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
+  ~done: TransportCompletion.Completion<NoticePayload<K, H>> -> IO(Unit),
   context: ServingContext<A, S, K, H>, req: Http.Req
 ) -> IO(Http.Reply):
-  ServingContext{app, owner} = context
+  ServingContext{+app, owner} = context
+  Application{table, config, root, groups} = app
   Http.Req{method, target, headers, body} = req
   do IO<Http.Reply>:
+    started : Time.Duration <- Time.mono()
     +body_channel : Chan(Http.Body) <- Chan.new(Http.Body, 1)
     +response_channel : Chan(Http.Res) <- Chan.new(Http.Res, 1)
     sent : Bool <- Chan.send(Http.Body, body_channel, body)
     outcome : Outcome<Unit, ApplicationReport<H>> <- call(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>,
       owner, app, BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel})
-    server.response(~H, ~done, outcome, body_channel, response_channel)
+    server.response(~K, ~H, ~done, config, started, outcome, body_channel, response_channel)
 
 
 def server.started(~A: Data, ~S: Type, ~K: Data, ~H: Data,
@@ -1034,15 +1139,18 @@ def server.dependencies(~A: Data, ~S: Type, ~K: Data, ~H: Data, server: Server<A
   Server{transport, Owner{+context, finished}} = server
   (Server{transport, Owner{context, finished}}, context)
 
-def server.run(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+def server.run(~A: Data, ~S: Type, ~K: Data, ~H: Data, ~E: Data,
   ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
   ~observe: U32 -> TransportCompletion.Outcome -> IO(Unit),
+  ~notify: K -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: K -> E -> IO(Unit), ~access: K -> Notices.Access,
   server: Server<A, S, K, H>
 ) -> IO(ServerExit<A, S, K, H>):
   Server{transport, owner} = server
   do IO<ServerExit<A, S, K, H>>:
     exited : Http.ServerExit <- Http.server.run(~ServingContext<A, S, K, H>,
-      ~(context => req => server.handle(~A, ~S, ~K, ~H, ~done, context, req)),
+      ~(context => req => server.handle(~A, ~S, ~K, ~H,
+        ~(completion => server.completed(~K, ~H, ~E, ~notify, ~report, ~access, ~done, completion)), context, req)),
       ~(context => status => outcome => observe(status, outcome)), transport)
     closed : OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>> <- close(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>, owner)
     return ServerExit{exited, closed}
@@ -1056,16 +1164,18 @@ def server.close(~A: Data, ~S: Type, ~K: Data, ~H: Data, server: Server<A, S, K,
     closed : OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>> <- close(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>, owner)
     return ServerExit{Http.ServerStopped{counts}, closed}
 
-def serve.started(~A: Data, ~S: Type, ~K: Data, ~H: Data,
+def serve.started(~A: Data, ~S: Type, ~K: Data, ~H: Data, ~E: Data,
   ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
   ~observe: U32 -> TransportCompletion.Outcome -> IO(Unit),
+  ~notify: K -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: K -> E -> IO(Unit), ~access: K -> Notices.Access,
   started: Result<&2, &1, StartupError, Server<A, S, K, H>>
 ) -> IO(Result<&2, &1, StartupError, ServerExit<A, S, K, H>>):
   match started:
     case Fail{error}: IO.pure(Result<&2, &1, StartupError, ServerExit<A, S, K, H>>, Fail{error})
     case Done{server}:
       do IO<Result<&2, &1, StartupError, ServerExit<A, S, K, H>>>:
-        exited : ServerExit<A, S, K, H> <- server.run(~A, ~S, ~K, ~H, ~done, ~observe, server)
+        exited : ServerExit<A, S, K, H> <- server.run(~A, ~S, ~K, ~H, ~E, ~done, ~observe, ~notify, ~report, ~access, server)
         return Done{exited}
 
 # Owners that need readiness/control use server.start then server.run instead.
@@ -1077,10 +1187,12 @@ def serve(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~destroy: S -> IO(Unit),
   ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
   ~observe: U32 -> TransportCompletion.Outcome -> IO(Unit),
+  ~notify: K -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
+  ~report: K -> E -> IO(Unit), ~access: K -> Notices.Access,
   registration: Result<&2, &2, RegistrationError, Application<A, K, Policy<H>>>,
   config: Http.ServerConfig, resources: List<S>
 ) -> IO(Result<&2, &1, StartupError, ServerExit<A, S, K, H>>):
   do IO<Result<&2, &1, StartupError, ServerExit<A, S, K, H>>>:
     started : Result<&2, &1, StartupError, Server<A, S, K, H>> <-
       server.start(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, ~destroy, registration, config, resources)
-    serve.started(~A, ~S, ~K, ~H, ~done, ~observe, started)
+    serve.started(~A, ~S, ~K, ~H, ~E, ~done, ~observe, ~notify, ~report, ~access, started)
