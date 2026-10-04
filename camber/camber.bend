@@ -3,6 +3,46 @@ import Base
 import bend-kit-http@0.25.0.2/http.bend as Http
 import bend-kit-router@0.2.0.0/router.bend as Router
 import bend-kit-router@0.2.0.0/target.bend as Target
+import bend-kit-json@0.5.1.0/json.bend as Json
+import ./response.bend as Response
+
+type ResponseError is Data:
+  InvalidResponse{}
+  InvalidRedirect{}
+
+def validate.checked(valid: Bool, response: Http.Res) -> Result<&2, &1, ResponseError, Http.Res>:
+  match valid:
+    case True{}:
+      Done{response}
+    case False{}:
+      Fail{InvalidResponse{}}
+
+def validate(response: Http.Res) -> Result<&2, &1, ResponseError, Http.Res>:
+  Http.Res{+status, +headers, body} = response
+  validate.checked(Response.valid(status, headers), Http.Res{status, headers, body})
+
+# The encoder is an explicit public projection, never record reflection.
+def json(~T: Type, ~encode: T -> Json.Val, status: U32, value: T) -> Http.Res:
+  Http.Res{status, Http.set(Http.empty(), "content-type", "application/json"), Json.encode.bytes(encode(value))}
+
+def text(status: U32, value: String) -> Http.Res:
+  Http.Res{status, Http.set(Http.empty(), "content-type", "text/plain; charset=utf-8"), Json.utf8(value)}
+
+def raw(status: U32, body: Http.Body) -> Http.Res:
+  Http.Res{status, Http.empty(), body}
+
+def empty(status: U32) -> Http.Res:
+  raw(status, Http.from_string(""))
+
+def redirect.checked(valid: Bool, status: U32, location: String) -> Result<&2, &1, ResponseError, Http.Res>:
+  match valid:
+    case False{}:
+      Fail{InvalidRedirect{}}
+    case True{}:
+      Done{Http.Res{status, Http.set(Http.empty(), "location", location), Http.from_string("")}}
+
+def redirect(+status: U32, +location: String) -> Result<&2, &1, ResponseError, Http.Res>:
+  redirect.checked((U32.is_eq(status, 301) || U32.is_eq(status, 302) || U32.is_eq(status, 303) || U32.is_eq(status, 307) || U32.is_eq(status, 308)) && Bool.not(String.eq(location, "")) && Response.value(location), status, location)
 
 type Counts is Data:
   Counts{capacity: Nat, in_use: Nat, completed: Nat, rejected: Nat}
@@ -428,8 +468,10 @@ def request.authority(authority: Maybe<&2, String>, req: Http.Req) -> Http.Req:
       Http.Req{method, path, Http.set(headers, "host", host), body}
 
 # A closed template can run repeatedly; an affine callback registry cannot.
-def plain(~handler: Http.Req -> IO(Http.Res), req: Http.Req) -> IO(Http.Res):
-  handler(req)
+def plain(~handler: Http.Req -> IO(Http.Res), req: Http.Req) -> IO(Result<&2, &1, ResponseError, Http.Res>):
+  do IO<Result<&2, &1, ResponseError, Http.Res>>:
+    response : Http.Res <- handler(req)
+    return validate(response)
 
 def dispatch.choice(~A: Data, ~C: Data, ~P: Data,
   ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
@@ -461,7 +503,9 @@ def dispatch.resolved(~A: Data, ~C: Data, ~P: Data,
 def dispatch(~A: Data, ~C: Data, ~P: Data,
   ~run: A -> C -> Match<P> -> Http.Req -> IO(Http.Res),
   app: Application<A, C, P>, req: Http.Req
-) -> IO(Http.Res):
+) -> IO(Result<&2, &1, ResponseError, Http.Res>):
   Application{table, context, root} = app
   Http.Req{+method, +path, headers, body} = req
-  dispatch.resolved(~A, ~C, ~P, ~run, Router.resolve(~Endpoint<A, P>, table, method, path), context, Http.Req{method, path, headers, body})
+  do IO<Result<&2, &1, ResponseError, Http.Res>>:
+    response : Http.Res <- dispatch.resolved(~A, ~C, ~P, ~run, Router.resolve(~Endpoint<A, P>, table, method, path), context, Http.Req{method, path, headers, body})
+    return validate(response)
