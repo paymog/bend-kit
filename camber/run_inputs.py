@@ -40,8 +40,12 @@ def cases():
     add("auth-before-typed-path", "/users/abc?limit=1", status=401, auth="-", journal=["auth"], expected=b"")
     for media in ("application/json", "APPLICATION/JSON", "Application/Problem+Json", "application/vnd.example+json; version=2", "application/json; charset=UTF-8", 'application/json; charset="UTF-8"', 'application/json; profile="a;charset=latin1"; charset="UTF-8"', "application/json; ignored=x; CHARSET = utf-8"):
         add("json-media-" + media, media=media, expected=b"{}")
+    for media in (r'application/json; charset="ut\f-8"', r'application/json; charset="\U\T\F\-8"'):
+        add("json-escaped-charset-" + media, media=media, expected=b"{}")
     for media in ("-", "text/json", "application/xml", "application/+json", "application/a b+json", "application/json; charset=latin1", 'application/json; charset="latin1"', "application/json; charset=utf-8; charset=latin1", 'application/json; charset="utf-8', "application/json; charset"):
         add("unsupported-media-" + media, media=media, status=415)
+    for value in (r'"latin\1"', r'"utf-8\""', '"utf-8\\"', '"utf-8"x', r'"ut\\f-8"'):
+        add("json-invalid-escaped-charset-" + value, media="application/json; charset=" + value, status=415)
     add("identity-case", encoding="IDENTITY", expected=b"{}")
     add("identity-list", encoding="identity, IDENTITY", expected=b"{}")
     for encoding in ("gzip", "br", "identity,gzip"):
@@ -62,9 +66,14 @@ def cases():
     for media in ("text/plain", "TEXT/PLAIN; CHARSET=UTF-8", 'text/x-example; profile="a;b"; charset="utf-8"'):
         body = "café😀\0".encode()
         add("text-media-" + media, "/text", body=body, media=media, expected=body)
+    for media in (r'text/plain; charset="ut\f-8"', r'text/plain; charset="\U\T\F\-8"'):
+        body = "café😀\0".encode()
+        add("text-escaped-charset-" + media, "/text", body=body, media=media, expected=body)
     add("text-empty", "/text", body=b"", media="text/plain", expected=b"")
     for media in ("-", "application/json", "text/", "text/a b", "text/plain; charset=latin1"):
         add("text-unsupported-" + media, "/text", media=media, status=415)
+    for value in (r'"latin\1"', r'"utf-8\""', '"utf-8\\"', '"utf-8"x', r'"ut\\f-8"'):
+        add("text-invalid-escaped-charset-" + value, "/text", media="text/plain; charset=" + value, status=415)
     add("text-encoding", "/text", media="text/plain", encoding="gzip", status=415)
     for body in (b"\xff", b"\x80", b"\xc0\xaf", b"\xed\xa0\x80", b"\xf4\x90\x80\x80", b"\xe2\x82"):
         add("text-invalid-" + body.hex(), "/text", body=body, media="text/plain", status=400)

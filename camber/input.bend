@@ -138,11 +138,39 @@ def media.parts(text: String, state: Bool & Bool & String & List<&2, String>) ->
       (+quoted, escaped, acc, parts) = state
       media.parts(rest, media.part(U32.is_eq(c, 59) && Bool.not(quoted), c, quoted, escaped, acc, parts))
 
+# Compare the decoded quoted-string charset without allocating a second value.
+def media.charset.quoted(text: String, expected: String, escaped: Bool) -> Bool:
+  match text:
+    case SNil{}: False{}
+    case SCon{Chr{+c}, rest}:
+      match c:
+        case 92:
+          match expected:
+            case SNil{}: False{}
+            case SCon{Chr{want}, next}:
+              match escaped:
+                case True{}: False{}
+                case False{}: media.charset.quoted(rest, SCon{Chr{want}, next}, True{})
+        case _:
+          match expected:
+            case SNil{}: U32.is_eq(c, 34) && Bool.not(escaped) && String.eq(rest, "")
+            case SCon{Chr{want}, next}: U32.is_eq(c, want) && media.charset.quoted(rest, next, False{})
+
+def media.charset.start(quoted: Bool, c: U32, rest: String) -> Bool:
+  match quoted:
+    case True{}: media.charset.quoted(rest, "utf-8", False{})
+    case False{}: String.eq(SCon{Chr{c}, rest}, "utf-8")
+
+def media.charset.value(value: String) -> Bool:
+  match value:
+    case SNil{}: False{}
+    case SCon{Chr{+c}, rest}: media.charset.start(U32.is_eq(c, 34), c, rest)
+
 def media.parameter(pair: String & String) -> Bool:
   (key, value) = pair
   +name = String.to_lower(Http.trim(key))
   +charset = String.to_lower(Http.trim(value))
-  Bool.not(String.eq(name, "charset")) || String.eq(charset, "utf-8") || String.eq(charset, "\"utf-8\"")
+  Bool.not(String.eq(name, "charset")) || media.charset.value(charset)
 
 def media.charset(parts: List<&2, String>) -> Bool:
   match parts:

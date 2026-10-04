@@ -708,6 +708,40 @@
       ]
     },
     {
+      "name": "json-escaped-charset-application/json; charset=\"ut\\f-8\"",
+      "method": "POST",
+      "target": "/json",
+      "body": "7b7d",
+      "status": 200,
+      "media": "application/json; charset=\"ut\\f-8\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": "7b7d",
+      "journal": [
+        "auth",
+        "decode",
+        "business"
+      ]
+    },
+    {
+      "name": "json-escaped-charset-application/json; charset=\"\\U\\T\\F\\-8\"",
+      "method": "POST",
+      "target": "/json",
+      "body": "7b7d",
+      "status": 200,
+      "media": "application/json; charset=\"\\U\\T\\F\\-8\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": "7b7d",
+      "journal": [
+        "auth",
+        "decode",
+        "business"
+      ]
+    },
+    {
       "name": "unsupported-media--",
       "method": "POST",
       "target": "/json",
@@ -867,6 +901,91 @@
       "body": "7b7d",
       "status": 415,
       "media": "application/json; charset",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "json-invalid-escaped-charset-\"latin\\1\"",
+      "method": "POST",
+      "target": "/json",
+      "body": "7b7d",
+      "status": 415,
+      "media": "application/json; charset=\"latin\\1\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "json-invalid-escaped-charset-\"utf-8\\\"\"",
+      "method": "POST",
+      "target": "/json",
+      "body": "7b7d",
+      "status": 415,
+      "media": "application/json; charset=\"utf-8\\\"\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "json-invalid-escaped-charset-\"utf-8\\\"",
+      "method": "POST",
+      "target": "/json",
+      "body": "7b7d",
+      "status": 415,
+      "media": "application/json; charset=\"utf-8\\\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "json-invalid-escaped-charset-\"utf-8\"x",
+      "method": "POST",
+      "target": "/json",
+      "body": "7b7d",
+      "status": 415,
+      "media": "application/json; charset=\"utf-8\"x",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "json-invalid-escaped-charset-\"ut\\\\f-8\"",
+      "method": "POST",
+      "target": "/json",
+      "body": "7b7d",
+      "status": 415,
+      "media": "application/json; charset=\"ut\\\\f-8\"",
       "encoding": "-",
       "auth": "Bearer accepted",
       "depth": 64,
@@ -1609,6 +1728,40 @@
       ]
     },
     {
+      "name": "text-escaped-charset-text/plain; charset=\"ut\\f-8\"",
+      "method": "POST",
+      "target": "/text",
+      "body": "636166c3a9f09f988000",
+      "status": 200,
+      "media": "text/plain; charset=\"ut\\f-8\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": "636166c3a9f09f988000",
+      "journal": [
+        "auth",
+        "decode",
+        "business"
+      ]
+    },
+    {
+      "name": "text-escaped-charset-text/plain; charset=\"\\U\\T\\F\\-8\"",
+      "method": "POST",
+      "target": "/text",
+      "body": "636166c3a9f09f988000",
+      "status": 200,
+      "media": "text/plain; charset=\"\\U\\T\\F\\-8\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": "636166c3a9f09f988000",
+      "journal": [
+        "auth",
+        "decode",
+        "business"
+      ]
+    },
+    {
       "name": "text-empty",
       "method": "POST",
       "target": "/text",
@@ -1700,6 +1853,91 @@
       "body": "7b7d",
       "status": 415,
       "media": "text/plain; charset=latin1",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "text-invalid-escaped-charset-\"latin\\1\"",
+      "method": "POST",
+      "target": "/text",
+      "body": "7b7d",
+      "status": 415,
+      "media": "text/plain; charset=\"latin\\1\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "text-invalid-escaped-charset-\"utf-8\\\"\"",
+      "method": "POST",
+      "target": "/text",
+      "body": "7b7d",
+      "status": 415,
+      "media": "text/plain; charset=\"utf-8\\\"\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "text-invalid-escaped-charset-\"utf-8\\\"",
+      "method": "POST",
+      "target": "/text",
+      "body": "7b7d",
+      "status": 415,
+      "media": "text/plain; charset=\"utf-8\\\"",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "text-invalid-escaped-charset-\"utf-8\"x",
+      "method": "POST",
+      "target": "/text",
+      "body": "7b7d",
+      "status": 415,
+      "media": "text/plain; charset=\"utf-8\"x",
+      "encoding": "-",
+      "auth": "Bearer accepted",
+      "depth": 64,
+      "expected": null,
+      "journal": [
+        "auth",
+        "decode",
+        "map"
+      ]
+    },
+    {
+      "name": "text-invalid-escaped-charset-\"ut\\\\f-8\"",
+      "method": "POST",
+      "target": "/text",
+      "body": "7b7d",
+      "status": 415,
+      "media": "text/plain; charset=\"ut\\\\f-8\"",
       "encoding": "-",
       "auth": "Bearer accepted",
       "depth": 64,
@@ -2769,6 +3007,42 @@
           ]
         },
         {
+          "name": "json-escaped-charset-application/json; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "json-escaped-charset-application/json; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "unsupported-media--",
           "response": [
             415,
@@ -2932,6 +3206,96 @@
         },
         {
           "name": "unsupported-media-application/json; charset",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
@@ -3723,6 +4087,42 @@
           ]
         },
         {
+          "name": "text-escaped-charset-text/plain; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "text-escaped-charset-text/plain; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "text-empty",
           "response": [
             200,
@@ -3814,6 +4214,96 @@
         },
         {
           "name": "text-unsupported-text/plain; charset=latin1",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
@@ -4967,6 +5457,42 @@
           ]
         },
         {
+          "name": "json-escaped-charset-application/json; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "json-escaped-charset-application/json; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "unsupported-media--",
           "response": [
             415,
@@ -5130,6 +5656,96 @@
         },
         {
           "name": "unsupported-media-application/json; charset",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
@@ -5849,6 +6465,42 @@
           ]
         },
         {
+          "name": "text-escaped-charset-text/plain; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "text-escaped-charset-text/plain; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "text-empty",
           "response": [
             200,
@@ -5940,6 +6592,96 @@
         },
         {
           "name": "text-unsupported-text/plain; charset=latin1",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
@@ -7023,6 +7765,42 @@
           ]
         },
         {
+          "name": "json-escaped-charset-application/json; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "json-escaped-charset-application/json; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "unsupported-media--",
           "response": [
             415,
@@ -7186,6 +7964,96 @@
         },
         {
           "name": "unsupported-media-application/json; charset",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
@@ -7977,6 +8845,42 @@
           ]
         },
         {
+          "name": "text-escaped-charset-text/plain; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "text-escaped-charset-text/plain; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "text-empty",
           "response": [
             200,
@@ -8068,6 +8972,96 @@
         },
         {
           "name": "text-unsupported-text/plain; charset=latin1",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
@@ -9221,6 +10215,42 @@
           ]
         },
         {
+          "name": "json-escaped-charset-application/json; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "json-escaped-charset-application/json; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "application/json"
+              ]
+            ],
+            "7b7d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "unsupported-media--",
           "response": [
             415,
@@ -9384,6 +10414,96 @@
         },
         {
           "name": "unsupported-media-application/json; charset",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "json-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
@@ -10103,6 +11223,42 @@
           ]
         },
         {
+          "name": "text-escaped-charset-text/plain; charset=\"ut\\f-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
+          "name": "text-escaped-charset-text/plain; charset=\"\\U\\T\\F\\-8\"",
+          "response": [
+            200,
+            [
+              [
+                "content-type",
+                "text/plain; charset=utf-8"
+              ]
+            ],
+            "636166c3a9f09f988000"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "business"
+          ]
+        },
+        {
           "name": "text-empty",
           "response": [
             200,
@@ -10194,6 +11350,96 @@
         },
         {
           "name": "text-unsupported-text/plain; charset=latin1",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"latin\\1\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\\\"",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"utf-8\"x",
+          "response": [
+            415,
+            [
+              [
+                "content-type",
+                "application/problem+json"
+              ]
+            ],
+            "7b2274797065223a2261626f75743a626c616e6b222c227469746c65223a22556e737570706f72746564204d656469612054797065222c22737461747573223a3431357d"
+          ],
+          "journal": [
+            "auth",
+            "decode",
+            "map"
+          ]
+        },
+        {
+          "name": "text-invalid-escaped-charset-\"ut\\\\f-8\"",
           "response": [
             415,
             [
