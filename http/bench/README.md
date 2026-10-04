@@ -71,7 +71,8 @@ for the same 20,000-message codec workload:
 | encode_req | n/a | n/a | n/a | n/a | 317.2 | 195.7 |
 | encode_res | n/a | n/a | n/a | n/a | 272.1 | 131.8 |
 
-All six variants agreed on `8200000`, `8300000`, `954665139`, and `4171655946`.
+All six parsers agreed on `8200000` and `8300000`; the available Python/Bend
+encoders agreed on `954665139` and `4171655946`. The other encode rows remain n/a.
 The guarded run took 17.875 seconds; peak sampled aggregate descendant RSS was
 2,466,784 KiB. [`../admission_verification.json`](../admission_verification.json)
 keeps the full receipt. These are codec measurements, not admission throughput,
