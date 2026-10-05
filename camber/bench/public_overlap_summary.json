@@ -1,0 +1,5519 @@
+{
+  "overall_verdict": "FAIL/INCONCLUSIVE",
+  "sources": [
+    {
+      "receipt": "public_overlap_results.json",
+      "sha256": "1a2dc243bc62128fa2c8cebd4489c4bc1b5ccb91fdec83dc5655383634a8d52c",
+      "attempt_id": "1791178543145909000",
+      "source_sha256": {
+        "camber/bench/run_public.py": "f53e1219191daff0de33c5d8901fc0ce8b94bb2889883f7caf61acc6628f365e",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+        "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+      },
+      "completed_rows": 12,
+      "PASS": 6,
+      "FAIL_INCONCLUSIVE": 6,
+      "historical_abort_preserved": {
+        "phase": "overlap",
+        "implementation": "camber-native-single",
+        "corpus": "cpu",
+        "count": 16,
+        "headroom": false,
+        "trial": 0
+      }
+    },
+    {
+      "receipt": "public_overlap_remaining_results.json",
+      "sha256": "6024edd5874991c87e85d9d9c11332e561a337f9aeb03aec48cec961bd0738ce",
+      "attempt_id": "1791179445870828000",
+      "source_sha256": {
+        "camber/bench/run_public.py": "0bcad635c5eda01130f3da6f92078dcec75ab05d5546e3e59d4ec19fa47a089c",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+        "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+      },
+      "completed_rows": 150,
+      "PASS": 12,
+      "FAIL_INCONCLUSIVE": 138,
+      "continuation_scope": {
+        "prior_binding": {
+          "path": "camber/bench/public_overlap_results.json",
+          "sha256": "1a2dc243bc62128fa2c8cebd4489c4bc1b5ccb91fdec83dc5655383634a8d52c",
+          "attempt_id": "1791178543145909000",
+          "source_sha256": {
+            "camber/bench/run_public.py": "f53e1219191daff0de33c5d8901fc0ce8b94bb2889883f7caf61acc6628f365e",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+            "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+          },
+          "completed_identities": [
+            [
+              "camber-native-single",
+              "yield",
+              1,
+              false,
+              0
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              1,
+              false,
+              1
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              1,
+              false,
+              2
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              16,
+              false,
+              0
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              16,
+              false,
+              1
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              16,
+              false,
+              2
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              16,
+              true,
+              0
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              16,
+              true,
+              1
+            ],
+            [
+              "camber-native-single",
+              "yield",
+              16,
+              true,
+              2
+            ],
+            [
+              "camber-native-single",
+              "cpu",
+              1,
+              false,
+              0
+            ],
+            [
+              "camber-native-single",
+              "cpu",
+              1,
+              false,
+              1
+            ],
+            [
+              "camber-native-single",
+              "cpu",
+              1,
+              false,
+              2
+            ]
+          ],
+          "active_scenario_not_completed": {
+            "phase": "overlap",
+            "implementation": "camber-native-single",
+            "corpus": "cpu",
+            "count": 16,
+            "headroom": false,
+            "trial": 0
+          }
+        },
+        "effective_source_sha256": {
+          "camber/bench/run_public.py": "0bcad635c5eda01130f3da6f92078dcec75ab05d5546e3e59d4ec19fa47a089c",
+          "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+          "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+          "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+          "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+          "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+          "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+          "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+          "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+          "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+          "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+          "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+          "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+          "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+        },
+        "completed_identities_skipped": [
+          [
+            "camber-native-single",
+            "yield",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-single",
+            "yield",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            1,
+            false,
+            2
+          ]
+        ],
+        "remaining_identities": [
+          [
+            "camber-native-single",
+            "cpu",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-single",
+            "cpu",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-single",
+            "dense-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-single",
+            "depth64-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-single",
+            "name-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-single",
+            "unique-keys-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-default",
+            "yield",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-default",
+            "cpu",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-default",
+            "dense-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-default",
+            "depth64-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-default",
+            "name-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-native-default",
+            "unique-keys-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-js",
+            "yield",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "yield",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "yield",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "yield",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "yield",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "yield",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "yield",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-js",
+            "yield",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-js",
+            "yield",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-js",
+            "cpu",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "cpu",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "cpu",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "cpu",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "cpu",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "cpu",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "cpu",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-js",
+            "cpu",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-js",
+            "cpu",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-js",
+            "dense-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-js",
+            "depth64-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-js",
+            "name-1m",
+            16,
+            true,
+            2
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            1,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            1,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            1,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            16,
+            false,
+            0
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            16,
+            false,
+            1
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            16,
+            false,
+            2
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            16,
+            true,
+            0
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            16,
+            true,
+            1
+          ],
+          [
+            "camber-js",
+            "unique-keys-1m",
+            16,
+            true,
+            2
+          ]
+        ]
+      }
+    }
+  ],
+  "unique_completed_trial_count": 162,
+  "total_PASS": 18,
+  "total_FAIL_INCONCLUSIVE": 144,
+  "capacity_groups": {
+    "original16_permits": {
+      "count": 108,
+      "PASS": 9,
+      "FAIL_INCONCLUSIVE": 99
+    },
+    "additional18_permits": {
+      "count": 54,
+      "PASS": 9,
+      "FAIL_INCONCLUSIVE": 45
+    }
+  },
+  "per_lane_corpus_capacity": [
+    {
+      "lane": "camber-native-single",
+      "corpus": "yield",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "PASS": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1.5395419904962182,
+        1.6295000677928329,
+        1.3745420146733522
+      ],
+      "actual_internal_handler_progress": [
+        true,
+        true,
+        true
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        254.25558304414153,
+        260.5990410083905,
+        257.6575420098379
+      ],
+      "recovery_ms": [
+        1.1678329901769757,
+        1.0022500064224005,
+        0.9248750284314156
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "yield",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        13.66275001782924,
+        0.9679999202489853,
+        0.9700000518932939
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.04283303860574961,
+        0.049541937187314034,
+        0.04104094114154577
+      ],
+      "recovery_ms": [
+        1.438500010408461,
+        1.1683329939842224,
+        1.9217910012230277
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "yield",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "PASS": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        14.849707949906588,
+        2.3828339762985706,
+        15.087999985553324
+      ],
+      "actual_internal_handler_progress": [
+        true,
+        true,
+        true
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        259.4875420909375,
+        257.5695829000324,
+        256.96308305487037
+      ],
+      "recovery_ms": [
+        0.9123330237343907,
+        0.8585829054936767,
+        1.7335000447928905
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "cpu",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        482.8995830612257,
+        484.8626669263467,
+        472.23020903766155
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        535.9750840580091,
+        536.3170839846134,
+        528.9973330218345
+      ],
+      "recovery_ms": [
+        1.0110830189660192,
+        1.0130410082638264,
+        1.0425830259919167
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "cpu",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        2880.375583888963,
+        952.1978750126436,
+        955.5167079670355
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.043625012040138245,
+        0.04470907151699066,
+        0.05508295726031065
+      ],
+      "recovery_ms": [
+        0.8199160220101476,
+        2.4729169672355056,
+        2.643833984620869
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "cpu",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        957.6755000744015,
+        3386.376583017409,
+        2887.9881250904873
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        1916.553207905963,
+        3861.8686660192907,
+        3841.6576250456274
+      ],
+      "recovery_ms": [
+        2.649500034749508,
+        2.7114159893244505,
+        2.6796659221872687
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "dense-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        31.71566699165851,
+        31.55916603282094,
+        30.312666087411344
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        253.4476249711588,
+        253.73962509911507,
+        253.0197500018403
+      ],
+      "recovery_ms": [
+        1.2761250836774707,
+        0.955166993662715,
+        1.193750067614019
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "dense-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        120.50687498413026,
+        228.3973750891164,
+        55.896291974931955
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        false,
+        true
+      ],
+      "timeout_ms": [
+        0.04520895890891552,
+        0.11979194823652506,
+        0.04458299372345209
+      ],
+      "recovery_ms": [
+        2.458415925502777,
+        2.5565000250935555,
+        3.24720807839185
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "dense-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        119.27437502890825,
+        121.69904203619808,
+        88.15687499009073
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        745.7586249802262,
+        434.35633392073214,
+        634.8695419728756
+      ],
+      "recovery_ms": [
+        2.4719589855521917,
+        3.414332983084023,
+        2.6153340004384518
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "depth64-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        30.76187497936189,
+        29.67104106210172,
+        31.072541954927146
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        252.1005420712754,
+        255.14108303468674,
+        253.2714590197429
+      ],
+      "recovery_ms": [
+        1.2557919835671782,
+        1.053375075571239,
+        0.9658751077950001
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "depth64-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        130.58200001250952,
+        115.53733400069177,
+        86.70395892113447
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.05012494511902332,
+        0.05483301356434822,
+        0.051875016652047634
+      ],
+      "recovery_ms": [
+        2.755290945060551,
+        2.255207975395024,
+        3.065417055040598
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "depth64-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        121.52429192792624,
+        118.39783296454698,
+        118.1462500244379
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        506.29974994808435,
+        447.0639999490231,
+        656.6352499648929
+      ],
+      "recovery_ms": [
+        2.340540988370776,
+        2.8135000029578805,
+        3.4892919939011335
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "name-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        28.395249973982573,
+        28.600916964933276,
+        29.27245805040002
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        252.10083299316466,
+        251.90641707740724,
+        255.09241700638086
+      ],
+      "recovery_ms": [
+        1.236499985679984,
+        0.8486249716952443,
+        1.145375077612698
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "name-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        117.84695892129093,
+        131.70887506566942,
+        104.77141698356718
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.05050003528594971,
+        0.0517088919878006,
+        0.05066592711955309
+      ],
+      "recovery_ms": [
+        0.8060409454628825,
+        0.9660000214353204,
+        0.7597079966217279
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "name-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        109.1435831040144,
+        104.11708289757371,
+        102.3923340253532
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        385.74395794421434,
+        393.02674995269626,
+        381.5226249862462
+      ],
+      "recovery_ms": [
+        0.8143329760059714,
+        0.7291670190170407,
+        0.9404590819031
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "unique-keys-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        231.2454590573907,
+        232.28224995546043,
+        234.16020907461643
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        284.8940829280764,
+        287.5079580117017,
+        289.2482919851318
+      ],
+      "recovery_ms": [
+        0.6771249463781714,
+        0.7716250838711858,
+        0.982999918051064
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "unique-keys-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1354.0709590306506,
+        1360.4076670017093,
+        1340.6746659893543
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.04695798270404339,
+        0.04654203075915575,
+        0.05066592711955309
+      ],
+      "recovery_ms": [
+        0.8434579940512776,
+        0.8234580745920539,
+        0.7692090002819896
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-single",
+      "corpus": "unique-keys-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1026.6602920601144,
+        1043.314874987118,
+        1044.0379159990698
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        1721.6430000262335,
+        1734.6284580416977,
+        1719.734749989584
+      ],
+      "recovery_ms": [
+        0.7753749378025532,
+        0.8412080351263285,
+        0.7273749215528369
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "yield",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "PASS": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1.6653339844197035,
+        1.3836669968441129,
+        1.6111669829115272
+      ],
+      "actual_internal_handler_progress": [
+        true,
+        true,
+        true
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        258.2269160775468,
+        258.7623749859631,
+        259.65195801109076
+      ],
+      "recovery_ms": [
+        1.060541020706296,
+        0.982042052783072,
+        0.9019169956445694
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "yield",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        13.824291992932558,
+        14.16008302476257,
+        1.123958034440875
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.04333304241299629,
+        0.04858302418142557,
+        0.04970794543623924
+      ],
+      "recovery_ms": [
+        1.7978750402107835,
+        1.0620419634506106,
+        1.718166982755065
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "yield",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "PASS": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        15.172792016528547,
+        4.045333014801145,
+        2.3172080982476473
+      ],
+      "actual_internal_handler_progress": [
+        true,
+        true,
+        true
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        259.24854108598083,
+        257.7079590409994,
+        259.9991250317544
+      ],
+      "recovery_ms": [
+        0.7673329673707485,
+        1.7390840221196413,
+        1.6547910636290908
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "cpu",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        484.0372080216184,
+        483.13645902089775,
+        481.26166709698737
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        539.6382499020547,
+        534.7755409311503,
+        536.1362500116229
+      ],
+      "recovery_ms": [
+        0.8003340335562825,
+        0.9597089374437928,
+        0.7860000478103757
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "cpu",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        2871.262166998349,
+        958.1987499259412,
+        475.360041949898
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.05241704639047384,
+        0.053292023949325085,
+        0.040624989196658134
+      ],
+      "recovery_ms": [
+        0.9062919998541474,
+        2.4451250210404396,
+        0.8548329351469874
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "cpu",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        966.2282500648871,
+        3383.291875012219,
+        953.5601669922471
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        1918.1141670560464,
+        3859.915415989235,
+        1904.81674997136
+      ],
+      "recovery_ms": [
+        2.9973750934004784,
+        2.9734999407082796,
+        3.1259579118341208
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "dense-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        33.47666596528143,
+        31.913416925817728,
+        32.362041994929314
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        256.8225000286475,
+        253.73470794875175,
+        253.8070830050856
+      ],
+      "recovery_ms": [
+        1.0431659175083041,
+        1.2511250097304583,
+        1.3759590219706297
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "dense-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        89.22225004062057,
+        97.31016599107534,
+        58.21129190735519
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        false,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.14754198491573334,
+        0.18095900304615498,
+        0.050166971050202847
+      ],
+      "recovery_ms": [
+        2.4536659475415945,
+        3.1647919677197933,
+        3.4727499587461352
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "dense-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        120.26883300859481,
+        156.97383298538625,
+        119.03691699262708
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        750.5204579792917,
+        530.274499906227,
+        754.0234590414912
+      ],
+      "recovery_ms": [
+        3.4957079915329814,
+        3.4749589394778013,
+        0.8208750514313579
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "depth64-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        31.136250006966293,
+        35.541457938961685,
+        30.618958990089595
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        256.279541994445,
+        253.13087494578212,
+        251.97049998678267
+      ],
+      "recovery_ms": [
+        1.2690420262515545,
+        1.0048339609056711,
+        1.3603329425677657
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "depth64-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        117.05208302009851,
+        123.31900000572205,
+        89.5943749928847
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        null,
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        true,
+        false
+      ],
+      "timeout_ms": [
+        0.11620903387665749,
+        0.05862500984221697,
+        0.12329197488725185
+      ],
+      "recovery_ms": [
+        3.49349994212389,
+        2.8818330029025674,
+        3.157916944473982
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "depth64-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        141.26225002110004,
+        91.75920905545354,
+        60.16591703519225
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        402.8692079009488,
+        661.8947080569342,
+        634.9905829411
+      ],
+      "recovery_ms": [
+        2.5936670135706663,
+        2.5972919538617134,
+        2.5789160281419754
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "name-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        29.763000085949898,
+        29.2032080469653,
+        29.83941708225757
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        253.18204099312425,
+        255.3935000905767,
+        255.10129099711776
+      ],
+      "recovery_ms": [
+        1.2553749838843942,
+        1.272000023163855,
+        1.1169160716235638
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "name-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        129.57225006539375,
+        81.93233294878155,
+        108.88945800252259
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        0.04950002767145634,
+        0.04508392885327339,
+        0.04549999721348286
+      ],
+      "recovery_ms": [
+        0.7832910632714629,
+        0.7869999390095472,
+        0.7808749796822667
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "name-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        55.406208033673465,
+        81.9627910386771,
+        105.90166598558426
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        358.8083329377696,
+        363.04558406118304,
+        397.9180419119075
+      ],
+      "recovery_ms": [
+        0.7482920773327351,
+        0.8096670499071479,
+        0.8760829223319888
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "unique-keys-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        232.89616708643734,
+        234.65512495022267,
+        233.95116603933275
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        285.0737919798121,
+        285.429458017461,
+        284.81154202017933
+      ],
+      "recovery_ms": [
+        0.753207947127521,
+        0.8427919819951057,
+        1.180749968625605
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "unique-keys-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1039.9329159408808,
+        1048.1578749604523,
+        733.9362499769777
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        false,
+        false
+      ],
+      "timeout_ms": [
+        0.12937502469867468,
+        0.13995799235999584,
+        0.12599991168826818
+      ],
+      "recovery_ms": [
+        0.8029170567169785,
+        0.8915410144254565,
+        0.7792089600116014
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-native-default",
+      "corpus": "unique-keys-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1044.9530419427902,
+        1368.8417500816286,
+        1699.540916015394
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        1731.5622500609607,
+        2080.345999915153,
+        2442.2701669391245
+      ],
+      "recovery_ms": [
+        0.8265839423984289,
+        0.7882919162511826,
+        0.801999936811626
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "yield",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "PASS": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        5.290874978527427,
+        4.851541016250849,
+        5.523582920432091
+      ],
+      "actual_internal_handler_progress": [
+        true,
+        true,
+        true
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        260.89433394372463,
+        257.32816592790186,
+        260.8852080302313
+      ],
+      "recovery_ms": [
+        1.8943329341709614,
+        1.390750054270029,
+        1.2370409676805139
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "yield",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        2.206666045822203,
+        1.9825419876724482,
+        2.9910829616710544
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        false,
+        false
+      ],
+      "timeout_ms": [
+        0.17470796592533588,
+        0.1343749463558197,
+        0.24983391631394625
+      ],
+      "recovery_ms": [
+        1.0679579572752118,
+        1.1664589401334524,
+        1.104000024497509
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "yield",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "PASS": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        5.640999996103346,
+        5.514791002497077,
+        5.893208086490631
+      ],
+      "actual_internal_handler_progress": [
+        true,
+        true,
+        true
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        260.02354198135436,
+        260.0348750129342,
+        258.71487497352064
+      ],
+      "recovery_ms": [
+        1.154957921244204,
+        1.81908393278718,
+        1.4649999793618917
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "cpu",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        785.0559159414843,
+        784.2013750923797,
+        782.4080409482121
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        836.9374589528888,
+        838.5783340781927,
+        836.1770410556346
+      ],
+      "recovery_ms": [
+        1.237542019225657,
+        1.0692499345168471,
+        1.4066670555621386
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "cpu",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        1565.4818339971825,
+        1556.8738339934498,
+        1565.9996250178665
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        false,
+        false
+      ],
+      "timeout_ms": [
+        0.1587079605087638,
+        0.12770795729011297,
+        0.17720903269946575
+      ],
+      "recovery_ms": [
+        1.706250011920929,
+        1.5282919630408287,
+        1.6986660193651915
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "cpu",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        5550.522292032838,
+        2374.7380001004785,
+        2361.0109579749405
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        6335.290624992922,
+        3939.546958077699,
+        3924.795832950622
+      ],
+      "recovery_ms": [
+        1.9368750508874655,
+        1.1320420308038592,
+        1.7512920312583447
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "dense-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        420.51258392166346,
+        407.4028750183061,
+        392.00049999635667
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        473.5415829345584,
+        459.99875001143664,
+        442.1169579727575
+      ],
+      "recovery_ms": [
+        1.2170410482212901,
+        1.107207965105772,
+        2.602083026431501
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "dense-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        1722.957249963656,
+        1769.4392499979585,
+        1693.000499974005
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        false,
+        false
+      ],
+      "timeout_ms": [
+        0.11666701175272465,
+        0.14716701116412878,
+        0.11570798233151436
+      ],
+      "recovery_ms": [
+        1.3736250111833215,
+        1.521207974292338,
+        1.4224170008674264
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "dense-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1968.709583976306,
+        1725.9741669986397,
+        1951.4447499532253
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        2272.2062920220196,
+        2406.3901669578627,
+        2281.351958052255
+      ],
+      "recovery_ms": [
+        2.684667007997632,
+        3.1386249465867877,
+        1.7771660350263119
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "depth64-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        393.92791606951505,
+        391.7672500247136,
+        379.8752080183476
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        445.10479096788913,
+        446.87404099386185,
+        430.09304197039455
+      ],
+      "recovery_ms": [
+        1.4339170884341002,
+        1.5023329760879278,
+        1.6001249896362424
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "depth64-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_error": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "ordinary_exact": [
+        false,
+        false,
+        false
+      ],
+      "ordinary_ms": [
+        1825.6589160300791,
+        1404.9375000176951,
+        1655.2475839853287
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        false,
+        false
+      ],
+      "timeout_ms": [
+        0.14754210133105516,
+        0.13033405411988497,
+        0.2131670480594039
+      ],
+      "recovery_ms": [
+        2.7513749664649367,
+        1.3958750059828162,
+        1.9974580500274897
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "depth64-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1687.075417023152,
+        2006.8703750148416,
+        2086.473042028956
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        2311.485290993005,
+        2425.440208055079,
+        2402.9645409900695
+      ],
+      "recovery_ms": [
+        2.164792036637664,
+        1.920958049595356,
+        1.5146250370889902
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "name-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        103.8477080874145,
+        103.45316701568663,
+        103.9768330520019
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        258.30433308146894,
+        255.72579097934067,
+        257.83799996133894
+      ],
+      "recovery_ms": [
+        2.206415985710919,
+        1.2658339692279696,
+        1.283584046177566
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "name-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        491.3771250285208,
+        509.3290829099715,
+        518.3400829555467
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        false,
+        false
+      ],
+      "timeout_ms": [
+        0.1465840032324195,
+        0.12250000145286322,
+        0.1308330101892352
+      ],
+      "recovery_ms": [
+        1.1345420498400927,
+        1.5999999595806003,
+        1.1604580795392394
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "name-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        522.6362090324983,
+        410.299374954775,
+        414.5337080117315
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        675.5772499600425,
+        586.731250048615,
+        573.8264169776812
+      ],
+      "recovery_ms": [
+        3.129249904304743,
+        1.153249992057681,
+        1.2309170560911298
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "unique-keys-1m",
+      "work_count": 1,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        1354.687707964331,
+        1350.612415932119,
+        1354.760374990292
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        1,
+        1,
+        1
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        1410.434375051409,
+        1405.4446659283713,
+        1409.0652080485597
+      ],
+      "recovery_ms": [
+        0.9922080207616091,
+        1.363083953037858,
+        1.1994579108431935
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "unique-keys-1m",
+      "work_count": 16,
+      "headroom": false,
+      "active_permits": 16,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        7549.204499926418,
+        7678.228999953717,
+        7556.97016697377
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        false,
+        false,
+        false
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')",
+        "ConnectionResetError(54, 'Connection reset by peer')"
+      ],
+      "timeout_EOF": [
+        false,
+        false,
+        false
+      ],
+      "timeout_ms": [
+        0.14516699593514204,
+        0.11520797852426767,
+        0.1277499832212925
+      ],
+      "recovery_ms": [
+        1.556833041831851,
+        1.5742090763524175,
+        1.6284170560538769
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "lane": "camber-js",
+      "corpus": "unique-keys-1m",
+      "work_count": 16,
+      "headroom": true,
+      "active_permits": 18,
+      "trials": 3,
+      "verdicts": {
+        "FAIL/INCONCLUSIVE": 3
+      },
+      "ordinary_statuses": [
+        200,
+        200,
+        200
+      ],
+      "ordinary_error": [
+        null,
+        null,
+        null
+      ],
+      "ordinary_exact": [
+        true,
+        true,
+        true
+      ],
+      "ordinary_ms": [
+        7559.742457931861,
+        7708.463625051081,
+        6497.675916063599
+      ],
+      "actual_internal_handler_progress": [
+        false,
+        false,
+        false
+      ],
+      "matched_internal_interval_counts": [
+        16,
+        16,
+        16
+      ],
+      "actual_complete408": [
+        true,
+        true,
+        true
+      ],
+      "actual_complete503": [
+        false,
+        false,
+        false
+      ],
+      "timeout_errors": [
+        null,
+        null,
+        null
+      ],
+      "timeout_EOF": [
+        true,
+        true,
+        true
+      ],
+      "timeout_ms": [
+        10466.65233396925,
+        10376.36229104828,
+        8985.32062501181
+      ],
+      "recovery_ms": [
+        2.5042500346899033,
+        1.5461250441148877,
+        1.5716670313850045
+      ],
+      "work_exact": [
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "all162_component_counts": {
+    "work_exact": 162,
+    "ordinary_exact": 126,
+    "internal_handler_progress": 18,
+    "ordinary_at_most100ms": 57,
+    "recovery_at_most100ms": 162,
+    "actual_complete408": 108,
+    "complete408_at_most300ms": 45
+  },
+  "remaining_probe_counts": {
+    "read_reset_errors": 25,
+    "EOF_incomplete_no_response": 26,
+    "complete408": 99,
+    "complete503": 0
+  },
+  "natural_release": {
+    "all7_remaining_commands_natural0_reaped_observed_descendants_released": true,
+    "all150_remaining_servers_natural0_reaped_descendants_readers_stdout_listeners_released": true,
+    "peak_rss_kib": 1194736,
+    "guard_failure": null,
+    "cleanup_errors": []
+  },
+  "manifest": {
+    "refresh_receipt": "public_overlap_refresh.json",
+    "before_sha256": "0aa57480e5efbb897fe4a328e600e449f1a3b54072b6ad7ddd0ee4bda83d04d4",
+    "after_sha256": "c3781e0bd13dc30a2a567a64dd1275f4adf45ef37cd2f20dc70d99a776699b8c",
+    "all7_artifacts_unchanged": {
+      "server-native": {
+        "expected_sha256": "9bed47b4c9921929b72bdd60b3af91dbfd54845ad987afcc3ca7235a1ad46ee0",
+        "actual_sha256": "9bed47b4c9921929b72bdd60b3af91dbfd54845ad987afcc3ca7235a1ad46ee0"
+      },
+      "server-js": {
+        "expected_sha256": "eea75cb33d0efc12d1a739bfa04f91d7674de92dabc6484ca987b577062c731a",
+        "actual_sha256": "eea75cb33d0efc12d1a739bfa04f91d7674de92dabc6484ca987b577062c731a"
+      },
+      "direct-native": {
+        "expected_sha256": "52f58ce4620b549208afb7039adc4af89051ff35d73ae2b449f4fee40a95f7cb",
+        "actual_sha256": "52f58ce4620b549208afb7039adc4af89051ff35d73ae2b449f4fee40a95f7cb"
+      },
+      "direct-js": {
+        "expected_sha256": "69fc4e4b7792561eafb2b5a910004ba9eb2b45f9e3e465c6c23c6857bc6648c9",
+        "actual_sha256": "69fc4e4b7792561eafb2b5a910004ba9eb2b45f9e3e465c6c23c6857bc6648c9"
+      },
+      "libevent": {
+        "expected_sha256": "b7d4f5f3850308618ce468c38ae4a9ba2dc21b45ec296d29c2e126963739ceb3",
+        "actual_sha256": "b7d4f5f3850308618ce468c38ae4a9ba2dc21b45ec296d29c2e126963739ceb3"
+      },
+      "axum": {
+        "expected_sha256": "2cd7288b57418e4961800f4ad54b3a0b3b8d82542b1bacdba6a02d7d357aa293",
+        "actual_sha256": "2cd7288b57418e4961800f4ad54b3a0b3b8d82542b1bacdba6a02d7d357aa293"
+      },
+      "javascript-source": {
+        "expected_sha256": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+        "actual_sha256": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63"
+      }
+    },
+    "current14_sources_match_attempt": true
+  },
+  "limitations": [
+    "Original16-permit adverse cases and separate18-permit headroom cases are never merged/relabelled.",
+    "Only same-lane internal BEGIN/END/ORDINARY stamps attest handler progress; host log receipt overlap is diagnostic.",
+    "Full162 coverage is18PASS/144FAIL, not complete scheduler/timeout acceptance PASS.",
+    "Partial/error/EOF/no408, delayed408, capacity responses remain failed where relevant.",
+    "No native-only attribution is made for all failed gates; JS failures remain explicit.",
+    "No shared-doc/law/entry/effect edits, rebuild/install, or commit/push/PR."
+  ]
+}

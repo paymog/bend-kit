@@ -79,9 +79,9 @@ Plain `Http.Req -> IO(Http.Res)` handlers remain usable inside Camber and beside
 
 `serving_check.bend` and `run_serving.py` exercise real File bundles and explicit yielding gates through a plain published-HTTP control listener. No timers release held work. The smallest native/JS bind-close smoke passed; full direct/live and overload/drain receipts are recorded in [`serving_results.json`](serving_results.json). Historical experimental socket transports, failures and budgets remain separate; they are not the public server. No arbitrary cancellation, handler replay, hard CPU deadline or embedded-server isolation is promised.
 
-Published HTTP0.30.0.0 is `0x8bc87dd4d1e610fe1bf336b567537a8c`; Wire0.4.5.0 is `0x1435aec27074c8141b74747909079afc`. Existing shared HTTP drain evidence remains in [`../http/drain_results.json`](../http/drain_results.json). External-supervisor deployment remains separate work.
+Published HTTP0.30.0.0 is `0x8bc87dd4d1e610fe1bf336b567537a8c`; Wire0.4.5.0 is `0x1435aec27074c8141b74747909079afc`. Existing shared HTTP drain evidence remains in [`../http/drain_results.json`](../http/drain_results.json). Actual dedicated native/JS launchd deployment and TLS recipes are in [`deploy/README.md`](deploy/README.md). [`deploy/results.json`](deploy/results.json), invocation6, records all eight final-source cases: cooperative owner completion and actual Store close, platform-forced CPU/IO exit, PID reaping and peer closure within the frozen 5-second grace plus 1-second teardown budget, and unchanged origin-form targets through TLS. These are repository consumers, not new hub modules or hard runtime cancellation.
 
-`users.bend` is the reusable four-route consumer over published Camber0.6.0.0, HTTP0.30.0.0 and Json0.5.1.0. Its one affine Store owner holds the map and File; application configuration receives only the copied owner context. `users_direct.bend` and `users_live.bend` exercise that same public application and dispatcher separately. `users_demo.bend` adds a second loopback published-HTTP listener whose only administrative command is `POST /stop`. That listener trusts local processes, is not an authentication or supervisor boundary, and must never be proxied or exposed. It demonstrates cooperative application/store/control joins only; external forced-exit supervision remains #339.
+`users.bend` is the reusable four-route consumer over published Camber0.6.0.0, HTTP0.30.0.0 and Json0.5.1.0. Its one affine Store owner holds the map and File; application configuration receives only the copied owner context. `users_direct.bend` and `users_live.bend` exercise that same public application and dispatcher separately. `users_demo.bend` adds a second loopback published-HTTP listener whose only administrative command is `POST /stop`. That listener trusts local processes, is not an authentication or supervisor boundary, and must never be proxied or exposed. It demonstrates cooperative application/store/control joins only; dedicated forced-exit supervision is exercised separately in [`deploy/README.md`](deploy/README.md).
 
 The `users*.bend` files are repository examples that consume published packages. They are not modules published at `bend-kit-camber@0.6.0.0/users.bend`; compile them from this checkout. No library entry or effect changes here, so the package version remains `0.6.0.0`.
 
@@ -127,6 +127,26 @@ The migrated input consumer also passed four scoped direct native/JS cases (one-
 
 
 
+
+## Complete-application benchmarks
+
+[`bench/PUBLIC.md`](bench/PUBLIC.md) records the public consumer, commands, pinned comparators, semantic differences, frozen criteria and source-bound evidence. It compares published Camber0.6.0.0 with the equivalent prepared raw HTTP application in native single-thread, native default and JS lanes, plus libevent, axum, production Flask, Node HTTP, Fastify, Hono and Elysia. These are repository consumers, not new hub modules; the package version remains unchanged.
+
+All234 live parity checks and234 warmups passed across13 implementations and18 shared workloads. The complete measurements contain2,106 live rows,108 direct parity checks and324 direct trials. Successful output parity does not mean performance acceptance:
+
+| Frozen gate | Result |
+|---|---|
+| Paired framework overhead, live and direct |20/216 PASS;196 FAIL |
+| Historical live and direct budgets |28/216 PASS;188 FAIL |
+| Direct-dispatch overhead alone |0/54 PASS for either budget |
+| Correctly timed sustained overload |0/54 overall PASS |
+| Work overlap, progress, timeout and recovery |18/162 trial PASS;144 FAIL |
+
+The corrected overload run observes real same-PID RSS at or before actual offering-end+10s, independently of outstanding drain. All54 cases stayed within the4GiB steady-window envelope;52 met the64MiB variation ceiling,24 met retained RSS≤initial+128MiB, and54 completed100 error-free recovery requests with p99≤100ms. Actual sample age, late current observations and late recovery starts remain recorded. Pressure resets/errors and the original post-drain timing-gap receipt remain adverse evidence; component successes do not turn any complete overload case into PASS.
+
+Overlap trials preserve the original16-permit cases separately from18-permit headroom. All162 completed the actual workload; subsequent recovery latency was within100ms in every trial. Only18 met the complete overlap contract. Same-lane internal BEGIN/END/ORDINARY stamps, actual received timeout bytes, resets, EOF, late delivery and ordinary-request failures remain recorded. Buffered host log receipt is not proof of handler progress. No scheduler isolation, arbitrary handler cancellation or general responsiveness guarantee follows from these measurements.
+
+Frozen performance and operating criteria remain failed, not relaxed. Native erasure and cooperative serial-CPU behavior are disclosed constraints, not a proven explanation for every failure or a reason to wait for an upstream fix. The measurements do not establish initial performance/release readiness. Pure laws do not prove these host-IO observations.
 
 
 ## Bounds and trust

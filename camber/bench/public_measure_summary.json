@@ -1,0 +1,3987 @@
+{
+  "attempt_id": "1791150412566490000",
+  "evidence": "public_measure_results.json.gz",
+  "source_sha256": {
+    "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+    "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+    "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+    "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+    "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+    "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+    "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+    "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+    "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+    "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+    "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+    "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+    "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+    "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+  },
+  "prepared_artifact_sha256": {
+    "server-native": {
+      "path": "/tmp/camber-340-owned/server",
+      "sha256": "9bed47b4c9921929b72bdd60b3af91dbfd54845ad987afcc3ca7235a1ad46ee0"
+    },
+    "server-js": {
+      "path": "/tmp/camber-340-owned/server.js",
+      "sha256": "eea75cb33d0efc12d1a739bfa04f91d7674de92dabc6484ca987b577062c731a"
+    },
+    "direct-native": {
+      "path": "/tmp/camber-340-owned/direct",
+      "sha256": "52f58ce4620b549208afb7039adc4af89051ff35d73ae2b449f4fee40a95f7cb"
+    },
+    "direct-js": {
+      "path": "/tmp/camber-340-owned/direct.js",
+      "sha256": "69fc4e4b7792561eafb2b5a910004ba9eb2b45f9e3e465c6c23c6857bc6648c9"
+    },
+    "libevent": {
+      "path": "/tmp/camber-340-owned/libevent",
+      "sha256": "b7d4f5f3850308618ce468c38ae4a9ba2dc21b45ec296d29c2e126963739ceb3"
+    },
+    "axum": {
+      "path": "/tmp/camber-340-owned/rust/release/camber-public-axum",
+      "sha256": "2cd7288b57418e4961800f4ad54b3a0b3b8d82542b1bacdba6a02d7d357aa293"
+    },
+    "javascript-source": {
+      "path": "/tmp/camber-340-owned/public_server.mjs",
+      "sha256": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce"
+    }
+  },
+  "counts": {
+    "live_rows": 1944,
+    "parity": 217,
+    "warmup": 216,
+    "direct_rows": 0,
+    "direct_parity": 0,
+    "paired_numeric_ledgers": 54,
+    "live_rows_by_implementation": {
+      "raw-native-single": 162,
+      "camber-native-single": 162,
+      "raw-native-default": 162,
+      "camber-native-default": 162,
+      "raw-js": 162,
+      "camber-js": 162,
+      "libevent": 162,
+      "axum": 162,
+      "flask": 162,
+      "node-http": 162,
+      "fastify": 162,
+      "hono": 162
+    },
+    "row_verdicts": {
+      "PASS": 1322,
+      "FAIL/INCONCLUSIVE": 622
+    },
+    "warmup_verdicts": {
+      "PASS": 216
+    }
+  },
+  "derived_gates": [
+    {
+      "lane": "native-single",
+      "workload": "text",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2402.178451914847,
+      "camber_rps": 1914.4864069384573,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.9246997330337763,
+        "p99": 5.573700042441487
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.2705831108614802,
+          "p99": 4.644750035367906
+        },
+        "camber": {
+          "p95": 4.16304194368422,
+          "p99": 6.221707910299301
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "text",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2427.2976152789665,
+      "camber_rps": 1950.8153532172437,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.5710004363209,
+        "p99": 26.866000704467297
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.309167030267417,
+          "p99": 22.388333920389414
+        },
+        "camber": {
+          "p95": 26.429457939229906,
+          "p99": 27.547957957722247
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "text",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2307.4736838089398,
+      "camber_rps": 1864.161894807051,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.489778144285083,
+        "p99": 5.332546401768923
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.9081484535709023,
+          "p99": 4.443788668140769
+        },
+        "camber": {
+          "p95": 3.609579289332032,
+          "p99": 5.397866014391184
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "json",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2374.07198398889,
+      "camber_rps": 1913.6583658751717,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.9613500237464905,
+        "p99": 5.8487005066126585
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.301125019788742,
+          "p99": 4.873917088843882
+        },
+        "camber": {
+          "p95": 4.183792043477297,
+          "p99": 6.387250032275915
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "json",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2412.0404487085884,
+      "camber_rps": 1953.222201133947,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.537449633702636,
+        "p99": 26.34539999999106
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.28120802808553,
+          "p99": 21.95449999999255
+        },
+        "camber": {
+          "p95": 26.39358292799443,
+          "p99": 27.605874929577112
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "json",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2289.0641353570613,
+      "camber_rps": 1856.6466666893161,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.44789014197886,
+        "p99": 5.162014625966549
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.8732417849823833,
+          "p99": 4.301678854972124
+        },
+        "camber": {
+          "p95": 3.6277074832469225,
+          "p99": 5.611009779386222
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "parameter",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2362.775168114309,
+      "camber_rps": 1913.419658314405,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.941550012677908,
+        "p99": 5.878149624913931
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.2846250105649233,
+          "p99": 4.898458020761609
+        },
+        "camber": {
+          "p95": 4.156292066909373,
+          "p99": 6.363374995999038
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "parameter",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2392.125606298145,
+      "camber_rps": 1949.105059073628,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.623399624601007,
+        "p99": 26.34880067780614
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.35283302050084,
+          "p99": 21.957333898171782
+        },
+        "camber": {
+          "p95": 26.495707919821143,
+          "p99": 27.2970839869231
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "parameter",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2281.4710420331076,
+      "camber_rps": 1854.8731043441724,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.4834590274840593,
+        "p99": 5.40680349804461
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.902882522903383,
+          "p99": 4.505669581703842
+        },
+        "camber": {
+          "p95": 3.6615004064515233,
+          "p99": 5.63639379106462
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "json-1k",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2314.8260539340413,
+      "camber_rps": 1886.8345742644942,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.071599990129471,
+        "p99": 6.2717999797314405
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.392999991774559,
+          "p99": 5.226499983109534
+        },
+        "camber": {
+          "p95": 4.20216703787446,
+          "p99": 5.922166048549116
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "json-1k",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2347.7006120038996,
+      "camber_rps": 1921.026351925099,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.30909993313253,
+        "p99": 27.683899272233248
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.924249944277108,
+          "p99": 23.069916060194373
+        },
+        "camber": {
+          "p95": 26.780290994793177,
+          "p99": 27.93099998962134
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "json-1k",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2244.658406818379,
+      "camber_rps": 1837.0281812535827,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.513308521360159,
+        "p99": 5.101983435451984
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.9277571011334658,
+          "p99": 4.251652862876654
+        },
+        "camber": {
+          "p95": 3.6445483565330505,
+          "p99": 5.588650470599532
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-0",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2335.827486903119,
+      "camber_rps": 1905.6490534029003,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.984549595043063,
+        "p99": 6.016299594193697
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.3204579958692193,
+          "p99": 5.013582995161414
+        },
+        "camber": {
+          "p95": 4.135916009545326,
+          "p99": 6.053082994185388
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-0",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2373.17300502788,
+      "camber_rps": 1942.6809944800941,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.817599100992084,
+        "p99": 27.02619954943657
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.514665917493403,
+          "p99": 22.521832957863808
+        },
+        "camber": {
+          "p95": 26.53470798395574,
+          "p99": 27.783500030636787
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-0",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2263.8406133849403,
+      "camber_rps": 1851.435109421752,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.537158388644457,
+        "p99": 5.534405400976539
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.9476319905370474,
+          "p99": 4.612004500813782
+        },
+        "camber": {
+          "p95": 3.6618213634938,
+          "p99": 5.545221967622638
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-1",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2330.161092469878,
+      "camber_rps": 1898.633589996066,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.00070040486753,
+        "p99": 6.137049570679665
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.333917004056275,
+          "p99": 5.114207975566387
+        },
+        "camber": {
+          "p95": 4.255417035892606,
+          "p99": 6.13325007725507
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-1",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2362.27673097239,
+      "camber_rps": 1938.0344809309945,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.93014962039888,
+        "p99": 26.992249209433794
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.608458016999066,
+          "p99": 22.493541007861495
+        },
+        "camber": {
+          "p95": 26.59299992956221,
+          "p99": 27.64170803129673
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-1",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2267.089957479421,
+      "camber_rps": 1850.332743598455,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.5322892013937235,
+        "p99": 5.098853772506118
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.9435743344947696,
+          "p99": 4.249044810421765
+        },
+        "camber": {
+          "p95": 3.5915985936298966,
+          "p99": 5.461752414703369
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-5",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2305.9238052219343,
+      "camber_rps": 1885.5707805947934,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.042700445279479,
+        "p99": 5.845349980518222
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.368917037732899,
+          "p99": 4.871124983765185
+        },
+        "camber": {
+          "p95": 4.2088329792022705,
+          "p99": 6.400957936421037
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-5",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2337.9023302124633,
+      "camber_rps": 1920.8637436509862,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.509799994528294,
+        "p99": 27.31540077365935
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 22.091499995440245,
+          "p99": 22.762833978049457
+        },
+        "camber": {
+          "p95": 26.736708008684218,
+          "p99": 27.97095791902393
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-5",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2244.169495750717,
+      "camber_rps": 1842.4161652261935,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.525550290942192,
+        "p99": 5.288315657526255
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.93795857578516,
+          "p99": 4.406929714605212
+        },
+        "camber": {
+          "p95": 3.604434081353247,
+          "p99": 5.367544828914106
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2312.791393002642,
+      "camber_rps": 1901.100629256201,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.00074957869947,
+        "p99": 6.439400464296341
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.333957982249558,
+          "p99": 5.366167053580284
+        },
+        "camber": {
+          "p95": 4.27070795558393,
+          "p99": 6.667417008429766
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2363.126894515924,
+      "camber_rps": 1943.0476040326173,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.938400765880942,
+        "p99": 27.535100374370813
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.615333971567452,
+          "p99": 22.945916978642344
+        },
+        "camber": {
+          "p95": 26.99645794928074,
+          "p99": 28.69687497150153
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2252.0439132479223,
+      "camber_rps": 1855.4825722289847,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.5227751825004816,
+        "p99": 6.288862740620971
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.935645985417068,
+          "p99": 5.240718950517476
+        },
+        "camber": {
+          "p95": 3.590545617043972,
+          "p99": 5.807395442388952
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2312.273063761302,
+      "camber_rps": 1907.374893103593,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.036949900910258,
+        "p99": 6.421350035816431
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.3641249174252152,
+          "p99": 5.351125029847026
+        },
+        "camber": {
+          "p95": 4.167582956142724,
+          "p99": 6.206833058968186
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2358.718717375731,
+      "camber_rps": 1938.6374414580243,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.926549592986703,
+        "p99": 27.186050405725837
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.605457994155586,
+          "p99": 22.65504200477153
+        },
+        "camber": {
+          "p95": 26.574166025966406,
+          "p99": 29.613374965265393
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2249.4009285904076,
+      "camber_rps": 1855.341713106559,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.5375808365643024,
+        "p99": 5.924023361876607
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.947984030470252,
+          "p99": 4.9366861348971725
+        },
+        "camber": {
+          "p95": 3.6064678570255637,
+          "p99": 5.806555738672614
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2305.7260287287804,
+      "camber_rps": 1911.5964588737488,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.032449936494231,
+        "p99": 6.438399525359273
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.360374947078526,
+          "p99": 5.365332937799394
+        },
+        "camber": {
+          "p95": 4.145374987274408,
+          "p99": 6.189416046254337
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2356.068514421868,
+      "camber_rps": 1946.8408275991856,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.941949104890227,
+        "p99": 27.46569961309433
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.618290920741856,
+          "p99": 22.88808301091194
+        },
+        "camber": {
+          "p95": 26.48887492250651,
+          "p99": 27.65237493440509
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2247.0451311766897,
+      "camber_rps": 1855.978858723905,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.565057832747698,
+        "p99": 5.876420857384801
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.970881527289748,
+          "p99": 4.897017381154001
+        },
+        "camber": {
+          "p95": 3.6099989665672183,
+          "p99": 5.792001495137811
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2169.772668116036,
+      "camber_rps": 1796.7570932920137,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.283750290051103,
+        "p99": 6.624550838023424
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.569791908375919,
+          "p99": 5.520459031686187
+        },
+        "camber": {
+          "p95": 4.521916969679296,
+          "p99": 7.591124973259866
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2202.497800306052,
+      "camber_rps": 1840.2767746854229,
+      "paired_latency_ceilings_ms": {
+        "p95": 27.834200346842408,
+        "p99": 30.554449232295156
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.195166955702007,
+          "p99": 25.46204102691263
+        },
+        "camber": {
+          "p95": 27.944250032305717,
+          "p99": 29.39208399038762
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2101.945191336404,
+      "camber_rps": 1760.871252310415,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.8814672734588385,
+        "p99": 6.398117635399103
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.2345560612156987,
+          "p99": 5.331764696165919
+        },
+        "camber": {
+          "p95": 3.847329178825021,
+          "p99": 5.776773439720273
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2162.0960398663847,
+      "camber_rps": 1802.945195202587,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.340349650010467,
+        "p99": 6.676250416785479
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.616958041675389,
+          "p99": 5.563542013987899
+        },
+        "camber": {
+          "p95": 4.48495801538229,
+          "p99": 6.654832977801561
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2206.8779336693465,
+      "camber_rps": 1841.7350930989646,
+      "paired_latency_ceilings_ms": {
+        "p95": 27.682650089263916,
+        "p99": 28.82580002769828
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.068875074386597,
+          "p99": 24.0215000230819
+        },
+        "camber": {
+          "p95": 28.000042075291276,
+          "p99": 30.33891599625349
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2104.9325886430343,
+      "camber_rps": 1756.2387079610203,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.827199339866638,
+        "p99": 5.988276097923517
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.1893327832221985,
+          "p99": 4.990230081602931
+        },
+        "camber": {
+          "p95": 3.845240455120802,
+          "p99": 5.79913891851902
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2159.991934670425,
+      "camber_rps": 1806.5546064096593,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.263899987563491,
+        "p99": 6.984500493854284
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.5532499896362424,
+          "p99": 5.820417078211904
+        },
+        "camber": {
+          "p95": 4.45804197806865,
+          "p99": 6.432958063669503
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2210.9987963838194,
+      "camber_rps": 1842.7941131745165,
+      "paired_latency_ceilings_ms": {
+        "p95": 27.796950051560998,
+        "p99": 29.61180000565946
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.1641250429675,
+          "p99": 24.676500004716218
+        },
+        "camber": {
+          "p95": 28.034124989062548,
+          "p99": 29.50958302244544
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2104.12559853982,
+      "camber_rps": 1753.6945818661236,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.871859097853303,
+        "p99": 6.153352372348309
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.226549248211086,
+          "p99": 5.1277936436235905
+        },
+        "camber": {
+          "p95": 3.936956054531038,
+          "p99": 5.827242974191904
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1342.5727655212597,
+      "camber_rps": 1214.0718054510057,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.223700033500791,
+        "p99": 9.766749618574977
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 6.0197500279173255,
+          "p99": 8.138958015479147
+        },
+        "camber": {
+          "p95": 6.4954160479828715,
+          "p99": 9.060457930900156
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1352.4542988278524,
+      "camber_rps": 1227.6215136561395,
+      "paired_latency_ceilings_ms": {
+        "p95": 45.86279997602105,
+        "p99": 51.02484952658415
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 38.21899998001754,
+          "p99": 42.520707938820124
+        },
+        "camber": {
+          "p95": 42.0117910252884,
+          "p99": 44.196999981068075
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1307.8589911023953,
+      "camber_rps": 1182.1523274266924,
+      "paired_latency_ceilings_ms": {
+        "p95": 6.451071845367551,
+        "p99": 8.898307895287871
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.375893204472959,
+          "p99": 7.4152565794065595
+        },
+        "camber": {
+          "p95": 5.724753253161907,
+          "p99": 8.138510631397367
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1345.7690401487212,
+      "camber_rps": 1212.7796531229994,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.226999988779426,
+        "p99": 10.748800914734602
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 6.022499990649521,
+          "p99": 8.957334095612168
+        },
+        "camber": {
+          "p95": 6.467875093221664,
+          "p99": 9.069291059859097
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1365.6064967056348,
+      "camber_rps": 1229.6547366182049,
+      "paired_latency_ceilings_ms": {
+        "p95": 45.28964990749955,
+        "p99": 48.97874998860061
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 37.74137492291629,
+          "p99": 40.81562499050051
+        },
+        "camber": {
+          "p95": 41.93495900835842,
+          "p99": 43.50645805243403
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1316.3162221095076,
+      "camber_rps": 1179.2185658698145,
+      "paired_latency_ceilings_ms": {
+        "p95": 6.342493649572134,
+        "p99": 8.93149645999074
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.285411374643445,
+          "p99": 7.44291371665895
+        },
+        "camber": {
+          "p95": 5.674972431734204,
+          "p99": 8.459145668894053
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1344.8539803233089,
+      "camber_rps": 1214.1870070315842,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.118350826203823,
+        "p99": 9.391599660739303
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.931959021836519,
+          "p99": 7.8263330506160855
+        },
+        "camber": {
+          "p95": 6.500417017377913,
+          "p99": 9.45024995598942
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1356.4007068953183,
+      "camber_rps": 1230.2624932213125,
+      "paired_latency_ceilings_ms": {
+        "p95": 45.41084999218583,
+        "p99": 51.088299555704
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 37.84237499348819,
+          "p99": 42.573582963086665
+        },
+        "camber": {
+          "p95": 41.85066604986787,
+          "p99": 43.12175000086427
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1307.1852757486788,
+      "camber_rps": 1180.8104119210186,
+      "paired_latency_ceilings_ms": {
+        "p95": 6.430679652839899,
+        "p99": 8.33199117332697
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.358899710699916,
+          "p99": 6.943325977772474
+        },
+        "camber": {
+          "p95": 5.754091893322766,
+          "p99": 8.805400808341801
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-64k",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1210.8718912254658,
+      "camber_rps": 1076.4785059512678,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.7324495650827885,
+        "p99": 10.805700067430735
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 6.443707970902324,
+          "p99": 9.004750056192279
+        },
+        "camber": {
+          "p95": 7.239667000249028,
+          "p99": 10.92925004195422
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-64k",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1217.2116265331501,
+      "camber_rps": 1089.51647618547,
+      "paired_latency_ceilings_ms": {
+        "p95": 50.59749959036708,
+        "p99": 53.502949280664325
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 42.164582991972566,
+          "p99": 44.58579106722027
+        },
+        "camber": {
+          "p95": 48.098750063218176,
+          "p99": 50.91654206626117
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-64k",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1206.6454514611282,
+      "camber_rps": 1076.4657549370481,
+      "paired_latency_ceilings_ms": {
+        "p95": 6.461534556001425,
+        "p99": 9.767112415283918
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.384612130001187,
+          "p99": 8.139260346069932
+        },
+        "camber": {
+          "p95": 6.104469299316406,
+          "p99": 9.323892765678465
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-4m",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 40.63626540126347,
+      "camber_rps": 40.28659522082789,
+      "paired_latency_ceilings_ms": {
+        "p95": 220.98039966076612,
+        "p99": 229.40039997920394
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 184.15033305063844,
+          "p99": 191.16699998266995
+        },
+        "camber": {
+          "p95": 184.5046669477597,
+          "p99": 187.96904105693102
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-4m",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 40.74557954054968,
+      "camber_rps": 40.30845853373162,
+      "paired_latency_ceilings_ms": {
+        "p95": 1514.3906999845058,
+        "p99": 1557.000849628821
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 1261.9922499870881,
+          "p99": 1297.5007080240175
+        },
+        "camber": {
+          "p95": 1264.6146250190213,
+          "p99": 1280.728832934983
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-4m",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 40.63356154688992,
+      "camber_rps": 40.251718490445796,
+      "paired_latency_ceilings_ms": {
+        "p95": 170.5915213096887,
+        "p99": 178.42832054011524
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 142.15960109140724,
+          "p99": 148.6902671167627
+        },
+        "camber": {
+          "p95": 144.4344283081591,
+          "p99": 152.6576568139717
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "text",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2310.8519451334696,
+      "camber_rps": 1885.5818538891483,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.022249998524785,
+        "p99": 6.51890030130744
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.351874998770654,
+          "p99": 5.4324169177562
+        },
+        "camber": {
+          "p95": 4.468415980227292,
+          "p99": 7.403249968774617
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "text",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2358.4017839636986,
+      "camber_rps": 1941.8867453855585,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.95804948359728,
+        "p99": 27.392799546942115
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.631707902997732,
+          "p99": 22.827332955785096
+        },
+        "camber": {
+          "p95": 26.724667055532336,
+          "p99": 29.304292052984238
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "text",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2258.0792023444733,
+      "camber_rps": 1851.3883665403887,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.494604304432869,
+        "p99": 5.910718068480492
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.9121702536940575,
+          "p99": 4.92559839040041
+        },
+        "camber": {
+          "p95": 3.729419084265828,
+          "p99": 6.0125928139314055
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "json",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2310.5889242407,
+      "camber_rps": 1889.8484748463761,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.021749598905444,
+        "p99": 6.443499634042382
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.35145799908787,
+          "p99": 5.369583028368652
+        },
+        "camber": {
+          "p95": 4.314167075790465,
+          "p99": 7.5464589754119515
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "json",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2350.612381003592,
+      "camber_rps": 1943.967391439105,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.963049987331033,
+        "p99": 28.955550072714686
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.635874989442527,
+          "p99": 24.129625060595572
+        },
+        "camber": {
+          "p95": 26.73529100138694,
+          "p99": 28.309041052125394
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "json",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2252.4282087498736,
+      "camber_rps": 1845.1465442019414,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.6016597878187895,
+        "p99": 6.180669693276286
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.001383156515658,
+          "p99": 5.150558077730238
+        },
+        "camber": {
+          "p95": 3.842263948172331,
+          "p99": 6.625595618970692
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "parameter",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2304.9892656792344,
+      "camber_rps": 1880.171229885523,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.036800004541874,
+        "p99": 6.3831995241343975
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.364000003784895,
+          "p99": 5.319332936778665
+        },
+        "camber": {
+          "p95": 4.434915957972407,
+          "p99": 7.874083938077092
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "parameter",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2349.3336082287556,
+      "camber_rps": 1941.3645870458654,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.37429954484105,
+        "p99": 28.651150781661272
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.97858295403421,
+          "p99": 23.875958984717727
+        },
+        "camber": {
+          "p95": 26.452291989699006,
+          "p99": 27.811374980956316
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "parameter",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2248.428851891772,
+      "camber_rps": 1847.4943889069384,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.712693741545081,
+        "p99": 6.049624644219875
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.0939114512875676,
+          "p99": 5.0413538701832294
+        },
+        "camber": {
+          "p95": 3.827633918263018,
+          "p99": 5.692613543942571
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "json-1k",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2265.0930789115932,
+      "camber_rps": 1866.2121290107716,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.127200786024332,
+        "p99": 6.71420032158494
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.43933398835361,
+          "p99": 5.595166934654117
+        },
+        "camber": {
+          "p95": 4.472166998311877,
+          "p99": 6.97566696908325
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "json-1k",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2310.838635744075,
+      "camber_rps": 1909.7547519345,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.474899146705866,
+        "p99": 28.34814959205687
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 22.06241595558822,
+          "p99": 23.623457993380725
+        },
+        "camber": {
+          "p95": 27.201583958230913,
+          "p99": 29.47283291723579
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "json-1k",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2213.0098993546594,
+      "camber_rps": 1820.73503676127,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.6404804326593876,
+        "p99": 6.203780276700854
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.033733693882823,
+          "p99": 5.169816897250712
+        },
+        "camber": {
+          "p95": 3.7033895496279,
+          "p99": 6.512536434456706
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-0",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2281.996572101272,
+      "camber_rps": 1879.9720514310561,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.156299540773034,
+        "p99": 6.846849666908383
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.463582950644195,
+          "p99": 5.705708055756986
+        },
+        "camber": {
+          "p95": 4.410874913446605,
+          "p99": 7.322459015995264
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-0",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2345.542697025043,
+      "camber_rps": 1932.3154924950193,
+      "paired_latency_ceilings_ms": {
+        "p95": 25.910850008949637,
+        "p99": 27.403150778263807
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.59237500745803,
+          "p99": 22.835958981886506
+        },
+        "camber": {
+          "p95": 26.523875072598457,
+          "p99": 28.864082996733487
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-0",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2242.2799365141454,
+      "camber_rps": 1837.867496544933,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.6001749336719513,
+        "p99": 6.074080802500248
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.0001457780599594,
+          "p99": 5.06173400208354
+        },
+        "camber": {
+          "p95": 3.7203627871349454,
+          "p99": 5.97981724422425
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-1",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2289.040810514364,
+      "camber_rps": 1881.7986127189,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.064500797539949,
+        "p99": 6.68654995970428
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.387083997949958,
+          "p99": 5.572124966420233
+        },
+        "camber": {
+          "p95": 4.425375023856759,
+          "p99": 6.72033301088959
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-1",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2337.249880138048,
+      "camber_rps": 1929.8110260641938,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.105700060725212,
+        "p99": 27.886599535122514
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.754750050604343,
+          "p99": 23.238832945935428
+        },
+        "camber": {
+          "p95": 26.65429108310491,
+          "p99": 28.52687507402152
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-1",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2234.2415849411127,
+      "camber_rps": 1835.4742477319703,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.6480789072811604,
+        "p99": 6.152560003101826
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.0400657560676336,
+          "p99": 5.127133335918188
+        },
+        "camber": {
+          "p95": 3.800148726440966,
+          "p99": 6.449424079619348
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-5",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2263.369632279542,
+      "camber_rps": 1861.5835329746571,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.096700437366962,
+        "p99": 6.561749987304211
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.4139170311391354,
+          "p99": 5.4681249894201756
+        },
+        "camber": {
+          "p95": 4.523832933045924,
+          "p99": 7.047667051665485
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-5",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2310.4668699350977,
+      "camber_rps": 1911.2584990763748,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.659899624064565,
+        "p99": 28.32340090535581
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 22.216583020053804,
+          "p99": 23.60283408779651
+        },
+        "camber": {
+          "p95": 27.058208943344653,
+          "p99": 29.985874891281128
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-5",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2211.4674707714635,
+      "camber_rps": 1831.4804009815164,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.631344297900796,
+        "p99": 6.254061916843057
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.0261202482506633,
+          "p99": 5.211718264035881
+        },
+        "camber": {
+          "p95": 3.7355622043833137,
+          "p99": 5.91798301320523
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2274.512228043954,
+      "camber_rps": 1886.2437907082551,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.144900850951672,
+        "p99": 7.330349972471595
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.4540840424597263,
+          "p99": 6.108624977059662
+        },
+        "camber": {
+          "p95": 4.384750034660101,
+          "p99": 6.925957975909114
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2343.3424094925267,
+      "camber_rps": 1942.1545094559604,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.69020090252161,
+        "p99": 28.967999992892146
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 22.241834085434675,
+          "p99": 24.13999999407679
+        },
+        "camber": {
+          "p95": 26.727749966084957,
+          "p99": 28.33699993789196
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2231.1007179165767,
+      "camber_rps": 1840.9034507592582,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.571150079369545,
+        "p99": 6.828286545351148
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.975958399474621,
+          "p99": 5.690238787792623
+        },
+        "camber": {
+          "p95": 3.7256741197779775,
+          "p99": 6.318304454907775
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2276.6095601561397,
+      "camber_rps": 1877.92801663219,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.199099913239479,
+        "p99": 7.080799201503396
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.499249927699566,
+          "p99": 5.90066600125283
+        },
+        "camber": {
+          "p95": 4.490666091442108,
+          "p99": 7.85533303860575
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2340.068107444299,
+      "camber_rps": 1942.9033416633115,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.257350062951446,
+        "p99": 28.366649989038706
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.881125052459538,
+          "p99": 23.638874990865588
+        },
+        "camber": {
+          "p95": 26.653042063117027,
+          "p99": 28.062041965313256
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2228.6798468091997,
+      "camber_rps": 1850.536142325219,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.568382514640689,
+        "p99": 6.710035772994161
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.9736520955339074,
+          "p99": 5.591696477495134
+        },
+        "camber": {
+          "p95": 3.7165448302403092,
+          "p99": 5.943415337242186
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2282.4726280065083,
+      "camber_rps": 1892.8199369499239,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.083900013938546,
+        "p99": 7.167999632656574
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.403250011615455,
+          "p99": 5.973333027213812
+        },
+        "camber": {
+          "p95": 4.389625042676926,
+          "p99": 6.590666947886348
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2347.4482693913046,
+      "camber_rps": 1938.6150834185773,
+      "paired_latency_ceilings_ms": {
+        "p95": 26.010850723832846,
+        "p99": 27.966999588534236
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 21.67570893652737,
+          "p99": 23.305832990445197
+        },
+        "camber": {
+          "p95": 26.67275001294911,
+          "p99": 31.467750086449087
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2232.6349735575936,
+      "camber_rps": 1846.6836490907374,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.573481645435095,
+        "p99": 6.668246677145362
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.9779013711959124,
+          "p99": 5.556872230954468
+        },
+        "camber": {
+          "p95": 3.7593181477859616,
+          "p99": 6.101761246100068
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2145.3694336959775,
+      "camber_rps": 1792.2671056748468,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.3679004069417715,
+        "p99": 7.369400281459093
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.6399170057848096,
+          "p99": 6.141166901215911
+        },
+        "camber": {
+          "p95": 4.630874958820641,
+          "p99": 7.553708041086793
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2201.3072264744937,
+      "camber_rps": 1833.6359498103982,
+      "paired_latency_ceilings_ms": {
+        "p95": 28.451199643313885,
+        "p99": 29.744050791487098
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.709333036094904,
+          "p99": 24.786708992905915
+        },
+        "camber": {
+          "p95": 28.100249939598143,
+          "p99": 30.528917093761265
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2100.5113226608705,
+      "camber_rps": 1753.8559597440571,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.8564653135836124,
+        "p99": 6.933639803901315
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.2137210946530104,
+          "p99": 5.778033169917762
+        },
+        "camber": {
+          "p95": 3.9306151447817683,
+          "p99": 6.462540361098945
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2139.5589890742585,
+      "camber_rps": 1798.6503675831123,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.392299987375736,
+        "p99": 7.791549665853381
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.66024998947978,
+          "p99": 6.492958054877818
+        },
+        "camber": {
+          "p95": 4.635791992768645,
+          "p99": 7.360958028584719
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2202.1916854257647,
+      "camber_rps": 1847.8530574308402,
+      "paired_latency_ceilings_ms": {
+        "p95": 27.971949661150575,
+        "p99": 29.63399989530444
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.309958050958812,
+          "p99": 24.6949999127537
+        },
+        "camber": {
+          "p95": 28.605249943211675,
+          "p99": 30.11412499472499
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2093.9512620959017,
+      "camber_rps": 1746.5184394619228,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.8881593849509954,
+        "p99": 7.035376550629735
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.240132820792496,
+          "p99": 5.862813792191446
+        },
+        "camber": {
+          "p95": 4.070664523169398,
+          "p99": 6.95619557518512
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2143.383843978855,
+      "camber_rps": 1788.7574696651252,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.400000441819429,
+        "p99": 7.442450383678079
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.6666670348495245,
+          "p99": 6.202041986398399
+        },
+        "camber": {
+          "p95": 4.487083991989493,
+          "p99": 6.871292018331587
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2206.183247196328,
+      "camber_rps": 1819.6005802678699,
+      "paired_latency_ceilings_ms": {
+        "p95": 27.644699905067682,
+        "p99": 29.37914994545281
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.037249920889735,
+          "p99": 24.482624954544008
+        },
+        "camber": {
+          "p95": 28.224583016708493,
+          "p99": 30.77670803759247
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2087.889521276215,
+      "camber_rps": 1745.8413148946313,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.9513356052339077,
+        "p99": 7.008411409333348
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.2927796710282564,
+          "p99": 5.840342841111124
+        },
+        "camber": {
+          "p95": 4.124885308556259,
+          "p99": 6.850643781945109
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1363.1613519905245,
+      "camber_rps": 1205.9553937633375,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.2965004947036505,
+        "p99": 9.887999994680285
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 6.080417078919709,
+          "p99": 8.239999995566905
+        },
+        "camber": {
+          "p95": 6.915542064234614,
+          "p99": 11.442166985943913
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1389.6524506591074,
+      "camber_rps": 1231.4978290772688,
+      "paired_latency_ceilings_ms": {
+        "p95": 43.83449996821582,
+        "p99": 45.37820052355528
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 36.528749973513186,
+          "p99": 37.81516710296273
+        },
+        "camber": {
+          "p95": 41.98729095514864,
+          "p99": 44.689291971735656
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1318.5984255959227,
+      "camber_rps": 1174.3693832997278,
+      "paired_latency_ceilings_ms": {
+        "p95": 6.790515035390854,
+        "p99": 10.233948100358248
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.658762529492378,
+          "p99": 8.528290083631873
+        },
+        "camber": {
+          "p95": 6.164591992273927,
+          "p99": 9.706900455057621
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1352.1869194985966,
+      "camber_rps": 1204.7270557839686,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.550250040367246,
+        "p99": 11.650949902832508
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 6.291875033639371,
+          "p99": 9.70912491902709
+        },
+        "camber": {
+          "p95": 6.874249898828566,
+          "p99": 10.902290930971503
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1380.4316059864577,
+      "camber_rps": 1229.1069885233437,
+      "paired_latency_ceilings_ms": {
+        "p95": 44.22185034491122,
+        "p99": 47.13879958726466
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 36.85154195409268,
+          "p99": 39.282332989387214
+        },
+        "camber": {
+          "p95": 41.99108306784183,
+          "p99": 44.55800005234778
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1320.744714139678,
+      "camber_rps": 1174.9885209794688,
+      "paired_latency_ceilings_ms": {
+        "p95": 6.41425671055913,
+        "p99": 10.37786677479744
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.345213925465941,
+          "p99": 8.6482223123312
+        },
+        "camber": {
+          "p95": 6.094682030379772,
+          "p99": 9.047229192219675
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1364.8504699727719,
+      "camber_rps": 1212.3355037510132,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.050149934366345,
+        "p99": 10.483150742948055
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.875124945305288,
+          "p99": 8.735958952456713
+        },
+        "camber": {
+          "p95": 6.837000022642314,
+          "p99": 9.689834085293114
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1389.6311936705695,
+      "camber_rps": 1233.0437579542356,
+      "paired_latency_ceilings_ms": {
+        "p95": 44.079550774767995,
+        "p99": 45.79660082235932
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 36.73295897897333,
+          "p99": 38.16383401863277
+        },
+        "camber": {
+          "p95": 41.913958033546805,
+          "p99": 44.38899992965162
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1334.9729831040486,
+      "camber_rps": 1178.2785733469584,
+      "paired_latency_ceilings_ms": {
+        "p95": 6.276082154363394,
+        "p99": 9.556780848652124
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.230068461969495,
+          "p99": 7.963984040543437
+        },
+        "camber": {
+          "p95": 6.187919643707573,
+          "p99": 10.060663451440632
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-64k",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1188.9740984921193,
+      "camber_rps": 1069.8320553771796,
+      "paired_latency_ceilings_ms": {
+        "p95": 8.185600815340877,
+        "p99": 11.911600828170776
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 6.821334012784064,
+          "p99": 9.926334023475647
+        },
+        "camber": {
+          "p95": 7.596250041387975,
+          "p99": 10.952541953884065
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-64k",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 1205.9646225823365,
+      "camber_rps": 1086.2832174227099,
+      "paired_latency_ceilings_ms": {
+        "p95": 51.53520000167191,
+        "p99": 53.807600447908044
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 42.94600000139326,
+          "p99": 44.83966703992337
+        },
+        "camber": {
+          "p95": 47.2688750596717,
+          "p99": 48.92850003670901
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-64k",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 1183.4901132544169,
+      "camber_rps": 1061.4924061580634,
+      "paired_latency_ceilings_ms": {
+        "p95": 7.081881444901228,
+        "p99": 10.63044648617506
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 5.901567870751023,
+          "p99": 8.858705405145884
+        },
+        "camber": {
+          "p95": 6.5177351934835315,
+          "p99": 10.126876644790173
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-4m",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 40.32956363056361,
+      "camber_rps": 39.99661091511781,
+      "paired_latency_ceilings_ms": {
+        "p95": 220.98019919358194,
+        "p99": 227.78639998286963
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 184.15016599465162,
+          "p99": 189.8219999857247
+        },
+        "camber": {
+          "p95": 185.82233297638595,
+          "p99": 196.1795419920236
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-4m",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 40.30204530715399,
+      "camber_rps": 40.00682237361706,
+      "paired_latency_ceilings_ms": {
+        "p95": 1505.926449643448,
+        "p99": 1632.6078996062279
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 1254.9387080362067,
+          "p99": 1360.50658300519
+        },
+        "camber": {
+          "p95": 1276.4169169822708,
+          "p99": 1346.920375013724
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-4m",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 40.29986604696255,
+      "camber_rps": 40.068390879942505,
+      "paired_latency_ceilings_ms": {
+        "p95": 171.99477776885033,
+        "p99": 179.20329635962844
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 143.32898147404194,
+          "p99": 149.33608029969037
+        },
+        "camber": {
+          "p95": 147.81899424269795,
+          "p99": 155.21078964229673
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "text",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2916.9943177676596,
+      "camber_rps": 2506.975116248209,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.9498492144048214,
+        "p99": 6.347749102860689
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.291541012004018,
+          "p99": 5.289790919050574
+        },
+        "camber": {
+          "p95": 3.934166976250708,
+          "p99": 6.019041989929974
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "text",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2573.551916437757,
+      "camber_rps": 2248.0035514792944,
+      "paired_latency_ceilings_ms": {
+        "p95": 28.259750409051776,
+        "p99": 33.249650336802006
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.549792007543147,
+          "p99": 27.708041947335005
+        },
+        "camber": {
+          "p95": 27.252707979641855,
+          "p99": 32.16433303896338
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "text",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2710.4152279108625,
+      "camber_rps": 2378.90734165129,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.576643019914627,
+        "p99": 6.363610597327352
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.980535849928856,
+          "p99": 5.303008831106126
+        },
+        "camber": {
+          "p95": 3.3923215232789516,
+          "p99": 5.439475877210498
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "js",
+      "workload": "json",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 3013.6229581050698,
+      "camber_rps": 2550.8472490859103,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.9661499205976725,
+        "p99": 6.084549520164728
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.3051249338313937,
+          "p99": 5.070457933470607
+        },
+        "camber": {
+          "p95": 3.6720000207424164,
+          "p99": 5.6686250027269125
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "json",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2593.2214413876436,
+      "camber_rps": 2235.998039855747,
+      "paired_latency_ceilings_ms": {
+        "p95": 28.554650489240885,
+        "p99": 33.179849898442626
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.795542074367404,
+          "p99": 27.649874915368855
+        },
+        "camber": {
+          "p95": 27.07366703543812,
+          "p99": 31.805832986719906
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "json",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2680.663710628852,
+      "camber_rps": 2494.5428336493446,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.626198647543788,
+        "p99": 6.1577266082167625
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.02183220628649,
+          "p99": 5.1314388401806355
+        },
+        "camber": {
+          "p95": 3.4725627629086375,
+          "p99": 5.552729242481291
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "parameter",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2819.153126036495,
+      "camber_rps": 2517.640306609214,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.132949933409691,
+        "p99": 6.324900034815073
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.4441249445080757,
+          "p99": 5.270750029012561
+        },
+        "camber": {
+          "p95": 3.8118750089779496,
+          "p99": 5.888208048418164
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "parameter",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2493.0214822639023,
+      "camber_rps": 2227.5913139517143,
+      "paired_latency_ceilings_ms": {
+        "p95": 29.749200074002147,
+        "p99": 34.35494997538626
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 24.791000061668456,
+          "p99": 28.62912497948855
+        },
+        "camber": {
+          "p95": 27.666999958455563,
+          "p99": 32.986124977469444
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "parameter",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2789.487187176293,
+      "camber_rps": 2314.4806788778283,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.528459509834647,
+        "p99": 5.859418166801333
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2.940382924862206,
+          "p99": 4.8828484723344445
+        },
+        "camber": {
+          "p95": 3.3876311499625444,
+          "p99": 5.687020486220717
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "json-1k",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2575.4331064997364,
+      "camber_rps": 2237.9537766492604,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.432149510830641,
+        "p99": 6.376749509945512
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.6934579256922007,
+          "p99": 5.313957924954593
+        },
+        "camber": {
+          "p95": 4.267500014975667,
+          "p99": 6.353375036269426
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "json-1k",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2246.6379253511304,
+      "camber_rps": 1992.4117108768157,
+      "paired_latency_ceilings_ms": {
+        "p95": 31.163349514827132,
+        "p99": 39.372750045731664
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 25.96945792902261,
+          "p99": 32.81062503810972
+        },
+        "camber": {
+          "p95": 30.103917000815272,
+          "p99": 40.980709018185735
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "json-1k",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2437.1273191604546,
+      "camber_rps": 2176.8151858568167,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.8665358908474445,
+        "p99": 5.97892845980823
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.2221132423728704,
+          "p99": 4.982440383173525
+        },
+        "camber": {
+          "p95": 3.6860030377283692,
+          "p99": 5.659000249579549
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-0",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2817.4608769371894,
+      "camber_rps": 2451.0095221802453,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.07444997690618,
+        "p99": 5.938349990174174
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.3953749807551503,
+          "p99": 4.948624991811812
+        },
+        "camber": {
+          "p95": 3.8839579792693257,
+          "p99": 6.030375021509826
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-0",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2487.4209532801974,
+      "camber_rps": 2212.9841979355774,
+      "paired_latency_ceilings_ms": {
+        "p95": 28.86655074544251,
+        "p99": 32.73215037770569
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 24.055458954535425,
+          "p99": 27.27679198142141
+        },
+        "camber": {
+          "p95": 27.82408392522484,
+          "p99": 33.66033406928182
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-0",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2626.8420778930786,
+      "camber_rps": 2394.935950070322,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.703218139708042,
+        "p99": 6.0085459146648645
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.0860151164233685,
+          "p99": 5.007121595554054
+        },
+        "camber": {
+          "p95": 3.5104573471471667,
+          "p99": 5.5659712525084615
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-1",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2815.375757468862,
+      "camber_rps": 2426.8407344231236,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.159449599683285,
+        "p99": 6.288650399073958
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.4662079997360706,
+          "p99": 5.240541999228299
+        },
+        "camber": {
+          "p95": 3.8954580668359995,
+          "p99": 6.22983300127089
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-1",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2457.9323061810533,
+      "camber_rps": 2181.9290043949427,
+      "paired_latency_ceilings_ms": {
+        "p95": 29.50829998590052,
+        "p99": 34.3274999409914
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 24.590249988250434,
+          "p99": 28.606249950826168
+        },
+        "camber": {
+          "p95": 28.444333001971245,
+          "p99": 34.1963330283761
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-1",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2619.2788431118493,
+      "camber_rps": 2366.2729442093914,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.7956951186060905,
+        "p99": 5.962866777554154
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.1630792655050755,
+          "p99": 4.969055647961795
+        },
+        "camber": {
+          "p95": 3.449759096838534,
+          "p99": 5.648365127854049
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-5",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2778.8800091986773,
+      "camber_rps": 2357.6138409541136,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.137749969959259,
+        "p99": 6.248999945819378
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.448124974966049,
+          "p99": 5.207499954849482
+        },
+        "camber": {
+          "p95": 4.0478340815752745,
+          "p99": 6.419291021302342
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-5",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2381.968513958211,
+      "camber_rps": 2126.654428667389,
+      "paired_latency_ceilings_ms": {
+        "p95": 30.3012000862509,
+        "p99": 36.15294951014221
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 25.25100007187575,
+          "p99": 30.127457925118506
+        },
+        "camber": {
+          "p95": 28.733499930240214,
+          "p99": 33.408583025448024
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-5",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2614.3941141463015,
+      "camber_rps": 2324.782306969076,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.809050703421235,
+        "p99": 6.188154732808471
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.174208919517696,
+          "p99": 5.156795610673726
+        },
+        "camber": {
+          "p95": 3.612519125454128,
+          "p99": 5.987737677060068
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2854.4088545046534,
+      "camber_rps": 2460.9255979976347,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.026150098070502,
+        "p99": 6.882949266582727
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.3551250817254186,
+          "p99": 5.735791055485606
+        },
+        "camber": {
+          "p95": 3.845207975246012,
+          "p99": 5.959707894362509
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2491.1738542268163,
+      "camber_rps": 2215.0553213108456,
+      "paired_latency_ceilings_ms": {
+        "p95": 28.4186496399343,
+        "p99": 35.87334961630404
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.682208033278584,
+          "p99": 29.8944580135867
+        },
+        "camber": {
+          "p95": 27.293374994769692,
+          "p99": 33.03541603963822
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2590.4527839044536,
+      "camber_rps": 2355.018702806051,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.6462144926190376,
+        "p99": 6.46368102170527
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.0385120771825314,
+          "p99": 5.386400851421058
+        },
+        "camber": {
+          "p95": 3.4624949330464005,
+          "p99": 5.658105597831309
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2869.7572295582277,
+      "camber_rps": 2518.4071982732103,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.974800743162632,
+        "p99": 6.352449674159288
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.3123339526355267,
+          "p99": 5.293708061799407
+        },
+        "camber": {
+          "p95": 3.8297499995678663,
+          "p99": 6.036874954588711
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2465.718354576076,
+      "camber_rps": 2209.179859566894,
+      "paired_latency_ceilings_ms": {
+        "p95": 29.565999610349536,
+        "p99": 39.2426494974643
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 24.638333008624613,
+          "p99": 32.70220791455358
+        },
+        "camber": {
+          "p95": 27.4586669402197,
+          "p99": 33.15300005488098
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2726.841419485235,
+      "camber_rps": 2355.9979202645272,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.678379487246275,
+        "p99": 6.456231605261564
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.065316239371896,
+          "p99": 5.380193004384637
+        },
+        "camber": {
+          "p95": 3.434085170738399,
+          "p99": 5.60648983810097
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-10",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2877.743268477878,
+      "camber_rps": 2474.3787412808906,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.051400441676378,
+        "p99": 6.196700362488627
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.376167034730315,
+          "p99": 5.163916968740523
+        },
+        "camber": {
+          "p95": 3.8107919972389936,
+          "p99": 5.778624908998609
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-10",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2544.8473066462698,
+      "camber_rps": 2218.6493672146203,
+      "paired_latency_ceilings_ms": {
+        "p95": 28.27280033379793,
+        "p99": 35.838850820437074
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 23.56066694483161,
+          "p99": 29.865709017030895
+        },
+        "camber": {
+          "p95": 28.03979197051376,
+          "p99": 34.45466700941324
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-10",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2617.472931420303,
+      "camber_rps": 2395.407606316623,
+      "paired_latency_ceilings_ms": {
+        "p95": 3.7123722955584526,
+        "p99": 6.291025271639228
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.093643579632044,
+          "p99": 5.242521059699357
+        },
+        "camber": {
+          "p95": 3.5313019761815667,
+          "p99": 5.768020404502749
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2378.8561293863304,
+      "camber_rps": 2058.754478430721,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.802599176764488,
+        "p99": 7.333899708464742
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 4.0021659806370735,
+          "p99": 6.111583090387285
+        },
+        "camber": {
+          "p95": 4.714875016361475,
+          "p99": 6.930458941496909
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2087.7243849427036,
+      "camber_rps": 1863.000099958492,
+      "paired_latency_ceilings_ms": {
+        "p95": 33.97214999422431,
+        "p99": 42.46389954350889
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 28.310124995186925,
+          "p99": 35.38658295292407
+        },
+        "camber": {
+          "p95": 33.36445800960064,
+          "p99": 39.13500008638948
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2342.8928367338967,
+      "camber_rps": 2066.513758217331,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.328911704942584,
+        "p99": 7.2108532302081585
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.6074264207854867,
+          "p99": 6.009044358506799
+        },
+        "camber": {
+          "p95": 3.9035642985254526,
+          "p99": 6.369820679537952
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2393.878021098819,
+      "camber_rps": 2109.9658809422017,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.722000053152442,
+        "p99": 7.390899583697319
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.9350000442937016,
+          "p99": 6.1590829864144325
+        },
+        "camber": {
+          "p95": 4.564334056340158,
+          "p99": 6.912291049957275
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2108.4133597221244,
+      "camber_rps": 1889.588464239509,
+      "paired_latency_ceilings_ms": {
+        "p95": 33.90195001848042,
+        "p99": 43.31439952366054
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 28.25162501540035,
+          "p99": 36.095332936383784
+        },
+        "camber": {
+          "p95": 32.284957938827574,
+          "p99": 37.32854197733104
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2199.0660335699645,
+      "camber_rps": 2072.26811891776,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.466942930594087,
+        "p99": 7.474911259487271
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.722452442161739,
+          "p99": 6.229092716239393
+        },
+        "camber": {
+          "p95": 4.034163197502494,
+          "p99": 6.272888393141329
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "js",
+      "workload": "method-100",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 2416.1463388547863,
+      "camber_rps": 2173.620240194479,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.664099961519241,
+        "p99": 7.22600044682622
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.886749967932701,
+          "p99": 6.02166703902185
+        },
+        "camber": {
+          "p95": 4.433540976606309,
+          "p99": 6.911833072081208
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-100",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 2124.391989304483,
+      "camber_rps": 1923.2435615694485,
+      "paired_latency_ceilings_ms": {
+        "p95": 33.21345001459122,
+        "p99": 38.4941004216671
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 27.677875012159348,
+          "p99": 32.078417018055916
+        },
+        "camber": {
+          "p95": 30.928874970413744,
+          "p99": 36.334791919216514
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-100",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 2236.952828367697,
+      "camber_rps": 2000.0659757857838,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.366387892514467,
+        "p99": 7.266089832410216
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.6386565770953894,
+          "p99": 6.055074860341847
+        },
+        "camber": {
+          "p95": 4.092081100679934,
+          "p99": 6.67431578040123
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": true
+    },
+    {
+      "lane": "js",
+      "workload": "hit-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 989.8689345775068,
+      "camber_rps": 911.9843931990898,
+      "paired_latency_ceilings_ms": {
+        "p95": 10.747449612244964,
+        "p99": 14.020999241620302
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 8.956208010204136,
+          "p99": 11.684166034683585
+        },
+        "camber": {
+          "p95": 10.003458010032773,
+          "p99": 14.457250013947487
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 882.0888135400916,
+      "camber_rps": 842.8517488657292,
+      "paired_latency_ceilings_ms": {
+        "p95": 84.32925003580749,
+        "p99": 114.99505075626075
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 70.27437502983958,
+          "p99": 95.82920896355063
+        },
+        "camber": {
+          "p95": 70.70133299566805,
+          "p99": 87.3142919735983
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 864.466383567658,
+      "camber_rps": 844.3743356471904,
+      "paired_latency_ceilings_ms": {
+        "p95": 10.614922922104597,
+        "p99": 15.51594939082861
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 8.845769101753831,
+          "p99": 12.929957825690508
+        },
+        "camber": {
+          "p95": 9.282731334678829,
+          "p99": 14.75273328833282
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 974.7674552905739,
+      "camber_rps": 906.6956879707388,
+      "paired_latency_ceilings_ms": {
+        "p95": 10.860100854188204,
+        "p99": 14.116800064221025
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 9.050084045156837,
+          "p99": 11.76400005351752
+        },
+        "camber": {
+          "p95": 10.214000009000301,
+          "p99": 14.963624998927116
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 885.3946179028916,
+      "camber_rps": 844.3091657037097,
+      "paired_latency_ceilings_ms": {
+        "p95": 78.79105084575713,
+        "p99": 111.95379956625402
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 65.65920903813094,
+          "p99": 93.29483297187835
+        },
+        "camber": {
+          "p95": 70.3922089887783,
+          "p99": 78.64937500562519
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 892.4623855140219,
+      "camber_rps": 862.2997701752053,
+      "paired_latency_ceilings_ms": {
+        "p95": 10.763483494520187,
+        "p99": 14.098223252221942
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 8.969569578766823,
+          "p99": 11.748519376851618
+        },
+        "camber": {
+          "p95": 9.317596908658743,
+          "p99": 13.15686828456819
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-1000",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 1011.2804980008495,
+      "camber_rps": 917.7456023615724,
+      "paired_latency_ceilings_ms": {
+        "p95": 10.600450728088617,
+        "p99": 13.429950037971139
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 8.833708940073848,
+          "p99": 11.191625031642616
+        },
+        "camber": {
+          "p95": 9.99425002373755,
+          "p99": 13.29391694162041
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-1000",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 901.7691681048253,
+      "camber_rps": 850.6760948039747,
+      "paired_latency_ceilings_ms": {
+        "p95": 81.4131491817534,
+        "p99": 96.67100035585463
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 67.8442909847945,
+          "p99": 80.55916696321219
+        },
+        "camber": {
+          "p95": 70.17583306878805,
+          "p99": 81.34212496224791
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-1000",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 858.9046246721482,
+      "camber_rps": 850.9334660203535,
+      "paired_latency_ceilings_ms": {
+        "p95": 10.719830403104424,
+        "p99": 15.609582234174013
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 8.93319200258702,
+          "p99": 13.007985195145011
+        },
+        "camber": {
+          "p95": 9.199169697239995,
+          "p99": 14.924686984159052
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-64k",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 757.9405807765218,
+      "camber_rps": 734.7650161261872,
+      "paired_latency_ceilings_ms": {
+        "p95": 13.308299984782934,
+        "p99": 20.82174955867231
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 11.090249987319112,
+          "p99": 17.351457965560257
+        },
+        "camber": {
+          "p95": 11.584999971091747,
+          "p99": 13.534749974496663
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-64k",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 754.0723749763896,
+      "camber_rps": 720.7471989615731,
+      "paired_latency_ceilings_ms": {
+        "p95": 88.72644952498376,
+        "p99": 114.16410002857447
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 73.93870793748647,
+          "p99": 95.13675002381206
+        },
+        "camber": {
+          "p95": 83.19320797454566,
+          "p99": 97.07554103806615
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-64k",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 485.0682836908268,
+      "camber_rps": 487.8606872928343,
+      "paired_latency_ceilings_ms": {
+        "p95": 4.215027065947652,
+        "p99": 14.144888380542397
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 3.5125225549563766,
+          "p99": 11.787406983785331
+        },
+        "camber": {
+          "p95": 3.588730236515403,
+          "p99": 7.952131563797593
+        }
+      },
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-4m",
+      "gate": "saturation",
+      "concurrency": 2,
+      "raw_rps": 20.181530984781954,
+      "camber_rps": 20.43807000100631,
+      "paired_latency_ceilings_ms": {
+        "p95": 455.79970087856054,
+        "p99": 466.3236503954977
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 379.8330840654671,
+          "p99": 388.60304199624807
+        },
+        "camber": {
+          "p95": 374.128041905351,
+          "p99": 384.85958299133927
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-4m",
+      "gate": "saturation",
+      "concurrency": 16,
+      "raw_rps": 20.633631161241034,
+      "camber_rps": 20.737263163227507,
+      "paired_latency_ceilings_ms": {
+        "p95": 2892.915999563411,
+        "p99": 3029.5330500695854
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 2410.763332969509,
+          "p99": 2524.610875057988
+        },
+        "camber": {
+          "p95": 2433.9558749925345,
+          "p99": 2535.189124988392
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-4m",
+      "gate": "fixed_rate",
+      "concurrency": 2,
+      "raw_rps": 13.250022879727716,
+      "camber_rps": 13.24992451031531,
+      "paired_latency_ceilings_ms": {
+        "p95": 76.93844237364829,
+        "p99": 88.70679172687232
+      },
+      "latencies_ms": {
+        "raw": {
+          "p95": 64.1153686447069,
+          "p99": 73.92232643906027
+        },
+        "camber": {
+          "p95": 61.094727367162704,
+          "p99": 67.29008303955197
+        }
+      },
+      "paired_pass": true,
+      "historical_pass": false
+    }
+  ],
+  "derived_gate_counts": {
+    "total": 162,
+    "paired_pass": 20,
+    "paired_fail": 142,
+    "historical_pass": 28,
+    "historical_fail": 134
+  },
+  "release_counts": {
+    "total": 49,
+    "natural": 48,
+    "forced": 1,
+    "all_released": true
+  },
+  "original_verdict": "FAIL/INCONCLUSIVE",
+  "guard_failure": null,
+  "aggregate_peak_rss_kib": 2887200,
+  "cleanup_errors": [],
+  "failure": "server release failed: {'command': ['bun', '/tmp/camber-340-owned/public_server.mjs', 'elysia', '0', '52775'], 'source_sha256': {'camber/bench/run_public.py': 'b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b', 'camber/bench/public_app.bend': '7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd', 'camber/bench/public_main.bend': '9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c', 'camber/bench/public_direct.bend': '2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59', 'camber/bench/public_server.mjs': 'aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce', 'camber/bench/public_libevent.c': 'cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef', 'camber/bench/public_flask.py': '621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01', 'camber/bench/public_package.json': '46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce', 'camber/bench/public_requirements.txt': '4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7', 'camber/bench/public_criteria.json': 'fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3', 'camber/bench/public_axum/src/main.rs': '0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864', 'camber/bench/public_axum/Cargo.toml': '44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a', 'camber/bench/public_axum/Cargo.lock': '1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec', 'camber/raw_budget.json': '99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af'}, 'pid': 32603, 'exit': -9, 'root_reaped': True, 'observed_process_identities': {32603: 'Sun Oct  4 22:06:15 2026    '}, 'surviving_observed_processes': {}, 'release_observation_error': None, 'observed_descendants_released': True, 'forced': True, 'error': 'shutdown deadline', 'logs': [{'host_receipt_monotonic': 844204.843290458, 'text': 'CONSTRUCTION_MS 41.478458'}, {'host_receipt_monotonic': 844204.8433035, 'text': 'READY'}, {'host_receipt_monotonic': 844204.851479958, 'text': 'JOINED'}], 'reader_released': True, 'stdout_released': True, 'listener_release': [{'port': 52775, 'rebind_and_listener_release': True}], 'released': True, 'verdict': 'FAIL/INCONCLUSIVE'}"
+}

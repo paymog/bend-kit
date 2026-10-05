@@ -2,6 +2,8 @@
 
 This compares native Bend's existing raw/scoped controls with axum, Fastify, and FastAPI. It does not benchmark a complete Camber framework. The JavaScript server runs on Node, not Bend-on-Bun or `Bun.serve`.
 
+The complete public-application harness, frozen criteria, and source-bound results are documented in [PUBLIC.md](PUBLIC.md). Its live/direct, overload, and overlap matrices are complete, but the aggregate verdict is **FAIL/INCONCLUSIVE**: paired and historical performance gates, bounded retention, and scheduler/timeout criteria do not all pass. The results below remain historical experimental controls and are not relabeled as public Camber evidence.
+
 ## Run
 
 Install the native [oha](https://github.com/hatoo/oha) load generator at the measured version, then run:
