@@ -222,6 +222,16 @@ Record internal monotonic work time separately from client latency and host rece
 
 No absolute throughput promise is made. Published hello-world rankings are not evidence that Camber meets this contract.
 
+### Measured public-application acceptance
+
+[`bench/PUBLIC.md`](bench/PUBLIC.md) supplies the finished consumer, cross-language comparisons, commands, exact versions and source-bound receipts. The frozen declarations are in [`bench/public_criteria.json`](bench/public_criteria.json); the historical workload budgets in [`raw_budget.json`](raw_budget.json) remain unchanged. All234 live parity checks/234 warmups and108 direct parity checks passed. The2,106 live rows and324 direct trials do not pass the frozen performance gates: paired20/216 and historical28/216 gates pass; all54 direct gates fail against both budgets.
+
+Corrected same-PID overload records actual offering end and an independent10-second reduction checkpoint while outstanding pressure work drains. All54 cases have genuine RSS observations at/before that boundary. The4GiB steady-window envelope passes54/54; the64MiB variation ceiling passes52/54, RSS≤initial+128MiB passes24/54, and100 error-free recovery requests with p99≤100ms pass54/54. All54 complete overload verdicts remain FAIL/INCONCLUSIVE. Actual sample age and late observation/recovery times remain explicit. The original post-drain timing-gap measurements and pressure errors are preserved, not relabelled.
+
+The54 overlap scenario combinations have three trials each across native single-thread/default and JS, six yielding/CPU/permitted-input workloads, and1/16 admitted requests plus separate18-permit probe headroom. Only18/162 trials pass the complete progress/latency/timeout contract;144 fail. Every workload completes with the expected response and subsequent recovery≤100ms. Real internal work/progress stamps and client-visible408/reset/EOF/late-delivery outcomes are recorded; buffered log arrival is not progress proof. Original16-permit adverses remain separate from added headroom.
+
+These are completed measurements, not passing frozen performance or aggregate-retention acceptance. Native erasure and cooperative serial-CPU constraints are disclosed without treating an upstream fix as a delivery prerequisite or attributing every failure to those causes. No benchmark requirement is relaxed, and no initial performance/release-readiness claim is made.
+
 ## Dependencies and proof boundary
 
 - **HTTP server.** The [current server](../http/README.md#serve) supplies shared HTTP/1.1 framing, packed bodies, keep-alive/pipelining, bounded rejection drain, and upload/download callbacks. HTTP 0.27.0.0 added T1/T2; #316 supplied startup ownership; published 0.28.0.0 added T3; published 0.29.0.0 added T5 actual outcomes and typed Data completion receipts. Published 0.30.0.0 adds T6 stop/drain and explicit affine stream-abort/writer-disposal callbacks. Whole serving sends `100 Continue` before its handler; streams start with headers, then finish only after complete body read/discard. Failed uploads instead consume state through abort. All convenience paths use the same owner. Transport deadlines do not preempt handlers; explicit application cleanup must actually return.

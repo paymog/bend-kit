@@ -1,0 +1,5072 @@
+{
+  "attempts": [
+    {
+      "attempt_id": "1791149256683947000",
+      "phase": "json-c-prerequisite",
+      "source_sha256": {
+        "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "d334eab21e74aa7a2093da27c08ee8afd42c54236f6793afd7a7f3e6cda88311",
+        "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+        "owned-prerequisite-driver": "3ee34171faada6047758d1340d21a0766dded248dfb7b1ebf84f728b52bb3400"
+      },
+      "commands": [
+        {
+          "command": [
+            "/opt/homebrew/bin/cmake",
+            "--version"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 823886.016250166,
+          "timeout_seconds": 30,
+          "state": "finished",
+          "pid": 59495,
+          "source_sha256": {
+            "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "d334eab21e74aa7a2093da27c08ee8afd42c54236f6793afd7a7f3e6cda88311",
+            "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+            "owned-prerequisite-driver": "3ee34171faada6047758d1340d21a0766dded248dfb7b1ebf84f728b52bb3400"
+          },
+          "seconds": 0.15432375005912036,
+          "output": "cmake version 4.4.2\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).\n",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {
+            "59495": "Sun Oct  4 16:27:36 2026    "
+          },
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 32,
+          "sampled_root_cpu_seconds": 0.0,
+          "sampled_aggregate_peak_rss_kib": 36400
+        },
+        {
+          "command": [
+            "curl",
+            "--fail",
+            "--location",
+            "--output",
+            "/tmp/camber-340-owned/json-c-0.19.tar.gz",
+            "https://s3.amazonaws.com/json-c_releases/releases/json-c-0.19.tar.gz"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 823886.171120208,
+          "timeout_seconds": 180,
+          "state": "finished",
+          "pid": 59501,
+          "source_sha256": {
+            "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "d334eab21e74aa7a2093da27c08ee8afd42c54236f6793afd7a7f3e6cda88311",
+            "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+            "owned-prerequisite-driver": "3ee34171faada6047758d1340d21a0766dded248dfb7b1ebf84f728b52bb3400"
+          },
+          "seconds": 0.4675755420466885,
+          "output": "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current\n                                 Dload  Upload   Total   Spent    Left  Speed\n\n  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0\n100  451k  100  451k    0     0  1252k      0 --:--:-- --:--:-- --:--:-- 1253k\n",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {
+            "59501": "Sun Oct  4 16:27:36 2026    "
+          },
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 7680,
+          "sampled_root_cpu_seconds": 0.01,
+          "sampled_aggregate_peak_rss_kib": 44080
+        },
+        {
+          "command": [
+            "tar",
+            "-xzf",
+            "/tmp/camber-340-owned/json-c-0.19.tar.gz",
+            "-C",
+            "/tmp/camber-340-owned/json-c-src",
+            "--strip-components",
+            "1"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 823886.640256708,
+          "timeout_seconds": 60,
+          "state": "finished",
+          "pid": 59601,
+          "source_sha256": {
+            "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "d334eab21e74aa7a2093da27c08ee8afd42c54236f6793afd7a7f3e6cda88311",
+            "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+            "owned-prerequisite-driver": "3ee34171faada6047758d1340d21a0766dded248dfb7b1ebf84f728b52bb3400"
+          },
+          "seconds": 0.16086887498386204,
+          "output": "",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {
+            "59601": "Sun Oct  4 16:27:37 2026    "
+          },
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 3376,
+          "sampled_root_cpu_seconds": 0.01,
+          "sampled_aggregate_peak_rss_kib": 42208
+        },
+        {
+          "command": [
+            "/opt/homebrew/bin/cmake",
+            "-S",
+            "/tmp/camber-340-owned/json-c-src",
+            "-B",
+            "/tmp/camber-340-owned/json-c-build",
+            "-DCMAKE_BUILD_TYPE=Release",
+            "-DBUILD_SHARED_LIBS=OFF",
+            "-DBUILD_TESTING=OFF",
+            "-DCMAKE_INSTALL_PREFIX=/tmp/camber-340-owned/json-c-prefix",
+            "-DCMAKE_INSTALL_LIBDIR=lib"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 823886.802004,
+          "timeout_seconds": 180,
+          "state": "finished",
+          "pid": 59608,
+          "source_sha256": {
+            "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "d334eab21e74aa7a2093da27c08ee8afd42c54236f6793afd7a7f3e6cda88311",
+            "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+            "owned-prerequisite-driver": "3ee34171faada6047758d1340d21a0766dded248dfb7b1ebf84f728b52bb3400"
+          },
+          "seconds": 11.106404040940106,
+          "output": "-- The C compiler identification is AppleClang 17.0.0.17000603\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- macOS detected: enabling NEWLOCALE_NEEDS_FREELOCALE to prevent memory leaks\n-- Building for Darwin\n-- Looking for fcntl.h\n-- Looking for fcntl.h - found\n-- Looking for inttypes.h\n-- Looking for inttypes.h - found\n-- Looking for stdarg.h\n-- Looking for stdarg.h - found\n-- Looking for strings.h\n-- Looking for strings.h - found\n-- Looking for string.h\n-- Looking for string.h - found\n-- Looking for syslog.h\n-- Looking for syslog.h - found\n-- Looking for 4 include files stdlib.h, ..., float.h\n-- Looking for 4 include files stdlib.h, ..., float.h - found\n-- Looking for unistd.h\n-- Looking for unistd.h - found\n-- Looking for sys/types.h\n-- Looking for sys/types.h - found\n-- Looking for sys/resource.h\n-- Looking for sys/resource.h - found\n-- Looking for dlfcn.h\n-- Looking for dlfcn.h - found\n-- Looking for endian.h\n-- Looking for endian.h - not found\n-- Looking for limits.h\n-- Looking for limits.h - found\n-- Looking for locale.h\n-- Looking for locale.h - found\n-- Looking for memory.h\n-- Looking for memory.h - found\n-- Looking for stdint.h\n-- Looking for stdint.h - found\n-- Looking for stdlib.h\n-- Looking for stdlib.h - found\n-- Looking for sys/cdefs.h\n-- Looking for sys/cdefs.h - found\n-- Looking for sys/param.h\n-- Looking for sys/param.h - found\n-- Looking for sys/random.h\n-- Looking for sys/random.h - found\n-- Looking for sys/stat.h\n-- Looking for sys/stat.h - found\n-- Looking for xlocale.h\n-- Looking for xlocale.h - found\n-- Looking for _isnan\n-- Looking for _isnan - not found\n-- Looking for _finite\n-- Looking for _finite - not found\n-- Looking for INFINITY\n-- Looking for INFINITY - found\n-- Looking for isinf\n-- Looking for isinf - found\n-- Looking for isnan\n-- Looking for isnan - found\n-- Looking for nan\n-- Looking for nan - found\n-- Looking for _doprnt\n-- Looking for _doprnt - not found\n-- Looking for snprintf\n-- Looking for snprintf - found\n-- Looking for vasprintf\n-- Looking for vasprintf - found\n-- Looking for vsnprintf\n-- Looking for vsnprintf - found\n-- Looking for vprintf\n-- Looking for vprintf - found\n-- Looking for arc4random\n-- Looking for arc4random - found\n-- Looking for open\n-- Looking for open - found\n-- Looking for realloc\n-- Looking for realloc - found\n-- Looking for setlocale\n-- Looking for setlocale - found\n-- Looking for uselocale\n-- Looking for uselocale - found\n-- Looking for duplocale\n-- Looking for duplocale - found\n-- Looking for strcasecmp\n-- Looking for strcasecmp - found\n-- Looking for strncasecmp\n-- Looking for strncasecmp - found\n-- Looking for strdup\n-- Looking for strdup - found\n-- Looking for strerror\n-- Looking for strerror - found\n-- Looking for vsyslog\n-- Looking for vsyslog - found\n-- Looking for getrandom\n-- Looking for getrandom - not found\n-- Looking for getrusage\n-- Looking for getrusage - found\n-- Looking for setrlimit\n-- Looking for setrlimit - found\n-- Looking for strtoll\n-- Looking for strtoll - found\n-- Looking for strtoull\n-- Looking for strtoull - found\n-- Looking for stddef.h\n-- Looking for stddef.h - found\n-- Check size of int\n-- Check size of int - done\n-- Check size of int64_t\n-- Check size of int64_t - done\n-- Check size of long\n-- Check size of long - done\n-- Check size of long long\n-- Check size of long long - done\n-- Check size of size_t\n-- Check size of size_t - done\n-- Check size of ssize_t\n-- Check size of ssize_t - done\nCMake Warning (policy) at CMakeLists.txt:309 (check_c_source_compiles):\n  Policy CMP0219 is not set: Macro invocations preserve backslashes in\n  arguments.  Run \"cmake --help-policy CMP0219\" for policy details.  Use the\n  cmake_policy command to set the policy and suppress this warning.\n\n  Command \"CHECK_C_SOURCE_COMPILES\" called with arguments containing\n  backslashes.\n\n  Since the policy is not set, backslashes in the arguments:\n\n   \"\n\n  extern void json_object_get();\n\n  __asm__(\".section .gnu.json_object_get\\n\\t.ascii \\\"Please link against\n  libjson-c instead of libjson\\\"\\n\\t.text\");\n\n  int main(int c, char *v) { return 0;}\n\n  \"\n\n  will be interpreted as escape sequences for compatibility.\n\n  Set the policy to NEW to instead pass\n\n   \"\n\n  extern void json_object_get();\n\n  __asm__(\".section .gnu.json_object_get\\\\n\\\\t.ascii \\\\\"Please link against\n  libjson-c instead of libjson\\\\\"\\\\n\\\\t.text\");\n\n  int main(int c, char *v) { return 0;}\n\n  \"\n\n  so that argument parsing will preserve the original values.\nThis warning is for project developers.  Use -Wno-author or -Wno-policy to\nsuppress it.\n\n-- Performing Test HAS_GNU_WARNING_LONG\n-- Performing Test HAS_GNU_WARNING_LONG - Failed\n-- Performing Test HAVE_ATOMIC_BUILTINS\n-- Performing Test HAVE_ATOMIC_BUILTINS - Success\n-- Performing Test HAVE___THREAD\n-- Performing Test HAVE___THREAD - Success\n-- Wrote /tmp/camber-340-owned/json-c-build/config.h\n-- Wrote /tmp/camber-340-owned/json-c-build/json_config.h\n-- Performing Test REENTRANT_WORKS\n-- Performing Test REENTRANT_WORKS - Success\n-- Performing Test BSYMBOLIC_WORKS\n-- Performing Test BSYMBOLIC_WORKS - Failed\n-- Performing Test VERSION_SCRIPT_WORKS\n-- Performing Test VERSION_SCRIPT_WORKS - Failed\n-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) \nWarning: doxygen not found, the 'doc' target will not be included\n-- Looking for getopt.h\n-- Looking for getopt.h - found\n-- Wrote /tmp/camber-340-owned/json-c-build/apps_config.h\n-- Configuring done (11.1s)\n-- Generating done (0.0s)\n-- Build files have been written to: /tmp/camber-340-owned/json-c-build\n",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {
+            "59608": "Sun Oct  4 16:27:37 2026    ",
+            "59732": "Sun Oct  4 16:27:37 2026    ",
+            "59734": "Sun Oct  4 16:27:37 2026    ",
+            "59744": "Sun Oct  4 16:27:37 2026    ",
+            "59777": "Sun Oct  4 16:27:37 2026    ",
+            "59778": "Sun Oct  4 16:27:37 2026    ",
+            "59776": "Sun Oct  4 16:27:37 2026    ",
+            "60078": "Sun Oct  4 16:27:38 2026    ",
+            "60079": "Sun Oct  4 16:27:39 2026    ",
+            "60080": "Sun Oct  4 16:27:39 2026    ",
+            "60082": "Sun Oct  4 16:27:39 2026    ",
+            "60083": "Sun Oct  4 16:27:39 2026    ",
+            "60319": "Sun Oct  4 16:27:39 2026    ",
+            "60366": "Sun Oct  4 16:27:39 2026    ",
+            "60512": "Sun Oct  4 16:27:39 2026    ",
+            "60485": "Sun Oct  4 16:27:39 2026    ",
+            "60486": "Sun Oct  4 16:27:39 2026    ",
+            "60487": "Sun Oct  4 16:27:39 2026    ",
+            "60502": "Sun Oct  4 16:27:39 2026    ",
+            "60772": "Sun Oct  4 16:27:39 2026    ",
+            "60758": "Sun Oct  4 16:27:39 2026    ",
+            "60760": "Sun Oct  4 16:27:39 2026    ",
+            "60762": "Sun Oct  4 16:27:39 2026    ",
+            "60947": "Sun Oct  4 16:27:39 2026    ",
+            "60948": "Sun Oct  4 16:27:39 2026    ",
+            "60949": "Sun Oct  4 16:27:39 2026    ",
+            "60950": "Sun Oct  4 16:27:39 2026    ",
+            "61238": "Sun Oct  4 16:27:39 2026    ",
+            "61383": "Sun Oct  4 16:27:40 2026    ",
+            "61268": "Sun Oct  4 16:27:39 2026    ",
+            "61269": "Sun Oct  4 16:27:40 2026    ",
+            "61270": "Sun Oct  4 16:27:40 2026    ",
+            "61569": "Sun Oct  4 16:27:40 2026    ",
+            "61572": "Sun Oct  4 16:27:40 2026    ",
+            "61573": "Sun Oct  4 16:27:40 2026    ",
+            "61566": "Sun Oct  4 16:27:40 2026    ",
+            "61567": "Sun Oct  4 16:27:40 2026    ",
+            "61729": "Sun Oct  4 16:27:40 2026    ",
+            "61730": "Sun Oct  4 16:27:40 2026    ",
+            "61726": "Sun Oct  4 16:27:40 2026    ",
+            "61727": "Sun Oct  4 16:27:40 2026    ",
+            "62040": "Sun Oct  4 16:27:40 2026    ",
+            "62278": "Sun Oct  4 16:27:40 2026    ",
+            "62732": "Sun Oct  4 16:27:41 2026    ",
+            "62873": "Sun Oct  4 16:27:41 2026    ",
+            "63104": "Sun Oct  4 16:27:41 2026    ",
+            "63092": "Sun Oct  4 16:27:41 2026    ",
+            "63093": "Sun Oct  4 16:27:41 2026    ",
+            "63095": "Sun Oct  4 16:27:41 2026    ",
+            "63101": "Sun Oct  4 16:27:41 2026    ",
+            "63102": "Sun Oct  4 16:27:41 2026    ",
+            "63264": "Sun Oct  4 16:27:41 2026    ",
+            "63265": "Sun Oct  4 16:27:41 2026    ",
+            "63254": "Sun Oct  4 16:27:41 2026    ",
+            "63255": "Sun Oct  4 16:27:41 2026    ",
+            "63257": "Sun Oct  4 16:27:41 2026    ",
+            "63425": "Sun Oct  4 16:27:41 2026    ",
+            "63419": "Sun Oct  4 16:27:41 2026    ",
+            "63420": "Sun Oct  4 16:27:41 2026    ",
+            "63421": "Sun Oct  4 16:27:41 2026    ",
+            "63584": "Sun Oct  4 16:27:41 2026    ",
+            "63585": "Sun Oct  4 16:27:41 2026    ",
+            "63586": "Sun Oct  4 16:27:41 2026    ",
+            "63588": "Sun Oct  4 16:27:41 2026    ",
+            "63589": "Sun Oct  4 16:27:41 2026    ",
+            "63748": "Sun Oct  4 16:27:41 2026    ",
+            "63749": "Sun Oct  4 16:27:41 2026    ",
+            "63751": "Sun Oct  4 16:27:42 2026    ",
+            "63754": "Sun Oct  4 16:27:42 2026    ",
+            "64013": "Sun Oct  4 16:27:42 2026    ",
+            "64120": "Sun Oct  4 16:27:42 2026    ",
+            "64192": "Sun Oct  4 16:27:42 2026    ",
+            "64184": "Sun Oct  4 16:27:42 2026    ",
+            "64181": "Sun Oct  4 16:27:42 2026    ",
+            "64182": "Sun Oct  4 16:27:42 2026    ",
+            "64190": "Sun Oct  4 16:27:42 2026    ",
+            "64191": "Sun Oct  4 16:27:42 2026    ",
+            "64478": "Sun Oct  4 16:27:42 2026    ",
+            "64667": "Sun Oct  4 16:27:42 2026    ",
+            "64824": "Sun Oct  4 16:27:42 2026    ",
+            "64931": "Sun Oct  4 16:27:42 2026    ",
+            "64992": "Sun Oct  4 16:27:42 2026    ",
+            "64993": "Sun Oct  4 16:27:42 2026    ",
+            "64999": "Sun Oct  4 16:27:43 2026    ",
+            "65000": "Sun Oct  4 16:27:43 2026    ",
+            "65001": "Sun Oct  4 16:27:43 2026    ",
+            "64990": "Sun Oct  4 16:27:42 2026    ",
+            "65219": "Sun Oct  4 16:27:43 2026    ",
+            "65225": "Sun Oct  4 16:27:43 2026    ",
+            "65232": "Sun Oct  4 16:27:43 2026    ",
+            "65246": "Sun Oct  4 16:27:43 2026    ",
+            "65409": "Sun Oct  4 16:27:43 2026    ",
+            "65405": "Sun Oct  4 16:27:43 2026    ",
+            "65406": "Sun Oct  4 16:27:43 2026    ",
+            "65407": "Sun Oct  4 16:27:43 2026    ",
+            "65568": "Sun Oct  4 16:27:43 2026    ",
+            "65574": "Sun Oct  4 16:27:43 2026    ",
+            "65566": "Sun Oct  4 16:27:43 2026    ",
+            "65567": "Sun Oct  4 16:27:43 2026    ",
+            "65729": "Sun Oct  4 16:27:43 2026    ",
+            "65730": "Sun Oct  4 16:27:43 2026    ",
+            "65725": "Sun Oct  4 16:27:43 2026    ",
+            "65726": "Sun Oct  4 16:27:43 2026    ",
+            "65727": "Sun Oct  4 16:27:43 2026    ",
+            "65888": "Sun Oct  4 16:27:43 2026    ",
+            "65891": "Sun Oct  4 16:27:43 2026    ",
+            "65895": "Sun Oct  4 16:27:43 2026    ",
+            "65886": "Sun Oct  4 16:27:43 2026    ",
+            "66051": "Sun Oct  4 16:27:43 2026    ",
+            "66209": "Sun Oct  4 16:27:43 2026    ",
+            "66210": "Sun Oct  4 16:27:43 2026    ",
+            "66211": "Sun Oct  4 16:27:43 2026    ",
+            "66481": "Sun Oct  4 16:27:44 2026    ",
+            "66483": "Sun Oct  4 16:27:44 2026    ",
+            "66484": "Sun Oct  4 16:27:44 2026    ",
+            "66489": "Sun Oct  4 16:27:44 2026    ",
+            "66645": "Sun Oct  4 16:27:44 2026    ",
+            "66646": "Sun Oct  4 16:27:44 2026    ",
+            "66650": "Sun Oct  4 16:27:44 2026    ",
+            "66648": "Sun Oct  4 16:27:44 2026    ",
+            "66893": "Sun Oct  4 16:27:44 2026    ",
+            "67083": "Sun Oct  4 16:27:44 2026    ",
+            "67162": "Sun Oct  4 16:27:44 2026    ",
+            "67288": "Sun Oct  4 16:27:44 2026    ",
+            "67281": "Sun Oct  4 16:27:44 2026    ",
+            "67282": "Sun Oct  4 16:27:44 2026    ",
+            "67283": "Sun Oct  4 16:27:44 2026    ",
+            "67289": "Sun Oct  4 16:27:44 2026    ",
+            "67290": "Sun Oct  4 16:27:44 2026    ",
+            "67440": "Sun Oct  4 16:27:44 2026    ",
+            "67441": "Sun Oct  4 16:27:44 2026    ",
+            "67442": "Sun Oct  4 16:27:44 2026    ",
+            "67447": "Sun Oct  4 16:27:45 2026    ",
+            "67449": "Sun Oct  4 16:27:45 2026    ",
+            "67685": "Sun Oct  4 16:27:45 2026    ",
+            "67686": "Sun Oct  4 16:27:45 2026    ",
+            "67687": "Sun Oct  4 16:27:45 2026    ",
+            "67689": "Sun Oct  4 16:27:45 2026    ",
+            "67691": "Sun Oct  4 16:27:45 2026    ",
+            "67843": "Sun Oct  4 16:27:45 2026    ",
+            "67844": "Sun Oct  4 16:27:45 2026    ",
+            "67845": "Sun Oct  4 16:27:45 2026    ",
+            "67848": "Sun Oct  4 16:27:45 2026    ",
+            "68004": "Sun Oct  4 16:27:45 2026    ",
+            "68163": "Sun Oct  4 16:27:45 2026    ",
+            "68158": "Sun Oct  4 16:27:45 2026    ",
+            "68294": "Sun Oct  4 16:27:45 2026    ",
+            "68474": "Sun Oct  4 16:27:45 2026    ",
+            "68479": "Sun Oct  4 16:27:45 2026    ",
+            "68580": "Sun Oct  4 16:27:45 2026    ",
+            "68640": "Sun Oct  4 16:27:45 2026    ",
+            "68641": "Sun Oct  4 16:27:45 2026    ",
+            "68642": "Sun Oct  4 16:27:45 2026    ",
+            "68672": "Sun Oct  4 16:27:46 2026    ",
+            "68673": "Sun Oct  4 16:27:46 2026    ",
+            "68671": "Sun Oct  4 16:27:46 2026    ",
+            "68930": "Sun Oct  4 16:27:46 2026    ",
+            "68926": "Sun Oct  4 16:27:46 2026    ",
+            "69086": "Sun Oct  4 16:27:46 2026    ",
+            "69168": "Sun Oct  4 16:27:46 2026    ",
+            "69257": "Sun Oct  4 16:27:46 2026    ",
+            "69259": "Sun Oct  4 16:27:46 2026    ",
+            "69260": "Sun Oct  4 16:27:46 2026    ",
+            "69265": "Sun Oct  4 16:27:46 2026    ",
+            "69266": "Sun Oct  4 16:27:46 2026    ",
+            "69267": "Sun Oct  4 16:27:46 2026    ",
+            "69416": "Sun Oct  4 16:27:46 2026    ",
+            "69417": "Sun Oct  4 16:27:46 2026    ",
+            "69418": "Sun Oct  4 16:27:46 2026    ",
+            "69423": "Sun Oct  4 16:27:46 2026    ",
+            "69425": "Sun Oct  4 16:27:46 2026    ",
+            "69574": "Sun Oct  4 16:27:46 2026    ",
+            "69575": "Sun Oct  4 16:27:46 2026    ",
+            "69576": "Sun Oct  4 16:27:46 2026    ",
+            "69579": "Sun Oct  4 16:27:46 2026    ",
+            "69735": "Sun Oct  4 16:27:46 2026    ",
+            "69835": "Sun Oct  4 16:27:47 2026    ",
+            "69987": "Sun Oct  4 16:27:47 2026    ",
+            "69988": "Sun Oct  4 16:27:47 2026    ",
+            "69990": "Sun Oct  4 16:27:47 2026    ",
+            "69978": "Sun Oct  4 16:27:47 2026    ",
+            "69979": "Sun Oct  4 16:27:47 2026    ",
+            "69980": "Sun Oct  4 16:27:47 2026    ",
+            "70145": "Sun Oct  4 16:27:47 2026    ",
+            "70139": "Sun Oct  4 16:27:47 2026    ",
+            "70140": "Sun Oct  4 16:27:47 2026    ",
+            "70141": "Sun Oct  4 16:27:47 2026    ",
+            "70297": "Sun Oct  4 16:27:47 2026    ",
+            "70298": "Sun Oct  4 16:27:47 2026    ",
+            "70299": "Sun Oct  4 16:27:47 2026    ",
+            "70302": "Sun Oct  4 16:27:47 2026    ",
+            "70457": "Sun Oct  4 16:27:47 2026    ",
+            "70459": "Sun Oct  4 16:27:47 2026    ",
+            "70612": "Sun Oct  4 16:27:47 2026    ",
+            "70613": "Sun Oct  4 16:27:47 2026    ",
+            "70614": "Sun Oct  4 16:27:47 2026    ",
+            "70618": "Sun Oct  4 16:27:47 2026    ",
+            "70770": "Sun Oct  4 16:27:47 2026    ",
+            "70771": "Sun Oct  4 16:27:47 2026    ",
+            "70772": "Sun Oct  4 16:27:47 2026    ",
+            "70778": "Sun Oct  4 16:27:47 2026    ",
+            "70932": "Sun Oct  4 16:27:47 2026    ",
+            "70933": "Sun Oct  4 16:27:47 2026    ",
+            "70934": "Sun Oct  4 16:27:47 2026    ",
+            "70936": "Sun Oct  4 16:27:47 2026    ",
+            "71521": "Sun Oct  4 16:27:48 2026    ",
+            "71522": "Sun Oct  4 16:27:48 2026    ",
+            "71523": "Sun Oct  4 16:27:48 2026    ",
+            "71529": "Sun Oct  4 16:27:48 2026    ",
+            "71530": "Sun Oct  4 16:27:48 2026    ",
+            "71532": "Sun Oct  4 16:27:48 2026    "
+          },
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 18256,
+          "sampled_root_cpu_seconds": 1.19,
+          "sampled_aggregate_peak_rss_kib": 136688
+        },
+        {
+          "command": [
+            "/opt/homebrew/bin/cmake",
+            "--build",
+            "/tmp/camber-340-owned/json-c-build",
+            "--parallel",
+            "1"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 823897.909296625,
+          "timeout_seconds": 300,
+          "state": "finished",
+          "pid": 71536,
+          "source_sha256": {
+            "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "d334eab21e74aa7a2093da27c08ee8afd42c54236f6793afd7a7f3e6cda88311",
+            "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+            "owned-prerequisite-driver": "3ee34171faada6047758d1340d21a0766dded248dfb7b1ebf84f728b52bb3400"
+          },
+          "seconds": 1.608246208052151,
+          "output": "[  5%] Building C object CMakeFiles/json-c.dir/arraylist.c.o\n[ 11%] Building C object CMakeFiles/json-c.dir/debug.c.o\n[ 17%] Building C object CMakeFiles/json-c.dir/json_c_version.c.o\n[ 23%] Building C object CMakeFiles/json-c.dir/json_object.c.o\n[ 29%] Building C object CMakeFiles/json-c.dir/json_object_iterator.c.o\n[ 35%] Building C object CMakeFiles/json-c.dir/json_tokener.c.o\n[ 41%] Building C object CMakeFiles/json-c.dir/json_util.c.o\n[ 47%] Building C object CMakeFiles/json-c.dir/json_visit.c.o\n[ 52%] Building C object CMakeFiles/json-c.dir/linkhash.c.o\n[ 58%] Building C object CMakeFiles/json-c.dir/printbuf.c.o\n[ 64%] Building C object CMakeFiles/json-c.dir/random_seed.c.o\n[ 70%] Building C object CMakeFiles/json-c.dir/strerror_override.c.o\n[ 76%] Building C object CMakeFiles/json-c.dir/json_pointer.c.o\n[ 82%] Building C object CMakeFiles/json-c.dir/json_patch.c.o\n[ 88%] Linking C static library libjson-c.a\n[ 88%] Built target json-c\n[ 94%] Building C object apps/CMakeFiles/json_parse.dir/json_parse.c.o\n[100%] Linking C executable json_parse\nld: warning: search path '/usr/local/opt/zlib/lib' not found\nld: warning: search path '/usr/local/opt/bzip2/lib' not found\n[100%] Built target json_parse\n",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {
+            "71536": "Sun Oct  4 16:27:48 2026    ",
+            "71538": "Sun Oct  4 16:27:48 2026    ",
+            "71542": "Sun Oct  4 16:27:48 2026    ",
+            "71547": "Sun Oct  4 16:27:48 2026    ",
+            "71549": "Sun Oct  4 16:27:48 2026    ",
+            "71551": "Sun Oct  4 16:27:48 2026    ",
+            "71557": "Sun Oct  4 16:27:48 2026    ",
+            "71560": "Sun Oct  4 16:27:48 2026    ",
+            "71561": "Sun Oct  4 16:27:48 2026    ",
+            "71569": "Sun Oct  4 16:27:48 2026    ",
+            "71570": "Sun Oct  4 16:27:48 2026    ",
+            "71662": "Sun Oct  4 16:27:49 2026    ",
+            "71664": "Sun Oct  4 16:27:49 2026    ",
+            "71671": "Sun Oct  4 16:27:49 2026    ",
+            "71673": "Sun Oct  4 16:27:49 2026    ",
+            "71691": "Sun Oct  4 16:27:49 2026    ",
+            "71692": "Sun Oct  4 16:27:49 2026    ",
+            "71809": "Sun Oct  4 16:27:49 2026    ",
+            "71811": "Sun Oct  4 16:27:49 2026    ",
+            "71818": "Sun Oct  4 16:27:49 2026    ",
+            "71820": "Sun Oct  4 16:27:49 2026    ",
+            "71822": "Sun Oct  4 16:27:49 2026    ",
+            "71827": "Sun Oct  4 16:27:49 2026    ",
+            "71861": "Sun Oct  4 16:27:49 2026    ",
+            "71873": "Sun Oct  4 16:27:50 2026    ",
+            "71874": "Sun Oct  4 16:27:50 2026    ",
+            "71875": "Sun Oct  4 16:27:50 2026    ",
+            "71888": "Sun Oct  4 16:27:50 2026    ",
+            "71866": "Sun Oct  4 16:27:49 2026    "
+          },
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 10832,
+          "sampled_root_cpu_seconds": 0.01,
+          "sampled_aggregate_peak_rss_kib": 147472
+        },
+        {
+          "command": [
+            "/opt/homebrew/bin/cmake",
+            "--install",
+            "/tmp/camber-340-owned/json-c-build"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 823899.518380833,
+          "timeout_seconds": 120,
+          "state": "finished",
+          "pid": 72013,
+          "source_sha256": {
+            "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "d334eab21e74aa7a2093da27c08ee8afd42c54236f6793afd7a7f3e6cda88311",
+            "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+            "owned-prerequisite-driver": "3ee34171faada6047758d1340d21a0766dded248dfb7b1ebf84f728b52bb3400"
+          },
+          "seconds": 0.04978500003926456,
+          "output": "-- Install configuration: \"Release\"\n-- Installing: /tmp/camber-340-owned/json-c-prefix/lib/libjson-c.a\n-- Installing: /tmp/camber-340-owned/json-c-prefix/lib/cmake/json-c/json-c-targets.cmake\n-- Installing: /tmp/camber-340-owned/json-c-prefix/lib/cmake/json-c/json-c-targets-release.cmake\n-- Installing: /tmp/camber-340-owned/json-c-prefix/lib/cmake/json-c/json-c-config.cmake\n-- Installing: /tmp/camber-340-owned/json-c-prefix/lib/pkgconfig/json-c.pc\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_config.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/arraylist.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/debug.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_c_version.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_inttypes.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_object.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_object_iterator.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_tokener.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_types.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_util.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_visit.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/linkhash.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/printbuf.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_pointer.h\n-- Installing: /tmp/camber-340-owned/json-c-prefix/include/json-c/json_patch.h\n",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {},
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 8160,
+          "sampled_root_cpu_seconds": 0.0,
+          "sampled_aggregate_peak_rss_kib": 45728
+        }
+      ],
+      "server_commands": [],
+      "release": [],
+      "verdict": "PASS",
+      "dependency": {
+        "version": "0.19",
+        "url": "https://s3.amazonaws.com/json-c_releases/releases/json-c-0.19.tar.gz",
+        "expected_sha256": "37ad0249902e301bd9052bf712e511fcc6acff4ecaad4b5900aad9ce564e26de",
+        "owned_prefix": "/tmp/camber-340-owned/json-c-prefix",
+        "actual_sha256": "37ad0249902e301bd9052bf712e511fcc6acff4ecaad4b5900aad9ce564e26de",
+        "archive_bytes": 462232
+      },
+      "cmake_version": "cmake version 4.4.2\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).\n",
+      "installed_artifacts": {
+        "include/json-c/arraylist.h": {
+          "bytes": 2840,
+          "sha256": "78b073c2b8880d36afa75e5fd3836ee67f8fd7b56921080245e8434496778cb2"
+        },
+        "include/json-c/debug.h": {
+          "bytes": 2703,
+          "sha256": "41e878c2f47ad099074dacbb62fd49148decdddae63ddec7922643e32baea1db"
+        },
+        "include/json-c/json.h": {
+          "bytes": 834,
+          "sha256": "05408079f9d62dbec3c4ebc2c05babdc0f70cf130fdbda39c95337805a358f25"
+        },
+        "include/json-c/json_c_version.h": {
+          "bytes": 1368,
+          "sha256": "6c9464ee85f78d2392e296b9ae2128cd8b1e95a855282159d2fe5a8462159909"
+        },
+        "include/json-c/json_config.h": {
+          "bytes": 183,
+          "sha256": "fefd78485ec4eca046bb436941b0ba32c72c3d5422c0393c2dfea6bc6eaa8cc4"
+        },
+        "include/json-c/json_inttypes.h": {
+          "bytes": 696,
+          "sha256": "21b1d1f2e098c19d31c9bc5ae023ae5aaa87ffaa43d01da51c5bee933586ffdf"
+        },
+        "include/json-c/json_object.h": {
+          "bytes": 45221,
+          "sha256": "20499c79777b310c8347319b93a07ecc04c92eb117e00b5197f7be02be88e09e"
+        },
+        "include/json-c/json_object_iterator.h": {
+          "bytes": 9589,
+          "sha256": "2c6b61d3cf20cdab4ebe0968e660c9cc77fdd8efa83924fb4869fa0cdd7a745e"
+        },
+        "include/json-c/json_patch.h": {
+          "bytes": 2455,
+          "sha256": "fb92cc4b674801a4381e5e623b3964e9f9f794f229da4612cafca632e8701176"
+        },
+        "include/json-c/json_pointer.h": {
+          "bytes": 8002,
+          "sha256": "ce07ecc738c89ee972008262399861982df1ee76729afed26251268c2a20d0d4"
+        },
+        "include/json-c/json_tokener.h": {
+          "bytes": 10646,
+          "sha256": "7d9e119b8f5f90141561e41f1da1b635485f440dc67d2240b902d9c11be42ca6"
+        },
+        "include/json-c/json_types.h": {
+          "bytes": 1666,
+          "sha256": "fc4f78e373ca0e6e349d3b2ce0d162088e63704b3db3b50f80766a81bfecf2d1"
+        },
+        "include/json-c/json_util.h": {
+          "bytes": 3920,
+          "sha256": "a2da94a510583a7e9bae8892ee239615cc26efcf3c41654cefb4e589e63df351"
+        },
+        "include/json-c/json_visit.h": {
+          "bytes": 3175,
+          "sha256": "7d647144074951c6807752e11563654ffcfb63bd35d4c341591b3b2b5a68e399"
+        },
+        "include/json-c/linkhash.h": {
+          "bytes": 12830,
+          "sha256": "13f9730357d6015c5e93da8980952520b190183cf7dcbd4a3280acb5147f83cc"
+        },
+        "include/json-c/printbuf.h": {
+          "bytes": 4353,
+          "sha256": "ce5fbc9f02e27566700fe9f3c40c852f2abaf58088cda1d75139802c536e8a0f"
+        },
+        "lib/cmake/json-c/json-c-config.cmake": {
+          "bytes": 968,
+          "sha256": "76b03e7e175a9f9e611d370a3fbd3bce1c1c32ae95763c8c9f842120fe405f20"
+        },
+        "lib/cmake/json-c/json-c-targets-release.cmake": {
+          "bytes": 841,
+          "sha256": "a2f8de0f2df3b609c8fdcf364d224d5d9a3a0f0ce04d215b2d908eca0c24d130"
+        },
+        "lib/cmake/json-c/json-c-targets.cmake": {
+          "bytes": 4184,
+          "sha256": "7a28e7c6909548301d305e6122ed3ce5ff59cf069385fd3d6852b56ce5c7c111"
+        },
+        "lib/libjson-c.a": {
+          "bytes": 90544,
+          "sha256": "4c1b97e01afc3ba96798da3005e09442034a0b8a60b9bf9c9f2a4e9fa0c4204c"
+        },
+        "lib/pkgconfig/json-c.pc": {
+          "bytes": 363,
+          "sha256": "cadf06eb8b933fd5cb71853da1450548b977b89590c5ce678162f7326d4d5f40"
+        }
+      },
+      "guard_samples": [
+        {
+          "host_monotonic": 823886.04236675,
+          "aggregate_rss_kib": 35856,
+          "processes": {
+            "59497": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 33824,
+              "cpu_seconds": 0.09,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59495": {
+              "ppid": 59492,
+              "rss_kib": 32,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.146366083,
+          "aggregate_rss_kib": 36400,
+          "processes": {
+            "59499": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34368,
+              "cpu_seconds": 0.09,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59495": {
+              "ppid": 59492,
+              "rss_kib": 32,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.198231666,
+          "aggregate_rss_kib": 40016,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34368,
+              "cpu_seconds": 0.09,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59501": {
+              "ppid": 59492,
+              "rss_kib": 3648,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59502": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.27867475,
+          "aggregate_rss_kib": 43616,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34384,
+              "cpu_seconds": 0.1,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59501": {
+              "ppid": 59492,
+              "rss_kib": 7232,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59503": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.412159291,
+          "aggregate_rss_kib": 44064,
+          "processes": {
+            "59538": {
+              "ppid": 59492,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34384,
+              "cpu_seconds": 0.1,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59501": {
+              "ppid": 59492,
+              "rss_kib": 7616,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.539795416,
+          "aggregate_rss_kib": 44080,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34400,
+              "cpu_seconds": 0.1,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59501": {
+              "ppid": 59492,
+              "rss_kib": 7680,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59599": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.668891541,
+          "aggregate_rss_kib": 40864,
+          "processes": {
+            "59601": {
+              "ppid": 59492,
+              "rss_kib": 3376,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59602": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59603": {
+              "ppid": 59492,
+              "rss_kib": 720,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34768,
+              "cpu_seconds": 0.11,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.669585708,
+          "aggregate_rss_kib": 42208,
+          "processes": {
+            "59601": {
+              "ppid": 59492,
+              "rss_kib": 3376,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59602": {
+              "ppid": 59492,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59603": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34768,
+              "cpu_seconds": 0.11,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.800496541,
+          "aggregate_rss_kib": 38928,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34896,
+              "cpu_seconds": 0.12,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59606": {
+              "ppid": 59492,
+              "rss_kib": 2032,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59607": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.827731875,
+          "aggregate_rss_kib": 43440,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 6448,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59609": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 34992,
+              "cpu_seconds": 0.12,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823886.931143375,
+          "aggregate_rss_kib": 55248,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14256,
+              "cpu_seconds": 0.03,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35024,
+              "cpu_seconds": 0.12,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59733": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59732": {
+              "ppid": 59608,
+              "rss_kib": 3968,
+              "cpu_seconds": 0.02,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823887.059963458,
+          "aggregate_rss_kib": 90656,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35024,
+              "cpu_seconds": 0.13,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59732": {
+              "ppid": 59608,
+              "rss_kib": 16192,
+              "cpu_seconds": 0.07,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59734": {
+              "ppid": 59732,
+              "rss_kib": 23184,
+              "cpu_seconds": 0.03,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59735": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14256,
+              "cpu_seconds": 0.03,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823887.193023625,
+          "aggregate_rss_kib": 59936,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14320,
+              "cpu_seconds": 0.03,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59745": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35040,
+              "cpu_seconds": 0.13,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59744": {
+              "ppid": 59608,
+              "rss_kib": 8576,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823887.31906225,
+          "aggregate_rss_kib": 69408,
+          "processes": {
+            "59776": {
+              "ppid": 59608,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59777": {
+              "ppid": 59776,
+              "rss_kib": 2224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59778": {
+              "ppid": 59777,
+              "rss_kib": 7136,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35040,
+              "cpu_seconds": 0.13,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59780": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14464,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823887.490897708,
+          "aggregate_rss_kib": 70768,
+          "processes": {
+            "59776": {
+              "ppid": 59608,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59777": {
+              "ppid": 59776,
+              "rss_kib": 2224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59778": {
+              "ppid": 59777,
+              "rss_kib": 8448,
+              "cpu_seconds": 0.1,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35040,
+              "cpu_seconds": 0.13,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59797": {
+              "ppid": 59492,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14464,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823887.62010625,
+          "aggregate_rss_kib": 90304,
+          "processes": {
+            "59776": {
+              "ppid": 59608,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59777": {
+              "ppid": 59776,
+              "rss_kib": 2224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59778": {
+              "ppid": 59777,
+              "rss_kib": 27952,
+              "cpu_seconds": 0.2,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59891": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.14,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14464,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823887.748494666,
+          "aggregate_rss_kib": 104304,
+          "processes": {
+            "59776": {
+              "ppid": 59608,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59777": {
+              "ppid": 59776,
+              "rss_kib": 2224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59778": {
+              "ppid": 59777,
+              "rss_kib": 41952,
+              "cpu_seconds": 0.27,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.14,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59892": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14464,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823887.87787675,
+          "aggregate_rss_kib": 127344,
+          "processes": {
+            "59776": {
+              "ppid": 59608,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59777": {
+              "ppid": 59776,
+              "rss_kib": 2224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59778": {
+              "ppid": 59777,
+              "rss_kib": 64992,
+              "cpu_seconds": 0.34,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.14,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59895": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14464,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.008026833,
+          "aggregate_rss_kib": 132240,
+          "processes": {
+            "59776": {
+              "ppid": 59608,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59777": {
+              "ppid": 59776,
+              "rss_kib": 2224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59778": {
+              "ppid": 59777,
+              "rss_kib": 69888,
+              "cpu_seconds": 0.41,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59896": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.14,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14464,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.135562625,
+          "aggregate_rss_kib": 136688,
+          "processes": {
+            "59776": {
+              "ppid": 59608,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59777": {
+              "ppid": 59776,
+              "rss_kib": 2224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59778": {
+              "ppid": 59777,
+              "rss_kib": 74336,
+              "cpu_seconds": 0.51,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.15,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14464,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59897": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.265522916,
+          "aggregate_rss_kib": 51888,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 14768,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.15,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59900": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.396558,
+          "aggregate_rss_kib": 108048,
+          "processes": {
+            "60080": {
+              "ppid": 60079,
+              "rss_kib": 1680,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60082": {
+              "ppid": 60080,
+              "rss_kib": 16496,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60083": {
+              "ppid": 60082,
+              "rss_kib": 24128,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.15,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "60084": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 16656,
+              "cpu_seconds": 0.06,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "60078": {
+              "ppid": 59608,
+              "rss_kib": 10416,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:38 2026    "
+            },
+            "60079": {
+              "ppid": 60078,
+              "rss_kib": 1552,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.525371916,
+          "aggregate_rss_kib": 54576,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17392,
+              "cpu_seconds": 0.09,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "60322": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35120,
+              "cpu_seconds": 0.15,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "60319": {
+              "ppid": 59608,
+              "rss_kib": 64,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.65293625,
+          "aggregate_rss_kib": 54960,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17600,
+              "cpu_seconds": 0.1,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "60337": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35136,
+              "cpu_seconds": 0.16,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "60366": {
+              "ppid": 59608,
+              "rss_kib": 224,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.796899375,
+          "aggregate_rss_kib": 86544,
+          "processes": {
+            "60512": {
+              "ppid": 60502,
+              "rss_kib": 7360,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60513": {
+              "ppid": 59492,
+              "rss_kib": 2080,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35168,
+              "cpu_seconds": 0.16,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "60485": {
+              "ppid": 59608,
+              "rss_kib": 10400,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60486": {
+              "ppid": 60485,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60487": {
+              "ppid": 60486,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60502": {
+              "ppid": 60487,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17648,
+              "cpu_seconds": 0.11,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823888.9268435,
+          "aggregate_rss_kib": 76736,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35232,
+              "cpu_seconds": 0.16,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "60772": {
+              "ppid": 60762,
+              "rss_kib": 7920,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60758": {
+              "ppid": 59608,
+              "rss_kib": 10384,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60773": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60760": {
+              "ppid": 60758,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60762": {
+              "ppid": 60760,
+              "rss_kib": 1776,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17664,
+              "cpu_seconds": 0.13,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.054290708,
+          "aggregate_rss_kib": 68960,
+          "processes": {
+            "60947": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35232,
+              "cpu_seconds": 0.16,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "60948": {
+              "ppid": 60947,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60949": {
+              "ppid": 60948,
+              "rss_kib": 1792,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "60950": {
+              "ppid": 60949,
+              "rss_kib": 208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17664,
+              "cpu_seconds": 0.15,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "60951": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.183210791,
+          "aggregate_rss_kib": 54912,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17680,
+              "cpu_seconds": 0.16,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "61106": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35232,
+              "cpu_seconds": 0.17,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.311039458,
+          "aggregate_rss_kib": 58032,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17680,
+              "cpu_seconds": 0.17,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35232,
+              "cpu_seconds": 0.17,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "61213": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "61238": {
+              "ppid": 59608,
+              "rss_kib": 3120,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.453030875,
+          "aggregate_rss_kib": 69776,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.17,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "61268": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:39 2026    "
+            },
+            "61269": {
+              "ppid": 61268,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61383": {
+              "ppid": 61270,
+              "rss_kib": 896,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61270": {
+              "ppid": 61269,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61369": {
+              "ppid": 59492,
+              "rss_kib": 2032,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17712,
+              "cpu_seconds": 0.19,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.580567125,
+          "aggregate_rss_kib": 111408,
+          "processes": {
+            "61569": {
+              "ppid": 61567,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.17,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "61572": {
+              "ppid": 61569,
+              "rss_kib": 16288,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61573": {
+              "ppid": 61572,
+              "rss_kib": 26240,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61574": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17712,
+              "cpu_seconds": 0.2,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "61566": {
+              "ppid": 59608,
+              "rss_kib": 10384,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61567": {
+              "ppid": 61566,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.708062958,
+          "aggregate_rss_kib": 69504,
+          "processes": {
+            "61728": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61729": {
+              "ppid": 61727,
+              "rss_kib": 1792,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61730": {
+              "ppid": 61729,
+              "rss_kib": 688,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.18,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17712,
+              "cpu_seconds": 0.22,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "61726": {
+              "ppid": 59608,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "61727": {
+              "ppid": 61726,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.832858,
+          "aggregate_rss_kib": 54976,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17712,
+              "cpu_seconds": 0.23,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.18,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "61885": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823889.9605185,
+          "aggregate_rss_kib": 57280,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17728,
+              "cpu_seconds": 0.25,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "62041": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "62040": {
+              "ppid": 59608,
+              "rss_kib": 2288,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.18,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.087112083,
+          "aggregate_rss_kib": 54992,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17728,
+              "cpu_seconds": 0.26,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "62148": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.18,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.216109583,
+          "aggregate_rss_kib": 56192,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17728,
+              "cpu_seconds": 0.27,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.19,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "62278": {
+              "ppid": 59608,
+              "rss_kib": 1200,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            },
+            "62247": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.344486916,
+          "aggregate_rss_kib": 54992,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17728,
+              "cpu_seconds": 0.3,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.19,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "62524": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:40 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.473822166,
+          "aggregate_rss_kib": 58224,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17728,
+              "cpu_seconds": 0.31,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "62700": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.19,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "62732": {
+              "ppid": 59608,
+              "rss_kib": 3232,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.600416125,
+          "aggregate_rss_kib": 56192,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.33,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "62873": {
+              "ppid": 59608,
+              "rss_kib": 1184,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "62840": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.19,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.726337041,
+          "aggregate_rss_kib": 55008,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.34,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.2,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "62942": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.854906375,
+          "aggregate_rss_kib": 108848,
+          "processes": {
+            "63104": {
+              "ppid": 63102,
+              "rss_kib": 13904,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63105": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.2,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "63092": {
+              "ppid": 59608,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63093": {
+              "ppid": 63092,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63095": {
+              "ppid": 63093,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.35,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "63101": {
+              "ppid": 63095,
+              "rss_kib": 10256,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63102": {
+              "ppid": 63101,
+              "rss_kib": 15824,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823890.9829975,
+          "aggregate_rss_kib": 85856,
+          "processes": {
+            "63264": {
+              "ppid": 63257,
+              "rss_kib": 10304,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63265": {
+              "ppid": 63264,
+              "rss_kib": 6624,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63266": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.2,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "63254": {
+              "ppid": 59608,
+              "rss_kib": 10384,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63255": {
+              "ppid": 63254,
+              "rss_kib": 1696,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.37,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "63257": {
+              "ppid": 63255,
+              "rss_kib": 1840,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823891.110161875,
+          "aggregate_rss_kib": 78976,
+          "processes": {
+            "63425": {
+              "ppid": 63421,
+              "rss_kib": 10032,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63426": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.2,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.39,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "63419": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63420": {
+              "ppid": 63419,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63421": {
+              "ppid": 63420,
+              "rss_kib": 1840,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823891.239016416,
+          "aggregate_rss_kib": 112208,
+          "processes": {
+            "63584": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63585": {
+              "ppid": 63584,
+              "rss_kib": 1696,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63586": {
+              "ppid": 63585,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35264,
+              "cpu_seconds": 0.2,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "63588": {
+              "ppid": 63586,
+              "rss_kib": 16272,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63589": {
+              "ppid": 63588,
+              "rss_kib": 27056,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63590": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.4,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823891.371976583,
+          "aggregate_rss_kib": 74128,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35280,
+              "cpu_seconds": 0.21,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "63748": {
+              "ppid": 59608,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63749": {
+              "ppid": 63748,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:41 2026    "
+            },
+            "63751": {
+              "ppid": 63749,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.42,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "63753": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "63754": {
+              "ppid": 63751,
+              "rss_kib": 5200,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823891.500710041,
+          "aggregate_rss_kib": 56448,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.43,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "63989": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35280,
+              "cpu_seconds": 0.21,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "64013": {
+              "ppid": 59608,
+              "rss_kib": 1424,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823891.630450958,
+          "aggregate_rss_kib": 56256,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.44,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "64091": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64120": {
+              "ppid": 59608,
+              "rss_kib": 1232,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35280,
+              "cpu_seconds": 0.21,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823891.760043458,
+          "aggregate_rss_kib": 136368,
+          "processes": {
+            "64192": {
+              "ppid": 64191,
+              "rss_kib": 41344,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64193": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35280,
+              "cpu_seconds": 0.21,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "64191": {
+              "ppid": 64190,
+              "rss_kib": 15840,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64181": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64182": {
+              "ppid": 64181,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64184": {
+              "ppid": 64182,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64190": {
+              "ppid": 64184,
+              "rss_kib": 10272,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17744,
+              "cpu_seconds": 0.45,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823891.884897125,
+          "aggregate_rss_kib": 59008,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17760,
+              "cpu_seconds": 0.48,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35296,
+              "cpu_seconds": 0.22,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "64478": {
+              "ppid": 59608,
+              "rss_kib": 3952,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64479": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.017116083,
+          "aggregate_rss_kib": 55200,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17760,
+              "cpu_seconds": 0.51,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "64666": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64667": {
+              "ppid": 59608,
+              "rss_kib": 128,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35312,
+              "cpu_seconds": 0.22,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.145777666,
+          "aggregate_rss_kib": 57184,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17760,
+              "cpu_seconds": 0.52,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "64824": {
+              "ppid": 59608,
+              "rss_kib": 2112,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35312,
+              "cpu_seconds": 0.22,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "64799": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.274221958,
+          "aggregate_rss_kib": 55264,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.53,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "64931": {
+              "ppid": 59608,
+              "rss_kib": 176,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35312,
+              "cpu_seconds": 0.22,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "64891": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.402296583,
+          "aggregate_rss_kib": 136416,
+          "processes": {
+            "64992": {
+              "ppid": 64990,
+              "rss_kib": 1696,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "64993": {
+              "ppid": 64992,
+              "rss_kib": 1776,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35312,
+              "cpu_seconds": 0.23,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "64999": {
+              "ppid": 64993,
+              "rss_kib": 10288,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65000": {
+              "ppid": 64999,
+              "rss_kib": 15872,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65001": {
+              "ppid": 65000,
+              "rss_kib": 41344,
+              "cpu_seconds": 0.04,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65002": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.54,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "64990": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:42 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.531654625,
+          "aggregate_rss_kib": 71072,
+          "processes": {
+            "65232": {
+              "ppid": 65225,
+              "rss_kib": 1856,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65219": {
+              "ppid": 59608,
+              "rss_kib": 10416,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35312,
+              "cpu_seconds": 0.23,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.56,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "65225": {
+              "ppid": 65219,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65245": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65246": {
+              "ppid": 65232,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.661351166,
+          "aggregate_rss_kib": 69152,
+          "processes": {
+            "65409": {
+              "ppid": 65407,
+              "rss_kib": 176,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65410": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35312,
+              "cpu_seconds": 0.23,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.58,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "65405": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65406": {
+              "ppid": 65405,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65407": {
+              "ppid": 65406,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.789542708,
+          "aggregate_rss_kib": 69536,
+          "processes": {
+            "65568": {
+              "ppid": 65567,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35328,
+              "cpu_seconds": 0.23,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "65573": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65574": {
+              "ppid": 65568,
+              "rss_kib": 576,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.59,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "65566": {
+              "ppid": 59608,
+              "rss_kib": 10320,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65567": {
+              "ppid": 65566,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823892.919841916,
+          "aggregate_rss_kib": 112064,
+          "processes": {
+            "65729": {
+              "ppid": 65727,
+              "rss_kib": 16256,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65730": {
+              "ppid": 65729,
+              "rss_kib": 26864,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65731": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35328,
+              "cpu_seconds": 0.24,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.61,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "65725": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65726": {
+              "ppid": 65725,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65727": {
+              "ppid": 65726,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.047356125,
+          "aggregate_rss_kib": 70544,
+          "processes": {
+            "65888": {
+              "ppid": 65886,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65891": {
+              "ppid": 65888,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35328,
+              "cpu_seconds": 0.24,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "65894": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "65895": {
+              "ppid": 65891,
+              "rss_kib": 1536,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.63,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "65886": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.17153175,
+          "aggregate_rss_kib": 55584,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.64,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "66050": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "66051": {
+              "ppid": 59608,
+              "rss_kib": 480,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35328,
+              "cpu_seconds": 0.24,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.302598583,
+          "aggregate_rss_kib": 55104,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.65,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "66179": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35328,
+              "cpu_seconds": 0.24,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.459355208,
+          "aggregate_rss_kib": 65552,
+          "processes": {
+            "66209": {
+              "ppid": 59608,
+              "rss_kib": 10400,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "66210": {
+              "ppid": 66209,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "66211": {
+              "ppid": 66210,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:43 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35328,
+              "cpu_seconds": 0.25,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "66262": {
+              "ppid": 59492,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.66,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.589508875,
+          "aggregate_rss_kib": 69072,
+          "processes": {
+            "66481": {
+              "ppid": 59608,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "66483": {
+              "ppid": 66481,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.25,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "66484": {
+              "ppid": 66483,
+              "rss_kib": 1776,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "66488": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.68,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "66489": {
+              "ppid": 66484,
+              "rss_kib": 128,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.718813,
+          "aggregate_rss_kib": 85312,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.25,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "66645": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "66646": {
+              "ppid": 66645,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "66651": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.7,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "66650": {
+              "ppid": 66648,
+              "rss_kib": 16288,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "66648": {
+              "ppid": 66646,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.848275291,
+          "aggregate_rss_kib": 55264,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.71,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "66897": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.25,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "66893": {
+              "ppid": 59608,
+              "rss_kib": 128,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823893.972559375,
+          "aggregate_rss_kib": 58672,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.73,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "67083": {
+              "ppid": 59608,
+              "rss_kib": 3552,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.26,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "67053": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823894.099563291,
+          "aggregate_rss_kib": 57648,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17776,
+              "cpu_seconds": 0.74,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "67162": {
+              "ppid": 59608,
+              "rss_kib": 2528,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67131": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.26,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823894.233653625,
+          "aggregate_rss_kib": 95152,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.26,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "67281": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67282": {
+              "ppid": 67281,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67283": {
+              "ppid": 67282,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67288": {
+              "ppid": 67283,
+              "rss_kib": 10272,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67289": {
+              "ppid": 67288,
+              "rss_kib": 15856,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67290": {
+              "ppid": 67289,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67291": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.76,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823894.369879333,
+          "aggregate_rss_kib": 85824,
+          "processes": {
+            "67440": {
+              "ppid": 59608,
+              "rss_kib": 10384,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67441": {
+              "ppid": 67440,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "67442": {
+              "ppid": 67441,
+              "rss_kib": 1856,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:44 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.26,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "67448": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67447": {
+              "ppid": 67442,
+              "rss_kib": 10288,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.77,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "67449": {
+              "ppid": 67447,
+              "rss_kib": 6432,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823894.496099208,
+          "aggregate_rss_kib": 99552,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.27,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "67685": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67686": {
+              "ppid": 67685,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67687": {
+              "ppid": 67686,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.79,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "67689": {
+              "ppid": 67687,
+              "rss_kib": 16304,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67690": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67691": {
+              "ppid": 67689,
+              "rss_kib": 14208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823894.62398375,
+          "aggregate_rss_kib": 74560,
+          "processes": {
+            "67843": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.27,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "67844": {
+              "ppid": 67843,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67845": {
+              "ppid": 67844,
+              "rss_kib": 1792,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67847": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "67848": {
+              "ppid": 67845,
+              "rss_kib": 5536,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.81,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823894.753571041,
+          "aggregate_rss_kib": 60144,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.82,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "68004": {
+              "ppid": 59608,
+              "rss_kib": 5008,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "68003": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35344,
+              "cpu_seconds": 0.27,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823894.879495708,
+          "aggregate_rss_kib": 58528,
+          "processes": {
+            "68161": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "68163": {
+              "ppid": 68158,
+              "rss_kib": 1360,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35360,
+              "cpu_seconds": 0.27,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.83,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "68158": {
+              "ppid": 59608,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.008878,
+          "aggregate_rss_kib": 58416,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.85,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "68266": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35360,
+              "cpu_seconds": 0.28,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "68294": {
+              "ppid": 59608,
+              "rss_kib": 3264,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.134152791,
+          "aggregate_rss_kib": 58400,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35360,
+              "cpu_seconds": 0.28,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.87,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "68474": {
+              "ppid": 59608,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "68477": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "68479": {
+              "ppid": 68474,
+              "rss_kib": 1232,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.261980125,
+          "aggregate_rss_kib": 60480,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.89,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "68551": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35360,
+              "cpu_seconds": 0.28,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "68580": {
+              "ppid": 59608,
+              "rss_kib": 5312,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.397473125,
+          "aggregate_rss_kib": 124720,
+          "processes": {
+            "68640": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "68641": {
+              "ppid": 68640,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "68672": {
+              "ppid": 68671,
+              "rss_kib": 15808,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "68642": {
+              "ppid": 68641,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:45 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35376,
+              "cpu_seconds": 0.28,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "68673": {
+              "ppid": 68672,
+              "rss_kib": 29568,
+              "cpu_seconds": 0.02,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "68674": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17792,
+              "cpu_seconds": 0.9,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "68671": {
+              "ppid": 68642,
+              "rss_kib": 10272,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.525924791,
+          "aggregate_rss_kib": 66576,
+          "processes": {
+            "68930": {
+              "ppid": 68926,
+              "rss_kib": 1040,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35376,
+              "cpu_seconds": 0.29,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 0.92,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "68926": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "68927": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.653871958,
+          "aggregate_rss_kib": 57680,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 0.93,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35392,
+              "cpu_seconds": 0.29,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "69086": {
+              "ppid": 59608,
+              "rss_kib": 2480,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69088": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.781317208,
+          "aggregate_rss_kib": 55328,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 0.94,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "69137": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69168": {
+              "ppid": 59608,
+              "rss_kib": 112,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35392,
+              "cpu_seconds": 0.29,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823895.917064333,
+          "aggregate_rss_kib": 126912,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35408,
+              "cpu_seconds": 0.29,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "69257": {
+              "ppid": 59608,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69259": {
+              "ppid": 69257,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69260": {
+              "ppid": 69259,
+              "rss_kib": 1840,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69265": {
+              "ppid": 69260,
+              "rss_kib": 10288,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69266": {
+              "ppid": 69265,
+              "rss_kib": 15824,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69267": {
+              "ppid": 69266,
+              "rss_kib": 31664,
+              "cpu_seconds": 0.02,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69268": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 0.95,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.047607583,
+          "aggregate_rss_kib": 79520,
+          "processes": {
+            "69424": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69425": {
+              "ppid": 69423,
+              "rss_kib": 144,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35408,
+              "cpu_seconds": 0.3,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 0.97,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "69416": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69417": {
+              "ppid": 69416,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69418": {
+              "ppid": 69417,
+              "rss_kib": 1792,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69423": {
+              "ppid": 69418,
+              "rss_kib": 10288,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.175954125,
+          "aggregate_rss_kib": 72832,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35408,
+              "cpu_seconds": 0.3,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "69574": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69575": {
+              "ppid": 69574,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69576": {
+              "ppid": 69575,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69579": {
+              "ppid": 69576,
+              "rss_kib": 3744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69580": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 0.99,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.306434416,
+          "aggregate_rss_kib": 61184,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 1.01,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35424,
+              "cpu_seconds": 0.3,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "69734": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            },
+            "69735": {
+              "ppid": 59608,
+              "rss_kib": 5952,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:46 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.437493583,
+          "aggregate_rss_kib": 55280,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 1.02,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "69835": {
+              "ppid": 59608,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35424,
+              "cpu_seconds": 0.3,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "69807": {
+              "ppid": 59492,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.56844925,
+          "aggregate_rss_kib": 96240,
+          "processes": {
+            "69987": {
+              "ppid": 69980,
+              "rss_kib": 10272,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.31,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "69988": {
+              "ppid": 69987,
+              "rss_kib": 15856,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "69990": {
+              "ppid": 69988,
+              "rss_kib": 944,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "69989": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 1.03,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "69978": {
+              "ppid": 59608,
+              "rss_kib": 10384,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "69979": {
+              "ppid": 69978,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "69980": {
+              "ppid": 69979,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.697022458,
+          "aggregate_rss_kib": 73632,
+          "processes": {
+            "70145": {
+              "ppid": 70141,
+              "rss_kib": 4448,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70146": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.31,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 1.05,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "70139": {
+              "ppid": 59608,
+              "rss_kib": 10384,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70140": {
+              "ppid": 70139,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70141": {
+              "ppid": 70140,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.823312083,
+          "aggregate_rss_kib": 71312,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.31,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 1.07,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "70297": {
+              "ppid": 59608,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70298": {
+              "ppid": 70297,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70299": {
+              "ppid": 70298,
+              "rss_kib": 1808,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70301": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70302": {
+              "ppid": 70299,
+              "rss_kib": 2176,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823896.954260916,
+          "aggregate_rss_kib": 66864,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.31,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 1.08,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "70457": {
+              "ppid": 59608,
+              "rss_kib": 10416,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70458": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70459": {
+              "ppid": 70457,
+              "rss_kib": 1200,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.083448916,
+          "aggregate_rss_kib": 69632,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.32,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "70612": {
+              "ppid": 59608,
+              "rss_kib": 10352,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70613": {
+              "ppid": 70612,
+              "rss_kib": 1696,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70614": {
+              "ppid": 70613,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17808,
+              "cpu_seconds": 1.1,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "70618": {
+              "ppid": 70614,
+              "rss_kib": 512,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70619": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.212212583,
+          "aggregate_rss_kib": 70496,
+          "processes": {
+            "70770": {
+              "ppid": 59608,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70771": {
+              "ppid": 70770,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.32,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "70772": {
+              "ppid": 70771,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17824,
+              "cpu_seconds": 1.12,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "70777": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70778": {
+              "ppid": 70772,
+              "rss_kib": 1360,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.345770208,
+          "aggregate_rss_kib": 77184,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.32,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "70932": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70933": {
+              "ppid": 70932,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70934": {
+              "ppid": 70933,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70936": {
+              "ppid": 70934,
+              "rss_kib": 8080,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70938": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17824,
+              "cpu_seconds": 1.13,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.480145041,
+          "aggregate_rss_kib": 67360,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.32,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "70932": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70933": {
+              "ppid": 70932,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "70934": {
+              "ppid": 70933,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:47 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17824,
+              "cpu_seconds": 1.13,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "71037": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.607300333,
+          "aggregate_rss_kib": 55264,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 17824,
+              "cpu_seconds": 1.15,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35440,
+              "cpu_seconds": 0.33,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71213": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.738108333,
+          "aggregate_rss_kib": 55552,
+          "processes": {
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 18096,
+              "cpu_seconds": 1.17,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            },
+            "71372": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35456,
+              "cpu_seconds": 0.33,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.867252541,
+          "aggregate_rss_kib": 96208,
+          "processes": {
+            "71521": {
+              "ppid": 59608,
+              "rss_kib": 10368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71522": {
+              "ppid": 71521,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71523": {
+              "ppid": 71522,
+              "rss_kib": 1824,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35456,
+              "cpu_seconds": 0.33,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71529": {
+              "ppid": 71523,
+              "rss_kib": 10272,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71530": {
+              "ppid": 71529,
+              "rss_kib": 15968,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71531": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71532": {
+              "ppid": 71530,
+              "rss_kib": 320,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59608": {
+              "ppid": 59492,
+              "rss_kib": 18256,
+              "cpu_seconds": 1.19,
+              "start_identity": "Sun Oct  4 16:27:37 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.936400791,
+          "aggregate_rss_kib": 47392,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 9904,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71537": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.34,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823897.995674083,
+          "aggregate_rss_kib": 72416,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.34,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 1904,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71549": {
+              "ppid": 71547,
+              "rss_kib": 16400,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71550": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71551": {
+              "ppid": 71549,
+              "rss_kib": 2144,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823898.122301583,
+          "aggregate_rss_kib": 60336,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.34,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71557": {
+              "ppid": 71547,
+              "rss_kib": 6368,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71556": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823898.248811333,
+          "aggregate_rss_kib": 127120,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.35,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71560": {
+              "ppid": 71547,
+              "rss_kib": 16464,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71561": {
+              "ppid": 71560,
+              "rss_kib": 56656,
+              "cpu_seconds": 0.08,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71562": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2032,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823898.377809541,
+          "aggregate_rss_kib": 118896,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71569": {
+              "ppid": 71547,
+              "rss_kib": 16464,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71570": {
+              "ppid": 71569,
+              "rss_kib": 48368,
+              "cpu_seconds": 0.06,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.35,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71571": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2096,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823898.503892833,
+          "aggregate_rss_kib": 71536,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71664": {
+              "ppid": 71662,
+              "rss_kib": 976,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.35,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2128,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71662": {
+              "ppid": 71547,
+              "rss_kib": 16464,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71663": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823898.632335041,
+          "aggregate_rss_kib": 109296,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.35,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71671": {
+              "ppid": 71547,
+              "rss_kib": 16416,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71673": {
+              "ppid": 71671,
+              "rss_kib": 38768,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71674": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2144,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823898.762874125,
+          "aggregate_rss_kib": 99520,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2160,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.36,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71691": {
+              "ppid": 71547,
+              "rss_kib": 16480,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71692": {
+              "ppid": 71691,
+              "rss_kib": 28912,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71694": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823898.890646166,
+          "aggregate_rss_kib": 67200,
+          "processes": {
+            "71809": {
+              "ppid": 71547,
+              "rss_kib": 10288,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71811": {
+              "ppid": 71809,
+              "rss_kib": 1200,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.36,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71817": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71818": {
+              "ppid": 71811,
+              "rss_kib": 1568,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2160,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823899.020075708,
+          "aggregate_rss_kib": 136720,
+          "processes": {
+            "71809": {
+              "ppid": 71547,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.36,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71820": {
+              "ppid": 71809,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71822": {
+              "ppid": 71820,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71854": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71827": {
+              "ppid": 71822,
+              "rss_kib": 61504,
+              "cpu_seconds": 0.11,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2160,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823899.14822725,
+          "aggregate_rss_kib": 147472,
+          "processes": {
+            "71809": {
+              "ppid": 71547,
+              "rss_kib": 10336,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.36,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71820": {
+              "ppid": 71809,
+              "rss_kib": 8544,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71822": {
+              "ppid": 71820,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71857": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71827": {
+              "ppid": 71822,
+              "rss_kib": 72256,
+              "cpu_seconds": 0.22,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1760,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71547": {
+              "ppid": 71542,
+              "rss_kib": 2160,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823899.27614525,
+          "aggregate_rss_kib": 52272,
+          "processes": {
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.37,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71861": {
+              "ppid": 71542,
+              "rss_kib": 256,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1792,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71860": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823899.437708583,
+          "aggregate_rss_kib": 82320,
+          "processes": {
+            "71873": {
+              "ppid": 71866,
+              "rss_kib": 2176,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "71874": {
+              "ppid": 71873,
+              "rss_kib": 10272,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "71875": {
+              "ppid": 71874,
+              "rss_kib": 15984,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35488,
+              "cpu_seconds": 0.37,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "71908": {
+              "ppid": 59492,
+              "rss_kib": 2032,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "71536": {
+              "ppid": 59492,
+              "rss_kib": 10832,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71888": {
+              "ppid": 71875,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "71538": {
+              "ppid": 71536,
+              "rss_kib": 1888,
+              "cpu_seconds": 0.01,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71542": {
+              "ppid": 71538,
+              "rss_kib": 1792,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:48 2026    "
+            },
+            "71866": {
+              "ppid": 71542,
+              "rss_kib": 1856,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:49 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823899.544065041,
+          "aggregate_rss_kib": 45728,
+          "processes": {
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35552,
+              "cpu_seconds": 0.38,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "72013": {
+              "ppid": 59492,
+              "rss_kib": 8160,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "72014": {
+              "ppid": 59492,
+              "rss_kib": 2016,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 823899.562821916,
+          "aggregate_rss_kib": 41056,
+          "processes": {
+            "72016": {
+              "ppid": 59492,
+              "rss_kib": 2000,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "59492": {
+              "ppid": 29458,
+              "rss_kib": 35552,
+              "cpu_seconds": 0.38,
+              "start_identity": "Sun Oct  4 16:27:36 2026    "
+            },
+            "72013": {
+              "ppid": 59492,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            },
+            "72014": {
+              "ppid": 59492,
+              "rss_kib": 3504,
+              "cpu_seconds": 0.02,
+              "start_identity": "Sun Oct  4 16:27:50 2026    "
+            }
+          }
+        }
+      ],
+      "aggregate_peak_rss_kib": 147472,
+      "guard_failure": null,
+      "cleanup_errors": []
+    }
+  ]
+}

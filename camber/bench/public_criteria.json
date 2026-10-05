@@ -1,0 +1,19 @@
+{
+  "frozen_before_measurement": true,
+  "historical_budgets": "camber/raw_budget.json",
+  "historical_policy": "All 18 numeric native/js budgets and fixed offered rates remain unchanged. Native-default uses native budgets. Report absolute historical and newly paired relative gates separately; neither replaces the other.",
+  "paired_direct_added_us": {"minimum": 2, "fraction": 0.2, "maximum": 10},
+  "paired_throughput_minimum_ratio": 0.9,
+  "paired_p95_p99_added_ms": {"minimum": 0.25, "fraction": 0.2},
+  "unexpected_errors_allowed": 0,
+  "trials": 3,
+  "warmup_seconds": 1,
+  "trial_seconds": 5,
+  "budget_connections": 2,
+  "saturation_connections": 16,
+  "transport": {"body_bytes": 8388608, "headers_bytes": 65536, "connections": 32, "active_requests": 16, "buffered_requests": 16, "header_ms": 200, "body_ms": 30000, "idle_ms": 30000, "write_ms": 30000},
+  "overload": {"cycles_same_process": 3, "load_seconds": 30, "steady_window_seconds": 10, "offered_connections": 64, "retained_rss_envelope_mib": 4096, "steady_window_growth_mib": 64, "recovery_seconds": 10, "recovered_rss_above_initial_mib": 128, "recovery_p99_ms": 100, "recovery_requests": 100, "recovery_errors": 0},
+  "overlap": {"admitted_concurrency": [1, 16], "yield_ms": 500, "cpu_iterations_native": 512000000, "cpu_iterations_js": 128000000, "json_bytes": 1048576, "json_depth": 64, "validation_max_name_codepoints": 100, "timeout_ms": 200, "ordinary_p99_ms": 100, "timeout_delivery_ceiling_ms": 300, "recovery_latency_ceiling_ms": 100},
+  "overlap_headroom": {"additional_only": true, "admitted_work_concurrency": 16, "connections": 32, "active_requests": 18, "buffered_requests": 18, "application_bundles": 18, "reserved_probes": ["ordinary", "header-timeout"], "original_16_permit_adverses_preserved": true},
+  "guard": {"disk_minimum_gib": 10, "aggregate_rss_gib": 20, "abort_verdict": "FAIL/INCONCLUSIVE, never PASS", "one_bend_process_at_a_time": true}
+}

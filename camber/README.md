@@ -128,6 +128,26 @@ The migrated input consumer also passed four scoped direct native/JS cases (one-
 
 
 
+## Complete-application benchmarks
+
+[`bench/PUBLIC.md`](bench/PUBLIC.md) records the public consumer, commands, pinned comparators, semantic differences, frozen criteria and source-bound evidence. It compares published Camber0.6.0.0 with the equivalent prepared raw HTTP application in native single-thread, native default and JS lanes, plus libevent, axum, production Flask, Node HTTP, Fastify, Hono and Elysia. These are repository consumers, not new hub modules; the package version remains unchanged.
+
+All234 live parity checks and234 warmups passed across13 implementations and18 shared workloads. The complete measurements contain2,106 live rows,108 direct parity checks and324 direct trials. Successful output parity does not mean performance acceptance:
+
+| Frozen gate | Result |
+|---|---|
+| Paired framework overhead, live and direct |20/216 PASS;196 FAIL |
+| Historical live and direct budgets |28/216 PASS;188 FAIL |
+| Direct-dispatch overhead alone |0/54 PASS for either budget |
+| Correctly timed sustained overload |0/54 overall PASS |
+| Work overlap, progress, timeout and recovery |18/162 trial PASS;144 FAIL |
+
+The corrected overload run observes real same-PID RSS at or before actual offering-end+10s, independently of outstanding drain. All54 cases stayed within the4GiB steady-window envelope;52 met the64MiB variation ceiling,24 met retained RSS≤initial+128MiB, and54 completed100 error-free recovery requests with p99≤100ms. Actual sample age, late current observations and late recovery starts remain recorded. Pressure resets/errors and the original post-drain timing-gap receipt remain adverse evidence; component successes do not turn any complete overload case into PASS.
+
+Overlap trials preserve the original16-permit cases separately from18-permit headroom. All162 completed the actual workload; subsequent recovery latency was within100ms in every trial. Only18 met the complete overlap contract. Same-lane internal BEGIN/END/ORDINARY stamps, actual received timeout bytes, resets, EOF, late delivery and ordinary-request failures remain recorded. Buffered host log receipt is not proof of handler progress. No scheduler isolation, arbitrary handler cancellation or general responsiveness guarantee follows from these measurements.
+
+Frozen performance and operating criteria remain failed, not relaxed. Native erasure and cooperative serial-CPU behavior are disclosed constraints, not a proven explanation for every failure or a reason to wait for an upstream fix. The measurements do not establish initial performance/release readiness. Pure laws do not prove these host-IO observations.
+
 
 ## Bounds and trust
 

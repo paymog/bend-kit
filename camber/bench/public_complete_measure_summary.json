@@ -1,0 +1,1881 @@
+{
+  "leaf": 340,
+  "overall_verdict": "FAIL/INCONCLUSIVE",
+  "scope": "Complete live13x18 and direct3lanesx18x2 measurement snapshot. Later overload and overlap receipts are summarized separately in public_overload_timed_summary.json and public_overlap_summary.json.",
+  "source_bound_attempts": [
+    {
+      "attempt_id": "1791150412566490000",
+      "evidence": "public_measure_results.json.gz",
+      "uncompressed_sha256": "ac54c05d1bf6d8d9c89f9ab4431a0ccf4c67d1d07aa05828e34bbecc546e1953",
+      "gzip_sha256": "7e5802abe61c4ad07e62454448172e0121fcd541e2567dc7476fb4a66b96ca21",
+      "source_sha256": {
+        "camber/bench/run_public.py": "b1a9a41a5f7a9a3bcca4d81d6aa9eca50e511aaa86bf49a491d79ef0b899275b",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+        "camber/bench/public_server.mjs": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+      },
+      "live_implementations": [
+        "raw-native-single",
+        "camber-native-single",
+        "raw-native-default",
+        "camber-native-default",
+        "raw-js",
+        "camber-js",
+        "libevent",
+        "axum",
+        "flask",
+        "node-http",
+        "fastify",
+        "hono"
+      ],
+      "good_live_parity": 216,
+      "warmups_PASS": 216,
+      "live_rows": 1944,
+      "live_row_PASS": 1322,
+      "live_row_FAIL_INCONCLUSIVE": 622,
+      "extra_failed_Elysia_text_parity": 1,
+      "direct_rows": 0
+    },
+    {
+      "attempt_id": "1791170832191967000",
+      "evidence": "public_remaining_measure_results.json",
+      "sha256": "7277cfd39feef54ebeeae704a9c6b494e0f40874ca2e44f5196844cac85a9e2f",
+      "source_sha256": {
+        "camber/bench/run_public.py": "d4b02524bd1ea810cfbf4eeb80f8a85355d244913be2436b4b7b6cc9f583c8fc",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+        "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+      },
+      "scope": {
+        "live_implementations": [
+          "elysia"
+        ],
+        "workloads": [
+          "text",
+          "json",
+          "parameter",
+          "json-1k",
+          "hooks-0",
+          "hooks-1",
+          "hooks-5",
+          "hit-10",
+          "miss-10",
+          "method-10",
+          "hit-100",
+          "miss-100",
+          "method-100",
+          "hit-1000",
+          "miss-1000",
+          "method-1000",
+          "echo-64k",
+          "echo-4m"
+        ],
+        "direct_lanes": [
+          "native-single",
+          "native-default",
+          "js"
+        ],
+        "direct_implementations": [
+          "raw",
+          "camber"
+        ]
+      },
+      "live_parity_PASS": 18,
+      "warmups_PASS": 18,
+      "live_rows": 162,
+      "live_row_PASS": 111,
+      "live_row_FAIL_INCONCLUSIVE": 51,
+      "direct_parity_PASS": 108,
+      "direct_trials": 324,
+      "command_roots_naturally_reaped": 439,
+      "natural_server_roots": 4
+    }
+  ],
+  "coverage_totals": {
+    "successful_live_parity": 234,
+    "prior_failed_live_parity_retained": 1,
+    "warmups_PASS": 234,
+    "live_trials": 2106,
+    "live_row_PASS": 1433,
+    "live_row_FAIL_INCONCLUSIVE": 673,
+    "direct_parity_PASS": 108,
+    "direct_trials": 324
+  },
+  "budget_gates": {
+    "live": {
+      "total": 162,
+      "paired_pass": 20,
+      "paired_fail": 142,
+      "historical_pass": 28,
+      "historical_fail": 134
+    },
+    "direct": {
+      "total": 54,
+      "paired_pass": 0,
+      "paired_fail": 54,
+      "historical_pass": 0,
+      "historical_fail": 54
+    },
+    "combined": {
+      "total": 216,
+      "paired_pass": 20,
+      "paired_fail": 196,
+      "historical_pass": 28,
+      "historical_fail": 188
+    }
+  },
+  "direct_gates": [
+    {
+      "lane": "native-single",
+      "workload": "text",
+      "gate": "direct",
+      "raw_us": 2.0513,
+      "camber_us": 85.2657,
+      "paired_ceiling_us": 4.0512999999999995,
+      "historical_ceiling_us": 2.4659,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "json",
+      "gate": "direct",
+      "raw_us": 2.0744,
+      "camber_us": 85.4455,
+      "paired_ceiling_us": 4.0744,
+      "historical_ceiling_us": 3.021,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "parameter",
+      "gate": "direct",
+      "raw_us": 2.5434,
+      "camber_us": 86.2264,
+      "paired_ceiling_us": 4.5434,
+      "historical_ceiling_us": 3.3039,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "json-1k",
+      "gate": "direct",
+      "raw_us": 16.3232,
+      "camber_us": 96.9233,
+      "paired_ceiling_us": 19.58784,
+      "historical_ceiling_us": 15.441120000000002,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-0",
+      "gate": "direct",
+      "raw_us": 3.0497,
+      "camber_us": 87.0072,
+      "paired_ceiling_us": 5.0497,
+      "historical_ceiling_us": 2.4262,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-1",
+      "gate": "direct",
+      "raw_us": 4.026,
+      "camber_us": 87.8022,
+      "paired_ceiling_us": 6.026,
+      "historical_ceiling_us": 3.7161999999999997,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-5",
+      "gate": "direct",
+      "raw_us": 7.7875,
+      "camber_us": 93.0883,
+      "paired_ceiling_us": 9.7875,
+      "historical_ceiling_us": 7.318,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-10",
+      "gate": "direct",
+      "raw_us": 4.0136,
+      "camber_us": 87.2749,
+      "paired_ceiling_us": 6.0136,
+      "historical_ceiling_us": 3.7149,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-10",
+      "gate": "direct",
+      "raw_us": 3.8285,
+      "camber_us": 86.8408,
+      "paired_ceiling_us": 5.8285,
+      "historical_ceiling_us": 3.6611000000000002,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-10",
+      "gate": "direct",
+      "raw_us": 3.8657,
+      "camber_us": 86.6498,
+      "paired_ceiling_us": 5.8657,
+      "historical_ceiling_us": 3.4773,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-100",
+      "gate": "direct",
+      "raw_us": 30.2645,
+      "camber_us": 113.5219,
+      "paired_ceiling_us": 36.317400000000006,
+      "historical_ceiling_us": 3.9349,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-100",
+      "gate": "direct",
+      "raw_us": 30.1977,
+      "camber_us": 112.8813,
+      "paired_ceiling_us": 36.23724,
+      "historical_ceiling_us": 4.2490000000000006,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-100",
+      "gate": "direct",
+      "raw_us": 29.9004,
+      "camber_us": 113.105,
+      "paired_ceiling_us": 35.880480000000006,
+      "historical_ceiling_us": 4.2384,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-1000",
+      "gate": "direct",
+      "raw_us": 294.5093,
+      "camber_us": 374.8109,
+      "paired_ceiling_us": 304.5093,
+      "historical_ceiling_us": 4.0443999999999996,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-1000",
+      "gate": "direct",
+      "raw_us": 296.6078,
+      "camber_us": 379.1418,
+      "paired_ceiling_us": 306.6078,
+      "historical_ceiling_us": 3.7483,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-1000",
+      "gate": "direct",
+      "raw_us": 296.0772,
+      "camber_us": 375.53,
+      "paired_ceiling_us": 306.0772,
+      "historical_ceiling_us": 4.6848,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-64k",
+      "gate": "direct",
+      "raw_us": 6.271400000000001,
+      "camber_us": 89.5864,
+      "paired_ceiling_us": 8.2714,
+      "historical_ceiling_us": 6.1979,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-4m",
+      "gate": "direct",
+      "raw_us": 292.51,
+      "camber_us": 368.49,
+      "paired_ceiling_us": 302.51,
+      "historical_ceiling_us": 307.88,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "text",
+      "gate": "direct",
+      "raw_us": 2.0699,
+      "camber_us": 85.6433,
+      "paired_ceiling_us": 4.0699000000000005,
+      "historical_ceiling_us": 2.4659,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "json",
+      "gate": "direct",
+      "raw_us": 2.0915,
+      "camber_us": 85.5873,
+      "paired_ceiling_us": 4.0915,
+      "historical_ceiling_us": 3.021,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "parameter",
+      "gate": "direct",
+      "raw_us": 2.5292,
+      "camber_us": 85.9804,
+      "paired_ceiling_us": 4.5291999999999994,
+      "historical_ceiling_us": 3.3039,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "json-1k",
+      "gate": "direct",
+      "raw_us": 16.4222,
+      "camber_us": 97.3197,
+      "paired_ceiling_us": 19.70664,
+      "historical_ceiling_us": 15.441120000000002,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-0",
+      "gate": "direct",
+      "raw_us": 3.0553,
+      "camber_us": 86.4133,
+      "paired_ceiling_us": 5.0553,
+      "historical_ceiling_us": 2.4262,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-1",
+      "gate": "direct",
+      "raw_us": 4.022,
+      "camber_us": 87.7791,
+      "paired_ceiling_us": 6.022,
+      "historical_ceiling_us": 3.7161999999999997,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-5",
+      "gate": "direct",
+      "raw_us": 7.8658,
+      "camber_us": 91.307,
+      "paired_ceiling_us": 9.8658,
+      "historical_ceiling_us": 7.318,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-10",
+      "gate": "direct",
+      "raw_us": 3.9991,
+      "camber_us": 87.3247,
+      "paired_ceiling_us": 5.9991,
+      "historical_ceiling_us": 3.7149,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-10",
+      "gate": "direct",
+      "raw_us": 3.817,
+      "camber_us": 86.9348,
+      "paired_ceiling_us": 5.817,
+      "historical_ceiling_us": 3.6611000000000002,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-10",
+      "gate": "direct",
+      "raw_us": 3.871,
+      "camber_us": 86.5986,
+      "paired_ceiling_us": 5.871,
+      "historical_ceiling_us": 3.4773,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-100",
+      "gate": "direct",
+      "raw_us": 30.0601,
+      "camber_us": 113.5543,
+      "paired_ceiling_us": 36.07212,
+      "historical_ceiling_us": 3.9349,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-100",
+      "gate": "direct",
+      "raw_us": 29.9612,
+      "camber_us": 113.1777,
+      "paired_ceiling_us": 35.95344,
+      "historical_ceiling_us": 4.2490000000000006,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-100",
+      "gate": "direct",
+      "raw_us": 29.8719,
+      "camber_us": 113.3584,
+      "paired_ceiling_us": 35.84628,
+      "historical_ceiling_us": 4.2384,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-1000",
+      "gate": "direct",
+      "raw_us": 294.2009,
+      "camber_us": 374.6415,
+      "paired_ceiling_us": 304.2009,
+      "historical_ceiling_us": 4.0443999999999996,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-1000",
+      "gate": "direct",
+      "raw_us": 294.91810000000004,
+      "camber_us": 378.8881,
+      "paired_ceiling_us": 304.91810000000004,
+      "historical_ceiling_us": 3.7483,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-1000",
+      "gate": "direct",
+      "raw_us": 294.197,
+      "camber_us": 374.7507,
+      "paired_ceiling_us": 304.197,
+      "historical_ceiling_us": 4.6848,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-64k",
+      "gate": "direct",
+      "raw_us": 6.3069,
+      "camber_us": 89.6808,
+      "paired_ceiling_us": 8.306899999999999,
+      "historical_ceiling_us": 6.1979,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-4m",
+      "gate": "direct",
+      "raw_us": 296.39,
+      "camber_us": 381.08,
+      "paired_ceiling_us": 306.39,
+      "historical_ceiling_us": 307.88,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "text",
+      "gate": "direct",
+      "raw_us": 4.3600916000000005,
+      "camber_us": 34.5468792,
+      "paired_ceiling_us": 6.3600916000000005,
+      "historical_ceiling_us": 3.2371958000000003,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "json",
+      "gate": "direct",
+      "raw_us": 4.7479917,
+      "camber_us": 35.2414583,
+      "paired_ceiling_us": 6.7479917,
+      "historical_ceiling_us": 3.5244709,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "parameter",
+      "gate": "direct",
+      "raw_us": 5.9735875,
+      "camber_us": 36.5052459,
+      "paired_ceiling_us": 7.9735875,
+      "historical_ceiling_us": 6.8281625,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "json-1k",
+      "gate": "direct",
+      "raw_us": 89.1579459,
+      "camber_us": 122.81075829999999,
+      "paired_ceiling_us": 99.1579459,
+      "historical_ceiling_us": 89.433525,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-0",
+      "gate": "direct",
+      "raw_us": 6.8385207999999995,
+      "camber_us": 38.1528875,
+      "paired_ceiling_us": 8.8385208,
+      "historical_ceiling_us": 3.8013708,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-1",
+      "gate": "direct",
+      "raw_us": 9.3164208,
+      "camber_us": 40.8816791,
+      "paired_ceiling_us": 11.3164208,
+      "historical_ceiling_us": 5.8805167,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-5",
+      "gate": "direct",
+      "raw_us": 16.7454375,
+      "camber_us": 48.2318917,
+      "paired_ceiling_us": 20.094525,
+      "historical_ceiling_us": 13.57850004,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-10",
+      "gate": "direct",
+      "raw_us": 8.2637792,
+      "camber_us": 38.109479099999994,
+      "paired_ceiling_us": 10.2637792,
+      "historical_ceiling_us": 6.8854375,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-10",
+      "gate": "direct",
+      "raw_us": 8.2054583,
+      "camber_us": 39.3684708,
+      "paired_ceiling_us": 10.2054583,
+      "historical_ceiling_us": 5.86195,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-10",
+      "gate": "direct",
+      "raw_us": 7.6614417,
+      "camber_us": 38.1632291,
+      "paired_ceiling_us": 9.661441700000001,
+      "historical_ceiling_us": 5.3744625,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-100",
+      "gate": "direct",
+      "raw_us": 45.4068292,
+      "camber_us": 77.5912042,
+      "paired_ceiling_us": 54.488195039999994,
+      "historical_ceiling_us": 7.291,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-100",
+      "gate": "direct",
+      "raw_us": 45.11826669999999,
+      "camber_us": 81.8311125,
+      "paired_ceiling_us": 54.14192003999999,
+      "historical_ceiling_us": 6.0532292,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-100",
+      "gate": "direct",
+      "raw_us": 43.877766699999995,
+      "camber_us": 78.5891667,
+      "paired_ceiling_us": 52.65332004,
+      "historical_ceiling_us": 5.709474999999999,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "hit-1000",
+      "gate": "direct",
+      "raw_us": 494.89600830000006,
+      "camber_us": 562.1208583,
+      "paired_ceiling_us": 504.89600830000006,
+      "historical_ceiling_us": 10.2094958,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "miss-1000",
+      "gate": "direct",
+      "raw_us": 506.7521416,
+      "camber_us": 570.4007416999999,
+      "paired_ceiling_us": 516.7521416,
+      "historical_ceiling_us": 7.175775,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "method-1000",
+      "gate": "direct",
+      "raw_us": 495.5429709,
+      "camber_us": 556.0166207999999,
+      "paired_ceiling_us": 505.5429709,
+      "historical_ceiling_us": 7.9277542,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-64k",
+      "gate": "direct",
+      "raw_us": 8.1749417,
+      "camber_us": 40.1180416,
+      "paired_ceiling_us": 10.1749417,
+      "historical_ceiling_us": 5.979625,
+      "paired_pass": false,
+      "historical_pass": false
+    },
+    {
+      "lane": "js",
+      "workload": "echo-4m",
+      "gate": "direct",
+      "raw_us": 269.67125,
+      "camber_us": 329.41625,
+      "paired_ceiling_us": 279.67125,
+      "historical_ceiling_us": 232.68666000000002,
+      "paired_pass": false,
+      "historical_pass": false
+    }
+  ],
+  "direct_numeric_budgets_frozen_before_Camber": {
+    "direct:native-single:text": {
+      "frozen_host_monotonic": 846304.631461916,
+      "raw_median_us": 2.0513,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 4.0512999999999995
+    },
+    "direct:native-single:json": {
+      "frozen_host_monotonic": 846307.876431083,
+      "raw_median_us": 2.0744,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 4.0744
+    },
+    "direct:native-single:parameter": {
+      "frozen_host_monotonic": 846311.133623958,
+      "raw_median_us": 2.5434,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 4.5434
+    },
+    "direct:native-single:json-1k": {
+      "frozen_host_monotonic": 846315.101768125,
+      "raw_median_us": 16.3232,
+      "added_us_ceiling": 3.26464,
+      "median_us_ceiling": 19.58784
+    },
+    "direct:native-single:hooks-0": {
+      "frozen_host_monotonic": 846318.836394208,
+      "raw_median_us": 3.0497,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 5.0497
+    },
+    "direct:native-single:hooks-1": {
+      "frozen_host_monotonic": 846322.661771,
+      "raw_median_us": 4.026,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 6.026
+    },
+    "direct:native-single:hooks-5": {
+      "frozen_host_monotonic": 846326.499547458,
+      "raw_median_us": 7.7875,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 9.7875
+    },
+    "direct:native-single:hit-10": {
+      "frozen_host_monotonic": 846330.385256291,
+      "raw_median_us": 4.0136,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 6.0136
+    },
+    "direct:native-single:miss-10": {
+      "frozen_host_monotonic": 846334.27072075,
+      "raw_median_us": 3.8285,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 5.8285
+    },
+    "direct:native-single:method-10": {
+      "frozen_host_monotonic": 846338.141892625,
+      "raw_median_us": 3.8657,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 5.8657
+    },
+    "direct:native-single:hit-100": {
+      "frozen_host_monotonic": 846342.699038708,
+      "raw_median_us": 30.2645,
+      "added_us_ceiling": 6.052900000000001,
+      "median_us_ceiling": 36.317400000000006
+    },
+    "direct:native-single:miss-100": {
+      "frozen_host_monotonic": 846347.869745791,
+      "raw_median_us": 30.1977,
+      "added_us_ceiling": 6.039540000000001,
+      "median_us_ceiling": 36.23724
+    },
+    "direct:native-single:method-100": {
+      "frozen_host_monotonic": 846353.084940625,
+      "raw_median_us": 29.9004,
+      "added_us_ceiling": 5.980080000000001,
+      "median_us_ceiling": 35.880480000000006
+    },
+    "direct:native-single:hit-1000": {
+      "frozen_host_monotonic": 846366.917874375,
+      "raw_median_us": 294.5093,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 304.5093
+    },
+    "direct:native-single:miss-1000": {
+      "frozen_host_monotonic": 846389.559717125,
+      "raw_median_us": 296.6078,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 306.6078
+    },
+    "direct:native-single:method-1000": {
+      "frozen_host_monotonic": 846412.195984041,
+      "raw_median_us": 296.0772,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 306.0772
+    },
+    "direct:native-single:echo-64k": {
+      "frozen_host_monotonic": 846425.510866708,
+      "raw_median_us": 6.271400000000001,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 8.2714
+    },
+    "direct:native-single:echo-4m": {
+      "frozen_host_monotonic": 846429.2302495,
+      "raw_median_us": 292.51,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 302.51
+    },
+    "direct:native-default:text": {
+      "frozen_host_monotonic": 846430.479365541,
+      "raw_median_us": 2.0699,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 4.0699000000000005
+    },
+    "direct:native-default:json": {
+      "frozen_host_monotonic": 846433.900392708,
+      "raw_median_us": 2.0915,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 4.0915
+    },
+    "direct:native-default:parameter": {
+      "frozen_host_monotonic": 846437.357319625,
+      "raw_median_us": 2.5292,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 4.5291999999999994
+    },
+    "direct:native-default:json-1k": {
+      "frozen_host_monotonic": 846441.410579125,
+      "raw_median_us": 16.4222,
+      "added_us_ceiling": 3.28444,
+      "median_us_ceiling": 19.70664
+    },
+    "direct:native-default:hooks-0": {
+      "frozen_host_monotonic": 846445.407755708,
+      "raw_median_us": 3.0553,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 5.0553
+    },
+    "direct:native-default:hooks-1": {
+      "frozen_host_monotonic": 846448.866911291,
+      "raw_median_us": 4.022,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 6.022
+    },
+    "direct:native-default:hooks-5": {
+      "frozen_host_monotonic": 846452.97522125,
+      "raw_median_us": 7.8658,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 9.8658
+    },
+    "direct:native-default:hit-10": {
+      "frozen_host_monotonic": 846456.933408583,
+      "raw_median_us": 3.9991,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 5.9991
+    },
+    "direct:native-default:miss-10": {
+      "frozen_host_monotonic": 846460.702001166,
+      "raw_median_us": 3.817,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 5.817
+    },
+    "direct:native-default:method-10": {
+      "frozen_host_monotonic": 846464.355752791,
+      "raw_median_us": 3.871,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 5.871
+    },
+    "direct:native-default:hit-100": {
+      "frozen_host_monotonic": 846468.927365583,
+      "raw_median_us": 30.0601,
+      "added_us_ceiling": 6.01202,
+      "median_us_ceiling": 36.07212
+    },
+    "direct:native-default:miss-100": {
+      "frozen_host_monotonic": 846474.3738205,
+      "raw_median_us": 29.9612,
+      "added_us_ceiling": 5.992240000000001,
+      "median_us_ceiling": 35.95344
+    },
+    "direct:native-default:method-100": {
+      "frozen_host_monotonic": 846479.806370666,
+      "raw_median_us": 29.8719,
+      "added_us_ceiling": 5.97438,
+      "median_us_ceiling": 35.84628
+    },
+    "direct:native-default:hit-1000": {
+      "frozen_host_monotonic": 846493.882039416,
+      "raw_median_us": 294.2009,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 304.2009
+    },
+    "direct:native-default:miss-1000": {
+      "frozen_host_monotonic": 846516.57540475,
+      "raw_median_us": 294.91810000000004,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 304.91810000000004
+    },
+    "direct:native-default:method-1000": {
+      "frozen_host_monotonic": 846539.298454333,
+      "raw_median_us": 294.197,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 304.197
+    },
+    "direct:native-default:echo-64k": {
+      "frozen_host_monotonic": 846552.893239333,
+      "raw_median_us": 6.3069,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 8.306899999999999
+    },
+    "direct:native-default:echo-4m": {
+      "frozen_host_monotonic": 846556.900204166,
+      "raw_median_us": 296.39,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 306.39
+    },
+    "direct:js:text": {
+      "frozen_host_monotonic": 846558.540622125,
+      "raw_median_us": 4.3600916000000005,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 6.3600916000000005
+    },
+    "direct:js:json": {
+      "frozen_host_monotonic": 846561.334292708,
+      "raw_median_us": 4.7479917,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 6.7479917
+    },
+    "direct:js:parameter": {
+      "frozen_host_monotonic": 846564.140765958,
+      "raw_median_us": 5.9735875,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 7.9735875
+    },
+    "direct:js:json-1k": {
+      "frozen_host_monotonic": 846569.49360175,
+      "raw_median_us": 89.1579459,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 99.1579459
+    },
+    "direct:js:hooks-0": {
+      "frozen_host_monotonic": 846574.807426875,
+      "raw_median_us": 6.8385207999999995,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 8.8385208
+    },
+    "direct:js:hooks-1": {
+      "frozen_host_monotonic": 846577.662739583,
+      "raw_median_us": 9.3164208,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 11.3164208
+    },
+    "direct:js:hooks-5": {
+      "frozen_host_monotonic": 846580.835219625,
+      "raw_median_us": 16.7454375,
+      "added_us_ceiling": 3.3490875000000004,
+      "median_us_ceiling": 20.094525
+    },
+    "direct:js:hit-10": {
+      "frozen_host_monotonic": 846584.028749333,
+      "raw_median_us": 8.2637792,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 10.2637792
+    },
+    "direct:js:miss-10": {
+      "frozen_host_monotonic": 846586.922577458,
+      "raw_median_us": 8.2054583,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 10.2054583
+    },
+    "direct:js:method-10": {
+      "frozen_host_monotonic": 846589.892970791,
+      "raw_median_us": 7.6614417,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 9.661441700000001
+    },
+    "direct:js:hit-100": {
+      "frozen_host_monotonic": 846594.134652791,
+      "raw_median_us": 45.4068292,
+      "added_us_ceiling": 9.08136584,
+      "median_us_ceiling": 54.488195039999994
+    },
+    "direct:js:miss-100": {
+      "frozen_host_monotonic": 846599.603025583,
+      "raw_median_us": 45.11826669999999,
+      "added_us_ceiling": 9.02365334,
+      "median_us_ceiling": 54.14192003999999
+    },
+    "direct:js:method-100": {
+      "frozen_host_monotonic": 846604.954906166,
+      "raw_median_us": 43.877766699999995,
+      "added_us_ceiling": 8.77555334,
+      "median_us_ceiling": 52.65332004
+    },
+    "direct:js:hit-1000": {
+      "frozen_host_monotonic": 846625.034185541,
+      "raw_median_us": 494.89600830000006,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 504.89600830000006
+    },
+    "direct:js:miss-1000": {
+      "frozen_host_monotonic": 846661.3552185,
+      "raw_median_us": 506.7521416,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 516.7521416
+    },
+    "direct:js:method-1000": {
+      "frozen_host_monotonic": 846697.772507958,
+      "raw_median_us": 495.5429709,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 505.5429709
+    },
+    "direct:js:echo-64k": {
+      "frozen_host_monotonic": 846717.631594041,
+      "raw_median_us": 8.1749417,
+      "added_us_ceiling": 2,
+      "median_us_ceiling": 10.1749417
+    },
+    "direct:js:echo-4m": {
+      "frozen_host_monotonic": 846720.42365625,
+      "raw_median_us": 269.67125,
+      "added_us_ceiling": 10,
+      "median_us_ceiling": 279.67125
+    }
+  },
+  "actual_direct_timing_triplets": [
+    {
+      "lane": "native-single",
+      "workload": "text",
+      "raw_us": [
+        2.0929,
+        2.0513,
+        2.0427
+      ],
+      "camber_us": [
+        86.151,
+        85.133,
+        85.2657
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "json",
+      "raw_us": [
+        2.0744,
+        2.1128,
+        2.0555
+      ],
+      "camber_us": [
+        85.4455,
+        85.9863,
+        85.2468
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "parameter",
+      "raw_us": [
+        2.5361,
+        2.5612,
+        2.5434
+      ],
+      "camber_us": [
+        86.2264,
+        85.8182,
+        86.2455
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "json-1k",
+      "raw_us": [
+        16.3526,
+        16.3232,
+        16.2018
+      ],
+      "camber_us": [
+        96.645,
+        97.5695,
+        96.9233
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-0",
+      "raw_us": [
+        3.0579,
+        3.0497,
+        3.0407
+      ],
+      "camber_us": [
+        87.0072,
+        86.3732,
+        87.0504
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-1",
+      "raw_us": [
+        4.028,
+        4.026,
+        4.0036
+      ],
+      "camber_us": [
+        87.8022,
+        87.5357,
+        87.9392
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "hooks-5",
+      "raw_us": [
+        7.7875,
+        7.8367,
+        7.7648
+      ],
+      "camber_us": [
+        93.0883,
+        91.5921,
+        93.099
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-10",
+      "raw_us": [
+        4.0136,
+        4.0052,
+        4.0435
+      ],
+      "camber_us": [
+        87.0393,
+        88.1006,
+        87.2749
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-10",
+      "raw_us": [
+        3.7925,
+        3.881,
+        3.8285
+      ],
+      "camber_us": [
+        86.8408,
+        86.7595,
+        87.2382
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-10",
+      "raw_us": [
+        3.8439,
+        3.8775,
+        3.8657
+      ],
+      "camber_us": [
+        86.6498,
+        86.4199,
+        86.7208
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-100",
+      "raw_us": [
+        30.4349,
+        30.2645,
+        29.9499
+      ],
+      "camber_us": [
+        114.2108,
+        113.5219,
+        113.3967
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-100",
+      "raw_us": [
+        30.1977,
+        30.5446,
+        29.8101
+      ],
+      "camber_us": [
+        112.8419,
+        112.8813,
+        113.575
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-100",
+      "raw_us": [
+        29.6213,
+        30.0412,
+        29.9004
+      ],
+      "camber_us": [
+        113.957,
+        113.105,
+        113.104
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "hit-1000",
+      "raw_us": [
+        294.4634,
+        295.2385,
+        294.5093
+      ],
+      "camber_us": [
+        377.7532,
+        374.1586,
+        374.8109
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "miss-1000",
+      "raw_us": [
+        295.5864,
+        297.0468,
+        296.6078
+      ],
+      "camber_us": [
+        379.1856,
+        379.1418,
+        378.439
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "method-1000",
+      "raw_us": [
+        296.0296,
+        296.0772,
+        296.0832
+      ],
+      "camber_us": [
+        378.2429,
+        374.1684,
+        375.53
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-64k",
+      "raw_us": [
+        6.2437,
+        6.271400000000001,
+        6.361700000000001
+      ],
+      "camber_us": [
+        89.5864,
+        89.4174,
+        90.8703
+      ]
+    },
+    {
+      "lane": "native-single",
+      "workload": "echo-4m",
+      "raw_us": [
+        291.88,
+        293.81,
+        292.51
+      ],
+      "camber_us": [
+        368.49,
+        364.78,
+        371.45
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "text",
+      "raw_us": [
+        2.0946,
+        2.0557,
+        2.0699
+      ],
+      "camber_us": [
+        85.6433,
+        85.3676,
+        85.7826
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "json",
+      "raw_us": [
+        2.0527,
+        2.108,
+        2.0915
+      ],
+      "camber_us": [
+        85.2332,
+        85.5873,
+        85.6311
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "parameter",
+      "raw_us": [
+        2.5292,
+        2.5152,
+        2.5807
+      ],
+      "camber_us": [
+        85.6152,
+        86.5569,
+        85.9804
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "json-1k",
+      "raw_us": [
+        16.0982,
+        16.5199,
+        16.4222
+      ],
+      "camber_us": [
+        97.3197,
+        97.4279,
+        97.1013
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-0",
+      "raw_us": [
+        3.0325,
+        3.1195,
+        3.0553
+      ],
+      "camber_us": [
+        86.3008,
+        86.8988,
+        86.4133
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-1",
+      "raw_us": [
+        4.0741,
+        4.0208,
+        4.022
+      ],
+      "camber_us": [
+        87.7791,
+        87.4086,
+        88.3619
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "hooks-5",
+      "raw_us": [
+        7.871,
+        7.8658,
+        7.8159
+      ],
+      "camber_us": [
+        92.1037,
+        91.307,
+        90.9958
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-10",
+      "raw_us": [
+        3.9914,
+        3.9991,
+        4.0111
+      ],
+      "camber_us": [
+        87.3247,
+        87.0282,
+        87.481
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-10",
+      "raw_us": [
+        3.817,
+        3.8352,
+        3.8164
+      ],
+      "camber_us": [
+        86.9593,
+        86.4092,
+        86.9348
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-10",
+      "raw_us": [
+        3.871,
+        3.856,
+        3.928
+      ],
+      "camber_us": [
+        86.521,
+        86.5986,
+        87.2042
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-100",
+      "raw_us": [
+        29.8579,
+        30.2126,
+        30.0601
+      ],
+      "camber_us": [
+        113.1413,
+        113.5543,
+        113.9653
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-100",
+      "raw_us": [
+        30.4139,
+        29.6967,
+        29.9612
+      ],
+      "camber_us": [
+        114.452,
+        112.8931,
+        113.1777
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-100",
+      "raw_us": [
+        29.8719,
+        29.9522,
+        29.8504
+      ],
+      "camber_us": [
+        112.6627,
+        115.6681,
+        113.3584
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "hit-1000",
+      "raw_us": [
+        294.1086,
+        294.2009,
+        294.8784
+      ],
+      "camber_us": [
+        374.6415,
+        373.9167,
+        377.9411
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "miss-1000",
+      "raw_us": [
+        294.9675,
+        294.7128,
+        294.91810000000004
+      ],
+      "camber_us": [
+        378.8881,
+        379.1174,
+        378.3348
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "method-1000",
+      "raw_us": [
+        294.6376,
+        293.8592,
+        294.197
+      ],
+      "camber_us": [
+        373.7085,
+        374.7507,
+        379.618
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-64k",
+      "raw_us": [
+        6.501899999999999,
+        6.3069,
+        6.2654
+      ],
+      "camber_us": [
+        89.6808,
+        89.1855,
+        93.7929
+      ]
+    },
+    {
+      "lane": "native-default",
+      "workload": "echo-4m",
+      "raw_us": [
+        287.46,
+        304.59,
+        296.39
+      ],
+      "camber_us": [
+        384.48,
+        381.08,
+        366.66
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "text",
+      "raw_us": [
+        4.6416333,
+        4.3374917,
+        4.3600916000000005
+      ],
+      "camber_us": [
+        34.5468792,
+        34.14795,
+        34.9732334
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "json",
+      "raw_us": [
+        4.6644125,
+        4.7479917,
+        4.8232709
+      ],
+      "camber_us": [
+        36.3092583,
+        35.2414583,
+        34.5750125
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "parameter",
+      "raw_us": [
+        6.016341699999999,
+        5.9735875,
+        5.909875
+      ],
+      "camber_us": [
+        36.5052459,
+        39.3455125,
+        36.478525
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "json-1k",
+      "raw_us": [
+        89.1579459,
+        87.9708291,
+        89.6767833
+      ],
+      "camber_us": [
+        121.25503339999997,
+        122.97301670000002,
+        122.81075829999999
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-0",
+      "raw_us": [
+        6.9200334,
+        6.7928167,
+        6.8385207999999995
+      ],
+      "camber_us": [
+        39.8289625,
+        37.1209542,
+        38.1528875
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-1",
+      "raw_us": [
+        9.3164208,
+        11.6604833,
+        9.2456417
+      ],
+      "camber_us": [
+        40.8816791,
+        39.7499542,
+        41.834170799999995
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "hooks-5",
+      "raw_us": [
+        16.7281916,
+        17.48515,
+        16.7454375
+      ],
+      "camber_us": [
+        48.9887208,
+        48.2318917,
+        47.767933299999996
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "hit-10",
+      "raw_us": [
+        8.2637792,
+        8.1975583,
+        8.3284125
+      ],
+      "camber_us": [
+        38.06397080000001,
+        39.078325,
+        38.109479099999994
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "miss-10",
+      "raw_us": [
+        8.2054583,
+        8.0649042,
+        8.3782125
+      ],
+      "camber_us": [
+        42.114454200000004,
+        39.3684708,
+        38.825308299999996
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "method-10",
+      "raw_us": [
+        7.6614417,
+        7.6810625,
+        7.5973
+      ],
+      "camber_us": [
+        38.1632291,
+        37.1259417,
+        39.105366700000005
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "hit-100",
+      "raw_us": [
+        45.4068292,
+        45.9882292,
+        44.073358299999995
+      ],
+      "camber_us": [
+        76.920825,
+        77.5912042,
+        78.80202910000001
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "miss-100",
+      "raw_us": [
+        45.11826669999999,
+        45.038925,
+        47.3928875
+      ],
+      "camber_us": [
+        79.9372875,
+        81.8311125,
+        82.0036625
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "method-100",
+      "raw_us": [
+        45.196045899999994,
+        43.877766699999995,
+        43.5738583
+      ],
+      "camber_us": [
+        78.5891667,
+        77.0212208,
+        78.7722208
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "hit-1000",
+      "raw_us": [
+        498.36434169999995,
+        494.89600830000006,
+        494.79746670000003
+      ],
+      "camber_us": [
+        568.4299333,
+        562.1208583,
+        558.9129458000001
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "miss-1000",
+      "raw_us": [
+        506.7521416,
+        508.58377079999997,
+        504.9036042
+      ],
+      "camber_us": [
+        569.8152834,
+        572.2915584,
+        570.4007416999999
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "method-1000",
+      "raw_us": [
+        495.0109625,
+        495.5429709,
+        498.4642625
+      ],
+      "camber_us": [
+        556.0166207999999,
+        561.2388041,
+        554.4313042
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "echo-64k",
+      "raw_us": [
+        8.2750833,
+        8.0898833,
+        8.1749417
+      ],
+      "camber_us": [
+        40.1180416,
+        38.508958299999996,
+        41.29215
+      ]
+    },
+    {
+      "lane": "js",
+      "workload": "echo-4m",
+      "raw_us": [
+        261.915,
+        269.67125,
+        341.72166
+      ],
+      "camber_us": [
+        321.83792,
+        329.41625,
+        349.13416000000007
+      ]
+    }
+  ],
+  "artifact_refresh": {
+    "receipt": "public_artifact_refresh.json",
+    "original_manifest_sha256": "03804d53bd3ad835ac2d2774ca480bd8ecff1487a9a7324bd29e41569851ce9d",
+    "refreshed_manifest_sha256": "d0eec892bc9d86c723bb6efb697d68816cd32176c34d866dae5c72de63c3281f",
+    "unchanged_six_artifacts": {
+      "server-native": {
+        "expected_sha256": "9bed47b4c9921929b72bdd60b3af91dbfd54845ad987afcc3ca7235a1ad46ee0",
+        "actual_sha256": "9bed47b4c9921929b72bdd60b3af91dbfd54845ad987afcc3ca7235a1ad46ee0"
+      },
+      "server-js": {
+        "expected_sha256": "eea75cb33d0efc12d1a739bfa04f91d7674de92dabc6484ca987b577062c731a",
+        "actual_sha256": "eea75cb33d0efc12d1a739bfa04f91d7674de92dabc6484ca987b577062c731a"
+      },
+      "direct-native": {
+        "expected_sha256": "52f58ce4620b549208afb7039adc4af89051ff35d73ae2b449f4fee40a95f7cb",
+        "actual_sha256": "52f58ce4620b549208afb7039adc4af89051ff35d73ae2b449f4fee40a95f7cb"
+      },
+      "direct-js": {
+        "expected_sha256": "69fc4e4b7792561eafb2b5a910004ba9eb2b45f9e3e465c6c23c6857bc6648c9",
+        "actual_sha256": "69fc4e4b7792561eafb2b5a910004ba9eb2b45f9e3e465c6c23c6857bc6648c9"
+      },
+      "libevent": {
+        "expected_sha256": "b7d4f5f3850308618ce468c38ae4a9ba2dc21b45ec296d29c2e126963739ceb3",
+        "actual_sha256": "b7d4f5f3850308618ce468c38ae4a9ba2dc21b45ec296d29c2e126963739ceb3"
+      },
+      "axum": {
+        "expected_sha256": "2cd7288b57418e4961800f4ad54b3a0b3b8d82542b1bacdba6a02d7d357aa293",
+        "actual_sha256": "2cd7288b57418e4961800f4ad54b3a0b3b8d82542b1bacdba6a02d7d357aa293"
+      }
+    },
+    "original_comparator_sha256": "aa08c62324b5ba9a3db4fd8040da2d185db1aba38ba54513517688bd3ef9dfce",
+    "corrected_comparator_sha256": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+    "dependency_and_build_receipts_unchanged": true
+  },
+  "source_attribution": "Prior Node HTTP/Fastify/Hono ran original whole-file SHA. Only Elysia branch changed; those executed branches remain byte-identical. Prior rows are not reattributed to corrected source.",
+  "release": {
+    "original_natural_servers": 48,
+    "original_forced_server": 1,
+    "remaining_natural_servers": 4,
+    "remaining_natural_commands": 439,
+    "prior_forced_diagnostic_servers": 2,
+    "cache_diagnostic_natural_server": 1,
+    "all_observed_owner_descendant_reader_stdout_listener_releases_recorded": true,
+    "remaining_aggregate_peak_rss_kib": 616928,
+    "remaining_guard_failure": null,
+    "remaining_cleanup_errors": []
+  },
+  "proof_exclusions": [
+    "673 adverse live rows remain adverse, including generator drops; capacity/performance PASS is not claimed.",
+    "All54 direct overhead gates and historical ceilings fail; no library optimization or budget change applied.",
+    "Original failed parity and3 total Elysia forced releases remain preserved.",
+    "No overload/recovery or overlap/timeout results yet.",
+    "No shared-doc/law/entry/effect edits or commit/push/PR."
+  ]
+}

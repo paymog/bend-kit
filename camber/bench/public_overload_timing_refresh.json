@@ -1,0 +1,103 @@
+{
+  "attempts": [
+    {
+      "attempt_id": "1791176049375666000",
+      "phase": "overload-timing-manifest-only-rebind",
+      "source_sha256": {
+        "camber/bench/run_public.py": "f53e1219191daff0de33c5d8901fc0ce8b94bb2889883f7caf61acc6628f365e",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+        "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af",
+        "owned-manifest-rebind-driver": "5ab6912fc1ed322fdb85db6de04174e44ad002e32ca61a5066d9c1a03fea8be5"
+      },
+      "driver_pid": 2011,
+      "commands": [],
+      "server_commands": [],
+      "release": [],
+      "verdict": "PASS",
+      "manifest_rebind": {
+        "before_manifest_path": "/tmp/camber-340-owned/public-build.before-overload-timing.json",
+        "before_manifest_sha256": "d0eec892bc9d86c723bb6efb697d68816cd32176c34d866dae5c72de63c3281f",
+        "before_source_sha256": {
+          "camber/bench/run_public.py": "d4b02524bd1ea810cfbf4eeb80f8a85355d244913be2436b4b7b6cc9f583c8fc",
+          "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+          "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+          "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+          "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+          "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+          "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+          "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+          "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+          "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+          "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+          "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+          "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+          "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+        },
+        "after_source_sha256": {
+          "camber/bench/run_public.py": "f53e1219191daff0de33c5d8901fc0ce8b94bb2889883f7caf61acc6628f365e",
+          "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+          "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+          "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+          "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+          "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+          "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+          "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+          "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+          "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+          "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+          "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+          "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+          "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+        },
+        "all7_artifacts_unchanged": {
+          "server-native": {
+            "expected_sha256": "9bed47b4c9921929b72bdd60b3af91dbfd54845ad987afcc3ca7235a1ad46ee0",
+            "actual_sha256": "9bed47b4c9921929b72bdd60b3af91dbfd54845ad987afcc3ca7235a1ad46ee0"
+          },
+          "server-js": {
+            "expected_sha256": "eea75cb33d0efc12d1a739bfa04f91d7674de92dabc6484ca987b577062c731a",
+            "actual_sha256": "eea75cb33d0efc12d1a739bfa04f91d7674de92dabc6484ca987b577062c731a"
+          },
+          "direct-native": {
+            "expected_sha256": "52f58ce4620b549208afb7039adc4af89051ff35d73ae2b449f4fee40a95f7cb",
+            "actual_sha256": "52f58ce4620b549208afb7039adc4af89051ff35d73ae2b449f4fee40a95f7cb"
+          },
+          "direct-js": {
+            "expected_sha256": "69fc4e4b7792561eafb2b5a910004ba9eb2b45f9e3e465c6c23c6857bc6648c9",
+            "actual_sha256": "69fc4e4b7792561eafb2b5a910004ba9eb2b45f9e3e465c6c23c6857bc6648c9"
+          },
+          "libevent": {
+            "expected_sha256": "b7d4f5f3850308618ce468c38ae4a9ba2dc21b45ec296d29c2e126963739ceb3",
+            "actual_sha256": "b7d4f5f3850308618ce468c38ae4a9ba2dc21b45ec296d29c2e126963739ceb3"
+          },
+          "axum": {
+            "expected_sha256": "2cd7288b57418e4961800f4ad54b3a0b3b8d82542b1bacdba6a02d7d357aa293",
+            "actual_sha256": "2cd7288b57418e4961800f4ad54b3a0b3b8d82542b1bacdba6a02d7d357aa293"
+          },
+          "javascript-source": {
+            "expected_sha256": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+            "actual_sha256": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63"
+          }
+        },
+        "build_dependency_receipts_unchanged": true,
+        "build_install_or_artifact_copy": false
+      },
+      "after_manifest_sha256": "0aa57480e5efbb897fe4a328e600e449f1a3b54072b6ad7ddd0ee4bda83d04d4",
+      "guard_samples": [],
+      "aggregate_peak_rss_kib": 0,
+      "guard_failure": null,
+      "cleanup_errors": []
+    }
+  ]
+}

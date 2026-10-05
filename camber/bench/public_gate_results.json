@@ -1,0 +1,2891 @@
+{
+  "attempts": [
+    {
+      "attempt_id": "1791182166284780000",
+      "phase": "authorized-camber-check-and-publish-check",
+      "source_sha256": {
+        "camber/bench/run_public.py": "0bcad635c5eda01130f3da6f92078dcec75ab05d5546e3e59d4ec19fa47a089c",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+        "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+      },
+      "gate_input_sha256_before": {
+        "camber/LAWS.bend": "ad393065a880dba8e2458a1d378b0904c5790161ab57349b6820d1acb66b3665",
+        "camber/PROOF.bend": "e6677dbf1f8b3bcb5cd39c4caa37172a654a48eda7c51f4382ba9b1389a6d2b3",
+        "camber/VERSION": "4883319cbcd1e329219c20da95c472b63418912cf89a83ca663d1a787f32db75",
+        "camber/allocation_minimal.bend": "079c0bce40c04d046ddf9583b1f72f449e1043b1e052ad43fc7ce7863d019266",
+        "camber/author_app.bend": "e9887752a92a9506f8b7859f7b5d539671dc7fc7f942593319ae23aba1baeca7",
+        "camber/camber.bend": "2a8ceb5686194029f0d8a2b8f829ebf73d016f50716a2bc9c7b35f8c574c1d52",
+        "camber/check.bend": "be437db99c997718d1c2bd2fd5a69104639bbf9395f21c7ac4480164c64441d5",
+        "camber/deadlock_probe.bend": "1a78b8bc2b89ebe4a7cedd4b2662d98403ffbf57a6c792af10d3b0a653be3521",
+        "camber/dispatch_bench.bend": "5ec136bfba72715a7993ed9807d89240ea3eec2056074eebc228b3a694abfedd",
+        "camber/dispatch_check.bend": "6483d30aa20050d8eb4120537071cbf34437f4db8ce6928c8335c5281c9d3b56",
+        "camber/input.bend": "199b8117f7e1026eaadbb1a7deabb31d9e13e24f90040f725b919ac405b10b6a",
+        "camber/input_app.bend": "23d933327ec6f105cfd381729722348d949ef5094259ba35c96f9666fdc0943c",
+        "camber/input_check.bend": "e3def13f144707c2a0d455d469053cb1fe230edc3db461b0adc38244b01a5309",
+        "camber/interface_check.bend": "f7a88473f1a4f97f57a8b856c84c8084a09cf6d32cccc29baede8a2ffdb7abac",
+        "camber/json_aggregate_probe.bend": "754a45fbb9b64e8620ac5bf11232870ede4f7ea4b164789e17972b43259f9141",
+        "camber/json_attribution_probe.bend": "2915f64e1104adfbffd2802c2a9e189b592252a2f1d52c3f528cabc159d59819",
+        "camber/json_disposal_control.bend": "7b34df195278efe591d2b7259cffad2a642024a46b9077be685e5fad5b8cd546",
+        "camber/json_progress_probe.bend": "e902c1551829f33a3c3b66c50657fcad93699107770889e96ed7444208988004",
+        "camber/lifecycle_bench.bend": "4c8da9319a08a23ea249661a77af33e33bc3f4ebc922b5c18a482cd5db35226a",
+        "camber/lifecycle_http.bend": "27cf682850acae4194a209897f3aa8204e5a1e29f87b35f51c94cf25a1342780",
+        "camber/live_check.bend": "76d43a7d0f43c4a943927418bb94ef492775a72e106ef53e10b712e12438f910",
+        "camber/notices.bend": "c56ccfffbe58beae4439ad8befa4752eb32a3ebf89014f6ff37705979b6d341d",
+        "camber/notices_check.bend": "93c181c6e525337494a87c8208dbde24024e125404e14ab39da66e1b0507226e",
+        "camber/ownership.bend": "df26af62674305a9da27289276728224435abac41b5ba4d811fa32d82fedd689",
+        "camber/ownership_check.bend": "bbe120b1bb3c5f0b737703d3ea7ff256f1b846143bf6ecf803b4b87d9f89457f",
+        "camber/prerequisites.bend": "0e6dc7ef421a5bb35c19ee3551c7675bfcc8012cbf31aa878958770c2b91e923",
+        "camber/progress_probe.bend": "6174f2215390a5a049292e88fd3e2b9254110e965be13aeb9c943e1f027b2a75",
+        "camber/raw_bench.bend": "5483a56294111b654eb9d24968fd0b3184a68de526f9c646ab83a212232befc2",
+        "camber/raw_http.bend": "4043bd9cbda09471025897586c2565ee6dea3d998a135cfadf7103390744576f",
+        "camber/response.bend": "7169f59c4744e5714ceb3d2691a7a25d09c32ea40b511a18e4465ac743404eac",
+        "camber/response_check.bend": "bf89c3ceecb4d036d05afdd6ed536557982ba2723c4a658581b7f3094a84d2dc",
+        "camber/response_live.bend": "eb607a7f6f3e69d968cb9e5f4abc43204428683c719e5d046503b71c65fda31d",
+        "camber/risk_probe.bend": "473111f3b8ef0b9a316a86a2d0f654f0f5bc6f45a112faad4292ce9d0437ae89",
+        "camber/scoped_check.bend": "b832e0841ad913c7b2d1ce7e4500d2584a9a166d3f5cc7a2a63de640566902f7",
+        "camber/serving_check.bend": "9bee99874692325a98aab3d1f619f1f01cf2f7fa52b26ce2e430ab925fdbdd2b",
+        "camber/surface.bend": "883a69cf3caef6f2a0b672cc0d6c4b8052248354144db8bbb2355cc7e4062e68",
+        "camber/surface_app.bend": "fe5c498857dda5ce7ee2a4e4efefcecf0c10787197e94bc084043573b1fb2cf8",
+        "camber/surface_check.bend": "4e20651cfbe74a3d92859a62787595e456c7f5d503a3ba37c67c36295edce68e",
+        "camber/surface_live.bend": "977f4c477a5ad2b21b8e1eef8dd586ef357a1c051517404c5db85b9ce0d9d48a",
+        "camber/transport_probe.bend": "b7fecac7aa6b05eb258ac9f4d6a05fdab762e58e46076e815a45540b099bef04",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd",
+        "camber/users_direct.bend": "26410d420240ea8ab1c501e9577b86044bfcff49fc619e2286fe1b6815b25ec0",
+        "camber/users_live.bend": "3241a914bdccf9729888da63c3245847fa5045bf595b1b384cbce6b6a6b44ede",
+        "camber/users_owner.bend": "e143fcfc91770a800fcc80f79c882f5f3853e5c68b7f81cc45007d42e8c76de8",
+        "scripts/check.sh": "2e506e775ec6bcade9b26a3744511ff95f9cebf57bc2be316ee930887e78a36e",
+        "scripts/publish.sh": "777587d36dceb8fbc895d98bacd5b8b3307767053d0b374cde85ee9a86696077"
+      },
+      "driver_sha256": "dc1347f5f413531256a747f316d1cc788e942f71db65cf01b6c1dea97dff6e7a",
+      "commands": [
+        {
+          "command": [
+            "bash",
+            "scripts/check.sh",
+            "camber"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 856795.453943875,
+          "timeout_seconds": 300,
+          "state": "finished",
+          "pid": 68406,
+          "source_sha256": {
+            "camber/bench/run_public.py": "0bcad635c5eda01130f3da6f92078dcec75ab05d5546e3e59d4ec19fa47a089c",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+            "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+          },
+          "seconds": 8.246129915933125,
+          "output": "== camber\nSOME PROOFS FAIL\nError: 331 defs rely on unsafe or foreign code:\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/admission.loop\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/admission.open\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/admission.open.owner\n- 0x1435aec27074c8141b74747909079afc/wire.connect\n- 0x1435aec27074c8141b74747909079afc/wire.accept.deadline\n- 0x1435aec27074c8141b74747909079afc/wire.recv\n- 0x1435aec27074c8141b74747909079afc/wire.send\n- 0x1435aec27074c8141b74747909079afc/wire.recv_from\n- 0x1435aec27074c8141b74747909079afc/wire.send_to\n- 0x1435aec27074c8141b74747909079afc/wire.tls.connect\n- 0x1435aec27074c8141b74747909079afc/wire.tls.connect.cert\n- 0x1435aec27074c8141b74747909079afc/wire.tls.connect.alpn\n- 0x1435aec27074c8141b74747909079afc/wire.tls.send\n- 0x1435aec27074c8141b74747909079afc/wire.tls.recv\n- 0x1435aec27074c8141b74747909079afc/wire.tls.close\n- 0x1435aec27074c8141b74747909079afc/wire.recv.words\n- 0x1435aec27074c8141b74747909079afc/wire.send.words\n- 0x1435aec27074c8141b74747909079afc/wire.send.words.deadline\n- 0x1435aec27074c8141b74747909079afc/wire.recv_from.words\n- 0x1435aec27074c8141b74747909079afc/wire.send_to.words\n- 0x1435aec27074c8141b74747909079afc/wire.tls.recv.words\n- 0x1435aec27074c8141b74747909079afc/wire.tls.send.words\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.wall.raw\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.mono\n- 0x3bfb4ae4d3b87b90f01bfcd298211455/time.now\n- 0x584fc27920487ceab242392391418d7f/json.encb.go\n- 0x584fc27920487ceab242392391418d7f/json.encode.bytes\n- 0x4e8235741fad6df1605249df49ecae86/wire.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.cert\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.connect.alpn\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.close\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.recv_from.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.send_to.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.recv.words\n- 0x4e8235741fad6df1605249df49ecae86/wire.tls.send.words\n- 0x446af397a026226591f85538ecbba2c4/dns.try.sent\n- 0x446af397a026226591f85538ecbba2c4/dns.try.send\n- 0x446af397a026226591f85538ecbba2c4/dns.try.once\n- 0x446af397a026226591f85538ecbba2c4/dns.tries\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.sock\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.id\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.ns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.at\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n3\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n2\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.n1b\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.list\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.read\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.conf\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.lookup.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.os\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.dns\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.from\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.text\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.opened\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.hosts\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.ask\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure.pick\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.all.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve.pure\n- 0x446af397a026226591f85538ecbba2c4/dns.resolve\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.raw.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.gzip.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.open\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.inflate.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.brotli.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.zstd.new\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.feed.words\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish.id\n- 0xaca98ab7f724003ea421c18792cafe52/zlib.dec.finish\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.io.recv.words\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.io.send.words\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.io.send.bytes\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.io.close\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.close\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.bad\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.shut\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.hold.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.hold\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.failout\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.loop\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.exchange.sent\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.exchange.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.exchange\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.close\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conns.cut\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.give.of\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.give\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.close.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.close\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.tls\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.h2.sent\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.h2.start\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.tls.protocol\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.tls.alpn\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.secure.no.cert\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.secure.tls\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.secure\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.made\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.open\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.dial.time\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.dial.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.dial.try\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.dial.after\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.dial.more\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.dial.fold\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.dial.all\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.open.all\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.h2.send.report\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.h2.send.one\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.h2.send.fold\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.h2.send\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.h2.fail\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.h2.loop\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.h2.exchange\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.connect.fail\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.connect.extra\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.connect.status\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.connect.finish\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.connect.loop\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.connect.sent\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.connect\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.route.tls\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.route.connected\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.proxy.route.open\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.route.open\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.ex.h1\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.keep.s\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.keep.m\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.keep\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.after\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.h2.keep\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.h2.result\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.h2.ex\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.fresh.conn\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.fresh\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.stale\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.reused\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.idle.h1.bodies\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.idle.h1\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.idle.reuse\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.idle\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.origin.proxy\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.origin.choice\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.origin\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.one.of\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.one\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.hops.one\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.hops\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.ce.io.zstd\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.ce.io.br\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.ce.io.gz\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.ce.io.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.decoded.io.run\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.decoded.io.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.decoded.io\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.codings\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.final\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.final\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.how.enc\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.how.cert\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.how\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.fetch.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.fetch\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.fetch.cert.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.fetch.cert\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.all.job\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.all.close\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.all.done\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.all.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.all.of\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.all\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.jar.final\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.jar.enc\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.pool.fetch.jar\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.end\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.how\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.cert.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.cert\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.get\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.post.json\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.retry.sleep\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.retry.one\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.retry.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.retry.start\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.fetch.retry\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.feed.step\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.feed.one\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.feed.all\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.feed.st\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.finish\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.read\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.close\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.head\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.sent\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.conn\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.origin\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.one.of\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.one\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.hops\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.open.zstd\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.open.br\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.open.gz\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.open.step\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.open.one\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.open.all\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.init.opened\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.init.known\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.init.st\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.stream.init\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.open.raw.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.open.raw\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.open.with.enc\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.open.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.open\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.up.conn\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.up.origin\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.up.url\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.upload.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.upload\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.up.put\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.up.chunk\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.upload.write\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.upload.finish\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.bounded.send.ready\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.bounded.send\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.reply.drain\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.reply.sent.close\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.reply.sent.observe\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.reply_fail\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk.send\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk.respond\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk.cont\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk.read.loop\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk.read\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk.recv.selected\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk.recv\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.admission.reject\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.admission.request\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.talk\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn.admitted\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.conn\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.started\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.start.valid\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.start\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.accept.loop\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.accept.operation\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.accept\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.run.loop\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.run\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.stream.respond\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.stream.talk\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.stream.run\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.stream.started\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.stream.config\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.raw\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.chunk\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.known\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.chunk.go\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.write.mode\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.write\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.finish.mode\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.writer.finish\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.returned\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.finish\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.body\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.open\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.send.plan\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.send\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.admission.write\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.talk\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.server.write.run\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.started\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.config\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.started\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.on.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.on\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.stream.on.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.stream.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.on.with\n- 0x8bc87dd4d1e610fe1bf336b567537a8c/http.serve.write.with\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.stamp\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.log.if\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.log\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.file.if\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.file\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.debug\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.info\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.warn\n- 0x3ce6d24a9280c01a2032d333116bd6c8/notch.error\n- notices.access\n- owner\n- start.ready\n- start\n- dispatch.completed\n- dispatch\n- server.notified\n- server.completed.report\n- server.completed\n- server.handle\n- server.started\n- server.prepared\n- server.valid\n- server.registered\n- server.start\n- server.run\n- serve.started\n- serve\nALL PROOFS CHECK\nUse --verdict for mathematical validity.\nJOURNAL camber-owner-336-4191280074\nCOUNTS capacity=2 in_use=2 completed=0 rejected=0\nCOUNTS capacity=2 in_use=2 completed=0 rejected=1\nSUCCESS principal=7\nEXPECTED principal=8\nSUCCESS principal=12\nCOUNTS capacity=2 in_use=0 completed=4 rejected=1\nCLOSED 1\nCLOSED 0\nPARTIAL CLOSED\nCLOSED 1\nCLOSED 0\nCLOSED 1\ncamber owner: PASS\ncamber registration/direct dispatch: PASS\nresponse safety: PASS\neffect:ba1:alice\neffect:ba2:alice\neffect:bg1:alice\neffect:bg2:alice\neffect:br1:alice\neffect:br2:alice\neffect:decode:alice\neffect:handler:alice\neffect:tr2:alice\neffect:tr1:alice\neffect:te:alice\neffect:tg2:alice\neffect:tg1:alice\neffect:ta2:alice\neffect:ta1:alice\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:bob\neffect:ba2:bob\neffect:bg1:bob\neffect:bg2:bob\neffect:br1:bob\neffect:br2:bob\neffect:decode:bob\neffect:handler:bob\neffect:tr2:bob\neffect:tr1:bob\neffect:te:bob\neffect:tg2:bob\neffect:tg1:bob\neffect:ta2:bob\neffect:ta1:bob\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:carol\neffect:ba2:carol\neffect:decode:carol\neffect:handler:carol\neffect:tp:carol\neffect:ts:carol\neffect:ta2:carol\neffect:ta1:carol\nPASS:ba1,ba2,decode,handler,tp,ts,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:map:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,map,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:map:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,map,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:map:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,map,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:tr2:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:handler:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,\neffect:ba1:a\neffect:ba2:a\neffect:bg1:a\neffect:bg2:a\neffect:br1:a\neffect:br2:a\neffect:decode:a\neffect:map:a\neffect:tr2:a\neffect:tr1:a\neffect:te:a\neffect:tg2:a\neffect:tg1:a\neffect:ta2:a\neffect:ta1:a\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,map,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:ordinary\neffect:ba2:ordinary\neffect:bg1:ordinary\neffect:bg2:ordinary\neffect:br1:ordinary\neffect:br2:ordinary\neffect:handler:ordinary\neffect:tr2:ordinary\neffect:tr1:ordinary\neffect:te:ordinary\neffect:tg2:ordinary\neffect:tg1:ordinary\neffect:ta2:ordinary\neffect:ta1:ordinary\nPASS:ba1,ba2,bg1,bg2,br1,br2,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:parallel-alice\neffect:ba2:parallel-alice\neffect:bg1:parallel-alice\neffect:bg2:parallel-alice\neffect:br1:parallel-alice\neffect:br2:parallel-alice\neffect:decode:parallel-alice\neffect:handler:parallel-alice\neffect:tr2:parallel-alice\neffect:tr1:parallel-alice\neffect:te:parallel-alice\neffect:tg2:parallel-alice\neffect:tg1:parallel-alice\neffect:ta2:parallel-alice\neffect:ta1:parallel-alice\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\neffect:ba1:parallel-bob\neffect:ba2:parallel-bob\neffect:bg1:parallel-bob\neffect:bg2:parallel-bob\neffect:br1:parallel-bob\neffect:br2:parallel-bob\neffect:decode:parallel-bob\neffect:handler:parallel-bob\neffect:tr2:parallel-bob\neffect:tr1:parallel-bob\neffect:te:parallel-bob\neffect:tg2:parallel-bob\neffect:tg1:parallel-bob\neffect:ta2:parallel-bob\neffect:ta1:parallel-bob\nPASS:ba1,ba2,bg1,bg2,br1,br2,decode,handler,tr2,tr1,te,tg2,tg1,ta2,ta1,\n",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {
+            "68406": "Mon Oct  5 01:36:06 2026    ",
+            "68409": "Mon Oct  5 01:36:06 2026    ",
+            "68410": "Mon Oct  5 01:36:06 2026    ",
+            "68411": "Mon Oct  5 01:36:06 2026    ",
+            "68748": "Mon Oct  5 01:36:08 2026    ",
+            "68749": "Mon Oct  5 01:36:08 2026    ",
+            "68771": "Mon Oct  5 01:36:08 2026    "
+          },
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 6992,
+          "sampled_root_cpu_seconds": 0.01,
+          "sampled_aggregate_peak_rss_kib": 4815072
+        },
+        {
+          "command": [
+            "bash",
+            "scripts/publish.sh",
+            "--check",
+            "camber"
+          ],
+          "cwd": "/Users/paymahn/code/bend-kit-issue-340",
+          "invoked_monotonic": 856803.701268416,
+          "timeout_seconds": 300,
+          "state": "finished",
+          "pid": 69795,
+          "source_sha256": {
+            "camber/bench/run_public.py": "0bcad635c5eda01130f3da6f92078dcec75ab05d5546e3e59d4ec19fa47a089c",
+            "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+            "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+            "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+            "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+            "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+            "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+            "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+            "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+            "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+            "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+            "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+            "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+            "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+          },
+          "seconds": 1.0833501670276746,
+          "output": "== bend-kit-camber@0.6.0.0 is on the hub\n",
+          "error": null,
+          "exit": 0,
+          "root_reaped": true,
+          "observed_process_identities": {
+            "69795": "Mon Oct  5 01:36:14 2026    ",
+            "69798": "Mon Oct  5 01:36:14 2026    ",
+            "69804": "Mon Oct  5 01:36:14 2026    ",
+            "69803": "Mon Oct  5 01:36:14 2026    ",
+            "69805": "Mon Oct  5 01:36:14 2026    ",
+            "69808": "Mon Oct  5 01:36:14 2026    ",
+            "69809": "Mon Oct  5 01:36:14 2026    ",
+            "69888": "Mon Oct  5 01:36:15 2026    ",
+            "69887": "Mon Oct  5 01:36:15 2026    ",
+            "69902": "Mon Oct  5 01:36:15 2026    ",
+            "69903": "Mon Oct  5 01:36:15 2026    ",
+            "69907": "Mon Oct  5 01:36:15 2026    ",
+            "69908": "Mon Oct  5 01:36:15 2026    "
+          },
+          "surviving_observed_processes": {},
+          "release_observation_error": null,
+          "observed_descendants_released": true,
+          "forced": false,
+          "sampled_root_peak_rss_kib": 7088,
+          "sampled_root_cpu_seconds": 0.01,
+          "sampled_aggregate_peak_rss_kib": 43776
+        }
+      ],
+      "server_commands": [],
+      "release": [],
+      "gate_outcomes": [
+        {
+          "command": [
+            "bash",
+            "scripts/check.sh",
+            "camber"
+          ],
+          "passed": true
+        },
+        {
+          "command": [
+            "bash",
+            "scripts/publish.sh",
+            "--check",
+            "camber"
+          ],
+          "passed": true
+        }
+      ],
+      "human_law_inventory": {
+        "path": "camber/LAWS.bend",
+        "contents": "# No human-authored Camber laws have been supplied. Do not infer IO guarantees.\nimport Base\n",
+        "statement": "No supplied human laws; unsafe/foreign exclusion output is not host-IO proof."
+      },
+      "verdict": "PASS",
+      "source_sha256_after": {
+        "camber/bench/run_public.py": "0bcad635c5eda01130f3da6f92078dcec75ab05d5546e3e59d4ec19fa47a089c",
+        "camber/bench/public_app.bend": "7721dc7c6f2c0da7ea5803b70fca1439cf546925f20557b9036a1a9b73d0a2bd",
+        "camber/bench/public_main.bend": "9d84aad88b392463855e5e769cdae0a3490521d3781902651500b1411ee57c3c",
+        "camber/bench/public_direct.bend": "2e52eb93c5925e1d5d104614ff3acd2728a470ab9d85bc43748d89fbd0093a59",
+        "camber/bench/public_server.mjs": "29dbfe32796b78afc420cd6ec5021e73b3f47b149c6612b79a03477ec9aa4c63",
+        "camber/bench/public_libevent.c": "cf27af7405d630f3afda69077fd93a5f85b93f9168332b1ccc69474ec505c4ef",
+        "camber/bench/public_flask.py": "621b5b50eaa6cf51c7ce1c893bc2aea99084227a304b4284efb5605849354d01",
+        "camber/bench/public_package.json": "46da15fd5f7931639cc4e94971ffc43da3f1babef44e0cbdeb2127beb41ce8ce",
+        "camber/bench/public_requirements.txt": "4b620769c62d6b2fb7a2a38b995327cf2a58b058722909e1f03fee561e48b1a7",
+        "camber/bench/public_criteria.json": "fb5052c1550cd56aeddf5b483c22eca35f4a5cc4b03891cd15fe532ce4c58ce3",
+        "camber/bench/public_axum/src/main.rs": "0a2594c3e840939ede0e1296e20a1b65941d469be733300e3a88dd0720e8f864",
+        "camber/bench/public_axum/Cargo.toml": "44f86e48bf45a4d01fa2e07ff1a8596189ee0860b3d368dec005dcf502fc559a",
+        "camber/bench/public_axum/Cargo.lock": "1c2c62a7c83edfd43dd4971a83882beb986092f16a68a366e8a9553b859811ec",
+        "camber/raw_budget.json": "99510ae3ac9d0d34b6f7686950beaef4f41534c5339b96281a09bd86dd5467af"
+      },
+      "gate_input_sha256_after": {
+        "camber/LAWS.bend": "ad393065a880dba8e2458a1d378b0904c5790161ab57349b6820d1acb66b3665",
+        "camber/PROOF.bend": "e6677dbf1f8b3bcb5cd39c4caa37172a654a48eda7c51f4382ba9b1389a6d2b3",
+        "camber/VERSION": "4883319cbcd1e329219c20da95c472b63418912cf89a83ca663d1a787f32db75",
+        "camber/allocation_minimal.bend": "079c0bce40c04d046ddf9583b1f72f449e1043b1e052ad43fc7ce7863d019266",
+        "camber/author_app.bend": "e9887752a92a9506f8b7859f7b5d539671dc7fc7f942593319ae23aba1baeca7",
+        "camber/camber.bend": "2a8ceb5686194029f0d8a2b8f829ebf73d016f50716a2bc9c7b35f8c574c1d52",
+        "camber/check.bend": "be437db99c997718d1c2bd2fd5a69104639bbf9395f21c7ac4480164c64441d5",
+        "camber/deadlock_probe.bend": "1a78b8bc2b89ebe4a7cedd4b2662d98403ffbf57a6c792af10d3b0a653be3521",
+        "camber/dispatch_bench.bend": "5ec136bfba72715a7993ed9807d89240ea3eec2056074eebc228b3a694abfedd",
+        "camber/dispatch_check.bend": "6483d30aa20050d8eb4120537071cbf34437f4db8ce6928c8335c5281c9d3b56",
+        "camber/input.bend": "199b8117f7e1026eaadbb1a7deabb31d9e13e24f90040f725b919ac405b10b6a",
+        "camber/input_app.bend": "23d933327ec6f105cfd381729722348d949ef5094259ba35c96f9666fdc0943c",
+        "camber/input_check.bend": "e3def13f144707c2a0d455d469053cb1fe230edc3db461b0adc38244b01a5309",
+        "camber/interface_check.bend": "f7a88473f1a4f97f57a8b856c84c8084a09cf6d32cccc29baede8a2ffdb7abac",
+        "camber/json_aggregate_probe.bend": "754a45fbb9b64e8620ac5bf11232870ede4f7ea4b164789e17972b43259f9141",
+        "camber/json_attribution_probe.bend": "2915f64e1104adfbffd2802c2a9e189b592252a2f1d52c3f528cabc159d59819",
+        "camber/json_disposal_control.bend": "7b34df195278efe591d2b7259cffad2a642024a46b9077be685e5fad5b8cd546",
+        "camber/json_progress_probe.bend": "e902c1551829f33a3c3b66c50657fcad93699107770889e96ed7444208988004",
+        "camber/lifecycle_bench.bend": "4c8da9319a08a23ea249661a77af33e33bc3f4ebc922b5c18a482cd5db35226a",
+        "camber/lifecycle_http.bend": "27cf682850acae4194a209897f3aa8204e5a1e29f87b35f51c94cf25a1342780",
+        "camber/live_check.bend": "76d43a7d0f43c4a943927418bb94ef492775a72e106ef53e10b712e12438f910",
+        "camber/notices.bend": "c56ccfffbe58beae4439ad8befa4752eb32a3ebf89014f6ff37705979b6d341d",
+        "camber/notices_check.bend": "93c181c6e525337494a87c8208dbde24024e125404e14ab39da66e1b0507226e",
+        "camber/ownership.bend": "df26af62674305a9da27289276728224435abac41b5ba4d811fa32d82fedd689",
+        "camber/ownership_check.bend": "bbe120b1bb3c5f0b737703d3ea7ff256f1b846143bf6ecf803b4b87d9f89457f",
+        "camber/prerequisites.bend": "0e6dc7ef421a5bb35c19ee3551c7675bfcc8012cbf31aa878958770c2b91e923",
+        "camber/progress_probe.bend": "6174f2215390a5a049292e88fd3e2b9254110e965be13aeb9c943e1f027b2a75",
+        "camber/raw_bench.bend": "5483a56294111b654eb9d24968fd0b3184a68de526f9c646ab83a212232befc2",
+        "camber/raw_http.bend": "4043bd9cbda09471025897586c2565ee6dea3d998a135cfadf7103390744576f",
+        "camber/response.bend": "7169f59c4744e5714ceb3d2691a7a25d09c32ea40b511a18e4465ac743404eac",
+        "camber/response_check.bend": "bf89c3ceecb4d036d05afdd6ed536557982ba2723c4a658581b7f3094a84d2dc",
+        "camber/response_live.bend": "eb607a7f6f3e69d968cb9e5f4abc43204428683c719e5d046503b71c65fda31d",
+        "camber/risk_probe.bend": "473111f3b8ef0b9a316a86a2d0f654f0f5bc6f45a112faad4292ce9d0437ae89",
+        "camber/scoped_check.bend": "b832e0841ad913c7b2d1ce7e4500d2584a9a166d3f5cc7a2a63de640566902f7",
+        "camber/serving_check.bend": "9bee99874692325a98aab3d1f619f1f01cf2f7fa52b26ce2e430ab925fdbdd2b",
+        "camber/surface.bend": "883a69cf3caef6f2a0b672cc0d6c4b8052248354144db8bbb2355cc7e4062e68",
+        "camber/surface_app.bend": "fe5c498857dda5ce7ee2a4e4efefcecf0c10787197e94bc084043573b1fb2cf8",
+        "camber/surface_check.bend": "4e20651cfbe74a3d92859a62787595e456c7f5d503a3ba37c67c36295edce68e",
+        "camber/surface_live.bend": "977f4c477a5ad2b21b8e1eef8dd586ef357a1c051517404c5db85b9ce0d9d48a",
+        "camber/transport_probe.bend": "b7fecac7aa6b05eb258ac9f4d6a05fdab762e58e46076e815a45540b099bef04",
+        "camber/users.bend": "6e9d41a6eade7e2617cec91f2f56feca7c6ac30cbf9087abad917779c952d17b",
+        "camber/users_demo.bend": "db5c9a4e34005182a8691bb8cccba65695e8eff43eec05ec2153d30dd08dd8fd",
+        "camber/users_direct.bend": "26410d420240ea8ab1c501e9577b86044bfcff49fc619e2286fe1b6815b25ec0",
+        "camber/users_live.bend": "3241a914bdccf9729888da63c3245847fa5045bf595b1b384cbce6b6a6b44ede",
+        "camber/users_owner.bend": "e143fcfc91770a800fcc80f79c882f5f3853e5c68b7f81cc45007d42e8c76de8",
+        "scripts/check.sh": "2e506e775ec6bcade9b26a3744511ff95f9cebf57bc2be316ee930887e78a36e",
+        "scripts/publish.sh": "777587d36dceb8fbc895d98bacd5b8b3307767053d0b374cde85ee9a86696077"
+      },
+      "guard_samples": [
+        {
+          "host_monotonic": 856795.482248166,
+          "aggregate_rss_kib": 42960,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35008,
+              "cpu_seconds": 0.08,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5904,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68407": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856795.584758416,
+          "aggregate_rss_kib": 109392,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35696,
+              "cpu_seconds": 0.08,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1856,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 61056,
+              "cpu_seconds": 0.11,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68413": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856795.716202,
+          "aggregate_rss_kib": 241632,
+          "processes": {
+            "68416": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35792,
+              "cpu_seconds": 0.08,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1856,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1728,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 193200,
+              "cpu_seconds": 0.48,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856795.8442875,
+          "aggregate_rss_kib": 296944,
+          "processes": {
+            "68417": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35872,
+              "cpu_seconds": 0.09,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 248400,
+              "cpu_seconds": 0.73,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856795.980113166,
+          "aggregate_rss_kib": 507328,
+          "processes": {
+            "68420": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35872,
+              "cpu_seconds": 0.09,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 458784,
+              "cpu_seconds": 1.05,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856796.109320375,
+          "aggregate_rss_kib": 580640,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35888,
+              "cpu_seconds": 0.09,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68424": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 532080,
+              "cpu_seconds": 1.29,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856796.24218975,
+          "aggregate_rss_kib": 649216,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35888,
+              "cpu_seconds": 0.09,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68425": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 600656,
+              "cpu_seconds": 1.51,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856796.373071083,
+          "aggregate_rss_kib": 730592,
+          "processes": {
+            "68512": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35904,
+              "cpu_seconds": 0.1,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 682016,
+              "cpu_seconds": 1.68,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856796.50679175,
+          "aggregate_rss_kib": 835408,
+          "processes": {
+            "68513": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35904,
+              "cpu_seconds": 0.1,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 786832,
+              "cpu_seconds": 2.04,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856796.64820375,
+          "aggregate_rss_kib": 957280,
+          "processes": {
+            "68514": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35968,
+              "cpu_seconds": 0.1,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 908640,
+              "cpu_seconds": 2.59,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856796.783753875,
+          "aggregate_rss_kib": 1569008,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35968,
+              "cpu_seconds": 0.1,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68517": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 1520368,
+              "cpu_seconds": 2.95,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856796.915176083,
+          "aggregate_rss_kib": 1619344,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35984,
+              "cpu_seconds": 0.11,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68518": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 1570688,
+              "cpu_seconds": 3.25,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.049190541,
+          "aggregate_rss_kib": 1755968,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 35984,
+              "cpu_seconds": 0.11,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68520": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 1707312,
+              "cpu_seconds": 3.39,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.176490125,
+          "aggregate_rss_kib": 1885488,
+          "processes": {
+            "68531": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:07 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 36000,
+              "cpu_seconds": 0.11,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 1836816,
+              "cpu_seconds": 3.64,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.303702416,
+          "aggregate_rss_kib": 1885600,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 36000,
+              "cpu_seconds": 0.11,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68631": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 1836928,
+              "cpu_seconds": 3.76,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.4348835,
+          "aggregate_rss_kib": 1976896,
+          "processes": {
+            "68643": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 36000,
+              "cpu_seconds": 0.12,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 6992,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1872,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 1928224,
+              "cpu_seconds": 3.89,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.566573125,
+          "aggregate_rss_kib": 2207904,
+          "processes": {
+            "68644": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34448,
+              "cpu_seconds": 0.12,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 960,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 816,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 2163872,
+              "cpu_seconds": 4.02,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.695258833,
+          "aggregate_rss_kib": 2322032,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.12,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68645": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 960,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 816,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 2278032,
+              "cpu_seconds": 4.15,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.8233815,
+          "aggregate_rss_kib": 2322032,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.12,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68648": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 960,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 816,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 2278032,
+              "cpu_seconds": 4.28,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856797.95693775,
+          "aggregate_rss_kib": 2322048,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.13,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 960,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68410": {
+              "ppid": 68409,
+              "rss_kib": 816,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68411": {
+              "ppid": 68410,
+              "rss_kib": 2278048,
+              "cpu_seconds": 4.41,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68649": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.087500083,
+          "aggregate_rss_kib": 94240,
+          "processes": {
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.13,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68759": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2160,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68748": {
+              "ppid": 68409,
+              "rss_kib": 1744,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68749": {
+              "ppid": 68748,
+              "rss_kib": 48112,
+              "cpu_seconds": 0.05,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.215503375,
+          "aggregate_rss_kib": 181136,
+          "processes": {
+            "68801": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            },
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 136720,
+              "cpu_seconds": 0.31,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.13,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.343680583,
+          "aggregate_rss_kib": 262240,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 217824,
+              "cpu_seconds": 0.58,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.13,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68886": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.473625458,
+          "aggregate_rss_kib": 352192,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 307776,
+              "cpu_seconds": 0.89,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.14,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68889": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.6039365,
+          "aggregate_rss_kib": 529360,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 484944,
+              "cpu_seconds": 1.12,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.14,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68890": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.7317765,
+          "aggregate_rss_kib": 612112,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 567696,
+              "cpu_seconds": 1.37,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.14,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68893": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.860190666,
+          "aggregate_rss_kib": 721392,
+          "processes": {
+            "68896": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            },
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 676976,
+              "cpu_seconds": 1.57,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.14,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856798.988849291,
+          "aggregate_rss_kib": 722864,
+          "processes": {
+            "68898": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            },
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 678448,
+              "cpu_seconds": 1.73,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34416,
+              "cpu_seconds": 0.15,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856799.118282375,
+          "aggregate_rss_kib": 875952,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 831520,
+              "cpu_seconds": 2.1,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68900": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:09 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34432,
+              "cpu_seconds": 0.15,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856799.263097833,
+          "aggregate_rss_kib": 1142240,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1097760,
+              "cpu_seconds": 2.28,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34432,
+              "cpu_seconds": 0.15,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68917": {
+              "ppid": 68405,
+              "rss_kib": 2096,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856799.391378208,
+          "aggregate_rss_kib": 1190800,
+          "processes": {
+            "69010": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            },
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1146240,
+              "cpu_seconds": 2.42,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34560,
+              "cpu_seconds": 0.15,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856799.521299125,
+          "aggregate_rss_kib": 1270144,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1225584,
+              "cpu_seconds": 2.69,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34560,
+              "cpu_seconds": 0.16,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69014": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856799.652321166,
+          "aggregate_rss_kib": 1370944,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1326384,
+              "cpu_seconds": 3.11,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34560,
+              "cpu_seconds": 0.16,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69015": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856799.782040958,
+          "aggregate_rss_kib": 1529680,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1485120,
+              "cpu_seconds": 3.5,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34560,
+              "cpu_seconds": 0.16,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69016": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856799.914042208,
+          "aggregate_rss_kib": 1702464,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1657904,
+              "cpu_seconds": 3.83,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34560,
+              "cpu_seconds": 0.16,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69019": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856800.043466291,
+          "aggregate_rss_kib": 1717408,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1672848,
+              "cpu_seconds": 4.07,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34560,
+              "cpu_seconds": 0.17,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69020": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856800.172414,
+          "aggregate_rss_kib": 1869312,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 1824736,
+              "cpu_seconds": 4.35,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34560,
+              "cpu_seconds": 0.17,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69023": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:10 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856800.399749083,
+          "aggregate_rss_kib": 2237856,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 2193264,
+              "cpu_seconds": 5.06,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 34576,
+              "cpu_seconds": 0.17,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69117": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:11 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856800.529449208,
+          "aggregate_rss_kib": 2252032,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 2220416,
+              "cpu_seconds": 5.75,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21616,
+              "cpu_seconds": 0.17,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69119": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:11 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856800.709211916,
+          "aggregate_rss_kib": 2400128,
+          "processes": {
+            "69122": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:11 2026    "
+            },
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 2368512,
+              "cpu_seconds": 5.92,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21616,
+              "cpu_seconds": 0.18,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5744,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856800.851264625,
+          "aggregate_rss_kib": 3086144,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 3054512,
+              "cpu_seconds": 6.19,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "69123": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:11 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21616,
+              "cpu_seconds": 0.18,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856800.999220666,
+          "aggregate_rss_kib": 3655536,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 3623904,
+              "cpu_seconds": 6.38,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21616,
+              "cpu_seconds": 0.18,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69126": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:11 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856801.135692291,
+          "aggregate_rss_kib": 4061344,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4029696,
+              "cpu_seconds": 6.9,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21632,
+              "cpu_seconds": 0.19,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69127": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:11 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856801.283643583,
+          "aggregate_rss_kib": 4094944,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4063264,
+              "cpu_seconds": 7.12,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21632,
+              "cpu_seconds": 0.19,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69141": {
+              "ppid": 68405,
+              "rss_kib": 2080,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:12 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856801.418336875,
+          "aggregate_rss_kib": 4115456,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4083760,
+              "cpu_seconds": 7.27,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.19,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69237": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:12 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856801.548014791,
+          "aggregate_rss_kib": 4128864,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4097168,
+              "cpu_seconds": 7.41,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.19,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69238": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:12 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856801.682097833,
+          "aggregate_rss_kib": 4157072,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4125360,
+              "cpu_seconds": 7.53,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.2,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69240": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:12 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856801.808971541,
+          "aggregate_rss_kib": 4210480,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4178784,
+              "cpu_seconds": 7.67,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.2,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69242": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:12 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856801.967761833,
+          "aggregate_rss_kib": 4417104,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4385392,
+              "cpu_seconds": 8.03,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.2,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 2208,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69243": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:12 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856802.098012583,
+          "aggregate_rss_kib": 4385616,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4354720,
+              "cpu_seconds": 8.4,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21632,
+              "cpu_seconds": 0.2,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69246": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:12 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856802.247228041,
+          "aggregate_rss_kib": 4358272,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4327328,
+              "cpu_seconds": 8.6,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21632,
+              "cpu_seconds": 0.21,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69247": {
+              "ppid": 68405,
+              "rss_kib": 2096,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856802.379603833,
+          "aggregate_rss_kib": 4321984,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4291040,
+              "cpu_seconds": 8.79,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21664,
+              "cpu_seconds": 0.21,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69334": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856802.507277333,
+          "aggregate_rss_kib": 4311120,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4280176,
+              "cpu_seconds": 8.93,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.21,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69335": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856802.640150333,
+          "aggregate_rss_kib": 4337184,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4306240,
+              "cpu_seconds": 9.05,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.21,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69336": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856802.770914666,
+          "aggregate_rss_kib": 4348128,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4317184,
+              "cpu_seconds": 9.21,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.22,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69339": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856802.908161708,
+          "aggregate_rss_kib": 4360800,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4329856,
+              "cpu_seconds": 9.34,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "69364": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.22,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.037683625,
+          "aggregate_rss_kib": 4375248,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4344288,
+              "cpu_seconds": 9.47,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.22,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69455": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.1755735,
+          "aggregate_rss_kib": 4494416,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4463456,
+              "cpu_seconds": 9.6,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "69507": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:13 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.22,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.383779,
+          "aggregate_rss_kib": 4659072,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4628032,
+              "cpu_seconds": 9.77,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "69619": {
+              "ppid": 68405,
+              "rss_kib": 2144,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21680,
+              "cpu_seconds": 0.22,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.517186666,
+          "aggregate_rss_kib": 4815072,
+          "processes": {
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 4784064,
+              "cpu_seconds": 9.9,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21728,
+              "cpu_seconds": 0.23,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69774": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.652088041,
+          "aggregate_rss_kib": 30992,
+          "processes": {
+            "69793": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68771": {
+              "ppid": 68409,
+              "rss_kib": 0,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:08 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 21728,
+              "cpu_seconds": 0.23,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68406": {
+              "ppid": 68405,
+              "rss_kib": 5760,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "68409": {
+              "ppid": 68406,
+              "rss_kib": 1456,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.727813125,
+          "aggregate_rss_kib": 30048,
+          "processes": {
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 5088,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69796": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.24,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.779183458,
+          "aggregate_rss_kib": 37984,
+          "processes": {
+            "69801": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.24,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69798": {
+              "ppid": 69795,
+              "rss_kib": 5936,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856803.909360333,
+          "aggregate_rss_kib": 39440,
+          "processes": {
+            "69802": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.24,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69798": {
+              "ppid": 69795,
+              "rss_kib": 7392,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856804.042430708,
+          "aggregate_rss_kib": 43776,
+          "processes": {
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.24,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69803": {
+              "ppid": 69795,
+              "rss_kib": 1712,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69804": {
+              "ppid": 69803,
+              "rss_kib": 7328,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69805": {
+              "ppid": 69803,
+              "rss_kib": 2672,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69807": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856804.173959041,
+          "aggregate_rss_kib": 40336,
+          "processes": {
+            "69808": {
+              "ppid": 69795,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69809": {
+              "ppid": 69795,
+              "rss_kib": 1200,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69812": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.24,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856804.303461791,
+          "aggregate_rss_kib": 40864,
+          "processes": {
+            "69808": {
+              "ppid": 69795,
+              "rss_kib": 7520,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69809": {
+              "ppid": 69795,
+              "rss_kib": 1280,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.25,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69884": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856804.435998125,
+          "aggregate_rss_kib": 40656,
+          "processes": {
+            "69888": {
+              "ppid": 69795,
+              "rss_kib": 1200,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            },
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.25,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69901": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            },
+            "69887": {
+              "ppid": 69795,
+              "rss_kib": 7408,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856804.568952541,
+          "aggregate_rss_kib": 40336,
+          "processes": {
+            "69906": {
+              "ppid": 68405,
+              "rss_kib": 2048,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            },
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22912,
+              "cpu_seconds": 0.25,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69902": {
+              "ppid": 69795,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            },
+            "69903": {
+              "ppid": 69795,
+              "rss_kib": 1200,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            }
+          }
+        },
+        {
+          "host_monotonic": 856804.702369,
+          "aggregate_rss_kib": 40368,
+          "processes": {
+            "69907": {
+              "ppid": 69795,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            },
+            "69908": {
+              "ppid": 69795,
+              "rss_kib": 1200,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            },
+            "68405": {
+              "ppid": 29458,
+              "rss_kib": 22928,
+              "cpu_seconds": 0.25,
+              "start_identity": "Mon Oct  5 01:36:06 2026    "
+            },
+            "69795": {
+              "ppid": 68405,
+              "rss_kib": 7088,
+              "cpu_seconds": 0.01,
+              "start_identity": "Mon Oct  5 01:36:14 2026    "
+            },
+            "69911": {
+              "ppid": 68405,
+              "rss_kib": 2064,
+              "cpu_seconds": 0.0,
+              "start_identity": "Mon Oct  5 01:36:15 2026    "
+            }
+          }
+        }
+      ],
+      "aggregate_peak_rss_kib": 4815072,
+      "guard_failure": null,
+      "cleanup_errors": [],
+      "surviving_roots": [],
+      "source14_unchanged": true,
+      "gate_inputs_unchanged": true
+    }
+  ]
+}
