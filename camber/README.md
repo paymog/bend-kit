@@ -2,6 +2,16 @@
 
 `camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.30.0.0. Package version: `0.6.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.1.0.0.
 
+```bend
+import bend-kit-camber@0.6.0.0/camber.bend as Camber
+import bend-kit-camber@0.6.0.0/input.bend as Input
+import bend-kit-camber@0.6.0.0/notices.bend as Notices
+import bend-kit-http@0.30.0.0/http.bend as Http
+```
+
+`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. `Http` values here are `bend-kit-http@0.30.0.0`, `bend-kit-router@0.2.0.0`, and `bend-kit-json@0.5.1.0`.
+
+
 ## API
 
 ### Fixed applications and direct dispatch

@@ -1,5 +1,14 @@
 # HTTP/2 client, frame codec, and HPACK
 
+```bend
+import bend-kit-http2@0.1.2.0/http2.bend as H2
+import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
+import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+```
+
+`http@0.30.0.0` imports this `http2` version. `hpack.bend` is a separate file in the same package.
+
+
 `http2.bend` encodes and parses the nine-octet frame header and all ten frame types in RFC 9113 §6. A `Frame` carries the type, flags, stream ID, and packed payload bytes. The payload retains padding and fixed fields in wire order so callers can decode HPACK and other frame-specific content without converting it to a `String`.
 
 `parse(max, bytes)` returns `Need{input}` when a frame is incomplete, `Got{frame, rest}` when it is complete, or `Bad{error}` for a malformed frame. Keep the `Need` input and append newly received bytes before calling `parse` again. `encode(max, frame)` returns `Done{bytes}` or `Fail{error}`. Use `16384` for `max` until the peer advertises another `SETTINGS_MAX_FRAME_SIZE`. `Error` contains the RFC §7 code and identifies whether it is a connection error or a stream error.
@@ -16,4 +25,4 @@ Call `Hpack.set_limit(max, state)` when the peer changes its table-size limit fo
 
 Pass each received packed byte chunk to `client.receive(client, chunk)`. It buffers incomplete frames and returns SETTINGS ACKs, PING replies, WINDOW_UPDATE credit, and resumed DATA in `writes`. A `Response{id, headers, body}` event completes a response; interim 1xx responses arrive as separate events. `Reset`, `Shutdown`, and `Pong` report RST_STREAM, GOAWAY, and PING ACK. `client.ping.request(client, payload)` sends an eight-octet PING. Sending DATA pauses when either flow-control window is empty and resumes when the peer raises that window. GOAWAY prevents new requests but permits earlier streams to finish.
 
-The laws prove the RFC 7541 Appendix C.2–C.6 examples and drive the client through SETTINGS, fragmented headers, a flow-control stall, and GOAWAY. `scripts/check.sh http2` also runs a public `nghttp2.org` TLS/ALPN request, so it needs network access. Cross-language frame, HPACK, and native client connection benchmarks are in `bench/`.
+The laws prove the RFC 7541 Appendix C.2 to C.6 examples and drive the client through SETTINGS, fragmented headers, a flow-control stall, and GOAWAY. `scripts/check.sh http2` also runs a public `nghttp2.org` TLS/ALPN request, so it needs network access. Cross-language frame, HPACK, and native client connection benchmarks are in `bench/`.

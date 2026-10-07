@@ -1,113 +1,191 @@
 # bend-kit
 
-A general-purpose library for Bend 2. Each package is proved against its own laws and published to the Bend hub on its own. Networking came first, so `http` and its dependencies are the most complete today. [ROADMAP.md](ROADMAP.md) lists what comes next.
+Packages for Bend 2 that Base does not include. Each package has its own laws and its own hub version. Networking came first, so `http` and the packages under it are the most complete. [ROADMAP.md](ROADMAP.md) is the backlog.
 
-This project was called bend-net. Its old hub names, `bend-net-*`, still resolve but get no new versions.
+This project was called bend-net. The old hub names, `bend-net-*`, still resolve. They get no new versions.
+
+Licensed under Apache-2.0. See [LICENSE](LICENSE).
 
 ## Install
 
 You need [Bend 2.0.35 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2](https://bun.sh/docs/installation). macOS or Linux, including WSL. Windows is not supported.
 
-Import a package at the top of your file. `bend` fetches it from the hub and checks it against its hash:
-
 ```bend
+import Base
 import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
+
+def show(r: Bytes.Bytes & U32) -> IO(Unit):
+  (b, n) = r
+  IO.print(U32.show(n) ++ " " ++ Bytes.to_string(b))
+
+def main() -> IO(Unit):
+  show(Bytes.length(Bytes.from_string("hi")))
 ```
 
-A name and its hash import the same package. Each version is a distinct type, so import the same version as the package you pass values to.
+`bend` fetches that import and checks it against the published hash. `bend-kit-bytes@0.3.2.0` is `0x185ae03c75e3e75be1171471f68b43cb`. A name and its hash are the same package. A different version is a different type.
+
+The kit is in alpha. Types, names, and entry points can change. There is no compatibility shim. A break raises the second number of `VERSION`, from `0.3.0.0` to `0.4.0.0`, and the packages that import it move with it.
+
+## Proofs
+
+Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend` prints `All terms check.` when every law holds. Proofs do not cover `.c` and `.js` effects. Those effects run host code.
+
+## Same type
+
+Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
+
+`http@0.31.0.0` imports `bend-kit-wire@0.4.6.0`, `bend-kit-http2@0.1.2.0`, `bend-kit-dns@0.5.0.0`, `bend-kit-time@0.1.0.0`, `bend-kit-int@0.2.0.0`, and `bend-kit-concurrency@0.1.0.0`. Its entry file also names these hashes as url `0.4.1.0`, encoding `0.3.0.0`, json `0.5.0.1`, bytes `0.3.0.0`, and zlib `0.2.0.0`:
+
+```
+0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend
+0xcfc8be7b076f41f95c8e118383892d55/encoding.bend
+0x584fc27920487ceab242392391418d7f/json.bend
+0x49814d83de8f70993a43e1002be29ecd/bytes.bend
+0xaca98ab7f724003ea421c18792cafe52/zlib.bend
+```
+
+`Http.Body` is that bytes hash, not `bend-kit-bytes@0.3.2.0`. `bend-kit-json@0.5.1.0` is a later publish than the json hash above.
+
+`hairpin@0.1.0.0`, and `oauth2`, `jwt`, `sigv4`, `llm`, and `webhooks`, import `bend-kit-http@0.23.0.1`. That `Http.Res` is not `bend-kit-http@0.31.0.0`. `camber@0.6.0.0` still imports `bend-kit-http@0.30.0.0`.
+
+## Native libraries
+
+The effects load these libraries at run time. Set the override when the library is not on the default search path. On macOS, `brew install openssl@3` covers TLS and crypto.
+
+| Library | Used by | Override |
+|---|---|---|
+| OpenSSL 3 `libssl` | `wire` TLS, HTTPS in `http` and `hairpin` | `BEND_LIBSSL` |
+| OpenSSL 3 `libcrypto` | `crypto`, and signing or secure random through it | `BEND_LIBCRYPTO` |
+| `libsqlite3` | `sqlite` | `BEND_LIBSQLITE` |
+| `libz` | `zlib` inflate and gzip, `archive` DEFLATE, `http` gzip | `BEND_LIBZ` |
+| `libzstd` | `zlib` and `http` zstd | `BEND_LIBZSTD` |
+| `libbrotlidec` | `zlib` and `http` brotli | `BEND_LIBBROTLIDEC` |
+
+`files`, `process`, `dns`, `time`, `random`, and `tty` call the OS through effects. They do not load one of those libraries. Proofs do not cover any of these effects.
+
+## Calling the packages
+
+A `Socket`, `File`, `Cursor`, or `Client` is used once. The call returns the handle beside the result. Pass that handle on.
+
+Octet buffers are `Bytes`: four octets in each `U32`. Use `String` for short text, such as header fields, paths, URLs, and code points.
+
+`match` takes a parameter, not a computed value. Match a `Result` in a helper.
+
+A body over about 30 KB overflows `bend file.bend`. Build it with `bend file.bend -o app`.
+
+Each package README has the import, one example, and the limits that change the call. `bench/README.md` records timings. CI does not run benches.
 
 ## Packages
 
+### Bytes and text
+
 | Package | Import | What it does |
 |---|---|---|
-| [`bytes`](bytes) | `bend-kit-bytes@0.3.2.0/bytes.bend` | Packed byte buffers with bounded positional cursors, endian integers, search, hex, and base64. |
-| [`encoding`](encoding) | `0xcfc8be7b076f41f95c8e118383892d55/encoding.bend` | UTF-8 and hex encoding for byte strings. |
-| [`json`](json) | `0x584fc27920487ceab242392391418d7f/json.bend` | JSON values, parsed and encoded as RFC 8259. |
-| [`csv`](csv) | `bend-kit-csv@0.1.0.0/csv.bend` | CSV records over bytes (RFC 4180), with a record cursor, whole-document parse, and encoder. |
-| [`cbor`](cbor) | `bend-kit-cbor@0.1.0.1/cbor.bend` | CBOR values encoded and decoded as bytes (RFC 8949). |
-| [`tar`](tar) | `bend-kit-tar@0.2.0.0/tar.bend` | POSIX ustar and PAX archives over packed bytes with bounded header and record parsing. |
-| [`zlib`](zlib) | `0x9d101c075b333e2b07242347f7c35b1c/zlib.bend` | DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950); native streaming raw DEFLATE, gzip/zlib, Brotli, and Zstandard decoders. |
-| [`url`](url) | `0xd248560355ba8929ae030bc9c72f40be/url.bend` | URL parsing, resolution, bracketed IPv6 authorities, and percent-encoding (RFC 3986). |
-| [`wire`](wire) | `0x096635686408886b7d907f16c4550317/wire.bend` | Byte-exact IPv4 and IPv6 TCP, UDP, and TLS sockets with packed-byte `.words` effects, including client certificates. |
-| [`dns`](dns) | `bend-kit-dns@0.6.0.0/dns.bend` | DNS A-record codec over packed bytes and host lookup for IPv4 and IPv6. |
-| [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | Strict IPv4, IPv6, and CIDR values with RFC 5952 formatting and subnet membership. |
-| [`http`](http) | `bend-kit-http@0.24.2.0/http.bend` | HTTP/1.1 and HTTP/2 client and HTTP/1.1 server for http and https, with DNS and TLS. See [http/README.md](http/README.md). |
-| [`http2`](http2) | `bend-kit-http2@0.1.2.0/http2.bend` | RFC 9113 HTTP/2 frame parsing and encoding over packed bytes. See [http2/README.md](http2/README.md). |
-| [`hairpin`](hairpin) | `bend-kit-hairpin@0.1.0.0/hairpin.bend` | An HTTP client on top of `http`: a base URL, default headers, a socket pool, a cookie jar, a client certificate, redirects, and retries in one `Client`. See [hairpin/README.md](hairpin/README.md). |
-| [`oauth2`](oauth2) | `bend-kit-oauth2@0.1.0.0/oauth2.bend` | OAuth2 client credentials, refresh tokens, and authorization code with PKCE over `hairpin`; expiry-aware bearer requests. |
-| [`jwt`](jwt) | `bend-kit-jwt@0.1.0.0/jwt.bend` | JWT signing and verification with pinned HS256/384/512, RS256, or ES256; claim validation and JWKS key lookup over `hairpin`. |
-| [`sigv4`](sigv4) | `bend-kit-sigv4@0.1.0.0/sigv4.bend` | AWS Signature V4 request signing and S3 object storage over `hairpin`. |
-| [`webhooks`](webhooks) | `bend-kit-webhooks@0.1.0.0/webhooks.bend` | Standard Webhooks signing, verified delivery and retries over `hairpin`; Stripe and GitHub signature verification. See [webhooks/README.md](webhooks/README.md). |
-| [`router`](router) | `0xf2239decc78af956c471ebf7f2f50374/router.bend` | The published revision is a pairwise matcher. Local `0.2.0.0` adds validated prepared routes, exact targets, path-first precedence, HEAD/OPTIONS, and Allow. See the [routing contract](router/bench/README.md#prepared-routing-contract); CI publishes the new API after merge. |
-| [`files`](files) | `0x902b9f92801b87d6be0bcd03919d01bb/files.bend` | POSIX path operations, directory listing, metadata, mkdir, remove, rename, and private temp directories. |
-| [`stream`](stream) | `bend-kit-stream@0.1.0.0/stream.bend` | Bounded packed-byte transfers between files and TCP/TLS sockets, with byte caps, surviving handles, and completed-chunk counts. |
-| [`process`](process) | `0xb9c171843853f26eb0a0cfd88782e4d3/process.bend` | Run commands without a shell, with byte-exact stdin, stdout, and stderr, exit status, streaming pipes, and signals. |
-| [`collections`](collections) | `bend-kit-collections@0.1.2.0/collections.bend` | Ordered maps and sets, a hash trie with collision-safe put/get/del, a vector, a deque, and a priority queue. Import the file you need, such as `omap.bend` or `hmap.bend`. Hash maps require equal keys to hash alike. |
-| [`unicode`](unicode) | `0x6c784a08486e2e02415e89c5249e9e8a/unicode.bend` | Unicode 17.0 general category, NFC/NFD, full case folding, and grapheme clusters. See [unicode/README.md](unicode/README.md). |
-| [`regex`](regex) | `0x6fa820747435b3188e7e4f3d1ffc0325/regex.bend` | Linear-time regular expressions: RE2 syntax, capture groups, and Unicode categories. See [regex/README.md](regex/README.md). |
-| [`parse`](parse) | `0x154e0a68ef9a0223bacaacefc589cad8/parse.bend` | Parser combinators over text, with positioned errors: sequence, choice, `many`, `sep_by`, `opt`, and `rec` for nested grammars. `parse/json.bend` is a JSON grammar on it. |
-| [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | Fixed-width `U8`, `U16`, `U64`, `I32`, and `I64`, with wrapping, checked, and saturating arithmetic, text in radix 2 to 36, and conversions to `U32` and `Nat`. `U8`, `U16`, and `I32` run at native speed on Base's `U32`. `U64` and `I64` use `Word(64n)` and are slow. |
-| [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `format`, padding, and the shortest `F32` text that reads back to the same value. |
-| [`hash`](hash) | `bend-kit-hash@0.1.0.0/hash.bend` | Non-cryptographic hashes over `Bytes`, or over a byte string with the `.str` forms: FNV-1a (32 and 64), xxHash (32 and 64), SipHash-1-3, CRC-32, and Adler-32. 64-bit results are `Hash.W64{hi, lo}`, two `U32` halves; `int`'s `U64` is a bit list and too slow for hashing. |
-| [`crypto`](crypto) | `bend-kit-crypto@0.2.0.0/crypto.bend` | SHA digests, HMAC, HKDF, secure random bytes, constant-time compare, RSA PKCS#1 v1.5 and P-256 ECDSA signatures through OpenSSL 3 libcrypto (`BEND_LIBCRYPTO` overrides the path). |
-| [`websocket`](websocket) | `bend-kit-websocket@0.1.0.0/websocket.bend` | RFC 6455 client handshake and WebSocket frames. |
-| [`multipart`](multipart) | `bend-kit-multipart@0.1.0.0/multipart.bend` | RFC 7578 form-data encoding and streaming decoding. |
-| [`random`](random) | `bend-kit-random@0.1.0.0/random.bend` | Seeded xoshiro128** generator with unbiased ranges, `F32` in [0, 1), Fisher-Yates shuffles, and an OS-entropy seed. Not for cryptography. |
-| [`property`](property) | `bend-kit-property@0.1.0.0/property.bend` | Pure seeded generators, greedy shrinking, and a reproducible property runner. See [property/README.md](property/README.md). |
-| [`time`](time) | `bend-kit-time@0.1.2.0/time.bend` | Monotonic and wall clocks, `Duration` and `Instant` on `Int.I64` seconds plus nanoseconds, Gregorian dates for years 0 to 9999, RFC 3339 and HTTP-date (IMF-fixdate) text, and TZif time zones with POSIX footer rules for later instants. |
-| [`notch`](notch) | `bend-kit-notch@0.1.0.0/notch.bend` | Leveled, structured logging. A logger value holds a minimum level, logfmt or JSON-lines format, and contextual fields. `Notch.info(lg, msg, fields)` writes to stderr with an RFC 3339 time; `Notch.file(handle, lg, level, msg, fields)` writes to a file and returns the handle; `Notch.line` returns the text for other sinks. Disabled levels skip the clock and rendering. |
-| [`concurrency`](concurrency) | `bend-kit-concurrency@0.1.0.0/concurrency.bend` | Parallel `par_map` and `par_reduce` over lists and arrays, a worker pool whose workers each own an affine state, `select` over channels, and `timeout`. See [concurrency/README.md](concurrency/README.md). |
-| [`redis`](redis) | `bend-kit-redis@0.1.0.0/redis.bend` | Redis and Valkey client: a RESP3 codec over bytes with an incremental reader, TCP or TLS connect with `HELLO 3`, `AUTH`, and `SELECT`, commands, pipelining, and a connection pool. |
-| [`postgres`](postgres) | `bend-kit-postgres@0.1.0.0/postgres.bend` | Postgres client over protocol 3.0 in pure Bend: a message codec over bytes with an incremental reader, SSLRequest then TLS with certificate and host name checks, cleartext and SCRAM-SHA-256 auth, prepared queries (Parse/Bind/Describe/Execute/Sync) with text parameters and results, typed server errors with SQLSTATE, and a connection pool. `postgres/smoke.bend` runs against a live server. |
-| [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.0/sqlite.bend` | Prepared SQLite statements through libsqlite3, with parameter binding and typed column reads. |
-| [`llm`](llm) | `bend-kit-llm@0.1.0.0/llm.bend` | LLM client on top of `hairpin` for the Anthropic Messages and OpenAI Chat Completions APIs: typed requests and replies, a raw JSON path for tools and images, retries on 408, 409, 429, and 5xx, and streaming through an incremental SSE parser (`llm/sse.bend`). |
+| [`bytes`](bytes) | `bend-kit-bytes@0.3.2.0/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, and base64. |
+| [`encoding`](encoding) | `bend-kit-encoding@0.3.0.0/encoding.bend` | UTF-8 between `String` and `Bytes`. |
+| [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
+| [`regex`](regex) | `bend-kit-regex@0.6.0.4/regex.bend` | Linear-time RE2 matching, with capture groups. |
+| [`parse`](parse) | `bend-kit-parse@0.1.0.1/parse.bend` | Parser combinators over text. `parse/json.bend` is a JSON grammar on them, not the `json` package. |
+| [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `{}` formatting, padding, and shortest `F32` text. |
+| [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | `U8`, `U16`, `U64`, `I32`, and `I64`. `U64` and `I64` are slow. |
+| [`hash`](hash) | `bend-kit-hash@0.1.0.0/hash.bend` | FNV-1a, xxHash, SipHash-1-3, CRC-32, and Adler-32. Not cryptographic. |
 
-Notch keeps fields in insertion order and does not deduplicate keys. Avoid `time`, `level`, and `msg` as field names in JSON output. `notch/check.bend` shows both formats and the level filter.
+### Numbers and data
 
-For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). It covers datetimes, numbers, arrays, and tables; a second TOML parser is not part of this kit.
+| Package | Import | What it does |
+|---|---|---|
+| [`bignum`](bignum) | `bend-kit-bignum@0.1.0.0/bigint.bend` | Exact integers, decimals, and rationals. Import `decimal.bend` or `rational.bend` for those types. |
+| [`json`](json) | `bend-kit-json@0.5.1.0/json.bend` | JSON values as RFC 8259, over `Bytes`. |
+| [`csv`](csv) | `bend-kit-csv@0.1.0.0/csv.bend` | RFC 4180 records over `Bytes`. |
+| [`cbor`](cbor) | `bend-kit-cbor@0.1.0.1/cbor.bend` | RFC 8949 encode and decode over `Bytes`. |
+| [`tar`](tar) | `bend-kit-tar@0.2.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
+| [`archive`](archive) | `bend-kit-archive@0.2.0.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
+| [`zlib`](zlib) | `bend-kit-zlib@0.2.0.0/zlib.bend` | DEFLATE, gzip, and zlib, plus native gzip, zstd, and brotli. |
 
-`wire`, `zlib`, `http`, `files`, `process`, `crypto`, `random`, and `time` ship `.c` and `.js` effects. They run host code, and proofs do not cover them.
-`stream` composes the packed effects in `files` and `wire`. Its transfer loop does not decode octets into text.
+### Network
 
+| Package | Import | What it does |
+|---|---|---|
+| [`url`](url) | `bend-kit-url@0.4.1.0/url.bend` | RFC 3986 parse, resolve, and percent-encoding. |
+| [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
+| [`dns`](dns) | `bend-kit-dns@0.6.0.0/dns.bend` | DNS codec and host lookup. |
+| [`wire`](wire) | `bend-kit-wire@0.4.6.0/wire.bend` | TCP, UDP, and TLS sockets. |
+| [`http`](http) | `bend-kit-http@0.31.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
+| [`http2`](http2) | `bend-kit-http2@0.1.2.0/http2.bend` | RFC 9113 frames and an HTTP/2 client. HPACK is `hpack.bend`. |
+| [`hairpin`](hairpin) | `bend-kit-hairpin@0.1.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, and retries. |
+| [`websocket`](websocket) | `bend-kit-websocket@0.1.0.0/websocket.bend` | RFC 6455 client handshake and frames. |
+| [`multipart`](multipart) | `bend-kit-multipart@0.1.0.0/multipart.bend` | RFC 7578 form-data encode and decode. |
 
-In `process`, `env` entries are `KEY=VALUE` overrides of the inherited environment. Close the
-spawned child's stdin to send EOF, drain stdout and stderr, then call `wait`.
-Its C and JS effects require macOS or Linux and are not covered by the proofs.
-On the JS target, `run` blocks other Bend fibers until the child exits; use
-`spawn` and pipe handles when the program must remain responsive. JS signal
-polling uses Bun's built-in FFI C compiler to install a signal-safe handler.
+### Identity
+
+| Package | Import | What it does |
+|---|---|---|
+| [`crypto`](crypto) | `bend-kit-crypto@0.2.2.0/crypto.bend` | Digests, HMAC, HKDF, AEAD, scrypt, RSA, and P-256 through OpenSSL 3. |
+| [`oauth2`](oauth2) | `bend-kit-oauth2@0.1.0.0/oauth2.bend` | Client credentials, refresh, and authorization code with PKCE. |
+| [`jwt`](jwt) | `bend-kit-jwt@0.1.0.0/jwt.bend` | HS256/384/512, RS256, and ES256, plus JWKS lookup. |
+| [`sigv4`](sigv4) | `bend-kit-sigv4@0.1.0.0/sigv4.bend` | AWS Signature V4 and S3 over `hairpin`. |
+| [`webhooks`](webhooks) | `bend-kit-webhooks@0.1.0.0/webhooks.bend` | Standard Webhooks, Stripe, and GitHub signature checks. |
+
+### Programs
+
+| Package | Import | What it does |
+|---|---|---|
+| [`files`](files) | `bend-kit-files@0.1.1.0/files.bend` | POSIX paths, directories, and packed file IO. |
+| [`stream`](stream) | `bend-kit-stream@0.1.0.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
+| [`process`](process) | `bend-kit-process@0.2.0.0/process.bend` | Commands without a shell, with byte-exact stdin, stdout, and stderr. |
+| [`collections`](collections) | `bend-kit-collections@0.1.2.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, and a heap. Import the file you need. |
+| [`time`](time) | `bend-kit-time@0.1.2.0/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
+| [`random`](random) | `bend-kit-random@0.1.0.0/random.bend` | Seeded xoshiro128**. Not for cryptography. |
+| [`concurrency`](concurrency) | `bend-kit-concurrency@0.1.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
+| [`notch`](notch) | `bend-kit-notch@0.1.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
+| [`tty`](tty) | `bend-kit-tty@0.1.0.0/tty.bend` | Terminal size, color, and display width. |
+| [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
+| [`property`](property) | `bend-kit-property@0.1.0.0/property.bend` | Seeded generators, shrinking, and a property runner. |
+
+### Services
+
+| Package | Import | What it does |
+|---|---|---|
+| [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.0/sqlite.bend` | Prepared statements through libsqlite3. |
+| [`postgres`](postgres) | `bend-kit-postgres@0.1.0.1/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
+| [`redis`](redis) | `bend-kit-redis@0.1.0.1/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
+| [`llm`](llm) | `bend-kit-llm@0.1.0.0/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
+
+### Applications
+
+| Package | Import | What it does |
+|---|---|---|
+| [`camber`](camber) | `bend-kit-camber@0.6.0.0/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
+
+For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). For CLI arguments, use [shake](https://github.com/Emerging-Patterns/shake).
 
 ## Layout
 
-Each package is one folder at the root. The folder name is the package name:
+Each package is one folder. The folder name is the package name.
 
 ```
 <package>/
   <package>.bend   entry file; its first comment line is the hub description
-  VERSION          the hub version; CI publishes it on merge
+  VERSION          the hub version; CI publishes it on merge to main
   LAWS.bend        the claims
   PROOF.bend       a proof of each claim
-  check.bend       runs the package on the native runtime (optional)
-  effs/            .c and .js effects (optional)
-  bench/           benchmarks (optional)
+  check.bend       native examples, when the package has them
+  effs/            .c and .js effects, when the package has them
+  bench/           timings, run by hand
 ```
 
-Every package except `process` has a `bench/README.md` with its workload, run command, and cross-language results. Run benchmarks by hand; CI does not run them. The `process` benchmark was canceled because spawn-and-pipe timing would mostly measure OS scheduling and child startup, not package overhead. `process/check.bend` covers its behavior.
-
-`http` also has `smoke.bend`, which does live fetches, and `demo.bend`, a small server for the serve smoke test. `llm/smoke.bend` sends one reply and one stream to each API whose key is set (`ANTHROPIC_API_KEY` or the bearer `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`, with optional `*_BASE_URL` and `*_MODEL`).
+`http/smoke.bend` does live fetches. `llm/smoke.bend`, `postgres/smoke.bend`, and `redis/smoke.bend` talk to a live service when their keys or server are set.
 
 ## Checks
 
 ```sh
 scripts/check.sh              # every package
 scripts/check.sh bytes http   # some packages
-scripts/packages.sh origin/main   # the packages changed since origin/main
+scripts/packages.sh origin/main
 ```
 
-`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend` in the package folder. `bend PROOF.bend` prints "All terms check." when every law holds.
+`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package.
 
-CI runs `check.sh` once for each package that a pull request changes. A change to `.github/` or `scripts/` checks every package, and so does each push to `main`. The `http` smoke tests run only when `http` changes.
+CI installs the Bend version pinned in `scripts/install-bend.sh`. To move to a new Bend, change `VER` and `SHA` in that script.
 
-CI installs the Bend version pinned in `scripts/install-bend.sh`, not the latest release. To move to a new Bend, change `VER` and `SHA` in that script. The change touches `scripts/`, so its pull request checks every package on the new version.
-
-On each push to `main`, a package that passes its checks runs `scripts/publish.sh`. It publishes the package as `bend-kit-<package>@<VERSION>` unless that version is already on the hub. If the hub has that version with different files, the job fails, and the package needs a higher `VERSION`. Pull requests run `scripts/publish.sh --check`, which reports the same failure and publishes nothing.
+On each push to `main`, a package that passes its checks is published as `bend-kit-<package>@<VERSION>` unless that version is already on the hub. If the hub has that version with different files, the job fails and `VERSION` must rise. Pull requests run `scripts/publish.sh --check` and publish nothing.

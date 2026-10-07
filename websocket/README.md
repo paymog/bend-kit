@@ -2,6 +2,9 @@
 
 RFC 6455 WebSocket client over `wire`: the opening handshake, frames on packed `Bytes`, message reassembly, and a connection that answers pings and closes cleanly.
 
+`websocket.bend` imports `bend-kit-bytes@0.3.1.0`, `bend-kit-crypto@0.1.0.0`, and `bend-kit-wire@0.4.2.0`. The current `wire` package is `0.4.6.0`. A `Socket` from that version is a different type. The handshake uses libcrypto SHA-1 and secure random (`BEND_LIBCRYPTO`).
+
+
 ```bend
 import bend-kit-websocket@0.1.0.0/websocket.bend as WS
 

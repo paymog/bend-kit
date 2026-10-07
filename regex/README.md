@@ -3,7 +3,7 @@
 Regular expressions in pure Bend, with matching in linear time. It uses RE2 syntax and a Pike VM (a Thompson NFA with capture slots). It does not backtrack, so a pattern cannot cause ReDoS.
 
 ```bend
-import ./regex/regex.bend as Re
+import bend-kit-regex@0.6.0.4/regex.bend as Re
 
 # Re.compile(pat) is Some{re}, or None for a syntax error.
 # Re.find(re, s) gives the leftmost match: the span of group 0, then one entry per group.

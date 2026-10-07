@@ -1,5 +1,12 @@
 # Cryptography
 
+```bend
+import bend-kit-crypto@0.2.2.0/crypto.bend as Crypto
+```
+
+`oauth2` and `sigv4` import `bend-kit-crypto@0.1.1.0`. `jwt` and `webhooks` import `0.2.0.0`. `multipart` and `websocket` import `0.1.0.0`. A digest from one version is not a value of another. Set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path. `random.words` uses the OS generator and does not load libcrypto.
+
+
 `crypto.bend` uses OpenSSL 3 libcrypto from `BEND_LIBCRYPTO` or the system search paths. The C and Bun effects use the same library. Inputs and outputs are packed octets: `(len, Array<U32>)`, with four octets per word in little-endian order. The `bytes` package can convert to and from this representation.
 
 ## Authenticated encryption

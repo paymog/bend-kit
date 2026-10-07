@@ -1,5 +1,12 @@
 # ZIP reader
 
+```bend
+import bend-kit-archive@0.2.0.0/archive.bend as Archive
+```
+
+`archive.bend` imports `bend-kit-zlib@0.1.6.0` for DEFLATE, not `zlib@0.2.0.0`. It imports `bend-kit-hash@0.1.0.0` for CRC-32. Pass `Bytes` from the bytes module the entry file imports. DEFLATE needs `libz` (`BEND_LIBZ`).
+
+
 `Archive.read(max, input)` reads a ZIP archive from `Bytes.Bytes`. It returns entries in central-directory order. Each `Archive.Entry` holds the raw byte name, decoded byte data, compression method, and CRC-32. It never extracts paths or writes files.
 
 The reader supports stored (0) and DEFLATE (8) entries. It checks central-directory and local-header bounds, the decoded size, and CRC-32. `max` limits the total decoded data across entries. An archive above the limit fails with code 27; malformed or unsupported ZIP features fail with code 22 and a reason. ZIP64, encryption, and multi-disk archives are not supported.

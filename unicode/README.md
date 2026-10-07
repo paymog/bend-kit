@@ -3,7 +3,7 @@
 Unicode **17.0.0** in pure Bend: general category, canonical combining class, NFC and NFD (UAX #15), full case folding, and extended grapheme clusters (UAX #29).
 
 ```bend
-import ./unicode/unicode.bend as U
+import bend-kit-unicode@0.1.0.0/unicode.bend as U
 
 U.category('A')                # "Lu"
 U.nfc("e\u{301}")              # "é"

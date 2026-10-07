@@ -4,7 +4,7 @@
 
 ```bend
 import Base
-import ./tar/tar.bend as Tar
+import bend-kit-tar@0.2.0.0/tar.bend as Tar
 import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 
 def example() -> Maybe<&1, Bytes.Bytes>:
