@@ -18,7 +18,7 @@ jobs:
       packages: ${{ steps.list.outputs.packages }}
       http: ${{ steps.list.outputs.http }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: list
@@ -44,7 +44,7 @@ jobs:
       matrix:
         package: ${{ fromJSON(needs.changes.outputs.packages) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Bend
         run: scripts/install-bend.sh
       - name: Check ${{ matrix.package }}
@@ -76,7 +76,7 @@ jobs:
       run:
         working-directory: http
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Bend
         run: ../scripts/install-bend.sh
       - name: Live fetch smoke
