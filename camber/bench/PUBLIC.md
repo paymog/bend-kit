@@ -68,7 +68,7 @@ Evidence writes flush/fsync an owned temporary file before atomic replacement; i
 
 ## Recorded outcomes
 
-The aggregate verdict is **FAIL/INCONCLUSIVE**. The complete application corpus passes the untimed response-equivalence checks, but several frozen acceptance criteria fail. CLI exit 0 and natural cleanup are execution evidence, not performance or release approval.
+The aggregate verdict is **FAIL/INCONCLUSIVE**. The complete application corpus passes the untimed response-equivalence checks, but several frozen acceptance criteria fail. CLI exit 0 and natural cleanup are execution evidence, not a pass of those criteria. Initial release accepts this verdict as the operating boundary. It does not turn these failed criteria into PASS.
 
 | Matrix or gate | Actual coverage and outcome | Evidence |
 | --- | --- | --- |
