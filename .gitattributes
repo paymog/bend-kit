@@ -1,0 +1,3 @@
+*.bend linguist-language=Python
+unicode/tables.bend linguist-generated
+**/bench/** linguist-vendored

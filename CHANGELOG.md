@@ -9,3 +9,4 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 ## Unreleased
 
 - Apache-2.0 license, contributor guide, security policy, and issue templates.
+- Local HTTP smokes fail CI. A live fetch failure does not.

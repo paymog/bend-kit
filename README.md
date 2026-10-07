@@ -4,7 +4,9 @@ Packages for Bend 2 that Base does not include. Each package has its own laws an
 
 This project was called bend-net. The old hub names, `bend-net-*`, still resolve. They get no new versions.
 
-Licensed under Apache-2.0. See [LICENSE](LICENSE).
+Licensed under Apache-2.0. See [LICENSE](LICENSE). [Contributing](CONTRIBUTING.md). [Security](SECURITY.md).
+
+[![ci](https://github.com/paymog/bend-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/paymog/bend-kit/actions/workflows/ci.yml)
 
 ## Install
 
