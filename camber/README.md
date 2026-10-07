@@ -146,7 +146,7 @@ The corrected overload run observes real same-PID RSS at or before actual offeri
 
 Overlap trials preserve the original16-permit cases separately from18-permit headroom. All162 completed the actual workload; subsequent recovery latency was within100ms in every trial. Only18 met the complete overlap contract. Same-lane internal BEGIN/END/ORDINARY stamps, actual received timeout bytes, resets, EOF, late delivery and ordinary-request failures remain recorded. Buffered host log receipt is not proof of handler progress. No scheduler isolation, arbitrary handler cancellation or general responsiveness guarantee follows from these measurements.
 
-Frozen performance and operating criteria remain failed, not relaxed. Native erasure and cooperative serial-CPU behavior are disclosed constraints, not a proven explanation for every failure or a reason to wait for an upstream fix. The measurements do not establish initial performance/release readiness. Pure laws do not prove these host-IO observations.
+Initial release accepts this measured boundary. The ceilings stay as recorded, and failed rows stay failed. Direct text remains about 85 µs against about 2 µs raw. Overload resets are the connection-cap close already specified for unread sockets; parsed rejection is `503`. CPU overlap stays a Bend limit. None of those three results is relabelled PASS. Pure laws do not prove these host-IO observations.
 
 
 ## Bounds and trust

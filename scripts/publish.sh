@@ -16,10 +16,11 @@ for d in "$@"; do
   if hash=$(curl -fs "$hub/name/$named"); then
     files=$(curl -fs "$hub/package/$hash.json" | jq -r '.files | keys[]')
     for key in $files; do
-      path=$d/$key
-      [ -f "$path" ] || path=$key
-      if ! curl -fs "$hub/$hash/$key" | cmp -s - "$path"; then
-        echo "$named is on the hub, but $path differs: raise $d/VERSION"
+      # A package published from the repo root stores archive/archive.bend, not archive.bend.
+      file=$d/$key
+      [ -f "$file" ] || file=$key
+      if [ ! -f "$file" ] || ! curl -fs "$hub/$hash/$key" | cmp -s - "$file"; then
+        echo "$named is on the hub, but $key differs: raise $d/VERSION"
         fail=1
         continue 2
       fi

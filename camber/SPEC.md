@@ -230,7 +230,15 @@ Corrected same-PID overload records actual offering end and an independent10-sec
 
 The54 overlap scenario combinations have three trials each across native single-thread/default and JS, six yielding/CPU/permitted-input workloads, and1/16 admitted requests plus separate18-permit probe headroom. Only18/162 trials pass the complete progress/latency/timeout contract;144 fail. Every workload completes with the expected response and subsequent recovery≤100ms. Real internal work/progress stamps and client-visible408/reset/EOF/late-delivery outcomes are recorded; buffered log arrival is not progress proof. Original16-permit adverses remain separate from added headroom.
 
-These are completed measurements, not passing frozen performance or aggregate-retention acceptance. Native erasure and cooperative serial-CPU constraints are disclosed without treating an upstream fix as a delivery prerequisite or attributing every failure to those causes. No benchmark requirement is relaxed, and no initial performance/release-readiness claim is made.
+These completed measurements stay FAIL/INCONCLUSIVE. The recorded ceilings are not changed, and no failed row is relabelled PASS.
+
+A local native run of 10,000 direct text calls measured 84.7 µs for Camber and 2.1 µs for raw HTTP. Skipping the empty-policy hook effect did not move that cost, so that change is not shipped. Two `Time.mono` effects cost 17.4 µs each and remain, because a completion notice carries a real duration. The rest of the tax is routing, response validation, the notice, and Bend runtime cost. The +2 µs direct ceiling stays unmet.
+
+Overload connection resets are the published transport choice. An unread socket past the connection cap is closed without a response. A parsed capacity rejection is already `503`. Raw HTTP shows the same resets. Those errors do not block release. Retention misses stay recorded.
+
+CPU and large-JSON overlap stays failed. A 500 ms yield with a free permit passes in every lane. Bend does not preempt running CPU work, and this release does not require that feature.
+
+Initial release is published Camber 0.6.0.0 with this boundary. Response equivalence, shutdown, and safety requirements are unchanged.
 
 ## Dependencies and proof boundary
 
@@ -251,7 +259,7 @@ Before gate 2, the prepared-router breaking release must be published, and JSON 
 2. Deliver one complete route-to-response slice covering the four example routes and the additional plain-handler fixture, direct dispatch, live serving, decoding, hooks, response validation, and errors.
 3. Meet R7 and T1–T6 with cooperative drain and the documented external-supervisor fallback. Runtime cancellation and embedded-server lifecycle isolation are not release gates. Run package checks, proofs where available, and the cross-language benchmark against the recorded budget with matching outputs.
 
-The initial release is not ready until all three gates pass. This spec does not authorize silently reducing the accepted shutdown, safety, or benchmark requirements.
+The initial release is this boundary, not a pass of every frozen performance ceiling. Shutdown, safety, and response-equivalence requirements are not reduced. The +2 µs direct ceiling, JavaScript retention, and CPU-overlap gate stay failed and are not release blockers.
 
 ## Deferred / Open Questions
 
