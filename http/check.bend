@@ -583,11 +583,11 @@ def local.proxy.test() -> IO(Unit):
     first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
       Http.pool.origin.choice(Http.pool.new(), "GET", 2000, Http.empty(),
         Bytes.new(0), "elsewhere.test", "http", "elsewhere.test", 80, "/path",
-        None{}, Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
+        None{}, "", Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
     p : Http.Pool <- local.proxy.first(first)
     second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
       Http.pool.origin.choice(p, "GET", 2000, Http.empty(), Bytes.new(0),
-        "elsewhere.test", "https", "elsewhere.test", 443, "/path", None{},
+        "elsewhere.test", "https", "elsewhere.test", 443, "/path", None{}, "",
         Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
     local.proxy.last(second)
 
