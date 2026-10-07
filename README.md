@@ -6,7 +6,7 @@ This project was called bend-net. Its old hub names, `bend-net-*`, still resolve
 
 ## Install
 
-You need [Bend 2.0.32 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2](https://bun.sh/docs/installation). macOS or Linux, including WSL. Windows is not supported.
+You need [Bend 2.0.35 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2](https://bun.sh/docs/installation). macOS or Linux, including WSL. Windows is not supported.
 
 Import a package at the top of your file. `bend` fetches it from the hub and checks it against its hash:
 

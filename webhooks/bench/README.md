@@ -9,7 +9,7 @@ python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
 ```
 
-You need `bend` (2.0.32, the version CI pins), `clang` with OpenSSL 3 (`brew install openssl@3`; set `OPENSSL_PREFIX` if it is not `/opt/homebrew/opt/openssl@3`), `cargo`, `npm`, `bun`, `node`, and `uv`. On the first run, Cargo fetches `standardwebhooks`, `npm` installs `standardwebhooks` into `out/js`, and `uv` fetches `standardwebhooks`. Binaries go to `out/`, which git ignores. The runner exits non-zero if a build or a run fails, or if any run prints a checksum other than `10000 msg_p5jXN8AQM9LWM0D4loKWxJek`. It prints the tool versions and a results table.
+You need `bend` (2.0.35, the version CI pins), `clang` with OpenSSL 3 (`brew install openssl@3`; set `OPENSSL_PREFIX` if it is not `/opt/homebrew/opt/openssl@3`), `cargo`, `npm`, `bun`, `node`, and `uv`. On the first run, Cargo fetches `standardwebhooks`, `npm` installs `standardwebhooks` into `out/js`, and `uv` fetches `standardwebhooks`. Binaries go to `out/`, which git ignores. The runner exits non-zero if a build or a run fails, or if any run prints a checksum other than `10000 msg_p5jXN8AQM9LWM0D4loKWxJek`. It prints the tool versions and a results table.
 
 ## Input
 
