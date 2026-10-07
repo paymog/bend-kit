@@ -15,10 +15,12 @@ for d in "$@"; do
   named=bend-kit-$d@$(<"$d/VERSION")
   if hash=$(curl -fs "$hub/name/$named"); then
     files=$(curl -fs "$hub/package/$hash.json" | jq -r '.files | keys[]')
-    for f in $files; do
-      f=$d/$f
-      if ! curl -fs "$hub/$hash/${f#"$d/"}" | cmp -s - "$f"; then
-        echo "$named is on the hub, but $f differs: raise $d/VERSION"
+    for key in $files; do
+      # A package published from the repo root stores archive/archive.bend, not archive.bend.
+      file=$d/$key
+      [ -f "$file" ] || file=$key
+      if [ ! -f "$file" ] || ! curl -fs "$hub/$hash/$key" | cmp -s - "$file"; then
+        echo "$named is on the hub, but $key differs: raise $d/VERSION"
         fail=1
         continue 2
       fi
