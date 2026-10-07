@@ -15,10 +15,11 @@ for d in "$@"; do
   named=bend-kit-$d@$(<"$d/VERSION")
   if hash=$(curl -fs "$hub/name/$named"); then
     files=$(curl -fs "$hub/package/$hash.json" | jq -r '.files | keys[]')
-    for f in $files; do
-      f=$d/$f
-      if ! curl -fs "$hub/$hash/${f#"$d/"}" | cmp -s - "$f"; then
-        echo "$named is on the hub, but $f differs: raise $d/VERSION"
+    for key in $files; do
+      path=$d/$key
+      [ -f "$path" ] || path=$key
+      if ! curl -fs "$hub/$hash/$key" | cmp -s - "$path"; then
+        echo "$named is on the hub, but $path differs: raise $d/VERSION"
         fail=1
         continue 2
       fi
