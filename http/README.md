@@ -385,6 +385,8 @@ For a host with multiple addresses, the client tries them in DNS order until TCP
 
 `Http.fetch.cert(method, url, headers, body, cert_path, key_path)` presents a PEM client chain and private key to an HTTPS server. `fetch.cert.with(..., ms)` sets the timeout. The identity follows same-origin redirects but is dropped after a cross-origin redirect, even if a later hop returns. Server certificate and host verification still apply. `Http.pool.fetch.cert(p, method, url, headers, body, cert_path, key_path)` keeps authenticated connections by identity; a socket is never shared with a request without that identity or with another certificate. Run `http/mtls-check.sh` (or `http/mtls-check.sh js`) to exercise generated local certificates.
 
+`Http.fetch.ca(method, url, headers, body, ca_path)` trusts the PEM certificates in that file for the server handshake, instead of the default verify paths. Verification stays on. The file follows same-origin redirects and is dropped after a cross-origin redirect. `Http.pool.fetch.ca` keeps those sockets apart from default-trust sockets and from a different file. A missing file is `ErrTls` with EINVAL. This does not present a client certificate; use `fetch.cert` for that.
+
 A response body over about 30 KB overflows `bend file.bend`. Compile it. That needs clang 14 or newer (`apt install clang` on Debian 12 or Ubuntu 22.04 and later; `xcode-select --install` on macOS):
 
 ```sh
@@ -508,6 +510,8 @@ For bounded uploads, `Http.serve.stream.on.with(~S, ~start, ~piece, ~finish, ~ab
 For bounded downloads, `Http.serve.write.on.with(~S, ~start, ~write, ~dispose, ~observe, host, port, max)` obtains `WriteHead<S>{status, headers, length, state, receipt}` from a whole request. `Some{n}` sends Content-Length; `None` sends chunked coding. The writer consumes state and returns the actual Writer plus final receipt. Suppressed HEAD/1xx/204/304 bodies and actual header failure instead call `dispose(state)` before reporting with the initial receipt. No body replay occurs. Final completion includes actual callback return and framing; length mismatch and host failure close without replay. See `write_demo.bend` and `write_check.py`.
 
 ## Versions
+`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.6.0`.
+
 `0.30.0.0` breaks server owner results and stream/writer cleanup contracts:
 `server.run` returns actual `ServerExit`, `server.close` returns drained counts,
 stream entry points take `abort`, and writer entry points take `dispose`.
