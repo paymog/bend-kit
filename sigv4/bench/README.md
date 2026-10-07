@@ -9,7 +9,7 @@ python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
 ```
 
-You need `bend` (2.0.32, the version CI pins), `clang` with aws-c-auth (`brew install aws-c-auth`; set `AWS_CRT_PREFIX` if it is not under `/opt/homebrew`), `cargo`, `npm`, `bun`, `node`, and `uv`. On the first run, Cargo fetches `aws-sigv4`, `npm` installs the smithy signer into `out/js`, and `uv` fetches `botocore`. Binaries go to `out/`, which git ignores. `rs/Cargo.toml` sets `rust-version = "1.91"` with resolver 3, so Cargo picks aws crate versions that build on that rustc. The runner exits non-zero if a build or a run fails, or if the signatures differ.
+You need `bend` (2.0.35, the version CI pins), `clang` with aws-c-auth (`brew install aws-c-auth`; set `AWS_CRT_PREFIX` if it is not under `/opt/homebrew`), `cargo`, `npm`, `bun`, `node`, and `uv`. On the first run, Cargo fetches `aws-sigv4`, `npm` installs the smithy signer into `out/js`, and `uv` fetches `botocore`. Binaries go to `out/`, which git ignores. `rs/Cargo.toml` sets `rust-version = "1.91"` with resolver 3, so Cargo picks aws crate versions that build on that rustc. The runner exits non-zero if a build or a run fails, or if the signatures differ.
 
 ## Input
 

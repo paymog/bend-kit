@@ -10,7 +10,7 @@ python3 run.py 5        # 5 runs
 python3 run.py 1 1000   # 1 run on 1,000 replies (small smoke run)
 ```
 
-You need `bend` (2.0.31, the version CI pins), `cc` with Homebrew `hiredis` in `/opt/homebrew`, `cargo`, `npm`, `bun`, `node`, and `uv`. On the first run, Cargo fetches the `redis` crate, `npm` installs `ioredis` into `out/js`, and `uv` fetches `redis-py`. Binaries go to `out/`, which git ignores. The full run takes about 10 seconds. It exits non-zero if a build or a run fails, or if a checksum differs from the one `run.py` computes from its own values.
+You need `bend` (2.0.35, the version CI pins), `cc` with Homebrew `hiredis` in `/opt/homebrew`, `cargo`, `npm`, `bun`, `node`, and `uv`. On the first run, Cargo fetches the `redis` crate, `npm` installs `ioredis` into `out/js`, and `uv` fetches `redis-py`. Binaries go to `out/`, which git ignores. The full run takes about 10 seconds. It exits non-zero if a build or a run fails, or if a checksum differs from the one `run.py` computes from its own values.
 
 ## Input
 
