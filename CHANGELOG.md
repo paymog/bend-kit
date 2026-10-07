@@ -8,5 +8,6 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f64` 0.1.0.0: IEEE 754 binary64 add, subtract, multiply, and divide. Soft-float until Base has `F64`.
 - Apache-2.0 license, contributor guide, security policy, and issue templates.
 - Local HTTP smokes fail CI. A live fetch failure does not.
