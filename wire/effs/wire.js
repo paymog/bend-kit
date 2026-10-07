@@ -344,6 +344,7 @@ function wire_tls() {
     "/usr/local/opt/openssl@3/lib/libssl.3.dylib", "libssl.3.dylib", "libssl.so.3"];
   const T = { i: "i32", l: "i64", U: "u64", p: "ptr", c: "cstring", v: "void" };
   const syms = Object.fromEntries(("TLS_client_method:>p SSL_CTX_new:p>p"
+    + " SSL_CTX_free:p>v SSL_CTX_load_verify_locations:ppp>i"
     + " SSL_CTX_set_default_verify_paths:p>i SSL_CTX_set_verify:pip>v"
     + " SSL_CTX_ctrl:pilp>l SSL_new:p>p SSL_set_fd:pi>i"
     + " SSL_ctrl:pilp>l SSL_set1_host:pp>i SSL_connect:p>i SSL_read:ppi>i"
@@ -366,7 +367,7 @@ function wire_tls() {
       s.SSL_CTX_set_verify(ctx, 1, null);
       s.SSL_CTX_ctrl(ctx, 123, 0x0303n, null);
       // A bare EOF is an error. close_notify is the only clean close.
-      globalThis.BEND_TLS = { s, ctx, ffi, by: new Map() };
+      globalThis.BEND_TLS = { s, ctx, ffi, by: new Map(), own: new Map() };
       return globalThis.BEND_TLS;
     } catch {
       continue;
@@ -413,6 +414,19 @@ function wire_cstr(t, text) {
   return { b, p: t.ffi.ptr(b) };
 }
 
+function wire_tls_drop(t, fd) {
+  const ssl = t.by.get(fd);
+  if (ssl) {
+    t.s.SSL_free(ssl);
+    t.by.delete(fd);
+  }
+  const own = t.own && t.own.get(fd);
+  if (own) {
+    t.s.SSL_CTX_free(own);
+    t.own.delete(fd);
+  }
+}
+
 function wire_tls_connect_go(t, socket, ssl, at, k, done) {
   const s = t.s;
   const fd = socket;
@@ -424,23 +438,40 @@ function wire_tls_connect_go(t, socket, ssl, at, k, done) {
     const err = s.SSL_get_error(ssl, r);
     if (err === 2 || err === 3) {
       if (wire_late(at)) {
-        s.SSL_free(ssl);
-        t.by.delete(fd);
+        wire_tls_drop(t, fd);
         return io_tup(socket, io_fail(wire_timedout()));
       }
       io_park_on(fd, err === 3, k, go, at);
       return undefined;
     }
     const v = s.SSL_get_verify_result(ssl);
-    s.SSL_free(ssl);
-    t.by.delete(fd);
-    return io_tup(socket, { $: CID(Fail), error: io_tup(100,
-      v !== 0n ? String(s.X509_verify_cert_error_string(v)) : "TLS handshake failed") });
+    const why = v !== 0n ? String(s.X509_verify_cert_error_string(v)) : "TLS handshake failed";
+    wire_tls_drop(t, fd);
+    return io_tup(socket, { $: CID(Fail), error: io_tup(100, why) });
   };
   return go();
 }
 
-function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
+function wire_tls_ca(t, ca) {
+  if (!ca || ca.includes("\0")) {
+    return { code: 22, why: "Invalid TLS CA path" };
+  }
+  const s = t.s;
+  const ctx = s.SSL_CTX_new(s.TLS_client_method());
+  if (!ctx) {
+    return { code: 12, why: "TLS CA load failed" };
+  }
+  const path = wire_cstr(t, ca);
+  if (s.SSL_CTX_load_verify_locations(ctx, path.p, null) !== 1) {
+    s.SSL_CTX_free(ctx);
+    return { code: 22, why: "TLS CA load failed" };
+  }
+  s.SSL_CTX_set_verify(ctx, 1, null);
+  s.SSL_CTX_ctrl(ctx, 123, 0x0303n, null);
+  return ctx;
+}
+
+function wire_tls_connect_setup(socket, host, ms, k, setup, done, ca) {
   const at = wire_deadline(ms);
   const t = wire_tls();
   if (t === null) {
@@ -449,15 +480,26 @@ function wire_tls_connect_setup(socket, host, ms, k, setup, done) {
   }
   const s = t.s;
   const fd = socket;
-  const ssl = s.SSL_new(t.ctx);
+  let ctx = t.ctx;
+  let own = null;
+  if (ca !== undefined) {
+    const made = wire_tls_ca(t, ca);
+    if (made && made.why) {
+      return io_tup(socket, { $: CID(Fail), error: io_tup(made.code, made.why) });
+    }
+    own = made;
+    ctx = made;
+  }
+  const ssl = s.SSL_new(ctx);
   if (!ssl) {
+    if (own) s.SSL_CTX_free(own);
     return io_tup(socket, io_fail(12));
   }
   t.by.set(fd, ssl);
+  if (own) t.own.set(fd, own);
   const name = wire_cstr(t, host);
   const fail = (why, code = 100) => {
-    s.SSL_free(ssl);
-    t.by.delete(fd);
+    wire_tls_drop(t, fd);
     return io_tup(socket, { $: CID(Fail), error: io_tup(code, why) });
   };
   if (s.SSL_set_fd(ssl, fd) !== 1 || Number(s.SSL_ctrl(ssl, 55, 0n, name.p)) !== 1
@@ -506,6 +548,20 @@ function tls_connect_cert(socket, host, ms, cert, key, k) {
     }
     return null;
   }, () => ({ $: CID(Unit) }));
+}
+
+function tls_connect_ca(socket, host, ms, ca, k) {
+  return wire_tls_connect_setup(socket, host, ms, k, () => null, () => ({ $: CID(Unit) }), ca);
+}
+
+function tls_connect_alpn_ca(socket, host, ms, protos, ca, k) {
+  return wire_tls_connect_setup(socket, host, ms, k, (t, ssl) => {
+    const abuf = wire_alpn_pack(protos);
+    if (abuf === null || t.s.SSL_set_alpn_protos(ssl, t.ffi.ptr(abuf), abuf.length) !== 0) {
+      return "ALPN setup failed";
+    }
+    return null;
+  }, (t, ssl) => wire_alpn_selected(t, ssl), ca);
 }
 
 
@@ -588,8 +644,7 @@ function tls_close(socket) {
   const ssl = t && t.by.get(socket);
   if (ssl) {
     t.s.SSL_shutdown(ssl);
-    t.s.SSL_free(ssl);
-    t.by.delete(socket);
+    wire_tls_drop(t, socket);
   }
   io_sys().close(socket);
   return { $: CID(Unit) };
@@ -657,6 +712,8 @@ io_eff(CID(send_to.words), send_to_words);
 io_eff(CID(tls.connect), tls_connect);
 io_eff(CID(tls.connect.alpn), tls_connect_alpn);
 io_eff(CID(tls.connect.cert), tls_connect_cert);
+io_eff(CID(tls.connect.ca), tls_connect_ca);
+io_eff(CID(tls.connect.alpn.ca), tls_connect_alpn_ca);
 io_eff(CID(tls.send), tls_send);
 io_eff(CID(tls.recv), tls_recv);
 io_eff(CID(tls.close), tls_close);
