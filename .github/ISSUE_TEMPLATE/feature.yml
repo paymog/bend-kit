@@ -1,0 +1,17 @@
+name: Package or API change
+description: A missing package, or a change to one that exists
+labels: [enhancement]
+body:
+  - type: input
+    id: package
+    attributes:
+      label: Package
+      description: Existing folder name, or the name of a new package.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What a program cannot do today
+    validations:
+      required: true

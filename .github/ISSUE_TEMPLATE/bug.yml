@@ -1,0 +1,25 @@
+name: Bug
+description: A package does the wrong thing
+labels: [bug]
+body:
+  - type: input
+    id: package
+    attributes:
+      label: Package
+      description: Folder name, such as http or bytes.
+    validations:
+      required: true
+  - type: input
+    id: bend
+    attributes:
+      label: Bend version
+      description: Output of `bend version`, plus OS and architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Expected result, actual result, and the smallest file that still shows it.
+    validations:
+      required: true
