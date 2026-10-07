@@ -2,6 +2,20 @@
 
 Packed byte buffers with affine ownership. Four octets occupy each U32 array word.
 
+```bend
+import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
+
+def show(r: Bytes.Bytes & U32) -> IO(Unit):
+  (b, n) = r
+  IO.print(U32.show(n) ++ " " ++ Bytes.to_string(b))
+
+def main() -> IO(Unit):
+  show(Bytes.length(Bytes.from_string("hi")))
+```
+
+`get` returns the buffer beside `None` when the index is past `len`. `set` then leaves the buffer unchanged. `from_hex` returns `None` for an odd length or a non-hex character. U64 reads need `bend-kit-int@0.2.0.0`. `http` does not use this version for `Http.Body`. It uses `0x49814d83de8f70993a43e1002be29ecd/bytes.bend`.
+
+
 ## Positional reads and writes
 
 Import `bend-kit-bytes@0.3.2.0/bytes.bend`. `Cursor.new(bytes)` owns the

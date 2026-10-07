@@ -1,5 +1,18 @@
 # Wire
 
+Byte-exact TCP, UDP, and TLS. A socket or listener is used once. The call returns it beside the result, except `connect`, which returns the socket inside the `Result`.
+
+```bend
+import bend-kit-wire@0.4.6.0/wire.bend as Wire
+```
+
+`connect(host, port, ms)` opens TCP. `recv` and `send` move a byte `String`. The `.words` forms move packed `Array<U32>` buffers, four octets per word, and do not build a list cell per byte. `recv_from` and `send_to` are UDP. `ms` is a deadline in milliseconds. `0` means no deadline, except where a def says otherwise. `accept.deadline` rejects `0`. A miss is the host `ETIMEDOUT`: 60 on macOS, 110 on Linux.
+
+`tls.connect` checks the certificate chain and the host name. `tls.connect.cert` adds a PEM client chain and key. `tls.connect.ca` trusts the PEM certificates in one file for that handshake, instead of the default verify paths. Verification stays on. `tls.connect.alpn` returns the selected protocol. `tls.connect.alpn.ca` does both. Set `BEND_LIBSSL` when OpenSSL 3 `libssl` is not on the default path. Proofs do not cover `effs/wire.c` and `effs/wire.js`.
+
+`http` imports `bend-kit-wire@0.4.5.0`. `dns` imports `0.4.3.0`. `redis`, `postgres`, and `websocket` import `0.4.2.0`. A `Socket` from one version is not a `Socket` from another.
+
+
 ## Deadline-bounded listener acceptance
 
 `accept.deadline(listener, ms)` returns
@@ -41,7 +54,7 @@ No pre-edit runtime failure was captured: the coordinator required source accept
 
 Peak aggregate RSS was 947184 KiB for the native smoke build, 48288 KiB across accept scenarios, 153824 KiB for the package gate, and 1000064 KiB for the unchanged write-deadline runner. Its eight scenarios passed in both lanes: exact 4099-byte success, empty success, EINVAL boundaries, EPIPE reset, and exact partial-prefix receipt after timeout. Native stall/trickle accepted 678428/939740 bytes at 103.191/103.697 ms; JS accepted the same byte counts at 104.610/101.783 ms. Both paced peers completed nine reads before failure.
 
-The existing checksum benchmark ran once per variant, not a statistical performance study: C 57.3 ms, Rust 54.4 ms, Bun 446.5 ms, Node 102.5 ms, Python 3411.6 ms, Bend 494.8 ms. All agreed on checksum **3187671040**; peak aggregate RSS was 558176 KiB. The version check reported `bend-kit-wire@0.4.5.0 will publish`; merge CI owns publication.
+The existing checksum benchmark ran once per variant, not a statistical performance study: C 57.3 ms, Rust 54.4 ms, Bun 446.5 ms, Node 102.5 ms, Python 3411.6 ms, Bend 494.8 ms. All agreed on checksum **3187671040**; peak aggregate RSS was 558176 KiB. Merge CI publishes the package.
 
 ## Deadline-bounded packed TCP writes
 
@@ -63,7 +76,7 @@ Existing `send.words` has its separate, unlimited-write contract. Consumers that
 
 Run `python3 -B wire/deadline_check.py` from the repository root. It compiles native and JS sequentially and uses actual loopback peers for exact binary success, empty success, peer reset, stalled reading with partial-progress accounting and exact prefix receipt, and invalid length/deadline boundaries. Each fixture explicitly closes its returned socket. Builds are RSS-limited to 20 GiB and the runner requires 10 GiB disk headroom; temporary binaries are removed.
 
-Host effects are outside Bend's proof guarantees. `scripts/check.sh wire` permits the disclosed foreign-code proof exclusions while checking types and running existing checks. Pure laws do not attest socket IO, clocks, buffer cleanup, or scheduling. `scripts/publish.sh --check` checks the version gate; CI publishes `bend-kit-wire@0.4.5.0` after merge, never by hand.
+Host effects are outside Bend's proof guarantees. `scripts/check.sh wire` permits the disclosed foreign-code proof exclusions while checking types and running existing checks. Pure laws do not attest socket IO, clocks, buffer cleanup, or scheduling. CI publishes the version in `VERSION`. Do not publish by hand.
 
 ### Observed acceptance (2026-10-03, macOS arm64)
 
@@ -80,4 +93,4 @@ The measured interval uses the published monotonic `Time.mono` clock immediately
 
 An initial native smoke caught incorrect deadline storage in `IoWork.word` (a u32 also overwritten with the parked fd). The corrected effect uses the runtime's u64 `IoWork.time`, which `io_wait_on` preserves as the same absolute deadline. This relies on the installed compiler ABI, as existing packed BUF access does; recheck it on compiler upgrades.
 
-`scripts/check.sh wire` passed with all existing IPv6/TCP, IPv6/UDP, and live ALPN checks. It disclosed 18 foreign-code proof exclusions, including `send.words.deadline`; wire has no human-owned laws to change. `scripts/publish.sh --check wire` reported `bend-kit-wire@0.4.4.0 will publish`. The new feature was smoke-tested after settled implementation rather than run pre-edit, because the coordinated single-Bend slot excluded mid-flight verification.
+`scripts/check.sh wire` is the socket check. Wire has no human-owned laws. Proofs do not cover the effects.

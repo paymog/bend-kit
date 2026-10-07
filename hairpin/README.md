@@ -7,6 +7,8 @@ import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
 import bend-kit-http@0.23.0.1/http.bend as Http
 ```
 
+Import `bend-kit-http@0.23.0.1`. That is the version `hairpin.bend` imports. `bend-kit-http@0.30.0.0` is a different `Http.Res`.
+
 Hairpinning, or NAT loopback, is traffic that goes out and bends back. A request does the same.
 
 ## Use
