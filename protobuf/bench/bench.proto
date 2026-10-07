@@ -1,0 +1,9 @@
+syntax = "proto3";
+package kit.bench;
+message Sample {
+  uint32 count = 1;
+  string title = 2;
+  repeated uint32 samples = 3;
+  double precise = 4;
+  bytes payload = 5;
+}

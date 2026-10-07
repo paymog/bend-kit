@@ -1,0 +1,14 @@
+syntax = "proto3";
+package kit.common;
+
+message Child {
+  uint32 id = 1;
+  string label = 2;
+  Child next = 3;
+}
+
+enum Status {
+  UNKNOWN = 0;
+  READY = 1;
+  FAILED = -1;
+}
