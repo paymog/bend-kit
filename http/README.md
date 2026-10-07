@@ -3,11 +3,11 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.30.0.0/http.bend as Http
-import bend-kit-http@0.30.0.0/completion.bend as Completion
+import bend-kit-http@0.31.0.0/http.bend as Http
+import bend-kit-http@0.31.0.0/completion.bend as Completion
 ```
 
-`Http.Body` is `Bytes` from `0x49814d83de8f70993a43e1002be29ecd/bytes.bend`, which the entry file names as bytes `0.3.0.0`. It is not `bend-kit-bytes@0.3.2.0`. JSON values passed to `post.json` come from `0x584fc27920487ceab242392391418d7f/json.bend` (json `0.5.0.1`), not `bend-kit-json@0.5.1.0`. DNS lookup uses `bend-kit-dns@0.5.0.0`. TLS uses `bend-kit-wire@0.4.5.0`.
+`Http.Body` is `Bytes` from `0x49814d83de8f70993a43e1002be29ecd/bytes.bend`, which the entry file names as bytes `0.3.0.0`. It is not `bend-kit-bytes@0.3.2.0`. JSON values passed to `post.json` come from `0x584fc27920487ceab242392391418d7f/json.bend` (json `0.5.0.1`), not `bend-kit-json@0.5.1.0`. DNS lookup uses `bend-kit-dns@0.5.0.0`. TLS uses `bend-kit-wire@0.4.6.0`.
 
 `hairpin` and the packages on it import `bend-kit-http@0.23.0.1`. That `Http.Res` is a different type.
 
@@ -17,7 +17,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.30.0.0/http.bend as Http
+import bend-kit-http@0.31.0.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -65,6 +65,8 @@ A header map is `Map<String, List<String>>`. Names are lowercase after parse. `e
 
 `from_string` and `to_string` convert a byte string, one `Char` per octet. `length` returns the body and its length. `text` decodes UTF-8 and replaces a bad byte with U+FFFD. `json` parses the body in place. `Url.form` builds an `application/x-www-form-urlencoded` body.
 
+`Http.fetch.ca(method, url, headers, body, ca_path)` trusts the PEM certificates in that file for the server handshake, instead of the default verify paths. Verification stays on. The file follows same-origin redirects and is dropped after a cross-origin redirect. `Http.pool.fetch.ca` keeps those sockets apart from default-trust sockets and from a different file. A missing file is `ErrTls` with EINVAL. This does not present a client certificate; use `fetch.cert` for that.
+
 `fetch` sends `accept-encoding: gzip, deflate`, plus `br` and `zstd` when those libraries load, unless you set `Accept-Encoding`. It decodes `gzip`, `x-gzip`, `deflate`, `br`, `zstd`, and `identity` in reverse order. An unknown coding stays as sent. A corrupt body, or one that decodes past 16 MiB, is `ErrBad`. `content-length` stays the compressed size. `exchange` does not decode. `decoded` is the pure gzip, deflate, and identity path, and the laws cover it.
 
 A response over 16 MiB of body or 64 KiB of head is `ErrBad`. `Content-Length` together with `Transfer-Encoding` is rejected.
@@ -85,8 +87,8 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.30.0.0/http.bend as Http
-import bend-kit-http@0.30.0.0/completion.bend as Completion
+import bend-kit-http@0.31.0.0/http.bend as Http
+import bend-kit-http@0.31.0.0/completion.bend as Completion
 
 def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
@@ -105,6 +107,8 @@ def main() -> IO(Unit):
 `server.config(host, port)` is the same caps as above, plus 128 connections, 128 active requests, and 128 buffered-input units. Every size and deadline is a positive `U32`. Zero is an error, not an unlimited setting. A deadline must fit in signed host milliseconds, at most 2147483647. The largest header or body cap that fits is 4294901756. Port 0 asks the OS for a port.
 
 `server.start` returns your affine owner beside `Done{server}` or a `StartupError`. `InvalidConfig` and `BindError` both return the owner, so you can close it. `Done` means the listener is accepting. Do not treat a failure as ready.
+
+`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.6.0`.
 
 `server.run` consumes the server and returns `ServerExit` after the listener is closed and the accepted work has returned. `server.close` does that close and returns the counts. It waits until handlers and cleanup callbacks return. It can wait forever. `server.stop` refuses new admission and returns `True` the first time. Stop is not drain. You still run or close the server. A callback that does not return is not cancelled. An external supervisor has to enforce a process deadline.
 

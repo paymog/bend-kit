@@ -3,7 +3,7 @@ import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 # By hash: bend-kit-url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -zlib@0.2.0.0.
-import bend-kit-wire@0.4.5.0/wire.bend as Wire
+import bend-kit-wire@0.4.6.0/wire.bend as Wire
 import bend-kit-http2@0.1.2.0/http2.bend as H2
 import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
@@ -2635,9 +2635,9 @@ type Proxy is Data:
   ProxyVia{host: String, port: U32, authorization: String}
 
 type Route is Data:
-  RouteDirect{tls: Bool, host: String, port: U32, cert: Maybe<&2, Cert>}
+  RouteDirect{tls: Bool, host: String, port: U32, cert: Maybe<&2, Cert>, ca: String}
   RouteProxy{tls: Bool, host: String, port: U32, sni: String,
-    authority: String, authorization: String, cert: Maybe<&2, Cert>}
+    authority: String, authorization: String, cert: Maybe<&2, Cert>, ca: String}
 
 # Connection pool: idle sockets by origin and client identity, newest first, at most cap per key.
 # fetch uses a fresh pool per call.
@@ -2684,6 +2684,16 @@ def pool.key.cert(+base: String, cert: Maybe<&2, Cert>) -> String:
     case Some{Cert{+chain, +key}}:
       base ++ "|cert:" ++ Nat.show(String.length(chain)) ++ ":" ++ chain
         ++ Nat.show(String.length(key)) ++ ":" ++ key
+
+def pool.key.ca(+base: String, +ca: String, empty: Bool) -> String:
+  match empty:
+    case True{}:
+      base
+    case False{}:
+      base ++ "|ca:" ++ Nat.show(String.length(ca)) ++ ":" ++ ca
+
+def pool.key.trust(+base: String, cert: Maybe<&2, Cert>, +ca: String) -> String:
+  pool.key.ca(pool.key.cert(base, cert), ca, String.is_empty(ca))
 
 def pool.take.of(+cap: U32, +key: String, r: Map<&1, List<&1, Conn>> & Maybe<&1, List<&1, Conn>>) -> Pool & Maybe<&1, Conn>:
   (m, got) = r
@@ -2808,7 +2818,7 @@ def conn.tls.alpn(m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Result
     case Done{proto}:
       conn.tls.protocol(proto, s)
 
-def conn.secure.no.cert(offer: Bool, s: Socket, host: String, +ms: U32) ->
+def conn.secure.store(offer: Bool, s: Socket, host: String, +ms: U32) ->
     IO(Result<&1, &1, Err, Conn>):
   match offer:
     case True{}:
@@ -2821,11 +2831,33 @@ def conn.secure.no.cert(offer: Bool, s: Socket, host: String, +ms: U32) ->
         hs : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect(s, host, ms)
         conn.tls(hs)
 
+def conn.secure.file(offer: Bool, s: Socket, host: String, +ms: U32, +ca: String) ->
+    IO(Result<&1, &1, Err, Conn>):
+  match offer:
+    case True{}:
+      do IO<Result<&1, &1, Err, Conn>>:
+        hs : Socket & Result<&1, &1, U32 & String, String> <-
+          Wire.tls.connect.alpn.ca(s, host, ms, "h2,http/1.1", ca)
+        conn.tls.alpn(hs)
+    case False{}:
+      do IO<Result<&1, &1, Err, Conn>>:
+        hs : Socket & Result<&1, &1, U32 & String, Unit> <-
+          Wire.tls.connect.ca(s, host, ms, ca)
+        conn.tls(hs)
+
+def conn.secure.no.cert(empty: Bool, offer: Bool, s: Socket, host: String, +ms: U32,
+    +ca: String) -> IO(Result<&1, &1, Err, Conn>):
+  match empty:
+    case True{}:
+      conn.secure.store(offer, s, host, ms)
+    case False{}:
+      conn.secure.file(offer, s, host, ms, ca)
+
 def conn.secure.tls(cert: Maybe<&2, Cert>, s: Socket, host: String, +ms: U32,
-    offer: Bool) -> IO(Result<&1, &1, Err, Conn>):
+    offer: Bool, +ca: String) -> IO(Result<&1, &1, Err, Conn>):
   match cert:
     case None{}:
-      conn.secure.no.cert(offer, s, host, ms)
+      conn.secure.no.cert(String.is_empty(ca), offer, s, host, ms, ca)
     case Some{Cert{chain, key}}:
       do IO<Result<&1, &1, Err, Conn>>:
         hs : Socket & Result<&1, &1, U32 & String, Unit> <-
@@ -2834,27 +2866,27 @@ def conn.secure.tls(cert: Maybe<&2, Cert>, s: Socket, host: String, +ms: U32,
 
 # A failed handshake is an error, never plaintext.
 def conn.secure(+ms: U32, sni: String, s: Socket, tls: Bool,
-    cert: Maybe<&2, Cert>, offer: Bool) -> IO(Result<&1, &1, Err, Conn>):
+    cert: Maybe<&2, Cert>, offer: Bool, +ca: String) -> IO(Result<&1, &1, Err, Conn>):
   match tls:
     case False{}:
       IO.pure(Result<&1, &1, Err, Conn>, Done{Conn{False{}, s}})
     case True{}:
-      conn.secure.tls(cert, s, sni, ms, offer)
+      conn.secure.tls(cert, s, sni, ms, offer, ca)
 
 def conn.made(+ms: U32, sni: String, tls: Bool, cert: Maybe<&2, Cert>,
-    offer: Bool, r: Result<&1, &1, U32 & String, Socket>) ->
+    offer: Bool, +ca: String, r: Result<&1, &1, U32 & String, Socket>) ->
     IO(Result<&1, &1, Err, Conn>):
   match r:
     case Fail{(+code, why)}:
       IO.pure(Result<&1, &1, Err, Conn>, Fail{err.or_late(code, ErrConnect{code, why})})
     case Done{s}:
-      conn.secure(ms, sni, s, tls, cert, offer)
+      conn.secure(ms, sni, s, tls, cert, offer, ca)
 
 def conn.open(+tls: Bool, +ms: U32, sni: String, ip: String, port: U32) ->
     IO(Result<&1, &1, Err, Conn>):
   do IO<Result<&1, &1, Err, Conn>>:
     c : Result<&1, &1, U32 & String, Socket> <- Wire.connect(ip, port, ms)
-    conn.made(ms, sni, tls, None{}, False{}, c)
+    conn.made(ms, sni, tls, None{}, False{}, "", c)
 
 # ponytail: addresses are tried in order, not raced; a broken first route can consume the step timeout.
 type Dial is Type:
@@ -2915,7 +2947,7 @@ def conn.dial.all(+port: U32, +ms: U32, +start: Nat, first: String, rest: List<&
         Dial{port, ms, deadline, Wire.connect(first, port, ms)}))
 
 def conn.open.all(+tls: Bool, +ms: U32, +host: String, +port: U32,
-    ips: List<&2, String>, cert: Maybe<&2, Cert>, offer: Bool) ->
+    ips: List<&2, String>, cert: Maybe<&2, Cert>, offer: Bool, +ca: String) ->
     IO(Result<&1, &1, Err, Conn>):
   match ips:
     case Nil{}:
@@ -2924,7 +2956,7 @@ def conn.open.all(+tls: Bool, +ms: U32, +host: String, +port: U32,
       do IO<Result<&1, &1, Err, Conn>>:
         start : Nat <- IO.now()
         r : Result<&1, &1, U32 & String, Socket> <- conn.dial.all(port, ms, start, addr, rest)
-        conn.made(ms, host, tls, cert, offer, r)
+        conn.made(ms, host, tls, cert, offer, ca, r)
 
 def proxy.auth.safe(s: String) -> Bool:
   match s:
@@ -3354,31 +3386,31 @@ def proxy.connect.fail(s: Socket, e: Err) -> IO(Result<&1, &1, Err, Conn>):
     return Fail{e}
 
 def proxy.connect.extra(m: Maybe<&2, String>, s: Socket, +ms: U32,
-    sni: String, cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+    sni: String, cert: Maybe<&2, Cert>, +ca: String) -> IO(Result<&1, &1, Err, Conn>):
   match m:
     case None{}:
       proxy.connect.fail(s, ErrBad{})
     case Some{rest}:
       match rest:
         case SNil{}:
-          conn.secure(ms, sni, s, True{}, cert, True{})
+          conn.secure(ms, sni, s, True{}, cert, True{}, ca)
         case other:
           proxy.connect.fail(s, ErrBad{})
 
 def proxy.connect.status(ok: Bool, +status: U32, raw: String, s: Socket,
-    +ms: U32, sni: String, cert: Maybe<&2, Cert>) ->
+    +ms: U32, sni: String, cert: Maybe<&2, Cert>, +ca: String) ->
     IO(Result<&1, &1, Err, Conn>):
   match ok:
     case False{}:
       proxy.connect.fail(s, ErrConnect{status, "proxy CONNECT refused"})
     case True{}:
-      proxy.connect.extra(after(raw, True{}), s, ms, sni, cert)
+      proxy.connect.extra(after(raw, True{}), s, ms, sni, cert, ca)
 
 def proxy.connect.finish(res: Res, raw: String, s: Socket, +ms: U32,
-    sni: String, cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+    sni: String, cert: Maybe<&2, Cert>, +ca: String) -> IO(Result<&1, &1, Err, Conn>):
   Res{+status, headers, body} = res
   proxy.connect.status(Bool.and(U32.is_ge(status, 200), U32.is_lt(status, 300)),
-    status, raw, s, ms, sni, cert)
+    status, raw, s, ms, sni, cert, ca)
 
 def proxy.connect.frame(raw: String, over: Bool) -> Frame:
   match over:
@@ -3396,7 +3428,7 @@ def proxy.connect.chunk(empty: Bool, s: Socket, raw: String,
       TunnelRead{s, raw ++ Bytes.to_string(Bytes.Bytes{len, buf})}
 
 def proxy.connect.loop(n: Nat, step: TunnelStep, +ms: U32, +sni: String,
-    +cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+    +cert: Maybe<&2, Cert>, +ca: String) -> IO(Result<&1, &1, Err, Conn>):
   match n:
     case 0n:
       match step:
@@ -3412,7 +3444,7 @@ def proxy.connect.loop(n: Nat, step: TunnelStep, +ms: U32, +sni: String,
         case TunnelRead{s, +raw}:
           proxy.connect.loop(p, TunnelHead{s, raw,
             proxy.connect.frame(raw, Nat.is_gt(String.length(raw), 65536n))},
-            ms, sni, cert)
+            ms, sni, cert, ca)
         case TunnelHead{s, raw, result}:
           match result:
             case FrameBad{}:
@@ -3421,9 +3453,9 @@ def proxy.connect.loop(n: Nat, step: TunnelStep, +ms: U32, +sni: String,
               do IO<Result<&1, &1, Err, Conn>>:
                 answer : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
                   io.recv.words(False{}, s, 4096, ms)
-                proxy.connect.loop(p, TunnelGot{raw, answer}, ms, sni, cert)
+                proxy.connect.loop(p, TunnelGot{raw, answer}, ms, sni, cert, ca)
             case FrameDone{res}:
-              proxy.connect.finish(res, raw, s, ms, sni, cert)
+              proxy.connect.finish(res, raw, s, ms, sni, cert, ca)
         case TunnelGot{raw, answer}:
           match answer:
             case (s, Fail{(+code, why)}):
@@ -3431,7 +3463,7 @@ def proxy.connect.loop(n: Nat, step: TunnelStep, +ms: U32, +sni: String,
             case (s, Done{(+len, buf)}):
               proxy.connect.loop(p,
                 proxy.connect.chunk(U32.is_zero(len), s, raw, len, buf),
-                ms, sni, cert)
+                ms, sni, cert, ca)
 
 def proxy.connect.header(+authority: String, authorization: String) -> String:
   match authorization:
@@ -3442,34 +3474,34 @@ def proxy.connect.header(+authority: String, authorization: String) -> String:
         ++ "\r\nProxy-Authorization: " ++ authorization ++ "\r\n\r\n"
 
 def proxy.connect.sent(r: Socket & Result<&1, &1, U32 & String, Unit>,
-    +ms: U32, sni: String, cert: Maybe<&2, Cert>) ->
+    +ms: U32, sni: String, cert: Maybe<&2, Cert>, +ca: String) ->
     IO(Result<&1, &1, Err, Conn>):
   (s, sent) = r
   match sent:
     case Fail{(+code, why)}:
       proxy.connect.fail(s, err.or_late(code, ErrWrite{code, why}))
     case Done{unit}:
-      proxy.connect.loop(Nat.mul(3n, 65536n), TunnelRead{s, ""}, ms, sni, cert)
+      proxy.connect.loop(Nat.mul(3n, 65536n), TunnelRead{s, ""}, ms, sni, cert, ca)
 
 def proxy.connect(s: Socket, +ms: U32, sni: String, authority: String,
-    authorization: String, cert: Maybe<&2, Cert>) ->
+    authorization: String, cert: Maybe<&2, Cert>, +ca: String) ->
     IO(Result<&1, &1, Err, Conn>):
   do IO<Result<&1, &1, Err, Conn>>:
     sent : Socket & Result<&1, &1, U32 & String, Unit> <-
       io.send.bytes(False{}, s, Bytes.from_string(proxy.connect.header(authority, authorization)))
-    proxy.connect.sent(sent, ms, sni, cert)
+    proxy.connect.sent(sent, ms, sni, cert, ca)
 
 def proxy.route.tls(tls: Bool, s: Socket, +ms: U32, sni: String,
-    authority: String, authorization: String, cert: Maybe<&2, Cert>) ->
+    authority: String, authorization: String, cert: Maybe<&2, Cert>, +ca: String) ->
     IO(Result<&1, &1, Err, Conn>):
   match tls:
     case False{}:
       IO.pure(Result<&1, &1, Err, Conn>, Done{Conn{False{}, s}})
     case True{}:
-      proxy.connect(s, ms, sni, authority, authorization, cert)
+      proxy.connect(s, ms, sni, authority, authorization, cert, ca)
 
 def proxy.route.connected(tls: Bool, +ms: U32, sni: String, authority: String,
-    authorization: String, cert: Maybe<&2, Cert>,
+    authorization: String, cert: Maybe<&2, Cert>, +ca: String,
     r: Result<&1, &1, Err, Conn>) -> IO(Result<&1, &1, Err, Conn>):
   match r:
     case Fail{e}:
@@ -3477,7 +3509,7 @@ def proxy.route.connected(tls: Bool, +ms: U32, sni: String, authority: String,
     case Done{c}:
       match c:
         case Conn{plain, s}:
-          proxy.route.tls(tls, s, ms, sni, authority, authorization, cert)
+          proxy.route.tls(tls, s, ms, sni, authority, authorization, cert, ca)
         case ConnH2{s, client}:
           do IO<Result<&1, &1, Err, Conn>>:
             Wire.tls.close(s)
@@ -3485,21 +3517,21 @@ def proxy.route.connected(tls: Bool, +ms: U32, sni: String, authority: String,
 
 def proxy.route.open(+ms: U32, +tls: Bool, +host: String, +port: U32,
     +sni: String, +authority: String, +authorization: String,
-    cert: Maybe<&2, Cert>) -> IO(Result<&1, &1, Err, Conn>):
+    cert: Maybe<&2, Cert>, +ca: String) -> IO(Result<&1, &1, Err, Conn>):
   do IO<Result<&1, &1, Err, Conn>>:
     ips : List<&2, String> <- Dns.resolve.all(host)
     conn : Result<&1, &1, Err, Conn> <-
-      conn.open.all(False{}, ms, host, port, ips, None{}, False{})
-    proxy.route.connected(tls, ms, sni, authority, authorization, cert, conn)
+      conn.open.all(False{}, ms, host, port, ips, None{}, False{}, "")
+    proxy.route.connected(tls, ms, sni, authority, authorization, cert, ca, conn)
 
 def route.open(+ms: U32, route: Route) -> IO(Result<&1, &1, Err, Conn>):
   match route:
-    case RouteDirect{tls, +host, port, cert}:
+    case RouteDirect{tls, +host, port, cert, ca}:
       do IO<Result<&1, &1, Err, Conn>>:
         ips : List<&2, String> <- Dns.resolve.all(host)
-        conn.open.all(tls, ms, host, port, ips, cert, True{})
-    case RouteProxy{tls, host, port, sni, authority, authorization, cert}:
-      proxy.route.open(ms, tls, host, port, sni, authority, authorization, cert)
+        conn.open.all(tls, ms, host, port, ips, cert, True{}, ca)
+    case RouteProxy{tls, host, port, sni, authority, authorization, cert, ca}:
+      proxy.route.open(ms, tls, host, port, sni, authority, authorization, cert, ca)
 
 def conn.ex.h1(+tls: Bool, s: Socket, +ms: U32, request: Send) -> IO(Out):
   Send{+method, target, authority, headers, body} = request
@@ -3677,40 +3709,40 @@ def proxy.request(secure: Bool, +scheme: String, method: String,
 def pool.origin.proxy(p: Pool, +method: String, +ms: U32,
     headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +hf: String,
     +scheme: String, +host: String, +port: U32, +target: String,
-    +cert: Maybe<&2, Cert>, proxy: Proxy) ->
+    +cert: Maybe<&2, Cert>, +ca: String, proxy: Proxy) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   match proxy:
     case ProxyDirect{}:
-      +key = pool.key.cert(pool.key(scheme, host, port), cert)
+      +key = pool.key.trust(pool.key(scheme, host, port), cert, ca)
       pool.idle(pool.take(p, key), key, ms, pool.idempotent(method),
         Send{method, target, hf, headers, body},
-        RouteDirect{String.eq(scheme, "https"), host, port, cert})
+        RouteDirect{String.eq(scheme, "https"), host, port, cert, ca})
     case ProxyVia{+proxy_host, +proxy_port, +authorization}:
       +secure = String.eq(scheme, "https")
-      +key = pool.key.cert(pool.key(scheme, host, port)
+      +key = pool.key.trust(pool.key(scheme, host, port)
         ++ "|proxy:" ++ proxy_host ++ ":" ++ U32.show(proxy_port)
-        ++ "|auth:" ++ authorization, cert)
+        ++ "|auth:" ++ authorization, cert, ca)
       pool.idle(pool.take(p, key), key, ms, pool.idempotent(method),
         proxy.request(secure, scheme, method, target, hf, headers, body, authorization),
         RouteProxy{secure, proxy_host, proxy_port, host,
           Url.host_field.wrap(host, Url.has(host, 58)) ++ ":" ++ U32.show(port),
-          authorization, cert})
+          authorization, cert, ca})
 
 def pool.origin.choice(p: Pool, method: String, ms: U32,
     headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, hf: String,
     scheme: String, host: String, port: U32, target: String,
-    cert: Maybe<&2, Cert>, choice: Maybe<&2, Proxy>) ->
+    cert: Maybe<&2, Cert>, +ca: String, choice: Maybe<&2, Proxy>) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   match choice:
     case None{}:
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrUrl{}}))
     case Some{proxy}:
       pool.origin.proxy(p, method, ms, headers, body, hf, scheme, host, port,
-        target, cert, proxy)
+        target, cert, ca, proxy)
 
 def pool.origin(p: Pool, method: String, ms: U32,
     headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, hf: String,
-    a: Url.Abs, known: Bool, cert: Maybe<&2, Cert>,
+    a: Url.Abs, known: Bool, cert: Maybe<&2, Cert>, +ca: String,
     choice: Maybe<&2, Proxy>) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   Url.Abs{scheme, host, port, target} = a
@@ -3719,7 +3751,7 @@ def pool.origin(p: Pool, method: String, ms: U32,
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrUrl{}}))
     case True{}:
       pool.origin.choice(p, method, ms, headers, body, hf, scheme, host,
-        port, target, cert, choice)
+        port, target, cert, ca, choice)
 
 def pool.scheme.ok(a: Url.Abs) -> Bool:
   Url.Abs{+scheme, host, port, target} = a
@@ -3732,7 +3764,7 @@ def pool.one.back(h: Hop, pr: Pool & Result<&1, &1, Err, Res>) -> Pool & Result<
 # sent is headers plus any jar cookies; the hop keeps headers, so cookies never pile up across hops.
 def pool.one.of(p: Pool, +method: String, +url: Url.Abs,
     headers: Map<&2, List<&2, String>>, sent: Map<&2, List<&2, String>>,
-    +ms: U32, r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>) ->
+    +ms: U32, r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>, +ca: String) ->
     IO(Pool & Result<&1, &1, Err, Res> & Hop):
   Url.Abs{+scheme, +host, +port, target} = url
   (body, wire) = r
@@ -3740,13 +3772,13 @@ def pool.one.of(p: Pool, +method: String, +url: Url.Abs,
     choice : Maybe<&2, Proxy> <- proxy.select(scheme, host, port)
     pr : Pool & Result<&1, &1, Err, Res> <-
       pool.origin(p, method, ms, sent, wire, Url.host_field(url),
-        url, pool.scheme.ok(url), cert, choice)
+        url, pool.scheme.ok(url), cert, ca, choice)
     return pool.one.back(Hop{method, url, headers, body}, pr)
 
 # One request, on an idle socket to its origin when the pool has one. The hop comes back for the redirect.
-def pool.one(p: Pool, h: Hop, +ms: U32, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
+def pool.one(p: Pool, h: Hop, +ms: U32, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>) -> IO(Pool & Result<&1, &1, Err, Res> & Hop):
   Hop{+method, +url, +headers, body} = h
-  pool.one.of(p, method, url, headers, jar.opt.apply(jar, url, headers), ms, Bytes.slice(body, 0, 4294967295), cert)
+  pool.one.of(p, method, url, headers, jar.opt.apply(jar, url, headers), ms, Bytes.slice(body, 0, 4294967295), cert, ca)
 
 type Next is Type:
   NDone{res: Result<&1, &1, Err, Res>}
@@ -3819,41 +3851,49 @@ def fetch.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes.
     case Some{a}:
       NGo{20n, Hop{method, a, accept.enc(req.put(Map.to_list(&2, List<&2, String>, headers), empty()), enc), body}}
 
-# The redirect loop's state: the pool, what to do next, the client identity, and the jar if any.
+# The redirect loop's state: the pool, what to do next, the client identity, the jar, and the CA file.
 type Hops is Type:
-  Hops{p: Pool, next: Next, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>}
+  Hops{p: Pool, next: Next, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, ca: String}
 
-def pool.next.move(p: Pool, +old: String, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, n: Next) -> Hops:
+def pool.next.ca(same: Bool, +ca: String) -> String:
+  match same:
+    case True{}:
+      ca
+    case False{}:
+      ""
+
+def pool.next.move(p: Pool, +old: String, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, +ca: String, n: Next) -> Hops:
   match n:
     case NGo{left, h}:
       Hop{method, +url, headers, body} = h
+      +same = String.eq(old, redirect.origin(url))
       Hops{p, NGo{left, Hop{method, url, headers, body}},
-        Bool.pick(Maybe<&2, Cert>, String.eq(old, redirect.origin(url)), cert, None{}), jar}
+        Bool.pick(Maybe<&2, Cert>, same, cert, None{}), jar, pool.next.ca(same, ca)}
     case NDone{r}:
-      Hops{p, NDone{r}, None{}, jar}
+      Hops{p, NDone{r}, None{}, jar, ""}
     case NStop{}:
-      Hops{p, NStop{}, None{}, jar}
+      Hops{p, NStop{}, None{}, jar, ""}
 
-def pool.next.of(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, p: Pool, +url: Url.Abs, h: Hop, r: Maybe<&2, Jar> & Result<&1, &1, Err, Res>) -> Hops:
+def pool.next.of(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, p: Pool, +url: Url.Abs, h: Hop, r: Maybe<&2, Jar> & Result<&1, &1, Err, Res>) -> Hops:
   (jar, m) = r
-  pool.next.move(p, redirect.origin(url), cert, jar, fetch.policy(mode, left, h, m))
+  pool.next.move(p, redirect.origin(url), cert, jar, ca, fetch.policy(mode, left, h, m))
 
 # The jar takes the response's Set-Cookie fields first, redirect or not.
-def pool.next(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Hops:
+def pool.next(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Hops:
   (p, m, h) = x
   Hop{method, +url, headers, body} = h
-  pool.next.of(mode, left, cert, p, url, Hop{method, url, headers, body}, jar.opt.store(jar, url, m))
+  pool.next.of(mode, left, cert, ca, p, url, Hop{method, url, headers, body}, jar.opt.store(jar, url, m))
 
-def pool.hops.one(+mode: Mode, +ms: U32, +cert: Maybe<&2, Cert>, +jar: Maybe<&2, Jar>, p: Pool, h: Hop, left: Nat) -> IO(Hops):
+def pool.hops.one(+mode: Mode, +ms: U32, +cert: Maybe<&2, Cert>, +ca: String, +jar: Maybe<&2, Jar>, p: Pool, h: Hop, left: Nat) -> IO(Hops):
   do IO<Hops>:
-    x : Pool & Result<&1, &1, Err, Res> & Hop <- pool.one(p, h, ms, cert, jar)
-    return pool.next(mode, left, cert, jar, x)
+    x : Pool & Result<&1, &1, Err, Res> & Hop <- pool.one(p, h, ms, cert, ca, jar)
+    return pool.next(mode, left, cert, ca, jar, x)
 
 # NGo.left is how many redirects may follow this request. 20 is WHATWG's limit.
 # The jar, when there is one, gives cookies to every hop and takes them from every response.
 @unsafe
 def pool.hops(+mode: Mode, +ms: U32, st: Hops) -> IO(Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>):
-  Hops{p, n, cert, cj} = st
+  Hops{p, n, cert, cj, ca} = st
   match n:
     case NDone{m}:
       IO.pure(Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>, (p, m, cj))
@@ -3861,7 +3901,7 @@ def pool.hops(+mode: Mode, +ms: U32, st: Hops) -> IO(Pool & Result<&1, &1, Err, 
       IO.pure(Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>, (p, Fail{ErrRedirect{}}, cj))
     case NGo{+left, h}:
       do IO<Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar>>:
-        next : Hops <- pool.hops.one(mode, ms, cert, cj, p, h, left)
+        next : Hops <- pool.hops.one(mode, ms, cert, ca, cj, p, h, left)
         pool.hops(mode, ms, next)
 
 # Content-Encoding (RFC 9110 §8.4): each value, trimmed and lowercased, in the order applied.
@@ -4115,15 +4155,15 @@ def pool.final(+enc: String, pr: Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar
     d : Result<&1, &1, Err, Res> <- fetch.final(enc, r)
     return (p, d)
 
-def pool.how.enc(+enc: String, p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
+def pool.how.enc(+enc: String, p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode, cert: Maybe<&2, Cert>, +ca: String) -> IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
-    pr : Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar> <- pool.hops(mode, ms, Hops{p, fetch.start(method, headers, body, Url.absolute(url), enc), cert, None{}})
+    pr : Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar> <- pool.hops(mode, ms, Hops{p, fetch.start(method, headers, body, Url.absolute(url), enc), cert, None{}, ca})
     pool.final(enc, pr)
 
 def pool.how.cert(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ms: U32, mode: Mode, cert: Maybe<&2, Cert>) -> IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
     enc : String <- codings()
-    pool.how.enc(enc, p, method, url, headers, body, ms, mode, cert)
+    pool.how.enc(enc, p, method, url, headers, body, ms, mode, cert, "")
 
 # pool.how(p, "GET", "https://example.com/x?y=1", headers, body, ms, mode) follows redirects
 # on p's idle sockets. Fail is a bad URL, a failed lookup, connect, handshake, send, read,
@@ -4142,6 +4182,14 @@ def pool.fetch.cert.with(p: Pool, method: String, url: String, headers: Map<&2, 
 
 def pool.fetch.cert(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, chain: String, key: String) -> IO(Pool & Result<&1, &1, Err, Res>):
   pool.fetch.cert.with(p, method, url, headers, body, chain, key, 30000)
+
+def pool.fetch.ca.with(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ca: String, ms: U32) -> IO(Pool & Result<&1, &1, Err, Res>):
+  do IO<Pool & Result<&1, &1, Err, Res>>:
+    enc : String <- codings()
+    pool.how.enc(enc, p, method, url, headers, body, ms, ModeFollow{}, None{}, ca)
+
+def pool.fetch.ca(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ca: String) -> IO(Pool & Result<&1, &1, Err, Res>):
+  pool.fetch.ca.with(p, method, url, headers, body, ca, 30000)
 
 # One request for fetch.all: the arguments of fetch, as a record.
 type Fetch is Type:
@@ -4204,7 +4252,7 @@ def pool.jar.final(+enc: String, j: Jar, pr: Pool & Result<&1, &1, Err, Res> & M
 
 def pool.jar.enc(+enc: String, p: Pool, +j: Jar, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Pool & Jar & Result<&1, &1, Err, Res>):
   do IO<Pool & Jar & Result<&1, &1, Err, Res>>:
-    pr : Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar> <- pool.hops(ModeFollow{}, 30000, Hops{p, fetch.start(method, headers, body, Url.absolute(url), enc), None{}, Some{j}})
+    pr : Pool & Result<&1, &1, Err, Res> & Maybe<&2, Jar> <- pool.hops(ModeFollow{}, 30000, Hops{p, fetch.start(method, headers, body, Url.absolute(url), enc), None{}, Some{j}, ""})
     pool.jar.final(enc, j, pr)
 
 # pool.fetch with a cookie jar (RFC 6265bis). Before every hop, redirects included, the jar's
@@ -4236,6 +4284,14 @@ def fetch.cert.with(method: String, url: String, headers: Map<&2, List<&2, Strin
 
 def fetch.cert(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, chain: String, key: String) -> IO(Result<&1, &1, Err, Res>):
   fetch.cert.with(method, url, headers, body, chain, key, 30000)
+
+def fetch.ca.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ca: String, ms: U32) -> IO(Result<&1, &1, Err, Res>):
+  do IO<Result<&1, &1, Err, Res>>:
+    pr : Pool & Result<&1, &1, Err, Res> <- pool.fetch.ca.with(pool.new(), method, url, headers, body, ca, ms)
+    fetch.end(pr)
+
+def fetch.ca(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, ca: String) -> IO(Result<&1, &1, Err, Res>):
+  fetch.ca.with(method, url, headers, body, ca, 30000)
 
 # fetch.with and a 30 s step timeout.
 def fetch(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Result<&1, &1, Err, Res>):
@@ -4728,7 +4784,7 @@ def stream.origin(+ms: U32, +head: Bool, wire: Bytes.Bytes, a: Url.Abs, known: B
     case True{}:
       do IO<Result<&1, &1, Err, Stream>>:
         ips : List<&2, String> <- Dns.resolve.all(host)
-        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{}, False{})
+        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{}, False{}, "")
         stream.conn(c, ms, head, wire)
 
 def stream.one.of(+method: String, +url: Url.Abs, +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes) -> IO(Hop & Result<&1, &1, Err, Stream>):
@@ -4975,7 +5031,7 @@ def up.origin(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>, a: 
     case True{}:
       do IO<Result<&1, &1, Err, Up>>:
         ips : List<&2, String> <- Dns.resolve.all(host)
-        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{}, False{})
+        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{}, False{}, "")
         up.conn(c, ms, String.eq(method, "HEAD"), up.head(method, target, Url.host_field(a), headers))
 
 def up.url(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>, u: Maybe<&2, Url.Abs>) -> IO(Result<&1, &1, Err, Up>):

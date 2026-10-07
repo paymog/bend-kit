@@ -10,7 +10,7 @@ import bend-kit-wire@0.4.6.0/wire.bend as Wire
 
 `tls.connect` checks the certificate chain and the host name. `tls.connect.cert` adds a PEM client chain and key. `tls.connect.ca` trusts the PEM certificates in one file for that handshake, instead of the default verify paths. Verification stays on. `tls.connect.alpn` returns the selected protocol. `tls.connect.alpn.ca` does both. Set `BEND_LIBSSL` when OpenSSL 3 `libssl` is not on the default path. Proofs do not cover `effs/wire.c` and `effs/wire.js`.
 
-`http` imports `bend-kit-wire@0.4.5.0`. `dns` imports `0.4.3.0`. `redis`, `postgres`, and `websocket` import `0.4.2.0`. A `Socket` from one version is not a `Socket` from another.
+`http` imports `bend-kit-wire@0.4.6.0`. `dns` imports `0.4.3.0`. `redis`, `postgres`, and `websocket` import `0.4.2.0`. A `Socket` from one version is not a `Socket` from another.
 
 
 ## Deadline-bounded listener acceptance
