@@ -555,6 +555,7 @@ static void __attribute__((constructor)) connect_use(void) {
 // (chain + host name) is always on; TLS 1.2 is the floor.
 
 #if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.connect.cert)) \
+  || defined(CID(tls.connect.ca)) || defined(CID(tls.connect.alpn.ca)) \
   || defined(CID(tls.send)) || defined(CID(tls.recv)) || defined(CID(tls.close)) \
   || defined(CID(tls.send.words)) || defined(CID(tls.recv.words))
 #ifndef WIRE_TLS
@@ -564,6 +565,12 @@ static void __attribute__((constructor)) connect_use(void) {
 typedef struct {
   int   state;
   void* ctx;
+  void* method;
+  void* (*ctx_new)(void*);
+  void  (*ctx_free)(void*);
+  int   (*load_verify)(void*, const char*, const char*);
+  void  (*verify)(void*, int, void*);
+  long  (*ctx_ctrl)(void*, int, long, void*);
   void* (*ssl_new)(void*);
   int   (*set_fd)(void*, int);
   long  (*ctrl)(void*, int, long, void*);
@@ -586,6 +593,7 @@ typedef struct {
 #define WIRE_TLS_FDS 65536
 static WireTls wire_tls;
 static void*   wire_tls_ssl[WIRE_TLS_FDS];
+static void*   wire_tls_own[WIRE_TLS_FDS];
 
 static void* wire_tls_open(void) {
   const char* paths[] = { getenv("BEND_LIBSSL"),
@@ -610,10 +618,12 @@ static bool wire_tls_load(void) {
     return false;
   }
   void* (*method)(void)                 = dlsym(h, "TLS_client_method");
-  void* (*ctx_new)(void*)               = dlsym(h, "SSL_CTX_new");
+  wire_tls.ctx_new     = dlsym(h, "SSL_CTX_new");
+  wire_tls.ctx_free    = dlsym(h, "SSL_CTX_free");
+  wire_tls.load_verify = dlsym(h, "SSL_CTX_load_verify_locations");
   int   (*paths)(void*)                 = dlsym(h, "SSL_CTX_set_default_verify_paths");
-  void  (*verify)(void*, int, void*)    = dlsym(h, "SSL_CTX_set_verify");
-  long  (*ctx_ctrl)(void*, int, long, void*) = dlsym(h, "SSL_CTX_ctrl");
+  wire_tls.verify      = dlsym(h, "SSL_CTX_set_verify");
+  wire_tls.ctx_ctrl    = dlsym(h, "SSL_CTX_ctrl");
   wire_tls.ssl_new       = dlsym(h, "SSL_new");
   wire_tls.set_fd        = dlsym(h, "SSL_set_fd");
   wire_tls.ctrl          = dlsym(h, "SSL_ctrl");
@@ -631,7 +641,8 @@ static bool wire_tls_load(void) {
   wire_tls.use_certificate_chain_file = dlsym(h, "SSL_use_certificate_chain_file");
   wire_tls.use_private_key_file = dlsym(h, "SSL_use_PrivateKey_file");
   wire_tls.check_private_key = dlsym(h, "SSL_check_private_key");
-  if (!method || !ctx_new || !paths || !verify || !ctx_ctrl
+  if (!method || !wire_tls.ctx_new || !wire_tls.ctx_free || !wire_tls.load_verify
+    || !paths || !wire_tls.verify || !wire_tls.ctx_ctrl
     || !wire_tls.ssl_new || !wire_tls.set_fd || !wire_tls.ctrl
     || !wire_tls.set1_host || !wire_tls.connect || !wire_tls.read
     || !wire_tls.write || !wire_tls.get_error || !wire_tls.shutdown
@@ -641,15 +652,17 @@ static bool wire_tls_load(void) {
     || !wire_tls.check_private_key) {
     return false;
   }
-  void* ctx = ctx_new(method());
+  void* client = method();
+  void* ctx = wire_tls.ctx_new(client);
   if (ctx == NULL || paths(ctx) != 1) {
     return false;
   }
-  verify(ctx, 1, NULL);              // SSL_VERIFY_PEER
-  ctx_ctrl(ctx, 123, 0x0303, NULL);  // SSL_CTRL_SET_MIN_PROTO_VERSION, TLS 1.2
+  wire_tls.verify(ctx, 1, NULL);              // SSL_VERIFY_PEER
+  wire_tls.ctx_ctrl(ctx, 123, 0x0303, NULL);  // SSL_CTRL_SET_MIN_PROTO_VERSION, TLS 1.2
   // A bare EOF is an error. close_notify is the only clean close.
-  wire_tls.ctx   = ctx;
-  wire_tls.state = 1;
+  wire_tls.method = client;
+  wire_tls.ctx    = ctx;
+  wire_tls.state  = 1;
   return true;
 }
 
@@ -663,12 +676,17 @@ static void wire_tls_drop(int fd) {
     wire_tls.ssl_free(ssl);
     wire_tls_ssl[fd] = NULL;
   }
+  if (fd >= 0 && fd < WIRE_TLS_FDS && wire_tls_own[fd] != NULL) {
+    wire_tls.ctx_free(wire_tls_own[fd]);
+    wire_tls_own[fd] = NULL;
+  }
 }
 
 #endif
 #endif
 
-#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.connect.cert))
+#if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.connect.cert)) \
+  || defined(CID(tls.connect.ca)) || defined(CID(tls.connect.alpn.ca))
 
 static Term wire_tls_connect_end(Env e, IoWork* w, Term r) {
   free(w->text);
@@ -704,13 +722,31 @@ static Term wire_tls_connect_more(Env e, IoWork* w) {
   return wire_tls_connect_fail(e, w, EPROTO, v != 0 ? wire_tls.verify_text(v) : "TLS handshake failed");
 }
 
-static Term wire_tls_connect_start(Env e, IoWork* w, int fd, void* ssl) {
+static Term wire_tls_connect_start(Env e, IoWork* w, int fd, void* ssl, void* own) {
   wire_tls_ssl[fd] = ssl;
+  wire_tls_own[fd] = own;
   if (wire_tls.set_fd(ssl, fd) != 1 || wire_tls.ctrl(ssl, 55, 0, w->text) != 1
     || wire_tls.set1_host(ssl, w->text) != 1) {
     return wire_tls_connect_fail(e, w, EPROTO, "TLS setup failed");
   }
   return wire_tls_connect_more(e, w);
+}
+
+// A private CA replaces the default verify paths for this handshake only.
+static void* wire_tls_ca(const char* path, const char** why) {
+  void* ctx = wire_tls.ctx_new(wire_tls.method);
+  *why = NULL;
+  if (ctx == NULL) {
+    return NULL;
+  }
+  if (wire_tls.load_verify(ctx, path, NULL) != 1) {
+    wire_tls.ctx_free(ctx);
+    *why = "TLS CA load failed";
+    return NULL;
+  }
+  wire_tls.verify(ctx, 1, NULL);
+  wire_tls.ctx_ctrl(ctx, 123, 0x0303, NULL);
+  return ctx;
 }
 
 #endif
@@ -734,7 +770,7 @@ Term tls_connect_run(Env e, Term* f, IoWork* w) {
   if (ssl == NULL) {
     return wire_tls_connect_end(e, w, io_fail(e, ENOMEM, NULL));
   }
-  return wire_tls_connect_start(e, w, fd, ssl);
+  return wire_tls_connect_start(e, w, fd, ssl, NULL);
 }
 
 static void __attribute__((constructor)) tls_connect_use(void) {
@@ -743,7 +779,7 @@ static void __attribute__((constructor)) tls_connect_use(void) {
 
 #endif
 
-#ifdef CID(tls.connect.alpn)
+#if defined(CID(tls.connect.alpn)) || defined(CID(tls.connect.alpn.ca))
 
 // Comma-separated protocol names to the ALPN wire form (RFC 7301).
 static bool wire_alpn_pack(const char* list, u64 len, unsigned char* buf, unsigned int* n, unsigned int max) {
@@ -764,6 +800,10 @@ static bool wire_alpn_pack(const char* list, u64 len, unsigned char* buf, unsign
   }
   return true;
 }
+
+#endif
+
+#ifdef CID(tls.connect.alpn)
 
 Term tls_connect_alpn_run(Env e, Term* f, IoWork* w) {
   uint64_t hn = 0;
@@ -793,7 +833,7 @@ Term tls_connect_alpn_run(Env e, Term* f, IoWork* w) {
     wire_tls.ssl_free(ssl);
     return wire_tls_connect_end(e, w, io_fail(e, EPROTO, "ALPN setup failed"));
   }
-  return wire_tls_connect_start(e, w, fd, ssl);
+  return wire_tls_connect_start(e, w, fd, ssl, NULL);
 }
 
 static void __attribute__((constructor)) tls_connect_alpn_use(void) {
@@ -843,11 +883,90 @@ Term tls_connect_cert_run(Env e, Term* f, IoWork* w) {
     wire_tls.ssl_free(ssl);
     return wire_tls_connect_end(e, w, io_fail(e, EINVAL, why));
   }
-  return wire_tls_connect_start(e, w, fd, ssl);
+  return wire_tls_connect_start(e, w, fd, ssl, NULL);
 }
 
 static void __attribute__((constructor)) tls_connect_cert_use(void) {
   io_eff(CID(tls.connect.cert), tls_connect_cert_run, 0);
+}
+
+#endif
+
+#ifdef CID(tls.connect.ca)
+
+Term tls_connect_ca_run(Env e, Term* f, IoWork* w) {
+  uint64_t hn = 0, an = 0;
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->text = io_cstr(e, f[1], &hn);
+  w->size = wire_deadline((u64)f[2]);
+  w->made = 0;
+  char* path = io_cstr(e, f[3], &an);
+  int fd = (int)w->hand;
+  const char* why = NULL;
+  bool loaded = wire_tls_load();
+  bool bad = fd < 0 || fd >= WIRE_TLS_FDS || io_nul(w->text, hn) || io_nul(path, an) || an == 0;
+  void* ctx = loaded && !bad ? wire_tls_ca(path, &why) : NULL;
+  free(path);
+  if (!loaded || bad || ctx == NULL) {
+    return wire_tls_connect_end(e, w, !loaded
+      ? io_fail(e, ENOENT, "TLS needs OpenSSL 3 (libssl.3); set BEND_LIBSSL to its path")
+      : io_fail(e, why != NULL || bad ? EINVAL : ENOMEM, why != NULL ? why : "Invalid TLS CA path"));
+  }
+  void* ssl = wire_tls.ssl_new(ctx);
+  if (ssl == NULL) {
+    wire_tls.ctx_free(ctx);
+    return wire_tls_connect_end(e, w, io_fail(e, ENOMEM, NULL));
+  }
+  return wire_tls_connect_start(e, w, fd, ssl, ctx);
+}
+
+static void __attribute__((constructor)) tls_connect_ca_use(void) {
+  io_eff(CID(tls.connect.ca), tls_connect_ca_run, 0);
+}
+
+#endif
+
+#ifdef CID(tls.connect.alpn.ca)
+
+Term tls_connect_alpn_ca_run(Env e, Term* f, IoWork* w) {
+  uint64_t hn = 0, pn = 0, an = 0;
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->text = io_cstr(e, f[1], &hn);
+  w->size = wire_deadline((u64)f[2]);
+  w->made = 1;
+  char* plist = io_cstr(e, f[3], &pn);
+  char* path = io_cstr(e, f[4], &an);
+  unsigned char abuf[256];
+  unsigned int alen = 0;
+  int fd = (int)w->hand;
+  bool bad = fd < 0 || fd >= WIRE_TLS_FDS || io_nul(w->text, hn) || io_nul(plist, pn)
+    || io_nul(path, an) || an == 0 || !wire_alpn_pack(plist, pn, abuf, &alen, sizeof(abuf));
+  free(plist);
+  const char* why = NULL;
+  bool loaded = wire_tls_load();
+  void* ctx = loaded && !bad ? wire_tls_ca(path, &why) : NULL;
+  free(path);
+  if (!loaded || bad || ctx == NULL) {
+    return wire_tls_connect_end(e, w, !loaded
+      ? io_fail(e, ENOENT, "TLS needs OpenSSL 3 (libssl.3); set BEND_LIBSSL to its path")
+      : io_fail(e, why != NULL || bad ? EINVAL : ENOMEM,
+        why != NULL ? why : "Invalid TLS CA path"));
+  }
+  void* ssl = wire_tls.ssl_new(ctx);
+  if (ssl == NULL) {
+    wire_tls.ctx_free(ctx);
+    return wire_tls_connect_end(e, w, io_fail(e, ENOMEM, NULL));
+  }
+  if (wire_tls.set_alpn_protos(ssl, abuf, alen) != 0) {
+    wire_tls.ssl_free(ssl);
+    wire_tls.ctx_free(ctx);
+    return wire_tls_connect_end(e, w, io_fail(e, EPROTO, "ALPN setup failed"));
+  }
+  return wire_tls_connect_start(e, w, fd, ssl, ctx);
+}
+
+static void __attribute__((constructor)) tls_connect_alpn_ca_use(void) {
+  io_eff(CID(tls.connect.alpn.ca), tls_connect_alpn_ca_run, 0);
 }
 
 #endif

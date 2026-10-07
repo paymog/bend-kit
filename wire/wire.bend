@@ -62,6 +62,19 @@ def tls.connect.alpn(sock: Socket, host: String, ms: U32, protos: String) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# Trust the PEM certificates in ca_path for this handshake, instead of the
+# default verify paths. Verification stays on. A load failure is EINVAL.
+def tls.connect.ca(sock: Socket, host: String, ms: U32, ca_path: String) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
+# tls.connect.ca with a comma-separated ALPN list. The result is the selected protocol.
+def tls.connect.alpn.ca(sock: Socket, host: String, ms: U32, protos: String, ca_path: String) ->
+  IO(Socket & Result<&1, &1, U32 & String, String>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 # The String TLS effects are the slow path: one Char cell per octet.
 def tls.send(sock: Socket, data: String) ->
   IO(Socket & Result<&1, &1, U32 & String, Unit>):
