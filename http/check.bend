@@ -801,9 +801,42 @@ def limits.counter() -> IO(Unit):
     Http.DcData{1}, Nil{}, Bytes.from_string("x"))),
     "decoded body counter rejects representability overflow")
 
+def admission.counts(counts: Maybe<&2, Admission.Counts>) -> String:
+  match counts:
+    case None{}:
+      "closed"
+    case Some{Admission.Counts{c, a, b, ch, ah, bh, cr, ar, br}}:
+      U32.show(c) ++ "," ++ U32.show(a) ++ "," ++ U32.show(b) ++ "," ++
+        U32.show(ch) ++ "," ++ U32.show(ah) ++ "," ++ U32.show(bh) ++ "," ++
+        Nat.show(cr) ++ "," ++ Nat.show(ar) ++ "," ++ Nat.show(br)
+
+# Exhaustion, refusal, release, and renewed admission on the real admission pools.
+def admission.smoke() -> IO(Unit):
+  do IO<Unit>:
+    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{3, 1, 2})
+    a : Bool <- Admission.take(inbox, 0)
+    b : Bool <- Admission.take(inbox, 0)
+    c : Bool <- Admission.take(inbox, 0)
+    local.ok(a && b && Bool.not(c), "admission: a full buffer pool refuses a connection")
+    d : Bool <- Admission.take(inbox, 1)
+    e : Bool <- Admission.take(inbox, 1)
+    local.ok(d && Bool.not(e), "admission: a full active pool refuses a request")
+    Admission.give(inbox, 0)
+    f : Bool <- Admission.take(inbox, 0)
+    Admission.give(inbox, 1)
+    g : Bool <- Admission.take(inbox, 1)
+    local.ok(f && g, "admission: a release admits again")
+    counts : Maybe<&2, Admission.Counts> <- Admission.snapshot(inbox)
+    local.ok(String.eq(admission.counts(counts), "2,1,2,2,1,2,0,1,1"), "admission: counts after release")
+    Admission.give(inbox, 0)
+    Admission.give(inbox, 0)
+    Admission.give(inbox, 1)
+    Admission.close(inbox)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     limits.counter()
+    admission.smoke()
     show(Http.parse("GET /x HTTP/1.1\r\n\r\nhello"))
     show(Http.parse("GET /x HTTP/1.1\r\nHost: x\r\n\r\nhello"))
     show(Http.parse("GET /x HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nhello"))
