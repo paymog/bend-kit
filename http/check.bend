@@ -4,8 +4,8 @@ import ./admission.bend as Admission
 import ./completion.bend as Completion
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
-import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
-import bend-kit-http2@0.1.2.0/http2.bend as H2
+import bend-kit-http2@0.2.0.0/hpack.bend as Hpack
+import bend-kit-http2@0.2.0.0/http2.bend as H2
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
 import bend-kit-time@0.1.0.0/time.bend as Time
 

@@ -161,8 +161,8 @@ def late.opened(observers: Chan(Chan(Completion.Completion<Payload>)),
   pair: Completion.Receipt & Chan(Completion.Completion<Payload>)) -> IO(Http.Reply):
   (receipt, observer) = pair
   do IO<Http.Reply>:
-    sent : Bool <- Chan.send(Chan(Completion.Completion<Payload>), observers, observer)
-    late.require(sent)
+    sent : Result<&1, &1, Chan(Completion.Completion<Payload>), Unit> <- Chan.send(Chan(Completion.Completion<Payload>), observers, observer)
+    late.require(Result.is_done(&1, &1, Chan(Completion.Completion<Payload>), Unit, sent))
     return Http.Reply{Http.Res{200, Http.empty(), Http.from_string("ok")}, receipt}
 
 def late.handle(context: LateContext, request: Http.Req) -> IO(Http.Reply):

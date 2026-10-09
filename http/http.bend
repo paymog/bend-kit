@@ -4,12 +4,12 @@ import ./admission.bend as Admission
 import ./completion.bend as Completion
 # By hash: bend-kit-url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -zlib@0.2.0.0.
 import bend-kit-wire@0.4.6.0/wire.bend as Wire
-import bend-kit-http2@0.1.2.0/http2.bend as H2
-import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
+import bend-kit-http2@0.2.0.0/http2.bend as H2
+import bend-kit-http2@0.2.0.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
 import bend-kit-time@0.1.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-concurrency@0.1.0.0/concurrency.bend as Conc
+import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
@@ -3337,7 +3337,7 @@ def h2.loop(n: Nat, step: H2Step, +ms: U32, +used: U32) ->
           match reply:
             case H2.Failed{error}:
               h2.fail(s, ErrBad{})
-            case H2.Ready{client, writes, events}:
+            case H2.Advanced{client, writes, events}:
               do IO<Result<&1, &1, Err, Conn & Res>>:
                 sent : Result<&1, &1, Err, Socket> <- h2.send(writes, s)
                 h2.loop(p, H2Sent{client, events, sent}, ms, used)
