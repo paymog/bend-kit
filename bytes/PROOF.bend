@@ -1,5 +1,6 @@
 import Base
 import ./bytes.bend as Bytes
+import ../lemmas/lemmas.bend as Lemmas
 import ./LAWS.bend as Laws
 
 def Laws.roundtrip_empty():
@@ -469,3 +470,6 @@ def Laws.cursor_u64le():
 
 def Laws.cursor_u64_incomplete():
   {==}
+
+def Laws.fits_exact(len, i, n):
+  Lemmas.u32_fits_nat(len, i, n)

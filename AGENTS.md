@@ -40,7 +40,8 @@ A law is a claim; a proof is a def with the same name. Each package has:
 - `LAWS.bend`: the claims, each `law name:` over an equality `{a == b : T}`. The human owns this file. Change a law only when the user asks.
 - `PROOF.bend`: imports `LAWS.bend` and proves each law as `def Laws.name():`. Most laws here are concrete fixtures, so the proof is `{==}` (both sides compute to the same term).
 - `bend PROOF.bend` is the gate. It prints "All terms check." when every law holds. An open or false law fails it.
-- A universal law over a comparator takes the comparator and its order facts as templates (`for ~cmp`, `for ~trans: ...`), so the proof can use each fact many times. The checker checks a template def once, against opaque arguments, so lemmas can be plain template defs. `U32` is opaque there too: `(x + 0 : U32)` does not reduce to `x`, so a law that needs `U32` arithmetic cannot be proved. `collections/PROOF.bend` shows the patterns, such as `split` for a goal that branches on a comparison.
+- A universal law over a comparator takes the comparator and its order facts as templates (`for ~cmp`, `for ~trans: ...`), so the proof can use each fact many times. The checker checks a template def once, against opaque arguments, so lemmas can be plain template defs. `collections/PROOF.bend` shows the patterns, such as `split` for a goal that branches on a comparison.
+- `U32` arithmetic does not reduce by `{==}`: `(x + 0 : U32)` does not compute to `x`. To prove a claim about `U32` values, state it over `U32.to_nat` and use the laws in `lemmas/lemmas.bend`, such as `u32_add_nat`, `u32_sub_nat`, `u32_cmp_nat`, and `u32_fits_nat`. For `Nat` and `List` facts, use `bend-mathlib@0.7.2.0` before you write a local lemma, and put a missing one in `lemmas`. Write `2^32` as `Lemmas.pow2(32n)`, and do not make a conversion check unfold it (see `lemmas/README.md`).
 
 ## Repo facts
 
