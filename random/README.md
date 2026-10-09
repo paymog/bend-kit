@@ -3,7 +3,7 @@
 A seeded xoshiro128** generator. Unbiased ranges, `F32` in `[0, 1)`, and Fisher-Yates shuffles. Not for cryptography. Secrets use `crypto`'s `random.words`.
 
 ```bend
-import bend-kit-random@0.1.0.0/random.bend as Rand
+import bend-kit-random@0.1.0.1/random.bend as Rand
 ```
 
 ```bend

@@ -3,7 +3,7 @@
 POSIX paths, directory listing, metadata, and packed file IO.
 
 ```bend
-import bend-kit-files@0.1.1.0/files.bend as Fs
+import bend-kit-files@0.1.1.1/files.bend as Fs
 ```
 
 `path.is_absolute`, `path.join`, `path.normalize`, `path.parent`, `path.file_name`, and `path.extension` are pure. They do not touch the disk. `path.join` does not insert a slash that the arguments already imply. Check the result before you pass it to an effect.

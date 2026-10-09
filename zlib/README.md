@@ -3,7 +3,7 @@
 DEFLATE, gzip, and zlib over byte strings, plus native gzip, zstd, and brotli.
 
 ```bend
-import bend-kit-zlib@0.2.0.0/zlib.bend as Zlib
+import bend-kit-zlib@0.2.0.1/zlib.bend as Zlib
 ```
 
 The pure functions take a `String` with one `Char` per octet, 0..255. `deflate`, `gzip`, and `zlib` compress. `inflate`, `gunzip`, and `unzlib` return `None` when the input is truncated or malformed. Laws cover these functions. They do not cover the effects.

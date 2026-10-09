@@ -3,7 +3,7 @@
 Run a command without a shell. Stdin, stdout, and stderr are byte-exact.
 
 ```bend
-import bend-kit-process@0.2.0.0/process.bend as Proc
+import bend-kit-process@0.2.0.1/process.bend as Proc
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 ```
 

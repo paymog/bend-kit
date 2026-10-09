@@ -122,7 +122,7 @@ Term list_dir_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) list_dir_raw_use(void) {
-  io_eff(CID(list_dir.raw), list_dir_raw_run, 0);
+  io_eff(CID(list_dir.raw), list_dir_raw_run);
 }
 
 #endif
@@ -158,7 +158,7 @@ Term stat_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stat_raw_use(void) {
-  io_eff(CID(stat.raw), stat_raw_run, 0);
+  io_eff(CID(stat.raw), stat_raw_run);
 }
 
 #endif
@@ -182,7 +182,7 @@ Term mkdir_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) mkdir_use(void) {
-  io_eff(CID(mkdir), mkdir_run, 0);
+  io_eff(CID(mkdir), mkdir_run);
 }
 
 #endif
@@ -206,7 +206,7 @@ Term remove_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) remove_use(void) {
-  io_eff(CID(remove), remove_run, 0);
+  io_eff(CID(remove), remove_run);
 }
 
 #endif
@@ -237,7 +237,7 @@ Term rename_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) rename_use(void) {
-  io_eff(CID(rename), rename_run, 0);
+  io_eff(CID(rename), rename_run);
 }
 
 #endif
@@ -284,7 +284,7 @@ Term temp_dir_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) temp_dir_use(void) {
-  io_eff(CID(temp_dir), temp_dir_run, 0);
+  io_eff(CID(temp_dir), temp_dir_run);
 }
 
 #endif
@@ -346,7 +346,7 @@ Term files_read_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) files_read_words_use(void) {
-  io_eff(CID(read.words), files_read_words_run, 0);
+  io_eff(CID(read.words), files_read_words_run);
 }
 
 #endif
@@ -395,7 +395,7 @@ Term files_write_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) files_write_words_use(void) {
-  io_eff(CID(write.words), files_write_words_run, 0);
+  io_eff(CID(write.words), files_write_words_run);
 }
 
 #endif

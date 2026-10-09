@@ -106,6 +106,8 @@ The final run's aggregate peak was 5,125,600 KiB. No safety failure or forced cl
 
 The JSON retains the complete eleven-input SHA table, including both imported users consumers and all three plists/proxy configuration. Documentation is not a runtime input.
 
+After that run, `signals.c` moved to the two-argument `io_eff` of Bend 2.0.36, so its current SHA differs from the table. The recorded run used Bend 2.0.35.
+
 ### Preserved adverse attempts
 
 [native-cooperative.json](native-cooperative.json) retains two checker failures (`TCP.close` was not the socket-close API; an affine hook template needed the existing affine-wrapper pattern) before the earlier native smoke passed. [results.json](results.json) retains all earlier attempts and their original hashes:

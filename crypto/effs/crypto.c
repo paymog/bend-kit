@@ -217,7 +217,7 @@ Term digest_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) digest_words_use(void) {
-  io_eff(CID(digest.words), digest_words_run, 0);
+  io_eff(CID(digest.words), digest_words_run);
 }
 
 #endif
@@ -251,7 +251,7 @@ Term hmac_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) hmac_words_use(void) {
-  io_eff(CID(hmac.words), hmac_words_run, 0);
+  io_eff(CID(hmac.words), hmac_words_run);
 }
 
 #endif
@@ -304,7 +304,7 @@ Term hkdf_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) hkdf_words_use(void) {
-  io_eff(CID(hkdf.words), hkdf_words_run, 0);
+  io_eff(CID(hkdf.words), hkdf_words_run);
 }
 
 #endif
@@ -342,7 +342,7 @@ Term pbkdf2_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) pbkdf2_words_use(void) {
-  io_eff(CID(pbkdf2.words), pbkdf2_words_run, 0);
+  io_eff(CID(pbkdf2.words), pbkdf2_words_run);
 }
 
 #endif
@@ -392,7 +392,7 @@ Term scrypt_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) scrypt_words_use(void) {
-  io_eff(CID(scrypt.words), scrypt_words_run, 0);
+  io_eff(CID(scrypt.words), scrypt_words_run);
 }
 
 #endif
@@ -413,7 +413,7 @@ Term random_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) random_words_use(void) {
-  io_eff(CID(random.words), random_words_run, 0);
+  io_eff(CID(random.words), random_words_run);
 }
 
 #endif
@@ -438,7 +438,7 @@ Term eq_ct_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) eq_ct_words_use(void) {
-  io_eff(CID(eq.ct.words), eq_ct_words_run, 0);
+  io_eff(CID(eq.ct.words), eq_ct_words_run);
 }
 
 #endif
@@ -717,7 +717,7 @@ Term rsa_sign_words_run(Env e, Term* f, IoWork* w) {
   return crypto_sign_run(e, f, CRYPTO_RSA);
 }
 static void __attribute__((constructor)) rsa_sign_words_use(void) {
-  io_eff(CID(rsa.sign.words), rsa_sign_words_run, 0);
+  io_eff(CID(rsa.sign.words), rsa_sign_words_run);
 }
 #endif
 
@@ -726,7 +726,7 @@ Term rsa_verify_words_run(Env e, Term* f, IoWork* w) {
   return crypto_verify_run(e, f, CRYPTO_RSA, false);
 }
 static void __attribute__((constructor)) rsa_verify_words_use(void) {
-  io_eff(CID(rsa.verify.words), rsa_verify_words_run, 0);
+  io_eff(CID(rsa.verify.words), rsa_verify_words_run);
 }
 #endif
 
@@ -735,7 +735,7 @@ Term rsa_verify_jwk_words_run(Env e, Term* f, IoWork* w) {
   return crypto_verify_run(e, f, CRYPTO_RSA, true);
 }
 static void __attribute__((constructor)) rsa_verify_jwk_words_use(void) {
-  io_eff(CID(rsa.verify.jwk.words), rsa_verify_jwk_words_run, 0);
+  io_eff(CID(rsa.verify.jwk.words), rsa_verify_jwk_words_run);
 }
 #endif
 
@@ -744,7 +744,7 @@ Term ecdsa_sign_words_run(Env e, Term* f, IoWork* w) {
   return crypto_sign_run(e, f, CRYPTO_EC);
 }
 static void __attribute__((constructor)) ecdsa_sign_words_use(void) {
-  io_eff(CID(ecdsa.sign.words), ecdsa_sign_words_run, 0);
+  io_eff(CID(ecdsa.sign.words), ecdsa_sign_words_run);
 }
 #endif
 
@@ -753,7 +753,7 @@ Term ecdsa_verify_words_run(Env e, Term* f, IoWork* w) {
   return crypto_verify_run(e, f, CRYPTO_EC, false);
 }
 static void __attribute__((constructor)) ecdsa_verify_words_use(void) {
-  io_eff(CID(ecdsa.verify.words), ecdsa_verify_words_run, 0);
+  io_eff(CID(ecdsa.verify.words), ecdsa_verify_words_run);
 }
 #endif
 
@@ -762,7 +762,7 @@ Term ecdsa_verify_jwk_words_run(Env e, Term* f, IoWork* w) {
   return crypto_verify_run(e, f, CRYPTO_EC, true);
 }
 static void __attribute__((constructor)) ecdsa_verify_jwk_words_use(void) {
-  io_eff(CID(ecdsa.verify.jwk.words), ecdsa_verify_jwk_words_run, 0);
+  io_eff(CID(ecdsa.verify.jwk.words), ecdsa_verify_jwk_words_run);
 }
 #endif
 
@@ -854,7 +854,7 @@ Term aead_seal_words_run(Env e, Term* f, IoWork* w) {
   return crypto_aead_run(e, f, true);
 }
 static void __attribute__((constructor)) aead_seal_words_use(void) {
-  io_eff(CID(aead.seal.words), aead_seal_words_run, 0);
+  io_eff(CID(aead.seal.words), aead_seal_words_run);
 }
 #endif
 
@@ -863,6 +863,6 @@ Term aead_open_words_run(Env e, Term* f, IoWork* w) {
   return crypto_aead_run(e, f, false);
 }
 static void __attribute__((constructor)) aead_open_words_use(void) {
-  io_eff(CID(aead.open.words), aead_open_words_run, 0);
+  io_eff(CID(aead.open.words), aead_open_words_run);
 }
 #endif

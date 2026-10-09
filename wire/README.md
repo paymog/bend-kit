@@ -3,7 +3,7 @@
 Byte-exact TCP, UDP, and TLS. A socket or listener is used once. The call returns it beside the result, except `connect`, which returns the socket inside the `Result`.
 
 ```bend
-import bend-kit-wire@0.4.6.0/wire.bend as Wire
+import bend-kit-wire@0.4.6.1/wire.bend as Wire
 ```
 
 `connect(host, port, ms)` opens TCP. `recv` and `send` move a byte `String`. The `.words` forms move packed `Array<U32>` buffers, four octets per word, and do not build a list cell per byte. `recv_from` and `send_to` are UDP. `ms` is a deadline in milliseconds. `0` means no deadline, except where a def says otherwise. `accept.deadline` rejects `0`. A miss is the host `ETIMEDOUT`: 60 on macOS, 110 on Linux.

@@ -4,7 +4,7 @@ Prepared statements over the system `libsqlite3` on native and Bun targets. The 
 
 ```bend
 import Base
-import bend-kit-sqlite@0.1.0.0/sqlite.bend as Sqlite
+import bend-kit-sqlite@0.1.0.1/sqlite.bend as Sqlite
 
 def main() -> IO(Unit):
   do IO<Unit>:
