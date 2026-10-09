@@ -21,3 +21,16 @@ for (let k = 0; k < 256; k++) {
 }
 const t1 = performance.now();
 console.log(`frame\t${(t1 - t0).toFixed(3)}\t${sum}`);
+
+// stream: unmasked frames of 1000 octets, written to a client Receiver in reads of 65536 octets.
+const one = Buffer.concat(Sender.frame(src.subarray(0, 1000), { fin: true, opcode: 2, mask: false, readOnly: true, rsv1: false }));
+const wire = Buffer.concat(Array.from({ length: 16384 }, () => one));
+let frames = 0;
+let total = 0;
+const client = new Receiver({ isServer: false, binaryType: "nodebuffer", maxPayload: 1 << 20 });
+client.on("message", (data: Buffer) => { frames++; total = (total + data.length + data[999]) >>> 0; });
+const s0 = performance.now();
+for (let pos = 0; pos < wire.length; pos += 65536) client.write(wire.subarray(pos, pos + 65536));
+if (frames !== 16384) throw new Error("frames not parsed synchronously");
+const s1 = performance.now();
+console.log(`stream\t${(s1 - s0).toFixed(3)}\t${total}`);

@@ -29,7 +29,7 @@ Term mono_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) mono_raw_use(void) {
-  io_eff(CID(mono.raw), mono_raw_run, 0);
+  io_eff(CID(mono.raw), mono_raw_run);
 }
 
 #endif
@@ -41,7 +41,7 @@ Term wall_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wall_raw_use(void) {
-  io_eff(CID(wall.raw), wall_raw_run, 0);
+  io_eff(CID(wall.raw), wall_raw_run);
 }
 
 #endif

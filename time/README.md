@@ -3,7 +3,7 @@
 Clocks, `Duration`, `Instant`, Gregorian dates, RFC 3339, HTTP-date, and TZif zones.
 
 ```bend
-import bend-kit-time@0.1.2.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 ```
 
 `now` is the wall clock. `mono` is a monotonic duration. Both are effects in `effs/time.c` and `effs/time.js`. Proofs do not cover them. There is no `BEND_LIB` override.
