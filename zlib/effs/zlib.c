@@ -436,7 +436,7 @@ Term zstd_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) zstd_words_use(void) {
-  io_eff(CID(zstd.words), zstd_words_run, 0);
+  io_eff(CID(zstd.words), zstd_words_run);
 }
 
 #endif
@@ -448,7 +448,7 @@ Term inflate_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) inflate_words_use(void) {
-  io_eff(CID(inflate.words), inflate_words_run, 0);
+  io_eff(CID(inflate.words), inflate_words_run);
 }
 
 #endif
@@ -512,7 +512,7 @@ Term inflate_raw_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) inflate_raw_words_use(void) {
-  io_eff(CID(inflate.raw.words), inflate_raw_words_run, 0);
+  io_eff(CID(inflate.raw.words), inflate_raw_words_run);
 }
 
 #endif
@@ -524,7 +524,7 @@ Term brotli_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) brotli_words_use(void) {
-  io_eff(CID(brotli.words), brotli_words_run, 0);
+  io_eff(CID(brotli.words), brotli_words_run);
 }
 
 #endif
@@ -552,7 +552,7 @@ Term dec_open_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) dec_open_use(void) {
-  io_eff(CID(dec.open), dec_open_run, 0);
+  io_eff(CID(dec.open), dec_open_run);
 }
 
 #endif
@@ -576,7 +576,7 @@ Term dec_feed_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) dec_feed_use(void) {
-  io_eff(CID(dec.feed), dec_feed_run, 0);
+  io_eff(CID(dec.feed), dec_feed_run);
 }
 
 #endif
@@ -597,7 +597,7 @@ Term dec_finish_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) dec_finish_use(void) {
-  io_eff(CID(dec.finish.id), dec_finish_run, 0);
+  io_eff(CID(dec.finish.id), dec_finish_run);
 }
 
 #endif
@@ -636,7 +636,7 @@ Term gzip_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) gzip_words_use(void) {
-  io_eff(CID(gzip.words), gzip_words_run, 0);
+  io_eff(CID(gzip.words), gzip_words_run);
 }
 
 #endif

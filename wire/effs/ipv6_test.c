@@ -30,7 +30,7 @@ Term test_listen6_run(Env e, Term* f, IoWork* w) {
   return test_bound(e, fd);
 }
 static void __attribute__((constructor)) test_listen6_use(void) {
-  io_eff(CID(test.listen6), test_listen6_run, 0);
+  io_eff(CID(test.listen6), test_listen6_run);
 }
 #endif
 
@@ -50,6 +50,6 @@ Term test_udp6_run(Env e, Term* f, IoWork* w) {
   return test_bound(e, fd);
 }
 static void __attribute__((constructor)) test_udp6_use(void) {
-  io_eff(CID(test.udp6), test_udp6_run, 0);
+  io_eff(CID(test.udp6), test_udp6_run);
 }
 #endif

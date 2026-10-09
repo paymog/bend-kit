@@ -2,38 +2,6 @@
 // ======
 // Byte-exact octet strings, like wire/effs/wire.c.
 
-// Imported effects may carry the module basename in their generated CID.
-#if defined(CID_PROCESS_RUN_RAW) && !defined(CID_RUN_RAW)
-#define CID_RUN_RAW CID_PROCESS_RUN_RAW
-#endif
-#if defined(CID_PROCESS_SPAWN) && !defined(CID_SPAWN)
-#define CID_SPAWN CID_PROCESS_SPAWN
-#endif
-#if defined(CID_PROCESS_WAIT) && !defined(CID_WAIT)
-#define CID_WAIT CID_PROCESS_WAIT
-#endif
-#if defined(CID_PROCESS_READ_STDIN) && !defined(CID_READ_STDIN)
-#define CID_READ_STDIN CID_PROCESS_READ_STDIN
-#endif
-#if defined(CID_PROCESS_EXIT_RAW) && !defined(CID_EXIT_RAW)
-#define CID_EXIT_RAW CID_PROCESS_EXIT_RAW
-#endif
-#if defined(CID_PROCESS_CWD) && !defined(CID_CWD)
-#define CID_CWD CID_PROCESS_CWD
-#endif
-#if defined(CID_PROCESS_CHDIR) && !defined(CID_CHDIR)
-#define CID_CHDIR CID_PROCESS_CHDIR
-#endif
-#if defined(CID_PROCESS_HOSTNAME) && !defined(CID_HOSTNAME)
-#define CID_HOSTNAME CID_PROCESS_HOSTNAME
-#endif
-#if defined(CID_PROCESS_PID) && !defined(CID_PID)
-#define CID_PID CID_PROCESS_PID
-#endif
-#if defined(CID_PROCESS_SIGNAL_POLL) && !defined(CID_SIGNAL_POLL)
-#define CID_SIGNAL_POLL CID_PROCESS_SIGNAL_POLL
-#endif
-
 #ifndef PROCESS_BYTES
 #define PROCESS_BYTES
 
@@ -82,7 +50,7 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
 
 #endif
 
-#if defined(CID_RUN_RAW) || defined(CID_SPAWN) || defined(CID_WAIT)
+#if defined(CID(run.raw)) || defined(CID(spawn)) || defined(CID(wait))
 #ifndef PROCESS_EXEC
 #define PROCESS_EXEC
 
@@ -549,7 +517,7 @@ static void process_job_close_fds(ProcessJob* j) {
 #endif
 #endif
 
-#ifdef CID_RUN_RAW
+#ifdef CID(run.raw)
 
 static void process_run_raw_call(IoWork* w) {
   ProcessJob* j = (ProcessJob*)w->data;
@@ -628,12 +596,12 @@ Term run_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) run_raw_use(void) {
-  io_eff(CID_RUN_RAW, run_raw_run, 0);
+  io_eff(CID(run.raw), run_raw_run);
 }
 
 #endif
 
-#ifdef CID_SPAWN
+#ifdef CID(spawn)
 
 static void process_spawn_call(IoWork* w) {
   ProcessJob* j = (ProcessJob*)w->data;
@@ -683,12 +651,12 @@ Term spawn_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) spawn_use(void) {
-  io_eff(CID_SPAWN, spawn_run, 0);
+  io_eff(CID(spawn), spawn_run);
 }
 
 #endif
 
-#ifdef CID_WAIT
+#ifdef CID(wait)
 
 static void process_wait_call(IoWork* w) {
   pid_t pid = (pid_t)w->hand;
@@ -714,12 +682,12 @@ Term wait_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wait_use(void) {
-  io_eff(CID_WAIT, wait_run, 0);
+  io_eff(CID(wait), wait_run);
 }
 
 #endif
 
-#ifdef CID_READ_STDIN
+#ifdef CID(read_stdin)
 
 static void process_stdin_read_call(IoWork* w) {
   do {
@@ -741,24 +709,24 @@ Term read_stdin_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) read_stdin_use(void) {
-  io_eff(CID_READ_STDIN, read_stdin_run, 0);
+  io_eff(CID(read_stdin), read_stdin_run);
 }
 
 #endif
 
-#ifdef CID_EXIT_RAW
+#ifdef CID(exit.raw)
 
 Term exit_raw_run(Env e, Term* f, IoWork* w) {
   exit((int)(u32)f[0]);
 }
 
 static void __attribute__((constructor)) exit_raw_use(void) {
-  io_eff(CID_EXIT_RAW, exit_raw_run, 0);
+  io_eff(CID(exit.raw), exit_raw_run);
 }
 
 #endif
 
-#ifdef CID_CWD
+#ifdef CID(cwd)
 
 static void process_cwd_call(IoWork* w) {
   u64 cap = 256;
@@ -790,12 +758,12 @@ Term cwd_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) cwd_use(void) {
-  io_eff(CID_CWD, cwd_run, 0);
+  io_eff(CID(cwd), cwd_run);
 }
 
 #endif
 
-#ifdef CID_CHDIR
+#ifdef CID(chdir)
 
 static void process_chdir_call(IoWork* w) {
   io_sys_end(w, chdir(w->data));
@@ -816,12 +784,12 @@ Term chdir_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) chdir_use(void) {
-  io_eff(CID_CHDIR, chdir_run, 0);
+  io_eff(CID(chdir), chdir_run);
 }
 
 #endif
 
-#ifdef CID_HOSTNAME
+#ifdef CID(hostname)
 
 static void process_hostname_call(IoWork* w) {
   w->data = io_mem(malloc((size_t)w->word + 1));
@@ -847,24 +815,24 @@ Term hostname_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) hostname_use(void) {
-  io_eff(CID_HOSTNAME, hostname_run, 0);
+  io_eff(CID(hostname), hostname_run);
 }
 
 #endif
 
-#ifdef CID_PID
+#ifdef CID(pid)
 
 Term pid_run(Env e, Term* f, IoWork* w) {
   return (Term)(u32)getpid();
 }
 
 static void __attribute__((constructor)) pid_use(void) {
-  io_eff(CID_PID, pid_run, 0);
+  io_eff(CID(pid), pid_run);
 }
 
 #endif
 
-#ifdef CID_SIGNAL_POLL
+#ifdef CID(signal.poll)
 
 static volatile sig_atomic_t process_sig_pending;
 
@@ -898,7 +866,7 @@ Term signal_poll_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) signal_poll_use(void) {
-  io_eff(CID_SIGNAL_POLL, signal_poll_run, 0);
+  io_eff(CID(signal.poll), signal_poll_run);
 }
 
 #endif

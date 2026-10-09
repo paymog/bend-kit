@@ -1,7 +1,7 @@
 # Cryptography
 
 ```bend
-import bend-kit-crypto@0.2.2.0/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 ```
 
 `oauth2` and `sigv4` import `bend-kit-crypto@0.1.1.0`. `jwt` and `webhooks` import `0.2.0.0`. `multipart` and `websocket` import `0.1.0.0`. A digest from one version is not a value of another. Set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path. `random.words` uses the OS generator and does not load libcrypto.

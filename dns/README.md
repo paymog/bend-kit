@@ -3,7 +3,7 @@
 A DNS codec and host lookup. `query` and `answer` are pure. Lookup is `IO`.
 
 ```bend
-import bend-kit-dns@0.6.0.0/dns.bend as Dns
+import bend-kit-dns@0.6.0.1/dns.bend as Dns
 ```
 
 `query(id, name)` builds a standard A query, or `None` when a label is empty or longer than 63 bytes. `answer(id, msg)` returns the first A record for that id, skipping CNAMEs before it.

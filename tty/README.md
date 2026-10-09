@@ -1,8 +1,8 @@
 # Terminal text
 
 ```bend
-import bend-kit-tty@0.1.0.0/tty.bend as Tty
-import bend-kit-tty@0.1.0.0/text.bend as Text
+import bend-kit-tty@0.1.0.1/tty.bend as Tty
+import bend-kit-tty@0.1.0.1/text.bend as Text
 ```
 
 `tty.bend` re-exports the text helpers it imports. `text.bend` is still a separate file if you want only width and style. Width uses `unicode` by the hash in `text.bend`.
