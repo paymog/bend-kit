@@ -5,14 +5,16 @@ import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 # Environment entries are KEY=VALUE; they override inherited variables.
 # The command is an executable name or path, never a shell expression.
 # Exit status is 0..255, or 128 + the terminating signal number.
-def run.raw(cmd: String, args: List<&2, String>, env: List<&2, String>, stdin: String) ->
+# cwd is the child's directory; relative paths start at the parent's directory.
+def run.raw(cmd: String, args: List<&2, String>, env: List<&2, String>,
+            cwd: String, stdin: String) ->
   IO(Result<&1, &1, U32 & String, U32 & String & String>):
   import "./effs/process.c"
   import "./effs/process.js"
 
 # A streaming child: pid, writable stdin, readable stdout and stderr.
 # Close stdin to send EOF; drain both outputs before wait to avoid pipe deadlock.
-def spawn(cmd: String, args: List<&2, String>, env: List<&2, String>) ->
+def spawn(cmd: String, args: List<&2, String>, env: List<&2, String>, cwd: String) ->
   IO(Result<&1, &1, U32 & String, U32 & File & File & File>):
   import "./effs/process.c"
   import "./effs/process.js"
@@ -67,9 +69,10 @@ def run.result(r: Result<&1, &1, U32 & String, U32 & String & String>) ->
     case Done{(code, out, err)}:
       Done{(code, Bytes.from_string(out), Bytes.from_string(err))}
 
-def run(cmd: String, args: List<&2, String>, env: List<&2, String>, stdin: Bytes.Bytes) ->
+def run(cmd: String, args: List<&2, String>, env: List<&2, String>,
+        cwd: String, stdin: Bytes.Bytes) ->
   IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
   do IO<Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>>:
     result : Result<&1, &1, U32 & String, U32 & String & String> <-
-      run.raw(cmd, args, env, Bytes.to_string(stdin))
+      run.raw(cmd, args, env, cwd, Bytes.to_string(stdin))
     return run.result(result)
