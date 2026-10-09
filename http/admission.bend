@@ -1,6 +1,6 @@
 # Private bounded transport accounting. Replies contain copied data, never resources.
 import Base
-import ../resources/resources.bend as Res
+import bend-kit-resources@0.1.0.0/resources.bend as Res
 
 type Counts is Data:
   Counts{connections: U32, active: U32, buffered: U32,
