@@ -1,4 +1,6 @@
 import Base
+import bend-mathlib@0.7.2.0/nat.bend as MNat
+import bend-mathlib@0.7.2.0/bool.bend as MBool
 import ./LAWS.bend as Laws
 import ./omap.bend as O
 import ./hmap.bend as M
@@ -79,87 +81,49 @@ def Laws.deque_ends():
 def Laws.heap_sort():
   {==}
 
-def isT(b: Bool) -> Type:
-  match b:
-    case True{}:
-      Unit
-    case False{}:
-      Empty
-
-def absurd_b(e: {False{} == True{} : Bool}) -> Empty:
-  %Equal.sym(Bool, False{}, True{}, e) : isT(_)
-  Unit{}
-
-def exfalso(-A: Type, e: Empty) -> A:
-  match e:
-
-def and_l(a: Bool, b: Bool, e: {Bool.and(a, b) == True{} : Bool}) -> {a == True{} : Bool}:
-  match a:
-    case True{}:
-      {==}
-    case False{}:
-      exfalso({False{} == True{} : Bool}, absurd_b(e))
-
-def and_r(a: Bool, b: Bool, e: {Bool.and(a, b) == True{} : Bool}) -> {b == True{} : Bool}:
-  match a:
-    case True{}:
-      e
-    case False{}:
-      exfalso({b == True{} : Bool}, absurd_b(e))
-
-def and_i(
-  a: Bool, b: Bool, ea: {a == True{} : Bool}, eb: {b == True{} : Bool}
-) -> {Bool.and(a, b) == True{} : Bool}:
-  match a:
-    case True{}:
-      eb
-    case False{}:
-      exfalso({Bool.and(False{}, b) == True{} : Bool}, absurd_b(ea))
-
 def c4.a(
   +a: Bool, +b: Bool, +c: Bool, +d: Bool,
   e: {Bool.and(Bool.and(Bool.and(a, b), c), d) == True{} : Bool}
 ) -> {a == True{} : Bool}:
-  and_l(a, b, and_l(Bool.and(a, b), c, and_l(Bool.and(Bool.and(a, b), c), d, e)))
+  MBool.eq_true_of_and_left(a, b, MBool.eq_true_of_and_left(Bool.and(a, b), c, MBool.eq_true_of_and_left(Bool.and(Bool.and(a, b), c), d, e)))
 
 def c4.b(
   +a: Bool, +b: Bool, +c: Bool, +d: Bool,
   e: {Bool.and(Bool.and(Bool.and(a, b), c), d) == True{} : Bool}
 ) -> {b == True{} : Bool}:
-  and_r(a, b, and_l(Bool.and(a, b), c, and_l(Bool.and(Bool.and(a, b), c), d, e)))
+  MBool.eq_true_of_and_right(a, b, MBool.eq_true_of_and_left(Bool.and(a, b), c, MBool.eq_true_of_and_left(Bool.and(Bool.and(a, b), c), d, e)))
 
 def c4.c(
   +a: Bool, +b: Bool, +c: Bool, +d: Bool,
   e: {Bool.and(Bool.and(Bool.and(a, b), c), d) == True{} : Bool}
 ) -> {c == True{} : Bool}:
-  and_r(Bool.and(a, b), c, and_l(Bool.and(Bool.and(a, b), c), d, e))
+  MBool.eq_true_of_and_right(Bool.and(a, b), c, MBool.eq_true_of_and_left(Bool.and(Bool.and(a, b), c), d, e))
 
 def c4.d(
   +a: Bool, +b: Bool, +c: Bool, +d: Bool,
   e: {Bool.and(Bool.and(Bool.and(a, b), c), d) == True{} : Bool}
 ) -> {d == True{} : Bool}:
-  and_r(Bool.and(Bool.and(a, b), c), d, e)
+  MBool.eq_true_of_and_right(Bool.and(Bool.and(a, b), c), d, e)
 
 def c4.i(
   +a: Bool, +b: Bool, +c: Bool, +d: Bool, ea: {a == True{} : Bool},
   eb: {b == True{} : Bool}, ec: {c == True{} : Bool}, ed: {d == True{} : Bool}
 ) -> {Bool.and(Bool.and(Bool.and(a, b), c), d) == True{} : Bool}:
-  and_i(Bool.and(Bool.and(a, b), c), d,
-    and_i(Bool.and(a, b), c, and_i(a, b, ea, eb), ec), ed)
+  MBool.and_eq_true(Bool.and(Bool.and(a, b), c), d, MBool.and_eq_true(Bool.and(a, b), c, MBool.and_eq_true(a, b, ea, eb), ec), ed)
 
 
 def c3.a(+a: Bool, +b: Bool, +c: Bool, e: {Bool.and(Bool.and(a, b), c) == True{} : Bool}) -> {a == True{} : Bool}:
-  and_l(a, b, and_l(Bool.and(a, b), c, e))
+  MBool.eq_true_of_and_left(a, b, MBool.eq_true_of_and_left(Bool.and(a, b), c, e))
 
 def c3.b(+a: Bool, +b: Bool, +c: Bool, e: {Bool.and(Bool.and(a, b), c) == True{} : Bool}) -> {b == True{} : Bool}:
-  and_r(a, b, and_l(Bool.and(a, b), c, e))
+  MBool.eq_true_of_and_right(a, b, MBool.eq_true_of_and_left(Bool.and(a, b), c, e))
 
 def c3.c(+a: Bool, +b: Bool, +c: Bool, e: {Bool.and(Bool.and(a, b), c) == True{} : Bool}) -> {c == True{} : Bool}:
-  and_r(Bool.and(a, b), c, e)
+  MBool.eq_true_of_and_right(Bool.and(a, b), c, e)
 
 def c3.i(+a: Bool, +b: Bool, +c: Bool, ea: {a == True{} : Bool}, eb: {b == True{} : Bool}, ec: {c == True{} : Bool})
   -> {Bool.and(Bool.and(a, b), c) == True{} : Bool}:
-  and_i(Bool.and(a, b), c, and_i(a, b, ea, eb), ec)
+  MBool.and_eq_true(Bool.and(a, b), c, MBool.and_eq_true(a, b, ea, eb), ec)
 
 def Laws.omap_new_searchtree(K, V, cmp):
   {==}
@@ -208,7 +172,7 @@ def sfrom.base(
     case Some{b} Nil{}:
       {==}
     case Some{+b} Con{+h, t}:
-      and_i(Cmp.is_lt(cmp(b, h)), Laws.sorted.go(~K, ~cmp, t, h), lt, sa)
+      MBool.and_eq_true(Cmp.is_lt(cmp(b, h)), Laws.sorted.go(~K, ~cmp, t, h), lt, sa)
 
 def keys_sorted.go(
   ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, t: O.OMap<K, V>, +lb: Maybe<&2, K>,
@@ -250,9 +214,9 @@ def lt_of(c: Cmp, e: {Cmp.is_lt(c) == True{} : Bool}) -> {c == LT{} : Cmp}:
     case LT{}:
       {==}
     case EQ{}:
-      exfalso({EQ{} == LT{} : Cmp}, absurd_b(e))
+      Empty.absurd({EQ{} == LT{} : Cmp}, MBool.false_ne_true()(e))
     case GT{}:
-      exfalso({GT{} == LT{} : Cmp}, absurd_b(e))
+      Empty.absurd({GT{} == LT{} : Cmp}, MBool.false_ne_true()(e))
 
 def lt_true(-c: Cmp, e: {c == LT{} : Cmp}) -> {Cmp.is_lt(c) == True{} : Bool}:
   Equal.cong(Cmp, Bool, x => Cmp.is_lt(x), c, LT{}, e)
@@ -986,7 +950,7 @@ def neq_false(c: Cmp, ne: {c != EQ{} : Cmp}) -> {Cmp.is_eq(c) == False{} : Bool}
     case LT{}:
       {==}
     case EQ{}:
-      exfalso({Cmp.is_eq(EQ{}) == False{} : Bool}, ne({==}))
+      Empty.absurd({Cmp.is_eq(EQ{}) == False{} : Bool}, ne({==}))
     case GT{}:
       {==}
 
@@ -996,7 +960,7 @@ def ne_absurd(
   +tf = Equal.trans(Bool, True{}, Cmp.is_eq(c), False{},
     Equal.sym(Bool, Cmp.is_eq(c), True{}, Equal.cong(Cmp, Bool, x => Cmp.is_eq(x), c, EQ{}, e)),
     nef)
-  exfalso(A, absurd_b(Equal.sym(Bool, True{}, False{}, tf)))
+  Empty.absurd(A, MBool.false_ne_true()(Equal.sym(Bool, True{}, False{}, tf)))
 
 def eq_flip(
   ~K: Data, ~cmp: K -> K -> Cmp, ~flip: Flip(~K, ~cmp), +x: K, +y: K,
@@ -1113,15 +1077,10 @@ def pm.fin.bnd.go(
        O.OMap.pop_min.fin(K, V, k, v, hi, {(mk, mv, t) : K & V & O.OMap<K, V>})) == True{} : Bool}:
   +ab = Bool.and(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, Some{k}, mk))
   +c = Laws.bounded(~K, ~V, ~cmp, t, Some{mk}, Some{k})
-  +eab = and_l(ab, c, ih)
-  +mkk = and_r(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, Some{k}, mk), eab)
-  and_i(Bool.and(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, ub, mk)),
-    Laws.bounded(~K, ~V, ~cmp, O.OMap.balance(K, V, k, v, t, hi), Some{mk}, ub),
-    and_i(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, ub, mk),
-      and_l(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, Some{k}, mk), eab),
-      below_trans(~K, ~cmp, ~trans, ub, mk, k, mkk, eb)),
-    balance.bnd(~K, ~V, ~cmp, ~trans, Some{mk}, ub, k, v, t, hi, mkk, eb,
-      and_r(ab, c, ih), eh))
+  +eab = MBool.eq_true_of_and_left(ab, c, ih)
+  +mkk = MBool.eq_true_of_and_right(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, Some{k}, mk), eab)
+  MBool.and_eq_true(Bool.and(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, ub, mk)), Laws.bounded(~K, ~V, ~cmp, O.OMap.balance(K, V, k, v, t, hi), Some{mk}, ub), MBool.and_eq_true(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, ub, mk), MBool.eq_true_of_and_left(Laws.above(~K, ~cmp, lb, mk), Laws.below(~K, ~cmp, Some{k}, mk), eab), below_trans(~K, ~cmp, ~trans, ub, mk, k, mkk, eb)), balance.bnd(~K, ~V, ~cmp, ~trans, Some{mk}, ub, k, v, t, hi, mkk, eb,
+      MBool.eq_true_of_and_right(ab, c, ih), eh))
 
 # Workaround for https://github.com/bendlang/bend/issues/1077: bind the tuple without +.
 def pm.fin.bnd(
@@ -1144,12 +1103,7 @@ def pm.bnd(
 ) -> {PM(~K, ~V, ~cmp, lb, ub, O.OMap.pop_min(K, V, lo, k, v, hi)) == True{} : Bool}:
   match lo:
     case O.OTip{}:
-      and_i(Bool.and(Laws.above(~K, ~cmp, lb, k), Laws.below(~K, ~cmp, ub, k)),
-        Laws.bounded(~K, ~V, ~cmp, hi, Some{k}, ub),
-        and_i(Laws.above(~K, ~cmp, lb, k), Laws.below(~K, ~cmp, ub, k),
-          bn.a(~K, ~V, ~cmp, lb, ub, k, v, O.OTip{}, hi, e),
-          bn.b(~K, ~V, ~cmp, lb, ub, k, v, O.OTip{}, hi, e)),
-        bn.h(~K, ~V, ~cmp, lb, ub, k, v, O.OTip{}, hi, e))
+      MBool.and_eq_true(Bool.and(Laws.above(~K, ~cmp, lb, k), Laws.below(~K, ~cmp, ub, k)), Laws.bounded(~K, ~V, ~cmp, hi, Some{k}, ub), MBool.and_eq_true(Laws.above(~K, ~cmp, lb, k), Laws.below(~K, ~cmp, ub, k), bn.a(~K, ~V, ~cmp, lb, ub, k, v, O.OTip{}, hi, e), bn.b(~K, ~V, ~cmp, lb, ub, k, v, O.OTip{}, hi, e)), bn.h(~K, ~V, ~cmp, lb, ub, k, v, O.OTip{}, hi, e))
     case O.OBin{s, +lk, +lv, +ll, +lh}:
       +lo = {O.OBin{0, lk, lv, ll, lh} : O.OMap<K, V>}
       pm.fin.bnd(~K, ~V, ~cmp, ~trans, O.OMap.pop_min(K, V, ll, lk, lv, lh), lb, ub, k, v, hi,
@@ -1169,13 +1123,13 @@ def glue.fin.bnd.go(
        O.OMap.glue.fin(K, V, lo, {(mk, mv, t) : K & V & O.OMap<K, V>}), lb, ub) == True{} : Bool}:
   +ab = Bool.and(Laws.above(~K, ~cmp, Some{key}, mk), Laws.below(~K, ~cmp, ub, mk))
   +c = Laws.bounded(~K, ~V, ~cmp, t, Some{mk}, ub)
-  +eab = and_l(ab, c, pmr)
-  +km = and_l(Laws.above(~K, ~cmp, Some{key}, mk), Laws.below(~K, ~cmp, ub, mk), eab)
+  +eab = MBool.eq_true_of_and_left(ab, c, pmr)
+  +km = MBool.eq_true_of_and_left(Laws.above(~K, ~cmp, Some{key}, mk), Laws.below(~K, ~cmp, ub, mk), eab)
   balance.bnd(~K, ~V, ~cmp, ~trans, lb, ub, mk, mv, lo, t,
     above_trans(~K, ~cmp, ~trans, lb, key, mk, eka, km),
-    and_r(Laws.above(~K, ~cmp, Some{key}, mk), Laws.below(~K, ~cmp, ub, mk), eab),
+    MBool.eq_true_of_and_right(Laws.above(~K, ~cmp, Some{key}, mk), Laws.below(~K, ~cmp, ub, mk), eab),
     weaken_hi(~K, ~V, ~cmp, ~trans, lo, lb, key, Some{mk}, el, km),
-    and_r(ab, c, pmr))
+    MBool.eq_true_of_and_right(ab, c, pmr))
 
 # Workaround for https://github.com/bendlang/bend/issues/1077: bind the tuple without +.
 def glue.fin.bnd(
@@ -1257,9 +1211,9 @@ def PMW(-K: Data, -V: Data, +n: Nat, r: K & V & O.OMap<K, V>) -> Bool:
 def pos_add(a: Nat, +b: Nat, e: Ord.LE(1n, a)) -> Ord.LE(1n, Nat.add(a, b)):
   match a:
     case 0n:
-      exfalso(Ord.LE(1n, b), absurd_b(e))
+      Empty.absurd(Ord.LE(1n, b), MBool.false_ne_true()(e))
     case 1n+p:
-      Ord.le_zero(Nat.add(p, b))
+      MNat.zero_le(Nat.add(p, b))
 
 def w_pos(-K: Data, -V: Data, t: O.OMap<K, V>) -> Ord.LE(1n, W(K, V, t)):
   match t:
@@ -1329,8 +1283,7 @@ def rld.wb(
 ) -> {WB(K, V, O.OMap.rot_lo.double(K, V, k, v, lo, hk, hv, hl, hh)) == True{} : Bool}:
   match hl:
     case O.OTip{}:
-      exfalso({WB(K, V, O.OMap.rot_lo.double(K, V, k, v, lo, hk, hv, O.OTip{}, hh)) == True{} : Bool},
-        Ord.dtip(W(K, V, hh), hd, w_pos(K, V, hh)))
+      Empty.absurd({WB(K, V, O.OMap.rot_lo.double(K, V, k, v, lo, hk, hv, O.OTip{}, hh)) == True{} : Bool}, Ord.dtip(W(K, V, hh), hd, w_pos(K, V, hh)))
     case O.OBin{s, +mk, +mv, +ml, +mh}:
       +hl = {O.OBin{0, mk, mv, ml, mh} : O.OMap<K, V>}
       +l = W(K, V, lo)
@@ -1367,10 +1320,10 @@ def rlp.wb(
   match single:
     case True{}:
       rls.wb(K, V, k, v, lo, hk, hv, hl, hh, wbl, wbh, heavy, alm,
-        Ord.lt_le(W(K, V, hl), Nat.mul(2n, W(K, V, hh)), es))
+        MNat.succ_le_of_lt(W(K, V, hl), Nat.mul(2n, W(K, V, hh)), es))
     case False{}:
       rld.wb(K, V, hl, k, v, lo, hk, hv, hh, wbl, wbh, heavy, alm,
-        Ord.nlt_le(W(K, V, hl), Nat.mul(2n, W(K, V, hh)), es))
+        MNat.le_of_not_lt(W(K, V, hl), Nat.mul(2n, W(K, V, hh)), es))
 
 def rl.wb(
   -K: Data, -V: Data, hi: O.OMap<K, V>, +k: K, +v: V, +lo: O.OMap<K, V>,
@@ -1380,8 +1333,7 @@ def rl.wb(
 ) -> {WB(K, V, Laws.g_rot_lo(K, V, k, v, lo, hi)) == True{} : Bool}:
   match hi:
     case O.OTip{}:
-      exfalso({WB(K, V, Laws.g_rot_lo(K, V, k, v, lo, O.OTip{})) == True{} : Bool},
-        Ord.tiph(W(K, V, lo), heavy, w_pos(K, V, lo)))
+      Empty.absurd({WB(K, V, Laws.g_rot_lo(K, V, k, v, lo, O.OTip{})) == True{} : Bool}, Ord.tiph(W(K, V, lo), heavy, w_pos(K, V, lo)))
     case O.OBin{s, +hk, +hv, +hl, +hh}:
       rlp.wb(K, V, Nat.is_lt(W(K, V, hl), Nat.mul(2n, W(K, V, hh))), k, v, lo, hk, hv, hl, hh,
         {==}, wbl, wbh, heavy, alm)
@@ -1422,8 +1374,7 @@ def rhd.wb(
 ) -> {WB(K, V, O.OMap.rot_hi.double(K, V, k, v, lk, lv, ll, lh, hi)) == True{} : Bool}:
   match lh:
     case O.OTip{}:
-      exfalso({WB(K, V, O.OMap.rot_hi.double(K, V, k, v, lk, lv, ll, O.OTip{}, hi)) == True{} : Bool},
-        Ord.dtip(W(K, V, ll), hd, w_pos(K, V, ll)))
+      Empty.absurd({WB(K, V, O.OMap.rot_hi.double(K, V, k, v, lk, lv, ll, O.OTip{}, hi)) == True{} : Bool}, Ord.dtip(W(K, V, ll), hd, w_pos(K, V, ll)))
     case O.OBin{s, +mk, +mv, +ml, +mh}:
       +lh = {O.OBin{0, mk, mv, ml, mh} : O.OMap<K, V>}
       +l = W(K, V, hi)
@@ -1460,10 +1411,10 @@ def rhp.wb(
   match single:
     case True{}:
       rhs.wb(K, V, k, v, lk, lv, ll, lh, hi, wbl, wbh, heavy, alm,
-        Ord.lt_le(W(K, V, lh), Nat.mul(2n, W(K, V, ll)), es))
+        MNat.succ_le_of_lt(W(K, V, lh), Nat.mul(2n, W(K, V, ll)), es))
     case False{}:
       rhd.wb(K, V, lh, k, v, lk, lv, ll, hi, wbl, wbh, heavy, alm,
-        Ord.nlt_le(W(K, V, lh), Nat.mul(2n, W(K, V, ll)), es))
+        MNat.le_of_not_lt(W(K, V, lh), Nat.mul(2n, W(K, V, ll)), es))
 
 def rh.wb(
   -K: Data, -V: Data, lo: O.OMap<K, V>, +k: K, +v: V, +hi: O.OMap<K, V>,
@@ -1473,8 +1424,7 @@ def rh.wb(
 ) -> {WB(K, V, Laws.g_rot_hi(K, V, k, v, lo, hi)) == True{} : Bool}:
   match lo:
     case O.OTip{}:
-      exfalso({WB(K, V, Laws.g_rot_hi(K, V, k, v, O.OTip{}, hi)) == True{} : Bool},
-        Ord.tiph(W(K, V, hi), heavy, w_pos(K, V, hi)))
+      Empty.absurd({WB(K, V, Laws.g_rot_hi(K, V, k, v, O.OTip{}, hi)) == True{} : Bool}, Ord.tiph(W(K, V, hi), heavy, w_pos(K, V, hi)))
     case O.OBin{s, +lk, +lv, +ll, +lh}:
       rhp.wb(K, V, Nat.is_lt(W(K, V, lh), Nat.mul(2n, W(K, V, ll))), k, v, lk, lv, ll, lh, hi,
         {==}, wbl, wbh, heavy, alm)
@@ -1490,18 +1440,13 @@ def bif.wb(
   match heavy_hi heavy_lo:
     case True{} _:
       rl.wb(K, V, hi, k, v, lo, wbl, wbh,
-        Ord.gt_le(W(K, V, hi), Nat.mul(3n, W(K, V, lo)), eh), and_l(Nat.is_le(W(K, V, hi), Nat.add(3n, Nat.mul(3n, W(K, V, lo)))),
-          Nat.is_le(W(K, V, lo), Nat.add(3n, Nat.mul(3n, W(K, V, hi)))), alm))
+        Ord.gt_le(W(K, V, hi), Nat.mul(3n, W(K, V, lo)), eh), MBool.eq_true_of_and_left(Nat.is_le(W(K, V, hi), Nat.add(3n, Nat.mul(3n, W(K, V, lo)))), Nat.is_le(W(K, V, lo), Nat.add(3n, Nat.mul(3n, W(K, V, hi)))), alm))
     case False{} True{}:
       rh.wb(K, V, lo, k, v, hi, wbl, wbh,
-        Ord.gt_le(W(K, V, lo), Nat.mul(3n, W(K, V, hi)), el), and_r(Nat.is_le(W(K, V, hi), Nat.add(3n, Nat.mul(3n, W(K, V, lo)))),
-          Nat.is_le(W(K, V, lo), Nat.add(3n, Nat.mul(3n, W(K, V, hi)))), alm))
+        Ord.gt_le(W(K, V, lo), Nat.mul(3n, W(K, V, hi)), el), MBool.eq_true_of_and_right(Nat.is_le(W(K, V, hi), Nat.add(3n, Nat.mul(3n, W(K, V, lo)))), Nat.is_le(W(K, V, lo), Nat.add(3n, Nat.mul(3n, W(K, V, hi)))), alm))
     case False{} False{}:
       wb.i(K, V, k, v, lo, hi,
-        and_i(Nat.is_le(W(K, V, hi), Nat.mul(3n, W(K, V, lo))),
-          Nat.is_le(W(K, V, lo), Nat.mul(3n, W(K, V, hi))),
-          Ord.ngt_le(W(K, V, hi), Nat.mul(3n, W(K, V, lo)), eh),
-          Ord.ngt_le(W(K, V, lo), Nat.mul(3n, W(K, V, hi)), el)),
+        MBool.and_eq_true(Nat.is_le(W(K, V, hi), Nat.mul(3n, W(K, V, lo))), Nat.is_le(W(K, V, lo), Nat.mul(3n, W(K, V, hi))), Ord.ngt_le(W(K, V, hi), Nat.mul(3n, W(K, V, lo)), eh), Ord.ngt_le(W(K, V, lo), Nat.mul(3n, W(K, V, hi)), el)),
         wbl, wbh)
 
 def bal.wb(
@@ -1522,10 +1467,10 @@ def rlp.w(
     case True{} +hl:
       Ord.sy(Nat.add(Nat.add(W(K, V, lo), W(K, V, hl)), W(K, V, hh)),
         Nat.add(W(K, V, lo), Nat.add(W(K, V, hl), W(K, V, hh))),
-        Ord.add_assoc(W(K, V, lo), W(K, V, hl), W(K, V, hh)))
+        MNat.add_assoc(W(K, V, lo), W(K, V, hl), W(K, V, hh)))
     case False{} O.OTip{}:
       Ord.sy(Nat.add(Nat.add(W(K, V, lo), 1n), W(K, V, hh)), Nat.add(W(K, V, lo), Nat.add(1n, W(K, V, hh))),
-        Ord.add_assoc(W(K, V, lo), 1n, W(K, V, hh)))
+        MNat.add_assoc(W(K, V, lo), 1n, W(K, V, hh)))
     case False{} O.OBin{s, mk, mv, +ml, +mh}:
       +l = W(K, V, lo)
       +x = W(K, V, ml)
@@ -1533,9 +1478,9 @@ def rlp.w(
       +b = W(K, V, hh)
       Ord.tr(Nat.add(l, Nat.add(Nat.add(x, y), b)), Nat.add(l, Nat.add(x, Nat.add(y, b))),
         Nat.add(Nat.add(l, x), Nat.add(y, b)),
-        Ord.cong_add(l, l, Nat.add(Nat.add(x, y), b), Nat.add(x, Nat.add(y, b)), {==}, Ord.add_assoc(x, y, b)),
+        Ord.cong_add(l, l, Nat.add(Nat.add(x, y), b), Nat.add(x, Nat.add(y, b)), {==}, MNat.add_assoc(x, y, b)),
         Ord.sy(Nat.add(Nat.add(l, x), Nat.add(y, b)), Nat.add(l, Nat.add(x, Nat.add(y, b))),
-          Ord.add_assoc(l, x, Nat.add(y, b))))
+          MNat.add_assoc(l, x, Nat.add(y, b))))
 
 def rhp.w(
   -K: Data, -V: Data, single: Bool, -k: K, -v: V, -lk: K, -lv: V, +ll: O.OMap<K, V>,
@@ -1544,9 +1489,9 @@ def rhp.w(
       == W(K, V, O.OMap.rot_hi.pick(K, V, single, k, v, lk, lv, ll, lh, hi)) : Nat}:
   match single lh:
     case True{} +lh:
-      Ord.add_assoc(W(K, V, ll), W(K, V, lh), W(K, V, hi))
+      MNat.add_assoc(W(K, V, ll), W(K, V, lh), W(K, V, hi))
     case False{} O.OTip{}:
-      Ord.add_assoc(W(K, V, ll), 1n, W(K, V, hi))
+      MNat.add_assoc(W(K, V, ll), 1n, W(K, V, hi))
     case False{} O.OBin{s, mk, mv, +ml, +mh}:
       +l = W(K, V, hi)
       +x = W(K, V, mh)
@@ -1555,8 +1500,8 @@ def rhp.w(
       Ord.tr(Nat.add(Nat.add(b, Nat.add(y, x)), l), Nat.add(Nat.add(Nat.add(b, y), x), l),
         Nat.add(Nat.add(b, y), Nat.add(x, l)),
         Ord.cong_add(Nat.add(b, Nat.add(y, x)), Nat.add(Nat.add(b, y), x), l, l,
-          Ord.sy(Nat.add(Nat.add(b, y), x), Nat.add(b, Nat.add(y, x)), Ord.add_assoc(b, y, x)), {==}),
-        Ord.add_assoc(Nat.add(b, y), x, l))
+          Ord.sy(Nat.add(Nat.add(b, y), x), Nat.add(b, Nat.add(y, x)), MNat.add_assoc(b, y, x)), {==}),
+        MNat.add_assoc(Nat.add(b, y), x, l))
 
 def rl.w(-K: Data, -V: Data, hi: O.OMap<K, V>, -k: K, -v: V, +lo: O.OMap<K, V>)
   -> {Nat.add(W(K, V, lo), W(K, V, hi)) == W(K, V, Laws.g_rot_lo(K, V, k, v, lo, hi)) : Nat}:
@@ -1615,14 +1560,11 @@ def bal.lo(
   +a = W(K, V, lo)
   +a2 = W(K, V, lo2)
   +c = W(K, V, hi)
-  +nr = and_r(WB(K, V, lo2), Ord.near(a, a2), pw)
-  +n1 = and_l(Nat.is_le(a, 1n+a2), Nat.is_le(a2, 1n+a), nr)
-  +n2 = and_r(Nat.is_le(a, 1n+a2), Nat.is_le(a2, 1n+a), nr)
-  and_i(WB(K, V, Laws.g_balance(K, V, k, v, lo2, hi)),
-    Ord.near(Nat.add(a, c), W(K, V, Laws.g_balance(K, V, k, v, lo2, hi))),
-    bal.wb(K, V, k, v, lo2, hi, and_l(WB(K, V, lo2), Ord.near(a, a2), pw), wbh,
-      Ord.almlo.w0(a, c, a2, Ord.wok_l(a, c, ok), Ord.wok_r(a, c, ok), n1, n2)),
-    bal.lo.near(K, V, k, v, lo, lo2, hi, n1, n2))
+  +nr = MBool.eq_true_of_and_right(WB(K, V, lo2), Ord.near(a, a2), pw)
+  +n1 = MBool.eq_true_of_and_left(Nat.is_le(a, 1n+a2), Nat.is_le(a2, 1n+a), nr)
+  +n2 = MBool.eq_true_of_and_right(Nat.is_le(a, 1n+a2), Nat.is_le(a2, 1n+a), nr)
+  MBool.and_eq_true(WB(K, V, Laws.g_balance(K, V, k, v, lo2, hi)), Ord.near(Nat.add(a, c), W(K, V, Laws.g_balance(K, V, k, v, lo2, hi))), bal.wb(K, V, k, v, lo2, hi, MBool.eq_true_of_and_left(WB(K, V, lo2), Ord.near(a, a2), pw), wbh,
+      Ord.almlo.w0(a, c, a2, Ord.wok_l(a, c, ok), Ord.wok_r(a, c, ok), n1, n2)), bal.lo.near(K, V, k, v, lo, lo2, hi, n1, n2))
 
 def bal.hi(
   -K: Data, -V: Data, +k: K, +v: V, +lo: O.OMap<K, V>, +hi: O.OMap<K, V>, +hi2: O.OMap<K, V>,
@@ -1633,14 +1575,11 @@ def bal.hi(
   +a = W(K, V, lo)
   +c = W(K, V, hi)
   +c2 = W(K, V, hi2)
-  +nr = and_r(WB(K, V, hi2), Ord.near(c, c2), pw)
-  +n1 = and_l(Nat.is_le(c, 1n+c2), Nat.is_le(c2, 1n+c), nr)
-  +n2 = and_r(Nat.is_le(c, 1n+c2), Nat.is_le(c2, 1n+c), nr)
-  and_i(WB(K, V, Laws.g_balance(K, V, k, v, lo, hi2)),
-    Ord.near(Nat.add(a, c), W(K, V, Laws.g_balance(K, V, k, v, lo, hi2))),
-    bal.wb(K, V, k, v, lo, hi2, wbl, and_l(WB(K, V, hi2), Ord.near(c, c2), pw),
-      Ord.almhi.w0(a, c, c2, Ord.wok_l(a, c, ok), Ord.wok_r(a, c, ok), n1, n2)),
-    bal.hi.near(K, V, k, v, lo, hi, hi2, n1, n2))
+  +nr = MBool.eq_true_of_and_right(WB(K, V, hi2), Ord.near(c, c2), pw)
+  +n1 = MBool.eq_true_of_and_left(Nat.is_le(c, 1n+c2), Nat.is_le(c2, 1n+c), nr)
+  +n2 = MBool.eq_true_of_and_right(Nat.is_le(c, 1n+c2), Nat.is_le(c2, 1n+c), nr)
+  MBool.and_eq_true(WB(K, V, Laws.g_balance(K, V, k, v, lo, hi2)), Ord.near(Nat.add(a, c), W(K, V, Laws.g_balance(K, V, k, v, lo, hi2))), bal.wb(K, V, k, v, lo, hi2, wbl, MBool.eq_true_of_and_left(WB(K, V, hi2), Ord.near(c, c2), pw),
+      Ord.almhi.w0(a, c, c2, Ord.wok_l(a, c, ok), Ord.wok_r(a, c, ok), n1, n2)), bal.hi.near(K, V, k, v, lo, hi, hi2, n1, n2))
 
 def put.wb(
   ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, t: O.OMap<K, V>, +k: K, +v: V,
@@ -1660,14 +1599,12 @@ def put.wb(
         u => Laws.g_balance(K, V, key, val, lo, Laws.g_put(~K, ~V, ~cmp, hi, k, v)),
         e => bal.lo(K, V, key, val, lo, Laws.g_put(~K, ~V, ~cmp, lo, k, v), hi, ok, wbh,
           put.wb(~K, ~V, ~cmp, lo, k, v, wbl)),
-        e => and_i(WB(K, V, O.OBin{s, key, v, lo, hi}), Ord.near(n, n), wb, Ord.nearrf.w0(n)),
+        e => MBool.and_eq_true(WB(K, V, O.OBin{s, key, v, lo, hi}), Ord.near(n, n), wb, Ord.nearrf.w0(n)),
         e => bal.hi(K, V, key, val, lo, hi, Laws.g_put(~K, ~V, ~cmp, hi, k, v), ok, wbl,
           put.wb(~K, ~V, ~cmp, hi, k, v, wbh)))
 
 def Laws.omap_put_weight_balanced(K, V, cmp, m, wb, k, v):
-  and_l(WB(K, V, Laws.g_put(~K, ~V, ~cmp, m, k, v)),
-    Ord.near(W(K, V, m), W(K, V, Laws.g_put(~K, ~V, ~cmp, m, k, v))),
-    put.wb(~K, ~V, ~cmp, m, k, v, wb))
+  MBool.eq_true_of_and_left(WB(K, V, Laws.g_put(~K, ~V, ~cmp, m, k, v)), Ord.near(W(K, V, m), W(K, V, Laws.g_put(~K, ~V, ~cmp, m, k, v))), put.wb(~K, ~V, ~cmp, m, k, v, wb))
 
 def pm.fin.wb.go(
   -K: Data, -V: Data, +mk: K, +mv: V, +t: O.OMap<K, V>, +k: K, +v: V,
@@ -1697,8 +1634,7 @@ def pm.wb(
 ) -> {PMW(K, V, Nat.add(W(K, V, lo), W(K, V, hi)), Laws.g_pop_min(K, V, lo, k, v, hi)) == True{} : Bool}:
   match lo:
     case O.OTip{}:
-      and_i(WB(K, V, hi), Ord.near(1n+W(K, V, hi), W(K, V, hi)),
-        wb.h(K, V, k, v, O.OTip{}, hi, e), Ord.nearpm.w0(W(K, V, hi)))
+      MBool.and_eq_true(WB(K, V, hi), Ord.near(1n+W(K, V, hi), W(K, V, hi)), wb.h(K, V, k, v, O.OTip{}, hi, e), Ord.nearpm.w0(W(K, V, hi)))
     case O.OBin{s, +lk, +lv, +ll, +lh}:
       +lo = {O.OBin{0, lk, lv, ll, lh} : O.OMap<K, V>}
       pm.fin.wb(K, V, Laws.g_pop_min(K, V, ll, lk, lv, lh), k, v, lo, hi,
@@ -1731,8 +1667,7 @@ def glue.wb(
 ) -> {PW(K, V, Nat.add(W(K, V, lo), W(K, V, hi)), Laws.g_glue(K, V, lo, hi)) == True{} : Bool}:
   match hi:
     case O.OTip{}:
-      and_i(WB(K, V, lo), Ord.near(Nat.add(W(K, V, lo), 1n), W(K, V, lo)),
-        wb.l(K, V, key, val, lo, O.OTip{}, e), Ord.neargt.w0(W(K, V, lo)))
+      MBool.and_eq_true(WB(K, V, lo), Ord.near(Nat.add(W(K, V, lo), 1n), W(K, V, lo)), wb.l(K, V, key, val, lo, O.OTip{}, e), Ord.neargt.w0(W(K, V, lo)))
     case O.OBin{s, +k, +v, +hl, +hh}:
       +hi = {O.OBin{0, k, v, hl, hh} : O.OMap<K, V>}
       glue.fin.wb(K, V, Laws.g_pop_min(K, V, hl, k, v, hh), lo, hi,
@@ -1762,9 +1697,7 @@ def del.wb(
           del.wb(~K, ~V, ~cmp, hi, k, wbh)))
 
 def Laws.omap_del_weight_balanced(K, V, cmp, m, wb, k):
-  and_l(WB(K, V, Laws.g_del(~K, ~V, ~cmp, m, k)),
-    Ord.near(W(K, V, m), W(K, V, Laws.g_del(~K, ~V, ~cmp, m, k))),
-    del.wb(~K, ~V, ~cmp, m, k, wb))
+  MBool.eq_true_of_and_left(WB(K, V, Laws.g_del(~K, ~V, ~cmp, m, k)), Ord.near(W(K, V, m), W(K, V, Laws.g_del(~K, ~V, ~cmp, m, k))), del.wb(~K, ~V, ~cmp, m, k, wb))
 
 def Laws.omap_g_put_matches():
   {==}
@@ -1796,14 +1729,7 @@ def h.sb(-a: Bool, -b: Bool, e: {a == b : Bool}) -> {b == a : Bool}:
   Equal.sym(Bool, a, b, e)
 
 def h.tf(-A: Type, -b: Bool, et: {b == True{} : Bool}, ef: {b == False{} : Bool}) -> A:
-  exfalso(A, absurd_b(Equal.trans(Bool, False{}, b, True{}, Equal.sym(Bool, b, False{}, ef), et)))
-
-def h.not_t(b: Bool, e: {Bool.not(b) == True{} : Bool}) -> {b == False{} : Bool}:
-  match b:
-    case True{}:
-      exfalso({True{} == False{} : Bool}, absurd_b(e))
-    case False{}:
-      {==}
+  Empty.absurd(A, MBool.false_ne_true()(Equal.trans(Bool, False{}, b, True{}, Equal.sym(Bool, b, False{}, ef), et)))
 
 def h.isS(-V: Data, m: Maybe<&2, V>) -> Type:
   match m:
@@ -1817,19 +1743,12 @@ def h.some_none.e(-V: Data, -x: V, e: {Some{x} == None{} : Maybe<&2, V>}) -> Emp
   Unit{}
 
 def h.some_none(-A: Type, -V: Data, -x: V, e: {Some{x} == None{} : Maybe<&2, V>}) -> A:
-  exfalso(A, h.some_none.e(V, x, e))
+  Empty.absurd(A, h.some_none.e(V, x, e))
 
 def h.none_some(-A: Type, -V: Data, -x: V, e: {None{} == Some{x} : Maybe<&2, V>}) -> A:
-  exfalso(A, h.some_none.e(V, x, Equal.sym(Maybe<&2, V>, None{}, Some{x}, e)))
+  Empty.absurd(A, h.some_none.e(V, x, Equal.sym(Maybe<&2, V>, None{}, Some{x}, e)))
 
 # U32 equality is Word equality, so is_eq is reflexive and sound.
-def h.bcmp_refl(b: Bool) -> {Bool.cmp(b, b) == EQ{} : Cmp}:
-  match b:
-    case True{}:
-      {==}
-    case False{}:
-      {==}
-
 def h.wcmp_refl(n: Nat, w: Word(n)) -> {Word.cmp(n, w, w) == EQ{} : Cmp}:
   match n:
     case 0n:
@@ -1838,7 +1757,7 @@ def h.wcmp_refl(n: Nat, w: Word(n)) -> {Word.cmp(n, w, w) == EQ{} : Cmp}:
       match w:
         case WCon{+b, +t}:
           %Equal.sym(Cmp, Word.cmp(p, t, t), EQ{}, h.wcmp_refl(p, t)) : {Word.cmp.fin(b, b, _) == EQ{} : Cmp}
-          h.bcmp_refl(b)
+          MBool.cmp_refl(b)
 
 def h.u_refl(x: U32) -> {U32.is_eq(x, x) == True{} : Bool}:
   match x:
@@ -1850,29 +1769,29 @@ def h.fin_eq(t: Cmp, -x: Bool, -y: Bool, e: {Cmp.is_eq(Word.cmp.fin(x, y, t)) ==
   -> {Cmp.is_eq(t) == True{} : Bool}:
   match t:
     case LT{}:
-      exfalso({Cmp.is_eq(LT{}) == True{} : Bool}, absurd_b(e))
+      Empty.absurd({Cmp.is_eq(LT{}) == True{} : Bool}, MBool.false_ne_true()(e))
     case EQ{}:
       {==}
     case GT{}:
-      exfalso({Cmp.is_eq(GT{}) == True{} : Bool}, absurd_b(e))
+      Empty.absurd({Cmp.is_eq(GT{}) == True{} : Bool}, MBool.false_ne_true()(e))
 
 def h.fin_hd(t: Cmp, x: Bool, y: Bool, e: {Cmp.is_eq(Word.cmp.fin(x, y, t)) == True{} : Bool})
   -> {x == y : Bool}:
   match t:
     case LT{}:
-      exfalso({x == y : Bool}, absurd_b(e))
+      Empty.absurd({x == y : Bool}, MBool.false_ne_true()(e))
     case EQ{}:
       match x y:
         case False{} False{}:
           {==}
         case False{} True{}:
-          exfalso({False{} == True{} : Bool}, absurd_b(e))
+          Empty.absurd({False{} == True{} : Bool}, MBool.false_ne_true()(e))
         case True{} False{}:
-          exfalso({True{} == False{} : Bool}, absurd_b(e))
+          Empty.absurd({True{} == False{} : Bool}, MBool.false_ne_true()(e))
         case True{} True{}:
           {==}
     case GT{}:
-      exfalso({x == y : Bool}, absurd_b(e))
+      Empty.absurd({x == y : Bool}, MBool.false_ne_true()(e))
 
 def h.wcmp_sound(+n: Nat, a: Word(n), b: Word(n), +e: {Cmp.is_eq(Word.cmp(n, a, b)) == True{} : Bool})
   -> {a == b : Word(n)}:
@@ -1934,8 +1853,7 @@ def h.and_z(+n: Nat, x: Word(n), m: Word(n), e: {h.isz(n, m) == True{} : Bool})
     case 1n+p:
       match x m:
         case WCon{+a, +xt} WCon{True{}, +mt}:
-          exfalso({Word.and(1n+p, WCon{a, xt}, WCon{True{}, mt}) == Word.zero(1n+p) : Word(1n+p)},
-            absurd_b(e))
+          Empty.absurd({Word.and(1n+p, WCon{a, xt}, WCon{True{}, mt}) == Word.zero(1n+p) : Word(1n+p)}, MBool.false_ne_true()(e))
         case WCon{True{}, +xt} WCon{False{}, +mt}:
           Equal.cong(Word(p), Word(1n+p), w => WCon{False{}, w}, Word.and(p, xt, mt), Word.zero(p),
             h.and_z(p, xt, mt, e))
@@ -2061,7 +1979,7 @@ def h.isz_put(n: Nat, t: Word(n), e: {h.isz(n, t) == True{} : Bool})
     case 1n+p:
       match t:
         case WCon{True{}, t2}:
-          exfalso({h.isz(1n+p, Word.shl.put(1n+p, False{}, WCon{True{}, t2})) == True{} : Bool}, absurd_b(e))
+          Empty.absurd({h.isz(1n+p, Word.shl.put(1n+p, False{}, WCon{True{}, t2})) == True{} : Bool}, MBool.false_ne_true()(e))
         case WCon{False{}, t2}:
           h.isz_put(p, t2, e)
 
@@ -2069,7 +1987,7 @@ def h.at1_put.t(q: Nat, b: Bool, t2: Word(q), e: {h.isz(1n+q, WCon{b, t2}) == Tr
   -> {h.isz(q, Word.shl.put(q, b, t2)) == True{} : Bool}:
   match b:
     case True{}:
-      exfalso({h.isz(q, Word.shl.put(q, True{}, t2)) == True{} : Bool}, absurd_b(e))
+      Empty.absurd({h.isz(q, Word.shl.put(q, True{}, t2)) == True{} : Bool}, MBool.false_ne_true()(e))
     case False{}:
       h.isz_put(q, t2, e)
 
@@ -2145,8 +2063,7 @@ def h.ne_f.c(
 ) -> {b == False{} : Bool}:
   match b:
     case True{}:
-      exfalso({True{} == False{} : Bool},
-        ne(Equal.sym(K, k, k2, sound(k, k2, h.sb(True{}, eq(k, k2), eb)))))
+      Empty.absurd({True{} == False{} : Bool}, ne(Equal.sym(K, k, k2, sound(k, k2, h.sb(True{}, eq(k, k2), eb)))))
     case False{}:
       {==}
 
@@ -2254,10 +2171,10 @@ def h.eg_none_hashed(
     case Con{M.Entry{+key, +val}, +rest}:
       +hs = hs
       h.eg_none_hashed.c(~K, ~V, ~hash, ~eq, ~sound, key, val, rest, o, k, hk,
-        and_l(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs),
+        MBool.eq_true_of_and_left(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs),
         eq(k, key), {==},
         h.eg_none_hashed(~K, ~V, ~hash, ~eq, ~sound, rest, o, k, hk,
-          and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
+          MBool.eq_true_of_and_right(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
 
 def h.len(-K: Data, -V: Data, xs: List<&2, M.Entry<K, V>>) -> Nat:
   List.length(&2, M.Entry<K, V>, xs)
@@ -2372,10 +2289,10 @@ def h.absent_none(
     case Con{M.Entry{+key, +val}, +rest}:
       +ab = ab
       %h.sb(eq(k, key), False{},
-        h.not_t(eq(k, key), and_l(Bool.not(eq(k, key)), Laws.hmap_absent(~K, ~V, ~eq, rest, k), ab)))
+        MBool.eq_false_of_not_eq_true(eq(k, key), MBool.eq_true_of_and_left(Bool.not(eq(k, key)), Laws.hmap_absent(~K, ~V, ~eq, rest, k), ab)))
         : {h.egc(~K, ~V, ~eq, _, val, rest, k) == None{} : Maybe<&2, V>}
       h.absent_none(~K, ~V, ~eq, rest, k,
-        and_r(Bool.not(eq(k, key)), Laws.hmap_absent(~K, ~V, ~eq, rest, k), ab))
+        MBool.eq_true_of_and_right(Bool.not(eq(k, key)), Laws.hmap_absent(~K, ~V, ~eq, rest, k), ab))
 
 def h.eg_del_same.c(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
@@ -2405,9 +2322,9 @@ def h.eg_del_same(
     case Con{M.Entry{+key, +val}, +rest}:
       +ds = ds
       h.eg_del_same.c(~K, ~V, ~eq, ~sound, key, val, rest, k, eq(k, key), {==},
-        and_l(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds),
+        MBool.eq_true_of_and_left(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds),
         h.eg_del_same(~K, ~V, ~eq, ~sound, rest, k,
-          and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
+          MBool.eq_true_of_and_right(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
 
 def h.eg_del_other.c(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
@@ -2470,9 +2387,7 @@ def h.absent_put.c(
     case True{}:
       ab
     case False{}:
-      and_i(Bool.not(eq(key, key2)),
-        Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), key),
-        and_l(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), ih)
+      MBool.and_eq_true(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), key), MBool.eq_true_of_and_left(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), ih)
 
 def h.absent_put(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
@@ -2490,7 +2405,7 @@ def h.absent_put(
       +ab = ab
       h.absent_put.c(~K, ~V, ~eq, key2, val, rest, key, k, v, eq(k, key2), ab,
         h.absent_put(~K, ~V, ~eq, ~refl, ~sound, rest, key, k, v,
-          and_r(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), nk))
+          MBool.eq_true_of_and_right(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), nk))
 
 def h.distinct_put.c(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
@@ -2503,12 +2418,9 @@ def h.distinct_put.c(
     case True{}:
       ds
     case False{}:
-      and_i(Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), key),
-        Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)),
-        h.absent_put(~K, ~V, ~eq, ~refl, ~sound, rest, key, k, v,
-          and_l(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds),
-          h.sb(False{}, eq(k, key), eb)),
-        ih)
+      MBool.and_eq_true(Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), key), Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v)), h.absent_put(~K, ~V, ~eq, ~refl, ~sound, rest, key, k, v,
+          MBool.eq_true_of_and_left(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds),
+          h.sb(False{}, eq(k, key), eb)), ih)
 
 def h.distinct_put(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
@@ -2523,7 +2435,7 @@ def h.distinct_put(
       +ds = ds
       h.distinct_put.c(~K, ~V, ~eq, ~refl, ~sound, key, val, rest, k, v, eq(k, key), {==}, ds,
         h.distinct_put(~K, ~V, ~eq, ~refl, ~sound, rest, k, v,
-          and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
+          MBool.eq_true_of_and_right(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
 
 def h.hashed_put.c(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +key: K, +val: V,
@@ -2535,9 +2447,7 @@ def h.hashed_put.c(
     case True{}:
       hs
     case False{}:
-      and_i(U32.is_eq(o, hash(key)),
-        Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), o),
-        and_l(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs), ih)
+      MBool.and_eq_true(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, rest, k, v), o), MBool.eq_true_of_and_left(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs), ih)
 
 def h.hashed_put(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
@@ -2553,7 +2463,7 @@ def h.hashed_put(
       +hs = hs
       h.hashed_put.c(~K, ~V, ~hash, ~eq, key, val, rest, o, k, v, eq(k, key), hs,
         h.hashed_put(~K, ~V, ~hash, ~eq, rest, o, k, v, hk,
-          and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
+          MBool.eq_true_of_and_right(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
 
 def h.absent_del.c(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key2: K, +val: V,
@@ -2563,11 +2473,9 @@ def h.absent_del.c(
 ) -> {Laws.hmap_absent(~K, ~V, ~eq, h.edc(~K, ~V, ~eq, b, key2, val, rest, k), key) == True{} : Bool}:
   match b:
     case True{}:
-      and_r(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab)
+      MBool.eq_true_of_and_right(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab)
     case False{}:
-      and_i(Bool.not(eq(key, key2)),
-        Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), key),
-        and_l(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), ih)
+      MBool.and_eq_true(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), key), MBool.eq_true_of_and_left(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab), ih)
 
 def h.absent_del(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +key: K, +k: K,
@@ -2580,7 +2488,7 @@ def h.absent_del(
       +ab = ab
       h.absent_del.c(~K, ~V, ~eq, key2, val, rest, key, k, eq(k, key2), ab,
         h.absent_del(~K, ~V, ~eq, rest, key, k,
-          and_r(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab)))
+          MBool.eq_true_of_and_right(Bool.not(eq(key, key2)), Laws.hmap_absent(~K, ~V, ~eq, rest, key), ab)))
 
 def h.distinct_del.c(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +key: K, +val: V,
@@ -2590,13 +2498,10 @@ def h.distinct_del.c(
 ) -> {Laws.hmap_distinct(~K, ~V, ~eq, h.edc(~K, ~V, ~eq, b, key, val, rest, k)) == True{} : Bool}:
   match b:
     case True{}:
-      and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)
+      MBool.eq_true_of_and_right(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)
     case False{}:
-      and_i(Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), key),
-        Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k)),
-        h.absent_del(~K, ~V, ~eq, rest, key, k,
-          and_l(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)),
-        ih)
+      MBool.and_eq_true(Laws.hmap_absent(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k), key), Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, rest, k)), h.absent_del(~K, ~V, ~eq, rest, key, k,
+          MBool.eq_true_of_and_left(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)), ih)
 
 def h.distinct_del(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, xs: List<&2, M.Entry<K, V>>, +k: K,
@@ -2609,7 +2514,7 @@ def h.distinct_del(
       +ds = ds
       h.distinct_del.c(~K, ~V, ~eq, key, val, rest, k, eq(k, key), ds,
         h.distinct_del(~K, ~V, ~eq, rest, k,
-          and_r(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
+          MBool.eq_true_of_and_right(Laws.hmap_absent(~K, ~V, ~eq, rest, key), Laws.hmap_distinct(~K, ~V, ~eq, rest), ds)))
 
 def h.hashed_del.c(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +key: K, +val: V,
@@ -2619,11 +2524,9 @@ def h.hashed_del.c(
 ) -> {Laws.hmap_hashed(~K, ~V, ~hash, h.edc(~K, ~V, ~eq, b, key, val, rest, k), o) == True{} : Bool}:
   match b:
     case True{}:
-      and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)
+      MBool.eq_true_of_and_right(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)
     case False{}:
-      and_i(U32.is_eq(o, hash(key)),
-        Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, rest, k), o),
-        and_l(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs), ih)
+      MBool.and_eq_true(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, rest, k), o), MBool.eq_true_of_and_left(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs), ih)
 
 def h.hashed_del(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
@@ -2637,7 +2540,7 @@ def h.hashed_del(
       +hs = hs
       h.hashed_del.c(~K, ~V, ~hash, ~eq, key, val, rest, o, k, eq(k, key), hs,
         h.hashed_del(~K, ~V, ~hash, ~eq, rest, o, k,
-          and_r(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
+          MBool.eq_true_of_and_right(U32.is_eq(o, hash(key)), Laws.hmap_hashed(~K, ~V, ~hash, rest, o), hs)))
 
 # --- tries -----------------------------------------------------------------------
 
@@ -2759,9 +2662,9 @@ def h.bsel(
 def h.cnc(c: Bool, e: {c == Bool.not(c) : Bool}) -> Empty:
   match c:
     case True{}:
-      absurd_b(Equal.sym(Bool, True{}, False{}, e))
+      MBool.false_ne_true()(Equal.sym(Bool, True{}, False{}, e))
     case False{}:
-      absurd_b(e)
+      MBool.false_ne_true()(e)
 
 # Routing facts about hashes and a mask.
 def h.u_ne0.c(
@@ -2823,8 +2726,7 @@ def h.u_diff.c(
     case True{}:
       +e3 = rw(U32, z => {U32.is_eq((z .&. mask : U32), 0) == c : Bool}, hk, o,
         Equal.sym(U32, o, hk, h.u_sound(o, hk, h.sb(True{}, U32.is_eq(o, hk), eb))), e2)
-      exfalso({True{} == False{} : Bool},
-        h.cnc(c, Equal.trans(Bool, c, U32.is_eq((hk .&. mask : U32), 0), Bool.not(c),
+      Empty.absurd({True{} == False{} : Bool}, h.cnc(c, Equal.trans(Bool, c, U32.is_eq((hk .&. mask : U32), 0), Bool.not(c),
           Equal.sym(Bool, U32.is_eq((hk .&. mask : U32), 0), c, e3), ed)))
     case False{}:
       {==}
@@ -2973,13 +2875,13 @@ def h.wf_join(
         case M.HNil{}:
           {==}
         case M.HLeaf{+a, +b}:
-          and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{a, b}), wl, wh)
+          MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{a, b}), wl, wh)
         case M.HBranch{+a, +b}:
-          and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), h.WF(~K, ~V, ~hash, ~eq, p, M.HBranch{a, b}), wl, wh)
+          MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), h.WF(~K, ~V, ~hash, ~eq, p, M.HBranch{a, b}), wl, wh)
     case M.HLeaf{+a, +b}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{a, b}), h.WF(~K, ~V, ~hash, ~eq, p, hi), wl, wh)
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{a, b}), h.WF(~K, ~V, ~hash, ~eq, p, hi), wl, wh)
     case M.HBranch{+a, +b}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HBranch{a, b}), h.WF(~K, ~V, ~hash, ~eq, p, hi), wl, wh)
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, M.HBranch{a, b}), h.WF(~K, ~V, ~hash, ~eq, p, hi), wl, wh)
 
 # get after put, same key.
 def h.fresh_get(
@@ -3090,7 +2992,7 @@ def h.gp_same(
         case M.HLeaf{o, es}:
           h.eg_put_same(~K, ~V, ~eq, ~refl, es, k, v)
         case M.HBranch{lo, hi}:
-          exfalso({h.G(~K, ~V, ~eq, 0n, mask, M.HBranch{lo, hi}, hk, k) == Some{v} : Maybe<&2, V>}, absurd_b(wf))
+          Empty.absurd({h.G(~K, ~V, ~eq, 0n, mask, M.HBranch{lo, hi}, hk, k) == Some{v} : Maybe<&2, V>}, MBool.false_ne_true()(wf))
     case 1n+(+p):
       match m:
         case M.HNil{}:
@@ -3102,9 +3004,9 @@ def h.gp_same(
         case M.HBranch{+lo, +hi}:
           h.gp_same.br(~K, ~V, ~eq, p, mask, lo, hi, hk, k, v, U32.is_eq((hk .&. mask : U32), 0), {==},
             h.gp_same(~K, ~V, ~hash, ~eq, ~refl, p, (mask << 1n : U32), lo, hk, k, v, h.onebit_shl(mask, ob),
-              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+              MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
             h.gp_same(~K, ~V, ~hash, ~eq, ~refl, p, (mask << 1n : U32), hi, hk, k, v, h.onebit_shl(mask, ob),
-              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+              MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
 
 # get after put, other key.
 def h.r_eg.c(
@@ -3312,13 +3214,13 @@ def h.gp_other(
         case M.HLeaf{+o, +es}:
           h.gp_other.lf(~K, ~V, ~hash, ~eq, ~sound, p, mask, o, es, h2, k2, k, v, nk, U32.is_eq(o, h2),
             h.split_other(~K, ~V, ~hash, ~eq, ~sound, 1n+p, mask, o, es, h2, k2, k, v,
-              and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf), nk))
+              MBool.eq_true_of_and_left(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf), nk))
         case M.HBranch{+lo, +hi}:
           h.gp_other.br(~K, ~V, ~eq, p, mask, lo, hi, h2, k2, hash(k), k, v, U32.is_eq((h2 .&. mask : U32), 0),
             h.gp_other(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), lo, h2, k2, k, v,
-              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), nk),
+              MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), nk),
             h.gp_other(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), hi, h2, k2, k, v,
-              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), nk))
+              MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), nk))
 
 # get after del.
 def h.gd_same.lf(
@@ -3379,13 +3281,13 @@ def h.gd_same(
         case M.HLeaf{+o, +es}:
           h.gd_same.lf(~K, ~V, ~eq, p, mask, o, es, hk, k, U32.is_eq(o, hk), {==},
             h.eg_del_same(~K, ~V, ~eq, ~sound, es, k,
-              and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf)))
+              MBool.eq_true_of_and_right(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf)))
         case M.HBranch{+lo, +hi}:
           h.gd_same.br(~K, ~V, ~eq, p, mask, lo, hi, hk, k, U32.is_eq((hk .&. mask : U32), 0), {==},
             h.gd_same(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), lo, hk, k,
-              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+              MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
             h.gd_same(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), hi, hk, k,
-              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+              MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
 
 def h.gd_other.lf(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool,
@@ -3471,14 +3373,14 @@ def h.split_size.b(
     case True{} True{}:
       Ord.tr(Nat.add(h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v)), 0n),
         h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v)), 1n+h.len(K, V, es),
-        Ord.add_zero_right(h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v))), ih)
+        MNat.add_zero(h.Sz(K, V, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hk, k, v))), ih)
     case True{} False{}:
       ih
     case False{} True{}:
       Ord.tr(Nat.add(h.len(K, V, es), 1n), 1n+Nat.add(h.len(K, V, es), 0n), 1n+h.len(K, V, es),
-        Ord.add_succ_right(h.len(K, V, es), 0n),
+        MNat.add_succ(h.len(K, V, es), 0n),
         Equal.cong(Nat, Nat, x => 1n+x, Nat.add(h.len(K, V, es), 0n), h.len(K, V, es),
-          Ord.add_zero_right(h.len(K, V, es))))
+          MNat.add_zero(h.len(K, V, es))))
     case False{} False{}:
       {==}
 
@@ -3542,7 +3444,7 @@ def h.sz_put_new.br(
               u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
               u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)) == None{} : Maybe<&2, V>},
             False{}, U32.is_eq((hk .&. mask : U32), 0), eb, miss))),
-        Ord.add_succ_right(h.Sz(K, V, lo), h.Sz(K, V, hi)))
+        MNat.add_succ(h.Sz(K, V, lo), h.Sz(K, V, hi)))
 
 def h.sz_put_new(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool,
@@ -3559,22 +3461,22 @@ def h.sz_put_new(
         case M.HLeaf{o, es}:
           h.elen_put_new(~K, ~V, ~eq, es, k, v, miss)
         case M.HBranch{lo, hi}:
-          exfalso({h.Sz(K, V, M.HBranch{lo, hi}) == 1n+h.Sz(K, V, M.HBranch{lo, hi}) : Nat}, absurd_b(wf))
+          Empty.absurd({h.Sz(K, V, M.HBranch{lo, hi}) == 1n+h.Sz(K, V, M.HBranch{lo, hi}) : Nat}, MBool.false_ne_true()(wf))
     case 1n+(+p):
       match m:
         case M.HNil{}:
           {==}
         case M.HLeaf{+o, +es}:
           h.sz_put_new.lf(~K, ~V, ~hash, ~eq, ~sound, p, mask, o, es, k, v,
-            and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            MBool.eq_true_of_and_left(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
             U32.is_eq(o, hash(k)), {==}, miss)
         case M.HBranch{+lo, +hi}:
           h.sz_put_new.br(~K, ~V, ~eq, p, mask, lo, hi, hash(k), k, v, U32.is_eq((hash(k) .&. mask : U32), 0), {==},
             miss,
             e => h.sz_put_new(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), lo, k, v,
-              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), e),
+              MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), e),
             e => h.sz_put_new(~K, ~V, ~hash, ~eq, ~sound, p, (mask << 1n : U32), hi, k, v,
-              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), e))
+              MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf), e))
 
 def h.sz_put_hit.lf(
   ~K: Data, ~V: Data, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
@@ -3687,7 +3589,7 @@ def h.sz_del_hit.br(
     case False{}:
       +dhi = h.D(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k)
       %h.size_join(K, V, lo, dhi) : {1n+_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
-      %Ord.add_succ_right(h.Sz(K, V, lo), h.Sz(K, V, dhi)) : {_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
+      %MNat.add_succ(h.Sz(K, V, lo), h.Sz(K, V, dhi)) : {_ == Nat.add(h.Sz(K, V, lo), h.Sz(K, V, hi)) : Nat}
       Ord.cong_add(h.Sz(K, V, lo), h.Sz(K, V, lo), 1n+h.Sz(K, V, dhi), h.Sz(K, V, hi), {==},
         ih(rw(Bool, z => {M.HMap.bool(Maybe<&2, V>, z,
             u => h.G(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k),
@@ -3813,7 +3715,7 @@ def h.wf_leaf_o(
     case 0n:
       ds
     case 1n+q:
-      and_i(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), hs, ds)
+      MBool.and_eq_true(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), hs, ds)
 
 def h.split_wf.b(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +o: U32,
@@ -3825,20 +3727,13 @@ def h.split_wf.b(
 ) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.sp(~K, ~V, ~eq, b1, b2, p, mask, o, es, hash(k), k, v)) == True{} : Bool}:
   match b1 b2:
     case True{} True{}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hash(k), k, v)),
-        h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), ih, h.wf_nil(~K, ~V, ~hash, ~eq, p))
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hash(k), k, v)), h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), ih, h.wf_nil(~K, ~V, ~hash, ~eq, p))
     case True{} False{}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}),
-        h.WF(~K, ~V, ~hash, ~eq, p, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hash(k), k, v)),
-        h.wf_nil(~K, ~V, ~hash, ~eq, p), ih)
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, M.HNil{}), h.WF(~K, ~V, ~hash, ~eq, p, h.S(~K, ~V, ~eq, p, (mask << 1n : U32), o, es, hash(k), k, v)), h.wf_nil(~K, ~V, ~hash, ~eq, p), ih)
     case False{} True{}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{o, es}),
-        h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{hash(k), [M.Entry{k, v}]}),
-        h.wf_leaf_o(~K, ~V, ~hash, ~eq, p, o, es, hs, ds), h.wf_fresh(~K, ~V, ~hash, ~eq, p, k, v))
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{o, es}), h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{hash(k), [M.Entry{k, v}]}), h.wf_leaf_o(~K, ~V, ~hash, ~eq, p, o, es, hs, ds), h.wf_fresh(~K, ~V, ~hash, ~eq, p, k, v))
     case False{} False{}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{hash(k), [M.Entry{k, v}]}),
-        h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{o, es}),
-        h.wf_fresh(~K, ~V, ~hash, ~eq, p, k, v), h.wf_leaf_o(~K, ~V, ~hash, ~eq, p, o, es, hs, ds))
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{hash(k), [M.Entry{k, v}]}), h.WF(~K, ~V, ~hash, ~eq, p, M.HLeaf{o, es}), h.wf_fresh(~K, ~V, ~hash, ~eq, p, k, v), h.wf_leaf_o(~K, ~V, ~hash, ~eq, p, o, es, hs, ds))
 
 def h.split_wf(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
@@ -3866,10 +3761,7 @@ def h.wf_put.lf(
 ) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.pl(~K, ~V, ~eq, b, p, mask, o, es, hash(k), k, v)) == True{} : Bool}:
   match b:
     case True{}:
-      and_i(Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, es, k, v), o),
-        Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, es, k, v)),
-        h.hashed_put(~K, ~V, ~hash, ~eq, es, o, k, v, h.sb(True{}, U32.is_eq(o, hash(k)), eb), hs),
-        h.distinct_put(~K, ~V, ~eq, ~refl, ~sound, es, k, v, ds))
+      MBool.and_eq_true(Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.put(~K, ~V, ~eq, es, k, v), o), Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.put(~K, ~V, ~eq, es, k, v)), h.hashed_put(~K, ~V, ~hash, ~eq, es, o, k, v, h.sb(True{}, U32.is_eq(o, hash(k)), eb), hs), h.distinct_put(~K, ~V, ~eq, ~refl, ~sound, es, k, v, ds))
     case False{}:
       sp
 
@@ -3883,11 +3775,9 @@ def h.wf_put.br(
 ) -> {h.WF(~K, ~V, ~hash, ~eq, 1n+p, h.pb(~K, ~V, ~eq, b, p, mask, lo, hi, hk, k, v)) == True{} : Bool}:
   match b:
     case True{}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)),
-        h.WF(~K, ~V, ~hash, ~eq, p, hi), il, wh)
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), lo, hk, k, v)), h.WF(~K, ~V, ~hash, ~eq, p, hi), il, wh)
     case False{}:
-      and_i(h.WF(~K, ~V, ~hash, ~eq, p, lo),
-        h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)), wl, ih)
+      MBool.and_eq_true(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, h.P(~K, ~V, ~eq, p, (mask << 1n : U32), hi, hk, k, v)), wl, ih)
 
 def h.wf_put(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, ~refl: @x: K -> {eq(x, x) == True{} : Bool},
@@ -3910,20 +3800,20 @@ def h.wf_put(
           h.wf_fresh(~K, ~V, ~hash, ~eq, 1n+p, k, v)
         case M.HLeaf{+o, +es}:
           h.wf_put.lf(~K, ~V, ~hash, ~eq, ~refl, ~sound, p, mask, o, es, k, v,
-            and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
-            and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            MBool.eq_true_of_and_left(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            MBool.eq_true_of_and_right(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
             U32.is_eq(o, hash(k)), {==},
             h.split_wf(~K, ~V, ~hash, ~eq, ~refl, ~sound, 1n+p, mask, o, es, k, v,
-              and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
-              and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf)))
+              MBool.eq_true_of_and_left(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+              MBool.eq_true_of_and_right(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf)))
         case M.HBranch{+lo, +hi}:
           h.wf_put.br(~K, ~V, ~hash, ~eq, p, mask, lo, hi, hash(k), k, v, U32.is_eq((hash(k) .&. mask : U32), 0),
-            and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
-            and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
             h.wf_put(~K, ~V, ~hash, ~eq, ~refl, ~sound, p, (mask << 1n : U32), lo, k, v,
-              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+              MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
             h.wf_put(~K, ~V, ~hash, ~eq, ~refl, ~sound, p, (mask << 1n : U32), hi, k, v,
-              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+              MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
 
 def h.wf_del.lf(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, +o: U32,
@@ -3934,11 +3824,9 @@ def h.wf_del.lf(
   match b:
     case True{}:
       h.wf_leaf(~K, ~V, ~hash, ~eq, 1n+p, o, M.HMap.entries.del(~K, ~V, ~eq, es, k),
-        and_i(Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, es, k), o),
-          Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, es, k)),
-          h.hashed_del(~K, ~V, ~hash, ~eq, es, o, k, hs), h.distinct_del(~K, ~V, ~eq, es, k, ds)))
+        MBool.and_eq_true(Laws.hmap_hashed(~K, ~V, ~hash, M.HMap.entries.del(~K, ~V, ~eq, es, k), o), Laws.hmap_distinct(~K, ~V, ~eq, M.HMap.entries.del(~K, ~V, ~eq, es, k)), h.hashed_del(~K, ~V, ~hash, ~eq, es, o, k, hs), h.distinct_del(~K, ~V, ~eq, es, k, ds)))
     case False{}:
-      and_i(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), hs, ds)
+      MBool.and_eq_true(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), hs, ds)
 
 def h.wf_del.br(
   ~K: Data, ~V: Data, ~hash: K -> U32, ~eq: K -> K -> Bool, +p: Nat, +mask: U32, +lo: M.HMap<K, V>,
@@ -3975,17 +3863,17 @@ def h.wf_del(
           {==}
         case M.HLeaf{+o, +es}:
           h.wf_del.lf(~K, ~V, ~hash, ~eq, p, o, es, k,
-            and_l(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
-            and_r(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            MBool.eq_true_of_and_left(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
+            MBool.eq_true_of_and_right(Laws.hmap_hashed(~K, ~V, ~hash, es, o), Laws.hmap_distinct(~K, ~V, ~eq, es), wf),
             U32.is_eq(o, hk))
         case M.HBranch{+lo, +hi}:
           h.wf_del.br(~K, ~V, ~hash, ~eq, p, mask, lo, hi, hk, k, U32.is_eq((hk .&. mask : U32), 0),
-            and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
-            and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
+            MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf),
             h.wf_del(~K, ~V, ~hash, ~eq, p, (mask << 1n : U32), lo, hk, k,
-              and_l(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
+              MBool.eq_true_of_and_left(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)),
             h.wf_del(~K, ~V, ~hash, ~eq, p, (mask << 1n : U32), hi, hk, k,
-              and_r(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
+              MBool.eq_true_of_and_right(h.WF(~K, ~V, ~hash, ~eq, p, lo), h.WF(~K, ~V, ~hash, ~eq, p, hi), wf)))
 
 # --- hmap laws -------------------------------------------------------------------
 
