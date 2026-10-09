@@ -14,11 +14,11 @@ A change to `<pkg>.bend` or `effs/` must raise `VERSION`. `scripts/publish.sh --
 scripts/check.sh bytes http   # the packages you changed
 ```
 
-`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. `bend PROOF.bend` prints `All terms check.` when every law holds.
+`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. `bend PROOF.bend --check-only` prints `ALL PROOFS CHECK` when every law holds.
 
 `LAWS.bend` is the claims. Change a law only when the change in behavior is the point. `PROOF.bend` proves each law. Proofs do not cover `.c` and `.js` effects. An effect needs both twins.
 
-`http` and `dns` import siblings from the hub, not by relative path. Package-local `LAWS.bend` and `check.bend` import the local file. A change to a sibling reaches `http` only after that sibling is published and the import version is raised. Publish dependencies first.
+A package whose public types come from a sibling imports that sibling from the hub, not by relative path. Package-local `LAWS.bend` and `check.bend` import the local file. A change to the sibling reaches the importer only after the sibling is published and the import version is raised. Publish dependencies first.
 
 macOS or Linux, including WSL. Windows is not supported. CI installs the Bend version pinned in `scripts/install-bend.sh`.
 
