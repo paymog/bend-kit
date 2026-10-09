@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `dns` 0.6.0.2, `archive` 0.2.0.1, `notch` 0.1.0.1, `stream` 0.1.0.1, and `websocket` 0.2.0.1: import the effect packages fixed for Bend 2.0.36 (`wire` 0.4.6.1, `zlib` 0.2.0.1, `time` 0.1.2.1, `files` 0.1.1.1, `crypto` 0.2.2.1), so native builds compile.
+- `property` 0.2.0.0: imports `random` 0.1.0.1, so native builds compile. Breaking: `Rand.Rng` comes from that version.
 - `llm` 0.2.0.0: `send` retries through `Hairpin.request.as` with llm's own judge (408, 409, 429, 5xx), on one budget per call, instead of its own loop. Breaking: `ErrNet` holds a `Hairpin.Err`.
 - `webhooks` 0.2.0.0: `send` retries through `Hairpin.request.as` instead of its own loop. `send.in` delivers inside a caller's retry layer on a shared `Retry.Budget`. Breaking: `SendNet` holds a `Hairpin.Err`. The delivery smoke moved into `check.bend`.
 - `sigv4` 0.2.0.0: requests go through `Hairpin.request.as` with `Accept-Encoding: identity`, not Hairpin's internals. Breaking: `ErrNet` holds a `Hairpin.Err`.

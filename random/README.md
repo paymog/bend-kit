@@ -19,4 +19,4 @@ def main() -> IO(Unit):
 
 `entropy` reads four `U32` words from the OS. `from_os` seeds an `Rng` from that read. Both are effects in `effs/random.c` and `effs/random.js`. The native lane uses `getentropy`. Proofs do not cover them.
 
-`property` imports `bend-kit-random@0.1.0.0` for its generators.
+`property` imports `bend-kit-random@0.1.0.1` for its generators.
