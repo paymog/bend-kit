@@ -1,6 +1,6 @@
 import Base
 import ./oauth2.bend as O
-import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
 import bend-kit-http@0.23.0.1/http.bend as Http
 import bend-kit-time@0.1.0.0/time.bend as Time
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
@@ -165,7 +165,7 @@ def want(+name: String, +access: String, +refresh: String, +scope: String, y: Ha
       name ++ " (" ++ a ++ " refresh " ++ r ++ " scope " ++ s ++ ")")
     return (c, t)
 
-def res.body(+name: String, +status: U32, +body: String, x: Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>) -> IO(Hairpin.Client & String):
+def res.body(+name: String, +status: U32, +body: String, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Hairpin.Client & String):
   (c, r) = x
   match r:
     case Fail{e}:
@@ -202,7 +202,7 @@ def api.done(x: Hairpin.Client & String) -> Hairpin.Client:
 def api(y: Hairpin.Client & O.Token) -> IO(Hairpin.Client):
   (c, t) = y
   do IO<Hairpin.Client>:
-    x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <- O.request(c, t, "GET", BASE() ++ "/api", Http.empty(), Bytes.new(0))
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- O.request(c, t, "GET", BASE() ++ "/api", Http.empty(), Bytes.new(0))
     z : Hairpin.Client & String <- res.body("request sends Authorization: Bearer", 200, "Bearer cc-1", x)
     return api.done(z)
 
@@ -225,7 +225,7 @@ def authz(+st: String, c: Hairpin.Client) -> IO(Hairpin.Client & String):
   do IO<Hairpin.Client & String>:
     ch : Result<&1, &1, O.Err, String> <- O.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
     cc : String <- str("challenge", ch)
-    x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <-
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
       Hairpin.get(Hairpin.redirect(c, Http.ModeManual{}), O.authorize.url(public(), BASE() ++ "/authorize", REDIRECT(), "openid", st, cc))
     z : Hairpin.Client & String <- res.body("authorize redirects to redirect_uri", 302, "", x)
     callback(st, z)

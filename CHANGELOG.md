@@ -8,6 +8,10 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `llm` 0.2.0.0: `send` retries through `Hairpin.request.as` with llm's own judge (408, 409, 429, 5xx), on one budget per call, instead of its own loop. Breaking: `ErrNet` holds a `Hairpin.Err`.
+- `webhooks` 0.2.0.0: `send` retries through `Hairpin.request.as` instead of its own loop. `send.in` delivers inside a caller's retry layer on a shared `Retry.Budget`. Breaking: `SendNet` holds a `Hairpin.Err`. The delivery smoke moved into `check.bend`.
+- `sigv4` 0.2.0.0: requests go through `Hairpin.request.as` with `Accept-Encoding: identity`, not Hairpin's internals. Breaking: `ErrNet` holds a `Hairpin.Err`.
+- `jwt` 0.2.0.0, `oauth2` 0.2.0.0: on `hairpin` 0.2.1.0. Breaking: `Net` and `ErrNet` hold a `Hairpin.Err`.
 - `hairpin` 0.2.1.0: `Hairpin.request.as` takes the retry judge, the idempotency, and the `Accept-Encoding` value from the caller, so an API with its own retry rules keeps the shared budget, deadline, backoff, and breaker. `Hairpin.budget(c)` gives the budget of one plain request.
 - `hairpin` 0.2.0.0: a proven retry policy in `retry.bend`: a shared attempt budget across nested layers (`Hairpin.request.in`), operation deadlines (`Hairpin.deadline`), bounded jittered backoff, and a circuit breaker (`Hairpin.circuit`). Breaking: results are `Result<Hairpin.Err, Http.Res>`, where `ErrDenied` says why no attempt started.
 - `resources` 0.1.0.0: bounded capacity pools with affine reservations. Reserve, release, split, and combine, with proved conservation laws.

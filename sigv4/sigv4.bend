@@ -1,7 +1,8 @@
 # AWS Signature V4 signing and S3 object storage over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/sigv4
 import Base
 import bend-kit-crypto@0.1.1.0/crypto.bend as Crypto
-import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/retry.bend as Retry
 import bend-kit-http@0.23.0.1/http.bend as Http
 import bend-kit-time@0.1.0.0/time.bend as Time
 # By hash, as http imports them: bend-kit-url@0.4.1.0, -bytes@0.3.0.0.
@@ -430,7 +431,7 @@ type Client is Type:
 # ErrS3: any status outside 2xx, redirects included, with S3's error Code and Message ("" when there is no
 # error body, as for HEAD). ErrXml: a 2xx body that is not the XML asked for, with its text.
 type Err is Data:
-  ErrNet{e: Http.Err}
+  ErrNet{e: Hairpin.Err}
   ErrSign{code: U32, why: String}
   ErrConfig{why: String}
   ErrS3{status: U32, code: String, message: String}
@@ -840,7 +841,7 @@ def judge.res(good: Bool, +status: U32, h: Map<&2, List<&2, String>>, b: Bytes.B
     case False{}:
       Fail{fault(status, xml(Enc.utf8.decode(b)))}
 
-def judge(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Err, Http.Res>:
+def judge(r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Http.Res>:
   match r:
     case Fail{e}:
       Fail{ErrNet{e}}
@@ -904,17 +905,23 @@ def request.signed(extra: Map<&2, List<&2, String>>, date: String, +token: Strin
 def url(origin: String, path: String, +query: String) -> String:
   origin ++ path ++ Bool.pick(String, String.is_empty(query), "", "?" ++ query)
 
-def call.done(cfg: Config, x: Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>) -> Client & Result<&1, &1, Err, Http.Res>:
+def call.done(cfg: Config, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> Client & Result<&1, &1, Err, Http.Res>:
   (h, r) = x
   (Client{cfg, h}, judge(r))
 
-# Hairpin.request with the codings "identity": Http then leaves a stored Content-Encoding (gzip, br, ..) as sent,
+# Hairpin's request with the codings "identity": Http then leaves a stored Content-Encoding (gzip, br, ..) as sent,
 # so GET returns the object's bytes and HEAD's size matches. ponytail: Http still undoes x-gzip, which S3 rarely stores.
+def send.budget(+method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes,
+    y: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
+  (h, b) = y
+  Hairpin.request.as(~Hairpin.judge, h, b, Http.pool.idempotent(method), "identity", method, url, headers, body)
+
 def send(c: Hairpin.Client, +method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>):
-  Hairpin.Client{+o, p, j} = c
-  Hairpin.Opts{b, +h, ms, mode, +n, cert} = o
-  Hairpin.request.go(o, n, "identity", p, j, method, Hairpin.target.abs(Some{url}), Hairpin.merge(h, headers), body)
+    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>):
+  do IO<Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>>:
+    y : Hairpin.Client & Retry.Budget <- Hairpin.budget(c)
+    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- send.budget(method, url, headers, body, y)
+    return Hairpin.request.drop(x)
 
 def call.send(s: Result<&1, &1, U32 & String, String & String>, cfg: Config, http: Hairpin.Client, +method: String, url: String,
     extra: Map<&2, List<&2, String>>, date: String, token: String, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
@@ -924,7 +931,7 @@ def call.send(s: Result<&1, &1, U32 & String, String & String>, cfg: Config, htt
       IO.pure(Client & Result<&1, &1, Err, Http.Res>, (Client{cfg, http}, Fail{ErrSign{code, why}}))
     case Done{got}:
       do IO<Client & Result<&1, &1, Err, Http.Res>>:
-        x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <- send(http, method, url, request.signed(extra, date, token, got), body)
+        x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- send(http, method, url, request.signed(extra, date, token, got), body)
         return call.done(cfg, x)
 
 # The signer hashes one copy of the body; the other goes on the wire.

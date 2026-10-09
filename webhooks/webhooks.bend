@@ -6,7 +6,8 @@ import bend-kit-int@0.2.0.0/int.bend as Int
 # By hash, as http imports them: bend-kit-encoding@0.3.0.0, -bytes@0.3.0.0.
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/retry.bend as Retry
 import bend-kit-http@0.23.0.1/http.bend as Http
 
 # Every MAC is HMAC-SHA256 over the body exactly as received, never a re-encoding of parsed JSON.
@@ -428,15 +429,18 @@ def github.verify(secrets: List<&2, String>, +headers: Map<&2, List<&2, String>>
 
 type SendErr is Data:
   SendSign{err: Err}
-  SendNet{err: Http.Err}
+  SendNet{err: Hairpin.Err}
 
-def send.result(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, SendErr, Http.Res>:
+def send.result(x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>) ->
+    Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>:
+  (c, b, r) = x
   match r:
     case Fail{e}:
-      Fail{SendNet{e}}
+      (c, b, Fail{SendNet{e}})
     case Done{res}:
-      Done{res}
+      (c, b, Done{res})
 
+# A timeout, a refused connect, 408, 429, or any 5xx may clear.
 def send.judge(r: Result<&1, &1, Http.Err, Http.Res>) ->
     Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
   match r:
@@ -447,76 +451,54 @@ def send.judge(r: Result<&1, &1, Http.Err, Http.Res>) ->
       +again = Bool.or(Http.retry.status(status), U32.is_eq((status / 100 : U32), 5))
       (Done{Http.Res{status, headers, body}}, Bool.pick(Maybe<&2, String>, again, Some{Http.header(headers, "retry-after")}, None{}))
 
-def send.tried.of(body: Bytes.Bytes, c: Hairpin.Client,
-    r: Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>) ->
-    Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
-  (judged, again) = r
-  (c, body, judged, again)
-
-def send.tried(body: Bytes.Bytes, r: Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>) ->
-    Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
-  (c, result) = r
-  send.tried.of(body, c, send.judge(result))
-
-def send.try.copy(c: Hairpin.Client, url: String, +headers: Map<&2, List<&2, String>>,
-    pair: Bytes.Bytes & Bytes.Bytes) ->
-    IO(Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>):
-  (body, spare) = pair
-  do IO<Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>>:
-    r : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <- Hairpin.request(c, "POST", url, headers, spare)
-    return send.tried(body, r)
-
-def send.try(c: Hairpin.Client, url: String, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>):
-  send.try.copy(c, url, headers, Bytes.slice(body, 0, 4294967295))
-
-def send.go(left: Nat, +n: Nat, +url: String, +headers: Map<&2, List<&2, String>>,
-    r: Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>) ->
-    IO(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>):
-  match left:
-    case 0n:
-      (c, body, result, again) = r
-      IO.pure(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>, (c, send.result(result)))
-    case 1n+rest:
-      (c, body, result, again) = r
-      match again:
-        case None{}:
-          IO.pure(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>, (c, send.result(result)))
-        case Some{after}:
-          do IO<Hairpin.Client & Result<&1, &1, SendErr, Http.Res>>:
-            Http.retry.sleep(after, n)
-            tried : Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String> <-
-              send.try(c, url, headers, body)
-            send.go(rest, 1n+n, url, headers, tried)
-
-def send.signed(n: U32, c: Hairpin.Client, +url: String, r: Bytes.Bytes & Result<&1, &1, Err, Map<&2, List<&2, String>>>) ->
-    IO(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>):
+# Receivers deduplicate on the event ID, so the POST is safe to repeat.
+def send.signed(c: Hairpin.Client, b: Retry.Budget, +url: String, r: Bytes.Bytes & Result<&1, &1, Err, Map<&2, List<&2, String>>>) ->
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
   (body, signed) = r
   match signed:
     case Fail{e}:
-      IO.pure(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>, (c, Fail{SendSign{e}}))
+      IO.pure(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>, (c, b, Fail{SendSign{e}}))
     case Done{+h}:
-      +headers = Http.set(h, "content-type", "application/json")
-      do IO<Hairpin.Client & Result<&1, &1, SendErr, Http.Res>>:
-        first : Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String> <-
-          send.try(Hairpin.redirect(c, Http.ModeManual{}), url, headers, body)
-        send.go(U32.to_nat(n), 0n, url, headers, first)
+      do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>>:
+        enc : String <- Http.codings()
+        x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <-
+          Hairpin.request.as(~send.judge, Hairpin.redirect(c, Http.ModeManual{}), b, True{}, enc, "POST", url,
+            Http.set(h, "content-type", "application/json"), body)
+        return send.result(x)
 
-# One event and one signature per delivery. n extra attempts use HTTP's backoff on timeouts and 5xx.
-# Every attempt reuses this event ID, timestamp, headers, and raw body.
-def send.at(n: U32, c: Hairpin.Client, url: String, id: String, secret: String, body: Bytes.Bytes, now: Time.Instant) ->
-    IO(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>):
+def send.at(c: Hairpin.Client, b: Retry.Budget, url: String, id: String, secret: String, body: Bytes.Bytes, now: Time.Instant) ->
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
   match now:
     case Time.Instant{secs, nanos}:
-      do IO<Hairpin.Client & Result<&1, &1, SendErr, Http.Res>>:
+      do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>>:
         signed : Bytes.Bytes & Result<&1, &1, Err, Map<&2, List<&2, String>>> <- sign(id, secs, body, secret)
-        send.signed(n, c, url, signed)
+        send.signed(c, b, url, signed)
 
-def send.with(n: U32, c: Hairpin.Client, url: String, id: String, secret: String, body: Bytes.Bytes) ->
+# One event and one signature per delivery, inside a caller's retry layer. Every attempt takes from b and
+# reuses this event ID, timestamp, headers, and raw body; the client's retry setting caps this delivery.
+# The budget left comes back: pass it to the next delivery of the same operation.
+def send.in(c: Hairpin.Client, b: Retry.Budget, url: String, id: String, secret: String, body: Bytes.Bytes) ->
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
+  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>>:
+    now : Time.Instant <- Time.now()
+    send.at(c, b, url, id, secret, body, now)
+
+def send.drop(x: Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>) -> Hairpin.Client & Result<&1, &1, SendErr, Http.Res>:
+  (c, b, r) = x
+  (c, r)
+
+def send.budget(url: String, id: String, secret: String, body: Bytes.Bytes, y: Hairpin.Client & Retry.Budget) ->
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
+  (c, b) = y
+  send.in(c, b, url, id, secret, body)
+
+# n extra attempts, on a budget of n + 1 and the client's deadline, with Hairpin's backoff. The client comes back with retry n.
+def send.with(+n: U32, c: Hairpin.Client, url: String, id: String, secret: String, body: Bytes.Bytes) ->
     IO(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>):
   do IO<Hairpin.Client & Result<&1, &1, SendErr, Http.Res>>:
-    now : Time.Instant <- Time.now()
-    send.at(n, c, url, id, secret, body, now)
+    y : Hairpin.Client & Retry.Budget <- Hairpin.budget(Hairpin.retry(c, n))
+    x : Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res> <- send.budget(url, id, secret, body, y)
+    return send.drop(x)
 
 # Three extra attempts by default.
 def send(c: Hairpin.Client, url: String, id: String, secret: String, body: Bytes.Bytes) ->

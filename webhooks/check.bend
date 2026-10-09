@@ -1,5 +1,8 @@
 import Base
 import ./webhooks.bend as W
+import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/retry.bend as Retry
+import bend-kit-http@0.23.0.1/http.bend as Http
 import bend-kit-time@0.1.0.0/time.bend as Time
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
@@ -140,6 +143,128 @@ def stripe.h() -> Map<&2, List<&2, String>>:
 def github.h() -> Map<&2, List<&2, String>>:
   one("x-hub-signature-256", "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17")
 
+# ---- delivery through Hairpin, against a local receiver that verifies every attempt
+
+def secret() -> String:
+  std.key()
+
+def respond(status: U32) -> IO(Http.Res):
+  IO.pure(Http.Res, Http.Res{status, Http.set(Http.set(Http.empty(), "connection", "close"), "retry-after", "0"), Bytes.new(0)})
+
+def verified.id(status: U32, ok: Bool) -> IO(Http.Res):
+  match ok:
+    case False{}:
+      IO.die(Http.Res, 1, "FAIL the event ID changed between attempts")
+    case True{}:
+      respond(status)
+
+def verified(status: U32, r: Bytes.Bytes & Result<&1, &1, W.Err, String>) -> IO(Http.Res):
+  (body, result) = r
+  match result:
+    case Fail{e}:
+      IO.die(Http.Res, 1, "FAIL the receiver rejected the signature: " ++ name(e))
+    case Done{id}:
+      verified.id(status, String.eq(id, "msg_local_1"))
+
+def handle(status: U32, req: Http.Req) -> IO(Http.Res):
+  Http.Req{method, path, +headers, body} = req
+  do IO<Http.Res>:
+    now : Time.Instant <- Time.now()
+    r : Bytes.Bytes & Result<&1, &1, W.Err, String> <- W.verify([secret()], now, headers, body)
+    verified(status, r)
+
+def s.busy(req: Http.Req) -> IO(Http.Res):
+  handle(501, req)
+
+def s.accepted(req: Http.Req) -> IO(Http.Res):
+  handle(200, req)
+
+def serve.one(k: Bool, a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
+  match k:
+    case True{}:
+      Http.conn(~s.accepted, 1048576n, a)
+    case False{}:
+      Http.conn(~s.busy, 1048576n, a)
+
+# Accept exactly one connection per script entry, then stop listening. True: 200, False: 501.
+def serve(ks: List<&2, Bool>, l: Listener) -> IO(Unit):
+  match ks:
+    case Nil{}:
+      Listener.close(l)
+    case Con{k, rest}:
+      do IO<Unit>:
+        a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+        l2 : Listener <- serve.one(k, a)
+        serve(rest, l2)
+
+def served.of(+label: String, m: Maybe<&1, Unit>) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.die(Unit, 1, "FAIL " ++ label ++ ": the receiver still waits for an attempt")
+    case Some{u}:
+      IO.print("ok " ++ label ++ ": every scripted attempt arrived, and no more")
+
+# A missing attempt times out here, and an extra one finds no listener.
+def served(+label: String, ch: Chan(Unit)) -> IO(Unit):
+  do IO<Unit>:
+    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
+    served.of(label, m)
+
+def status(r: Result<&1, &1, W.SendErr, Http.Res>) -> String:
+  match r:
+    case Fail{W.SendSign{e}}:
+      "SendSign " ++ name(e)
+    case Fail{W.SendNet{Hairpin.ErrHttp{e}}}:
+      "SendNet ErrHttp"
+    case Fail{W.SendNet{Hairpin.ErrDenied{why}}}:
+      "SendNet ErrDenied"
+    case Done{res}:
+      Http.Res{+s, h, b} = res
+      U32.show(s)
+
+def sent(+label: String, +want: String, x: Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res>) -> IO(Hairpin.Client):
+  (c, r) = x
+  do IO<Hairpin.Client>:
+    same(label, want, status(r))
+    return c
+
+def sent.in(+label: String, +want: String, x: Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res>) ->
+    IO(Hairpin.Client & Retry.Budget):
+  (c, b, r) = x
+  do IO<Hairpin.Client & Retry.Budget>:
+    same(label, want, status(r))
+    return (c, b)
+
+def url() -> String:
+  "http://127.0.0.1:47852/webhook"
+
+def body() -> Bytes.Bytes:
+  Bytes.from_string("{\"test\": 2432232314}")
+
+def again(x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res>):
+  (c, b) = x
+  W.send.in(c, b, url(), "msg_local_1", secret(), body())
+
+def drop(x: Hairpin.Client & Retry.Budget) -> Hairpin.Client:
+  (c, b) = x
+  c
+
+# A 501 retried to a 200. Then a caller's own retry layer delivers twice on one budget of 3, with retry 2:
+# the first delivery takes all 3 attempts, and the second is denied. Without the shared budget it would be 6.
+def deliveries() -> IO(Unit):
+  do IO<Unit>:
+    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47852))
+    ch : Chan(Unit) <- IO.fork(Unit, serve([False{}, True{}, False{}, False{}, False{}], l))
+    r1 : Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res> <- W.send(Hairpin.new(), url(), "msg_local_1", secret(), body())
+    c1 : Hairpin.Client <- sent("send: a 501 retried to a verified 200", "200", r1)
+    r2 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res> <-
+      W.send.in(Hairpin.retry(c1, 2), Retry.Budget.new(3n, 0n, None{}), url(), "msg_local_1", secret(), body())
+    x2 : Hairpin.Client & Retry.Budget <- sent.in("send.in: the first delivery takes the 3 attempts", "501", r2)
+    r3 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res> <- again(x2)
+    x3 : Hairpin.Client & Retry.Budget <- sent.in("send.in: the second delivery is denied, the budget is spent", "SendNet ErrDenied", r3)
+    Hairpin.close(drop(x3))
+    served("deliveries: 2 + 3 attempts", ch)
+
 def main() -> IO(Unit):
   +done = "Done " ++ std.id()
   do IO<Unit>:
@@ -212,3 +337,4 @@ def main() -> IO(Unit):
     expect.u("github without sha256=", "NoMatch", h4)
     h5 : Bytes.Bytes & Result<&1, &1, W.Err, Unit> <- W.github.verify(["It's a Secret to Everybody"], hs(), Bytes.from_string("Hello, World!"))
     expect.u("github missing header", "Missing x-hub-signature-256", h5)
+    deliveries()
