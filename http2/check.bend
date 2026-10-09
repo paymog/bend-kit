@@ -45,7 +45,7 @@ def client.fixture.result(r: H.Reply) -> IO(Unit):
   match r:
     case H.Failed{H.Error{code, connection, stream}}:
       IO.die(Unit, 1, "response failed: " ++ U32.show(code))
-    case H.Ready{H.Client{input, streams, encoder, decoder,
+    case H.Advanced{H.Client{input, streams, encoder, decoder,
         H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}},
         Con{ack_packet, Nil{}},
@@ -60,7 +60,7 @@ def client.fixture.request(r: H.Reply, frames: Bytes.Bytes) -> IO(Unit):
   match r:
     case H.Failed{H.Error{code, connection, stream}}:
       IO.die(Unit, 1, "request failed: " ++ U32.show(code))
-    case H.Ready{client, Con{request, Nil{}}, Nil{}}:
+    case H.Advanced{client, Con{request, Nil{}}, Nil{}}:
       client.fixture.result(H.client.receive(client, frames))
     case _:
       IO.die(Unit, 1, "request did not emit one HEADERS frame")
