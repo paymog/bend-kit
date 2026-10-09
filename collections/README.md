@@ -24,4 +24,4 @@ Keys and values are `Data`. A comparator or hash is a template, so you can pass 
 
 `heap.bend` is a binary heap. `push` and `pop` take `~le` and are amortized O(log n) when the heap is used once. `peek` and `size` are O(1).
 
-`nat_order.bend` is lemmas for the ordered-map proofs, not a collection.
+`nat_order.bend` is lemmas for the ordered-map proofs, not a collection. It and `PROOF.bend` take generic Nat and Bool lemmas from `bend-mathlib@0.7.2.0`. The published files do not import it.
