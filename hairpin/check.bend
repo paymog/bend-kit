@@ -276,6 +276,26 @@ def nested() -> IO(Unit):
     Hairpin.close(nested.c(x3))
     served("nested: 4 attempts on a budget of 4", ch)
 
+# Any status but 200 may clear, after Retry-After: 0.
+def judge.all(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
+  match r:
+    case Fail{e}:
+      (Fail{e}, Some{"0"})
+    case Done{res}:
+      Http.Res{+s, h, b} = res
+      (Done{Http.Res{s, h, b}}, Bool.pick(Maybe<&2, String>, U32.is_eq(s, 200), None{}, Some{"0"}))
+
+# A caller's judge retries a 404, and a POST it calls idempotent repeats: 3 attempts.
+def judged() -> IO(Unit):
+  do IO<Unit>:
+    ch : Chan(Unit) <- server(47835, [missing(), missing(), fine()])
+    b0 : Retry.Budget = Retry.Budget.new(3n, 0n, None{})
+    r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <-
+      Hairpin.request.as(~judge.all, Hairpin.retry(at(47835), 2), b0, True{}, "identity", "POST", "x", Http.empty(), Bytes.from_string("{}"))
+    x1 : Hairpin.Client & Retry.Budget <- got.in("request.as: the caller's judge retries an idempotent POST", 200, "fine", r1)
+    Hairpin.close(nested.c(x1))
+    served("judged: 3 attempts", ch)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     basics()
@@ -283,3 +303,4 @@ def main() -> IO(Unit):
     deadlines()
     breaker()
     nested()
+    judged()

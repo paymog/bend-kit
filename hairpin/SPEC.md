@@ -30,4 +30,4 @@ Fixtures cover the failure window (`window_trips`, `window_expires`, `window_suc
 - An attempt is admitted when it starts. A deadline does not cancel an attempt in flight. Its connect, write, and read steps each time out after `Hairpin.timeout`.
 - The monotonic clock (`Time.mono.raw`), the random jitter (`IO.random_u32`), the sleep, and the sockets are host code. Bend cannot prove host code.
 - `Retry.Budget` is a plain value. A layer that builds a new budget instead of passing on the one it got resets the count. The proofs hold for layers that pass the budget on.
-- A retry is safe only when the server can handle the same request twice. Hairpin retries only the methods that RFC 9110 calls idempotent. The proofs do not make an unsafe operation safe to repeat.
+- A retry is safe only when the server can handle the same request twice. `request` and `request.in` retry only the methods that RFC 9110 calls idempotent. With `request.as`, the caller's `idem` and `judge` decide, and Hairpin trusts them. The proofs do not make an unsafe operation safe to repeat.

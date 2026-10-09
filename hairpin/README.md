@@ -3,8 +3,8 @@
 Hairpin is an HTTP client for Bend 2, built on `bend-kit-http`. One `Client` holds a base URL, default headers, a socket pool, a cookie jar, a client certificate, a redirect mode, a step timeout, a retry policy, and a circuit breaker. Each request uses all of them. The model is undici's `Agent` with ky's instance options.
 
 ```bend
-import bend-kit-hairpin@0.2.0.0/hairpin.bend as Hairpin
-import bend-kit-hairpin@0.2.0.0/retry.bend as Retry
+import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/retry.bend as Retry
 import bend-kit-http@0.23.0.1/http.bend as Http
 ```
 
@@ -56,6 +56,7 @@ The result is `Result<&1, &1, Hairpin.Err, Http.Res>`. `ErrHttp{e}` is the `Http
 - `Hairpin.get(c, url)` is a GET with no headers and no body.
 - `Hairpin.post.json(c, url, v)` POSTs a `Json.Val` as compact JSON, with `content-type: application/json`.
 - `Hairpin.request.in(c, budget, method, url, headers, body)` makes one request inside a caller's retry layer. See [Nested retries](#nested-retries).
+- `Hairpin.request.as(~judge, c, budget, idem, enc, method, url, headers, body)` is `request.in` with every choice explicit. See [Your own retry rules](#your-own-retry-rules).
 
 Everything else is `Http.fetch`: IPv6, DNS order, proxies from `http_proxy`, `https_proxy`, and `no_proxy`, HTTP/2 over ALPN, and body decoding of `gzip`, `deflate`, `br`, and `zstd`. See [../http/README.md](../http/README.md).
 
@@ -91,6 +92,16 @@ def start(c: Hairpin.Client) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1
 
 Every attempt of every call takes from the one budget and obeys its deadline. The client's `retry` setting still caps the attempts of each call; the client's `deadline` does not apply, because the budget carries its own. `Retry.Budget` is a plain value, so a layer can build a fresh one. Do not: a layer that builds its own budget resets the count.
 
+## Your own retry rules
+
+`request.in` retries only what `Http.retry.judge` calls transient, and only for an idempotent method. An API with other rules, such as Anthropic's 529 or a POST that the server deduplicates, uses `request.as`:
+
+- `~judge` takes the result of one attempt. It returns the result and `Some{Retry-After}` when another attempt may help (`Some{""}` for no header), or `None{}`. `Hairpin.judge` is the default.
+- `idem` says that the request is safe to repeat. When it is `False{}`, a judged failure counts against the breaker but never repeats.
+- `enc` is the `Accept-Encoding` value. `Http.codings()` gives every coding that Http decodes. `"identity"` leaves the body as the server sent it.
+
+The budget, the deadline, the backoff, and the breaker apply as for `request.in`.
+
 ## Circuit breaker
 
 `Retry.Circuit{threshold, window, cooldown, probes}` sets the breaker:
@@ -107,4 +118,4 @@ A `Client` has one breaker for all origins. Requests on one client are sequentia
 
 ## Checks
 
-`check.bend` runs a local server that accepts exactly one connection per scripted response and then stops listening, so each scenario counts its attempts: a missing attempt times out, and an extra one finds no listener. It checks a redirect that sets a cookie, a 503 retried to a 200, a POST 503 tried once, a 302 in manual mode, 3 attempts for `retry 2`, one attempt for a 404, a deadline that stops after 2 of 6 attempts and one that denies the first, a breaker that opens after 2 failures, denies, and closes after one probe, and three nested calls that share a budget of 4: 3 attempts, then 1, then none.
+`check.bend` runs a local server that accepts exactly one connection per scripted response and then stops listening, so each scenario counts its attempts: a missing attempt times out, and an extra one finds no listener. It checks a redirect that sets a cookie, a 503 retried to a 200, a POST 503 tried once, a 302 in manual mode, 3 attempts for `retry 2`, one attempt for a 404, a deadline that stops after 2 of 6 attempts and one that denies the first, a breaker that opens after 2 failures, denies, and closes after one probe, three nested calls that share a budget of 4: 3 attempts, then 1, then none, and a `request.as` judge that retries an idempotent POST through two 404s.
