@@ -57,6 +57,7 @@ The result is `Result<&1, &1, Hairpin.Err, Http.Res>`. `ErrHttp{e}` is the `Http
 - `Hairpin.post.json(c, url, v)` POSTs a `Json.Val` as compact JSON, with `content-type: application/json`.
 - `Hairpin.request.in(c, budget, method, url, headers, body)` makes one request inside a caller's retry layer. See [Nested retries](#nested-retries).
 - `Hairpin.request.as(~judge, c, budget, idem, enc, method, url, headers, body)` is `request.in` with every choice explicit. See [Your own retry rules](#your-own-retry-rules).
+- `Hairpin.budget(c)` gives the budget that one plain `request` gets: the client's `retry` + 1 attempts and its `deadline` from now.
 
 Everything else is `Http.fetch`: IPv6, DNS order, proxies from `http_proxy`, `https_proxy`, and `no_proxy`, HTTP/2 over ALPN, and body decoding of `gzip`, `deflate`, `br`, and `zstd`. See [../http/README.md](../http/README.md).
 

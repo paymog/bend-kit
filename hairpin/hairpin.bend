@@ -338,6 +338,14 @@ def attempts(p: Retry.Policy) -> Nat:
   Retry.Policy{a, base, cap, d} = p
   a
 
+# The budget of one plain request: the policy's attempts, and its deadline from now. The clock is read only for a deadline.
+def budget(c: Client) -> IO(Client & Retry.Budget):
+  Client{+o, pool, jar, br} = c
+  Opts{base, h, ms, mode, Retry.Policy{+a, bs, cap, +d}, cert} = o
+  do IO<Client & Retry.Budget>:
+    now : Nat <- clock(some(d))
+    return (Client{o, pool, jar, br}, Retry.Budget.new(a, now, d))
+
 # One request inside a caller's retry layer, with every choice explicit. Every attempt takes from b, the
 # caller's shared budget, and obeys its deadline; the client's own policy caps the attempts of this call.
 # The budget left comes back beside the result: pass it to the next call, so nested layers never reset or
@@ -366,18 +374,21 @@ def request.drop(x: Client & Retry.Budget & Result<&1, &1, Err, Http.Res>) -> Cl
   (c, b, r) = x
   (c, r)
 
+def request.budget(+method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes,
+    x: Client & Retry.Budget) -> IO(Client & Retry.Budget & Result<&1, &1, Err, Http.Res>):
+  (c, b) = x
+  request.in(c, b, method, url, headers, body)
+
 # url resolves against the base; headers go over the defaults. Redirects follow the client's mode, at most 20.
-# Each request gets a budget of the policy's attempts and deadline. Before each attempt the deadline, the
+# Each request gets a fresh budget from budget(c). Before each attempt the deadline, the
 # budget, and the breaker must admit it. GET, HEAD, OPTIONS, TRACE, PUT, and DELETE try again after a connect
 # error, a timeout, or 408, 429, 500, 502, 503, or 504, as Http.retry.judge says, on the same pool.
 # When the attempts run out, the last result comes back; when none started, ErrDenied says why.
 def request(c: Client, +method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
     IO(Client & Result<&1, &1, Err, Http.Res>):
-  Client{+o, pool, jar, br} = c
-  Opts{base, h, ms, mode, Retry.Policy{+a, bs, cap, +d}, cert} = o
   do IO<Client & Result<&1, &1, Err, Http.Res>>:
-    now : Nat <- clock(some(d))
-    x : Client & Retry.Budget & Result<&1, &1, Err, Http.Res> <- request.in(Client{o, pool, jar, br}, Retry.Budget.new(a, now, d), method, url, headers, body)
+    y : Client & Retry.Budget <- budget(c)
+    x : Client & Retry.Budget & Result<&1, &1, Err, Http.Res> <- request.budget(method, url, headers, body, y)
     return request.drop(x)
 
 def get(c: Client, url: String) -> IO(Client & Result<&1, &1, Err, Http.Res>):
