@@ -1,6 +1,6 @@
 # Reproducible property checks with generated inputs and greedy shrinking.
 import Base
-import bend-kit-random@0.1.0.0/random.bend as Rand
+import bend-kit-random@0.1.0.1/random.bend as Rand
 import ./generate.bend as Gen
 import ./shrink.bend as Shrink
 

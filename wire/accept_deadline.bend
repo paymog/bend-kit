@@ -1,7 +1,7 @@
 # Live affine acceptance: external peers exercise the returned listener.
 import Base
 import ./wire.bend as Wire
-import bend-kit-time@0.1.2.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 
 def report(result: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   (listener, outcome) = result

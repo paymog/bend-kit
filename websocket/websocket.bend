@@ -1,8 +1,8 @@
 # RFC 6455 WebSocket client: opening handshake, frames over packed Bytes, and messages over Wire. Source: https://github.com/paymog/bend-kit/tree/main/websocket
 import Base
 import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
-import bend-kit-crypto@0.1.0.0/crypto.bend as Crypto
-import bend-kit-wire@0.4.2.0/wire.bend as Wire
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
+import bend-kit-wire@0.4.6.1/wire.bend as Wire
 
 # Errors are (code, why). A code of 1000 or more is the RFC 6455 §7.4 close code the
 # peer broke (1002 protocol, 1006 closed early, 1007 bad UTF-8, 1009 too big, 1011 budget);

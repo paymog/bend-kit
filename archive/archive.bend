@@ -2,7 +2,7 @@
 import Base
 import ../bytes/bytes.bend as Bytes
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as HubBytes
-import bend-kit-zlib@0.1.6.0/zlib.bend as Zlib
+import bend-kit-zlib@0.2.0.1/zlib.bend as Zlib
 import bend-kit-hash@0.1.0.0/hash.bend as Hash
 
 # One member: its name and contents as raw bytes, its method (0 stored, 8 DEFLATE), and its CRC-32.
