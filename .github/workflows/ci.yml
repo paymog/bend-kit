@@ -51,6 +51,17 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           scripts/check.sh ${{ matrix.package }}
+      - name: Install Bun for process smoke
+        if: matrix.package == 'process'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Check process JS backend
+        if: matrix.package == 'process'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          bend process/check.bend -o "$RUNNER_TEMP/bend-kit-process-check.js"
+          bun "$RUNNER_TEMP/bend-kit-process-check.js"
       - name: Compare ${{ matrix.package }} with the hub
         if: github.event_name == 'pull_request'
         run: scripts/publish.sh --check ${{ matrix.package }}

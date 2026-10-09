@@ -98,6 +98,7 @@ extern char** environ;
 
 typedef struct {
   char*  cmd;
+  char*  cwd;
   char** argv;
   char** envp;
   char*  in;
@@ -478,6 +479,7 @@ static int process_pipe_spawn(ProcessJob* j) {
     errno = rc;
     return -1;
   }
+  rc = posix_spawn_file_actions_addchdir_np(&actions, j->cwd);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, in[0], STDIN_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, out[1], STDOUT_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, err[1], STDERR_FILENO);
@@ -593,6 +595,7 @@ static Term process_run_raw_pack(Env e, IoWork* w) {
   free(j->out);
   free(j->err);
   free(j->in);
+  free(j->cwd);
   process_env_free(j->envp);
   process_argv_free(j->argv, j->cmd);
   free(j);
@@ -606,12 +609,15 @@ Term run_raw_run(Env e, Term* f, IoWork* w) {
   bool        bad     = false;
   char**      argv    = process_argv_build(e, cmd, f[1], &bad);
   char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
+  u64         cwd_len = 0;
+  char*       cwd     = io_cstr(e, f[3], &cwd_len);
   u64         in_len  = 0;
   bool        in_bad  = false;
-  char*       in      = process_octets(e, f[3], &in_len, &in_bad);
-  bad                 = bad || in_bad;
+  char*       in      = process_octets(e, f[4], &in_len, &in_bad);
+  bad                 = bad || in_bad || io_nul(cwd, cwd_len);
   ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
   j->cmd              = cmd;
+  j->cwd              = cwd;
   j->argv             = argv;
   j->envp             = envp;
   j->in               = in;
@@ -654,6 +660,7 @@ static Term process_spawn_pack(Env e, IoWork* w) {
       io_tup(e, io_hand(j->out_rd), io_hand(j->err_rd)));
     r = io_done(e, io_tup(e, (Term)(u32)j->pid, files));
   }
+  free(j->cwd);
   process_env_free(j->envp);
   process_argv_free(j->argv, j->cmd);
   free(j);
@@ -667,8 +674,12 @@ Term spawn_run(Env e, Term* f, IoWork* w) {
   bool        bad     = false;
   char**      argv    = process_argv_build(e, cmd, f[1], &bad);
   char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
+  u64         cwd_len = 0;
+  char*       cwd     = io_cstr(e, f[3], &cwd_len);
+  bad                 = bad || io_nul(cwd, cwd_len);
   ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
   j->cmd              = cmd;
+  j->cwd              = cwd;
   j->argv             = argv;
   j->envp             = envp;
   j->in_wr            = -1;

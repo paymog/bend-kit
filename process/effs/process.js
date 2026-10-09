@@ -141,7 +141,7 @@ function process_track(proc) {
   process_procs.set(proc.pid, proc);
 }
 
-function process_spawn_pipes(argv, environment) {
+function process_spawn_pipes(argv, environment, cwd) {
   const sys = io_sys();
   const si = process_pipe_pair();
   const so = process_pipe_pair();
@@ -169,6 +169,7 @@ function process_spawn_pipes(argv, environment) {
     proc = Bun.spawn({
       cmd: argv,
       env: environment,
+      cwd,
       stdio: [stdin_r, stdout_w, stderr_w],
     });
   } catch (e) {
@@ -191,9 +192,9 @@ function process_spawn_pipes(argv, environment) {
   };
 }
 
-function run_raw(cmd, args, env, stdin, k) {
+function run_raw(cmd, args, env, cwd, stdin, k) {
   const argv = process_argv(cmd, args);
-  if (argv === null) {
+  if (argv === null || process_has_nul(cwd)) {
     return io_fail(process_einval());
   }
   const environment = process_env(env);
@@ -208,6 +209,7 @@ function run_raw(cmd, args, env, stdin, k) {
     const r = Bun.spawnSync({
       cmd: argv,
       env: environment,
+      cwd,
       stdin: inb,
       stdout: "pipe",
       stderr: "pipe",
@@ -224,16 +226,16 @@ function run_raw(cmd, args, env, stdin, k) {
   }
 }
 
-function spawn(cmd, args, env) {
+function spawn(cmd, args, env, cwd) {
   const argv = process_argv(cmd, args);
-  if (argv === null) {
+  if (argv === null || process_has_nul(cwd)) {
     return io_fail(process_einval());
   }
   const environment = process_env(env);
   if (environment === null) {
     return io_fail(process_einval());
   }
-  const spawned = process_spawn_pipes(argv, environment);
+  const spawned = process_spawn_pipes(argv, environment, cwd);
   if (spawned.$ === "Fail") {
     return spawned;
   }
