@@ -1,7 +1,7 @@
 # multipart/form-data (RFC 7578): an encoder with a secure random boundary and a streaming decoder over Bytes. Source: https://github.com/paymog/bend-kit/tree/main/multipart
 import Base
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
-import bend-kit-crypto@0.1.0.0/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 
 # Names, filenames, and header values are byte strings, one Char per octet, as in Http.
 # Bodies are Bytes and pass through untouched, so binary payloads keep every octet.

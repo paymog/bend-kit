@@ -118,7 +118,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`http2`](http2) | `bend-kit-http2@0.2.0.0/http2.bend` | RFC 9113 frames and an HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.2.1.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`websocket`](websocket) | `bend-kit-websocket@0.2.0.1/websocket.bend` | RFC 6455 client handshake and frames. |
-| [`multipart`](multipart) | `bend-kit-multipart@0.1.1.0/multipart.bend` | RFC 7578 form-data encode and decode. |
+| [`multipart`](multipart) | `bend-kit-multipart@0.1.1.1/multipart.bend` | RFC 7578 form-data encode and decode. |
 
 ### Identity
 
