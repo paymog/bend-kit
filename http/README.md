@@ -7,7 +7,7 @@ import bend-kit-http@0.32.0.0/http.bend as Http
 import bend-kit-http@0.32.0.0/completion.bend as Completion
 ```
 
-`Http.Body` is `Bytes` from `0x49814d83de8f70993a43e1002be29ecd/bytes.bend`, which the entry file names as bytes `0.3.0.0`. It is not `bend-kit-bytes@0.3.2.0`. JSON values passed to `post.json` come from `0x584fc27920487ceab242392391418d7f/json.bend` (json `0.5.0.1`), not `bend-kit-json@0.5.1.0`. DNS lookup uses `bend-kit-dns@0.5.0.0`. TLS uses `bend-kit-wire@0.4.6.0`.
+`Http.Body` is `Bytes` from `0x49814d83de8f70993a43e1002be29ecd/bytes.bend`, which the entry file names as bytes `0.3.0.0`. It is not `bend-kit-bytes@0.3.2.0`. JSON values passed to `post.json` come from `0x584fc27920487ceab242392391418d7f/json.bend` (json `0.5.0.1`), not `bend-kit-json@0.5.1.0`. DNS lookup uses `bend-kit-dns@0.6.0.2`. TLS uses `bend-kit-wire@0.4.6.1`.
 
 `hairpin` and the packages on it import `bend-kit-http@0.23.0.1`. That `Http.Res` is a different type.
 

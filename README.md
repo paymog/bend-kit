@@ -36,14 +36,13 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.32.0.0` imports `bend-kit-wire@0.4.6.0`, `bend-kit-http2@0.2.0.0`, `bend-kit-dns@0.5.0.0`, `bend-kit-time@0.1.0.0`, `bend-kit-int@0.2.0.0`, `bend-kit-concurrency@0.2.0.0`, and `bend-kit-resources@0.1.0.0`. Its entry file also names these hashes as url `0.4.1.0`, encoding `0.3.0.0`, json `0.5.0.1`, bytes `0.3.0.0`, and zlib `0.2.0.0`:
+`http@0.32.0.0` imports `bend-kit-wire@0.4.6.1`, `bend-kit-http2@0.2.0.0`, `bend-kit-dns@0.6.0.2`, `bend-kit-time@0.1.2.1`, `bend-kit-int@0.2.0.0`, `bend-kit-concurrency@0.2.0.0`, `bend-kit-resources@0.1.0.0`, and `bend-kit-zlib@0.2.0.1`. Its entry file also names these hashes as url `0.4.1.0`, encoding `0.3.0.0`, json `0.5.0.1`, and bytes `0.3.0.0`:
 
 ```
 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend
 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend
 0x584fc27920487ceab242392391418d7f/json.bend
 0x49814d83de8f70993a43e1002be29ecd/bytes.bend
-0xaca98ab7f724003ea421c18792cafe52/zlib.bend
 ```
 
 `Http.Body` is that bytes hash, not `bend-kit-bytes@0.3.2.0`. `bend-kit-json@0.5.1.0` is a later publish than the json hash above.
