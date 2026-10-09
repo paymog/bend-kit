@@ -3,7 +3,7 @@
 `multipart/form-data` as RFC 7578. The encoder draws a boundary. The decoder walks `Bytes`.
 
 ```bend
-import bend-kit-multipart@0.1.0.0/multipart.bend as Mp
+import bend-kit-multipart@0.1.1.0/multipart.bend as Mp
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 ```
 

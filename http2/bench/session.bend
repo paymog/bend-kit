@@ -10,7 +10,7 @@ def step(r: H.Reply, k: H.Client -> U32 -> Maybe<&2, U32>) -> Maybe<&2, U32>:
   match r:
     case H.Failed{error}:
       None{}
-    case H.Ready{c, Nil{}, Con{H.Pong{data}, Nil{}}}:
+    case H.Advanced{c, Nil{}, Con{H.Pong{data}, Nil{}}}:
       k(c, payload.sum(data))
     case _:
       None{}
@@ -34,7 +34,7 @@ def started(r: H.Reply) -> IO(Unit):
   match r:
     case H.Failed{error}:
       IO.die(Unit, 1, "server SETTINGS failed")
-    case H.Ready{c, Con{ack, Nil{}}, Nil{}}:
+    case H.Advanced{c, Con{ack, Nil{}}, Nil{}}:
       result(run(10000n, c, 0))
     case _:
       IO.die(Unit, 1, "server SETTINGS was not acknowledged")

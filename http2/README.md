@@ -1,12 +1,12 @@
 # HTTP/2 client, frame codec, and HPACK
 
 ```bend
-import bend-kit-http2@0.1.2.0/http2.bend as H2
-import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
+import bend-kit-http2@0.2.0.0/http2.bend as H2
+import bend-kit-http2@0.2.0.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 ```
 
-`http@0.30.0.0` imports this `http2` version. `hpack.bend` is a separate file in the same package.
+`http@0.32.0.0` imports this `http2` version. `hpack.bend` is a separate file in the same package.
 
 
 `http2.bend` encodes and parses the nine-octet frame header and all ten frame types in RFC 9113 §6. A `Frame` carries the type, flags, stream ID, and packed payload bytes. The payload retains padding and fixed fields in wire order so callers can decode HPACK and other frame-specific content without converting it to a `String`.
@@ -21,7 +21,7 @@ Call `Hpack.set_limit(max, state)` when the peer changes its table-size limit fo
 
 ## Client connection
 
-`client.start()` returns a `Client` and the client preface plus a SETTINGS frame that disables server push. Send those bytes first. `client.request(client, fields, body)` allocates an odd stream ID and returns `Ready{client, writes, events}` or `Failed{error}`. Supply the HTTP/2 pseudo-headers (`:method`, `:scheme`, `:authority`, `:path`) as HPACK fields. Send `writes` in order and keep the returned `client` for the next call.
+`client.start()` returns a `Client` and the client preface plus a SETTINGS frame that disables server push. Send those bytes first. `client.request(client, fields, body)` allocates an odd stream ID and returns `Advanced{client, writes, events}` or `Failed{error}`. Supply the HTTP/2 pseudo-headers (`:method`, `:scheme`, `:authority`, `:path`) as HPACK fields. Send `writes` in order and keep the returned `client` for the next call.
 
 Pass each received packed byte chunk to `client.receive(client, chunk)`. It buffers incomplete frames and returns SETTINGS ACKs, PING replies, WINDOW_UPDATE credit, and resumed DATA in `writes`. A `Response{id, headers, body}` event completes a response; interim 1xx responses arrive as separate events. `Reset`, `Shutdown`, and `Pong` report RST_STREAM, GOAWAY, and PING ACK. `client.ping.request(client, payload)` sends an eight-octet PING. Sending DATA pauses when either flow-control window is empty and resumes when the peer raises that window. GOAWAY prevents new requests but permits earlier streams to finish.
 
