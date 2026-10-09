@@ -1,8 +1,10 @@
 import Base
 import ./webhooks.bend as W
-import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
-import bend-kit-hairpin@0.2.1.0/retry.bend as Retry
-import bend-kit-http@0.23.0.1/http.bend as Http
+import ../hairpin/hairpin.bend as Hairpin
+import ../hairpin/retry.bend as Retry
+import ../http/http.bend as Http
+import ../http/admission.bend as Admission
+import ../http/completion.bend as Completion
 import bend-kit-time@0.1.0.0/time.bend as Time
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
@@ -179,23 +181,35 @@ def s.busy(req: Http.Req) -> IO(Http.Res):
 def s.accepted(req: Http.Req) -> IO(Http.Res):
   handle(200, req)
 
-def serve.one(k: Bool, a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
+def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    res : Http.Res <- op
+    return Http.Reply{res, Completion.Unobserved{}}
+
+def serve.one(k: Bool, +inbox: Chan(Admission.Command), a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   match k:
     case True{}:
-      Http.conn(~s.accepted, 1048576n, a)
+      Http.conn(~(req => wrap(s.accepted(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case False{}:
-      Http.conn(~s.busy, 1048576n, a)
+      Http.conn(~(req => wrap(s.busy(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
 
-# Accept exactly one connection per script entry, then stop listening. True: 200, False: 501.
-def serve(ks: List<&2, Bool>, l: Listener) -> IO(Unit):
+def serve.go(ks: List<&2, Bool>, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
   match ks:
     case Nil{}:
-      Listener.close(l)
+      do IO<Unit>:
+        Listener.close(l)
+        Admission.close(inbox)
     case Con{k, rest}:
       do IO<Unit>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        l2 : Listener <- serve.one(k, a)
-        serve(rest, l2)
+        l2 : Listener <- serve.one(k, inbox, a)
+        serve.go(rest, inbox, l2)
+
+# Accept exactly one connection per script entry, then stop listening. True: 200, False: 501.
+def serve(ks: List<&2, Bool>, l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
+    serve.go(ks, inbox, l)
 
 def served.of(+label: String, m: Maybe<&1, Unit>) -> IO(Unit):
   match m:

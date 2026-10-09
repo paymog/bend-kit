@@ -2,13 +2,13 @@
 
 Standard Webhooks signing and delivery, with verify-only support for Stripe and GitHub. The raw body must be verified **before** parsing JSON. Keep endpoint secrets out of source control, use a separate secret per endpoint, and retain seen event IDs in caller-owned storage to deduplicate retries. Only the symmetric HMAC `v1` format is supported; asymmetric `v1a` is not.
 
-`webhooks.bend` imports `bend-kit-http@0.23.0.1` and `bend-kit-hairpin@0.2.1.0`. It imports `bend-kit-crypto@0.2.0.0`, not `0.2.2.0`. HMAC uses that crypto package, so OpenSSL 3 must load (`BEND_LIBCRYPTO`).
+`webhooks.bend` imports `bend-kit-http@0.32.0.0` and `bend-kit-hairpin@0.3.0.0`. It imports `bend-kit-crypto@0.2.0.0`, not `0.2.2.0`. HMAC uses that crypto package, so OpenSSL 3 must load (`BEND_LIBCRYPTO`).
 
 
 ```bend
-import bend-kit-webhooks@0.2.0.0/webhooks.bend as Webhooks
-import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
-import bend-kit-hairpin@0.2.1.0/retry.bend as Retry
+import bend-kit-webhooks@0.3.0.0/webhooks.bend as Webhooks
+import bend-kit-hairpin@0.3.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.3.0.0/retry.bend as Retry
 
 # send POSTs through Hairpin with three extra attempts on a timeout, a refused connect, 408, 429, or 5xx,
 # and returns (updated client, result). send.with(n, ...) sets the extra attempts.

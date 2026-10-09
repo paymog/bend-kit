@@ -1,7 +1,7 @@
 import Base
 import ./hairpin.bend as Hairpin
 import ./retry.bend as Retry
-import bend-kit-http@0.23.0.1/http.bend as Http
+import ../http/http.bend as Http
 import bend-mathlib@0.7.2.0/nat.bend as MNat
 import bend-kit-time@0.1.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int

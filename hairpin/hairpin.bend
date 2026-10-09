@@ -1,6 +1,6 @@
 # Hairpin: an HTTP client with a base URL, default headers, a pool, cookies, mTLS, redirects, and proven retries. Source: https://github.com/paymog/bend-kit/tree/main/hairpin
 import Base
-import bend-kit-http@0.23.0.1/http.bend as Http
+import ../http/http.bend as Http
 import bend-kit-time@0.1.0.0/time.bend as Time
 # By hash, as http imports them: bend-kit-url@0.4.1.0, -json@0.5.0.1, -bytes@0.3.0.0.
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
@@ -145,7 +145,7 @@ def once(+ms: U32, +mode: Http.Mode, +cert: Maybe<&2, Http.Cert>, +enc: String, 
   do IO<Http.Pool & Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Res>>:
     now : Maybe<&2, Http.Jar> <- jar.now(j)
     x : Http.Pool & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, Http.Jar> <-
-      Http.pool.hops(mode, ms, Http.Hops{p, Http.fetch.start(method, headers, body, u, enc), cert, now})
+      Http.pool.hops(mode, ms, Http.Hops{p, Http.fetch.start(method, headers, body, u, enc), cert, now, ""})
     once.final(enc, x)
 
 def hint.ms(m: Maybe<&2, U32>) -> Maybe<&2, Nat>:

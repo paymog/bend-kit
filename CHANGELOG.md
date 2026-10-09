@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hairpin` 0.3.0.0: imports `bend-kit-http@0.32.0.0` instead of `0.23.0.1`, so it checks on Bend 2.0.36. Breaking: `Http` types come from 0.32.0.0.
+- `llm`, `webhooks`, `sigv4`, `jwt`, and `oauth2` 0.3.0.0: import `hairpin` 0.3.0.0 and `bend-kit-http@0.32.0.0`, so they check on Bend 2.0.36. Breaking: `Http` types come from 0.32.0.0. The local test servers in `check.bend` use the current `Http.conn`.
 - `dns` 0.6.0.2, `archive` 0.2.0.1, `notch` 0.1.0.1, `stream` 0.1.0.1, and `websocket` 0.2.0.1: import the effect packages fixed for Bend 2.0.36 (`wire` 0.4.6.1, `zlib` 0.2.0.1, `time` 0.1.2.1, `files` 0.1.1.1, `crypto` 0.2.2.1), so native builds compile.
 - `property` 0.2.0.0: imports `random` 0.1.0.1, so native builds compile. Breaking: `Rand.Rng` comes from that version.
 - `llm` 0.2.0.0: `send` retries through `Hairpin.request.as` with llm's own judge (408, 409, 429, 5xx), on one budget per call, instead of its own loop. Breaking: `ErrNet` holds a `Hairpin.Err`.

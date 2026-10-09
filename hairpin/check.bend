@@ -1,7 +1,9 @@
 import Base
 import ./hairpin.bend as Hairpin
 import ./retry.bend as Retry
-import bend-kit-http@0.23.0.1/http.bend as Http
+import ../http/http.bend as Http
+import ../http/admission.bend as Admission
+import ../http/completion.bend as Completion
 import bend-kit-time@0.1.0.0/time.bend as Time
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
@@ -47,35 +49,47 @@ def s.fine(req: Http.Req) -> IO(Http.Res):
 def s.missing(req: Http.Req) -> IO(Http.Res):
   closing(404, Http.empty(), "missing")
 
-def serve.one(+k: U32, a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
+def reply(op: IO(Http.Res)) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    res : Http.Res <- op
+    return Http.Reply{res, Completion.Unobserved{}}
+
+def serve.one(+k: U32, +inbox: Chan(Admission.Command), a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   match k:
     case 0:
-      Http.conn(~s.login, 1048576n, a)
+      Http.conn(~(req => reply(s.login(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case 1:
-      Http.conn(~s.echo, 1048576n, a)
+      Http.conn(~(req => reply(s.echo(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case 2:
-      Http.conn(~s.busy, 1048576n, a)
+      Http.conn(~(req => reply(s.busy(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case 3:
-      Http.conn(~s.again, 1048576n, a)
+      Http.conn(~(req => reply(s.again(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case 4:
-      Http.conn(~s.post, 1048576n, a)
+      Http.conn(~(req => reply(s.post(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case 5:
-      Http.conn(~s.slow, 1048576n, a)
+      Http.conn(~(req => reply(s.slow(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case 6:
-      Http.conn(~s.fine, 1048576n, a)
+      Http.conn(~(req => reply(s.fine(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     case _:
-      Http.conn(~s.missing, 1048576n, a)
+      Http.conn(~(req => reply(s.missing(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
 
 # Accept exactly one connection per script entry, then stop listening.
-def serve(ks: List<&2, U32>, l: Listener) -> IO(Unit):
+def serve.go(ks: List<&2, U32>, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
   match ks:
     case Nil{}:
-      Listener.close(l)
+      do IO<Unit>:
+        Listener.close(l)
+        Admission.close(inbox)
     case Con{+k, rest}:
       do IO<Unit>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        l2 : Listener <- serve.one(k, a)
-        serve(rest, l2)
+        l2 : Listener <- serve.one(k, inbox, a)
+        serve.go(rest, inbox, l2)
+
+def serve(ks: List<&2, U32>, l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
+    serve.go(ks, inbox, l)
 
 def login() -> U32:
   0
