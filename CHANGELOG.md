@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `multipart` 0.1.1.1: imports `crypto` 0.2.2.1, so native builds on Bend 2.0.36 compile.
 - CI runs Bend 2.0.36.
 - `multipart` 0.1.1.0: the decoder step `Wait` is now `Pause`, because Base 2.0.36 declares `Wait`.
 - `concurrency` 0.2.0.0: requires Bend 2.0.36, where `Chan.send` answers `Result<&1, &1, A, Unit>`. A relay keeps the unsent value in `RSent` instead of a `Bool`.

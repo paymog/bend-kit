@@ -3,11 +3,11 @@
 `multipart/form-data` as RFC 7578. The encoder draws a boundary. The decoder walks `Bytes`.
 
 ```bend
-import bend-kit-multipart@0.1.1.0/multipart.bend as Mp
+import bend-kit-multipart@0.1.1.1/multipart.bend as Mp
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 ```
 
-Those are the versions `multipart.bend` imports. It also imports `bend-kit-crypto@0.1.0.0` for the boundary, not `crypto@0.2.2.0`.
+Those are the versions `multipart.bend` imports. It also imports `bend-kit-crypto@0.2.2.1` for the boundary.
 
 `Part` is `Part{name, filename, ctype, body}`. `filename` and `ctype` are `Maybe`. `form` returns `IO` of the `Content-Type` value and the body. `encode` takes a boundary you already checked. `decode` and `decode.chunks` take that boundary and the body bytes.
 
