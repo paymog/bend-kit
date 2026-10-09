@@ -47,7 +47,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 `Http.Body` is that bytes hash, not `bend-kit-bytes@0.3.2.0`. `bend-kit-json@0.5.1.0` is a later publish than the json hash above.
 
-`hairpin@0.2.1.0`, and `oauth2`, `jwt`, `sigv4`, `llm`, and `webhooks`, import `bend-kit-http@0.23.0.1`. That `Http.Res` is not `bend-kit-http@0.32.0.0`. `camber@0.6.0.0` still imports `bend-kit-http@0.30.0.0`.
+`hairpin@0.2.1.0`, and `oauth2`, `jwt`, `sigv4`, `llm`, and `webhooks`, import `bend-kit-http@0.23.0.1`. That `Http.Res` is not `bend-kit-http@0.32.0.0`. `camber@0.7.0.0` imports `bend-kit-http@0.32.0.0`.
 
 ## Native libraries
 
@@ -160,7 +160,7 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`camber`](camber) | `bend-kit-camber@0.6.0.0/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
+| [`camber`](camber) | `bend-kit-camber@0.7.0.0/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
 
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). For CLI arguments, use [shake](https://github.com/Emerging-Patterns/shake).
 

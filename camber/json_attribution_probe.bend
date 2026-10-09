@@ -2,7 +2,7 @@
 import Base
 import ../json/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import ./prerequisites.bend as Probe
 
 def end_stage(label: String, started: Time.Duration) -> IO(Unit):
@@ -19,7 +19,7 @@ def erased(value: Maybe<&1, Json.Val>, started: Time.Duration) -> IO(Unit):
 
 def retained(value: Maybe<&1, Json.Val>, +output: Chan(Maybe<&1, Json.Val>), started: Time.Duration) -> IO(Unit):
   do IO<Unit>:
-    sent : Bool <- Chan.send(Maybe<&1, Json.Val>, output, value)
+    sent : Result<&1, &1, Maybe<&1, Json.Val>, Unit> <- Chan.send(Maybe<&1, Json.Val>, output, value)
     end_stage("PARSE", started)
     disposal : Time.Duration <- Time.mono()
     received : Maybe<&1, Json.Val> <- IO.join(Maybe<&1, Json.Val>, output)
@@ -47,7 +47,7 @@ def queued(result: File & Result<&1, &1, U32 & String, String>, bodies: Chan(Byt
   do IO<Unit>:
     File.close(file)
     text : String <- IO.pass(String, outcome)
-    sent : Bool <- Chan.send(Bytes.Bytes, bodies, Bytes.from_string(text))
+    sent : Result<&1, &1, Bytes.Bytes, Unit> <- Chan.send(Bytes.Bytes, bodies, Bytes.from_string(text))
     return Unit{}
 
 def packed() -> Bytes.Bytes:
@@ -60,7 +60,7 @@ def load_one(path: String, bodies: Chan(Bytes.Bytes)) -> IO(Unit):
   match path:
     case "packed":
       do IO<Unit>:
-        sent : Bool <- Chan.send(Bytes.Bytes, bodies, packed())
+        sent : Result<&1, &1, Bytes.Bytes, Unit> <- Chan.send(Bytes.Bytes, bodies, packed())
         return Unit{}
     case _:
       do IO<Unit>:

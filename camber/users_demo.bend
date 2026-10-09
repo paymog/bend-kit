@@ -1,9 +1,9 @@
 # Runnable loopback users demo plus a separate loopback owner-stop listener; no supervisor claim.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 
 def done(completion: T.Completion<C.ApplicationReport<String>>) -> IO(Unit):
   IO.pure(Unit, Unit{})
@@ -42,8 +42,8 @@ def control(context: Control, req: H.Req) -> IO(H.Reply):
 def running(controlled: H.Server<Control> & H.ServerControl, server: C.Server<U.Action, U.State, U.Config, String>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +self: Chan(H.ServerControl)) -> IO(Unit):
   (control_server, stop) = controlled
   do IO<Unit>:
-    sent : Bool <- Chan.send(H.ServerControl, self, stop)
-    U.require(sent, "owner control initialization failed")
+    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, self, stop)
+    U.require(Result.is_done(&1, &1, H.ServerControl, Unit, sent), "owner control initialization failed")
     future : Chan(C.ServerExit<U.Action, U.State, U.Config, String>) <- IO.fork(C.ServerExit<U.Action, U.State, U.Config, String>,
       C.server.run(~U.Action, ~U.State, ~U.Config, ~String, ~String, ~done, ~observed, ~U.notify, ~U.report, ~C.access.disabled(~U.Config), server))
     IO.print("READY users demo (loopback; demonstration bearer seven/eight)")

@@ -41,8 +41,8 @@ def receive(-A: Type, channel: Chan(A)) -> IO(A):
 
 def send(owner: Chan(Message), message: Message) -> IO(Unit):
   do IO<Unit>:
-    sent : Bool <- Chan.send(Message, owner, message)
-    Registry.require(sent, "owner channel rejected a message")
+    sent : Result<&1, &1, Message, Unit> <- Chan.send(Message, owner, message)
+    Registry.require(Result.is_done(&1, &1, Message, Unit, sent), "owner channel rejected a message")
 
 def audit.result(-A: Type, result: File & Result<&1, &1, U32 & String, A>) -> File & Bool:
   (file, outcome) = result
@@ -139,14 +139,14 @@ def admit(full: Bool, jobs: Chan(Http.Req & Chan(Http.Res)), counts: Counts, req
     case True{}:
       Counts{busy, mask, completed, rejected} = counts
       do IO<Counts>:
-        sent : Bool <- Chan.send(Http.Res, reply, Http.Res{503, Http.empty(), Http.from_string("")})
-        Registry.require(sent, "overload reply channel closed early")
+        sent : Result<&1, &1, Http.Res, Unit> <- Chan.send(Http.Res, reply, Http.Res{503, Http.empty(), Http.from_string("")})
+        Registry.require(Result.is_done(&1, &1, Http.Res, Unit, sent), "overload reply channel closed early")
         return Counts{busy, mask, completed, (rejected + 1 : U32)}
     case False{}:
       Counts{busy, mask, completed, rejected} = counts
       do IO<Counts>:
-        sent : Bool <- Chan.send(Http.Req & Chan(Http.Res), jobs, (request, reply))
-        Registry.require(sent, "job queue closed before admitted work")
+        sent : Result<&1, &1, Http.Req & Chan(Http.Res), Unit> <- Chan.send(Http.Req & Chan(Http.Res), jobs, (request, reply))
+        Registry.require(Result.is_done(&1, &1, Http.Req & Chan(Http.Res), Unit, sent), "job queue closed before admitted work")
         return Counts{(busy + 1 : U32), mask, completed, rejected}
 
 def transition(counts: Counts, message: Message) -> IO(Counts):
@@ -196,8 +196,8 @@ def owner(fuel: Nat, +limit: U32, +messages: Chan(Message), +jobs: Chan(Http.Req
                 owner(p, limit, messages, jobs, Waiting{next})
             case Inspect{reply}:
               do IO<Counts>:
-                sent : Bool <- Chan.send(Counts, reply, counts)
-                Registry.require(sent, "capacity observer closed early")
+                sent : Result<&1, &1, Counts, Unit> <- Chan.send(Counts, reply, counts)
+                Registry.require(Result.is_done(&1, &1, Counts, Unit, sent), "capacity observer closed early")
                 owner(p, limit, messages, jobs, Waiting{counts})
             case Enter{slot}:
               do IO<Counts>:
@@ -227,9 +227,9 @@ def handle(context: Context, request: Http.Req) -> IO(Http.Res):
         return Http.Res{200, Http.empty(), Http.from_string(counts.text(limit, counts))}
     case "/_release":
       do IO<Http.Res>:
-        a : Bool <- Chan.send(Unit, release, Unit{})
-        b : Bool <- Chan.send(Unit, release, Unit{})
-        Registry.require(a && b, "release barrier closed early")
+        a : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+        b : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+        Registry.require(Result.is_done(&1, &1, Unit, Unit, a) && Result.is_done(&1, &1, Unit, Unit, b), "release barrier closed early")
         return Http.Res{204, Http.empty(), Http.from_string("")}
     case _:
       do IO<Http.Res>:

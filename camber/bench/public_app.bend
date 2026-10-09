@@ -1,13 +1,13 @@
 # Complete consumer of the published dispatcher/server, with a shared raw prepared-router control.
 import Base
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-camber@0.6.0.0/input.bend as I
-import bend-kit-camber@0.6.0.0/notices.bend as N
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-camber@0.7.0.0/input.bend as I
+import bend-kit-camber@0.7.0.0/notices.bend as N
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 import bend-kit-router@0.2.0.0/router.bend as R
 import bend-kit-json@0.5.1.0/json.bend as J
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type Action is Data:

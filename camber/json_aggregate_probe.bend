@@ -5,7 +5,7 @@ import ./json_disposal_control.bend as JsonDisposal
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 
 type Context is Data:
   Context{mode: String, ready: Chan(Unit), go: Chan(Unit)}
@@ -26,11 +26,11 @@ def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
   do IO<Http.Res>:
     bodies0 : Chan(Http.Body) <- Chan.new(Http.Body, 1)
     +bodies : Chan(Http.Body) = bodies0
-    queued : Bool <- Chan.send(Http.Body, bodies, body)
-    Registry.require(queued, "body queue closed")
+    queued : Result<&1, &1, Http.Body, Unit> <- Chan.send(Http.Body, bodies, body)
+    Registry.require(Result.is_done(&1, &1, Http.Body, Unit, queued), "body queue closed")
     IO.print("CPU_ARMED")
-    armed : Bool <- Chan.send(Unit, ready, Unit{})
-    Registry.require(armed, "ready queue closed")
+    armed : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, ready, Unit{})
+    Registry.require(Result.is_done(&1, &1, Unit, Unit, armed), "ready queue closed")
     IO.join(Unit, go)
     IO.print("CPU_BEGIN")
     IO.sleep(1)
@@ -63,8 +63,8 @@ def release(count: Nat, +go: Chan(Unit)) -> IO(Unit):
       IO.pure(Unit, Unit{})
     case 1n+rest:
       do IO<Unit>:
-        sent : Bool <- Chan.send(Unit, go, Unit{})
-        Registry.require(sent, "release queue closed")
+        sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, go, Unit{})
+        Registry.require(Result.is_done(&1, &1, Unit, Unit, sent), "release queue closed")
         release(rest, go)
 
 def start(mode: String, +count: Nat, +ready: Chan(Unit), +go: Chan(Unit), timer: Chan(Unit), setup: Listener & Chan(Unit)) -> IO(Unit):
@@ -73,8 +73,8 @@ def start(mode: String, +count: Nat, +ready: Chan(Unit), +go: Chan(Unit), timer:
     requests : List<Chan(Unit)> <- Transport.accept(~Context, ~handler, Nat.add(count, 1n), Context{mode, ready, go}, 1048576n, listener)
     wait_ready(count, ready)
     IO.print("BATCH_ARMED")
-    timer_ready : Bool <- Chan.send(Unit, timer, Unit{})
-    Registry.require(timer_ready, "timer queue closed")
+    timer_ready : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, timer, Unit{})
+    Registry.require(Result.is_done(&1, &1, Unit, Unit, timer_ready), "timer queue closed")
     IO.sleep(50)
     release(count, go)
     Transport.join(requests)
