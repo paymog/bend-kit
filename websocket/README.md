@@ -2,11 +2,11 @@
 
 RFC 6455 WebSocket client over `wire`: the opening handshake, frames on packed `Bytes`, message reassembly, and a connection that answers pings and closes cleanly.
 
-`websocket.bend` imports `bend-kit-bytes@0.3.2.0`, `bend-kit-crypto@0.1.0.0`, and `bend-kit-wire@0.4.2.0`. The current `wire` package is `0.4.6.0`. A `Socket` from that version is a different type. The handshake uses libcrypto SHA-1 and secure random (`BEND_LIBCRYPTO`).
+`websocket.bend` imports `bend-kit-bytes@0.3.2.0`, `bend-kit-crypto@0.2.2.1`, and `bend-kit-wire@0.4.6.1`. The handshake uses libcrypto SHA-1 and secure random (`BEND_LIBCRYPTO`).
 
 
 ```bend
-import bend-kit-websocket@0.2.0.0/websocket.bend as WS
+import bend-kit-websocket@0.2.0.1/websocket.bend as WS
 
 # ws://127.0.0.1:8080/chat; tls True{} for wss://. 1 MiB frame and message cap, 5 s per socket step.
 c : Result<&1, &1, U32 & String, WS.Conn> <- WS.connect("127.0.0.1", 8080, "localhost", "/chat", False{}, 1048576, 5000)

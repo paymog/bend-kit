@@ -1,7 +1,7 @@
 # Pure generators: each takes a Rand.Rng and returns a value beside the next state.
 import Base
 # bend-kit-random@0.1.0.0
-import bend-kit-random@0.1.0.0/random.bend as Rand
+import bend-kit-random@0.1.0.1/random.bend as Rand
 # bend-kit-bytes@0.3.1.0
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
 

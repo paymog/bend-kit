@@ -60,8 +60,7 @@ jobs:
             echo "no C effects"
             exit 0
           fi
-          scripts/install-bend.sh --native "${RUNNER_TEMP}/bend-native"
-          export PATH="${RUNNER_TEMP}/bend-native/bin:$PATH"
+          export PATH="$HOME/.bend/bin:$PATH"
           scripts/native-check.sh ${{ matrix.package }}
       - name: Compare ${{ matrix.package }} with the hub
         if: github.event_name == 'pull_request'

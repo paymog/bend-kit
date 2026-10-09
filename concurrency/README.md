@@ -3,7 +3,7 @@
 Parallel map and reduce over lists and arrays, a worker pool, select over channels, and timeouts, on Base's parallel calls, `IO.spawn`, `IO.fork`, and `Chan`.
 
 ```bend
-import bend-kit-concurrency@0.1.0.0/concurrency.bend as Conc
+import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 ```
 
 ## Pure parallelism

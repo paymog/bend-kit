@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
-# Install a Bend release (linux-x64) for CI.
-# The default pin type-checks. C effects call the two-argument io_eff of
-# Bend 2.0.36, so native checks pass --native and a prefix. Bump a pin
-# and its SHA together.
+# Install the pinned Bend for CI (linux-x64). Optional prefix, else ~/.bend.
+# Bump VER and SHA together.
 set -euo pipefail
-VER=2.0.35
-SHA=63039d1a119f716767ac5a7d8fe0717cfacf219c6c253c35192148e0dade722f
-if [ "${1:-}" = --native ]; then
-  VER=2.0.36
-  SHA=02089dc0eed0fd5fd6d73c74cc9cffcb2c6638dd3b02ae83f7b8cc57fbe381ba
-  shift
-fi
+VER=2.0.36
+SHA=02089dc0eed0fd5fd6d73c74cc9cffcb2c6638dd3b02ae83f7b8cc57fbe381ba
 dest=${1:-$HOME/.bend}
 name="bend-$VER-linux-x64.tar.gz"
 tmp=$(mktemp -d)

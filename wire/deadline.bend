@@ -1,7 +1,7 @@
 # Live packed write acceptance; external peers own reads/reset/stall behavior.
 import Base
 import ./wire.bend as Wire
-import bend-kit-time@0.1.2.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 
 def report(result: Socket & (U32 & Result<&1, &1, U32 & String, Unit>)) -> IO(Socket):
   (socket, (made, outcome)) = result

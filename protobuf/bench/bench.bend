@@ -1,6 +1,6 @@
 import Base
 import bend-kit-bytes@0.3.2.0/bytes.bend as B
-import bend-kit-time@0.1.2.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import ../protobuf.bend as P
 import ./out/schema.bend as S
 import ./out/fixture.bend as Input

@@ -1,12 +1,12 @@
 # stream
 
 Bounded, byte-exact transfers using the packed `U32 & Array<U32>` effects from
-`bend-kit-files@0.1.1.0` and `bend-kit-wire@0.4.3.0`. No per-byte String/list
+`bend-kit-files@0.1.1.1` and `bend-kit-wire@0.4.6.1`. No per-byte String/list
 conversion, whole-input buffering, reader/writer hierarchy, or new host effect.
 
 ```bend
 import Base
-import bend-kit-stream@0.1.0.0/stream.bend as Stream
+import bend-kit-stream@0.1.0.1/stream.bend as Stream
 
 # Handles are already open; the caller owns their lifetime.
 def copy(source: File, destination: File) -> IO(File & File & Stream.Outcome):

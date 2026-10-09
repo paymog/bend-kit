@@ -4,9 +4,9 @@
 
 ```bend
 import Base
-import bend-kit-property@0.1.0.0/property.bend as Prop
-import bend-kit-property@0.1.0.0/generate.bend as Gen
-import bend-kit-property@0.1.0.0/shrink.bend as Shrink
+import bend-kit-property@0.2.0.0/property.bend as Prop
+import bend-kit-property@0.2.0.0/generate.bend as Gen
+import bend-kit-property@0.2.0.0/shrink.bend as Shrink
 
 # A predicate must return the tested value, including on failure.
 def small(+x: U32) -> U32 & Bool:

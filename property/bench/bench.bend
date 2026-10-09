@@ -1,7 +1,7 @@
 # Time ten thousand passing properties over seeded U32 inputs.
 import Base
 import ../../time/time.bend as Time
-import bend-kit-random@0.1.0.0/random.bend as Rand
+import bend-kit-random@0.1.0.1/random.bend as Rand
 import ../property.bend as Prop
 import ../generate.bend as Gen
 import ../shrink.bend as Shrink
