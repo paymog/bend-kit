@@ -51,6 +51,18 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           scripts/check.sh ${{ matrix.package }}
+      - name: Native check ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          cs=(${{ matrix.package }}/effs/*.c)
+          if [ ${#cs[@]} -eq 0 ]; then
+            echo "no C effects"
+            exit 0
+          fi
+          scripts/install-bend.sh --native "${RUNNER_TEMP}/bend-native"
+          export PATH="${RUNNER_TEMP}/bend-native/bin:$PATH"
+          scripts/native-check.sh ${{ matrix.package }}
       - name: Compare ${{ matrix.package }} with the hub
         if: github.event_name == 'pull_request'
         run: scripts/publish.sh --check ${{ matrix.package }}

@@ -190,8 +190,8 @@ scripts/check.sh bytes http   # some packages
 scripts/packages.sh origin/main
 ```
 
-`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package.
+`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package. A package with `effs/*.c` also runs `scripts/native-check.sh`.
 
-CI installs the Bend version pinned in `scripts/install-bend.sh`. To move to a new Bend, change `VER` and `SHA` in that script.
+CI installs the Bend version pinned in `scripts/install-bend.sh`. To move to a new Bend, change `VER` and `SHA` in that script. Native effect checks use `install-bend.sh --native` (Bend 2.0.36). Type checks stay on 2.0.35 until `Chan.send` call sites move.
 
 On each push to `main`, a package that passes its checks is published as `bend-kit-<package>@<VERSION>` unless that version is already on the hub. If the hub has that version with different files, the job fails and `VERSION` must rise. Pull requests run `scripts/publish.sh --check` and publish nothing.
