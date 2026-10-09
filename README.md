@@ -48,7 +48,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 `Http.Body` is that bytes hash, not `bend-kit-bytes@0.3.2.0`. `bend-kit-json@0.5.1.0` is a later publish than the json hash above.
 
-`hairpin@0.2.0.0`, and `oauth2`, `jwt`, `sigv4`, `llm`, and `webhooks`, import `bend-kit-http@0.23.0.1`. That `Http.Res` is not `bend-kit-http@0.31.1.1`. `camber@0.6.0.0` still imports `bend-kit-http@0.30.0.0`.
+`hairpin@0.2.1.0`, and `oauth2`, `jwt`, `sigv4`, `llm`, and `webhooks`, import `bend-kit-http@0.23.0.1`. That `Http.Res` is not `bend-kit-http@0.31.1.1`. `camber@0.6.0.0` still imports `bend-kit-http@0.30.0.0`.
 
 ## Native libraries
 
@@ -116,7 +116,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`wire`](wire) | `bend-kit-wire@0.4.6.0/wire.bend` | TCP, UDP, and TLS sockets. |
 | [`http`](http) | `bend-kit-http@0.31.1.1/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.1.2.0/http2.bend` | RFC 9113 frames and an HTTP/2 client. HPACK is `hpack.bend`. |
-| [`hairpin`](hairpin) | `bend-kit-hairpin@0.2.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, and proven retries with a shared budget, deadlines, and a circuit breaker. |
+| [`hairpin`](hairpin) | `bend-kit-hairpin@0.2.1.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`websocket`](websocket) | `bend-kit-websocket@0.2.0.0/websocket.bend` | RFC 6455 client handshake and frames. |
 | [`multipart`](multipart) | `bend-kit-multipart@0.1.0.0/multipart.bend` | RFC 7578 form-data encode and decode. |
 

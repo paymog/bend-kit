@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hairpin` 0.2.1.0: `Hairpin.request.as` takes the retry judge, the idempotency, and the `Accept-Encoding` value from the caller, so an API with its own retry rules keeps the shared budget, deadline, backoff, and breaker. `Hairpin.budget(c)` gives the budget of one plain request.
 - `hairpin` 0.2.0.0: a proven retry policy in `retry.bend`: a shared attempt budget across nested layers (`Hairpin.request.in`), operation deadlines (`Hairpin.deadline`), bounded jittered backoff, and a circuit breaker (`Hairpin.circuit`). Breaking: results are `Result<Hairpin.Err, Http.Res>`, where `ErrDenied` says why no attempt started.
 - `resources` 0.1.0.0: bounded capacity pools with affine reservations. Reserve, release, split, and combine, with proved conservation laws.
 - `http` 0.31.1.1: admission imports `bend-kit-resources@0.1.0.0` from the hub, not a bundled copy.
