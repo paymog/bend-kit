@@ -36,7 +36,7 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.31.0.0` imports `bend-kit-wire@0.4.6.0`, `bend-kit-http2@0.1.2.0`, `bend-kit-dns@0.5.0.0`, `bend-kit-time@0.1.0.0`, `bend-kit-int@0.2.0.0`, and `bend-kit-concurrency@0.1.0.0`. Its entry file also names these hashes as url `0.4.1.0`, encoding `0.3.0.0`, json `0.5.0.1`, bytes `0.3.0.0`, and zlib `0.2.0.0`:
+`http@0.31.1.0` imports `bend-kit-wire@0.4.6.0`, `bend-kit-http2@0.1.2.0`, `bend-kit-dns@0.5.0.0`, `bend-kit-time@0.1.0.0`, `bend-kit-int@0.2.0.0`, and `bend-kit-concurrency@0.1.0.0`. Its entry file also names these hashes as url `0.4.1.0`, encoding `0.3.0.0`, json `0.5.0.1`, bytes `0.3.0.0`, and zlib `0.2.0.0`:
 
 ```
 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend
@@ -48,7 +48,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 `Http.Body` is that bytes hash, not `bend-kit-bytes@0.3.2.0`. `bend-kit-json@0.5.1.0` is a later publish than the json hash above.
 
-`hairpin@0.2.0.0`, and `oauth2`, `jwt`, `sigv4`, `llm`, and `webhooks`, import `bend-kit-http@0.23.0.1`. That `Http.Res` is not `bend-kit-http@0.31.0.0`. `camber@0.6.0.0` still imports `bend-kit-http@0.30.0.0`.
+`hairpin@0.2.0.0`, and `oauth2`, `jwt`, `sigv4`, `llm`, and `webhooks`, import `bend-kit-http@0.23.0.1`. That `Http.Res` is not `bend-kit-http@0.31.1.0`. `camber@0.6.0.0` still imports `bend-kit-http@0.30.0.0`.
 
 ## Native libraries
 
@@ -114,7 +114,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
 | [`dns`](dns) | `bend-kit-dns@0.6.0.0/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.6.0/wire.bend` | TCP, UDP, and TLS sockets. |
-| [`http`](http) | `bend-kit-http@0.31.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
+| [`http`](http) | `bend-kit-http@0.31.1.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.1.2.0/http2.bend` | RFC 9113 frames and an HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.2.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`websocket`](websocket) | `bend-kit-websocket@0.1.0.0/websocket.bend` | RFC 6455 client handshake and frames. |
@@ -141,6 +141,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`time`](time) | `bend-kit-time@0.1.2.0/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.0/random.bend` | Seeded xoshiro128**. Not for cryptography. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.1.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
+| [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
 | [`notch`](notch) | `bend-kit-notch@0.1.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
 | [`tty`](tty) | `bend-kit-tty@0.1.0.0/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |

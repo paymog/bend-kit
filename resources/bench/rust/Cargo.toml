@@ -1,0 +1,11 @@
+[package]
+name = "resources-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tokio = { version = "=1.47.1", features = ["sync"] }
+
+[profile.release]
+opt-level = 3
