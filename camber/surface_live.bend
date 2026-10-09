@@ -52,8 +52,8 @@ def handle(context: Context, request: Http.Req) -> IO(Http.Res):
   do IO<Http.Res>:
     reply0 : Chan(Http.Res) <- Chan.new(Http.Res, 1)
     +reply : Chan(Http.Res) = reply0
-    sent : Bool <- Chan.send(Http.Req & Chan(Http.Res), jobs, (request, reply))
-    Registry.require(sent, "scoped worker queue closed early")
+    sent : Result<&1, &1, Http.Req & Chan(Http.Res), Unit> <- Chan.send(Http.Req & Chan(Http.Res), jobs, (request, reply))
+    Registry.require(Result.is_done(&1, &1, Http.Req & Chan(Http.Res), Unit, sent), "scoped worker queue closed early")
     response : Maybe<&1, Http.Res> <- Chan.recv(Http.Res, reply)
     receive(response)
 

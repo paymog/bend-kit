@@ -5,8 +5,8 @@ import ./ownership.bend as Users
 import ../json/json.bend as Json
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
-import bend-kit-wire@0.4.2.0/wire.bend as Wire
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-wire@0.4.6.1/wire.bend as Wire
+import bend-kit-time@0.1.2.1/time.bend as Time
 import ./prerequisites.bend as Probe
 
 type Context is Data:
@@ -54,7 +54,7 @@ def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
   do IO<Http.Res>:
     bodies0 : Chan(Http.Body) <- Chan.new(Http.Body, 1)
     +bodies : Chan(Http.Body) = bodies0
-    queued : Bool <- Chan.send(Http.Body, bodies, body)
+    queued : Result<&1, &1, Http.Body, Unit> <- Chan.send(Http.Body, bodies, body)
     IO.print("CPU_ARMED")
     IO.join(Unit, go)
     # Receive the affine body after the marker; decoder work must not run while building the earlier IO action.
@@ -98,9 +98,9 @@ def start(mode: String, +go: Chan(Unit), timer: Chan(Unit), setup: Listener & Ch
   do IO<Unit>:
     requests : List<Chan(Unit)> <- Transport.accept(~Context, ~handler, 2n, Context{mode, go}, 1048576n, listener)
     IO.print("LOAD_ARMED")
-    timer_ready : Bool <- Chan.send(Unit, timer, Unit{})
+    timer_ready : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, timer, Unit{})
     IO.sleep(50)
-    released : Bool <- Chan.send(Unit, go, Unit{})
+    released : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, go, Unit{})
     Transport.join(requests)
     IO.join(Unit, deadline_done)
     IO.print("SERVER_DONE")

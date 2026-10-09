@@ -3,7 +3,7 @@ import Base
 import ./camber.bend as C
 import ./dispatch_check.bend as Check
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as B
-import bend-kit-http@0.30.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/http.bend as H
 
 type Principal is Data:
   Principal{subject: String}

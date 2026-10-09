@@ -3,7 +3,7 @@ import Base
 import ./risk_probe.bend as Risk
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
-import bend-kit-wire@0.4.2.0/wire.bend as Wire
+import bend-kit-wire@0.4.6.1/wire.bend as Wire
 
 type Context is Data:
   Context{mode: String, iterations: Nat, go: Chan(Unit)}
@@ -88,7 +88,7 @@ def start(mode: String, iterations: Nat, +go: Chan(Unit), setup: Listener & Chan
     requests : List<Chan(Unit)> <- Transport.accept(~Context, ~handler, 2n, Context{mode, iterations, go}, 1024n, listener)
     IO.print("LOAD_ARMED")
     IO.sleep(50)
-    released : Bool <- Chan.send(Unit, go, Unit{})
+    released : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, go, Unit{})
     Transport.join(requests)
     IO.join(Unit, deadline_done)
     IO.print("SERVER_DONE")

@@ -2,8 +2,8 @@
 import Base
 import ./camber.bend as C
 import ./dispatch_check.bend as Check
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 
 type Case is Data:
   Case{status: U32, name: String, value: String}

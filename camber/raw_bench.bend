@@ -3,7 +3,7 @@ import Base
 import ./raw_http.bend as Raw
 import ../http/http.bend as Http
 import ../http/completion.bend as Completion
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 import bend-kit-int@0.2.0.0/int.bend as Int
 

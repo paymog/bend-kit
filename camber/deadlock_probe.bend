@@ -16,11 +16,18 @@ def receive(-A: Type, channel: Chan(A)) -> IO(A):
 def borrow(first: Chan(File), second: Chan(File), ready: Chan(Unit), go: Chan(Unit)) -> IO(Unit):
   do IO<Unit>:
     one : File <- receive(File, first)
-    announced : Bool <- Chan.send(Unit, ready, Unit{})
+    announced : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, ready, Unit{})
     receive(Unit, go)
     two : File <- receive(File, second)
     File.close(one)
     File.close(two)
+
+def sent(result: Result<&1, &1, File, Unit>) -> IO(Unit):
+  match result:
+    case Fail{file}:
+      File.close(file)
+    case Done{u}:
+      IO.pure(Unit, Unit{})
 
 def main() -> IO(Unit):
   do IO<Unit>:
@@ -34,14 +41,16 @@ def main() -> IO(Unit):
     +ready : Chan(Unit) = ready0
     go0 : Chan(Unit) <- Chan.new(Unit, 2)
     +go : Chan(Unit) = go0
-    sent_a : Bool <- Chan.send(File, a, one)
-    sent_b : Bool <- Chan.send(File, b, two)
+    sent_a : Result<&1, &1, File, Unit> <- Chan.send(File, a, one)
+    sent(sent_a)
+    sent_b : Result<&1, &1, File, Unit> <- Chan.send(File, b, two)
+    sent(sent_b)
     left : Chan(Unit) <- IO.fork(Unit, borrow(a, b, ready, go))
     right : Chan(Unit) <- IO.fork(Unit, borrow(b, a, ready, go))
     receive(Unit, ready)
     receive(Unit, ready)
     IO.print("both requests hold one affine instance; now each waits for the other set")
-    go_a : Bool <- Chan.send(Unit, go, Unit{})
-    go_b : Bool <- Chan.send(Unit, go, Unit{})
+    go_a : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, go, Unit{})
+    go_b : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, go, Unit{})
     IO.join(Unit, left)
     IO.join(Unit, right)

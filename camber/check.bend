@@ -105,7 +105,7 @@ def handler(bundle: Bundle, principal: U32, input: Input) -> IO(Bundle & Result<
   Input{hold, fail, reverse, ready, release} = input
   +principal = principal
   do IO<Bundle & Result<&2, &2, U32, U32>>:
-    announced : Bool <- Chan.send(Nat, ready, slot)
+    announced : Result<&1, &1, Nat, Unit> <- Chan.send(Nat, ready, slot)
     wait(hold, release)
     returned : Bundle <- writes(Bundle{slot, first, second}, reverse, principal)
     return (returned, outcome(fail, principal))
@@ -222,9 +222,9 @@ def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: S
     +a : Chan(Camber.Outcome<U32, U32>) = a0
     b0 : Chan(Camber.Outcome<U32, U32>) <- Chan.new(Camber.Outcome<U32, U32>, 1)
     +b : Chan(Camber.Outcome<U32, U32>) = b0
-    sent_a : Bool <- Camber.submit(Bundle, U32, Input, U32, U32, context, 7, Input{True{}, False{}, False{}, ready, release}, a)
-    sent_b : Bool <- Camber.submit(Bundle, U32, Input, U32, U32, context, 8, Input{True{}, True{}, True{}, ready, release}, b)
-    require(sent_a && sent_b, "submissions failed")
+    sent_a : Result<&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit> <- Camber.submit(Bundle, U32, Input, U32, U32, context, 7, Input{True{}, False{}, False{}, ready, release}, a)
+    sent_b : Result<&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit> <- Camber.submit(Bundle, U32, Input, U32, U32, context, 8, Input{True{}, True{}, True{}, ready, release}, b)
+    require(Result.is_done(&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit, sent_a) && Result.is_done(&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit, sent_b), "submissions failed")
     +slot_a : Nat <- Camber.receive(Nat, ready)
     slot_b : Nat <- Camber.receive(Nat, ready)
     require(Bool.not(Nat.is_eq(slot_a, slot_b)), "duplicate handle use")
@@ -236,8 +236,8 @@ def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: S
     returned_owner : Camber.Owner<Bundle, U32, Input, U32, U32> <- busy(close_busy)
     still_held : Maybe<&2, Camber.Counts> <- Camber.inspect(Bundle, U32, Input, U32, U32, context)
     counts(still_held, 2n, 0n, 1n)
-    release_a : Bool <- Chan.send(Unit, release, Unit{})
-    release_b : Bool <- Chan.send(Unit, release, Unit{})
+    release_a : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+    release_b : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     result_a : Camber.Outcome<U32, U32> <- IO.join(Camber.Outcome<U32, U32>, a)
     result_b : Camber.Outcome<U32, U32> <- IO.join(Camber.Outcome<U32, U32>, b)
     checked(result_a, 7, False{})
@@ -248,11 +248,11 @@ def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: S
     abandoned0 : Chan(Camber.Outcome<U32, U32>) <- Chan.new(Camber.Outcome<U32, U32>, 1)
     +abandoned : Chan(Camber.Outcome<U32, U32>) = abandoned0
     Chan.close(Camber.Outcome<U32, U32>, abandoned)
-    abandoned_sent : Bool <- Camber.submit(Bundle, U32, Input, U32, U32, context, 10, Input{True{}, False{}, False{}, ready, release}, abandoned)
-    require(abandoned_sent, "closed reply prevented admission")
+    abandoned_sent : Result<&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit> <- Camber.submit(Bundle, U32, Input, U32, U32, context, 10, Input{True{}, False{}, False{}, ready, release}, abandoned)
+    require(Result.is_done(&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit, abandoned_sent), "closed reply prevented admission")
     # The next announcement belongs to the closed-reply operation.
     abandoned_slot : Nat <- Camber.receive(Nat, ready)
-    recovery_release : Bool <- Chan.send(Unit, release, Unit{})
+    recovery_release : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     # Yield to native file helper threads; bound recovery to 5000 observations.
     recovery(5000n, context)
     recovered : Camber.Outcome<U32, U32> <- Camber.call(Bundle, U32, Input, U32, U32, context, 12, Input{False{}, False{}, True{}, ready, release})

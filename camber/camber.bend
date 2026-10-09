@@ -1,14 +1,14 @@
 # Fixed prepared HTTP applications and bounded affine dependency bundles.
 import Base
-import bend-kit-http@0.30.0.0/http.bend as Http
+import bend-kit-http@0.32.0.0/http.bend as Http
 import bend-kit-router@0.2.0.0/router.bend as Router
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-json@0.5.1.0/json.bend as Json
 import ./response.bend as Response
 import ./input.bend as Input
-import bend-kit-http@0.30.0.0/completion.bend as TransportCompletion
+import bend-kit-http@0.32.0.0/completion.bend as TransportCompletion
 import ./notices.bend as Notices
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 
 type ResponseError is Data:
   InvalidResponse{}
@@ -93,27 +93,6 @@ def outcome.value(-E: Data, -O: Data, result: Result<&2, &2, E, O>) -> Outcome<E
     case Done{value}:
       Success{value}
 
-# The resources return through the private owner protocol BEFORE a disposable
-# caller reply. A closed caller reply cannot erase a handle or strand capacity.
-def work.return(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
-  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>),
-  result: R & Result<&2, &2, E, O>
-) -> IO(Unit):
-  (returned, outcome) = result
-  do IO<Unit>:
-    accepted : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Returned{returned})
-    sent : Bool <- Chan.send(Outcome<E, O>, reply, outcome.value(E, O, outcome))
-    return Unit{}
-
-def work(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
-  ~handler: R -> P -> I -> IO(R & Result<&2, &2, E, O>),
-  resource: R, principal: P, input: I,
-  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>)
-) -> IO(Unit):
-  do IO<Unit>:
-    result : R & Result<&2, &2, E, O> <- handler(resource, principal, input)
-    work.return(R, P, I, E, O, messages, reply, result)
-
 def dispose(~R: Type, ~destroy: R -> IO(Unit), resources: List<R>) -> IO(Unit):
   match resources:
     case Nil{}:
@@ -131,16 +110,48 @@ def drain.message(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
   match message:
     case Submit{principal, input, reply}:
       do IO<Unit>:
-        sent : Bool <- Chan.send(Outcome<E, O>, reply, Stopped{})
+        sent : Result<&1, &1, Outcome<E, O>, Unit> <- Chan.send(Outcome<E, O>, reply, Stopped{})
         return Unit{}
     case Inspect{reply}:
       Chan.close(Counts, reply)
     case Shutdown{reply}:
       do IO<Unit>:
-        sent : Bool <- Chan.send(CloseResult, reply, Closed{})
+        sent : Result<&1, &1, CloseResult, Unit> <- Chan.send(CloseResult, reply, Closed{})
         return Unit{}
     case Returned{resource}:
       destroy(resource)
+
+# The resources return through the private owner protocol BEFORE a disposable
+# caller reply. A closed caller reply cannot erase a handle or strand capacity.
+def work.returned(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
+  ~destroy: R -> IO(Unit), accepted: Result<&1, &1, Message<R, P, I, E, O>, Unit>
+) -> IO(Unit):
+  match accepted:
+    case Fail{message}:
+      drain.message(~R, ~P, ~I, ~E, ~O, ~destroy, message)
+    case Done{u}:
+      IO.pure(Unit, Unit{})
+
+def work.return(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
+  ~destroy: R -> IO(Unit),
+  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>),
+  result: R & Result<&2, &2, E, O>
+) -> IO(Unit):
+  (returned, outcome) = result
+  do IO<Unit>:
+    accepted : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Returned{returned})
+    work.returned(~R, ~P, ~I, ~E, ~O, ~destroy, accepted)
+    sent : Result<&1, &1, Outcome<E, O>, Unit> <- Chan.send(Outcome<E, O>, reply, outcome.value(E, O, outcome))
+    return Unit{}
+
+def work(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
+  ~handler: R -> P -> I -> IO(R & Result<&2, &2, E, O>), ~destroy: R -> IO(Unit),
+  resource: R, principal: P, input: I,
+  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>)
+) -> IO(Unit):
+  do IO<Unit>:
+    result : R & Result<&2, &2, E, O> <- handler(resource, principal, input)
+    work.return(~R, ~P, ~I, ~E, ~O, ~destroy, messages, reply, result)
 
 def drain.step(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
   ~destroy: R -> IO(Unit), pending: Maybe<&1, Message<R, P, I, E, O>>,
@@ -202,7 +213,7 @@ def receive(-A: Type, channel: Chan(A)) -> IO(A):
         case Inspect{reply}:
           Counts{+capacity, +in_use, +completed, +rejected} = counts
           do IO<Unit>:
-            sent : Bool <- Chan.send(Counts, reply, Counts{capacity, in_use, completed, rejected})
+            sent : Result<&1, &1, Counts, Unit> <- Chan.send(Counts, reply, Counts{capacity, in_use, completed, rejected})
             owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, Counts{capacity, in_use, completed, rejected}})
         case Shutdown{reply}:
           Counts{+capacity, in_use, +completed, +rejected} = counts
@@ -211,22 +222,22 @@ def receive(-A: Type, channel: Chan(A)) -> IO(A):
               do IO<Unit>:
                 dispose(~R, ~destroy, resources)
                 Chan.close(Message<R, P, I, E, O>, messages)
-                sent : Bool <- Chan.send(CloseResult, reply, Closed{})
+                sent : Result<&1, &1, CloseResult, Unit> <- Chan.send(CloseResult, reply, Closed{})
                 drain(~R, ~P, ~I, ~E, ~O, ~destroy, U32.to_nat(room), messages)
             case 1n+ +p:
               do IO<Unit>:
-                sent : Bool <- Chan.send(CloseResult, reply, Busy{Counts{capacity, 1n+p, completed, rejected}})
+                sent : Result<&1, &1, CloseResult, Unit> <- Chan.send(CloseResult, reply, Busy{Counts{capacity, 1n+p, completed, rejected}})
                 owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, Counts{capacity, 1n+p, completed, rejected}})
         case Submit{principal, input, reply}:
           Counts{capacity, in_use, completed, rejected} = counts
           match resources:
             case Nil{}:
               do IO<Unit>:
-                sent : Bool <- Chan.send(Outcome<E, O>, reply, Exhausted{})
+                sent : Result<&1, &1, Outcome<E, O>, Unit> <- Chan.send(Outcome<E, O>, reply, Exhausted{})
                 owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{Nil{}, Counts{capacity, in_use, completed, 1n+rejected}})
             case Con{resource, rest}:
               do IO<Unit>:
-                IO.spawn(Unit, work(~R, ~P, ~I, ~E, ~O, ~handler, resource, principal, input, messages, reply))
+                IO.spawn(Unit, work(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, resource, principal, input, messages, reply))
                 owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{rest, Counts{capacity, 1n+in_use, completed, rejected}})
 
 def build.step(~R: Type, ~E: Data, ~destroy: R -> IO(Unit),
@@ -279,17 +290,19 @@ def start(~K: Data, ~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
 
 def submit(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
   context: Context<R, P, I, E, O>, principal: P, input: I, reply: Chan(Outcome<E, O>)
-) -> IO(Bool):
+) -> IO(Result<&1, &1, Message<R, P, I, E, O>, Unit>):
   Context{messages} = context
-  Chan.send(Message<R, P, I, E, O>, messages, Submit{principal, input, reply})
+  do IO<Result<&1, &1, Message<R, P, I, E, O>, Unit>>:
+    sent : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Submit{principal, input, reply})
+    return sent
 
-def call.accepted(-E: Data, -O: Data, accepted: Bool, +reply: Chan(Outcome<E, O>)) -> IO(Outcome<E, O>):
+def call.accepted(-T: Type, -E: Data, -O: Data, accepted: Result<&1, &1, T, Unit>, +reply: Chan(Outcome<E, O>)) -> IO(Outcome<E, O>):
   match accepted:
-    case False{}:
+    case Fail{v}:
       do IO<Outcome<E, O>>:
         Chan.close(Outcome<E, O>, reply)
         return Stopped{}
-    case True{}:
+    case Done{u}:
       do IO<Outcome<E, O>>:
         result : Outcome<E, O> <- IO.join(Outcome<E, O>, reply)
         Chan.close(Outcome<E, O>, reply)
@@ -301,8 +314,8 @@ def call(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
   do IO<Outcome<E, O>>:
     channel : Chan(Outcome<E, O>) <- Chan.new(Outcome<E, O>, 1)
     +reply : Chan(Outcome<E, O>) = channel
-    accepted : Bool <- submit(R, P, I, E, O, context, principal, input, reply)
-    call.accepted(E, O, accepted, reply)
+    accepted : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- submit(R, P, I, E, O, context, principal, input, reply)
+    call.accepted(Message<R, P, I, E, O>, E, O, accepted, reply)
 
 def inspect.value(value: Maybe<&1, Counts>) -> Maybe<&2, Counts>:
   match value:
@@ -311,13 +324,13 @@ def inspect.value(value: Maybe<&1, Counts>) -> Maybe<&2, Counts>:
     case Some{counts}:
       Some{counts}
 
-def inspect.sent(sent: Bool, +reply: Chan(Counts)) -> IO(Maybe<&2, Counts>):
+def inspect.sent(-T: Type, sent: Result<&1, &1, T, Unit>, +reply: Chan(Counts)) -> IO(Maybe<&2, Counts>):
   match sent:
-    case False{}:
+    case Fail{v}:
       do IO<Maybe<&2, Counts>>:
         Chan.close(Counts, reply)
         return None{}
-    case True{}:
+    case Done{u}:
       do IO<Maybe<&2, Counts>>:
         value : Maybe<&1, Counts> <- Chan.recv(Counts, reply)
         Chan.close(Counts, reply)
@@ -328,16 +341,16 @@ def inspect(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, context: Context<R
   do IO<Maybe<&2, Counts>>:
     channel : Chan(Counts) <- Chan.new(Counts, 1)
     +reply : Chan(Counts) = channel
-    sent : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Inspect{reply})
-    inspect.sent(sent, reply)
+    sent : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Inspect{reply})
+    inspect.sent(Message<R, P, I, E, O>, sent, reply)
 
-def close.sent(sent: Bool, +reply: Chan(CloseResult)) -> IO(CloseResult):
+def close.sent(-T: Type, sent: Result<&1, &1, T, Unit>, +reply: Chan(CloseResult)) -> IO(CloseResult):
   match sent:
-    case False{}:
+    case Fail{v}:
       do IO<CloseResult>:
         Chan.close(CloseResult, reply)
         return Closed{}
-    case True{}:
+    case Done{u}:
       do IO<CloseResult>:
         value : CloseResult <- IO.join(CloseResult, reply)
         Chan.close(CloseResult, reply)
@@ -367,8 +380,8 @@ def close(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, owner: Owner<R, P, I
   do IO<OwnerClose<R, P, I, E, O>>:
     channel : Chan(CloseResult) <- Chan.new(CloseResult, 1)
     +reply : Chan(CloseResult) = channel
-    sent : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Shutdown{reply})
-    result : CloseResult <- close.sent(sent, reply)
+    sent : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Shutdown{reply})
+    result : CloseResult <- close.sent(Message<R, P, I, E, O>, sent, reply)
     close.completed(R, P, I, E, O, result, Owner{Context{messages}, finished})
 
 # Policies are prepared Data, not callbacks. Later lifecycle stages can consume
@@ -932,7 +945,7 @@ def server.work.completed(~S: Type, ~H: Data, response_channel: Chan(Http.Res),
 ) -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>):
   Completed{state, response, entered, mapped, stopped} = completion
   do IO<S & Result<&2, &2, Unit, ApplicationReport<H>>>:
-    sent : Bool <- Chan.send(Http.Res, response_channel, response)
+    sent : Result<&1, &1, Http.Res, Unit> <- Chan.send(Http.Res, response_channel, response)
     return (state, Done{Dispatched{entered, mapped, stopped}})
 
 def server.work(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
@@ -1027,7 +1040,7 @@ def server.handle(~A: Data, ~S: Type, ~K: Data, ~H: Data,
     started : Time.Duration <- Time.mono()
     +body_channel : Chan(Http.Body) <- Chan.new(Http.Body, 1)
     +response_channel : Chan(Http.Res) <- Chan.new(Http.Res, 1)
-    sent : Bool <- Chan.send(Http.Body, body_channel, body)
+    sent : Result<&1, &1, Http.Body, Unit> <- Chan.send(Http.Body, body_channel, body)
     outcome : Outcome<Unit, ApplicationReport<H>> <- call(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>,
       owner, app, BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel})
     server.response(~K, ~H, ~done, config, started, outcome, body_channel, response_channel)
