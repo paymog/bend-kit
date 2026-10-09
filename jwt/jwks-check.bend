@@ -1,6 +1,6 @@
 import Base
 import ./jwt.bend as Jwt
-import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
+import ../hairpin/hairpin.bend as Hairpin
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 

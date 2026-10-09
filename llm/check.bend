@@ -1,7 +1,9 @@
 import Base
 import ./sse.bend as Sse
 import ./llm.bend as Llm
-import bend-kit-http@0.23.0.1/http.bend as Http
+import ../http/http.bend as Http
+import ../http/admission.bend as Admission
+import ../http/completion.bend as Completion
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
@@ -73,16 +75,23 @@ def s.overloaded(req: Http.Req) -> IO(Http.Res):
 def s.fine(req: Http.Req) -> IO(Http.Res):
   reply(200, "{\"ok\":true}")
 
+def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    res : Http.Res <- op
+    return Http.Reply{res, Completion.Unobserved{}}
+
 # Two 529s, then a 200; then stop listening, so an extra attempt finds no listener.
 def serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
+    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l1 : Listener <- Http.conn(~s.overloaded, 1048576n, a)
+    l1 : Listener <- Http.conn(~(req => wrap(s.overloaded(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
     b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
-    l2 : Listener <- Http.conn(~s.overloaded, 1048576n, b)
+    l2 : Listener <- Http.conn(~(req => wrap(s.overloaded(req))), ~Completion.ignore, Http.limits(1048576n), inbox, b)
     c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
-    l3 : Listener <- Http.conn(~s.fine, 1048576n, c)
+    l3 : Listener <- Http.conn(~(req => wrap(s.fine(req))), ~Completion.ignore, Http.limits(1048576n), inbox, c)
     Listener.close(l3)
+    Admission.close(inbox)
 
 def got.r(r: Result<&1, &1, Llm.Err, Json.Val>) -> IO(Unit):
   match r:

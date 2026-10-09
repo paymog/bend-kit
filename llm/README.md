@@ -3,10 +3,10 @@
 A client for the Anthropic Messages API and the OpenAI Chat Completions API. Streaming uses an incremental SSE parser in `sse.bend`.
 
 ```bend
-import bend-kit-llm@0.2.0.0/llm.bend as Llm
-import bend-kit-llm@0.2.0.0/sse.bend as Sse
-import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
-import bend-kit-http@0.23.0.1/http.bend as Http
+import bend-kit-llm@0.3.0.0/llm.bend as Llm
+import bend-kit-llm@0.3.0.0/sse.bend as Sse
+import bend-kit-hairpin@0.3.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.32.0.0/http.bend as Http
 ```
 
 `llm.bend` imports that `http` and `hairpin`. `sse.bend` is part of this package. Import it when you drive the parser yourself.

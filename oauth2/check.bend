@@ -1,7 +1,9 @@
 import Base
 import ./oauth2.bend as O
-import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
-import bend-kit-http@0.23.0.1/http.bend as Http
+import ../hairpin/hairpin.bend as Hairpin
+import ../http/http.bend as Http
+import ../http/admission.bend as Admission
+import ../http/completion.bend as Completion
 import bend-kit-time@0.1.0.0/time.bend as Time
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
@@ -117,15 +119,27 @@ def s(req: Http.Req) -> IO(Http.Res):
   Http.Req{method, path, +headers, body} = req
   s.route(Url.parse(path), Http.header(headers, "authorization"), body)
 
-def serve(n: Nat, l: Listener) -> IO(Unit):
+def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    r : Http.Res <- op
+    return Http.Reply{r, Completion.Unobserved{}}
+
+def serve.go(n: Nat, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
   match n:
     case 0n:
-      Listener.close(l)
+      do IO<Unit>:
+        Listener.close(l)
+        Admission.close(inbox)
     case 1n+k:
       do IO<Unit>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        l1 : Listener <- Http.conn(~s, 1048576n, a)
-        serve(k, l1)
+        l1 : Listener <- Http.conn(~(req => wrap(s(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+        serve.go(k, inbox, l1)
+
+def serve(n: Nat, l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
+    serve.go(n, inbox, l)
 
 # ---- the client
 
