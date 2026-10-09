@@ -10,6 +10,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 - `multipart` 0.1.1.1: imports `crypto` 0.2.2.1, so native builds on Bend 2.0.36 compile.
 - CI runs Bend 2.0.36.
+- `http` 0.32.0.0: imports `bend-kit-http2@0.2.0.0` and `bend-kit-concurrency@0.2.0.0`, and requires Bend 2.0.36 for the `Result` from `Chan.send`. It imports the effect packages fixed for Bend 2.0.36 (`wire` 0.4.6.1, `dns` 0.6.0.2, `time` 0.1.2.1, `zlib` 0.2.0.1), so native builds compile.
 - `multipart` 0.1.1.0: the decoder step `Wait` is now `Pause`, because Base 2.0.36 declares `Wait`.
 - `concurrency` 0.2.0.0: requires Bend 2.0.36, where `Chan.send` answers `Result<&1, &1, A, Unit>`. A relay keeps the unsent value in `RSent` instead of a `Bool`.
 - `http2` 0.2.0.0: the `Reply` constructor `Ready` is now `Advanced`, because Base 2.0.36 declares `Ready`.
