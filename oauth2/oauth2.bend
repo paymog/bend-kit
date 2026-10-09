@@ -1,7 +1,7 @@
 # OAuth 2.0 client credentials, refresh, and authorization code with PKCE over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/oauth2
 import Base
 import bend-kit-crypto@0.1.1.0/crypto.bend as Crypto
-import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
 import bend-kit-http@0.23.0.1/http.bend as Http
 import bend-kit-time@0.1.0.0/time.bend as Time
 # By hash, as hairpin imports them: bend-kit-url@0.4.1.0, -json@0.5.0.1, -encoding@0.3.0.0, -bytes@0.3.0.0.
@@ -26,7 +26,7 @@ type Token is Data:
 # callback's state is not ours (§10.12). ErrCrypto: the random source or SHA-256 failed. ErrExpired: the
 # token lapsed and has no refresh token.
 type Err is Data:
-  ErrNet{e: Http.Err}
+  ErrNet{e: Hairpin.Err}
   ErrOAuth{status: U32, code: String, why: String}
   ErrReply{status: U32, body: String}
   ErrState{}
@@ -166,7 +166,7 @@ def parse.copy(+status: U32, +old: String, now: Time.Instant, r: Bytes.Bytes & B
 def parse(+status: U32, +old: String, now: Time.Instant, b: Bytes.Bytes) -> Result<&1, &1, Err, Token>:
   parse.copy(status, old, now, Bytes.slice(b, 0, 4294967295))
 
-def reply(+old: String, now: Time.Instant, r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Err, Token>:
+def reply(+old: String, now: Time.Instant, r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Token>:
   match r:
     case Fail{e}:
       Fail{ErrNet{e}}
@@ -174,7 +174,7 @@ def reply(+old: String, now: Time.Instant, r: Result<&1, &1, Http.Err, Http.Res>
       Http.Res{+status, h, b} = res
       parse(status, old, now, b)
 
-def grant.done(+old: String, now: Time.Instant, x: Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>) ->
+def grant.done(+old: String, now: Time.Instant, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) ->
     Hairpin.Client & Result<&1, &1, Err, Token>:
   (h, r) = x
   (h, reply(old, now, r))
@@ -184,7 +184,7 @@ def grant(h: Hairpin.Client, cfg: Config, m: Map<&2, String>, +old: String) -> I
   Config{url, +id, +secret} = cfg
   do IO<Hairpin.Client & Result<&1, &1, Err, Token>>:
     now : Time.Instant <- Time.now()
-    x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <-
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
       Hairpin.request(h, "POST", url, auth.headers(id, secret), Http.from_string(body(id, secret, m)))
     return grant.done(old, now, x)
 
@@ -335,5 +335,5 @@ def bearer(tok: Token, h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>
 
 # Hairpin.request with Authorization: Bearer <access>, over any authorization header in headers.
 def request(c: Hairpin.Client, tok: Token, +method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>):
+    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>):
   Hairpin.request(c, method, url, bearer(tok, headers), body)

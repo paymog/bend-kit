@@ -1,7 +1,8 @@
 # LLM client for the Anthropic Messages and OpenAI Chat Completions APIs, with SSE streaming. Source: https://github.com/paymog/bend-kit/tree/main/llm
 import Base
 import ./sse.bend as Sse
-import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.2.1.0/retry.bend as Retry
 import bend-kit-http@0.23.0.1/http.bend as Http
 # By hash, as http imports them: bend-kit-json@0.5.0.1, -bytes@0.3.0.0, -encoding@0.3.0.0.
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
@@ -28,10 +29,10 @@ type Req is Data:
 type Reply is Data:
   Reply{id: String, model: String, text: String, stop: String, input: U32, output: U32}
 
-# ErrNet: the request did not complete. ErrApi: the API refused, with its status and error text; an error
-# event in a stream has status 200. ErrReply: a reply that is not the API's JSON, with its text.
+# ErrNet: the request did not complete, or Hairpin's breaker admitted no attempt. ErrApi: the API refused, with
+# its status and error text; an error event in a stream has status 200. ErrReply: a reply that is not the API's JSON, with its text.
 type Err is Data:
-  ErrNet{e: Http.Err}
+  ErrNet{e: Hairpin.Err}
   ErrApi{status: U32, body: String}
   ErrReply{body: String}
 
@@ -269,7 +270,7 @@ def again.err(+e: Http.Err) -> Maybe<&2, String>:
 def again.of(+status: U32, +h: Map<&2, List<&2, String>>) -> Maybe<&2, String>:
   Bool.pick(Maybe<&2, String>, again.status(status), Some{Http.header(h, "retry-after")}, None{})
 
-# The result, with Some{Retry-After} when another try may help.
+# The result, with Some{Retry-After} when another try may help. Hairpin's judge for every call.
 def again(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
   match r:
     case Fail{+e}:
@@ -277,51 +278,6 @@ def again(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Http.Err, Htt
     case Done{res}:
       Http.Res{+status, +h, b} = res
       (Done{Http.Res{status, h, b}}, again.of(status, h))
-
-def post.judged(h: Hairpin.Client, body: Bytes.Bytes, j: Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>) ->
-    Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
-  (r, m) = j
-  (h, body, r, m)
-
-def post.kept(body: Bytes.Bytes, x: Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>) ->
-    Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
-  (h, r) = x
-  post.judged(h, body, again(r))
-
-def post.once(+url: String, +headers: Map<&2, List<&2, String>>, h: Hairpin.Client, r: Bytes.Bytes & Bytes.Bytes) ->
-    IO(Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>):
-  (body, spare) = r
-  do IO<Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>>:
-    x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <- Hairpin.request(h, "POST", url, headers, spare)
-    return post.kept(body, x)
-
-# left: retries still allowed. n: the retry to wait for next, 0 first. The wait is Retry-After, else Http's backoff.
-def post.go(left: Nat, +n: Nat, +url: String, +headers: Map<&2, List<&2, String>>,
-    t: Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>) ->
-    IO(Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>):
-  match left:
-    case 0n:
-      (h, body, r, m) = t
-      IO.pure(Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>, (h, r))
-    case 1n+rest:
-      (h, body, r, m) = t
-      match m:
-        case None{}:
-          IO.pure(Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>, (h, r))
-        case Some{v}:
-          do IO<Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>>:
-            Http.retry.sleep(v, n)
-            tried : Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String> <-
-              post.once(url, headers, h, Bytes.slice(body, 0, 4294967295))
-            post.go(rest, 1n+n, url, headers, tried)
-
-# POST body, then retry. Hairpin retries only idempotent methods, and these POSTs are safe to repeat.
-def post(+retries: U32, +url: String, +headers: Map<&2, List<&2, String>>, h: Hairpin.Client, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>):
-  do IO<Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>>:
-    first : Hairpin.Client & Bytes.Bytes & Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String> <-
-      post.once(url, headers, h, Bytes.slice(body, 0, 4294967295))
-    post.go(U32.to_nat(retries), 0n, url, headers, first)
 
 def body.ok(good: Bool, +status: U32, b: Bytes.Bytes) -> Result<&1, &1, Err, Bytes.Bytes>:
   match good:
@@ -331,7 +287,7 @@ def body.ok(good: Bool, +status: U32, b: Bytes.Bytes) -> Result<&1, &1, Err, Byt
       Fail{ErrApi{status, Enc.utf8.decode(b)}}
 
 # The 2xx body, or why there is none.
-def body.of(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
+def body.of(r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
   match r:
     case Fail{e}:
       Fail{ErrNet{e}}
@@ -385,15 +341,24 @@ def close(c: Client) -> IO(Unit):
   Hairpin.close(http)
 
 def call.done(+api: Api, base: String, headers: Map<&2, List<&2, String>>, +ms: U32, +n: U32,
-    x: Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
-  (h, r) = x
+    x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
+  (h, b, r) = x
   (Client{api, base, headers, ms, n, h}, body.of(r))
 
-# POST body to the API, with retries; the 2xx body comes back.
+def call.budget(+api: Api, +base: String, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, y: Hairpin.Client & Retry.Budget) ->
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
+  (h, b) = y
+  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>>:
+    enc : String <- Http.codings()
+    Hairpin.request.as(~again, h, b, True{}, enc, "POST", url(api, base), headers, body)
+
+# POST body to the API with n retries on a budget of n + 1; the 2xx body comes back.
+# These POSTs are safe to repeat, so Hairpin retries them as again judges.
 def call(c: Client, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Bytes.Bytes>):
   Client{+api, +base, +headers, +ms, +n, h} = c
   do IO<Client & Result<&1, &1, Err, Bytes.Bytes>>:
-    x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <- post(n, url(api, base), headers, h, body)
+    y : Hairpin.Client & Retry.Budget <- Hairpin.budget(Hairpin.retry(h, n))
+    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- call.budget(api, base, headers, body, y)
     return call.done(api, base, headers, ms, n, x)
 
 def raw.got(b: Bytes.Bytes, m: Maybe<&1, Json.Val>) -> Result<&1, &1, Err, Json.Val>:
@@ -477,7 +442,7 @@ def open.drop(r: Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
     case Done{st}:
       Http.stream.close(st)
 
-# As post.go, but a refused stream closes before the next try.
+# A refused stream closes before the next try.
 def open.go(left: Nat, +n: Nat, +url: String, +headers: Map<&2, List<&2, String>>, +ms: U32,
     t: Bytes.Bytes & Result<&1, &1, Http.Err, Http.Stream> & Maybe<&2, String>) -> IO(Result<&1, &1, Http.Err, Http.Stream>):
   match left:
@@ -543,7 +508,7 @@ def start.res(x: Http.Stream & Http.Res) -> IO(Result<&1, &1, Err, Http.Stream>)
 def start(r: Result<&1, &1, Http.Err, Http.Stream>) -> IO(Result<&1, &1, Err, Http.Stream>):
   match r:
     case Fail{e}:
-      IO.pure(Result<&1, &1, Err, Http.Stream>, Fail{ErrNet{e}})
+      IO.pure(Result<&1, &1, Err, Http.Stream>, Fail{ErrNet{Hairpin.ErrHttp{e}}})
     case Done{h}:
       start.res(Http.stream.res(h))
 
@@ -581,7 +546,7 @@ def event.read(rd: Sse.Reader, x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&
   (h, r) = x
   match r:
     case Fail{e}:
-      RnOut{h, rd, Fail{ErrNet{e}}}
+      RnOut{h, rd, Fail{ErrNet{Hairpin.ErrHttp{e}}}}
     case Done{m}:
       match m:
         case None{}:
