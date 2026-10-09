@@ -145,6 +145,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`tty`](tty) | `bend-kit-tty@0.1.0.0/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
 | [`property`](property) | `bend-kit-property@0.1.0.0/property.bend` | Seeded generators, shrinking, and a property runner. |
+| [`lemmas`](lemmas) | `bend-kit-lemmas@0.1.0.0/lemmas.bend` | Proved laws that relate `Word` and `U32` arithmetic to `Nat`, on top of `bend-mathlib`. |
 
 ### Services
 

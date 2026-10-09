@@ -607,3 +607,10 @@ law cursor_u64le:
 
 law cursor_u64_incomplete:
   {cursor.read64(Bytes.Cursor.u64be(cursor.at(of("01234567"), 1))) == ("01234567", 1, None{}) : String & U32 & Maybe<&2, Int.U64>}
+
+# The bounds check of the integer reads and writes admits n bytes at i exactly when i + n <= len.
+law fits_exact:
+  for len: U32
+  for i: U32
+  for n: U32
+  {Bytes.fits(len, i, n) == Nat.is_le(Nat.add(U32.to_nat(i), U32.to_nat(n)), U32.to_nat(len)) : Bool}
