@@ -736,6 +736,88 @@ def parse.strict.bytes(b: Bytes.Bytes, cap: U32) -> Maybe<&1, Val>:
   Bytes.Bytes{+len, buf} = b
   runb(Nat.add(Nat.mul(U32.to_nat(len), 4n), 4n), (buf, BValue{0, Nil{}}, 0), len, True{}, cap)
 
+# Unique object keys
+# ------------------
+# Key equality uses the decoded UTF-8 bytes. Each comparison returns both
+# buffers; the walk retains every field in its original order.
+
+def unique.key.cons(result: List<&1, Bytes.Bytes & Val> & Bytes.Bytes & Bool, key: Bytes.Bytes, value: Val, same: Bool) -> List<&1, Bytes.Bytes & Val> & Bytes.Bytes & Bool:
+  (rest, query, absent) = result
+  (Con{(key, value), rest}, query, Bool.and(Bool.not(same), absent))
+
+def unique.key.next(comparison: Bytes.Bytes & Bytes.Bytes & Bool, value: Val, next: Bytes.Bytes -> List<&1, Bytes.Bytes & Val> & Bytes.Bytes & Bool) -> List<&1, Bytes.Bytes & Val> & Bytes.Bytes & Bool:
+  (key, query, same) = comparison
+  unique.key.cons(next(query), key, value, same)
+
+def unique.key.go(kvs: List<&1, Bytes.Bytes & Val>, query: Bytes.Bytes) -> List<&1, Bytes.Bytes & Val> & Bytes.Bytes & Bool:
+  match kvs:
+    case Nil{}:
+      (Nil{}, query, True{})
+    case (key, value) <> tail:
+      unique.key.next(Bytes.eq(key, query), value, next_query => unique.key.go(tail, next_query))
+
+def unique.array(head_result: Val & Bool, tail_result: Val & Bool) -> Val & Bool:
+  (head, head_ok) = head_result
+  (tail, tail_ok) = tail_result
+  match tail:
+    case Arr{xs}:
+      (Arr{Con{head, xs}}, Bool.and(head_ok, tail_ok))
+    case other:
+      (other, False{})
+
+def unique.object.done(result: List<&1, Bytes.Bytes & Val> & Bytes.Bytes & Bool, head: Val, head_ok: Bool, tail_ok: Bool) -> Val & Bool:
+  (rest, key, absent) = result
+  (Obj{Con{(key, head), rest}}, Bool.and(head_ok, Bool.and(tail_ok, absent)))
+
+def unique.object(key: Bytes.Bytes, head_result: Val & Bool, tail_result: Val & Bool) -> Val & Bool:
+  (head, head_ok) = head_result
+  (tail, tail_ok) = tail_result
+  match tail:
+    case Obj{kvs}:
+      unique.object.done(unique.key.go(kvs, key), head, head_ok, tail_ok)
+    case other:
+      (other, False{})
+
+# Returns the value and whether every object's decoded keys are unique.
+# This predicate checks keys. Syntax and depth limits belong to the parser.
+def unique.keys(v: Val) -> Val & Bool:
+  match v:
+    case Null{}:
+      (Null{}, True{})
+    case Flag{on}:
+      (Flag{on}, True{})
+    case Num{s}:
+      (Num{s}, True{})
+    case Str{s}:
+      (Str{s}, True{})
+    case Arr{Nil{}}:
+      (Arr{Nil{}}, True{})
+    case Arr{Con{head, tail}}:
+      unique.array(unique.keys(head), unique.keys(Arr{tail}))
+    case Obj{Nil{}}:
+      (Obj{Nil{}}, True{})
+    case Obj{(key, head) <> tail}:
+      unique.object(key, unique.keys(head), unique.keys(Obj{tail}))
+
+def unique.answer(r: Val & Bool) -> Maybe<&1, Val>:
+  (v, ok) = r
+  match ok:
+    case True{}:
+      Some{v}
+    case False{}:
+      None{}
+
+def unique.parsed(r: Maybe<&1, Val>) -> Maybe<&1, Val>:
+  match r:
+    case Some{v}:
+      unique.answer(unique.keys(v))
+    case None{}:
+      None{}
+
+# Strict UTF-8 JSON with the caller's depth cap and unique decoded object keys.
+def parse.strict.unique.bytes(b: Bytes.Bytes, cap: U32) -> Maybe<&1, Val>:
+  unique.parsed(parse.strict.bytes(b, cap))
+
 # Access
 # ------
 

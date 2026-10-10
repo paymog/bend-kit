@@ -3,7 +3,7 @@ import ./json.bend as Json
 import ./LAWS.bend as Laws
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 
-# Additional concrete strict-mode evidence; human-owned LAWS stay unchanged.
+# Concrete strict-mode evidence and implementations of the declared laws.
 def strict.high() -> {Json.parse.strict.bytes(Bytes.from_string("\"\\uD800\""), 64) == None{} : Maybe<&1, Json.Val>}:
   {==}
 
@@ -215,4 +215,62 @@ def Laws.encode_grown_buffer():
   {==}
 
 def Laws.roundtrip():
+  {==}
+
+# Opt-in uniqueness uses decoded keys at every object depth.
+def unique.pb(s: String, cap: U32) -> Maybe<&1, Json.Val>:
+  Json.parse.strict.unique.bytes(Json.utf8(s), cap)
+
+def unique.eb(r: Maybe<&1, Json.Val>) -> String:
+  match r:
+    case None{}:
+      "rejected"
+    case Some{v}:
+      Laws.eb(v)
+
+
+def unique_equal_duplicate_rejects() -> {unique.pb("{\"a\":1,\"a\":1}", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_conflicting_duplicate_rejects() -> {unique.pb("{\"a\":1,\"a\":2}", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_decoded_escape_duplicate_rejects() -> {unique.pb("{\"a\":1,\"\\u0061\":2}", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_astral_duplicate_rejects() -> {unique.pb("{\"😀\":1,\"\\uD83D\\uDE00\":2}", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_second_array_item_rejects() -> {unique.pb("[{\"a\":0},{\"b\":1,\"\\u0062\":2}]", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_sibling_objects_admit() -> {unique.eb(unique.pb("{\"left\":{\"k\":1},\"right\":{\"k\":2}}", 8)) == "{\"left\":{\"k\":1},\"right\":{\"k\":2}}" : String}:
+  {==}
+
+def unique_exact_numbers_and_order_survive() -> {unique.eb(unique.pb("{\"z\":1e+02,\"a\":-0,\"wide\":9007199254740993}", 8)) == "{\"z\":1e+02,\"a\":-0,\"wide\":9007199254740993}" : String}:
+  {==}
+
+def unique_empty_containers_admit() -> {unique.eb(unique.pb("[{},[]]", 8)) == "[{},[]]" : String}:
+  {==}
+
+def unique_lone_surrogate_rejects() -> {unique.pb("\"\\uD800\"", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_depth_limit_rejects() -> {unique.pb("[[]]", 1) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_scalar_zero_depth_admits() -> {unique.eb(unique.pb("1e400", 0)) == "1e400" : String}:
+  {==}
+
+def unique_invalid_number_rejects() -> {unique.pb("01", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_nul_key_duplicate_rejects() -> {unique.pb("{\"\\u0000\":1,\"\\u0000\":2}", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique.retained(r: Json.Val & Bool) -> String & Bool:
+  (v, ok) = r
+  (Laws.eb(v), ok)
+
+def unique_retains_rejected_value() -> {unique.retained(Json.unique.keys(Laws.obj2("a", Laws.num("1"), "a", Laws.num("2")))) == ("{\"a\":1,\"a\":2}", False{}) : String & Bool}:
   {==}

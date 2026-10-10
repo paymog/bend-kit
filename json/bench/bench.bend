@@ -1,4 +1,4 @@
-# JSON benchmark: parse and encode one fixed document as UTF-8 Bytes (see README.md).
+# JSON benchmark: parse, check unique keys, and encode UTF-8 Bytes (see README.md).
 import Base
 import ../../time/time.bend as Time
 import ../json.bend as Json
@@ -15,28 +15,42 @@ def hash(s: String, h: U32, n: U32) -> U32:
 def lap(+name: String, t0: Time.Duration, t1: Time.Duration, +sum: U32) -> IO(Unit):
   IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(sum))
 
-# Val is affine, so the one encode gives both checksums. Checksums are not timed.
-def op.encoded(t0: Time.Duration, +t1: Time.Duration, t2: Time.Duration, out: Bytes.Bytes) -> IO(Unit):
+# Val is affine, so the one encode gives all checksums. Checksums are not timed.
+def op.encoded(t0: Time.Duration, +t1: Time.Duration, +t2: Time.Duration, t3: Time.Duration, out: Bytes.Bytes) -> IO(Unit):
   +sum = hash(Bytes.to_string(out), 0, 0)
   do IO<Unit>:
     lap("parse.bytes", t0, t1, sum)
-    lap("encode.bytes", t1, t2, sum)
+    lap("unique.keys", t1, t2, sum)
+    lap("encode.bytes", t2, t3, sum)
 
-# Bend evaluates strictly: the output is built before t2 is read.
-def op.encode(t0: Time.Duration, t1: Time.Duration, v: Json.Val) -> IO(Unit):
+# Bend evaluates strictly: the output is built before t3 is read.
+def op.encode(t0: Time.Duration, t1: Time.Duration, t2: Time.Duration, v: Json.Val) -> IO(Unit):
   out = Json.encode.bytes(v)
   do IO<Unit>:
+    t3 : Time.Duration <- Time.mono()
+    op.encoded(t0, t1, t2, t3, out)
+
+def op.unique.checked(ok: Bool, t0: Time.Duration, t1: Time.Duration, t2: Time.Duration, v: Json.Val) -> IO(Unit):
+  match ok:
+    case True{}:
+      op.encode(t0, t1, t2, v)
+    case False{}:
+      IO.die(Unit, 1, "unique.keys failed")
+
+def op.unique.result(t0: Time.Duration, t1: Time.Duration, result: Json.Val & Bool) -> IO(Unit):
+  (v, ok) = result
+  do IO<Unit>:
     t2 : Time.Duration <- Time.mono()
-    op.encoded(t0, t1, t2, out)
+    op.unique.checked(ok, t0, t1, t2, v)
 
 def op.parsed(t0: Time.Duration, m: Maybe<&1, Json.Val>) -> IO(Unit):
   match m:
     case None{}:
-      IO.print("parse.bytes\t0\tfailed")
+      IO.die(Unit, 1, "parse.bytes failed")
     case Some{v}:
       do IO<Unit>:
         t1 : Time.Duration <- Time.mono()
-        op.encode(t0, t1, v)
+        op.unique.result(t0, t1, Json.unique.keys(v))
 
 # The file is read as octets, one Char each, and packed before the timer starts.
 def op.parse(b: Bytes.Bytes) -> IO(Unit):
