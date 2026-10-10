@@ -1,6 +1,6 @@
 # JSON benchmark
 
-This times `Json.parse.bytes` and `Json.encode.bytes` on one fixed document, in Bend and in C, Rust, JavaScript (Bun and Node), and Python.
+This times `Json.parse.bytes` and `Json.encode.bytes` on one fixed document, in Bend and in C, Rust, JavaScript (Bun and Node), and Python. Bend also times `Json.unique.keys` between parsing and encoding.
 
 ## Run
 
@@ -95,3 +95,58 @@ One-run native Bend times are 0.2 ms parse and 0.1 ms encode; this is a small
 correctness smoke, not a replacement for the historical performance results.
 The publication check reports `bend-kit-json@0.5.1.0 will publish`; merge CI
 owns publication.
+
+## Key uniqueness cost measurement
+
+The existing Bend benchmark applies `unique.keys` to the parsed value and times
+that call separately. It encodes the returned value, prints the same checksum
+for all three phases, and requires a true verdict. The runner compares that
+encoding checksum with the existing C, Rust, Bun, Node and Python outputs. The
+key-check timing is a Bend-only measurement; the other programs measure their
+existing parse and encode operations.
+
+The optional third runner argument writes one object with that many distinct
+ASCII keys. Keys are `k` followed by an eight-digit index, inserted in increasing
+order. Values are the corresponding integers. Each invocation writes and reads
+one fixed document using the existing benchmark programs.
+
+```sh
+python3 run.py 1 40
+python3 run.py 3
+for fields in 8 16 32 64 128 256 512; do
+  python3 run.py 3 0 "$fields"
+done
+```
+
+These field counts select measurement fixtures.
+
+Measured on 2026-10-10 on an AMD EPYC 7551 with 32 cores and 64 logical CPUs,
+Linux 6.14.0-37-generic x86_64. Existing host workloads continued during the
+measurements. Versions: Bend 2.0.36, Ubuntu clang 19.1.1 for Bend native builds,
+GCC 13.3.0 for the C variant, cJSON 1.7.19, rustc 1.94.1, serde_json 1.0.151,
+Bun 1.3.13, Node 24.13.0 and Python 3.12.3.
+
+The small input used one run. The ordinary input and each field-count fixture
+used three runs and report medians. All six variants completed every invocation
+and agreed on the parse and encode checksum. The Bend uniqueness phase prints
+the checksum of that same encoded result. Consumer cases separately check the
+uniqueness verdict and the returned value.
+
+| Input | Bytes | Runs | Bend parse ms | Bend uniqueness ms | Bend encode ms | Checksum | Runner max RSS KiB |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 40 records | 13312 | 1 | 0.9 | 0.758 | 0.8 | 356421233 | 719072 |
+| 4000 records | 1361421 | 3 | 19.8 | 21.676 | 15.7 | 4114665117 | 700296 |
+| 8 fields | 146 | 3 | 0.3 | 0.227 | 0.3 | 1815190181 | 687508 |
+| 16 fields | 296 | 3 | 0.4 | 0.273 | 0.4 | 2421764943 | 734180 |
+| 32 fields | 600 | 3 | 0.3 | 0.421 | 0.5 | 2298712047 | 733520 |
+| 64 fields | 1208 | 3 | 0.4 | 0.959 | 0.5 | 1488746991 | 721424 |
+| 128 fields | 2452 | 3 | 0.4 | 3.046 | 0.5 | 3549227667 | 700712 |
+| 256 fields | 5012 | 3 | 0.2 | 5.496 | 0.3 | 3590427347 | 733060 |
+| 512 fields | 10132 | 3 | 0.7 | 27.684 | 0.3 | 808511251 | 731260 |
+
+The runner reports parse and encode times to one decimal place and uniqueness
+to three decimal places. Maximum RSS covers each complete runner invocation,
+including builds and all language child processes. It measures that invocation's
+resource use. The key scan performs `n * (n - 1) / 2` comparisons in an object
+with distinct keys, and rebuilds its member list during the scan. Key byte length
+adds comparison work. These measurements describe this implementation and host.

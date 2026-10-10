@@ -7,6 +7,7 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 RECORDS = int(sys.argv[2]) if len(sys.argv) > 2 else 4000
+FIELDS = int(sys.argv[3]) if len(sys.argv) > 3 else None
 OPS = ["parse.bytes", "encode.bytes"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 CJSON = subprocess.check_output(["pkg-config", "--cflags", "--libs", "libcjson"], text=True).split()
@@ -38,9 +39,12 @@ def record(i):
 
 def main():
     OUT.mkdir(exist_ok=True)
-    doc = json.dumps({"count": RECORDS, "items": [record(i) for i in range(RECORDS)]}, indent=2)
+    value = ({f"k{i:08}": i for i in range(FIELDS)} if FIELDS is not None
+             else {"count": RECORDS, "items": [record(i) for i in range(RECORDS)]})
+    doc = json.dumps(value, indent=2)
     (OUT / "doc.json").write_text(doc)
-    print(f"input {len(doc):,} bytes, {RECORDS} records", file=sys.stderr)
+    shape = f"{FIELDS} object fields" if FIELDS is not None else f"{RECORDS} records"
+    print(f"input {len(doc):,} bytes, {shape}", file=sys.stderr)
 
     table, checks = {}, {}
     for name, (build, run) in VARIANTS.items():
@@ -69,6 +73,9 @@ def main():
         best = max(min(t[op] for t in table.values()), 1e-9)
         cells = [f"{table[n][op]:,.1f} ({table[n][op] / best:.1f}x)" for n in names]
         print(f"| {op} | " + " | ".join(cells) + " |")
+    print(f"unique.keys checksum {checks['Bend']['unique.keys']}", file=sys.stderr)
+    cells = [f"{table[n]['unique.keys']:,.3f}" if n == "Bend" else "--" for n in names]
+    print("| unique.keys (ms) | " + " | ".join(cells) + " |")
 
 
 main()
