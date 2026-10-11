@@ -125,6 +125,7 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`crypto`](crypto) | `bend-kit-crypto@0.2.2.1/crypto.bend` | Digests, HMAC, HKDF, AEAD, scrypt, RSA, and P-256 through OpenSSL 3. |
 | [`oauth2`](oauth2) | `bend-kit-oauth2@0.3.0.1/oauth2.bend` | Client credentials, refresh, and authorization code with PKCE. |
+| [`authz`](authz) | `bend-kit-authz@0.1.0.0/authz.bend` | Pure authorization policies: deny-overrides, default deny, intersection, and fail-closed missing context. |
 | [`jwt`](jwt) | `bend-kit-jwt@0.3.0.1/jwt.bend` | HS256/384/512, RS256, and ES256, plus JWKS lookup. |
 | [`sigv4`](sigv4) | `bend-kit-sigv4@0.3.0.1/sigv4.bend` | AWS Signature V4 and S3 over `hairpin`. |
 | [`webhooks`](webhooks) | `bend-kit-webhooks@0.3.0.1/webhooks.bend` | Standard Webhooks, Stripe, and GitHub signature checks. |
