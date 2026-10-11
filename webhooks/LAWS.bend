@@ -1,6 +1,6 @@
 import Base
 import ./webhooks.bend as W
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 # Pure framing and freshness only. HMAC and the constant-time compare are foreign code; check.bend runs them.

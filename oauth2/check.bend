@@ -1,10 +1,10 @@
 import Base
 import ./oauth2.bend as O
-import ../hairpin/hairpin.bend as Hairpin
-import ../http/http.bend as Http
-import ../http/admission.bend as Admission
-import ../http/completion.bend as Completion
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-hairpin@0.3.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.32.0.0/http.bend as Http
+import bend-kit-http@0.32.0.0/admission.bend as Admission
+import bend-kit-http@0.32.0.0/completion.bend as Completion
+import bend-kit-time@0.1.2.1/time.bend as Time
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
 

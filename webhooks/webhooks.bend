@@ -1,14 +1,14 @@
 # Webhook signatures: Standard Webhooks sign and verify, Stripe and GitHub verify, over the raw body. Source: https://github.com/paymog/bend-kit/tree/main/webhooks
 import Base
 import bend-kit-crypto@0.2.0.0/crypto.bend as Crypto
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 # By hash, as http imports them: bend-kit-encoding@0.3.0.0, -bytes@0.3.0.0.
 import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import ../hairpin/hairpin.bend as Hairpin
-import ../hairpin/retry.bend as Retry
-import ../http/http.bend as Http
+import bend-kit-hairpin@0.3.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.3.0.0/retry.bend as Retry
+import bend-kit-http@0.32.0.0/http.bend as Http
 
 # Every MAC is HMAC-SHA256 over the body exactly as received, never a re-encoding of parsed JSON.
 # Headers are Http.Req headers: lowercase names, octet-string values. Each verify hands the body back.

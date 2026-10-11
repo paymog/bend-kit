@@ -8,7 +8,7 @@ import bend-kit-hairpin@0.3.0.0/hairpin.bend as Hairpin
 import bend-kit-http@0.32.0.0/http.bend as Http
 ```
 
-`sigv4.bend` imports that `http`, `bend-kit-crypto@0.1.1.0`, and `bend-kit-time@0.1.0.0`. HMAC-SHA256 needs OpenSSL 3 (`BEND_LIBCRYPTO` on the crypto package).
+`sigv4.bend` imports that `http`, `bend-kit-crypto@0.1.1.0`, and `bend-kit-time@0.1.2.1`. HMAC-SHA256 needs OpenSSL 3 (`BEND_LIBCRYPTO` on the crypto package).
 
 `Credentials` holds the access key, secret, and session token. An empty token means a long-term key. `sign` returns the `Authorization` value. The date argument is `x-amz-date` form, `YYYYMMDDTHHMMSSZ`. `authorize` returns that header and the signed `x-amz-date`. `presign` builds a query-string signature with an expiry in seconds.
 
