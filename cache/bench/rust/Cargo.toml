@@ -1,0 +1,11 @@
+[package]
+name = "cache-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+moka = { version = "=0.12.16", features = ["sync"] }
+
+[profile.release]
+opt-level = 3
