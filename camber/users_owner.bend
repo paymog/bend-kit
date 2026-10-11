@@ -2,8 +2,8 @@
 import Base
 import ./users.bend as U
 import ./users_direct.bend as Check
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-http@0.30.0.0/http.bend as H
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-http@0.32.0.0/http.bend as H
 
 def require.success(outcome: C.Outcome<String, U.User>) -> IO(Unit):
   match outcome:
@@ -32,8 +32,8 @@ def disposed(owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +context
   do IO<Unit>:
     +reply : Chan(C.Outcome<String, U.User>) <- Chan.new(C.Outcome<String, U.User>, 1)
     Chan.close(C.Outcome<String, U.User>, reply)
-    sent : Bool <- C.submit(U.Store, U32, U.Operation, String, U.User, context, 8, U.Lookup{8, True{}}, reply)
-    U.require(sent, "disposed reply submission failed")
+    sent : Result<&1, &1, C.Message<U.Store, U32, U.Operation, String, U.User>, Unit> <- C.submit(U.Store, U32, U.Operation, String, U.User, context, 8, U.Lookup{8, True{}}, reply)
+    U.require(Result.is_done(&1, &1, C.Message<U.Store, U32, U.Operation, String, U.User>, Unit, sent), "disposed reply submission failed")
     idle(1024n, context)
     recovered : C.Outcome<String, U.User> <- C.call(U.Store, U32, U.Operation, String, U.User, context, 7, U.Lookup{7, False{}})
     require.success(recovered)
@@ -47,7 +47,7 @@ def busy(result: C.OwnerClose<U.Store, U32, U.Operation, String, U.User>, +conte
     case C.OwnerBusy{owner, C.Counts{capacity, in_use, completed, rejected}}:
       do IO<Unit>:
         U.require(Nat.is_eq(in_use, 1n) && Nat.is_eq(capacity, 1n), "wrong held capacity")
-        sent : Bool <- Chan.send(Unit, gate, Unit{})
+        sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
         result : C.Outcome<String, U.User> <- C.receive(C.Outcome<String, U.User>, reply)
         require.success(result)
         Chan.close(C.Outcome<String, U.User>, reply)
@@ -59,8 +59,8 @@ def held(owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +context: C.
   do IO<Unit>:
     +gate : Chan(Unit) <- Chan.new(Unit, 1)
     +reply : Chan(C.Outcome<String, U.User>) <- Chan.new(C.Outcome<String, U.User>, 1)
-    sent : Bool <- C.submit(U.Store, U32, U.Operation, String, U.User, context, 7, U.Hold{gate}, reply)
-    U.require(sent, "hold submission failed")
+    sent : Result<&1, &1, C.Message<U.Store, U32, U.Operation, String, U.User>, Unit> <- C.submit(U.Store, U32, U.Operation, String, U.User, context, 7, U.Hold{gate}, reply)
+    U.require(Result.is_done(&1, &1, C.Message<U.Store, U32, U.Operation, String, U.User>, Unit, sent), "hold submission failed")
     counts : Maybe<&2, C.Counts> <- C.inspect(U.Store, U32, U.Operation, String, U.User, context)
     # FIFO inspection is after the checkout, not a guessed sleep.
     unavailable : C.Outcome<String, U.User> <- C.call(U.Store, U32, U.Operation, String, U.User, context, 8, U.Lookup{8, False{}})
@@ -75,8 +75,8 @@ def concurrent(app: C.Application<U.Action, U.Config, C.Policy<String>>, owner: 
     C.receive(Unit, arrived)
     failed : U.State <- Check.dispatch(application, U.fresh(), H.Req{"GET", "/users/me", H.set(H.set(H.empty(), "authorization", "Bearer eight"), "x-store-fail", "yes"), H.from_string("")})
     U.destroy(failed)
-    sent : Bool <- Chan.send(Unit, release, Unit{})
-    U.require(sent, "first request release failed")
+    sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+    U.require(Result.is_done(&1, &1, Unit, Unit, sent), "first request release failed")
     restored : U.State <- IO.join(U.State, first)
     U.destroy(restored)
     recovery : U.State <- Check.dispatch(application, U.fresh(), H.Req{"GET", "/users/me", H.set(H.empty(), "authorization", "Bearer eight"), H.from_string("")})

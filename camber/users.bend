@@ -1,9 +1,9 @@
 # Four-route users demo over published Camber; one affine in-memory store, no persistence claim.
 import Base
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-camber@0.6.0.0/input.bend as Input
-import bend-kit-camber@0.6.0.0/notices.bend as N
-import bend-kit-http@0.30.0.0/http.bend as H
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-camber@0.7.0.0/input.bend as Input
+import bend-kit-camber@0.7.0.0/notices.bend as N
+import bend-kit-http@0.32.0.0/http.bend as H
 import bend-kit-json@0.5.1.0/json.bend as J
 import bend-kit-router@0.2.0.0/target.bend as Target
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as B
@@ -366,8 +366,8 @@ def wait.gate(gate: Gate) -> IO(Unit):
     case Gate{arrived, release}:
       do IO<Unit>:
         IO.print("REQUEST HELD")
-        sent : Bool <- Chan.send(Unit, arrived, Unit{})
-        require(sent, "hold arrival signal failed")
+        sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, arrived, Unit{})
+        require(Result.is_done(&1, &1, Unit, Unit, sent), "hold arrival signal failed")
         C.receive(Unit, release)
 
 def wait(hold: Bool, gate: Gate) -> IO(Unit):

@@ -3,8 +3,8 @@ import Base
 import ./camber.bend as C
 import ./input_app.bend as App
 import ./input.bend as Input
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as B
 
 def ready(result: Result<&2, &2, C.RegistrationError, C.Application<Unit, App.Config, C.Policy<Unit>>>) -> IO(C.Application<Unit, App.Config, C.Policy<Unit>>):
@@ -67,7 +67,7 @@ def live.remaining(count: Nat, +remaining: Chan(Nat), stop: Chan(H.ServerControl
             return Unit{}
         case 1n+tail:
           do IO<Unit>:
-            sent : Bool <- Chan.send(Nat, remaining, 1n+tail)
+            sent : Result<&1, &1, Nat, Unit> <- Chan.send(Nat, remaining, 1n+tail)
             return Unit{}
 
 def live.observe(context: Live, status: U32, outcome: T.Outcome) -> IO(Unit):
@@ -80,7 +80,7 @@ def live.controlled(controlled: H.Server<Live> & H.ServerControl, context: Live)
   (server, control) = controlled
   Live{config, remaining, +stop} = context
   do IO<Unit>:
-    sent : Bool <- Chan.send(H.ServerControl, stop, control)
+    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, stop, control)
     IO.print("READY")
     exited : H.ServerExit <- H.server.run(~Live, ~live.handler, ~live.observe, server)
     Chan.close(Nat, remaining)
@@ -105,7 +105,7 @@ def live(port: String, count: String, depth: String, journal: String) -> IO(Unit
     cap : U32 <- integer(Input.u32(depth))
     +remaining : Chan(Nat) <- Chan.new(Nat, 1)
     stop : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    sent : Bool <- Chan.send(Nat, remaining, U32.to_nat(n))
+    sent : Result<&1, &1, Nat, Unit> <- Chan.send(Nat, remaining, U32.to_nat(n))
     +context : Live = Live{App.Config{journal, cap}, remaining, stop}
     started : Unit & Result<&2, &1, H.StartupError, H.Server<Live>> <-
       H.server.start(~Live, ~Unit, context, Unit{}, C.server.config(p))

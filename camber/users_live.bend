@@ -1,9 +1,9 @@
 # Published live-only acceptance consumer: same public users application and real transport/Store joins.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 
 def store.closed(result: C.OwnerClose<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
   match result:
@@ -20,8 +20,8 @@ def control(context: Control, req: H.Req) -> IO(H.Reply):
   match path:
     case "/release":
       do IO<H.Reply>:
-        sent : Bool <- Chan.send(Unit, gate, Unit{})
-        U.require(sent, "release rejected")
+        sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
+        U.require(Result.is_done(&1, &1, Unit, Unit, sent), "release rejected")
         return H.Reply{C.empty(200), T.Unobserved{}}
     case "/stop":
       do IO<H.Reply>:
@@ -53,7 +53,7 @@ def server.closed(result: C.ServerExit<U.Action, U.State, U.Config, String>) -> 
 def live.running(controlled: H.Server<Control> & H.ServerControl, server: C.Server<U.Action, U.State, U.Config, String>, +own: Chan(H.ServerControl), owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +gate: Chan(Unit), arrived: Chan(Unit)) -> IO(Unit):
   (control_server, stop) = controlled
   do IO<Unit>:
-    sent : Bool <- Chan.send(H.ServerControl, own, stop)
+    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, own, stop)
     future : Chan(C.ServerExit<U.Action, U.State, U.Config, String>) <- IO.fork(C.ServerExit<U.Action, U.State, U.Config, String>,
       C.server.run(~U.Action, ~U.State, ~U.Config, ~String, ~String, ~done, ~observed, ~U.notify, ~U.report, ~C.access.disabled(~U.Config), server))
     IO.print("READY")

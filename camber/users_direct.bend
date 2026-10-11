@@ -1,9 +1,9 @@
 # Published direct acceptance consumer: one reusable application/state and one actual Store Owner.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-camber@0.6.0.0/notices.bend as N
-import bend-kit-http@0.30.0.0/http.bend as H
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-camber@0.7.0.0/notices.bend as N
+import bend-kit-http@0.32.0.0/http.bend as H
 import bend-kit-json@0.5.1.0/json.bend as J
 import bend-kit-router@0.2.0.0/router.bend as R
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as B

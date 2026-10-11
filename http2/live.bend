@@ -72,7 +72,7 @@ def replied(r: H.Reply, s: Socket,
       do IO<Unit>:
         closed: Unit <- Wire.tls.close(s)
         IO.die(Unit, 1, "public h2 protocol: " ++ U32.show(code))
-    case H.Ready{c, writes, events}:
+    case H.Advanced{c, writes, events}:
       do IO<Unit>:
         next: Socket <- send(writes, s)
         k(next, c, events)

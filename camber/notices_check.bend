@@ -5,10 +5,10 @@ import ./notices.bend as N
 import ./serving_check.bend as Existing
 import ./input.bend as Input
 import bend-kit-json@0.5.1.0/json.bend as J
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
-import bend-kit-notch@0.1.0.0/notch.bend as Notch
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
+import bend-kit-notch@0.1.0.1/notch.bend as Notch
+import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as B
 
@@ -43,7 +43,7 @@ def observed(outcome: N.Outcome, +config: Config) -> IO(Unit):
       Config{mode, gate, +stats} = config
       do IO<Unit>:
         +observer : H.ServerStats <- C.receive(H.ServerStats, stats)
-        sent : Bool <- Chan.send(H.ServerStats, stats, observer)
+        sent : Result<&1, &1, H.ServerStats, Unit> <- Chan.send(H.ServerStats, stats, observer)
         counts : Maybe<&2, H.ServerCounts> <- H.server.stats(observer)
         snapshot(counts)
 
@@ -185,7 +185,7 @@ def control(context: Control, path: String) -> IO(H.Reply):
         return H.Reply{response, T.Unobserved{}}
     case "/release":
       do IO<H.Reply>:
-        sent : Bool <- Chan.send(Unit, gate, Unit{})
+        sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
         return H.Reply{C.empty(200), T.Unobserved{}}
     case _:
       do IO<H.Reply>:
@@ -207,7 +207,7 @@ def final(result: C.ServerExit<U32, File, Config, String>) -> IO(Unit):
 def control.running(controlled: H.Server<Control> & H.ServerControl, server: C.Server<U32, File, Config, String>, +self: Chan(H.ServerControl)) -> IO(Unit):
   (transport, stop) = controlled
   do IO<Unit>:
-    sent : Bool <- Chan.send(H.ServerControl, self, stop)
+    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, self, stop)
     finished : Chan(C.ServerExit<U32, File, Config, String>) <- IO.fork(C.ServerExit<U32, File, Config, String>,
       C.server.run(~U32, ~File, ~Config, ~String, ~String, ~done, ~T.ignore,
         ~(k => policy => notice => notify(k, policy, notice)), ~report, ~access, server))
@@ -228,7 +228,7 @@ def application.observed(observed: C.Server<U32, File, Config, String> & H.Serve
   (server, +stats) = observed
   Config{mode, +gate, +channel} = config
   do IO<Unit>:
-    sent : Bool <- Chan.send(H.ServerStats, channel, stats)
+    sent : Result<&1, &1, H.ServerStats, Unit> <- Chan.send(H.ServerStats, channel, stats)
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
     control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, stats, gate, self}, Unit{}, C.server.config(control_port))
     control.started(control_result, server, self)

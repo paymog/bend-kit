@@ -40,13 +40,6 @@ def trips(f: Nat, +day: Int.I64, +step: Int.I64, +bad: U32) -> U32:
       +i = at(day)
       trips(g, Int.I64.add(day, step), step, (bad + Bool.pick(U32, trip.ok(i, Time.rfc3339(i)), 0, 1) : U32))
 
-def zone.show(m: Maybe<&2, Time.Zone>, +s: U32) -> String:
-  match m:
-    case None{}:
-      "no zone"
-    case Some{z}:
-      show(Maybe.map(&2, Time.DateTime, String, Time.DateTime.rfc3339,
-        Time.Zone.local(z, Time.Instant{Int.I64.from_u32(s), 0})))
 
 def zone.count(m: Maybe<&2, Time.Zone>) -> Nat:
   match m:
@@ -63,10 +56,7 @@ def zone(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
       +z = Time.tzif.parse(Bytes.from_string(chars(xs)))
       do IO<Unit>:
         IO.print("New_York transitions: " ++ Nat.show(zone.count(z)))
-        IO.print("2024-03-10T06:59:59Z local: " ++ zone.show(z, 1710053999))
-        IO.print("2024-03-10T07:00:00Z local: " ++ zone.show(z, 1710054000))
-        IO.print("2024-11-03T05:59:59Z local: " ++ zone.show(z, 1730613599))
-        IO.print("2024-11-03T06:00:00Z local: " ++ zone.show(z, 1730613600))
+        # Local time is not printed: Zone.local and DateTime.rfc3339 in one segment hit bendlang/bend#1069.
 
 def read.done(fr: File & Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
   (f, r) = fr

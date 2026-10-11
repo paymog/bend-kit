@@ -3,7 +3,7 @@ import ./http.bend as Http
 import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
 import 0x584fc27920487ceab242392391418d7f/json.bend as Json
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 # LAW: the text after a blank line is the body.

@@ -82,8 +82,8 @@ type Counts is Data:
 
 def send(+events: Chan(OwnerEvent), event: OwnerEvent) -> IO(Unit):
   do IO<Unit>:
-    ok : Bool <- Chan.send(OwnerEvent, events, event)
-    require(ok, "owner event channel closed too early")
+    ok : Result<&1, &1, OwnerEvent, Unit> <- Chan.send(OwnerEvent, events, event)
+    require(Result.is_done(&1, &1, OwnerEvent, Unit, ok), "owner event channel closed too early")
 
 def receive.value(-A: Type, got: Maybe<&1, A>) -> IO(A):
   match got:
@@ -176,8 +176,8 @@ def queue(+q: Chan(Http.Req & Chan(Http.Res)), req: Http.Req) -> IO(Chan(Http.Re
   do IO<Chan(Http.Res)>:
     reply : Chan(Http.Res) <- Chan.new(Http.Res, 1)
     +reply : Chan(Http.Res) = reply
-    sent : Bool <- Chan.send(Http.Req & Chan(Http.Res), q, (req, reply))
-    require(sent, "job queue rejected admitted request")
+    sent : Result<&1, &1, Http.Req & Chan(Http.Res), Unit> <- Chan.send(Http.Req & Chan(Http.Res), q, (req, reply))
+    require(Result.is_done(&1, &1, Http.Req & Chan(Http.Res), Unit, sent), "job queue rejected admitted request")
     return reply
 
 def concurrent(+path: String) -> IO(Unit):
@@ -197,9 +197,9 @@ def concurrent(+path: String) -> IO(Unit):
     +active : Counts = active0
     count.check(active, 2, 0)
     IO.print("owner observed 2 distinct affine instances in use before either request completed")
-    go_a : Bool <- Chan.send(Unit, release, Unit{})
-    go_b : Bool <- Chan.send(Unit, release, Unit{})
-    require(go_a && go_b, "failed to release concurrent requests")
+    go_a : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+    go_b : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+    require(Result.is_done(&1, &1, Unit, Unit, go_a) && Result.is_done(&1, &1, Unit, Unit, go_b), "failed to release concurrent requests")
     res_a : Http.Res <- IO.join(Http.Res, a)
     res_b : Http.Res <- IO.join(Http.Res, b)
     response(res_a, 200, "{\"id\":7,\"name\":\"Alice\"}")
@@ -213,9 +213,9 @@ def concurrent(+path: String) -> IO(Unit):
     active_again0 : Counts <- observe(2n, events, idle)
     +active_again : Counts = active_again0
     count.check(active_again, 2, 0)
-    go_c : Bool <- Chan.send(Unit, release, Unit{})
-    go_d : Bool <- Chan.send(Unit, release, Unit{})
-    require(go_c && go_d, "failed to release second concurrent batch")
+    go_c : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+    go_d : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+    require(Result.is_done(&1, &1, Unit, Unit, go_c) && Result.is_done(&1, &1, Unit, Unit, go_d), "failed to release second concurrent batch")
     res_c : Http.Res <- IO.join(Http.Res, c)
     res_d : Http.Res <- IO.join(Http.Res, d)
     response(res_c, 404, "{\"error\":\"not found\"}")

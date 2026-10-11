@@ -2,8 +2,8 @@
 import Base
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 import bend-kit-json@0.5.1.0/json.bend as J
 import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as B
 
@@ -130,10 +130,10 @@ def waiting.prepared(prepared: C.Server<U32, File, Config, String> & C.Context<F
   (retained, C.Context{messages}) = prepared
   do IO<C.Server<U32, File, Config, String> & Maybe<&2, Chan(C.Counts)>>:
     +reply : Chan(C.Counts) <- Chan.new(C.Counts, 1)
-    filled : Bool <- Chan.send(C.Counts, reply, C.Counts{0n, 0n, 0n, 0n})
-    queued : Bool <- Chan.send(C.Message<File, C.Application<U32, Config, C.Policy<String>>, C.BufferedRequest, Unit, C.ApplicationReport<String>>,
+    filled : Result<&1, &1, C.Counts, Unit> <- Chan.send(C.Counts, reply, C.Counts{0n, 0n, 0n, 0n})
+    queued : Result<&1, &1, C.Message<File, C.Application<U32, Config, C.Policy<String>>, C.BufferedRequest, Unit, C.ApplicationReport<String>>, Unit> <- Chan.send(C.Message<File, C.Application<U32, Config, C.Policy<String>>, C.BufferedRequest, Unit, C.ApplicationReport<String>>,
       messages, C.Inspect{reply})
-    require(filled && queued, "dependency wait setup failed")
+    require(Result.is_done(&1, &1, C.Counts, Unit, filled) && Result.is_done(&1, &1, C.Message<File, C.Application<U32, Config, C.Policy<String>>, C.BufferedRequest, Unit, C.ApplicationReport<String>>, Unit, queued), "dependency wait setup failed")
     return (retained, Some{reply})
 
 def waiting(flag: Bool, server: C.Server<U32, File, Config, String>
@@ -183,8 +183,8 @@ def control(path: String, context: Control, req: H.Req) -> IO(H.Res):
       Control{stop, stats, gate, blocked, self} = context
       do IO<H.Res>:
         release(blocked)
-        sent : Bool <- Chan.send(Unit, gate, Unit{})
-        require(sent, "release failed")
+        sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
+        require(Result.is_done(&1, &1, Unit, Unit, sent), "release failed")
         return C.empty(200)
     case "/finish":
       Control{stop, stats, release, blocked, +self} = context
@@ -207,7 +207,7 @@ def control.running(controlled: H.Server<Control> & H.ServerControl,
 ) -> IO(Unit):
   (transport, own_control) = controlled
   do IO<Unit>:
-    sent : Bool <- Chan.send(H.ServerControl, self, own_control)
+    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, self, own_control)
     finished : Chan(C.ServerExit<U32, File, Config, String>) <- IO.fork(C.ServerExit<U32, File, Config, String>,
       C.server.run(~U32, ~File, ~Config, ~String, ~Unit, ~done, ~observe, ~C.notice.ignore(~Config, ~String, ~Unit), ~C.notice.error.ignore(~Config, ~Unit), ~C.access.disabled(~Config), server))
     IO.print("READY")

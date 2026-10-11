@@ -3,16 +3,16 @@ import Base
 import ../users.bend as U
 import ../users_demo.bend as Demo
 import ./signals.bend as S
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 
 # Acceptance-only non-yielding CPU fixture. No cancellation or proof claim.
 @unsafe
 def spin(n: U32) -> U32:
   spin((n + 1 : U32))
 
-def io.returned(result: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+def io.returned(result: Socket & Result<&1, &1, U32 & String, Maybe<&1, String>>) -> IO(Unit):
   (socket, outcome) = result
   Socket.close(socket)
 
@@ -48,7 +48,7 @@ def work(mode: String, io_port: U32) -> IO(Unit):
       do IO<Unit>:
         socket : Socket <- IO.try(Socket, TCP.connect("127.0.0.1", io_port))
         IO.print("IO ADMITTED")
-        result : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(socket, 1)
+        result : Socket & Result<&1, &1, U32 & String, Maybe<&1, String>> <- TCP.recv(socket, 1)
         io.returned(result)
     case _: IO.pure(Unit, Unit{})
 

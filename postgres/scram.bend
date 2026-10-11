@@ -1,7 +1,7 @@
 # SCRAM-SHA-256 (RFC 5802, RFC 7677) client for PostgreSQL SASL authentication, without channel binding.
 import Base
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
-import bend-kit-crypto@0.1.1.0/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 
 # Messages and keys are byte strings, one Char per octet. The password is its octets
 # (UTF-8), used as is: no SASLprep, which is the same as libpq for ASCII passwords.

@@ -3,7 +3,7 @@ import Base
 import ../router/router.bend as Router
 import ../json/json.bend as Json
 import ../concurrency/concurrency.bend as Conc
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 def truth(flag: Bool) -> String:

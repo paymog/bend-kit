@@ -455,7 +455,7 @@ def client.preface(r: H.Client & Bytes.Bytes) -> String:
 
 def client.settings.acked(r: H.Reply) -> Bool:
   match r:
-    case H.Ready{H.Client{input, streams, encoder, decoder,
+    case H.Advanced{H.Client{input, streams, encoder, decoder,
         H.Control{next, active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}}, Con{packet, Nil{}}, Nil{}}:
       Bool.and(Bool.not(first), Bool.and(ack,
@@ -480,7 +480,7 @@ def client.feed(r: H.Reply, b: Bytes.Bytes) -> H.Reply:
   match r:
     case H.Failed{error}:
       H.Failed{error}
-    case H.Ready{c, writes, events}:
+    case H.Advanced{c, writes, events}:
       H.client.receive(c, b)
 
 def client.rejected(r: H.Reply) -> Bool:
@@ -492,7 +492,7 @@ def client.rejected(r: H.Reply) -> Bool:
 
 def client.goaway.result(r: H.Reply) -> Bool:
   match r:
-    case H.Ready{H.Client{input, streams, encoder, decoder,
+    case H.Advanced{H.Client{input, streams, encoder, decoder,
         H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, Some{+last}}},
         Con{ack_packet, Nil{}}, Con{H.Shutdown{+stopped, +code}, Con{H.Reset{+id, +reason}, Nil{}}}}:
@@ -519,7 +519,7 @@ def client.stall.header(d: H.Decode) -> Bool:
 
 def client.stall.result(r: H.Reply) -> Bool:
   match r:
-    case H.Ready{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
+    case H.Advanced{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
         remote_end, head, headers, partial, body, Bytes.Bytes{+remaining, buf}}, Nil{}},
         encoder, decoder, control}, Con{packet, Nil{}}, Nil{}}:
       Bool.and(U32.is_eq(remaining, 3),
@@ -536,7 +536,7 @@ def client.stall.data(d: H.Decode) -> Bool:
 
 def client.stall.resumed(r: H.Reply) -> Bool:
   match r:
-    case H.Ready{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
+    case H.Advanced{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
         remote_end, head, headers, partial, body, Bytes.Bytes{+remaining, buf}}, Nil{}},
         encoder, decoder, control}, Con{ack_packet, Con{data_packet, Nil{}}}, Nil{}}:
       Bool.and(U32.is_eq(remaining, 0),
@@ -560,12 +560,12 @@ def client.goaway.blocked(r: H.Reply) -> Bool:
   match r:
     case H.Failed{error}:
       False{}
-    case H.Ready{c, writes, events}:
+    case H.Advanced{c, writes, events}:
       client.rejected(H.client.request(c, client.fields(), Bytes.new(0)))
 
 def client.response.result(r: H.Reply) -> Bool:
   match r:
-    case H.Ready{H.Client{input, streams, encoder, decoder,
+    case H.Advanced{H.Client{input, streams, encoder, decoder,
         H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}},
         Con{ack_packet, Nil{}},
@@ -599,7 +599,7 @@ law client_continuation_interleaving:
 
 def client.response.interim(r: H.Reply) -> Bool:
   match r:
-    case H.Ready{H.Client{input, streams, encoder, decoder,
+    case H.Advanced{H.Client{input, streams, encoder, decoder,
         H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}},
         Con{ack_packet, Nil{}},

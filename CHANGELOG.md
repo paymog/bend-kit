@@ -10,6 +10,14 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 - `hairpin` 0.3.0.0: imports `bend-kit-http@0.32.0.0` instead of `0.23.0.1`, so it checks on Bend 2.0.36. Breaking: `Http` types come from 0.32.0.0.
 - `llm`, `webhooks`, `sigv4`, `jwt`, and `oauth2` 0.3.0.0: import `hairpin` 0.3.0.0 and `bend-kit-http@0.32.0.0`, so they check on Bend 2.0.36. Breaking: `Http` types come from 0.32.0.0. The local test servers in `check.bend` use the current `Http.conn`.
+- `multipart` 0.1.1.1: imports `crypto` 0.2.2.1, so native builds on Bend 2.0.36 compile.
+- CI runs Bend 2.0.36.
+- `camber` 0.7.0.0: imports `bend-kit-http@0.32.0.0` and requires Bend 2.0.36. `submit` answers the `Chan.send` result, so a failed submit gives back its message. A resource that cannot return to its owner goes to `destroy`. It imports `time` 0.1.2.1, `wire` 0.4.6.1, `files` 0.1.1.1, and `notch` 0.1.0.1, so `Time` and `Wire` match `http` 0.32.0.0 and native builds compile.
+- `http` 0.32.0.0: imports `bend-kit-http2@0.2.0.0` and `bend-kit-concurrency@0.2.0.0`, and requires Bend 2.0.36 for the `Result` from `Chan.send`. It imports the effect packages fixed for Bend 2.0.36 (`wire` 0.4.6.1, `dns` 0.6.0.2, `time` 0.1.2.1, `zlib` 0.2.0.1), so native builds compile.
+- `multipart` 0.1.1.0: the decoder step `Wait` is now `Pause`, because Base 2.0.36 declares `Wait`.
+- `concurrency` 0.2.0.0: requires Bend 2.0.36, where `Chan.send` answers `Result<&1, &1, A, Unit>`. A relay keeps the unsent value in `RSent` instead of a `Bool`.
+- `http2` 0.2.0.0: the `Reply` constructor `Ready` is now `Advanced`, because Base 2.0.36 declares `Ready`.
+- `postgres` 0.1.0.2 and `redis` 0.1.0.2: import `wire` 0.4.6.1, `dns` 0.6.0.2, and (postgres) `crypto` 0.2.2.1, so native builds on Bend 2.0.36 compile.
 - `dns` 0.6.0.2, `archive` 0.2.0.1, `notch` 0.1.0.1, `stream` 0.1.0.1, and `websocket` 0.2.0.1: import the effect packages fixed for Bend 2.0.36 (`wire` 0.4.6.1, `zlib` 0.2.0.1, `time` 0.1.2.1, `files` 0.1.1.1, `crypto` 0.2.2.1), so native builds compile.
 - `property` 0.2.0.0: imports `random` 0.1.0.1, so native builds compile. Breaking: `Rand.Rng` comes from that version.
 - `llm` 0.2.0.0: `send` retries through `Hairpin.request.as` with llm's own judge (408, 409, 429, 5xx), on one budget per call, instead of its own loop. Breaking: `ErrNet` holds a `Hairpin.Err`.

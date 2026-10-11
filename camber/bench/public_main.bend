@@ -1,10 +1,10 @@
 import Base
 import ./public_app.bend as A
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-camber@0.7.0.0/camber.bend as C
+import bend-kit-http@0.32.0.0/http.bend as H
+import bend-kit-http@0.32.0.0/completion.bend as T
 import bend-kit-router@0.2.0.0/router.bend as R
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type RawTarget is Data:
@@ -73,7 +73,7 @@ def control(context: Control, req: H.Req) -> IO(H.Reply):
   match path:
     case "/release":
       do IO<H.Reply>:
-        released : Bool <- Chan.send(Unit, gate, Unit{})
+        released : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
         return H.Reply{C.empty(200), T.Unobserved{}}
     case "/finish":
       do IO<H.Reply>:
@@ -85,7 +85,7 @@ def control(context: Control, req: H.Req) -> IO(H.Reply):
 def control.running(controlled: H.Server<Control> & H.ServerControl, +own: Chan(H.ServerControl)) -> IO(Unit):
   (returned, stop) = controlled
   do IO<Unit>:
-    sent : Bool <- Chan.send(H.ServerControl, own, stop)
+    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, own, stop)
     IO.print("READY")
     exit : H.ServerExit <- H.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), returned)
     IO.print("CONTROL JOINED")

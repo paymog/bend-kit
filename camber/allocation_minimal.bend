@@ -24,7 +24,7 @@ def erased(value: List<&1, Item>, start: Nat) -> IO(Unit):
 
 def retained(value: List<&1, Item>, +output: Chan(List<&1, Item>), start: Nat) -> IO(Unit):
   do IO<Unit>:
-    sent : Bool <- Chan.send(List<&1, Item>, output, value)
+    sent : Result<&1, &1, List<&1, Item>, Unit> <- Chan.send(List<&1, Item>, output, value)
     elapsed("BUILD_MS", start)
     disposal : Nat <- IO.now()
     received : List<&1, Item> <- IO.join(List<&1, Item>, output)

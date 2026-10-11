@@ -18,7 +18,7 @@ io_eff(CID(install), () => {
   }
   return {$: CID(Unit)};
 });
-// Like Base Chan.send: Bool uses a primitive JS boolean, not a tagged object.
+// Bool uses a primitive JS boolean, not a tagged object.
 io_eff(CID(requested), () => deploySignals.symbols.camber_signal_requested() !== 0);
 io_eff(CID(request), () => {
   deploySignals.symbols.camber_signal_request();

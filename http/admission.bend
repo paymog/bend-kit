@@ -214,7 +214,7 @@ def loop(+inbox: Chan(Command), +running: Bool, +closing: Bool, step: Step) -> I
           IO.die(Counts, 1, "Admission: a lease count broke")
         case Booked{ledger, admitted}:
           do IO<Counts>:
-            sent : Bool <- Chan.send(Bool, reply, admitted)
+            sent : Result<&1, &1, Bool, Unit> <- Chan.send(Bool, reply, admitted)
             loop(inbox, running, closing, Waiting{ledger})
     case Released{reply, booked}:
       match booked:
@@ -222,12 +222,12 @@ def loop(+inbox: Chan(Command), +running: Bool, +closing: Bool, step: Step) -> I
           IO.die(Counts, 1, "Admission.give: no lease of this kind is held")
         case Booked{ledger, admitted}:
           do IO<Counts>:
-            sent : Bool <- Chan.send(Unit, reply, Unit{})
+            sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, reply, Unit{})
             loop(inbox, running, closing, Finishing{idle(closing, counts(ledger))})
     case Counted{reply, counted}:
       (snapshot, ledger) = counted
       do IO<Counts>:
-        sent : Bool <- Chan.send(Counts, reply, snapshot)
+        sent : Result<&1, &1, Counts, Unit> <- Chan.send(Counts, reply, snapshot)
         loop(inbox, running, closing, Waiting{ledger})
     case Finishing{checked}:
       (done, ledger) = checked
@@ -252,11 +252,11 @@ def loop(+inbox: Chan(Command), +running: Bool, +closing: Bool, step: Step) -> I
               loop(inbox, running, closing, Counted{reply, counts(ledger)})
             case Quiesce{reply}:
               do IO<Counts>:
-                sent : Bool <- Chan.send(Bool, reply, running)
+                sent : Result<&1, &1, Bool, Unit> <- Chan.send(Bool, reply, running)
                 loop(inbox, False{}, closing, Waiting{ledger})
             case Running{reply}:
               do IO<Counts>:
-                sent : Bool <- Chan.send(Bool, reply, running)
+                sent : Result<&1, &1, Bool, Unit> <- Chan.send(Bool, reply, running)
                 loop(inbox, running, closing, Waiting{ledger})
             case Stop{}:
               loop(inbox, running, True{}, Finishing{idle(True{}, counts(ledger))})
@@ -274,59 +274,59 @@ def open.owner(caps: Caps) -> IO(Chan(Command) & Chan(Counts)):
     finished : Chan(Counts) <- IO.fork(Counts, loop(inbox, True{}, False{}, Waiting{ledger.open(caps)}))
     return (inbox, finished)
 
-def boolean.sent(sent: Bool, +reply: Chan(Bool)) -> IO(Bool):
+def boolean.sent(sent: Result<&1, &1, Command, Unit>, +reply: Chan(Bool)) -> IO(Bool):
   match sent:
-    case False{}:
+    case Fail{command}:
       do IO<Bool>:
         Chan.close(Bool, reply)
         return False{}
-    case True{}:
+    case Done{u}:
       IO.join(Bool, reply)
 
 # False also covers copied controls used after actual controller closure.
 def quiesce(+inbox: Chan(Command)) -> IO(Bool):
   do IO<Bool>:
     +reply : Chan(Bool) <- Chan.new(Bool, 1)
-    sent : Bool <- Chan.send(Command, inbox, Quiesce{reply})
+    sent : Result<&1, &1, Command, Unit> <- Chan.send(Command, inbox, Quiesce{reply})
     boolean.sent(sent, reply)
 
 def running(+inbox: Chan(Command)) -> IO(Bool):
   do IO<Bool>:
     +reply : Chan(Bool) <- Chan.new(Bool, 1)
-    sent : Bool <- Chan.send(Command, inbox, Running{reply})
+    sent : Result<&1, &1, Command, Unit> <- Chan.send(Command, inbox, Running{reply})
     boolean.sent(sent, reply)
 
 def take(+inbox: Chan(Command), kind: U32) -> IO(Bool):
   do IO<Bool>:
     +reply : Chan(Bool) <- Chan.new(Bool, 1)
-    sent : Bool <- Chan.send(Command, inbox, Acquire{kind, reply})
+    sent : Result<&1, &1, Command, Unit> <- Chan.send(Command, inbox, Acquire{kind, reply})
     boolean.sent(sent, reply)
 
 # Correct owners cannot retire the actor while a lease remains counted. If an
 # internal channel is externally closed, report the violation instead of joining
 # an unanswered reply or pretending a retained operation drained.
-def give.sent(sent: Bool, +reply: Chan(Unit)) -> IO(Unit):
+def give.sent(sent: Result<&1, &1, Command, Unit>, +reply: Chan(Unit)) -> IO(Unit):
   match sent:
-    case False{}:
+    case Fail{command}:
       do IO<Unit>:
         Chan.close(Unit, reply)
         IO.die(Unit, 1, "Admission.give: controller closed while lease retained")
-    case True{}:
+    case Done{u}:
       IO.join(Unit, reply)
 
 def give(+inbox: Chan(Command), kind: U32) -> IO(Unit):
   do IO<Unit>:
     +reply : Chan(Unit) <- Chan.new(Unit, 1)
-    sent : Bool <- Chan.send(Command, inbox, Release{kind, reply})
+    sent : Result<&1, &1, Command, Unit> <- Chan.send(Command, inbox, Release{kind, reply})
     give.sent(sent, reply)
 
-def snapshot.sent(sent: Bool, +reply: Chan(Counts)) -> IO(Maybe<&2, Counts>):
+def snapshot.sent(sent: Result<&1, &1, Command, Unit>, +reply: Chan(Counts)) -> IO(Maybe<&2, Counts>):
   match sent:
-    case False{}:
+    case Fail{command}:
       do IO<Maybe<&2, Counts>>:
         Chan.close(Counts, reply)
         return None{}
-    case True{}:
+    case Done{u}:
       do IO<Maybe<&2, Counts>>:
         counts : Counts <- IO.join(Counts, reply)
         return Some{counts}
@@ -336,12 +336,12 @@ def snapshot.sent(sent: Bool, +reply: Chan(Counts)) -> IO(Maybe<&2, Counts>):
 def snapshot(+inbox: Chan(Command)) -> IO(Maybe<&2, Counts>):
   do IO<Maybe<&2, Counts>>:
     +reply : Chan(Counts) <- Chan.new(Counts, 1)
-    sent : Bool <- Chan.send(Command, inbox, Snapshot{reply})
+    sent : Result<&1, &1, Command, Unit> <- Chan.send(Command, inbox, Snapshot{reply})
     snapshot.sent(sent, reply)
 
 # Retire accounting after listener closure; quiesce is the separate admission
 # cutover. Finite internal fixtures may finish their already-accepted protocol.
 def close(inbox: Chan(Command)) -> IO(Unit):
   do IO<Unit>:
-    sent : Bool <- Chan.send(Command, inbox, Stop{})
+    sent : Result<&1, &1, Command, Unit> <- Chan.send(Command, inbox, Stop{})
     return Unit{}

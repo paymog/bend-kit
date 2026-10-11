@@ -14,7 +14,7 @@ A change to `<pkg>.bend` or `effs/` must raise `VERSION`. `scripts/publish.sh --
 scripts/check.sh bytes http   # the packages you changed
 ```
 
-`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. `bend PROOF.bend --check-only` prints `ALL PROOFS CHECK` when every law holds.
+`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. `bend PROOF.bend --check-only` prints `ALL PROOFS CHECK` when every law holds. A package with `effs/*.c` also needs `scripts/native-check.sh`: CI compiles `check.bend` and runs the binary.
 
 `LAWS.bend` is the claims. Change a law only when the change in behavior is the point. `PROOF.bend` proves each law. Proofs do not cover `.c` and `.js` effects. An effect needs both twins.
 

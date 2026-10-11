@@ -1,12 +1,12 @@
 # multipart/form-data (RFC 7578): an encoder with a secure random boundary and a streaming decoder over Bytes. Source: https://github.com/paymog/bend-kit/tree/main/multipart
 import Base
 import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
-import bend-kit-crypto@0.1.0.0/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 
 # Names, filenames, and header values are byte strings, one Char per octet, as in Http.
 # Bodies are Bytes and pass through untouched, so binary payloads keep every octet.
 # Names and filenames are escaped as WHATWG does: '"' is %22, CR is %0D, LF is %0A.
-#   import bend-kit-multipart@0.1.0.0/multipart.bend as Mp
+#   import bend-kit-multipart@0.1.1.0/multipart.bend as Mp
 
 # One form field. filename marks a file; ctype is its Content-Type (RFC 7578 §4.4 defaults to text/plain).
 type Part is Type:
@@ -326,7 +326,7 @@ type Stage is Data:
 
 type Step is Type:
   More{stage: Stage, buf: Bytes.Bytes, out: List<&1, Item>}
-  Wait{stage: Stage, buf: Bytes.Bytes, out: List<&1, Item>}
+  Pause{stage: Stage, buf: Bytes.Bytes, out: List<&1, Item>}
   Bad{error: String}
 
 # delim is CRLF "--" boundary and dlen its length; buf holds the bytes not yet decided.
@@ -365,7 +365,7 @@ def wait.if(big: Bool, st: Stage, buf: Bytes.Bytes, out: List<&1, Item>) -> Step
     case True{}:
       Bad{"multipart: header block or boundary line too long"}
     case False{}:
-      Wait{st, buf, out}
+      Pause{st, buf, out}
 
 # Wait for more input, unless the undecided bytes already pass MAX_HEAD.
 def wait.big(st: Stage, r: Bytes.Bytes & U32, out: List<&1, Item>) -> Step:
@@ -419,7 +419,7 @@ def pre.if(delim: Bool, data: Bool, buf: Bytes.Bytes, +i: U32, +dlen: U32, out: 
         case True{}:
           More{Pre{}, drop(buf, (i + 1 : U32)), out}
         case False{}:
-          Wait{Pre{}, drop(buf, i), out}
+          Pause{Pre{}, drop(buf, i), out}
 
 def pre.kind(r: Bytes.Bytes & U32, +i: U32, +dlen: U32, out: List<&1, Item>) -> Step:
   (buf, +k) = r
@@ -431,7 +431,7 @@ def pre.hit(+dlen: U32, r: Bytes.Bytes & Maybe<&2, U32>, out: List<&1, Item>) ->
     case Some{+i}:
       pre.kind(suffix.at(buf, i, dlen), i, dlen, out)
     case None{}:
-      Wait{Pre{}, Bytes.snd(keep(buf, (dlen - 1 : U32))), out}
+      Pause{Pre{}, Bytes.snd(keep(buf, (dlen - 1 : U32))), out}
 
 # After: suffix already saw "--" or padding then CRLF, so both are in buf. "--" closes the body.
 # The CRLF stays in buf, so the header block is found as CRLF ... CRLF CRLF, empty or not.
@@ -519,7 +519,7 @@ def heads.found(r: Bytes.Bytes & Maybe<&2, U32>, out: List<&1, Item>) -> Step:
 # Text: bytes that cannot begin a delimiter go out as Body; the last dlen - 1 wait for the next chunk.
 def text.flush.len(r: Bytes.Bytes & U32, tail: Bytes.Bytes, out: List<&1, Item>) -> Step:
   (head, +n) = r
-  Wait{Text{}, tail, emit(U32.is_eq(n, 0), head, out)}
+  Pause{Text{}, tail, emit(U32.is_eq(n, 0), head, out)}
 
 def text.flush(r: Bytes.Bytes & Bytes.Bytes, out: List<&1, Item>) -> Step:
   (head, tail) = r
@@ -537,7 +537,7 @@ def text.data(+n: U32, r: Bytes.Bytes & Bytes.Bytes, out: List<&1, Item>) -> Ste
 # A match whose suffix has not arrived: the bytes before it go out, and it waits.
 def text.hold(+i: U32, r: Bytes.Bytes & Bytes.Bytes, out: List<&1, Item>) -> Step:
   (buf, piece) = r
-  Wait{Text{}, drop(buf, i), emit(U32.is_eq(i, 0), piece, out)}
+  Pause{Text{}, drop(buf, i), emit(U32.is_eq(i, 0), piece, out)}
 
 def text.if(delim: Bool, data: Bool, buf: Bytes.Bytes, +i: U32, +dlen: U32, out: List<&1, Item>) -> Step:
   match delim:
@@ -573,13 +573,13 @@ def step(st: Stage, +delim: String, +dlen: U32, buf: Bytes.Bytes, out: List<&1, 
     case Text{}:
       text.hit(dlen, Bytes.find(buf, delim), out)
     case End{}:
-      Wait{End{}, Bytes.new(0), out}
+      Pause{End{}, Bytes.new(0), out}
 
 def go.stop(+delim: String, +dlen: U32, s: Step) -> Result<&1, &1, String, Dec & List<&1, Item>>:
   match s:
     case More{st, buf, out}:
       Done{(Dec{delim, dlen, st, buf}, List.reverse(&1, Item, out))}
-    case Wait{st, buf, out}:
+    case Pause{st, buf, out}:
       Done{(Dec{delim, dlen, st, buf}, List.reverse(&1, Item, out))}
     case Bad{e}:
       Fail{e}
@@ -594,8 +594,8 @@ def go(fuel: Nat, +delim: String, +dlen: U32, s: Step) -> Result<&1, &1, String,
       match s:
         case More{st, buf, out}:
           go(p, delim, dlen, step(st, delim, dlen, buf, out))
-        case Wait{st, buf, out}:
-          go.stop(delim, dlen, Wait{st, buf, out})
+        case Pause{st, buf, out}:
+          go.stop(delim, dlen, Pause{st, buf, out})
         case Bad{e}:
           Fail{e}
 
