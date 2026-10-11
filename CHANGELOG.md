@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `jwt`, `webhooks`, `oauth2`, and `sigv4` 0.3.0.1: import `crypto` 0.2.2.1, so native builds on Bend 2.0.36 compile.
 - `llm`, `webhooks`, `sigv4`, `jwt`, and `oauth2` 0.3.0.0: import `hairpin` 0.3.0.0, `bend-kit-http@0.32.0.0`, and `time` 0.1.2.1, so they check on Bend 2.0.36. Breaking: `Http` and `Time` types come from those versions. The local test servers in `check.bend` use the current `Http.conn`.
 - `hairpin` 0.3.0.0: imports `bend-kit-http@0.32.0.0` instead of `0.23.0.1`, and `time` 0.1.2.1, so it checks on Bend 2.0.36. Breaking: `Http` and `Time` types come from those versions.
 - `multipart` 0.1.1.1: imports `crypto` 0.2.2.1, so native builds on Bend 2.0.36 compile.

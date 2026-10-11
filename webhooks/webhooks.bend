@@ -1,6 +1,6 @@
 # Webhook signatures: Standard Webhooks sign and verify, Stripe and GitHub verify, over the raw body. Source: https://github.com/paymog/bend-kit/tree/main/webhooks
 import Base
-import bend-kit-crypto@0.2.0.0/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 import bend-kit-time@0.1.2.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 # By hash, as http imports them: bend-kit-encoding@0.3.0.0, -bytes@0.3.0.0.

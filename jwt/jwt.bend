@@ -1,6 +1,6 @@
 # JSON Web Tokens: HS256/384/512, RS256, and ES256 compact JWS sign and verify, claim checks, and JWKS keys over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/jwt
 import Base
-import bend-kit-crypto@0.2.0.0/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 import bend-kit-hairpin@0.3.0.0/hairpin.bend as Hairpin
 import bend-kit-http@0.32.0.0/http.bend as Http
 # By hash, as hairpin imports them: bend-kit-json@0.5.0.1, -bytes@0.3.0.0.

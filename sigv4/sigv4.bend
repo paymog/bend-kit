@@ -1,6 +1,6 @@
 # AWS Signature V4 signing and S3 object storage over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/sigv4
 import Base
-import bend-kit-crypto@0.1.1.0/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 import bend-kit-hairpin@0.3.0.0/hairpin.bend as Hairpin
 import bend-kit-hairpin@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.32.0.0/http.bend as Http
