@@ -268,6 +268,19 @@ def unique_invalid_number_rejects() -> {unique.pb("01", 8) == None{} : Maybe<&1,
 def unique_nul_key_duplicate_rejects() -> {unique.pb("{\"\\u0000\":1,\"\\u0000\":2}", 8) == None{} : Maybe<&1, Json.Val>}:
   {==}
 
+# Sorting brings duplicates together; length and every word tell keys apart.
+def unique_far_duplicate_rejects() -> {unique.pb("{\"b\":1,\"a\":2,\"c\":3,\"b\":4}", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
+def unique_trailing_nul_admits() -> {unique.eb(unique.pb("{\"a\":1,\"a\\u0000\":2}", 8)) == "{\"a\":1,\"a\\u0000\":2}" : String}:
+  {==}
+
+def unique_second_word_admits() -> {unique.eb(unique.pb("{\"abcdx\":1,\"abcdy\":2,\"abcd\":3}", 8)) == "{\"abcdx\":1,\"abcdy\":2,\"abcd\":3}" : String}:
+  {==}
+
+def unique_long_duplicate_rejects() -> {unique.pb("{\"abcdefghi\":1,\"abcd\":2,\"abcdefghi\":3}", 8) == None{} : Maybe<&1, Json.Val>}:
+  {==}
+
 def unique.retained(r: Json.Val & Bool) -> String & Bool:
   (v, ok) = r
   (Laws.eb(v), ok)

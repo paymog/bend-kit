@@ -3,7 +3,7 @@
 JSON values follow RFC 8259. The package stores and parses them as UTF-8 `Bytes`. A number stays as text in `Num{s}` until you convert it.
 
 ```bend
-import bend-kit-json@0.6.1.0/json.bend as Json
+import bend-kit-json@0.6.1.1/json.bend as Json
 import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 ```
 

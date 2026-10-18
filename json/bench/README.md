@@ -147,6 +147,26 @@ uniqueness verdict and the returned value.
 The runner reports parse and encode times to one decimal place and uniqueness
 to three decimal places. Maximum RSS covers each complete runner invocation,
 including builds and all language child processes. It measures that invocation's
-resource use. The key scan performs `n * (n - 1) / 2` comparisons in an object
-with distinct keys, and rebuilds its member list during the scan. Key byte length
-adds comparison work. These measurements describe this implementation and host.
+resource use. These measurements describe the 0.6.1.0 implementation, which
+compared every pair of keys in an object, and this host.
+
+## Sorted key check (0.6.1.1)
+
+`unique.keys` now turns each key into a fingerprint (its length, then its
+packed words), sorts one object's fingerprints with `List.sort`, and compares
+neighbours. An object of n keys costs O(n log n) comparisons instead of
+n * (n - 1) / 2. Each comparison still reads up to the shorter key's length.
+
+Only the Bend program was run, built from `main` (0.6.1.0) and from this
+change, on the same `run.py` documents. Medians of three runs, except 8192
+fields, which was not run on 0.6.1.0. The checksums matched. Measured on
+2026-10-18 on an Apple M4 Pro, macOS 26.6.2, Bend 2.0.37.
+
+| Input | Parse ms | 0.6.1.0 uniqueness ms | 0.6.1.1 uniqueness ms | Checksum |
+|---|---:|---:|---:|---:|
+| 4000 records | 5.4 | 9.280 | 6.701 | 4114665117 |
+| 8 fields | 0.1 | 0.048 | 0.083 | 1815190181 |
+| 64 fields | 0.1 | 0.357 | 0.064 | 1488746991 |
+| 512 fields | 0.1 | 7.626 | 0.251 | 808511251 |
+| 2048 fields | 0.2 | 111.965 | 1.145 | 506996187 |
+| 8192 fields | 0.7 | -- | 5.584 | 1022124379 |
