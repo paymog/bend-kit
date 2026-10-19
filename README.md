@@ -38,7 +38,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 `http@0.35.0.0` imports its siblings by name: `wire@0.4.6.1`, `http2@0.3.0.0`, `bytes@0.3.2.0`, `time@0.2.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.4.0.0`, `json@0.6.1.1`, `dns@0.6.0.2`, and `zlib@0.3.0.0`. `Http.Body` is `bend-kit-bytes@0.3.2.0`.
 
-`hairpin@0.8.0.0`, `camber@0.11.0.0`, `jwt@0.7.0.0`, `llm@0.8.0.0`, `oauth2@0.7.0.0`, `sigv4@0.7.0.0`, and `webhooks@0.7.0.0` import `bend-kit-http@0.35.0.0`, and all but `camber` import `bend-kit-hairpin@0.8.0.0`. A program that uses these versions together carries one copy of each C effect.
+`hairpin@0.8.0.0`, `camber@0.11.0.0`, `jwt@0.7.1.0`, `llm@0.8.0.0`, `oauth2@0.7.0.0`, `sigv4@0.7.0.0`, and `webhooks@0.7.0.0` import `bend-kit-http@0.35.0.0`, and all but `camber` import `bend-kit-hairpin@0.8.0.0`. A program that uses these versions together carries one copy of each C effect.
 
 ## Native libraries
 
@@ -118,7 +118,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`crypto`](crypto) | `bend-kit-crypto@0.2.2.1/crypto.bend` | Digests, HMAC, HKDF, AEAD, scrypt, RSA, and P-256 through OpenSSL 3. |
 | [`oauth2`](oauth2) | `bend-kit-oauth2@0.7.0.0/oauth2.bend` | Client credentials, refresh, and authorization code with PKCE. |
 | [`authz`](authz) | `bend-kit-authz@0.1.0.0/authz.bend` | Pure authorization policies: deny-overrides, default deny, intersection, and fail-closed missing context. |
-| [`jwt`](jwt) | `bend-kit-jwt@0.7.0.0/jwt.bend` | HS256/384/512, RS256, and ES256, plus JWKS lookup. |
+| [`jwt`](jwt) | `bend-kit-jwt@0.7.1.0/jwt.bend` | HS256/384/512, RS256, and ES256, plus JWKS lookup. |
 | [`sigv4`](sigv4) | `bend-kit-sigv4@0.7.0.0/sigv4.bend` | AWS Signature V4 and S3 over `hairpin`. |
 | [`webhooks`](webhooks) | `bend-kit-webhooks@0.7.0.0/webhooks.bend` | Standard Webhooks, Stripe, and GitHub signature checks. |
 

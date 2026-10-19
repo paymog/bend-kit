@@ -242,14 +242,6 @@ def has(l: List<&2, Field>, +k: String) -> Bool:
     case Field{n, x} <> t:
       Bool.or(String.eq(n, k), has(t, k))
 
-# RFC 7515 §5.2 allows rejecting repeated names; a second "alg" is how parsers come to disagree.
-def dup(l: List<&2, Field>) -> Bool:
-  match l:
-    case Nil{}:
-      False{}
-    case Con{Field{+n, x}, +t}:
-      Bool.or(has(t, n), dup(t))
-
 def str(m: Maybe<&2, Lit>) -> Maybe<&2, String>:
   match m:
     case Some{LStr{s}}:
@@ -263,23 +255,19 @@ def str(m: Maybe<&2, Lit>) -> Maybe<&2, String>:
 type Parts is Type:
   Parts{head: List<&2, Field>, facts: List<&2, Field>, claims: Json.Val, input: Bytes.Bytes, sig: Bytes.Bytes}
 
-def parse.objs(hf: List<&2, Field>, ff: List<&2, Field>, cv: Json.Val, input: Bytes.Bytes, sig: Bytes.Bytes) ->
-    Result<&1, &1, Err, Parts>:
-  +h = hf
-  +f = ff
-  Bool.pick(Result<&1, &1, Err, Parts>, Bool.or(dup(h), dup(f)), Fail{Malformed{}}, Done{Parts{h, f, cv, input, sig}})
-
+# RFC 7515 §5.2 allows rejecting repeated names; a second "alg" is how parsers come to disagree.
+# parse.claims rejects them at every depth with Json.unique.parsed before members get here.
 def parse.json(h: Maybe<&1, Json.Val>, f: Maybe<&1, Json.Val>, c: Maybe<&1, Json.Val>, input: Bytes.Bytes, sig: Bytes.Bytes) ->
     Result<&1, &1, Err, Parts>:
   match h f c:
     case Some{Json.Obj{hk}} Some{Json.Obj{fk}} Some{cv}:
-      parse.objs(fields(hk, Nil{}), fields(fk, Nil{}), cv, input, sig)
+      Done{Parts{fields(hk, Nil{}), fields(fk, Nil{}), cv, input, sig}}
     case _ _ _:
       Fail{Malformed{}}
 
 def parse.claims(hb: Bytes.Bytes, r: Bytes.Bytes & Bytes.Bytes, input: Bytes.Bytes, sig: Bytes.Bytes) -> Result<&1, &1, Err, Parts>:
   (c1, c2) = r
-  parse.json(Json.parse.bytes(hb), Json.parse.bytes(c1), Json.parse.bytes(c2), input, sig)
+  parse.json(Json.unique.parsed(Json.parse.bytes(hb)), Json.unique.parsed(Json.parse.bytes(c1)), Json.parse.bytes(c2), input, sig)
 
 def parse.segs(h: Maybe<&1, Bytes.Bytes>, c: Maybe<&1, Bytes.Bytes>, s: Maybe<&1, Bytes.Bytes>, input: Bytes.Bytes) ->
     Result<&1, &1, Err, Parts>:
@@ -588,7 +576,7 @@ def sign.done(+input: String, s: Result<&1, &1, Err, Bytes.Bytes>) -> Result<&1,
 def sign.obj(m: Maybe<&1, Json.Val>) -> Bool:
   match m:
     case Some{Json.Obj{kvs}}:
-      Bool.not(dup(fields(kvs, Nil{})))
+      True{}
     case _:
       False{}
 
@@ -604,7 +592,7 @@ def sign.if(ok: Bool, +a: Alg, key: Key, kid: Maybe<&2, String>, body: Bytes.Byt
 
 def sign.body(+a: Alg, key: Key, kid: Maybe<&2, String>, r: Bytes.Bytes & Bytes.Bytes) -> IO(Result<&1, &1, Err, String>):
   (body, copy) = r
-  sign.if(sign.obj(Json.parse.bytes(copy)), a, key, kid, body)
+  sign.if(sign.obj(Json.unique.parsed(Json.parse.bytes(copy))), a, key, kid, body)
 
 # A compact token of claims signed with key for a; kid names the key in the header. Claims that are not
 # an object, or repeat a name, fail with BadClaim.
@@ -700,18 +688,21 @@ def jwk.kty(+kty: String, +kid: String, +f: List<&2, Field>) -> Maybe<&2, Jwk>:
 
 def jwk.fields(+f: List<&2, Field>) -> Maybe<&2, Jwk>:
   do Maybe<&2, Jwk>:
-    u : Unit <- Bool.pick(Maybe<&2, Unit>, dup(f), None{}, Some{Unit{}})
     kty : String <- str(field(f, "kty"))
     kid : String <- str(field(f, "kid"))
     s : Unit <- jwk.use(field(f, "use"))
     jwk.kty(kty, kid, f)
 
-def jwk.of(v: Json.Val) -> Maybe<&2, Jwk>:
-  match v:
-    case Json.Obj{kvs}:
+def jwk.obj(m: Maybe<&1, Json.Val>) -> Maybe<&2, Jwk>:
+  match m:
+    case Some{Json.Obj{kvs}}:
       jwk.fields(fields(kvs, Nil{}))
     case _:
       None{}
+
+# A key whose members repeat a name, at any depth, is skipped.
+def jwk.of(v: Json.Val) -> Maybe<&2, Jwk>:
+  jwk.obj(Json.unique.parsed(Some{v}))
 
 def jwk.push(m: Maybe<&2, Jwk>, acc: List<&2, Jwk>) -> List<&2, Jwk>:
   match m:

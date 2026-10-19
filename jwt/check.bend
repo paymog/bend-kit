@@ -164,6 +164,8 @@ def main() -> IO(Unit):
     expect("rs256 token pinned to es256", "AlgMismatch", r11)
     r12 : Result<&1, &1, Jwt.Err, Json.Val> <- Jwt.verify(Jwt.policy(Jwt.RS256{}), rsa.pub(), rfc.rs(), 1300819000)
     expect("rfc rs256 under another rsa key", "BadSig", r12)
+    r13 : Result<&1, &1, Jwt.Err, Json.Val> <- Jwt.verify(Jwt.policy(Jwt.HS256{}), hk(), "eyJhbGciOiJIUzI1NiJ9.eyJjbmYiOnsiayI6MSwiayI6Mn19.c2ln", 0)
+    expect("claims repeat a nested name", "Malformed", r13)
     # Round trips, and the rejections a verifier with the wrong expectations gives.
     trip("hs256 round trip", Jwt.HS256{}, hk(), hk(), 1700000000, "Done")
     trip("hs512 round trip", Jwt.HS512{}, hk(), hk(), 1700000000, "Done")
@@ -178,5 +180,7 @@ def main() -> IO(Unit):
     signs("claims not an object", "BadClaim", s2)
     s3 : Result<&1, &1, Jwt.Err, String> <- Jwt.sign(Jwt.HS256{}, hk(), None{}, Json.Obj{[(Json.utf8("a"), Json.Null{}), (Json.utf8("a"), Json.Null{})]})
     signs("claims repeat a name", "BadClaim", s3)
+    s5 : Result<&1, &1, Jwt.Err, String> <- Jwt.sign(Jwt.HS256{}, hk(), None{}, Json.Obj{[(Json.utf8("cnf"), Json.Obj{[(Json.utf8("k"), Json.Null{}), (Json.utf8("k"), Json.Null{})]})]})
+    signs("claims repeat a nested name", "BadClaim", s5)
     s4 : Result<&1, &1, Jwt.Err, String> <- Jwt.sign(Jwt.RS256{}, hk(), None{}, claims())
     signs("rs256 with an hmac key", "KeyType", s4)
