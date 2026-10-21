@@ -13,7 +13,9 @@ verdict() {
     NR == 1 { ok = $0 == "SOME PROOFS FAIL"; next }
     NR == 2 { ok = ok && /^Error: [0-9]+ defs? rel(y|ies) on unsafe or foreign code:$/; next }
     /^bend [0-9.]+ is available: run bend update$/ { next }
-    !/^- / || (bad != "" && $2 ~ bad) { ok = 0 }
+    /^Hint: / { next }
+    !/^defs that depend on [^:]+: / { ok = 0; next }
+    bad != "" { sub(/^[^:]+: /, ""); n = split($0, names, ", "); for (i = 1; i <= n; i++) if (names[i] ~ bad) ok = 0 }
     END { exit !ok }'
 }
 

@@ -3,7 +3,7 @@
 Run an executable with literal arguments and a child working directory. Stdin, stdout, and stderr are byte-exact.
 
 ```bend
-import bend-kit-process@0.4.0.0/process.bend as Proc
+import bend-kit-process@0.4.0.1/process.bend as Proc
 import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 ```
 
