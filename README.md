@@ -10,7 +10,7 @@ Licensed under Apache-2.0. See [LICENSE](LICENSE). [Contributing](CONTRIBUTING.m
 
 ## Install
 
-You need [Bend 2.0.37 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2](https://bun.sh/docs/installation). macOS or Linux, including WSL. Windows is not supported.
+You need [Bend 2.0.38 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2](https://bun.sh/docs/installation). macOS or Linux, including WSL. Windows is not supported.
 
 ```bend
 import Base

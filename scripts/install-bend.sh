@@ -2,8 +2,8 @@
 # Install the pinned Bend for CI (linux-x64). Optional prefix, else ~/.bend.
 # Bump VER and SHA together.
 set -euo pipefail
-VER=2.0.37
-SHA=84c32465a39bc9ac315eade23f470cb8db03153dc860f89564fcfec153c3e445
+VER=2.0.38
+SHA=f19d088b079c9e1a8834ecd153b7d58c11a5f8f9ab1bdb78dbc96a6bf49aaa81
 dest=${1:-$HOME/.bend}
 name="bend-$VER-linux-x64.tar.gz"
 tmp=$(mktemp -d)
