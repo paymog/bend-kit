@@ -8,6 +8,12 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- CI: Bend 2.0.38. `scripts/check.sh` reads the 2.0.38 verdict, which lists defs as `defs that depend on …: a, b` lines and a `Hint:` line. A law that relies on unsafe or foreign code still fails.
+- `process` 0.4.0.1: the C and JS twins name constructors and effects with `CID(...)`. Under 2.0.38 the C runtime no longer defines `CID_SNIL`, `CID_CON`, and the like, and JS effect ids keep their `:`, so the old names failed to build or to register.
+- `journal` and `websocket` proofs take `list.bend` from `bend-mathlib@0.7.4.0`. The 2.0.38 `List.all` stops at the first `False`, so `all_append` in 0.7.2.0 no longer checks.
+- Examples and checks: `camber`'s examples, `authz/check.bend`, and `gateway`'s app, check, and demo import `camber` 0.13.0.0.
+- `camber` 0.13.0.0: imports `notch` 0.3.0.0. Breaking: `Notices.Enabled` takes a `notch` 0.3.0.0 `Format`, such as `Notch.Logfmt{}`.
+- `notch` 0.3.0.0, `websocket` 0.3.0.0, `multipart` 0.2.0.1: Base 2.0.38 declares `Event.Text`, and constructor names are global. Breaking: `Notch.Text` is now `Notch.Logfmt`, and `WS.Text` is now `WS.TextMessage`. The `multipart` rename is internal.
 - CI: `scripts/check.sh` accepts the `bend X is available: run bend update` notice, so a local `bend` older than the latest release still passes.
 - Examples: `runner/example.bend` imports `webhooks` 0.9.0.0 and `hairpin` 0.10.0.0. The kit now uses one version of `retry`, `hairpin`, and `webhooks`.
 - `jwt` 0.9.0.0, `llm` 0.10.0.0, `oauth2` 0.9.0.0, `sigv4` 0.9.0.0, `webhooks` 0.9.0.0: import `hairpin` 0.10.0.0, and `llm`, `sigv4`, and `webhooks` import `retry` 0.2.0.0. `gateway`'s app, check, and demo import them too. Breaking: `Hairpin` and `Retry` types come from those versions.

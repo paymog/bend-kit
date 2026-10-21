@@ -297,7 +297,7 @@ function read_stdin(max, k) {
 
 function exit_raw(code) {
   process.exit(Number(code));
-  return { $: "Unit" };
+  return { $: CID(Unit) };
 }
 
 function cwd() {
@@ -314,7 +314,7 @@ function chdir(path) {
   }
   try {
     process.chdir(path);
-    return io_done({ $: "Unit" });
+    return io_done({ $: CID(Unit) });
   } catch (e) {
     const code = e.errno ?? (e.code === "ENOENT" ? 2 : e.code === "EACCES" ? 13 : e.code === "ERR_INVALID_ARG_TYPE" ? 22 : 5);
     return io_fail(Math.abs(code));

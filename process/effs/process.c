@@ -6,21 +6,21 @@
 #define PROCESS_BYTES
 
 static Term process_bytes(Env e, const char* p, u64 n) {
-  Term s    = term_pak(CID_SNIL, 0);
+  Term s    = term_pak(CID(SNil), 0);
   u64  hole = 0;
   for (u64 i = 0; i < n; i += 1) {
     u64  l = heap_alloc(e, 1);
-    Term t = term_ctr(CID_SCON, l);
+    Term t = term_ctr(CID(SCon), l);
     e.mem[l] = (uint8_t)p[i];
     if (hole == 0) {
       s = t;
     } else {
-      e.mem[hole] = io_seal(e, t, CID_SCON);
+      e.mem[hole] = io_seal(e, t, CID(SCon));
     }
     hole = l + 1;
   }
   if (hole != 0) {
-    e.mem[hole] = io_seal(e, term_pak(CID_SNIL, 0), CID_SCON);
+    e.mem[hole] = io_seal(e, term_pak(CID(SNil), 0), CID(SCon));
   }
   return s;
 }
@@ -30,7 +30,7 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
   u64   n   = 0;
   char* buf = io_mem(malloc(cap));
   *bad = false;
-  while (term_aux(s) == CID_SCON) {
+  while (term_aux(s) == CID(SCon)) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, s, 2, fb));
     if (n + 1 > cap) {
@@ -41,7 +41,7 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
     buf[n++] = (char)(fb[0] & 0xFF);
     s = fb[1];
   }
-  if (term_aux(s) != CID_SNIL) {
+  if (term_aux(s) != CID(SNil)) {
     *bad = true;
   }
   *len = n;
@@ -116,7 +116,7 @@ static char** process_env_build(Env e, Term env_list, bool* bad) {
   char** ov   = io_mem(malloc(cap * sizeof(char*)));
   Term   xs   = env_list;
   *bad        = false;
-  while (term_aux(xs) == CID_CON) {
+  while (term_aux(xs) == CID(Con)) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, xs, 2, fb));
     u64   len = 0;
@@ -135,7 +135,7 @@ static char** process_env_build(Env e, Term env_list, bool* bad) {
     ov[n_ov++] = s;
     xs = fb[1];
   }
-  if (*bad || term_aux(xs) != CID_NIL) {
+  if (*bad || term_aux(xs) != CID(Nil)) {
     if (!*bad) {
       *bad = true;
     }
@@ -197,7 +197,7 @@ static char** process_argv_build(Env e, char* cmd, Term args, bool* bad) {
   av[0]      = cmd;
   Term   xs  = args;
   *bad       = false;
-  while (term_aux(xs) == CID_CON) {
+  while (term_aux(xs) == CID(Con)) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, xs, 2, fb));
     u64   len = 0;
@@ -214,7 +214,7 @@ static char** process_argv_build(Env e, char* cmd, Term args, bool* bad) {
     av[n++] = s;
     xs = fb[1];
   }
-  if (*bad || term_aux(xs) != CID_NIL) {
+  if (*bad || term_aux(xs) != CID(Nil)) {
     if (!*bad) {
       *bad = true;
     }
@@ -782,7 +782,7 @@ static void process_chdir_call(IoWork* w) {
 
 static Term process_chdir_pack(Env e, IoWork* w) {
   free(w->data);
-  return w->code ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID_UNIT, 0));
+  return w->code ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID(Unit), 0));
 }
 
 Term chdir_run(Env e, Term* f, IoWork* w) {
