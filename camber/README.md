@@ -1,11 +1,11 @@
 # Camber
 
-`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.34.0.0. Package version: `0.10.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.2.0.0.
+`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.34.0.0. Package version: `0.10.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.3.0.0.
 
 ```bend
-import bend-kit-camber@0.12.0.0/camber.bend as Camber
-import bend-kit-camber@0.12.0.0/input.bend as Input
-import bend-kit-camber@0.12.0.0/notices.bend as Notices
+import bend-kit-camber@0.13.0.0/camber.bend as Camber
+import bend-kit-camber@0.13.0.0/input.bend as Input
+import bend-kit-camber@0.13.0.0/notices.bend as Notices
 import bend-kit-http@0.36.0.0/http.bend as Http
 ```
 
@@ -123,7 +123,7 @@ Import `notices.bend` as `Notices`. `Notice{status,duration,mapped,stopped,outco
 
 The monotonic boundary is precise: direct `Time.mono` starts before `dispatch.application` and ends after final application response validation. Live timing starts before the private body/response pipes and dependency call, includes that wait and dispatch, and ends at actual HTTP write/suppression completion. Both capture duration once before notifications; all entered scopes see that same duration. Live timing excludes HTTP framing/body reads; both boundaries exclude notification and access-log latency. Callbacks nevertheless remain inline and keep HTTP active/buffered admission reservations until they really return. They run outside the Admission actor and may query real `Http.server.stats`. A stalled callback is still counted, not detached.
 
-`Notices.Disabled` produces no access output. `Enabled{Notch.Text{}}` or `Enabled{Notch.Json{}}` selects published Notch output with a closed projection: status, duration_ms, mapped, stopped, outcome, and Notch's time/level/message envelope. No request, raw target, route, body, query, credentials, headers, arbitrary logger context, transport diagnostic, or internal application error enters the projection. Access lines cover Camber Reply completions, including dependency `CapacityRejected`503, not transport-generated responses that never reached Camber. Owner error reporting does not require access logging.
+`Notices.Disabled` produces no access output. `Enabled{Notch.Logfmt{}}` or `Enabled{Notch.Json{}}` selects published Notch output with a closed projection: status, duration_ms, mapped, stopped, outcome, and Notch's time/level/message envelope. No request, raw target, route, body, query, credentials, headers, arbitrary logger context, transport diagnostic, or internal application error enters the projection. Access lines cover Camber Reply completions, including dependency `CapacityRejected`503, not transport-generated responses that never reached Camber. Owner error reporting does not require access logging.
 
 `notices_check.bend` and `python3 camber/run_notices.py` passed native/JS direct and real-socket completion acceptance. Distinct actual policies sharing ID7 notify route→group→root on success; root/group/route early exits, target400/404/405/OPTIONS, decoder/handler/transform/validation failures, true mapper failure and invalid-result fixed-minimal500 recovery all retain exact entered order/count. Direct outcomes remain application-only. Live HEAD/204 suppression reports actual host acceptance; an explicit post-file-effect gate allows a definitive SO_LINGER reset before response release, producing actual write_failed notices and a subsequent successful request without replay. Callback failure reports to the owner, leaves the response unchanged, and continues outer scopes even with logging disabled. Stalled callbacks remain counted; callbacks query real admitted counts1/1. Actual enabled/disabled Notch output with body/query/credential/header/internal-error canaries is inspected for safe fields, exact status/mapping/recovery/outcome flags, and nonnegative shared per-request durations.
 

@@ -12,7 +12,7 @@ type Config is Data:
 type Domain is Type:
   Lookup{id: U32, limit: U32, tags: List<&2, String>, empty_keys: List<&2, String>}
   Binary{body: H.Body}
-  Text{value: String}
+  Plain{value: String}
   Document{value: J.Val}
   Number{value: U32}
   Create{name: String}
@@ -96,7 +96,7 @@ def decode.route(pattern: String, params: Map<&2, String>, query: List<&2, Targe
     case "/text":
       do Result<&2, &1, C.Error<Unit>, Domain>:
         text : String <- C.input(~String, ~Unit, Input.text(headers, body))
-        return Text{text}
+        return Plain{text}
     case "/json":
       do Result<&2, &1, C.Error<Unit>, Domain>:
         value : J.Val <- C.input(~J.Val, ~Unit, Input.json.with_depth(headers, body, depth))
@@ -128,7 +128,7 @@ def output(input: Domain) -> H.Res:
     case Lookup{id, limit, values, empty_keys}:
       C.json(~J.Val, ~(v => v), 200, J.Obj{[(J.utf8("id"), J.Num{J.utf8(U32.show(id))}), (J.utf8("limit"), J.Num{J.utf8(U32.show(limit))}), (J.utf8("tags"), J.Arr{tags(values)}), (J.utf8("empty_keys"), J.Arr{tags(empty_keys)})]})
     case Binary{body}: C.raw(200, body)
-    case Text{value}: C.text(200, value)
+    case Plain{value}: C.text(200, value)
     case Document{value}: C.json(~J.Val, ~(v => v), 200, value)
     case Number{value}: C.text(200, U32.show(value))
     case Create{name}: C.json(~J.Val, ~(v => v), 201, J.Obj{[(J.utf8("name"), J.Str{J.utf8(name)})]})

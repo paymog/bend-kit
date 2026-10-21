@@ -11,7 +11,7 @@ import bend-kit-time@0.2.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type Action is Data:
-  Text{}
+  Plain{}
   Probe{}
   Json{}
   Parameter{}
@@ -146,7 +146,7 @@ def work(+mode: String, +identifier: String, body: H.Body, config: Config) -> IO
 
 def business(action: Action, state: U32, config: Config, selected: C.Match<C.Policy<U32>>, req: H.Req) -> IO(H.Res):
   match action:
-    case Text{}: IO.pure(H.Res, C.text(200, "OK\n"))
+    case Plain{}: IO.pure(H.Res, C.text(200, "OK\n"))
     case Probe{}:
       do IO<H.Res>:
         stamp("ORDINARY")
@@ -177,7 +177,7 @@ def routes(n: Nat) -> List<&2, C.Route<Action, C.Policy<U32>>>:
     case 1n+ +p:
       C.Route{"GET", "/route/" ++ Nat.show(p), Route{U32.from_nat(p)}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})} <> routes(p)
 def basic() -> List<&2, C.Route<Action, C.Policy<U32>>>:
-  [C.Route{"GET", "/text", Text{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
+  [C.Route{"GET", "/text", Plain{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
    C.Route{"GET", "/json", Json{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
    C.Route{"GET", "/users/:id", Parameter{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
    C.Route{"POST", "/decode", Decode{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
