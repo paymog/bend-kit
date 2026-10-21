@@ -1,7 +1,7 @@
 # Runnable loopback users demo plus a separate loopback owner-stop listener; no supervisor claim.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.12.0.0/camber.bend as C
+import bend-kit-camber@0.13.0.0/camber.bend as C
 import bend-kit-http@0.36.0.0/http.bend as H
 import bend-kit-http@0.36.0.0/completion.bend as T
 

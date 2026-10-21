@@ -1,6 +1,6 @@
 import Base
 import ./public_app.bend as A
-import bend-kit-camber@0.12.0.0/camber.bend as C
+import bend-kit-camber@0.13.0.0/camber.bend as C
 import bend-kit-http@0.36.0.0/http.bend as H
 import bend-kit-http@0.36.0.0/completion.bend as T
 import bend-kit-router@0.2.0.0/router.bend as R

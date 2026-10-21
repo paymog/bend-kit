@@ -1,8 +1,8 @@
 # Complete consumer of the published dispatcher/server, with a shared raw prepared-router control.
 import Base
-import bend-kit-camber@0.12.0.0/camber.bend as C
-import bend-kit-camber@0.12.0.0/input.bend as I
-import bend-kit-camber@0.12.0.0/notices.bend as N
+import bend-kit-camber@0.13.0.0/camber.bend as C
+import bend-kit-camber@0.13.0.0/input.bend as I
+import bend-kit-camber@0.13.0.0/notices.bend as N
 import bend-kit-http@0.36.0.0/http.bend as H
 import bend-kit-http@0.36.0.0/completion.bend as T
 import bend-kit-router@0.2.0.0/router.bend as R

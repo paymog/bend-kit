@@ -2,4 +2,3 @@
 # Remove a line when the issue named on it lands.
 0x4eed9d7ac6ece61523d747a9d804e4f0  # bytes: bend-kit-int@0.2.0.0 by hash, until bytes releases (#456)
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
-bend-kit-camber@0.12.0.0  # camber, authz, gateway: re-pin camber after 0.13.0.0 publishes (#527)
