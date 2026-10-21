@@ -3,7 +3,7 @@
 Leveled logging. A logger holds a minimum level, logfmt or JSON-lines format, and contextual fields.
 
 ```bend
-import bend-kit-notch@0.2.0.0/notch.bend as Notch
+import bend-kit-notch@0.3.0.0/notch.bend as Notch
 ```
 
 ```bend

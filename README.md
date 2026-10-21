@@ -108,8 +108,8 @@ Each package README has the import, one example, and the limits that change the 
 | [`http2`](http2) | `bend-kit-http2@0.2.0.0/http2.bend` | RFC 9113 frames and an HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.10.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.2.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
-| [`websocket`](websocket) | `bend-kit-websocket@0.2.0.1/websocket.bend` | RFC 6455 client handshake and frames. |
-| [`multipart`](multipart) | `bend-kit-multipart@0.1.1.1/multipart.bend` | RFC 7578 form-data encode and decode. |
+| [`websocket`](websocket) | `bend-kit-websocket@0.3.0.0/websocket.bend` | RFC 6455 client handshake and frames. |
+| [`multipart`](multipart) | `bend-kit-multipart@0.2.0.1/multipart.bend` | RFC 7578 form-data encode and decode. |
 
 ### Identity
 
@@ -139,7 +139,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`runner`](runner) | `bend-kit-runner@0.8.0.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
 | [`commands`](commands) | `bend-kit-commands@0.2.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and state, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.2.0.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
-| [`notch`](notch) | `bend-kit-notch@0.1.0.1/notch.bend` | Leveled logfmt or JSON-lines logging. |
+| [`notch`](notch) | `bend-kit-notch@0.3.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
 | [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
 | [`property`](property) | `bend-kit-property@0.2.0.0/property.bend` | Seeded generators, shrinking, and a property runner. |

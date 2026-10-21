@@ -3,7 +3,7 @@
 This package encodes and decodes `multipart/form-data` from RFC 7578. The encoder generates a boundary. The decoder reads `Bytes`.
 
 ```bend
-import bend-kit-multipart@0.2.0.0/multipart.bend as Mp
+import bend-kit-multipart@0.2.0.1/multipart.bend as Mp
 import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 ```
 

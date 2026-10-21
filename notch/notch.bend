@@ -16,9 +16,9 @@ type Value is Data:
 type Field is Data:
   Field{key: String, val: Value}
 
-# Text is logfmt, as Go's slog TextHandler writes it. Json is one object per line.
+# Logfmt is written as Go's slog TextHandler writes it. Json is one object per line.
 type Format is Data:
-  Text{}
+  Logfmt{}
   Json{}
 
 # ctx holds the fields from with, oldest first. A line puts them before its own fields.
@@ -54,7 +54,7 @@ def Level.name(l: Level) -> String:
 # ------------------
 
 def text(min: Level) -> Logger:
-  Logger{min, Text{}, Nil{}}
+  Logger{min, Logfmt{}, Nil{}}
 
 def json(min: Level) -> Logger:
   Logger{min, Json{}, Nil{}}
@@ -208,7 +208,7 @@ def time.json(t: Maybe<&2, String>) -> String:
 def render.as(f: Format, t: Maybe<&2, String>, lvl: Level, msg: String,
   fs: List<&2, Field>) -> String:
   match f:
-    case Text{}:
+    case Logfmt{}:
       time.text(t) ++ "level=" ++ Level.name(lvl) ++ " msg=" ++ tq(msg) ++ fields.text(fs)
     case Json{}:
       "{" ++ time.json(t) ++ quote("level") ++ ":" ++ quote(Level.name(lvl)) ++ "," ++

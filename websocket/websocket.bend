@@ -766,7 +766,7 @@ type Conn is Type:
 
 # What recv returns. Ping is answered with a pong inside recv and not returned.
 type Incoming is Type:
-  Text{data: Bytes.Bytes}
+  TextMessage{data: Bytes.Bytes}
   Binary{data: Bytes.Bytes}
   Pong{data: Bytes.Bytes}
   Closed{code: U32, reason: Bytes.Bytes}
@@ -1067,7 +1067,7 @@ def recv.loop(n: Nat, h: Step, +tls: Bool, +server: Bool, +max: U32, +closing: B
                 case More{}:
                   recv.loop(p, Parse{sock, rest, partial}, tls, server, max, closing, ms)
                 case Message{1, d}:
-                  recv.out(sock, tls, server, rest, partial, max, closing, Done{Text{d}})
+                  recv.out(sock, tls, server, rest, partial, max, closing, Done{TextMessage{d}})
                 case Message{op, d}:
                   recv.out(sock, tls, server, rest, partial, max, closing, Done{Binary{d}})
                 case Control{9, d}:

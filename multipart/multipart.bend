@@ -6,7 +6,7 @@ import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
 # Names, filenames, and header values are byte strings, one Char per octet, as in Http.
 # Bodies are Bytes and pass through untouched, so binary payloads keep every octet.
 # Names and filenames are escaped as WHATWG does: '"' is %22, CR is %0D, LF is %0A.
-#   import bend-kit-multipart@0.2.0.0/multipart.bend as Mp
+#   import bend-kit-multipart@0.2.0.1/multipart.bend as Mp
 
 # One form field. filename marks a file; ctype is its Content-Type (RFC 7578 §4.4 defaults to text/plain).
 type Part is Type:
@@ -316,12 +316,12 @@ def form(parts: List<&1, Part>) -> IO(Result<&1, &1, U32 & String, String & Byte
 # ---- streaming decoder
 
 # Pre: before the first delimiter. After: past a delimiter, before its line ends.
-# Heads: in a header block. Text: in a body. End: past the close delimiter.
+# Heads: in a header block. Content: in a body. End: past the close delimiter.
 type Stage is Data:
   Pre{}
   After{}
   Heads{}
-  Text{}
+  Content{}
   End{}
 
 type Step is Type:
@@ -501,7 +501,7 @@ def heads.item(h: Result<&1, &1, String, Item>, rest: Bytes.Bytes, out: List<&1,
     case Fail{e}:
       Bad{e}
     case Done{it}:
-      More{Text{}, rest, Con{it, out}}
+      More{Content{}, rest, Con{it, out}}
 
 def heads.cut(+j: U32, r: Bytes.Bytes & Bytes.Bytes, out: List<&1, Item>) -> Step:
   (buf, block) = r
@@ -516,10 +516,10 @@ def heads.found(r: Bytes.Bytes & Maybe<&2, U32>, out: List<&1, Item>) -> Step:
     case None{}:
       wait.big(Heads{}, Bytes.length(buf), out)
 
-# Text: bytes that cannot begin a delimiter go out as Body; the last dlen - 1 wait for the next chunk.
+# Content: bytes that cannot begin a delimiter go out as Body; the last dlen - 1 wait for the next chunk.
 def text.flush.len(r: Bytes.Bytes & U32, tail: Bytes.Bytes, out: List<&1, Item>) -> Step:
   (head, +n) = r
-  Pause{Text{}, tail, emit(U32.is_eq(n, 0), head, out)}
+  Pause{Content{}, tail, emit(U32.is_eq(n, 0), head, out)}
 
 def text.flush(r: Bytes.Bytes & Bytes.Bytes, out: List<&1, Item>) -> Step:
   (head, tail) = r
@@ -532,12 +532,12 @@ def text.cut(+i: U32, +dlen: U32, r: Bytes.Bytes & Bytes.Bytes, out: List<&1, It
 # A match that is data goes out through its first byte, and the search goes on after it.
 def text.data(+n: U32, r: Bytes.Bytes & Bytes.Bytes, out: List<&1, Item>) -> Step:
   (buf, piece) = r
-  More{Text{}, drop(buf, n), emit(False{}, piece, out)}
+  More{Content{}, drop(buf, n), emit(False{}, piece, out)}
 
 # A match whose suffix has not arrived: the bytes before it go out, and it waits.
 def text.hold(+i: U32, r: Bytes.Bytes & Bytes.Bytes, out: List<&1, Item>) -> Step:
   (buf, piece) = r
-  Pause{Text{}, drop(buf, i), emit(U32.is_eq(i, 0), piece, out)}
+  Pause{Content{}, drop(buf, i), emit(U32.is_eq(i, 0), piece, out)}
 
 def text.if(delim: Bool, data: Bool, buf: Bytes.Bytes, +i: U32, +dlen: U32, out: List<&1, Item>) -> Step:
   match delim:
@@ -570,7 +570,7 @@ def step(st: Stage, +delim: String, +dlen: U32, buf: Bytes.Bytes, out: List<&1, 
       after.dash(Bytes.starts_with(buf, "--"), out)
     case Heads{}:
       heads.found(Bytes.find(buf, "\r\n\r\n"), out)
-    case Text{}:
+    case Content{}:
       text.hit(dlen, Bytes.find(buf, delim), out)
     case End{}:
       Pause{End{}, Bytes.new(0), out}

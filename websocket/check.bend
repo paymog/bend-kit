@@ -395,7 +395,7 @@ def cl.sent(s: WS.Conn & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
 
 def cl.text(r: WS.Conn & Result<&1, &1, U32 & String, WS.Incoming>) -> IO(Unit):
   match r:
-    case (c, Done{WS.Text{d}}):
+    case (c, Done{WS.TextMessage{d}}):
       do IO<Unit>:
         ok(text.is(d, "Hello"), "fragments join across a ping, from bytes sent with the 101")
         s : WS.Conn & Result<&1, &1, U32 & String, Unit> <- WS.send(c, True{}, 2, big(70000))
