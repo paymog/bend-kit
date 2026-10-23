@@ -36,7 +36,7 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.35.0.0` imports its siblings by name: `wire@0.4.6.1`, `http2@0.3.0.0`, `bytes@0.3.2.0`, `time@0.2.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.4.0.0`, `json@0.6.1.1`, `dns@0.6.0.2`, and `zlib@0.3.0.0`. `Http.Body` is `bend-kit-bytes@0.3.2.0`.
+`http@0.36.0.0` imports its siblings by name: `wire@0.4.6.1`, `http2@0.3.0.0`, `bytes@0.3.2.0`, `time@0.2.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.4.0.0`, `json@0.6.1.1`, `dns@0.6.0.2`, and `zlib@0.3.0.0`. `Http.Body` is `bend-kit-bytes@0.3.2.0`.
 
 `hairpin@0.10.0.0`, `camber@0.13.0.0`, `jwt@0.9.0.0`, `llm@0.10.0.0`, `oauth2@0.9.0.0`, `sigv4@0.9.0.0`, and `webhooks@0.9.0.0` import `bend-kit-http@0.36.0.0`, and all but `camber` import `bend-kit-hairpin@0.10.0.0`. A program that uses these versions together carries one copy of each C effect.
 
@@ -190,7 +190,7 @@ scripts/check.sh bytes http   # some packages
 scripts/packages.sh origin/main
 ```
 
-`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package. A package with `effs/*.c`, and `webhooks`, also runs `scripts/native-check.sh`. `scripts/pins.sh` fails a pull request whose changed packages import a sibling at a version other than its `VERSION`, or by hash; `scripts/pins.allow` lists the exceptions.
+`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package. A package with `effs/*.c`, and `webhooks`, also runs `scripts/native-check.sh`. `scripts/pins.sh` fails a pull request whose changed packages import a sibling at a version other than its `VERSION`, or by hash; `scripts/pins.allow` lists the exceptions. It also fails when this README names a changed package at a version other than its `VERSION`.
 
 CI installs the Bend version pinned in `scripts/install-bend.sh`. To move to a new Bend, change `VER` and `SHA` in that script.
 
