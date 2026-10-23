@@ -95,6 +95,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`tar`](tar) | `bend-kit-tar@0.2.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
 | [`archive`](archive) | `bend-kit-archive@0.2.0.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.2.0.1/zlib.bend` | DEFLATE, gzip, and zlib, plus native gzip, zstd, and brotli. |
+| [`crdt`](crdt) | `bend-kit-crdt@0.1.0.0/crdt.bend` | A grow-only counter whose merge is proved commutative, associative, idempotent, and convergent. CBOR wire form. |
 
 ### Network
 

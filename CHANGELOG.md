@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `crdt` 0.1.0.0: new package. `GCounter` is a state-based grow-only counter on a dense list of `U32` counts, one for each replica index. `inc` and `value` return `None` instead of wrapping. `encode` and `decode` use a CBOR array; `decode` rejects a non-array, a non-`U32` item, a trailing 0, and more than `cap` replicas. Proved for every state: merge is commutative, associative, idempotent, and the least upper bound; an increment never lowers a count; merge and increment keep a state valid; two replicas that received the same states in any order, with duplicates, hold the same state; and the CBOR boundary admits only valid states and round-trips them.
 - CI: Bend 2.0.38. `scripts/check.sh` reads the 2.0.38 verdict, which lists defs as `defs that depend on …: a, b` lines and a `Hint:` line. A law that relies on unsafe or foreign code still fails.
 - `process` 0.4.0.1: the C and JS twins name constructors and effects with `CID(...)`. Under 2.0.38 the C runtime no longer defines `CID_SNIL`, `CID_CON`, and the like, and JS effect ids keep their `:`, so the old names failed to build or to register.
 - `journal` and `websocket` proofs take `list.bend` from `bend-mathlib@0.7.4.0`. The 2.0.38 `List.all` stops at the first `False`, so `all_append` in 0.7.2.0 no longer checks.
