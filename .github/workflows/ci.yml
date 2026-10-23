@@ -60,8 +60,8 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           scripts/native-check.sh ${{ matrix.package }}
-      - name: Install Bun for process smoke
-        if: matrix.package == 'process'
+      - name: Install Bun
+        if: matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
@@ -71,6 +71,15 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           bend process/check.bend -o "$RUNNER_TEMP/bend-kit-process-check.js"
           bun "$RUNNER_TEMP/bend-kit-process-check.js"
+      - name: CA and mTLS checks ${{ matrix.package }}
+        if: hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          for s in ${{ matrix.package }}/ca-check.sh ${{ matrix.package }}/mtls-check.sh; do
+            [ -f "$s" ] || continue
+            echo "== $s native"; sh "$s"
+            echo "== $s js"; sh "$s" js
+          done
       - name: Compare ${{ matrix.package }} with the hub
         if: github.event_name == 'pull_request'
         run: scripts/publish.sh --check ${{ matrix.package }}
