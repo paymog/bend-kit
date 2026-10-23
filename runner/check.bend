@@ -625,6 +625,41 @@ def asks.cancel(+dir: String) -> IO(Unit):
     r3 : R.Runner<String> <- opened(path, 100n)
     closed("next=1 pending=0 running=0 tries=0 fails=0 dead=0", "reopen replays the cancel", view(r3))
 
+def asker(ib: Chan(R.Msg<String>), +log: String) -> IO(Unit):
+  do IO<Unit>:
+    y : R.Out(Nat) <- R.ask.enqueue(String, ib, 0n, log ++ "|ok:late")
+    answered(log, y)
+
+def joined(m: Maybe<&1, Unit>) -> String:
+  match m:
+    case None{}:
+      "timed out"
+    case Some{u}:
+      "returned"
+
+# Starts an asker beside the idle runner, closes the runner, and says whether the asker returned within 3 s.
+def closing(x: R.Runner<String> & Chan(R.Msg<String>), +log: String) -> IO(String):
+  (r, ib) = x
+  do IO<String>:
+    ch : Chan(Unit) <- IO.fork(Unit, asker(ib, log))
+    IO.sleep(100)
+    R.close(String, r)
+    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
+    return joined(m)
+
+# Another fiber enqueues while no tick runs, then the owner closes. The ask fails, and no Enqueue reaches the journal.
+def asks.close(+dir: String) -> IO(Unit):
+  +path = dir ++ "/close.journal"
+  +log = dir ++ "/close.log"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 100n)
+    j : String <- closing(R.inbox(String, r0), log)
+    same(j, "returned", "an ask in the inbox at close returns")
+    ys : List<&2, String> <- read(log)
+    same(counts(ys, ["refused runner: the runner closed"]), "refused runner: the runner closed=1 ", "close answers the ask with a failure")
+    r2 : R.Runner<String> <- opened(path, 100n)
+    closed("next=0 pending=0 running=0 tries=0 fails=0 dead=0", "reopen finds no Enqueue for the refused ask", view(r2))
+
 def all(+dir: String) -> IO(Unit):
   do IO<Unit>:
     durable(dir)
@@ -634,6 +669,7 @@ def all(+dir: String) -> IO(Unit):
     overlap(dir)
     asks(dir)
     asks.cancel(dir)
+    asks.close(dir)
     compaction(dir)
     compaction.auto(dir)
     crash.snapshot(dir)
