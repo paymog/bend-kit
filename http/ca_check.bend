@@ -5,6 +5,10 @@ import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 def die(+why: String) -> IO(Unit):
   IO.die(Unit, 1, why)
 
+# EPROTO is 100 on macOS and 71 on Linux.
+def code.is(+code: U32, +want: U32) -> Bool:
+  Bool.or(U32.is_eq(code, want), Bool.and(U32.is_eq(want, 100), U32.is_eq(code, 71)))
+
 def body.eq(+name: String, same: Bool) -> IO(Unit):
   match same:
     case True{}:
@@ -41,7 +45,7 @@ def tls.fail(+name: String, +want: U32, r: Result<&1, &1, Http.Err, Http.Res>) -
     case Fail{e}:
       match e:
         case Http.ErrTls{+code, why}:
-          tls.code(name, code, U32.is_eq(code, want))
+          tls.code(name, code, code.is(code, want))
         case other:
           die(name ++ " was not a TLS error")
 
@@ -84,7 +88,7 @@ def stream.fail(+name: String, +want: U32, x: Maybe<&2, Http.Jar> & Result<&1, &
     case Fail{e}:
       match e:
         case Http.ErrTls{+code, why}:
-          tls.code(name, code, U32.is_eq(code, want))
+          tls.code(name, code, code.is(code, want))
         case other:
           die(name ++ " was not a TLS error")
 

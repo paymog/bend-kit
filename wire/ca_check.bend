@@ -4,6 +4,10 @@ import ./wire.bend as Wire
 def die(+name: String, +why: String) -> IO(Unit):
   IO.die(Unit, 1, name ++ ": " ++ why)
 
+# EPROTO is 100 on macOS and 71 on Linux.
+def code.is(+code: U32, +want: U32) -> Bool:
+  Bool.or(U32.is_eq(code, want), Bool.and(U32.is_eq(want, 100), U32.is_eq(code, 71)))
+
 def expect.fail.code(+name: String, +code: U32, +why: String, s: Socket, same: Bool) -> IO(Unit):
   match same:
     case True{}:
@@ -18,7 +22,7 @@ def expect.fail.code(+name: String, +code: U32, +why: String, s: Socket, same: B
 def expect.fail(+name: String, +want: U32, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   match m:
     case (s, Fail{(+code, why)}):
-      expect.fail.code(name, code, why, s, U32.is_eq(code, want))
+      expect.fail.code(name, code, why, s, code.is(code, want))
     case (s, Done{u}):
       do IO<Unit>:
         Wire.tls.close(s)

@@ -42,10 +42,11 @@ def tls.code(+name: String, +code: U32, same: Bool) -> IO(Unit):
     case False{}:
       die(name ++ " code " ++ U32.show(code))
 
+# EPROTO is 100 on macOS and 71 on Linux.
 def tls.fail.of(+name: String, e: Hairpin.Err) -> IO(Unit):
   match e:
     case Hairpin.ErrHttp{Http.ErrTls{+code, why}}:
-      tls.code(name, code, U32.is_eq(code, 100))
+      tls.code(name, code, Bool.or(U32.is_eq(code, 100), U32.is_eq(code, 71)))
     case other:
       die(name ++ " was not a TLS error")
 

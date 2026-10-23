@@ -177,11 +177,12 @@ def udp6.check() -> IO(Unit):
     r : Result<&1, &1, U32 & String, Socket & U32> <- test.udp6(0)
     udp6.opened(r)
 
+# EPROTO is 100 on macOS and 71 on Linux.
 def mtls.no_cert(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   match m:
     case (s, Fail{(+code, why)}):
       do IO<Unit>:
-        ok(U32.is_eq(code, 100), "mTLS rejects missing client cert", why)
+        ok(Bool.or(U32.is_eq(code, 100), U32.is_eq(code, 71)), "mTLS rejects missing client cert", why)
         Socket.close(s)
     case (s, Done{u}):
       do IO<Unit>:
