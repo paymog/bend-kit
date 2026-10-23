@@ -2,7 +2,8 @@
 # Fail when a package imports a sibling at a version other than the sibling's
 # VERSION at REF, or imports a sibling by hash. scripts/pins.allow lists the
 # exceptions, one import target (bend-kit-<pkg>@<version> or 0x<hash>) per line;
-# a line that no import in the kit uses fails too.
+# a line that no import in the kit uses fails too. A README.md import of a
+# package fails unless it names that package's VERSION in the working tree.
 # When a VERSION differs from REF, print the importers of the old version: they
 # re-pin after the publish.
 # Usage: scripts/pins.sh [REF [pkg...]]. REF defaults to HEAD, packages to all.
@@ -38,6 +39,17 @@ used=$(targets <<<"$every")
 for target in $allow; do
   grep -qxF "$target" <<<"$used" && continue
   echo "scripts/pins.allow: no import uses $target; remove the line" >&2
+  bad=1
+done
+for t in $(grep -oE 'bend-kit-[a-z0-9-]+@[0-9.]+/' README.md | sort -u); do
+  name=${t#bend-kit-}
+  name=${name%@*}
+  tr ' ' '\n' <<<"$*" | grep -qxF "$name" || continue
+  ver=${t#*@}
+  ver=${ver%/}
+  want=$(<"$name/VERSION") || want=missing
+  [ "$ver" = "$want" ] && continue
+  echo "README.md: names bend-kit-$name@$ver but $name/VERSION is $want" >&2
   bad=1
 done
 for d in $all; do
