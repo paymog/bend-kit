@@ -121,7 +121,7 @@ jobs:
           ./demo > demo.log 2>&1 &
           curl -s --retry 20 --retry-connrefused --retry-delay 1 -o /dev/null http://127.0.0.1:18080/
           test "$(curl -s --data-binary @../README.md http://127.0.0.1:18080/hi)" = /hi
-          test "$(curl --http1.1 -sv -o /dev/null -o /dev/null http://127.0.0.1:18080/one http://127.0.0.1:18080/two 2>&1 | grep -c 'Re-using existing connection')" = 1
+          test "$(curl --http1.1 -sv -o /dev/null -o /dev/null http://127.0.0.1:18080/one http://127.0.0.1:18080/two 2>&1 | grep -cE 'Re-?using existing (http: )?connection')" = 1
           test "$(printf 'GET /old HTTP/1.0\r\n\r\n' | nc -q 3 127.0.0.1 18080 | tail -c 4)" = /old
           curl -s -o /dev/null -w '%{http_code}' -H 'Transfer-Encoding: gzip' -d x http://127.0.0.1:18080/ | grep -qx 400
           curl -s -o /dev/null -w '%{http_code}' -H "X-A: $(head -c 70000 /dev/zero | tr '\0' a)" http://127.0.0.1:18080/ | grep -qx 431
