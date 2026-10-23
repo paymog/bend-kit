@@ -1360,12 +1360,47 @@ def orphans(~A: Data, ~penc: A -> Bytes.Bytes, ts: List<&2, Q.Ticket<A>>, +now: 
         y : Ran(A) <- commit(~A, ~penc, r, Requeue{id, now})
         orphans.next(A, y, err, (r2 => e2 => orphans(~A, ~penc, rest, now, r2, e2)))
 
-# Closes the journal and the inbox. An ask still in the inbox gets no answer, so stop the fibers that ask first.
+def close.answer(-A: Data, m: Msg<A>) -> IO(Unit):
+  match m:
+    case Ended{id, o}:
+      IO.pure(Unit, Unit{})
+    case Add{d, x, rep}:
+      do IO<Unit>:
+        y : Result<&1, &1, Out(Nat), Unit> <- Chan.send(Out(Nat), rep, Fail{(32, "runner: the runner closed")})
+        return Unit{}
+    case Drop{i, rep}:
+      do IO<Unit>:
+        y : Result<&1, &1, Out(Unit), Unit> <- Chan.send(Out(Unit), rep, Fail{(32, "runner: the runner closed")})
+        return Unit{}
+
+def close.polled(-A: Data, x: Poll<&1, &1, Maybe<&1, Msg<A>>, Unit>, next: Unit -> IO(Unit)) -> IO(Unit):
+  match x:
+    case Ready{Some{m}}:
+      do IO<Unit>:
+        close.answer(A, m)
+        next(Unit{})
+    case Ready{None{}}:
+      IO.pure(Unit, Unit{})
+    case Wait{u}:
+      IO.pure(Unit, Unit{})
+
+# Answers each ask left in the closed inbox with a failure. fuel bounds the messages it reads.
+def close.drain(-A: Data, fuel: Nat, +ib: Chan(Msg<A>)) -> IO(Unit):
+  match fuel:
+    case 0n:
+      IO.pure(Unit, Unit{})
+    case 1n+n:
+      do IO<Unit>:
+        x : Poll<&1, &1, Maybe<&1, Msg<A>>, Unit> <- Chan.try_recv(Msg<A>, ib, 0)
+        close.polled(A, x, (u => close.drain(A, n, ib)))
+
+# Closes the inbox and the journal. Each ask still in the inbox gets a failure, and no op is appended for it.
 def close(-A: Data, r: Runner<A>) -> IO(Unit):
-  Runner{j, s, p, bs, c, ib, fs} = r
+  Runner{j, s, +p, bs, c, +ib, fs} = r
   do IO<Unit>:
-    log.close(j)
     Chan.close(Msg<A>, ib)
+    close.drain(A, Nat.add(2n, Res.capacity(p)), ib)
+    log.close(j)
 
 def open.done(-A: Data, y: Ran(A)) -> IO(Out(Runner<A>)):
   match y:

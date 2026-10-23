@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.8.0.0/runner.bend as R
+import bend-kit-runner@0.8.1.0/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.2.0.0`, `bend-kit-scheduler@0.3.0.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.2.0.0`, `bend-kit-time@0.2.0.0`, `bend-kit-collections@0.1.3.0`, `bend-kit-files@0.2.0.0`, and `bend-kit-bytes@0.3.2.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.2.0.0` types; tickets are `bend-kit-scheduler@0.3.0.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 import bend-kit-retry@0.2.0.0/retry.bend as Retry
-import bend-kit-runner@0.8.0.0/runner.bend as R
+import bend-kit-runner@0.8.1.0/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -95,7 +95,7 @@ def main() -> IO(Unit):
 | `ask.cancel(A, inbox, id)` | From another fiber: `cancel`. A running attempt finishes, and its outcome does not requeue the ticket. |
 | `compact(~A, ~penc, r)` | Replaces the journal with one snapshot record of the state. See [Compaction](#compaction). |
 | `state(A, r)` | The runner and a copy of its `State`. `dead(A, s)` lists the dead tickets of a `State`, newest first, each a `Dead{ticket, why}` with its payload. |
-| `close(A, r)` | Closes the journal and the inbox. An ask still in the inbox gets no answer, so stop the fibers that ask first. |
+| `close(A, r)` | Closes the inbox and the journal. Each ask still in the inbox fails with `runner: the runner closed`, and no op is appended for it. |
 
 `Config{policy, circuit, idle, compact}`: retry's `Policy` for every ticket, the `Circuit` of each target's breaker, `drain`'s wait, and the octets of records that `tick` lets the journal grow by, since open or the last compaction, before it compacts. A `compact` of 0 turns automatic compaction off. `max` caps one op record's octets and `limit` caps the journal file and a snapshot, as in `journal`. A failed append stops the runner: every later call fails until it is reopened.
 
@@ -174,6 +174,7 @@ A `Snap` record is tag 7 and the next id, then the pending heap, the running lis
 - with capacity 2, one tick runs a slow job and five fast jobs: the fast jobs finish in the free unit while the slow one runs, and no more than 2 attempts run at once;
 - while a 1 s job runs, another fiber's `ask.enqueue` answers its id before the job ends, and the new job runs in the same drain;
 - another fiber's `ask.cancel` of a failing job while its attempt runs leaves the ticket cancelled after the attempt ends, and across a reopen;
+- an `ask.enqueue` in the inbox when the owner calls `close` fails at once, and a reopen finds no ticket for it;
 - `compact` shrinks a drained journal to a snapshot larger than `max`, and reopening it with later records gives the same state; with `compact` at 1, each tick leaves one snapshot frame;
 - a child completes x, writes and fsyncs the snapshot, and dies before the rename. Reopening gives the snapshot's state, a later compaction replaces the stale file, and x does not run again;
 - a child completes x, compacts, then dies inside z's attempt. Reopening replays the snapshot and z's records, z runs again, and x does not;

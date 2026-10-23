@@ -136,7 +136,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`scheduler`](scheduler) | `bend-kit-scheduler@0.3.0.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
 | [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
 | [`journal`](journal) | `bend-kit-journal@0.1.0.0/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
-| [`runner`](runner) | `bend-kit-runner@0.8.0.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
+| [`runner`](runner) | `bend-kit-runner@0.8.1.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
 | [`commands`](commands) | `bend-kit-commands@0.2.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and state, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.2.0.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
 | [`notch`](notch) | `bend-kit-notch@0.3.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
