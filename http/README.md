@@ -3,8 +3,8 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.38.1.1/http.bend as Http
-import bend-kit-http@0.38.1.1/completion.bend as Completion
+import bend-kit-http@0.38.2.0/http.bend as Http
+import bend-kit-http@0.38.2.0/completion.bend as Completion
 ```
 
 `Http.Body` uses `bend-kit-bytes@0.3.3.0`. JSON values for `post.json` use `bend-kit-json@0.7.0.0`. DNS lookup uses `bend-kit-dns@0.7.0.0`. TLS uses `bend-kit-wire@0.4.7.0`.
@@ -15,7 +15,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.38.1.1/http.bend as Http
+import bend-kit-http@0.38.2.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -87,8 +87,8 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.38.1.1/http.bend as Http
-import bend-kit-http@0.38.1.1/completion.bend as Completion
+import bend-kit-http@0.38.2.0/http.bend as Http
+import bend-kit-http@0.38.2.0/completion.bend as Completion
 
 def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
