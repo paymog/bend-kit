@@ -77,6 +77,15 @@ def fixture(m: Maybe<&1, Bytes.Bytes>) -> Bytes.Bytes:
     case None{}:
       Bytes.new(0)
 
+def checked_size(pair: File & Result<&1, &1, U32 & String, U32 & U32>, hi: U32, lo: U32) -> IO(File):
+  match pair:
+    case (handle, Done{(got_hi, got_lo)}):
+      do IO<File>:
+        require(U32.is_eq(got_hi, hi) && U32.is_eq(got_lo, lo), "size64 is wrong")
+        return handle
+    case (handle, Fail{err}):
+      IO.die(File, 1, "size64 failed")
+
 def packed(dir: String) -> IO(Unit):
   do IO<Unit>:
     +path : String = Fs.path.join(dir, "packed")
@@ -106,6 +115,12 @@ def packed(dir: String) -> IO(Unit):
     file : File <- checked_write(pair)
     File.close(file)
     file : File <- IO.try(File, File.open(path, "r"))
+    pair : File & Result<&1, &1, U32 & String, U32 & U32> <- Fs.size64(file)
+    file : File <- checked_size(pair, 0, 9)
+    pair : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Fs.read.words.at(file, 0, 3, 4)
+    file : File <- checked_read(Fs.read_bytes.pair(pair), "02030405")
+    pair : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Fs.read.words.at(file, 1, 3, 4)
+    file : File <- checked_read(Fs.read_bytes.pair(pair), "")
     pair : File & Result<&1, &1, U32 & String, Bytes.Bytes> <- Fs.read_bytes(file, 9)
     file : File <- checked_read(pair, "00ff010203040506fe")
     pair : File & Result<&1, &1, U32 & String, Bytes.Bytes> <- Fs.read_bytes(file, 9)

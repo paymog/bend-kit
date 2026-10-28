@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `files` 0.3.1.0: `size64` and `read.words.at` give the size of an open file and read at a byte offset as two `U32` halves, `hi * 2^32 + lo`, so a file over 4 GiB can be sized and read. `read.words.at` does not move the file position.
 - `runner` 0.13.0.0: imports `retry` 0.3.0.0. A `Retry.Rejected` attempt, a client error such as a 404, gives `Abandon{id, WhyFailed}`, and the target's breaker moves as on a success, so a run of client errors does not open it. `rejected_abandon`, `rejected_spares_breaker`, and `rejected_keeps_closed` prove it. The webhook example answers `Rejected` for a 4xx that will not change. Breaking: outcomes are `retry` 0.3.0.0 types.
 - `retry` 0.3.0.0: `Rejected` is a client error. `plan` stops on it, and `failed` does not count it for the breaker. `plan_rejected_stops` and `rejected_not_counted` prove it. Breaking: a match on `Outcome` needs a `Rejected` case.
 - `jwt` 0.11.0.1, `llm` 0.13.0.1, `oauth2` 0.11.0.1, `sigv4` 0.11.0.1, `webhooks` 0.11.0.1: import `http` 0.38.1.1 and `hairpin` 0.13.0.1, so a pooled request does not reuse a socket that the server closed. `jwt`, `oauth2`, `sigv4`, and `webhooks` also import `crypto` 0.2.2.2.

@@ -129,7 +129,7 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`files`](files) | `bend-kit-files@0.3.0.0/files.bend` | POSIX paths, directories, and packed file IO. |
+| [`files`](files) | `bend-kit-files@0.3.1.0/files.bend` | POSIX paths, directories, and packed file IO. |
 | [`stream`](stream) | `bend-kit-stream@0.3.0.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.0.0/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.4.1/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |

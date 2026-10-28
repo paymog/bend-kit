@@ -173,6 +173,18 @@ def read.words(file: File, max: U32) ->
   import "./effs/files.c"
   import "./effs/files.js"
 
+# The size of an open file as (hi, lo): hi * 2^32 + lo bytes. Errors retain the File.
+def size64(file: File) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & U32>):
+  import "./effs/files.c"
+  import "./effs/files.js"
+
+# read.words at byte offset hi * 2^32 + lo. The file position does not move.
+def read.words.at(file: File, hi: U32, lo: U32, max: U32) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/files.c"
+  import "./effs/files.js"
+
 def read_bytes.wrap(result: Result<&1, &1, U32 & String, U32 & Array<U32>>) ->
   Result<&1, &1, U32 & String, Bytes.Bytes>:
   match result:
