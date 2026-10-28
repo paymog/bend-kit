@@ -381,14 +381,38 @@ def mtls.run(+one: String, +key1: String, +two: String, +key2: String, +base: St
     p4 : Http.Pool <- mtls.pool.good("client-one", again)
     Http.pool.close(p4)
 
+def h2.idle.got(+name: String, +want: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool):
+  (p, r) = pr
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, name ++ ": fetch failed")
+    case Done{Http.Res{+status, headers, body}}:
+      do IO<Http.Pool>:
+        local.ok(Bool.and(U32.is_eq(status, 200), String.eq(Bytes.to_string(body), want)), name)
+        return p
+
+# The HTTP/2 server answers one request per connection with the connection number, then closes TCP.
+def h2.idle(+base: String) -> IO(Unit):
+  do IO<Unit>:
+    first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch(Http.pool.new(), "GET", base ++ "/a", Http.empty(), Bytes.new(0))
+    p1 : Http.Pool <- h2.idle.got("h2 pool: GET", "1", first)
+    IO.sleep(500)
+    second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch(p1, "POST", base ++ "/b", Http.empty(), Bytes.from_string("x"))
+    p2 : Http.Pool <- h2.idle.got("h2 pool: POST on a new connection after the server closed the idle session", "2", second)
+    Http.pool.close(p2)
+
 def mtls.args(xs: List<&1, String>) -> IO(Unit):
   match xs:
     case Nil{}:
       IO.pure(Unit, Unit{})
-    case Con{one, Con{key1, Con{two, Con{key2, Con{base, Nil{}}}}}}:
-      mtls.run(one, key1, two, key2, base)
+    case Con{one, Con{key1, Con{two, Con{key2, Con{base, Con{h2, Nil{}}}}}}}:
+      do IO<Unit>:
+        mtls.run(one, key1, two, key2, base)
+        h2.idle(h2)
     case _:
-      IO.die(Unit, 1, "mTLS needs four certificate paths and the server base URL")
+      IO.die(Unit, 1, "mTLS needs four certificate paths, the server base URL, and the HTTP/2 base URL")
 
 def h2.has(xs: List<&2, Hpack.Field>, +want: String) -> Bool:
   match xs:
