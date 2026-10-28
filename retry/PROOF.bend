@@ -148,6 +148,12 @@ def Laws.plan_failed_stops(p, b, n, now, r):
 def Laws.failed_counts():
   {==}
 
+def Laws.plan_rejected_stops(p, b, n, now, r):
+  {==}
+
+def Laws.rejected_not_counted():
+  {==}
+
 def Laws.plan_spent_stops(after, p, d, n, now, r):
   {==}
 

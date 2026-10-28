@@ -175,6 +175,18 @@ law plan_failed_stops:
 law failed_counts:
   {Retry.failed(Retry.Failed{}) == True{} : Bool}
 
+law plan_rejected_stops:
+  for p: Retry.Policy
+  for b: Retry.Budget
+  for n: Nat
+  for now: Nat
+  for r: Nat
+  {Retry.plan(Retry.Rejected{}, p, b, n, now, r) == Retry.PlanStop{} : Retry.Plan}
+
+# A caller's fault, such as a 4xx, does not count against the breaker.
+law rejected_not_counted:
+  {Retry.failed(Retry.Rejected{}) == False{} : Bool}
+
 law plan_spent_stops:
   for after: Maybe<&2, Nat>
   for p: Retry.Policy
