@@ -4,7 +4,7 @@ import bend-kit-scheduler@0.4.1.0/queue.bend as Q
 import bend-kit-collections@0.1.4.1/heap.bend as H
 import bend-kit-collections@0.1.4.1/LAWS.bend as CL
 import bend-kit-resources@0.1.0.0/resources.bend as Res
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import ./runner.bend as R
 
 # ---- replay
@@ -316,6 +316,31 @@ law failed_abandon:
   for +now: Nat
   for +r: Nat
   {R.after(A, Retry.Failed{}, p, b, id, n, now, r) == R.Abandon{id, R.WhyFailed{}, now} : R.Op<A>}
+
+# A client error, such as a 404, would repeat, so its ticket is dead after this attempt.
+law rejected_abandon:
+  for -A: Data
+  for p: Retry.Policy
+  for b: Retry.Budget
+  for +id: Nat
+  for +n: Nat
+  for +now: Nat
+  for +r: Nat
+  {R.after(A, Retry.Rejected{}, p, b, id, n, now, r) == R.Abandon{id, R.WhyFailed{}, now} : R.Op<A>}
+
+# A client error is not the target's failure: its breaker moves as on a success.
+law rejected_spares_breaker:
+  for +c: Retry.Circuit
+  for s: Retry.State
+  for +now: Nat
+  {R.brk.after(c, s, now, Retry.Rejected{}) == R.brk.after(c, s, now, Retry.Settled{}) : Retry.Breaker}
+
+# So a run of client errors never opens a closed breaker.
+law rejected_keeps_closed:
+  for +c: Retry.Circuit
+  for fs: List<&2, Nat>
+  for +now: Nat
+  {R.brk.after(c, Retry.CircuitClosed{fs}, now, Retry.Rejected{}) == Retry.BreakerOn{c, Retry.CircuitClosed{Nil{}}} : Retry.Breaker}
 
 # When retry.plan stops a transient failure, its ticket is dead: spent when no attempt is left, else late.
 law transient_abandon:

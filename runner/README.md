@@ -3,10 +3,10 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.12.0.1/runner.bend as R
+import bend-kit-runner@0.13.0.0/runner.bend as R
 ```
 
-It imports `bend-kit-journal@0.3.0.1`, `bend-kit-scheduler@0.4.1.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.2.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.4.1`, `bend-kit-files@0.3.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.2.0.0` types; tickets are `bend-kit-scheduler@0.4.1.0` types.
+It imports `bend-kit-journal@0.3.0.1`, `bend-kit-scheduler@0.4.1.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.4.1`, `bend-kit-files@0.3.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.1.0` types.
 
 ```mermaid
 flowchart LR
@@ -20,7 +20,7 @@ flowchart LR
   B -->|open| D[Defer to cooldown end]
   W -->|Settled| C[Complete + release]
   W -->|Transient| Rq[Requeue at now + wait + release]
-  W -->|Failed, Unsafe, or stopped| X[Abandon to dead + release]
+  W -->|Failed, Rejected, Unsafe, or stopped| X[Abandon to dead + release]
   S -->|compact: snapshot, fsync, rename| J
 ```
 
@@ -31,8 +31,8 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
-import bend-kit-runner@0.12.0.1/runner.bend as R
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
+import bend-kit-runner@0.13.0.0/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt.
+`~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt. Answer `Retry.Rejected` for a client error, such as a 404: the job is dead, and the target's breaker does not count it.
 
 | def | does |
 |---|---|
@@ -113,7 +113,7 @@ Every transition is one journal record, appended and fsynced before the state ch
 | `Cancel{id}` | `cancel` | `Queue.cancel(id)`, which takes the ticket from both registries; the dead ticket `id` is dropped, and so is the `Try` |
 | `Requeue{id, d}` | the attempt failed, or a crash interrupted it | `Queue.requeue(id, d)`, one more failure in the `Try` |
 | `Defer{id, d}` | the target's breaker is open | `Queue.requeue(id, d)`, no failure counted |
-| `Abandon{id, why, at}` | retry gave up at `at`: the budget is spent (`WhySpent`), the deadline passed (`WhyLate`), the failure was `Unsafe` (`WhyUnsafe`), or the failure was `Failed`, which another try would repeat (`WhyFailed`) | `Queue.complete(id)`, and the ticket, with its payload, goes to the dead tickets under `id`; the `Try` is dropped |
+| `Abandon{id, why, at}` | retry gave up at `at`: the budget is spent (`WhySpent`), the deadline passed (`WhyLate`), the failure was `Unsafe` (`WhyUnsafe`), or the failure was `Failed` or `Rejected`, which another try would repeat (`WhyFailed`) | `Queue.complete(id)`, and the ticket, with its payload, goes to the dead tickets under `id`; the `Try` is dropped |
 | `Revive{id, d}` | `revive` | the dead ticket `id` goes back to the pending heap at `d`, with a `Try{0, d}` |
 | `Purge{before}` | `purge` | each dead ticket whose `at` is below `before` is dropped |
 | `PurgeAll{}` | `purge.all` | every dead ticket is dropped |
@@ -154,6 +154,8 @@ A `Snap` record is tag 7 and the next id, then the pending heap, the running lis
 | `settled_complete` | A `Settled` attempt gives `Complete{id}`. |
 | `unsafe_abandon` | An `Unsafe` attempt gives `Abandon{id, WhyUnsafe, now}`. |
 | `failed_abandon` | A `Failed` attempt gives `Abandon{id, WhyFailed, now}`, so the ticket is dead after one attempt. |
+| `rejected_abandon` | A `Rejected` attempt (a client error) gives `Abandon{id, WhyFailed, now}`, so the ticket is dead after one attempt. |
+| `rejected_spares_breaker`, `rejected_keeps_closed` | A `Rejected` attempt moves the target's breaker as a success does, so a run of client errors never opens it. |
 | `transient_abandon` | When `retry.plan` stops a `Transient` failure, the record is `Abandon{id, gave(b), now}`: `WhySpent` when no attempt is left, else `WhyLate`. |
 
 `journal`'s `replay` and `roundtrip` laws give the other half of `replay_prefix`: `open` folds exactly the committed records, in order. `scheduler`'s laws give the queue's own behavior, such as `requeue_token`.
@@ -180,6 +182,7 @@ A `Snap` record is tag 7 and the next id, then the pending heap, the running lis
 - a `Purge` drops only the dead tickets abandoned before its time, a `PurgeAll` drops them all, a purged ticket does not revive, and a `Revive` takes one dead ticket by id;
 - three jobs drain: two run once; one fails every time and is dead after the policy's 3 attempts, with its payload. Reopening replays the same state. A revive runs it 3 attempts more, and a cancel drops it;
 - a job that answers `Failed` is dead after one attempt, with its payload and `WhyFailed`;
+- with a threshold of 1, a job that answers `Rejected` is dead after one attempt, the breaker stays closed, and the next job of that target completes;
 - two jobs die, then a third; a `purge` at a time between them drops the first two, and the result survives a reopen and a compaction. A later `purge.all` survives a reopen;
 - a child process (`crash.bend`) completes job x, then dies inside job y's attempt. Reopening requeues y as a failed attempt, y runs again, and x does not;
 - two failing jobs open their target's breaker at the first failure; no third attempt starts, and the held jobs wait for the cooldown;

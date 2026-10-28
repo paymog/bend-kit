@@ -4,7 +4,7 @@ import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-journal@0.3.0.1/journal.bend as J
 import bend-kit-scheduler@0.4.1.0/queue.bend as Q
 import bend-kit-resources@0.1.0.0/resources.bend as Res
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-collections@0.1.4.1/heap.bend as H
 import bend-kit-collections@0.1.4.1/omap.bend as O
@@ -399,6 +399,8 @@ def stopped(-A: Data, o: Retry.Outcome, b: Retry.Budget, +id: Nat, +now: Nat) ->
       Complete{id}
     case Retry.Failed{}:
       Abandon{id, WhyFailed{}, now}
+    case Retry.Rejected{}:
+      Abandon{id, WhyFailed{}, now}
     case Retry.Unsafe{}:
       Abandon{id, WhyUnsafe{}, now}
     case Retry.Transient{w}:
@@ -415,6 +417,10 @@ def after.plan(-A: Data, pl: Retry.Plan, o: Retry.Outcome, b: Retry.Budget, +id:
 # complete when o is settled, or abandon when retry gave up.
 def after(-A: Data, +o: Retry.Outcome, p: Retry.Policy, +b: Retry.Budget, +id: Nat, +n: Nat, +now: Nat, +r: Nat) -> Op<A>:
   after.plan(A, Retry.plan(o, p, b, n, now, r), o, b, id, now)
+
+# A target's breaker after an attempt ends at now with o.
+def brk.after(+circ: Retry.Circuit, old: Retry.State, +now: Nat, o: Retry.Outcome) -> Retry.Breaker:
+  Retry.Breaker.done(Retry.BreakerOn{circ, old}, now, Retry.failed(o))
 
 # When an open breaker lets attempts start again.
 def until(br: Retry.Breaker, +now: Nat) -> Nat:
@@ -1287,7 +1293,7 @@ def settle.op(~A: Data, ~penc: A -> Bytes.Bytes, +o: Retry.Outcome, b: Retry.Bud
   Config{pol, circ, idle, every} = c
   +old = brk.get(A, s, key)
   do IO<Runner<A> & Out(Bool)>:
-    y : Ran(A) <- trip(~A, ~penc, Runner{j, s, p, c, ib, fs}, key, old, Retry.Breaker.done(Retry.BreakerOn{circ, old}, now, Retry.failed(o)))
+    y : Ran(A) <- trip(~A, ~penc, Runner{j, s, p, c, ib, fs}, key, old, brk.after(circ, old, now, o))
     settle.br(~A, ~penc, after(A, o, pol, b, id, fails(tries.get(tries(A, s), id)), now, rnd), y, g, err, next)
 
 def random(r: Out(U32)) -> Nat:

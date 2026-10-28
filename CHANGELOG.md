@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.13.0.0: imports `retry` 0.3.0.0. A `Retry.Rejected` attempt, a client error such as a 404, gives `Abandon{id, WhyFailed}`, and the target's breaker moves as on a success, so a run of client errors does not open it. `rejected_abandon`, `rejected_spares_breaker`, and `rejected_keeps_closed` prove it. The webhook example answers `Rejected` for a 4xx that will not change. Breaking: outcomes are `retry` 0.3.0.0 types.
+- `retry` 0.3.0.0: `Rejected` is a client error. `plan` stops on it, and `failed` does not count it for the breaker. `plan_rejected_stops` and `rejected_not_counted` prove it. Breaking: a match on `Outcome` needs a `Rejected` case.
 - `jwt` 0.11.0.1, `llm` 0.13.0.1, `oauth2` 0.11.0.1, `sigv4` 0.11.0.1, `webhooks` 0.11.0.1: import `http` 0.38.1.1 and `hairpin` 0.13.0.1, so a pooled request does not reuse a socket that the server closed. `jwt`, `oauth2`, `sigv4`, and `webhooks` also import `crypto` 0.2.2.2.
 - `camber` 0.15.0.1, `hairpin` 0.13.0.1: import `http` 0.38.1.1, so a pooled request does not reuse a socket that the server closed.
 - `bits` 0.1.0.0: new package. A bit reader and a bit writer over `Bytes`, LSB-first (DEFLATE) or MSB-first (JPEG), for fields of 0 to 32 bits, and canonical Huffman decode tables built from code lengths. Proved on fixtures: written fields read back in both orders, and the fixed DEFLATE code decodes all 288 symbols.

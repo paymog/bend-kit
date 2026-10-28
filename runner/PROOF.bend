@@ -7,7 +7,7 @@ import bend-kit-collections@0.1.4.1/heap.bend as H
 import bend-kit-collections@0.1.4.1/LAWS.bend as CL
 import bend-kit-collections@0.1.4.1/PROOF.bend as CP
 import bend-kit-resources@0.1.0.0/resources.bend as Res
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import ./runner.bend as R
 import ./LAWS.bend as Laws
 
@@ -63,6 +63,15 @@ def Laws.unsafe_abandon(A, p, b, id, n, now, r):
   {==}
 
 def Laws.failed_abandon(A, p, b, id, n, now, r):
+  {==}
+
+def Laws.rejected_abandon(A, p, b, id, n, now, r):
+  {==}
+
+def Laws.rejected_spares_breaker(c, s, now):
+  {==}
+
+def Laws.rejected_keeps_closed(c, fs, now):
   {==}
 
 def Laws.transient_abandon(A, a, p, b, id, n, now, r, e):

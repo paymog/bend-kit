@@ -1,7 +1,7 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-journal@0.3.0.1/journal.bend as J
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-scheduler@0.4.1.0/queue.bend as Q
 import bend-kit-files@0.3.0.0/files.bend as Files
 import bend-kit-collections@0.1.4.1/heap.bend as H
@@ -210,7 +210,7 @@ def codec() -> IO(Unit):
 
 # ---- jobs: "log|kind:name". work notes the job in log, runs it, then notes "end" and the job, and answers by kind.
 # A slow job ("slow:" or "slowfail:") sleeps 1 s before it ends. A "fail:" or "slowfail:" job fails, and another try can help.
-# A "dead:" job fails, and another try would repeat the failure.
+# A "dead:" job fails, and another try would repeat the failure. A "reject:" job is a client error.
 def note.close(r: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (f, x) = r
   File.close(f)
@@ -223,7 +223,8 @@ def note(+log: String, +spec: String) -> IO(Unit):
 
 def outcome(+spec: String) -> Retry.Outcome:
   Bool.pick(Retry.Outcome, String.starts_with(spec, "dead:"), Retry.Failed{},
-  Bool.pick(Retry.Outcome, Bool.or(String.starts_with(spec, "fail:"), String.starts_with(spec, "slowfail:")), Retry.Transient{Some{0n}}, Retry.Settled{}))
+  Bool.pick(Retry.Outcome, String.starts_with(spec, "reject:"), Retry.Rejected{},
+  Bool.pick(Retry.Outcome, Bool.or(String.starts_with(spec, "fail:"), String.starts_with(spec, "slowfail:")), Retry.Transient{Some{0n}}, Retry.Settled{})))
 
 def work.go(xs: List<&2, String>) -> IO(Retry.Outcome):
   match xs:
@@ -335,6 +336,10 @@ def dead.of(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
   (r, s) = x
   (r, graves(R.dead(String, s)))
 
+def brk.of(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
+  (r, s) = x
+  (r, brk(s, "local"))
+
 # Three jobs: two succeed once. One fails every time; after the policy's 3 attempts it is dead, with its payload.
 # It stays dead across a reopen, runs 3 attempts again after a revive, and a cancel drops it.
 def durable(+dir: String) -> IO(Unit):
@@ -375,6 +380,21 @@ def failed(+dir: String) -> IO(Unit):
     closed("0:failed:" ++ log ++ "|dead:f ", "the dead job keeps its payload and a failed why", dead.of(R.state(String, r3)))
     xs : List<&2, String> <- read(log)
     same(counts(xs, ["dead:f"]), "dead:f=1 ", "a failure that would repeat runs one attempt")
+
+# One failure opens this breaker, but a client error is not the target's failure, so the next job still runs.
+def rejected(+dir: String) -> IO(Unit):
+  +path = dir ++ "/rejected.journal"
+  +log = dir ++ "/rejected.log"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 1n)
+    r1 : R.Runner<String> <- enq(r0, 0n, log ++ "|reject:a")
+    r2 : R.Runner<String> <- enq(r1, 0n, log ++ "|ok:b")
+    r3 : R.Runner<String> <- drain(r2)
+    r4 : R.Runner<String> <- held(view(r3), "next=2 pending=0 running=0 tries=0 fails=0 dead=1", "a client error makes its job dead, and the next job completes")
+    r5 : R.Runner<String> <- held(brk.of(R.state(String, r4)), "closed", "a client error leaves the breaker closed")
+    closed("0:failed:" ++ log ++ "|reject:a ", "the rejected job keeps its payload and a failed why", dead.of(R.state(String, r5)))
+    xs : List<&2, String> <- read(log)
+    same(counts(xs, ["reject:a", "ok:b"]), "reject:a=1 ok:b=1 ", "a client error runs one attempt")
 
 def status(r: Result<&1, &1, U32 & String, U32 & (String & String)>) -> U32:
   match r:
@@ -806,6 +826,7 @@ def all(+dir: String) -> IO(Unit):
   do IO<Unit>:
     durable(dir)
     failed(dir)
+    rejected(dir)
     purged(dir)
     crash(dir)
     breaker(dir)

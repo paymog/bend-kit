@@ -5,7 +5,7 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-journal@0.3.0.1/journal.bend as J
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import ./runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
