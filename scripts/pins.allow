@@ -2,5 +2,5 @@
 # Remove a line when the issue named on it lands.
 0x4eed9d7ac6ece61523d747a9d804e4f0  # bytes: bend-kit-int@0.2.0.0 by hash, until bytes releases (#456)
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
-bend-kit-bytes@0.3.2.0  # camber/author_study/evidence keeps the pins its study runs recorded
+bend-kit-crypto@0.2.2.1  # importers re-pin to crypto 0.2.2.2 (#635)
 bend-kit-wire@0.4.6.2  # importers re-pin to wire 0.4.7.0 (#640)

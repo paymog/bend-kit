@@ -5,7 +5,8 @@
 # a line that no import in the kit uses fails too. A README.md import of a
 # package fails unless it names that package's VERSION in the working tree.
 # When a VERSION differs from REF, print the importers of the old version: they
-# re-pin after the publish.
+# re-pin after the publish. An evidence/ folder holds recorded artifacts, which
+# keep the pins they ran with, so the scan skips it.
 # Usage: scripts/pins.sh [REF [pkg...]]. REF defaults to HEAD, packages to all.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,7 +15,7 @@ ref=${1:-HEAD}
 [ $# -gt 0 ] && shift
 all=$(scripts/packages.sh)
 [ $# -eq 0 ] && set -- $all
-imports() { grep -rnE --include='*.bend' '^[[:space:]]*import[[:space:]]+(bend-kit-|0x)' "$@" || true; }
+imports() { grep -rnE --include='*.bend' --exclude-dir=evidence '^[[:space:]]*import[[:space:]]+(bend-kit-|0x)' "$@" || true; }
 targets() { sed -E 's/^[^:]*:[0-9]+:[[:space:]]*import[[:space:]]+([^/[:space:]]+).*/\1/' | sort -u; }
 allow=$(sed 's/#.*//' scripts/pins.allow | awk 'NF { print $1 }')
 hits=$(imports "$@")
