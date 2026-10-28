@@ -113,6 +113,14 @@ def graveyard() -> R.State<String>:
   live([R.Enqueue{0n, "x"}, R.Enqueue{0n, "y"}, R.Enqueue{0n, "z"}, R.Select{0n}, R.Select{0n}, R.Select{0n},
     R.Abandon{0n, R.WhyFailed{}, 10n}, R.Abandon{1n, R.WhySpent{}, 20n}, R.Abandon{2n, R.WhyLate{}, 30n}], R.new(String))
 
+def dead7() -> R.Dead<String>:
+  R.Dead{Q.Ticket{7n, 0n, "x"}, R.WhyFailed{}, 1n}
+
+# s with its dead-ticket trie replaced by ds, which no op would build.
+def regraved(s: R.State<String>, ds: R.Graves(String)) -> R.State<String>:
+  R.State{q, ts, old, bs} = s
+  R.State{q, ts, ds, bs}
+
 def brk(s: R.State<String>, +key: String) -> String:
   show.brk(R.brk.get(String, s, key))
 
@@ -177,6 +185,9 @@ def snapshots() -> IO(Unit):
     same(describe(R.step(~String, graveyard(), R.PurgeAll{})), "next=3 pending=0 running=0 tries=0 fails=0 dead=0", "a PurgeAll drops every dead ticket")
     same(describe(R.step(~String, R.step(~String, graveyard(), R.Purge{20n}), R.Revive{0n, 5n})), "next=3 pending=0 running=0 tries=0 fails=0 dead=2", "a purged ticket does not revive")
     same(describe(R.step(~String, graveyard(), R.Revive{1n, 5n})), "next=3 pending=1 running=0 tries=1 fails=0 dead=2", "a Revive takes one dead ticket by id")
+    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}, M.Entry{7n, dead7()}]}))), "none", "a snapshot with two entries for one id in a bucket does not decode")
+    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{3, [M.Entry{7n, dead7()}]}))), "none", "a snapshot whose bucket hash does not match its keys does not decode")
+    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]}))), hex(regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]})), "a snapshot with a well-formed hand-built bucket decodes")
 
 def codec() -> IO(Unit):
   +t = big()

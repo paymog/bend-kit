@@ -9,6 +9,8 @@ import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-collections@0.1.4.1/heap.bend as H
 import bend-kit-collections@0.1.4.1/omap.bend as O
 import bend-kit-collections@0.1.4.1/hmap.bend as M
+import bend-kit-collections@0.1.4.1/LAWS.bend as CL
+import bend-kit-collections@0.1.4.1/PROOF.bend as CP
 import bend-kit-files@0.3.0.0/files.bend as Files
 
 # Why retry gave up on a ticket: its budget was spent, its deadline passed, its failure must not repeat,
@@ -809,6 +811,14 @@ def rd.graves(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, nil: Boo
     case 1n+f False{} False{} False{}:
       Dec.fail(Graves(A))
 
+# The trie, when it is well formed as the never-selected laws assume.
+def rd.wf(-A: Data, ok: Bool, ds: Graves(A)) -> Dec(Graves(A)):
+  match ok:
+    case True{}:
+      Dec.pure(Graves(A), ds)
+    case False{}:
+      Dec.fail(Graves(A))
+
 # Each rd.* sequence reader takes the count or flag already read. fuel bounds its length: every item holds at least 4 octets.
 def rd.chars(+fuel: Nat, end: Bool, +n: U32) -> Dec(String):
   match fuel end:
@@ -884,7 +894,8 @@ def rd.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat) -> Dec(St
     tf : Bool <- rd.flag()
     ts : O.OMap<Nat, Try> <- rd.tries(fuel, tf)
     +dk : U32 <- rd.u32()
-    ds : Graves(A) <- rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+    +dt : Graves(A) <- rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+    ds : Graves(A) <- rd.wf(A, CL.hmap_wf(~Nat, ~Dead<A>, ~dead.hash, ~Nat.is_eq, dt), dt)
     bf : Bool <- rd.flag()
     bs : Map<&2, Retry.State> <- rd.brks(fuel, bf, Map.new(&2, Retry.State))
     return State{Q.State{n, h, run}, ts, ds, bs}
