@@ -3,4 +3,6 @@
 0x4eed9d7ac6ece61523d747a9d804e4f0  # bytes: bend-kit-int@0.2.0.0 by hash, until bytes releases (#456)
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
 bend-kit-crypto@0.2.2.1  # importers re-pin to crypto 0.2.2.2 (#635)
+bend-kit-files@0.3.0.0  # importers re-pin to files 0.3.1.0 (#670)
+bend-kit-hash@0.3.0.1  # importers re-pin to hash 0.3.0.2 (#614)
 bend-kit-wire@0.4.6.2  # importers re-pin to wire 0.4.7.0 (#640)

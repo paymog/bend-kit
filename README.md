@@ -132,11 +132,11 @@ Each package README has the import, one example, and the limits that change the 
 | [`files`](files) | `bend-kit-files@0.3.1.0/files.bend` | POSIX paths, directories, and packed file IO. |
 | [`stream`](stream) | `bend-kit-stream@0.3.0.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.0.0/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
-| [`collections`](collections) | `bend-kit-collections@0.1.4.1/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
+| [`collections`](collections) | `bend-kit-collections@0.1.5.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
 | [`time`](time) | `bend-kit-time@0.3.0.0/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.1/random.bend` | Seeded xoshiro128**. Not for cryptography. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.2.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
-| [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.1.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
+| [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.2.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
 | [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
 | [`journal`](journal) | `bend-kit-journal@0.3.0.1/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
 | [`runner`](runner) | `bend-kit-runner@0.13.0.1/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
@@ -146,7 +146,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
 | [`property`](property) | `bend-kit-property@0.4.0.0/property.bend` | Seeded generators, shrinking, and a property runner. |
-| [`lemmas`](lemmas) | `bend-kit-lemmas@0.1.1.0/lemmas.bend` | Proved laws that relate `Word` and `U32` arithmetic to `Nat`, on top of `bend-mathlib`. |
+| [`lemmas`](lemmas) | `bend-kit-lemmas@0.1.2.0/lemmas.bend` | Proved laws that relate `Word` and `U32` arithmetic to `Nat`, on top of `bend-mathlib`. |
 
 ### Services
 

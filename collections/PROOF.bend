@@ -1,12 +1,12 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
 import ./LAWS.bend as Laws
 import ./omap.bend as O
 import ./hmap.bend as M
 import ./nat_order.bend as Ord
 import ./order.bend as Order
-import bend-kit-lemmas@0.1.1.0/lemmas.bend as Lemmas
+import bend-mathlib@0.8.0.0/u32.bend as MU32
 
 def Laws.omap_keys_ascending_puts():
   {==}
@@ -3988,14 +3988,14 @@ def ncmp_trans(
       ncmp_trans(p, q, r, e1, e2)
 
 def ucmp_nat(+a: U32, +b: U32) -> {Nat.cmp(U32.to_nat(a), U32.to_nat(b)) == U32.cmp(a, b) : Cmp}:
-  Equal.sym(Cmp, U32.cmp(a, b), Nat.cmp(U32.to_nat(a), U32.to_nat(b)), Lemmas.u32_cmp_nat(a, b))
+  Equal.sym(Cmp, U32.cmp(a, b), Nat.cmp(U32.to_nat(a), U32.to_nat(b)), MU32.u32_cmp_to_nat(a, b))
 
 def ucmp_refl(+x: U32) -> {U32.cmp(x, x) == EQ{} : Cmp}:
   %ucmp_nat(x, x) : {_ == EQ{} : Cmp}
   ncmp_refl(U32.to_nat(x))
 
 def ucmp_eq(+x: U32, +y: U32, e: {U32.cmp(x, y) == EQ{} : Cmp}) -> {x == y : U32}:
-  Lemmas.u32_to_nat_inj(x, y, ncmp_eq(U32.to_nat(x), U32.to_nat(y),
+  MU32.u32_to_nat_inj(x, y, ncmp_eq(U32.to_nat(x), U32.to_nat(y),
     Equal.trans(Cmp, Nat.cmp(U32.to_nat(x), U32.to_nat(y)), U32.cmp(x, y), EQ{}, ucmp_nat(x, y), e)))
 
 def ucmp_flip(+x: U32, +y: U32) -> {U32.cmp(y, x) == Laws.flip(U32.cmp(x, y)) : Cmp}:

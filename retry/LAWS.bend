@@ -1,6 +1,6 @@
 import Base
 import ./retry.bend as Retry
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
 
 def tri.br(x: Retry.Breaker & Retry.Budget & Retry.Gate) -> Retry.Breaker:
   (br, b, g) = x

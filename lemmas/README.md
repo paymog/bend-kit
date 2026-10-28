@@ -1,10 +1,10 @@
 # lemmas
 
-Proved laws that relate `Word` and `U32` arithmetic to `Nat`. Use them to prove claims about runtime integers. The Nat and List lemmas come from [`bend-mathlib`](https://github.com/bendlib/bendlib). This package holds only the laws that mathlib does not have.
+Proved laws that relate `Word` and `U32` arithmetic to `Nat`. Use them to prove claims about runtime integers. The Nat and List lemmas come from [`bend-mathlib`](https://github.com/bendlib/bendlib). This package holds the laws that mathlib does not have, such as those bounded by `pow2(n)`, and eleven laws that mathlib's `u32.bend` and `nat.bend` state the same way, kept under their names here and proved by the mathlib laws.
 
 ```bend
-import bend-kit-lemmas@0.1.1.0/lemmas.bend as Lemmas
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-kit-lemmas@0.1.2.0/lemmas.bend as Lemmas
+import bend-mathlib@0.8.0.0/nat.bend as MNat
 ```
 
 A `PROOF.bend` inside bend-kit imports `../lemmas/lemmas.bend`. `bytes/PROOF.bend` uses it to prove that `Bytes.fits` admits `n` bytes at `i` exactly when `i + n <= len`:

@@ -1,5 +1,6 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
 import ./cache.bend as C
 import bend-kit-collections@0.1.4.1/omap.bend as OMap
 import bend-kit-collections@0.1.4.1/order.bend as Order
@@ -13,7 +14,7 @@ import ./LAWS.bend as Laws
 def not_true(x: Bool, e: {Bool.not(x) == True{} : Bool}) -> {x == False{} : Bool}:
   match x:
     case True{}:
-      Empty.absurd({True{} == False{} : Bool}, MNat.internal_false_ne_true(e))
+      Empty.absurd({True{} == False{} : Bool}, MBool.false_ne_true()(e))
     case False{}:
       {==}
 
@@ -29,7 +30,7 @@ def and_right(x: Bool, -y: Bool, e: {Bool.and(x, y) == True{} : Bool}) -> {y == 
     case True{}:
       e
     case False{}:
-      Empty.absurd({y == True{} : Bool}, MNat.internal_false_ne_true(e))
+      Empty.absurd({y == True{} : Bool}, MBool.false_ne_true()(e))
 
 # a < b gives a + 1 <= b.
 def lt_succ(+a: Nat, +b: Nat, h: MNat.lt(a, b)) -> MNat.le(1n+a, b):

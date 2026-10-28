@@ -1,7 +1,8 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/list.bend as MList
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/list.bend as MList
 import ../lemmas/lemmas.bend as Lemmas
 import ./LAWS.bend as Laws
 import ./websocket.bend as WS
@@ -313,7 +314,7 @@ def le_sub_of_add_le(a: Nat, b: Nat, c: Nat, h: MNat.le(Nat.add(a, b), c)) -> MN
     case 0n 1n+q:
       h
     case 1n+p 0n:
-      Empty.absurd(MNat.le(b, Nat.sub(0n, 1n+p)), MNat.internal_false_ne_true(h))
+      Empty.absurd(MNat.le(b, Nat.sub(0n, 1n+p)), MBool.false_ne_true()(h))
     case 1n+p 1n+q:
       le_sub_of_add_le(p, b, q, h)
 
@@ -609,7 +610,7 @@ def take_len(+xs: List<&2, U32>, +n: Nat, h: MNat.le(n, List.length(&2, U32, xs)
     case Nil{} 0n:
       {==}
     case Nil{} 1n+p:
-      Empty.absurd({List.length(&2, U32, List.take(&2, U32, Nil{}, 1n+p)) == 1n+p : Nat}, MNat.internal_false_ne_true(h))
+      Empty.absurd({List.length(&2, U32, List.take(&2, U32, Nil{}, 1n+p)) == 1n+p : Nat}, MBool.false_ne_true()(h))
     case Con{x, t} 0n:
       {==}
     case Con{x, +t} 1n+p:
@@ -693,9 +694,9 @@ def Laws.got_suffix(masked, max, xs, f, r, e):
 def progress_nat(+k: Nat, +l: Nat, h1: MNat.le(1n, k), h2: MNat.le(k, l)) -> MNat.lt(Nat.sub(l, k), l):
   match k l:
     case 0n _:
-      Empty.absurd(MNat.lt(Nat.sub(l, 0n), l), MNat.internal_false_ne_true(h1))
+      Empty.absurd(MNat.lt(Nat.sub(l, 0n), l), MBool.false_ne_true()(h1))
     case 1n+a 0n:
-      Empty.absurd(MNat.lt(Nat.sub(0n, 1n+a), 0n), MNat.internal_false_ne_true(h2))
+      Empty.absurd(MNat.lt(Nat.sub(0n, 1n+a), 0n), MBool.false_ne_true()(h2))
     case 1n+a 1n+b:
       MNat.sub_lt(b, a)
 
@@ -800,33 +801,33 @@ def header_long(p: List<&2, U32>, +masked: Bool, h: MNat.le(14n, List.length(&2,
   {is_need(WS.header(p, masked)) == False{} : Bool}:
   match p:
     case Nil{}:
-      Empty.absurd({is_need(WS.header(Nil{}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Nil{}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Nil{}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Nil{}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Nil{}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Nil{}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Nil{}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Nil{}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Nil{}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Nil{}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Nil{}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Nil{}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Nil{}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Nil{}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Nil{}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Nil{}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Nil{}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Nil{}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Nil{}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Nil{}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Nil{}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Nil{}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Nil{}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Nil{}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Nil{}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Nil{}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Nil{}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Nil{}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Nil{}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Nil{}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Nil{}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Nil{}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Nil{}}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Nil{}}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Nil{}}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Nil{}}}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Nil{}}}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Nil{}}}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Nil{}}}}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Nil{}}}}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Nil{}}}}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{+c1, Con{+c2, Con{+c3, Con{+c4, Con{+c5, Con{+c6, Con{+c7, Con{+c8, Con{+c9, Con{+c10, Con{+c11, Con{+c12, Con{+c13, Con{+c14, rest}}}}}}}}}}}}}}:
       b1_long(U32.is_le(128, c2), masked, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, rest)
 
@@ -840,7 +841,7 @@ def need_short.c(+masked: Bool, +max: U32, +xs: List<&2, U32>, c: Bool, +ec: {Na
   match c:
     case True{}:
       +hl = header_long(xs, masked, ec)
-      Empty.absurd(MNat.lt(List.length(&2, U32, xs), Nat.add(14n, U32.to_nat(max))), MNat.internal_false_ne_true(need_clash(xs, masked, eh, hl)))
+      Empty.absurd(MNat.lt(List.length(&2, U32, xs), Nat.add(14n, U32.to_nat(max))), MBool.false_ne_true()(need_clash(xs, masked, eh, hl)))
     case False{}:
       MNat.lt_of_lt_of_le(List.length(&2, U32, xs), 14n, Nat.add(14n, U32.to_nat(max)), MNat.lt_of_not_le(14n, List.length(&2, U32, xs), ec), MNat.le_add_right(14n, U32.to_nat(max)))
 
@@ -890,7 +891,7 @@ def add_le_of_le_sub(+a: Nat, +b: Nat, +c: Nat, h1: MNat.le(b, c), h2: MNat.le(a
     case 0n 1n+q:
       h2
     case 1n+p 0n:
-      Empty.absurd(MNat.le(Nat.add(1n+p, a), 0n), MNat.internal_false_ne_true(h1))
+      Empty.absurd(MNat.le(Nat.add(1n+p, a), 0n), MBool.false_ne_true()(h1))
     case 1n+p 1n+q:
       add_le_of_le_sub(a, p, q, h1, h2)
 
@@ -952,7 +953,7 @@ def le_not_gt(c: Cmp, h: {Cmp.is_le(c) == True{} : Bool}) -> {Cmp.is_gt(c) == Fa
     case EQ{}:
       {==}
     case GT{}:
-      Empty.absurd({Cmp.is_gt(GT{}) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({Cmp.is_gt(GT{}) == False{} : Bool}, MBool.false_ne_true()(h))
 
 def b1_g(+n: Nat, +h: MNat.le(n, 125n)) -> {U32.is_gt(U32.from_nat(n), 125) == False{} : Bool}:
   %Equal.sym(Cmp, U32.cmp(U32.from_nat(n), 125), Nat.cmp(U32.to_nat(U32.from_nat(n)), U32.to_nat(125)), Lemmas.u32_cmp_nat(U32.from_nat(n), 125)) : {Cmp.is_gt(_) == False{} : Bool}
@@ -993,11 +994,11 @@ def rt_check(+fin: Bool, +o: Laws.Op, +b1: U32, ok: {Laws.op.ok(fin, o) == True{
     case False{} Laws.OBin{}:
       {==}
     case False{} Laws.OClose{}:
-      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MNat.internal_false_ne_true(ok))
+      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MBool.false_ne_true()(ok))
     case False{} Laws.OPing{}:
-      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MNat.internal_false_ne_true(ok))
+      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MBool.false_ne_true()(ok))
     case False{} Laws.OPong{}:
-      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MNat.internal_false_ne_true(ok))
+      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MBool.false_ne_true()(ok))
 
 def rt_head(+fin: Bool, +o: Laws.Op, +b1: U32, +t: List<&2, U32>, ok: {Laws.op.ok(fin, o) == True{} : Bool},
   hm: {U32.is_le(128, b1) == False{} : Bool}, hs: {U32.is_lt(b1, 126) == True{} : Bool}, hg: {U32.is_gt(b1, 125) == False{} : Bool}) ->

@@ -1,5 +1,5 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as N
+import bend-mathlib@0.8.0.0/nat.bend as N
 import ./recurrence.bend as R
 import ./recurrence_laws.bend as Laws
 

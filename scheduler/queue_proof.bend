@@ -1,6 +1,6 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
 import bend-kit-collections@0.1.4.1/heap.bend as H
 import ./queue.bend as Q
 import ./queue_laws.bend as L

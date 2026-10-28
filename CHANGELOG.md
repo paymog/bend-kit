@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `lemmas` 0.1.2.0, `collections` 0.1.5.0, and `scheduler` 0.4.2.0: import `bend-mathlib@0.8.0.0`. `lemmas` proves eleven of its laws (`word_cmp_nat`, `u32_cmp_nat`, `u32_is_lt_nat`, `u32_is_le_nat`, `u32_is_eq_nat`, `double_inj`, `word_to_nat_inj`, `u32_to_nat_inj`, `word_sub_nat`, `u32_sub_nat`, `u32_from_to_nat`) by the same laws in mathlib's `u32.bend` and `nat.bend`; no statement changes. `collections/PROOF.bend` takes `u32_cmp_to_nat` and `u32_to_nat_inj` from `u32.bend` and no longer imports `lemmas`.
 - `files` 0.3.1.0: `size64` and `read.words.at` give the size of an open file and read at a byte offset as two `U32` halves, `hi * 2^32 + lo`, so a file over 4 GiB can be sized and read. `read.words.at` does not move the file position.
 - `runner` 0.13.0.0: imports `retry` 0.3.0.0. A `Retry.Rejected` attempt, a client error such as a 404, gives `Abandon{id, WhyFailed}`, and the target's breaker moves as on a success, so a run of client errors does not open it. `rejected_abandon`, `rejected_spares_breaker`, and `rejected_keeps_closed` prove it. The webhook example answers `Rejected` for a 4xx that will not change. Breaking: outcomes are `retry` 0.3.0.0 types.
 - `retry` 0.3.0.0: `Rejected` is a client error. `plan` stops on it, and `failed` does not count it for the breaker. `plan_rejected_stops` and `rejected_not_counted` prove it. Breaking: a match on `Outcome` needs a `Rejected` case.

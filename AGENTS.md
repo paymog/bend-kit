@@ -40,8 +40,8 @@ A law is a claim; a proof is a def with the same name. Each package has:
 - `PROOF.bend`: imports `LAWS.bend` and proves each law as `def Laws.name(...)`. Most laws here are concrete fixtures, so the proof is `{==}` (both sides compute to the same term).
 - `bend PROOF.bend --check-only` is the gate. It prints `ALL PROOFS CHECK` when every law holds. An open or false law prints `SOME PROOFS FAIL`.
 - A universal law over a comparator takes the comparator and its order facts as templates (`for ~cmp`, `for ~trans: ...`), so the proof can use each fact many times. The checker checks a template def once, against opaque arguments, so lemmas can be plain template defs. `collections/PROOF.bend` shows the patterns, such as `split` for a goal that branches on a comparison.
-- Take `Nat`, `List`, and `Bool` lemmas from `bend-mathlib@0.7.4.0` (`nat.bend`, `list.bend`, `bool.bend`). Put a lemma that mathlib lacks in `lemmas/lemmas.bend`.
-- `U32` arithmetic does not reduce by `{==}`: `(x + 0 : U32)` does not compute to `x`. State a claim about `U32` values over `U32.to_nat`, and use the `u32_` laws in `lemmas/lemmas.bend`, such as `u32_add_nat`, `u32_sub_nat`, `u32_cmp_nat`, and `u32_fits_nat`. Write `2^32` as `Lemmas.pow2(32n)`, and keep it folded (see `lemmas/README.md`).
+- Take `Nat`, `List`, and `Bool` lemmas from `bend-mathlib@0.8.0.0` (`nat.bend`, `list.bend`, `bool.bend`), and `U32` and `Word` laws that need no `2^n` bound from its `u32.bend` (`u32_cmp_to_nat`, `u32_to_nat_inj`, `u32_sub_exact`, `u32_max_to_nat`). Put a lemma that mathlib lacks in `lemmas/lemmas.bend`.
+- `U32` arithmetic does not reduce by `{==}`: `(x + 0 : U32)` does not compute to `x`. State a claim about `U32` values over `U32.to_nat`, and use the bounded `u32_` laws in `lemmas/lemmas.bend`, such as `u32_add_nat`, `u32_inc_nat`, `u32_to_nat_lt`, and `u32_fits_nat`. Write `2^32` as `Lemmas.pow2(32n)`, and keep it folded (see `lemmas/README.md`). mathlib's `u32.bend` writes its bounds as `Nat.pow(2n, 32n)`, which the checker cannot use in place of `Lemmas.pow2(32n)`, so take a law with a bound from `lemmas`.
 
 ## Repo facts
 

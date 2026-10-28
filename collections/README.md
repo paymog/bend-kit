@@ -3,12 +3,12 @@
 Ordered maps, a hash map, a vector, a deque, and a binary heap. Import the file you call. `collections.bend` imports the others and does not re-export them.
 
 ```bend
-import bend-kit-collections@0.1.4.1/omap.bend as OMap
-import bend-kit-collections@0.1.4.1/hmap.bend as HMap
-import bend-kit-collections@0.1.4.1/vec.bend as Vec
-import bend-kit-collections@0.1.4.1/deque.bend as Deque
-import bend-kit-collections@0.1.4.1/heap.bend as Heap
-import bend-kit-collections@0.1.4.1/order.bend as Order
+import bend-kit-collections@0.1.5.0/omap.bend as OMap
+import bend-kit-collections@0.1.5.0/hmap.bend as HMap
+import bend-kit-collections@0.1.5.0/vec.bend as Vec
+import bend-kit-collections@0.1.5.0/deque.bend as Deque
+import bend-kit-collections@0.1.5.0/heap.bend as Heap
+import bend-kit-collections@0.1.5.0/order.bend as Order
 ```
 
 Keys and values are `Data`. A comparator or hash is a template, so you can pass `U32.cmp` or your own def.
@@ -29,11 +29,11 @@ Keys and values are `Data`. A comparator or hash is a template, so you can pass 
 
 ## Laws
 
-`collections.bend` imports `PROOF.bend`, so `LAWS.bend` and `PROOF.bend` publish with the package. A dependent package can cite a law in its own proofs: import `bend-kit-collections@0.1.4.1/LAWS.bend` for the claim and `bend-kit-collections@0.1.4.1/PROOF.bend` for its proof. The proofs hold for the `OMap` and `Order` of the same version only.
+`collections.bend` imports `PROOF.bend`, so `LAWS.bend` and `PROOF.bend` publish with the package. A dependent package can cite a law in its own proofs: import `bend-kit-collections@0.1.5.0/LAWS.bend` for the claim and `bend-kit-collections@0.1.5.0/PROOF.bend` for its proof. The proofs hold for the `OMap` and `Order` of the same version only.
 
 The `OMap` laws `omap_put_searchtree`, `omap_get_put_same`, and `omap_get_put_other_key` hold for any comparator that is a total order. They take its `refl`, `eq`, `flip`, and `trans` facts as templates. `order_string_refl`, `order_string_eq`, `order_string_flip`, and `order_string_trans` are those facts for `Order.string`.
 
-`nat_order.bend` contains lemmas for the ordered-map proofs, not a collection. It and `PROOF.bend` take generic Nat and Bool lemmas from `bend-mathlib@0.7.4.0`, and `PROOF.bend` takes the `U32` comparison lemmas from `bend-kit-lemmas@0.1.1.0`.
+`nat_order.bend` contains lemmas for the ordered-map proofs, not a collection. It and `PROOF.bend` take generic Nat and Bool lemmas from `bend-mathlib@0.8.0.0`, and `PROOF.bend` takes the `U32` comparison laws from its `u32.bend`.
 
 ## API
 

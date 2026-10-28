@@ -1,5 +1,5 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ./journal.bend as J
 
 # The laws hold over the list model: J.list.log writes frames, J.list.recover and
