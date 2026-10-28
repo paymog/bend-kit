@@ -49,6 +49,15 @@ def stop64(+name: String, t0: Time.Duration, r: Bytes.Bytes & Hash.W64) -> IO(By
     IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ hex64(h))
     return b
 
+# The first 16 bytes of the input, hashed 100,000 times: the per-call cost.
+def short(n: Nat, r: Bytes.Bytes & U32) -> Bytes.Bytes & U32:
+  match n:
+    case 0n:
+      r
+    case 1n+p:
+      (b, +h) = r
+      short(p, Hash.crc32(b))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     b0 : Bytes.Bytes = input()
@@ -66,4 +75,7 @@ def main() -> IO(Unit):
     b6 : Bytes.Bytes <- stop64("xxh64", t5, Hash.xxh64(b5, Hash.W64{0, 0}))
     t6 : Time.Duration <- Time.mono()
     b7 : Bytes.Bytes <- stop64("siphash13", t6, Hash.siphash13(b6, Hash.W64{0, 0}, Hash.W64{0, 0}))
+    s0 : Bytes.Bytes = fill(16n, Bytes.new(16), 0)
+    t7 : Time.Duration <- Time.mono()
+    s1 : Bytes.Bytes <- stop("crc32_short", t7, short(100000n, (s0, 0)))
     return Unit{}

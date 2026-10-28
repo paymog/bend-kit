@@ -81,7 +81,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`parse`](parse) | `bend-kit-parse@0.2.0.0/parse.bend` | Parser combinators over text. `parse/json.bend` is a JSON grammar on them, not the `json` package. |
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `{}` formatting, padding, and shortest `F32` text. |
 | [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | `U8`, `U16`, `U64`, `I32`, and `I64`. `U64` and `I64` are slow. |
-| [`hash`](hash) | `bend-kit-hash@0.3.0.1/hash.bend` | FNV-1a, xxHash, SipHash-1-3, CRC-32, and Adler-32. Not cryptographic. |
+| [`hash`](hash) | `bend-kit-hash@0.3.0.2/hash.bend` | FNV-1a, xxHash, SipHash-1-3, CRC-32, and Adler-32. Not cryptographic. |
 
 ### Numbers and data
 

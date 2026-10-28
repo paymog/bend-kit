@@ -4,7 +4,7 @@ import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Each hash hands the buffer back beside its value. A buffer's bytes at or past len are 0.
 # Each hash also has a .str form over a byte string (one Char per octet), copied to Bytes first.
-#   import bend-kit-hash@0.2.0.0/hash.bend as Hash
+#   import bend-kit-hash@0.3.0.2/hash.bend as Hash
 
 # A 64-bit value as two halves. Base has no native U64, and int's U64 is a bit list.
 type W64 is Data:
@@ -152,44 +152,279 @@ def fnv1a64(b: Bytes.Bytes) -> Bytes.Bytes & W64:
   bytewise(~W64, ~fnv64.byte, ~fnv64.word, b, W64{3421674724, 2216829733})
 
 # CRC-32 (ISO-HDLC, as in gzip and zlib): reflected, polynomial 0xEDB88320.
-def crc.bit(+c: U32) -> U32:
-  Bool.pick(U32, U32.is_eq((c .&. 1 : U32), 1), ((c >> 1n) .^. 3988292384 : U32), (c >> 1n : U32))
+# The 256-entry table as a match, so no call rebuilds it.
+def crc.tab(+i: U32) -> U32:
+  match i:
+    case 0: 0
+    case 1: 1996959894
+    case 2: 3993919788
+    case 3: 2567524794
+    case 4: 124634137
+    case 5: 1886057615
+    case 6: 3915621685
+    case 7: 2657392035
+    case 8: 249268274
+    case 9: 2044508324
+    case 10: 3772115230
+    case 11: 2547177864
+    case 12: 162941995
+    case 13: 2125561021
+    case 14: 3887607047
+    case 15: 2428444049
+    case 16: 498536548
+    case 17: 1789927666
+    case 18: 4089016648
+    case 19: 2227061214
+    case 20: 450548861
+    case 21: 1843258603
+    case 22: 4107580753
+    case 23: 2211677639
+    case 24: 325883990
+    case 25: 1684777152
+    case 26: 4251122042
+    case 27: 2321926636
+    case 28: 335633487
+    case 29: 1661365465
+    case 30: 4195302755
+    case 31: 2366115317
+    case 32: 997073096
+    case 33: 1281953886
+    case 34: 3579855332
+    case 35: 2724688242
+    case 36: 1006888145
+    case 37: 1258607687
+    case 38: 3524101629
+    case 39: 2768942443
+    case 40: 901097722
+    case 41: 1119000684
+    case 42: 3686517206
+    case 43: 2898065728
+    case 44: 853044451
+    case 45: 1172266101
+    case 46: 3705015759
+    case 47: 2882616665
+    case 48: 651767980
+    case 49: 1373503546
+    case 50: 3369554304
+    case 51: 3218104598
+    case 52: 565507253
+    case 53: 1454621731
+    case 54: 3485111705
+    case 55: 3099436303
+    case 56: 671266974
+    case 57: 1594198024
+    case 58: 3322730930
+    case 59: 2970347812
+    case 60: 795835527
+    case 61: 1483230225
+    case 62: 3244367275
+    case 63: 3060149565
+    case 64: 1994146192
+    case 65: 31158534
+    case 66: 2563907772
+    case 67: 4023717930
+    case 68: 1907459465
+    case 69: 112637215
+    case 70: 2680153253
+    case 71: 3904427059
+    case 72: 2013776290
+    case 73: 251722036
+    case 74: 2517215374
+    case 75: 3775830040
+    case 76: 2137656763
+    case 77: 141376813
+    case 78: 2439277719
+    case 79: 3865271297
+    case 80: 1802195444
+    case 81: 476864866
+    case 82: 2238001368
+    case 83: 4066508878
+    case 84: 1812370925
+    case 85: 453092731
+    case 86: 2181625025
+    case 87: 4111451223
+    case 88: 1706088902
+    case 89: 314042704
+    case 90: 2344532202
+    case 91: 4240017532
+    case 92: 1658658271
+    case 93: 366619977
+    case 94: 2362670323
+    case 95: 4224994405
+    case 96: 1303535960
+    case 97: 984961486
+    case 98: 2747007092
+    case 99: 3569037538
+    case 100: 1256170817
+    case 101: 1037604311
+    case 102: 2765210733
+    case 103: 3554079995
+    case 104: 1131014506
+    case 105: 879679996
+    case 106: 2909243462
+    case 107: 3663771856
+    case 108: 1141124467
+    case 109: 855842277
+    case 110: 2852801631
+    case 111: 3708648649
+    case 112: 1342533948
+    case 113: 654459306
+    case 114: 3188396048
+    case 115: 3373015174
+    case 116: 1466479909
+    case 117: 544179635
+    case 118: 3110523913
+    case 119: 3462522015
+    case 120: 1591671054
+    case 121: 702138776
+    case 122: 2966460450
+    case 123: 3352799412
+    case 124: 1504918807
+    case 125: 783551873
+    case 126: 3082640443
+    case 127: 3233442989
+    case 128: 3988292384
+    case 129: 2596254646
+    case 130: 62317068
+    case 131: 1957810842
+    case 132: 3939845945
+    case 133: 2647816111
+    case 134: 81470997
+    case 135: 1943803523
+    case 136: 3814918930
+    case 137: 2489596804
+    case 138: 225274430
+    case 139: 2053790376
+    case 140: 3826175755
+    case 141: 2466906013
+    case 142: 167816743
+    case 143: 2097651377
+    case 144: 4027552580
+    case 145: 2265490386
+    case 146: 503444072
+    case 147: 1762050814
+    case 148: 4150417245
+    case 149: 2154129355
+    case 150: 426522225
+    case 151: 1852507879
+    case 152: 4275313526
+    case 153: 2312317920
+    case 154: 282753626
+    case 155: 1742555852
+    case 156: 4189708143
+    case 157: 2394877945
+    case 158: 397917763
+    case 159: 1622183637
+    case 160: 3604390888
+    case 161: 2714866558
+    case 162: 953729732
+    case 163: 1340076626
+    case 164: 3518719985
+    case 165: 2797360999
+    case 166: 1068828381
+    case 167: 1219638859
+    case 168: 3624741850
+    case 169: 2936675148
+    case 170: 906185462
+    case 171: 1090812512
+    case 172: 3747672003
+    case 173: 2825379669
+    case 174: 829329135
+    case 175: 1181335161
+    case 176: 3412177804
+    case 177: 3160834842
+    case 178: 628085408
+    case 179: 1382605366
+    case 180: 3423369109
+    case 181: 3138078467
+    case 182: 570562233
+    case 183: 1426400815
+    case 184: 3317316542
+    case 185: 2998733608
+    case 186: 733239954
+    case 187: 1555261956
+    case 188: 3268935591
+    case 189: 3050360625
+    case 190: 752459403
+    case 191: 1541320221
+    case 192: 2607071920
+    case 193: 3965973030
+    case 194: 1969922972
+    case 195: 40735498
+    case 196: 2617837225
+    case 197: 3943577151
+    case 198: 1913087877
+    case 199: 83908371
+    case 200: 2512341634
+    case 201: 3803740692
+    case 202: 2075208622
+    case 203: 213261112
+    case 204: 2463272603
+    case 205: 3855990285
+    case 206: 2094854071
+    case 207: 198958881
+    case 208: 2262029012
+    case 209: 4057260610
+    case 210: 1759359992
+    case 211: 534414190
+    case 212: 2176718541
+    case 213: 4139329115
+    case 214: 1873836001
+    case 215: 414664567
+    case 216: 2282248934
+    case 217: 4279200368
+    case 218: 1711684554
+    case 219: 285281116
+    case 220: 2405801727
+    case 221: 4167216745
+    case 222: 1634467795
+    case 223: 376229701
+    case 224: 2685067896
+    case 225: 3608007406
+    case 226: 1308918612
+    case 227: 956543938
+    case 228: 2808555105
+    case 229: 3495958263
+    case 230: 1231636301
+    case 231: 1047427035
+    case 232: 2932959818
+    case 233: 3654703836
+    case 234: 1088359270
+    case 235: 936918000
+    case 236: 2847714899
+    case 237: 3736837829
+    case 238: 1202900863
+    case 239: 817233897
+    case 240: 3183342108
+    case 241: 3401237130
+    case 242: 1404277552
+    case 243: 615818150
+    case 244: 3134207493
+    case 245: 3453421203
+    case 246: 1423857449
+    case 247: 601450431
+    case 248: 3009837614
+    case 249: 3294710456
+    case 250: 1567103746
+    case 251: 711928724
+    case 252: 3020668471
+    case 253: 3272380065
+    case 254: 1510334235
+    case _: 755167117
 
-def crc.bits(k: Nat, +c: U32) -> U32:
-  match k:
-    case 0n:
-      c
-    case 1n+p:
-      crc.bits(p, crc.bit(c))
+def crc.byte(h: U32, +c: U32) -> U32:
+  +x = h
+  (crc.tab(((x .^. c) .&. 255 : U32)) .^. (x >> 8n) : U32)
 
-def crc.fill(k: Nat, +i: U32, a: Array<U32>) -> Array<U32>:
-  match k:
-    case 0n:
-      a
-    case 1n+p:
-      crc.fill(p, (i + 1 : U32), Array.set(U32, a, i, crc.bits(8n, i)))
+def crc.word(h: U32, +w: U32) -> U32:
+  crc.byte(crc.byte(crc.byte(crc.byte(h, (w .&. 255 : U32)), ((w >> 8n) .&. 255 : U32)), ((w >> 16n) .&. 255 : U32)), (w >> 24n : U32))
 
-# The table and the running register.
-type Crc is Type:
-  Crc{t: Array<U32>, h: U32}
-
-def crc.mix(+c: U32, r: Array<U32> & U32) -> Crc:
-  (a, +t) = r
-  Crc{a, (t .^. (c >> 8n) : U32)}
-
-def crc.byte(st: Crc, +c: U32) -> Crc:
-  Crc{a, +h} = st
-  crc.mix(h, Array.get(U32, a, ((h .^. c) .&. 255 : U32)))
-
-def crc.word(st: Crc, +w: U32) -> Crc:
-  crc.byte(crc.byte(crc.byte(crc.byte(st, (w .&. 255 : U32)), ((w >> 8n) .&. 255 : U32)), ((w >> 16n) .&. 255 : U32)), (w >> 24n : U32))
-
-def crc.fin(r: Bytes.Bytes & Crc) -> Bytes.Bytes & U32:
-  (b, Crc{t, +h}) = r
+def crc.fin(r: Bytes.Bytes & U32) -> Bytes.Bytes & U32:
+  (b, +h) = r
   (b, (h .^. 4294967295 : U32))
 
 def crc32(b: Bytes.Bytes) -> Bytes.Bytes & U32:
-  crc.fin(bytewise(~Crc, ~crc.byte, ~crc.word, b, Crc{crc.fill(256n, 0, Array.new(U32, 8n, 0)), 4294967295}))
+  crc.fin(bytewise(~U32, ~crc.byte, ~crc.word, b, 4294967295))
 
 # Adler-32 (RFC 1950 §9). The state is the checksum itself: s2 << 16 | s1.
 # A word takes mod 65521 once, after four bytes; no sum reaches 2^32 first.

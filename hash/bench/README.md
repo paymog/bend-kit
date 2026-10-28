@@ -13,11 +13,12 @@ You need `bend`, `clang` with zlib, `rustc`, `bun`, `node`, and `python3`. Binar
 
 ## Input
 
-16,777,213 bytes (2^24 - 3), byte `i` is `i mod 251`. The length leaves a tail on every path: 1 byte past a word, 5 past a 64-bit lane, 13 past an xxh32 stripe, and 29 past an xxh64 stripe. Each program builds the input before any timer starts, times only the hash, and prints the hash in hex as its checksum. Seeds and SipHash keys are 0.
+16,777,213 bytes (2^24 - 3), byte `i` is `i mod 251`. The length leaves a tail on every path: 1 byte past a word, 5 past a 64-bit lane, 13 past an xxh32 stripe, and 29 past an xxh64 stripe. Each program builds the input before any timer starts, times only the hash, and prints the hash in hex as its checksum. Seeds and SipHash keys are 0. The `crc32_short` op hashes the first 16 bytes of the input 100,000 times, so it times the cost of one call on a short input.
 
 | op | checksum |
 |---|---|
 | crc32 | `b99c61cb` |
+| crc32_short | `cecee288` |
 | adler32 | `1a0c3336` |
 | fnv1a32 | `d3ed8073` |
 | fnv1a64 | `c4b7033804d9b153` |
@@ -27,19 +28,22 @@ You need `bend`, `clang` with zlib, `rustc`, `bun`, `node`, and `python3`. Binar
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-27, `hash` 0.1.0.0. Median of three runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
+M4 Pro, macOS 26.6.2, 2026-10-28, `hash` 0.3.0.2. Median of three runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| crc32 | 0.5 (1.1x) | n/a | 1.7 (3.9x) | 0.6 (1.4x) | 0.4 (1.0x) | 32.9 (76.7x) |
-| adler32 | 0.9 (1.1x) | n/a | 4.5 (5.3x) | n/a | 0.8 (1.0x) | 21.8 (26.1x) |
-| fnv1a32 | n/a | n/a | n/a | n/a | n/a | 17.2 (1.0x) |
-| fnv1a64 | n/a | n/a | n/a | n/a | n/a | 34.5 (1.0x) |
-| xxh32 | n/a | n/a | 1.4 (1.0x) | n/a | n/a | 1.6 (1.2x) |
-| xxh64 | n/a | n/a | 0.7 (1.0x) | n/a | n/a | 5.1 (7.1x) |
-| siphash13 | n/a | 3.1 (1.0x) | n/a | n/a | 3.2 (1.0x) | 4.7 (1.5x) |
+| crc32 | 0.6 (1.0x) | n/a | 1.7 (3.0x) | 0.9 (1.6x) | 1.2 (2.0x) | 30.9 (53.2x) |
+| crc32_short | 0.7 (1.1x) | n/a | 1.4 (2.1x) | 3.0 (4.5x) | 4.4 (6.6x) | 0.7 (1.0x) |
+| adler32 | 0.8 (1.0x) | n/a | 4.4 (5.5x) | n/a | 0.9 (1.1x) | 16.1 (20.0x) |
+| fnv1a32 | n/a | n/a | n/a | n/a | n/a | 17.0 (1.0x) |
+| fnv1a64 | n/a | n/a | n/a | n/a | n/a | 34.3 (1.0x) |
+| xxh32 | n/a | n/a | 1.4 (1.0x) | n/a | n/a | 1.8 (1.3x) |
+| xxh64 | n/a | n/a | 0.7 (1.0x) | n/a | n/a | 4.6 (6.4x) |
+| siphash13 | n/a | 3.1 (1.0x) | n/a | n/a | 3.1 (1.0x) | 4.5 (1.5x) |
 
-Versions: Bend 2.0.31, Apple clang 17.0.0, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.38, Apple clang 17.0.0, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+
+Before `hash` 0.3.0.2, `crc32` built its 256-entry table on every call, with 2,048 bit steps. In the same run setup, `hash` 0.3.0.1 took 23.4 ms for `crc32_short` and 33.1 ms for `crc32`. The table is now a `match` on the index, so no call builds it.
 
 ## The calls
 

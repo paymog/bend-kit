@@ -24,6 +24,12 @@ int main(void) {
   unsigned long a = adler32(1L, buf, n);
   t1 = now_ms();
   printf("adler32\t%.3f\t%08lx\n", t1 - t0, a);
+
+  unsigned long s = 0;
+  t0 = now_ms();
+  for (int i = 0; i < 100000; i++) s = crc32(0L, buf, 16);
+  t1 = now_ms();
+  printf("crc32_short\t%.3f\t%08lx\n", t1 - t0, s);
   free(buf);
   return 0;
 }

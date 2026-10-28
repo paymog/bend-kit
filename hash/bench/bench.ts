@@ -4,6 +4,12 @@ import zlib from "node:zlib";
 const N = 16777213;
 const buf = new Uint8Array(N);
 for (let i = 0; i < N; i++) buf[i] = i % 251;
+const short = buf.subarray(0, 16);
+const loop = (f: () => number) => {
+  let h = 0;
+  for (let i = 0; i < 100000; i++) h = f();
+  return h;
+};
 
 const hex = (x: number | bigint, w: number) => x.toString(16).padStart(w, "0");
 const run = (name: string, w: number, f: () => number | bigint) => {
@@ -15,9 +21,11 @@ const run = (name: string, w: number, f: () => number | bigint) => {
 
 if (typeof Bun !== "undefined") {
   run("crc32", 8, () => Bun.hash.crc32(buf));
+  run("crc32_short", 8, () => loop(() => Bun.hash.crc32(short)));
   run("adler32", 8, () => Bun.hash.adler32(buf));
   run("xxh32", 8, () => Bun.hash.xxHash32(buf, 0));
   run("xxh64", 16, () => BigInt.asUintN(64, Bun.hash.xxHash64(buf, 0n)));
 } else {
   run("crc32", 8, () => zlib.crc32(buf));
+  run("crc32_short", 8, () => loop(() => zlib.crc32(short)));
 }
