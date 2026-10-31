@@ -5,4 +5,4 @@
 bend-kit-crypto@0.2.2.1  # importers re-pin to crypto 0.2.2.2 (#635)
 bend-kit-wire@0.4.6.2  # importers re-pin to wire 0.4.7.0 (#640)
 bend-kit-wire@0.4.7.0  # importers re-pin to wire 0.4.8.0 (#677)
-bend-kit-zlib@0.5.0.0  # importers re-pin to zlib 0.5.0.2 (#644)
+bend-kit-zlib@0.5.0.0  # importers re-pin to zlib 0.5.1.0 (#679)

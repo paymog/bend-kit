@@ -614,16 +614,27 @@ def gz.fhcrc(on: Bool, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&
       (b, m) = r
       gz.fhcrc.at(m, b)
 
-def gz.isize(+ok: Bool, +n: U32, out: Bytes.Bytes, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
-  (src, z) = r
-  keep(Bool.and(ok, holds(z, n)), out)
+# One member's output, the input back, and the first byte after its trailer.
+type Member is Type:
+  Member{out: Bytes.Bytes, src: Bytes.Bytes, next: U32}
 
-def gz.crc(r: Bytes.Bytes & U32, +n: U32, +at: U32, c: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
+def gz.keep(ok: Bool, out: Bytes.Bytes, src: Bytes.Bytes, +next: U32) -> Maybe<&1, Member>:
+  match ok:
+    case True{}:
+      Some{Member{out, src, next}}
+    case False{}:
+      None{}
+
+def gz.isize(+ok: Bool, +n: U32, +next: U32, out: Bytes.Bytes, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
+  (src, z) = r
+  gz.keep(Bool.and(ok, holds(z, n)), out, src, next)
+
+def gz.crc(r: Bytes.Bytes & U32, +n: U32, +at: U32, c: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
   (out, +crc) = r
   (src, m) = c
-  gz.isize(holds(m, crc), n, out, Bytes.get.u32le(src, (at + 4 : U32)))
+  gz.isize(holds(m, crc), n, (at + 8 : U32), out, Bytes.get.u32le(src, (at + 4 : U32)))
 
-def gz.trail(m: Maybe<&1, Inflated>) -> Maybe<&1, Bytes.Bytes>:
+def gz.trail(m: Maybe<&1, Inflated>) -> Maybe<&1, Member>:
   match m:
     case None{}:
       None{}
@@ -631,7 +642,7 @@ def gz.trail(m: Maybe<&1, Inflated>) -> Maybe<&1, Bytes.Bytes>:
       Bytes.Bytes{+n, buf} = out
       gz.crc(Hash.crc32(Bytes.Bytes{n, buf}), n, at, Bytes.get.u32le(src, at))
 
-def gz.body(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
+def gz.body(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
   (b, m) = r
   match m:
     case None{}:
@@ -639,29 +650,68 @@ def gz.body(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
     case Some{+off}:
       gz.trail(inflate.at(b, off))
 
-def gz.flags(+f: U32, b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
-  gz.body(gz.fhcrc(flag(f, 2), gz.fstr(flag(f, 16), gz.fstr(flag(f, 8), gz.fextra(flag(f, 4), (b, Some{10}))))))
+def gz.flags(+f: U32, +p: U32, b: Bytes.Bytes) -> Maybe<&1, Member>:
+  gz.body(gz.fhcrc(flag(f, 2), gz.fstr(flag(f, 16), gz.fstr(flag(f, 8), gz.fextra(flag(f, 4), (b, Some{(p + 10 : U32)}))))))
 
-def gz.magic(ok: Bool, +f: U32, b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
+def gz.magic(ok: Bool, +f: U32, +p: U32, b: Bytes.Bytes) -> Maybe<&1, Member>:
   match ok:
     case True{}:
-      gz.flags(f, b)
+      gz.flags(f, p, b)
     case False{}:
       None{}
 
 # ID1 31, ID2 139, CM 8 (DEFLATE), then FLG.
-def gz.head(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
+def gz.head(+p: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
   (b, m) = r
   match m:
     case None{}:
       None{}
     case Some{+w}:
-      gz.magic(U32.is_eq(U32.and(w, 16777215), 559903), U32.shrn(w, 24n), b)
+      gz.magic(U32.is_eq(U32.and(w, 16777215), 559903), U32.shrn(w, 24n), p, b)
 
-# One gzip member; the CRC-32 and ISIZE must match. None: malformed, cut short, or corrupt.
-# ponytail: bytes after the first member are ignored; loop over members if a server concatenates them.
+# The member that starts at byte p.
+def gz.member(b: Bytes.Bytes, +p: U32) -> Maybe<&1, Member>:
+  gz.head(p, Bytes.get.u32le(b, p))
+
+# RFC 1952 §2.2: members follow each other until the input ends.
+type Gz is Type:
+  GzMore{acc: Bytes.Bytes, src: Bytes.Bytes, at: U32}
+  GzDone{out: Bytes.Bytes}
+  GzBad{}
+
+def gz.more(more: Bool, acc: Bytes.Bytes, src: Bytes.Bytes, +at: U32) -> Gz:
+  match more:
+    case True{}:
+      GzMore{acc, src, at}
+    case False{}:
+      GzDone{acc}
+
+def gz.step(m: Maybe<&1, Member>, acc: Bytes.Bytes) -> Gz:
+  match m:
+    case None{}:
+      GzBad{}
+    case Some{Member{out, src, +next}}:
+      Bytes.Bytes{+len, buf} = src
+      gz.more(U32.is_lt(next, len), Bytes.append(acc, out), Bytes.Bytes{len, buf}, next)
+
+# Each member takes at least 18 bytes, so one step per byte suffices.
+def gz.go(k: Nat, st: Gz) -> Maybe<&1, Bytes.Bytes>:
+  match k:
+    case 0n:
+      None{}
+    case 1n+f:
+      match st:
+        case GzMore{acc, src, +at}:
+          gz.go(f, gz.step(gz.member(src, at), acc))
+        case GzDone{out}:
+          Some{out}
+        case GzBad{}:
+          None{}
+
+# Every gzip member, concatenated; each CRC-32 and ISIZE must match. None: malformed, cut short, corrupt, or junk after a member.
 def gunzip(b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
-  gz.head(Bytes.get.u32le(b, 0))
+  Bytes.Bytes{+len, buf} = b
+  gz.go(Nat.add(bits(len), 1n), GzMore{Bytes.Bytes{0, Array.new(U32, 0n, 0)}, Bytes.Bytes{len, buf}, 0})
 
 # RFC 1950: CMF and FLG, then DEFLATE, then Adler-32, big-endian.
 def zl.sum(r: Bytes.Bytes & U32, c: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
