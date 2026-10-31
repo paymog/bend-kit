@@ -1,7 +1,7 @@
 # DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over Bytes, plus gzip, zstd, and brotli through the C libraries. Source: https://github.com/paymog/bend-kit/tree/main/zlib
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-bits@0.1.0.0/bits.bend as Bits
+import bend-kit-bits@0.1.0.1/bits.bend as Bits
 import bend-kit-hash@0.3.0.2/hash.bend as Hash
 
 def bits(+n: U32) -> Nat:

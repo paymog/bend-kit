@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `zlib` 0.5.0.2: imports `bits` 0.1.0.1. `deflate`, `gzip`, and `zlib` return `Bytes` in the canonical layout, so `==` against `Bytes.from_string` of the same octets holds. `gzip_pinned` proves it.
+- `bits` 0.1.0.1: `Writer.new` starts at one word, so `Writer.finish` returns the fewest 2^d words that hold the bytes. `finish_is_canonical` proves it on a fixture.
 - `wire` 0.4.8.0: `listen` binds a TCP listener on a numeric IPv4 or IPv6 address and returns the bound port, so a check can listen on port 0 and connect to the port the OS picked.
 - `files` 0.3.1.0: `size64` and `read.words.at` give the size of an open file and read at a byte offset as two `U32` halves, `hi * 2^32 + lo`, so a file over 4 GiB can be sized and read. `read.words.at` does not move the file position.
 - `runner` 0.13.0.0: imports `retry` 0.3.0.0. A `Retry.Rejected` attempt, a client error such as a 404, gives `Abandon{id, WhyFailed}`, and the target's breaker moves as on a success, so a run of client errors does not open it. `rejected_abandon`, `rejected_spares_breaker`, and `rejected_keeps_closed` prove it. The webhook example answers `Rejected` for a 4xx that will not change. Breaking: outcomes are `retry` 0.3.0.0 types.
