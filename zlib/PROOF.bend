@@ -29,6 +29,12 @@ def Laws.gunzip_bad_crc():
 def Laws.gunzip_truncated():
   {==}
 
+def Laws.gunzip_members():
+  {==}
+
+def Laws.gunzip_junk():
+  {==}
+
 def Laws.unzlib_ok():
   {==}
 

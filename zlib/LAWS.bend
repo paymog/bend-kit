@@ -67,6 +67,14 @@ law gunzip_bad_crc:
 law gunzip_truncated:
   {text(Z.gunzip(bytes([31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 203, 72, 205, 201, 201, 87, 72, 175, 202, 44, 80, 40, 207, 47, 202, 73, 1, 0, 107, 125, 232]))) == None{} : Maybe<&2, String>}
 
+# RFC 1952 §2.2: members decode in turn, and their outputs join.
+law gunzip_members:
+  {text(Z.gunzip(bytes([31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 203, 72, 205, 201, 201, 87, 0, 0, 246, 249, 129, 237, 6, 0, 0, 0, 31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 75, 175, 202, 44, 0, 0, 242, 92, 233, 58, 4, 0, 0, 0]))) == Some{"hello gzip"} : Maybe<&2, String>}
+
+# Bytes after a member that do not start a member are rejected.
+law gunzip_junk:
+  {text(Z.gunzip(bytes([31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 203, 72, 205, 201, 201, 87, 0, 0, 246, 249, 129, 237, 6, 0, 0, 0, 106, 117, 110, 107]))) == None{} : Maybe<&2, String>}
+
 # RFC 1950: a zlib stream.
 law unzlib_ok:
   {text(Z.unzlib(bytes([120, 156, 203, 72, 205, 201, 201, 87, 168, 202, 201, 76, 82, 40, 207, 47, 202, 73, 1, 0, 52, 90, 6, 46]))) == Some{"hello zlib world"} : Maybe<&2, String>}

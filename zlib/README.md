@@ -4,7 +4,7 @@ DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli.
 
 ```bend
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-zlib@0.5.0.2/zlib.bend as Zlib
+import bend-kit-zlib@0.5.1.0/zlib.bend as Zlib
 ```
 
 Every function takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes`, `bits`, and `hash` from the hub.
@@ -13,7 +13,7 @@ Every function takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes`, `bits
 
 `deflate`, `gzip`, and `zlib` compress. `inflate`, `gunzip`, and `unzlib` return `None` when the input is truncated or malformed, and `gunzip` and `unzlib` also check the CRC-32 or Adler-32. The decoder reads through a `Bits.Reader` and decodes symbols with `Bits.Huff` tables. Laws cover these functions. They do not cover the effects.
 
-The encoder writes one fixed-Huffman block with greedy matching, so its output is larger than libz's. `gunzip` decodes the first gzip member and ignores bytes after it.
+The encoder writes one fixed-Huffman block with greedy matching, so its output is larger than libz's. `gunzip` decodes every gzip member and joins the outputs, as `gzip -d` does. It rejects bytes after a member that do not start another member.
 
 ## Native
 
