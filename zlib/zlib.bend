@@ -2,7 +2,7 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-bits@0.1.0.0/bits.bend as Bits
-import bend-kit-hash@0.3.0.1/hash.bend as Hash
+import bend-kit-hash@0.3.0.2/hash.bend as Hash
 
 def bits(+n: U32) -> Nat:
   U32.to_nat(n)

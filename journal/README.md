@@ -3,10 +3,10 @@
 An append-only journal: checksummed frames, fsync'd appends, and crash recovery of the committed prefix. Use one to keep local state durable, such as a task list, a queue's progress, or applied commands.
 
 ```bend
-import bend-kit-journal@0.3.0.1/journal.bend as J
+import bend-kit-journal@0.3.1.0/journal.bend as J
 ```
 
-It imports `bend-kit-hash@0.3.0.1` and `bend-kit-bytes@0.3.3.0`. Payloads are that version's `Bytes`.
+It imports `bend-kit-hash@0.3.0.2` and `bend-kit-bytes@0.3.3.0`. Payloads are that version's `Bytes`.
 
 ## Example
 
@@ -15,7 +15,7 @@ A durable task list. Each record is `add <task>` or `done <task>`, and `open` fo
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-journal@0.3.0.1/journal.bend as J
+import bend-kit-journal@0.3.1.0/journal.bend as J
 
 def without(xs: List<&2, String>, +x: String) -> List<&2, String>:
   match xs:
