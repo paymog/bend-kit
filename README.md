@@ -74,7 +74,7 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`bytes`](bytes) | `bend-kit-bytes@0.3.3.0/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
-| [`bits`](bits) | `bend-kit-bits@0.1.0.0/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman decode tables. |
+| [`bits`](bits) | `bend-kit-bits@0.1.0.1/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman decode tables. |
 | [`encoding`](encoding) | `bend-kit-encoding@0.5.0.0/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
 | [`regex`](regex) | `bend-kit-regex@0.8.0.0/regex.bend` | Linear-time RE2 matching, with capture groups. |
