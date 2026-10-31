@@ -3,7 +3,7 @@
 Byte-exact TCP, UDP, and TLS. Calls consume a socket or listener and return it beside the result. `connect` returns a new socket inside the `Result`. `tls.close` consumes the socket and does not return it.
 
 ```bend
-import bend-kit-wire@0.4.7.0/wire.bend as Wire
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 ```
 
 `connect(host, port, ms)` opens TCP. `recv` and `send` move a byte `String`. The `.words` forms move packed `Array<U32>` buffers, four octets per word, and do not build a list cell per byte. `recv_from` and `send_to` are UDP. `ms` is a deadline in milliseconds. `0` means no deadline, except where a def says otherwise. `accept.deadline` rejects `0`. A miss is the host `ETIMEDOUT`: 60 on macOS, 110 on Linux.
@@ -14,6 +14,7 @@ import bend-kit-wire@0.4.7.0/wire.bend as Wire
 
 | Def | Result | Use |
 |---|---|---|
+| `listen(host: String, port: U32)` | `IO(Result<&1, &1, U32 & String, Listener & U32>)` | Listen on a numeric IPv4 or IPv6 address, nonblocking as Base `TCP.listen`. The result holds the bound port, so port 0 lets the OS pick a free one. |
 | `idle(sock: Socket)` | `IO(Socket & Bool)` | `True` when no byte and no end of stream waits on the socket. It reads nothing. A connection pool calls it before it reuses an idle socket. |
 | `tls.close(sock: Socket)` | `IO(Unit)` | End the TLS session and close the socket. |
 

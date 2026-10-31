@@ -4,3 +4,4 @@
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
 bend-kit-crypto@0.2.2.1  # importers re-pin to crypto 0.2.2.2 (#635)
 bend-kit-wire@0.4.6.2  # importers re-pin to wire 0.4.7.0 (#640)
+bend-kit-wire@0.4.7.0  # importers re-pin to wire 0.4.8.0 (#677)
