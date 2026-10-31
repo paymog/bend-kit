@@ -1,7 +1,7 @@
 import Base
 import ../stream.bend as Stream
-import bend-kit-files@0.3.0.0/files.bend as Files
-import bend-kit-hash@0.3.0.1/hash.bend as Hash
+import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-hash@0.3.0.2/hash.bend as Hash
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def checksum(fuel: Nat, pair: File & Result<&1, &1, U32 & String, U32 & Array<U32>>, h: U32) -> IO(U32):

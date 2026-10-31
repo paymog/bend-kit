@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-hash@0.3.0.1/hash.bend as Hash
+import bend-kit-hash@0.3.0.2/hash.bend as Hash
 import ../journal.bend as J
 
 # Payload length is 16 + (i * 7 mod 48). Octet j is (i * 31 + j) & 255.
