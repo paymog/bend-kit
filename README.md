@@ -95,7 +95,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.0.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
 | [`migrate`](migrate) | `bend-kit-migrate@0.3.0.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
-| [`archive`](archive) | `bend-kit-archive@0.5.0.2/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
+| [`archive`](archive) | `bend-kit-archive@0.5.1.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.5.1.0/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.0.0/crdt.bend` | Grow-only counters, keyed by dense indices or sparse IDs, whose merges are proved commutative, associative, idempotent, and convergent. CBOR wire form. |
 
