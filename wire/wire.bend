@@ -13,6 +13,13 @@ def connect(host: String, port: U32, ms: U32) ->
   import "./effs/wire.c"
   import "./effs/wire.js"
 
+# TCP listen on a numeric IPv4 or IPv6 address, nonblocking as Base TCP.listen.
+# Returns the listener and its bound port, so port 0 lets the OS pick one.
+def listen(host: String, port: U32) ->
+  IO(Result<&1, &1, U32 & String, Listener & U32>):
+  import "./effs/wire.c"
+  import "./effs/wire.js"
+
 # One monotonic accept budget, ms: 1..2147483647. Every outcome returns the
 # actual listener; timeout leaves it usable. Cooperative scheduling does not
 # preempt arbitrary CPU work or blocking effects.

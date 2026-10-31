@@ -48,11 +48,11 @@ def alpn.host(+host: String) -> IO(Unit):
     m : Maybe<&2, String> <- Dns.resolve(host)
     alpn.got(host, m)
 
+# The shared test twin also declares these listener effects.
 def test.listen6(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
   import "./effs/ipv6_test.c"
   import "./effs/ipv6_test.js"
 
-# The shared test twin also declares this IPv4 listener effect.
 def test.listen4(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
   import "./effs/ipv6_test.c"
   import "./effs/ipv6_test.js"
@@ -114,19 +114,19 @@ def ipv6.connected(l: Listener, r: Result<&1, &1, U32 & String, Socket>) -> IO(U
         sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send(s, "ping")
         ipv6.sent(l, sent)
 
-def ipv6.listener(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
+def ipv6.listener(+host: String, r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
   match r:
     case Fail{(+code, why)}:
-      IO.die(Unit, 1, "IPv6 listen: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Unit, 1, "listen " ++ host ++ ": " ++ U32.show(code) ++ " " ++ why)
     case Done{(l, +port)}:
       do IO<Unit>:
-        r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("::1", port, 5000)
+        r : Result<&1, &1, U32 & String, Socket> <- Wire.connect(host, port, 5000)
         ipv6.connected(l, r)
 
-def ipv6.check() -> IO(Unit):
+def ipv6.check(+host: String) -> IO(Unit):
   do IO<Unit>:
-    l : Result<&1, &1, U32 & String, Listener & U32> <- test.listen6(0)
-    ipv6.listener(l)
+    l : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen(host, 0)
+    ipv6.listener(host, l)
 
 def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
   import "./effs/ipv6_test.c"
@@ -227,7 +227,7 @@ def idle.listener(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
 
 def idle.check() -> IO(Unit):
   do IO<Unit>:
-    l : Result<&1, &1, U32 & String, Listener & U32> <- test.listen6(0)
+    l : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen("::1", 0)
     idle.listener(l)
 
 # EPROTO is 100 on macOS and 71 on Linux.
@@ -306,7 +306,8 @@ def mtls.args(args: List<&1, String>) -> IO(Unit):
       alpn.host("nghttp2.org")
 def main() -> IO(Unit):
   do IO<Unit>:
-    ipv6.check()
+    ipv6.check("::1")
+    ipv6.check("127.0.0.1")
     udp6.check()
     idle.check()
     args : List<&1, String> <- IO.args()

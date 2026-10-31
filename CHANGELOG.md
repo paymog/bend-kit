@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `wire` 0.4.8.0: `listen` binds a TCP listener on a numeric IPv4 or IPv6 address and returns the bound port, so a check can listen on port 0 and connect to the port the OS picked.
 - `files` 0.3.1.0: `size64` and `read.words.at` give the size of an open file and read at a byte offset as two `U32` halves, `hi * 2^32 + lo`, so a file over 4 GiB can be sized and read. `read.words.at` does not move the file position.
 - `runner` 0.13.0.0: imports `retry` 0.3.0.0. A `Retry.Rejected` attempt, a client error such as a 404, gives `Abandon{id, WhyFailed}`, and the target's breaker moves as on a success, so a run of client errors does not open it. `rejected_abandon`, `rejected_spares_breaker`, and `rejected_keeps_closed` prove it. The webhook example answers `Rejected` for a 4xx that will not change. Breaking: outcomes are `retry` 0.3.0.0 types.
 - `retry` 0.3.0.0: `Rejected` is a client error. `plan` stops on it, and `failed` does not count it for the breaker. `plan_rejected_stops` and `rejected_not_counted` prove it. Breaking: a match on `Outcome` needs a `Rejected` case.
