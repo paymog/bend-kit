@@ -1,8 +1,8 @@
 # ZIP archives read over Bytes: stored and DEFLATE entries, checked against their CRC-32 and sizes. Source: https://github.com/paymog/bend-kit/tree/main/archive
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-zlib@0.5.0.0/zlib.bend as Zlib
-import bend-kit-hash@0.3.0.1/hash.bend as Hash
+import bend-kit-zlib@0.5.1.0/zlib.bend as Zlib
+import bend-kit-hash@0.3.0.2/hash.bend as Hash
 
 # One member: its name and contents as raw bytes, its method (0 stored, 8 DEFLATE), and its CRC-32.
 type Entry is Type:
