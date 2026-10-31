@@ -20,6 +20,9 @@ def Laws.write_masks_and_pads():
 def Laws.msb_write_masks_and_pads():
   {==}
 
+def Laws.finish_is_canonical():
+  {==}
+
 def Laws.lsb_read_known():
   {==}
 
