@@ -97,7 +97,7 @@ law deflate_repeats:
 
 # These bytes decode with system gzip -d.
 law gzip_pinned:
-  {Bytes.to_string(Z.gzip(b("hello hello hello hello, world"))) == str([31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 203, 72, 205, 201, 201, 87, 192, 32, 117, 20, 202, 243, 139, 114, 82, 0, 247, 26, 144, 221, 30, 0, 0, 0]) : String}
+  {Z.gzip(b("hello hello hello hello, world")) == bytes([31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 203, 72, 205, 201, 201, 87, 192, 32, 117, 20, 202, 243, 139, 114, 82, 0, 247, 26, 144, 221, 30, 0, 0, 0]) : Bytes.Bytes}
 
 law gzip_roundtrip:
   {text(Z.gunzip(Z.gzip(b("gzip round trip, gzip round trip")))) == Some{"gzip round trip, gzip round trip"} : Maybe<&2, String>}
