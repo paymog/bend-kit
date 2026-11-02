@@ -7,8 +7,9 @@ import bend-kit-http@0.38.1.1/completion.bend as Completion
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
-# A local authorization server on 127.0.0.1:47851, then every flow against it through Hairpin.
+# A local authorization server on an OS-picked port, then every flow against it through Hairpin.
 
 def ok(b: Bool, +name: String) -> IO(Unit):
   match b:
@@ -32,11 +33,11 @@ def show(e: O.Err) -> String:
     case O.ErrExpired{}:
       "expired"
 
-def BASE() -> String:
-  "http://127.0.0.1:47851"
+def BASE(+port: U32) -> String:
+  "http://127.0.0.1:" ++ U32.show(port)
 
-def REDIRECT() -> String:
-  "http://127.0.0.1:47851/cb"
+def REDIRECT(+port: U32) -> String:
+  BASE(port) ++ "/cb"
 
 # ---- the server. Each reply closes its connection, so each request is one accept.
 
@@ -81,10 +82,10 @@ def s.code.done(c: Result<&1, &1, O.Err, String>, good: Bool, +code: String) -> 
         json(200, "{\"access_token\":\"ac-1\",\"token_type\":\"Bearer\",\"refresh_token\":\"rt-1\",\"expires_in\":0}"),
         oops(400, "invalid_grant"))
 
-def s.code(+auth: String, +f: Map<&2, String>) -> IO(Http.Res):
+def s.code(+auth: String, +redirect: String, +f: Map<&2, String>) -> IO(Http.Res):
   do IO<Http.Res>:
     c : Result<&1, &1, O.Err, String> <- O.challenge(O.param(f, "code_verifier"))
-    s.code.done(c, Bool.and(client.auth(auth, f), String.eq(O.param(f, "redirect_uri"), REDIRECT())), O.param(f, "code"))
+    s.code.done(c, Bool.and(client.auth(auth, f), String.eq(O.param(f, "redirect_uri"), redirect)), O.param(f, "code"))
 
 # No refresh_token in the reply, so the client keeps rt-1.
 def s.refresh(+auth: String, +f: Map<&2, String>) -> IO(Http.Res):
@@ -92,32 +93,32 @@ def s.refresh(+auth: String, +f: Map<&2, String>) -> IO(Http.Res):
     json(200, "{\"access_token\":\"ac-2\",\"token_type\":\"Bearer\",\"expires_in\":\"3600\"}"),
     oops(400, "invalid_grant"))
 
-def s.token(+auth: String, +f: Map<&2, String>) -> IO(Http.Res):
+def s.token(+auth: String, +redirect: String, +f: Map<&2, String>) -> IO(Http.Res):
   +g = O.param(f, "grant_type")
   Bool.pick(IO(Http.Res), String.eq(g, "client_credentials"), s.cc(auth, f),
-    Bool.pick(IO(Http.Res), String.eq(g, "authorization_code"), s.code(auth, f),
+    Bool.pick(IO(Http.Res), String.eq(g, "authorization_code"), s.code(auth, redirect, f),
       Bool.pick(IO(Http.Res), String.eq(g, "refresh_token"), s.refresh(auth, f), oops(400, "unsupported_grant_type"))))
 
 # §4.1.2: back to redirect_uri with a code, here the challenge itself, and the state.
-def s.authorize(+q: Map<&2, String>) -> IO(Http.Res):
+def s.authorize(+redirect: String, +q: Map<&2, String>) -> IO(Http.Res):
   +good = Bool.and(Bool.and(String.eq(O.param(q, "response_type"), "code"), String.eq(O.param(q, "client_id"), "app")),
-    Bool.and(String.eq(O.param(q, "code_challenge_method"), "S256"), String.eq(O.param(q, "redirect_uri"), REDIRECT())))
+    Bool.and(String.eq(O.param(q, "code_challenge_method"), "S256"), String.eq(O.param(q, "redirect_uri"), redirect)))
   +to = Bool.pick(String, good, "?code=" ++ O.param(q, "code_challenge"), "?error=invalid_request") ++ "&state=" ++ O.param(q, "state")
-  res(302, Http.set(Http.empty(), "location", REDIRECT() ++ to), "")
+  res(302, Http.set(Http.empty(), "location", redirect ++ to), "")
 
-def s.route(m: Maybe<&2, Url.Url>, +auth: String, body: Bytes.Bytes) -> IO(Http.Res):
+def s.route(m: Maybe<&2, Url.Url>, +auth: String, +redirect: String, body: Bytes.Bytes) -> IO(Http.Res):
   match m:
     case None{}:
       oops(400, "invalid_request")
     case Some{Url.Url{+p, +q}}:
-      Bool.pick(IO(Http.Res), String.eq(p, "/token"), s.token(auth, form(body)),
-        Bool.pick(IO(Http.Res), String.eq(p, "/authorize"), s.authorize(q),
+      Bool.pick(IO(Http.Res), String.eq(p, "/token"), s.token(auth, redirect, form(body)),
+        Bool.pick(IO(Http.Res), String.eq(p, "/authorize"), s.authorize(redirect, q),
           res(200, Http.empty(), auth)))
 
-# /api answers with the Authorization header it got.
+# /api answers with the Authorization header it got. The redirect URI comes from Host, so the server needs no port.
 def s(req: Http.Req) -> IO(Http.Res):
   Http.Req{method, path, +headers, body} = req
-  s.route(Url.parse(path), Http.header(headers, "authorization"), body)
+  s.route(Url.parse(path), Http.header(headers, "authorization"), "http://" ++ Http.header(headers, "host") ++ "/cb", body)
 
 def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
   do IO<Http.Reply>:
@@ -143,11 +144,11 @@ def serve(n: Nat, l: Listener) -> IO(Unit):
 
 # ---- the client
 
-def conf() -> O.Config:
-  O.Config{BASE() ++ "/token", "app", "s3cret"}
+def conf(+port: U32) -> O.Config:
+  O.Config{BASE(port) ++ "/token", "app", "s3cret"}
 
-def public() -> O.Config:
-  O.Config{BASE() ++ "/token", "app", ""}
+def public(+port: U32) -> O.Config:
+  O.Config{BASE(port) ++ "/token", "app", ""}
 
 def tok(+what: String, x: Hairpin.Client & Result<&1, &1, O.Err, O.Token>) -> IO(Hairpin.Client & O.Token):
   (c, r) = x
@@ -202,10 +203,10 @@ def invalid_grant(x: Hairpin.Client & Result<&1, &1, O.Err, O.Token>) -> IO(Hair
     case Done{t}:
       IO.die(Hairpin.Client, 1, "FAIL wrong verifier got a token")
 
-def cc.fresh(y: Hairpin.Client & O.Token) -> IO(Hairpin.Client & O.Token):
+def cc.fresh(+port: U32, y: Hairpin.Client & O.Token) -> IO(Hairpin.Client & O.Token):
   (c, t) = y
   do IO<Hairpin.Client & O.Token>:
-    x : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.fresh.cc(c, conf(), "read", t, 30)
+    x : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.fresh.cc(c, conf(port), "read", t, 30)
     y2 : Hairpin.Client & O.Token <- tok("fresh.cc", x)
     want("fresh.cc keeps a live token, no request", "cc-1", "", "read", y2)
 
@@ -213,10 +214,10 @@ def api.done(x: Hairpin.Client & String) -> Hairpin.Client:
   (c, loc) = x
   c
 
-def api(y: Hairpin.Client & O.Token) -> IO(Hairpin.Client):
+def api(+port: U32, y: Hairpin.Client & O.Token) -> IO(Hairpin.Client):
   (c, t) = y
   do IO<Hairpin.Client>:
-    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- O.request(c, t, "GET", BASE() ++ "/api", Http.empty(), Bytes.new(0))
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- O.request(c, t, "GET", BASE(port) ++ "/api", Http.empty(), Bytes.new(0))
     z : Hairpin.Client & String <- res.body("request sends Authorization: Bearer", 200, "Bearer cc-1", x)
     return api.done(z)
 
@@ -235,35 +236,50 @@ def verifier.ok(+v: String) -> IO(Unit):
   ok(Nat.is_eq(String.length(v), 43n), "verifier is 43 base64url chars: " ++ v)
 
 # The RFC 7636 verifier, so the server's code is the Appendix B challenge.
-def authz(+st: String, c: Hairpin.Client) -> IO(Hairpin.Client & String):
+def authz(+port: U32, +st: String, c: Hairpin.Client) -> IO(Hairpin.Client & String):
   do IO<Hairpin.Client & String>:
     ch : Result<&1, &1, O.Err, String> <- O.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
     cc : String <- str("challenge", ch)
     x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
-      Hairpin.get(Hairpin.redirect(c, Http.ModeManual{}), O.authorize.url(public(), BASE() ++ "/authorize", REDIRECT(), "openid", st, cc))
+      Hairpin.get(Hairpin.redirect(c, Http.ModeManual{}), O.authorize.url(public(port), BASE(port) ++ "/authorize", REDIRECT(port), "openid", st, cc))
     z : Hairpin.Client & String <- res.body("authorize redirects to redirect_uri", 302, "", x)
     callback(st, z)
 
-def exchange(y: Hairpin.Client & String) -> IO(Hairpin.Client & O.Token):
+def exchange(+port: U32, y: Hairpin.Client & String) -> IO(Hairpin.Client & O.Token):
   (c, +code) = y
   do IO<Hairpin.Client & O.Token>:
-    x : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.code(c, public(), code, REDIRECT(), "wrong-verifier-wrong-verifier-wrong-verifier")
+    x : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.code(c, public(port), code, REDIRECT(port), "wrong-verifier-wrong-verifier-wrong-verifier")
     c1 : Hairpin.Client <- invalid_grant(x)
-    x2 : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.code(c1, public(), code, REDIRECT(), "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
+    x2 : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.code(c1, public(port), code, REDIRECT(port), "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
     y2 : Hairpin.Client & O.Token <- tok("code", x2)
     want("authorization code with PKCE S256", "ac-1", "rt-1", "", y2)
 
 # ac-1 has expires_in 0, so it is due and fresh refreshes it.
-def renew(+name: String, +access: String, y: Hairpin.Client & O.Token) -> IO(Hairpin.Client & O.Token):
+def renew(+port: U32, +name: String, +access: String, y: Hairpin.Client & O.Token) -> IO(Hairpin.Client & O.Token):
   (c, t) = y
   do IO<Hairpin.Client & O.Token>:
-    x : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.fresh(c, public(), t, 30)
+    x : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.fresh(c, public(port), t, 30)
     y2 : Hairpin.Client & O.Token <- tok(name, x)
     want(name, access, "rt-1", "", y2)
 
 def close(y: Hairpin.Client & O.Token) -> IO(Unit):
   (c, t) = y
   Hairpin.close(c)
+
+def flows(+st: String, b: Listener & U32) -> IO(Unit):
+  (l, +port) = b
+  do IO<Unit>:
+    IO.spawn(Unit, serve(6n, l))
+    x1 : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.client_credentials(Hairpin.new(), conf(port), "read")
+    y1 : Hairpin.Client & O.Token <- tok("client credentials", x1)
+    z1 : Hairpin.Client & O.Token <- want("client credentials with Basic auth", "cc-1", "", "read", y1)
+    z2 : Hairpin.Client & O.Token <- cc.fresh(port, z1)
+    c3 : Hairpin.Client <- api(port, z2)
+    y4 : Hairpin.Client & String <- authz(port, st, c3)
+    z5 : Hairpin.Client & O.Token <- exchange(port, y4)
+    z6 : Hairpin.Client & O.Token <- renew(port, "fresh refreshes an expiring token, keeps rt-1", "ac-2", z5)
+    z7 : Hairpin.Client & O.Token <- renew(port, "fresh keeps a live token, no request", "ac-2", z6)
+    close(z7)
 
 def main() -> IO(Unit):
   do IO<Unit>:
@@ -275,15 +291,5 @@ def main() -> IO(Unit):
     verifier.ok(v1)
     rst : Result<&1, &1, O.Err, String> <- O.state()
     st : String <- str("state", rst)
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47851))
-    IO.spawn(Unit, serve(6n, l))
-    x1 : Hairpin.Client & Result<&1, &1, O.Err, O.Token> <- O.client_credentials(Hairpin.new(), conf(), "read")
-    y1 : Hairpin.Client & O.Token <- tok("client credentials", x1)
-    z1 : Hairpin.Client & O.Token <- want("client credentials with Basic auth", "cc-1", "", "read", y1)
-    z2 : Hairpin.Client & O.Token <- cc.fresh(z1)
-    c3 : Hairpin.Client <- api(z2)
-    y4 : Hairpin.Client & String <- authz(st, c3)
-    z5 : Hairpin.Client & O.Token <- exchange(y4)
-    z6 : Hairpin.Client & O.Token <- renew("fresh refreshes an expiring token, keeps rt-1", "ac-2", z5)
-    z7 : Hairpin.Client & O.Token <- renew("fresh keeps a live token, no request", "ac-2", z6)
-    close(z7)
+    b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    flows(st, b)

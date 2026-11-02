@@ -57,49 +57,53 @@ def connected(+name: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Sock
     case Done{s}:
       IO.pure(Socket, s)
 
-def step.ca(+ca: String) -> IO(Unit):
+def step.ca(+port: U32, +ca: String) -> IO(Unit):
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39445, 5000)
+    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", port, 5000)
     s : Socket <- connected("connect", r)
     m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect.ca(s, "localhost", 5000, ca)
     expect.ok("private CA", m)
 
-def step.alpn(+ca: String) -> IO(Unit):
+def step.alpn(+port: U32, +ca: String) -> IO(Unit):
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39445, 5000)
+    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", port, 5000)
     s : Socket <- connected("connect", r)
     m : Socket & Result<&1, &1, U32 & String, String> <-
       Wire.tls.connect.alpn.ca(s, "localhost", 5000, "http/1.1", ca)
     expect.alpn("private CA with ALPN", m)
 
-def step.default() -> IO(Unit):
+def step.default(+port: U32) -> IO(Unit):
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39445, 5000)
+    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", port, 5000)
     s : Socket <- connected("connect", r)
     m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect(s, "localhost", 5000)
     expect.fail("default store rejects private CA", 100, m)
 
-def step.missing() -> IO(Unit):
+def step.missing(+port: U32) -> IO(Unit):
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39445, 5000)
+    r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", port, 5000)
     s : Socket <- connected("connect", r)
     m : Socket & Result<&1, &1, U32 & String, Unit> <-
       Wire.tls.connect.ca(s, "localhost", 5000, "/nonexistent/bend-kit-ca.pem")
     expect.fail("missing CA file", 22, m)
 
-def run(+ca: String) -> IO(Unit):
-  do IO<Unit>:
-    step.ca(ca)
-    step.alpn(ca)
-    step.default()
-    step.missing()
+def run(+ca: String, port: Maybe<&2, U32>) -> IO(Unit):
+  match port:
+    case Some{+p}:
+      do IO<Unit>:
+        step.ca(p, ca)
+        step.alpn(p, ca)
+        step.default(p)
+        step.missing(p)
+    case None{}:
+      IO.die(Unit, 1, "ca_check needs a numeric port")
 
 def main.args(args: List<&1, String>) -> IO(Unit):
   match args:
-    case Con{ca, Nil{}}:
-      run(ca)
+    case Con{ca, Con{port, Nil{}}}:
+      run(ca, U32.read(port))
     case _:
-      IO.die(Unit, 1, "ca_check needs a CA file path")
+      IO.die(Unit, 1, "ca_check needs a CA file path and a port")
 
 def main() -> IO(Unit):
   do IO<Unit>:

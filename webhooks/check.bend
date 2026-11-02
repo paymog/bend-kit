@@ -7,6 +7,7 @@ import bend-kit-http@0.38.1.1/admission.bend as Admission
 import bend-kit-http@0.38.1.1/completion.bend as Completion
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 # HMAC and the constant-time compare need libcrypto, so actual sign and verify run here; LAWS.bend covers framing.
 # Fixtures:
@@ -249,15 +250,15 @@ def sent.in(+label: String, +want: String, x: Hairpin.Client & Retry.Budget & Re
     same(label, want, status(r))
     return (c, b)
 
-def url() -> String:
-  "http://127.0.0.1:47852/webhook"
+def url(+port: U32) -> String:
+  "http://127.0.0.1:" ++ U32.show(port) ++ "/webhook"
 
 def body() -> Bytes.Bytes:
   Bytes.from_string("{\"test\": 2432232314}")
 
-def again(x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res>):
+def again(+port: U32, x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res>):
   (c, b) = x
-  W.send.in(c, b, url(), "msg_local_1", secret(), body())
+  W.send.in(c, b, url(port), "msg_local_1", secret(), body())
 
 def drop(x: Hairpin.Client & Retry.Budget) -> Hairpin.Client:
   (c, b) = x
@@ -265,19 +266,24 @@ def drop(x: Hairpin.Client & Retry.Budget) -> Hairpin.Client:
 
 # A 501 retried to a 200. Then a caller's own retry layer delivers twice on one budget of 3, with retry 2:
 # the first delivery takes all 3 attempts, and the second is denied. Without the shared budget it would be 6.
-def deliveries() -> IO(Unit):
+def deliveries.on(b: Listener & U32) -> IO(Unit):
+  (l, +port) = b
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47852))
     ch : Chan(Unit) <- IO.fork(Unit, serve([False{}, True{}, False{}, False{}, False{}], l))
-    r1 : Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res> <- W.send(Hairpin.new(), url(), "msg_local_1", secret(), body())
+    r1 : Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res> <- W.send(Hairpin.new(), url(port), "msg_local_1", secret(), body())
     c1 : Hairpin.Client <- sent("send: a 501 retried to a verified 200", "200", r1)
     r2 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res> <-
-      W.send.in(Hairpin.retry(c1, 2), Retry.Budget.new(3n, 0n, None{}), url(), "msg_local_1", secret(), body())
+      W.send.in(Hairpin.retry(c1, 2), Retry.Budget.new(3n, 0n, None{}), url(port), "msg_local_1", secret(), body())
     x2 : Hairpin.Client & Retry.Budget <- sent.in("send.in: the first delivery takes the 3 attempts", "501", r2)
-    r3 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res> <- again(x2)
+    r3 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res> <- again(port, x2)
     x3 : Hairpin.Client & Retry.Budget <- sent.in("send.in: the second delivery is denied, the budget is spent", "SendNet ErrDenied", r3)
     Hairpin.close(drop(x3))
     served("deliveries: 2 + 3 attempts", ch)
+
+def deliveries() -> IO(Unit):
+  do IO<Unit>:
+    b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    deliveries.on(b)
 
 def main() -> IO(Unit):
   +done = "Done " ++ std.id()

@@ -20,9 +20,9 @@ openssl x509 -req -in "$dir/server.csr" -CA "$dir/ca.pem" -CAkey "$dir/ca.key" \
   -CAcreateserial -copy_extensions copy -days 1 -out "$dir/server.pem" >/dev/null 2>&1
 
 cat >"$dir/server.py" <<'PY'
-import ssl, sys
+import os, ssl, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-cert, key = sys.argv[1:3]
+cert, key, ports_path = sys.argv[1:4]
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     def do_GET(self):
@@ -38,11 +38,14 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
     def log_message(self, fmt, *args):
         pass
-s = ThreadingHTTPServer(("127.0.0.1", 39447), H)
+s = ThreadingHTTPServer(("127.0.0.1", 0), H)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.minimum_version = ctx.maximum_version = ssl.TLSVersion.TLSv1_2
 ctx.load_cert_chain(cert, key)
 s.socket = ctx.wrap_socket(s.socket, server_side=True)
+with open(ports_path + ".tmp", "w") as f:
+    f.write(f"{s.server_port}\n")
+os.replace(ports_path + ".tmp", ports_path)
 s.serve_forever()
 PY
 
@@ -52,11 +55,17 @@ if [ "${1:-native}" = js ]; then
 else
   bend ca_check.bend -o "$dir/ca_check"
 fi
-python3 "$dir/server.py" "$dir/server.pem" "$dir/server.key" >"$dir/server.log" 2>&1 &
+python3 "$dir/server.py" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
-sleep 1
+i=0
+while [ ! -s "$dir/ports" ]; do
+  i=$((i + 1))
+  [ "$i" -le 100 ] || { cat "$dir/server.log" >&2; exit 1; }
+  sleep 0.1
+done
+read -r port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  bun "$dir/ca_check.js" "$dir/ca.pem"
+  bun "$dir/ca_check.js" "$dir/ca.pem" "https://localhost:$port/"
 else
-  "$dir/ca_check" "$dir/ca.pem"
+  "$dir/ca_check" "$dir/ca.pem" "https://localhost:$port/"
 fi

@@ -110,13 +110,29 @@ def finish(pair: Listener & Socket) -> IO(Unit):
     Listener.close(last)
     IO.print("live response safety: PASS")
 
+def serve(port: Maybe<&2, U32>) -> IO(Unit):
+  match port:
+    case None{}:
+      IO.die(Unit, 1, "usage: response_live <port>")
+    case Some{+p}:
+      do IO<Unit>:
+        +app : C.Application<U32, Unit, C.Policy<Unit>> <- ready(C.application(~U32, ~Unit, ~C.Policy<Unit>, [C.Route{"GET", "/", 0, [], C.policy(~Unit, 1, Nil{}, Nil{})}], [], Unit{}, C.policy(~Unit, 0, Nil{}, Nil{})))
+        listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", p))
+        IO.print("READY")
+        plain_done : Listener <- invalid(cases(), listener, app, False{})
+        next : Listener <- invalid(cases(), plain_done, app, True{})
+        a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(next)
+        pair : Listener & Socket <- accepted(a)
+        finish(pair)
+
+def port(args: List<&1, String>) -> Maybe<&2, U32>:
+  match args:
+    case Con{p, Nil{}}:
+      U32.read(p)
+    case _:
+      None{}
+
 def main() -> IO(Unit):
   do IO<Unit>:
-    +app : C.Application<U32, Unit, C.Policy<Unit>> <- ready(C.application(~U32, ~Unit, ~C.Policy<Unit>, [C.Route{"GET", "/", 0, [], C.policy(~Unit, 1, Nil{}, Nil{})}], [], Unit{}, C.policy(~Unit, 0, Nil{}, Nil{})))
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 18333))
-    IO.print("READY")
-    plain_done : Listener <- invalid(cases(), listener, app, False{})
-    next : Listener <- invalid(cases(), plain_done, app, True{})
-    a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(next)
-    pair : Listener & Socket <- accepted(a)
-    finish(pair)
+    args : List<&1, String> <- IO.args()
+    serve(port(List.tail(&1, String, args)))

@@ -289,19 +289,23 @@ def mtls.good.socket(+cert: String, +key: String, r: Result<&1, &1, U32 & String
         m : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.tls.connect.cert(s, "localhost", 5000, cert, key)
         mtls.good(m)
 
-def mtls.run(+cert: String, +key: String) -> IO(Unit):
-  do IO<Unit>:
-    r1 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
-    mtls.no.socket(r1)
-    r2 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
-    mtls.bad.socket(key, r2)
-    r3 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", 39444, 5000)
-    mtls.good.socket(cert, key, r3)
+def mtls.run(+cert: String, +key: String, port: Maybe<&2, U32>) -> IO(Unit):
+  match port:
+    case Some{+p}:
+      do IO<Unit>:
+        r1 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", p, 5000)
+        mtls.no.socket(r1)
+        r2 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", p, 5000)
+        mtls.bad.socket(key, r2)
+        r3 : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", p, 5000)
+        mtls.good.socket(cert, key, r3)
+    case None{}:
+      IO.die(Unit, 1, "mTLS check needs a numeric port")
 
 def mtls.args(args: List<&1, String>) -> IO(Unit):
   match args:
-    case Con{cert, Con{key, Nil{}}}:
-      mtls.run(cert, key)
+    case Con{cert, Con{key, Con{port, Nil{}}}}:
+      mtls.run(cert, key, U32.read(port))
     case _:
       alpn.host("nghttp2.org")
 def main() -> IO(Unit):
