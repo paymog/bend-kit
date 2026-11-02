@@ -2,7 +2,7 @@
 import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
-import bend-kit-wire@0.4.7.0/wire.bend as Wire
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 import bend-kit-http2@0.4.0.0/http2.bend as H2
 import bend-kit-http2@0.4.0.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.3.0/bytes.bend as HBytes
