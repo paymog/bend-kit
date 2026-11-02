@@ -157,7 +157,7 @@ def apply(moves, ver, pkgs):
 def allow(before, pkgs):
     """Keep pins.allow lines that an import uses; add one for each import of a version that is not the sibling's VERSION."""
     users = {}
-    for f in (f for p in pkgs for f in (ROOT / p).rglob("*.bend")):
+    for f in (f for p in pkgs for f in (ROOT / p).rglob("*.bend") if "evidence" not in f.parts):
         for t in TARGET.findall(f.read_text()):
             users.setdefault(t, []).append(f.relative_to(ROOT))
     path = ROOT / "scripts/pins.allow"
@@ -168,8 +168,7 @@ def allow(before, pkgs):
         q, _, v = t.removeprefix("bend-kit-").partition("@")
         if t in have or q not in before or v == before[q]:
             continue
-        why = "recorded evidence keeps its pins" if all("evidence" in u.parts for u in users[t]) else f"importers re-pin to bend-kit-{q}@{before[q]} in a later wave"
-        kept.append(f"{t}  # {why}")
+        kept.append(f"{t}  # importers re-pin to bend-kit-{q}@{before[q]} in a later wave")
     path.write_text("\n".join(kept) + "\n")
 
 
