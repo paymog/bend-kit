@@ -13,8 +13,8 @@ import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
 import bend-kit-json@0.7.0.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-dns@0.7.0.0/dns.bend as Dns
-import bend-kit-zlib@0.5.0.0/zlib.bend as Zlib
+import bend-kit-dns@0.7.1.0/dns.bend as Dns
+import bend-kit-zlib@0.5.1.0/zlib.bend as Zlib
 
 # HTTP/1.1 codec and client (RFC 9112) for http:// and https:// (OpenSSL 3 at run time).
 # parse: start-line → field lines → blank → body length (§6.3); chunked (§7.1).

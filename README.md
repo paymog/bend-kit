@@ -107,7 +107,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
 | [`dns`](dns) | `bend-kit-dns@0.7.1.0/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.8.0/wire.bend` | TCP, UDP, and TLS sockets. |
-| [`http`](http) | `bend-kit-http@0.38.3.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
+| [`http`](http) | `bend-kit-http@0.38.4.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.4.0.0/http2.bend` | RFC 9113 frames and an HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.14.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
@@ -154,8 +154,8 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.1/sqlite.bend` | Prepared statements through libsqlite3. |
-| [`postgres`](postgres) | `bend-kit-postgres@0.3.0.0/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
-| [`redis`](redis) | `bend-kit-redis@0.3.0.0/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
+| [`postgres`](postgres) | `bend-kit-postgres@0.3.1.0/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
+| [`redis`](redis) | `bend-kit-redis@0.3.1.0/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
 | [`llm`](llm) | `bend-kit-llm@0.13.0.1/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
 
 ### Applications
