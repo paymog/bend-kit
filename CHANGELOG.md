@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hairpin` 0.14.0.0: imports `retry` 0.3.0.0. `Hairpin.outcome` gives `Retry.Rejected` for a client error, so `runner` does not count a 4xx against the target's breaker. Hairpin's own breaker reads `Retry.failed` of the outcome. `outcome_rejected` proves it for a 404 and a 400. Breaking: `Retry` types come from 0.3.0.0, and `Hairpin.counts` is gone; call `Retry.failed(Hairpin.outcome(idem, verdict, now))`.
 - `zlib` 0.5.0.2: imports `bits` 0.1.0.1. `deflate`, `gzip`, and `zlib` return `Bytes` in the canonical layout, so `==` against `Bytes.from_string` of the same octets holds. `gzip_pinned` proves it.
 - `bits` 0.1.0.1: `Writer.new` starts at one word, so `Writer.finish` returns the fewest 2^d words that hold the bytes. `finish_is_canonical` proves it on a fixture.
 - `wire` 0.4.8.0: `listen` binds a TCP listener on a numeric IPv4 or IPv6 address and returns the bound port, so a check can listen on port 0 and connect to the port the OS picked.

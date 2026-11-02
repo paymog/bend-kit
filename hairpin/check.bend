@@ -1,6 +1,6 @@
 import Base
 import ./hairpin.bend as Hairpin
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.38.1.1/http.bend as Http
 import bend-kit-http@0.38.1.1/admission.bend as Admission
 import bend-kit-http@0.38.1.1/completion.bend as Completion
