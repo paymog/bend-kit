@@ -109,29 +109,29 @@ def stream.fail(+name: String, x: Hairpin.Client & Retry.Budget & Result<&1, &1,
 def judge.stream(r: Result<&1, &1, Http.Err, Http.Stream>) -> Result<&1, &1, Http.Err, Http.Stream> & Hairpin.Verdict:
   (r, Hairpin.VerdictOk{})
 
-def client(+ca: String) -> Hairpin.Client:
-  Hairpin.ca(Hairpin.base(Hairpin.new(), "https://localhost:39447/"), ca)
+def client(+base: String, +ca: String) -> Hairpin.Client:
+  Hairpin.ca(Hairpin.base(Hairpin.new(), base), ca)
 
 def open(c: Hairpin.Client, +url: String) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream>):
   Hairpin.open.as(~judge.stream, c, Retry.Budget.new(1n, 0n, None{}), True{}, "identity", "GET", url, Http.empty(), Bytes.new(0))
 
-def run(+ca: String) -> IO(Unit):
+def run(+ca: String, +base: String) -> IO(Unit):
   do IO<Unit>:
-    got : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(client(ca), "go")
+    got : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(client(base, ca), "go")
     res.ok("request with ca, through a redirect", got)
-    bare : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(client(""), "ok")
+    bare : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(client(base, ""), "ok")
     res.fail("request: default store rejects private CA", bare)
-    opened : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <- open(client(ca), "go")
+    opened : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <- open(client(base, ca), "go")
     stream.ok("stream with ca, through a redirect", opened)
-    plain : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <- open(client(""), "ok")
+    plain : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <- open(client(base, ""), "ok")
     stream.fail("stream: default store rejects private CA", plain)
 
 def main.args(args: List<&1, String>) -> IO(Unit):
   match args:
-    case Con{ca, Nil{}}:
-      run(ca)
+    case Con{ca, Con{base, Nil{}}}:
+      run(ca, base)
     case _:
-      die("ca_check needs a CA file path")
+      die("ca_check needs a CA file path and a base URL")
 
 def main() -> IO(Unit):
   do IO<Unit>:
