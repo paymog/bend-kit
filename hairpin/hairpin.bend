@@ -5,7 +5,7 @@ import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-json@0.7.0.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 
 # base: "" for none. headers: lowercase names. ms: the step timeout. policy: attempts, backoff, and deadline of each request.
 # ca: a PEM CA file to trust; "" trusts the default store.
@@ -166,25 +166,13 @@ type Verdict is Data:
   VerdictTarget{}
   VerdictAgain{after: String}
 
-# Ok and Caller do not count against the breaker; Target and Again do.
-def counts(v: Verdict) -> Bool:
-  match v:
-    case VerdictOk{}:
-      False{}
-    case VerdictCaller{}:
-      False{}
-    case VerdictTarget{}:
-      True{}
-    case VerdictAgain{after}:
-      True{}
-
-# Ok is Settled; Caller and Target are Failed. Again is Transient for an idempotent request, else Unsafe.
+# Ok is Settled, Caller is Rejected, and Target is Failed. Again is Transient for an idempotent request, else Unsafe.
 def outcome(+idem: Bool, v: Verdict, now: Time.Instant) -> Retry.Outcome:
   match v:
     case VerdictOk{}:
       Retry.Settled{}
     case VerdictCaller{}:
-      Retry.Failed{}
+      Retry.Rejected{}
     case VerdictTarget{}:
       Retry.Failed{}
     case VerdictAgain{+after}:
@@ -228,6 +216,8 @@ def transient(o: Retry.Outcome) -> Bool:
       False{}
     case Retry.Failed{}:
       False{}
+    case Retry.Rejected{}:
+      False{}
 
 def some(m: Maybe<&2, Nat>) -> Bool:
   match m:
@@ -250,7 +240,7 @@ def outcome.io(+idem: Bool, v: Verdict) -> IO(Retry.Outcome):
     case VerdictOk{}:
       IO.pure(Retry.Outcome, Retry.Settled{})
     case VerdictCaller{}:
-      IO.pure(Retry.Outcome, Retry.Failed{})
+      IO.pure(Retry.Outcome, Retry.Rejected{})
     case VerdictTarget{}:
       IO.pure(Retry.Outcome, Retry.Failed{})
 
@@ -264,25 +254,24 @@ def jitter.io(need: Bool) -> IO(Nat):
     case False{}:
       IO.pure(Nat, 0n)
 
-# hit: the breaker counts this attempt as a failure.
-def settle.at(-R: Type, +now: Nat, +rnd: Nat, +p: Retry.Policy, +n: Nat, hit: Bool, +o: Retry.Outcome, br: Retry.Breaker, +b: Retry.Budget,
+def settle.at(-R: Type, +now: Nat, +rnd: Nat, +p: Retry.Policy, +n: Nat, +o: Retry.Outcome, br: Retry.Breaker, +b: Retry.Budget,
     body: Bytes.Bytes, pool: Http.Pool, jar: Maybe<&2, Http.Jar>, r: Result<&1, &1, Http.Err, R>) -> Step<R>:
-  Step{pool, jar, Retry.Breaker.done(br, now, hit), b, body, Some{lift(R, r)}, Retry.plan(o, p, b, n, now, rnd)}
+  Step{pool, jar, Retry.Breaker.done(br, now, Retry.failed(o)), b, body, Some{lift(R, r)}, Retry.plan(o, p, b, n, now, rnd)}
 
 # The attempt has ended: tell the breaker, and plan the next step.
-def settle.outcome(-R: Type, +p: Retry.Policy, +n: Nat, hit: Bool, +o: Retry.Outcome, +br: Retry.Breaker, b: Retry.Budget, body: Bytes.Bytes,
+def settle.outcome(-R: Type, +p: Retry.Policy, +n: Nat, +o: Retry.Outcome, +br: Retry.Breaker, b: Retry.Budget, body: Bytes.Bytes,
     pool: Http.Pool, jar: Maybe<&2, Http.Jar>, r: Result<&1, &1, Http.Err, R>) -> IO(Step<R>):
   do IO<Step<R>>:
     now : Nat <- clock(Bool.or(breaker.on(br), transient(o)))
     rnd : Nat <- jitter.io(transient(o))
-    return settle.at(R, now, rnd, p, n, hit, o, br, b, body, pool, jar, r)
+    return settle.at(R, now, rnd, p, n, o, br, b, body, pool, jar, r)
 
 def settle.judged(-R: Type, +p: Retry.Policy, +idem: Bool, +n: Nat, br: Retry.Breaker, b: Retry.Budget, body: Bytes.Bytes,
     pool: Http.Pool, jar: Maybe<&2, Http.Jar>, j: Result<&1, &1, Http.Err, R> & Verdict) -> IO(Step<R>):
   (r, +v) = j
   do IO<Step<R>>:
     o : Retry.Outcome <- outcome.io(idem, v)
-    settle.outcome(R, p, n, counts(v), o, br, b, body, pool, jar, r)
+    settle.outcome(R, p, n, o, br, b, body, pool, jar, r)
 
 # A status that Http.retry.judge does not retry: below 400 is Ok, a 4xx is Caller, and the rest is Target.
 def judge.status(+s: U32) -> Verdict:
