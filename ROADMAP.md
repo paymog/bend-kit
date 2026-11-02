@@ -66,6 +66,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Logging (#35): `notch`
 - [ ] Big numbers: BigInt, BigDecimal, rationals (#36)
 - [x] F64: 64-bit floating point (#37). Soft-float on two `U32` halves until Base has `F64`.
+- [x] Packed F32 arrays (#610): `f32array`, with element-wise ops, `dot`, `sum`, `max`, and `Bytes` and file loading in either byte order.
 - [x] Protocol Buffers (#310): pure proto3 wire codec and typed Bend code generation through `protoc`.
 
 ### Tier 3
