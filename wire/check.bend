@@ -48,85 +48,76 @@ def alpn.host(+host: String) -> IO(Unit):
     m : Maybe<&2, String> <- Dns.resolve(host)
     alpn.got(host, m)
 
-# The shared test twin also declares these listener effects.
-def test.listen6(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
-  import "./effs/ipv6_test.c"
-  import "./effs/ipv6_test.js"
-
-def test.listen4(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
-  import "./effs/ipv6_test.c"
-  import "./effs/ipv6_test.js"
-
-def ipv6.got(m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+def tcp.got(+family: String, m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   match m:
     case (s, Fail{(+code, why)}):
-      IO.die(Unit, 1, "IPv6 recv: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Unit, 1, family ++ " recv: " ++ U32.show(code) ++ " " ++ why)
     case (s, Done{+data}):
       do IO<Unit>:
-        ok(String.eq(data, "ok"), "IPv6 round-trip", data)
+        ok(String.eq(data, "ok"), family ++ " round-trip", data)
         Socket.close(s)
 
-def ipv6.replied(client: Socket, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+def tcp.replied(+family: String, client: Socket, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   match m:
     case (s, Fail{(+code, why)}):
-      IO.die(Unit, 1, "IPv6 send: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Unit, 1, family ++ " send: " ++ U32.show(code) ++ " " ++ why)
     case (s, Done{u}):
       do IO<Unit>:
         Socket.close(s)
         reply : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(client, 8, 5000)
-        ipv6.got(reply)
+        tcp.got(family, reply)
 
-def ipv6.received(client: Socket, m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+def tcp.received(+family: String, client: Socket, m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   match m:
     case (s, Fail{(+code, why)}):
-      IO.die(Unit, 1, "IPv6 recv: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Unit, 1, family ++ " recv: " ++ U32.show(code) ++ " " ++ why)
     case (s, Done{+data}):
       do IO<Unit>:
-        ok(String.eq(data, "ping"), "IPv6 request", data)
+        ok(String.eq(data, "ping"), family ++ " request", data)
         sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send(s, "ok")
-        ipv6.replied(client, sent)
+        tcp.replied(family, client, sent)
 
-def ipv6.accepted(client: Socket, m: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+def tcp.accepted(+family: String, client: Socket, m: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
   match m:
     case (l, Fail{(+code, why)}):
-      IO.die(Unit, 1, "IPv6 accept: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Unit, 1, family ++ " accept: " ++ U32.show(code) ++ " " ++ why)
     case (l, Done{server}):
       do IO<Unit>:
         Listener.close(l)
         req : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(server, 8, 5000)
-        ipv6.received(client, req)
+        tcp.received(family, client, req)
 
-def ipv6.sent(l: Listener, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+def tcp.sent(+family: String, l: Listener, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   match m:
     case (s, Fail{(+code, why)}):
-      IO.die(Unit, 1, "IPv6 send: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Unit, 1, family ++ " send: " ++ U32.show(code) ++ " " ++ why)
     case (s, Done{u}):
       do IO<Unit>:
         accepted : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        ipv6.accepted(s, accepted)
+        tcp.accepted(family, s, accepted)
 
-def ipv6.connected(l: Listener, r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+def tcp.connected(+family: String, l: Listener, r: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
   match r:
     case Fail{(+code, why)}:
-      IO.die(Unit, 1, "IPv6 connect: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Unit, 1, family ++ " connect: " ++ U32.show(code) ++ " " ++ why)
     case Done{s}:
       do IO<Unit>:
         sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send(s, "ping")
-        ipv6.sent(l, sent)
+        tcp.sent(family, l, sent)
 
-def ipv6.listener(+host: String, r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
+def tcp.listener(+family: String, +host: String, r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
   match r:
     case Fail{(+code, why)}:
       IO.die(Unit, 1, "listen " ++ host ++ ": " ++ U32.show(code) ++ " " ++ why)
     case Done{(l, +port)}:
       do IO<Unit>:
         r : Result<&1, &1, U32 & String, Socket> <- Wire.connect(host, port, 5000)
-        ipv6.connected(l, r)
+        tcp.connected(family, l, r)
 
-def ipv6.check(+host: String) -> IO(Unit):
+def tcp.check(+family: String, +host: String) -> IO(Unit):
   do IO<Unit>:
     l : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen(host, 0)
-    ipv6.listener(host, l)
+    tcp.listener(family, host, l)
 
 def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
   import "./effs/ipv6_test.c"
@@ -306,8 +297,8 @@ def mtls.args(args: List<&1, String>) -> IO(Unit):
       alpn.host("nghttp2.org")
 def main() -> IO(Unit):
   do IO<Unit>:
-    ipv6.check("::1")
-    ipv6.check("127.0.0.1")
+    tcp.check("IPv6", "::1")
+    tcp.check("IPv4", "127.0.0.1")
     udp6.check()
     idle.check()
     args : List<&1, String> <- IO.args()

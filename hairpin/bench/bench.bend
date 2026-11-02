@@ -2,7 +2,7 @@
 # Then 1000 GETs of a flaky URL with 2 retries and a closed circuit breaker: each answers 503, then 200.
 import Base
 import ../hairpin.bend as Hairpin
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.38.1.1/http.bend as Http
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes

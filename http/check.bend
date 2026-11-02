@@ -8,7 +8,7 @@ import bend-kit-http2@0.4.0.0/hpack.bend as Hpack
 import bend-kit-http2@0.4.0.0/http2.bend as H2
 import bend-kit-bytes@0.3.3.0/bytes.bend as HBytes
 import bend-kit-time@0.3.0.0/time.bend as Time
-import bend-kit-wire@0.4.7.0/wire.bend as Wire
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 
 def show_req(req: Http.Req) -> IO(Unit):
@@ -85,19 +85,6 @@ def pool.test(lp: Listener & U32) -> IO(Unit):
     pool.run(port, Http.pool.new.with(1), "ynn")
     Listener.close(l)
 
-def test.listen6(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
-  import "../wire/effs/ipv6_test.c"
-  import "../wire/effs/ipv6_test.js"
-
-# The shared test twin also declares this UDP effect.
-def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
-  import "../wire/effs/ipv6_test.c"
-  import "../wire/effs/ipv6_test.js"
-
-def test.listen4(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
-  import "../wire/effs/ipv6_test.c"
-  import "../wire/effs/ipv6_test.js"
-
 def local.bound(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Listener & U32):
   match r:
     case Fail{(+code, why)}:
@@ -108,7 +95,7 @@ def local.bound(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Listener 
 # A loopback listener on a port the OS picks, so a busy fixed port cannot fail the check.
 def local.listen() -> IO(Listener & U32):
   do IO<Listener & U32>:
-    r : Result<&1, &1, U32 & String, Listener & U32> <- test.listen4(0)
+    r : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen("127.0.0.1", 0)
     local.bound(r)
 
 def local.reply(operation: IO(Http.Res)) -> IO(Http.Reply):
@@ -1181,7 +1168,7 @@ def main() -> IO(Unit):
     h2.check()
     pl : Listener & U32 <- local.listen()
     pool.test(pl)
-    r : Result<&1, &1, U32 & String, Listener & U32> <- test.listen6(0)
+    r : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen("::1", 0)
     local.ipv6(r)
     fl : Listener & U32 <- local.listen()
     local.fallback(fl)
