@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.1.0.0: new package. An immutable content-addressed store for artifact trees: objects named by the SHA-256 of a canonical encoding, a store on disk, `sync` between two stores, ingress that checks each object against its digest, and collection from a frozen set of retained roots. Proved for every store and tree: a committed tree loads back from its root; a load from a valid store hashes back to its root; a plan exists exactly when the source can load the root, and applying it lets the destination load the root as the source does; a repeated transfer leaves the store unchanged; collection keeps every retained root loading; and ingress keeps a valid store valid and refuses a tampered object.
 - `zlib` 0.5.0.2: imports `bits` 0.1.0.1. `deflate`, `gzip`, and `zlib` return `Bytes` in the canonical layout, so `==` against `Bytes.from_string` of the same octets holds. `gzip_pinned` proves it.
 - `bits` 0.1.0.1: `Writer.new` starts at one word, so `Writer.finish` returns the fewest 2^d words that hold the bytes. `finish_is_canonical` proves it on a fixture.
 - `wire` 0.4.8.0: `listen` binds a TCP listener on a numeric IPv4 or IPv6 address and returns the bound port, so a check can listen on port 0 and connect to the port the OS picked.
