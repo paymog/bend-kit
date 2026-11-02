@@ -7,7 +7,6 @@ import bend-kit-http@0.38.1.1/admission.bend as Admission
 import bend-kit-http@0.38.1.1/completion.bend as Completion
 import bend-kit-json@0.7.0.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 # The laws run in the checker. This runs the parser on the runtime at sizes the checker would not reach.
 
@@ -107,19 +106,10 @@ def serve(ks: List<&2, Bool>, l: Listener) -> IO(Unit):
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     serve.go(ks, inbox, l)
 
-def url(+port: U32) -> String:
-  "http://127.0.0.1:" ++ U32.show(port)
-
-def listen.on(ks: List<&2, Bool>, b: Listener & U32) -> IO(Chan(Unit) & U32):
-  (l, +port) = b
-  do IO<Chan(Unit) & U32>:
-    ch : Chan(Unit) <- IO.fork(Unit, serve(ks, l))
-    return (ch, port)
-
-def listen(ks: List<&2, Bool>) -> IO(Chan(Unit) & U32):
-  do IO<Chan(Unit) & U32>:
-    b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
-    listen.on(ks, b)
+def listen(+port: U32, ks: List<&2, Bool>) -> IO(Chan(Unit)):
+  do IO<Chan(Unit)>:
+    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
+    IO.fork(Unit, serve(ks, l))
 
 def got.r(r: Result<&1, &1, Llm.Err, Json.Val>) -> IO(Unit):
   match r:
@@ -142,18 +132,13 @@ def served(+n: String, m: Maybe<&1, Unit>) -> IO(Unit):
       IO.print("ok " ++ n ++ " attempts arrived, and no more")
 
 # The POST retries as llm judges, through Hairpin: 529 is not one of Hairpin's own retry statuses.
-def overloaded.on(x: Chan(Unit) & U32) -> IO(Unit):
-  (ch, +port) = x
-  do IO<Unit>:
-    y : Llm.Client & Result<&1, &1, Llm.Err, Json.Val> <- Llm.send.raw(Llm.base(Llm.anthropic("k"), url(port)), Json.Flag{True{}})
-    got(y)
-    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
-    served("3", m)
-
 def overloaded() -> IO(Unit):
   do IO<Unit>:
-    x : Chan(Unit) & U32 <- listen([False{}, False{}, True{}])
-    overloaded.on(x)
+    ch : Chan(Unit) <- listen(47853, [False{}, False{}, True{}])
+    x : Llm.Client & Result<&1, &1, Llm.Err, Json.Val> <- Llm.send.raw(Llm.base(Llm.anthropic("k"), "http://127.0.0.1:47853"), Json.Flag{True{}})
+    got(x)
+    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
+    served("3", m)
 
 def opened.r(c: Llm.Client, r: Result<&1, &1, Llm.Err, Llm.Stream>) -> IO(Unit):
   match r:
@@ -195,30 +180,19 @@ def refused(x: Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream>) -> IO(Unit):
     Llm.close(c)
     refused.r(r)
 
-# A stream open retries a 529 through Hairpin as call does.
-def overloaded.stream.on(x: Chan(Unit) & U32) -> IO(Unit):
-  (ch, +port) = x
-  do IO<Unit>:
-    y : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(Llm.base(Llm.anthropic("k"), url(port)), Json.Flag{True{}})
-    opened(y)
-    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
-    served("3", m)
-
-# One retry is a budget of 2: the second 529 is the answer.
-def overloaded.spent.on(x: Chan(Unit) & U32) -> IO(Unit):
-  (ch, +port) = x
-  do IO<Unit>:
-    y : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(Llm.retry(Llm.base(Llm.anthropic("k"), url(port)), 1), Json.Flag{True{}})
-    refused(y)
-    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
-    served("2", m)
-
+# A stream open retries a 529 through Hairpin as call does. One retry is a budget of 2: the second 529 is the answer.
 def overloaded.stream() -> IO(Unit):
   do IO<Unit>:
-    x : Chan(Unit) & U32 <- listen([False{}, False{}, True{}])
-    overloaded.stream.on(x)
-    y : Chan(Unit) & U32 <- listen([False{}, False{}])
-    overloaded.spent.on(y)
+    ch : Chan(Unit) <- listen(47854, [False{}, False{}, True{}])
+    x : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(Llm.base(Llm.anthropic("k"), "http://127.0.0.1:47854"), Json.Flag{True{}})
+    opened(x)
+    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
+    served("3", m)
+    ch2 : Chan(Unit) <- listen(47855, [False{}, False{}])
+    y : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(Llm.retry(Llm.base(Llm.anthropic("k"), "http://127.0.0.1:47855"), 1), Json.Flag{True{}})
+    refused(y)
+    m2 : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch2))
+    served("2", m2)
 
 def sse.reply(req: Http.Req) -> IO(Http.Reply):
   wrap(IO.pure(Http.Res, Http.Res{200, Http.set(Http.empty(), "content-type", "text/event-stream"), Bytes.from_string("data: a\n\ndata: b\n\n")}))
@@ -297,31 +271,26 @@ def pool.idle(pm: Http.Pool & Maybe<&1, Http.Conn>) -> IO(Unit):
         Http.pool.close(p)
         IO.die(Unit, 1, "fail pooled llm stream: a stream closed early gave its connection back")
 
-def pool.left(+port: U32, c: Llm.Client) -> IO(Unit):
+def pool.left(c: Llm.Client) -> IO(Unit):
   Llm.Client{api, b, h, ms, n, hc} = c
   Hairpin.Client{o, p, j, br} = hc
-  pool.idle(Http.pool.take(p, Http.pool.key("http", "127.0.0.1", port)))
+  pool.idle(Http.pool.take(p, Http.pool.key("http", "127.0.0.1", 47856)))
 
 # The server takes one connection, so the second and third streams must reuse it.
-def pooled.stream.on(b: Listener & U32) -> IO(Unit):
-  (l, +port) = b
-  do IO<Unit>:
-    ch : Chan(Unit) <- IO.fork(Unit, sse.serve(l))
-    a : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <-
-      Llm.stream.raw(Llm.retry(Llm.base(Llm.anthropic("k"), url(port)), 0), Json.Flag{True{}})
-    c1 : Llm.Client <- pool.got("pooled llm stream: first read to the end", a)
-    b2 : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(c1, Json.Flag{True{}})
-    c2 : Llm.Client <- pool.got("pooled llm stream: second on the same connection", b2)
-    d : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(c2, Json.Flag{True{}})
-    c3 : Llm.Client <- pool.early(d)
-    pool.left(port, c3)
-    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
-    served("1", m)
-
 def pooled.stream() -> IO(Unit):
   do IO<Unit>:
-    b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
-    pooled.stream.on(b)
+    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47856))
+    ch : Chan(Unit) <- IO.fork(Unit, sse.serve(l))
+    a : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <-
+      Llm.stream.raw(Llm.retry(Llm.base(Llm.anthropic("k"), "http://127.0.0.1:47856"), 0), Json.Flag{True{}})
+    c1 : Llm.Client <- pool.got("pooled llm stream: first read to the end", a)
+    b : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(c1, Json.Flag{True{}})
+    c2 : Llm.Client <- pool.got("pooled llm stream: second on the same connection", b)
+    d : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(c2, Json.Flag{True{}})
+    c3 : Llm.Client <- pool.early(d)
+    pool.left(c3)
+    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
+    served("1", m)
 
 def main() -> IO(Unit):
   do IO<Unit>:
