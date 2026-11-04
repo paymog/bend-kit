@@ -833,6 +833,19 @@ def asks.idle(+dir: String) -> IO(Unit):
     same(counts(ys, ["answered 1", "late", "end ok:n"]), "answered 1=1 late=0 end ok:n=1 ", "an ask during the idle wait answers within 500 ms")
     same(last(ys, ""), "end ok:d", "the asked job ends before the job due later")
 
+# Idle 1 s, and one job due in 100 ms. The drain starts it near its deadline, not after the whole idle wait.
+def asks.due(+dir: String) -> IO(Unit):
+  +path = dir ++ "/due.journal"
+  +log = dir ++ "/due.log"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- IO.try(R.Runner<String>, R.open(~String, ~penc, ~pdec, path, 4096, 1048576, config.idle(), 2n))
+    +t0 : Nat <- R.clock()
+    r1 : R.Runner<String> <- enq(r0, Nat.add(t0, 100n), log ++ "|ok:d")
+    r2 : R.Runner<String> <- drain(r1)
+    t1 : Nat <- R.clock()
+    closed("next=1 pending=0 running=0 tries=0 fails=0 dead=0", "a job due before idle ends runs", view(r2))
+    same(Bool.pick(String, Nat.is_lt(Nat.sub(t1, t0), 600n), "early", "late"), "early", "the drain starts a job due in 100 ms well before idle ends")
+
 def all(+dir: String) -> IO(Unit):
   do IO<Unit>:
     durable(dir)
@@ -847,6 +860,7 @@ def all(+dir: String) -> IO(Unit):
     asks.cancel(dir)
     asks.close(dir)
     asks.idle(dir)
+    asks.due(dir)
     compaction(dir)
     compaction.auto(dir)
     crash.snapshot(dir)
