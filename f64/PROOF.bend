@@ -52,3 +52,42 @@ def Laws.from_u32():
 
 def Laws.is_subnormal():
   {==}
+
+def Laws.show_one():
+  {==}
+
+def Laws.show_tenth():
+  {==}
+
+def Laws.show_big():
+  {==}
+
+def Laws.show_sci():
+  {==}
+
+def Laws.show_min_subnormal():
+  {==}
+
+def Laws.show_neg_zero():
+  {==}
+
+def Laws.read_tenth():
+  {==}
+
+def Laws.read_tie():
+  {==}
+
+def Laws.read_neg_exp():
+  {==}
+
+def Laws.read_overflow():
+  {==}
+
+def Laws.read_inf():
+  {==}
+
+def Laws.read_no_digits():
+  {==}
+
+def Laws.read_no_exp_digits():
+  {==}

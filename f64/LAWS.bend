@@ -59,3 +59,43 @@ law from_u32:
 
 law is_subnormal:
   {F.F64.is_subnormal(bits(0, 1)) == True{} : Bool}
+
+law show_one:
+  {F.F64.show(one()) == "1.0" : String}
+
+law show_tenth:
+  {F.F64.show(bits(1069128089, 2576980378)) == "0.1" : String}
+
+law show_big:
+  {F.F64.show(bits(1128267776, 0)) == "9007199254740992.0" : String}
+
+law show_sci:
+  {F.F64.show(bits(1128383353, 937459712)) == "1e+16" : String}
+
+law show_min_subnormal:
+  {F.F64.show(bits(0, 1)) == "5e-324" : String}
+
+law show_neg_zero:
+  {F.F64.show(bits(2147483648, 0)) == "-0.0" : String}
+
+law read_tenth:
+  {F.F64.read("0.1") == Some{bits(1069128089, 2576980378)} : Maybe<&2, F.F64>}
+
+# 2^53 + 1 is a tie. 2^53 is even, so it wins.
+law read_tie:
+  {F.F64.read("9007199254740993") == Some{bits(1128267776, 0)} : Maybe<&2, F.F64>}
+
+law read_neg_exp:
+  {F.F64.read("-2.5E-3") == Some{bits(3211033313, 1202590843)} : Maybe<&2, F.F64>}
+
+law read_overflow:
+  {F.F64.read("1.7976931348623159e308") == Some{F.F64.inf()} : Maybe<&2, F.F64>}
+
+law read_inf:
+  {F.F64.read("-Infinity") == Some{F.F64.neg(F.F64.inf())} : Maybe<&2, F.F64>}
+
+law read_no_digits:
+  {F.F64.read(".e5") == None{} : Maybe<&2, F.F64>}
+
+law read_no_exp_digits:
+  {F.F64.read("1e+") == None{} : Maybe<&2, F.F64>}
