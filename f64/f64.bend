@@ -1120,3 +1120,550 @@ def F64.zero() -> F64:
 
 def F64.inf() -> F64:
   F64{2146435072, 0}
+
+# A match cannot scrutinize a computed Bool, so each branch is a closure.
+def Txt.if(-A: Type, c: Bool, t: Unit -> A, e: Unit -> A) -> A:
+  match c:
+    case True{}:
+      t(Unit{})
+    case False{}:
+      e(Unit{})
+
+# A Big is a natural number in base-2^16 limbs, least significant first, with no zero limb on top.
+def Big.lone(z: Bool, x: U32) -> List<&2, U32>:
+  match z:
+    case True{}:
+      Nil{}
+    case False{}:
+      Con{x, Nil{}}
+
+def Big.cons(+x: U32, r: List<&2, U32>) -> List<&2, U32>:
+  match r:
+    case Nil{}:
+      Big.lone(U32.is_zero(x), x)
+    case s:
+      Con{x, s}
+
+def Big.norm(xs: List<&2, U32>) -> List<&2, U32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{x, t}:
+      Big.cons(x, Big.norm(t))
+
+# a * m + c for m at most 2^16 and c below 2^16.
+def Big.mul1(a: List<&2, U32>, +m: U32, +c: U32) -> List<&2, U32>:
+  match a:
+    case Nil{}:
+      Big.lone(U32.is_zero(c), c)
+    case Con{x, xs}:
+      +t = (x * m + c : U32)
+      Con{(t .&. 65535 : U32), Big.mul1(xs, m, (t >> 16n : U32))}
+
+def Big.inc(a: List<&2, U32>, z: Bool, +c: U32) -> List<&2, U32>:
+  match a z:
+    case s True{}:
+      s
+    case Nil{} False{}:
+      Con{c, Nil{}}
+    case Con{x, xs} False{}:
+      +t = (x + c : U32)
+      +k = (t >> 16n : U32)
+      Con{(t .&. 65535 : U32), Big.inc(xs, U32.is_zero(k), k)}
+
+def Big.add(a: List<&2, U32>, b: List<&2, U32>, +c: U32) -> List<&2, U32>:
+  match a b:
+    case Con{x, xs} Con{y, ys}:
+      +t = (x + y + c : U32)
+      Con{(t .&. 65535 : U32), Big.add(xs, ys, (t >> 16n : U32))}
+    case Nil{} s:
+      Big.inc(s, U32.is_zero(c), c)
+    case s Nil{}:
+      Big.inc(s, U32.is_zero(c), c)
+
+def Big.dec(a: List<&2, U32>, z: Bool, +w: U32) -> List<&2, U32>:
+  match a z:
+    case s True{}:
+      s
+    case Nil{} False{}:
+      Nil{}
+    case Con{x, xs} False{}:
+      +t = (x + 65536 - w : U32)
+      +k = (1 - (t >> 16n) : U32)
+      Con{(t .&. 65535 : U32), Big.dec(xs, U32.is_zero(k), k)}
+
+# a - b - w for a >= b + w. Callers norm the result.
+def Big.sub(a: List<&2, U32>, b: List<&2, U32>, +w: U32) -> List<&2, U32>:
+  match a b:
+    case Con{x, xs} Con{y, ys}:
+      +t = (x + 65536 - y - w : U32)
+      Con{(t .&. 65535 : U32), Big.sub(xs, ys, (1 - (t >> 16n) : U32))}
+    case s Nil{}:
+      Big.dec(s, U32.is_zero(w), w)
+    case Nil{} s:
+      Nil{}
+
+def Big.then(hi: Cmp, lo: Cmp) -> Cmp:
+  match hi:
+    case EQ{}:
+      lo
+    case LT{}:
+      LT{}
+    case GT{}:
+      GT{}
+
+def Big.cmp(a: List<&2, U32>, b: List<&2, U32>) -> Cmp:
+  match a b:
+    case Con{x, xs} Con{y, ys}:
+      Big.then(Big.cmp(xs, ys), U32.cmp(x, y))
+    case Nil{} Nil{}:
+      EQ{}
+    case Nil{} Con{y, ys}:
+      LT{}
+    case Con{x, xs} Nil{}:
+      GT{}
+
+def Big.zeros(n: Nat, xs: List<&2, U32>) -> List<&2, U32>:
+  match n:
+    case 0n:
+      xs
+    case 1n+p:
+      Con{0, Big.zeros(p, xs)}
+
+def Big.shl(xs: List<&2, U32>, +k: U32) -> List<&2, U32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case s:
+      Big.zeros(U32.to_nat((k >> 4n : U32)), Big.mul1(s, (1 << U32.to_nat((k .&. 15 : U32)) : U32), 0))
+
+def Big.top(xs: List<&2, U32>) -> U32:
+  Maybe.default(&2, U32, List.last(&2, U32, xs), 0)
+
+# The bit length of a nonzero Big.
+def Big.bits(+xs: List<&2, U32>) -> U32:
+  (U32.from_nat(List.length(&2, U32, xs)) * 16 + 16 - clz(Big.top(xs)) : U32)
+
+def Big.times(n: Nat, +m: U32, a: List<&2, U32>) -> List<&2, U32>:
+  match n:
+    case 0n:
+      a
+    case 1n+p:
+      Big.times(p, m, Big.mul1(a, m, 0))
+
+def Big.any(xs: List<&2, U32>) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{x, t}:
+      Bool.or(Bool.not(U32.is_zero(x)), Big.any(t))
+
+# The low 128 bits as a W4.
+def Big.w4(xs: List<&2, U32>) -> W4:
+  match xs:
+    case Nil{}:
+      W4{0, 0, 0, 0}
+    case Con{x, t}:
+      W4.add(W4.shl(Big.w4(t), 16), W4{0, 0, 0, x})
+
+# (q + t / s, t % s) for t < 10 s, by repeated subtraction.
+def Big.digit(f: Nat, ge: Bool, +q: U32, +t: List<&2, U32>, +s: List<&2, U32>) -> U32 & List<&2, U32>:
+  match f:
+    case 0n:
+      (q, t)
+    case 1n+g:
+      match ge:
+        case False{}:
+          (q, t)
+        case True{}:
+          +t2 = Big.norm(Big.sub(t, s, 0))
+          Big.digit(g, Cmp.is_ge(Big.cmp(t2, s)), (q + 1 : U32), t2, s)
+
+# Decimal text: d is the digits as one integer, nd counts digits from the first nonzero one,
+# frac counts digits after the point, and seen counts all digits.
+type Dec is Data:
+  Dec{d: List<&2, U32>, nd: U32, frac: U32, seen: U32}
+
+type Ex is Data:
+  Ex{rest: String, n: U32, any: Bool}
+
+def Rd.is_digit(+c: U32) -> Bool:
+  Bool.and(U32.is_ge(c, 48), U32.is_le(c, 57))
+
+def Dec.push(infrac: Bool, +v: U32, acc: Dec) -> Dec:
+  match acc:
+    case Dec{d, +nd, frac, seen}:
+      Dec{Big.mul1(d, 10, v), (nd + u01(Bool.not(Bool.and(U32.is_zero(nd), U32.is_zero(v)))) : U32), (frac + u01(infrac) : U32), (seen + 1 : U32)}
+
+def Rd.digits(s: String, +infrac: Bool, +acc: Dec) -> String & Dec:
+  match s:
+    case SNil{}:
+      (SNil{}, acc)
+    case SCon{Chr{+c}, +t}:
+      Txt.if(String & Dec, Rd.is_digit(c),
+        u => Rd.digits(t, infrac, Dec.push(infrac, (c - 48 : U32), acc)),
+        u => (SCon{Chr{c}, t}, acc))
+
+# The exponent saturates at 999999, far past any finite double.
+def Rd.expo(s: String, +n: U32, +any: Bool) -> Ex:
+  match s:
+    case SNil{}:
+      Ex{SNil{}, n, any}
+    case SCon{Chr{+c}, +t}:
+      Txt.if(Ex, Rd.is_digit(c),
+        u => Rd.expo(t, U32.min((n * 10 + c - 48 : U32), 999999), True{}),
+        u => Ex{SCon{Chr{c}, t}, n, any})
+
+def Rd.lower(s: String) -> String:
+  match s:
+    case SNil{}:
+      SNil{}
+    case SCon{Chr{c}, t}:
+      SCon{Chr{(c .|. 32 : U32)}, Rd.lower(t)}
+
+def Rd.empty(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{c, t}:
+      False{}
+
+# value = d * 2^e for a nonzero d; only the top 8 limbs reach the rounding.
+def Rd.pos.cut(sign: U32, +n: List<&2, U32>, +e: U32, +dr: U32) -> F64:
+  under(sign, (e + dr * 16 + 5235 : U32), Big.w4(List.drop(&2, U32, n, U32.to_nat(dr))), Big.any(List.take(&2, U32, n, U32.to_nat(dr))))
+
+def Rd.pos(sign: U32, +n: List<&2, U32>, e: U32) -> F64:
+  +len = U32.from_nat(List.length(&2, U32, n))
+  Rd.pos.cut(sign, n, e, (len - U32.min(len, 8) : U32))
+
+# Restoring division with u = r * 2^i against vv = v * 2^67: 68 quotient bits, then the sticky remainder.
+def Div.go(f: Nat, +vv: List<&2, U32>, +u: List<&2, U32>, +q: W4) -> W4 & Bool:
+  match f:
+    case 0n:
+      (q, Big.any(u))
+    case 1n+p:
+      +g = p
+      Txt.if(W4 & Bool, Cmp.is_ge(Big.cmp(u, vv)),
+        e => Div.go(g, vv, Big.mul1(Big.norm(Big.sub(u, vv, 0)), 2, 0), W4.set0(W4.shl1(q))),
+        e => Div.go(g, vv, Big.mul1(u, 2, 0), W4.shl1(q)))
+
+def Rd.div.q(sign: U32, x: U32, r: W4 & Bool) -> F64:
+  (q, sticky) = r
+  under(sign, x, q, sticky)
+
+def Rd.div(sign: U32, x: U32, num: List<&2, U32>, den: List<&2, U32>) -> F64:
+  Rd.div.q(sign, x, Div.go(68n, Big.shl(den, 67), num, W4{0, 0, 0, 0}))
+
+# value = d / s * 2^-m with s = 5^m. Shift one side so num has 66 more bits than den;
+# the quotient then has 65 to 67 bits.
+def Rd.neg.go(+sign: U32, +d: List<&2, U32>, +s: List<&2, U32>, +m: U32, +bd: U32, +bs: U32) -> F64:
+  Txt.if(F64, U32.is_ge((bs + 66 : U32), bd),
+    u => Rd.div(sign, (5169 + bd - m - bs : U32), Big.shl(d, (bs + 66 - bd : U32)), s),
+    u => Rd.div(sign, (5169 + bd - m - bs : U32), d, Big.shl(s, (bd - bs - 66 : U32))))
+
+def Rd.neg.s(sign: U32, +d: List<&2, U32>, +s: List<&2, U32>, m: U32) -> F64:
+  Rd.neg.go(sign, d, s, m, Big.bits(d), Big.bits(s))
+
+def Rd.neg(sign: U32, d: List<&2, U32>, +m: U32) -> F64:
+  Rd.neg.s(sign, d, Big.times(U32.to_nat(m), 5, Con{1, Nil{}}), m)
+
+# eb is the decimal exponent plus 2^30. A value under 10^-324 reads as zero, and one at or over 10^310 as infinity.
+def Rd.value(+sign: U32, +d: List<&2, U32>, nd: U32, +eb: U32) -> F64:
+  +t = (nd + eb : U32)
+  Txt.if(F64, Bool.not(Big.any(d)), u => F64.zero.sign(sign),
+    u => Txt.if(F64, U32.is_lt(t, 1073741500), u => F64.zero.sign(sign),
+      u => Txt.if(F64, U32.is_gt(t, 1073742134), u => F64.inf.sign(sign),
+        u => Txt.if(F64, U32.is_ge(eb, 1073741824),
+          u => Rd.pos(sign, Big.times(U32.to_nat((eb - 1073741824 : U32)), 5, d), (eb - 1073741824 : U32)),
+          u => Rd.neg(sign, d, (1073741824 - eb : U32))))))
+
+def Rd.done.eb(neg: Bool, +n: U32, +frac: U32) -> U32:
+  match neg:
+    case True{}:
+      (1073741824 - n - frac : U32)
+    case False{}:
+      (1073741824 + n - frac : U32)
+
+def Rd.done(sign: U32, a: Dec, neg: Bool, n: U32) -> Maybe<&2, F64>:
+  match a:
+    case Dec{d, nd, frac, +seen}:
+      Txt.if(Maybe<&2, F64>, U32.is_zero(seen), u => None{},
+        u => Some{Rd.value(sign, d, nd, Rd.done.eb(neg, n, frac))})
+
+def Rd.eend(sign: U32, a: Dec, neg: Bool, ex: Ex) -> Maybe<&2, F64>:
+  match ex:
+    case Ex{rest, n, any}:
+      Txt.if(Maybe<&2, F64>, Bool.and(any, Rd.empty(rest)), u => Rd.done(sign, a, neg, n), u => None{})
+
+def Rd.esign(+sign: U32, +a: Dec, s: String) -> Maybe<&2, F64>:
+  match s:
+    case SNil{}:
+      None{}
+    case SCon{Chr{+c}, +t}:
+      Txt.if(Maybe<&2, F64>, U32.is_eq(c, 45), u => Rd.eend(sign, a, True{}, Rd.expo(t, 0, False{})),
+        u => Txt.if(Maybe<&2, F64>, U32.is_eq(c, 43), u => Rd.eend(sign, a, False{}, Rd.expo(t, 0, False{})),
+          u => Rd.eend(sign, a, False{}, Rd.expo(SCon{Chr{c}, t}, 0, False{}))))
+
+def Rd.exp(sign: U32, r: String, a: Dec) -> Maybe<&2, F64>:
+  match r:
+    case SNil{}:
+      Rd.done(sign, a, False{}, 0)
+    case SCon{Chr{c}, t}:
+      Txt.if(Maybe<&2, F64>, U32.is_eq((c .|. 32 : U32), 101), u => Rd.esign(sign, a, t), u => None{})
+
+def Rd.frac(sign: U32, p: String & Dec) -> Maybe<&2, F64>:
+  (r, a) = p
+  Rd.exp(sign, r, a)
+
+def Rd.dot(+sign: U32, p: String & Dec) -> Maybe<&2, F64>:
+  (r, +a) = p
+  match r:
+    case SNil{}:
+      Rd.done(sign, a, False{}, 0)
+    case SCon{Chr{+c}, +t}:
+      Txt.if(Maybe<&2, F64>, U32.is_eq(c, 46), u => Rd.frac(sign, Rd.digits(t, True{}, a)),
+        u => Rd.exp(sign, SCon{Chr{c}, t}, a))
+
+def Rd.body(+sign: U32, +s: String) -> Maybe<&2, F64>:
+  +w = Rd.lower(s)
+  Txt.if(Maybe<&2, F64>, Bool.or(String.eq(w, "inf"), String.eq(w, "infinity")), u => Some{F64.inf.sign(sign)},
+    u => Txt.if(Maybe<&2, F64>, String.eq(w, "nan"), u => Some{F64.nan()},
+      u => Rd.dot(sign, Rd.digits(s, False{}, Dec{Nil{}, 0, 0, 0}))))
+
+# Decimal text to the nearest double, ties to even: [+-]digits[.digits][(e|E)[+-]digits],
+# with digits on at least one side of the point, or inf, infinity, or nan in any case.
+def F64.read(s: String) -> Maybe<&2, F64>:
+  match s:
+    case SNil{}:
+      None{}
+    case SCon{Chr{+c}, +t}:
+      Txt.if(Maybe<&2, F64>, U32.is_eq(c, 45), u => Rd.body(1, t),
+        u => Txt.if(Maybe<&2, F64>, U32.is_eq(c, 43), u => Rd.body(0, t), u => Rd.body(0, SCon{Chr{c}, t})))
+
+# Burger and Dybvig's free-format digits: v = r / s, and the neighbours of v sit at (r - mm) / s and (r + mp) / s.
+type St is Data:
+  St{r: List<&2, U32>, s: List<&2, U32>, mp: List<&2, U32>, mm: List<&2, U32>}
+
+type Dig is Data:
+  More{d: U32, st: St}
+  Last{d: U32}
+
+# An even mantissa reads back from either bound, so the bounds count.
+def Sh.high(even: Bool, r: List<&2, U32>, mp: List<&2, U32>, s: List<&2, U32>) -> Bool:
+  match even:
+    case True{}:
+      Cmp.is_ge(Big.cmp(Big.add(r, mp, 0), s))
+    case False{}:
+      Cmp.is_gt(Big.cmp(Big.add(r, mp, 0), s))
+
+def Sh.low(even: Bool, r: List<&2, U32>, mm: List<&2, U32>) -> Bool:
+  match even:
+    case True{}:
+      Cmp.is_le(Big.cmp(r, mm))
+    case False{}:
+      Cmp.is_lt(Big.cmp(r, mm))
+
+# A tie rounds to the even digit.
+def Sh.near(c: Cmp, +d: U32) -> U32:
+  match c:
+    case LT{}:
+      d
+    case GT{}:
+      (d + 1 : U32)
+    case EQ{}:
+      (d + (d .&. 1) : U32)
+
+def Sh.pick(tc1: Bool, tc2: Bool, +d: U32, +r: List<&2, U32>, +s: List<&2, U32>, mp: List<&2, U32>, mm: List<&2, U32>) -> Dig:
+  match tc1:
+    case False{}:
+      match tc2:
+        case False{}:
+          More{d, St{r, s, mp, mm}}
+        case True{}:
+          Last{(d + 1 : U32)}
+    case True{}:
+      match tc2:
+        case False{}:
+          Last{d}
+        case True{}:
+          Last{Sh.near(Big.cmp(Big.mul1(r, 2, 0), s), d)}
+
+def Sh.digit.fin(+even: Bool, qr: U32 & List<&2, U32>, +s: List<&2, U32>, +mp: List<&2, U32>, +mm: List<&2, U32>) -> Dig:
+  (d, r) = qr
+  +r1 = {r : List<&2, U32>}
+  Sh.pick(Sh.low(even, r1, mm), Sh.high(even, r1, mp, s), d, r1, s, mp, mm)
+
+def Sh.digit(+even: Bool, st: St) -> Dig:
+  match st:
+    case St{r, +s, mp, mm}:
+      +r10 = Big.mul1(r, 10, 0)
+      Sh.digit.fin(even, Big.digit(10n, Cmp.is_ge(Big.cmp(r10, s)), 0, r10, s), s, Big.mul1(mp, 10, 0), Big.mul1(mm, 10, 0))
+
+def Sh.gen(f: Nat, +even: Bool, o: Dig) -> List<&2, U32>:
+  match f:
+    case 0n:
+      Nil{}
+    case 1n+g:
+      match o:
+        case Last{d}:
+          Con{d, Nil{}}
+        case More{d, st}:
+          Con{d, Sh.gen(g, even, Sh.digit(even, st))}
+
+# k is the decimal exponent plus 400: v = 0.d1d2... * 10^(k - 400).
+def Sh.up(f: Nat, +even: Bool, big: Bool, st: St, +k: U32) -> St & U32:
+  match f:
+    case 0n:
+      (st, k)
+    case 1n+g:
+      match big:
+        case False{}:
+          (st, k)
+        case True{}:
+          match st:
+            case St{+r, s, +mp, mm}:
+              +s10 = Big.mul1(s, 10, 0)
+              Sh.up(g, even, Sh.high(even, r, mp, s10), St{r, s10, mp, mm}, (k + 1 : U32))
+
+def Sh.down(f: Nat, +even: Bool, small: Bool, st: St, +k: U32) -> St & U32:
+  match f:
+    case 0n:
+      (st, k)
+    case 1n+g:
+      match small:
+        case False{}:
+          (st, k)
+        case True{}:
+          match st:
+            case St{r, +s, mp, mm}:
+              +r10 = Big.mul1(r, 10, 0)
+              +mp10 = Big.mul1(mp, 10, 0)
+              Sh.down(g, even, Bool.not(Sh.high(even, Big.mul1(r10, 10, 0), Big.mul1(mp10, 10, 0), s)), St{r10, s, mp10, Big.mul1(mm, 10, 0)}, (k - 1 : U32))
+
+def Sh.fix.down(+even: Bool, sk: St & U32) -> St & U32:
+  (st, k) = sk
+  match st:
+    case St{+r, +s, +mp, mm}:
+      Sh.down(4n, even, Bool.not(Sh.high(even, Big.mul1(r, 10, 0), Big.mul1(mp, 10, 0), s)), St{r, s, mp, mm}, k)
+
+# k starts from an estimate of floor(log10 v) + 1 that is at most 2 off.
+def Sh.fix(+even: Bool, st: St, +k: U32) -> St & U32:
+  match st:
+    case St{+r, +s, +mp, mm}:
+      Sh.fix.down(even, Sh.up(4n, even, Sh.high(even, r, mp, s), St{r, s, mp, mm}, k))
+
+def Sh.scale(pos: Bool, +n: Nat, st: St) -> St:
+  match pos st:
+    case True{} St{r, s, mp, mm}:
+      St{r, Big.times(n, 10, s), mp, mm}
+    case False{} St{r, s, mp, mm}:
+      St{Big.times(n, 10, r), s, Big.times(n, 10, mp), Big.times(n, 10, mm)}
+
+def Sh.chars(ds: List<&2, U32>) -> String:
+  match ds:
+    case Nil{}:
+      SNil{}
+    case Con{d, t}:
+      SCon{Chr{(48 + d : U32)}, Sh.chars(t)}
+
+def Sh.fill(n: Nat) -> String:
+  match n:
+    case 0n:
+      SNil{}
+    case 1n+p:
+      SCon{'0', Sh.fill(p)}
+
+def Sh.exp.if(small: Bool, +e: U32) -> String:
+  match small:
+    case True{}:
+      SCon{'0', U32.show(e)}
+    case False{}:
+      U32.show(e)
+
+def Sh.exp(neg: Bool, +e: U32) -> String:
+  match neg:
+    case True{}:
+      SCon{'-', Sh.exp.if(U32.is_lt(e, 10), e)}
+    case False{}:
+      SCon{'+', Sh.exp.if(U32.is_lt(e, 10), e)}
+
+def Sh.frac(ds: String) -> String:
+  match ds:
+    case SNil{}:
+      SNil{}
+    case SCon{h, t}:
+      SCon{'.', SCon{h, t}}
+
+def Sh.sci(ds: String, +k: U32) -> String:
+  match ds:
+    case SNil{}:
+      SNil{}
+    case SCon{h, t}:
+      SCon{h, Sh.frac(t) ++ "e" ++ Sh.exp(U32.is_lt(k, 401), (U32.max(k, 401) - U32.min(k, 401) : U32))}
+
+def Sh.fixed.big(ge: Bool, +ds: String, +kn: Nat) -> String:
+  match ge:
+    case True{}:
+      ds ++ Sh.fill(Nat.sub(kn, String.length(ds))) ++ ".0"
+    case False{}:
+      String.take(ds, kn) ++ "." ++ String.drop(ds, kn)
+
+def Sh.fixed(pos: Bool, +ds: String, +k: U32) -> String:
+  match pos:
+    case True{}:
+      +kn = U32.to_nat((k - 400 : U32))
+      Sh.fixed.big(Nat.is_ge(kn, String.length(ds)), ds, kn)
+    case False{}:
+      "0." ++ Sh.fill(U32.to_nat((400 - k : U32))) ++ ds
+
+def Sh.show.if(sci: Bool, +ds: String, +k: U32) -> String:
+  match sci:
+    case True{}:
+      Sh.sci(ds, k)
+    case False{}:
+      Sh.fixed(U32.is_gt(k, 400), ds, k)
+
+# Like Python's repr: plain from 1e-4 up to 1e16, scientific outside.
+def Sh.fin(+even: Bool, sk: St & U32) -> String:
+  (st, +k) = sk
+  Sh.show.if(Bool.or(U32.is_lt(k, 397), U32.is_ge(k, 417)), Sh.chars(Sh.gen(17n, even, Sh.digit(even, st))), k)
+
+# v = f * 2^(be - 1075). A power-of-two f above the least exponent has a nearer lower neighbour, so t = 1 there.
+def Sh.finite.go(+f: List<&2, U32>, +be: U32, +t: U32, +even: Bool) -> String:
+  +a = (be - U32.min(be, 1075) : U32)
+  +b = (1075 - U32.min(be, 1075) : U32)
+  +k = (((((be + Big.bits(f) + 24) * 78913) >> 18n) + 70) : U32)
+  +one = {Con{1, Nil{}} : List<&2, U32>}
+  Sh.fin(even, Sh.fix(even, Sh.scale(U32.is_ge(k, 400), U32.to_nat((U32.max(k, 400) - U32.min(k, 400) : U32)),
+    St{Big.shl(f, (a + 1 + t : U32)), Big.shl(one, (b + 1 + t : U32)), Big.shl(one, (a + t : U32)), Big.shl(one, a)}), k))
+
+def Sh.finite(+ex: U32, +mh: U32, +lo: U32) -> String:
+  +fh = (mh .|. (U32.min(ex, 1) << 20n) : U32)
+  Sh.finite.go(Big.norm(Con{(lo .&. 65535 : U32), Con{(lo >> 16n : U32), Con{(fh .&. 65535 : U32), Con{(fh >> 16n : U32), Nil{}}}}}),
+    U32.max(ex, 1), u01(Bool.and(Bool.and(U32.is_zero(mh), U32.is_zero(lo)), U32.is_gt(ex, 1))), U32.is_zero((lo .&. 1 : U32)))
+
+def Sh.sign(neg: Bool, s: String) -> String:
+  match neg:
+    case True{}:
+      SCon{'-', s}
+    case False{}:
+      s
+
+def Sh.go(naninf: Bool, zero: Bool, +neg: Bool, +ex: U32, +mh: U32, +lo: U32) -> String:
+  match naninf:
+    case True{}:
+      Txt.if(String, Bool.and(U32.is_zero(mh), U32.is_zero(lo)), u => Sh.sign(neg, "inf"), u => "nan")
+    case False{}:
+      match zero:
+        case True{}:
+          Sh.sign(neg, "0.0")
+        case False{}:
+          Sh.sign(neg, Sh.finite(ex, mh, lo))
+
+# The shortest decimal that reads back to x, like Python's repr: "1.0", "0.1", "1e+16", "5e-324", "inf", "nan".
+def F64.show(x: F64) -> String:
+  match x:
+    case F64{+hi, +lo}:
+      +ex = ((hi >> 20n) .&. 2047 : U32)
+      +mh = (hi .&. 1048575 : U32)
+      Sh.go(U32.is_eq(ex, 2047), Bool.and(U32.is_zero(ex), Bool.and(U32.is_zero(mh), U32.is_zero(lo))), U32.is_ge(hi, 2147483648), ex, mh, lo)

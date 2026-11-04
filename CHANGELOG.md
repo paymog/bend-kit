@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f64` 0.1.1.0: `F64.read` reads decimal text to the nearest double, ties to even, and `F64.show` writes the shortest decimal that reads back, in Python's `repr` format. Laws prove fixtures, including a tie, overflow, and the least subnormal. `text_check.py` compares both with Python's `float` and `repr` on random inputs.
 - `runner` 0.13.0.2: after a round that did nothing, `drain` waits for a message only until the earliest pending ticket is due, when that comes before `idle` ends, so the job starts on time and not up to `idle` ms late.
 - `http` 0.38.4.0: imports `dns` 0.7.1.0 and `zlib` 0.5.1.0. `postgres` 0.3.1.0, `redis` 0.3.1.0: import `dns` 0.7.1.0 and `wire` 0.4.8.0. `postgres` also imports `crypto` 0.2.2.2.
 - `dns` 0.7.1.0, `websocket` 0.4.1.0: import `wire` 0.4.8.0. `multipart` 0.3.0.1, `websocket` 0.4.1.0: import `crypto` 0.2.2.2.
