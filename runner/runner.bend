@@ -1666,12 +1666,31 @@ def drain.woke(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A
     case Wait{u}:
       next(r)
 
-def drain.wait(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +idle: U32, r: Runner<A>,
+# ms to wait: idle, or less when the earliest pending ticket falls due sooner.
+def drain.ms(-A: Data, idle: U32, now: Nat, m: Maybe<&2, Q.Ticket<A>>) -> U32:
+  match m:
+    case None{}:
+      idle
+    case Some{Q.Ticket{i, d, x}}:
+      U32.from_nat(Nat.min(U32.to_nat(idle), Nat.sub(d, now)))
+
+def soonest(-A: Data, s: State<A>) -> Maybe<&2, Q.Ticket<A>>:
+  State{Q.State{n, h, run}, ts, ds, bs} = s
+  H.Heap.peek(Q.Ticket<A>, h)
+
+def drain.poll(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +ms: U32, r: Runner<A>,
     next: Runner<A> -> IO(Ran(A))) -> IO(Ran(A)):
   Runner{j, s, p, c, +ib, fs} = r
   do IO<Ran(A)>:
-    x : Poll<&1, &1, Maybe<&1, Msg<A>>, Unit> <- Chan.try_recv(Msg<A>, ib, idle)
-    drain.woke(~A, ~penc, ~target, ~work, idle, x, Runner{j, s, p, c, ib, fs}, next)
+    x : Poll<&1, &1, Maybe<&1, Msg<A>>, Unit> <- Chan.try_recv(Msg<A>, ib, ms)
+    drain.woke(~A, ~penc, ~target, ~work, ms, x, Runner{j, s, p, c, ib, fs}, next)
+
+def drain.wait(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +idle: U32, r: Runner<A>,
+    next: Runner<A> -> IO(Ran(A))) -> IO(Ran(A)):
+  Runner{j, +s, p, c, ib, fs} = r
+  do IO<Ran(A)>:
+    now : Nat <- clock()
+    drain.poll(~A, ~penc, ~target, ~work, drain.ms(A, idle, now, soonest(A, s)), Runner{j, s, p, c, ib, fs}, next)
 
 def drain.ticked(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +idle: U32,
     t: Runner<A> & Out(Bool), next: Runner<A> -> IO(Ran(A))) -> IO(Ran(A)):
@@ -1702,8 +1721,8 @@ def drain.end(-A: Data, x: Runner<A> & Bool) -> Ran(A):
   (r, done) = x
   (r, Bool.pick(Out(Unit), done, Done{Unit{}}, Fail{(62, "runner: drain ran out of rounds")}))
 
-# Ticks until no ticket is pending or running and no attempt runs. After a round that did nothing, it waits up to idle ms
-# for a message, and handles one that arrives at once.
+# Ticks until no ticket is pending or running and no attempt runs. After a round that did nothing, it waits for a message
+# up to idle ms, or until the earliest pending ticket is due when that is sooner, and handles one that arrives at once.
 # Fails when fuel rounds leave work.
 def drain(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), fuel: Nat, r: Runner<A>) -> IO(Ran(A)):
   match fuel:
