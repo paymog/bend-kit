@@ -3971,21 +3971,25 @@ def pool.next.ca(same: Bool, +ca: String) -> String:
     case False{}:
       ""
 
-def pool.next.move(p: Pool, +old: String, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, +ca: String, n: Next) -> Hops:
+# The certificate and CA file go on only to a hop on the same origin.
+def next.trust(+old: String, cert: Maybe<&2, Cert>, +ca: String, n: Next) -> Next & Maybe<&2, Cert> & String:
   match n:
     case NGo{left, h}:
       Hop{method, +url, headers, body} = h
       +same = String.eq(old, redirect.origin(url))
-      Hops{p, NGo{left, Hop{method, url, headers, body}},
-        Bool.pick(Maybe<&2, Cert>, same, cert, None{}), jar, pool.next.ca(same, ca)}
+      (NGo{left, Hop{method, url, headers, body}}, Bool.pick(Maybe<&2, Cert>, same, cert, None{}), pool.next.ca(same, ca))
     case NDone{r}:
-      Hops{p, NDone{r}, None{}, jar, ""}
+      (NDone{r}, None{}, "")
     case NStop{}:
-      Hops{p, NStop{}, None{}, jar, ""}
+      (NStop{}, None{}, "")
+
+def pool.next.move(p: Pool, jar: Maybe<&2, Jar>, nt: Next & Maybe<&2, Cert> & String) -> Hops:
+  (n, cert, ca) = nt
+  Hops{p, n, cert, jar, ca}
 
 def pool.next.of(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, p: Pool, +url: Url.Abs, h: Hop, r: Maybe<&2, Jar> & Result<&1, &1, Err, Res>) -> Hops:
   (jar, m) = r
-  pool.next.move(p, redirect.origin(url), cert, jar, ca, fetch.policy(mode, left, h, m))
+  pool.next.move(p, jar, next.trust(redirect.origin(url), cert, ca, fetch.policy(mode, left, h, m)))
 
 # The jar takes the response's Set-Cookie fields first, redirect or not.
 def pool.next(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Hops:
@@ -5121,18 +5125,6 @@ def stream.decide.n(st: Stream, n: Next) -> Sn:
 type StreamHops is Type:
   StreamHops{next: Sn, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, ca: String}
 
-# The certificate and CA file go on only to a hop on the same origin, as in pool.next.move.
-def stream.trust(+old: String, cert: Maybe<&2, Cert>, +ca: String, n: Next) -> Next & Maybe<&2, Cert> & String:
-  match n:
-    case NGo{left, h}:
-      Hop{method, +url, headers, body} = h
-      +same = String.eq(old, redirect.origin(url))
-      (NGo{left, Hop{method, url, headers, body}}, Bool.pick(Maybe<&2, Cert>, same, cert, None{}), pool.next.ca(same, ca))
-    case NDone{r}:
-      (NDone{r}, None{}, "")
-    case NStop{}:
-      (NStop{}, None{}, "")
-
 def stream.decide.trust(st: Stream, jar: Maybe<&2, Jar>, nt: Next & Maybe<&2, Cert> & String) -> StreamHops:
   (n, cert, ca) = nt
   StreamHops{stream.decide.n(st, n), cert, jar, ca}
@@ -5140,7 +5132,7 @@ def stream.decide.trust(st: Stream, jar: Maybe<&2, Jar>, nt: Next & Maybe<&2, Ce
 def stream.decide.jar(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, st: Stream, +old: String, hop: Hop,
     r: Maybe<&2, Jar> & Result<&1, &1, Err, Res>) -> StreamHops:
   (jar, m) = r
-  stream.decide.trust(st, jar, stream.trust(old, cert, ca, fetch.policy(mode, left, hop, m)))
+  stream.decide.trust(st, jar, next.trust(old, cert, ca, fetch.policy(mode, left, hop, m)))
 
 # The jar takes the response's Set-Cookie fields first, redirect or not.
 def stream.decide.of(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>, hop: Hop, sr: Stream & Res) -> StreamHops:
