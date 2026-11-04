@@ -1,7 +1,7 @@
 # Real File bundles, deterministic concurrent principals, failure and close checks.
 import Base
 import ./camber.bend as Camber
-import bend-kit-files@0.3.0.0/files.bend as Files
+import bend-kit-files@0.3.1.0/files.bend as Files
 import ./dispatch_check.bend as Dispatch
 import ./response_check.bend as Response
 import ./scoped_check.bend as Scoped
