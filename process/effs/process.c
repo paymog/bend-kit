@@ -50,16 +50,19 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
 
 #endif
 
-#if defined(CID(run.raw)) || defined(CID(spawn)) || defined(CID(wait))
+#if defined(CID(run.raw)) || defined(CID(run.bounded.raw)) || defined(CID(spawn)) \
+  || defined(CID(wait)) || defined(CID(wait.deadline)) || defined(CID(kill))
 #ifndef PROCESS_EXEC
 #define PROCESS_EXEC
 
 #include <fcntl.h>
+#include <limits.h>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 extern char** environ;
@@ -82,6 +85,9 @@ typedef struct {
   int    in_wr;
   int    out_rd;
   int    err_rd;
+  u64    deadline_ns; // CLOCK_MONOTONIC; 0: none
+  u64    max_out;     // per output stream; 0: none
+  bool   group;       // own process group
 } ProcessJob;
 
 static u32 process_exit_status(int st) {
@@ -92,6 +98,54 @@ static u32 process_exit_status(int st) {
     return 128u + (u32)WTERMSIG(st);
   }
   return 127;
+}
+
+// A pid argument names one child: 1..INT_MAX. 0 and larger values would turn
+// into a process group, or every process, for waitpid and kill.
+static bool process_pid_ok(u32 pid) {
+  return pid >= 1 && pid <= (u32)INT_MAX;
+}
+
+static u64 process_now_ns(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (u64)ts.tv_sec * 1000000000ull + (u64)ts.tv_nsec;
+}
+
+static u64 process_deadline_ns(u32 ms) {
+  return ms ? process_now_ns() + (u64)ms * 1000000ull : 0;
+}
+
+// Sleeps for at most *nap_us and at most until the deadline, then doubles
+// *nap_us up to 16 ms. False once the deadline has passed.
+static bool process_nap(u64 deadline_ns, long* nap_us) {
+  u64 now = process_now_ns();
+  if (now >= deadline_ns) {
+    return false;
+  }
+  u64 left_us = (deadline_ns - now) / 1000 + 1;
+  u64 us      = (u64)*nap_us < left_us ? (u64)*nap_us : left_us;
+  struct timespec nap = { (time_t)(us / 1000000), (long)(us % 1000000) * 1000 };
+  nanosleep(&nap, NULL);
+  *nap_us = *nap_us < 16000 ? *nap_us * 2 : 16000;
+  return true;
+}
+
+// Milliseconds before the job's deadline: -1 without one, 0 once it passed.
+static int process_left_ms(const ProcessJob* j) {
+  if (j->deadline_ns == 0) {
+    return -1;
+  }
+  u64 now = process_now_ns();
+  if (now >= j->deadline_ns) {
+    return 0;
+  }
+  u64 ms = (j->deadline_ns - now + 999999ull) / 1000000ull;
+  return ms > (u64)INT_MAX ? INT_MAX : (int)ms;
+}
+
+static bool process_capped(const ProcessJob* j, u64 len, u64 n) {
+  return j->max_out != 0 && n > j->max_out - len;
 }
 
 static bool process_env_key(const char* s, u64 n, const char** val, u64* val_len) {
@@ -354,12 +408,22 @@ static void process_pump(ProcessJob* j) {
     if (nf == 0) {
       break;
     }
-    if (poll(pf, nf, -1) < 0) {
+    int left = process_left_ms(j);
+    if (left == 0) {
+      errno = ETIMEDOUT;
+      process_pump_fail(j, &sig_old);
+      return;
+    }
+    int ready = poll(pf, nf, left);
+    if (ready < 0) {
       if (errno == EINTR) {
         continue;
       }
       process_pump_fail(j, &sig_old);
       return;
+    }
+    if (ready == 0) {
+      continue;
     }
     if (in_i >= 0 && (pf[in_i].revents & (POLLOUT | POLLERR | POLLHUP | POLLNVAL))) {
       if (!process_stdin_write(j, &written)) {
@@ -381,6 +445,11 @@ static void process_pump(ProcessJob* j) {
         close(j->out_rd);
         j->out_rd = -1;
       } else {
+        if (process_capped(j, j->out_len, (u64)n)) {
+          errno = EFBIG;
+          process_pump_fail(j, &sig_old);
+          return;
+        }
         process_buf_append(&j->out, &j->out_len, &j->out_cap, chunk, (u64)n);
       }
     }
@@ -398,6 +467,11 @@ static void process_pump(ProcessJob* j) {
         close(j->err_rd);
         j->err_rd = -1;
       } else {
+        if (process_capped(j, j->err_len, (u64)n)) {
+          errno = EFBIG;
+          process_pump_fail(j, &sig_old);
+          return;
+        }
         process_buf_append(&j->err, &j->err_len, &j->err_cap, chunk, (u64)n);
       }
     }
@@ -470,8 +544,12 @@ static int process_pipe_spawn(ProcessJob* j) {
     sigemptyset(&mask);
     rc = posix_spawnattr_setsigdefault(&attrs, &defaults);
     rc = rc ? rc : posix_spawnattr_setsigmask(&attrs, &mask);
-    rc = rc ? rc : posix_spawnattr_setflags(&attrs,
-      POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK);
+    short flags = POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK;
+    if (j->group) {
+      flags |= POSIX_SPAWN_SETPGROUP;
+      rc = rc ? rc : posix_spawnattr_setpgroup(&attrs, 0);
+    }
+    rc = rc ? rc : posix_spawnattr_setflags(&attrs, flags);
   }
   pid_t pid = 0;
   if (rc == 0) {
@@ -519,6 +597,67 @@ static void process_job_close_fds(ProcessJob* j) {
 #endif
 #endif
 
+#if defined(CID(run.raw)) || defined(CID(run.bounded.raw))
+#ifndef PROCESS_RUN
+#define PROCESS_RUN
+
+static Term process_run_pack(Env e, IoWork* w) {
+  ProcessJob* j = (ProcessJob*)w->data;
+  Term        r;
+  if (w->code) {
+    r = io_fail(e, w->code, NULL);
+  } else {
+    u32 code = process_exit_status(j->status);
+    Term triple = io_tup(e, (Term)code,
+      io_tup(e, process_bytes(e, j->out, j->out_len), process_bytes(e, j->err, j->err_len)));
+    r = io_done(e, triple);
+  }
+  free(j->out);
+  free(j->err);
+  free(j->in);
+  free(j->cwd);
+  process_env_free(j->envp);
+  process_argv_free(j->argv, j->cmd);
+  free(j);
+  w->data = NULL;
+  return r;
+}
+
+// Builds the job from cmd, args, env, cwd, and stdin in f[0..4]. False sets
+// w->code; the caller then packs the failure.
+static bool process_run_job(Env e, Term* f, IoWork* w) {
+  u64         cmd_len = 0;
+  char*       cmd     = io_cstr(e, f[0], &cmd_len);
+  bool        bad     = false;
+  char**      argv    = process_argv_build(e, cmd, f[1], &bad);
+  char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
+  u64         cwd_len = 0;
+  char*       cwd     = io_cstr(e, f[3], &cwd_len);
+  u64         in_len  = 0;
+  bool        in_bad  = false;
+  char*       in      = process_octets(e, f[4], &in_len, &in_bad);
+  bad                 = bad || in_bad || io_nul(cwd, cwd_len);
+  ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
+  j->cmd              = cmd;
+  j->cwd              = cwd;
+  j->argv             = argv;
+  j->envp             = envp;
+  j->in               = in;
+  j->in_len           = in_len;
+  j->in_wr            = -1;
+  j->out_rd           = -1;
+  j->err_rd           = -1;
+  w->data             = (char*)j;
+  if (bad || io_nul(cmd, cmd_len) || !argv || !envp) {
+    w->code = bad ? EINVAL : EILSEQ;
+    return false;
+  }
+  return true;
+}
+
+#endif
+#endif
+
 #ifdef CID(run.raw)
 
 static void process_run_raw_call(IoWork* w) {
@@ -549,60 +688,86 @@ static void process_run_raw_call(IoWork* w) {
   j->status = st;
 }
 
-static Term process_run_raw_pack(Env e, IoWork* w) {
-  ProcessJob* j = (ProcessJob*)w->data;
-  Term        r;
-  if (w->code) {
-    r = io_fail(e, w->code, NULL);
-  } else {
-    u32 code = process_exit_status(j->status);
-    Term triple = io_tup(e, (Term)code,
-      io_tup(e, process_bytes(e, j->out, j->out_len), process_bytes(e, j->err, j->err_len)));
-    r = io_done(e, triple);
-  }
-  free(j->out);
-  free(j->err);
-  free(j->in);
-  free(j->cwd);
-  process_env_free(j->envp);
-  process_argv_free(j->argv, j->cmd);
-  free(j);
-  w->data = NULL;
-  return r;
-}
-
 Term run_raw_run(Env e, Term* f, IoWork* w) {
-  u64         cmd_len = 0;
-  char*       cmd     = io_cstr(e, f[0], &cmd_len);
-  bool        bad     = false;
-  char**      argv    = process_argv_build(e, cmd, f[1], &bad);
-  char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
-  u64         cwd_len = 0;
-  char*       cwd     = io_cstr(e, f[3], &cwd_len);
-  u64         in_len  = 0;
-  bool        in_bad  = false;
-  char*       in      = process_octets(e, f[4], &in_len, &in_bad);
-  bad                 = bad || in_bad || io_nul(cwd, cwd_len);
-  ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
-  j->cmd              = cmd;
-  j->cwd              = cwd;
-  j->argv             = argv;
-  j->envp             = envp;
-  j->in               = in;
-  j->in_len           = in_len;
-  j->in_wr            = -1;
-  j->out_rd           = -1;
-  j->err_rd           = -1;
-  w->data             = (char*)j;
-  if (bad || io_nul(cmd, cmd_len) || !argv || !envp) {
-    w->code = bad ? EINVAL : EILSEQ;
-    return process_run_raw_pack(e, w);
+  if (!process_run_job(e, f, w)) {
+    return process_run_pack(e, w);
   }
-  return io_work(w, process_run_raw_call, process_run_raw_pack);
+  return io_work(w, process_run_raw_call, process_run_pack);
 }
 
 static void __attribute__((constructor)) run_raw_use(void) {
   io_eff(CID(run.raw), run_raw_run);
+}
+
+#endif
+
+#ifdef CID(run.bounded.raw)
+
+// Waits until the group leader exits, without reaping it: 0, or -errno, and
+// -ETIMEDOUT at the deadline.
+static int process_exit_wait(ProcessJob* j) {
+  long nap_us = 1000;
+  for (;;) {
+    siginfo_t info;
+    memset(&info, 0, sizeof(info));
+    int flags = WEXITED | WNOWAIT | (j->deadline_ns ? WNOHANG : 0);
+    if (waitid(P_PID, (id_t)j->pid, &info, flags) < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      return -errno;
+    }
+    if (info.si_pid != 0) {
+      return 0;
+    }
+    if (!process_nap(j->deadline_ns, &nap_us)) {
+      return -ETIMEDOUT;
+    }
+  }
+}
+
+// The pipes are closed, and the leader has exited unreaped or failed: its pid
+// still names the group, so SIGKILL reaches every member left. Then reap it.
+static void process_run_bounded_call(IoWork* w) {
+  ProcessJob* j = (ProcessJob*)w->data;
+  w->code = 0;
+  if (process_pipe_spawn(j) < 0) {
+    w->code = errno;
+    return;
+  }
+  process_pump(j);
+  process_job_close_fds(j);
+  int failed = j->status < 0 ? j->status : process_exit_wait(j);
+  kill(-(pid_t)j->pid, SIGKILL);
+  int st = 0;
+  int result;
+  do {
+    result = waitpid(j->pid, &st, 0);
+  } while (result < 0 && errno == EINTR);
+  if (failed == 0 && result < 0) {
+    failed = -errno;
+  }
+  if (failed < 0) {
+    w->code = (u32)-failed;
+    return;
+  }
+  j->status = st;
+}
+
+Term run_bounded_raw_run(Env e, Term* f, IoWork* w) {
+  bool        ok = process_run_job(e, f, w);
+  ProcessJob* j  = (ProcessJob*)w->data;
+  j->deadline_ns = process_deadline_ns((u32)f[5]);
+  j->max_out     = (u32)f[6];
+  j->group       = true;
+  if (!ok) {
+    return process_run_pack(e, w);
+  }
+  return io_work(w, process_run_bounded_call, process_run_pack);
+}
+
+static void __attribute__((constructor)) run_bounded_raw_use(void) {
+  io_eff(CID(run.bounded.raw), run_bounded_raw_run);
 }
 
 #endif
@@ -688,12 +853,85 @@ static Term process_wait_pack(Env e, IoWork* w) {
 }
 
 Term wait_run(Env e, Term* f, IoWork* w) {
+  if (!process_pid_ok((u32)f[0])) {
+    w->code = EINVAL;
+    return process_wait_pack(e, w);
+  }
   w->hand = (intptr_t)(pid_t)(u32)f[0];
   return io_work(w, process_wait_call, process_wait_pack);
 }
 
 static void __attribute__((constructor)) wait_use(void) {
   io_eff(CID(wait), wait_run);
+}
+
+#endif
+
+#ifdef CID(wait.deadline)
+
+static void process_wait_deadline_call(IoWork* w) {
+  pid_t pid      = (pid_t)w->hand;
+  u64   deadline = (u64)w->made;
+  long  nap_us   = 1000;
+  int   st       = 0;
+  for (;;) {
+    pid_t r = waitpid(pid, &st, deadline ? WNOHANG : 0);
+    if (r < 0 && errno == EINTR) {
+      continue;
+    }
+    if (r < 0) {
+      io_sys_end(w, -1);
+      return;
+    }
+    if (r > 0) {
+      w->word = process_exit_status(st);
+      w->code = 0;
+      return;
+    }
+    if (!process_nap(deadline, &nap_us)) {
+      w->code = ETIMEDOUT;
+      return;
+    }
+  }
+}
+
+static Term process_wait_deadline_pack(Env e, IoWork* w) {
+  return w->code ? io_fail(e, w->code, NULL) : io_done(e, (Term)w->word);
+}
+
+Term wait_deadline_run(Env e, Term* f, IoWork* w) {
+  if (!process_pid_ok((u32)f[0])) {
+    w->code = EINVAL;
+    return process_wait_deadline_pack(e, w);
+  }
+  w->hand = (intptr_t)(pid_t)(u32)f[0];
+  w->made = (intptr_t)process_deadline_ns((u32)f[1]);
+  return io_work(w, process_wait_deadline_call, process_wait_deadline_pack);
+}
+
+static void __attribute__((constructor)) wait_deadline_use(void) {
+  io_eff(CID(wait.deadline), wait_deadline_run);
+}
+
+#endif
+
+#ifdef CID(kill)
+
+Term kill_run(Env e, Term* f, IoWork* w) {
+  (void)w;
+  u32 pid  = (u32)f[0];
+  u32 sig  = (u32)f[1];
+  int code = 0;
+  if (!process_pid_ok(pid) || sig > (u32)INT_MAX) {
+    code = EINVAL;
+  } else if (kill((pid_t)pid, (int)sig) < 0) {
+    code = errno;
+  }
+  return code ? io_fail(e, code, NULL) : io_done(e, term_pak(CID(Unit), 0));
+}
+
+static void __attribute__((constructor)) kill_use(void) {
+  io_eff(CID(kill), kill_run);
 }
 
 #endif
