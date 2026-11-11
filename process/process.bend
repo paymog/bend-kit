@@ -19,8 +19,34 @@ def spawn(cmd: String, args: List<&2, String>, env: List<&2, String>, cwd: Strin
   import "./effs/process.c"
   import "./effs/process.js"
 
+# Like run.raw, bounded. The child leads its own process group, and the call
+# ends with SIGKILL to that group, so no member outlives it, then reaps the
+# child. ms is a deadline for the whole call (0: none); a miss is ETIMEDOUT.
+# max_out caps stdout and stderr, each, in bytes (0: none); more is EFBIG.
+# A descendant that keeps an output open holds the call until the deadline.
+# A descendant that leaves the group (setsid, setpgid) escapes the kill.
+def run.bounded.raw(cmd: String, args: List<&2, String>, env: List<&2, String>,
+                    cwd: String, stdin: String, ms: U32, max_out: U32) ->
+  IO(Result<&1, &1, U32 & String, U32 & String & String>):
+  import "./effs/process.c"
+  import "./effs/process.js"
+
 # Reaps a spawned child. A signaled child has status 128 + signal number.
+# pid is 1..2147483647; 0 and larger are EINVAL, never a group or any child.
 def wait(pid: U32) -> IO(Result<&1, &1, U32 & String, U32>):
+  import "./effs/process.c"
+  import "./effs/process.js"
+
+# Like wait, with a deadline in ms (0: none). A miss is ETIMEDOUT and leaves
+# the child unreaped, so wait, wait.deadline, or kill can follow.
+def wait.deadline(pid: U32, ms: U32) -> IO(Result<&1, &1, U32 & String, U32>):
+  import "./effs/process.c"
+  import "./effs/process.js"
+
+# Sends signal sig to the spawned child pid; sig 0 only checks that it exists.
+# pid is 1..2147483647, so it never names a group or every process. Signal a
+# child only before wait reaps it: after that, its pid can name another process.
+def kill(pid: U32, sig: U32) -> IO(Result<&1, &1, U32 & String, Unit>):
   import "./effs/process.c"
   import "./effs/process.js"
 
@@ -76,3 +102,20 @@ def run(cmd: String, args: List<&2, String>, env: List<&2, String>,
     result : Result<&1, &1, U32 & String, U32 & String & String> <-
       run.raw(cmd, args, env, cwd, Bytes.to_string(stdin))
     return run.result(result)
+
+# run with run.bounded.raw's deadline, output cap, and group kill.
+def run.bounded(cmd: String, args: List<&2, String>, env: List<&2, String>,
+                cwd: String, stdin: Bytes.Bytes, ms: U32, max_out: U32) ->
+  IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
+  do IO<Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>>:
+    result : Result<&1, &1, U32 & String, U32 & String & String> <-
+      run.bounded.raw(cmd, args, env, cwd, Bytes.to_string(stdin), ms, max_out)
+    return run.result(result)
+
+# A deadline miss: ETIMEDOUT is 110 on Linux and 60 on macOS.
+def timed_out(+code: U32) -> Bool:
+  Bool.or(U32.is_eq(code, 110), U32.is_eq(code, 60))
+
+# Output past max_out: EFBIG is 27 on Linux and macOS.
+def too_big(code: U32) -> Bool:
+  U32.is_eq(code, 27)

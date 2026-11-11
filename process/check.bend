@@ -133,6 +133,133 @@ def expect.os() -> IO(Unit):
     again : String <- IO.try(String, Proc.cwd())
     expect.yes(String.eq(dir, again), "cwd/chdir")
 
+def expect.run.timeout(value: Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>,
+                       message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(Proc.timed_out(code), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.run.too_big(value: Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>,
+                       message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(Proc.too_big(code), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.wait.timeout(value: Result<&1, &1, U32 & String, U32>, message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(Proc.timed_out(code), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.wait.einval(value: Result<&1, &1, U32 & String, U32>, message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(U32.is_eq(code, 22), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.kill.einval(value: Result<&1, &1, U32 & String, Unit>, message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(U32.is_eq(code, 22), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.size(measured: Bytes.Bytes & U32, expected: U32) -> Bool:
+  (rest, n) = measured
+  U32.is_eq(n, expected)
+
+def expect.width(value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
+  (code, out, err) = value
+  do IO<Unit>:
+    expect.yes(expect.size(Bytes.length(out), 1000), "output of exactly max_out bytes")
+    expect.yes(U32.is_eq(code, 0), "bounded exit code")
+    expect.yes(String.eq(Bytes.to_string(err), ""), "bounded stderr")
+
+# A spawned sleep 1 is still running at the 100 ms deadline, so wait.deadline
+# times out (a late deadline would see it exit instead); kill ends it.
+def expect.killed(+pid: U32, input: File, output: File, errors: File) -> IO(Unit):
+  do IO<Unit>:
+    early : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(pid, 100)
+    expect.wait.timeout(early, "wait.deadline before exit")
+    alive : Unit <- IO.try(Unit, Proc.kill(pid, 0))
+    sent : Unit <- IO.try(Unit, Proc.kill(pid, 9))
+    status : U32 <- IO.try(U32, Proc.wait.deadline(pid, 5000))
+    expect.yes(U32.is_eq(status, 137), "SIGKILL status")
+    File.close(input)
+    File.close(output)
+    File.close(errors)
+
+def expect.kill(child: U32 & File & File & File) -> IO(Unit):
+  (pid, input, output, errors) = child
+  expect.killed(pid, input, output, errors)
+
+# The child exits at once, but its background descendant keeps stdout open, so
+# the call runs into its deadline. The group kill ends the descendant before it
+# writes the marker.
+def expect.group() -> IO(Unit):
+  do IO<Unit>:
+    own : U32 <- Proc.pid()
+    +marker : String = ".process-bounded-" ++ U32.show(own)
+    held : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "(sleep 1; echo survived > \"$1\") & exit 0",
+        "process-bounded", marker], [], ".", Bytes.from_string(""), 300, 0)
+    expect.run.timeout(held, "descendant holding stdout runs into the deadline")
+    IO.sleep(1500)
+    gone : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run("/bin/sh", ["-c", "test ! -e \"$1\" || { rm -f \"$1\"; exit 1; }",
+        "process-bounded-gone", marker], [], ".", Bytes.from_string("")))
+    expect.command("", gone)
+
+def expect.bounded() -> IO(Unit):
+  do IO<Unit>:
+    echo : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/echo", ["hello; not a shell"], [], ".", Bytes.from_string(""),
+        5000, 1024))
+    expect.echo(echo)
+    cat : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/cat", [], [], ".", Bytes.from_string("a\0b"), 5000, 0))
+    expect.cat(cat)
+    slow : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sleep", ["5"], [], ".", Bytes.from_string(""), 200, 0)
+    expect.run.timeout(slow, "deadline")
+    quiet : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "exec >&- 2>&-; exec sleep 5"], [], ".",
+        Bytes.from_string(""), 200, 0)
+    expect.run.timeout(quiet, "a child that closes its outputs meets the deadline")
+    exact : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/sh", ["-c", "printf %1000s ''"], [], ".", Bytes.from_string(""),
+        5000, 1000))
+    expect.width(exact)
+    over : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "printf %1001s ''"], [], ".", Bytes.from_string(""),
+        5000, 1000)
+    expect.run.too_big(over, "stdout past max_out")
+    over_err : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "printf %1001s '' >&2"], [], ".",
+        Bytes.from_string(""), 5000, 1000)
+    expect.run.too_big(over_err, "stderr past max_out")
+    flood : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/usr/bin/env", ["yes"], [], ".", Bytes.from_string(""), 5000, 4096)
+    expect.run.too_big(flood, "endless output stops at max_out")
+    expect.group()
+    zero : Result<&1, &1, U32 & String, U32> <- Proc.wait(0)
+    expect.wait.einval(zero, "wait(0) names no group")
+    late : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(4294967295, 10)
+    expect.wait.einval(late, "wait.deadline(-1) names no child")
+    every : Result<&1, &1, U32 & String, Unit> <- Proc.kill(4294967295, 0)
+    expect.kill.einval(every, "kill never reaches every process")
+    group : Result<&1, &1, U32 & String, Unit> <- Proc.kill(0, 0)
+    expect.kill.einval(group, "kill never reaches the own group")
+    child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+      Proc.spawn("/bin/sleep", ["1"], [], "."))
+    expect.kill(child)
+
 def signal.send(own: U32) ->
   IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
   Proc.run("/bin/kill", ["-TERM", U32.show(own)], [], ".", Bytes.from_string(""))
@@ -176,6 +303,7 @@ def main() -> IO(Unit):
     expect.child("stream", "stream", child)
     expect.cwd()
     expect.os()
+    expect.bounded()
     expect.signal()
 
     IO.print("process smoke ok")

@@ -226,6 +226,65 @@ function run_raw(cmd, args, env, cwd, stdin, k) {
   }
 }
 
+// Like run_raw, in a new session (so the child leads its own group), with a
+// deadline and a per-stream output cap. Bun reaps the leader before it returns,
+// so the group kill relies on survivors keeping the group id in use; with none
+// left it is ESRCH.
+function run_bounded_raw(cmd, args, env, cwd, stdin, ms, max_out, k) {
+  const argv = process_argv(cmd, args);
+  if (argv === null || process_has_nul(cwd)) {
+    return io_fail(process_einval());
+  }
+  const environment = process_env(env);
+  if (environment === null) {
+    return io_fail(process_einval());
+  }
+  const inb = process_octets(stdin);
+  if (inb === null) {
+    return io_fail(process_einval());
+  }
+  const limit = Number(max_out);
+  const opts = {
+    cmd: argv,
+    env: environment,
+    cwd,
+    stdin: inb,
+    stdout: "pipe",
+    stderr: "pipe",
+    detached: true,
+    killSignal: "SIGKILL",
+  };
+  if (Number(ms)) {
+    opts.timeout = Number(ms);
+  }
+  if (limit) {
+    opts.maxBuffer = limit;
+  }
+  let r;
+  try {
+    r = Bun.spawnSync(opts);
+  } catch (e) {
+    return io_fail(process_host_fail(e));
+  }
+  try {
+    process.kill(-r.pid, "SIGKILL");
+  } catch (e) {
+  }
+  if (r.exitedDueToTimeout) {
+    return io_fail(process_errno("ETIMEDOUT", 110));
+  }
+  if (r.exitedDueToMaxBuffer || (limit && (r.stdout.length > limit || r.stderr.length > limit))) {
+    return io_fail(process_errno("EFBIG", 27));
+  }
+  const proc = { signalCode: r.signalCode };
+  const code = r.signalCode ? process_exit_code(proc, null) : (r.exitCode >>> 0);
+  return io_done(process_result(
+    code,
+    process_wire_text(r.stdout, r.stdout.length),
+    process_wire_text(r.stderr, r.stderr.length),
+  ));
+}
+
 function spawn(cmd, args, env, cwd) {
   const argv = process_argv(cmd, args);
   if (argv === null || process_has_nul(cwd)) {
@@ -245,7 +304,23 @@ function spawn(cmd, args, env, cwd) {
   return io_done(io_tup(proc.pid >>> 0, files));
 }
 
-function wait(pid, k) {
+// A pid argument names one child: 1..INT_MAX, never a group or every process.
+function process_pid_ok(pid) {
+  const n = Number(pid);
+  return Number.isInteger(n) && n >= 1 && n <= 2147483647;
+}
+
+function process_errno(name, fallback) {
+  const code = require("os").constants.errno[name];
+  return typeof code === "number" ? code : fallback;
+}
+
+// Reaps a spawned child; deadline is a performance.now() time, or 0 for none.
+// A miss is ETIMEDOUT and leaves the child unreaped.
+function process_wait_until(pid, deadline, k) {
+  if (!process_pid_ok(pid)) {
+    return io_fail(process_einval());
+  }
   const proc = process_procs.get(Number(pid));
   if (proc === undefined) {
     return io_fail(10);
@@ -266,10 +341,35 @@ function wait(pid, k) {
       process_procs.delete(Number(pid));
       return io_fail(io_sys().errno());
     }
-    io_park_on(undefined, false, k, check, performance.now() + 5);
+    const now = performance.now();
+    if (deadline && now >= deadline) {
+      return io_fail(process_errno("ETIMEDOUT", 110));
+    }
+    io_park_on(undefined, false, k, check, deadline ? Math.min(now + 5, deadline) : now + 5);
     return undefined;
   };
   return check();
+}
+
+function wait(pid, k) {
+  return process_wait_until(pid, 0, k);
+}
+
+function wait_deadline(pid, ms, k) {
+  const n = Number(ms);
+  return process_wait_until(pid, n ? performance.now() + n : 0, k);
+}
+
+function kill(pid, sig) {
+  if (!process_pid_ok(pid) || Number(sig) > 2147483647) {
+    return io_fail(process_einval());
+  }
+  try {
+    process.kill(Number(pid), Number(sig));
+    return io_done({ $: CID(Unit) });
+  } catch (e) {
+    return io_fail(process_host_fail(e));
+  }
 }
 
 function read_stdin(max, k) {
@@ -378,7 +478,10 @@ function signal_poll() {
 
 io_eff(CID(run.raw), run_raw);
 io_eff(CID(spawn), spawn);
+io_eff(CID(run.bounded.raw), run_bounded_raw);
 io_eff(CID(wait), wait);
+io_eff(CID(wait.deadline), wait_deadline);
+io_eff(CID(kill), kill);
 io_eff(CID(read_stdin), read_stdin);
 io_eff(CID(exit.raw), exit_raw);
 io_eff(CID(cwd), cwd);
