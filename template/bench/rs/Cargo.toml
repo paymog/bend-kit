@@ -1,0 +1,14 @@
+[package]
+name = "rs"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rs"
+path = "main.rs"
+
+[dependencies]
+mustache = "0.9"
+
+[profile.release]
+opt-level = 3
