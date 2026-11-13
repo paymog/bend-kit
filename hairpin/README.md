@@ -3,13 +3,13 @@
 Hairpin is an HTTP client for Bend 2, built on `bend-kit-http`. One `Client` holds a base URL, default headers, a socket pool, a cookie jar, a client certificate, a redirect mode, a step timeout, a retry policy, and a circuit breaker. Each request uses all of them. The model is undici's `Agent` with ky's instance options.
 
 ```bend
-import bend-kit-hairpin@0.13.0.1/hairpin.bend as Hairpin
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-hairpin@0.14.0.0/hairpin.bend as Hairpin
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.38.1.1/http.bend as Http
 import bend-kit-time@0.3.0.0/time.bend as Time
 ```
 
-Import `bend-kit-http@0.38.1.1` and `bend-kit-retry@0.2.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Http.Res` or `Retry.Budget`. `Time` supplies both `Time.mono.ms()` and the `Instant` values that Http uses.
+Import `bend-kit-http@0.38.1.1` and `bend-kit-retry@0.3.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Http.Res` or `Retry.Budget`. `Time` supplies both `Time.mono.ms()` and the `Instant` values that Http uses.
 
 Hairpinning, or NAT loopback, is traffic that goes out and bends back. A request does the same.
 
@@ -71,11 +71,11 @@ For a streamed response under the retry policy, use `open.as`. For a streamed up
 [`bend-kit-retry`](../retry) is the policy. It is pure; Hairpin reads the clock and calls it. Every `now` in the policy is monotonic milliseconds from `Time.mono.ms()`. Each request runs this loop:
 
 1. **Admit.** `Retry.admit(breaker, budget, now)` checks the deadline, then the budget, then the breaker. Only `GateGo` starts an attempt, and it takes one attempt from the budget. A denial before the first attempt is `ErrDenied{why}`; a later denial returns the last result.
-2. **Classify.** The judge gives a `Hairpin.Verdict` for the result, and `Hairpin.outcome(idem, verdict, now)` turns it into a `Retry.Outcome`. `Hairpin.judge` calls a connect error, a timeout, and 408, 429, 500, 502, 503, and 504 `VerdictAgain{after}`, where `after` is the `Retry-After` value. Any other status below 400 is `VerdictOk`, another 4xx is `VerdictCaller`, and another 5xx or another error (such as DNS or TLS) is `VerdictTarget`. `VerdictOk` is `Settled`. `VerdictCaller` and `VerdictTarget` are `Failed`, because another try would repeat them. `VerdictAgain` of GET, HEAD, OPTIONS, TRACE, PUT, or DELETE is `Transient`, with the server's `Retry-After` (at most 30 s). Of any other method, it is `Unsafe`.
-3. **Tell the breaker.** `VerdictTarget` and `VerdictAgain` count as failures. `VerdictOk` and `VerdictCaller` count as successes: a client error is not the target's fault, so a run of 404s does not open the breaker. `Hairpin.counts(verdict)` gives this choice.
-4. **Plan.** `Retry.plan` stops on `Settled`, `Failed`, and `Unsafe`. On `Transient` it waits `Retry-After`, or a backoff of 500 ms doubled per retry up to 30 s, with equal jitter (a wait in `[d/2, d]`). It stops when the budget is spent or when the wait would reach the deadline.
+2. **Classify.** The judge gives a `Hairpin.Verdict` for the result, and `Hairpin.outcome(idem, verdict, now)` turns it into a `Retry.Outcome`. `Hairpin.judge` calls a connect error, a timeout, and 408, 429, 500, 502, 503, and 504 `VerdictAgain{after}`, where `after` is the `Retry-After` value. Any other status below 400 is `VerdictOk`, another 4xx is `VerdictCaller`, and another 5xx or another error (such as DNS or TLS) is `VerdictTarget`. `VerdictOk` is `Settled`. `VerdictCaller` is `Rejected`, and `VerdictTarget` is `Failed`; another try would repeat either one. `VerdictAgain` of GET, HEAD, OPTIONS, TRACE, PUT, or DELETE is `Transient`, with the server's `Retry-After` (at most 30 s). Of any other method, it is `Unsafe`.
+3. **Tell the breaker.** `Retry.failed(outcome)` decides. `Failed`, `Transient`, and `Unsafe` count as failures. `Settled` and `Rejected` count as successes: a client error is not the target's fault, so a run of 404s does not open the breaker.
+4. **Plan.** `Retry.plan` stops on `Settled`, `Failed`, `Rejected`, and `Unsafe`. On `Transient` it waits `Retry-After`, or a backoff of 500 ms doubled per retry up to 30 s, with equal jitter (a wait in `[d/2, d]`). It stops when the budget is spent or when the wait would reach the deadline.
 
-A caller that hands an outcome to [`runner`](../runner) can take it from `Hairpin.outcome(idem, verdict, now)`. Then a 404 or a DNS failure keeps the job dead, and a 503 retries it.
+A caller that hands an outcome to [`runner`](../runner) can take it from `Hairpin.outcome(idem, verdict, now)`. Then a 404 or a DNS failure keeps the job dead, and a 503 retries it. A 404 does not move the target's breaker in `runner` either.
 
 The policy is `Retry.Policy{attempts, base, cap, deadline}`. `Hairpin.retry` sets `attempts`, and `Hairpin.deadline` sets `deadline`.
 

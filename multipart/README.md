@@ -3,11 +3,11 @@
 This package encodes and decodes `multipart/form-data` from RFC 7578. The encoder generates a boundary. The decoder reads `Bytes`.
 
 ```bend
-import bend-kit-multipart@0.3.0.0/multipart.bend as Mp
+import bend-kit-multipart@0.3.0.1/multipart.bend as Mp
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
-`multipart.bend` imports `bend-kit-bytes@0.3.3.0`. It also imports `bend-kit-crypto@0.2.2.1` to generate the boundary.
+`multipart.bend` imports `bend-kit-bytes@0.3.3.0`. It also imports `bend-kit-crypto@0.2.2.2` to generate the boundary.
 
 `Part` is `Part{name, filename, ctype, body}`. `filename` and `ctype` are `Maybe` values. `form` returns an `IO` result with the `Content-Type` value and body, or an error. `encode` takes a boundary and checks it. `decode` takes that boundary and the complete body. `decode.chunks` takes the boundary and a list of body chunks.
 

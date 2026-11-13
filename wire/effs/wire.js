@@ -111,6 +111,7 @@ function wire_ip_lib() {
       c: ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6", {
         inet_pton: { args: ["i32", "cstring", "ptr"], returns: "i32" },
         inet_ntop: { args: ["i32", "ptr", "ptr", "u64"], returns: "ptr" },
+        getsockname: { args: ["i32", "ptr", "ptr"], returns: "i32" },
       }).symbols,
     };
   }
@@ -713,7 +714,33 @@ function connect(host, port, ms, k) {
   return go();
 }
 
+// Twin of listen in wire.c: as Base TCP.listen, plus IPv6 and the bound port.
+function listen(host, port) {
+  const sys = io_sys();
+  const addr = wire_numeric_addr(host, Number(port));
+  if (addr === null) {
+    return io_fail(22);
+  }
+  const fd = sys.socket(addr.length === 28 ? (sys.mac ? 30 : 10) : 2, 1, 0);
+  if (fd < 0) {
+    return io_fail(sys.errno());
+  }
+  const one = new Int32Array([1]);
+  sys.setsockopt(fd, sys.mac ? 0xffff : 1, sys.mac ? 4 : 2, sys.ptr(one), 4);
+  const { ffi, c } = wire_ip_lib();
+  const len = new Uint32Array([addr.length]);
+  if (sys.bind(fd, sys.ptr(addr), addr.length) < 0 || sys.listen(fd, 512) < 0
+    || sys.fcntl(fd, 4, sys.fcntl(fd, 3, 0) | (sys.mac ? 4 : 0x800)) < 0
+    || c.getsockname(fd, ffi.ptr(addr), ffi.ptr(len)) !== 0) {
+    const code = sys.errno();
+    sys.close(fd);
+    return io_fail(code);
+  }
+  return io_done(io_tup(fd, (addr[2] << 8) | addr[3]));
+}
+
 io_eff(CID(connect), connect);
+io_eff(CID(listen), listen);
 io_eff(CID(accept.deadline), accept_deadline);
 io_eff(CID(recv), recv);
 io_eff(CID(idle), idle);

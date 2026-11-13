@@ -330,7 +330,7 @@ static void __attribute__((constructor)) wire_send_words_deadline_use(void) {
 
 #endif
 
-#if defined(CID(connect)) || defined(CID(send_to)) || defined(CID(send_to.words))
+#if defined(CID(connect)) || defined(CID(listen)) || defined(CID(send_to)) || defined(CID(send_to.words))
 
 // Accept only numeric addresses. The socket family and sockaddr length travel together.
 static int wire_addr(const char* host, u32 port, struct sockaddr_storage* out, socklen_t* size) {
@@ -564,6 +564,44 @@ Term connect_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) connect_use(void) {
   io_eff(CID(connect), connect_run);
+}
+
+#endif
+
+#ifdef CID(listen)
+
+// As Base TCP.listen (nonblocking, backlog 512), plus IPv6 and the bound port.
+Term listen_run(Env e, Term* f, IoWork* w) {
+  struct sockaddr_storage at;
+  socklen_t size = 0;
+  u64 hn = 0;
+  char* host = io_cstr(e, f[0], &hn);
+  int family = io_nul(host, hn) ? -1 : wire_addr(host, (u32)f[1], &at, &size);
+  free(host);
+  if (family < 0) {
+    return io_fail(e, EINVAL, NULL);
+  }
+  int fd = socket(family, SOCK_STREAM, 0);
+  if (fd < 0) {
+    return io_fail(e, (u32)errno, NULL);
+  }
+  int one = 1;
+  setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (bind(fd, (struct sockaddr*)&at, size) != 0 || listen(fd, 512) != 0
+    || fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) != 0
+    || getsockname(fd, (struct sockaddr*)&at, &size) != 0) {
+    u32 code = (u32)errno;
+    close(fd);
+    return io_fail(e, code, NULL);
+  }
+  uint16_t port = family == AF_INET
+    ? ((struct sockaddr_in*)&at)->sin_port
+    : ((struct sockaddr_in6*)&at)->sin6_port;
+  return io_done(e, io_tup(e, io_hand(fd), (Term)ntohs(port)));
+}
+
+static void __attribute__((constructor)) listen_use(void) {
+  io_eff(CID(listen), listen_run);
 }
 
 #endif

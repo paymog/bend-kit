@@ -113,7 +113,7 @@ type Writer is Type:
   Writer{buf: Array<U32>, dep: U32, pos: U32}
 
 def Writer.new() -> Writer:
-  Writer{Array.new(U32, 4n, 0), 4, 0}
+  Writer{Array.new(U32, 0n, 0), 0, 0}
 
 # A write adds at most 32 bits, so one doubling always makes room.
 def room(full: Bool, w: Writer) -> Writer:

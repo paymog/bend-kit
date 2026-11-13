@@ -4,11 +4,19 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import socket
 import subprocess
 import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+# The Bend server binds this port after the socket closes; another bind could take it first.
+def free_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 def run(args, timeout=120):

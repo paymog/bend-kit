@@ -1,6 +1,6 @@
 import Base
 import ./hairpin.bend as Hairpin
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.38.1.1/http.bend as Http
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
@@ -49,7 +49,7 @@ def judged(+idem: Bool, r: Result<&1, &1, Http.Err, Http.Res>) -> Retry.Outcome:
   Hairpin.outcome(idem, verdict(Hairpin.judge(r)), epoch())
 
 def counted(r: Result<&1, &1, Http.Err, Http.Res>) -> Bool:
-  Hairpin.counts(verdict(Hairpin.judge(r)))
+  Retry.failed(judged(True{}, r))
 
 def res(+status: U32, h: Map<&2, List<&2, String>>) -> Result<&1, &1, Http.Err, Http.Res>:
   Done{Http.Res{status, h, Bytes.new(0)}}
@@ -69,9 +69,13 @@ law outcome_post_503:
 law outcome_settled:
   {[judged(True{}, res(200, Http.empty())), judged(True{}, res(302, Http.empty()))] == [Retry.Settled{}, Retry.Settled{}] : List<&2, Retry.Outcome>}
 
-# A client error, a server error that is not transient, and an error that would repeat are failed.
+# A client error is rejected: it stops, and it is not the target's failure.
+law outcome_rejected:
+  {[judged(True{}, res(404, Http.empty())), judged(False{}, res(400, Http.empty()))] == [Retry.Rejected{}, Retry.Rejected{}] : List<&2, Retry.Outcome>}
+
+# A server error that is not transient, and an error that would repeat, are failed.
 law outcome_failed:
-  {[judged(True{}, res(404, Http.empty())), judged(True{}, res(501, Http.empty())), judged(True{}, Fail{Http.ErrDns{}})] == [Retry.Failed{}, Retry.Failed{}, Retry.Failed{}] : List<&2, Retry.Outcome>}
+  {[judged(True{}, res(501, Http.empty())), judged(True{}, Fail{Http.ErrDns{}})] == [Retry.Failed{}, Retry.Failed{}] : List<&2, Retry.Outcome>}
 
 # The breaker counts the target's failures, and not a success or a client error.
 law breaker_counts:

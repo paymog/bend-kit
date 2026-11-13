@@ -6,7 +6,7 @@ import socket
 import tempfile
 import threading
 import time
-from run_owner import ROOT, run
+from run_owner import ROOT, free_port, run
 
 
 def cases():
@@ -112,8 +112,9 @@ def assert_case(case, receipt, journal):
     assert journal.count("map") <= 1, (case, journal)
 
 
-def live(command, rows, journal, direct):
+def live(command, args, rows, journal, direct):
     receipts, failures = [], []
+    port = free_port()
 
     def clients():
         try:
@@ -121,14 +122,14 @@ def live(command, rows, journal, direct):
             first = None
             while first is None:
                 try:
-                    first = socket.create_connection(("127.0.0.1", 18335), timeout=1)
+                    first = socket.create_connection(("127.0.0.1", port), timeout=1)
                 except ConnectionRefusedError:
                     if time.monotonic() > deadline:
                         raise
                     time.sleep(0.05)
             offset = 0
             for index, case in enumerate(rows):
-                connection = first if index == 0 else socket.create_connection(("127.0.0.1", 18335), timeout=5)
+                connection = first if index == 0 else socket.create_connection(("127.0.0.1", port), timeout=5)
                 body = bytes.fromhex(case["body"])
                 fields = [("Host", "example.test"), ("Connection", "close"), ("Content-Length", str(len(body)))]
                 for name, key in (("Content-Type", "media"), ("Content-Encoding", "encoding"), ("Authorization", "auth")):
@@ -153,7 +154,7 @@ def live(command, rows, journal, direct):
 
     thread = threading.Thread(target=clients, daemon=True)
     thread.start()
-    output = run(command, timeout=180)
+    output = run(command + ["live", str(port)] + args, timeout=180)
     thread.join(timeout=20)
     assert not thread.is_alive(), "live client unfinished"
     if failures:
@@ -192,7 +193,7 @@ def main():
                 for cap in sorted({case["depth"] for case in rows}):
                     subset = [case for case in rows if case["depth"] == cap]
                     journal = temp / f"{lane}-live-{cap}.journal"
-                    evidence["lanes"][lane]["live"].extend(live(command + ["live", "18335", str(len(subset)), str(cap), str(journal)], subset, journal, direct))
+                    evidence["lanes"][lane]["live"].extend(live(command, [str(len(subset)), str(cap), str(journal)], subset, journal, direct))
                 for source in ("check", "dispatch_check", "response_check", "scoped_check", "response_live"):
                     binary = temp / (source + extension)
                     run(["bend", f"camber/{source}.bend", "-o", str(binary)])
