@@ -3,7 +3,7 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.3.0.0/storage.bend as S
+import bend-kit-storage@0.3.1.0/storage.bend as S
 ```
 
 It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-files@0.3.1.0`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-collections@0.1.5.0`. SHA-256 comes from OpenSSL 3 through `crypto`; set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path.
@@ -14,7 +14,7 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.3.0.0/storage.bend as S
+import bend-kit-storage@0.3.1.0/storage.bend as S
 
 def ship(+root: S.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -99,11 +99,12 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 | `Disk.init(dir)` | creates `dir/objects`, `dir/roots`, and `dir/tmp` |
 | `Disk.commit(dir, t)` | writes the objects of `t` and answers its root digest |
 | `Disk.load(dir)` | an `Index` of every object, each through `receive` against its file name |
+| `Disk.fetch(dir, root)` | an `Index` of the objects that `root` reaches, each read once through `receive`; other objects are not read, and a missing object is left out |
 | `Disk.receive(dir, m, claimed, b)` | `receive`, then writes `b` under its digest |
-| `Disk.checkout(dir, root)` | the tree under `root`; fails when an object is missing or tampered |
+| `Disk.checkout(dir, root)` | the tree under `root`, through `Disk.fetch`; fails when an object is missing or tampered |
 | `Disk.set_root(dir, name, d)`, `Disk.root(dir, name)`, `Disk.roots(dir)` | named roots in `dir/roots` |
-| `Disk.collect(dir, retained)` | deletes the objects that `live` does not reach and answers how many; deletes nothing when a retained root does not load |
-| `sync(src, dst, root)` | sends `dst` the objects of `Index.plan` through `Disk.receive` and answers how many |
+| `Disk.collect(dir, retained)` | deletes the objects that `live` does not reach and answers how many; deletes nothing when a retained root does not load. It reads only the objects the retained roots reach |
+| `sync(src, dst, root)` | sends `dst` the objects of `Index.plan` through `Disk.receive` and answers how many. It reads the objects `root` reaches in `src`, and in `dst` only those of them that `dst` holds |
 | `snapshot(path)`, `restore(t, path)` | a directory on disk as a `Tree`; a `Tree` written as a new file or directory |
 
 ## Laws
@@ -133,14 +134,14 @@ The proofs cover the pure core. They do not cover hashing, the disk, or the copy
 - **Collision resistance.** The proofs assume that the object hash is injective. SHA-256 is not injective; the assumption is that no one finds two objects with one digest.
 - **Native hashing.** `digest` calls OpenSSL. The proofs assume it computes SHA-256 of the octets it receives. `commit` repeats the shape of `objects` and `hash` in `IO`; the proofs cover `objects` and `hash`.
 - **Encoding.** `decode` is the inverse of `encode` on the objects `commit` writes, and `Digest.read` is the inverse of `Digest.hex`. `check.bend` tests both; no law states them.
-- **Filesystem.** A write goes to `dir/tmp` and then a rename, so a reader sees a whole object or none. Nothing calls `fsync`. After a crash an object file can be empty or short; `Disk.load` then fails on that object, because its digest does not match.
+- **Filesystem.** A write goes to `dir/tmp` and then a rename, so a reader sees a whole object or none. Nothing calls `fsync`. After a crash an object file can be empty or short; a read of that object then fails, because its digest does not match. `Disk.checkout`, `sync`, and `Disk.collect` read only the objects their roots reach, so they do not notice a broken object that no root reaches, and `Disk.collect` deletes it. `Disk.load` reads every object.
 - **Concurrent writers.** Two writers can commit at once: objects never change, and a rename replaces a file with the same octets. `Disk.set_root` keeps the last rename. `Disk.collect` needs a frozen root set: no commit, sync, or root change may run during it, or it can delete an object that a new root needs.
 - **Trees on disk.** `snapshot` follows symbolic links and fails on other special files. A link cycle fails at the fuel limit.
 
 ## Limits
 
 - `get` and `put` on an `Index` take O(log n) comparisons of digests. A comparison reads at most eight words. See [bench/README.md](bench/README.md).
-- `Disk.load` reads and checks every object in the store. `sync`, `Disk.checkout`, and `Disk.collect` load the whole store first.
+- `Disk.load` reads and checks every object in the store. `Disk.checkout`, `sync`, and `Disk.collect` read only the objects their roots reach, so their cost grows with the closure, not with the store. `Disk.collect` also lists every file in `dir/objects`.
 - A file is at most 4 GiB minus one octet, because `Blob.len` is a `U32`.
 
 ## Bench
