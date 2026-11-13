@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `archive` 0.5.1.1: imports `hash` 0.3.0.4 and `zlib` 0.5.1.1, so CRC-32 checks run by slicing-by-8. No API change.
 - `template` 0.1.0.0: new package. Mustache templates: variables, sections over lists and maps, inverted sections, comments, dotted names, and standalone lines. `{{name}}` escapes `&`, `<`, `>`, `"`, and `'`; `{{{name}}}` and `{{& name}}` do not. The context is a Base `Map`. It passes the 104 tests of the Mustache spec's interpolation, sections, inverted, and comments files that use no partials or set delimiters.
 - `markdown` 0.1.0.0: new package. CommonMark 0.31.2 to HTML in pure Bend. All 652 spec examples pass; `LAWS.bend` proves 25 of them and 8 escaping cases.
 - `journal` 0.3.1.1 and `zlib` 0.5.1.1: import `hash` 0.3.0.4, whose `crc32` runs by slicing-by-8. No API change.
