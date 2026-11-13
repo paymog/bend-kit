@@ -5,7 +5,7 @@ import ./app.bend as Gw
 import ./upstream.bend as Up
 import bend-kit-camber@0.15.0.1/camber.bend as C
 import bend-kit-http@0.38.1.1/http.bend as H
-import bend-kit-cache@0.3.0.0/cache.bend as Cache
+import bend-kit-cache@0.3.1.0/cache.bend as Cache
 import bend-kit-hairpin@0.13.0.1/hairpin.bend as Hairpin
 
 def PORT() -> U32:

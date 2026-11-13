@@ -2,7 +2,7 @@
 import Base
 import ./app.bend as Gw
 import ./gateway.bend as G
-import bend-kit-cache@0.3.0.0/cache.bend as Cache
+import bend-kit-cache@0.3.1.0/cache.bend as Cache
 import bend-kit-camber@0.15.0.1/camber.bend as C
 import bend-kit-camber@0.15.0.1/notices.bend as N
 import bend-kit-http@0.38.1.1/http.bend as H

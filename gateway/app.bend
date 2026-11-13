@@ -3,7 +3,7 @@ import Base
 import ./gateway.bend as G
 import bend-kit-authz@0.1.0.0/authz.bend as Az
 import bend-kit-resources@0.1.0.0/resources.bend as Res
-import bend-kit-cache@0.3.0.0/cache.bend as Cache
+import bend-kit-cache@0.3.1.0/cache.bend as Cache
 import bend-kit-camber@0.15.0.1/camber.bend as C
 import bend-kit-http@0.38.1.1/http.bend as H
 import bend-kit-hairpin@0.13.0.1/hairpin.bend as Hairpin

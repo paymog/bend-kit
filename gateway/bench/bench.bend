@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import bend-kit-authz@0.1.0.0/authz.bend as Az
-import bend-kit-cache@0.3.0.0/cache.bend as C
+import bend-kit-cache@0.3.1.0/cache.bend as C
 import ../gateway.bend as G
 
 def keys(n: Nat, +i: U32) -> List<&2, String>:
