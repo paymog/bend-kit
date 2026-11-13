@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.2.0.0: the disk layer keeps objects in `Index`, an ordered map from `collections` 0.1.5.0, so `get` and `put` take O(log n) comparisons. `Disk.load`, `receive`, and `Disk.receive` take and return an `Index` in place of a `Store`. The `index_` laws prove that `Index.of(xs)` answers `get`, `load`, `plan`, and `live` as the list store does, and `gc_has` proves that `Disk.collect` deletes what `gc` drops. A commit and load of 1,313 objects takes 51 ms, down from 176 ms.
 - `runner` 0.14.0.0: imports `collections` 0.1.5.0 and `scheduler` 0.4.3.0. `gateway` 0.4.0.0: imports `collections` 0.1.5.0 and `cache` 0.3.1.0. Breaking: heap, map, ticket, and cache types come from the new versions.
 - `cache` 0.3.1.0, `scheduler` 0.4.3.0, and `sigv4` 0.11.1.0: import `collections` 0.1.5.0. No API change.
 - `lemmas` 0.1.2.0, `collections` 0.1.5.0, and `scheduler` 0.4.2.0: import `bend-mathlib@0.8.0.0`. `lemmas` proves eleven of its laws (`word_cmp_nat`, `u32_cmp_nat`, `u32_is_lt_nat`, `u32_is_le_nat`, `u32_is_eq_nat`, `double_inj`, `word_to_nat_inj`, `u32_to_nat_inj`, `word_sub_nat`, `u32_sub_nat`, `u32_from_to_nat`) by the same laws in mathlib's `u32.bend` and `nat.bend`; no statement changes. `collections/PROOF.bend` takes `u32_cmp_to_nat` and `u32_to_nat_inj` from `u32.bend` and no longer imports `lemmas`.

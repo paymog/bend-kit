@@ -1,5 +1,6 @@
 import Base
 import ./storage.bend as S
+import bend-kit-collections@0.1.5.0/LAWS.bend as Col
 
 # eq(d, x) for some root x.
 def member(~D: Data, ~eq: D -> D -> Bool, xs: List<&2, D>, +d: D) -> Bool:
@@ -131,6 +132,100 @@ law admit_rejects:
   for he: {eq(claimed, computed) == False{} : Bool}
   {S.admit(~D, ~B, ~eq, s, claimed, computed, o) == None{} : Maybe<&2, S.Store<D, B>>}
 
+# The index refines the list store. Index.of(xs) answers as Store.apply(xs, Store.new)
+# when cmp is a total order whose EQ is eq, so every law above holds for the index too.
+law index_get:
+  for ~D: Data
+  for ~B: Data
+  for ~cmp: D -> D -> Cmp
+  for ~eq: D -> D -> Bool
+  for ~crefl: @x: D -> {cmp(x, x) == EQ{} : Cmp}
+  for ~ceq: @x: D -> @y: D -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : D}
+  for ~cflip: @x: D -> @y: D -> {cmp(y, x) == Col.flip(cmp(x, y)) : Cmp}
+  for ~ctrans: @x: D -> @y: D -> @z: D -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for ~agree: @x: D -> @y: D -> {eq(x, y) == Cmp.is_eq(cmp(x, y)) : Bool}
+  for xs: S.Store<D, B>
+  for d: D
+  {S.Index.get(~D, ~B, ~cmp, S.Index.of(~D, ~B, ~cmp, xs), d)
+   == S.Store.get(~D, ~B, ~eq, S.Store.apply(~D, ~B, ~eq, xs, S.Store.new(D, B)), d) : Maybe<&2, S.Obj<D, B>>}
+
+law index_load:
+  for ~D: Data
+  for ~B: Data
+  for ~cmp: D -> D -> Cmp
+  for ~eq: D -> D -> Bool
+  for ~crefl: @x: D -> {cmp(x, x) == EQ{} : Cmp}
+  for ~ceq: @x: D -> @y: D -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : D}
+  for ~cflip: @x: D -> @y: D -> {cmp(y, x) == Col.flip(cmp(x, y)) : Cmp}
+  for ~ctrans: @x: D -> @y: D -> @z: D -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for ~agree: @x: D -> @y: D -> {eq(x, y) == Cmp.is_eq(cmp(x, y)) : Bool}
+  for fuel: Nat
+  for xs: S.Store<D, B>
+  for d: D
+  {S.Index.load(~D, ~B, ~cmp, fuel, S.Index.of(~D, ~B, ~cmp, xs), d)
+   == S.load(~D, ~B, ~eq, fuel, S.Store.apply(~D, ~B, ~eq, xs, S.Store.new(D, B)), d) : Maybe<&2, S.Tree<B>>}
+
+law index_plan:
+  for ~D: Data
+  for ~B: Data
+  for ~cmp: D -> D -> Cmp
+  for ~eq: D -> D -> Bool
+  for ~crefl: @x: D -> {cmp(x, x) == EQ{} : Cmp}
+  for ~ceq: @x: D -> @y: D -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : D}
+  for ~cflip: @x: D -> @y: D -> {cmp(y, x) == Col.flip(cmp(x, y)) : Cmp}
+  for ~ctrans: @x: D -> @y: D -> @z: D -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for ~agree: @x: D -> @y: D -> {eq(x, y) == Cmp.is_eq(cmp(x, y)) : Bool}
+  for fuel: Nat
+  for xs: S.Store<D, B>
+  for ys: S.Store<D, B>
+  for root: D
+  {S.Index.plan(~D, ~B, ~cmp, fuel, S.Index.of(~D, ~B, ~cmp, xs), S.Index.of(~D, ~B, ~cmp, ys), root)
+   == S.plan(~D, ~B, ~eq, fuel, S.Store.apply(~D, ~B, ~eq, xs, S.Store.new(D, B)), S.Store.apply(~D, ~B, ~eq, ys, S.Store.new(D, B)), root)
+   : Maybe<&2, S.Store<D, B>>}
+
+law index_live:
+  for ~D: Data
+  for ~B: Data
+  for ~cmp: D -> D -> Cmp
+  for ~eq: D -> D -> Bool
+  for ~crefl: @x: D -> {cmp(x, x) == EQ{} : Cmp}
+  for ~ceq: @x: D -> @y: D -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : D}
+  for ~cflip: @x: D -> @y: D -> {cmp(y, x) == Col.flip(cmp(x, y)) : Cmp}
+  for ~ctrans: @x: D -> @y: D -> @z: D -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for ~agree: @x: D -> @y: D -> {eq(x, y) == Cmp.is_eq(cmp(x, y)) : Bool}
+  for fuel: Nat
+  for xs: S.Store<D, B>
+  for roots: List<&2, D>
+  {S.Index.live(~D, ~B, ~cmp, fuel, S.Index.of(~D, ~B, ~cmp, xs), roots)
+   == S.live(~D, ~B, ~eq, fuel, S.Store.apply(~D, ~B, ~eq, xs, S.Store.new(D, B)), roots) : Maybe<&2, S.Store<D, B>>}
+
+# Disk.collect keeps an object when the index of the live set has its digest; that is mem.
+law index_has_mem:
+  for ~D: Data
+  for ~B: Data
+  for ~cmp: D -> D -> Cmp
+  for ~eq: D -> D -> Bool
+  for ~crefl: @x: D -> {cmp(x, x) == EQ{} : Cmp}
+  for ~ceq: @x: D -> @y: D -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : D}
+  for ~cflip: @x: D -> @y: D -> {cmp(y, x) == Col.flip(cmp(x, y)) : Cmp}
+  for ~ctrans: @x: D -> @y: D -> @z: D -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for ~agree: @x: D -> @y: D -> {eq(x, y) == Cmp.is_eq(cmp(x, y)) : Bool}
+  for ls: S.Store<D, B>
+  for d: D
+  {S.Index.has(~D, ~B, ~cmp, S.Index.of(~D, ~B, ~cmp, ls), d) == S.mem(~D, ~B, ~eq, ls, d) : Bool}
+
+# gc keeps an object of s exactly when its digest is in the live set.
+law gc_has:
+  for ~D: Data
+  for ~B: Data
+  for ~eq: D -> D -> Bool
+  for ~sound: @x: D -> @y: D -> {eq(x, y) == True{} : Bool} -> {x == y : D}
+  for s: S.Store<D, B>
+  for ls: S.Store<D, B>
+  for d: D
+  for hd: {S.Store.has(~D, ~B, ~eq, s, d) == True{} : Bool}
+  {S.Store.has(~D, ~B, ~eq, S.keep(~D, ~B, ~eq, s, ls), d) == S.mem(~D, ~B, ~eq, ls, d) : Bool}
+
 # Fixtures: U32 digests and payloads, with a toy object hash.
 def toy(o: S.Obj<U32, U32>) -> U32:
   match o:
@@ -184,3 +279,17 @@ law fixture_tamper:
 law fixture_gc:
   {S.gc(~U32, ~U32, ~U32.is_eq, 3n, built(), [2023])
    == Some{S.StCon{2023, S.OItem{"b", 2, 2}, S.StCon{2, S.OEnd{}, S.StNil{}}}} : Maybe<&2, S.Store<U32, U32>>}
+
+def indexed() -> S.Index(U32, U32):
+  S.Index.of(~U32, ~U32, ~U32.cmp, S.objects(~U32, ~U32, ~toy, tree()))
+
+law fixture_index_build:
+  {S.Index.load(~U32, ~U32, ~U32.cmp, 3n, indexed(), root()) == Some{tree()} : Maybe<&2, S.Tree<U32>>}
+
+law fixture_index_dedup:
+  {S.Index.size(U32, U32, indexed()) == 4 : U32}
+
+law fixture_index_plan:
+  {S.Index.plan(~U32, ~U32, ~U32.cmp, 3n, indexed(), S.Index.of(~U32, ~U32, ~U32.cmp, S.StCon{2, S.OEnd{}, S.StNil{}}), root())
+   == Some{S.StCon{root(), S.OItem{"a", 36, 2023}, S.StCon{36, S.OFile{5}, S.StCon{2023, S.OItem{"b", 2, 2}, S.StNil{}}}}}
+   : Maybe<&2, S.Store<U32, U32>>}

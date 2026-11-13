@@ -1,6 +1,7 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-collections@0.1.5.0/order.bend as Order
 import ./storage.bend as S
 
 def ok(good: Bool, +name: String) -> IO(Unit):
@@ -112,18 +113,18 @@ def digest.of(t: S.Tree<S.Blob>) -> IO(String):
 def raw(+path: String, +s: String) -> IO(Unit):
   run(Unit, S.write.file(path, Bytes.from_string(s)))
 
-def resend.of(+dir: String, +s: S.Store<String, S.Blob>, +d: String, m: Maybe<&2, S.Obj<String, S.Blob>>) -> IO(Bool):
+def resend.of(+dir: String, +s: S.Index(String, S.Blob), +d: String, m: Maybe<&2, S.Obj<String, S.Blob>>) -> IO(Bool):
   match m:
     case None{}:
       IO.pure(Bool, False{})
     case Some{o}:
       do IO<Bool>:
-        u : S.Store<String, S.Blob> <- run(S.Store<String, S.Blob>, S.Disk.receive(dir, s, d, S.encode(o)))
-        return U32.is_eq(S.Store.size(String, S.Blob, u), S.Store.size(String, S.Blob, s))
+        u : S.Index(String, S.Blob) <- run(S.Index(String, S.Blob), S.Disk.receive(dir, s, d, S.encode(o)))
+        return U32.is_eq(S.Index.size(String, S.Blob, u), S.Index.size(String, S.Blob, s))
 
 # Sends the object under d to the store at dir a second time.
-def resend(+dir: String, +s: S.Store<String, S.Blob>, +d: String) -> IO(Bool):
-  resend.of(dir, s, d, S.Store.get(~String, ~S.Blob, ~String.eq, s, d))
+def resend(+dir: String, +s: S.Index(String, S.Blob), +d: String) -> IO(Bool):
+  resend.of(dir, s, d, S.Index.get(~String, ~S.Blob, ~Order.string, s, d))
 
 # v2 changes bin/app; collection keeps only v2.
 def collect(+a: String, +v1: String, +abc: String, +v2: String) -> IO(Unit):
@@ -173,13 +174,13 @@ def transfer(+dir: String, +a: String, +b: String, +v1: String, +abc: String) ->
     ok(U32.is_eq(again, 0), "a second sync sends nothing")
     nb2 : U32 <- count(b)
     ok(U32.is_eq(nb2, 12), "the destination holds its own objects and the sent ones")
-    sb : S.Store<String, S.Blob> <- run(S.Store<String, S.Blob>, S.Disk.load(b))
+    sb : S.Index(String, S.Blob) <- run(S.Index(String, S.Blob), S.Disk.load(b))
     twice : Bool <- resend(b, sb, v1)
     ok(twice, "receiving an object the store holds leaves the store unchanged")
     tb : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.Disk.checkout(b, v1))
     restored(dir, tb)
-    dup : Result<&1, &1, U32 & String, S.Store<String, S.Blob>> <- tries(S.Store<String, S.Blob>, S.Disk.receive(b, S.StNil{}, abc, Bytes.from_string("end\n")))
-    ok(expect.fail(S.Store<String, S.Blob>, dup, "storage: object " ++ abc ++ " does not match its digest"), "ingress refuses an object whose digest is not the claimed one")
+    dup : Result<&1, &1, U32 & String, S.Index(String, S.Blob)> <- tries(S.Index(String, S.Blob), S.Disk.receive(b, S.Index.new(String, S.Blob), abc, Bytes.from_string("end\n")))
+    ok(expect.fail(S.Index(String, S.Blob), dup, "storage: object " ++ abc ++ " does not match its digest"), "ingress refuses an object whose digest is not the claimed one")
 
 def committed(+dir: String, +a: String, +abc: String, +v1: String) -> IO(Unit):
   do IO<Unit>:
