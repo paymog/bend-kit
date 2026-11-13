@@ -1,0 +1,14 @@
+[package]
+name = "rs"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rs"
+path = "main.rs"
+
+[dependencies]
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+
+[profile.release]
+opt-level = 3
