@@ -3,7 +3,7 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.2.0.0/storage.bend as S
+import bend-kit-storage@0.2.0.1/storage.bend as S
 ```
 
 It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-files@0.3.1.0`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-collections@0.1.5.0`. SHA-256 comes from OpenSSL 3 through `crypto`; set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path.
@@ -14,7 +14,7 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.2.0.0/storage.bend as S
+import bend-kit-storage@0.2.0.1/storage.bend as S
 
 def ship(+root: String) -> S.Run(Unit):
   do S.Run<Unit>:

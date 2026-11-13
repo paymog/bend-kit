@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.2.0.1: `encode` writes a file object's words once, shifted by the header length, instead of copying them into `Bytes` and appending them one octet at a time. Encoding all objects of the K = 32 bench takes 6 ms, down from 12 ms. `bench/split.bend` times each stage. No API change.
 - `storage` 0.2.0.0: the disk layer keeps objects in `Index`, an ordered map from `collections` 0.1.5.0, so `get` and `put` take O(log n) comparisons. `Disk.load`, `receive`, and `Disk.receive` take and return an `Index` in place of a `Store`. The `index_` laws prove that `Index.of(xs)` answers `get`, `load`, `plan`, and `live` as the list store does, and `gc_has` proves that `Disk.collect` deletes what `gc` drops. A commit and load of 1,313 objects takes 51 ms, down from 176 ms.
 - `runner` 0.14.0.0: imports `collections` 0.1.5.0 and `scheduler` 0.4.3.0. `gateway` 0.4.0.0: imports `collections` 0.1.5.0 and `cache` 0.3.1.0. Breaking: heap, map, ticket, and cache types come from the new versions.
 - `cache` 0.3.1.0, `scheduler` 0.4.3.0, and `sigv4` 0.11.1.0: import `collections` 0.1.5.0. No API change.

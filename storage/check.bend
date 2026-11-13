@@ -76,9 +76,18 @@ def file.roundtrip(+s: String) -> Bool:
   +b = S.Blob.string(s)
   file.back(b, S.decode(S.encode(S.OFile{b})))
 
+# n octets that differ from their neighbours.
+def octets(n: Nat, +i: U32) -> String:
+  match n:
+    case 0n:
+      SNil{}
+    case 1n+p:
+      SCon{Chr{((i * 37 + 11) .&. 255 : U32)}, octets(p, (i + 1 : U32))}
+
 def pure() -> IO(Unit):
   do IO<Unit>:
     ok(file.roundtrip("") && file.roundtrip("x") && file.roundtrip("four") && file.roundtrip("five!") && file.roundtrip("a\nb\u{0}c"), "file objects decode to themselves, newlines and NULs included")
+    ok(file.roundtrip(octets(10n, 0)) && file.roundtrip(octets(100n, 0)) && file.roundtrip(octets(1000n, 0)) && file.roundtrip(octets(4097n, 0)), "file objects decode for every header length modulo 4")
     ok(decodes(S.encode(S.OEnd{})) && decodes(item.bytes("a b")), "end and item objects decode")
     ok(Bool.not(decodes(item.bytes(".."))) && Bool.not(decodes(item.bytes("a/b"))) && Bool.not(decodes(item.bytes(""))) && Bool.not(decodes(item.bytes("."))), "decode refuses names that would leave a restored directory")
     ok(Bool.not(decodes(Bytes.from_string("item abc " ++ hexa() ++ " x\n"))) && Bool.not(decodes(Bytes.from_string("end\nx"))) && Bool.not(decodes(Bytes.from_string("file 01\nx"))) && Bool.not(decodes(Bytes.from_string("file 2\nx"))), "decode refuses bad digests, trailing octets, and wrong lengths")
