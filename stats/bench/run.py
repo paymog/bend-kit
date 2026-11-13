@@ -6,7 +6,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OPS = ["mean", "variance", "median"]
+OPS = ["mean", "variance", "median", "histogram"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 VARIANTS = {

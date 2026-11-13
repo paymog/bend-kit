@@ -158,3 +158,12 @@ def Laws.gcd_symmetric(a, b):
   %Equal.sym(U32, U32.max(a, b), U32.max(b, a), max_comm(a, b)) :
     {S.U32.gcd.go(48n, U32.is_zero(U32.min(b, a)), _, U32.min(b, a)) == S.U32.gcd(b, a) : U32}
   {==}
+
+def Laws.histogram_empty_edges():
+  {==}
+
+def Laws.histogram_nan():
+  {==}
+
+def Laws.histogram_duplicate_edges():
+  {==}

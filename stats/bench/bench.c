@@ -50,6 +50,26 @@ static double median(const double *v, int n) {
   return r;
 }
 
+static double histogram(const double *v, int n) {
+  double edges[101];
+  uint32_t counts[100] = {0};
+  for (int i = 0; i <= 100; i++) edges[i] = i * 10486;
+  for (int i = 0; i < n; i++) {
+    double x = v[i];
+    if (!(edges[0] <= x && x <= edges[100])) continue;
+    int lo = 1, hi = 100;
+    while (lo < hi) {
+      int mid = lo + (hi - lo) / 2;
+      if (x < edges[mid]) hi = mid;
+      else lo = mid + 1;
+    }
+    counts[lo - 1]++;
+  }
+  double sum = 0;
+  for (int i = 0; i < 100; i++) sum += (i + 1) * counts[i];
+  return sum;
+}
+
 int main(void) {
   static double v[N];
   struct timespec t0, t1;
@@ -71,5 +91,9 @@ int main(void) {
   r = median(v, N);
   clock_gettime(CLOCK_MONOTONIC, &t1);
   printf("median\t%.3f\t%u\n", ms(t0, t1), mix(r));
+  clock_gettime(CLOCK_MONOTONIC, &t0);
+  r = histogram(v, N);
+  clock_gettime(CLOCK_MONOTONIC, &t1);
+  printf("histogram\t%.3f\t%u\n", ms(t0, t1), mix(r));
   return 0;
 }

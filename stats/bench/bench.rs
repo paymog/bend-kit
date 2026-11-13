@@ -32,6 +32,18 @@ fn median(v: &[f64]) -> f64 {
     }
 }
 
+fn histogram(v: &[f64]) -> f64 {
+    let edges: Vec<f64> = (0..=100).map(|i| (i * 10486) as f64).collect();
+    let mut counts = [0u32; 100];
+    for &x in v {
+        if edges[0] <= x && x <= edges[100] {
+            let i = edges.partition_point(|&edge| edge <= x).saturating_sub(1).min(99);
+            counts[i] += 1;
+        }
+    }
+    counts.iter().enumerate().map(|(i, &n)| (i + 1) as f64 * n as f64).sum()
+}
+
 fn time(op: &str, f: impl Fn() -> f64) {
     let t0 = Instant::now();
     let r = f();
@@ -50,4 +62,5 @@ fn main() {
     time("mean", || mean(&v));
     time("variance", || variance(&v));
     time("median", || median(&v));
+    time("histogram", || histogram(&v));
 }
