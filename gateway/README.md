@@ -3,10 +3,10 @@
 A guarded read-through gateway. One `Gate` authorizes a request with `authz`, takes one unit from a `resources` pool, and reads a `cache`. A hit gives the unit back at once. A miss keeps the unit and starts a fetch; `finish` stores what the fetch found and gives the unit back.
 
 ```bend
-import bend-kit-gateway@0.3.0.0/gateway.bend as G
+import bend-kit-gateway@0.4.0.0/gateway.bend as G
 ```
 
-It imports `bend-kit-authz@0.1.0.0`, `bend-kit-resources@0.1.0.0`, and `bend-kit-cache@0.3.0.0`. Import those versions to build an `Az.Policy`, an `Az.Request`, or a `C.Policy`. Cached values are `String`.
+It imports `bend-kit-authz@0.1.0.0`, `bend-kit-resources@0.1.0.0`, and `bend-kit-cache@0.3.1.0`. Import those versions to build an `Az.Policy`, an `Az.Request`, or a `C.Policy`. Cached values are `String`.
 
 ```
 authz.granted --> resources.reserve --> Cache.read
@@ -19,8 +19,8 @@ authz.granted --> resources.reserve --> Cache.read
 ```bend
 import Base
 import bend-kit-authz@0.1.0.0/authz.bend as Az
-import bend-kit-cache@0.3.0.0/cache.bend as C
-import bend-kit-gateway@0.3.0.0/gateway.bend as G
+import bend-kit-cache@0.3.1.0/cache.bend as C
+import bend-kit-gateway@0.4.0.0/gateway.bend as G
 
 def readers() -> Az.Policy:
   Az.Permit{Az.Role{"reader"}}

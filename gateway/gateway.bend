@@ -2,7 +2,7 @@
 import Base
 import bend-kit-authz@0.1.0.0/authz.bend as Az
 import bend-kit-resources@0.1.0.0/resources.bend as Res
-import bend-kit-cache@0.3.0.0/cache.bend as C
+import bend-kit-cache@0.3.1.0/cache.bend as C
 
 # The shared state of one gateway. `held` joins every unit that the pool lent
 # and that no finish has given back yet.
