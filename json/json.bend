@@ -1,6 +1,7 @@
 # JSON values, parsed and encoded as RFC 8259. Source: https://github.com/paymog/bend-kit/tree/main/json
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-f64@0.1.1.0/f64.bend as F64
 
 # JSON (RFC 8259) as UTF-8 in Bytes. Strings, numbers and object keys are
 # UTF-8 Bytes too. The shared parser keeps its own stack. parse.bytes preserves
@@ -975,6 +976,38 @@ def u32(v: Val) -> Maybe<&2, U32>:
   match v:
     case Num{s}:
       u32.num(Bytes.to_string(s))
+    case Null{}:
+      None{}
+    case Flag{on}:
+      None{}
+    case Str{s}:
+      None{}
+    case Arr{xs}:
+      None{}
+    case Obj{kvs}:
+      None{}
+
+# The nearest F32 to a number, with Base F32.read.
+def f32(v: Val) -> Maybe<&2, F32>:
+  match v:
+    case Num{s}:
+      F32.read(Bytes.to_string(s))
+    case Null{}:
+      None{}
+    case Flag{on}:
+      None{}
+    case Str{s}:
+      None{}
+    case Arr{xs}:
+      None{}
+    case Obj{kvs}:
+      None{}
+
+# The nearest F64 to a number, with F64.read from bend-kit-f64.
+def f64(v: Val) -> Maybe<&2, F64.F64>:
+  match v:
+    case Num{s}:
+      F64.F64.read(Bytes.to_string(s))
     case Null{}:
       None{}
     case Flag{on}:

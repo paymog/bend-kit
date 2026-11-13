@@ -88,7 +88,6 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Later
 
-- [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist.
 - [ ] Windows support (the effects use POSIX sockets and `dlopen`).
 - [ ] Test on an x86_64 Mac.
 

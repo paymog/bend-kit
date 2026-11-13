@@ -2,6 +2,7 @@ import Base
 import ./json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ../encoding/encoding.bend as Enc
+import bend-kit-f64@0.1.1.0/f64.bend as F64
 
 def show(m: Maybe<&1, Json.Val>) -> IO(Unit):
   match m:
@@ -82,6 +83,23 @@ def retained.checked(result: Maybe<&2, String> & Bool, label: String, want: Mayb
 def expect.retained(label: String, s: String, cap: U32, want: Maybe<&2, String>, verdict: Bool) -> IO(Unit):
   retained.checked(retained.parsed(strict(s, cap)), label, want, verdict)
 
+def f32.text(m: Maybe<&2, F32>) -> String:
+  match m:
+    case None{}:
+      "none"
+    case Some{x}:
+      F32.show(x)
+
+def f64.text(m: Maybe<&2, F64.F64>) -> String:
+  match m:
+    case None{}:
+      "none"
+    case Some{x}:
+      F64.F64.show(x)
+
+def expect.float(label: String, +s: String, want32: String, want64: String) -> IO(Unit):
+  checked(Bool.and(String.eq(f32.text(Json.f32(Json.Num{Bytes.from_string(s)})), want32), String.eq(f64.text(Json.f64(Json.Num{Bytes.from_string(s)})), want64)), label)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(pb("null"))
@@ -142,3 +160,7 @@ def main() -> IO(Unit):
     expect.unique("unique-decoded-key-string-bytes", "{\"\\u00e9\":\"x\\n\\u00e9\"}", 64, Some{"{\"\u{c3}\u{a9}\":\"x\\n\u{c3}\u{a9}\"}"})
     expect.retained("unique-retains-rejected-members", "{\"a\":1,\"\\u0061\":2}", 64, Some{"{\"a\":1,\"a\":2}"}, False{})
     expect.retained("unique-retains-valid-buffers", "{\"z\":1e+02,\"\\u00e9\":\"x\\n\\u00e9\",\"wide\":9007199254740993,\"m\":-0}", 64, Some{"{\"z\":1e+02,\"\u{c3}\u{a9}\":\"x\\n\u{c3}\u{a9}\",\"wide\":9007199254740993,\"m\":-0}"}, True{})
+    expect.float("float-fraction", "-12.50e-03", "-0.0125", "-0.0125")
+    expect.float("float-tenth", "0.1", "0.1", "0.1")
+    expect.float("float-int", "42", "42", "42.0")
+    expect.float("float-overflow", "1E400", "inf", "inf")
