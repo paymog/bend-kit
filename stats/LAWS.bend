@@ -160,3 +160,12 @@ law gcd_symmetric:
   for +a: U32
   for +b: U32
   {S.U32.gcd(a, b) == S.U32.gcd(b, a) : U32}
+
+law histogram_empty_edges:
+  {S.Stats.histogram(Nil{}, data()) == Nil{} : List<&2, U32>}
+
+law histogram_nan:
+  {S.Stats.histogram([n(0), n(1)], [F.F64.nan(), n(0), n(1)]) == [2] : List<&2, U32>}
+
+law histogram_duplicate_edges:
+  {S.Stats.histogram([n(0), n(1), n(1), n(2)], [n(0), n(1), n(2)]) == [1, 0, 2] : List<&2, U32>}

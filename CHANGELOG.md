@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `stats` 0.1.3.0: find histogram bins by binary search over array edges and update array counts. This takes O(k + n log k) time, not one scan per bin. Keep the closed last bin and all existing fixture results.
 - `stats` 0.1.2.0: order gcd arguments before Euclid's loop and prove symmetry for every `U32` pair. The gcd and lcm divisibility laws and natural-number isqrt bounds remain unproved; their U32 arithmetic bridges did not close.
 - `stats` 0.1.1.0: add population and sample standard deviation with the same empty and short-input cases as variance. Import `f64` 0.1.3.0.
 - `json` 0.7.2.0: import `f64` 0.1.3.0. No API change.

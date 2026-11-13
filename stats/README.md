@@ -3,7 +3,7 @@
 Descriptive statistics over `F64` lists: sum, mean, variance, standard deviation, quantiles, a histogram, and least-squares linear regression. Also `U32` gcd, lcm, and integer square root.
 
 ```bend
-import bend-kit-stats@0.1.2.0/stats.bend as S
+import bend-kit-stats@0.1.3.0/stats.bend as S
 ```
 
 It imports `bend-kit-f64@0.1.3.0`. Pass it values of that `F64` type.
@@ -13,7 +13,7 @@ It imports `bend-kit-f64@0.1.3.0`. Pass it values of that `F64` type.
 ```bend
 import Base
 import bend-kit-f64@0.1.3.0/f64.bend as F
-import bend-kit-stats@0.1.2.0/stats.bend as S
+import bend-kit-stats@0.1.3.0/stats.bend as S
 
 def n(k: U32) -> F.F64:
   F.F64.from_u32(k)
@@ -59,7 +59,7 @@ Lists are `List<&2, F.F64>`. A result is `None{}` when the input has too few val
 
 `quantile` sorts the list, then interpolates between the two closest ranks: rank `h = (n - 1) * k / q`, and the result is `s[i] + t * (s[i + 1] - s[i])` with `i` the floor of `h` and `t` its fraction. This is R's type 7 and NumPy's default `linear` method. A percentile `p` is `quantile(xs, p, 100)`. `t` is the exact fraction `r / q` rounded to a double, so the call takes `k` and `q`, not a float.
 
-`histogram` takes `k + 1` ascending edges and gives `k` counts. Bin `i` is `[e(i), e(i+1))`, and the last bin is closed, `[e(k-1), e(k)]`, as in NumPy. A value outside every bin is not counted. It scans the values once per bin.
+`histogram` takes `k + 1` ascending edges and gives `k` counts. Bin `i` is `[e(i), e(i+1))`, and the last bin is closed, `[e(k-1), e(k)]`, as in NumPy. A value outside every bin is not counted. It copies the edges into an array, then uses binary search for each value and an array of counts: O(k + n log k) time and O(k) space.
 
 `linear_regression` gives `slope = sxy / sxx` and `intercept = mean(ys) - slope * mean(xs)`. It is `None` when the lists differ in length, have fewer than 2 points, or every `x` is the same.
 
@@ -77,4 +77,4 @@ The universal gcd and lcm divisibility laws and the natural-number square-root b
 
 ## Bench
 
-`bench/` times the mean, variance, and median of 10000 doubles against C, Rust, Python, and JavaScript. See [bench/README.md](bench/README.md).
+`bench/` times the mean, variance, median, and a 100-bin histogram of 10000 doubles against C, Rust, Python, and JavaScript. See [bench/README.md](bench/README.md).

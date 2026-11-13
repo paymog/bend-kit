@@ -30,6 +30,20 @@ def chk(m: Maybe<&2, F.F64>) -> String:
 def line(op: String, t0: Time.Duration, t1: Time.Duration, m: Maybe<&2, F.F64>) -> IO(Unit):
   IO.print(op ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ chk(m))
 
+def edges(n: Nat, +i: U32) -> List<&2, F.F64>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      Con{F.F64.from_u32((i * 10486 : U32)), edges(p, (i + 1 : U32))}
+
+def histogram.chk(ns: List<&2, U32>, +i: U32, acc: U32) -> F.F64:
+  match ns:
+    case Nil{}:
+      F.F64.from_u32(acc)
+    case Con{n, rest}:
+      histogram.chk(rest, (i + 1 : U32), (acc + i * n : U32))
+
 def main() -> IO(Unit):
   +v = gen(10000n, 44)
   do IO<Unit>:
@@ -45,3 +59,7 @@ def main() -> IO(Unit):
     +c : Maybe<&2, F.F64> = S.Stats.median(v)
     t5 : Time.Duration <- Time.mono()
     line("median", t4, t5, c)
+    t6 : Time.Duration <- Time.mono()
+    +d : F.F64 = histogram.chk(S.Stats.histogram(edges(101n, 0), v), 1, 0)
+    t7 : Time.Duration <- Time.mono()
+    line("histogram", t6, t7, Some{d})

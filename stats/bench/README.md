@@ -1,6 +1,6 @@
 # Statistics benchmark
 
-This times the mean, the sample variance, and the median of 10000 doubles. It compares `stats` with C, Rust, Python, and JavaScript.
+This times the mean, sample variance, median, and a 100-bin histogram of 10000 doubles. It compares `stats` with C, Rust, Python, and JavaScript.
 
 ## Run
 
@@ -20,6 +20,7 @@ Each program makes 10000 xorshift32 draws from seed 44 and shifts each draw righ
 | mean | loop | `Iterator::sum` | `statistics.fmean` | loop | `Stats.mean` |
 | variance | two-pass loop | two-pass `sum` | two-pass loop | two-pass loop | `Stats.variance` |
 | median | `qsort` | `sort_by(total_cmp)` | `statistics.median` | `Float64Array.sort` | `Stats.median` |
+| histogram | binary-search loop | `slice::partition_point` | `bisect.bisect_right` | binary-search loop | `Stats.histogram` |
 
 C and JavaScript have no statistics in the standard library, and Rust's has none either, so those use the obvious loop. Python's `statistics.variance` rounds the exact value once, and Python's `sum` compensates. Both give a variance that differs from the plain two-pass loop in the low bits, so the Python program sums with a plain loop for that op. The sum of the values is exact here, so `fmean` matches the loop.
 
@@ -52,3 +53,16 @@ Bend's mean and variance are about 50 to 80 times slower than C. That is the sof
 ## Universal gcd symmetry
 
 The same `python3 bench/run.py` command after argument ordering gives 0.314 ms for mean, 0.928 ms for variance, and 4.034 ms for median (three-run medians). All six languages retain the checksums above. These float operations do not call gcd.
+
+## Histogram binary search
+
+The histogram has 100 bins and 101 edges, `i * 10486` for `i = 0..100`. It uses the same 10000 draws as the other operations. The last bin is closed. Its checksum is the double word-xor of `sum((i + 1) * count[i])`, so bin placement, not only the total, affects it.
+
+`python3 bench/run.py` from `stats/` on the machine and tool versions above gives these three-run medians in ms. Edge and count allocation are timed in every language.
+
+| implementation | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| Before: one scan per bin | 0.187 | 0.045 | 1.109 | 0.924 | 1.173 | 10.042 |
+| After: binary search | 0.098 | 0.062 | 1.373 | 0.957 | 1.156 | 0.416 |
+
+The other languages use binary search in both rows. Bend is about 24 times faster. Every language gives histogram checksum `1092535808` in both runs. The final run also gives Bend mean 0.451 ms, variance 1.545 ms, and median 5.984 ms, with the same checksums as above. Unchanged operations vary between runs.

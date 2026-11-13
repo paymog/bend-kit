@@ -104,42 +104,101 @@ def Stats.quantile(+xs: List<&2, F.F64>, k: U32, q: U32) -> Maybe<&2, F.F64>:
 def Stats.median(xs: List<&2, F.F64>) -> Maybe<&2, F.F64>:
   Stats.quantile(xs, 1, 2)
 
-def Stats.bin.add(hit: Bool, acc: U32) -> U32:
-  match hit:
-    case True{}:
-      (acc + 1 : U32)
-    case False{}:
-      acc
-
-def Stats.bin.count(xs: List<&2, F.F64>, +last: Bool, +lo: F.F64, +hi: F.F64, acc: U32) -> U32:
+def Stats.histogram.edges(xs: List<&2, F.F64>, a: Array<F.F64>, +i: U32) -> Array<F.F64>:
   match xs:
     case Nil{}:
+      a
+    case Con{x, rest}:
+      Stats.histogram.edges(rest, Array.set(F.F64, a, i, x), (i + 1 : U32))
+
+def Stats.histogram.probe(active: Bool, edges: Array<F.F64>, mid: U32) -> Array<F.F64> & F.F64:
+  match active:
+    case False{}:
+      (edges, F.F64.zero())
+    case True{}:
+      Array.get(F.F64, edges, mid)
+
+def Stats.histogram.search(fuel: Nat, active: Bool, +lo: U32, +hi: U32, +mid: U32, +x: F.F64, r: Array<F.F64> & F.F64) -> Array<F.F64> & U32:
+  match fuel active:
+    case 0n _:
+      (edges, pivot) = r
+      (edges, lo)
+    case 1n+p False{}:
+      (edges, pivot) = r
+      (edges, lo)
+    case 1n+p True{}:
+      (edges, pivot) = r
+      +left = F.F64.is_lt(x, pivot)
+      +a = Bool.pick(U32, left, lo, (mid + 1 : U32))
+      +b = Bool.pick(U32, left, mid, hi)
+      +next = (a + (b - a) / 2 : U32)
+      Stats.histogram.search(p, U32.is_lt(a, b), a, b, next, x, Stats.histogram.probe(U32.is_lt(a, b), edges, next))
+
+def Stats.histogram.store(edges: Array<F.F64>, +i: U32, r: Array<U32> & U32) -> Array<F.F64> & Array<U32>:
+  (counts, n) = r
+  (edges, Array.set(U32, counts, i, (n + 1 : U32)))
+
+def Stats.histogram.increment(counts: Array<U32>, r: Array<F.F64> & U32) -> Array<F.F64> & Array<U32>:
+  (edges, j) = r
+  +i = (j - 1 : U32)
+  Stats.histogram.store(edges, i, Array.get(U32, counts, i))
+
+def Stats.histogram.hit(valid: Bool, +k: U32, x: F.F64, edges: Array<F.F64>, counts: Array<U32>) -> Array<F.F64> & Array<U32>:
+  match valid:
+    case False{}:
+      (edges, counts)
+    case True{}:
+      +mid = (1 + (k - 1) / 2 : U32)
+      Stats.histogram.increment(counts,
+        Stats.histogram.search(32n, U32.is_lt(1, k), 1, k, mid, x, Stats.histogram.probe(U32.is_lt(1, k), edges, mid)))
+
+def Stats.histogram.count(xs: List<&2, F.F64>, +k: U32, +lo: F.F64, +hi: F.F64, state: Array<F.F64> & Array<U32>) -> Array<U32>:
+  match xs:
+    case Nil{}:
+      (edges, counts) = state
+      counts
+    case Con{+x, rest}:
+      (edges, counts) = state
+      Stats.histogram.count(rest, k, lo, hi,
+        Stats.histogram.hit(Bool.and(F.F64.is_le(lo, x), F.F64.is_le(x, hi)), k, x, edges, counts))
+
+def Stats.histogram.list(n: Nat, +i: U32, r: Array<U32> & U32, acc: List<&2, U32>) -> List<&2, U32>:
+  match n:
+    case 0n:
       acc
-    case Con{+x, t}:
-      +top = Bool.or(F.F64.is_lt(x, hi), Bool.and(last, F.F64.is_le(x, hi)))
-      Stats.bin.count(t, last, lo, hi, Stats.bin.add(Bool.and(F.F64.is_le(lo, x), top), acc))
+    case 1n:
+      (counts, x) = r
+      Con{x, acc}
+    case 2n+p:
+      (counts, x) = r
+      +j = (i - 1 : U32)
+      Stats.histogram.list(1n+p, j, Array.get(U32, counts, j), Con{x, acc})
 
-def Stats.bin.last(rest: List<&2, F.F64>) -> Bool:
-  match rest:
-    case Nil{}:
-      True{}
-    case Con{h, t}:
-      False{}
+def Stats.histogram.finish(+k: U32, counts: Array<U32>) -> List<&2, U32>:
+  +i = (k - 1 : U32)
+  Stats.histogram.list(U32.to_nat(k), i, Array.get(U32, counts, i), Nil{})
 
-def Stats.histogram.go(edges: List<&2, F.F64>, +lo: F.F64, +xs: List<&2, F.F64>) -> List<&2, U32>:
-  match edges:
-    case Nil{}:
+def Stats.histogram.bounds(+k: U32, xs: List<&2, F.F64>, depth: Nat, lo: F.F64, r: Array<F.F64> & F.F64) -> List<&2, U32>:
+  (a, hi) = r
+  Stats.histogram.finish(k, Stats.histogram.count(xs, k, lo, hi, (a, Array.new(U32, depth, 0))))
+
+def Stats.histogram.first(+k: U32, xs: List<&2, F.F64>, depth: Nat, r: Array<F.F64> & F.F64) -> List<&2, U32>:
+  (a, lo) = r
+  Stats.histogram.bounds(k, xs, depth, lo, Array.get(F.F64, a, k))
+
+def Stats.histogram.of(nonempty: Bool, +k: U32, edges: List<&2, F.F64>, xs: List<&2, F.F64>) -> List<&2, U32>:
+  match nonempty:
+    case False{}:
       Nil{}
-    case Con{+hi, +rest}:
-      Con{Stats.bin.count(xs, Stats.bin.last(rest), lo, hi, 0), Stats.histogram.go(rest, hi, xs)}
+    case True{}:
+      +depth = {1n+U32.log2(k) : Nat}
+      a = Stats.histogram.edges(edges, Array.new(F.F64, depth, F.F64.zero()), 0)
+      Stats.histogram.first(k, xs, depth, Array.get(F.F64, a, 0))
 
-# Counts per bin [e0, e1), [e1, e2), ..., [e(k-1), ek], for ascending edges.
-def Stats.histogram(edges: List<&2, F.F64>, xs: List<&2, F.F64>) -> List<&2, U32>:
-  match edges:
-    case Nil{}:
-      Nil{}
-    case Con{lo, rest}:
-      Stats.histogram.go(rest, lo, xs)
+# Binary search over ascending edges; the last bin includes its upper edge.
+def Stats.histogram(+edges: List<&2, F.F64>, xs: List<&2, F.F64>) -> List<&2, U32>:
+  +k = U32.from_nat(Nat.sub(List.length(&2, F.F64, edges), 1n))
+  Stats.histogram.of(U32.is_gt(k, 0), k, edges, xs)
 
 type Fit is Data:
   Fit{slope: F.F64, intercept: F.F64}
