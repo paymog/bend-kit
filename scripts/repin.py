@@ -2,11 +2,13 @@
 """Print the re-pin waves that move every sibling import to the sibling's VERSION.
 
 A package moves in a wave when every sibling version that its stale imports
-need is on the hub. A package that moves raises its VERSION when its current
-VERSION is on the hub and a re-pinned file is one of the published files, as
-scripts/publish.sh --check requires. The raise is at the place of the highest
-number that its re-pinned siblings raised. Files that import their own package
-from the hub wait until the package's other files are re-pinned and published.
+need is on the hub. A package that moves raises its VERSION when a re-pinned
+file is one of its newest published files, as scripts/publish.sh --check
+requires. The raise is at the place of the highest number that its re-pinned
+siblings raised. A VERSION that already holds an unpublished raise keeps it
+unless the wave needs a raise at a higher place. Files that import their own
+package from the hub wait until the package's other files are re-pinned and
+published.
 Files under an evidence/ folder keep their pins.
 
 Usage: scripts/repin.py [--apply]. --apply re-pins the first wave: imports,
@@ -41,6 +43,17 @@ def hub_hash(pkg, ver):
                 raise
             _hashes[key] = None
     return _hashes[key]
+
+
+def newest(pkg):
+    try:
+        with urllib.request.urlopen(f"{HUB}/name/bend-kit-{pkg}") as r:
+            vers = [v["version"] for v in json.load(r)["versions"]]
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        return None
+    return max(vers, key=lambda v: [int(x) for x in v.split(".")], default=None)
 
 
 def hub_files(pkg, ver):
@@ -98,12 +111,14 @@ def waves(pkgs, ver, files, pins):
                 continue
             edits = {f: {(q, v): ver[q] for q, v in s} for f, s in group.items()}
             new = None
-            if hub_hash(p, ver[p]) is not None or (p, ver[p]) in published:
+            base = ver[p] if on_hub(p, ver[p]) else newest(p)
+            if base:
                 if p not in real:
-                    real[p] = hub_files(p, ver[p]) if hub_hash(p, ver[p]) else {f"{p}/{p}.bend"}
+                    real[p] = hub_files(p, base) if hub_hash(p, base) else {f"{p}/{p}.bend"}
                 if edits.keys() & real[p]:
                     place = min(raise_at(old, n) for e in edits.values() for (_, old), n in e.items())
-                    new = bump(ver[p], place)
+                    if base == ver[p] or place < raise_at(base, ver[p]):
+                        new = bump(ver[p], place)
             moves.append((p, new, edits))
         if not moves and not waiting:
             if any(r or o for r, o in groups.values()):
