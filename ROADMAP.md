@@ -77,7 +77,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Redis and Valkey client: `redis`, RESP3 over `wire` (#205). Pub/sub, cluster, sentinel, and client-side caching come later.
 - [x] LLM API client: `llm`, Anthropic Messages and OpenAI Chat Completions on `hairpin`, with an SSE parser (#250). Typed tool use, images, and pooled streams come later.
 - [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
-- [ ] Templating and Markdown (#43)
+- [x] Templating and Markdown (#43): `template`, Mustache with HTML escaping by default, and `markdown`, CommonMark 0.31.2 to HTML. Partials, set delimiters, and GitHub extensions come later.
 - [ ] Math and statistics (#44)
 - [ ] Diff and text utilities (#46)
 
