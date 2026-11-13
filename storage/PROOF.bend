@@ -4,6 +4,7 @@ import ./LAWS.bend as Laws
 import bend-kit-collections@0.1.5.0/omap.bend as OMap
 import bend-kit-collections@0.1.5.0/LAWS.bend as Col
 import bend-kit-collections@0.1.5.0/PROOF.bend as ColProof
+import bend-kit-collections@0.1.5.0/order.bend as Order
 
 def true_ne_false(e: {True{} == False{} : Bool}) -> Empty:
   %e : Bool.pick(Type, _, Unit, Empty)
@@ -1615,3 +1616,129 @@ def Laws.gc_has(D, B, eq, sound, s, ls, d, hd):
   +ls = ls
   +d = d
   gc_has.if(~D, ~B, ~eq, ~sound, M(~D, ~B, ~eq, ls, d), s, ls, d, {==}, hd)
+
+# ---- Digest.cmp is a total order, as Order.string is, over U32 words.
+
+def DO(a: List<&2, U32>, b: List<&2, U32>) -> Cmp:
+  S.Digest.order(a, b)
+
+def dord_refl(x: List<&2, U32>) -> {DO(x, x) == EQ{} : Cmp}:
+  match x:
+    case Nil{}:
+      {==}
+    case Con{+c, t}:
+      %Equal.sym(Cmp, U32.cmp(c, c), EQ{}, ColProof.ucmp_refl(c)) : {Order.string.fin(_, DO(t, t)) == EQ{} : Cmp}
+      dord_refl(t)
+
+def dord_eq.step(
+  +a: U32, +b: U32, +s: List<&2, U32>, +t: List<&2, U32>, c: Cmp, h: {U32.cmp(a, b) == c : Cmp},
+  e: {Order.string.fin(c, DO(s, t)) == EQ{} : Cmp},
+  ih: {DO(s, t) == EQ{} : Cmp} -> {s == t : List<&2, U32>}
+) -> {Con{a, s} == Con{b, t} : List<&2, U32>}:
+  match c:
+    case LT{}:
+      ColProof.ne_absurd({Con{a, s} == Con{b, t} : List<&2, U32>}, LT{}, {==}, e)
+    case EQ{}:
+      +ea = ColProof.ucmp_eq(a, b, h)
+      +es = ih(e)
+      %ea : {Con{a, s} == Con{_, t} : List<&2, U32>}
+      %es : {Con{a, s} == Con{a, _} : List<&2, U32>}
+      {==}
+    case GT{}:
+      ColProof.ne_absurd({Con{a, s} == Con{b, t} : List<&2, U32>}, GT{}, {==}, e)
+
+def dord_eq(x: List<&2, U32>, y: List<&2, U32>, e: {DO(x, y) == EQ{} : Cmp}) -> {x == y : List<&2, U32>}:
+  match x y:
+    case Nil{} Nil{}:
+      {==}
+    case Nil{} Con{b, t}:
+      ColProof.ne_absurd({Nil{} == Con{b, t} : List<&2, U32>}, LT{}, {==}, e)
+    case Con{a, s} Nil{}:
+      ColProof.ne_absurd({Con{a, s} == Nil{} : List<&2, U32>}, GT{}, {==}, e)
+    case Con{+a, +s} Con{+b, +t}:
+      dord_eq.step(a, b, s, t, U32.cmp(a, b), {==}, e, p => dord_eq(s, t, p))
+
+def dord_flip(x: List<&2, U32>, y: List<&2, U32>) -> {DO(y, x) == Col.flip(DO(x, y)) : Cmp}:
+  match x y:
+    case Nil{} Nil{}:
+      {==}
+    case Nil{} Con{b, t}:
+      {==}
+    case Con{a, s} Nil{}:
+      {==}
+    case Con{+a, +s} Con{+b, +t}:
+      %Equal.sym(Cmp, U32.cmp(b, a), Col.flip(U32.cmp(a, b)), ColProof.ucmp_flip(a, b)) :
+        {Order.string.fin(_, DO(t, s)) == Col.flip(Order.string.fin(U32.cmp(a, b), DO(s, t))) : Cmp}
+      %Equal.sym(Cmp, DO(t, s), Col.flip(DO(s, t)), dord_flip(s, t)) :
+        {Order.string.fin(Col.flip(U32.cmp(a, b)), _) == Col.flip(Order.string.fin(U32.cmp(a, b), DO(s, t))) : Cmp}
+      ColProof.sfin_flip(U32.cmp(a, b), DO(s, t))
+
+def dord_trans.step(
+  +a: U32, +b: U32, +c: U32, -s: List<&2, U32>, -t: List<&2, U32>, -u: List<&2, U32>, c1: Cmp, c2: Cmp,
+  h1: {U32.cmp(a, b) == c1 : Cmp}, h2: {U32.cmp(b, c) == c2 : Cmp},
+  e1: {Order.string.fin(c1, DO(s, t)) == LT{} : Cmp},
+  e2: {Order.string.fin(c2, DO(t, u)) == LT{} : Cmp},
+  ih: {DO(s, t) == LT{} : Cmp} -> {DO(t, u) == LT{} : Cmp} -> {DO(s, u) == LT{} : Cmp}
+) -> {Order.string.fin(U32.cmp(a, c), DO(s, u)) == LT{} : Cmp}:
+  match c1 c2:
+    case LT{} LT{}:
+      %Equal.sym(Cmp, U32.cmp(a, c), LT{}, ColProof.ucmp_trans(a, b, c, h1, h2)) : {Order.string.fin(_, DO(s, u)) == LT{} : Cmp}
+      {==}
+    case LT{} EQ{}:
+      +ebc = ColProof.ucmp_eq(b, c, h2)
+      +eac = ColProof.rw(U32, w => {U32.cmp(a, w) == LT{} : Cmp}, c, b, Equal.sym(U32, b, c, ebc), h1)
+      %Equal.sym(Cmp, U32.cmp(a, c), LT{}, eac) : {Order.string.fin(_, DO(s, u)) == LT{} : Cmp}
+      {==}
+    case EQ{} LT{}:
+      +eab = ColProof.ucmp_eq(a, b, h1)
+      +eac = ColProof.rw(U32, w => {U32.cmp(w, c) == LT{} : Cmp}, a, b, eab, h2)
+      %Equal.sym(Cmp, U32.cmp(a, c), LT{}, eac) : {Order.string.fin(_, DO(s, u)) == LT{} : Cmp}
+      {==}
+    case EQ{} EQ{}:
+      +eca = Equal.sym(U32, a, c, Equal.trans(U32, a, b, c, ColProof.ucmp_eq(a, b, h1), ColProof.ucmp_eq(b, c, h2)))
+      +eac = ColProof.rw(U32, w => {U32.cmp(a, w) == EQ{} : Cmp}, c, a, eca, ColProof.ucmp_refl(a))
+      %Equal.sym(Cmp, U32.cmp(a, c), EQ{}, eac) : {Order.string.fin(_, DO(s, u)) == LT{} : Cmp}
+      ih(e1, e2)
+    case GT{} _:
+      ColProof.lt_absurd({Order.string.fin(U32.cmp(a, c), DO(s, u)) == LT{} : Cmp}, GT{}, {==}, e1)
+    case _ GT{}:
+      ColProof.lt_absurd({Order.string.fin(U32.cmp(a, c), DO(s, u)) == LT{} : Cmp}, GT{}, {==}, e2)
+
+def dord_trans(
+  x: List<&2, U32>, y: List<&2, U32>, z: List<&2, U32>, e1: {DO(x, y) == LT{} : Cmp}, e2: {DO(y, z) == LT{} : Cmp}
+) -> {DO(x, z) == LT{} : Cmp}:
+  match x y z:
+    case Nil{} Nil{} _:
+      ColProof.lt_absurd({DO(Nil{}, z) == LT{} : Cmp}, EQ{}, {==}, e1)
+    case Con{a, s} Nil{} _:
+      ColProof.lt_absurd({DO(Con{a, s}, z) == LT{} : Cmp}, GT{}, {==}, e1)
+    case Nil{} Con{b, t} Nil{}:
+      ColProof.lt_absurd({DO(Nil{}, Nil{}) == LT{} : Cmp}, GT{}, {==}, e2)
+    case Con{a, s} Con{b, t} Nil{}:
+      ColProof.lt_absurd({DO(Con{a, s}, Nil{}) == LT{} : Cmp}, GT{}, {==}, e2)
+    case Nil{} Con{b, t} Con{c, u}:
+      {==}
+    case Con{+a, +s} Con{+b, +t} Con{+c, +u}:
+      dord_trans.step(a, b, c, s, t, u, U32.cmp(a, b), U32.cmp(b, c), {==}, {==}, e1, e2,
+        p => q => dord_trans(s, t, u, p, q))
+
+def Laws.digest_cmp_refl(x):
+  match x:
+    case S.Digest{ws}:
+      dord_refl(ws)
+
+def Laws.digest_cmp_eq(x, y, e):
+  match x y:
+    case S.Digest{+a} S.Digest{+b}:
+      %dord_eq(a, b, e) : {S.Digest{a} == S.Digest{_} : S.Digest}
+      {==}
+
+def Laws.digest_cmp_flip(x, y):
+  match x y:
+    case S.Digest{a} S.Digest{b}:
+      dord_flip(a, b)
+
+def Laws.digest_cmp_trans(x, y, z, e1, e2):
+  match x y z:
+    case S.Digest{a} S.Digest{b} S.Digest{c}:
+      dord_trans(a, b, c, e1, e2)

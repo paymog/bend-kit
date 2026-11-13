@@ -17,11 +17,11 @@ You need `bend`, `clang` with OpenSSL 3 from Homebrew (`brew install openssl@3`)
 
 The tree has K directories `d00`, `d01`, … at the top. Each directory holds K files `f00`, `f01`, … of 4096 octets. Octet `j` of file `(d, f)` is `(d * 31 + f * 7 + j) & 255`. Each program builds the tree before the timer starts.
 
-The timed region encodes every object in the format of [../README.md](../README.md#encoding), takes its SHA-256, puts it in a store keyed by the hex digest (the first object under a digest stays), and then walks the store from the root and counts the file octets. Each program prints the root digest and that count.
+The timed region encodes every object in the format of [../README.md](../README.md#encoding), takes its SHA-256, puts it in a store keyed by the digest (the first object under a digest stays), and then walks the store from the root and counts the file octets. Each program prints the root digest in hex and that count. Bend keys its store by `S.Digest`, the 32 octets packed into eight `U32`s; the other programs key theirs by the hex string.
 
 | language | digest | store |
 |---|---|---|
-| Bend | `Crypto.sha256.words` through `S.commit` | `S.Index.of`, then `S.Index.load` |
+| Bend | `Crypto.sha256.words` through `S.commit` | `S.Index.of`, then `S.Index.load`, ordered by `S.Digest.cmp` |
 | C | OpenSSL 3 `SHA256` | POSIX `hsearch` |
 | Rust | `sha2` 0.10.9 | `std::collections::HashMap` |
 | Python | `hashlib.sha256` | `dict` |
@@ -35,23 +35,23 @@ Versions: Bend 2.0.38, Apple clang 21.0.0 with OpenSSL 3.6.5, rustc 1.91.0 with 
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| commit and load | 7.3 (2.6x) | 9.4 (3.3x) | 4.5 (1.6x) | 6.4 (2.3x) | 2.9 (1.0x) | 49.4 (17.3x) |
+| commit and load | 5.1 (1.7x) | 9.1 (3.1x) | 3.9 (1.3x) | 6.6 (2.3x) | 2.9 (1.0x) | 34.3 (11.7x) |
 
 Every program prints root `29cc4de74d186c77f13fdfc2781365c186a6823091cdf974614aebe811a53202` and `4194304` octets.
 
 ## Reading it
 
-- The store is an ordered map keyed by digest (`S.Index`), so `put` and `get` take O(log n) comparisons. One run each of native Bend: K = 16 (469 objects) took 14 ms, K = 32 (1,313 objects) 57 ms, and K = 48 (2,609 objects) 132 ms. The list store of storage 0.1.0.0 took 21, 175, and 708 ms on the same inputs.
+- The store is an ordered map keyed by digest (`S.Index`), so `put` and `get` take O(log n) comparisons. One run each of native Bend: K = 16 (469 objects) took 9 ms, K = 32 (1,313 objects) 33 ms, and K = 48 (2,609 objects) 76 ms. The list store of storage 0.1.0.0 took 21, 175, and 708 ms on the same inputs.
 - `split.bend` times each stage of the Bend side alone. Build it with `bend split.bend -o out/split` and run `out/split 32`. Three runs at K = 32, in ms:
 
-| stage | storage 0.2.0.0 | storage 0.2.0.1 |
-|---|---:|---:|
-| `S.commit`: encode, SHA-256, and object list | 21 to 35 | 18 to 19 |
-| `S.Index.of` on 1,313 objects | 12 | 12 |
-| `S.Index.load` of the root | 8 | 8 |
-| `S.encode` of every object, alone | 12 | 6 |
+| stage | storage 0.2.0.0 | storage 0.2.0.1 | storage 0.3.0.0 |
+|---|---:|---:|---:|
+| `S.commit`: encode, SHA-256, and object list | 21 to 35 | 18 to 19 | 16 to 17 |
+| `S.Index.of` on 1,313 objects | 12 | 12 | 6 |
+| `S.Index.load` of the root | 8 | 8 | 4 |
+| `S.encode` of every object, alone | 12 | 6 | 6 |
 
-  `encode` used to copy each file from its word list into `Bytes` and then append it to the header one octet at a time. It now writes the words once, shifted by the header length. What is left of `encode` is the walk of the `Blob` word list. The index build and the load are 20 ms, and each step of them compares two 64-character digest `String`s.
+  In 0.2.0.1, `encode` began to write a file's words once, shifted by the header length, in place of a copy into `Bytes` and an append one octet at a time. In 0.3.0.0, the index keys are packed digests: a comparison reads at most eight words, and copying a key copies eight words, not 64 `Char`s. What is left of `encode` is the walk of the `Blob` word list.
 - Python is fastest here because `hashlib` and `dict` run in C, and each object costs one call to each.
 
 ## Caveats
