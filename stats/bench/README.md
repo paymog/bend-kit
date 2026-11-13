@@ -48,3 +48,7 @@ Bend's mean and variance are about 50 to 80 times slower than C. That is the sof
 | mean | 0.005 | 0.006 | 0.586 | 0.455 | 0.029 | 0.286 |
 | variance | 0.012 | 0.011 | 0.705 | 0.708 | 0.269 | 0.912 |
 | median | 0.584 | 0.128 | 0.123 | 0.499 | 0.715 | 3.819 |
+
+## Universal gcd symmetry
+
+The same `python3 bench/run.py` command after argument ordering gives 0.314 ms for mean, 0.928 ms for variance, and 4.034 ms for median (three-run medians). All six languages retain the checksums above. These float operations do not call gcd.

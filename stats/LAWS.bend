@@ -155,3 +155,8 @@ law isqrt_square:
 
 law isqrt_max:
   {S.U32.isqrt(4294967295) == 65535 : U32}
+
+law gcd_symmetric:
+  for +a: U32
+  for +b: U32
+  {S.U32.gcd(a, b) == S.U32.gcd(b, a) : U32}
