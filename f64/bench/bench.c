@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,5 +73,10 @@ int main(void) {
   for (i = 0; i < n; i++) h ^= mix(strtod(text[i], NULL));
   clock_gettime(CLOCK_MONOTONIC, &t1);
   printf("read\t%.3f\t%u\n", ms(t0, t1), h);
+  clock_gettime(CLOCK_MONOTONIC, &t0);
+  h = 0;
+  for (i = 0; i < n; i++) h ^= mix(sqrt(fabs(nums[i])));
+  clock_gettime(CLOCK_MONOTONIC, &t1);
+  printf("sqrt\t%.3f\t%u\n", ms(t0, t1), h);
   return 0;
 }

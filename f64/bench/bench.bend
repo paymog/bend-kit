@@ -73,6 +73,14 @@ def reads(ss: List<&2, String>, h: U32) -> U32:
     case Con{s, t}:
       reads(t, (h .^. word(F.F64.read(s)) : U32))
 
+def roots(xs: List<&2, F.F64>, h: U32) -> U32:
+  match xs:
+    case Nil{}:
+      h
+    case Con{x, t}:
+      +r = F.F64.sqrt(F.F64.abs(x))
+      roots(t, (h .^. F.F64.hi(r) .^. F.F64.lo(r) : U32))
+
 def main() -> IO(Unit):
   +v = vals()
   +nums = gen(1000n, 611)
@@ -92,3 +100,8 @@ def main() -> IO(Unit):
     t5 : Time.Duration <- Time.mono()
     IO.print("chk\tread\t" ++ U32.show(r))
     IO.print("ms\tread\t" ++ Time.Duration.show_ms(Time.Duration.sub(t5, t4)))
+    t6 : Time.Duration <- Time.mono()
+    h : U32 = roots(nums, 0)
+    t7 : Time.Duration <- Time.mono()
+    IO.print("chk\tsqrt\t" ++ U32.show(h))
+    IO.print("ms\tsqrt\t" ++ Time.Duration.show_ms(Time.Duration.sub(t7, t6)))

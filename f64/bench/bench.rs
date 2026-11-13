@@ -59,4 +59,9 @@ fn main() {
     let h = text.iter().fold(0, |h, s| h ^ mix(s.parse().unwrap()));
     let ms = t0.elapsed().as_secs_f64() * 1e3;
     println!("read\t{ms:.3}\t{h}");
+
+    let t0 = Instant::now();
+    let h = nums.iter().fold(0, |h, x| h ^ mix(x.abs().sqrt()));
+    let ms = t0.elapsed().as_secs_f64() * 1e3;
+    println!("sqrt\t{ms:.3}\t{h}");
 }
