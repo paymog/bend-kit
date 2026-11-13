@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `cache` 0.3.1.0, `scheduler` 0.4.3.0, and `sigv4` 0.11.1.0: import `collections` 0.1.5.0. No API change.
 - `lemmas` 0.1.2.0, `collections` 0.1.5.0, and `scheduler` 0.4.2.0: import `bend-mathlib@0.8.0.0`. `lemmas` proves eleven of its laws (`word_cmp_nat`, `u32_cmp_nat`, `u32_is_lt_nat`, `u32_is_le_nat`, `u32_is_eq_nat`, `double_inj`, `word_to_nat_inj`, `u32_to_nat_inj`, `word_sub_nat`, `u32_sub_nat`, `u32_from_to_nat`) by the same laws in mathlib's `u32.bend` and `nat.bend`; no statement changes. `collections/PROOF.bend` takes `u32_cmp_to_nat` and `u32_to_nat_inj` from `u32.bend` and no longer imports `lemmas`.
 - `f64` 0.1.1.0: `F64.read` reads decimal text to the nearest double, ties to even, and `F64.show` writes the shortest decimal that reads back, in Python's `repr` format. Laws prove fixtures, including a tie, overflow, and the least subnormal. `text_check.py` compares both with Python's `float` and `repr` on random inputs.
 - `runner` 0.13.0.2: after a round that did nothing, `drain` waits for a message only until the earliest pending ticket is due, when that comes before `idle` ends, so the job starts on time and not up to `idle` ms late.

@@ -1,6 +1,6 @@
 # Pure generic scheduler queue; Nat deadlines and never-reused FIFO IDs.
 import Base
-import bend-kit-collections@0.1.4.1/heap.bend as H
+import bend-kit-collections@0.1.5.0/heap.bend as H
 
 type Ticket<-A: Data> is Data:
   Ticket{id: Nat, deadline: Nat, payload: A}

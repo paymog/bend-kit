@@ -8,7 +8,7 @@ import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-collections@0.1.4.1/order.bend as Order
+import bend-kit-collections@0.1.5.0/order.bend as Order
 
 # Text (path, query, header values) is a String of code points; non-ASCII is sent as UTF-8.
 # S3 decodes and re-encodes wire escapes once; other services encode an escaped wire path twice.

@@ -1,8 +1,8 @@
 import Base
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ./cache.bend as C
-import bend-kit-collections@0.1.4.1/LAWS.bend as CL
-import bend-kit-collections@0.1.4.1/order.bend as Order
+import bend-kit-collections@0.1.5.0/LAWS.bend as CL
+import bend-kit-collections@0.1.5.0/order.bend as Order
 
 # One operation on one key, in the order the cache sees it.
 type Op<-V: Data> is Data:
