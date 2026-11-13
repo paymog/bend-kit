@@ -1195,6 +1195,86 @@ def F64.zero() -> F64:
 def F64.inf() -> F64:
   F64{2146435072, 0}
 
+def trunc.mask(high: Bool, +exp: U32, hi: U32, lo: U32) -> F64:
+  match high:
+    case True{}:
+      F64{(hi .&. (4294967295 << U32.to_nat((1043 - exp : U32))) : U32), 0}
+    case False{}:
+      F64{hi, (lo .&. (4294967295 << U32.to_nat((1075 - exp : U32))) : U32)}
+
+def trunc.integral(integral: Bool, +exp: U32, hi: U32, lo: U32) -> F64:
+  match integral:
+    case True{}:
+      F64{hi, lo}
+    case False{}:
+      trunc.mask(U32.is_le(exp, 1043), exp, hi, lo)
+
+def trunc.small(small: Bool, +exp: U32, +hi: U32, lo: U32) -> F64:
+  match small:
+    case True{}:
+      F64.zero.sign((hi >> 31n : U32))
+    case False{}:
+      trunc.integral(U32.is_ge(exp, 1075), exp, hi, lo)
+
+def trunc.nan(nan: Bool, +hi: U32, lo: U32) -> F64:
+  match nan:
+    case True{}:
+      F64.nan()
+    case False{}:
+      +exp = ((hi >> 20n) .&. 2047 : U32)
+      trunc.small(U32.is_lt(exp, 1023), exp, hi, lo)
+
+def F64.trunc(x: F64) -> F64:
+  match x:
+    case F64{+hi, +lo}:
+      trunc.nan(F64.nan.bits(hi, lo), hi, lo)
+
+def integral.adjust(adjust: Bool, t: F64, step: F64) -> F64:
+  match adjust:
+    case True{}:
+      F64.add(t, step)
+    case False{}:
+      t
+
+def floor.truncated(+x: F64, +t: F64) -> F64:
+  integral.adjust(F64.is_lt(x, t), t, F64.neg(F64.one()))
+
+def F64.floor(+x: F64) -> F64:
+  floor.truncated(x, F64.trunc(x))
+
+def ceil.truncated(+x: F64, +t: F64) -> F64:
+  integral.adjust(F64.is_lt(t, x), t, F64.one())
+
+def F64.ceil(+x: F64) -> F64:
+  ceil.truncated(x, F64.trunc(x))
+
+def to_u32.shift(high: Bool, +exp: U32, hi: U32, lo: U32) -> U32:
+  match high:
+    case True{}:
+      (hi >> U32.to_nat((1043 - exp : U32)) : U32)
+    case False{}:
+      ((hi << U32.to_nat((exp - 1043 : U32))) .|. (lo >> U32.to_nat((1075 - exp : U32))) : U32)
+
+def to_u32.range(valid: Bool, +exp: U32, hi: U32, lo: U32) -> Maybe<&2, U32>:
+  match valid:
+    case False{}:
+      None{}
+    case True{}:
+      Some{to_u32.shift(U32.is_le(exp, 1043), exp, ((hi .&. 1048575) .|. 1048576 : U32), lo)}
+
+def to_u32.small(small: Bool, +exp: U32, +hi: U32, lo: U32) -> Maybe<&2, U32>:
+  match small:
+    case True{}:
+      Some{0}
+    case False{}:
+      to_u32.range(Bool.and(U32.is_lt(exp, 1055), U32.is_zero((hi >> 31n : U32))), exp, hi, lo)
+
+def F64.to_u32(x: F64) -> Maybe<&2, U32>:
+  match x:
+    case F64{+hi, lo}:
+      +exp = ((hi >> 20n) .&. 2047 : U32)
+      to_u32.small(U32.is_lt(exp, 1023), exp, hi, lo)
+
 # A match cannot scrutinize a computed Bool, so each branch is a closure.
 def Txt.if(-A: Type, c: Bool, t: Unit -> A, e: Unit -> A) -> A:
   match c:

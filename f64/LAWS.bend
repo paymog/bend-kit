@@ -126,3 +126,159 @@ law sqrt_neg_inf:
 
 law sqrt_nan:
   {F.F64.sqrt(F.F64.nan()) == F.F64.nan() : F.F64}
+
+law floor_neg_half:
+  {F.F64.floor(bits(3219128320, 0)) == bits(3220176896, 0) : F.F64}
+
+law floor_pos_fraction:
+  {F.F64.floor(bits(1074213683, 858993459)) == bits(1073741824, 0) : F.F64}
+
+law floor_neg_fraction:
+  {F.F64.floor(bits(3221697331, 858993459)) == bits(3221749760, 0) : F.F64}
+
+law floor_pos_zero:
+  {F.F64.floor(bits(0, 0)) == bits(0, 0) : F.F64}
+
+law floor_neg_zero:
+  {F.F64.floor(bits(2147483648, 0)) == bits(2147483648, 0) : F.F64}
+
+law floor_below_large:
+  {F.F64.floor(bits(1127219199, 4294967295)) == bits(1127219199, 4294967294) : F.F64}
+
+law floor_large:
+  {F.F64.floor(bits(1127219200, 0)) == bits(1127219200, 0) : F.F64}
+
+law floor_above_large:
+  {F.F64.floor(bits(1127219200, 1)) == bits(1127219200, 1) : F.F64}
+
+law floor_neg_large:
+  {F.F64.floor(bits(3274702848, 1)) == bits(3274702848, 1) : F.F64}
+
+law floor_pos_subnormal:
+  {F.F64.floor(bits(0, 1)) == bits(0, 0) : F.F64}
+
+law floor_neg_subnormal:
+  {F.F64.floor(bits(2147483648, 1)) == bits(3220176896, 0) : F.F64}
+
+law floor_inf:
+  {F.F64.floor(bits(2146435072, 0)) == bits(2146435072, 0) : F.F64}
+
+law floor_neg_inf:
+  {F.F64.floor(bits(4293918720, 0)) == bits(4293918720, 0) : F.F64}
+
+law floor_signaling_nan:
+  {F.F64.floor(bits(4293918720, 1)) == bits(2146959360, 0) : F.F64}
+
+law ceil_neg_half:
+  {F.F64.ceil(bits(3219128320, 0)) == bits(2147483648, 0) : F.F64}
+
+law ceil_pos_fraction:
+  {F.F64.ceil(bits(1074213683, 858993459)) == bits(1074266112, 0) : F.F64}
+
+law ceil_neg_fraction:
+  {F.F64.ceil(bits(3221697331, 858993459)) == bits(3221225472, 0) : F.F64}
+
+law ceil_pos_zero:
+  {F.F64.ceil(bits(0, 0)) == bits(0, 0) : F.F64}
+
+law ceil_neg_zero:
+  {F.F64.ceil(bits(2147483648, 0)) == bits(2147483648, 0) : F.F64}
+
+law ceil_below_large:
+  {F.F64.ceil(bits(1127219199, 4294967295)) == bits(1127219200, 0) : F.F64}
+
+law ceil_large:
+  {F.F64.ceil(bits(1127219200, 0)) == bits(1127219200, 0) : F.F64}
+
+law ceil_above_large:
+  {F.F64.ceil(bits(1127219200, 1)) == bits(1127219200, 1) : F.F64}
+
+law ceil_neg_large:
+  {F.F64.ceil(bits(3274702848, 1)) == bits(3274702848, 1) : F.F64}
+
+law ceil_pos_subnormal:
+  {F.F64.ceil(bits(0, 1)) == bits(1072693248, 0) : F.F64}
+
+law ceil_neg_subnormal:
+  {F.F64.ceil(bits(2147483648, 1)) == bits(2147483648, 0) : F.F64}
+
+law ceil_inf:
+  {F.F64.ceil(bits(2146435072, 0)) == bits(2146435072, 0) : F.F64}
+
+law ceil_neg_inf:
+  {F.F64.ceil(bits(4293918720, 0)) == bits(4293918720, 0) : F.F64}
+
+law ceil_signaling_nan:
+  {F.F64.ceil(bits(4293918720, 1)) == bits(2146959360, 0) : F.F64}
+
+law trunc_neg_half:
+  {F.F64.trunc(bits(3219128320, 0)) == bits(2147483648, 0) : F.F64}
+
+law trunc_pos_fraction:
+  {F.F64.trunc(bits(1074213683, 858993459)) == bits(1073741824, 0) : F.F64}
+
+law trunc_neg_fraction:
+  {F.F64.trunc(bits(3221697331, 858993459)) == bits(3221225472, 0) : F.F64}
+
+law trunc_pos_zero:
+  {F.F64.trunc(bits(0, 0)) == bits(0, 0) : F.F64}
+
+law trunc_neg_zero:
+  {F.F64.trunc(bits(2147483648, 0)) == bits(2147483648, 0) : F.F64}
+
+law trunc_below_large:
+  {F.F64.trunc(bits(1127219199, 4294967295)) == bits(1127219199, 4294967294) : F.F64}
+
+law trunc_large:
+  {F.F64.trunc(bits(1127219200, 0)) == bits(1127219200, 0) : F.F64}
+
+law trunc_above_large:
+  {F.F64.trunc(bits(1127219200, 1)) == bits(1127219200, 1) : F.F64}
+
+law trunc_neg_large:
+  {F.F64.trunc(bits(3274702848, 1)) == bits(3274702848, 1) : F.F64}
+
+law trunc_pos_subnormal:
+  {F.F64.trunc(bits(0, 1)) == bits(0, 0) : F.F64}
+
+law trunc_neg_subnormal:
+  {F.F64.trunc(bits(2147483648, 1)) == bits(2147483648, 0) : F.F64}
+
+law trunc_inf:
+  {F.F64.trunc(bits(2146435072, 0)) == bits(2146435072, 0) : F.F64}
+
+law trunc_neg_inf:
+  {F.F64.trunc(bits(4293918720, 0)) == bits(4293918720, 0) : F.F64}
+
+law trunc_signaling_nan:
+  {F.F64.trunc(bits(4293918720, 1)) == bits(2146959360, 0) : F.F64}
+
+law to_u32_max:
+  {F.F64.to_u32(bits(1106247679, 4292870144)) == Some{4294967295} : Maybe<&2, U32>}
+
+law to_u32_overflow:
+  {F.F64.to_u32(bits(1106247680, 0)) == None{} : Maybe<&2, U32>}
+
+law to_u32_neg_half:
+  {F.F64.to_u32(bits(3219128320, 0)) == Some{0} : Maybe<&2, U32>}
+
+law to_u32_neg_one:
+  {F.F64.to_u32(bits(3220176896, 0)) == None{} : Maybe<&2, U32>}
+
+law to_u32_nan:
+  {F.F64.to_u32(bits(2146959360, 0)) == None{} : Maybe<&2, U32>}
+
+law to_u32_inf:
+  {F.F64.to_u32(bits(2146435072, 0)) == None{} : Maybe<&2, U32>}
+
+law to_u32_neg_inf:
+  {F.F64.to_u32(bits(4293918720, 0)) == None{} : Maybe<&2, U32>}
+
+law to_u32_fraction:
+  {F.F64.to_u32(bits(1074213683, 858993459)) == Some{2} : Maybe<&2, U32>}
+
+law to_u32_word_boundary:
+  {F.F64.to_u32(bits(1093664768, 3221225472)) == Some{1048576} : Maybe<&2, U32>}
+
+law to_u32_subnormal:
+  {F.F64.to_u32(bits(2147483648, 1)) == Some{0} : Maybe<&2, U32>}
