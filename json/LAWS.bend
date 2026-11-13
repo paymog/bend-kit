@@ -1,6 +1,7 @@
 import Base
 import ./json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-f64@0.1.1.0/f64.bend as F64
 
 def str(t: String) -> Json.Val:
   Json.Str{Json.utf8(t)}
@@ -71,6 +72,16 @@ law u32_fraction_none:
 
 law u32_overflow_none:
   {Json.u32(num("4294967296")) == None{} : Maybe<&2, U32>}
+
+law f32_string_none:
+  {Json.f32(str("1.5")) == None{} : Maybe<&2, F32>}
+
+# -1.25 is 0xBFF40000_00000000.
+law f64_exponent:
+  {Json.f64(num("-12.5e-1")) == Some{F64.F64{3220439040, 0}} : Maybe<&2, F64.F64>}
+
+law f64_string_none:
+  {Json.f64(str("1.5")) == None{} : Maybe<&2, F64.F64>}
 
 # §2: one value per text.
 law trailing_junk:
