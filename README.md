@@ -97,7 +97,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`migrate`](migrate) | `bend-kit-migrate@0.3.0.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
 | [`archive`](archive) | `bend-kit-archive@0.5.1.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
-| [`zlib`](zlib) | `bend-kit-zlib@0.5.1.0/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
+| [`zlib`](zlib) | `bend-kit-zlib@0.5.1.1/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.0.0/crdt.bend` | Grow-only counters, keyed by dense indices or sparse IDs, whose merges are proved commutative, associative, idempotent, and convergent. CBOR wire form. |
 
 ### Network
@@ -140,7 +140,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.2.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
 | [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.3.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
 | [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
-| [`journal`](journal) | `bend-kit-journal@0.3.1.0/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
+| [`journal`](journal) | `bend-kit-journal@0.3.1.1/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
 | [`runner`](runner) | `bend-kit-runner@0.14.0.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
 | [`commands`](commands) | `bend-kit-commands@0.4.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.3.1.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
