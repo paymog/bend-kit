@@ -1,7 +1,7 @@
 # Descriptive statistics benchmark: the Bend side (see README.md).
 import Base
 import ../../time/time.bend as Time
-import bend-kit-f64@0.1.1.0/f64.bend as F
+import bend-kit-f64@0.1.3.0/f64.bend as F
 import ../stats.bend as S
 
 def xs(+x: U32) -> U32:

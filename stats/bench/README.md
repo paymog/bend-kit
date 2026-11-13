@@ -38,3 +38,13 @@ M4 Pro, macOS, 2026-11-13. Bend 2.0.38, Apple clang 21.0.0 (`-O2`), rustc 1.91.0
 The checksums are `3422847917` for the mean, `1370401302` for the variance, and `1092607460` for the median, in every program.
 
 Bend's mean and variance are about 50 to 80 times slower than C. That is the soft-float add and multiply, about 30 ns each. The median sorts a linked list with `List.sort` and soft-float compares, about 7 times slower than C's `qsort`. Bun and Node include JIT warm-up, because each op runs once.
+
+## f64 0.1.3.0 re-pin
+
+`python3 bench/run.py` from `stats/`, on the same machine and tool versions above, gives these medians of three runs. Times are in ms. All checksums remain the same in every language.
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| mean | 0.005 | 0.006 | 0.586 | 0.455 | 0.029 | 0.286 |
+| variance | 0.012 | 0.011 | 0.705 | 0.708 | 0.269 | 0.912 |
+| median | 0.584 | 0.128 | 0.123 | 0.499 | 0.715 | 3.819 |

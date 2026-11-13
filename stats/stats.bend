@@ -1,6 +1,6 @@
 # Descriptive statistics over F64 lists, and U32 gcd, lcm, and integer square root. Source: https://github.com/paymog/bend-kit/tree/main/stats
 import Base
-import bend-kit-f64@0.1.1.0/f64.bend as F
+import bend-kit-f64@0.1.3.0/f64.bend as F
 
 def Stats.count(xs: List<&2, F.F64>) -> F.F64:
   F.F64.from_u32(U32.from_nat(List.length(&2, F.F64, xs)))
@@ -53,6 +53,16 @@ def Stats.variance(xs: List<&2, F.F64>) -> Maybe<&2, F.F64>:
       None{}
     case Con{+h, Con{+h2, +t}}:
       Some{F.F64.div(Stats.ss(Con{h, Con{h2, t}}), Stats.count(Con{h2, t}))}
+
+def Stats.pstdev(xs: List<&2, F.F64>) -> Maybe<&2, F.F64>:
+  do Maybe<&2, F.F64>:
+    v : F.F64 <- Stats.pvariance(xs)
+    return F.F64.sqrt(v)
+
+def Stats.stdev(xs: List<&2, F.F64>) -> Maybe<&2, F.F64>:
+  do Maybe<&2, F.F64>:
+    v : F.F64 <- Stats.variance(xs)
+    return F.F64.sqrt(v)
 
 def Stats.interp(exact: Bool, rest: List<&2, F.F64>, +t: F.F64) -> F.F64:
   match exact rest:

@@ -1,5 +1,5 @@
 import Base
-import bend-kit-f64@0.1.1.0/f64.bend as F
+import bend-kit-f64@0.1.3.0/f64.bend as F
 import ./stats.bend as S
 
 def n(k: U32) -> F.F64:
