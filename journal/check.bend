@@ -1,6 +1,6 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-hash@0.3.0.2/hash.bend as Hash
+import bend-kit-hash@0.3.0.4/hash.bend as Hash
 import bend-kit-files@0.3.1.0/files.bend as Files
 import ./journal.bend as J
 
