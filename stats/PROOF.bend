@@ -25,6 +25,24 @@ def Laws.variance():
 def Laws.variance_one():
   {==}
 
+def Laws.pstdev():
+  {==}
+
+def Laws.stdev():
+  {==}
+
+def Laws.pstdev_one():
+  {==}
+
+def Laws.stdev_one():
+  {==}
+
+def Laws.pstdev_empty():
+  {==}
+
+def Laws.stdev_empty():
+  {==}
+
 def Laws.median_even():
   {==}
 

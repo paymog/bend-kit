@@ -1,5 +1,5 @@
 import Base
-import bend-kit-f64@0.1.1.0/f64.bend as F
+import bend-kit-f64@0.1.3.0/f64.bend as F
 import ./stats.bend as S
 
 def n(k: U32) -> F.F64:
@@ -42,6 +42,24 @@ law variance:
 
 law variance_one:
   {S.Stats.variance([n(7)]) == None{} : Maybe<&2, F.F64>}
+
+law pstdev:
+  {S.Stats.pstdev(data()) == Some{bits(1073741824, 0)} : Maybe<&2, F.F64>}
+
+law stdev:
+  {S.Stats.stdev(data()) == Some{bits(1073814222, 3848283178)} : Maybe<&2, F.F64>}
+
+law pstdev_one:
+  {S.Stats.pstdev([n(7)]) == Some{F.F64.zero()} : Maybe<&2, F.F64>}
+
+law stdev_one:
+  {S.Stats.stdev([n(7)]) == None{} : Maybe<&2, F.F64>}
+
+law pstdev_empty:
+  {S.Stats.pstdev(none()) == None{} : Maybe<&2, F.F64>}
+
+law stdev_empty:
+  {S.Stats.stdev(none()) == None{} : Maybe<&2, F.F64>}
 
 law median_even:
   {S.Stats.median(data()) == Some{bits(1074921472, 0)} : Maybe<&2, F.F64>}

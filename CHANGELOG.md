@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `stats` 0.1.1.0: add population and sample standard deviation with the same empty and short-input cases as variance. Import `f64` 0.1.3.0.
+- `json` 0.7.2.0: import `f64` 0.1.3.0. No API change.
 - `f64` 0.1.3.0: add `F64.floor`, `F64.ceil`, and `F64.trunc` with signed zero, infinity, and quiet NaN results. Add `F64.to_u32`, which truncates toward zero and checks the range.
 - `f64` 0.1.2.0: add `F64.sqrt`, correctly rounded to nearest, ties to even. It handles subnormals, preserves signed zero and positive infinity, and returns a quiet NaN for negative inputs and NaNs.
 - `archive` 0.5.1.1: imports `hash` 0.3.0.4 and `zlib` 0.5.1.1, so CRC-32 checks run by slicing-by-8. No API change.

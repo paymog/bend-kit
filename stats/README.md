@@ -1,19 +1,19 @@
 # stats
 
-Descriptive statistics over `F64` lists: sum, mean, variance, quantiles, a histogram, and least-squares linear regression. Also `U32` gcd, lcm, and integer square root.
+Descriptive statistics over `F64` lists: sum, mean, variance, standard deviation, quantiles, a histogram, and least-squares linear regression. Also `U32` gcd, lcm, and integer square root.
 
 ```bend
-import bend-kit-stats@0.1.0.0/stats.bend as S
+import bend-kit-stats@0.1.1.0/stats.bend as S
 ```
 
-It imports `bend-kit-f64@0.1.1.0`. Pass it values of that `F64` type.
+It imports `bend-kit-f64@0.1.3.0`. Pass it values of that `F64` type.
 
 ## Example
 
 ```bend
 import Base
-import bend-kit-f64@0.1.1.0/f64.bend as F
-import bend-kit-stats@0.1.0.0/stats.bend as S
+import bend-kit-f64@0.1.3.0/f64.bend as F
+import bend-kit-stats@0.1.1.0/stats.bend as S
 
 def n(k: U32) -> F.F64:
   F.F64.from_u32(k)
@@ -45,6 +45,8 @@ Lists are `List<&2, F.F64>`. A result is `None{}` when the input has too few val
 | `Stats.mean(xs)` | `Maybe`: `sum / n`; `None` for an empty list |
 | `Stats.pvariance(xs)` | `Maybe`: the population variance, `ss / n`; `None` for an empty list |
 | `Stats.variance(xs)` | `Maybe`: the sample variance, `ss / (n - 1)`; `None` for fewer than 2 values |
+| `Stats.pstdev(xs)` | `Maybe`: the square root of population variance; `None` for an empty list |
+| `Stats.stdev(xs)` | `Maybe`: the square root of sample variance; `None` for fewer than 2 values |
 | `Stats.quantile(xs, k: U32, q: U32)` | `Maybe`: the `k/q` quantile; `None` for an empty list, `q = 0`, `q > 65536`, or `k > q` |
 | `Stats.median(xs)` | `Maybe`: `quantile(xs, 1, 2)` |
 | `Stats.histogram(edges, xs)` | `List<&2, U32>`: the count in each bin |
@@ -63,7 +65,7 @@ Lists are `List<&2, F.F64>`. A result is `None{}` when the input has too few val
 
 A `NaN` in the input gives a `NaN` mean and variance, and an unspecified quantile, because `NaN` has no place in the sort order. A histogram does not count a `NaN`.
 
-There is no standard deviation, because `bend-kit-f64` has no square root yet.
+`pstdev` and `stdev` take the square root of the two-pass variance. Their fixture bits match Python's `statistics.pstdev` and `statistics.stdev`; the plain two-pass formula gives the same bits for this data.
 
 ## Laws
 
