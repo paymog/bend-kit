@@ -844,6 +844,79 @@ def Disk.load(+dir: String) -> Run(Index(Digest, Blob)):
     names : List<&2, String> <- Files.list_dir(dir ++ "/objects")
     Disk.load.go(dir, names, Index.new(Digest, Blob))
 
+# One step of Disk.fetch.go.
+type Fetch is Data:
+  Want{d: Digest}
+  Have{d: Digest, held: Bool}
+  Read{d: Digest, there: Bool}
+  Got{d: Digest}
+  Seen{m: Maybe<&2, Obj<Digest, Blob>>}
+
+# Adds to s every object that a Want reaches at dir, each read and checked through receive once.
+# A missing object is left out, so a load of the root then fails.
+def Disk.fetch.go(fuel: Nat, +dir: String, step: Fetch, +s: Index(Digest, Blob)) -> Run(Index(Digest, Blob)):
+  match fuel step:
+    case 0n _:
+      Run.pure(Index(Digest, Blob), s)
+    case 1n+p Want{+d}:
+      Disk.fetch.go(p, dir, Have{d, Index.has(~Digest, ~Blob, ~Digest.cmp, s, d)}, s)
+    case 1n+p Have{d, True{}}:
+      Run.pure(Index(Digest, Blob), s)
+    case 1n+p Have{+d, False{}}:
+      Run.bind(Bool, Index(Digest, Blob), Run.lift(Bool, Files.exists(Disk.object(dir, d))), e => Disk.fetch.go(p, dir, Read{d, e}, s))
+    case 1n+p Read{d, False{}}:
+      Run.pure(Index(Digest, Blob), s)
+    case 1n+(+p) Read{+d, True{}}:
+      do Run<Index(Digest, Blob)>:
+        b : Bytes.Bytes <- read(Disk.object(dir, d))
+        u : Index(Digest, Blob) <- receive(s, d, b)
+        Disk.fetch.go(p, dir, Got{d}, u)
+    case 1n+p Got{+d}:
+      Disk.fetch.go(p, dir, Seen{Index.get(~Digest, ~Blob, ~Digest.cmp, s, d)}, s)
+    case 1n+(+p) Seen{Some{OItem{n, +c, +r}}}:
+      do Run<Index(Digest, Blob)>:
+        u : Index(Digest, Blob) <- Disk.fetch.go(p, dir, Want{c}, s)
+        Disk.fetch.go(p, dir, Want{r}, u)
+    case 1n+p Seen{_}:
+      Run.pure(Index(Digest, Blob), s)
+
+# Five steps per level, so a fetch goes as deep as a load with limit().
+def fetch.fuel() -> Nat:
+  Nat.mul(5n, limit())
+
+# The index of the objects that root reaches at dir. Other objects are not read.
+def Disk.fetch(+dir: String, +root: Digest) -> Run(Index(Digest, Blob)):
+  Disk.fetch.go(fetch.fuel(), dir, Want{root}, Index.new(Digest, Blob))
+
+def Disk.fetch.all(+dir: String, roots: List<&2, Digest>, +s: Index(Digest, Blob)) -> Run(Index(Digest, Blob)):
+  match roots:
+    case Nil{}:
+      Run.pure(Index(Digest, Blob), s)
+    case Con{+r, t}:
+      do Run<Index(Digest, Blob)>:
+        u : Index(Digest, Blob) <- Disk.fetch.go(fetch.fuel(), dir, Want{r}, s)
+        Disk.fetch.all(dir, t, u)
+
+def Disk.probe.one(there: Bool, +dir: String, +d: Digest, +s: Index(Digest, Blob)) -> Run(Index(Digest, Blob)):
+  match there:
+    case True{}:
+      do Run<Index(Digest, Blob)>:
+        b : Bytes.Bytes <- read(Disk.object(dir, d))
+        receive(s, d, b)
+    case False{}:
+      Run.pure(Index(Digest, Blob), s)
+
+# Adds to s the objects of xs that dir holds, each read and checked. Other objects are not read.
+def Disk.probe(+dir: String, xs: Store<Digest, Blob>, +s: Index(Digest, Blob)) -> Run(Index(Digest, Blob)):
+  match xs:
+    case StNil{}:
+      Run.pure(Index(Digest, Blob), s)
+    case StCon{+d, o, r}:
+      do Run<Index(Digest, Blob)>:
+        e : Bool <- Run.lift(Bool, Files.exists(Disk.object(dir, d)))
+        u : Index(Digest, Blob) <- Disk.probe.one(e, dir, d, s)
+        Disk.probe(dir, r, u)
+
 def Disk.set_root(+dir: String, +name: String, +d: Digest) -> Run(Unit):
   do Run<Unit>:
     Run.check(name.ok(name), "invalid root " ++ name)
@@ -888,17 +961,34 @@ def Disk.drop(+dir: String, ds: List<&2, Digest>, +live: Index(Digest, Blob), +n
         k : U32 <- Disk.drop.one(Index.has(~Digest, ~Blob, ~Digest.cmp, live, d), dir, d)
         Disk.drop(dir, r, live, (n + k : U32))
 
-# Drops what gc drops: an object of s stays exactly when its digest is in the live set.
+def digests.add(m: Maybe<&2, Digest>, ds: List<&2, Digest>) -> List<&2, Digest>:
+  match m:
+    case Some{d}:
+      Con{d, ds}
+    case None{}:
+      ds
+
+# The digests that names name. Other names are left out.
+def digests(names: List<&2, String>) -> List<&2, Digest>:
+  match names:
+    case Nil{}:
+      Nil{}
+    case Con{+n, t}:
+      digests.add(Digest.read(n), digests(t))
+
+# Drops what gc drops: an object stays exactly when its digest is in the live set.
 def Disk.collect.of(+dir: String, +retained: List<&2, Digest>, +s: Index(Digest, Blob)) -> Run(U32):
   do Run<U32>:
     ls : Store<Digest, Blob> <- Run.some(Store<Digest, Blob>, Index.live(~Digest, ~Blob, ~Digest.cmp, limit(), s, retained), "a retained root does not load")
-    Disk.drop(dir, OMap.OMap.keys(Digest, Obj<Digest, Blob>, s), Index.of(~Digest, ~Blob, ~Digest.cmp, ls), 0)
+    names : List<&2, String> <- Files.list_dir(dir ++ "/objects")
+    Disk.drop(dir, digests(names), Index.of(~Digest, ~Blob, ~Digest.cmp, ls), 0)
 
 # Deletes every object that no retained root reaches and answers how many it deleted. Fails, and
-# deletes nothing, when a retained root does not load. No writer may run during the collection.
+# deletes nothing, when a retained root does not load. It reads only the objects the roots reach.
+# No writer may run during the collection.
 def Disk.collect(+dir: String, +retained: List<&2, Digest>) -> Run(U32):
   do Run<U32>:
-    s : Index(Digest, Blob) <- Disk.load(dir)
+    s : Index(Digest, Blob) <- Disk.fetch.all(dir, retained, Index.new(Digest, Blob))
     Disk.collect.of(dir, retained, s)
 
 def sync.send(+dir: String, ys: Store<Digest, Blob>, +dst: Index(Digest, Blob), +n: U32) -> Run(U32):
@@ -915,17 +1005,29 @@ def sync.of(+dst: String, +root: Digest, +a: Index(Digest, Blob), +b: Index(Dige
     ys : Store<Digest, Blob> <- Run.some(Store<Digest, Blob>, Index.plan(~Digest, ~Blob, ~Digest.cmp, limit(), a, b, root), "the source cannot load " ++ Digest.hex(root))
     sync.send(dst, ys, b, 0)
 
-# Sends dst every object it needs to load root as src does, through ingress. Answers how many it sent.
-def sync(+src: String, +dst: String, +root: Digest) -> Run(U32):
+# b holds the objects of the closure ys that dst has, so plan sees what a full load of dst would show it.
+def sync.probe(+dst: String, +root: Digest, +a: Index(Digest, Blob), +ys: Store<Digest, Blob>) -> Run(U32):
   do Run<U32>:
-    a : Index(Digest, Blob) <- Disk.load(src)
-    b : Index(Digest, Blob) <- Disk.load(dst)
+    b : Index(Digest, Blob) <- Disk.probe(dst, Index.need(~Digest, ~Blob, ~Digest.cmp, ys, Index.new(Digest, Blob)), Index.new(Digest, Blob))
     sync.of(dst, root, a, b)
 
+def sync.from(+dst: String, +root: Digest, +a: Index(Digest, Blob)) -> Run(U32):
+  do Run<U32>:
+    ys : Store<Digest, Blob> <- Run.some(Store<Digest, Blob>, Index.closure(~Digest, ~Blob, ~Digest.cmp, limit(), a, root), "the source cannot load " ++ Digest.hex(root))
+    sync.probe(dst, root, a, ys)
+
+# Sends dst every object it needs to load root as src does, through ingress. Answers how many it sent.
+# It reads the objects root reaches in src, and only those of them that dst holds.
+def sync(+src: String, +dst: String, +root: Digest) -> Run(U32):
+  do Run<U32>:
+    a : Index(Digest, Blob) <- Disk.fetch(src, root)
+    sync.from(dst, root, a)
+
 # The tree under root at dir. Fails when an object is missing or tampered, or the tree is too deep.
+# It reads only the objects root reaches.
 def Disk.checkout(+dir: String, +root: Digest) -> Run(Tree<Blob>):
   do Run<Tree<Blob>>:
-    s : Index(Digest, Blob) <- Disk.load(dir)
+    s : Index(Digest, Blob) <- Disk.fetch(dir, root)
     Run.some(Tree<Blob>, Index.load(~Digest, ~Blob, ~Digest.cmp, limit(), s, root), "root " ++ Digest.hex(root) ++ " does not load")
 
 def Disk.commit.save(+dir: String, r: Digest & Store<Digest, Blob>) -> Run(Digest):

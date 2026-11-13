@@ -145,17 +145,45 @@ def resend.of(+dir: String, +s: S.Index(S.Digest, S.Blob), +d: S.Digest, m: Mayb
 def resend(+dir: String, +s: S.Index(S.Digest, S.Blob), +d: S.Digest) -> IO(Bool):
   resend.of(dir, s, d, S.Index.get(~S.Digest, ~S.Blob, ~S.Digest.cmp, s, d))
 
+def loads.same(x: Maybe<&2, S.Tree<S.Blob>>, y: Maybe<&2, S.Tree<S.Blob>>) -> Bool:
+  match x y:
+    case Some{a} Some{b}:
+      same(a, b)
+    case _ _:
+      False{}
+
+def load.in(+s: S.Index(S.Digest, S.Blob), +d: S.Digest) -> Maybe<&2, S.Tree<S.Blob>>:
+  S.Index.load(~S.Digest, ~S.Blob, ~S.Digest.cmp, S.limit(), s, d)
+
+# A valid digest that names no object of the build.
+def junk() -> S.Digest:
+  S.Digest{[1, 2, 3, 4, 5, 6, 7, 8]}
+
+def fetched.same(+v1: S.Digest, +f: S.Index(S.Digest, S.Blob), +full: S.Index(S.Digest, S.Blob)) -> IO(Unit):
+  do IO<Unit>:
+    ok(U32.is_eq(S.Index.size(S.Digest, S.Blob, f), 12) && U32.is_eq(S.Index.size(S.Digest, S.Blob, full), 15), "a fetch of v1 reads its 12 objects of the 15 in the store")
+    ok(loads.same(load.in(f, v1), load.in(full, v1)), "the fetched index loads v1 as the full index does")
+
+# a holds 15 objects; v1 reaches 12 of them.
+def fetched(+a: String, +v1: S.Digest) -> IO(Unit):
+  do IO<Unit>:
+    f : S.Index(S.Digest, S.Blob) <- run(S.Index(S.Digest, S.Blob), S.Disk.fetch(a, v1))
+    full : S.Index(S.Digest, S.Blob) <- run(S.Index(S.Digest, S.Blob), S.Disk.load(a))
+    fetched.same(v1, f, full)
+
 # v2 changes bin/app; collection keeps only v2.
 def collect(+a: String, +v1: S.Digest, +abc: S.Digest, +v2: S.Digest) -> IO(Unit):
   do IO<Unit>:
     run(Unit, S.Disk.set_root(a, "v2", v2))
     na2 : U32 <- count(a)
     ok(U32.is_eq(na2, 15), "v2 adds three objects: the new file and the two entries above it")
+    fetched(a, v1)
+    raw(S.Disk.object(a, junk()), "not an object")
     refused : Result<&1, &1, U32 & String, U32> <- tries(U32, S.Disk.collect(a, [v2, abc]))
     na3 : U32 <- count(a)
-    ok(expect.fail(U32, refused, "storage: a retained root does not load") && U32.is_eq(na3, 15), "collection with a root that does not load deletes nothing")
+    ok(expect.fail(U32, refused, "storage: a retained root does not load") && U32.is_eq(na3, 16), "collection with a root that does not load deletes nothing")
     dropped : U32 <- run(U32, S.Disk.collect(a, [v2]))
-    ok(U32.is_eq(dropped, 3), "collection deletes the three objects only v1 reaches")
+    ok(U32.is_eq(dropped, 4), "collection deletes the three objects only v1 reaches and a broken object it does not read")
     t3 : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.Disk.checkout(a, v2))
     ok(same(t3, build("v2 binary")), "the retained root survives collection")
     gone : Result<&1, &1, U32 & String, S.Tree<S.Blob>> <- tries(S.Tree<S.Blob>, S.Disk.checkout(a, v1))
@@ -189,13 +217,14 @@ def transfer(+dir: String, +a: String, +b: String, +v1: S.Digest, +abc: S.Digest
     nb : U32 <- count(b)
     sent : U32 <- run(U32, S.sync(a, b, v1))
     ok(U32.is_eq(sent, 7) && U32.is_eq(nb, 5), "sync sends only the 7 objects the destination lacks")
-    again : U32 <- run(U32, S.sync(a, b, v1))
-    ok(U32.is_eq(again, 0), "a second sync sends nothing")
     nb2 : U32 <- count(b)
     ok(U32.is_eq(nb2, 12), "the destination holds its own objects and the sent ones")
     sb : S.Index(S.Digest, S.Blob) <- run(S.Index(S.Digest, S.Blob), S.Disk.load(b))
     twice : Bool <- resend(b, sb, v1)
     ok(twice, "receiving an object the store holds leaves the store unchanged")
+    raw(S.Disk.object(b, junk()), "not an object")
+    again : U32 <- run(U32, S.sync(a, b, v1))
+    ok(U32.is_eq(again, 0), "a second sync sends nothing and does not read objects outside the closure")
     tb : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.Disk.checkout(b, v1))
     restored(dir, tb)
     dup : Result<&1, &1, U32 & String, S.Index(S.Digest, S.Blob)> <- tries(S.Index(S.Digest, S.Blob), S.Disk.receive(b, S.Index.new(S.Digest, S.Blob), abc, Bytes.from_string("end\n")))

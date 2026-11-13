@@ -54,6 +54,21 @@ Every program prints root `29cc4de74d186c77f13fdfc2781365c186a6823091cdf974614ae
   In 0.2.0.1, `encode` began to write a file's words once, shifted by the header length, in place of a copy into `Bytes` and an append one octet at a time. In 0.3.0.0, the index keys are packed digests: a comparison reads at most eight words, and copying a key copies eight words, not 64 `Char`s. What is left of `encode` is the walk of the `Blob` word list.
 - Python is fastest here because `hashlib` and `dict` run in C, and each object costs one call to each.
 
+## Checkout of a small root
+
+`checkout.bend` measures what `Disk.checkout` reads. It commits the K = 32 tree and a three-object root (`note`, one 11-octet file) to one store on disk, 1,316 objects in all. Then it times `S.Disk.checkout` of the small root, which reads only the objects that root reaches, and `S.Disk.load` of the whole store followed by `S.Index.load`, which is what `Disk.checkout` did before storage 0.3.1.0. Only Bend runs it; the other programs have no store on disk.
+
+```sh
+bend checkout.bend -o out/checkout && out/checkout 32
+```
+
+Three runs, in ms. Both print 11 octets.
+
+| op | run 1 | run 2 | run 3 |
+|---|---:|---:|---:|
+| `Disk.checkout` of the small root | 0.8 | 0.5 | 0.6 |
+| `Disk.load`, then `Index.load` | 151 | 138 | 160 |
+
 ## Caveats
 
 - Bend times itself with `Time.mono`, a nanosecond clock. It reads K from argv, so the work cannot run before the clock starts.
