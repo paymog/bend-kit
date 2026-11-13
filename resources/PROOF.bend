@@ -1,5 +1,5 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ./resources.bend as Res
 import ./LAWS.bend as Laws
 

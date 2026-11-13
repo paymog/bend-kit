@@ -1,7 +1,7 @@
 # Nat order and linear-form lemmas for the OMap weight-balance proofs.
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
 
 def mul3(+a: Nat) -> Nat:
   Nat.mul(3n, a)

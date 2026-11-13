@@ -1,6 +1,7 @@
 # Proved laws that relate Word and U32 arithmetic to Nat. Source: https://github.com/paymog/bend-kit/tree/main/lemmas
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/u32.bend as MU32
 
 # 2^n, by the doubling that Word.to_nat uses.
 def pow2(n: Nat) -> Nat:
@@ -89,21 +90,7 @@ law word_cmp_nat:
   {Word.cmp(n, a, b) == Nat.cmp(Word.to_nat(n, a), Word.to_nat(n, b)) : Cmp}
 
 def word_cmp_nat(n, a, b):
-  match n:
-    case 0n:
-      {==}
-    case 1n+ +p:
-      match a b:
-        case WCon{+x, +at} WCon{+y, +bt}:
-          %to_nat_con(p, x, at) : {Word.cmp.fin(x, y, Word.cmp(p, at, bt)) ==
-            Nat.cmp(_, Word.to_nat(1n+p, WCon{y, bt})) : Cmp}
-          %to_nat_con(p, y, bt) : {Word.cmp.fin(x, y, Word.cmp(p, at, bt)) ==
-            Nat.cmp(bit(x, Word.to_nat(p, at)), _) : Cmp}
-          %cmp_bit(Word.to_nat(p, at), Word.to_nat(p, bt), x, y) :
-            {Word.cmp.fin(x, y, Word.cmp(p, at, bt)) == _ : Cmp}
-          %word_cmp_nat(p, at, bt) : {Word.cmp.fin(x, y, Word.cmp(p, at, bt)) ==
-            Word.cmp.fin(x, y, _) : Cmp}
-          {==}
+  MU32.word_cmp_to_nat(n, a, b)
 
 law u32_cmp_nat:
   for a: U32
@@ -111,9 +98,7 @@ law u32_cmp_nat:
   {U32.cmp(a, b) == Nat.cmp(U32.to_nat(a), U32.to_nat(b)) : Cmp}
 
 def u32_cmp_nat(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      word_cmp_nat(32n, x, y)
+  MU32.u32_cmp_to_nat(a, b)
 
 law u32_is_lt_nat:
   for a: U32
@@ -121,8 +106,7 @@ law u32_is_lt_nat:
   {U32.is_lt(a, b) == Nat.is_lt(U32.to_nat(a), U32.to_nat(b)) : Bool}
 
 def u32_is_lt_nat(a, b):
-  Equal.cong(Cmp, Bool, c => Cmp.is_lt(c), U32.cmp(a, b),
-    Nat.cmp(U32.to_nat(a), U32.to_nat(b)), u32_cmp_nat(a, b))
+  MU32.u32_is_lt_to_nat(a, b)
 
 law u32_is_le_nat:
   for a: U32
@@ -130,8 +114,7 @@ law u32_is_le_nat:
   {U32.is_le(a, b) == Nat.is_le(U32.to_nat(a), U32.to_nat(b)) : Bool}
 
 def u32_is_le_nat(a, b):
-  Equal.cong(Cmp, Bool, c => Cmp.is_le(c), U32.cmp(a, b),
-    Nat.cmp(U32.to_nat(a), U32.to_nat(b)), u32_cmp_nat(a, b))
+  MU32.u32_is_le_to_nat(a, b)
 
 law u32_is_eq_nat:
   for a: U32
@@ -139,8 +122,7 @@ law u32_is_eq_nat:
   {U32.is_eq(a, b) == Nat.is_eq(U32.to_nat(a), U32.to_nat(b)) : Bool}
 
 def u32_is_eq_nat(a, b):
-  Equal.cong(Cmp, Bool, c => Cmp.is_eq(c), U32.cmp(a, b),
-    Nat.cmp(U32.to_nat(a), U32.to_nat(b)), u32_cmp_nat(a, b))
+  MU32.u32_is_eq_to_nat(a, b)
 
 law odd_lt_double:
   for a: Nat
@@ -201,17 +183,7 @@ law double_inj:
   {a == b : Nat}
 
 def double_inj(a, b, h):
-  match a b:
-    case 0n 0n:
-      {==}
-    case 0n 1n+q:
-      Empty.absurd({0n == 1n+q : Nat}, MNat.zero_ne_succ(1n+Nat.double(q))(h))
-    case 1n+p 0n:
-      Empty.absurd({1n+p == 0n : Nat}, MNat.succ_ne_zero(1n+Nat.double(p))(h))
-    case 1n+p 1n+q:
-      Equal.cong(Nat, Nat, k => 1n+k, p, q,
-        double_inj(p, q, MNat.succ_inj(Nat.double(p), Nat.double(q),
-          MNat.succ_inj(1n+Nat.double(p), 1n+Nat.double(q), h))))
+  MNat.double_inj(a, b, h)
 
 law double_ne_odd:
   for a: Nat
@@ -240,27 +212,7 @@ law word_to_nat_inj:
   {a == b : Word(n)}
 
 def word_to_nat_inj(n, a, b, h):
-  match n:
-    case 0n:
-      match a b:
-        case WNil{} WNil{}:
-          {==}
-    case 1n+ +p:
-      match a b:
-        case WCon{False{}, +at} WCon{False{}, +bt}:
-          Equal.cong(Word(p), Word(1n+p), t => WCon{False{}, t}, at, bt,
-            word_to_nat_inj(p, at, bt, double_inj(Word.to_nat(p, at), Word.to_nat(p, bt), h)))
-        case WCon{True{}, +at} WCon{True{}, +bt}:
-          Equal.cong(Word(p), Word(1n+p), t => WCon{True{}, t}, at, bt,
-            word_to_nat_inj(p, at, bt, double_inj(Word.to_nat(p, at), Word.to_nat(p, bt),
-              MNat.succ_inj(Nat.double(Word.to_nat(p, at)), Nat.double(Word.to_nat(p, bt)), h))))
-        case WCon{False{}, +at} WCon{True{}, +bt}:
-          Empty.absurd({WCon{False{}, at} == WCon{True{}, bt} : Word(1n+p)},
-            double_ne_odd(Word.to_nat(p, at), Word.to_nat(p, bt), h))
-        case WCon{True{}, +at} WCon{False{}, +bt}:
-          Empty.absurd({WCon{True{}, at} == WCon{False{}, bt} : Word(1n+p)},
-            double_ne_odd(Word.to_nat(p, bt), Word.to_nat(p, at),
-              Equal.sym(Nat, 1n+Nat.double(Word.to_nat(p, at)), Nat.double(Word.to_nat(p, bt)), h)))
+  MU32.word_to_nat_inj(n, a, b, h)
 
 law u32_to_nat_inj:
   for a: U32
@@ -269,9 +221,7 @@ law u32_to_nat_inj:
   {a == b : U32}
 
 def u32_to_nat_inj(a, b, h):
-  match a b:
-    case U32{+x} U32{+y}:
-      Equal.cong(Word(32n), U32, w => U32{w}, x, y, word_to_nat_inj(32n, x, y, h))
+  MU32.u32_to_nat_inj(a, b, h)
 
 def b2n(b: Bool) -> Nat:
   match b:
@@ -609,21 +559,7 @@ law word_sub_nat:
   {Word.to_nat(n, Word.sub(n, a, b)) == Nat.sub(Word.to_nat(n, a), Word.to_nat(n, b)) : Nat}
 
 def word_sub_nat(n, a, b, h):
-  %Equal.sym(Word(n), Word.adc(n, a, b, True{}, True{}),
-    Word.adc(n, a, Word.not(n, b), False{}, True{}), word_sub_not(n, a, b, True{})) :
-    {Word.to_nat(n, _) == Nat.sub(Word.to_nat(n, a), Word.to_nat(n, b)) : Nat}
-  sub_fin(carry(n, a, Word.not(n, b), True{}),
-    Word.to_nat(n, Word.adc(n, a, Word.not(n, b), False{}, True{})),
-    Nat.sub(Word.to_nat(n, a), Word.to_nat(n, b)), pow2(n),
-    Equal.trans(Nat,
-      Nat.add(Word.to_nat(n, Word.adc(n, a, Word.not(n, b), False{}, True{})),
-        scale(carry(n, a, Word.not(n, b), True{}), pow2(n))),
-      1n+Nat.add(Word.to_nat(n, a), Word.to_nat(n, Word.not(n, b))),
-      Nat.add(Nat.sub(Word.to_nat(n, a), Word.to_nat(n, b)), pow2(n)),
-      word_adc_nat(n, a, Word.not(n, b), True{}),
-      sub_arith(Word.to_nat(n, a), Word.to_nat(n, b), Word.to_nat(n, Word.not(n, b)), pow2(n), h,
-        word_not_nat(n, b))),
-    word_to_nat_lt(n, Word.adc(n, a, Word.not(n, b), False{}, True{})))
+  MU32.word_sub_exact(n, a, b, h)
 
 law u32_sub_nat:
   for a: U32
@@ -632,9 +568,7 @@ law u32_sub_nat:
   {U32.to_nat(U32.sub(a, b)) == Nat.sub(U32.to_nat(a), U32.to_nat(b)) : Nat}
 
 def u32_sub_nat(a, b, h):
-  match a b:
-    case U32{x} U32{y}:
-      word_sub_nat(32n, x, y, h)
+  MU32.u32_sub_exact(a, b, h)
 
 law lt_of_double_lt:
   for a: Nat
@@ -704,7 +638,7 @@ law u32_from_to_nat:
   {U32.from_nat(U32.to_nat(a)) == a : U32}
 
 def u32_from_to_nat(a):
-  u32_to_nat_inj(U32.from_nat(U32.to_nat(a)), a, u32_to_from_nat(U32.to_nat(a), u32_to_nat_lt(a)))
+  MU32.u32_from_nat_to_nat(a)
 
 law and_le_sub:
   for c: Bool

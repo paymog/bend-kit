@@ -1,6 +1,6 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ./websocket.bend as WS
 
 def of(+s: String) -> Bytes.Bytes:
