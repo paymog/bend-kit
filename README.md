@@ -91,7 +91,7 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`f64`](f64) | `bend-kit-f64@0.1.3.0/f64.bend` | IEEE 754 binary64 arithmetic, square root, integer conversion, and shortest decimal text. Soft-float on two `U32` halves. |
 | [`bignum`](bignum) | `bend-kit-bignum@0.1.0.0/bigint.bend` | Exact integers, decimals, and rationals. Import `decimal.bend` or `rational.bend` for those types. |
-| [`stats`](stats) | `bend-kit-stats@0.1.3.0/stats.bend` | Mean, variance, standard deviation, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
+| [`stats`](stats) | `bend-kit-stats@0.1.4.0/stats.bend` | Mean, variance, standard deviation, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
 | [`json`](json) | `bend-kit-json@0.7.2.0/json.bend` | JSON values as RFC 8259, over `Bytes`. |
 | [`csv`](csv) | `bend-kit-csv@0.3.0.0/csv.bend` | RFC 4180 records over `Bytes`. |
 | [`cbor`](cbor) | `bend-kit-cbor@0.3.0.0/cbor.bend` | RFC 8949 encode and decode over `Bytes`. |

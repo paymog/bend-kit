@@ -66,3 +66,27 @@ The histogram has 100 bins and 101 edges, `i * 10486` for `i = 0..100`. It uses 
 | After: binary search | 0.098 | 0.062 | 1.373 | 0.957 | 1.156 | 0.416 |
 
 The other languages use binary search in both rows. Bend is about 24 times faster. Every language gives histogram checksum `1092535808` in both runs. The final run also gives Bend mean 0.451 ms, variance 1.545 ms, and median 5.984 ms, with the same checksums as above. Unchanged operations vary between runs.
+
+## Adjacent-rank selection
+
+Before the change, `python3 bench/run.py` gives these three-run medians in ms on the same machine and tool versions:
+
+| implementation | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| Median: full list sort | 0.879 | 0.273 | 0.139 | 0.491 | 0.681 | 4.950 |
+| Median: adjacent-rank selection | 0.799 | 0.172 | 0.116 | 0.494 | 0.715 | 1.158 |
+
+A native profiling probe used the same list and clock. Three-run medians were 0.441 ms to build and count `List.sort.runs`, 4.610 ms to sort with direct unsigned word comparisons, and 5.186 ms for the old soft-float median. Direct word order is valid only for this nonnegative fixture. Both sorts gave median checksum `1092607460`. Building singleton runs is a small part of the cost. Removing soft-float comparison logic saved about 0.576 ms. Most time remained in merge passes and list traffic; this probe does not separate their allocation and traversal costs.
+
+The first selection trial ran two independent searches for adjacent ranks and took 4.502 ms. The retained implementation finds both ranks in one search. It keeps the first value above each retained bucket, so it does not select the second rank from scratch. Partitions keep equal values in input order. A logarithmic partition budget falls back to a stable sort of the remaining bucket, so adversarial pivots cannot force quadratic work.
+
+The final `python3 bench/run.py` run gives:
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| mean | 0.007 | 0.008 | 0.685 | 0.500 | 0.029 | 0.276 |
+| variance | 0.013 | 0.015 | 0.699 | 0.692 | 0.284 | 1.000 |
+| median | 0.799 | 0.172 | 0.116 | 0.494 | 0.715 | 1.158 |
+| histogram | 0.171 | 0.049 | 1.530 | 0.917 | 1.181 | 0.273 |
+
+Every language retains the four checksums above. Median is about 4.3 times faster than the preceding full-sort run. Timing varies between runs; no Array-sort experiment was needed after selection improved the fixed workload.
