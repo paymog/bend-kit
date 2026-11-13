@@ -1,4 +1,4 @@
-# IEEE 754 binary64 add, sub, mul, and div. Source: https://github.com/paymog/bend-kit/tree/main/f64
+# IEEE 754 binary64 arithmetic and square root. Source: https://github.com/paymog/bend-kit/tree/main/f64
 import Base
 
 # ponytail: two U32 halves, not Int.U64. Word(64n) is 64 bools and blows the C word limit. Replace these limbs with Base F64 when bendlang/bend#1120 lands.
@@ -938,6 +938,80 @@ def F64.div(a: F64, b: F64) -> F64:
   match a b:
     case F64{ah, al} F64{bh, bl}:
       div.parts(unpack(ah, al), unpack(bh, bl))
+
+type SqrtStep is Data:
+  SqrtStep{rem: W2, root: W2}
+
+# Restoring square root consumes 54 bit pairs: 53 significand bits and one guard bit.
+def sqrt.step(ge: Bool, rem: W2, root: W2, trial: W2) -> SqrtStep:
+  match ge:
+    case True{}:
+      SqrtStep{W2.sub(rem, trial), W2.inc(root)}
+    case False{}:
+      SqrtStep{rem, root}
+
+def sqrt.trial(+rem: W2, +root: W2, +trial: W2) -> SqrtStep:
+  sqrt.step(W2.ge(rem, trial), rem, root, trial)
+
+def sqrt.advance(w: W4, rem: W2, +root: W2) -> SqrtStep:
+  match w:
+    case W4{a, b, c, d}:
+      sqrt.trial(W2.shl1(W2.shl1(rem, 0), (a >> 30n : U32)), W2.shl1(root, 0), W2.shl1(W2.shl1(root, 0), 1))
+
+def sqrt.finish(exp: U32, rem: W2, root: W2) -> F64:
+  match root:
+    case W2{+hi, +lo}:
+      round.sig(0, exp, (hi >> 1n : U32), ((lo >> 1n) .|. (hi << 31n) : U32), ((lo .&. 1) << 31n : U32), 0, W2.nz(rem))
+
+def sqrt.go(n: Nat, +w: W4, st: SqrtStep, exp: U32) -> F64:
+  match n st:
+    case 0n SqrtStep{rem, root}:
+      sqrt.finish(exp, rem, root)
+    case 1n+p SqrtStep{rem, root}:
+      sqrt.go(p, W4.shl1(W4.shl1(w)), sqrt.advance(w, rem, root), exp)
+
+def sqrt.sig(+exp: U32, sig: W2) -> F64:
+  match sig:
+    case W2{hi, lo}:
+      sqrt.go(54n, W4.shl(W4{0, 0, hi, lo}, (74 + ((exp + 1) .&. 1) : U32)), SqrtStep{W2{0, 0}, W2{0, 0}}, ((exp + 5119) >> 1n : U32))
+
+def sqrt.norm(exp: U32, sig: W2, +k: U32) -> F64:
+  sqrt.sig((exp - k : U32), W2.shl(sig, k))
+
+def sqrt.sign(positive: Bool, exp: U32, +sig: W2) -> F64:
+  match positive:
+    case False{}:
+      F64.nan()
+    case True{}:
+      sqrt.norm(exp, sig, (52 - W2.msb(sig) : U32))
+
+def sqrt.zero(nz: Bool, +sign: U32, exp: U32, sig: W2) -> F64:
+  match nz:
+    case False{}:
+      F64.zero.sign(sign)
+    case True{}:
+      sqrt.sign(U32.is_zero(sign), exp, sig)
+
+def sqrt.inf(positive: Bool) -> F64:
+  match positive:
+    case True{}:
+      F64.inf.sign(0)
+    case False{}:
+      F64.nan()
+
+def sqrt.parts(parts: Parts) -> F64:
+  match parts:
+    case Parts{Nan{}, sign, exp, sig}:
+      F64.nan()
+    case Parts{Inf{}, sign, exp, sig}:
+      sqrt.inf(U32.is_zero(sign))
+    case Parts{Fin{}, sign, exp, +sig}:
+      sqrt.zero(W2.nz(sig), sign, exp, sig)
+
+def F64.sqrt(x: F64) -> F64:
+  match x:
+    case F64{hi, lo}:
+      sqrt.parts(unpack(hi, lo))
 
 def F64.nan.bits(+h: U32, l: U32) -> Bool:
   Bool.and(U32.is_eq(((h >> 20n) .&. 2047 : U32), 2047), Bool.not(Bool.and(U32.is_zero((h .&. 1048575 : U32)), U32.is_zero(l))))

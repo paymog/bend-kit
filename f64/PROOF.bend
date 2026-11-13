@@ -91,3 +91,30 @@ def Laws.read_no_digits():
 
 def Laws.read_no_exp_digits():
   {==}
+
+def Laws.sqrt_four():
+  {==}
+
+def Laws.sqrt_two():
+  {==}
+
+def Laws.sqrt_min_subnormal():
+  {==}
+
+def Laws.sqrt_max_finite():
+  {==}
+
+def Laws.sqrt_neg_zero():
+  {==}
+
+def Laws.sqrt_negative():
+  {==}
+
+def Laws.sqrt_inf():
+  {==}
+
+def Laws.sqrt_neg_inf():
+  {==}
+
+def Laws.sqrt_nan():
+  {==}

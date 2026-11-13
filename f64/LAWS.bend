@@ -99,3 +99,30 @@ law read_no_digits:
 
 law read_no_exp_digits:
   {F.F64.read("1e+") == None{} : Maybe<&2, F.F64>}
+
+law sqrt_four:
+  {F.F64.sqrt(bits(1074790400, 0)) == bits(1073741824, 0) : F.F64}
+
+law sqrt_two:
+  {F.F64.sqrt(bits(1073741824, 0)) == bits(1073127582, 1719614413) : F.F64}
+
+law sqrt_min_subnormal:
+  {F.F64.sqrt(bits(0, 1)) == bits(509607936, 0) : F.F64}
+
+law sqrt_max_finite:
+  {F.F64.sqrt(bits(2146435071, 4294967295)) == bits(1609564159, 4294967295) : F.F64}
+
+law sqrt_neg_zero:
+  {F.F64.sqrt(bits(2147483648, 0)) == bits(2147483648, 0) : F.F64}
+
+law sqrt_negative:
+  {F.F64.sqrt(F.F64.neg(one())) == F.F64.nan() : F.F64}
+
+law sqrt_inf:
+  {F.F64.sqrt(F.F64.inf()) == F.F64.inf() : F.F64}
+
+law sqrt_neg_inf:
+  {F.F64.sqrt(F.F64.neg(F.F64.inf())) == F.F64.nan() : F.F64}
+
+law sqrt_nan:
+  {F.F64.sqrt(F.F64.nan()) == F.F64.nan() : F.F64}

@@ -64,3 +64,8 @@ console.log(`show\t${(performance.now() - t0).toFixed(3)}\t${checksum(text)}`);
 t0 = performance.now();
 h = checksum(text);
 console.log(`read\t${(performance.now() - t0).toFixed(3)}\t${h}`);
+
+t0 = performance.now();
+h = 0;
+for (const x of nums) h = (h ^ mix(Math.sqrt(Math.abs(x)))) >>> 0;
+console.log(`sqrt\t${(performance.now() - t0).toFixed(3)}\t${h}`);

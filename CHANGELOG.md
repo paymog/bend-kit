@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f64` 0.1.2.0: add `F64.sqrt`, correctly rounded to nearest, ties to even. It handles subnormals, preserves signed zero and positive infinity, and returns a quiet NaN for negative inputs and NaNs.
 - `stats` 0.1.0.0: new package. Sum, mean, population and sample variance, type-7 quantiles and the median, a histogram over edges, and least-squares linear regression over `bend-kit-f64` lists, plus `U32` gcd, lcm, and integer square root. Laws prove fixtures with exact expected values.
 - `hash` 0.3.0.4: `crc32` takes a 64-bit lane per step by slicing-by-8, with four more 256-entry tables. The 16 MB bench takes 6.6 ms, down from 11.0 ms; 16 bytes hashed 100,000 times take 0.4 ms, up from 0.3 ms. An `Array` table measured slower than the `match` tables. Results do not change.
 - `hash` 0.3.0.3: `crc32` takes a word per step by slicing-by-4, with three more 256-entry tables, as zlib does. The 16 MB bench takes 11.0 ms, down from 31.3 ms; 16 bytes hashed 100,000 times take 0.3 ms, down from 0.7 ms. Results do not change.
