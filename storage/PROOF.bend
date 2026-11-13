@@ -1,6 +1,9 @@
 import Base
 import ./storage.bend as S
 import ./LAWS.bend as Laws
+import bend-kit-collections@0.1.5.0/omap.bend as OMap
+import bend-kit-collections@0.1.5.0/LAWS.bend as Col
+import bend-kit-collections@0.1.5.0/PROOF.bend as ColProof
 
 def true_ne_false(e: {True{} == False{} : Bool}) -> Empty:
   %e : Bool.pick(Type, _, Unit, Empty)
@@ -1075,3 +1078,540 @@ def Laws.fixture_tamper():
 
 def Laws.fixture_gc():
   {==}
+
+def Laws.fixture_index_build():
+  {==}
+
+def Laws.fixture_index_dedup():
+  {==}
+
+def Laws.fixture_index_plan():
+  {==}
+
+# ---- The index refines the list store.
+
+def CRefl(~D: Data, ~cmp: D -> D -> Cmp) -> Type:
+  @x: D -> {cmp(x, x) == EQ{} : Cmp}
+
+def CEq(~D: Data, ~cmp: D -> D -> Cmp) -> Type:
+  @x: D -> @y: D -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : D}
+
+def CFlip(~D: Data, ~cmp: D -> D -> Cmp) -> Type:
+  @x: D -> @y: D -> {cmp(y, x) == Col.flip(cmp(x, y)) : Cmp}
+
+def CTrans(~D: Data, ~cmp: D -> D -> Cmp) -> Type:
+  @x: D -> @y: D -> @z: D -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+
+def Agree(~D: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool) -> Type:
+  @x: D -> @y: D -> {eq(x, y) == Cmp.is_eq(cmp(x, y)) : Bool}
+
+def cmp_eq_of(c: Cmp, h: {Cmp.is_eq(c) == True{} : Bool}) -> {c == EQ{} : Cmp}:
+  match c:
+    case LT{}:
+      Empty.absurd({LT{} == EQ{} : Cmp}, false_ne_true(h))
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({GT{} == EQ{} : Cmp}, false_ne_true(h))
+
+def flip_eq(c: Cmp, h: {Col.flip(c) == EQ{} : Cmp}) -> {c == EQ{} : Cmp}:
+  match c:
+    case LT{}:
+      Empty.absurd({LT{} == EQ{} : Cmp}, false_ne_true(Equal.cong(Cmp, Bool, x => Cmp.is_eq(x), GT{}, EQ{}, h)))
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({GT{} == EQ{} : Cmp}, false_ne_true(Equal.cong(Cmp, Bool, x => Cmp.is_eq(x), LT{}, EQ{}, h)))
+
+# eq is sound when it agrees with cmp and EQ means equal.
+def sound_of(
+  ~D: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~ceq: CEq(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  +x: D, +y: D, h: {eq(x, y) == True{} : Bool}
+) -> {x == y : D}:
+  ceq(x, y, cmp_eq_of(cmp(x, y), Equal.trans(Bool, Cmp.is_eq(cmp(x, y)), eq(x, y), True{},
+    Equal.sym(Bool, eq(x, y), Cmp.is_eq(cmp(x, y)), agree(x, y)), h)))
+
+def ne_of_false(
+  ~D: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~cflip: CFlip(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  +d: D, +k: D, h: {eq(d, k) == False{} : Bool}
+) -> {cmp(k, d) != EQ{} : Cmp}:
+  e => false_ne_true(Equal.trans(Bool, False{}, eq(d, k), True{}, Equal.sym(Bool, eq(d, k), False{}, h),
+    Equal.trans(Bool, eq(d, k), Cmp.is_eq(cmp(d, k)), True{}, agree(d, k),
+      Equal.cong(Cmp, Bool, x => Cmp.is_eq(x), cmp(d, k), EQ{},
+        flip_eq(cmp(d, k), Equal.trans(Cmp, Col.flip(cmp(d, k)), cmp(k, d), EQ{},
+          Equal.sym(Cmp, cmp(k, d), Col.flip(cmp(d, k)), cflip(d, k)), e))))))
+
+def IG(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, m: S.Index(D, B), +d: D) -> Maybe<&2, S.Obj<D, B>>:
+  S.Index.get(~D, ~B, ~cmp, m, d)
+
+def IHas(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, m: S.Index(D, B), +d: D) -> Bool:
+  S.Index.has(~D, ~B, ~cmp, m, d)
+
+def IP(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +m: S.Index(D, B), +d: D, o: S.Obj<D, B>) -> S.Index(D, B):
+  S.Index.put(~D, ~B, ~cmp, m, d, o)
+
+def OP(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, m: S.Index(D, B), +d: D, +o: S.Obj<D, B>) -> S.Index(D, B):
+  OMap.OMap.put(~D, ~S.Obj<D, B>, ~cmp, m, d, o)
+
+def IA(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, xs: S.Store<D, B>, +m: S.Index(D, B)) -> S.Index(D, B):
+  S.Index.apply(~D, ~B, ~cmp, xs, m)
+
+def ST(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, m: S.Index(D, B)) -> Bool:
+  Col.searchtree(~D, ~S.Obj<D, B>, ~cmp, m)
+
+def ihas_some(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +m: S.Index(D, B), +d: D, -x: S.Obj<D, B>,
+  h: {IG(~D, ~B, ~cmp, m, d) == Some{x} : Maybe<&2, S.Obj<D, B>>}
+) -> {IHas(~D, ~B, ~cmp, m, d) == True{} : Bool}:
+  %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, m, d), Some{x}, h) : {Maybe.is_some(&2, S.Obj<D, B>, _) == True{} : Bool}
+  {==}
+
+def ihas_none(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +m: S.Index(D, B), +d: D,
+  h: {IG(~D, ~B, ~cmp, m, d) == None{} : Maybe<&2, S.Obj<D, B>>}
+) -> {IHas(~D, ~B, ~cmp, m, d) == False{} : Bool}:
+  %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, m, d), None{}, h) : {Maybe.is_some(&2, S.Obj<D, B>, _) == False{} : Bool}
+  {==}
+
+def iput_has(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +m: S.Index(D, B), +d: D, +o: S.Obj<D, B>,
+  h: {IHas(~D, ~B, ~cmp, m, d) == True{} : Bool}
+) -> {IP(~D, ~B, ~cmp, m, d, o) == m : S.Index(D, B)}:
+  %Equal.sym(Bool, IHas(~D, ~B, ~cmp, m, d), True{}, h) : {S.Index.put.if(~D, ~B, ~cmp, _, m, d, o) == m : S.Index(D, B)}
+  {==}
+
+def iput_new(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +m: S.Index(D, B), +d: D, +o: S.Obj<D, B>,
+  h: {IHas(~D, ~B, ~cmp, m, d) == False{} : Bool}
+) -> {IP(~D, ~B, ~cmp, m, d, o) == OP(~D, ~B, ~cmp, m, d, o) : S.Index(D, B)}:
+  %Equal.sym(Bool, IHas(~D, ~B, ~cmp, m, d), False{}, h) : {S.Index.put.if(~D, ~B, ~cmp, _, m, d, o) == OP(~D, ~B, ~cmp, m, d, o) : S.Index(D, B)}
+  {==}
+
+def iput_tree.if(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp),
+  c: Bool, +m: S.Index(D, B), tree: {ST(~D, ~B, ~cmp, m) == True{} : Bool}, +d: D, +o: S.Obj<D, B>,
+  +hc: {IHas(~D, ~B, ~cmp, m, d) == c : Bool}
+) -> {ST(~D, ~B, ~cmp, IP(~D, ~B, ~cmp, m, d, o)) == True{} : Bool}:
+  match c:
+    case True{}:
+      %Equal.sym(S.Index(D, B), IP(~D, ~B, ~cmp, m, d, o), m, iput_has(~D, ~B, ~cmp, m, d, o, hc)) : {ST(~D, ~B, ~cmp, _) == True{} : Bool}
+      tree
+    case False{}:
+      %Equal.sym(S.Index(D, B), IP(~D, ~B, ~cmp, m, d, o), OP(~D, ~B, ~cmp, m, d, o), iput_new(~D, ~B, ~cmp, m, d, o, hc)) : {ST(~D, ~B, ~cmp, _) == True{} : Bool}
+      Col.omap_put_searchtree(~D, ~S.Obj<D, B>, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, d, o)
+
+def iput_tree(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp),
+  +m: S.Index(D, B), tree: {ST(~D, ~B, ~cmp, m) == True{} : Bool}, +d: D, +o: S.Obj<D, B>
+) -> {ST(~D, ~B, ~cmp, IP(~D, ~B, ~cmp, m, d, o)) == True{} : Bool}:
+  iput_tree.if(~D, ~B, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, IHas(~D, ~B, ~cmp, m, d), m, tree, d, o, {==})
+
+def iget_mono.miss(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  c: Bool, +m: S.Index(D, B), tree: {ST(~D, ~B, ~cmp, m) == True{} : Bool}, +d: D, +o: S.Obj<D, B>, +e: D, -x: S.Obj<D, B>,
+  +hc: {eq(e, d) == c : Bool}, hn: {IHas(~D, ~B, ~cmp, m, d) == False{} : Bool},
+  h: {IG(~D, ~B, ~cmp, m, e) == Some{x} : Maybe<&2, S.Obj<D, B>>}
+) -> {IG(~D, ~B, ~cmp, OP(~D, ~B, ~cmp, m, d, o), e) == Some{x} : Maybe<&2, S.Obj<D, B>>}:
+  match c:
+    case True{}:
+      Empty.absurd({IG(~D, ~B, ~cmp, OP(~D, ~B, ~cmp, m, d, o), e) == Some{x} : Maybe<&2, S.Obj<D, B>>},
+        false_ne_true(Equal.trans(Bool, False{}, IHas(~D, ~B, ~cmp, m, d), True{},
+          Equal.sym(Bool, IHas(~D, ~B, ~cmp, m, d), False{}, hn),
+          (%sound_of(~D, ~cmp, ~eq, ~ceq, ~agree, e, d, hc) : {IHas(~D, ~B, ~cmp, m, _) == True{} : Bool}
+           ihas_some(~D, ~B, ~cmp, m, e, x, h)))))
+    case False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, OP(~D, ~B, ~cmp, m, d, o), e), IG(~D, ~B, ~cmp, m, e),
+        Col.omap_get_put_other_key(~D, ~S.Obj<D, B>, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, d, e,
+          ne_of_false(~D, ~cmp, ~eq, ~cflip, ~agree, e, d, hc), o)) : {_ == Some{x} : Maybe<&2, S.Obj<D, B>>}
+      h
+
+def iget_mono.if(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  c: Bool, +m: S.Index(D, B), tree: {ST(~D, ~B, ~cmp, m) == True{} : Bool}, +d: D, +o: S.Obj<D, B>, +e: D, -x: S.Obj<D, B>,
+  +hc: {IHas(~D, ~B, ~cmp, m, d) == c : Bool}, h: {IG(~D, ~B, ~cmp, m, e) == Some{x} : Maybe<&2, S.Obj<D, B>>}
+) -> {IG(~D, ~B, ~cmp, IP(~D, ~B, ~cmp, m, d, o), e) == Some{x} : Maybe<&2, S.Obj<D, B>>}:
+  match c:
+    case True{}:
+      %Equal.sym(S.Index(D, B), IP(~D, ~B, ~cmp, m, d, o), m, iput_has(~D, ~B, ~cmp, m, d, o, hc)) : {IG(~D, ~B, ~cmp, _, e) == Some{x} : Maybe<&2, S.Obj<D, B>>}
+      h
+    case False{}:
+      %Equal.sym(S.Index(D, B), IP(~D, ~B, ~cmp, m, d, o), OP(~D, ~B, ~cmp, m, d, o), iput_new(~D, ~B, ~cmp, m, d, o, hc)) : {IG(~D, ~B, ~cmp, _, e) == Some{x} : Maybe<&2, S.Obj<D, B>>}
+      iget_mono.miss(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, eq(e, d), m, tree, d, o, e, x, {==}, hc, h)
+
+def iapply_mono(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  xs: S.Store<D, B>, +m: S.Index(D, B), +tree: {ST(~D, ~B, ~cmp, m) == True{} : Bool}, +e: D, -x: S.Obj<D, B>,
+  h: {IG(~D, ~B, ~cmp, m, e) == Some{x} : Maybe<&2, S.Obj<D, B>>}
+) -> {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, xs, m), e) == Some{x} : Maybe<&2, S.Obj<D, B>>}:
+  match xs:
+    case S.StNil{}:
+      h
+    case S.StCon{+d, +o, t}:
+      iapply_mono(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, t, IP(~D, ~B, ~cmp, m, d, o),
+        iput_tree(~D, ~B, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, d, o), e, x,
+        iget_mono.if(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, IHas(~D, ~B, ~cmp, m, d), m, tree, d, o, e, x, {==}, h))
+
+# The entry of xs decides a digest that the start index lacks.
+def iapply_miss.step(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  ch: Bool, ce: Bool, +t: S.Store<D, B>, +m: S.Index(D, B), +tree: {ST(~D, ~B, ~cmp, m) == True{} : Bool}, +k: D, +o: S.Obj<D, B>, +e: D,
+  +hch: {IHas(~D, ~B, ~cmp, m, k) == ch : Bool}, +hce: {eq(e, k) == ce : Bool},
+  hn: {IG(~D, ~B, ~cmp, m, e) == None{} : Maybe<&2, S.Obj<D, B>>},
+  ih: {IG(~D, ~B, ~cmp, IP(~D, ~B, ~cmp, m, k, o), e) == None{} : Maybe<&2, S.Obj<D, B>>} -> {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, t, IP(~D, ~B, ~cmp, m, k, o)), e) == G(~D, ~B, ~eq, t, e) : Maybe<&2, S.Obj<D, B>>}
+) -> {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, t, IP(~D, ~B, ~cmp, m, k, o)), e) == G(~D, ~B, ~eq, S.StCon{k, o, t}, e) : Maybe<&2, S.Obj<D, B>>}:
+  match ch ce:
+    case True{} True{}:
+      Empty.absurd({IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, t, IP(~D, ~B, ~cmp, m, k, o)), e) == G(~D, ~B, ~eq, S.StCon{k, o, t}, e) : Maybe<&2, S.Obj<D, B>>},
+        false_ne_true(Equal.trans(Bool, False{}, IHas(~D, ~B, ~cmp, m, k), True{},
+          Equal.sym(Bool, IHas(~D, ~B, ~cmp, m, k), False{}, ihas_none(~D, ~B, ~cmp, m, k,
+            (%sound_of(~D, ~cmp, ~eq, ~ceq, ~agree, e, k, hce) : {IG(~D, ~B, ~cmp, m, _) == None{} : Maybe<&2, S.Obj<D, B>>} hn))),
+          hch)))
+    case False{} True{}:
+      %Equal.sym(S.Index(D, B), IP(~D, ~B, ~cmp, m, k, o), OP(~D, ~B, ~cmp, m, k, o), iput_new(~D, ~B, ~cmp, m, k, o, hch)) : {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, t, _), e) == G(~D, ~B, ~eq, S.StCon{k, o, t}, e) : Maybe<&2, S.Obj<D, B>>}
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, e), Some{o}, get_hit(~D, ~B, ~eq, k, o, t, e, hce)) : {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, t, OP(~D, ~B, ~cmp, m, k, o)), e) == _ : Maybe<&2, S.Obj<D, B>>}
+      iapply_mono(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, t, OP(~D, ~B, ~cmp, m, k, o),
+        Col.omap_put_searchtree(~D, ~S.Obj<D, B>, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, k, o), e, o,
+        (%Equal.sym(D, e, k, sound_of(~D, ~cmp, ~eq, ~ceq, ~agree, e, k, hce)) : {IG(~D, ~B, ~cmp, OP(~D, ~B, ~cmp, m, k, o), _) == Some{o} : Maybe<&2, S.Obj<D, B>>}
+         Col.omap_get_put_same(~D, ~S.Obj<D, B>, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, k, o)))
+    case True{} False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, e), G(~D, ~B, ~eq, t, e), get_miss(~D, ~B, ~eq, k, o, t, e, hce)) : {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, t, IP(~D, ~B, ~cmp, m, k, o)), e) == _ : Maybe<&2, S.Obj<D, B>>}
+      ih((%Equal.sym(S.Index(D, B), IP(~D, ~B, ~cmp, m, k, o), m, iput_has(~D, ~B, ~cmp, m, k, o, hch)) : {IG(~D, ~B, ~cmp, _, e) == None{} : Maybe<&2, S.Obj<D, B>>} hn))
+    case False{} False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, e), G(~D, ~B, ~eq, t, e), get_miss(~D, ~B, ~eq, k, o, t, e, hce)) : {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, t, IP(~D, ~B, ~cmp, m, k, o)), e) == _ : Maybe<&2, S.Obj<D, B>>}
+      ih((%Equal.sym(S.Index(D, B), IP(~D, ~B, ~cmp, m, k, o), OP(~D, ~B, ~cmp, m, k, o), iput_new(~D, ~B, ~cmp, m, k, o, hch)) : {IG(~D, ~B, ~cmp, _, e) == None{} : Maybe<&2, S.Obj<D, B>>}
+        (%Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, OP(~D, ~B, ~cmp, m, k, o), e), IG(~D, ~B, ~cmp, m, e),
+          Col.omap_get_put_other_key(~D, ~S.Obj<D, B>, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, k, e,
+            ne_of_false(~D, ~cmp, ~eq, ~cflip, ~agree, e, k, hce), o)) : {_ == None{} : Maybe<&2, S.Obj<D, B>>} hn)))
+
+# From an index that lacks e, apply finds e where xs first has it.
+def iapply_miss(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  xs: S.Store<D, B>, +m: S.Index(D, B), +tree: {ST(~D, ~B, ~cmp, m) == True{} : Bool}, +e: D,
+  hn: {IG(~D, ~B, ~cmp, m, e) == None{} : Maybe<&2, S.Obj<D, B>>}
+) -> {IG(~D, ~B, ~cmp, IA(~D, ~B, ~cmp, xs, m), e) == G(~D, ~B, ~eq, xs, e) : Maybe<&2, S.Obj<D, B>>}:
+  match xs:
+    case S.StNil{}:
+      hn
+    case S.StCon{+k, +o, +t}:
+      iapply_miss.step(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, IHas(~D, ~B, ~cmp, m, k), eq(e, k), t, m, tree, k, o, e, {==}, {==}, hn,
+        hn2 => iapply_miss(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, t, IP(~D, ~B, ~cmp, m, k, o),
+          iput_tree(~D, ~B, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, k, o), e, hn2))
+
+def lapply_miss.step(
+  ~D: Data, ~B: Data, ~eq: D -> D -> Bool, ~sound: Sound(~D, ~eq),
+  ch: Bool, ce: Bool, +t: S.Store<D, B>, +s: S.Store<D, B>, +k: D, +o: S.Obj<D, B>, +e: D,
+  +hch: {Has(~D, ~B, ~eq, s, k) == ch : Bool}, +hce: {eq(e, k) == ce : Bool},
+  hn: {G(~D, ~B, ~eq, s, e) == None{} : Maybe<&2, S.Obj<D, B>>},
+  ih: {G(~D, ~B, ~eq, P(~D, ~B, ~eq, s, k, o), e) == None{} : Maybe<&2, S.Obj<D, B>>} -> {G(~D, ~B, ~eq, A(~D, ~B, ~eq, t, P(~D, ~B, ~eq, s, k, o)), e) == G(~D, ~B, ~eq, t, e) : Maybe<&2, S.Obj<D, B>>}
+) -> {G(~D, ~B, ~eq, A(~D, ~B, ~eq, t, P(~D, ~B, ~eq, s, k, o)), e) == G(~D, ~B, ~eq, S.StCon{k, o, t}, e) : Maybe<&2, S.Obj<D, B>>}:
+  match ch ce:
+    case True{} True{}:
+      Empty.absurd({G(~D, ~B, ~eq, A(~D, ~B, ~eq, t, P(~D, ~B, ~eq, s, k, o)), e) == G(~D, ~B, ~eq, S.StCon{k, o, t}, e) : Maybe<&2, S.Obj<D, B>>},
+        false_ne_true(Equal.trans(Bool, False{}, Has(~D, ~B, ~eq, s, k), True{},
+          Equal.sym(Bool, Has(~D, ~B, ~eq, s, k), False{}, has_none(~D, ~B, ~eq, s, k,
+            (%sound(e, k, hce) : {G(~D, ~B, ~eq, s, _) == None{} : Maybe<&2, S.Obj<D, B>>} hn))),
+          hch)))
+    case False{} True{}:
+      %Equal.sym(S.Store<D, B>, P(~D, ~B, ~eq, s, k, o), S.StCon{k, o, s}, put_new(~D, ~B, ~eq, s, k, o, hch)) : {G(~D, ~B, ~eq, A(~D, ~B, ~eq, t, _), e) == G(~D, ~B, ~eq, S.StCon{k, o, t}, e) : Maybe<&2, S.Obj<D, B>>}
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, e), Some{o}, get_hit(~D, ~B, ~eq, k, o, t, e, hce)) : {G(~D, ~B, ~eq, A(~D, ~B, ~eq, t, S.StCon{k, o, s}), e) == _ : Maybe<&2, S.Obj<D, B>>}
+      apply_mono(~D, ~B, ~eq, ~sound, t, S.StCon{k, o, s}, e, o, get_hit(~D, ~B, ~eq, k, o, s, e, hce))
+    case True{} False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, e), G(~D, ~B, ~eq, t, e), get_miss(~D, ~B, ~eq, k, o, t, e, hce)) : {G(~D, ~B, ~eq, A(~D, ~B, ~eq, t, P(~D, ~B, ~eq, s, k, o)), e) == _ : Maybe<&2, S.Obj<D, B>>}
+      ih((%Equal.sym(S.Store<D, B>, P(~D, ~B, ~eq, s, k, o), s, put_has(~D, ~B, ~eq, s, k, o, hch)) : {G(~D, ~B, ~eq, _, e) == None{} : Maybe<&2, S.Obj<D, B>>} hn))
+    case False{} False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, e), G(~D, ~B, ~eq, t, e), get_miss(~D, ~B, ~eq, k, o, t, e, hce)) : {G(~D, ~B, ~eq, A(~D, ~B, ~eq, t, P(~D, ~B, ~eq, s, k, o)), e) == _ : Maybe<&2, S.Obj<D, B>>}
+      ih((%Equal.sym(S.Store<D, B>, P(~D, ~B, ~eq, s, k, o), S.StCon{k, o, s}, put_new(~D, ~B, ~eq, s, k, o, hch)) : {G(~D, ~B, ~eq, _, e) == None{} : Maybe<&2, S.Obj<D, B>>}
+        (%Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, s}, e), G(~D, ~B, ~eq, s, e), get_miss(~D, ~B, ~eq, k, o, s, e, hce)) : {_ == None{} : Maybe<&2, S.Obj<D, B>>} hn)))
+
+# From a store that lacks e, apply finds e where xs first has it.
+def lapply_miss(
+  ~D: Data, ~B: Data, ~eq: D -> D -> Bool, ~sound: Sound(~D, ~eq),
+  xs: S.Store<D, B>, +s: S.Store<D, B>, +e: D, hn: {G(~D, ~B, ~eq, s, e) == None{} : Maybe<&2, S.Obj<D, B>>}
+) -> {G(~D, ~B, ~eq, A(~D, ~B, ~eq, xs, s), e) == G(~D, ~B, ~eq, xs, e) : Maybe<&2, S.Obj<D, B>>}:
+  match xs:
+    case S.StNil{}:
+      hn
+    case S.StCon{+k, +o, +t}:
+      lapply_miss.step(~D, ~B, ~eq, ~sound, Has(~D, ~B, ~eq, s, k), eq(e, k), t, s, k, o, e, {==}, {==}, hn,
+        hn2 => lapply_miss(~D, ~B, ~eq, ~sound, t, P(~D, ~B, ~eq, s, k, o), e, hn2))
+
+def IOf(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, xs: S.Store<D, B>) -> S.Index(D, B):
+  S.Index.of(~D, ~B, ~cmp, xs)
+
+def LOf(~D: Data, ~B: Data, ~eq: D -> D -> Bool, xs: S.Store<D, B>) -> S.Store<D, B>:
+  A(~D, ~B, ~eq, xs, S.Store.new(D, B))
+
+# The index of xs finds what xs finds.
+def ig.xs(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  +xs: S.Store<D, B>, +d: D
+) -> {IG(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, xs), d) == G(~D, ~B, ~eq, xs, d) : Maybe<&2, S.Obj<D, B>>}:
+  iapply_miss(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, S.Index.new(D, B),
+    Col.omap_new_searchtree(~D, ~S.Obj<D, B>, ~cmp), d, {==})
+
+def ig(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  +xs: S.Store<D, B>, +d: D
+) -> {IG(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, xs), d) == G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d) : Maybe<&2, S.Obj<D, B>>}:
+  Equal.trans(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, xs), d), G(~D, ~B, ~eq, xs, d), G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d),
+    ig.xs(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, d),
+    Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d), G(~D, ~B, ~eq, xs, d),
+      lapply_miss(~D, ~B, ~eq, ~(x => y => h => sound_of(~D, ~cmp, ~eq, ~ceq, ~agree, x, y, h)), xs, S.Store.new(D, B), d, {==})))
+
+def Laws.index_get(D, B, cmp, eq, crefl, ceq, cflip, ctrans, agree, xs, d):
+  ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, d)
+
+def ILG(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, fuel: Nat, +s: S.Index(D, B), m: Maybe<&2, S.Obj<D, B>>) -> Maybe<&2, S.Tree<B>>:
+  S.Index.load.go(~D, ~B, ~cmp, fuel, s, m)
+
+def index_load.go(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  fuel: Nat, +xs: S.Store<D, B>, m: Maybe<&2, S.Obj<D, B>>
+) -> {ILG(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), m) == LG(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), m) : Maybe<&2, S.Tree<B>>}:
+  match fuel m:
+    case 0n _:
+      {==}
+    case 1n+p None{}:
+      {==}
+    case 1n+p Some{S.OFile{b}}:
+      {==}
+    case 1n+p Some{S.OEnd{}}:
+      {==}
+    case 1n+(+p) Some{S.OItem{+n, +c, +r}}:
+      +si = IOf(~D, ~B, ~cmp, xs)
+      +sl = LOf(~D, ~B, ~eq, xs)
+      %Equal.sym(Maybe<&2, S.Tree<B>>, ILG(~D, ~B, ~cmp, p, si, IG(~D, ~B, ~cmp, si, c)), LG(~D, ~B, ~eq, p, sl, IG(~D, ~B, ~cmp, si, c)),
+        index_load.go(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, p, xs, IG(~D, ~B, ~cmp, si, c)))
+        : {S.Tree.item(B, n, _, ILG(~D, ~B, ~cmp, p, si, IG(~D, ~B, ~cmp, si, r))) == S.Tree.item(B, n, LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, c)), LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Tree<B>>}
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, si, c), G(~D, ~B, ~eq, sl, c), ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, c))
+        : {S.Tree.item(B, n, LG(~D, ~B, ~eq, p, sl, _), ILG(~D, ~B, ~cmp, p, si, IG(~D, ~B, ~cmp, si, r))) == S.Tree.item(B, n, LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, c)), LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Tree<B>>}
+      %Equal.sym(Maybe<&2, S.Tree<B>>, ILG(~D, ~B, ~cmp, p, si, IG(~D, ~B, ~cmp, si, r)), LG(~D, ~B, ~eq, p, sl, IG(~D, ~B, ~cmp, si, r)),
+        index_load.go(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, p, xs, IG(~D, ~B, ~cmp, si, r)))
+        : {S.Tree.item(B, n, LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, c)), _) == S.Tree.item(B, n, LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, c)), LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Tree<B>>}
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, si, r), G(~D, ~B, ~eq, sl, r), ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, r))
+        : {S.Tree.item(B, n, LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, c)), LG(~D, ~B, ~eq, p, sl, _)) == S.Tree.item(B, n, LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, c)), LG(~D, ~B, ~eq, p, sl, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Tree<B>>}
+      {==}
+
+def Laws.index_load(D, B, cmp, eq, crefl, ceq, cflip, ctrans, agree, fuel, xs, d):
+  +fuel = fuel
+  +xs = xs
+  +d = d
+  %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, xs), d), G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d), ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, d))
+    : {ILG(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), _) == LG(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d)) : Maybe<&2, S.Tree<B>>}
+  index_load.go(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, fuel, xs, G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d))
+
+def ICG(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, fuel: Nat, +s: S.Index(D, B), +d: D, m: Maybe<&2, S.Obj<D, B>>) -> Maybe<&2, S.Store<D, B>>:
+  S.Index.closure.go(~D, ~B, ~cmp, fuel, s, d, m)
+
+def index_closure.go(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  fuel: Nat, +xs: S.Store<D, B>, +d: D, m: Maybe<&2, S.Obj<D, B>>
+) -> {ICG(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), d, m) == C(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), d, m) : Maybe<&2, S.Store<D, B>>}:
+  match fuel m:
+    case 0n _:
+      {==}
+    case 1n+p None{}:
+      {==}
+    case 1n+p Some{S.OFile{b}}:
+      {==}
+    case 1n+p Some{S.OEnd{}}:
+      {==}
+    case 1n+(+p) Some{S.OItem{+n, +c, +r}}:
+      +si = IOf(~D, ~B, ~cmp, xs)
+      +sl = LOf(~D, ~B, ~eq, xs)
+      +o = {S.OItem{n, c, r} : S.Obj<D, B>}
+      %Equal.sym(Maybe<&2, S.Store<D, B>>, ICG(~D, ~B, ~cmp, p, si, c, IG(~D, ~B, ~cmp, si, c)), C(~D, ~B, ~eq, p, sl, c, IG(~D, ~B, ~cmp, si, c)),
+        index_closure.go(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, p, xs, c, IG(~D, ~B, ~cmp, si, c)))
+        : {S.closure.item(D, B, d, o, _, ICG(~D, ~B, ~cmp, p, si, r, IG(~D, ~B, ~cmp, si, r))) == S.closure.item(D, B, d, o, C(~D, ~B, ~eq, p, sl, c, G(~D, ~B, ~eq, sl, c)), C(~D, ~B, ~eq, p, sl, r, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Store<D, B>>}
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, si, c), G(~D, ~B, ~eq, sl, c), ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, c))
+        : {S.closure.item(D, B, d, o, C(~D, ~B, ~eq, p, sl, c, _), ICG(~D, ~B, ~cmp, p, si, r, IG(~D, ~B, ~cmp, si, r))) == S.closure.item(D, B, d, o, C(~D, ~B, ~eq, p, sl, c, G(~D, ~B, ~eq, sl, c)), C(~D, ~B, ~eq, p, sl, r, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Store<D, B>>}
+      %Equal.sym(Maybe<&2, S.Store<D, B>>, ICG(~D, ~B, ~cmp, p, si, r, IG(~D, ~B, ~cmp, si, r)), C(~D, ~B, ~eq, p, sl, r, IG(~D, ~B, ~cmp, si, r)),
+        index_closure.go(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, p, xs, r, IG(~D, ~B, ~cmp, si, r)))
+        : {S.closure.item(D, B, d, o, C(~D, ~B, ~eq, p, sl, c, G(~D, ~B, ~eq, sl, c)), _) == S.closure.item(D, B, d, o, C(~D, ~B, ~eq, p, sl, c, G(~D, ~B, ~eq, sl, c)), C(~D, ~B, ~eq, p, sl, r, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Store<D, B>>}
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, si, r), G(~D, ~B, ~eq, sl, r), ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, r))
+        : {S.closure.item(D, B, d, o, C(~D, ~B, ~eq, p, sl, c, G(~D, ~B, ~eq, sl, c)), C(~D, ~B, ~eq, p, sl, r, _)) == S.closure.item(D, B, d, o, C(~D, ~B, ~eq, p, sl, c, G(~D, ~B, ~eq, sl, c)), C(~D, ~B, ~eq, p, sl, r, G(~D, ~B, ~eq, sl, r))) : Maybe<&2, S.Store<D, B>>}
+      {==}
+
+def index_closure(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  +fuel: Nat, +xs: S.Store<D, B>, +d: D
+) -> {S.Index.closure(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), d) == CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), d) : Maybe<&2, S.Store<D, B>>}:
+  %Equal.sym(Maybe<&2, S.Obj<D, B>>, IG(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, xs), d), G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d), ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, xs, d))
+    : {ICG(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), d, _) == C(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), d, G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d)) : Maybe<&2, S.Store<D, B>>}
+  index_closure.go(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, fuel, xs, d, G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, xs), d))
+
+def IN(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +xs: S.Store<D, B>, +t: S.Index(D, B)) -> S.Store<D, B>:
+  S.Index.need(~D, ~B, ~cmp, xs, t)
+
+def iapply_cat(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, xs: S.Store<D, B>, +ys: S.Store<D, B>, +m: S.Index(D, B)) -> {IA(~D, ~B, ~cmp, Cat(D, B, xs, ys), m) == IA(~D, ~B, ~cmp, ys, IA(~D, ~B, ~cmp, xs, m)) : S.Index(D, B)}:
+  match xs:
+    case S.StNil{}:
+      {==}
+    case S.StCon{+d, +o, t}:
+      iapply_cat(~D, ~B, ~cmp, t, ys, IP(~D, ~B, ~cmp, m, d, o))
+
+def lapply_cat(~D: Data, ~B: Data, ~eq: D -> D -> Bool, xs: S.Store<D, B>, +ys: S.Store<D, B>, +s: S.Store<D, B>) -> {A(~D, ~B, ~eq, Cat(D, B, xs, ys), s) == A(~D, ~B, ~eq, ys, A(~D, ~B, ~eq, xs, s)) : S.Store<D, B>}:
+  match xs:
+    case S.StNil{}:
+      {==}
+    case S.StCon{+d, +o, t}:
+      lapply_cat(~D, ~B, ~eq, t, ys, P(~D, ~B, ~eq, s, d, o))
+
+def index_need.step(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool,
+  c: Bool, +d: D, +o: S.Obj<D, B>, +rest: S.Store<D, B>, +ts: S.Store<D, B>,
+  ih1: {IN(~D, ~B, ~cmp, rest, IOf(~D, ~B, ~cmp, ts)) == N(~D, ~B, ~eq, rest, LOf(~D, ~B, ~eq, ts)) : S.Store<D, B>},
+  ih2: {IN(~D, ~B, ~cmp, rest, IOf(~D, ~B, ~cmp, Cat(D, B, ts, S.StCon{d, o, S.StNil{}}))) == N(~D, ~B, ~eq, rest, LOf(~D, ~B, ~eq, Cat(D, B, ts, S.StCon{d, o, S.StNil{}}))) : S.Store<D, B>}
+) -> {S.Index.need.go(~D, ~B, ~cmp, S.StCon{d, o, rest}, IOf(~D, ~B, ~cmp, ts), c) == S.need.go(~D, ~B, ~eq, S.StCon{d, o, rest}, LOf(~D, ~B, ~eq, ts), c) : S.Store<D, B>}:
+  match c:
+    case True{}:
+      ih1
+    case False{}:
+      +one = {S.StCon{d, o, S.StNil{}} : S.Store<D, B>}
+      %iapply_cat(~D, ~B, ~cmp, ts, one, S.Index.new(D, B))
+        : {S.StCon{d, o, IN(~D, ~B, ~cmp, rest, _)} == S.StCon{d, o, N(~D, ~B, ~eq, rest, P(~D, ~B, ~eq, LOf(~D, ~B, ~eq, ts), d, o))} : S.Store<D, B>}
+      %lapply_cat(~D, ~B, ~eq, ts, one, S.Store.new(D, B))
+        : {S.StCon{d, o, IN(~D, ~B, ~cmp, rest, IOf(~D, ~B, ~cmp, Cat(D, B, ts, one)))} == S.StCon{d, o, N(~D, ~B, ~eq, rest, _)} : S.Store<D, B>}
+      %Equal.sym(S.Store<D, B>, IN(~D, ~B, ~cmp, rest, IOf(~D, ~B, ~cmp, Cat(D, B, ts, one))), N(~D, ~B, ~eq, rest, LOf(~D, ~B, ~eq, Cat(D, B, ts, one))), ih2)
+        : {S.StCon{d, o, _} == S.StCon{d, o, N(~D, ~B, ~eq, rest, LOf(~D, ~B, ~eq, Cat(D, B, ts, one)))} : S.Store<D, B>}
+      {==}
+
+# need against the index of ts lists what need against the store of ts lists.
+def index_need(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  xs: S.Store<D, B>, +ts: S.Store<D, B>
+) -> {IN(~D, ~B, ~cmp, xs, IOf(~D, ~B, ~cmp, ts)) == N(~D, ~B, ~eq, xs, LOf(~D, ~B, ~eq, ts)) : S.Store<D, B>}:
+  match xs:
+    case S.StNil{}:
+      {==}
+    case S.StCon{+d, +o, +rest}:
+      %Equal.sym(Bool, IHas(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, ts), d), Has(~D, ~B, ~eq, LOf(~D, ~B, ~eq, ts), d),
+        Equal.cong(Maybe<&2, S.Obj<D, B>>, Bool, mm => Maybe.is_some(&2, S.Obj<D, B>, mm), IG(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, ts), d), G(~D, ~B, ~eq, LOf(~D, ~B, ~eq, ts), d),
+          ig(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, ts, d)))
+        : {S.Index.need.go(~D, ~B, ~cmp, S.StCon{d, o, rest}, IOf(~D, ~B, ~cmp, ts), _) == S.need.go(~D, ~B, ~eq, S.StCon{d, o, rest}, LOf(~D, ~B, ~eq, ts), Has(~D, ~B, ~eq, LOf(~D, ~B, ~eq, ts), d)) : S.Store<D, B>}
+      index_need.step(~D, ~B, ~cmp, ~eq, Has(~D, ~B, ~eq, LOf(~D, ~B, ~eq, ts), d), d, o, rest, ts,
+        index_need(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, rest, ts),
+        index_need(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, rest, Cat(D, B, ts, S.StCon{d, o, S.StNil{}})))
+
+def index_plan.of(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  +ys: S.Store<D, B>, m: Maybe<&2, S.Store<D, B>>
+) -> {S.Index.plan.of(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, ys), m) == S.plan.of(~D, ~B, ~eq, LOf(~D, ~B, ~eq, ys), m) : Maybe<&2, S.Store<D, B>>}:
+  match m:
+    case None{}:
+      {==}
+    case Some{zs}:
+      +zs = zs
+      %Equal.sym(S.Store<D, B>, IN(~D, ~B, ~cmp, zs, IOf(~D, ~B, ~cmp, ys)), N(~D, ~B, ~eq, zs, LOf(~D, ~B, ~eq, ys)),
+        index_need(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, zs, ys))
+        : {Some{_} == Some{N(~D, ~B, ~eq, zs, LOf(~D, ~B, ~eq, ys))} : Maybe<&2, S.Store<D, B>>}
+      {==}
+
+def Laws.index_plan(D, B, cmp, eq, crefl, ceq, cflip, ctrans, agree, fuel, xs, ys, root):
+  +fuel = fuel
+  +xs = xs
+  +ys = ys
+  +root = root
+  %Equal.sym(Maybe<&2, S.Store<D, B>>, S.Index.closure(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), root), CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), root),
+    index_closure(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, fuel, xs, root))
+    : {S.Index.plan.of(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, ys), _) == S.plan.of(~D, ~B, ~eq, LOf(~D, ~B, ~eq, ys), CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), root)) : Maybe<&2, S.Store<D, B>>}
+  index_plan.of(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, ys, CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), root))
+
+def index_live(
+  ~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, ~eq: D -> D -> Bool, ~crefl: CRefl(~D, ~cmp), ~ceq: CEq(~D, ~cmp), ~cflip: CFlip(~D, ~cmp), ~ctrans: CTrans(~D, ~cmp), ~agree: Agree(~D, ~cmp, ~eq),
+  +fuel: Nat, +xs: S.Store<D, B>, roots: List<&2, D>
+) -> {S.Index.live(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), roots) == Live(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), roots) : Maybe<&2, S.Store<D, B>>}:
+  match roots:
+    case Nil{}:
+      {==}
+    case Con{+r, +t}:
+      %Equal.sym(Maybe<&2, S.Store<D, B>>, S.Index.closure(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), r), CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), r),
+        index_closure(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, fuel, xs, r))
+        : {S.live.cat(D, B, _, S.Index.live(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), t)) == S.live.cat(D, B, CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), r), Live(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), t)) : Maybe<&2, S.Store<D, B>>}
+      %Equal.sym(Maybe<&2, S.Store<D, B>>, S.Index.live(~D, ~B, ~cmp, fuel, IOf(~D, ~B, ~cmp, xs), t), Live(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), t),
+        index_live(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, fuel, xs, t))
+        : {S.live.cat(D, B, CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), r), _) == S.live.cat(D, B, CL(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), r), Live(~D, ~B, ~eq, fuel, LOf(~D, ~B, ~eq, xs), t)) : Maybe<&2, S.Store<D, B>>}
+      {==}
+
+def Laws.index_live(D, B, cmp, eq, crefl, ceq, cflip, ctrans, agree, fuel, xs, roots):
+  index_live(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, fuel, xs, roots)
+
+def gmem.step(
+  ~D: Data, ~B: Data, ~eq: D -> D -> Bool, c: Bool, +k: D, +o: S.Obj<D, B>, +t: S.Store<D, B>, +d: D,
+  +hc: {eq(d, k) == c : Bool}, ih: {Maybe.is_some(&2, S.Obj<D, B>, G(~D, ~B, ~eq, t, d)) == M(~D, ~B, ~eq, t, d) : Bool}
+) -> {Maybe.is_some(&2, S.Obj<D, B>, G(~D, ~B, ~eq, S.StCon{k, o, t}, d)) == M(~D, ~B, ~eq, S.StCon{k, o, t}, d) : Bool}:
+  match c:
+    case True{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, d), Some{o}, get_hit(~D, ~B, ~eq, k, o, t, d, hc))
+        : {Maybe.is_some(&2, S.Obj<D, B>, _) == M(~D, ~B, ~eq, S.StCon{k, o, t}, d) : Bool}
+      %Equal.sym(Bool, eq(d, k), True{}, hc) : {True{} == Bool.or(_, M(~D, ~B, ~eq, t, d)) : Bool}
+      {==}
+    case False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, t}, d), G(~D, ~B, ~eq, t, d), get_miss(~D, ~B, ~eq, k, o, t, d, hc))
+        : {Maybe.is_some(&2, S.Obj<D, B>, _) == M(~D, ~B, ~eq, S.StCon{k, o, t}, d) : Bool}
+      %Equal.sym(Bool, eq(d, k), False{}, hc) : {Maybe.is_some(&2, S.Obj<D, B>, G(~D, ~B, ~eq, t, d)) == Bool.or(_, M(~D, ~B, ~eq, t, d)) : Bool}
+      ih
+
+# get finds d exactly when mem does.
+def gmem(~D: Data, ~B: Data, ~eq: D -> D -> Bool, ls: S.Store<D, B>, +d: D) -> {Maybe.is_some(&2, S.Obj<D, B>, G(~D, ~B, ~eq, ls, d)) == M(~D, ~B, ~eq, ls, d) : Bool}:
+  match ls:
+    case S.StNil{}:
+      {==}
+    case S.StCon{+k, +o, +t}:
+      gmem.step(~D, ~B, ~eq, eq(d, k), k, o, t, d, {==}, gmem(~D, ~B, ~eq, t, d))
+
+def Laws.index_has_mem(D, B, cmp, eq, crefl, ceq, cflip, ctrans, agree, ls, d):
+  +ls = ls
+  +d = d
+  Equal.trans(Bool, IHas(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, ls), d), Maybe.is_some(&2, S.Obj<D, B>, G(~D, ~B, ~eq, ls, d)), M(~D, ~B, ~eq, ls, d),
+    Equal.cong(Maybe<&2, S.Obj<D, B>>, Bool, mm => Maybe.is_some(&2, S.Obj<D, B>, mm), IG(~D, ~B, ~cmp, IOf(~D, ~B, ~cmp, ls), d), G(~D, ~B, ~eq, ls, d),
+      ig.xs(~D, ~B, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, ls, d)),
+    gmem(~D, ~B, ~eq, ls, d))
+
+def keep_none.step(
+  ~D: Data, ~B: Data, ~eq: D -> D -> Bool, ~sound: Sound(~D, ~eq), ck: Bool, ce: Bool, +k: D, +o: S.Obj<D, B>, +kr: S.Store<D, B>, +ls: S.Store<D, B>, +d: D,
+  +hck: {M(~D, ~B, ~eq, ls, k) == ck : Bool}, +hce: {eq(d, k) == ce : Bool}, hm: {M(~D, ~B, ~eq, ls, d) == False{} : Bool},
+  ih: {G(~D, ~B, ~eq, kr, d) == None{} : Maybe<&2, S.Obj<D, B>>}
+) -> {G(~D, ~B, ~eq, S.keep.if(D, B, ck, k, o, kr), d) == None{} : Maybe<&2, S.Obj<D, B>>}:
+  match ck ce:
+    case True{} True{}:
+      Empty.absurd({G(~D, ~B, ~eq, S.keep.if(D, B, True{}, k, o, kr), d) == None{} : Maybe<&2, S.Obj<D, B>>},
+        false_ne_true(Equal.trans(Bool, False{}, M(~D, ~B, ~eq, ls, d), True{}, Equal.sym(Bool, M(~D, ~B, ~eq, ls, d), False{}, hm),
+          (%Equal.sym(D, d, k, sound(d, k, hce)) : {M(~D, ~B, ~eq, ls, _) == True{} : Bool} hck))))
+    case True{} False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, S.StCon{k, o, kr}, d), G(~D, ~B, ~eq, kr, d), get_miss(~D, ~B, ~eq, k, o, kr, d, hce))
+        : {_ == None{} : Maybe<&2, S.Obj<D, B>>}
+      ih
+    case False{} _:
+      ih
+
+# keep drops every digest that is not in ls.
+def keep_none(
+  ~D: Data, ~B: Data, ~eq: D -> D -> Bool, ~sound: Sound(~D, ~eq), s: S.Store<D, B>, +ls: S.Store<D, B>, +d: D,
+  +hm: {M(~D, ~B, ~eq, ls, d) == False{} : Bool}
+) -> {G(~D, ~B, ~eq, K(~D, ~B, ~eq, s, ls), d) == None{} : Maybe<&2, S.Obj<D, B>>}:
+  match s:
+    case S.StNil{}:
+      {==}
+    case S.StCon{+k, +o, +r}:
+      keep_none.step(~D, ~B, ~eq, ~sound, M(~D, ~B, ~eq, ls, k), eq(d, k), k, o, K(~D, ~B, ~eq, r, ls), ls, d, {==}, {==}, hm,
+        keep_none(~D, ~B, ~eq, ~sound, r, ls, d, hm))
+
+def gc_has.if(
+  ~D: Data, ~B: Data, ~eq: D -> D -> Bool, ~sound: Sound(~D, ~eq), c: Bool, +s: S.Store<D, B>, +ls: S.Store<D, B>, +d: D,
+  +hc: {M(~D, ~B, ~eq, ls, d) == c : Bool}, hd: {Has(~D, ~B, ~eq, s, d) == True{} : Bool}
+) -> {Has(~D, ~B, ~eq, K(~D, ~B, ~eq, s, ls), d) == c : Bool}:
+  match c:
+    case True{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, K(~D, ~B, ~eq, s, ls), d), G(~D, ~B, ~eq, s, d), keep_get(~D, ~B, ~eq, ~sound, s, ls, d, hc))
+        : {Maybe.is_some(&2, S.Obj<D, B>, _) == True{} : Bool}
+      hd
+    case False{}:
+      %Equal.sym(Maybe<&2, S.Obj<D, B>>, G(~D, ~B, ~eq, K(~D, ~B, ~eq, s, ls), d), None{}, keep_none(~D, ~B, ~eq, ~sound, s, ls, d, hc))
+        : {Maybe.is_some(&2, S.Obj<D, B>, _) == False{} : Bool}
+      {==}
+
+def Laws.gc_has(D, B, eq, sound, s, ls, d, hd):
+  +ls = ls
+  +d = d
+  gc_has.if(~D, ~B, ~eq, ~sound, M(~D, ~B, ~eq, ls, d), s, ls, d, {==}, hd)

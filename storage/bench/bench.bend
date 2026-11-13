@@ -1,6 +1,7 @@
 # Storage benchmark: the Bend side (see README.md).
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-collections@0.1.5.0/order.bend as Order
 import ../../time/time.bend as Time
 import ../storage.bend as S
 
@@ -50,11 +51,11 @@ def loaded(m: Maybe<&2, S.Tree<S.Blob>>) -> U32:
     case Some{t}:
       total(t)
 
-# Stores the committed objects, then loads the root back from the store.
+# Indexes the committed objects, then loads the root back from the index.
 def finish(r: String & S.Store<String, S.Blob>) -> String:
   (+root, objs) = r
-  +s = S.Store.apply(~String, ~S.Blob, ~String.eq, objs, S.StNil{})
-  root ++ "\t" ++ U32.show(loaded(S.load(~String, ~S.Blob, ~String.eq, S.limit(), s, root)))
+  +s = S.Index.of(~String, ~S.Blob, ~Order.string, objs)
+  root ++ "\t" ++ U32.show(loaded(S.Index.load(~String, ~S.Blob, ~Order.string, S.limit(), s, root)))
 
 def side(args: List<&1, String>) -> U32:
   match args:

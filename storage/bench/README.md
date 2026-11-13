@@ -21,7 +21,7 @@ The timed region encodes every object in the format of [../README.md](../README.
 
 | language | digest | store |
 |---|---|---|
-| Bend | `Crypto.sha256.words` through `S.commit` | `S.Store.apply`, then `S.load` |
+| Bend | `Crypto.sha256.words` through `S.commit` | `S.Index.of`, then `S.Index.load` |
 | C | OpenSSL 3 `SHA256` | POSIX `hsearch` |
 | Rust | `sha2` 0.10.9 | `std::collections::HashMap` |
 | Python | `hashlib.sha256` | `dict` |
@@ -29,20 +29,20 @@ The timed region encodes every object in the format of [../README.md](../README.
 
 ## Results
 
-Apple M4 Pro, macOS 26.6.2 arm64, 2026-11-02. Three runs (`python3 run.py 3 32`), median, in ms. K = 32: 1,024 files and 4 MiB. Files whose seed `(d * 31 + f * 7) & 255` is equal hold the same octets, so the store holds 1,313 distinct objects. `Nx` is the multiple of the fastest variant.
+Apple M4 Pro, macOS 26.7.2 arm64, 2026-11-13. Three runs (`python3 run.py 3 32`), median, in ms. K = 32: 1,024 files and 4 MiB. Files whose seed `(d * 31 + f * 7) & 255` is equal hold the same octets, so the store holds 1,313 distinct objects. `Nx` is the multiple of the fastest variant.
 
-Versions: Bend 2.0.38, Apple clang 17.0.0 with OpenSSL 3.6.5, rustc 1.91.0 with sha2 0.10.9, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.38, Apple clang 21.0.0 with OpenSSL 3.6.5, rustc 1.91.0 with sha2 0.10.9, Bun 1.4.4, Node 24.0.1, Python 3.14.6.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| commit and load | 5.0 (1.8x) | 8.9 (3.3x) | 4.4 (1.6x) | 5.9 (2.2x) | 2.7 (1.0x) | 175.8 (65.0x) |
+| commit and load | 5.1 (1.8x) | 9.2 (3.2x) | 4.0 (1.4x) | 6.1 (2.1x) | 2.9 (1.0x) | 50.8 (17.8x) |
 
 Every program prints root `29cc4de74d186c77f13fdfc2781365c186a6823091cdf974614aebe811a53202` and `4194304` octets.
 
 ## Reading it
 
-- The store is a list, so `put` and `get` walk it (the ponytail note on `Store` in `storage.bend`). The cost grows with the square of the object count. One run each of native Bend: K = 16 (469 objects) took 21 ms, K = 32 (1,313 objects) 175 ms, and K = 48 (2,609 objects) 708 ms. The other programs hash the same octets with the same kind of library SHA-256, so most of Bend's gap is the list store.
-- Bend also copies each file between `Blob`, a word list, and `Bytes` when it encodes the object. The other programs hash their buffers in place.
+- The store is an ordered map keyed by digest (`S.Index`), so `put` and `get` take O(log n) comparisons. One run each of native Bend: K = 16 (469 objects) took 14 ms, K = 32 (1,313 objects) 57 ms, and K = 48 (2,609 objects) 132 ms. The list store of storage 0.1.0.0 took 21, 175, and 708 ms on the same inputs.
+- Bend copies each file between `Blob`, a word list, and `Bytes` when it encodes the object, and each map step compares two 64-character digest `String`s. The other programs hash their buffers in place and hash each digest once per lookup. This bench does not split the remaining gap between these costs.
 - Python is fastest here because `hashlib` and `dict` run in C, and each object costs one call to each.
 
 ## Caveats

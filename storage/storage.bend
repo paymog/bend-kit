@@ -3,6 +3,8 @@ import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-files@0.3.1.0/files.bend as Files
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
+import bend-kit-collections@0.1.5.0/omap.bend as OMap
+import bend-kit-collections@0.1.5.0/order.bend as Order
 
 # The content: a file, or a directory as a chain of named entries that ends in End.
 type Tree<-B: Data> is Data:
@@ -16,8 +18,8 @@ type Obj<-D: Data, -B: Data> is Data:
   OEnd{}
   OItem{name: String, child: D, rest: D}
 
-# Objects by digest. get answers the first entry whose digest eq accepts.
-# ponytail: a list, so get and put are O(n); index by digest when stores pass a few thousand objects.
+# Objects by digest, as a list: the model the laws reason about. get answers the first
+# entry whose digest eq accepts. Index below answers the same in O(log n) comparisons.
 type Store<-D: Data, -B: Data> is Data:
   StNil{}
   StCon{key: D, obj: Obj<D, B>, rest: Store<D, B>}
@@ -277,6 +279,128 @@ def valid(~D: Data, ~B: Data, ~H: Obj<D, B> -> D, ~eq: D -> D -> Bool, s: Store<
     case StCon{k, +o, r}:
       Bool.and(eq(k, H(o)), valid(~D, ~B, ~H, ~eq, r))
 
+# ---- Index: objects by digest in an ordered map under cmp. Index.of(xs) answers every
+# get, load, plan, and live as Store.apply(xs, Store.new) does under eq (the index_ laws).
+
+def Index(-D: Data, -B: Data) -> Data:
+  OMap.OMap<D, Obj<D, B>>
+
+def Index.new(-D: Data, -B: Data) -> Index(D, B):
+  OMap.OTip{}
+
+def Index.size(-D: Data, -B: Data, m: Index(D, B)) -> U32:
+  OMap.OMap.size(D, Obj<D, B>, m)
+
+def Index.get(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, m: Index(D, B), +d: D) -> Maybe<&2, Obj<D, B>>:
+  OMap.OMap.get(~D, ~Obj<D, B>, ~cmp, m, d)
+
+def Index.has(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, m: Index(D, B), +d: D) -> Bool:
+  Maybe.is_some(&2, Obj<D, B>, Index.get(~D, ~B, ~cmp, m, d))
+
+def Index.put.if(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, found: Bool, m: Index(D, B), +d: D, o: Obj<D, B>) -> Index(D, B):
+  match found:
+    case True{}:
+      m
+    case False{}:
+      OMap.OMap.put(~D, ~Obj<D, B>, ~cmp, m, d, o)
+
+# Adds o under d unless d is present, as Store.put does.
+def Index.put(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +m: Index(D, B), +d: D, o: Obj<D, B>) -> Index(D, B):
+  Index.put.if(~D, ~B, ~cmp, Index.has(~D, ~B, ~cmp, m, d), m, d, o)
+
+# Puts each (digest, object) in order.
+def Index.apply(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, xs: Store<D, B>, +m: Index(D, B)) -> Index(D, B):
+  match xs:
+    case StNil{}:
+      m
+    case StCon{d, o, t}:
+      Index.apply(~D, ~B, ~cmp, t, Index.put(~D, ~B, ~cmp, m, d, o))
+
+def Index.of(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, xs: Store<D, B>) -> Index(D, B):
+  Index.apply(~D, ~B, ~cmp, xs, Index.new(D, B))
+
+def Index.load.go(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, fuel: Nat, +s: Index(D, B), m: Maybe<&2, Obj<D, B>>) -> Maybe<&2, Tree<B>>:
+  match fuel m:
+    case 0n _:
+      None{}
+    case 1n+p None{}:
+      None{}
+    case 1n+p Some{OFile{b}}:
+      Some{TFile{b}}
+    case 1n+p Some{OEnd{}}:
+      Some{TEnd{}}
+    case 1n+(+p) Some{OItem{n, c, r}}:
+      Tree.item(B, n, Index.load.go(~D, ~B, ~cmp, p, s, Index.get(~D, ~B, ~cmp, s, c)), Index.load.go(~D, ~B, ~cmp, p, s, Index.get(~D, ~B, ~cmp, s, r)))
+
+def Index.load(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, fuel: Nat, +s: Index(D, B), +d: D) -> Maybe<&2, Tree<B>>:
+  Index.load.go(~D, ~B, ~cmp, fuel, s, Index.get(~D, ~B, ~cmp, s, d))
+
+def Index.closure.go(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, fuel: Nat, +s: Index(D, B), +d: D, m: Maybe<&2, Obj<D, B>>) -> Maybe<&2, Store<D, B>>:
+  match fuel m:
+    case 0n _:
+      None{}
+    case 1n+p None{}:
+      None{}
+    case 1n+p Some{OFile{b}}:
+      Some{StCon{d, OFile{b}, StNil{}}}
+    case 1n+p Some{OEnd{}}:
+      Some{StCon{d, OEnd{}, StNil{}}}
+    case 1n+(+p) Some{OItem{n, +c, +r}}:
+      closure.item(D, B, d, OItem{n, c, r},
+        Index.closure.go(~D, ~B, ~cmp, p, s, c, Index.get(~D, ~B, ~cmp, s, c)),
+        Index.closure.go(~D, ~B, ~cmp, p, s, r, Index.get(~D, ~B, ~cmp, s, r)))
+
+def Index.closure(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, fuel: Nat, +s: Index(D, B), +d: D) -> Maybe<&2, Store<D, B>>:
+  Index.closure.go(~D, ~B, ~cmp, fuel, s, d, Index.get(~D, ~B, ~cmp, s, d))
+
+def Index.need.head(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +t: Index(D, B), xs: Store<D, B>) -> Bool:
+  match xs:
+    case StNil{}:
+      False{}
+    case StCon{d, o, rest}:
+      Index.has(~D, ~B, ~cmp, t, d)
+
+def Index.need.go(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, xs: Store<D, B>, +t: Index(D, B), found: Bool) -> Store<D, B>:
+  match xs found:
+    case StNil{} _:
+      StNil{}
+    case StCon{d, o, +rest} True{}:
+      Index.need.go(~D, ~B, ~cmp, rest, t, Index.need.head(~D, ~B, ~cmp, t, rest))
+    case StCon{+d, +o, +rest} False{}:
+      +u = Index.put(~D, ~B, ~cmp, t, d, o)
+      StCon{d, o, Index.need.go(~D, ~B, ~cmp, rest, u, Index.need.head(~D, ~B, ~cmp, u, rest))}
+
+def Index.need(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +xs: Store<D, B>, +t: Index(D, B)) -> Store<D, B>:
+  Index.need.go(~D, ~B, ~cmp, xs, t, Index.need.head(~D, ~B, ~cmp, t, xs))
+
+def Index.plan.of(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +dst: Index(D, B), m: Maybe<&2, Store<D, B>>) -> Maybe<&2, Store<D, B>>:
+  match m:
+    case None{}:
+      None{}
+    case Some{xs}:
+      Some{Index.need(~D, ~B, ~cmp, xs, dst)}
+
+def Index.plan(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, fuel: Nat, +src: Index(D, B), +dst: Index(D, B), +root: D) -> Maybe<&2, Store<D, B>>:
+  Index.plan.of(~D, ~B, ~cmp, dst, Index.closure(~D, ~B, ~cmp, fuel, src, root))
+
+def Index.live(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +fuel: Nat, +s: Index(D, B), roots: List<&2, D>) -> Maybe<&2, Store<D, B>>:
+  match roots:
+    case Nil{}:
+      Some{StNil{}}
+    case Con{r, t}:
+      live.cat(D, B, Index.closure(~D, ~B, ~cmp, fuel, s, r), Index.live(~D, ~B, ~cmp, fuel, s, t))
+
+def Index.admit.if(-D: Data, -B: Data, ok: Bool, s: Index(D, B)) -> Maybe<&2, Index(D, B)>:
+  match ok:
+    case True{}:
+      Some{s}
+    case False{}:
+      None{}
+
+# admit on an index: None when claimed is not computed.
+def Index.admit(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +s: Index(D, B), +claimed: D, +computed: D, o: Obj<D, B>) -> Maybe<&2, Index(D, B)>:
+  Index.admit.if(D, B, Cmp.is_eq(cmp(claimed, computed)), Index.put(~D, ~B, ~cmp, s, claimed, o))
+
 # ---- SHA-256 content addressing on disk
 
 # Octets packed four to a U32, low byte first, as Bytes packs them. Words past len are 0.
@@ -478,15 +602,15 @@ def commit(t: Tree<Blob>) -> Run(String & Store<String, Blob>):
         y : String & Store<String, Blob> <- commit(r)
         commit.item(n, x, y)
 
-def receive.two(+s: Store<String, Blob>, +claimed: String, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Store<String, Blob>):
+def receive.two(+s: Index(String, Blob), +claimed: String, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Index(String, Blob)):
   (b1, b2) = bb
-  do Run<Store<String, Blob>>:
+  do Run<Index(String, Blob)>:
     computed : String <- digest(b1)
     o : Obj<String, Blob> <- Run.some(Obj<String, Blob>, decode(b2), "object " ++ claimed ++ " does not decode")
-    Run.some(Store<String, Blob>, admit(~String, ~Blob, ~String.eq, s, claimed, computed, o), "object " ++ claimed ++ " does not match its digest")
+    Run.some(Index(String, Blob), Index.admit(~String, ~Blob, ~Order.string, s, claimed, computed, o), "object " ++ claimed ++ " does not match its digest")
 
 # Ingress: the store with the object that b encodes. Fails when b does not decode or its SHA-256 is not claimed.
-def receive(+s: Store<String, Blob>, +claimed: String, b: Bytes.Bytes) -> Run(Store<String, Blob>):
+def receive(+s: Index(String, Blob), +claimed: String, b: Bytes.Bytes) -> Run(Index(String, Blob)):
   receive.two(s, claimed, Bytes.clone(b))
 
 # ---- A store on disk: dir/objects/<digest> holds each encoded object, dir/roots/<name> a root digest.
@@ -591,31 +715,31 @@ def Disk.save(+dir: String, xs: Store<String, Blob>) -> Run(Unit):
         Disk.save(dir, r)
 
 # Ingress into the store at dir: receive, then write the octets under their digest.
-def Disk.receive.two(+dir: String, +s: Store<String, Blob>, +claimed: String, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Store<String, Blob>):
+def Disk.receive.two(+dir: String, +s: Index(String, Blob), +claimed: String, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Index(String, Blob)):
   (b1, b2) = bb
-  do Run<Store<String, Blob>>:
-    t : Store<String, Blob> <- receive(s, claimed, b1)
+  do Run<Index(String, Blob)>:
+    t : Index(String, Blob) <- receive(s, claimed, b1)
     Disk.put(dir, claimed, b2)
     return t
 
-def Disk.receive(+dir: String, +s: Store<String, Blob>, +claimed: String, b: Bytes.Bytes) -> Run(Store<String, Blob>):
+def Disk.receive(+dir: String, +s: Index(String, Blob), +claimed: String, b: Bytes.Bytes) -> Run(Index(String, Blob)):
   Disk.receive.two(dir, s, claimed, Bytes.clone(b))
 
-def Disk.load.go(+dir: String, names: List<&2, String>, +s: Store<String, Blob>) -> Run(Store<String, Blob>):
+def Disk.load.go(+dir: String, names: List<&2, String>, +s: Index(String, Blob)) -> Run(Index(String, Blob)):
   match names:
     case Nil{}:
-      Run.pure(Store<String, Blob>, s)
+      Run.pure(Index(String, Blob), s)
     case Con{+n, t}:
-      do Run<Store<String, Blob>>:
+      do Run<Index(String, Blob)>:
         b : Bytes.Bytes <- read(Disk.object(dir, n))
-        u : Store<String, Blob> <- receive(s, n, b)
+        u : Index(String, Blob) <- receive(s, n, b)
         Disk.load.go(dir, t, u)
 
 # Every object at dir, each checked against its file name. A tampered or undecodable object fails the load.
-def Disk.load(+dir: String) -> Run(Store<String, Blob>):
-  do Run<Store<String, Blob>>:
+def Disk.load(+dir: String) -> Run(Index(String, Blob)):
+  do Run<Index(String, Blob)>:
     names : List<&2, String> <- Files.list_dir(dir ++ "/objects")
-    Disk.load.go(dir, names, StNil{})
+    Disk.load.go(dir, names, Index.new(String, Blob))
 
 def Disk.set_root(+dir: String, +name: String, +d: String) -> Run(Unit):
   do Run<Unit>:
@@ -657,53 +781,54 @@ def Disk.drop.one(live: Bool, +dir: String, +d: String) -> Run(U32):
         Files.remove(Disk.object(dir, d))
         return 1
 
-def Disk.drop(+dir: String, s: Store<String, Blob>, +g: Store<String, Blob>, +n: U32) -> Run(U32):
-  match s:
-    case StNil{}:
+def Disk.drop(+dir: String, ds: List<&2, String>, +live: Index(String, Blob), +n: U32) -> Run(U32):
+  match ds:
+    case Nil{}:
       Run.pure(U32, n)
-    case StCon{+d, o, r}:
+    case Con{+d, r}:
       do Run<U32>:
-        k : U32 <- Disk.drop.one(Store.has(~String, ~Blob, ~String.eq, g, d), dir, d)
-        Disk.drop(dir, r, g, (n + k : U32))
+        k : U32 <- Disk.drop.one(Index.has(~String, ~Blob, ~Order.string, live, d), dir, d)
+        Disk.drop(dir, r, live, (n + k : U32))
 
-def Disk.collect.of(+dir: String, +retained: List<&2, String>, +s: Store<String, Blob>) -> Run(U32):
+# Drops what gc drops: an object of s stays exactly when its digest is in the live set.
+def Disk.collect.of(+dir: String, +retained: List<&2, String>, +s: Index(String, Blob)) -> Run(U32):
   do Run<U32>:
-    g : Store<String, Blob> <- Run.some(Store<String, Blob>, gc(~String, ~Blob, ~String.eq, limit(), s, retained), "a retained root does not load")
-    Disk.drop(dir, s, g, 0)
+    ls : Store<String, Blob> <- Run.some(Store<String, Blob>, Index.live(~String, ~Blob, ~Order.string, limit(), s, retained), "a retained root does not load")
+    Disk.drop(dir, OMap.OMap.keys(String, Obj<String, Blob>, s), Index.of(~String, ~Blob, ~Order.string, ls), 0)
 
 # Deletes every object that no retained root reaches and answers how many it deleted. Fails, and
 # deletes nothing, when a retained root does not load. No writer may run during the collection.
 def Disk.collect(+dir: String, +retained: List<&2, String>) -> Run(U32):
   do Run<U32>:
-    s : Store<String, Blob> <- Disk.load(dir)
+    s : Index(String, Blob) <- Disk.load(dir)
     Disk.collect.of(dir, retained, s)
 
-def sync.send(+dir: String, ys: Store<String, Blob>, +dst: Store<String, Blob>, +n: U32) -> Run(U32):
+def sync.send(+dir: String, ys: Store<String, Blob>, +dst: Index(String, Blob), +n: U32) -> Run(U32):
   match ys:
     case StNil{}:
       Run.pure(U32, n)
     case StCon{+d, o, r}:
       do Run<U32>:
-        t : Store<String, Blob> <- Disk.receive(dir, dst, d, encode(o))
+        t : Index(String, Blob) <- Disk.receive(dir, dst, d, encode(o))
         sync.send(dir, r, t, (n + 1 : U32))
 
-def sync.of(+dst: String, +root: String, a: Store<String, Blob>, +b: Store<String, Blob>) -> Run(U32):
+def sync.of(+dst: String, +root: String, +a: Index(String, Blob), +b: Index(String, Blob)) -> Run(U32):
   do Run<U32>:
-    ys : Store<String, Blob> <- Run.some(Store<String, Blob>, plan(~String, ~Blob, ~String.eq, limit(), a, b, root), "the source cannot load " ++ root)
+    ys : Store<String, Blob> <- Run.some(Store<String, Blob>, Index.plan(~String, ~Blob, ~Order.string, limit(), a, b, root), "the source cannot load " ++ root)
     sync.send(dst, ys, b, 0)
 
 # Sends dst every object it needs to load root as src does, through ingress. Answers how many it sent.
 def sync(+src: String, +dst: String, +root: String) -> Run(U32):
   do Run<U32>:
-    a : Store<String, Blob> <- Disk.load(src)
-    b : Store<String, Blob> <- Disk.load(dst)
+    a : Index(String, Blob) <- Disk.load(src)
+    b : Index(String, Blob) <- Disk.load(dst)
     sync.of(dst, root, a, b)
 
 # The tree under root at dir. Fails when an object is missing or tampered, or the tree is too deep.
 def Disk.checkout(+dir: String, +root: String) -> Run(Tree<Blob>):
   do Run<Tree<Blob>>:
-    s : Store<String, Blob> <- Disk.load(dir)
-    Run.some(Tree<Blob>, load(~String, ~Blob, ~String.eq, limit(), s, root), "root " ++ root ++ " does not load")
+    s : Index(String, Blob) <- Disk.load(dir)
+    Run.some(Tree<Blob>, Index.load(~String, ~Blob, ~Order.string, limit(), s, root), "root " ++ root ++ " does not load")
 
 def Disk.commit.save(+dir: String, r: String & Store<String, Blob>) -> Run(String):
   (+d, xs) = r
