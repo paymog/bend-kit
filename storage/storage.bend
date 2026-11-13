@@ -431,6 +431,22 @@ def Blob.bytes(x: Blob) -> Bytes.Bytes:
   Blob{+len, ws} = x
   Bytes.Bytes{len, Blob.write(ws, Bytes.alloc(len), 0)}
 
+# A zero last carry may lie past the array, where a write would wrap to word 0.
+def Blob.write.last(zero: Bool, a: Array<U32>, +j: U32, +carry: U32) -> Array<U32>:
+  match zero:
+    case True{}:
+      a
+    case False{}:
+      Array.set(U32, a, j, carry)
+
+# Writes ws from octet 4 * j + lo / 8 on; carry holds the octets of word j below lo.
+def Blob.write.shift(ws: List<&2, U32>, a: Array<U32>, +j: U32, +lo: Nat, +hi: Nat, +carry: U32) -> Array<U32>:
+  match ws:
+    case Nil{}:
+      Blob.write.last(U32.is_eq(carry, 0), a, j, carry)
+    case Con{+w, t}:
+      Blob.write.shift(t, Array.set(U32, a, j, (carry .|. U32.shln(w, lo) : U32)), (j + 1 : U32), lo, hi, U32.shrn(w, hi))
+
 def Blob.string(+s: String) -> Blob:
   Blob.of(Bytes.from_string(s))
 
@@ -465,12 +481,29 @@ def hex.ok(s: String) -> Bool:
 def digest.ok(+d: String) -> Bool:
   Bool.and(Nat.is_eq(String.length(d), 64n), hex.ok(d))
 
+def encode.file.at(+len: U32, ws: List<&2, U32>, +hl: U32, r: Array<U32> & U32) -> Bytes.Bytes:
+  (a, c) = r
+  +lo = ((hl .&. 3 : U32) * 8 : U32)
+  Bytes.Bytes{(hl + len : U32), Blob.write.shift(ws, a, (hl >> 2n : U32), U32.to_nat(lo), U32.to_nat((32 - lo : U32)), c)}
+
+def encode.file.pick(aligned: Bool, +len: U32, ws: List<&2, U32>, +hl: U32, a: Array<U32>) -> Bytes.Bytes:
+  match aligned:
+    case True{}:
+      Bytes.Bytes{(hl + len : U32), Blob.write(ws, a, (hl >> 2n : U32))}
+    case False{}:
+      encode.file.at(len, ws, hl, Array.get(U32, a, (hl >> 2n : U32)))
+
+# The header h, then the words of a Blob of len octets, written once without a byte loop.
+def encode.file(+len: U32, ws: List<&2, U32>, h: Bytes.Bytes) -> Bytes.Bytes:
+  Bytes.Bytes{+hl, hb} = h
+  encode.file.pick(U32.is_eq((hl .&. 3 : U32), 0), len, ws, hl, Bytes.grow(hl, hb, (hl + len : U32)))
+
 # The canonical encoding: "file <len>\n" and the octets, "end\n", or "item <child> <rest> <name>\n".
 def encode(o: Obj<String, Blob>) -> Bytes.Bytes:
   match o:
     case OFile{b}:
       Blob{+len, ws} = b
-      Bytes.append(Bytes.from_string("file " ++ U32.show(len) ++ "\n"), Blob.bytes(Blob{len, ws}))
+      encode.file(len, ws, Bytes.from_string("file " ++ U32.show(len) ++ "\n"))
     case OEnd{}:
       Bytes.from_string("end\n")
     case OItem{n, c, r}:
