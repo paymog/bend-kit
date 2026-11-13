@@ -187,8 +187,9 @@ def U32.gcd.go(k: Nat, z: Bool, +a: U32, +b: U32) -> U32:
     case 1n+p False{}:
       U32.gcd.go(p, U32.is_zero((a % b : U32)), b, (a % b : U32))
 
-def U32.gcd(a: U32, +b: U32) -> U32:
-  U32.gcd.go(48n, U32.is_zero(b), a, b)
+def U32.gcd(+a: U32, +b: U32) -> U32:
+  +lo = U32.min(a, b)
+  U32.gcd.go(48n, U32.is_zero(lo), U32.max(a, b), lo)
 
 def U32.lcm.if(ov: Bool, q: U32, b: U32) -> Maybe<&2, U32>:
   match ov:

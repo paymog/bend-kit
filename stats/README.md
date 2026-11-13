@@ -3,7 +3,7 @@
 Descriptive statistics over `F64` lists: sum, mean, variance, standard deviation, quantiles, a histogram, and least-squares linear regression. Also `U32` gcd, lcm, and integer square root.
 
 ```bend
-import bend-kit-stats@0.1.1.0/stats.bend as S
+import bend-kit-stats@0.1.2.0/stats.bend as S
 ```
 
 It imports `bend-kit-f64@0.1.3.0`. Pass it values of that `F64` type.
@@ -13,7 +13,7 @@ It imports `bend-kit-f64@0.1.3.0`. Pass it values of that `F64` type.
 ```bend
 import Base
 import bend-kit-f64@0.1.3.0/f64.bend as F
-import bend-kit-stats@0.1.1.0/stats.bend as S
+import bend-kit-stats@0.1.2.0/stats.bend as S
 
 def n(k: U32) -> F.F64:
   F.F64.from_u32(k)
@@ -70,6 +70,10 @@ A `NaN` in the input gives a `NaN` mean and variance, and an unspecified quantil
 ## Laws
 
 `LAWS.bend` states fixtures with exact expected values, and `PROOF.bend` proves each by computation: every function on the data `5 2 9 4 7 4 5 4`, the empty and short cases that give `None`, the closed last histogram bin, a regression that matches Python's `statistics.linear_regression`, `gcd` on the consecutive Fibonacci numbers that need the most steps, `lcm` at and past 4294967295, and `isqrt(4294967295)`.
+
+`gcd_symmetric` proves `gcd(a, b) = gcd(b, a)` for every `U32` pair. The implementation orders the arguments before Euclid's loop, so commutativity of `min` and `max` proves the law.
+
+The universal gcd and lcm divisibility laws and the natural-number square-root bounds are omitted, infeasible now. A structural multiplication proof reached the missing shift/modulo congruence step. A division proof reached the missing carry and remainder-bound invariant. Neither `lemmas` nor mathlib supplies these U32 multiplication and division bridges. The fixture laws remain unchanged; no law is left open.
 
 ## Bench
 
