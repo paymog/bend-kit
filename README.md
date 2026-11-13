@@ -122,7 +122,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`oauth2`](oauth2) | `bend-kit-oauth2@0.11.0.1/oauth2.bend` | Client credentials, refresh, and authorization code with PKCE. |
 | [`authz`](authz) | `bend-kit-authz@0.1.0.0/authz.bend` | Pure authorization policies: deny-overrides, default deny, intersection, and fail-closed missing context. |
 | [`jwt`](jwt) | `bend-kit-jwt@0.11.0.1/jwt.bend` | HS256/384/512, RS256, and ES256, plus JWKS lookup. |
-| [`sigv4`](sigv4) | `bend-kit-sigv4@0.11.0.1/sigv4.bend` | AWS Signature V4 and S3 over `hairpin`. |
+| [`sigv4`](sigv4) | `bend-kit-sigv4@0.11.1.0/sigv4.bend` | AWS Signature V4 and S3 over `hairpin`. |
 | [`webhooks`](webhooks) | `bend-kit-webhooks@0.11.0.1/webhooks.bend` | Standard Webhooks, Stripe, and GitHub signature checks. |
 
 ### Programs
@@ -137,12 +137,12 @@ Each package README has the import, one example, and the limits that change the 
 | [`time`](time) | `bend-kit-time@0.3.0.0/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.1/random.bend` | Seeded xoshiro128**. Not for cryptography. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.2.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
-| [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.2.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
+| [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.3.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
 | [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
 | [`journal`](journal) | `bend-kit-journal@0.3.1.0/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
 | [`runner`](runner) | `bend-kit-runner@0.13.1.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
 | [`commands`](commands) | `bend-kit-commands@0.4.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
-| [`cache`](cache) | `bend-kit-cache@0.3.0.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
+| [`cache`](cache) | `bend-kit-cache@0.3.1.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
 | [`notch`](notch) | `bend-kit-notch@0.4.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
 | [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
