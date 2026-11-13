@@ -64,34 +64,113 @@ def Stats.stdev(xs: List<&2, F.F64>) -> Maybe<&2, F.F64>:
     v : F.F64 <- Stats.variance(xs)
     return F.F64.sqrt(v)
 
-def Stats.interp(exact: Bool, rest: List<&2, F.F64>, +t: F.F64) -> F.F64:
-  match exact rest:
-    case True{} Con{a, r}:
-      a
-    case False{} Con{+a, Con{b, r}}:
-      F.F64.add(a, F.F64.mul(t, F.F64.sub(b, a)))
-    case False{} Con{a, Nil{}}:
-      a
-    case True{} Nil{}:
-      F.F64.nan()
-    case False{} Nil{}:
-      F.F64.nan()
-
-# Index h = n1 * k / q, split so no product passes q * q.
-def Stats.quantile.at(s: List<&2, F.F64>, +n1: U32, +k: U32, +q: U32) -> F.F64:
-  +c = ((n1 % q) * k : U32)
-  +r = (c % q : U32)
-  Stats.interp(U32.is_zero(r), List.drop(&2, F.F64, s, U32.to_nat(((n1 / q) * k + c / q : U32))), F.F64.div(F.F64.from_u32(r), F.F64.from_u32(q)))
-
 def Stats.le(a: F.F64, b: F.F64) -> Bool:
   Bool.not(F.F64.is_lt(b, a))
+
+def Stats.value(m: Maybe<&2, F.F64>) -> F.F64:
+  match m:
+    case Some{x}:
+      x
+    case None{}:
+      F.F64.nan()
+
+type Partition is Data:
+  Partition{low: List<&2, F.F64>, equal: List<&2, F.F64>, high: List<&2, F.F64>, nl: U32, ne: U32}
+
+def Stats.partition.high(gt: Bool, x: F.F64, st: Partition) -> Partition:
+  match gt st:
+    case True{} Partition{low, equal, high, nl, ne}:
+      Partition{low, equal, Con{x, high}, nl, ne}
+    case False{} Partition{low, equal, high, nl, ne}:
+      Partition{low, Con{x, equal}, high, nl, (ne + 1 : U32)}
+
+def Stats.partition.put(lt: Bool, +pivot: F.F64, +x: F.F64, st: Partition) -> Partition:
+  match lt st:
+    case True{} Partition{low, equal, high, nl, ne}:
+      Partition{Con{x, low}, equal, high, (nl + 1 : U32), ne}
+    case False{} Partition{low, equal, high, nl, ne}:
+      Stats.partition.high(F.F64.is_lt(pivot, x), x, Partition{low, equal, high, nl, ne})
+
+def Stats.partition(xs: List<&2, F.F64>, +pivot: F.F64, st: Partition) -> Partition:
+  match xs:
+    case Nil{}:
+      st
+    case Con{+x, rest}:
+      Stats.partition(rest, pivot, Stats.partition.put(F.F64.is_lt(x, pivot), pivot, x, st))
+
+# above is the first value above this bucket in the stable order.
+type Selection is Data:
+  Selection{xs: List<&2, F.F64>, rank: U32, len: U32, done: Bool, above: Maybe<&2, F.F64>}
+
+def Stats.select.minimum(xs: List<&2, F.F64>, acc: Maybe<&2, F.F64>) -> Maybe<&2, F.F64>:
+  match xs acc:
+    case Nil{} _:
+      acc
+    case Con{x, rest} None{}:
+      Stats.select.minimum(rest, Some{x})
+    case Con{+x, rest} Some{+best}:
+      Stats.select.minimum(rest, Some{Bool.pick(F.F64, Stats.le(x, best), x, best)})
+
+def Stats.select.bucket(lower: Bool, middle: Bool, +rank: U32, +n: U32, +nl: U32, +ne: U32, low: List<&2, F.F64>, +equal: List<&2, F.F64>, high: List<&2, F.F64>, above: Maybe<&2, F.F64>) -> Selection:
+  match lower middle:
+    case True{} _:
+      Selection{List.reverse(&2, F.F64, low), rank, nl, False{}, List.last(&2, F.F64, equal)}
+    case False{} True{}:
+      Selection{List.reverse(&2, F.F64, equal), (rank - nl : U32), ne, True{}, Stats.select.minimum(high, above)}
+    case False{} False{}:
+      Selection{List.reverse(&2, F.F64, high), (rank - nl - ne : U32), (n - nl - ne : U32), False{}, above}
+
+def Stats.select.choose(+rank: U32, n: U32, above: Maybe<&2, F.F64>, st: Partition) -> Selection:
+  match st:
+    case Partition{low, equal, high, +nl, +ne}:
+      Stats.select.bucket(U32.is_lt(rank, nl), U32.is_lt(rank, (nl + ne : U32)), rank, n, nl, ne, low, equal, high, above)
+
+def Stats.select.result(rest: List<&2, F.F64>, above: Maybe<&2, F.F64>) -> F.F64 & F.F64:
+  match rest:
+    case Nil{}:
+      (F.F64.nan(), F.F64.nan())
+    case Con{a, Nil{}}:
+      (a, Stats.value(above))
+    case Con{a, Con{b, tail}}:
+      (a, b)
+
+def Stats.select.go(fuel: Nat, st: Selection) -> F.F64 & F.F64:
+  match fuel st:
+    case 0n Selection{xs, rank, n, done, above}:
+      Stats.select.result(List.drop(&2, F.F64, List.sort(~F.F64, ~Stats.le, xs), U32.to_nat(rank)), above)
+    case 1n+p Selection{xs, rank, n, True{}, above}:
+      Stats.select.result(List.drop(&2, F.F64, xs, U32.to_nat(rank)), above)
+    case 1n+p Selection{+xs, +rank, +n, False{}, above}:
+      pivot = Stats.value(List.get(&2, F.F64, xs, U32.to_nat((n / 2 : U32))))
+      Stats.select.go(p, Stats.select.choose(rank, n, above,
+        Stats.partition(xs, pivot, Partition{Nil{}, Nil{}, Nil{}, 0, 0})))
+
+# Bound partition passes, then sort only the remaining bucket.
+def Stats.select(xs: List<&2, F.F64>, +n: U32, rank: U32) -> F.F64 & F.F64:
+  Stats.select.go((2n * U32.log2(n) + 1n : Nat), Selection{xs, rank, n, False{}, None{}})
+
+def Stats.quantile.result(exact: Bool, t: F.F64, r: F.F64 & F.F64) -> F.F64:
+  match exact:
+    case True{}:
+      (a, b) = r
+      a
+    case False{}:
+      (+a, b) = r
+      F.F64.add(a, F.F64.mul(t, F.F64.sub(b, a)))
+
+# Index h = n1 * k / q, split so no product passes q * q.
+def Stats.quantile.at(xs: List<&2, F.F64>, +n1: U32, +k: U32, +q: U32) -> F.F64:
+  +c = ((n1 % q) * k : U32)
+  +r = (c % q : U32)
+  Stats.quantile.result(U32.is_zero(r), F.F64.div(F.F64.from_u32(r), F.F64.from_u32(q)),
+    Stats.select(xs, (n1 + 1 : U32), ((n1 / q) * k + c / q : U32)))
 
 def Stats.quantile.if(ok: Bool, xs: List<&2, F.F64>, n1: U32, k: U32, q: U32) -> Maybe<&2, F.F64>:
   match ok:
     case False{}:
       None{}
     case True{}:
-      Some{Stats.quantile.at(List.sort(~F.F64, ~Stats.le, xs), n1, k, q)}
+      Some{Stats.quantile.at(xs, n1, k, q)}
 
 def Stats.quantile.n(+n: U32, xs: List<&2, F.F64>, +k: U32, +q: U32) -> Maybe<&2, F.F64>:
   +ok = Bool.and(Bool.and(U32.is_gt(n, 0), U32.is_le(k, q)), Bool.and(U32.is_gt(q, 0), U32.is_le(q, 65536)))

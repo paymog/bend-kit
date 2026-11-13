@@ -3,7 +3,7 @@
 Descriptive statistics over `F64` lists: sum, mean, variance, standard deviation, quantiles, a histogram, and least-squares linear regression. Also `U32` gcd, lcm, and integer square root.
 
 ```bend
-import bend-kit-stats@0.1.3.0/stats.bend as S
+import bend-kit-stats@0.1.4.0/stats.bend as S
 ```
 
 It imports `bend-kit-f64@0.1.3.0`. Pass it values of that `F64` type.
@@ -13,7 +13,7 @@ It imports `bend-kit-f64@0.1.3.0`. Pass it values of that `F64` type.
 ```bend
 import Base
 import bend-kit-f64@0.1.3.0/f64.bend as F
-import bend-kit-stats@0.1.3.0/stats.bend as S
+import bend-kit-stats@0.1.4.0/stats.bend as S
 
 def n(k: U32) -> F.F64:
   F.F64.from_u32(k)
@@ -57,7 +57,7 @@ Lists are `List<&2, F.F64>`. A result is `None{}` when the input has too few val
 
 `ss` is the sum of `(x - mean)^2`, in two passes, as in Python's `statistics`. A two-pass sum loses less than a one-pass sum of squares, but it still rounds at each step. Python's `statistics.variance` uses exact fractions, so its result can differ in the low bits.
 
-`quantile` sorts the list, then interpolates between the two closest ranks: rank `h = (n - 1) * k / q`, and the result is `s[i] + t * (s[i + 1] - s[i])` with `i` the floor of `h` and `t` its fraction. This is R's type 7 and NumPy's default `linear` method. A percentile `p` is `quantile(xs, p, 100)`. `t` is the exact fraction `r / q` rounded to a double, so the call takes `k` and `q`, not a float.
+`quantile` selects the two closest ranks, then interpolates: rank `h = (n - 1) * k / q`, and the result is `s[i] + t * (s[i + 1] - s[i])` with `i` the floor of `h` and `t` its fraction. This is R's type 7 and NumPy's default `linear` method. A percentile `p` is `quantile(xs, p, 100)`. `t` is the exact fraction `r / q` rounded to a double, so the call takes `k` and `q`, not a float. Stable three-way partitions keep equal values in input order, including signed zeros. After `2 * U32.log2(n) + 1` partitions, it sorts only the remaining bucket. This bounds worst-case time at O(n log n); balanced partitions take O(n).
 
 `histogram` takes `k + 1` ascending edges and gives `k` counts. Bin `i` is `[e(i), e(i+1))`, and the last bin is closed, `[e(k-1), e(k)]`, as in NumPy. A value outside every bin is not counted. It copies the edges into an array, then uses binary search for each value and an array of counts: O(k + n log k) time and O(k) space.
 
@@ -74,6 +74,8 @@ A `NaN` in the input gives a `NaN` mean and variance, and an unspecified quantil
 `gcd_symmetric` proves `gcd(a, b) = gcd(b, a)` for every `U32` pair. The implementation orders the arguments before Euclid's loop, so commutativity of `min` and `max` proves the law.
 
 The universal gcd and lcm divisibility laws and the natural-number square-root bounds are omitted, infeasible now. A structural multiplication proof reached the missing shift/modulo congruence step. A division proof reached the missing carry and remainder-bound invariant. Neither `lemmas` nor mathlib supplies these U32 multiplication and division bridges. The fixture laws remain unchanged; no law is left open.
+
+`check.bend` compares every valid quantile with the prior stable-sort formula on all 781 lists of length 0 through 4 over `-1`, `-0`, `+0`, `1`, and `2`. It checks denominators 1 through 4 and three ranks at denominator 65536, with exact bit comparisons. It also forces the sort fallback and its carried successor.
 
 ## Bench
 
