@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `template` 0.1.0.0: new package. Mustache templates: variables, sections over lists and maps, inverted sections, comments, dotted names, and standalone lines. `{{name}}` escapes `&`, `<`, `>`, `"`, and `'`; `{{{name}}}` and `{{& name}}` do not. The context is a Base `Map`. It passes the 104 tests of the Mustache spec's interpolation, sections, inverted, and comments files that use no partials or set delimiters.
+- `markdown` 0.1.0.0: new package. CommonMark 0.31.2 to HTML in pure Bend. All 652 spec examples pass; `LAWS.bend` proves 25 of them and 8 escaping cases.
 - `journal` 0.3.1.1 and `zlib` 0.5.1.1: import `hash` 0.3.0.4, whose `crc32` runs by slicing-by-8. No API change.
 - `stats` 0.1.0.0: new package. Sum, mean, population and sample variance, type-7 quantiles and the median, a histogram over edges, and least-squares linear regression over `bend-kit-f64` lists, plus `U32` gcd, lcm, and integer square root. Laws prove fixtures with exact expected values.
 - `hash` 0.3.0.4: `crc32` takes a 64-bit lane per step by slicing-by-8, with four more 256-entry tables. The 16 MB bench takes 6.6 ms, down from 11.0 ms; 16 bytes hashed 100,000 times take 0.4 ms, up from 0.3 ms. An `Array` table measured slower than the `match` tables. Results do not change.
