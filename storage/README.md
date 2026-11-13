@@ -3,7 +3,7 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.2.0.1/storage.bend as S
+import bend-kit-storage@0.3.0.0/storage.bend as S
 ```
 
 It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-files@0.3.1.0`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-collections@0.1.5.0`. SHA-256 comes from OpenSSL 3 through `crypto`; set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path.
@@ -14,26 +14,26 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.2.0.1/storage.bend as S
+import bend-kit-storage@0.3.0.0/storage.bend as S
 
-def ship(+root: String) -> S.Run(Unit):
+def ship(+root: S.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
     S.Disk.set_root("a", "release", root)
     sent : U32 <- S.sync("a", "b", root)
     t : S.Tree<S.Blob> <- S.Disk.checkout("b", root)
     S.restore(t, "restored")
-    S.Run.lift(Unit, IO.print(root))
+    S.Run.lift(Unit, IO.print(S.Digest.hex(root)))
 
 def main() -> IO(Unit):
   do IO<Unit>:
     IO.try(Unit, S.Disk.init("a"))
     IO.try(Unit, S.Disk.init("b"))
     t : S.Tree<S.Blob> <- IO.try(S.Tree<S.Blob>, S.snapshot("build"))
-    root : String <- IO.try(String, S.Disk.commit("a", t))
+    root : S.Digest <- IO.try(S.Digest, S.Disk.commit("a", t))
     IO.try(Unit, ship(root))
 ```
 
-It prints the root digest. A second `sync` sends nothing. [check.bend](check.bend) runs three stores through a partial transfer, a repeated transfer, a tampered object, a missing object, and a collection.
+It prints the root digest in hex. A second `sync` sends nothing. [check.bend](check.bend) runs three stores through a partial transfer, a repeated transfer, a tampered object, a missing object, and a collection.
 
 ## Model
 
@@ -52,7 +52,7 @@ A store is valid when every key equals the hash of its object. `put` adds an obj
 
 `Store` is the model: the laws reason about it, and its `get` and `put` walk the list. `Index` is what the disk layer uses: `get` and `put` take O(log n) comparisons. `Index.of(xs)` puts the entries of `xs` in order, and the `index_` laws prove that it answers every `get`, `load`, `plan`, and `live` exactly as the list store `Store.apply(xs, Store.new)` does. So every law about `Store` holds for the index.
 
-The disk layer fixes `D` to `String` (64 lowercase hex characters of SHA-256), `B` to `Blob`, the octets of a file packed four to a `U32`, and `cmp` to `Order.string` from `collections`.
+The disk layer fixes `D` to `Digest`, `B` to `Blob`, the octets of a file packed four to a `U32`, and `cmp` to `Digest.cmp`. A `Digest` holds the 32 octets of a SHA-256 packed into eight `U32`s. Files and roots on disk name a digest by its 64 lowercase hex characters: `Digest.hex(d)` writes them and `Digest.read(s)` reads them back.
 
 ## Encoding
 
@@ -68,7 +68,7 @@ The disk layer fixes `D` to `String` (64 lowercase hex characters of SHA-256), `
 
 ## API
 
-Import `storage.bend` as `S`. The pure functions take `~D`, `~B`, and `~eq` or `~cmp` as templates, as in `S.load(~String, ~S.Blob, ~String.eq, fuel, s, d)` or `S.Index.load(~String, ~S.Blob, ~Order.string, fuel, m, d)`.
+Import `storage.bend` as `S`. The pure functions take `~D`, `~B`, and `~eq` or `~cmp` as templates, as in `S.load(~U32, ~U32, ~U32.is_eq, fuel, s, d)` or `S.Index.load(~S.Digest, ~S.Blob, ~S.Digest.cmp, fuel, m, d)`.
 
 | def | result |
 |---|---|
@@ -92,7 +92,8 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 | def | result |
 |---|---|
 | `encode(o)`, `decode(b)` | the canonical octets of `o`; `Maybe`: the object that `b` encodes |
-| `digest(b)` | the SHA-256 of `b` as hex |
+| `digest(b)` | the SHA-256 of `b` as a `Digest` |
+| `Digest.hex(d)`, `Digest.read(s)`, `Digest.cmp(a, b)` | 64 lowercase hex characters; `Maybe`: the digest that `s` names; a total order on digests, not hex order |
 | `commit(t)` | the root digest and `objects(t)`, with `H` = SHA-256 of `encode`; fails on an invalid name |
 | `receive(m, claimed, b)` | ingress: index `m` with the object `b` encodes; fails when `b` does not decode or its digest is not `claimed` |
 | `Disk.init(dir)` | creates `dir/objects`, `dir/roots`, and `dir/tmp` |
@@ -121,8 +122,9 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 | `admit_rejects` | ingress refuses an object whose computed digest is not the claimed one |
 | `index_get`, `index_load`, `index_plan`, `index_live` | `Index.of(xs)` answers as `Store.apply(xs, Store.new)` does |
 | `index_has_mem`, `gc_has` | the index of a live set has a digest exactly when `mem` does; `gc` keeps an object of `s` exactly when `mem` says it is live, so `Disk.collect` deletes what `gc` drops |
+| `digest_cmp_refl`, `digest_cmp_eq`, `digest_cmp_flip`, `digest_cmp_trans` | `Digest.cmp` is a total order whose `EQ` means equal digests, so the `index_` laws hold for the disk layer's index |
 
-The laws take the facts they need as hypotheses: `eq` is sound (`eq(x, y)` gives `x == y`) and reflexive, and `H` is injective (`inj`). The `index_` laws take `cmp` as a total order whose `EQ` means equal (the facts `collections` uses for `OMap`) and `agree`: `eq(x, y)` is `Cmp.is_eq(cmp(x, y))`. The disk layer uses `Order.string`; `collections` proves that it is a total order. The fixture laws check the same functions on `U32` digests with a toy hash.
+The laws take the facts they need as hypotheses: `eq` is sound (`eq(x, y)` gives `x == y`) and reflexive, and `H` is injective (`inj`). The `index_` laws take `cmp` as a total order whose `EQ` means equal (the facts `collections` uses for `OMap`) and `agree`: `eq(x, y)` is `Cmp.is_eq(cmp(x, y))`. The disk layer uses `Digest.cmp`, and the `digest_cmp_` laws prove these facts for it. The fixture laws check the same functions on `U32` digests with a toy hash.
 
 ## Trust boundary
 
@@ -130,14 +132,14 @@ The proofs cover the pure core. They do not cover hashing, the disk, or the copy
 
 - **Collision resistance.** The proofs assume that the object hash is injective. SHA-256 is not injective; the assumption is that no one finds two objects with one digest.
 - **Native hashing.** `digest` calls OpenSSL. The proofs assume it computes SHA-256 of the octets it receives. `commit` repeats the shape of `objects` and `hash` in `IO`; the proofs cover `objects` and `hash`.
-- **Encoding.** `decode` is the inverse of `encode` on the objects `commit` writes. `check.bend` tests this; no law states it.
+- **Encoding.** `decode` is the inverse of `encode` on the objects `commit` writes, and `Digest.read` is the inverse of `Digest.hex`. `check.bend` tests both; no law states them.
 - **Filesystem.** A write goes to `dir/tmp` and then a rename, so a reader sees a whole object or none. Nothing calls `fsync`. After a crash an object file can be empty or short; `Disk.load` then fails on that object, because its digest does not match.
 - **Concurrent writers.** Two writers can commit at once: objects never change, and a rename replaces a file with the same octets. `Disk.set_root` keeps the last rename. `Disk.collect` needs a frozen root set: no commit, sync, or root change may run during it, or it can delete an object that a new root needs.
 - **Trees on disk.** `snapshot` follows symbolic links and fails on other special files. A link cycle fails at the fuel limit.
 
 ## Limits
 
-- `get` and `put` on an `Index` take O(log n) comparisons of digests. Each comparison walks two digest `String`s. See [bench/README.md](bench/README.md).
+- `get` and `put` on an `Index` take O(log n) comparisons of digests. A comparison reads at most eight words. See [bench/README.md](bench/README.md).
 - `Disk.load` reads and checks every object in the store. `sync`, `Disk.checkout`, and `Disk.collect` load the whole store first.
 - A file is at most 4 GiB minus one octet, because `Blob.len` is a `U32`.
 

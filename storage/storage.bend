@@ -481,6 +481,62 @@ def hex.ok(s: String) -> Bool:
 def digest.ok(+d: String) -> Bool:
   Bool.and(Nat.is_eq(String.length(d), 64n), hex.ok(d))
 
+# A SHA-256 digest: its 32 octets packed four to a U32, low octet first, as Bytes packs them.
+type Digest is Data:
+  Digest{words: List<&2, U32>}
+
+def Digest.order(a: List<&2, U32>, b: List<&2, U32>) -> Cmp:
+  match a b:
+    case Nil{} Nil{}:
+      EQ{}
+    case Nil{} Con{y, t}:
+      LT{}
+    case Con{x, s} Nil{}:
+      GT{}
+    case Con{+x, s} Con{+y, t}:
+      Order.string.fin(U32.cmp(x, y), Digest.order(s, t))
+
+# A total order on digests (the digest_cmp_ laws). It is not hex order.
+def Digest.cmp(a: Digest, b: Digest) -> Cmp:
+  match a b:
+    case Digest{x} Digest{y}:
+      Digest.order(x, y)
+
+def Digest.hex(d: Digest) -> String:
+  match d:
+    case Digest{ws}:
+      Bytes.to_hex(Bytes.Bytes{32, Blob.write(ws, Bytes.alloc(32), 0)})
+
+def nibble(+c: U32) -> U32:
+  Bool.pick(U32, U32.is_lt(c, 97), (c - 48 : U32), (c - 87 : U32))
+
+# Two hex digits per octet.
+def unhex(s: String) -> List<&2, U32>:
+  match s:
+    case SCon{Chr{+h}, SCon{Chr{+l}, t}}:
+      Con{(nibble(h) * 16 + nibble(l) : U32), unhex(t)}
+    case _:
+      Nil{}
+
+# Four octets per word, low octet first.
+def pack(bs: List<&2, U32>) -> List<&2, U32>:
+  match bs:
+    case Con{+a, Con{+b, Con{+c, Con{+d, t}}}}:
+      Con{(a + b * 256 + c * 65536 + d * 16777216 : U32), pack(t)}
+    case _:
+      Nil{}
+
+def Digest.read.if(ok: Bool, s: String) -> Maybe<&2, Digest>:
+  match ok:
+    case True{}:
+      Some{Digest{pack(unhex(s))}}
+    case False{}:
+      None{}
+
+# The digest that 64 lowercase hex characters name, or None.
+def Digest.read(+s: String) -> Maybe<&2, Digest>:
+  Digest.read.if(digest.ok(s), s)
+
 def encode.file.at(+len: U32, ws: List<&2, U32>, +hl: U32, r: Array<U32> & U32) -> Bytes.Bytes:
   (a, c) = r
   +lo = ((hl .&. 3 : U32) * 8 : U32)
@@ -499,7 +555,7 @@ def encode.file(+len: U32, ws: List<&2, U32>, h: Bytes.Bytes) -> Bytes.Bytes:
   encode.file.pick(U32.is_eq((hl .&. 3 : U32), 0), len, ws, hl, Bytes.grow(hl, hb, (hl + len : U32)))
 
 # The canonical encoding: "file <len>\n" and the octets, "end\n", or "item <child> <rest> <name>\n".
-def encode(o: Obj<String, Blob>) -> Bytes.Bytes:
+def encode(o: Obj<Digest, Blob>) -> Bytes.Bytes:
   match o:
     case OFile{b}:
       Blob{+len, ws} = b
@@ -507,25 +563,30 @@ def encode(o: Obj<String, Blob>) -> Bytes.Bytes:
     case OEnd{}:
       Bytes.from_string("end\n")
     case OItem{n, c, r}:
-      Bytes.from_string("item " ++ c ++ " " ++ r ++ " " ++ n ++ "\n")
+      Bytes.from_string("item " ++ Digest.hex(c) ++ " " ++ Digest.hex(r) ++ " " ++ n ++ "\n")
 
-def decode.when(ok: Bool, o: Obj<String, Blob>) -> Maybe<&2, Obj<String, Blob>>:
+def decode.when(ok: Bool, o: Obj<Digest, Blob>) -> Maybe<&2, Obj<Digest, Blob>>:
   match ok:
     case True{}:
       Some{o}
     case False{}:
       None{}
 
-# rest is "<child> <rest> <name>".
-def decode.item(+rest: String) -> Maybe<&2, Obj<String, Blob>>:
-  +c = String.take(rest, 64n)
-  +r = String.take(String.drop(rest, 65n), 64n)
-  +n = String.drop(rest, 130n)
-  decode.when(Bool.and(Bool.and(digest.ok(c), digest.ok(r)), Bool.and(name.ok(n),
-    Bool.and(String.eq(String.take(String.drop(rest, 64n), 1n), " "), String.eq(String.take(String.drop(rest, 129n), 1n), " ")))),
-    OItem{n, c, r})
+def decode.item.of(ok: Bool, n: String, c: Maybe<&2, Digest>, r: Maybe<&2, Digest>) -> Maybe<&2, Obj<Digest, Blob>>:
+  match ok c r:
+    case True{} Some{x} Some{y}:
+      Some{OItem{n, x, y}}
+    case _ _ _:
+      None{}
 
-def decode.file(m: Maybe<&2, U32>, +digits: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<String, Blob>>:
+# rest is "<child> <rest> <name>".
+def decode.item(+rest: String) -> Maybe<&2, Obj<Digest, Blob>>:
+  +n = String.drop(rest, 130n)
+  decode.item.of(Bool.and(name.ok(n),
+    Bool.and(String.eq(String.take(String.drop(rest, 64n), 1n), " "), String.eq(String.take(String.drop(rest, 129n), 1n), " "))),
+    n, Digest.read(String.take(rest, 64n)), Digest.read(String.take(String.drop(rest, 65n), 64n)))
+
+def decode.file(m: Maybe<&2, U32>, +digits: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
   match m:
     case None{}:
       None{}
@@ -534,20 +595,20 @@ def decode.file(m: Maybe<&2, U32>, +digits: String, +at: U32, b: Bytes.Bytes) ->
       decode.when(Bool.and(String.eq(U32.show(n), digits), U32.is_eq((len - at : U32), n)),
         OFile{Blob.of(Bytes.snd(Bytes.slice(Bytes.Bytes{len, buf}, at, n)))})
 
-def decode.head(+head: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<String, Blob>>:
+def decode.head(+head: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
   Bytes.Bytes{+len, buf} = b
   +whole = U32.is_eq(len, at)
-  Bool.pick(Maybe<&2, Obj<String, Blob>>, String.starts_with(head, "file "),
+  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, String.starts_with(head, "file "),
     decode.file(U32.read(String.drop(head, 5n)), String.drop(head, 5n), at, Bytes.Bytes{len, buf}),
-  Bool.pick(Maybe<&2, Obj<String, Blob>>, Bool.and(whole, String.eq(head, "end")), Some{OEnd{}},
-  Bool.pick(Maybe<&2, Obj<String, Blob>>, Bool.and(whole, String.starts_with(head, "item ")), decode.item(String.drop(head, 5n)),
+  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, Bool.and(whole, String.eq(head, "end")), Some{OEnd{}},
+  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, Bool.and(whole, String.starts_with(head, "item ")), decode.item(String.drop(head, 5n)),
     None{})))
 
-def decode.cut(+at: U32, r: Bytes.Bytes & Bytes.Bytes) -> Maybe<&2, Obj<String, Blob>>:
+def decode.cut(+at: U32, r: Bytes.Bytes & Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
   (b, head) = r
   decode.head(Bytes.to_string(head), at, b)
 
-def decode.at(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, Obj<String, Blob>>:
+def decode.at(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, Obj<Digest, Blob>>:
   match r:
     case (b, None{}):
       None{}
@@ -555,7 +616,7 @@ def decode.at(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, Obj<String, Blob>>:
       decode.cut((i + 1 : U32), Bytes.slice(b, 0, i))
 
 # The object that encode wrote, or None for any other octets.
-def decode(b: Bytes.Bytes) -> Maybe<&2, Obj<String, Blob>>:
+def decode(b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
   decode.at(Bytes.find(b, "\n"))
 
 # ---- IO that can fail
@@ -596,60 +657,60 @@ def Run.some(-A: Data, m: Maybe<&2, A>, +why: String) -> Run(A):
     case None{}:
       Run.fail(A, (22, "storage: " ++ why))
 
-def digest.hex(r: U32 & Array<U32>) -> String:
+def digest.of(r: U32 & Array<U32>) -> Digest:
   (n, a) = r
-  Bytes.to_hex(Bytes.Bytes{n, a})
+  Digest{Blob.read(8n, Array.get(U32, a, 0), 1, Nil{})}
 
-# The SHA-256 of b, as 64 lowercase hex characters.
-def digest(b: Bytes.Bytes) -> Run(String):
+# The SHA-256 of b.
+def digest(b: Bytes.Bytes) -> Run(Digest):
   Bytes.Bytes{len, buf} = b
-  do Run<String>:
+  do Run<Digest>:
     r : U32 & Array<U32> <- Crypto.sha256.words(len, buf)
-    return digest.hex(r)
+    return digest.of(r)
 
-def commit.done(+d: String, o: Obj<String, Blob>, xs: Store<String, Blob>) -> Run(String & Store<String, Blob>):
-  Run.pure(String & Store<String, Blob>, (d, Store.cat(String, Blob, xs, StCon{d, o, StNil{}})))
+def commit.done(+d: Digest, o: Obj<Digest, Blob>, xs: Store<Digest, Blob>) -> Run(Digest & Store<Digest, Blob>):
+  Run.pure(Digest & Store<Digest, Blob>, (d, Store.cat(Digest, Blob, xs, StCon{d, o, StNil{}})))
 
-def commit.node(+o: Obj<String, Blob>, xs: Store<String, Blob>) -> Run(String & Store<String, Blob>):
-  do Run<String & Store<String, Blob>>:
-    d : String <- digest(encode(o))
+def commit.node(+o: Obj<Digest, Blob>, xs: Store<Digest, Blob>) -> Run(Digest & Store<Digest, Blob>):
+  do Run<Digest & Store<Digest, Blob>>:
+    d : Digest <- digest(encode(o))
     commit.done(d, o, xs)
 
-def commit.item(+n: String, c: String & Store<String, Blob>, r: String & Store<String, Blob>) -> Run(String & Store<String, Blob>):
+def commit.item(+n: String, c: Digest & Store<Digest, Blob>, r: Digest & Store<Digest, Blob>) -> Run(Digest & Store<Digest, Blob>):
   (+dc, xs) = c
   (+dr, ys) = r
-  do Run<String & Store<String, Blob>>:
+  do Run<Digest & Store<Digest, Blob>>:
     Run.check(name.ok(n), "invalid name " ++ n)
-    commit.node(OItem{n, dc, dr}, Store.cat(String, Blob, xs, ys))
+    commit.node(OItem{n, dc, dr}, Store.cat(Digest, Blob, xs, ys))
 
 # hash and objects with H = SHA-256 of encode: the root digest and the objects, children first.
-def commit(t: Tree<Blob>) -> Run(String & Store<String, Blob>):
+def commit(t: Tree<Blob>) -> Run(Digest & Store<Digest, Blob>):
   match t:
     case TFile{b}:
       commit.node(OFile{b}, StNil{})
     case TEnd{}:
       commit.node(OEnd{}, StNil{})
     case TItem{+n, c, r}:
-      do Run<String & Store<String, Blob>>:
-        x : String & Store<String, Blob> <- commit(c)
-        y : String & Store<String, Blob> <- commit(r)
+      do Run<Digest & Store<Digest, Blob>>:
+        x : Digest & Store<Digest, Blob> <- commit(c)
+        y : Digest & Store<Digest, Blob> <- commit(r)
         commit.item(n, x, y)
 
-def receive.two(+s: Index(String, Blob), +claimed: String, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Index(String, Blob)):
+def receive.two(+s: Index(Digest, Blob), +claimed: Digest, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Index(Digest, Blob)):
   (b1, b2) = bb
-  do Run<Index(String, Blob)>:
-    computed : String <- digest(b1)
-    o : Obj<String, Blob> <- Run.some(Obj<String, Blob>, decode(b2), "object " ++ claimed ++ " does not decode")
-    Run.some(Index(String, Blob), Index.admit(~String, ~Blob, ~Order.string, s, claimed, computed, o), "object " ++ claimed ++ " does not match its digest")
+  do Run<Index(Digest, Blob)>:
+    computed : Digest <- digest(b1)
+    o : Obj<Digest, Blob> <- Run.some(Obj<Digest, Blob>, decode(b2), "object " ++ Digest.hex(claimed) ++ " does not decode")
+    Run.some(Index(Digest, Blob), Index.admit(~Digest, ~Blob, ~Digest.cmp, s, claimed, computed, o), "object " ++ Digest.hex(claimed) ++ " does not match its digest")
 
 # Ingress: the store with the object that b encodes. Fails when b does not decode or its SHA-256 is not claimed.
-def receive(+s: Index(String, Blob), +claimed: String, b: Bytes.Bytes) -> Run(Index(String, Blob)):
+def receive(+s: Index(Digest, Blob), +claimed: Digest, b: Bytes.Bytes) -> Run(Index(Digest, Blob)):
   receive.two(s, claimed, Bytes.clone(b))
 
-# ---- A store on disk: dir/objects/<digest> holds each encoded object, dir/roots/<name> a root digest.
+# ---- A store on disk: dir/objects/<hex digest> holds each encoded object, dir/roots/<name> a root digest in hex.
 
-def Disk.object(+dir: String, +d: String) -> String:
-  dir ++ "/objects/" ++ d
+def Disk.object(+dir: String, +d: Digest) -> String:
+  dir ++ "/objects/" ++ Digest.hex(d)
 
 def Disk.init(+dir: String) -> Run(Unit):
   do Run<Unit>:
@@ -724,21 +785,21 @@ def read(+path: String) -> Run(Bytes.Bytes):
     read.sized(path, info.size(info))
 
 
-def Disk.put.if(there: Bool, +dir: String, +d: String, +path: String, b: Bytes.Bytes) -> Run(Unit):
+def Disk.put.if(there: Bool, +dir: String, +d: Digest, +path: String, b: Bytes.Bytes) -> Run(Unit):
   match there:
     case True{}:
       Run.pure(Unit, Unit{})
     case False{}:
-      write(dir, d, path, b)
+      write(dir, Digest.hex(d), path, b)
 
 # Writes the encoded object under its digest unless the file exists. Objects never change.
-def Disk.put(+dir: String, +d: String, b: Bytes.Bytes) -> Run(Unit):
+def Disk.put(+dir: String, +d: Digest, b: Bytes.Bytes) -> Run(Unit):
   +path = Disk.object(dir, d)
   do Run<Unit>:
     there : Bool <- Run.lift(Bool, Files.exists(path))
     Disk.put.if(there, dir, d, path, b)
 
-def Disk.save(+dir: String, xs: Store<String, Blob>) -> Run(Unit):
+def Disk.save(+dir: String, xs: Store<Digest, Blob>) -> Run(Unit):
   match xs:
     case StNil{}:
       Run.pure(Unit, Unit{})
@@ -748,64 +809,68 @@ def Disk.save(+dir: String, xs: Store<String, Blob>) -> Run(Unit):
         Disk.save(dir, r)
 
 # Ingress into the store at dir: receive, then write the octets under their digest.
-def Disk.receive.two(+dir: String, +s: Index(String, Blob), +claimed: String, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Index(String, Blob)):
+def Disk.receive.two(+dir: String, +s: Index(Digest, Blob), +claimed: Digest, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Index(Digest, Blob)):
   (b1, b2) = bb
-  do Run<Index(String, Blob)>:
-    t : Index(String, Blob) <- receive(s, claimed, b1)
+  do Run<Index(Digest, Blob)>:
+    t : Index(Digest, Blob) <- receive(s, claimed, b1)
     Disk.put(dir, claimed, b2)
     return t
 
-def Disk.receive(+dir: String, +s: Index(String, Blob), +claimed: String, b: Bytes.Bytes) -> Run(Index(String, Blob)):
+def Disk.receive(+dir: String, +s: Index(Digest, Blob), +claimed: Digest, b: Bytes.Bytes) -> Run(Index(Digest, Blob)):
   Disk.receive.two(dir, s, claimed, Bytes.clone(b))
 
-def Disk.load.go(+dir: String, names: List<&2, String>, +s: Index(String, Blob)) -> Run(Index(String, Blob)):
+# The object in file objects/n, checked against the digest that n names.
+def Disk.load.one(+dir: String, +n: String, m: Maybe<&2, Digest>, +s: Index(Digest, Blob)) -> Run(Index(Digest, Blob)):
+  match m:
+    case None{}:
+      Run.fail(Index(Digest, Blob), (22, "storage: object " ++ n ++ " is not a digest"))
+    case Some{+d}:
+      do Run<Index(Digest, Blob)>:
+        b : Bytes.Bytes <- read(Disk.object(dir, d))
+        receive(s, d, b)
+
+def Disk.load.go(+dir: String, names: List<&2, String>, +s: Index(Digest, Blob)) -> Run(Index(Digest, Blob)):
   match names:
     case Nil{}:
-      Run.pure(Index(String, Blob), s)
+      Run.pure(Index(Digest, Blob), s)
     case Con{+n, t}:
-      do Run<Index(String, Blob)>:
-        b : Bytes.Bytes <- read(Disk.object(dir, n))
-        u : Index(String, Blob) <- receive(s, n, b)
+      do Run<Index(Digest, Blob)>:
+        u : Index(Digest, Blob) <- Disk.load.one(dir, n, Digest.read(n), s)
         Disk.load.go(dir, t, u)
 
 # Every object at dir, each checked against its file name. A tampered or undecodable object fails the load.
-def Disk.load(+dir: String) -> Run(Index(String, Blob)):
-  do Run<Index(String, Blob)>:
+def Disk.load(+dir: String) -> Run(Index(Digest, Blob)):
+  do Run<Index(Digest, Blob)>:
     names : List<&2, String> <- Files.list_dir(dir ++ "/objects")
-    Disk.load.go(dir, names, Index.new(String, Blob))
+    Disk.load.go(dir, names, Index.new(Digest, Blob))
 
-def Disk.set_root(+dir: String, +name: String, +d: String) -> Run(Unit):
+def Disk.set_root(+dir: String, +name: String, +d: Digest) -> Run(Unit):
   do Run<Unit>:
-    Run.check(Bool.and(name.ok(name), digest.ok(d)), "invalid root " ++ name)
-    write(dir, "root." ++ name, dir ++ "/roots/" ++ name, Bytes.from_string(d))
+    Run.check(name.ok(name), "invalid root " ++ name)
+    write(dir, "root." ++ name, dir ++ "/roots/" ++ name, Bytes.from_string(Digest.hex(d)))
 
-def Disk.root.of(+name: String, +d: String) -> Run(String):
-  do Run<String>:
-    Run.check(digest.ok(d), "root " ++ name ++ " is not a digest")
-    return d
-
-def Disk.root(+dir: String, +name: String) -> Run(String):
-  do Run<String>:
+def Disk.root(+dir: String, +name: String) -> Run(Digest):
+  do Run<Digest>:
     b : Bytes.Bytes <- read(dir ++ "/roots/" ++ name)
-    Disk.root.of(name, Bytes.to_string(b))
+    Run.some(Digest, Digest.read(Bytes.to_string(b)), "root " ++ name ++ " is not a digest")
 
-def Disk.roots.go(+dir: String, names: List<&2, String>) -> Run(List<&2, String>):
+def Disk.roots.go(+dir: String, names: List<&2, String>) -> Run(List<&2, Digest>):
   match names:
     case Nil{}:
-      Run.pure(List<&2, String>, Nil{})
+      Run.pure(List<&2, Digest>, Nil{})
     case Con{+n, t}:
-      do Run<List<&2, String>>:
-        d : String <- Disk.root(dir, n)
-        ds : List<&2, String> <- Disk.roots.go(dir, t)
+      do Run<List<&2, Digest>>:
+        d : Digest <- Disk.root(dir, n)
+        ds : List<&2, Digest> <- Disk.roots.go(dir, t)
         return Con{d, ds}
 
 # The digest of every named root.
-def Disk.roots(+dir: String) -> Run(List<&2, String>):
-  do Run<List<&2, String>>:
+def Disk.roots(+dir: String) -> Run(List<&2, Digest>):
+  do Run<List<&2, Digest>>:
     names : List<&2, String> <- Files.list_dir(dir ++ "/roots")
     Disk.roots.go(dir, names)
 
-def Disk.drop.one(live: Bool, +dir: String, +d: String) -> Run(U32):
+def Disk.drop.one(live: Bool, +dir: String, +d: Digest) -> Run(U32):
   match live:
     case True{}:
       Run.pure(U32, 0)
@@ -814,65 +879,65 @@ def Disk.drop.one(live: Bool, +dir: String, +d: String) -> Run(U32):
         Files.remove(Disk.object(dir, d))
         return 1
 
-def Disk.drop(+dir: String, ds: List<&2, String>, +live: Index(String, Blob), +n: U32) -> Run(U32):
+def Disk.drop(+dir: String, ds: List<&2, Digest>, +live: Index(Digest, Blob), +n: U32) -> Run(U32):
   match ds:
     case Nil{}:
       Run.pure(U32, n)
     case Con{+d, r}:
       do Run<U32>:
-        k : U32 <- Disk.drop.one(Index.has(~String, ~Blob, ~Order.string, live, d), dir, d)
+        k : U32 <- Disk.drop.one(Index.has(~Digest, ~Blob, ~Digest.cmp, live, d), dir, d)
         Disk.drop(dir, r, live, (n + k : U32))
 
 # Drops what gc drops: an object of s stays exactly when its digest is in the live set.
-def Disk.collect.of(+dir: String, +retained: List<&2, String>, +s: Index(String, Blob)) -> Run(U32):
+def Disk.collect.of(+dir: String, +retained: List<&2, Digest>, +s: Index(Digest, Blob)) -> Run(U32):
   do Run<U32>:
-    ls : Store<String, Blob> <- Run.some(Store<String, Blob>, Index.live(~String, ~Blob, ~Order.string, limit(), s, retained), "a retained root does not load")
-    Disk.drop(dir, OMap.OMap.keys(String, Obj<String, Blob>, s), Index.of(~String, ~Blob, ~Order.string, ls), 0)
+    ls : Store<Digest, Blob> <- Run.some(Store<Digest, Blob>, Index.live(~Digest, ~Blob, ~Digest.cmp, limit(), s, retained), "a retained root does not load")
+    Disk.drop(dir, OMap.OMap.keys(Digest, Obj<Digest, Blob>, s), Index.of(~Digest, ~Blob, ~Digest.cmp, ls), 0)
 
 # Deletes every object that no retained root reaches and answers how many it deleted. Fails, and
 # deletes nothing, when a retained root does not load. No writer may run during the collection.
-def Disk.collect(+dir: String, +retained: List<&2, String>) -> Run(U32):
+def Disk.collect(+dir: String, +retained: List<&2, Digest>) -> Run(U32):
   do Run<U32>:
-    s : Index(String, Blob) <- Disk.load(dir)
+    s : Index(Digest, Blob) <- Disk.load(dir)
     Disk.collect.of(dir, retained, s)
 
-def sync.send(+dir: String, ys: Store<String, Blob>, +dst: Index(String, Blob), +n: U32) -> Run(U32):
+def sync.send(+dir: String, ys: Store<Digest, Blob>, +dst: Index(Digest, Blob), +n: U32) -> Run(U32):
   match ys:
     case StNil{}:
       Run.pure(U32, n)
     case StCon{+d, o, r}:
       do Run<U32>:
-        t : Index(String, Blob) <- Disk.receive(dir, dst, d, encode(o))
+        t : Index(Digest, Blob) <- Disk.receive(dir, dst, d, encode(o))
         sync.send(dir, r, t, (n + 1 : U32))
 
-def sync.of(+dst: String, +root: String, +a: Index(String, Blob), +b: Index(String, Blob)) -> Run(U32):
+def sync.of(+dst: String, +root: Digest, +a: Index(Digest, Blob), +b: Index(Digest, Blob)) -> Run(U32):
   do Run<U32>:
-    ys : Store<String, Blob> <- Run.some(Store<String, Blob>, Index.plan(~String, ~Blob, ~Order.string, limit(), a, b, root), "the source cannot load " ++ root)
+    ys : Store<Digest, Blob> <- Run.some(Store<Digest, Blob>, Index.plan(~Digest, ~Blob, ~Digest.cmp, limit(), a, b, root), "the source cannot load " ++ Digest.hex(root))
     sync.send(dst, ys, b, 0)
 
 # Sends dst every object it needs to load root as src does, through ingress. Answers how many it sent.
-def sync(+src: String, +dst: String, +root: String) -> Run(U32):
+def sync(+src: String, +dst: String, +root: Digest) -> Run(U32):
   do Run<U32>:
-    a : Index(String, Blob) <- Disk.load(src)
-    b : Index(String, Blob) <- Disk.load(dst)
+    a : Index(Digest, Blob) <- Disk.load(src)
+    b : Index(Digest, Blob) <- Disk.load(dst)
     sync.of(dst, root, a, b)
 
 # The tree under root at dir. Fails when an object is missing or tampered, or the tree is too deep.
-def Disk.checkout(+dir: String, +root: String) -> Run(Tree<Blob>):
+def Disk.checkout(+dir: String, +root: Digest) -> Run(Tree<Blob>):
   do Run<Tree<Blob>>:
-    s : Index(String, Blob) <- Disk.load(dir)
-    Run.some(Tree<Blob>, Index.load(~String, ~Blob, ~Order.string, limit(), s, root), "root " ++ root ++ " does not load")
+    s : Index(Digest, Blob) <- Disk.load(dir)
+    Run.some(Tree<Blob>, Index.load(~Digest, ~Blob, ~Digest.cmp, limit(), s, root), "root " ++ Digest.hex(root) ++ " does not load")
 
-def Disk.commit.save(+dir: String, r: String & Store<String, Blob>) -> Run(String):
+def Disk.commit.save(+dir: String, r: Digest & Store<Digest, Blob>) -> Run(Digest):
   (+d, xs) = r
-  do Run<String>:
+  do Run<Digest>:
     Disk.save(dir, xs)
     return d
 
 # Commits t to the store at dir and answers its root digest.
-def Disk.commit(+dir: String, t: Tree<Blob>) -> Run(String):
-  do Run<String>:
-    r : String & Store<String, Blob> <- commit(t)
+def Disk.commit(+dir: String, t: Tree<Blob>) -> Run(Digest):
+  do Run<Digest>:
+    r : Digest & Store<Digest, Blob> <- commit(t)
     Disk.commit.save(dir, r)
 
 # ---- Artifact trees: a directory on disk as a Tree.

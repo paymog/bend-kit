@@ -226,6 +226,31 @@ law gc_has:
   for hd: {S.Store.has(~D, ~B, ~eq, s, d) == True{} : Bool}
   {S.Store.has(~D, ~B, ~eq, S.keep(~D, ~B, ~eq, s, ls), d) == S.mem(~D, ~B, ~eq, ls, d) : Bool}
 
+# Digest.cmp, the disk layer's order, is a total order whose EQ means equal digests:
+# the facts that the index_ laws take as cmp.
+law digest_cmp_refl:
+  for x: S.Digest
+  {S.Digest.cmp(x, x) == EQ{} : Cmp}
+
+law digest_cmp_eq:
+  for x: S.Digest
+  for y: S.Digest
+  for e: {S.Digest.cmp(x, y) == EQ{} : Cmp}
+  {x == y : S.Digest}
+
+law digest_cmp_flip:
+  for x: S.Digest
+  for y: S.Digest
+  {S.Digest.cmp(y, x) == Col.flip(S.Digest.cmp(x, y)) : Cmp}
+
+law digest_cmp_trans:
+  for x: S.Digest
+  for y: S.Digest
+  for z: S.Digest
+  for e1: {S.Digest.cmp(x, y) == LT{} : Cmp}
+  for e2: {S.Digest.cmp(y, z) == LT{} : Cmp}
+  {S.Digest.cmp(x, z) == LT{} : Cmp}
+
 # Fixtures: U32 digests and payloads, with a toy object hash.
 def toy(o: S.Obj<U32, U32>) -> U32:
   match o:
