@@ -1,7 +1,7 @@
 # Unicode benchmark: NFC and grapheme clusters on one fixed input (see README.md).
 import Base
 import ../../time/time.bend as Time
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ../../encoding/encoding.bend as Enc
 import ../unicode.bend as U
 

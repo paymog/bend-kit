@@ -1,13 +1,13 @@
 # json
 
-JSON values as RFC 8259, stored and parsed as UTF-8 `Bytes`. A number stays text in `Num{s}` until you convert it.
+JSON values follow RFC 8259. The package stores and parses them as UTF-8 `Bytes`. A number stays as text in `Num{s}` until you convert it.
 
 ```bend
-import bend-kit-json@0.5.1.0/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-json@0.7.2.0/json.bend as Json
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
-`json.bend` imports that bytes hash. `http@0.30.0.0` imports an older json hash, `0x584fc27920487ceab242392391418d7f`. Do not pass a `Val` from this version into that `http`.
+`json.bend` imports `bend-kit-bytes@0.3.3.0` and `bend-kit-f64@0.1.3.0`. Use this bytes version with `Json.Val`. A caller that imports an older json version can have different types.
 
 ```bend
 def show(m: Maybe<&1, Json.Val>) -> IO(Unit):
@@ -25,8 +25,25 @@ def main() -> IO(Unit):
 
 ## Values
 
-`Val` is `Null{}`, `Flag{on}`, `Num{s}`, `Str{s}`, `Arr{xs}`, or `Obj{kvs}`. Object keys and string values are `Bytes`, not `String`. `Obj` keeps repeated keys and key order. `get` returns the last value for a key. `at` is an array element by `Nat` index.
+`Val` is `Null{}`, `Flag{on}`, `Num{s}`, `Str{s}`, `Arr{xs}`, or `Obj{kvs}`. Object keys and string values are `Bytes`, not `String`. `Obj` keeps repeated keys and their order. `get(v, key)` takes a `String` key and returns its last value. `at(v, index)` returns an array element at a `Nat` index.
 
-`parse.bytes` replaces lone surrogates and allows nesting up to the input size. `parse.strict.bytes(b, cap)` rejects lone surrogates and stops at `cap` nested arrays or objects. `encode.bytes` writes compact JSON. `utf8` turns a `String` into the `Bytes` a `Str` holds.
+`parse.bytes` replaces lone surrogates. It allows nesting up to the input size. `parse.strict.bytes(b, cap)` rejects lone surrogates. It stops at `cap` nested arrays or objects. `encode.bytes` writes compact JSON. `utf8` converts a `String` to UTF-8 `Bytes` for `Str`.
+
+`u32(v)` reads a whole unsigned number. `f32(v)` reads a number as the nearest `F32` with Base `F32.read`. `f64(v)` reads it as the nearest `F64.F64` from `bend-kit-f64`. Each returns `None` for a value that is not a number. A number too large for the type becomes infinity.
 
 `parse/json.bend` is a separate grammar on the combinators. It is not this package.
+
+## Unique object keys
+
+`unique.keys(v)` returns `(v, ok)`. `ok` is true when each object's decoded
+UTF-8 keys are unique, including objects nested in arrays. The returned value
+keeps field order and exact number text.
+
+`parse.strict.unique.bytes(body, cap)` applies the strict parser and this key
+policy. It returns `None` for invalid syntax, invalid UTF-8, lone surrogate
+escapes, depth overflow, or a duplicate decoded key. Identical decoded keys in
+separate objects are allowed. Key comparison uses exact decoded bytes.
+
+Each object compares every pair of keys. An object with `n` fields performs
+`n * (n - 1) / 2` comparisons; comparison cost also depends on key length.
+The check returns the original byte buffers and rebuilds container list cells.

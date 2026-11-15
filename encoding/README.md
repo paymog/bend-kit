@@ -1,13 +1,11 @@
 # encoding
 
-UTF-8 between a `String` of code points and `Bytes`. Hex lives on `bytes`, as `to_hex` and `from_hex`.
+Convert UTF-8 between a `String` of code points and `Bytes`. The `bytes` package provides `to_hex` and `from_hex`.
 
 ```bend
-import bend-kit-encoding@0.3.0.0/encoding.bend as Enc
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
-
-That bytes hash is the one `encoding.bend` imports. It is not `bend-kit-bytes@0.3.2.0`.
 
 ```bend
 def main() -> IO(Unit):
@@ -16,4 +14,4 @@ def main() -> IO(Unit):
     IO.print(Enc.utf8.decode(Enc.utf8.encode("aé€😀z")))
 ```
 
-`utf8.encode` writes RFC 3629. `utf8.decode` is WHATWG UTF-8: a bad sequence becomes U+FFFD, and decoding continues. Pass the `Bytes` value `encode` returns straight to `decode`. It is affine.
+`utf8.encode` writes UTF-8 as specified in RFC 3629. `utf8.decode` follows the WHATWG UTF-8 rules. It replaces an invalid sequence with U+FFFD and continues. Pass the `Bytes` value from `utf8.encode` directly to `utf8.decode`. The value is affine.

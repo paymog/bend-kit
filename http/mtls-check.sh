@@ -33,11 +33,17 @@ if [ "${1:-native}" = js ]; then
 else
   bend check.bend -o "$dir/check"
 fi
-python3 mtls-server.py "$dir/ca.pem" "$dir/server.pem" "$dir/server.key" >"$dir/server.log" 2>&1 &
+python3 mtls-server.py "$dir/ca.pem" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
-sleep 1
+i=0
+while [ ! -s "$dir/ports" ]; do
+  i=$((i + 1))
+  [ "$i" -le 100 ] || { cat "$dir/server.log" >&2; exit 1; }
+  sleep 0.1
+done
+read -r port _ h2port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key"
+  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port" "https://localhost:$h2port"
 else
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key"
+  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port" "https://localhost:$h2port"
 fi

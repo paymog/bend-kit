@@ -1,6 +1,6 @@
 # tar archives (POSIX ustar with PAX path and size records) of regular files and directories over Bytes. Source: https://github.com/paymog/bend-kit/tree/main/tar
 import Base
-import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # An archive is a list of entries in order. Names are raw bytes (UTF-8 by convention), kept byte for byte;
 # a directory keeps whatever trailing '/' its name has. Nothing here touches the filesystem.

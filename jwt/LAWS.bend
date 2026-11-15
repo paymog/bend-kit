@@ -1,7 +1,7 @@
 import Base
 import ./jwt.bend as Jwt
-import 0x584fc27920487ceab242392391418d7f/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Pure halves: base64url, NumericDate, header and claim checks, and JWKS key choice.
 # check.bend verifies the RFC 7515 signatures and signs round trips, which need libcrypto.

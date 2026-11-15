@@ -1,7 +1,7 @@
 # Linear-time regular expressions: RE2 syntax, Pike VM, capture groups. Source: https://github.com/paymog/bend-kit/tree/main/regex
 import Base
-import 0x6c784a08486e2e02415e89c5249e9e8a/unicode.bend as U
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-unicode@0.1.0.0/unicode.bend as U
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Positions count code points of the String, not octets.
 # Leftmost-first semantics, as RE2 and Perl: the first alternative that matches wins.

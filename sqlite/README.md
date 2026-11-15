@@ -4,7 +4,7 @@ Prepared statements over the system `libsqlite3` on native and Bun targets. The 
 
 ```bend
 import Base
-import bend-kit-sqlite@0.1.0.0/sqlite.bend as Sqlite
+import bend-kit-sqlite@0.1.0.1/sqlite.bend as Sqlite
 
 def main() -> IO(Unit):
   do IO<Unit>:
@@ -21,3 +21,11 @@ def main() -> IO(Unit):
 `db.open` opens or creates a file; `":memory:"` creates an in-memory database. Prepare accepts exactly one SQL statement. Bind values with `stmt.bind.int`, `.text`, `.blob`, or `.null`; bind indexes start at 1. `stmt.step` returns `True` for a row and `False` when done. Read columns only on a row; column indexes start at 0. `stmt.column.kind` returns SQLite's kind codes: 1 integer, 2 float, 3 text, 4 blob, 5 null. Integer methods accept unsigned 32-bit values; read a wider or negative integer as text. Blob arguments and results use `(byte count, Array<U32>)`, four octets per word in little-endian order. `stmt.reset` retains bindings.
 
 Database and statement IDs are opaque. Finalize every statement before closing its database; closing with live statements returns `SQLITE_BUSY`. Every effect returns `Result` with a SQLite error code and message. Handles and SQLite's filesystem, transaction, and SQL semantics are foreign trust assumptions: Bend proofs cannot verify them. The smoke check covers parameter binding, a table insert and select, reset, column reads, invalid handles, and multiple-statement rejection.
+
+| def | result |
+|---|---|
+| `stmt.column.text(stmt: U32, index: U32)` | `IO(Result<&1, &1, U32 & String, String>)`; reads a column as text. |
+
+## Laws
+
+Every def is a SQLite effect, so there is nothing pure to prove. `check.bend` tests binding, insert and select, column reads, reset, rejection of multiple statements and closed handles, and rejection of close with a live statement.

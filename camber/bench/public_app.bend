@@ -1,17 +1,17 @@
 # Complete consumer of the published dispatcher/server, with a shared raw prepared-router control.
 import Base
-import bend-kit-camber@0.6.0.0/camber.bend as C
-import bend-kit-camber@0.6.0.0/input.bend as I
-import bend-kit-camber@0.6.0.0/notices.bend as N
-import bend-kit-http@0.30.0.0/http.bend as H
-import bend-kit-http@0.30.0.0/completion.bend as T
+import bend-kit-camber@0.15.0.1/camber.bend as C
+import bend-kit-camber@0.15.0.1/input.bend as I
+import bend-kit-camber@0.15.0.1/notices.bend as N
+import bend-kit-http@0.38.1.1/http.bend as H
+import bend-kit-http@0.38.1.1/completion.bend as T
 import bend-kit-router@0.2.0.0/router.bend as R
-import bend-kit-json@0.5.1.0/json.bend as J
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-json@0.7.0.0/json.bend as J
+import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type Action is Data:
-  Text{}
+  Plain{}
   Probe{}
   Json{}
   Parameter{}
@@ -146,7 +146,7 @@ def work(+mode: String, +identifier: String, body: H.Body, config: Config) -> IO
 
 def business(action: Action, state: U32, config: Config, selected: C.Match<C.Policy<U32>>, req: H.Req) -> IO(H.Res):
   match action:
-    case Text{}: IO.pure(H.Res, C.text(200, "OK\n"))
+    case Plain{}: IO.pure(H.Res, C.text(200, "OK\n"))
     case Probe{}:
       do IO<H.Res>:
         stamp("ORDINARY")
@@ -177,7 +177,7 @@ def routes(n: Nat) -> List<&2, C.Route<Action, C.Policy<U32>>>:
     case 1n+ +p:
       C.Route{"GET", "/route/" ++ Nat.show(p), Route{U32.from_nat(p)}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})} <> routes(p)
 def basic() -> List<&2, C.Route<Action, C.Policy<U32>>>:
-  [C.Route{"GET", "/text", Text{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
+  [C.Route{"GET", "/text", Plain{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
    C.Route{"GET", "/json", Json{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
    C.Route{"GET", "/users/:id", Parameter{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},
    C.Route{"POST", "/decode", Decode{}, Nil{}, C.policy(~U32, 0, Nil{}, Nil{})},

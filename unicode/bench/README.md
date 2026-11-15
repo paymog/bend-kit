@@ -4,13 +4,17 @@ This times `U.nfc` and `U.graphemes` on one fixed input, in Bend (native build) 
 
 ## Run
 
+Run from `unicode/bench`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median; ~1 MiB UTF-8 input
 python3 run.py 5    # 5 runs
-python3 run.py 1 65536   # smoke: 64 KiB target, one run
+python3 run.py 1    # 1 run on the default input
 ```
 
 You need `bend`, `bun`, `node`, and `python3`. `gen_input.py` writes `out/input.txt`; Bend builds the same text in memory (see below). Binaries go to `out/`, which git ignores. A full run takes about 10 seconds. It exits non-zero if a build fails, or if checksums disagree.
+
+Keep the target at 1,000,000 bytes. The runner's second argument changes only the file input. Bend still builds 4,717 seed copies. A different target can produce different checksums across languages.
 
 ## Input
 

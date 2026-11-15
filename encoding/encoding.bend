@@ -1,6 +1,6 @@
 # UTF-8 encoding and decoding between text and Bytes. Source: https://github.com/paymog/bend-kit/tree/main/encoding
 import Base
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # UTF-8 (RFC 3629). Text is a String of code points; octets are Bytes.
 # Hex lives in Bytes: Bytes.to_hex and Bytes.from_hex.

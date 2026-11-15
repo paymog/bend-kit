@@ -189,3 +189,21 @@ M4 Pro, macOS 26.6.2, Bend 2.0.29, 2026-09-26. Median of 15 downloads and 7 uplo
 | upload, Content-Length | 7.8 ms, 35.9 MB | 7.9 ms, 35.9 MB |
 
 0.15.0.5 writes a Content-Length response body into one buffer as it arrives. Chunked downloads and uploads take the same code path in both versions, so their differences are noise.
+
+### Stream opens
+
+`streams.bend` opens 200 small streams to one origin and reads each to its end. It runs them first with `Http.open`, which dials a new connection for each stream, as every stream did before `http` 0.37.0.0. Then it runs them with `Http.pool.open` and `Http.pool.stream.close` on one pool. `keepalive.py` is a local Python keep-alive server that answers each `GET` with a 64-byte `Content-Length` body. Each run prints the bytes read, which is the checksum: `12800` for both.
+
+```sh
+python3 keepalive.py 18095 &
+bend streams.bend -o out/streams && out/streams http://127.0.0.1:18095/
+```
+
+M4 Pro, macOS 26.6.2, Bend 2.0.38, 2026-10-23. Median of 5 runs, in ms for 200 streams, over plain HTTP on loopback. TLS would add a handshake to each new connection, so the gap grows over TLS.
+
+| run | ms |
+|---|---:|
+| new connection each (`open`) | 25.7 |
+| one pool (`pool.open`) | 11.5 |
+
+This bench is Bend only, like the other network benches. It compares the two Bend paths.

@@ -105,11 +105,11 @@ io_eff(CID(remove), remove);
 io_eff(CID(rename), rename);
 io_eff(CID(temp_dir), temp_dir);
 
-function read_words(file, max) {
+function files_read(file, max, at) {
   const n = Math.min(Number(max), 1048576);
   const data = Buffer.allocUnsafe(n);
   try {
-    const count = require("fs").readSync(file, data, 0, n, null);
+    const count = require("fs").readSync(file, data, 0, n, at);
     let size = 1;
     while (size < Math.ceil(count / 4)) size *= 2;
     const words = Array(size).fill(0);
@@ -117,6 +117,23 @@ function read_words(file, max) {
       words[i >> 2] = (words[i >> 2] | (data[i] << (8 * (i & 3)))) >>> 0;
     }
     return io_tup(file, io_done(io_tup(count, words)));
+  } catch (e) {
+    return io_tup(file, files_err(e));
+  }
+}
+
+function read_words(file, max) {
+  return files_read(file, max, null);
+}
+
+function read_words_at(file, hi, lo, max) {
+  return files_read(file, max, (BigInt(Number(hi) >>> 0) << 32n) | BigInt(Number(lo) >>> 0));
+}
+
+function size64(file) {
+  try {
+    const size = require("fs").fstatSync(file, { bigint: true }).size;
+    return io_tup(file, io_done(io_tup(Number(size >> 32n), Number(size & 0xffffffffn))));
   } catch (e) {
     return io_tup(file, files_err(e));
   }
@@ -144,4 +161,6 @@ function write_words(file, len, words) {
 }
 
 io_eff(CID(read.words), read_words);
+io_eff(CID(read.words.at), read_words_at);
+io_eff(CID(size64), size64);
 io_eff(CID(write.words), write_words);

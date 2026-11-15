@@ -4,6 +4,8 @@ This times `Tty.width` and `Tty.pad_right` against C's libc `wcswidth` and a Pyt
 
 ## Run
 
+Run from `tty/bench`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
@@ -34,9 +36,11 @@ The input has no emoji, ZWJ sequences, variation selectors, or control character
 
 | language | width |
 |---|---|
-| Bend | `Tty.width`: Unicode 17 East Asian Width and zero-width tables |
+| Bend | `Tty.width`: Unicode 17 grapheme clusters and display-width tables |
 | C | libc `wcswidth` under a UTF-8 locale |
 | Python | 0 if `unicodedata.combining(c)`, 2 if `east_asian_width(c)` is `W` or `F`, else 1 |
+
+Rust and JavaScript are not included. Their standard libraries have no terminal display-width function.
 
 ## Results
 

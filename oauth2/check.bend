@@ -1,10 +1,12 @@
 import Base
 import ./oauth2.bend as O
-import bend-kit-hairpin@0.1.0.0/hairpin.bend as Hairpin
-import bend-kit-http@0.23.0.1/http.bend as Http
-import bend-kit-time@0.1.0.0/time.bend as Time
-import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-hairpin@0.13.0.1/hairpin.bend as Hairpin
+import bend-kit-http@0.38.1.1/http.bend as Http
+import bend-kit-http@0.38.1.1/admission.bend as Admission
+import bend-kit-http@0.38.1.1/completion.bend as Completion
+import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-url@0.4.1.0/url.bend as Url
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # A local authorization server on 127.0.0.1:47851, then every flow against it through Hairpin.
 
@@ -117,15 +119,27 @@ def s(req: Http.Req) -> IO(Http.Res):
   Http.Req{method, path, +headers, body} = req
   s.route(Url.parse(path), Http.header(headers, "authorization"), body)
 
-def serve(n: Nat, l: Listener) -> IO(Unit):
+def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    r : Http.Res <- op
+    return Http.Reply{r, Completion.Unobserved{}}
+
+def serve.go(n: Nat, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
   match n:
     case 0n:
-      Listener.close(l)
+      do IO<Unit>:
+        Listener.close(l)
+        Admission.close(inbox)
     case 1n+k:
       do IO<Unit>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        l1 : Listener <- Http.conn(~s, 1048576n, a)
-        serve(k, l1)
+        l1 : Listener <- Http.conn(~(req => wrap(s(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+        serve.go(k, inbox, l1)
+
+def serve(n: Nat, l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
+    serve.go(n, inbox, l)
 
 # ---- the client
 
@@ -165,7 +179,7 @@ def want(+name: String, +access: String, +refresh: String, +scope: String, y: Ha
       name ++ " (" ++ a ++ " refresh " ++ r ++ " scope " ++ s ++ ")")
     return (c, t)
 
-def res.body(+name: String, +status: U32, +body: String, x: Hairpin.Client & Result<&1, &1, Http.Err, Http.Res>) -> IO(Hairpin.Client & String):
+def res.body(+name: String, +status: U32, +body: String, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Hairpin.Client & String):
   (c, r) = x
   match r:
     case Fail{e}:
@@ -202,7 +216,7 @@ def api.done(x: Hairpin.Client & String) -> Hairpin.Client:
 def api(y: Hairpin.Client & O.Token) -> IO(Hairpin.Client):
   (c, t) = y
   do IO<Hairpin.Client>:
-    x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <- O.request(c, t, "GET", BASE() ++ "/api", Http.empty(), Bytes.new(0))
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- O.request(c, t, "GET", BASE() ++ "/api", Http.empty(), Bytes.new(0))
     z : Hairpin.Client & String <- res.body("request sends Authorization: Bearer", 200, "Bearer cc-1", x)
     return api.done(z)
 
@@ -225,7 +239,7 @@ def authz(+st: String, c: Hairpin.Client) -> IO(Hairpin.Client & String):
   do IO<Hairpin.Client & String>:
     ch : Result<&1, &1, O.Err, String> <- O.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
     cc : String <- str("challenge", ch)
-    x : Hairpin.Client & Result<&1, &1, Http.Err, Http.Res> <-
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
       Hairpin.get(Hairpin.redirect(c, Http.ModeManual{}), O.authorize.url(public(), BASE() ++ "/authorize", REDIRECT(), "openid", st, cc))
     z : Hairpin.Client & String <- res.body("authorize redirects to redirect_uri", 302, "", x)
     callback(st, z)

@@ -1,0 +1,12 @@
+[package]
+name = "bend-kit-bits-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bitstream-io = "4"
+
+[[bin]]
+name = "bench"
+path = "bench.rs"

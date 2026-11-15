@@ -1,16 +1,16 @@
 # multipart
 
-`multipart/form-data` as RFC 7578. The encoder draws a boundary. The decoder walks `Bytes`.
+This package encodes and decodes `multipart/form-data` from RFC 7578. The encoder generates a boundary. The decoder reads `Bytes`.
 
 ```bend
-import bend-kit-multipart@0.1.0.0/multipart.bend as Mp
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-multipart@0.3.0.1/multipart.bend as Mp
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
-Those are the versions `multipart.bend` imports. It also imports `bend-kit-crypto@0.1.0.0` for the boundary, not `crypto@0.2.2.0`.
+`multipart.bend` imports `bend-kit-bytes@0.3.3.0`. It also imports `bend-kit-crypto@0.2.2.2` to generate the boundary.
 
-`Part` is `Part{name, filename, ctype, body}`. `filename` and `ctype` are `Maybe`. `form` returns `IO` of the `Content-Type` value and the body. `encode` takes a boundary you already checked. `decode` and `decode.chunks` take that boundary and the body bytes.
+`Part` is `Part{name, filename, ctype, body}`. `filename` and `ctype` are `Maybe` values. `form` returns an `IO` result with the `Content-Type` value and body, or an error. `encode` takes a boundary and checks it. `decode` takes that boundary and the complete body. `decode.chunks` takes the boundary and a list of body chunks.
 
-Names and filenames escape `"`, CR, and LF as `%22`, `%0D`, and `%0A`. A boundary is 1 to 70 bchars and does not end in a space. `boundary.new` is `bend-kit-` plus 32 hex chars from 16 secure random bytes. A missing libcrypto fails that call.
+The encoder escapes `"`, CR, and LF in names and filenames as `%22`, `%0D`, and `%0A`. A boundary has 1 to 70 characters from the RFC 2046 `bchars` set. It must not end in a space. `boundary.new` generates `bend-kit-` plus 32 hexadecimal characters from 16 secure random bytes. The call fails if libcrypto is not available.
 
-`http` does not parse multipart bodies. Decode the `Http.Body` with this package after you have the boundary from `Content-Type`.
+`http` does not parse multipart bodies. Get the boundary from `Content-Type`. Then use this package to decode the `Http.Body`.

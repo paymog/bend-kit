@@ -1,8 +1,8 @@
 import Base
 import ./parse.bend as P
 import ./json.bend as J
-import ../json/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def cur(s: String, +o: U32, n: Nat) -> P.Cur:
   P.Cur{s, o, n}

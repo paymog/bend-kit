@@ -133,7 +133,7 @@ Term wire_accept_deadline_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_accept_deadline_use(void) {
-  io_eff(CID(accept.deadline), wire_accept_deadline_run, 0);
+  io_eff(CID(accept.deadline), wire_accept_deadline_run);
 }
 
 #endif
@@ -178,7 +178,7 @@ Term wire_recv_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_recv_use(void) {
-  io_eff(CID(recv), wire_recv_run, 0);
+  io_eff(CID(recv), wire_recv_run);
 }
 
 #endif
@@ -195,7 +195,27 @@ Term wire_recv_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_recv_words_use(void) {
-  io_eff(CID(recv.words), wire_recv_words_run, 0);
+  io_eff(CID(recv.words), wire_recv_words_run);
+}
+
+#endif
+
+#ifdef CID(idle)
+
+// MSG_PEEK leaves a waiting byte for the next read.
+Term wire_idle_run(Env e, Term* f, IoWork* w) {
+  intptr_t h = (intptr_t)io_hand_v(f[0]);
+  char     b;
+  ssize_t  n;
+  do {
+    n = recv((int)h, &b, 1, MSG_PEEK | MSG_DONTWAIT);
+  } while (n < 0 && errno == EINTR);
+  bool quiet = n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK);
+  return io_tup(e, io_hand(h), term_pak(quiet ? CID(True) : CID(False), 0));
+}
+
+static void __attribute__((constructor)) wire_idle_use(void) {
+  io_eff(CID(idle), wire_idle_run);
 }
 
 #endif
@@ -231,7 +251,7 @@ Term wire_send_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_send_use(void) {
-  io_eff(CID(send), wire_send_run, 0);
+  io_eff(CID(send), wire_send_run);
 }
 
 #endif
@@ -248,7 +268,7 @@ Term wire_send_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_send_words_use(void) {
-  io_eff(CID(send.words), wire_send_words_run, 0);
+  io_eff(CID(send.words), wire_send_words_run);
 }
 
 #endif
@@ -305,12 +325,12 @@ Term wire_send_words_deadline_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_send_words_deadline_use(void) {
-  io_eff(CID(send.words.deadline), wire_send_words_deadline_run, 0);
+  io_eff(CID(send.words.deadline), wire_send_words_deadline_run);
 }
 
 #endif
 
-#if defined(CID(connect)) || defined(CID(send_to)) || defined(CID(send_to.words))
+#if defined(CID(connect)) || defined(CID(listen)) || defined(CID(send_to)) || defined(CID(send_to.words))
 
 // Accept only numeric addresses. The socket family and sockaddr length travel together.
 static int wire_addr(const char* host, u32 port, struct sockaddr_storage* out, socklen_t* size) {
@@ -393,7 +413,7 @@ Term wire_recv_from_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_recv_from_use(void) {
-  io_eff(CID(recv_from), wire_recv_from_run, 0);
+  io_eff(CID(recv_from), wire_recv_from_run);
 }
 
 #endif
@@ -410,7 +430,7 @@ Term wire_recv_from_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_recv_from_words_use(void) {
-  io_eff(CID(recv_from.words), wire_recv_from_words_run, 0);
+  io_eff(CID(recv_from.words), wire_recv_from_words_run);
 }
 
 #endif
@@ -458,7 +478,7 @@ Term wire_send_to_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_send_to_use(void) {
-  io_eff(CID(send_to), wire_send_to_run, 0);
+  io_eff(CID(send_to), wire_send_to_run);
 }
 
 #endif
@@ -474,7 +494,7 @@ Term wire_send_to_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) wire_send_to_words_use(void) {
-  io_eff(CID(send_to.words), wire_send_to_words_run, 0);
+  io_eff(CID(send_to.words), wire_send_to_words_run);
 }
 
 #endif
@@ -543,7 +563,45 @@ Term connect_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) connect_use(void) {
-  io_eff(CID(connect), connect_run, 0);
+  io_eff(CID(connect), connect_run);
+}
+
+#endif
+
+#ifdef CID(listen)
+
+// As Base TCP.listen (nonblocking, backlog 512), plus IPv6 and the bound port.
+Term listen_run(Env e, Term* f, IoWork* w) {
+  struct sockaddr_storage at;
+  socklen_t size = 0;
+  u64 hn = 0;
+  char* host = io_cstr(e, f[0], &hn);
+  int family = io_nul(host, hn) ? -1 : wire_addr(host, (u32)f[1], &at, &size);
+  free(host);
+  if (family < 0) {
+    return io_fail(e, EINVAL, NULL);
+  }
+  int fd = socket(family, SOCK_STREAM, 0);
+  if (fd < 0) {
+    return io_fail(e, (u32)errno, NULL);
+  }
+  int one = 1;
+  setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (bind(fd, (struct sockaddr*)&at, size) != 0 || listen(fd, 512) != 0
+    || fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) != 0
+    || getsockname(fd, (struct sockaddr*)&at, &size) != 0) {
+    u32 code = (u32)errno;
+    close(fd);
+    return io_fail(e, code, NULL);
+  }
+  uint16_t port = family == AF_INET
+    ? ((struct sockaddr_in*)&at)->sin_port
+    : ((struct sockaddr_in6*)&at)->sin6_port;
+  return io_done(e, io_tup(e, io_hand(fd), (Term)ntohs(port)));
+}
+
+static void __attribute__((constructor)) listen_use(void) {
+  io_eff(CID(listen), listen_run);
 }
 
 #endif
@@ -774,7 +832,7 @@ Term tls_connect_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_connect_use(void) {
-  io_eff(CID(tls.connect), tls_connect_run, 0);
+  io_eff(CID(tls.connect), tls_connect_run);
 }
 
 #endif
@@ -837,7 +895,7 @@ Term tls_connect_alpn_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_connect_alpn_use(void) {
-  io_eff(CID(tls.connect.alpn), tls_connect_alpn_run, 0);
+  io_eff(CID(tls.connect.alpn), tls_connect_alpn_run);
 }
 
 #endif
@@ -887,7 +945,7 @@ Term tls_connect_cert_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_connect_cert_use(void) {
-  io_eff(CID(tls.connect.cert), tls_connect_cert_run, 0);
+  io_eff(CID(tls.connect.cert), tls_connect_cert_run);
 }
 
 #endif
@@ -921,7 +979,7 @@ Term tls_connect_ca_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_connect_ca_use(void) {
-  io_eff(CID(tls.connect.ca), tls_connect_ca_run, 0);
+  io_eff(CID(tls.connect.ca), tls_connect_ca_run);
 }
 
 #endif
@@ -966,7 +1024,7 @@ Term tls_connect_alpn_ca_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_connect_alpn_ca_use(void) {
-  io_eff(CID(tls.connect.alpn.ca), tls_connect_alpn_ca_run, 0);
+  io_eff(CID(tls.connect.alpn.ca), tls_connect_alpn_ca_run);
 }
 
 #endif
@@ -1014,7 +1072,7 @@ Term tls_send_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_send_use(void) {
-  io_eff(CID(tls.send), tls_send_run, 0);
+  io_eff(CID(tls.send), tls_send_run);
 }
 
 #endif
@@ -1031,7 +1089,7 @@ Term tls_send_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_send_words_use(void) {
-  io_eff(CID(tls.send.words), tls_send_words_run, 0);
+  io_eff(CID(tls.send.words), tls_send_words_run);
 }
 
 #endif
@@ -1083,7 +1141,7 @@ Term tls_recv_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_recv_use(void) {
-  io_eff(CID(tls.recv), tls_recv_run, 0);
+  io_eff(CID(tls.recv), tls_recv_run);
 }
 
 #endif
@@ -1100,7 +1158,7 @@ Term tls_recv_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_recv_words_use(void) {
-  io_eff(CID(tls.recv.words), tls_recv_words_run, 0);
+  io_eff(CID(tls.recv.words), tls_recv_words_run);
 }
 
 #endif
@@ -1120,7 +1178,7 @@ Term tls_close_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tls_close_use(void) {
-  io_eff(CID(tls.close), tls_close_run, 0);
+  io_eff(CID(tls.close), tls_close_run);
 }
 
 #endif

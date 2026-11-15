@@ -2,7 +2,7 @@
 import Base
 import ./http.bend as Http
 import ./completion.bend as Completion
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def journal.closed(result: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (file, written) = result

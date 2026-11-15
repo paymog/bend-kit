@@ -1,7 +1,7 @@
 # Parallel map and reduce over lists and arrays, a worker pool, select over channels, and timeouts.
 import Base
 
-#   import bend-kit-concurrency@0.1.0.0/concurrency.bend as Conc
+#   import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 #   ys = Conc.par_map(~U32, ~U32, ~work, 8, xs)
 #
 # par_map and par_reduce are pure. They split the input into at most `workers`
@@ -173,7 +173,7 @@ def pool.worker(
         case WDone{sb, reply}:
           (s, b) = sb
           do IO<S>:
-            sent : Bool <- Chan.send(B, reply, b)
+            sent : Result<&1, &1, B, Unit> <- Chan.send(B, reply, b)
             pool.worker(~S, ~A, ~B, ~work, p, q, WIdle{s})
 
 # Queues each job with its own reply channel, and answers the replies in order.
@@ -185,7 +185,7 @@ def pool.put(~A: Type, ~B: Type, xs: List<A>, +q: Chan(A & Chan(B))) -> IO(List<
       do IO<List<Chan(B)>>:
         reply : Chan(B) <- Chan.new(B, 1)
         +r : Chan(B) = reply
-        sent : Bool <- Chan.send(A & Chan(B), q, (x, r))
+        sent : Result<&1, &1, A & Chan(B), Unit> <- Chan.send(A & Chan(B), q, (x, r))
         replies : List<Chan(B)> <- pool.put(~A, ~B, rest, q)
         return r <> replies
 
@@ -244,21 +244,21 @@ def pool(
 type Relay<-A: Type> is Type:
   RWait{}
   RGot{got: Maybe<&1, A>}
-  RSent{ok: Bool}
+  RSent{ok: Result<&1, &1, U32 & A, Unit>}
 
 # Forwards each value of src to out as (i, value), then reports on done.
 # It stops when src closes, or when out is closed under it.
 def select.relay(
   -A: Type, fuel: Nat, +i: U32, +src: Chan(A), +out: Chan(U32 & A),
   +done: Chan(Unit), r: Relay<A>
-) -> IO(Bool):
+) -> IO(Result<&1, &1, Unit, Unit>):
   match fuel:
     case 0n:
       Chan.send(Unit, done, Unit{})
     case 1n+p:
       match r:
         case RWait{}:
-          do IO<Bool>:
+          do IO<Result<&1, &1, Unit, Unit>>:
             got : Maybe<&1, A> <- Chan.recv(A, src)
             select.relay(A, p, i, src, out, done, RGot{got})
         case RGot{got}:
@@ -266,14 +266,14 @@ def select.relay(
             case None{}:
               Chan.send(Unit, done, Unit{})
             case Some{x}:
-              do IO<Bool>:
-                ok : Bool <- Chan.send(U32 & A, out, (i, x))
+              do IO<Result<&1, &1, Unit, Unit>>:
+                ok : Result<&1, &1, U32 & A, Unit> <- Chan.send(U32 & A, out, (i, x))
                 select.relay(A, p, i, src, out, done, RSent{ok})
         case RSent{ok}:
           match ok:
-            case True{}:
+            case Done{u}:
               select.relay(A, p, i, src, out, done, RWait{})
-            case False{}:
+            case Fail{held}:
               Chan.send(Unit, done, Unit{})
 
 # ponytail: relay fuel is the largest Nat literal, and a value takes three
@@ -287,7 +287,7 @@ def select.start(
       IO.pure(Nat, 0n)
     case src <> rest:
       do IO<Nat>:
-        IO.spawn(Bool, select.relay(A, 4294967295n, i, src, out, done, RWait{}))
+        IO.spawn(Result<&1, &1, Unit, Unit>, select.relay(A, 4294967295n, i, src, out, done, RWait{}))
         n : Nat <- select.start(A, rest, (i + 1 : U32), out, done)
         return 1n+n
 
@@ -338,7 +338,7 @@ def timeout(-A: Type, ms: U32, act: IO(A)) -> IO(Maybe<&1, A>):
   do IO<Maybe<&1, A>>:
     chan : Chan(Maybe<&1, A>) <- Chan.new(Maybe<&1, A>, 0)
     +c : Chan(Maybe<&1, A>) = chan
-    IO.spawn(Bool, IO.bind(A, Bool, act, x => Chan.send(Maybe<&1, A>, c, Some{x})))
-    IO.spawn(Bool, IO.bind(Unit, Bool, IO.sleep(ms), u => Chan.send(Maybe<&1, A>, c, None{})))
+    IO.spawn(Result<&1, &1, Maybe<&1, A>, Unit>, IO.bind(A, Result<&1, &1, Maybe<&1, A>, Unit>, act, x => Chan.send(Maybe<&1, A>, c, Some{x})))
+    IO.spawn(Result<&1, &1, Maybe<&1, A>, Unit>, IO.bind(Unit, Result<&1, &1, Maybe<&1, A>, Unit>, IO.sleep(ms), u => Chan.send(Maybe<&1, A>, c, None{})))
     got : Maybe<&1, Maybe<&1, A>> <- Chan.recv(Maybe<&1, A>, c)
     timeout.won(A, c, got)

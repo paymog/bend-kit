@@ -1,10 +1,10 @@
 # ZIP reader
 
 ```bend
-import bend-kit-archive@0.2.0.0/archive.bend as Archive
+import bend-kit-archive@0.5.1.1/archive.bend as Archive
 ```
 
-`archive.bend` imports `bend-kit-zlib@0.1.6.0` for DEFLATE, not `zlib@0.2.0.0`. It imports `bend-kit-hash@0.1.0.0` for CRC-32. Pass `Bytes` from the bytes module the entry file imports. DEFLATE needs `libz` (`BEND_LIBZ`).
+`archive.bend` imports `bend-kit-bytes@0.3.3.0` for `Bytes`. It imports `bend-kit-zlib@0.5.1.1` for DEFLATE and `bend-kit-hash@0.3.0.4` for CRC-32. DEFLATE needs `libz` (`BEND_LIBZ`).
 
 
 `Archive.read(max, input)` reads a ZIP archive from `Bytes.Bytes`. It returns entries in central-directory order. Each `Archive.Entry` holds the raw byte name, decoded byte data, compression method, and CRC-32. It never extracts paths or writes files.

@@ -4,6 +4,8 @@ This times arithmetic on each `int` type and compares it against native integers
 
 ## Run
 
+Run these commands from `int/bench/`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
@@ -63,6 +65,7 @@ Every program prints the same checksum:
 ## Caveats
 
 - Bend times itself with `Time.mono`, a nanosecond clock.
+- Bend reads the stop time after it formats and prints the checksum. The measured time includes that work.
 - The small-type loops take their seed from the clock (`one(t)`), so the compiler cannot fold them at build time.
 - The C backend holds a known `Word(64n)` as 64 words, and a function with more than 247 live words does not build (bendlang/bend#1069). A loop that copies four `U64` values hits that limit, so `rem` walks a prebuilt list.
 - One machine, one thread.

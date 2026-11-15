@@ -84,7 +84,7 @@ def stopped(result: Maybe<&1, Unit>, file: File) -> IO(File):
 
 def cooperative.work(file: File, stop: Chan(Unit), ready: Chan(Unit)) -> IO(File):
   do IO<File>:
-    announced : Bool <- Chan.send(Unit, ready, Unit{})
+    announced : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, ready, Unit{})
     result : Maybe<&1, Unit> <- Chan.recv(Unit, stop)
     stopped(result, file)
 
@@ -107,19 +107,21 @@ def cooperative(+path: String) -> IO(Unit):
     receive(Unit, other)
     IO.print("SERVER_WORK_DONE")
 
-def delivery(sent: Bool) -> IO(Unit):
+def delivery(sent: Result<&1, &1, File, Unit>) -> IO(Unit):
   match sent:
-    case True{}:
+    case Done{u}:
       IO.die(Unit, 1, "closed result channel accepted a File")
-    case False{}:
-      IO.print("AFFINE_RESULT_DROPPED")
+    case Fail{file}:
+      do IO<Unit>:
+        File.close(file)
+        IO.print("AFFINE_RESULT_CLOSED")
 
 def deliver(file: File, reply: Chan(File), go: Chan(Unit), finished: Chan(Unit)) -> IO(Unit):
   do IO<Unit>:
     receive(Unit, go)
-    sent : Bool <- Chan.send(File, reply, file)
+    sent : Result<&1, &1, File, Unit> <- Chan.send(File, reply, file)
     delivery(sent)
-    reported : Bool <- Chan.send(Unit, finished, Unit{})
+    reported : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, finished, Unit{})
     return Unit{}
 
 def abandoned(+path: String) -> IO(Unit):
@@ -134,7 +136,7 @@ def abandoned(+path: String) -> IO(Unit):
     +finished : Chan(Unit) = finished0
     IO.spawn(Unit, deliver(committed, reply, go, finished))
     Chan.close(File, reply)
-    sent : Bool <- Chan.send(Unit, go, Unit{})
+    sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, go, Unit{})
     receive(Unit, finished)
     IO.print("INSPECT_OPEN_FILES")
     IO.sleep(1500)

@@ -4,6 +4,8 @@ This times 2^24 xoshiro128** draws (`Rand.next`) from one fixed state, in Bend a
 
 ## Run
 
+Run these commands from `random/bench/`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs

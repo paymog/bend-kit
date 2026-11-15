@@ -1,238 +1,45 @@
-# DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over byte strings, plus gzip, zstd, and brotli through the C libraries. Source: https://github.com/paymog/bend-kit/tree/main/zlib
+# DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over Bytes, plus gzip, zstd, and brotli through the C libraries. Source: https://github.com/paymog/bend-kit/tree/main/zlib
 import Base
-import bend-kit-hash@0.1.0.0/hash.bend as Hash
-
-# Bytes are one Char per octet (0..255), as everywhere in bend-kit.
-
-def byte(h: Char) -> U32:
-  Chr{c} = h
-  c
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bits@0.1.0.1/bits.bend as Bits
+import bend-kit-hash@0.3.0.4/hash.bend as Hash
 
 def bits(+n: U32) -> Nat:
   U32.to_nat(n)
 
-def mask(+n: U32) -> U32:
-  (U32.shln(1, bits(n)) - 1 : U32)
+# Bit reader. bad: a read ran past the end, so the input was cut short.
+type Br is Type:
+  Br{r: Bits.Reader, bad: Bool}
 
-# Bit reader. over counts bytes read past the end; any over means the input was cut short.
-type Br is Data:
-  Br{s: String, buf: U32, cnt: U32, over: U32}
-
-def br.new(s: String) -> Br:
-  Br{s, 0, 0, 0}
-
-def br.pull(b: Br) -> Br:
-  Br{s, +buf, +cnt, +over} = b
-  match s:
-    case SNil{}:
-      Br{SNil{}, buf, (cnt + 8 : U32), (over + 1 : U32)}
-    case SCon{h, t}:
-      Br{t, U32.or(buf, U32.shln(byte(h), bits(cnt))), (cnt + 8 : U32), over}
-
-def br.pull.if(b: Br, short: Bool) -> Br:
-  match short:
-    case True{}:
-      br.pull(b)
-    case False{}:
-      b
-
-def br.short(+b: Br, +n: U32) -> Bool:
-  Br{s, buf, +cnt, over} = b
-  U32.is_lt(cnt, n)
-
-# n is at most 16, so three bytes always fill the buffer.
-def br.fill(fuel: Nat, +b: Br, +n: U32) -> Br:
-  match fuel:
-    case 0n:
-      b
-    case 1n+f:
-      br.fill(f, br.pull.if(b, br.short(b, n)), n)
-
-def br.cut(b: Br, +n: U32) -> Br & U32:
-  Br{s, +buf, cnt, over} = b
-  (Br{s, U32.shrn(buf, bits(n)), (cnt - n : U32), over}, U32.and(buf, mask(n)))
+def br.got(+bad: Bool, rm: Bits.Reader & Maybe<&2, U32>) -> Br & U32:
+  (r, m) = rm
+  match m:
+    case None{}:
+      (Br{r, True{}}, 0)
+    case Some{v}:
+      (Br{r, bad}, v)
 
 def br.take(b: Br, +n: U32) -> Br & U32:
-  br.cut(br.fill(3n, b, n), n)
-
-def br.drop.of(r: Br & U32) -> Br:
-  (b, v) = r
-  b
-
-def br.drop(b: Br, +n: U32) -> Br:
-  br.drop.of(br.cut(b, n))
-
-# RFC 1951 §3.2.4: a stored block starts on a byte boundary.
-def br.align(+b: Br) -> Br:
-  Br{s, buf, +cnt, over} = b
-  br.drop(b, U32.mod(cnt, 8))
-
-def br.ok(+b: Br) -> Bool:
-  Br{s, buf, cnt, +over} = b
-  U32.is_eq(over, 0)
-
-def br.bytes(k: Nat, +buf: U32) -> String:
-  match k:
-    case 0n:
-      SNil{}
-    case 1n+p:
-      SCon{Chr{U32.and(buf, 255)}, br.bytes(p, U32.shrn(buf, 8n))}
-
-def br.rest.of(b: Br) -> String:
-  Br{s, +buf, +cnt, over} = b
-  br.bytes(bits(U32.div(cnt, 8)), buf) ++ s
-
-# Whole bytes still in the buffer go back in front of the unread input.
-def br.rest(+b: Br) -> String:
-  br.rest.of(br.align(b))
-
-# Huffman codes as a trie: one step per bit. A read bit picks o (1) or z (0).
-# Bad: two codes collided, so the code set was over-subscribed.
-type Ht is Data:
-  HtNone{}
-  HtBad{}
-  HtLeaf{sym: U32}
-  HtNode{z: Ht, o: Ht}
-
-def ht.left(t: Ht) -> Ht:
-  match t:
-    case HtNode{z, o}:
-      z
-    case HtNone{}:
-      HtNone{}
-    case HtBad{}:
-      HtBad{}
-    case HtLeaf{s}:
-      HtBad{}
-
-def ht.right(t: Ht) -> Ht:
-  match t:
-    case HtNode{z, o}:
-      o
-    case HtNone{}:
-      HtNone{}
-    case HtBad{}:
-      HtBad{}
-    case HtLeaf{s}:
-      HtBad{}
-
-def ht.leaf(t: Ht, +sym: U32) -> Ht:
-  match t:
-    case HtNone{}:
-      HtLeaf{sym}
-    case HtBad{}:
-      HtBad{}
-    case HtLeaf{s}:
-      HtBad{}
-    case HtNode{z, o}:
-      HtBad{}
-
-def ht.ins(path: List<&2, Bool>, +t: Ht, +sym: U32) -> Ht:
-  match path:
-    case Nil{}:
-      ht.leaf(t, sym)
-    case Con{b, rest}:
-      match b:
-        case True{}:
-          HtNode{ht.left(t), ht.ins(rest, ht.right(t), sym)}
-        case False{}:
-          HtNode{ht.ins(rest, ht.left(t), sym), ht.right(t)}
-
-# The code's bits, most significant first: the order the stream sends them.
-def ht.path(n: Nat, +code: U32, acc: List<&2, Bool>) -> List<&2, Bool>:
-  match n:
-    case 0n:
-      acc
-    case 1n+p:
-      ht.path(p, U32.shr(code), Con{U32.is_eq(U32.and(code, 1), 1), acc})
-
-# Canonical codes (RFC 1951 §3.2.2): count lengths, find each length's first code, then assign in symbol order.
-def cnt.add(ar: Array<U32> & U32, +len: U32) -> Array<U32>:
-  (a, v) = ar
-  Array.set(U32, a, len, (v + 1 : U32))
-
-def cnt.go(xs: List<&2, U32>, a: Array<U32>) -> Array<U32>:
-  match xs:
-    case Nil{}:
-      a
-    case Con{+l, t}:
-      cnt.go(t, cnt.add(Array.get(U32, a, l), l))
-
-def nx.set(+i: U32, cv: Array<U32> & U32, n: Array<U32>, +code: U32) -> Array<U32> & Array<U32> & U32:
-  (c, v) = cv
-  +code2 = U32.shl((code + Bool.pick(U32, U32.is_eq(i, 1), 0, v) : U32))
-  (c, Array.set(U32, n, i, code2), code2)
-
-def nx.step(+i: U32, st: Array<U32> & Array<U32> & U32) -> Array<U32> & Array<U32> & U32:
-  (c, n, code) = st
-  nx.set(i, Array.get(U32, c, (i - 1 : U32)), n, code)
-
-def nx.go(k: Nat, +i: U32, st: Array<U32> & Array<U32> & U32) -> Array<U32> & Array<U32> & U32:
-  match k:
-    case 0n:
-      st
-    case 1n+f:
-      nx.go(f, (i + 1 : U32), nx.step(i, st))
-
-def as.put(+l: U32, +sym: U32, nv: Array<U32> & U32, t: Ht) -> Array<U32> & Ht:
-  (n, +code) = nv
-  (Array.set(U32, n, l, (code + 1 : U32)), ht.ins(ht.path(bits(l), code, Nil{}), t, sym))
-
-def as.one.nz(+l: U32, +sym: U32, n: Array<U32>, t: Ht, zero: Bool) -> Array<U32> & Ht:
-  match zero:
-    case True{}:
-      (n, t)
-    case False{}:
-      as.put(l, sym, Array.get(U32, n, l), t)
-
-def as.one(+l: U32, +sym: U32, st: Array<U32> & Ht) -> Array<U32> & Ht:
-  (n, t) = st
-  as.one.nz(l, sym, n, t, U32.is_zero(l))
-
-def as.go(xs: List<&2, U32>, +sym: U32, st: Array<U32> & Ht) -> Array<U32> & Ht:
-  match xs:
-    case Nil{}:
-      st
-    case Con{+l, t}:
-      as.go(t, (sym + 1 : U32), as.one(l, sym, st))
-
-def ht.of(st: Array<U32> & Ht) -> Ht:
-  (n, t) = st
-  t
-
-def ht.assign(xs: List<&2, U32>, st: Array<U32> & Array<U32> & U32) -> Ht:
-  (c, n, code) = st
-  ht.of(as.go(xs, 0, (n, HtNone{})))
-
-# lens[i] is the code length of symbol i; 0 means the symbol is unused.
-def ht.build(+lens: List<&2, U32>) -> Ht:
-  ht.assign(lens, nx.go(15n, 1, (cnt.go(lens, Array.new(U32, 4n, 0)), Array.new(U32, 4n, 0), 0)))
+  Br{r, +bad} = b
+  br.got(bad, Bits.Reader.lsb(r, n))
 
 # No code: 9999, never a symbol.
-def ht.step(z: Ht, o: Ht, bv: Br & U32) -> Ht & Br:
-  (b, +v) = bv
-  (Bool.pick(Ht, U32.is_eq(v, 1), o, z), b)
+def br.sym.got(+bad: Bool, r: Bits.Huff & Bits.Reader & Maybe<&2, U32>) -> Bits.Huff & Br & U32:
+  (h, rd, m) = r
+  match m:
+    case None{}:
+      (h, Br{rd, True{}}, 9999)
+    case Some{v}:
+      (h, Br{rd, bad}, v)
 
-# A code is at most 15 bits (§3.2.7), so 16 steps always reach a leaf or a miss.
-def ht.dec(fuel: Nat, st: Ht & Br) -> Br & U32:
-  match fuel:
-    case 0n:
-      (t, b) = st
-      (b, 9999)
-    case 1n+f:
-      (t, b) = st
-      match t:
-        case HtLeaf{s}:
-          (b, s)
-        case HtNone{}:
-          (b, 9999)
-        case HtBad{}:
-          (b, 9999)
-        case HtNode{z, o}:
-          ht.dec(f, ht.step(z, o, br.take(b, 1)))
+def br.sym(h: Bits.Huff, b: Br) -> Bits.Huff & Br & U32:
+  Br{r, +bad} = b
+  br.sym.got(bad, Bits.Huff.decode(h, r))
 
-def ht.decode(t: Ht, b: Br) -> Br & U32:
-  ht.dec(16n, (t, b))
+# RFC 1951 §3.2.4: a stored block starts on a byte boundary.
+def br.align(b: Br) -> Br:
+  Br{r, bad} = b
+  Br{Bits.Reader.align(r), bad}
 
 def nth(xs: List<&2, U32>, +i: U32) -> U32:
   match xs:
@@ -284,28 +91,67 @@ def dist.extra() -> List<&2, U32>:
   [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]
 
 # RFC 1951 §3.2.6
-def fixed.lit() -> Ht:
-  ht.build(rep(144n, 8, rep(112n, 9, rep(24n, 7, rep(8n, 8, Nil{})))))
+def fixed.lit() -> Maybe<&1, Bits.Huff>:
+  Bits.Huff.from_lens(False{}, rep(144n, 8, rep(112n, 9, rep(24n, 7, rep(8n, 8, Nil{})))))
 
-def fixed.dist() -> Ht:
-  ht.build(rep(30n, 5, Nil{}))
+def fixed.dist() -> Maybe<&1, Bits.Huff>:
+  Bits.Huff.from_lens(False{}, rep(30n, 5, Nil{}))
 
-# Output: the 32 KiB window (indexes wrap), the write position, the byte count, and the bytes, reversed.
-type Ow is Data:
-  Ow{w: U32, n: U32, racc: String}
+# Output: 2^dep words of packed bytes, n of them written. Matches copy from the output itself.
+type Out is Type:
+  Out{buf: Array<U32>, dep: U32, n: U32}
 
-def out.put(win: Array<U32>, +c: U32, o: Ow) -> Array<U32> & Ow:
-  Ow{+w, +n, racc} = o
-  (Array.set(U32, win, w, c), Ow{(w + 1 : U32), (n + 1 : U32), SCon{Chr{c}, racc}})
+def out.fits(+dep: U32, +want: U32) -> Bool:
+  U32.is_le(want, U32.shln(4, bits(dep)))
 
-type Mo is Data:
+def out.dep(f: Nat, fits: Bool, +dep: U32, +want: U32) -> U32:
+  match f:
+    case 0n:
+      dep
+    case 1n+p:
+      match fits:
+        case True{}:
+          dep
+        case False{}:
+          +d = (dep + 1 : U32)
+          out.dep(p, out.fits(d, want), d, want)
+
+def out.grow(fits: Bool, o: Out, +want: U32) -> Out:
+  match fits:
+    case True{}:
+      o
+    case False{}:
+      Out{buf, +dep, +n} = o
+      +d = out.dep(28n, False{}, dep, want)
+      Out{Bytes.dst(Bytes.copy(n, buf, Array.new(U32, bits(d), 0), 0, 0)), d, n}
+
+# The buffer doubles until k more bytes fit, so output is O(total), and it ends as the
+# fewest 2^dep words that hold n, as Bytes expects.
+def out.room(o: Out, +k: U32) -> Out:
+  Out{buf, +dep, +n} = o
+  +want = (n + k : U32)
+  out.grow(out.fits(dep, want), Out{buf, dep, n}, want)
+
+def out.put(o: Out, +c: U32) -> Out:
+  Out{buf, dep, +n} = o
+  Out{Bytes.poke(buf, n, c), dep, (n + 1 : U32)}
+
+def out.size(o: Out) -> Out & U32:
+  Out{buf, dep, +n} = o
+  (Out{buf, dep, n}, n)
+
+def out.bytes(o: Out) -> Bytes.Bytes:
+  Out{buf, dep, n} = o
+  Bytes.Bytes{n, buf}
+
+type Mo is Type:
   MoHead{}
-  MoCodes{lit: Ht, dist: Ht}
+  MoCodes{lit: Bits.Huff, dist: Bits.Huff}
   MoDone{}
   MoBad{}
 
-type Is is Data:
-  Is{br: Br, o: Ow, mode: Mo, last: Bool}
+type Is is Type:
+  Is{br: Br, o: Out, mode: Mo, last: Bool}
 
 def inf.next(last: Bool) -> Mo:
   match last:
@@ -314,50 +160,43 @@ def inf.next(last: Bool) -> Mo:
     case False{}:
       MoHead{}
 
-def inf.bad(win: Array<U32>, b: Br, o: Ow) -> Array<U32> & Is:
-  (win, Is{b, o, MoBad{}, True{}})
+def inf.bad(b: Br, o: Out) -> Is:
+  Is{b, o, MoBad{}, True{}}
 
 # Stored block (§3.2.4): LEN, then NLEN (its complement), then LEN raw bytes.
-def sb.put2(p: Array<U32> & Ow, b: Br) -> Array<U32> & Br & Ow:
-  (a, o) = p
-  (a, b, o)
-
-def sb.put(win: Array<U32>, bv: Br & U32, o: Ow) -> Array<U32> & Br & Ow:
+def sb.put(bv: Br & U32, o: Out) -> Br & Out:
   (b, +c) = bv
-  sb.put2(out.put(win, c, o), b)
+  (b, out.put(o, c))
 
-def sb.byte(st: Array<U32> & Br & Ow) -> Array<U32> & Br & Ow:
-  (win, b, o) = st
-  sb.put(win, br.take(b, 8), o)
-
-def sb.go(k: Nat, st: Array<U32> & Br & Ow) -> Array<U32> & Br & Ow:
+def sb.go(k: Nat, st: Br & Out) -> Br & Out:
   match k:
     case 0n:
       st
     case 1n+f:
-      sb.go(f, sb.byte(st))
+      (b, o) = st
+      sb.go(f, sb.put(br.take(b, 8), o))
 
-def sb.done(t: Array<U32> & Br & Ow, +last: Bool) -> Array<U32> & Is:
-  (win, b, o) = t
-  (win, Is{b, o, inf.next(last), last})
+def sb.done(st: Br & Out, +last: Bool) -> Is:
+  (b, o) = st
+  Is{b, o, inf.next(last), last}
 
-def sb.ok(win: Array<U32>, b: Br, +len: U32, o: Ow, +last: Bool, ok: Bool) -> Array<U32> & Is:
+def sb.ok(ok: Bool, b: Br, +len: U32, o: Out, +last: Bool) -> Is:
   match ok:
     case False{}:
-      inf.bad(win, b, o)
+      inf.bad(b, o)
     case True{}:
-      sb.done(sb.go(bits(len), (win, b, o)), last)
+      sb.done(sb.go(bits(len), (b, out.room(o, len))), last)
 
-def sb.nlen(win: Array<U32>, bv: Br & U32, +len: U32, o: Ow, +last: Bool) -> Array<U32> & Is:
+def sb.nlen(bv: Br & U32, +len: U32, o: Out, +last: Bool) -> Is:
   (b, +nlen) = bv
-  sb.ok(win, b, len, o, last, U32.is_eq(U32.xor(len, 65535), nlen))
+  sb.ok(U32.is_eq(U32.xor(len, 65535), nlen), b, len, o, last)
 
-def sb.len(win: Array<U32>, bv: Br & U32, o: Ow, +last: Bool) -> Array<U32> & Is:
+def sb.len(bv: Br & U32, o: Out, +last: Bool) -> Is:
   (b, +len) = bv
-  sb.nlen(win, br.take(b, 16), len, o, last)
+  sb.nlen(br.take(b, 16), len, o, last)
 
-def inf.stored(win: Array<U32>, b: Br, o: Ow, +last: Bool) -> Array<U32> & Is:
-  sb.len(win, br.take(br.align(b), 16), o, last)
+def inf.stored(b: Br, o: Out, +last: Bool) -> Is:
+  sb.len(br.take(br.align(b), 16), o, last)
 
 # Dynamic block (§3.2.7): code lengths for the code-length code, then the lengths themselves.
 # cl.slot[i]: where symbol i's length sits in the order the stream sends them.
@@ -386,93 +225,116 @@ def cl.read(k: Nat, st: Br & List<&2, U32>) -> Br & List<&2, U32>:
     case 1n+f:
       cl.read(f, cl.one(st))
 
-# Lengths so far (reversed), how many, the last one (for code 16), and whether it went wrong.
-type Cd is Data:
-  Cd{br: Br, acc: List<&2, U32>, n: U32, prev: U32, bad: Bool}
+# The code-length code, lengths so far (reversed), how many, the last one (for code 16), and whether it went wrong.
+type Cd is Type:
+  Cd{h: Bits.Huff, br: Br, acc: List<&2, U32>, n: U32, prev: U32, bad: Bool}
 
-def cd.fill(+b: Br, +acc: List<&2, U32>, +n: U32, +v: U32, +cnt: U32, +total: U32) -> Cd:
-  Bool.pick(Cd, U32.is_lt(total, (n + cnt : U32)), Cd{b, acc, n, v, True{}}, Cd{b, rep(bits(cnt), v, acc), (n + cnt : U32), v, False{}})
+def cd.fill(over: Bool, h: Bits.Huff, b: Br, acc: List<&2, U32>, +n: U32, +v: U32, +cnt: U32) -> Cd:
+  match over:
+    case True{}:
+      Cd{h, b, acc, n, v, True{}}
+    case False{}:
+      Cd{h, b, rep(bits(cnt), v, acc), (n + cnt : U32), v, False{}}
 
-def cd.rep(bv: Br & U32, +v: U32, +base: U32, acc: List<&2, U32>, +n: U32, +total: U32) -> Cd:
+def cd.rep(h: Bits.Huff, bv: Br & U32, +v: U32, +base: U32, acc: List<&2, U32>, +n: U32, +total: U32) -> Cd:
   (b, +e) = bv
-  cd.fill(b, acc, n, v, (base + e : U32), total)
+  +cnt = (base + e : U32)
+  cd.fill(U32.is_lt(total, (n + cnt : U32)), h, b, acc, n, v, cnt)
 
-def cd.prev(b: Br, acc: List<&2, U32>, +n: U32, +prev: U32, +total: U32, ok: Bool) -> Cd:
+def cd.prev(ok: Bool, h: Bits.Huff, b: Br, acc: List<&2, U32>, +n: U32, +prev: U32, +total: U32) -> Cd:
   match ok:
     case False{}:
-      Cd{b, acc, n, prev, True{}}
+      Cd{h, b, acc, n, prev, True{}}
     case True{}:
-      cd.rep(br.take(b, 2), prev, 3, acc, n, total)
+      cd.rep(h, br.take(b, 2), prev, 3, acc, n, total)
 
-def cd.z18(b: Br, acc: List<&2, U32>, +n: U32, +total: U32, ok: Bool) -> Cd:
+def cd.z18(ok: Bool, h: Bits.Huff, b: Br, acc: List<&2, U32>, +n: U32, +total: U32) -> Cd:
   match ok:
     case True{}:
-      cd.rep(br.take(b, 7), 0, 11, acc, n, total)
+      cd.rep(h, br.take(b, 7), 0, 11, acc, n, total)
     case False{}:
-      Cd{b, acc, n, 0, True{}}
+      Cd{h, b, acc, n, 0, True{}}
 
-def cd.z17(b: Br, acc: List<&2, U32>, +n: U32, +s: U32, +total: U32, ok: Bool) -> Cd:
+def cd.z17(ok: Bool, h: Bits.Huff, b: Br, acc: List<&2, U32>, +n: U32, +s: U32, +total: U32) -> Cd:
   match ok:
     case True{}:
-      cd.rep(br.take(b, 3), 0, 3, acc, n, total)
+      cd.rep(h, br.take(b, 3), 0, 3, acc, n, total)
     case False{}:
-      cd.z18(b, acc, n, total, U32.is_eq(s, 18))
+      cd.z18(U32.is_eq(s, 18), h, b, acc, n, total)
 
-def cd.c16(b: Br, acc: List<&2, U32>, +n: U32, +prev: U32, +s: U32, +total: U32, ok: Bool) -> Cd:
+def cd.c16(ok: Bool, h: Bits.Huff, b: Br, acc: List<&2, U32>, +n: U32, +prev: U32, +s: U32, +total: U32) -> Cd:
   match ok:
     case True{}:
-      cd.prev(b, acc, n, prev, total, U32.is_lt(0, n))
+      cd.prev(U32.is_lt(0, n), h, b, acc, n, prev, total)
     case False{}:
-      cd.z17(b, acc, n, s, total, U32.is_eq(s, 17))
+      cd.z17(U32.is_eq(s, 17), h, b, acc, n, s, total)
 
-def cd.lit(b: Br, acc: List<&2, U32>, +n: U32, +prev: U32, +s: U32, +total: U32, ok: Bool) -> Cd:
+def cd.lit(ok: Bool, h: Bits.Huff, b: Br, acc: List<&2, U32>, +n: U32, +prev: U32, +s: U32, +total: U32) -> Cd:
   match ok:
     case True{}:
-      Cd{b, Con{s, acc}, (n + 1 : U32), s, False{}}
+      Cd{h, b, Con{s, acc}, (n + 1 : U32), s, False{}}
     case False{}:
-      cd.c16(b, acc, n, prev, s, total, U32.is_eq(s, 16))
+      cd.c16(U32.is_eq(s, 16), h, b, acc, n, prev, s, total)
 
-def cd.sym(bv: Br & U32, acc: List<&2, U32>, +n: U32, +prev: U32, +total: U32) -> Cd:
-  (b, +s) = bv
-  cd.lit(b, acc, n, prev, s, total, U32.is_lt(s, 16))
+# A + binder in a nested tuple does not check (bendlang/bend#1077), so a helper takes it.
+def cd.sym.at(h: Bits.Huff, b: Br, +s: U32, acc: List<&2, U32>, +n: U32, +prev: U32, +total: U32) -> Cd:
+  cd.lit(U32.is_lt(s, 16), h, b, acc, n, prev, s, total)
 
-def cd.step.go(+cl: Ht, +total: U32, stop: Bool, cs: Cd) -> Cd:
+def cd.sym(r: Bits.Huff & Br & U32, acc: List<&2, U32>, +n: U32, +prev: U32, +total: U32) -> Cd:
+  (h, b, s) = r
+  cd.sym.at(h, b, s, acc, n, prev, total)
+
+def cd.step(stop: Bool, h: Bits.Huff, b: Br, acc: List<&2, U32>, +n: U32, +prev: U32, +bad: Bool, +total: U32) -> Cd:
   match stop:
-    case False{}:
-      Cd{b, acc, +n, +prev, bad} = cs
-      cd.sym(ht.decode(cl, b), acc, n, prev, total)
     case True{}:
-      Cd{b, acc, n, prev, bad} = cs
-      Cd{b, acc, n, prev, bad}
-
-def cd.stop(+st: Cd, +total: U32) -> Bool:
-  Cd{b, acc, +n, prev, +bad} = st
-  Bool.or(bad, U32.is_le(total, n))
+      Cd{h, b, acc, n, prev, bad}
+    case False{}:
+      cd.sym(br.sym(h, b), acc, n, prev, total)
 
 # Each step adds at least one length, so total steps suffice.
-def cd.go(k: Nat, +cl: Ht, +total: U32, +st: Cd) -> Cd:
+def cd.go(k: Nat, +total: U32, st: Cd) -> Cd:
   match k:
     case 0n:
       st
     case 1n+f:
-      cd.go(f, cl, total, cd.step.go(cl, total, cd.stop(st, total), st))
+      Cd{h, b, acc, +n, +prev, +bad} = st
+      cd.go(f, total, cd.step(Bool.or(bad, U32.is_le(total, n)), h, b, acc, n, prev, bad, total))
 
-def dyn.tables(b: Br, +lens: List<&2, U32>, +hlit: U32, bad: Bool) -> Br & Mo:
+def dyn.dist(lit: Bits.Huff, m: Maybe<&1, Bits.Huff>) -> Mo:
+  match m:
+    case None{}:
+      MoBad{}
+    case Some{dist}:
+      MoCodes{lit, dist}
+
+def dyn.mo(l: Maybe<&1, Bits.Huff>, d: Maybe<&1, Bits.Huff>) -> Mo:
+  match l:
+    case None{}:
+      MoBad{}
+    case Some{lit}:
+      dyn.dist(lit, d)
+
+def dyn.tables(bad: Bool, b: Br, +lens: List<&2, U32>, +hlit: U32) -> Br & Mo:
   match bad:
     case True{}:
       (b, MoBad{})
     case False{}:
-      (b, MoCodes{ht.build(take.n(bits(hlit), lens)), ht.build(drop.n(bits(hlit), lens))})
+      (b, dyn.mo(Bits.Huff.from_lens(False{}, take.n(bits(hlit), lens)), Bits.Huff.from_lens(False{}, drop.n(bits(hlit), lens))))
 
 def dyn.done(st: Cd, +hlit: U32, +total: U32) -> Br & Mo:
-  Cd{b, acc, +n, prev, +bad} = st
-  dyn.tables(b, List.reverse(&2, U32, acc), hlit, Bool.or(bad, Bool.not(U32.is_eq(n, total))))
+  Cd{h, b, acc, +n, prev, +bad} = st
+  dyn.tables(Bool.or(bad, Bool.not(U32.is_eq(n, total))), b, List.reverse(&2, U32, acc), hlit)
+
+def dyn.cl(m: Maybe<&1, Bits.Huff>, b: Br, +hlit: U32, +total: U32) -> Br & Mo:
+  match m:
+    case None{}:
+      (b, MoBad{})
+    case Some{h}:
+      dyn.done(cd.go(bits(total), total, Cd{h, b, Nil{}, 0, 0, False{}}), hlit, total)
 
 def dyn.lens(st: Br & List<&2, U32>, +hlit: U32, +hdist: U32) -> Br & Mo:
   (b, acc) = st
-  +total = (hlit + hdist : U32)
-  +clens = cl.place(cl.slot(), List.reverse(&2, U32, acc))
-  dyn.done(cd.go(bits(total), ht.build(clens), total, Cd{b, Nil{}, 0, 0, False{}}), hlit, total)
+  dyn.cl(Bits.Huff.from_lens(False{}, cl.place(cl.slot(), List.reverse(&2, U32, acc))), b, hlit, (hlit + hdist : U32))
 
 def dyn.clen(bv: Br & U32, +hlit: U32, +hdist: U32) -> Br & Mo:
   (b, +hclen) = bv
@@ -489,152 +351,157 @@ def dyn.hlit(bv: Br & U32) -> Br & Mo:
 def dyn.read(b: Br) -> Br & Mo:
   dyn.hlit(br.take(b, 5))
 
-# A match copies len bytes from d back; the window's indexes wrap, so w - d needs no mask.
-def cp.put(av: Array<U32> & U32, o: Ow) -> Array<U32> & Ow:
-  (a, +c) = av
-  out.put(a, c, o)
+# A match copies len bytes from d back in the output, one at a time, so it may overlap itself.
+# ponytail: byte-at-a-time copy; use Bytes.copy when d >= len if long matches dominate.
+def cp.of(+dep: U32, +n: U32, r: Array<U32> & U32) -> Out:
+  (a, +c) = r
+  Out{Bytes.poke(a, n, c), dep, (n + 1 : U32)}
 
-def cp.one(+d: U32, st: Array<U32> & Ow) -> Array<U32> & Ow:
-  (win, o) = st
-  Ow{+w, n, racc} = o
-  cp.put(Array.get(U32, win, (w - d : U32)), Ow{w, n, racc})
+def cp.one(+d: U32, o: Out) -> Out:
+  Out{buf, +dep, +n} = o
+  cp.of(dep, n, Bytes.peek(buf, (n - d : U32)))
 
-def cp.go(k: Nat, +d: U32, st: Array<U32> & Ow) -> Array<U32> & Ow:
+def cp.go(k: Nat, +d: U32, o: Out) -> Out:
   match k:
     case 0n:
-      st
+      o
     case 1n+f:
-      cp.go(f, d, cp.one(d, st))
-
-def inf.codes(p: Array<U32> & Ow, b: Br, +lit: Ht, +dist: Ht, +last: Bool) -> Array<U32> & Is:
-  (win, o) = p
-  (win, Is{b, o, MoCodes{lit, dist}, last})
-
-def ow.n(+o: Ow) -> U32:
-  Ow{w, +n, racc} = o
-  n
+      cp.go(f, d, cp.one(d, o))
 
 # RFC 1951 §3.2.5: a distance may not reach before the first byte out.
-def inf.far(win: Array<U32>, b: Br, +o: Ow, +len: U32, +d: U32, +lit: Ht, +dist: Ht, +last: Bool, ok: Bool) -> Array<U32> & Is:
+def inf.far(ok: Bool, lit: Bits.Huff, dist: Bits.Huff, b: Br, +len: U32, +d: U32, o: Out, +last: Bool) -> Is:
   match ok:
     case False{}:
-      inf.bad(win, b, o)
+      inf.bad(b, o)
     case True{}:
-      inf.codes(cp.go(bits(len), d, (win, o)), b, lit, dist, last)
+      Is{b, cp.go(bits(len), d, out.room(o, len)), MoCodes{lit, dist}, last}
 
-def inf.dx(win: Array<U32>, bv: Br & U32, +db: U32, +len: U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool) -> Array<U32> & Is:
+def inf.dn(lit: Bits.Huff, dist: Bits.Huff, b: Br, +len: U32, +d: U32, r: Out & U32, +last: Bool) -> Is:
+  (o, +n) = r
+  inf.far(U32.is_le(d, n), lit, dist, b, len, d, o, last)
+
+def inf.dx(bv: Br & U32, +db: U32, +len: U32, lit: Bits.Huff, dist: Bits.Huff, o: Out, +last: Bool) -> Is:
   (b, +e) = bv
-  +d = (db + e : U32)
-  inf.far(win, b, o, len, d, lit, dist, last, U32.is_le(d, ow.n(o)))
+  inf.dn(lit, dist, b, len, (db + e : U32), out.size(o), last)
 
-def inf.ds(win: Array<U32>, b: Br, +ds: U32, +len: U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool, ok: Bool) -> Array<U32> & Is:
+def inf.ds(ok: Bool, lit: Bits.Huff, dist: Bits.Huff, b: Br, +ds: U32, +len: U32, o: Out, +last: Bool) -> Is:
   match ok:
     case False{}:
-      inf.bad(win, b, o)
+      inf.bad(b, o)
     case True{}:
-      inf.dx(win, br.take(b, nth(dist.extra(), ds)), nth(dist.base(), ds), len, o, lit, dist, last)
+      inf.dx(br.take(b, nth(dist.extra(), ds)), nth(dist.base(), ds), len, lit, dist, o, last)
 
-def inf.d(win: Array<U32>, bv: Br & U32, +len: U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool) -> Array<U32> & Is:
-  (b, +ds) = bv
-  inf.ds(win, b, ds, len, o, lit, dist, last, U32.is_lt(ds, 30))
+# A + binder in a nested tuple does not check (bendlang/bend#1077), so a helper takes it.
+def inf.d.at(dist: Bits.Huff, b: Br, +ds: U32, +len: U32, lit: Bits.Huff, o: Out, +last: Bool) -> Is:
+  inf.ds(U32.is_lt(ds, 30), lit, dist, b, ds, len, o, last)
 
-def inf.lx(win: Array<U32>, bv: Br & U32, +lb: U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool) -> Array<U32> & Is:
+def inf.d(r: Bits.Huff & Br & U32, +len: U32, lit: Bits.Huff, o: Out, +last: Bool) -> Is:
+  (dist, b, ds) = r
+  inf.d.at(dist, b, ds, len, lit, o, last)
+
+def inf.lx(bv: Br & U32, +lb: U32, lit: Bits.Huff, dist: Bits.Huff, o: Out, +last: Bool) -> Is:
   (b, +e) = bv
-  inf.d(win, ht.decode(dist, b), (lb + e : U32), o, lit, dist, last)
+  inf.d(br.sym(dist, b), (lb + e : U32), lit, o, last)
 
-def inf.ls(win: Array<U32>, b: Br, +s: U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool, ok: Bool) -> Array<U32> & Is:
+def inf.ls(ok: Bool, lit: Bits.Huff, dist: Bits.Huff, b: Br, +s: U32, o: Out, +last: Bool) -> Is:
   match ok:
     case False{}:
-      inf.bad(win, b, o)
+      inf.bad(b, o)
     case True{}:
       +i = (s - 257 : U32)
-      inf.lx(win, br.take(b, nth(len.extra(), i)), nth(len.base(), i), o, lit, dist, last)
+      inf.lx(br.take(b, nth(len.extra(), i)), nth(len.base(), i), lit, dist, o, last)
 
-def inf.end(win: Array<U32>, b: Br, +s: U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool, eob: Bool) -> Array<U32> & Is:
+def inf.end(eob: Bool, lit: Bits.Huff, dist: Bits.Huff, b: Br, +s: U32, o: Out, +last: Bool) -> Is:
   match eob:
     case True{}:
-      (win, Is{b, o, inf.next(last), last})
+      Is{b, o, inf.next(last), last}
     case False{}:
-      inf.ls(win, b, s, o, lit, dist, last, U32.is_le(s, 285))
+      inf.ls(U32.is_le(s, 285), lit, dist, b, s, o, last)
 
-def inf.lit(win: Array<U32>, b: Br, +s: U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool, ok: Bool) -> Array<U32> & Is:
+def inf.lit(ok: Bool, lit: Bits.Huff, dist: Bits.Huff, b: Br, +s: U32, o: Out, +last: Bool) -> Is:
   match ok:
     case True{}:
-      inf.codes(out.put(win, s, o), b, lit, dist, last)
+      Is{b, out.put(out.room(o, 1), s), MoCodes{lit, dist}, last}
     case False{}:
-      inf.end(win, b, s, o, lit, dist, last, U32.is_eq(s, 256))
+      inf.end(U32.is_eq(s, 256), lit, dist, b, s, o, last)
 
-def inf.sym(win: Array<U32>, bv: Br & U32, +o: Ow, +lit: Ht, +dist: Ht, +last: Bool) -> Array<U32> & Is:
-  (b, +s) = bv
-  inf.lit(win, b, s, o, lit, dist, last, U32.is_lt(s, 256))
+# A + binder in a nested tuple does not check (bendlang/bend#1077), so a helper takes it.
+def inf.sym.at(lit: Bits.Huff, b: Br, +s: U32, dist: Bits.Huff, o: Out, +last: Bool) -> Is:
+  inf.lit(U32.is_lt(s, 256), lit, dist, b, s, o, last)
 
-def inf.dyn(win: Array<U32>, bm: Br & Mo, o: Ow, +last: Bool) -> Array<U32> & Is:
+def inf.sym(r: Bits.Huff & Br & U32, dist: Bits.Huff, o: Out, +last: Bool) -> Is:
+  (lit, b, s) = r
+  inf.sym.at(lit, b, s, dist, o, last)
+
+def inf.dyn(bm: Br & Mo, o: Out, +last: Bool) -> Is:
   (b, m) = bm
-  (win, Is{b, o, m, last})
+  Is{b, o, m, last}
 
-def inf.t2(win: Array<U32>, b: Br, o: Ow, +last: Bool, is2: Bool) -> Array<U32> & Is:
+def inf.t2(is2: Bool, b: Br, o: Out, +last: Bool) -> Is:
   match is2:
     case True{}:
-      inf.dyn(win, dyn.read(b), o, last)
+      inf.dyn(dyn.read(b), o, last)
     case False{}:
-      inf.bad(win, b, o)
+      inf.bad(b, o)
 
-def inf.t1(win: Array<U32>, b: Br, o: Ow, +last: Bool, +t: U32, is1: Bool) -> Array<U32> & Is:
+def inf.t1(is1: Bool, b: Br, o: Out, +last: Bool, +t: U32) -> Is:
   match is1:
     case True{}:
-      (win, Is{b, o, MoCodes{fixed.lit(), fixed.dist()}, last})
+      Is{b, o, dyn.mo(fixed.lit(), fixed.dist()), last}
     case False{}:
-      inf.t2(win, b, o, last, U32.is_eq(t, 2))
+      inf.t2(U32.is_eq(t, 2), b, o, last)
 
-def inf.t0(win: Array<U32>, b: Br, o: Ow, +last: Bool, +t: U32, is0: Bool) -> Array<U32> & Is:
+def inf.t0(is0: Bool, b: Br, o: Out, +last: Bool, +t: U32) -> Is:
   match is0:
     case True{}:
-      inf.stored(win, b, o, last)
+      inf.stored(b, o, last)
     case False{}:
-      inf.t1(win, b, o, last, t, U32.is_eq(t, 1))
+      inf.t1(U32.is_eq(t, 1), b, o, last, t)
 
 # §3.2.3: BFINAL, then BTYPE.
-def inf.head(win: Array<U32>, bv: Br & U32, o: Ow) -> Array<U32> & Is:
+def inf.head(bv: Br & U32, o: Out) -> Is:
   (b, +v) = bv
   +t = U32.shr(v)
-  inf.t0(win, b, o, U32.is_eq(U32.and(v, 1), 1), t, U32.is_zero(t))
+  inf.t0(U32.is_zero(t), b, o, U32.is_eq(U32.and(v, 1), 1), t)
 
-# Every step reads at least one bit, so 8 steps per input byte always finish a valid stream.
-def inf.go(k: Nat, st: Array<U32> & Is) -> Array<U32> & Is:
+# Every step reads at least one bit or fails, so 8 steps per input byte always finish a valid stream.
+def inf.go(k: Nat, st: Is) -> Is:
   match k:
     case 0n:
       st
     case 1n+f:
-      (win, ist) = st
-      Is{b, o, mode, +last} = ist
+      Is{b, o, mode, +last} = st
       match mode:
         case MoHead{}:
-          inf.go(f, inf.head(win, br.take(b, 3), o))
-        case MoCodes{+lit, +dist}:
-          inf.go(f, inf.sym(win, ht.decode(lit, b), o, lit, dist, last))
+          inf.go(f, inf.head(br.take(b, 3), o))
+        case MoCodes{lit, dist}:
+          inf.go(f, inf.sym(br.sym(lit, b), dist, o, last))
         case MoDone{}:
-          (win, Is{b, o, MoDone{}, last})
+          Is{b, o, MoDone{}, last}
         case MoBad{}:
-          (win, Is{b, o, MoBad{}, last})
+          Is{b, o, MoBad{}, last}
 
-# out: the bytes; rest: the input after the stream; n: len(out) mod 2^32.
-type Inflated is Data:
-  Inflated{out: String, rest: String, n: U32}
+# out: the bytes; src: the input back; at: the first byte after the stream.
+type Inflated is Type:
+  Inflated{out: Bytes.Bytes, src: Bytes.Bytes, at: U32}
 
-def inf.fin(ok: Bool, b: Br, o: Ow) -> Maybe<&2, Inflated>:
-  match ok:
-    case False{}:
-      None{}
+def inf.done(r: Bytes.Bytes & U32, o: Out) -> Maybe<&1, Inflated>:
+  (src, +pos) = r
+  Some{Inflated{out.bytes(o), src, ((pos + 7) >> 3n : U32)}}
+
+def inf.fin(b: Br, o: Out) -> Maybe<&1, Inflated>:
+  Br{r, bad} = b
+  match bad:
     case True{}:
-      Ow{w, n, racc} = o
-      Some{Inflated{String.reverse(racc), br.rest(b), n}}
+      None{}
+    case False{}:
+      inf.done(Bits.Reader.finish(r), o)
 
-def inf.result(st: Array<U32> & Is) -> Maybe<&2, Inflated>:
-  (win, ist) = st
-  Is{+b, o, mode, last} = ist
+def inf.result(st: Is) -> Maybe<&1, Inflated>:
+  Is{b, o, mode, last} = st
   match mode:
     case MoDone{}:
-      inf.fin(br.ok(b), b, o)
+      inf.fin(b, o)
     case MoHead{}:
       None{}
     case MoCodes{l, d}:
@@ -642,235 +509,250 @@ def inf.result(st: Array<U32> & Is) -> Maybe<&2, Inflated>:
     case MoBad{}:
       None{}
 
-def inflate.rest(+s: String) -> Maybe<&2, Inflated>:
-  inf.result(inf.go(Nat.add(Nat.mul(String.length(s), 8n), 8n), (Array.new(U32, 15n, 0), Is{br.new(s), Ow{0, 0, ""}, MoHead{}, False{}})))
+def inf.start(ok: Bool, +len: U32, buf: Array<U32>, +at: U32) -> Maybe<&1, Inflated>:
+  match ok:
+    case False{}:
+      None{}
+    case True{}:
+      +fuel = Nat.add(Nat.mul(bits((len - at : U32)), 8n), 8n)
+      inf.result(inf.go(fuel, Is{Br{Bits.Reader{len, buf, (at << 3n : U32)}, False{}}, Out{Array.new(U32, 0n, 0), 0, 0}, MoHead{}, False{}}))
 
-def inflate.out(m: Maybe<&2, Inflated>) -> Maybe<&2, String>:
+# A raw DEFLATE stream that starts at byte at.
+def inflate.at(b: Bytes.Bytes, +at: U32) -> Maybe<&1, Inflated>:
+  Bytes.Bytes{+len, buf} = b
+  inf.start(U32.is_le(at, len), len, buf, at)
+
+def inflate.out(m: Maybe<&1, Inflated>) -> Maybe<&1, Bytes.Bytes>:
   match m:
     case None{}:
       None{}
-    case Some{Inflated{out, rest, n}}:
+    case Some{Inflated{out, src, at}}:
       Some{out}
 
 # Raw DEFLATE. None: malformed or cut short.
-def inflate(+s: String) -> Maybe<&2, String>:
-  inflate.out(inflate.rest(s))
+def inflate(b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
+  inflate.out(inflate.at(b, 0))
 
-# Checksum views for byte strings; hash owns the algorithms.
-def crc32(s: String) -> U32:
-  Hash.crc32.str(s)
+def holds(m: Maybe<&2, U32>, +v: U32) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{+x}:
+      U32.is_eq(x, v)
 
-def adler32(s: String) -> U32:
-  Hash.adler32.str(s)
-
-# Little- and big-endian 32-bit words at the front of s.
-def le32(s: String) -> Maybe<&2, U32>:
-  match s:
-    case SCon{Chr{+a}, SCon{Chr{+b}, SCon{Chr{+c}, SCon{Chr{+d}, t}}}}:
-      Some{U32.or(U32.or(a, U32.shln(b, 8n)), U32.or(U32.shln(c, 16n), U32.shln(d, 24n)))}
-    case SNil{}:
-      None{}
-    case SCon{x, y}:
-      None{}
-
-def be32(s: String) -> Maybe<&2, U32>:
-  match s:
-    case SCon{Chr{+a}, SCon{Chr{+b}, SCon{Chr{+c}, SCon{Chr{+d}, t}}}}:
-      Some{U32.or(U32.or(U32.shln(a, 24n), U32.shln(b, 16n)), U32.or(U32.shln(c, 8n), d))}
-    case SNil{}:
-      None{}
-    case SCon{x, y}:
+def keep(ok: Bool, b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
+  match ok:
+    case True{}:
+      Some{b}
+    case False{}:
       None{}
 
 def flag(+f: U32, +bit: U32) -> Bool:
   Bool.not(U32.is_zero(U32.and(f, bit)))
 
-def check(ok: Bool, +out: String) -> Maybe<&2, String>:
+# RFC 1952 §2.3: after the fixed 10 bytes, optional FEXTRA, FNAME, FCOMMENT, FHCRC.
+# Each step takes the buffer and the offset so far; None once a field runs past the end.
+def gz.xlen(+off: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
+  (b, m) = r
+  match m:
+    case None{}:
+      (b, None{})
+    case Some{+x}:
+      (b, Some{(off + 2 + x : U32)})
+
+def gz.fextra.at(m: Maybe<&2, U32>, b: Bytes.Bytes) -> Bytes.Bytes & Maybe<&2, U32>:
+  match m:
+    case None{}:
+      (b, None{})
+    case Some{+off}:
+      gz.xlen(off, Bytes.get.u16le(b, off))
+
+def gz.fextra(on: Bool, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
+  match on:
+    case False{}:
+      r
+    case True{}:
+      (b, m) = r
+      gz.fextra.at(m, b)
+
+def gz.zero(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
+  (b, m) = r
+  match m:
+    case None{}:
+      (b, None{})
+    case Some{+i}:
+      (b, Some{(i + 1 : U32)})
+
+def gz.fstr.at(m: Maybe<&2, U32>, b: Bytes.Bytes) -> Bytes.Bytes & Maybe<&2, U32>:
+  match m:
+    case None{}:
+      (b, None{})
+    case Some{+off}:
+      gz.zero(Bytes.find.from(b, SCon{Chr{0}, SNil{}}, off))
+
+# A zero-terminated FNAME or FCOMMENT.
+def gz.fstr(on: Bool, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
+  match on:
+    case False{}:
+      r
+    case True{}:
+      (b, m) = r
+      gz.fstr.at(m, b)
+
+def gz.fhcrc.at(m: Maybe<&2, U32>, b: Bytes.Bytes) -> Bytes.Bytes & Maybe<&2, U32>:
+  match m:
+    case None{}:
+      (b, None{})
+    case Some{+off}:
+      (b, Some{(off + 2 : U32)})
+
+def gz.fhcrc(on: Bool, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Maybe<&2, U32>:
+  match on:
+    case False{}:
+      r
+    case True{}:
+      (b, m) = r
+      gz.fhcrc.at(m, b)
+
+# One member's output, the input back, and the first byte after its trailer.
+type Member is Type:
+  Member{out: Bytes.Bytes, src: Bytes.Bytes, next: U32}
+
+def gz.keep(ok: Bool, out: Bytes.Bytes, src: Bytes.Bytes, +next: U32) -> Maybe<&1, Member>:
   match ok:
     case True{}:
-      Some{out}
+      Some{Member{out, src, next}}
     case False{}:
       None{}
 
-# RFC 1952 §2.3: after the fixed 10 bytes, optional FEXTRA, FNAME, FCOMMENT, FHCRC.
-# hit: the byte just read was the terminating zero.
-def gz.zstr(s: String, hit: Bool) -> Maybe<&2, String>:
-  match s:
-    case SNil{}:
-      match hit:
-        case True{}:
-          Some{SNil{}}
-        case False{}:
-          None{}
-    case SCon{Chr{+c}, t}:
-      match hit:
-        case True{}:
-          Some{SCon{Chr{c}, t}}
-        case False{}:
-          gz.zstr(t, U32.is_zero(c))
+def gz.isize(+ok: Bool, +n: U32, +next: U32, out: Bytes.Bytes, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
+  (src, z) = r
+  gz.keep(Bool.and(ok, holds(z, n)), out, src, next)
 
-def gz.skip(k: Nat, s: String) -> Maybe<&2, String>:
+def gz.crc(r: Bytes.Bytes & U32, +n: U32, +at: U32, c: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
+  (out, +crc) = r
+  (src, m) = c
+  gz.isize(holds(m, crc), n, (at + 8 : U32), out, Bytes.get.u32le(src, (at + 4 : U32)))
+
+def gz.trail(m: Maybe<&1, Inflated>) -> Maybe<&1, Member>:
+  match m:
+    case None{}:
+      None{}
+    case Some{Inflated{out, src, +at}}:
+      Bytes.Bytes{+n, buf} = out
+      gz.crc(Hash.crc32(Bytes.Bytes{n, buf}), n, at, Bytes.get.u32le(src, at))
+
+def gz.body(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
+  (b, m) = r
+  match m:
+    case None{}:
+      None{}
+    case Some{+off}:
+      gz.trail(inflate.at(b, off))
+
+def gz.flags(+f: U32, +p: U32, b: Bytes.Bytes) -> Maybe<&1, Member>:
+  gz.body(gz.fhcrc(flag(f, 2), gz.fstr(flag(f, 16), gz.fstr(flag(f, 8), gz.fextra(flag(f, 4), (b, Some{(p + 10 : U32)}))))))
+
+def gz.magic(ok: Bool, +f: U32, +p: U32, b: Bytes.Bytes) -> Maybe<&1, Member>:
+  match ok:
+    case True{}:
+      gz.flags(f, p, b)
+    case False{}:
+      None{}
+
+# ID1 31, ID2 139, CM 8 (DEFLATE), then FLG.
+def gz.head(+p: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Member>:
+  (b, m) = r
+  match m:
+    case None{}:
+      None{}
+    case Some{+w}:
+      gz.magic(U32.is_eq(U32.and(w, 16777215), 559903), U32.shrn(w, 24n), p, b)
+
+# The member that starts at byte p.
+def gz.member(b: Bytes.Bytes, +p: U32) -> Maybe<&1, Member>:
+  gz.head(p, Bytes.get.u32le(b, p))
+
+# RFC 1952 §2.2: members follow each other until the input ends.
+type Gz is Type:
+  GzMore{acc: Bytes.Bytes, src: Bytes.Bytes, at: U32}
+  GzDone{out: Bytes.Bytes}
+  GzBad{}
+
+def gz.more(more: Bool, acc: Bytes.Bytes, src: Bytes.Bytes, +at: U32) -> Gz:
+  match more:
+    case True{}:
+      GzMore{acc, src, at}
+    case False{}:
+      GzDone{acc}
+
+def gz.step(m: Maybe<&1, Member>, acc: Bytes.Bytes) -> Gz:
+  match m:
+    case None{}:
+      GzBad{}
+    case Some{Member{out, src, +next}}:
+      Bytes.Bytes{+len, buf} = src
+      gz.more(U32.is_lt(next, len), Bytes.append(acc, out), Bytes.Bytes{len, buf}, next)
+
+# Each member takes at least 18 bytes, so one step per byte suffices.
+def gz.go(k: Nat, st: Gz) -> Maybe<&1, Bytes.Bytes>:
   match k:
     case 0n:
-      Some{s}
-    case 1n+p:
-      match s:
-        case SNil{}:
+      None{}
+    case 1n+f:
+      match st:
+        case GzMore{acc, src, +at}:
+          gz.go(f, gz.step(gz.member(src, at), acc))
+        case GzDone{out}:
+          Some{out}
+        case GzBad{}:
           None{}
-        case SCon{h, t}:
-          gz.skip(p, t)
 
-def gz.extra.len(s: String) -> Maybe<&2, String>:
-  match s:
-    case SCon{Chr{+a}, SCon{Chr{+b}, t}}:
-      gz.skip(bits(U32.or(a, U32.shln(b, 8n))), t)
-    case SNil{}:
-      None{}
-    case SCon{x, y}:
-      None{}
-
-def gz.fextra(on: Bool, +s: String) -> Maybe<&2, String>:
-  match on:
-    case True{}:
-      gz.extra.len(s)
-    case False{}:
-      Some{s}
-
-def gz.fstr(on: Bool, +s: String) -> Maybe<&2, String>:
-  match on:
-    case True{}:
-      gz.zstr(s, False{})
-    case False{}:
-      Some{s}
-
-def gz.fhcrc(on: Bool, +s: String) -> Maybe<&2, String>:
-  match on:
-    case True{}:
-      gz.skip(2n, s)
-    case False{}:
-      Some{s}
-
-def gz.flags(+f: U32, s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    s1 : String <- gz.fextra(flag(f, 4), s)
-    s2 : String <- gz.fstr(flag(f, 8), s1)
-    s3 : String <- gz.fstr(flag(f, 16), s2)
-    gz.fhcrc(flag(f, 2), s3)
-
-def gz.head(s: String) -> Maybe<&2, String>:
-  match s:
-    case SCon{Chr{+id1}, SCon{Chr{+id2}, SCon{Chr{+cm}, SCon{Chr{+f}, t}}}}:
-      Bool.pick(Maybe<&2, String>, Bool.and(Bool.and(U32.is_eq(id1, 31), U32.is_eq(id2, 139)), U32.is_eq(cm, 8)), gz.flags(f, String.drop(t, 6n)), None{})
-    case SNil{}:
-      None{}
-    case SCon{x, y}:
-      None{}
-
-def gz.trail2(+out: String, +n: U32, crc: Maybe<&2, U32>, size: Maybe<&2, U32>) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    c : U32 <- crc
-    z : U32 <- size
-    check(Bool.and(U32.is_eq(c, crc32(out)), U32.is_eq(z, n)), out)
-
-def gz.trail(m: Maybe<&2, Inflated>) -> Maybe<&2, String>:
-  match m:
-    case None{}:
-      None{}
-    case Some{Inflated{+out, +rest, +n}}:
-      gz.trail2(out, n, le32(rest), le32(String.drop(rest, 4n)))
-
-def gz.body(m: Maybe<&2, String>) -> Maybe<&2, String>:
-  match m:
-    case None{}:
-      None{}
-    case Some{+s}:
-      gz.trail(inflate.rest(s))
-
-# One gzip member; the CRC-32 and ISIZE must match. None: malformed, cut short, or corrupt.
-# ponytail: bytes after the first member are ignored; loop over members if a server concatenates them.
-def gunzip(s: String) -> Maybe<&2, String>:
-  gz.body(gz.head(s))
+# Every gzip member, concatenated; each CRC-32 and ISIZE must match. None: malformed, cut short, corrupt, or junk after a member.
+def gunzip(b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
+  Bytes.Bytes{+len, buf} = b
+  gz.go(Nat.add(bits(len), 1n), GzMore{Bytes.Bytes{0, Array.new(U32, 0n, 0)}, Bytes.Bytes{len, buf}, 0})
 
 # RFC 1950: CMF and FLG, then DEFLATE, then Adler-32, big-endian.
-def zl.sum(+out: String, a: Maybe<&2, U32>) -> Maybe<&2, String>:
-  match a:
-    case None{}:
-      None{}
-    case Some{+v}:
-      check(U32.is_eq(v, adler32(out)), out)
+def zl.sum(r: Bytes.Bytes & U32, c: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
+  (out, +a) = r
+  (src, m) = c
+  keep(holds(m, a), out)
 
-def zl.trail(m: Maybe<&2, Inflated>) -> Maybe<&2, String>:
+def zl.trail(m: Maybe<&1, Inflated>) -> Maybe<&1, Bytes.Bytes>:
   match m:
     case None{}:
       None{}
-    case Some{Inflated{+out, +rest, n}}:
-      zl.sum(out, be32(rest))
+    case Some{Inflated{out, src, +at}}:
+      zl.sum(Hash.adler32(out), Bytes.get.u32be(src, at))
 
 def zl.ok(+cmf: U32, +flg: U32) -> Bool:
   Bool.and(Bool.and(U32.is_eq(U32.and(cmf, 15), 8), U32.is_le(U32.shrn(cmf, 4n), 7)), Bool.and(U32.is_zero(U32.mod((cmf * 256 + flg : U32), 31)), Bool.not(flag(flg, 32))))
 
-def unzlib(s: String) -> Maybe<&2, String>:
-  match s:
-    case SCon{Chr{+cmf}, SCon{Chr{+flg}, +t}}:
-      Bool.pick(Maybe<&2, String>, zl.ok(cmf, flg), zl.trail(inflate.rest(t)), None{})
-    case SNil{}:
+def zl.go(ok: Bool, b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
+  match ok:
+    case True{}:
+      zl.trail(inflate.at(b, 2))
+    case False{}:
       None{}
-    case SCon{x, y}:
+
+def zl.head(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
+  (b, m) = r
+  match m:
+    case None{}:
       None{}
+    case Some{+h}:
+      zl.go(zl.ok(U32.shrn(h, 8n), U32.and(h, 255)), b)
+
+def unzlib(b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
+  zl.head(Bytes.get.u16be(b, 0))
 
 # DEFLATE encoding: LZ77 over hash chains, then one final fixed-Huffman block (RFC 1951 §3.2.6).
 # ponytail: fixed Huffman only; dynamic trees would cut text output further.
 
-# Bit writer: bits wait in buf, least significant first; racc holds the bytes out, reversed.
-type Bw is Data:
-  Bw{buf: U32, cnt: U32, racc: String}
-
-def bw.emit(w: Bw) -> Bw:
-  Bw{+buf, cnt, racc} = w
-  Bw{U32.shrn(buf, 8n), (cnt - 8 : U32), SCon{Chr{U32.and(buf, 255)}, racc}}
-
-def bw.emit.if(w: Bw, full: Bool) -> Bw:
-  match full:
-    case True{}:
-      bw.emit(w)
-    case False{}:
-      w
-
-def bw.full(+w: Bw) -> Bool:
-  Bw{buf, +cnt, racc} = w
-  U32.is_le(8, cnt)
-
-# A put adds at most 16 bits to at most 7, so two emits drain every whole byte.
-def bw.drain(fuel: Nat, +w: Bw) -> Bw:
-  match fuel:
-    case 0n:
-      w
-    case 1n+f:
-      bw.drain(f, bw.emit.if(w, bw.full(w)))
-
-def bw.put(w: Bw, +v: U32, +n: U32) -> Bw:
-  Bw{buf, +cnt, racc} = w
-  bw.drain(2n, Bw{U32.or(buf, U32.shln(v, bits(cnt))), (cnt + n : U32), racc})
-
-def bw.out(w: Bw) -> String:
-  Bw{buf, cnt, racc} = w
-  String.reverse(racc)
-
-# Seven zero bits push out a partial last byte.
-def bw.done(w: Bw) -> String:
-  bw.out(bw.put(w, 0, 7))
-
-# A Huffman code goes out most significant bit first, so it is reversed before the put.
-def rev(k: Nat, +v: U32, +acc: U32) -> U32:
-  match k:
-    case 0n:
-      acc
-    case 1n+p:
-      rev(p, U32.shr(v), U32.or(U32.shl(acc), U32.and(v, 1)))
-
-def bw.code(w: Bw, cl: U32 & U32) -> Bw:
+def bw.code(w: Bits.Writer, cl: U32 & U32) -> Bits.Writer:
   (+c, +l) = cl
-  bw.put(w, rev(bits(l), c, 0), l)
+  Bits.Writer.lsb(w, l, Bits.rev(bits(l), c, 0))
 
 # RFC 1951 §3.2.6: the fixed code of literal/length symbol s, and its length.
 def fx.hi(+s: U32, lo: Bool) -> U32 & U32:
@@ -912,21 +794,22 @@ def cx.go(bs: List<&2, U32>, es: List<&2, U32>, +v: U32, +i: U32, +best: Cx) -> 
         case Con{+e, et}:
           cx.go(bt, et, v, (i + 1 : U32), Bool.pick(Cx, U32.is_le(b, v), Cx{i, b, e}, best))
 
-def em.len(w: Bw, +len: U32, c: Cx) -> Bw:
-  Cx{+i, +b, +e} = c
-  bw.put(bw.code(w, fx.lit((i + 257 : U32))), (len - b : U32), e)
 
-def em.dist(w: Bw, +d: U32, c: Cx) -> Bw:
+def em.len(w: Bits.Writer, +len: U32, c: Cx) -> Bits.Writer:
   Cx{+i, +b, +e} = c
-  bw.put(bw.put(w, rev(5n, i, 0), 5), (d - b : U32), e)
+  Bits.Writer.lsb(bw.code(w, fx.lit((i + 257 : U32))), e, (len - b : U32))
 
-def em.match(w: Bw, +len: U32, +d: U32) -> Bw:
+def em.dist(w: Bits.Writer, +d: U32, c: Cx) -> Bits.Writer:
+  Cx{+i, +b, +e} = c
+  Bits.Writer.lsb(Bits.Writer.lsb(w, 5, Bits.rev(5n, i, 0)), e, (d - b : U32))
+
+def em.match(w: Bits.Writer, +len: U32, +d: U32) -> Bits.Writer:
   em.dist(em.len(w, len, cx.go(len.base(), len.extra(), len, 0, Cx{0, 3, 0})), d, cx.go(dist.base(), dist.extra(), d, 0, Cx{0, 1, 0}))
 
-def em.lit(w: Bw, +c: U32) -> Bw:
+def em.lit(w: Bits.Writer, +c: U32) -> Bits.Writer:
   bw.code(w, fx.lit(c))
 
-# Match finder: the input, the newest position + 1 per hash, and per position the previous one with its hash (0: none).
+# Match finder: the input bytes, packed, the newest position + 1 per hash, and per position the previous one with its hash (0: none).
 type Lz is Type:
   Lz{src: Array<U32>, head: Array<U32>, prev: Array<U32>}
 
@@ -936,7 +819,7 @@ def lz.at.of(r: Array<U32> & U32, head: Array<U32>, prev: Array<U32>) -> Lz & U3
 
 def lz.at(z: Lz, +i: U32) -> Lz & U32:
   Lz{src, head, prev} = z
-  lz.at.of(Array.get(U32, src, i), head, prev)
+  lz.at.of(Bytes.peek(src, i), head, prev)
 
 def lz.drop(r: Lz & U32) -> Lz:
   (z, v) = r
@@ -1036,14 +919,14 @@ def ch.go(fuel: Nat, st: Ch) -> Ch:
 
 # Encoder: match finder, bit writer, position, input length, and whether bytes are left.
 type Es is Type:
-  Es{z: Lz, w: Bw, i: U32, n: U32, more: Bool}
+  Es{z: Lz, w: Bits.Writer, i: U32, n: U32, more: Bool}
 
-def es.lit.of(r: Lz & U32, w: Bw, +i: U32, +n: U32) -> Es:
+def es.lit.of(r: Lz & U32, w: Bits.Writer, +i: U32, +n: U32) -> Es:
   (z, +c) = r
   +j = (i + 1 : U32)
   Es{z, em.lit(w, c), j, n, U32.is_lt(j, n)}
 
-def es.lit(z: Lz, w: Bw, +i: U32, +n: U32) -> Es:
+def es.lit(z: Lz, w: Bits.Writer, +i: U32, +n: U32) -> Es:
   es.lit.of(lz.at(z, i), w, i, n)
 
 def ins.one(ok: Bool, z: Lz, +j: U32) -> Lz:
@@ -1061,7 +944,7 @@ def ins.go(k: Nat, z: Lz, +j: U32, +n: U32) -> Lz:
     case 1n+f:
       ins.go(f, ins.one(U32.is_le((j + 3 : U32), n), z, j), (j + 1 : U32), n)
 
-def es.emit(hit: Bool, z: Lz, w: Bw, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
+def es.emit(hit: Bool, z: Lz, w: Bits.Writer, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
   match hit:
     case True{}:
       +j = (i + blen : U32)
@@ -1069,18 +952,18 @@ def es.emit(hit: Bool, z: Lz, w: Bw, +i: U32, +n: U32, +blen: U32, +bdist: U32) 
     case False{}:
       es.lit(z, w, i, n)
 
-def es.pick(st: Ch, w: Bw, +n: U32) -> Es:
+def es.pick(st: Ch, w: Bits.Writer, +n: U32) -> Es:
   Ch{z, +i, c, max, +blen, +bdist, go} = st
   es.emit(U32.is_le(3, blen), z, w, i, n, blen, bdist)
 
 # ponytail: greedy parse, 32 chain steps; lazy matching would compress text further.
-def es.chain(r: Lz & U32, w: Bw, +i: U32, +n: U32) -> Es:
+def es.chain(r: Lz & U32, w: Bits.Writer, +i: U32, +n: U32) -> Es:
   (z, +c) = r
   +room = (n - i : U32)
   +max = Bool.pick(U32, U32.is_lt(room, 258), room, 258)
   es.pick(ch.go(32n, Ch{z, i, c, max, 0, 0, ch.ok(i, c, max, 0)}), w, n)
 
-def es.find(short: Bool, z: Lz, w: Bw, +i: U32, +n: U32) -> Es:
+def es.find(short: Bool, z: Lz, w: Bits.Writer, +i: U32, +n: U32) -> Es:
   match short:
     case True{}:
       es.lit(z, w, i, n)
@@ -1100,90 +983,100 @@ def es.go(fuel: Nat, st: Es) -> Es:
         case False{}:
           Es{z, w, i, n, False{}}
 
-def es.out(st: Es) -> String:
+def es.out(st: Es) -> Bits.Writer:
   Es{z, w, i, n, more} = st
-  bw.done(em.lit(w, 256))
+  Bits.Writer.align(em.lit(w, 256))
 
-def slen(s: String, +n: U32) -> U32:
-  match s:
-    case SNil{}:
-      n
-    case SCon{h, t}:
-      slen(t, (n + 1 : U32))
+# One final fixed-Huffman block (BFINAL = 1, BTYPE = 01) after what w holds, padded to a byte.
+def deflate.into(w: Bits.Writer, b: Bytes.Bytes) -> Bits.Writer:
+  Bytes.Bytes{+n, src} = b
+  es.out(es.go(bits(n), Es{Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, Bits.Writer.lsb(w, 3, 3), 0, n, U32.is_lt(0, n)}))
 
-def src.fill(s: String, +i: U32, a: Array<U32>) -> Array<U32>:
-  match s:
-    case SNil{}:
-      a
-    case SCon{h, t}:
-      src.fill(t, (i + 1 : U32), Array.set(U32, a, i, byte(h)))
+# Raw DEFLATE.
+def deflate(b: Bytes.Bytes) -> Bytes.Bytes:
+  Bits.Writer.finish(deflate.into(Bits.Writer.new(), b))
 
-# The smallest depth whose 2^depth slots hold n.
-def depth(k: Nat, +d: Nat, +n: U32) -> Nat:
-  match k:
-    case 0n:
-      d
-    case 1n+f:
-      Bool.pick(Nat, U32.is_le(n, U32.shln(1, d)), d, depth(f, 1n+d, n))
-
-# Raw DEFLATE. The header bits are BFINAL = 1 and BTYPE = 01.
-def deflate(+s: String) -> String:
-  +n = slen(s, 0)
-  src = src.fill(s, 0, Array.new(U32, depth(31n, 0n, n), 0))
-  es.out(es.go(bits(n), Es{Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, Bw{3, 3, ""}, 0, n, U32.is_lt(0, n)}))
-
-def str.of(xs: List<&2, U32>, t: String) -> String:
-  match xs:
-    case Nil{}:
-      t
-    case Con{c, r}:
-      SCon{Chr{c}, str.of(r, t)}
-
-def le32.put(+v: U32, t: String) -> String:
-  str.of([U32.and(v, 255), U32.and(U32.shrn(v, 8n), 255), U32.and(U32.shrn(v, 16n), 255), U32.shrn(v, 24n)], t)
-
-def be32.put(+v: U32, t: String) -> String:
-  str.of([U32.shrn(v, 24n), U32.and(U32.shrn(v, 16n), 255), U32.and(U32.shrn(v, 8n), 255), U32.and(v, 255)], t)
+def gz.put(r: Bytes.Bytes & U32) -> Bytes.Bytes:
+  (b, +crc) = r
+  Bytes.Bytes{+n, buf} = b
+  head = Bits.Writer.lsb(Bits.Writer.lsb(Bits.Writer.lsb(Bits.Writer.new(), 32, 559903), 32, 0), 16, 65280)
+  Bits.Writer.finish(Bits.Writer.lsb(Bits.Writer.lsb(deflate.into(head, Bytes.Bytes{n, buf}), 32, crc), 32, n))
 
 # One gzip member (RFC 1952): no flags, mtime 0, OS unknown.
-def gzip(+s: String) -> String:
-  str.of([31, 139, 8, 0, 0, 0, 0, 0, 0, 255], deflate(s) ++ le32.put(crc32(s), le32.put(slen(s, 0), "")))
+def gzip(b: Bytes.Bytes) -> Bytes.Bytes:
+  gz.put(Hash.crc32(b))
 
-# RFC 1950: CMF 0x78 (32 KiB window), FLG 0x01 (fastest), then DEFLATE, then Adler-32.
-def zlib(+s: String) -> String:
-  str.of([120, 1], deflate(s) ++ be32.put(adler32(s), ""))
+def zl.put(r: Bytes.Bytes & U32) -> Bytes.Bytes:
+  (b, +a) = r
+  Bits.Writer.finish(Bits.Writer.lsb(deflate.into(Bits.Writer.lsb(Bits.Writer.new(), 16, 376), b), 32, Bytes.bswap(a)))
 
-# Zstandard frames (RFC 8878) through libzstd, as (len, words) like Wire.recv.words.
-# Fails with EFBIG when the output passes max bytes, and ENOENT without libzstd.
+# RFC 1950: CMF 0x78 (32 KiB window), FLG 0x01 (fastest), then DEFLATE, then Adler-32, big-endian.
+def zlib(b: Bytes.Bytes) -> Bytes.Bytes:
+  zl.put(Hash.adler32(b))
+
+
+# The C libraries, through packed words at the effect boundary. Call the Bytes wrappers below.
 def zstd.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
-# gzip, zlib, or raw DEFLATE data through libz, selected from the first two bytes. Every gzip member is decoded in turn, as gzip -d does.
-# Fails with EFBIG when the output passes max bytes, and ENOENT without libz.
 def inflate.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
-# One raw DEFLATE stream through libz. Trailing bytes, truncated input and output above max fail.
 def inflate.raw.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
-# One gzip member at level 6 through libz.
 def gzip.words(len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
-# Brotli (RFC 7932) through libbrotlidec. Fails as zstd.words does.
 def brotli.words(max: U32, len: U32, words: Array<U32>) ->
   IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/zlib.c"
   import "./effs/zlib.js"
+
+def words.got(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Result<&1, &1, U32 & String, Bytes.Bytes>:
+  match r:
+    case Fail{e}:
+      Fail{e}
+    case Done{(+len, buf)}:
+      Done{Bytes.Bytes{len, buf}}
+
+def words.run(~eff: U32 -> U32 -> Array<U32> -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>), max: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
+  Bytes.Bytes{+len, buf} = b
+  do IO<Result<&1, &1, U32 & String, Bytes.Bytes>>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- eff(max, len, buf)
+    return words.got(r)
+
+# gzip, zlib, or raw DEFLATE data through libz, selected from the first two bytes. Every gzip member is decoded in turn, as gzip -d does.
+# Each decoder fails with EFBIG when the output passes max bytes, and ENOENT without its library.
+def libz.inflate(max: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
+  words.run(~inflate.words, max, b)
+
+# One raw DEFLATE stream through libz. Trailing bytes, truncated input and output above max fail.
+def libz.inflate.raw(max: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
+  words.run(~inflate.raw.words, max, b)
+
+# One gzip member at level 6 through libz.
+def libz.gzip(b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
+  Bytes.Bytes{+len, buf} = b
+  do IO<Result<&1, &1, U32 & String, Bytes.Bytes>>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- gzip.words(len, buf)
+    return words.got(r)
+
+# Zstandard frames (RFC 8878) through libzstd.
+def zstd(max: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
+  words.run(~zstd.words, max, b)
+
+# Brotli (RFC 7932) through libbrotlidec.
+def brotli(max: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
+  words.run(~brotli.words, max, b)
 
 # A live native decoder. Call dec.finish even after a failed feed to release it.
 type Decoder is Type:
@@ -1219,13 +1112,14 @@ def dec.feed(id: U32, max: U32, len: U32, words: Array<U32>) ->
   import "./effs/zlib.c"
   import "./effs/zlib.js"
 
-# max caps the output of this call, not the total output of the stream.
-def dec.feed.words(d: Decoder, +max: U32, +len: U32, words: Array<U32>) ->
-  IO(Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+# The output of one chunk of input. max caps this call, not the total output of the stream.
+def dec.push(d: Decoder, max: U32, b: Bytes.Bytes) ->
+  IO(Decoder & Result<&1, &1, U32 & String, Bytes.Bytes>):
   Decoder{+id} = d
-  do IO<Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>>>:
-    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec.feed(id, max, len, words)
-    return (Decoder{id}, r)
+  Bytes.Bytes{+len, buf} = b
+  do IO<Decoder & Result<&1, &1, U32 & String, Bytes.Bytes>>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec.feed(id, max, len, buf)
+    return (Decoder{id}, words.got(r))
 
 def dec.finish.id(id: U32) -> IO(Result<&1, &1, U32 & String, Unit>):
   import "./effs/zlib.c"

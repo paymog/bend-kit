@@ -1,0 +1,12 @@
+[package]
+name = "bend-kit-protobuf-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+prost = "0.14"
+
+[[bin]]
+name = "bench"
+path = "bench.rs"

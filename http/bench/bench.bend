@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../http.bend as Http
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def iters() -> Nat:
   20000n

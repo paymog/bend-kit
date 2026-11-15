@@ -1,6 +1,6 @@
 import Base
 import ./csv.bend as Csv
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def strs(fs: List<&1, Bytes.Bytes>) -> List<&2, String>:
   match fs:

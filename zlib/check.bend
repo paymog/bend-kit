@@ -1,13 +1,13 @@
 import Base
 import ./zlib.bend as Z
-import ../bytes/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
-def show(m: Maybe<&2, String>) -> IO(Unit):
+def show(m: Maybe<&1, Bytes.Bytes>) -> IO(Unit):
   match m:
     case None{}:
       IO.print("none")
-    case Some{s}:
-      IO.print(s)
+    case Some{b}:
+      IO.print(Bytes.to_string(b))
 
 def str.of(xs: List<&2, U32>) -> String:
   match xs:
@@ -39,20 +39,12 @@ def wrapped() -> Bytes.Bytes:
 def raw.like_header() -> Bytes.Bytes:
   Bytes.from_string(str.of([120, 0, 0, 255, 255, 1, 1, 0, 254, 255, 65]))
 
-def dec(~eff: U32 -> U32 -> Array<U32> -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>), +max: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
-  Bytes.Bytes{+len, buf} = b
-  eff(max, len, buf)
-
-def gz(b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
-  Bytes.Bytes{+len, buf} = b
-  Z.gzip.words(len, buf)
-
-def gz.back(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
+def gz.back(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
   match r:
     case Fail{e}:
-      IO.pure(Result<&1, &1, U32 & String, U32 & Array<U32>>, Fail{e})
-    case Done{(+len, buf)}:
-      Z.inflate.words(1000, len, buf)
+      IO.pure(Result<&1, &1, U32 & String, Bytes.Bytes>, Fail{e})
+    case Done{b}:
+      Z.libz.inflate(1000, b)
 
 def ok(ok: Bool, +s: String) -> IO(Unit):
   match ok:
@@ -61,12 +53,12 @@ def ok(ok: Bool, +s: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, "decoder gave " ++ s)
 
-def got(+want: String, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+def got(+want: String, r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
   match r:
     case Fail{(+code, why)}:
       IO.die(Unit, 1, "decoder failed: " ++ U32.show(code) ++ " " ++ why)
-    case Done{(+len, buf)}:
-      +s = Bytes.to_string(Bytes.Bytes{len, buf})
+    case Done{b}:
+      +s = Bytes.to_string(b)
       ok(String.eq(s, want), s)
 
 def code(ok: Bool, +why: String) -> IO(Unit):
@@ -76,14 +68,14 @@ def code(ok: Bool, +why: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, "decoder failed the wrong way: " ++ why)
 
-def big(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+def big(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
   match r:
     case Fail{(+c, why)}:
       code(U32.is_eq(c, 27), why)
     case Done{p}:
       IO.die(Unit, 1, "decoder passed max")
 
-def malformed(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+def malformed(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
   match r:
     case Fail{(+c, why)}:
       code(U32.is_eq(c, 22), why)
@@ -97,12 +89,12 @@ def stream.new(r: Result<&1, &1, U32 & String, Z.Decoder>) -> IO(Z.Decoder):
     case Done{d}:
       IO.pure(Z.Decoder, d)
 
-def stream.bytes(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Bytes.Bytes):
+def stream.bytes(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Bytes.Bytes):
   match r:
     case Fail{(+code, why)}:
       IO.die(Bytes.Bytes, 1, "stream feed: " ++ U32.show(code) ++ " " ++ why)
-    case Done{(+len, buf)}:
-      IO.pure(Bytes.Bytes, Bytes.Bytes{len, buf})
+    case Done{b}:
+      IO.pure(Bytes.Bytes, b)
 
 type StreamState is Type:
   StreamState{dec: Z.Decoder, src: Bytes.Bytes, out: Bytes.Bytes}
@@ -120,7 +112,7 @@ def stream.done(+want: String, st: StreamState) -> IO(Unit):
     r : Result<&1, &1, U32 & String, Unit> <- Z.dec.finish(d)
     stream.closed(want, out, r)
 
-def stream.feed.got(src: Bytes.Bytes, out: Bytes.Bytes, fed: Z.Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(StreamState):
+def stream.feed.got(src: Bytes.Bytes, out: Bytes.Bytes, fed: Z.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(StreamState):
   (d, r) = fed
   do IO<StreamState>:
     piece : Bytes.Bytes <- stream.bytes(r)
@@ -128,9 +120,8 @@ def stream.feed.got(src: Bytes.Bytes, out: Bytes.Bytes, fed: Z.Decoder & Result<
 
 def stream.feed.pair(out: Bytes.Bytes, d: Z.Decoder, pair: Bytes.Bytes & Bytes.Bytes) -> IO(StreamState):
   (src, chunk) = pair
-  Bytes.Bytes{+len, words} = chunk
   do IO<StreamState>:
-    fed : Z.Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.dec.feed.words(d, 1000, len, words)
+    fed : Z.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.dec.push(d, 1000, chunk)
     stream.feed.got(src, out, fed)
 
 def stream.step(+at: U32, +step: U32, st: StreamState) -> IO(StreamState):
@@ -163,20 +154,23 @@ def stream.test(+kind: U32, +want: String, +one: Bool, src: Bytes.Bytes) -> IO(U
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    show(Z.inflate(SCon{Chr{203}, SCon{Chr{72}, SCon{Chr{205}, SCon{Chr{201}, SCon{Chr{201}, SCon{Chr{7}, SCon{Chr{0}, SNil{}}}}}}}}))
-    show(Z.inflate("x"))
-    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.zstd.words, 1000, frames())
+    show(Z.inflate(raw()))
+    show(Z.inflate(Bytes.from_string("x")))
+    show(Z.gunzip(Z.gzip(Bytes.from_string("pure round trip"))))
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.zstd(1000, frames())
     got("hello zstd", r)
-    e : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.zstd.words, 5, frames())
+    e : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.zstd(5, frames())
     big(e)
-    g : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.words, 1000, members())
+    g : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate(1000, members())
     got("hello gzip", g)
-    c : Result<&1, &1, U32 & String, U32 & Array<U32>> <- gz(Bytes.from_string("round trip"))
-    t : Result<&1, &1, U32 & String, U32 & Array<U32>> <- gz.back(c)
+    c : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.gzip(Bytes.from_string("round trip"))
+    t : Result<&1, &1, U32 & String, Bytes.Bytes> <- gz.back(c)
     got("round trip", t)
-    b : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.brotli.words, 1000, brotli())
+    p : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate(1000, Z.gzip(Bytes.from_string("pure gzip, libz gunzip")))
+    got("pure gzip, libz gunzip", p)
+    b : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.brotli(1000, brotli())
     got("hello brotli", b)
-    m : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.brotli.words, 5, brotli())
+    m : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.brotli(5, brotli())
     big(m)
     stream.test(0, "hello gzip", True{}, members())
     stream.test(0, "hello gzip", False{}, members())
@@ -185,13 +179,13 @@ def main() -> IO(Unit):
     stream.test(0, "hello raw", True{}, wrapped())
     stream.test(0, "hello raw", False{}, wrapped())
     stream.test(0, "A", True{}, raw.like_header())
-    one : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 1000, raw())
+    one : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(1000, raw())
     got("hello raw", one)
-    twice : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 1000, Bytes.append(raw(), raw()))
+    twice : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(1000, Bytes.append(raw(), raw()))
     malformed(twice)
-    cut : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 1000, Bytes.snd(Bytes.slice(raw(), 0, 10)))
+    cut : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(1000, Bytes.snd(Bytes.slice(raw(), 0, 10)))
     malformed(cut)
-    bounded : Result<&1, &1, U32 & String, U32 & Array<U32>> <- dec(~Z.inflate.raw.words, 5, raw())
+    bounded : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(5, raw())
     big(bounded)
     stream.test(0, "A", False{}, raw.like_header())
     stream.test(1, "hello brotli", True{}, brotli())

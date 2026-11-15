@@ -1,6 +1,7 @@
 # JSON values, parsed and encoded as RFC 8259. Source: https://github.com/paymog/bend-kit/tree/main/json
 import Base
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-f64@0.1.3.0/f64.bend as F64
 
 # JSON (RFC 8259) as UTF-8 in Bytes. Strings, numbers and object keys are
 # UTF-8 Bytes too. The shared parser keeps its own stack. parse.bytes preserves
@@ -736,6 +737,143 @@ def parse.strict.bytes(b: Bytes.Bytes, cap: U32) -> Maybe<&1, Val>:
   Bytes.Bytes{+len, buf} = b
   runb(Nat.add(Nat.mul(U32.to_nat(len), 4n), 4n), (buf, BValue{0, Nil{}}, 0), len, True{}, cap)
 
+# Unique object keys
+# ------------------
+# Key equality uses the decoded UTF-8 bytes. Each object's keys become
+# fingerprints that are sorted and compared with their neighbours, so an object
+# of n keys costs O(n log n) comparisons. The value keeps its field order.
+
+# Reads from the last word down and prepends, so acc ends in index order.
+def unique.print.go(n: Nat, r: Array<U32> & U32, +i: U32, acc: List<&2, U32>) -> Array<U32> & List<&2, U32>:
+  match n:
+    case 0n:
+      (a, w) = r
+      (a, acc)
+    case 1n+p:
+      (a, w) = r
+      unique.print.go(p, Array.get(U32, a, (i - 1 : U32)), (i - 1 : U32), w <> acc)
+
+def unique.print.fin(+len: U32, r: Array<U32> & List<&2, U32>) -> Bytes.Bytes & List<&2, U32>:
+  (a, ws) = r
+  (Bytes.Bytes{len, a}, len <> ws)
+
+# The key back, and its fingerprint: the length, then its words. Bytes past the
+# length are 0, so two keys are equal exactly when their fingerprints are.
+def unique.print(k: Bytes.Bytes) -> Bytes.Bytes & List<&2, U32>:
+  Bytes.Bytes{+len, buf} = k
+  +n = Bytes.words(len)
+  +i = (n - 1 : U32)
+  unique.print.fin(len, unique.print.go(U32.to_nat(n), Array.get(U32, buf, i), i, Nil{}))
+
+# Lexicographic order on fingerprints.
+def unique.le(a: List<&2, U32>, b: List<&2, U32>) -> Bool:
+  match a b:
+    case Nil{} Nil{}:
+      True{}
+    case Nil{} y <> yt:
+      True{}
+    case x <> xt Nil{}:
+      False{}
+    case +x <> xt +y <> yt:
+      Bool.or(U32.is_lt(x, y), Bool.and(U32.is_eq(x, y), unique.le(xt, yt)))
+
+# xs is sorted and prev <= each of xs, so prev equals x when x <= prev.
+def unique.distinct(xs: List<&2, List<&2, U32>>, +prev: List<&2, U32>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case +x <> t:
+      Bool.and(Bool.not(unique.le(x, prev)), unique.distinct(t, x))
+
+def unique.sorted(xs: List<&2, List<&2, U32>>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case +x <> t:
+      unique.distinct(t, x)
+
+# Whether one object's fingerprints are pairwise distinct.
+def unique.check(keys: List<&2, List<&2, U32>>) -> Bool:
+  unique.sorted(List.sort(~List<&2, U32>, ~unique.le, keys))
+
+def unique.array.tail(tail: Val, head: Val, ok: Bool) -> Val & Bool & List<&2, List<&2, U32>>:
+  match tail:
+    case Arr{xs}:
+      (Arr{Con{head, xs}}, ok, Nil{})
+    case other:
+      (other, False{}, Nil{})
+
+def unique.array(head_result: Val & Bool & List<&2, List<&2, U32>>, tail_result: Val & Bool & List<&2, List<&2, U32>>) -> Val & Bool & List<&2, List<&2, U32>>:
+  (head, head_ok, head_keys) = head_result
+  (tail, tail_ok, tail_keys) = tail_result
+  unique.array.tail(tail, head, Bool.and(head_ok, Bool.and(tail_ok, unique.check(head_keys))))
+
+def unique.object.done(print: Bytes.Bytes & List<&2, U32>, head: Val, kvs: List<&1, Bytes.Bytes & Val>, ok: Bool, keys: List<&2, List<&2, U32>>) -> Val & Bool & List<&2, List<&2, U32>>:
+  (key, fp) = print
+  (Obj{Con{(key, head), kvs}}, ok, fp <> keys)
+
+def unique.object.tail(tail: Val, key: Bytes.Bytes, head: Val, ok: Bool, keys: List<&2, List<&2, U32>>) -> Val & Bool & List<&2, List<&2, U32>>:
+  match tail:
+    case Obj{kvs}:
+      unique.object.done(unique.print(key), head, kvs, ok, keys)
+    case other:
+      (other, False{}, Nil{})
+
+def unique.object(key: Bytes.Bytes, head_result: Val & Bool & List<&2, List<&2, U32>>, tail_result: Val & Bool & List<&2, List<&2, U32>>) -> Val & Bool & List<&2, List<&2, U32>>:
+  (head, head_ok, head_keys) = head_result
+  (tail, tail_ok, tail_keys) = tail_result
+  unique.object.tail(tail, key, head, Bool.and(head_ok, Bool.and(tail_ok, unique.check(head_keys))), tail_keys)
+
+# The value back, whether every object nested inside it has unique keys, and
+# the fingerprints of v's own keys when v is an object. The caller that holds
+# the whole object checks those.
+def unique.go(v: Val) -> Val & Bool & List<&2, List<&2, U32>>:
+  match v:
+    case Null{}:
+      (Null{}, True{}, Nil{})
+    case Flag{on}:
+      (Flag{on}, True{}, Nil{})
+    case Num{s}:
+      (Num{s}, True{}, Nil{})
+    case Str{s}:
+      (Str{s}, True{}, Nil{})
+    case Arr{Nil{}}:
+      (Arr{Nil{}}, True{}, Nil{})
+    case Arr{Con{head, tail}}:
+      unique.array(unique.go(head), unique.go(Arr{tail}))
+    case Obj{Nil{}}:
+      (Obj{Nil{}}, True{}, Nil{})
+    case Obj{(key, head) <> tail}:
+      unique.object(key, unique.go(head), unique.go(Obj{tail}))
+
+def unique.keys.fin(r: Val & Bool & List<&2, List<&2, U32>>) -> Val & Bool:
+  (v, ok, keys) = r
+  (v, Bool.and(ok, unique.check(keys)))
+
+# Returns the value and whether every object's decoded keys are unique.
+# This predicate checks keys. Syntax and depth limits belong to the parser.
+def unique.keys(v: Val) -> Val & Bool:
+  unique.keys.fin(unique.go(v))
+
+def unique.answer(r: Val & Bool) -> Maybe<&1, Val>:
+  (v, ok) = r
+  match ok:
+    case True{}:
+      Some{v}
+    case False{}:
+      None{}
+
+def unique.parsed(r: Maybe<&1, Val>) -> Maybe<&1, Val>:
+  match r:
+    case Some{v}:
+      unique.answer(unique.keys(v))
+    case None{}:
+      None{}
+
+# Strict UTF-8 JSON with the caller's depth cap and unique decoded object keys.
+def parse.strict.unique.bytes(b: Bytes.Bytes, cap: U32) -> Maybe<&1, Val>:
+  unique.parsed(parse.strict.bytes(b, cap))
+
 # Access
 # ------
 
@@ -838,6 +976,38 @@ def u32(v: Val) -> Maybe<&2, U32>:
   match v:
     case Num{s}:
       u32.num(Bytes.to_string(s))
+    case Null{}:
+      None{}
+    case Flag{on}:
+      None{}
+    case Str{s}:
+      None{}
+    case Arr{xs}:
+      None{}
+    case Obj{kvs}:
+      None{}
+
+# The nearest F32 to a number, with Base F32.read.
+def f32(v: Val) -> Maybe<&2, F32>:
+  match v:
+    case Num{s}:
+      F32.read(Bytes.to_string(s))
+    case Null{}:
+      None{}
+    case Flag{on}:
+      None{}
+    case Str{s}:
+      None{}
+    case Arr{xs}:
+      None{}
+    case Obj{kvs}:
+      None{}
+
+# The nearest F64 to a number, with F64.read from bend-kit-f64.
+def f64(v: Val) -> Maybe<&2, F64.F64>:
+  match v:
+    case Num{s}:
+      F64.F64.read(Bytes.to_string(s))
     case Null{}:
       None{}
     case Flag{on}:

@@ -25,12 +25,14 @@ if [ "${1:-native}" = js ]; then
 else
   bend ca_check.bend -o "$dir/ca_check"
 fi
-openssl s_server -accept 39445 -cert "$dir/server.pem" -key "$dir/server.key" \
+# s_server cannot report an OS-picked port, so ask the OS for a free one and reuse it at once.
+port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+openssl s_server -accept "127.0.0.1:$port" -cert "$dir/server.pem" -key "$dir/server.key" \
   -tls1_2 -quiet -naccept 4 >"$dir/server.log" 2>&1 &
 server=$!
 sleep 1
 if [ "${1:-native}" = js ]; then
-  bun "$dir/ca_check.js" "$dir/ca.pem"
+  bun "$dir/ca_check.js" "$dir/ca.pem" "$port"
 else
-  "$dir/ca_check" "$dir/ca.pem"
+  "$dir/ca_check" "$dir/ca.pem" "$port"
 fi

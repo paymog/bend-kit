@@ -644,11 +644,13 @@ The deeper investigation separates three causes: Bend's cooperative event-loop s
 
 The slower behavior also occurs on 2.0.34. Before reporting it, the compiler was updated from 2.0.34 to 2.0.35, the guide was reread, and the Base-only reproduction was run on the current release. Searches for allocation performance, term_drop, freelist slowdown, and drop performance found no matching issue. Upstream report: [bendlang/bend#1307](https://github.com/bendlang/bend/issues/1307). The installed compiler is now 2.0.35; historical measurements remain labeled with their original compiler.
 
+**Fixed upstream (2026-10-24):** Bend 2.0.38 includes the fix, [bendlang/bend#1438](https://github.com/bendlang/bend/pull/1438), which frees a recursive spine cell by cell. CI pins 2.0.38. On 2.0.38 (macOS arm64), three runs of the minimal reproduction stay flat across all 24 repeats: build is 3–6 ms and disposal is 6–9 ms. Each run takes about 0.25 s and has a peak RSS of 30 MiB. The 126-body JSON batch with automatic disposal was not run again on 2.0.38.
+
 Run the minimal reproduction without the kit or network:
 
 ```sh
 bend camber/allocation_minimal.bend -o /tmp/camber-allocation-minimal
-/tmp/camber-allocation-minimal --threads 1 --gpu off
+/tmp/camber-allocation-minimal +RTS --threads 1 --gpu off -RTS
 ```
 
 The native isolated JSON sample places 1,880 of 4,247 main-thread samples (44%) in `term_drop`; an IO helper thread waits throughout. That fraction applies to the isolated, stage-instrumented probe, not the original server. Generated C uses size-class free lists, and automatic erasure frees descendants before their containers. Allocation/reclamation order and cache locality are a plausible explanation for the progressive cost, not a proven cache-level diagnosis. Removing reversal alone does not eliminate the Base-only slowdown. A plain list of arrays without nested wrappers stays fast; holding 126 MiB of Base arrays is not necessary for the degradation.

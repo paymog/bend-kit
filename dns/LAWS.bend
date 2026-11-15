@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./dns.bend as Dns
 
 def bytes(xs: List<&2, U32>) -> String:
@@ -20,6 +20,24 @@ def q(m: Maybe<&1, Bytes.Bytes>) -> Maybe<&2, String>:
     case Some{b}:
       Some{Bytes.to_string(b)}
 
+def built(m: Maybe<&1, Bytes.Bytes>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{b}:
+      True{}
+
+def as(n: Nat) -> String:
+  match n:
+    case 0n:
+      SNil{}
+    case 1n+p:
+      SCon{'a', as(p)}
+
+# Labels of 63, 63, 63, and n octets.
+def long(n: Nat) -> String:
+  as(63n) ++ "." ++ as(63n) ++ "." ++ as(63n) ++ "." ++ as(n)
+
 # RFC 1035 §4.1: header (id 0x1234, RD, QDCOUNT 1), QNAME a.bc, QTYPE A, QCLASS IN.
 law query_wire:
   {q(Dns.query(4660, "a.bc")) == Some{bytes([18, 52, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 97, 2, 98, 99, 0, 0, 1, 0, 1])} : Maybe<&2, String>}
@@ -38,6 +56,13 @@ law query_long_label:
 # Hosts are ASCII; IDNA is out of scope.
 law query_non_ascii:
   {q(Dns.query(1, "é.com")) == None{} : Maybe<&2, String>}
+
+# §2.3.4: a name is at most 255 octets in wire form; 3 * 64 + 62 + 1 = 255.
+law query_name_255:
+  {built(Dns.query(1, long(61n))) == True{} : Bool}
+
+law query_name_256:
+  {built(Dns.query(1, long(62n))) == False{} : Bool}
 
 # One A answer; its name is a §4.1.4 pointer to the question.
 law answer_a:

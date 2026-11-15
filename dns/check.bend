@@ -1,6 +1,6 @@
 import Base
 import ./dns.bend as Dns
-import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def ok(hit: Bool, +name: String, +got: String) -> IO(Unit):
   match hit:

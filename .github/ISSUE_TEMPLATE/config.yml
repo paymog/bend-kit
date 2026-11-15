@@ -3,3 +3,6 @@ contact_links:
   - name: Security
     url: https://github.com/paymog/bend-kit/security/advisories/new
     about: Report a vulnerability in private. Do not open a public issue.
+  - name: Question
+    url: https://github.com/paymog/bend-kit/discussions
+    about: Ask how to use a package. Use a bug report only when a package does the wrong thing.

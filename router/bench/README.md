@@ -4,6 +4,8 @@ This times prepared route resolution on one fixed table and request list in Bend
 
 ## Run
 
+Run these commands from `router/bench/`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs

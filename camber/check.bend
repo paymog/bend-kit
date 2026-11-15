@@ -1,6 +1,7 @@
 # Real File bundles, deterministic concurrent principals, failure and close checks.
 import Base
 import ./camber.bend as Camber
+import bend-kit-files@0.3.1.0/files.bend as Files
 import ./dispatch_check.bend as Dispatch
 import ./response_check.bend as Response
 import ./scoped_check.bend as Scoped
@@ -105,7 +106,7 @@ def handler(bundle: Bundle, principal: U32, input: Input) -> IO(Bundle & Result<
   Input{hold, fail, reverse, ready, release} = input
   +principal = principal
   do IO<Bundle & Result<&2, &2, U32, U32>>:
-    announced : Bool <- Chan.send(Nat, ready, slot)
+    announced : Result<&1, &1, Nat, Unit> <- Chan.send(Nat, ready, slot)
     wait(hold, release)
     returned : Bundle <- writes(Bundle{slot, first, second}, reverse, principal)
     return (returned, outcome(fail, principal))
@@ -222,9 +223,9 @@ def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: S
     +a : Chan(Camber.Outcome<U32, U32>) = a0
     b0 : Chan(Camber.Outcome<U32, U32>) <- Chan.new(Camber.Outcome<U32, U32>, 1)
     +b : Chan(Camber.Outcome<U32, U32>) = b0
-    sent_a : Bool <- Camber.submit(Bundle, U32, Input, U32, U32, context, 7, Input{True{}, False{}, False{}, ready, release}, a)
-    sent_b : Bool <- Camber.submit(Bundle, U32, Input, U32, U32, context, 8, Input{True{}, True{}, True{}, ready, release}, b)
-    require(sent_a && sent_b, "submissions failed")
+    sent_a : Result<&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit> <- Camber.submit(Bundle, U32, Input, U32, U32, context, 7, Input{True{}, False{}, False{}, ready, release}, a)
+    sent_b : Result<&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit> <- Camber.submit(Bundle, U32, Input, U32, U32, context, 8, Input{True{}, True{}, True{}, ready, release}, b)
+    require(Result.is_done(&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit, sent_a) && Result.is_done(&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit, sent_b), "submissions failed")
     +slot_a : Nat <- Camber.receive(Nat, ready)
     slot_b : Nat <- Camber.receive(Nat, ready)
     require(Bool.not(Nat.is_eq(slot_a, slot_b)), "duplicate handle use")
@@ -236,8 +237,8 @@ def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: S
     returned_owner : Camber.Owner<Bundle, U32, Input, U32, U32> <- busy(close_busy)
     still_held : Maybe<&2, Camber.Counts> <- Camber.inspect(Bundle, U32, Input, U32, U32, context)
     counts(still_held, 2n, 0n, 1n)
-    release_a : Bool <- Chan.send(Unit, release, Unit{})
-    release_b : Bool <- Chan.send(Unit, release, Unit{})
+    release_a : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
+    release_b : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     result_a : Camber.Outcome<U32, U32> <- IO.join(Camber.Outcome<U32, U32>, a)
     result_b : Camber.Outcome<U32, U32> <- IO.join(Camber.Outcome<U32, U32>, b)
     checked(result_a, 7, False{})
@@ -248,11 +249,11 @@ def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: S
     abandoned0 : Chan(Camber.Outcome<U32, U32>) <- Chan.new(Camber.Outcome<U32, U32>, 1)
     +abandoned : Chan(Camber.Outcome<U32, U32>) = abandoned0
     Chan.close(Camber.Outcome<U32, U32>, abandoned)
-    abandoned_sent : Bool <- Camber.submit(Bundle, U32, Input, U32, U32, context, 10, Input{True{}, False{}, False{}, ready, release}, abandoned)
-    require(abandoned_sent, "closed reply prevented admission")
+    abandoned_sent : Result<&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit> <- Camber.submit(Bundle, U32, Input, U32, U32, context, 10, Input{True{}, False{}, False{}, ready, release}, abandoned)
+    require(Result.is_done(&1, &1, Camber.Message<Bundle, U32, Input, U32, U32>, Unit, abandoned_sent), "closed reply prevented admission")
     # The next announcement belongs to the closed-reply operation.
     abandoned_slot : Nat <- Camber.receive(Nat, ready)
-    recovery_release : Bool <- Chan.send(Unit, release, Unit{})
+    recovery_release : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     # Yield to native file helper threads; bound recovery to 5000 observations.
     recovery(5000n, context)
     recovered : Camber.Outcome<U32, U32> <- Camber.call(Bundle, U32, Input, U32, U32, context, 12, Input{False{}, False{}, True{}, ready, release})
@@ -276,16 +277,100 @@ def scenario.opened(opened: Camber.Owner<Bundle, U32, Input, U32, U32>, +path: S
     closed(late_closed)
     IO.print("camber owner: PASS")
 
+def ledger.lend(value: Maybe<&1, Camber.Ledger>) -> Maybe<&1, Camber.Ledger>:
+  match value:
+    case None{}:
+      None{}
+    case Some{ledger}:
+      Camber.ledger.lend(ledger)
+
+def ledger.give(value: Maybe<&1, Camber.Ledger>) -> Maybe<&1, Camber.Ledger>:
+  match value:
+    case None{}:
+      None{}
+    case Some{ledger}:
+      Camber.ledger.give(ledger)
+
+def ledger.counted(counted: Camber.Counts & Camber.Ledger, in_use: Nat, completed: Nat) -> Bool:
+  (counts, ledger) = counted
+  Camber.Counts{capacity, used, done, lost} = counts
+  Nat.is_eq(used, in_use) && Nat.is_eq(done, completed)
+
+def ledger.is(value: Maybe<&1, Camber.Ledger>, in_use: Nat, completed: Nat) -> Bool:
+  match value:
+    case None{}:
+      False{}
+    case Some{ledger}:
+      ledger.counted(Camber.ledger.counts(ledger), in_use, completed)
+
+def ledger.absent(value: Maybe<&1, Camber.Ledger>) -> Bool:
+  match value:
+    case None{}:
+      True{}
+    case Some{ledger}:
+      False{}
+
+def ledger.check() -> IO(Unit):
+  do IO<Unit>:
+    require(ledger.absent(Camber.ledger.give(Camber.ledger.open(2n))), "a return without a submit was accepted")
+    require(ledger.absent(ledger.give(ledger.give(Camber.ledger.lend(Camber.ledger.open(2n))))), "a second return of one submit was accepted")
+    require(ledger.absent(ledger.lend(Camber.ledger.lend(Camber.ledger.open(1n)))), "a full pool lent a unit")
+    require(ledger.is(ledger.lend(Camber.ledger.lend(Camber.ledger.open(2n))), 2n, 0n), "two lends did not hold two units")
+    require(ledger.is(ledger.give(Camber.ledger.lend(Camber.ledger.open(2n))), 0n, 1n), "a return did not release its unit")
+    IO.print("camber ledger: PASS")
+
 def scenario(+path: String) -> IO(Unit):
   do IO<Unit>:
     startup : Result<&2, &1, U32, Camber.Owner<Bundle, U32, Input, U32, U32>> <- Camber.start(~Config, ~Bundle, ~U32, ~Input, ~U32, ~U32, ~create, ~handler, ~destroy, Config{path, False{}}, 2n, 8)
     opened : Camber.Owner<Bundle, U32, Input, U32, U32> <- started(startup)
     scenario.opened(opened, path)
 
+def journal.read(r: File & Result<&1, &1, U32 & String, String>) -> IO(String):
+  (file, got) = r
+  do IO<String>:
+    File.close(file)
+    IO.pass(String, got)
+
+def journal.text(path: String) -> IO(String):
+  do IO<String>:
+    file : File <- IO.try(File, File.open(path, "r"))
+    r : File & Result<&1, &1, U32 & String, String> <- File.read(file, 4096)
+    journal.read(r)
+
+def journal.has(+lines: List<&2, String>, +x: String) -> Bool:
+  List.contains(~String, ~String.eq, lines, x)
+
+# Each bundle's two files agree, and the four principals each landed once.
+def journal.check(+path: String) -> IO(Unit):
+  do IO<Unit>:
+    +a0 : String <- journal.text(path ++ "-a-0")
+    b0 : String <- journal.text(path ++ "-b-0")
+    +a1 : String <- journal.text(path ++ "-a-1")
+    b1 : String <- journal.text(path ++ "-b-1")
+    require(String.eq(a0, b0) && String.eq(a1, b1), "bundle resources disagree about principal/order")
+    +lines : List<&2, String> = List.filter(~String, ~(s => Bool.not(String.is_empty(s))), String.split(a0 ++ a1, '\n'))
+    require(Nat.is_eq(List.length(&2, String, lines), 4n) && journal.has(lines, "7") && journal.has(lines, "8") && journal.has(lines, "10") && journal.has(lines, "12"), "bundle journals hold the wrong principals")
+    IO.print("camber journal: PASS")
+
+def journal.remove(+dir: String, names: List<&2, String>) -> IO(Unit):
+  match names:
+    case Nil{}:
+      IO.try(Unit, Files.remove(dir))
+    case Con{name, rest}:
+      do IO<Unit>:
+        IO.try(Unit, Files.remove(Files.path.join(dir, name)))
+        journal.remove(dir, rest)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     seed : U32 <- IO.try(U32, IO.random_u32())
-    scenario("camber-owner-336-" ++ U32.show(seed))
+    ledger.check()
+    +dir : String <- IO.try(String, Files.temp_dir())
+    +path : String = Files.path.join(dir, "camber-owner-" ++ U32.show(seed))
+    scenario(path)
+    journal.check(path)
+    names : List<&2, String> <- IO.try(List<&2, String>, Files.list_dir(dir))
+    journal.remove(dir, names)
     Dispatch.main()
     Response.main()
     Scoped.check()

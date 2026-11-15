@@ -1,9 +1,9 @@
 # Bytes benchmark
 
-How fast could a Bend `Bytes` type be? This runs byte-buffer operations in two Bend layouts and five other languages.
+This runs byte-buffer operations in two Bend layouts and five other languages.
 
-- `packed.bend` is the candidate: `Array<U32>`, 4 bytes per slot, little-endian.
-- `string.bend` is what bend-kit uses today: a `String`, one `Char` list cell per byte.
+- `packed.bend` measures the packed `Array<U32>` layout used by this package: four bytes per slot, little-endian.
+- `string.bend` measures the former layout: a `String`, one `Char` list cell per byte.
 
 ## Run
 
@@ -33,7 +33,7 @@ The two `build` sizes use 1,000,000 and 4,000,000 bytes, not the 256 MiB used by
 
 Each language uses its idiomatic stdlib calls: `memmem`/`memcmp` in C, `windows(4).position` in Rust, `bytes.Index`/`bytes.Equal` in Go, `Buffer.indexOf`/`Buffer.equals` in JS, and `bytes.find` in Python. There is no hand-written SIMD and no third-party code.
 
-In Bend, `sum` goes through the per-byte `byte(a, i)` read, which is what a `Bytes.get` caller would pay. `packed.bend` also prints two more ops that the table leaves out. `sum` reads a word at a time, and is slower (see below). `find_swar` skips words that hold no `\r`, but it does not beat the byte loop.
+The reported `sum` uses the `sum_bytewise` output from `packed.bend`. It reads one byte at a time, as a `Bytes.get` caller would. The table omits the word-at-a-time `sum` output and `find_swar`, which skips words that hold no `\r`. Neither was faster in the recorded run.
 
 ## Results
 

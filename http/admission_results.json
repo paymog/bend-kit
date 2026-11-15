@@ -63,14 +63,14 @@
       ],
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "whole",
         "connections",
-        "63827"
+        "55684"
       ],
       "exit_status": -15,
       "peak_sampled_rss_kib": 0
@@ -132,14 +132,14 @@
       ],
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "whole",
         "buffered",
-        "63839"
+        "55696"
       ],
       "exit_status": -15,
       "peak_sampled_rss_kib": 0
@@ -210,9 +210,9 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
@@ -224,17 +224,6 @@
           3,
           2,
           3,
-          3,
-          2,
-          3,
-          0,
-          3,
-          0
-        ],
-        [
-          2,
-          2,
-          2,
           3,
           2,
           3,
@@ -261,7 +250,18 @@
           2,
           3,
           0,
-          5,
+          4,
+          0
+        ],
+        [
+          2,
+          2,
+          2,
+          3,
+          2,
+          3,
+          0,
+          4,
           0
         ],
         [
@@ -342,14 +342,14 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
           0,
-          8,
+          9,
           0
         ],
         [
@@ -716,9 +716,42 @@
           0
         ],
         [
+          2,
+          2,
+          2,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
           0,
           0,
           0,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
           3,
           2,
           3,
@@ -1697,17 +1730,17 @@
       ],
       "journal": "start /hold-0\nstart /hold-1\nreturn /hold-0\nreturn /hold-1\nstart /recovered\nreturn /recovered\nstart /hold-pipeline\nreturn /hold-pipeline\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "whole",
         "active",
-        "63851"
+        "55708"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 3120
+      "peak_sampled_rss_kib": 3232
     },
     {
       "lane": "native",
@@ -1766,14 +1799,14 @@
       ],
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "stream",
         "connections",
-        "63867"
+        "55744"
       ],
       "exit_status": -15,
       "peak_sampled_rss_kib": 0
@@ -1835,14 +1868,14 @@
       ],
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "stream",
         "buffered",
-        "63879"
+        "55756"
       ],
       "exit_status": -15,
       "peak_sampled_rss_kib": 0
@@ -1935,14 +1968,14 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
           0,
-          3,
+          4,
           0
         ],
         [
@@ -2001,6 +2034,17 @@
           0
         ],
         [
+          2,
+          2,
+          2,
+          3,
+          2,
+          3,
+          0,
+          6,
+          0
+        ],
+        [
           3,
           2,
           3,
@@ -2012,9 +2056,9 @@
           0
         ],
         [
-          3,
           2,
-          3,
+          2,
+          2,
           3,
           2,
           3,
@@ -2041,7 +2085,7 @@
           2,
           3,
           0,
-          8,
+          9,
           0
         ],
         [
@@ -2056,9 +2100,9 @@
           0
         ],
         [
-          3,
           2,
-          3,
+          2,
+          2,
           3,
           2,
           3,
@@ -2419,9 +2463,20 @@
           0
         ],
         [
+          0,
           0,
           0,
+          3,
+          2,
+          3,
           0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
           3,
           2,
           3,
@@ -3004,7 +3059,18 @@
         [
           0,
           0,
+          0,
+          3,
+          2,
+          3,
           0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
           3,
           2,
           3,
@@ -3400,17 +3466,17 @@
       ],
       "journal": "start /hold-0\nstart /hold-1\nreturn /hold-0\nreturn /hold-1\nstart /recovered\nreturn /recovered\nstart /hold-pipeline\nreturn /hold-pipeline\nstart /short\nreturn /short\nstart /slow\nreturn /slow\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "stream",
         "active",
-        "63891"
+        "55769"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 3248
+      "peak_sampled_rss_kib": 3328
     },
     {
       "lane": "native",
@@ -3469,14 +3535,14 @@
       ],
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "writer",
         "connections",
-        "63908"
+        "55813"
       ],
       "exit_status": -15,
       "peak_sampled_rss_kib": 0
@@ -3538,14 +3604,14 @@
       ],
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "writer",
         "buffered",
-        "63920"
+        "55825"
       ],
       "exit_status": -15,
       "peak_sampled_rss_kib": 0
@@ -3638,14 +3704,14 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
           0,
-          3,
+          4,
           0
         ],
         [
@@ -3748,14 +3814,14 @@
           0
         ],
         [
-          2,
-          2,
+          3,
           2,
+          3,
           3,
           2,
           3,
           0,
-          8,
+          9,
           0
         ],
         [
@@ -4133,9 +4199,20 @@
           0
         ],
         [
+          0,
           0,
           0,
+          3,
+          2,
+          3,
           0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
           3,
           2,
           3,
@@ -5142,12 +5219,34 @@
           3,
           0,
           9,
+          0
+        ],
+        [
+          3,
+          2,
+          3,
+          3,
+          2,
+          3,
+          0,
+          10,
           0
         ],
         [
+          3,
+          2,
+          3,
           3,
           2,
           3,
+          0,
+          10,
+          0
+        ],
+        [
+          2,
+          2,
+          2,
           3,
           2,
           3,
@@ -5708,17 +5807,17 @@
       ],
       "journal": "start /hold-0\nstart /hold-1\nreturn /hold-1\nreturn /hold-0\nstart /recovered\nreturn /recovered\nstart /hold-pipeline\nreturn /hold-pipeline\nstart /failed-0\nreturn /failed-0\nstart /failed-1\nreturn /failed-1\nwrite-aborted /failed-0\nwrite-aborted /failed-1\nwriter-return /failed-0\nwriter-return /failed-1\nstart /writer-recovered\nreturn /writer-recovered\n",
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
         "off",
         "writer",
         "active",
-        "63932"
+        "55837"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 3280
+      "peak_sampled_rss_kib": 3312
     },
     {
       "lane": "js",
@@ -5784,13 +5883,13 @@
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "whole",
         "connections",
-        "63953"
+        "55975"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 51360
+      "peak_sampled_rss_kib": 49616
     },
     {
       "lane": "js",
@@ -5850,13 +5949,13 @@
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "whole",
         "buffered",
-        "63965"
+        "55987"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 50832
+      "peak_sampled_rss_kib": 0
     },
     {
       "lane": "js",
@@ -5975,7 +6074,7 @@
           2,
           3,
           0,
-          5,
+          4,
           0
         ],
         [
@@ -5990,14 +6089,14 @@
           0
         ],
         [
-          3,
           2,
-          3,
+          2,
+          2,
           3,
           2,
           3,
           0,
-          6,
+          5,
           0
         ],
         [
@@ -6034,14 +6133,14 @@
           0
         ],
         [
-          3,
           2,
-          3,
+          2,
+          2,
           3,
           2,
           3,
           0,
-          8,
+          7,
           0
         ],
         [
@@ -6430,9 +6529,42 @@
           0
         ],
         [
+          2,
+          2,
+          2,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
+          2,
+          2,
+          2,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
           0,
           0,
           0,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
           3,
           2,
           3,
@@ -7027,6 +7159,17 @@
           0,
           0,
           0,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
+          1,
+          0,
+          1,
           3,
           2,
           3,
@@ -7423,13 +7566,13 @@
       "journal": "start /hold-0\nstart /hold-1\nreturn /hold-0\nreturn /hold-1\nstart /recovered\nreturn /recovered\nstart /hold-pipeline\nreturn /hold-pipeline\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "whole",
         "active",
-        "63977"
+        "56000"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 83872
+      "peak_sampled_rss_kib": 85904
     },
     {
       "lane": "js",
@@ -7489,13 +7632,13 @@
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "stream",
         "connections",
-        "63994"
+        "56054"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 49408
+      "peak_sampled_rss_kib": 51728
     },
     {
       "lane": "js",
@@ -7555,13 +7698,13 @@
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "stream",
         "buffered",
-        "64006"
+        "56066"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 50960
+      "peak_sampled_rss_kib": 51984
     },
     {
       "lane": "js",
@@ -7614,7 +7757,7 @@
           2,
           3,
           0,
-          2,
+          1,
           0
         ],
         [
@@ -7636,7 +7779,7 @@
           2,
           3,
           0,
-          3,
+          2,
           0
         ],
         [
@@ -7651,9 +7794,9 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
@@ -7673,9 +7816,9 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
@@ -8708,7 +8851,29 @@
         ],
         [
           1,
+          1,
+          1,
+          3,
+          2,
+          3,
           0,
+          9,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
           1,
           3,
           2,
@@ -8732,17 +8897,6 @@
           1,
           1,
           1,
-          3,
-          2,
-          3,
-          0,
-          9,
-          0
-        ],
-        [
-          0,
-          0,
-          0,
           3,
           2,
           3,
@@ -9139,13 +9293,13 @@
       "journal": "start /hold-0\nstart /hold-1\nreturn /hold-0\nreturn /hold-1\nstart /recovered\nreturn /recovered\nstart /hold-pipeline\nreturn /hold-pipeline\nstart /short\nreturn /short\nstart /slow\nreturn /slow\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "stream",
         "active",
-        "64018"
+        "56082"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 83776
+      "peak_sampled_rss_kib": 84256
     },
     {
       "lane": "js",
@@ -9205,13 +9359,13 @@
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "writer",
         "connections",
-        "64034"
+        "56145"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 50576
+      "peak_sampled_rss_kib": 51344
     },
     {
       "lane": "js",
@@ -9271,13 +9425,13 @@
       "journal": "start /recovered\nreturn /recovered\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "writer",
         "buffered",
-        "64046"
+        "56158"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 50768
+      "peak_sampled_rss_kib": 51392
     },
     {
       "lane": "js",
@@ -9345,9 +9499,9 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
@@ -9367,9 +9521,9 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
@@ -9389,14 +9543,25 @@
           0
         ],
         [
+          3,
           2,
-          2,
-          2,
+          3,
           3,
           2,
           3,
           0,
           4,
+          0
+        ],
+        [
+          3,
+          2,
+          3,
+          3,
+          2,
+          3,
+          0,
+          5,
           0
         ],
         [
@@ -9851,9 +10016,9 @@
           0
         ],
         [
-          2,
-          2,
-          2,
+          0,
+          0,
+          0,
           3,
           2,
           3,
@@ -9862,9 +10027,20 @@
           0
         ],
         [
-          0,
-          0,
+          1,
+          1,
+          1,
+          3,
+          2,
+          3,
           0,
+          9,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
           3,
           2,
           3,
@@ -10830,6 +11006,17 @@
           0
         ],
         [
+          1,
+          0,
+          1,
+          3,
+          2,
+          3,
+          0,
+          9,
+          0
+        ],
+        [
           0,
           0,
           0,
@@ -10871,6 +11058,17 @@
           3,
           0,
           9,
+          0
+        ],
+        [
+          3,
+          2,
+          3,
+          3,
+          2,
+          3,
+          0,
+          10,
           0
         ],
         [
@@ -11438,13 +11636,13 @@
       "journal": "start /hold-0\nstart /hold-1\nreturn /hold-0\nreturn /hold-1\nstart /recovered\nreturn /recovered\nstart /hold-pipeline\nreturn /hold-pipeline\nstart /failed-0\nreturn /failed-0\nstart /failed-1\nreturn /failed-1\nwrite-aborted /failed-0\nwrite-aborted /failed-1\nwriter-return /failed-0\nwriter-return /failed-1\nstart /writer-recovered\nreturn /writer-recovered\n",
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "writer",
         "active",
-        "64058"
+        "56170"
       ],
       "exit_status": -15,
-      "peak_sampled_rss_kib": 85296
+      "peak_sampled_rss_kib": 86000
     }
   ],
   "commands": [
@@ -11453,15 +11651,15 @@
         "bend",
         "http/admission_check.bend",
         "-o",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission"
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission"
       ],
       "status": 0,
       "output": "",
-      "peak_sampled_rss_kib": 2495888
+      "peak_sampled_rss_kib": 2487040
     },
     {
       "command": [
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission",
         "--threads",
         "1",
         "--gpu",
@@ -11479,23 +11677,23 @@
         "bend",
         "http/admission_check.bend",
         "-o",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js"
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js"
       ],
       "status": 0,
       "output": "",
-      "peak_sampled_rss_kib": 1724448
+      "peak_sampled_rss_kib": 1644112
     },
     {
       "command": [
         "bun",
-        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-q4iaapi9/admission.js",
+        "/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/http-admission-65mgka8t/admission.js",
         "stats-close",
         "active",
         "0"
       ],
       "status": 0,
       "output": "READY\nCOUNTS 0,0,0,0,0,0,0,0,0\nCOUNTS 0,0,0,0,0,0,0,0,0\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nPOST CLOSED\nSTATS CLOSED\nSTATS CLOSED\nOBSERVERS JOINED\n",
-      "peak_sampled_rss_kib": 45216
+      "peak_sampled_rss_kib": 35872
     }
   ]
 }

@@ -17,6 +17,12 @@ def Laws.query_long_label():
 def Laws.query_non_ascii():
   {==}
 
+def Laws.query_name_255():
+  {==}
+
+def Laws.query_name_256():
+  {==}
+
 def Laws.answer_a():
   {==}
 

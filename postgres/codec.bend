@@ -1,6 +1,6 @@
 # Postgres frontend/backend protocol 3.0 messages over Bytes, and an incremental reader of backend messages.
 import Base
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # ---- messages
 

@@ -6,7 +6,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OPS = ["crc32", "adler32", "fnv1a32", "fnv1a64", "xxh32", "xxh64", "siphash13"]
+OPS = ["crc32", "crc32_short", "adler32", "fnv1a32", "fnv1a64", "xxh32", "xxh64", "siphash13"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1", "PYTHONHASHSEED": "0"}
 
 # name -> (build argv or None, run argv). Every program prints `op<TAB>ms<TAB>checksum` per op.

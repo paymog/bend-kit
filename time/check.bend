@@ -1,6 +1,6 @@
 import Base
 import bend-kit-int@0.2.0.0/int.bend as Int
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./time.bend as Time
 
 def show(m: Maybe<&2, String>) -> String:
@@ -40,13 +40,6 @@ def trips(f: Nat, +day: Int.I64, +step: Int.I64, +bad: U32) -> U32:
       +i = at(day)
       trips(g, Int.I64.add(day, step), step, (bad + Bool.pick(U32, trip.ok(i, Time.rfc3339(i)), 0, 1) : U32))
 
-def zone.show(m: Maybe<&2, Time.Zone>, +s: U32) -> String:
-  match m:
-    case None{}:
-      "no zone"
-    case Some{z}:
-      show(Maybe.map(&2, Time.DateTime, String, Time.DateTime.rfc3339,
-        Time.Zone.local(z, Time.Instant{Int.I64.from_u32(s), 0})))
 
 def zone.count(m: Maybe<&2, Time.Zone>) -> Nat:
   match m:
@@ -63,10 +56,7 @@ def zone(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
       +z = Time.tzif.parse(Bytes.from_string(chars(xs)))
       do IO<Unit>:
         IO.print("New_York transitions: " ++ Nat.show(zone.count(z)))
-        IO.print("2024-03-10T06:59:59Z local: " ++ zone.show(z, 1710053999))
-        IO.print("2024-03-10T07:00:00Z local: " ++ zone.show(z, 1710054000))
-        IO.print("2024-11-03T05:59:59Z local: " ++ zone.show(z, 1730613599))
-        IO.print("2024-11-03T06:00:00Z local: " ++ zone.show(z, 1730613600))
+        # Local time is not printed: Zone.local and DateTime.rfc3339 in one segment hit bendlang/bend#1069.
 
 def read.done(fr: File & Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
   (f, r) = fr
@@ -86,6 +76,20 @@ def read(r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
 def show_now(+n: Time.Instant) -> IO(Unit):
   IO.print("now: " ++ show(Time.rfc3339(n)) ++ " / " ++ show(Time.http_date(n)))
 
+def dur(hi: U32, lo: U32, n: U32) -> Time.Duration:
+  Time.raw.dur((hi, lo, n))
+
+# Duration.to_us_nat and to_ms_nat round down, carry seconds past 2^32, and clamp negatives to 0.
+def nats() -> Bool:
+  Nat.is_eq(Time.Duration.to_us_nat(dur(0, 0, 999)), 0n) &&
+    Nat.is_eq(Time.Duration.to_us_nat(dur(0, 0, 1999)), 1n) &&
+    Nat.is_eq(Time.Duration.to_us_nat(dur(0, 1, 999999999)), 1999999n) &&
+    Nat.is_eq(Time.Duration.to_us_nat(dur(0, 4294, 967296000)), (4294967295n + 1n : Nat)) &&
+    Nat.is_eq(Time.Duration.to_us_nat(dur(0, 281474976, 710655000)), (65536n * 4294967295n + 65535n : Nat)) &&
+    Nat.is_eq(Time.Duration.to_ms_nat(dur(0, 2, 345999999)), 2345n) &&
+    Nat.is_eq(Time.Duration.to_ms_nat(dur(1, 0, 0)), (4294967295n * 1000n + 1000n : Nat)) &&
+    Nat.is_eq(Time.Duration.to_ms_nat(Time.Duration{Int.I64.neg(Int.I64.from_u32(1)), 999999999}), 0n)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
@@ -94,6 +98,10 @@ def main() -> IO(Unit):
     IO.print("slept 20 ms, mono says " ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
     IO.print("show_ms of 2 s + 345 ns (want 2000.000345): " ++ Time.Duration.show_ms(Time.Duration{Int.I64.from_u32(2), 345}))
     IO.print("show_ms of -1 ns (want -0.000001): " ++ Time.Duration.show_ms(Time.Duration{Int.I64.neg(Int.I64.from_u32(1)), 999999999}))
+    IO.print("Duration to ms/us Nat conversions (want True): " ++ Bool.show(nats()))
+    m0 : Nat <- Time.mono.ms()
+    u0 : Nat <- Time.mono.us()
+    IO.print("mono.us / 1000 >= mono.ms (want True): " ++ Bool.show(Nat.is_ge(Nat.div(u0, 1000n), m0)))
     now : Time.Instant <- Time.now()
     show_now(now)
     IO.print("round-trip failures in 3653 days: " ++ U32.show(trips(3653n, Int.I64.neg(Int.I64.from_u32(719528)), Int.I64.from_u32(997), 0)))

@@ -1,6 +1,6 @@
 import Base
 import ./bytes.bend as Bytes
-import 0x4eed9d7ac6ece61523d747a9d804e4f0/int.bend as Int
+import bend-kit-int@0.2.0.0/int.bend as Int
 
 # The laws run in the checker, where Array is a tree of defs. This runs the same
 # operations on the runtime's native Array, at sizes the checker would not reach.
@@ -111,6 +111,19 @@ def dec(m: Maybe<&1, Bytes.Bytes>) -> String:
       "none"
     case Some{b}:
       str(b)
+
+def twins(r: Bytes.Bytes & Bytes.Bytes) -> Bool:
+  (a, b) = r
+  Bool.and(String.eq(str(a), big()), String.eq(str(b), big()))
+
+# f values along an LCG: Bytes.u32.show matches U32.show, and Bytes.u32.read reads it back.
+def decimal(f: Nat, +x: U32, ok: Bool) -> Bool:
+  match f:
+    case 0n:
+      ok
+    case 1n+p:
+      +good = Bool.and(String.eq(str(Bytes.u32.show(x)), U32.show(x)), has(Bytes.u32.read(Bytes.u32.show(x)), x))
+      decimal(p, (x * 1664525 + 1013904223 : U32), Bool.and(ok, good))
 
 def cursor.sought(r: Bytes.Cursor & Bool) -> Bytes.Cursor:
   (c, ok) = r
@@ -266,3 +279,7 @@ def main() -> IO(Unit):
     expect("cmp 10 KB last byte", Cmp.is_lt(order(Bytes.cmp(of(big()), Bytes.set(of(big()), 10003, 11)))))
     expect("hex 10 KB", String.eq(dec(Bytes.from_hex(Bytes.to_hex(of(big())))), big()))
     expect("base64 10 KB", String.eq(dec(Bytes.from_base64(Bytes.to_base64(of(big())))), big()))
+    expect("clone 10 KB", twins(Bytes.clone(of(big()))))
+    expect("u32 decimal 2000 values", decimal(2000n, 0, True{}))
+    expect("u32 read max", has(Bytes.u32.read(of("4294967295")), 4294967295))
+    expect("u32 read overflow", none(Bytes.u32.read(of("4294967296"))))

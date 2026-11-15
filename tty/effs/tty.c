@@ -20,7 +20,7 @@ Term tty_stdout_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tty_stdout_use(void) {
-  io_eff(CID(stdout_tty), tty_stdout_run, 0);
+  io_eff(CID(stdout_tty), tty_stdout_run);
 }
 
 #endif
@@ -38,7 +38,7 @@ Term tty_size_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tty_size_use(void) {
-  io_eff(CID(size), tty_size_run, 0);
+  io_eff(CID(size), tty_size_run);
 }
 
 #endif
@@ -51,7 +51,7 @@ Term tty_color_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tty_color_use(void) {
-  io_eff(CID(color_enabled), tty_color_run, 0);
+  io_eff(CID(color_enabled), tty_color_run);
 }
 
 #endif

@@ -3,17 +3,18 @@
 Parallel map and reduce over lists and arrays, a worker pool, select over channels, and timeouts, on Base's parallel calls, `IO.spawn`, `IO.fork`, and `Chan`.
 
 ```bend
-import bend-kit-concurrency@0.1.0.0/concurrency.bend as Conc
+import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 ```
 
 ## Pure parallelism
 
 | def | answers |
 |---|---|
-| `par_map(~A, ~B, ~f, workers, xs)` | `List.map(f, xs)` |
+| `par_map(~A, ~B, ~f, workers, xs)` | `f` applied to each element of `xs`, in input order |
 | `par_reduce(~A, ~f, workers, z, xs)` | the left fold of `xs` from `z` |
 | `par_map.array(~A, ~B, ~f, workers, a)` | `f` on every slot of `a`, each at its index |
 | `par_reduce.array(~A, ~f, workers, a)` | the slots of `a` combined in index order |
+| `fold(~A, ~f, xs, acc) -> A` | A sequential left fold. `A` is `Data`, and `f` has type `A -> A -> A`. |
 
 `workers` is a `U32`. The input splits into at most `workers` balanced parts, rounded down to a power of two, and the parts run as parallel calls (`a b = f(x) g(y)`). A native build spreads them over its `--threads`; the JavaScript target runs them one after another. Results keep the input order. 0 or 1 workers run one sequential part.
 

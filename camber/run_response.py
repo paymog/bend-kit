@@ -6,11 +6,12 @@ import subprocess
 import tempfile
 import threading
 import time
-from run_owner import ROOT, run
+from run_owner import ROOT, free_port, run
 
 
 def live(command):
     failures = []
+    port = free_port()
 
     def clients():
         try:
@@ -19,13 +20,13 @@ def live(command):
             first = None
             while first is None:
                 try:
-                    first = socket.create_connection(("127.0.0.1", 18333), timeout=1)
+                    first = socket.create_connection(("127.0.0.1", port), timeout=1)
                 except ConnectionRefusedError:
                     if time.monotonic() > deadline:
                         raise
                     time.sleep(0.05)
             for index in range(43):
-                connection = first if index == 0 else socket.create_connection(("127.0.0.1", 18333), timeout=5)
+                connection = first if index == 0 else socket.create_connection(("127.0.0.1", port), timeout=5)
                 with connection:
                     connection.settimeout(5)
                     chunks = []
@@ -54,7 +55,7 @@ def live(command):
 
     thread = threading.Thread(target=clients, daemon=True)
     thread.start()
-    output = run(command, timeout=60)
+    output = run(command + [str(port)], timeout=60)
     thread.join(timeout=10)
     assert not thread.is_alive(), "client unfinished"
     if failures:

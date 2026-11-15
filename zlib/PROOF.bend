@@ -29,16 +29,16 @@ def Laws.gunzip_bad_crc():
 def Laws.gunzip_truncated():
   {==}
 
+def Laws.gunzip_members():
+  {==}
+
+def Laws.gunzip_junk():
+  {==}
+
 def Laws.unzlib_ok():
   {==}
 
 def Laws.unzlib_bad_adler():
-  {==}
-
-def Laws.crc32_hello():
-  {==}
-
-def Laws.adler32_hello():
   {==}
 
 def Laws.inflate_matches():

@@ -14,7 +14,11 @@ U.graphemes("e\u{301}x")       # ["e\u{301}", "x"]
 
 Text is a `String` of code points. For octets, decode with `encoding`'s `utf8.decode` first and encode the result with `utf8.encode`.
 
-`category` answers the two-letter UCD alias (`"Cn"` when unassigned). `fold` uses the C and F statuses of `CaseFolding.txt`, so it does not apply the Turkic mappings.
+`category` returns the two-letter UCD alias (`"Cn"` when unassigned). `fold` uses the C and F statuses of `CaseFolding.txt`. It does not apply the Turkic mappings.
+
+| Def | Result | Use |
+|---|---|---|
+| `ccc(c: Char)` | `U32` | Return the canonical combining class. A starter has class zero. |
 
 ## Tables
 
@@ -25,4 +29,4 @@ python3 unicode/gen.py          # downloads the UCD to unicode/ucd/ and writes t
 python3 unicode/conformance.py  # the official tests, in a native build (about a minute)
 ```
 
-`conformance.py` runs every line of `NormalizationTest.txt` (the NFC and NFD columns), checks that every code point Part 1 does not list is its own NFC and NFD, and runs every line of `GraphemeBreakTest.txt`. On 17.0.0 all three report 0 failures. `LAWS.bend` holds a sample of those lines.
+`conformance.py` runs every line of `NormalizationTest.txt` for NFC and NFD. It also checks code points not listed in Part 1: each must be its own NFC and NFD. It runs every line of `GraphemeBreakTest.txt`. On 17.0.0 all three report 0 failures. `LAWS.bend` holds a sample of those lines.

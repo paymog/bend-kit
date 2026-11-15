@@ -214,7 +214,7 @@ Term db_open_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) db_open_use(void) {
-  io_eff(CID(db.open), db_open_run, 0);
+  io_eff(CID(db.open), db_open_run);
 }
 
 #endif
@@ -240,7 +240,7 @@ Term db_close_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) db_close_use(void) {
-  io_eff(CID(db.close), db_close_run, 0);
+  io_eff(CID(db.close), db_close_run);
 }
 
 #endif
@@ -285,7 +285,7 @@ Term stmt_prepare_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_prepare_use(void) {
-  io_eff(CID(stmt.prepare), stmt_prepare_run, 0);
+  io_eff(CID(stmt.prepare), stmt_prepare_run);
 }
 
 #endif
@@ -307,7 +307,7 @@ Term stmt_finalize_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_finalize_use(void) {
-  io_eff(CID(stmt.finalize), stmt_finalize_run, 0);
+  io_eff(CID(stmt.finalize), stmt_finalize_run);
 }
 
 #endif
@@ -328,7 +328,7 @@ Term stmt_bind_text_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_bind_text_use(void) {
-  io_eff(CID(stmt.bind.text), stmt_bind_text_run, 0);
+  io_eff(CID(stmt.bind.text), stmt_bind_text_run);
 }
 
 #endif
@@ -342,7 +342,7 @@ Term stmt_bind_int_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_bind_int_use(void) {
-  io_eff(CID(stmt.bind.int), stmt_bind_int_run, 0);
+  io_eff(CID(stmt.bind.int), stmt_bind_int_run);
 }
 
 #endif
@@ -356,7 +356,7 @@ Term stmt_bind_null_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_bind_null_use(void) {
-  io_eff(CID(stmt.bind.null), stmt_bind_null_run, 0);
+  io_eff(CID(stmt.bind.null), stmt_bind_null_run);
 }
 
 #endif
@@ -388,7 +388,7 @@ Term stmt_bind_blob_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_bind_blob_use(void) {
-  io_eff(CID(stmt.bind.blob), stmt_bind_blob_run, 0);
+  io_eff(CID(stmt.bind.blob), stmt_bind_blob_run);
 }
 
 #endif
@@ -409,7 +409,7 @@ Term stmt_step_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_step_use(void) {
-  io_eff(CID(stmt.step), stmt_step_run, 0);
+  io_eff(CID(stmt.step), stmt_step_run);
 }
 
 #endif
@@ -428,7 +428,7 @@ Term stmt_reset_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_reset_use(void) {
-  io_eff(CID(stmt.reset), stmt_reset_run, 0);
+  io_eff(CID(stmt.reset), stmt_reset_run);
 }
 
 #endif
@@ -442,7 +442,7 @@ Term stmt_column_kind_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_column_kind_use(void) {
-  io_eff(CID(stmt.column.kind), stmt_column_kind_run, 0);
+  io_eff(CID(stmt.column.kind), stmt_column_kind_run);
 }
 
 #endif
@@ -462,7 +462,7 @@ Term stmt_column_text_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_column_text_use(void) {
-  io_eff(CID(stmt.column.text), stmt_column_text_run, 0);
+  io_eff(CID(stmt.column.text), stmt_column_text_run);
 }
 
 #endif
@@ -480,7 +480,7 @@ Term stmt_column_int_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_column_int_use(void) {
-  io_eff(CID(stmt.column.int), stmt_column_int_run, 0);
+  io_eff(CID(stmt.column.int), stmt_column_int_run);
 }
 
 #endif
@@ -519,7 +519,7 @@ Term stmt_column_blob_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stmt_column_blob_use(void) {
-  io_eff(CID(stmt.column.blob), stmt_column_blob_run, 0);
+  io_eff(CID(stmt.column.blob), stmt_column_blob_run);
 }
 
 #endif

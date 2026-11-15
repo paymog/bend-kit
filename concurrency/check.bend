@@ -89,7 +89,7 @@ def timeouts() -> IO(Unit):
 def later(ms: U32, +v: U32, +c: Chan(U32)) -> IO(Unit):
   do IO<Unit>:
     IO.sleep(ms)
-    sent : Bool <- Chan.send(U32, c, v)
+    sent : Result<&1, &1, U32, Unit> <- Chan.send(U32, c, v)
     Chan.close(U32, c)
 
 def picked(m: Maybe<&1, U32 & U32>, +i: U32, +v: U32) -> Bool:

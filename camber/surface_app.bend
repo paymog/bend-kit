@@ -2,7 +2,7 @@
 import Base
 import ../http/http.bend as Http
 import ../json/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./ownership.bend as Users
 import ./interface_check.bend as Registry
 import ./surface.bend as Surface

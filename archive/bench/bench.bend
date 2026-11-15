@@ -1,7 +1,7 @@
 # ZIP read benchmark: read every entry of out/fixture.zip (see README.md).
 import Base
 import ../../time/time.bend as Time
-import ../../bytes/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ../archive.bend as A
 
 def from_bytes(xs: List<&2, U32>) -> String:

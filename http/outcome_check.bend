@@ -3,7 +3,7 @@ import Base
 import ./http.bend as Http
 import ./completion.bend as Completion
 import ./admission_check.bend as Checks
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 type Payload is Data:
   Payload{path: String, stage: U32}
@@ -161,8 +161,8 @@ def late.opened(observers: Chan(Chan(Completion.Completion<Payload>)),
   pair: Completion.Receipt & Chan(Completion.Completion<Payload>)) -> IO(Http.Reply):
   (receipt, observer) = pair
   do IO<Http.Reply>:
-    sent : Bool <- Chan.send(Chan(Completion.Completion<Payload>), observers, observer)
-    late.require(sent)
+    sent : Result<&1, &1, Chan(Completion.Completion<Payload>), Unit> <- Chan.send(Chan(Completion.Completion<Payload>), observers, observer)
+    late.require(Result.is_done(&1, &1, Chan(Completion.Completion<Payload>), Unit, sent))
     return Http.Reply{Http.Res{200, Http.empty(), Http.from_string("ok")}, receipt}
 
 def late.handle(context: LateContext, request: Http.Req) -> IO(Http.Reply):

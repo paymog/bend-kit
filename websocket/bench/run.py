@@ -6,7 +6,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-MB = 256 * 65536 / 1e6
+OPS = {"frame": 256 * 65536 / 1e6, "stream": 16384 * 1000 / 1e6}
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1", "NODE_NO_WARNINGS": "1", "PYTHONPATH": str(OUT / "py")}
 
 
@@ -39,26 +39,31 @@ def main():
     setup()
     table, checks = {}, {}
     for name, (cmd, cwd) in VARIANTS.items():
-        runs = []
+        runs = {op: [] for op in OPS}
         for _ in range(RUNS):
             r = subprocess.run(cmd, cwd=cwd, env=ENV, capture_output=True, text=True)
             if r.returncode != 0:
                 sys.exit(f"{name} failed:\n{r.stderr or r.stdout}")
-            op, ms, c = next(l for l in r.stdout.splitlines() if l.startswith("frame\t")).split("\t")
-            runs.append((float(ms), c))
-        table[name] = statistics.median(ms for ms, _ in runs)
-        checks[name] = runs[0][1]
+            for line in r.stdout.splitlines():
+                op, *rest = line.split("\t")
+                if op in OPS:
+                    ms, c = rest
+                    runs[op].append(float(ms))
+                    checks.setdefault(op, {})[name] = c
+        table[name] = {op: statistics.median(ms) for op, ms in runs.items()}
         print(f"ran {name}", file=sys.stderr)
 
-    if len(set(checks.values())) != 1:
-        sys.exit(f"checksum mismatch: {checks}")
-    print(f"frame checksum {next(iter(checks.values()))}", file=sys.stderr)
+    for op in OPS:
+        if len(set(checks[op].values())) != 1:
+            sys.exit(f"{op} checksum mismatch: {checks[op]}")
+        print(f"{op} checksum {next(iter(checks[op].values()))}", file=sys.stderr)
 
-    best = min(table.values()) or 0.001
-    print("| variant | frame ms | MB/s | vs fastest |")
-    print("|---:|---:|---:|---:|")
-    for n, ms in table.items():
-        print(f"| {n} | {ms:,.1f} | {MB / (ms / 1000):,.0f} | {ms / best:.1f}x |")
+    for op, mb in OPS.items():
+        best = min(t[op] for t in table.values()) or 0.001
+        print(f"\n| {op} | ms | MB/s | vs fastest |")
+        print("|---:|---:|---:|---:|")
+        for n, t in table.items():
+            print(f"| {n} | {t[op]:,.1f} | {mb / (t[op] / 1000):,.0f} | {t[op] / best:.1f}x |")
 
 
 if __name__ == "__main__":

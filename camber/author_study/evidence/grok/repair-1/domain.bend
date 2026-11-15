@@ -1,7 +1,7 @@
 import Base
 import ../contract.bend as Contract
 import ../../../json/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
 
 def publish(record: Contract.Record) -> Contract.Record:
   match record:

@@ -15,6 +15,15 @@ not round through a binary float. A rational represents an exact quotient;
 use it when division has a repeating decimal expansion. No operation silently
 rounds a monetary amount.
 
-Run `../scripts/check.sh bignum` from the repository root to check the module,
+## API
+
+Import `bigint.bend` as `Big` for this call.
+
+| def | returns |
+|---|---|
+| `Big.BigInt.divmod(a: Big.BigInt, b: Big.BigInt) -> Maybe<&1, Big.BigInt & Big.BigInt>` | The quotient and remainder, or `None` for a zero divisor. |
+
+
+Run `scripts/check.sh bignum` from the repository root to check the module,
 prove its arithmetic fixtures, and run its smoke scenarios. See `bench/README.md`
 for a cross-language arithmetic benchmark.

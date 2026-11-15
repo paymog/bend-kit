@@ -1,6 +1,6 @@
 import Base
 import ../http2.bend as H
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def payload.sum(b: Bytes.Bytes) -> U32:
   H.with_number(U32, Bytes.get.u32be(b, 0), b => a =>
@@ -10,7 +10,7 @@ def step(r: H.Reply, k: H.Client -> U32 -> Maybe<&2, U32>) -> Maybe<&2, U32>:
   match r:
     case H.Failed{error}:
       None{}
-    case H.Ready{c, Nil{}, Con{H.Pong{data}, Nil{}}}:
+    case H.Advanced{c, Nil{}, Con{H.Pong{data}, Nil{}}}:
       k(c, payload.sum(data))
     case _:
       None{}
@@ -34,7 +34,7 @@ def started(r: H.Reply) -> IO(Unit):
   match r:
     case H.Failed{error}:
       IO.die(Unit, 1, "server SETTINGS failed")
-    case H.Ready{c, Con{ack, Nil{}}, Nil{}}:
+    case H.Advanced{c, Con{ack, Nil{}}, Nil{}}:
       result(run(10000n, c, 0))
     case _:
       IO.die(Unit, 1, "server SETTINGS was not acknowledged")

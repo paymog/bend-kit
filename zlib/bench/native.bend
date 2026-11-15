@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../zlib.bend as Z
-import ../../bytes/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def from_bytes(xs: List<&2, U32>) -> String:
   match xs:
@@ -29,23 +29,22 @@ def chk(s: String, h: U32) -> U32:
 def lap(+name: String, t0: Time.Duration, t1: Time.Duration, out: String) -> IO(Unit):
   IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk(out, 0)))
 
-def text(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> String:
+def text(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> String:
   match r:
     case Fail{e}:
       "failed"
-    case Done{(+len, buf)}:
-      Bytes.to_string(Bytes.Bytes{len, buf})
+    case Done{b}:
+      Bytes.to_string(b)
 
-def op.inflated(t0: Time.Duration, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+def op.inflated(t0: Time.Duration, r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
   do IO<Unit>:
     t1 : Time.Duration <- Time.mono()
     lap("inflate", t0, t1, text(r))
 
 def op.inflate(b: Bytes.Bytes) -> IO(Unit):
-  Bytes.Bytes{+len, buf} = b
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.inflate.words(16777216, len, buf)
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate(16777216, b)
     op.inflated(t0, r)
 
 def saved(r: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
@@ -61,31 +60,27 @@ def save(+gz: String, r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
         w : File & Result<&1, &1, U32 & String, Unit> <- File.write_bytes(f, to_bytes(gz))
         saved(w)
 
-def back(b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
-  Bytes.Bytes{+len, buf} = b
-  Z.inflate.words(16777216, len, buf)
-
 # The checksum is of the round trip; run.py also feeds out/native.gz to gzip -d.
-def op.deflated(t0: Time.Duration, r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
+def op.report(t0: Time.Duration, t1: Time.Duration, r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
   match r:
     case Fail{e}:
       IO.print("deflate\t0\tfailed")
-    case Done{(+len, buf)}:
-      +gz = Bytes.to_string(Bytes.Bytes{len, buf})
+    case Done{gz}:
+      Bytes.Bytes{+len, buf} = gz
+      +s = Bytes.to_string(Bytes.Bytes{len, buf})
       do IO<Unit>:
-        t1 : Time.Duration <- Time.mono()
         IO.print("size\t0\t" ++ U32.show(len))
-        u : Result<&1, &1, U32 & String, U32 & Array<U32>> <- back(Bytes.from_string(gz))
+        u : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate(16777216, Bytes.from_string(s))
         lap("deflate", t0, t1, text(u))
         f : Result<&1, &1, U32 & String, File> <- File.open("out/native.gz", "w")
-        save(gz, f)
+        save(s, f)
 
 def op.deflate(b: Bytes.Bytes) -> IO(Unit):
-  Bytes.Bytes{+len, buf} = b
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Z.gzip.words(len, buf)
-    op.deflated(t0, r)
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.gzip(b)
+    t1 : Time.Duration <- Time.mono()
+    op.report(t0, t1, r)
 
 def bytes.of(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> List<&2, U32>:
   match r:

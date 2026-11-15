@@ -4,6 +4,8 @@ This times `Url.parse` and `Url.encode` on one fixed origin-form path list, in B
 
 ## Run
 
+Run from `url/bench`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
@@ -34,7 +36,7 @@ The list has 16 strings (15 valid paths plus `nope`, which does not start with `
 | 15 | `/path?u=%2Fenc%2Foded` |
 | 16 | `nope` (invalid) |
 
-The parse checksum sums, over every parse, the decoded path length plus name length + value length + 1 per query pair. Failed parses add 0. The encode checksum sums `h = h*31 + c` over each encoded string (u32, wrapping), plus the string length, again wrapping. Both checksums are `2240000` and `2238082800`.
+The parse checksum sums the decoded path length and each query pair's name length + value length + 1. Failed parses add 0. The encode checksum sums `h = h*31 + c` over each encoded string (u32, wrapping), plus the string length, again wrapping. The expected parse checksum is `2240000`. The expected encode checksum is `2238082800`.
 
 Query parsing does not treat `+` as space (RFC 3986 query, not form-urlencoded). Encoders write query keys in sorted order to match Bend's `Map.to_list`.
 

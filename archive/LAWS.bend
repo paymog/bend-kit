@@ -1,6 +1,6 @@
 import Base
 import ./archive.bend as Archive
-import ../bytes/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def octets(xs: List<&2, U32>) -> String:
   match xs:

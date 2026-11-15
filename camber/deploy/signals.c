@@ -32,8 +32,8 @@ static Term deploy_request(Env e, Term *f, IoWork *w) {
   return term_pak(CID(Unit), 0);
 }
 static void __attribute__((constructor)) deploy_signals_use(void) {
-  io_eff(CID(install), deploy_install, 0);
-  io_eff(CID(requested), deploy_requested, 0);
-  io_eff(CID(request), deploy_request, 0);
+  io_eff(CID(install), deploy_install);
+  io_eff(CID(requested), deploy_requested);
+  io_eff(CID(request), deploy_request);
 }
 #endif

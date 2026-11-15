@@ -1,6 +1,6 @@
 # CSV (RFC 4180) over bytes: a record cursor, a whole-document parse, and an encoder. Source: https://github.com/paymog/bend-kit/tree/main/csv
 import Base
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Fields are Bytes, taken as they are: no charset, no trimming. A record ends at
 # CRLF, LF, or a lone CR, and the last line end is optional. A quoted field may

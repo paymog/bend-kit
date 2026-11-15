@@ -1,14 +1,15 @@
 # Fixed prepared HTTP applications and bounded affine dependency bundles.
 import Base
-import bend-kit-http@0.30.0.0/http.bend as Http
+import bend-kit-http@0.38.1.1/http.bend as Http
 import bend-kit-router@0.2.0.0/router.bend as Router
 import bend-kit-router@0.2.0.0/target.bend as Target
-import bend-kit-json@0.5.1.0/json.bend as Json
+import bend-kit-json@0.7.0.0/json.bend as Json
 import ./response.bend as Response
 import ./input.bend as Input
-import bend-kit-http@0.30.0.0/completion.bend as TransportCompletion
+import bend-kit-http@0.38.1.1/completion.bend as TransportCompletion
 import ./notices.bend as Notices
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-resources@0.1.0.0/resources.bend as Res
 
 type ResponseError is Data:
   InvalidResponse{}
@@ -93,27 +94,6 @@ def outcome.value(-E: Data, -O: Data, result: Result<&2, &2, E, O>) -> Outcome<E
     case Done{value}:
       Success{value}
 
-# The resources return through the private owner protocol BEFORE a disposable
-# caller reply. A closed caller reply cannot erase a handle or strand capacity.
-def work.return(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
-  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>),
-  result: R & Result<&2, &2, E, O>
-) -> IO(Unit):
-  (returned, outcome) = result
-  do IO<Unit>:
-    accepted : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Returned{returned})
-    sent : Bool <- Chan.send(Outcome<E, O>, reply, outcome.value(E, O, outcome))
-    return Unit{}
-
-def work(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
-  ~handler: R -> P -> I -> IO(R & Result<&2, &2, E, O>),
-  resource: R, principal: P, input: I,
-  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>)
-) -> IO(Unit):
-  do IO<Unit>:
-    result : R & Result<&2, &2, E, O> <- handler(resource, principal, input)
-    work.return(R, P, I, E, O, messages, reply, result)
-
 def dispose(~R: Type, ~destroy: R -> IO(Unit), resources: List<R>) -> IO(Unit):
   match resources:
     case Nil{}:
@@ -131,16 +111,48 @@ def drain.message(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
   match message:
     case Submit{principal, input, reply}:
       do IO<Unit>:
-        sent : Bool <- Chan.send(Outcome<E, O>, reply, Stopped{})
+        sent : Result<&1, &1, Outcome<E, O>, Unit> <- Chan.send(Outcome<E, O>, reply, Stopped{})
         return Unit{}
     case Inspect{reply}:
       Chan.close(Counts, reply)
     case Shutdown{reply}:
       do IO<Unit>:
-        sent : Bool <- Chan.send(CloseResult, reply, Closed{})
+        sent : Result<&1, &1, CloseResult, Unit> <- Chan.send(CloseResult, reply, Closed{})
         return Unit{}
     case Returned{resource}:
       destroy(resource)
+
+# The resources return through the private owner protocol BEFORE a disposable
+# caller reply. A closed caller reply cannot erase a handle or strand capacity.
+def work.returned(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
+  ~destroy: R -> IO(Unit), accepted: Result<&1, &1, Message<R, P, I, E, O>, Unit>
+) -> IO(Unit):
+  match accepted:
+    case Fail{message}:
+      drain.message(~R, ~P, ~I, ~E, ~O, ~destroy, message)
+    case Done{u}:
+      IO.pure(Unit, Unit{})
+
+def work.return(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
+  ~destroy: R -> IO(Unit),
+  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>),
+  result: R & Result<&2, &2, E, O>
+) -> IO(Unit):
+  (returned, outcome) = result
+  do IO<Unit>:
+    accepted : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Returned{returned})
+    work.returned(~R, ~P, ~I, ~E, ~O, ~destroy, accepted)
+    sent : Result<&1, &1, Outcome<E, O>, Unit> <- Chan.send(Outcome<E, O>, reply, outcome.value(E, O, outcome))
+    return Unit{}
+
+def work(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
+  ~handler: R -> P -> I -> IO(R & Result<&2, &2, E, O>), ~destroy: R -> IO(Unit),
+  resource: R, principal: P, input: I,
+  messages: Chan(Message<R, P, I, E, O>), reply: Chan(Outcome<E, O>)
+) -> IO(Unit):
+  do IO<Unit>:
+    result : R & Result<&2, &2, E, O> <- handler(resource, principal, input)
+    work.return(~R, ~P, ~I, ~E, ~O, ~destroy, messages, reply, result)
 
 def drain.step(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
   ~destroy: R -> IO(Unit), pending: Maybe<&1, Message<R, P, I, E, O>>,
@@ -166,9 +178,71 @@ def drain(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
         pending : Maybe<&1, Message<R, P, I, E, O>> <- Chan.recv(Message<R, P, I, E, O>, messages)
         drain.step(~R, ~P, ~I, ~E, ~O, ~destroy, pending, u => drain(~R, ~P, ~I, ~E, ~O, ~destroy, p, messages))
 
+# Every lent resource holds one pool unit, and all lent units join in one grant.
+type Ledger is Type:
+  Ledger{pool: Res.Pool, lent: Res.Grant, completed: Nat, rejected: Nat}
+
+def ledger.open(capacity: Nat) -> Ledger:
+  Ledger{Res.new(0n, capacity), Res.Grant{0n, 0n}, 0n, 0n}
+
+def ledger.counts(ledger: Ledger) -> Counts & Ledger:
+  Ledger{+pool, lent, +completed, +rejected} = ledger
+  (Counts{Res.capacity(pool), Res.reserved(pool), completed, rejected}, Ledger{pool, lent, completed, rejected})
+
+def ledger.refuse(ledger: Ledger) -> Ledger:
+  Ledger{pool, lent, completed, rejected} = ledger
+  Ledger{pool, lent, completed, 1n+rejected}
+
+def ledger.joined(combined: Res.Combine, pool: Res.Pool, completed: Nat, rejected: Nat) -> Maybe<&1, Ledger>:
+  match combined:
+    case Res.Joined{grant}:
+      Some{Ledger{pool, grant, completed, rejected}}
+    case Res.Apart{first, second}:
+      None{}
+
+def ledger.took(reserved: Res.Reserve, lent: Res.Grant, completed: Nat, rejected: Nat) -> Maybe<&1, Ledger>:
+  match reserved:
+    case Res.Took{pool, grant}:
+      ledger.joined(Res.combine(lent, grant), pool, completed, rejected)
+    case Res.Refused{pool}:
+      None{}
+
+# None means the pool has no free unit for a resource the owner still holds.
+def ledger.lend(ledger: Ledger) -> Maybe<&1, Ledger>:
+  Ledger{pool, lent, completed, rejected} = ledger
+  ledger.took(Res.reserve(pool, 1n), lent, completed, rejected)
+
+def ledger.released(released: Res.Release, rest: Res.Grant, completed: Nat, rejected: Nat) -> Maybe<&1, Ledger>:
+  match released:
+    case Res.Released{pool}:
+      Some{Ledger{pool, rest, 1n+completed, rejected}}
+    case Res.Kept{pool, grant}:
+      None{}
+
+def ledger.split(parts: Res.Split, pool: Res.Pool, completed: Nat, rejected: Nat) -> Maybe<&1, Ledger>:
+  match parts:
+    case Res.Parts{one, rest}:
+      ledger.released(Res.release(pool, one), rest, completed, rejected)
+    case Res.Whole{grant}:
+      None{}
+
+# None means a return with no matching lend.
+def ledger.give(ledger: Ledger) -> Maybe<&1, Ledger>:
+  Ledger{pool, lent, completed, rejected} = ledger
+  ledger.split(Res.split(lent, 1n), pool, completed, rejected)
+
+def ledger.must(booked: Maybe<&1, Ledger>, text: String) -> IO(Ledger):
+  match booked:
+    case None{}:
+      IO.die(Ledger, 1, text)
+    case Some{ledger}:
+      IO.pure(Ledger, ledger)
+
 type OwnerStep<-R: Type, -P: Data, -I: Data, -E: Data, -O: Data> is Type:
-  Waiting{resources: List<R>, counts: Counts}
-  Received{message: Message<R, P, I, E, O>, counts: Counts, resources: List<R>}
+  Waiting{resources: List<R>, ledger: Ledger}
+  Received{message: Message<R, P, I, E, O>, ledger: Ledger, resources: List<R>}
+  Counted{reply: Chan(Counts), counted: Counts & Ledger, resources: List<R>}
+  Closing{reply: Chan(CloseResult), counted: Counts & Ledger, resources: List<R>}
 
 # IO.join closes a one-shot channel; the owner inbox must remain reusable.
 def receive.value(-A: Type, value: Maybe<&1, A>) -> IO(A):
@@ -190,44 +264,50 @@ def receive(-A: Type, channel: Chan(A)) -> IO(A):
   +messages: Chan(Message<R, P, I, E, O>), +room: U32, step: OwnerStep<R, P, I, E, O>
 ) -> IO(Unit):
   match step:
-    case Waiting{resources, counts}:
+    case Waiting{resources, ledger}:
       do IO<Unit>:
         message : Message<R, P, I, E, O> <- receive(Message<R, P, I, E, O>, messages)
-        owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Received{message, counts, resources})
-    case Received{message, counts, resources}:
+        owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Received{message, ledger, resources})
+    case Counted{reply, counted, resources}:
+      (counts, kept) = counted
+      do IO<Unit>:
+        sent : Result<&1, &1, Counts, Unit> <- Chan.send(Counts, reply, counts)
+        owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, kept})
+    case Closing{reply, counted, resources}:
+      (counts, kept) = counted
+      Counts{+capacity, in_use, +completed, +rejected} = counts
+      match in_use:
+        case 0n:
+          do IO<Unit>:
+            dispose(~R, ~destroy, resources)
+            Chan.close(Message<R, P, I, E, O>, messages)
+            sent : Result<&1, &1, CloseResult, Unit> <- Chan.send(CloseResult, reply, Closed{})
+            drain(~R, ~P, ~I, ~E, ~O, ~destroy, U32.to_nat(room), messages)
+        case 1n+p:
+          do IO<Unit>:
+            sent : Result<&1, &1, CloseResult, Unit> <- Chan.send(CloseResult, reply, Busy{Counts{capacity, 1n+p, completed, rejected}})
+            owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, kept})
+    case Received{message, ledger, resources}:
       match message:
         case Returned{resource}:
-          Counts{capacity, in_use, completed, rejected} = counts
-          owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resource <> resources, Counts{capacity, Nat.sub(in_use, 1n), 1n+completed, rejected}})
-        case Inspect{reply}:
-          Counts{+capacity, +in_use, +completed, +rejected} = counts
           do IO<Unit>:
-            sent : Bool <- Chan.send(Counts, reply, Counts{capacity, in_use, completed, rejected})
-            owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, Counts{capacity, in_use, completed, rejected}})
+            given : Ledger <- ledger.must(ledger.give(ledger), "camber: a resource returned without a matching submit")
+            owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resource <> resources, given})
+        case Inspect{reply}:
+          owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Counted{reply, ledger.counts(ledger), resources})
         case Shutdown{reply}:
-          Counts{+capacity, in_use, +completed, +rejected} = counts
-          match in_use:
-            case 0n:
-              do IO<Unit>:
-                dispose(~R, ~destroy, resources)
-                Chan.close(Message<R, P, I, E, O>, messages)
-                sent : Bool <- Chan.send(CloseResult, reply, Closed{})
-                drain(~R, ~P, ~I, ~E, ~O, ~destroy, U32.to_nat(room), messages)
-            case 1n+ +p:
-              do IO<Unit>:
-                sent : Bool <- Chan.send(CloseResult, reply, Busy{Counts{capacity, 1n+p, completed, rejected}})
-                owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, Counts{capacity, 1n+p, completed, rejected}})
+          owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Closing{reply, ledger.counts(ledger), resources})
         case Submit{principal, input, reply}:
-          Counts{capacity, in_use, completed, rejected} = counts
           match resources:
             case Nil{}:
               do IO<Unit>:
-                sent : Bool <- Chan.send(Outcome<E, O>, reply, Exhausted{})
-                owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{Nil{}, Counts{capacity, in_use, completed, 1n+rejected}})
+                sent : Result<&1, &1, Outcome<E, O>, Unit> <- Chan.send(Outcome<E, O>, reply, Exhausted{})
+                owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{Nil{}, ledger.refuse(ledger)})
             case Con{resource, rest}:
               do IO<Unit>:
-                IO.spawn(Unit, work(~R, ~P, ~I, ~E, ~O, ~handler, resource, principal, input, messages, reply))
-                owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{rest, Counts{capacity, 1n+in_use, completed, rejected}})
+                lent : Ledger <- ledger.must(ledger.lend(ledger), "camber: a held resource found no free pool unit")
+                IO.spawn(Unit, work(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, resource, principal, input, messages, reply))
+                owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{rest, lent})
 
 def build.step(~R: Type, ~E: Data, ~destroy: R -> IO(Unit),
   result: Result<&2, &1, E, R>, resources: List<R>,
@@ -263,7 +343,7 @@ def start.ready(~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
       do IO<Result<&2, &1, E, Owner<R, P, I, E, O>>>:
         channel : Chan(Message<R, P, I, E, O>) <- Chan.new(Message<R, P, I, E, O>, room)
         +messages : Chan(Message<R, P, I, E, O>) = channel
-        finished : Chan(Unit) <- IO.fork(Unit, owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, Counts{capacity, 0n, 0n, 0n}}))
+        finished : Chan(Unit) <- IO.fork(Unit, owner(~R, ~P, ~I, ~E, ~O, ~handler, ~destroy, messages, room, Waiting{resources, ledger.open(capacity)}))
         return Done{Owner{Context{messages}, finished}}
 
 # The initializer closes partial handles within a failed bundle; start closes
@@ -279,17 +359,19 @@ def start(~K: Data, ~R: Type, ~P: Data, ~I: Data, ~E: Data, ~O: Data,
 
 def submit(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
   context: Context<R, P, I, E, O>, principal: P, input: I, reply: Chan(Outcome<E, O>)
-) -> IO(Bool):
+) -> IO(Result<&1, &1, Message<R, P, I, E, O>, Unit>):
   Context{messages} = context
-  Chan.send(Message<R, P, I, E, O>, messages, Submit{principal, input, reply})
+  do IO<Result<&1, &1, Message<R, P, I, E, O>, Unit>>:
+    sent : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Submit{principal, input, reply})
+    return sent
 
-def call.accepted(-E: Data, -O: Data, accepted: Bool, +reply: Chan(Outcome<E, O>)) -> IO(Outcome<E, O>):
+def call.accepted(-T: Type, -E: Data, -O: Data, accepted: Result<&1, &1, T, Unit>, +reply: Chan(Outcome<E, O>)) -> IO(Outcome<E, O>):
   match accepted:
-    case False{}:
+    case Fail{v}:
       do IO<Outcome<E, O>>:
         Chan.close(Outcome<E, O>, reply)
         return Stopped{}
-    case True{}:
+    case Done{u}:
       do IO<Outcome<E, O>>:
         result : Outcome<E, O> <- IO.join(Outcome<E, O>, reply)
         Chan.close(Outcome<E, O>, reply)
@@ -301,8 +383,8 @@ def call(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data,
   do IO<Outcome<E, O>>:
     channel : Chan(Outcome<E, O>) <- Chan.new(Outcome<E, O>, 1)
     +reply : Chan(Outcome<E, O>) = channel
-    accepted : Bool <- submit(R, P, I, E, O, context, principal, input, reply)
-    call.accepted(E, O, accepted, reply)
+    accepted : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- submit(R, P, I, E, O, context, principal, input, reply)
+    call.accepted(Message<R, P, I, E, O>, E, O, accepted, reply)
 
 def inspect.value(value: Maybe<&1, Counts>) -> Maybe<&2, Counts>:
   match value:
@@ -311,13 +393,13 @@ def inspect.value(value: Maybe<&1, Counts>) -> Maybe<&2, Counts>:
     case Some{counts}:
       Some{counts}
 
-def inspect.sent(sent: Bool, +reply: Chan(Counts)) -> IO(Maybe<&2, Counts>):
+def inspect.sent(-T: Type, sent: Result<&1, &1, T, Unit>, +reply: Chan(Counts)) -> IO(Maybe<&2, Counts>):
   match sent:
-    case False{}:
+    case Fail{v}:
       do IO<Maybe<&2, Counts>>:
         Chan.close(Counts, reply)
         return None{}
-    case True{}:
+    case Done{u}:
       do IO<Maybe<&2, Counts>>:
         value : Maybe<&1, Counts> <- Chan.recv(Counts, reply)
         Chan.close(Counts, reply)
@@ -328,16 +410,16 @@ def inspect(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, context: Context<R
   do IO<Maybe<&2, Counts>>:
     channel : Chan(Counts) <- Chan.new(Counts, 1)
     +reply : Chan(Counts) = channel
-    sent : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Inspect{reply})
-    inspect.sent(sent, reply)
+    sent : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Inspect{reply})
+    inspect.sent(Message<R, P, I, E, O>, sent, reply)
 
-def close.sent(sent: Bool, +reply: Chan(CloseResult)) -> IO(CloseResult):
+def close.sent(-T: Type, sent: Result<&1, &1, T, Unit>, +reply: Chan(CloseResult)) -> IO(CloseResult):
   match sent:
-    case False{}:
+    case Fail{v}:
       do IO<CloseResult>:
         Chan.close(CloseResult, reply)
         return Closed{}
-    case True{}:
+    case Done{u}:
       do IO<CloseResult>:
         value : CloseResult <- IO.join(CloseResult, reply)
         Chan.close(CloseResult, reply)
@@ -367,8 +449,8 @@ def close(-R: Type, -P: Data, -I: Data, -E: Data, -O: Data, owner: Owner<R, P, I
   do IO<OwnerClose<R, P, I, E, O>>:
     channel : Chan(CloseResult) <- Chan.new(CloseResult, 1)
     +reply : Chan(CloseResult) = channel
-    sent : Bool <- Chan.send(Message<R, P, I, E, O>, messages, Shutdown{reply})
-    result : CloseResult <- close.sent(sent, reply)
+    sent : Result<&1, &1, Message<R, P, I, E, O>, Unit> <- Chan.send(Message<R, P, I, E, O>, messages, Shutdown{reply})
+    result : CloseResult <- close.sent(Message<R, P, I, E, O>, sent, reply)
     close.completed(R, P, I, E, O, result, Owner{Context{messages}, finished})
 
 # Policies are prepared Data, not callbacks. Later lifecycle stages can consume
@@ -932,7 +1014,7 @@ def server.work.completed(~S: Type, ~H: Data, response_channel: Chan(Http.Res),
 ) -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>):
   Completed{state, response, entered, mapped, stopped} = completion
   do IO<S & Result<&2, &2, Unit, ApplicationReport<H>>>:
-    sent : Bool <- Chan.send(Http.Res, response_channel, response)
+    sent : Result<&1, &1, Http.Res, Unit> <- Chan.send(Http.Res, response_channel, response)
     return (state, Done{Dispatched{entered, mapped, stopped}})
 
 def server.work(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
@@ -1027,7 +1109,7 @@ def server.handle(~A: Data, ~S: Type, ~K: Data, ~H: Data,
     started : Time.Duration <- Time.mono()
     +body_channel : Chan(Http.Body) <- Chan.new(Http.Body, 1)
     +response_channel : Chan(Http.Res) <- Chan.new(Http.Res, 1)
-    sent : Bool <- Chan.send(Http.Body, body_channel, body)
+    sent : Result<&1, &1, Http.Body, Unit> <- Chan.send(Http.Body, body_channel, body)
     outcome : Outcome<Unit, ApplicationReport<H>> <- call(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>,
       owner, app, BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel})
     server.response(~K, ~H, ~done, config, started, outcome, body_channel, response_channel)
@@ -1051,7 +1133,7 @@ def server.started(~A: Data, ~S: Type, ~K: Data, ~H: Data,
     case Done{transport}:
       do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
         finished : Chan(Unit) <- IO.fork(Unit, owner(~S, ~Application<A, K, Policy<H>>, ~BufferedRequest, ~Unit, ~ApplicationReport<H>,
-          ~work, ~destroy, messages, room, Waiting{resources, Counts{capacity, 0n, 0n, 0n}}))
+          ~work, ~destroy, messages, room, Waiting{resources, ledger.open(capacity)}))
         return Done{Server{transport, Owner{Context{messages}, finished}}}
 
 def server.prepared(~A: Data, ~S: Type, ~K: Data, ~H: Data,

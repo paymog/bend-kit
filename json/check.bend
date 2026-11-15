@@ -1,7 +1,8 @@
 import Base
 import ./json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import ../encoding/encoding.bend as Enc
+import bend-kit-f64@0.1.3.0/f64.bend as F64
 
 def show(m: Maybe<&1, Json.Val>) -> IO(Unit):
   match m:
@@ -49,6 +50,56 @@ def nested(n: Nat, +open: String, +close: String, s: String) -> String:
     case 1n+k:
       nested(k, open, close, open ++ s ++ close)
 
+def unique(s: String, cap: U32) -> Maybe<&1, Json.Val>:
+  Json.parse.strict.unique.bytes(Bytes.from_string(s), cap)
+
+def expect.unique(label: String, s: String, cap: U32, want: Maybe<&2, String>) -> IO(Unit):
+  checked(same(encoded(unique(s, cap)), want), label)
+
+def same.flag(a: Bool, b: Bool) -> Bool:
+  match a b:
+    case True{} True{}:
+      True{}
+    case False{} False{}:
+      True{}
+    case _ _:
+      False{}
+
+def retained.encoded(result: Json.Val & Bool) -> Maybe<&2, String> & Bool:
+  (v, ok) = result
+  (Some{Bytes.to_string(Json.encode.bytes(v))}, ok)
+
+def retained.parsed(m: Maybe<&1, Json.Val>) -> Maybe<&2, String> & Bool:
+  match m:
+    case None{}:
+      (None{}, False{})
+    case Some{v}:
+      retained.encoded(Json.unique.keys(v))
+
+def retained.checked(result: Maybe<&2, String> & Bool, label: String, want: Maybe<&2, String>, verdict: Bool) -> IO(Unit):
+  (got, ok) = result
+  checked(Bool.and(same(got, want), same.flag(ok, verdict)), label)
+
+def expect.retained(label: String, s: String, cap: U32, want: Maybe<&2, String>, verdict: Bool) -> IO(Unit):
+  retained.checked(retained.parsed(strict(s, cap)), label, want, verdict)
+
+def f32.text(m: Maybe<&2, F32>) -> String:
+  match m:
+    case None{}:
+      "none"
+    case Some{x}:
+      F32.show(x)
+
+def f64.text(m: Maybe<&2, F64.F64>) -> String:
+  match m:
+    case None{}:
+      "none"
+    case Some{x}:
+      F64.F64.show(x)
+
+def expect.float(label: String, +s: String, want32: String, want64: String) -> IO(Unit):
+  checked(Bool.and(String.eq(f32.text(Json.f32(Json.Num{Bytes.from_string(s)})), want32), String.eq(f64.text(Json.f64(Json.Num{Bytes.from_string(s)})), want64)), label)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(pb("null"))
@@ -93,3 +144,23 @@ def main() -> IO(Unit):
     expect("exact-numbers", "[-0,1e+02,1E400,9007199254740993,-12.50e-03]", 64, Some{"[-0,1e+02,1E400,9007199254740993,-12.50e-03]"})
     expect("valid-fixture", " { \"a\": [true,false,null,\"x\\n\\u00e9\"] } ", 64, Some{"{\"a\":[true,false,null,\"x\\n\u{c3}\u{a9}\"]}"})
     expect("repeated-keys-preserved", "{\"k\":1,\"k\":2}", 64, Some{"{\"k\":1,\"k\":2}"})
+    expect.unique("unique-equal-duplicate", "{\"a\":1,\"a\":1}", 64, None{})
+    expect.unique("unique-conflicting-duplicate", "{\"a\":1,\"a\":2}", 64, None{})
+    expect.unique("unique-decoded-ascii-alias", "{\"a\":1,\"\\u0061\":2}", 64, None{})
+    expect.unique("unique-decoded-astral-alias", "{\"\u{f0}\u{9f}\u{98}\u{80}\":1,\"\\uD83D\\uDE00\":2}", 64, None{})
+    expect.unique("unique-second-array-item", "[{\"safe\":0},{\"deep\":{\"a\":1,\"\\u0061\":2}}]", 64, None{})
+    expect.unique("unique-independent-siblings", "[{\"a\":1},{\"a\":2}]", 64, Some{"[{\"a\":1},{\"a\":2}]"})
+    expect.unique("unique-exact-number-order", "{\"z\":1e+02,\"a\":-0,\"m\":9007199254740993}", 64, Some{"{\"z\":1e+02,\"a\":-0,\"m\":9007199254740993}"})
+    expect.unique("unique-empty-containers", "{\"a\":[],\"b\":{}}", 64, Some{"{\"a\":[],\"b\":{}}"})
+    expect.unique("unique-lone-surrogate", "\"\\uD800\"", 64, None{})
+    expect.unique("unique-depth-overflow", "[{\"a\":0}]", 1, None{})
+    expect.unique("unique-zero-scalar", "1e+02", 0, Some{"1e+02"})
+    expect.unique("unique-leading-zero", "01", 64, None{})
+    expect.unique("unique-decoded-nul", "{\"a\\u0000\":1,\"a\\u0000\":2}", 64, None{})
+    expect.unique("unique-decoded-key-string-bytes", "{\"\\u00e9\":\"x\\n\\u00e9\"}", 64, Some{"{\"\u{c3}\u{a9}\":\"x\\n\u{c3}\u{a9}\"}"})
+    expect.retained("unique-retains-rejected-members", "{\"a\":1,\"\\u0061\":2}", 64, Some{"{\"a\":1,\"a\":2}"}, False{})
+    expect.retained("unique-retains-valid-buffers", "{\"z\":1e+02,\"\\u00e9\":\"x\\n\\u00e9\",\"wide\":9007199254740993,\"m\":-0}", 64, Some{"{\"z\":1e+02,\"\u{c3}\u{a9}\":\"x\\n\u{c3}\u{a9}\",\"wide\":9007199254740993,\"m\":-0}"}, True{})
+    expect.float("float-fraction", "-12.50e-03", "-0.0125", "-0.0125")
+    expect.float("float-tenth", "0.1", "0.1", "0.1")
+    expect.float("float-int", "42", "42", "42.0")
+    expect.float("float-overflow", "1E400", "inf", "inf")

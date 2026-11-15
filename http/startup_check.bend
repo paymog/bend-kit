@@ -16,8 +16,8 @@ def require(ok: Bool) -> IO(Unit):
 def handle(context: Context, request: Http.Req) -> IO(Http.Reply):
   Context{token, calls} = context
   do IO<Http.Reply>:
-    sent : Bool <- Chan.send(Unit, calls, Unit{})
-    require(sent)
+    sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, calls, Unit{})
+    require(Result.is_done(&1, &1, Unit, Unit, sent))
     return Http.Reply{Http.Res{200, Http.empty(), Http.from_string(token)}, Completion.Unobserved{}}
 
 def cleanup.written(written: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):

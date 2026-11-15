@@ -4,6 +4,8 @@ This times **R = 64** localhost TCP echo round trips with a fixed **1 MiB** payl
 
 ## Run
 
+Run from `wire/bench`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs

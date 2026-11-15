@@ -4,6 +4,7 @@ import ./hmap.bend as M
 import ./vec.bend as V
 import ./deque.bend as D
 import ./heap.bend as H
+import ./order.bend as Order
 
 def scmp.fin(r: (String & String) & Cmp) -> Cmp:
   (ab, c) = r
@@ -220,6 +221,36 @@ law omap_get_put_other_key:
   {O.OMap.get(~K, ~V, ~cmp, O.OMap.put(~K, ~V, ~cmp, m, k2, v), k)
    == O.OMap.get(~K, ~V, ~cmp, m, k) : Maybe<&2, V>}
 
+# Order.string is a total order with EQ meaning equal strings: it meets the
+# refl, eq, flip and trans facts that the OMap laws above take. It answers for
+# every pair, so it is total; flip makes it antisymmetric.
+law order_string_refl:
+  for x: String
+  {Order.string(x, x) == EQ{} : Cmp}
+
+law order_string_eq:
+  for x: String
+  for y: String
+  for e: {Order.string(x, y) == EQ{} : Cmp}
+  {x == y : String}
+
+law order_string_flip:
+  for x: String
+  for y: String
+  {Order.string(y, x) == flip(Order.string(x, y)) : Cmp}
+
+law order_string_trans:
+  for x: String
+  for y: String
+  for z: String
+  for e1: {Order.string(x, y) == LT{} : Cmp}
+  for e2: {Order.string(y, z) == LT{} : Cmp}
+  {Order.string(x, z) == LT{} : Cmp}
+
+# Lower code points first, and a prefix before its extensions.
+law order_string_fixtures:
+  {[Order.string("a", "b"), Order.string("ab", "a"), Order.string("", "a"), Order.string("é", "z")]
+   == [LT{}, GT{}, LT{}, GT{}] : List<&2, Cmp>}
 
 # Ghost weight from tree shape: weight = stored size + 1, so OTip has weight 1 and
 # OBin{lo, hi} has weight w(lo) + w(hi). Balance is Hirai-Yamamoto (delta 3, gamma 2).

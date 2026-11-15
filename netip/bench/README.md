@@ -4,6 +4,8 @@ This times `Netip.parse` + `Netip.show` and `Netip.prefix.parse` + `Netip.contai
 
 ## Run
 
+Run these commands from `netip/bench/`.
+
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs

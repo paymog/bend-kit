@@ -344,6 +344,15 @@ def slice(b: Bytes, +start: U32, +n: U32) -> Bytes & Bytes:
   +s = U32.min(start, len)
   slice.at(len, buf, s, U32.min(n, (len - s : U32)))
 
+def clone.of(+len: U32, r: Array<U32> & Array<U32>) -> Bytes & Bytes:
+  (a, c) = r
+  (Bytes{len, a}, Bytes{len, c})
+
+# Two buffers that hold the same bytes.
+def clone(b: Bytes) -> Bytes & Bytes:
+  Bytes{+len, buf} = b
+  clone.of(len, Array.clone(U32, buf))
+
 def dst(r: Array<U32> & Array<U32>) -> Array<U32>:
   (src, out) = r
   out
@@ -754,6 +763,46 @@ def from_base64(+s: String) -> Maybe<&1, Bytes>:
   +n = count(s, 0)
   +pads = b64.pads(s, 0)
   unb64.if(Bool.and(U32.is_eq((n .&. 3 : U32), 0), U32.is_le(pads, 2)), s, n, pads)
+
+# For a digit d, n * 10 + d overflows exactly when (n * 10 + d) / 10 != n in wrapping U32.
+def u32.read.go(n: Nat, r: Array<U32> & U32, +i: U32, +acc: U32, +ok: Bool) -> Maybe<&2, U32>:
+  match n:
+    case 0n:
+      (a, v) = r
+      Bool.pick(Maybe<&2, U32>, ok, Some{acc}, None{})
+    case 1n+p:
+      (a, +v) = r
+      +m = (acc * 10 + (v - 48) : U32)
+      u32.read.go(p, peek(a, (i + 1 : U32)), (i + 1 : U32), m, Bool.and(ok, Bool.and(in(48, v, 57), U32.is_eq((m / 10 : U32), acc))))
+
+# ASCII decimal digits to a U32. None when b is empty, holds a non-digit, or exceeds 4294967295.
+def u32.read(b: Bytes) -> Maybe<&2, U32>:
+  Bytes{+len, buf} = b
+  u32.read.go(U32.to_nat(len), peek(buf, 0), 0, 0, U32.is_ne(len, 0))
+
+# The digit count of n, at most 10.
+def u32.width(f: Nat, small: Bool, +n: U32, +k: U32) -> U32:
+  match f:
+    case 0n:
+      k
+    case 1n+p:
+      match small:
+        case True{}:
+          k
+        case False{}:
+          u32.width(p, U32.is_lt((n / 10 : U32), 10), (n / 10 : U32), (k + 1 : U32))
+
+def u32.digits(f: Nat, a: Array<U32>, +i: U32, +n: U32) -> Array<U32>:
+  match f:
+    case 0n:
+      a
+    case 1n+p:
+      u32.digits(p, poke(a, i, (48 + n % 10 : U32)), (i - 1 : U32), (n / 10 : U32))
+
+# n in ASCII decimal, with no leading zeros.
+def u32.show(+n: U32) -> Bytes:
+  +k = u32.width(10n, U32.is_lt(n, 10), n, 1)
+  Bytes{k, u32.digits(U32.to_nat(k), alloc(k), (k - 1 : U32), n)}
 
 # A cursor owns the same packed buffer; start and end bound a region without slicing it.
 type Cursor is Type:

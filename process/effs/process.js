@@ -141,7 +141,7 @@ function process_track(proc) {
   process_procs.set(proc.pid, proc);
 }
 
-function process_spawn_pipes(argv, environment) {
+function process_spawn_pipes(argv, environment, cwd) {
   const sys = io_sys();
   const si = process_pipe_pair();
   const so = process_pipe_pair();
@@ -169,6 +169,7 @@ function process_spawn_pipes(argv, environment) {
     proc = Bun.spawn({
       cmd: argv,
       env: environment,
+      cwd,
       stdio: [stdin_r, stdout_w, stderr_w],
     });
   } catch (e) {
@@ -191,9 +192,9 @@ function process_spawn_pipes(argv, environment) {
   };
 }
 
-function run_raw(cmd, args, env, stdin, k) {
+function run_raw(cmd, args, env, cwd, stdin, k) {
   const argv = process_argv(cmd, args);
-  if (argv === null) {
+  if (argv === null || process_has_nul(cwd)) {
     return io_fail(process_einval());
   }
   const environment = process_env(env);
@@ -208,6 +209,7 @@ function run_raw(cmd, args, env, stdin, k) {
     const r = Bun.spawnSync({
       cmd: argv,
       env: environment,
+      cwd,
       stdin: inb,
       stdout: "pipe",
       stderr: "pipe",
@@ -224,16 +226,16 @@ function run_raw(cmd, args, env, stdin, k) {
   }
 }
 
-function spawn(cmd, args, env) {
+function spawn(cmd, args, env, cwd) {
   const argv = process_argv(cmd, args);
-  if (argv === null) {
+  if (argv === null || process_has_nul(cwd)) {
     return io_fail(process_einval());
   }
   const environment = process_env(env);
   if (environment === null) {
     return io_fail(process_einval());
   }
-  const spawned = process_spawn_pipes(argv, environment);
+  const spawned = process_spawn_pipes(argv, environment, cwd);
   if (spawned.$ === "Fail") {
     return spawned;
   }
@@ -244,7 +246,11 @@ function spawn(cmd, args, env) {
 }
 
 function wait(pid, k) {
-  const proc = process_procs.get(Number(pid));
+  const n = Number(pid);
+  if (!Number.isInteger(n) || n < 1 || n > 2147483647) {
+    return io_fail(process_einval());
+  }
+  const proc = process_procs.get(n);
   if (proc === undefined) {
     return io_fail(10);
   }
@@ -295,7 +301,7 @@ function read_stdin(max, k) {
 
 function exit_raw(code) {
   process.exit(Number(code));
-  return { $: "Unit" };
+  return { $: CID(Unit) };
 }
 
 function cwd() {
@@ -312,7 +318,7 @@ function chdir(path) {
   }
   try {
     process.chdir(path);
-    return io_done({ $: "Unit" });
+    return io_done({ $: CID(Unit) });
   } catch (e) {
     const code = e.errno ?? (e.code === "ENOENT" ? 2 : e.code === "EACCES" ? 13 : e.code === "ERR_INVALID_ARG_TYPE" ? 22 : 5);
     return io_fail(Math.abs(code));
@@ -374,15 +380,13 @@ function signal_poll() {
   return process_signal_native() >>> 0;
 }
 
-// Standalone JS builds use the older effect registry; bundled builds collect
-// functions by name. Register explicitly only when that registry is present.
-if (typeof io_eff === "function") {
-  for (const [name, fn] of Object.entries({
-    run_raw, spawn, wait, read_stdin, exit_raw, cwd, chdir, hostname, pid, signal_poll,
-  })) {
-    const effect = name === "run_raw" ? "run.raw"
-      : name === "exit_raw" ? "exit.raw"
-      : name === "signal_poll" ? "signal.poll" : name;
-    io_eff("process." + effect, fn);
-  }
-}
+io_eff(CID(run.raw), run_raw);
+io_eff(CID(spawn), spawn);
+io_eff(CID(wait), wait);
+io_eff(CID(read_stdin), read_stdin);
+io_eff(CID(exit.raw), exit_raw);
+io_eff(CID(cwd), cwd);
+io_eff(CID(chdir), chdir);
+io_eff(CID(hostname), hostname);
+io_eff(CID(pid), pid);
+io_eff(CID(signal.poll), signal_poll);

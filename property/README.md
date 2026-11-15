@@ -1,12 +1,12 @@
 # Property testing
 
-`property.bend` runs pure generated checks. Import `generate.bend` and `shrink.bend` from the same package. The seed reproduces the same draw stream. `check` returns the first failure with its zero-based trial index and shrunk value; `run` also prints `property failed: seed=42 trial=1 counterexample=[0, 0, 1]` and returns `False`. A passing run returns `True` and prints nothing. `check.bend` contains a complete example that plants a list-sum defect and reduces it to `[0, 0, 1]`.
+`property.bend` runs pure checks on generated values. Import `generate.bend` and `shrink.bend` from the same package. The same seed produces the same values. `check` returns the first failure, its zero-based trial index, and its reduced value. `run` also prints a message such as `property failed: seed=42 trial=1 counterexample=[0, 0, 1]` and returns `False`. A passing run returns `True` and prints nothing. `check.bend` contains a list-sum defect. The check reduces its failing input to `[0, 0, 1]`.
 
 ```bend
 import Base
-import bend-kit-property@0.1.0.0/property.bend as Prop
-import bend-kit-property@0.1.0.0/generate.bend as Gen
-import bend-kit-property@0.1.0.0/shrink.bend as Shrink
+import bend-kit-property@0.4.0.0/property.bend as Prop
+import bend-kit-property@0.4.0.0/generate.bend as Gen
+import bend-kit-property@0.4.0.0/shrink.bend as Shrink
 
 # A predicate must return the tested value, including on failure.
 def small(+x: U32) -> U32 & Bool:
@@ -22,8 +22,10 @@ def main() -> IO(Unit):
     IO.print(Bool.pick(String, ok, "pass", "fail"))
 ```
 
-`Gen.u32`, `Gen.nat(max, rng)`, `Gen.string(max, rng)`, `Gen.bytes(max, rng)`, `Gen.list(~T, ~gen, max, rng)`, and `Gen.maybe(~T, ~gen, rng)` cover the basic types. Lengths are uniformly drawn from zero through `min(max, 1024)`; strings contain printable ASCII and bytes cover 0–255. `Gen.map`, `Gen.bind`, and `Gen.pair` compose user-defined generators. `Gen.list.of` and `Gen.string.of` take an exact `Nat` count instead. The `~gen` template must be closed: use `~(r => Gen.list(~U32, ~Gen.u32, 8, r))` for a fixed bound.
+This package imports `bend-kit-random@0.1.0.1` and `bend-kit-bytes@0.3.3.0`. Import the same bytes version when you use `Gen.bytes` or `Shrink.bytes`.
 
-`Shrink.u32`, `Shrink.nat`, `Shrink.char`, `Shrink.string`, `Shrink.bytes`, `Shrink.list(~T, ~shrink, xs)`, and `Shrink.maybe(~T, ~shrink, value)` return ordered candidate lists. Numbers try zero and then halving steps down to a decrement of one. Lists try whole and chunk deletions, then simplify individual elements. The runner takes the first failing candidate and repeats, up to 1024 accepted steps. If it stops before that bound, the counterexample is locally minimal under the candidate order; arbitrary predicates need not have a globally shortest result. User-defined shrinkers should only return simpler values, or the bound may stop a cycle.
+`Gen.u32`, `Gen.nat(max, rng)`, `Gen.string(max, rng)`, `Gen.bytes(max, rng)`, `Gen.list(~T, ~gen, max, rng)`, and `Gen.maybe(~T, ~gen, rng)` generate basic types. Lengths range uniformly from zero through `min(max, 1024)`. Strings contain printable ASCII. Byte values range from 0 to 255. `Gen.map`, `Gen.bind`, and `Gen.pair` combine generators. `Gen.list.of` and `Gen.string.of` take an exact `Nat` count. The `~gen` template must be closed. Use `~(r => Gen.list(~U32, ~Gen.u32, 8, r))` for a fixed bound.
 
-`~copy: T -> T & T` keeps the current counterexample while trying candidates. For `Data` values, return `(x, x)` with a reusable binder inside the copy def. For affine `Bytes.Bytes`, copy with `Bytes.slice` and pass a predicate that returns its input. No OS entropy or IO enters generation or shrinking; `run` prints through IO, while `check` remains pure. Choose and record a seed in each package's `check.bend` so failures replay exactly.
+`Shrink.u32`, `Shrink.nat`, `Shrink.char`, `Shrink.string`, `Shrink.bytes`, `Shrink.list(~T, ~shrink, xs)`, and `Shrink.maybe(~T, ~shrink, value)` return ordered candidate lists. Numbers try zero, then halve the decrement down to one. Lists try to remove the whole list, then chunks, then to simplify each element. The runner accepts the first failing candidate and repeats. It accepts at most 1024 steps. If it stops before that limit, no candidate from the final value fails. Another value can still be a shorter failing input. Custom shrinkers should return only simpler values. Otherwise, the limit can stop a cycle.
+
+`~copy: T -> T & T` keeps the current failing value while the runner tries candidates. For `Data` values, return `(x, x)` with a reusable binder inside the copy def. For affine `Bytes.Bytes`, copy with `Bytes.slice`. The predicate must return its input. Generation and shrinking use no OS entropy or IO. `run` prints through IO. `check` is pure. Record a seed in each package's `check.bend` to reproduce failures.

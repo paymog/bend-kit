@@ -1,7 +1,7 @@
 # SSE parse benchmark: parse every event in one fixed recording (see README.md).
 import Base
 import ../sse.bend as Sse
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def m(+h: U32, +x: U32) -> U32:
   (h * 31 + x : U32)

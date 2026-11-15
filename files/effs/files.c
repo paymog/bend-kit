@@ -122,7 +122,7 @@ Term list_dir_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) list_dir_raw_use(void) {
-  io_eff(CID(list_dir.raw), list_dir_raw_run, 0);
+  io_eff(CID(list_dir.raw), list_dir_raw_run);
 }
 
 #endif
@@ -158,7 +158,7 @@ Term stat_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) stat_raw_use(void) {
-  io_eff(CID(stat.raw), stat_raw_run, 0);
+  io_eff(CID(stat.raw), stat_raw_run);
 }
 
 #endif
@@ -182,7 +182,7 @@ Term mkdir_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) mkdir_use(void) {
-  io_eff(CID(mkdir), mkdir_run, 0);
+  io_eff(CID(mkdir), mkdir_run);
 }
 
 #endif
@@ -206,7 +206,7 @@ Term remove_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) remove_use(void) {
-  io_eff(CID(remove), remove_run, 0);
+  io_eff(CID(remove), remove_run);
 }
 
 #endif
@@ -237,7 +237,7 @@ Term rename_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) rename_use(void) {
-  io_eff(CID(rename), rename_run, 0);
+  io_eff(CID(rename), rename_run);
 }
 
 #endif
@@ -284,12 +284,12 @@ Term temp_dir_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) temp_dir_use(void) {
-  io_eff(CID(temp_dir), temp_dir_run, 0);
+  io_eff(CID(temp_dir), temp_dir_run);
 }
 
 #endif
 
-#if defined(CID(read.words)) || defined(CID(write.words))
+#if defined(CID(read.words)) || defined(CID(read.words.at)) || defined(CID(write.words)) || defined(CID(size64))
 
 static Term files_words(Env e, const unsigned char* bytes, u64 n) {
   u64 count = (n + 3) / 4;
@@ -346,7 +346,68 @@ Term files_read_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) files_read_words_use(void) {
-  io_eff(CID(read.words), files_read_words_run, 0);
+  io_eff(CID(read.words), files_read_words_run);
+}
+
+#endif
+
+#ifdef CID(read.words.at)
+
+static void files_read_words_at_call(IoWork* w) {
+  ssize_t n;
+  do {
+    n = pread((int)w->hand, w->data, w->size, (off_t)w->made);
+  } while (n < 0 && errno == EINTR);
+  if (n < 0) {
+    w->code = errno;
+  } else {
+    w->made = n;
+    w->code = 0;
+  }
+}
+
+static Term files_read_words_at_pack(Env e, IoWork* w) {
+  Term value = w->code ? 0 : files_words(e, (unsigned char*)w->data, (u64)w->made);
+  return files_handle_result(e, w, value);
+}
+
+Term files_read_words_at_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->made = (intptr_t)(((u64)(u32)f[1] << 32) | (u32)f[2]);
+  w->size = (u64)f[3] < 1048576 ? (u64)f[3] : 1048576;
+  w->data = io_mem(malloc(w->size ? w->size : 1));
+  return io_work(w, files_read_words_at_call, files_read_words_at_pack);
+}
+
+static void __attribute__((constructor)) files_read_words_at_use(void) {
+  io_eff(CID(read.words.at), files_read_words_at_run);
+}
+
+#endif
+
+#ifdef CID(size64)
+
+static void files_size64_call(IoWork* w) {
+  struct stat st;
+  io_sys_end(w, fstat((int)w->hand, &st));
+  if (w->code == 0) {
+    w->made = (intptr_t)st.st_size;
+  }
+}
+
+static Term files_size64_pack(Env e, IoWork* w) {
+  u64 n = (u64)w->made;
+  return files_handle_result(e, w, io_tup(e, (Term)(u32)(n >> 32), (Term)(u32)n));
+}
+
+Term files_size64_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->data = NULL;
+  return io_work(w, files_size64_call, files_size64_pack);
+}
+
+static void __attribute__((constructor)) files_size64_use(void) {
+  io_eff(CID(size64), files_size64_run);
 }
 
 #endif
@@ -395,7 +456,7 @@ Term files_write_words_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) files_write_words_use(void) {
-  io_eff(CID(write.words), files_write_words_run, 0);
+  io_eff(CID(write.words), files_write_words_run);
 }
 
 #endif

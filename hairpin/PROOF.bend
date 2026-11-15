@@ -24,3 +24,24 @@ def Laws.merge_both():
 
 def Laws.merge_reserved():
   {==}
+
+def Laws.outcome_get_503():
+  {==}
+
+def Laws.outcome_get_connect():
+  {==}
+
+def Laws.outcome_post_503():
+  {==}
+
+def Laws.outcome_settled():
+  {==}
+
+def Laws.outcome_rejected():
+  {==}
+
+def Laws.outcome_failed():
+  {==}
+
+def Laws.breaker_counts():
+  {==}

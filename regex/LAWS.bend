@@ -1,6 +1,6 @@
 import Base
 import ./regex.bend as R
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def found(r: Maybe<&2, R.Regex>, s: String) -> Maybe<&2, List<&2, Maybe<&2, R.Span>>>:
   match r:

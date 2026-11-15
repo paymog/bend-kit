@@ -13,5 +13,7 @@ def run(name, width, f):
 
 
 run("crc32", 8, lambda: zlib.crc32(buf))
+short = buf[:16]
+run("crc32_short", 8, lambda: [zlib.crc32(short) for _ in range(100000)][-1])
 run("adler32", 8, lambda: zlib.adler32(buf))
 run("siphash13", 16, lambda: hash(buf) & (2**64 - 1))

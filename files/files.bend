@@ -1,6 +1,6 @@
 # POSIX paths plus directory and metadata effects. Source: https://github.com/paymog/bend-kit/tree/main/files
 import Base
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # The path.* defs are pure and lexical: they never touch the disk.
 # The effects are thin OS calls; each failure is (errno, text).
@@ -169,6 +169,18 @@ def temp_dir() -> IO(Result<&1, &1, U32 & String, String>):
 # A successful zero-length read is EOF (or max = 0). Reads at most 1 MiB
 # per call; a short read is not necessarily EOF. Errors retain the File.
 def read.words(file: File, max: U32) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & Array<U32>>):
+  import "./effs/files.c"
+  import "./effs/files.js"
+
+# The size of an open file as (hi, lo): hi * 2^32 + lo bytes. Errors retain the File.
+def size64(file: File) ->
+  IO(File & Result<&1, &1, U32 & String, U32 & U32>):
+  import "./effs/files.c"
+  import "./effs/files.js"
+
+# read.words at byte offset hi * 2^32 + lo. The file position does not move.
+def read.words.at(file: File, hi: U32, lo: U32, max: U32) ->
   IO(File & Result<&1, &1, U32 & String, U32 & Array<U32>>):
   import "./effs/files.c"
   import "./effs/files.js"

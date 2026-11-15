@@ -113,7 +113,7 @@ Term lookup_all_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) dns_lookup_all_use(void) {
-  io_eff(CID(lookup.all), lookup_all_run, 0);
+  io_eff(CID(lookup.all), lookup_all_run);
 }
 
 #endif

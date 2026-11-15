@@ -3,7 +3,7 @@
 Packed byte buffers with affine ownership. Four octets occupy each U32 array word.
 
 ```bend
-import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def show(r: Bytes.Bytes & U32) -> IO(Unit):
   (b, n) = r
@@ -13,19 +13,26 @@ def main() -> IO(Unit):
   show(Bytes.length(Bytes.from_string("hi")))
 ```
 
-`get` returns the buffer beside `None` when the index is past `len`. `set` then leaves the buffer unchanged. `from_hex` returns `None` for an odd length or a non-hex character. U64 reads need `bend-kit-int@0.2.0.0`. `http` does not use this version for `Http.Body`. It uses `0x49814d83de8f70993a43e1002be29ecd/bytes.bend`.
+`get` returns the buffer beside `None` when the index is at or past `len`. `set` then leaves the buffer unchanged. `from_hex` returns `None` for an odd length or a non-hex character. This package imports `0x4eed9d7ac6ece61523d747a9d804e4f0/int.bend`, identified in the code as `bend-kit-int@0.2.0.0`. U64 reads use its `U64` type.
+
+| def | returns |
+|---|---|
+| `to_hex(b: Bytes) -> String` | Lowercase hexadecimal text. The call consumes the buffer. |
+| `clone(b: Bytes) -> Bytes & Bytes` | Two buffers with the same bytes. |
+| `u32.read(b: Bytes) -> Maybe<&2, U32>` | The value of ASCII decimal digits. `None` for an empty buffer, a non-digit, or a value above 4294967295. The call consumes the buffer. |
+| `u32.show(n: U32) -> Bytes` | `n` as ASCII decimal digits, with no leading zeros. |
 
 
 ## Positional reads and writes
 
-Import `bend-kit-bytes@0.3.2.0/bytes.bend`. `Cursor.new(bytes)` owns the
-existing buffer at position zero. `Cursor.u8`, `Cursor.u16be/le`,
-`Cursor.u32be/le`, and `Cursor.u64be/le` return `(cursor, Maybe(value))`.
+Import `bend-kit-bytes@0.3.3.0/bytes.bend`. `Cursor.new(bytes)` owns the
+existing buffer at position zero. `Cursor.u8`, `Cursor.u16be`, `Cursor.u16le`,
+`Cursor.u32be`, `Cursor.u32le`, `Cursor.u64be`, and `Cursor.u64le` return `(cursor, Maybe(value))`.
 `None` means incomplete bytes, not an invalid protocol value. A failed read
 keeps both position and contents unchanged.
 
-`Cursor.put.u8`, `Cursor.put.u16be/le`, `Cursor.put.u32be/le`, and
-`Cursor.put.u64be/le` return `(cursor, Bool)`. Writes mutate the existing
+`Cursor.put.u8`, `Cursor.put.u16be`, `Cursor.put.u16le`, `Cursor.put.u32be`,
+`Cursor.put.u32le`, `Cursor.put.u64be`, and `Cursor.put.u64le` return `(cursor, Bool)`. Writes mutate the existing
 packed array. `False` leaves the complete field and position unchanged.
 The scalar value keeps its low 8, 16, 32, or 64 bits.
 

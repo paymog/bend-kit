@@ -2,9 +2,9 @@
 import Base
 import ../../time/time.bend as Time
 import ../oauth2.bend as O
-import bend-kit-time@0.1.0.0/time.bend as HT
-import 0x4eed9d7ac6ece61523d747a9d804e4f0/int.bend as Int
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-time@0.3.0.0/time.bend as HT
+import bend-kit-int@0.2.0.0/int.bend as Int
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def got(r: Result<&1, &1, O.Err, String>) -> String:
   match r:

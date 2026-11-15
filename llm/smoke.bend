@@ -2,7 +2,8 @@
 # ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN (bearer), ANTHROPIC_BASE_URL, ANTHROPIC_MODEL; OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL.
 import Base
 import ./llm.bend as Llm
-import bend-kit-http@0.23.0.1/http.bend as Http
+import bend-kit-hairpin@0.13.0.1/hairpin.bend as Hairpin
+import bend-kit-http@0.38.1.1/http.bend as Http
 
 def env(r: Result<&1, &1, U32 & String, String>) -> Maybe<&2, String>:
   match r:
@@ -37,8 +38,10 @@ def net(e: Http.Err) -> String:
 
 def err(e: Llm.Err) -> String:
   match e:
-    case Llm.ErrNet{x}:
+    case Llm.ErrNet{Hairpin.ErrHttp{x}}:
       net(x)
+    case Llm.ErrNet{Hairpin.ErrDenied{why}}:
+      "denied: no attempt started"
     case Llm.ErrApi{+s, b}:
       "status " ++ U32.show(s) ++ ": " ++ b
     case Llm.ErrReply{b}:
@@ -59,30 +62,30 @@ def sent(+name: String, x: Llm.Client & Result<&1, &1, Llm.Err, Llm.Reply>) -> I
         IO.print("ok " ++ name ++ " send: " ++ text ++ " [" ++ stop ++ ", " ++ U32.show(i) ++ " in, " ++ U32.show(o) ++ " out]")
         return c
 
-def pieces(f: Nat, +name: String, x: Llm.Stream & Result<&1, &1, Llm.Err, Maybe<&2, String>>, acc: String) -> IO(Unit):
+def pieces(f: Nat, +name: String, c: Llm.Client, x: Llm.Stream & Result<&1, &1, Llm.Err, Maybe<&2, String>>, acc: String) -> IO(Llm.Client):
   match f:
     case 0n:
       (s, r) = x
-      do IO<Unit>:
-        Llm.stream.close(s)
+      do IO<Llm.Client>:
         IO.print("fail " ++ name ++ " stream: too many pieces")
+        Llm.stream.close(c, s)
     case 1n+g:
       (s, r) = x
       match r:
         case Fail{e}:
-          do IO<Unit>:
-            Llm.stream.close(s)
+          do IO<Llm.Client>:
             IO.print("fail " ++ name ++ " stream: " ++ err(e))
+            Llm.stream.close(c, s)
         case Done{m}:
           match m:
             case None{}:
-              do IO<Unit>:
-                Llm.stream.close(s)
+              do IO<Llm.Client>:
                 IO.print("ok " ++ name ++ " stream: " ++ acc)
+                Llm.stream.close(c, s)
             case Some{t}:
-              do IO<Unit>:
+              do IO<Llm.Client>:
                 y : Llm.Stream & Result<&1, &1, Llm.Err, Maybe<&2, String>> <- Llm.next(s)
-                pieces(g, name, y, acc ++ t)
+                pieces(g, name, c, y, acc ++ t)
 
 def streamed(+name: String, x: Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream>) -> IO(Llm.Client):
   (c, r) = x
@@ -94,8 +97,7 @@ def streamed(+name: String, x: Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream>)
     case Done{s}:
       do IO<Llm.Client>:
         y : Llm.Stream & Result<&1, &1, Llm.Err, Maybe<&2, String>> <- Llm.next(s)
-        pieces(4096n, name, y, "")
-        return c
+        pieces(4096n, name, c, y, "")
 
 def run(+name: String, c: Llm.Client, +model: String) -> IO(Unit):
   do IO<Unit>:

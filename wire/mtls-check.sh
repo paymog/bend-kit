@@ -33,23 +33,26 @@ fi
 if [ "${1:-native}" = linux ]; then
   docker run --rm -v "$dir:/w" oven/bun:1 sh -c '
     apt-get -qq update >/dev/null && apt-get -qq install -y openssl libssl3 ca-certificates >/dev/null 2>&1
-    openssl s_server -accept 39444 -cert /w/server.pem -key /w/server.key \
+    port=$(bun -e "const s = Bun.listen({hostname: \"127.0.0.1\", port: 0, socket: {data() {}}}); console.log(s.port); s.stop(true)")
+    openssl s_server -accept "127.0.0.1:$port" -cert /w/server.pem -key /w/server.key \
       -CAfile /w/ca.pem -Verify 1 -tls1_2 -quiet -naccept 3 >/w/server.log 2>&1 &
     server=$!
     sleep 1
-    SSL_CERT_FILE=/w/ca.pem bun /w/check.js /w/client.pem /w/client.key
+    SSL_CERT_FILE=/w/ca.pem bun /w/check.js /w/client.pem /w/client.key "$port"
     status=$?
     kill "$server" 2>/dev/null || :
     exit "$status"
   '
   exit
 fi
-openssl s_server -accept 39444 -cert "$dir/server.pem" -key "$dir/server.key" \
+# s_server cannot report an OS-picked port, so ask the OS for a free one and reuse it at once.
+port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+openssl s_server -accept "127.0.0.1:$port" -cert "$dir/server.pem" -key "$dir/server.key" \
   -CAfile "$dir/ca.pem" -Verify 1 -tls1_2 -quiet -naccept 3 >"$dir/server.log" 2>&1 &
 server=$!
 sleep 1
 if [ "${1:-native}" = js ]; then
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/client.pem" "$dir/client.key"
+  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/client.pem" "$dir/client.key" "$port"
 else
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/client.pem" "$dir/client.key"
+  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/client.pem" "$dir/client.key" "$port"
 fi

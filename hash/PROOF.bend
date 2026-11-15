@@ -79,6 +79,12 @@ def Laws.siphash13_15():
 def Laws.siphash13_63():
   {==}
 
+def Laws.siphash13_dirty_1():
+  {==}
+
+def Laws.siphash13_dirty_5():
+  {==}
+
 def Laws.crc32_empty():
   {==}
 

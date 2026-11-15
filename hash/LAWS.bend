@@ -1,5 +1,5 @@
 import Base
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./hash.bend as Hash
 
 def b(+s: String) -> Bytes.Bytes:
@@ -38,6 +38,15 @@ def ones(n: Nat) -> Bytes.Bytes:
 # SipHash-1-3 with the reference key 00 01 .. 0f.
 def sip(n: Nat) -> Hash.W64:
   v64(Hash.siphash13(iota(n), Hash.W64{117835012, 50462976}, Hash.W64{252579084, 185207048}))
+
+# The bytes 0 .. 7 with len n: the bytes past len are not 0.
+def dirty(b: Bytes.Bytes, +n: U32) -> Bytes.Bytes:
+  match b:
+    case Bytes.Bytes{len, buf}:
+      Bytes.Bytes{n, buf}
+
+def sipd(+n: U32) -> Hash.W64:
+  v64(Hash.siphash13(dirty(iota(8n), n), Hash.W64{117835012, 50462976}, Hash.W64{252579084, 185207048}))
 
 # A W64 is {hi, lo}: 0xcbf29ce484222325 is {0xcbf29ce4, 0x84222325}, in decimal.
 
@@ -121,6 +130,13 @@ law siphash13_15:
 
 law siphash13_63:
   {sip(63n) == Hash.W64{2635698274, 3082531752} : Hash.W64}
+
+# SipHash-1-3 reads only the first len bytes, whatever the buffer holds past len.
+law siphash13_dirty_1:
+  {sipd(1) == sip(1n) : Hash.W64}
+
+law siphash13_dirty_5:
+  {sipd(5) == sip(5n) : Hash.W64}
 
 # CRC-32 and Adler-32: the values zlib computes.
 law crc32_empty:

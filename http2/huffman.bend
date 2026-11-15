@@ -1,6 +1,6 @@
 # RFC 7541 Appendix B Huffman alphabet and streaming codec.
 import Base
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 type Code is Data:
   Code{bits: U32, width: U32}

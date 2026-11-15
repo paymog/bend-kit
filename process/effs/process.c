@@ -2,57 +2,25 @@
 // ======
 // Byte-exact octet strings, like wire/effs/wire.c.
 
-// Imported effects may carry the module basename in their generated CID.
-#if defined(CID_PROCESS_RUN_RAW) && !defined(CID_RUN_RAW)
-#define CID_RUN_RAW CID_PROCESS_RUN_RAW
-#endif
-#if defined(CID_PROCESS_SPAWN) && !defined(CID_SPAWN)
-#define CID_SPAWN CID_PROCESS_SPAWN
-#endif
-#if defined(CID_PROCESS_WAIT) && !defined(CID_WAIT)
-#define CID_WAIT CID_PROCESS_WAIT
-#endif
-#if defined(CID_PROCESS_READ_STDIN) && !defined(CID_READ_STDIN)
-#define CID_READ_STDIN CID_PROCESS_READ_STDIN
-#endif
-#if defined(CID_PROCESS_EXIT_RAW) && !defined(CID_EXIT_RAW)
-#define CID_EXIT_RAW CID_PROCESS_EXIT_RAW
-#endif
-#if defined(CID_PROCESS_CWD) && !defined(CID_CWD)
-#define CID_CWD CID_PROCESS_CWD
-#endif
-#if defined(CID_PROCESS_CHDIR) && !defined(CID_CHDIR)
-#define CID_CHDIR CID_PROCESS_CHDIR
-#endif
-#if defined(CID_PROCESS_HOSTNAME) && !defined(CID_HOSTNAME)
-#define CID_HOSTNAME CID_PROCESS_HOSTNAME
-#endif
-#if defined(CID_PROCESS_PID) && !defined(CID_PID)
-#define CID_PID CID_PROCESS_PID
-#endif
-#if defined(CID_PROCESS_SIGNAL_POLL) && !defined(CID_SIGNAL_POLL)
-#define CID_SIGNAL_POLL CID_PROCESS_SIGNAL_POLL
-#endif
-
 #ifndef PROCESS_BYTES
 #define PROCESS_BYTES
 
 static Term process_bytes(Env e, const char* p, u64 n) {
-  Term s    = term_pak(CID_SNIL, 0);
+  Term s    = term_pak(CID(SNil), 0);
   u64  hole = 0;
   for (u64 i = 0; i < n; i += 1) {
     u64  l = heap_alloc(e, 1);
-    Term t = term_ctr(CID_SCON, l);
+    Term t = term_ctr(CID(SCon), l);
     e.mem[l] = (uint8_t)p[i];
     if (hole == 0) {
       s = t;
     } else {
-      e.mem[hole] = io_seal(e, t, CID_SCON);
+      e.mem[hole] = io_seal(e, t, CID(SCon));
     }
     hole = l + 1;
   }
   if (hole != 0) {
-    e.mem[hole] = io_seal(e, term_pak(CID_SNIL, 0), CID_SCON);
+    e.mem[hole] = io_seal(e, term_pak(CID(SNil), 0), CID(SCon));
   }
   return s;
 }
@@ -62,7 +30,7 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
   u64   n   = 0;
   char* buf = io_mem(malloc(cap));
   *bad = false;
-  while (term_aux(s) == CID_SCON) {
+  while (term_aux(s) == CID(SCon)) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, s, 2, fb));
     if (n + 1 > cap) {
@@ -73,7 +41,7 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
     buf[n++] = (char)(fb[0] & 0xFF);
     s = fb[1];
   }
-  if (term_aux(s) != CID_SNIL) {
+  if (term_aux(s) != CID(SNil)) {
     *bad = true;
   }
   *len = n;
@@ -82,7 +50,7 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
 
 #endif
 
-#if defined(CID_RUN_RAW) || defined(CID_SPAWN) || defined(CID_WAIT)
+#if defined(CID(run.raw)) || defined(CID(spawn)) || defined(CID(wait))
 #ifndef PROCESS_EXEC
 #define PROCESS_EXEC
 
@@ -98,6 +66,7 @@ extern char** environ;
 
 typedef struct {
   char*  cmd;
+  char*  cwd;
   char** argv;
   char** envp;
   char*  in;
@@ -147,7 +116,7 @@ static char** process_env_build(Env e, Term env_list, bool* bad) {
   char** ov   = io_mem(malloc(cap * sizeof(char*)));
   Term   xs   = env_list;
   *bad        = false;
-  while (term_aux(xs) == CID_CON) {
+  while (term_aux(xs) == CID(Con)) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, xs, 2, fb));
     u64   len = 0;
@@ -166,7 +135,7 @@ static char** process_env_build(Env e, Term env_list, bool* bad) {
     ov[n_ov++] = s;
     xs = fb[1];
   }
-  if (*bad || term_aux(xs) != CID_NIL) {
+  if (*bad || term_aux(xs) != CID(Nil)) {
     if (!*bad) {
       *bad = true;
     }
@@ -228,7 +197,7 @@ static char** process_argv_build(Env e, char* cmd, Term args, bool* bad) {
   av[0]      = cmd;
   Term   xs  = args;
   *bad       = false;
-  while (term_aux(xs) == CID_CON) {
+  while (term_aux(xs) == CID(Con)) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, xs, 2, fb));
     u64   len = 0;
@@ -245,7 +214,7 @@ static char** process_argv_build(Env e, char* cmd, Term args, bool* bad) {
     av[n++] = s;
     xs = fb[1];
   }
-  if (*bad || term_aux(xs) != CID_NIL) {
+  if (*bad || term_aux(xs) != CID(Nil)) {
     if (!*bad) {
       *bad = true;
     }
@@ -478,6 +447,7 @@ static int process_pipe_spawn(ProcessJob* j) {
     errno = rc;
     return -1;
   }
+  rc = posix_spawn_file_actions_addchdir_np(&actions, j->cwd);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, in[0], STDIN_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, out[1], STDOUT_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, err[1], STDERR_FILENO);
@@ -549,7 +519,7 @@ static void process_job_close_fds(ProcessJob* j) {
 #endif
 #endif
 
-#ifdef CID_RUN_RAW
+#ifdef CID(run.raw)
 
 static void process_run_raw_call(IoWork* w) {
   ProcessJob* j = (ProcessJob*)w->data;
@@ -593,6 +563,7 @@ static Term process_run_raw_pack(Env e, IoWork* w) {
   free(j->out);
   free(j->err);
   free(j->in);
+  free(j->cwd);
   process_env_free(j->envp);
   process_argv_free(j->argv, j->cmd);
   free(j);
@@ -606,12 +577,15 @@ Term run_raw_run(Env e, Term* f, IoWork* w) {
   bool        bad     = false;
   char**      argv    = process_argv_build(e, cmd, f[1], &bad);
   char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
+  u64         cwd_len = 0;
+  char*       cwd     = io_cstr(e, f[3], &cwd_len);
   u64         in_len  = 0;
   bool        in_bad  = false;
-  char*       in      = process_octets(e, f[3], &in_len, &in_bad);
-  bad                 = bad || in_bad;
+  char*       in      = process_octets(e, f[4], &in_len, &in_bad);
+  bad                 = bad || in_bad || io_nul(cwd, cwd_len);
   ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
   j->cmd              = cmd;
+  j->cwd              = cwd;
   j->argv             = argv;
   j->envp             = envp;
   j->in               = in;
@@ -628,12 +602,12 @@ Term run_raw_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) run_raw_use(void) {
-  io_eff(CID_RUN_RAW, run_raw_run, 0);
+  io_eff(CID(run.raw), run_raw_run);
 }
 
 #endif
 
-#ifdef CID_SPAWN
+#ifdef CID(spawn)
 
 static void process_spawn_call(IoWork* w) {
   ProcessJob* j = (ProcessJob*)w->data;
@@ -654,6 +628,7 @@ static Term process_spawn_pack(Env e, IoWork* w) {
       io_tup(e, io_hand(j->out_rd), io_hand(j->err_rd)));
     r = io_done(e, io_tup(e, (Term)(u32)j->pid, files));
   }
+  free(j->cwd);
   process_env_free(j->envp);
   process_argv_free(j->argv, j->cmd);
   free(j);
@@ -667,8 +642,12 @@ Term spawn_run(Env e, Term* f, IoWork* w) {
   bool        bad     = false;
   char**      argv    = process_argv_build(e, cmd, f[1], &bad);
   char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
+  u64         cwd_len = 0;
+  char*       cwd     = io_cstr(e, f[3], &cwd_len);
+  bad                 = bad || io_nul(cwd, cwd_len);
   ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
   j->cmd              = cmd;
+  j->cwd              = cwd;
   j->argv             = argv;
   j->envp             = envp;
   j->in_wr            = -1;
@@ -683,12 +662,12 @@ Term spawn_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) spawn_use(void) {
-  io_eff(CID_SPAWN, spawn_run, 0);
+  io_eff(CID(spawn), spawn_run);
 }
 
 #endif
 
-#ifdef CID_WAIT
+#ifdef CID(wait)
 
 static void process_wait_call(IoWork* w) {
   pid_t pid = (pid_t)w->hand;
@@ -709,17 +688,23 @@ static Term process_wait_pack(Env e, IoWork* w) {
 }
 
 Term wait_run(Env e, Term* f, IoWork* w) {
-  w->hand = (intptr_t)(pid_t)(u32)f[0];
+  // Check before conversion: waitpid treats 0 and negative pids as selectors.
+  u32 pid = (u32)f[0];
+  if (pid == 0 || pid > INT32_MAX) {
+    w->code = EINVAL;
+    return process_wait_pack(e, w);
+  }
+  w->hand = (intptr_t)(pid_t)pid;
   return io_work(w, process_wait_call, process_wait_pack);
 }
 
 static void __attribute__((constructor)) wait_use(void) {
-  io_eff(CID_WAIT, wait_run, 0);
+  io_eff(CID(wait), wait_run);
 }
 
 #endif
 
-#ifdef CID_READ_STDIN
+#ifdef CID(read_stdin)
 
 static void process_stdin_read_call(IoWork* w) {
   do {
@@ -741,24 +726,24 @@ Term read_stdin_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) read_stdin_use(void) {
-  io_eff(CID_READ_STDIN, read_stdin_run, 0);
+  io_eff(CID(read_stdin), read_stdin_run);
 }
 
 #endif
 
-#ifdef CID_EXIT_RAW
+#ifdef CID(exit.raw)
 
 Term exit_raw_run(Env e, Term* f, IoWork* w) {
   exit((int)(u32)f[0]);
 }
 
 static void __attribute__((constructor)) exit_raw_use(void) {
-  io_eff(CID_EXIT_RAW, exit_raw_run, 0);
+  io_eff(CID(exit.raw), exit_raw_run);
 }
 
 #endif
 
-#ifdef CID_CWD
+#ifdef CID(cwd)
 
 static void process_cwd_call(IoWork* w) {
   u64 cap = 256;
@@ -790,12 +775,12 @@ Term cwd_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) cwd_use(void) {
-  io_eff(CID_CWD, cwd_run, 0);
+  io_eff(CID(cwd), cwd_run);
 }
 
 #endif
 
-#ifdef CID_CHDIR
+#ifdef CID(chdir)
 
 static void process_chdir_call(IoWork* w) {
   io_sys_end(w, chdir(w->data));
@@ -803,7 +788,7 @@ static void process_chdir_call(IoWork* w) {
 
 static Term process_chdir_pack(Env e, IoWork* w) {
   free(w->data);
-  return w->code ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID_UNIT, 0));
+  return w->code ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID(Unit), 0));
 }
 
 Term chdir_run(Env e, Term* f, IoWork* w) {
@@ -816,12 +801,12 @@ Term chdir_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) chdir_use(void) {
-  io_eff(CID_CHDIR, chdir_run, 0);
+  io_eff(CID(chdir), chdir_run);
 }
 
 #endif
 
-#ifdef CID_HOSTNAME
+#ifdef CID(hostname)
 
 static void process_hostname_call(IoWork* w) {
   w->data = io_mem(malloc((size_t)w->word + 1));
@@ -847,24 +832,24 @@ Term hostname_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) hostname_use(void) {
-  io_eff(CID_HOSTNAME, hostname_run, 0);
+  io_eff(CID(hostname), hostname_run);
 }
 
 #endif
 
-#ifdef CID_PID
+#ifdef CID(pid)
 
 Term pid_run(Env e, Term* f, IoWork* w) {
   return (Term)(u32)getpid();
 }
 
 static void __attribute__((constructor)) pid_use(void) {
-  io_eff(CID_PID, pid_run, 0);
+  io_eff(CID(pid), pid_run);
 }
 
 #endif
 
-#ifdef CID_SIGNAL_POLL
+#ifdef CID(signal.poll)
 
 static volatile sig_atomic_t process_sig_pending;
 
@@ -898,7 +883,7 @@ Term signal_poll_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) signal_poll_use(void) {
-  io_eff(CID_SIGNAL_POLL, signal_poll_run, 0);
+  io_eff(CID(signal.poll), signal_poll_run);
 }
 
 #endif

@@ -18,6 +18,8 @@ The def name is `Fmt.format`, so the imported call is `Fmt.Fmt.format`. `F32.sho
 
 `Builder` stores chunks newest-first and joins them once in `build`. `Fmt.format` replaces each `{}` with the next argument. A `{{` or `}}` is an escaped brace. A hole past the last argument is left as text.
 
-`pad_left`, `pad_right`, and `center` pad to a `Nat` width with one `Char`. `F32.shortest` is for finite values. It does not round-trip NaN or infinity.
+`Fmt.pad_left`, `Fmt.pad_right`, and `Fmt.center` pad to a `Nat` width with one `Char`. `F32.shortest` returns `"nan"` for NaN and `"inf"` or `"-inf"` for infinity. It does not preserve NaN payloads.
 
-`time` imports this package for date text. Import `bend-kit-fmt@0.1.0.0` when you pass a string into that code.
+| def | returns |
+|---|---|
+| `Builder.new() -> Builder` | An empty string builder. |

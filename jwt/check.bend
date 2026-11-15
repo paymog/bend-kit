@@ -1,7 +1,7 @@
 import Base
 import ./jwt.bend as Jwt
-import 0x584fc27920487ceab242392391418d7f/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Signatures need libcrypto, so they run here: RFC 7515 A.1-A.3 verify, sign round trips, and rejections.
 # The RSA 2048 and P-256 PEM pairs are throwaway test keys.
@@ -164,6 +164,8 @@ def main() -> IO(Unit):
     expect("rs256 token pinned to es256", "AlgMismatch", r11)
     r12 : Result<&1, &1, Jwt.Err, Json.Val> <- Jwt.verify(Jwt.policy(Jwt.RS256{}), rsa.pub(), rfc.rs(), 1300819000)
     expect("rfc rs256 under another rsa key", "BadSig", r12)
+    r13 : Result<&1, &1, Jwt.Err, Json.Val> <- Jwt.verify(Jwt.policy(Jwt.HS256{}), hk(), "eyJhbGciOiJIUzI1NiJ9.eyJjbmYiOnsiayI6MSwiayI6Mn19.c2ln", 0)
+    expect("claims repeat a nested name", "Malformed", r13)
     # Round trips, and the rejections a verifier with the wrong expectations gives.
     trip("hs256 round trip", Jwt.HS256{}, hk(), hk(), 1700000000, "Done")
     trip("hs512 round trip", Jwt.HS512{}, hk(), hk(), 1700000000, "Done")
@@ -178,5 +180,7 @@ def main() -> IO(Unit):
     signs("claims not an object", "BadClaim", s2)
     s3 : Result<&1, &1, Jwt.Err, String> <- Jwt.sign(Jwt.HS256{}, hk(), None{}, Json.Obj{[(Json.utf8("a"), Json.Null{}), (Json.utf8("a"), Json.Null{})]})
     signs("claims repeat a name", "BadClaim", s3)
+    s5 : Result<&1, &1, Jwt.Err, String> <- Jwt.sign(Jwt.HS256{}, hk(), None{}, Json.Obj{[(Json.utf8("cnf"), Json.Obj{[(Json.utf8("k"), Json.Null{}), (Json.utf8("k"), Json.Null{})]})]})
+    signs("claims repeat a nested name", "BadClaim", s5)
     s4 : Result<&1, &1, Jwt.Err, String> <- Jwt.sign(Jwt.RS256{}, hk(), None{}, claims())
     signs("rs256 with an hmac key", "KeyType", s4)

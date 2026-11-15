@@ -1,7 +1,7 @@
 import Base
 import ./parse.bend as P
-import ../json/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # RFC 8259 JSON on the combinators. P needs Data results, so Val is a copyable
 # twin of Val with String text and a Map for objects.

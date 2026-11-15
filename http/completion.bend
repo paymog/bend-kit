@@ -18,7 +18,7 @@ type Receipt is Type:
 
 def receipt.send(~D: Data, payload: D, +channel: Chan(Completion<D>), status: U32, outcome: Outcome) -> IO(Unit):
   do IO<Unit>:
-    sent : Bool <- Chan.send(Completion<D>, channel, Completion{payload, status, outcome})
+    sent : Result<&1, &1, Completion<D>, Unit> <- Chan.send(Completion<D>, channel, Completion{payload, status, outcome})
     return Unit{}
 
 def receipt(~D: Data, ~done: Completion<D> -> IO(Unit), payload: D) -> Receipt:

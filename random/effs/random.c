@@ -24,7 +24,7 @@ Term entropy_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) entropy_use(void) {
-  io_eff(CID(entropy), entropy_run, 0);
+  io_eff(CID(entropy), entropy_run);
 }
 
 #endif

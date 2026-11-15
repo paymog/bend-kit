@@ -1,0 +1,79 @@
+syntax = "proto3";
+package kit.fixture;
+import "common.proto";
+
+message Fixture {
+  uint32 count = 1;
+  uint64 wide = 2;
+  int32 signed_count = 3;
+  int64 signed_wide = 4;
+  sint32 zigzag = 5;
+  sint64 zigzag_wide = 6;
+  fixed32 word = 7;
+  fixed64 long_word = 8;
+  sfixed32 signed_word = 9;
+  sfixed64 signed_long_word = 10;
+  bool enabled = 11;
+  float single = 12;
+  double precise = 13;
+  string title = 14;
+  bytes payload = 15;
+  kit.common.Child child = 16;
+  repeated uint32 samples = 17;
+  repeated sint64 deltas = 18 [packed = false];
+  map<string, uint32> labels = 19;
+  kit.common.Status status = 20;
+  oneof choice {
+    string text = 21;
+    kit.common.Child selected = 22;
+    uint32 code = 23;
+  }
+  optional int32 present = 24;
+  repeated kit.common.Child children = 25;
+  repeated string names = 26;
+  message Detail {
+    uint32 value = 1;
+  }
+  Detail detail = 27;
+  map<int32, kit.common.Child> indexed = 28;
+  repeated float weights = 29;
+  repeated double measures = 30;
+  map<bool, string> switches = 31;
+  map<uint64, bytes> buffers = 32;
+  optional bytes optional_payload = 33;
+  optional string optional_title = 34;
+  optional bool optional_enabled = 35;
+  optional kit.common.Status optional_status = 36;
+  repeated bytes chunks = 37;
+  repeated kit.common.Status statuses = 38;
+  message Entry {
+    string key = 1;
+    uint32 value = 2;
+  }
+  repeated Entry entries = 39;
+  Peer peer = 40;
+}
+
+message Peer {
+  Fixture owner = 1;
+}
+
+message Scalars {
+  int32 i32 = 1;
+  sint32 z32 = 2;
+  int64 i64 = 3;
+  sint64 z64 = 4;
+  uint64 u64 = 5;
+  float single = 6;
+  double precise = 7;
+}
+
+message A_ {
+  message B { uint32 n = 1; }
+  B x = 1;
+}
+
+message A {
+  message _B { string s = 2; }
+  _B x = 1;
+}

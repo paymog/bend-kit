@@ -1,6 +1,6 @@
 import Base
 import ./tar.bend as Tar
-import bend-kit-bytes@0.3.2.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def entries(xs: List<&1, Tar.Entry>) -> String:
   match xs:

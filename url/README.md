@@ -12,4 +12,8 @@ import bend-kit-url@0.4.1.0/url.bend as Url
 
 `pct.encode_path`, `pct.encode_q`, and `pct.decode` are the percent-encoding helpers. `pct.decode` returns `None` on a bad escape.
 
+| Def | Result | Use |
+|---|---|---|
+| `resolve(a: Abs, ref: String)` | `Maybe<&2, Abs>` | Resolve a reference against an absolute HTTP or HTTPS URL. |
+
 `http` imports this package as `0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend`, which is this version. Pass that import's `Abs` into code that expects `http`'s URL type.

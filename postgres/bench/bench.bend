@@ -1,7 +1,7 @@
 # Postgres result decode benchmark: decode every message in one fixed recording (see README.md).
 import Base
 import ../codec.bend as C
-import bend-kit-bytes@0.3.1.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def m(+h: U32, +x: U32) -> U32:
   (h * 31 + x : U32)

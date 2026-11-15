@@ -2,27 +2,26 @@
 import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
-# By hash: bend-kit-url@0.4.1.0, -encoding@0.3.0.0, -json@0.5.0.1, -bytes@0.3.0.0, -zlib@0.2.0.0.
-import bend-kit-wire@0.4.6.0/wire.bend as Wire
-import bend-kit-http2@0.1.2.0/http2.bend as H2
-import bend-kit-http2@0.1.2.0/hpack.bend as Hpack
-import bend-kit-bytes@0.3.1.0/bytes.bend as HBytes
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
+import bend-kit-http2@0.4.0.0/http2.bend as H2
+import bend-kit-http2@0.4.0.0/hpack.bend as Hpack
+import bend-kit-bytes@0.3.3.0/bytes.bend as HBytes
+import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-concurrency@0.1.0.0/concurrency.bend as Conc
-import 0x1f2d80f53f971b16c6de6a65cb1918ae/url.bend as Url
-import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
-import 0x584fc27920487ceab242392391418d7f/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
-import bend-kit-dns@0.5.0.0/dns.bend as Dns
-import 0xaca98ab7f724003ea421c18792cafe52/zlib.bend as Zlib
+import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
+import bend-kit-url@0.4.1.0/url.bend as Url
+import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
+import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-dns@0.7.1.0/dns.bend as Dns
+import bend-kit-zlib@0.5.1.0/zlib.bend as Zlib
 
 # HTTP/1.1 codec and client (RFC 9112) for http:// and https:// (OpenSSL 3 at run time).
 # parse: start-line → field lines → blank → body length (§6.3); chunked (§7.1).
 # Bodies are Bytes. The String parsers below are the spec: one Char per octet.
 # fetch reads until frame() says the response is whole. It returns Result, not Maybe.
 # Build with -o for big bodies: the `bend file.bend` runner overflows on ~30 KB strings; native binaries do not.
-#   import bend-kit-http@0.22.0.0/http.bend as Http
+#   import bend-kit-http@0.37.0.0/http.bend as Http
 
 type Req is Type:
   Req{method: String, path: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes}
@@ -3337,7 +3336,7 @@ def h2.loop(n: Nat, step: H2Step, +ms: U32, +used: U32) ->
           match reply:
             case H2.Failed{error}:
               h2.fail(s, ErrBad{})
-            case H2.Ready{client, writes, events}:
+            case H2.Advanced{client, writes, events}:
               do IO<Result<&1, &1, Err, Conn & Res>>:
                 sent : Result<&1, &1, Err, Socket> <- h2.send(writes, s)
                 h2.loop(p, H2Sent{client, events, sent}, ms, used)
@@ -3524,12 +3523,13 @@ def proxy.route.open(+ms: U32, +tls: Bool, +host: String, +port: U32,
       conn.open.all(False{}, ms, host, port, ips, None{}, False{}, "")
     proxy.route.connected(tls, ms, sni, authority, authorization, cert, ca, conn)
 
-def route.open(+ms: U32, route: Route) -> IO(Result<&1, &1, Err, Conn>):
+# offer: send the h2 ALPN offer on a direct TLS connection.
+def route.open(+ms: U32, offer: Bool, route: Route) -> IO(Result<&1, &1, Err, Conn>):
   match route:
     case RouteDirect{tls, +host, port, cert, ca}:
       do IO<Result<&1, &1, Err, Conn>>:
         ips : List<&2, String> <- Dns.resolve.all(host)
-        conn.open.all(tls, ms, host, port, ips, cert, True{}, ca)
+        conn.open.all(tls, ms, host, port, ips, cert, offer, ca)
     case RouteProxy{tls, host, port, sni, authority, authorization, cert, ca}:
       proxy.route.open(ms, tls, host, port, sni, authority, authorization, cert, ca)
 
@@ -3578,6 +3578,110 @@ def pool.h2.reusable(c: Conn) -> Bool & Conn:
       (Maybe.is_none(&2, U32, goaway),
         ConnH2{s, H2.Client{input, streams, encoder, decoder, control}})
 
+type Took is Type:
+  TookNone{}
+  TookRaw{c: Conn}
+  TookSeen{quiet: Bool, c: Conn}
+
+def took.of(pm: Pool & Maybe<&1, Conn>) -> Pool & Took:
+  (p, m) = pm
+  match m:
+    case None{}:
+      (p, TookNone{})
+    case Some{c}:
+      (p, TookRaw{c})
+
+def took.seen(+tls: Bool, r: Socket & Bool) -> Took:
+  (s, quiet) = r
+  TookSeen{quiet, Conn{tls, s}}
+
+# A live session goes back to the peek; a session with GOAWAY is closed.
+def h2.idle.kept(state: Bool & Conn) -> Took:
+  (live, c) = state
+  match live:
+    case True{}:
+      TookRaw{c}
+    case False{}:
+      TookSeen{False{}, c}
+
+def h2.idle.sent(client: H2.Client, sent: Result<&1, &1, Err, Socket>) -> Took:
+  match sent:
+    case Fail{e}:
+      TookNone{}
+    case Done{s}:
+      h2.idle.kept(pool.h2.reusable(ConnH2{s, client}))
+
+def h2.idle.reply(s: Socket, reply: H2.Reply) -> IO(Took):
+  match reply:
+    case H2.Failed{error}:
+      IO.pure(Took, TookSeen{False{}, Conn{True{}, s}})
+    case H2.Advanced{client, writes, events}:
+      do IO<Took>:
+        sent : Result<&1, &1, Err, Socket> <- h2.send(writes, s)
+        return h2.idle.sent(client, sent)
+
+def h2.idle.read(client: H2.Client,
+    got: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Took):
+  match got:
+    case (s, Fail{e}):
+      IO.pure(Took, TookSeen{False{}, ConnH2{s, client}})
+    case (s, Done{(0, buf)}):
+      IO.pure(Took, TookSeen{False{}, ConnH2{s, client}})
+    case (s, Done{(+len, buf)}):
+      h2.idle.reply(s, H2.client.receive(client, HBytes.Bytes{len, buf}))
+
+# Waiting bytes may be PING, SETTINGS, or GOAWAY frames, so the client reads them; EOF fails the read.
+def h2.idle.peek(client: H2.Client, r: Socket & Bool) -> IO(Took):
+  (s, quiet) = r
+  match quiet:
+    case True{}:
+      IO.pure(Took, TookSeen{True{}, ConnH2{s, client}})
+    case False{}:
+      do IO<Took>:
+        got : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
+          Wire.tls.recv.words(s, 16384, 100)
+        h2.idle.read(client, got)
+
+def conn.idle(c: Conn) -> IO(Took):
+  match c:
+    case Conn{+tls, s}:
+      do IO<Took>:
+        r : Socket & Bool <- Wire.idle(s)
+        return took.seen(tls, r)
+    case ConnH2{s, client}:
+      do IO<Took>:
+        r : Socket & Bool <- Wire.idle(s)
+        h2.idle.peek(client, r)
+
+# Each idle socket takes two steps: the peek, then the close and the next take. Each read of HTTP/2 frames takes one more.
+def pool.take.go(n: Nat, +key: String, pt: Pool & Took) -> IO(Pool & Maybe<&1, Conn>):
+  match n pt:
+    case _ Tuple{p, TookNone{}}:
+      IO.pure(Pool & Maybe<&1, Conn>, (p, None{}))
+    case _ Tuple{p, TookSeen{True{}, c}}:
+      IO.pure(Pool & Maybe<&1, Conn>, (p, Some{c}))
+    case 0n Tuple{p, TookRaw{c}}:
+      do IO<Pool & Maybe<&1, Conn>>:
+        conn.close(c)
+        return (p, None{})
+    case 0n Tuple{p, TookSeen{False{}, c}}:
+      do IO<Pool & Maybe<&1, Conn>>:
+        conn.close(c)
+        return (p, None{})
+    case 1n+k Tuple{p, TookRaw{c}}:
+      do IO<Pool & Maybe<&1, Conn>>:
+        t : Took <- conn.idle(c)
+        pool.take.go(k, key, (p, t))
+    case 1n+k Tuple{p, TookSeen{False{}, c}}:
+      do IO<Pool & Maybe<&1, Conn>>:
+        conn.close(c)
+        pool.take.go(k, key, took.of(pool.take(p, key)))
+
+# pool.take, but an idle connection that the peer closed, or an HTTP/1.1 socket with bytes waiting, is closed, and the next one is tried.
+def pool.take.live(p: Pool, +key: String) -> IO(Pool & Maybe<&1, Conn>):
+  Pool{+cap, idle} = p
+  pool.take.go((2n * U32.to_nat(cap) + 2n : Nat), key, took.of(pool.take(Pool{cap, idle}, key)))
+
 def pool.h2.keep(p: Pool, +key: String, res: Res, state: Bool & Conn) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   (reusable, c) = state
@@ -3622,7 +3726,7 @@ def pool.fresh.conn(p: Pool, +key: String, +ms: U32, request: Send,
 def pool.fresh(p: Pool, +key: String, +ms: U32, request: Send, route: Route) ->
     IO(Pool & Result<&1, &1, Err, Res>):
   do IO<Pool & Result<&1, &1, Err, Res>>:
-    c : Result<&1, &1, Err, Conn> <- route.open(ms, route)
+    c : Result<&1, &1, Err, Conn> <- route.open(ms, True{}, route)
     pool.fresh.conn(p, key, ms, request, c)
 
 # A reused socket the server already closed fails before any response byte.
@@ -3706,29 +3810,34 @@ def proxy.request(secure: Bool, +scheme: String, method: String,
       Send{method, proxy.absolute(scheme, hf, target), hf,
         proxy.http.headers(headers, authorization), body}
 
-def pool.origin.proxy(p: Pool, +method: String, +ms: U32,
-    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +hf: String,
-    +scheme: String, +host: String, +port: U32, +target: String,
-    +cert: Maybe<&2, Cert>, +ca: String, proxy: Proxy) ->
-    IO(Pool & Result<&1, &1, Err, Res>):
+# The pool key, the request as sent, and the route to one origin, direct or through a proxy.
+def origin.route(+method: String, headers: Map<&2, List<&2, String>>,
+    body: Bytes.Bytes, +hf: String, +scheme: String, +host: String, +port: U32,
+    +target: String, +cert: Maybe<&2, Cert>, +ca: String, proxy: Proxy) ->
+    String & Send & Route:
   match proxy:
     case ProxyDirect{}:
-      +key = pool.key.trust(pool.key(scheme, host, port), cert, ca)
-      pool.idle(pool.take(p, key), key, ms, pool.idempotent(method),
+      (pool.key.trust(pool.key(scheme, host, port), cert, ca),
         Send{method, target, hf, headers, body},
         RouteDirect{String.eq(scheme, "https"), host, port, cert, ca})
     case ProxyVia{+proxy_host, +proxy_port, +authorization}:
       +secure = String.eq(scheme, "https")
-      +key = pool.key.trust(pool.key(scheme, host, port)
-        ++ "|proxy:" ++ proxy_host ++ ":" ++ U32.show(proxy_port)
-        ++ "|auth:" ++ authorization, cert, ca)
-      pool.idle(pool.take(p, key), key, ms, pool.idempotent(method),
+      (pool.key.trust(pool.key(scheme, host, port)
+          ++ "|proxy:" ++ proxy_host ++ ":" ++ U32.show(proxy_port)
+          ++ "|auth:" ++ authorization, cert, ca),
         proxy.request(secure, scheme, method, target, hf, headers, body, authorization),
         RouteProxy{secure, proxy_host, proxy_port, host,
           Url.host_field.wrap(host, Url.has(host, 58)) ++ ":" ++ U32.show(port),
           authorization, cert, ca})
 
-def pool.origin.choice(p: Pool, method: String, ms: U32,
+def pool.origin.route(p: Pool, +method: String, +ms: U32, r: String & Send & Route) ->
+    IO(Pool & Result<&1, &1, Err, Res>):
+  (+key, request, route) = r
+  do IO<Pool & Result<&1, &1, Err, Res>>:
+    taken : Pool & Maybe<&1, Conn> <- pool.take.live(p, key)
+    pool.idle(taken, key, ms, pool.idempotent(method), request, route)
+
+def pool.origin.choice(p: Pool, +method: String, ms: U32,
     headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, hf: String,
     scheme: String, host: String, port: U32, target: String,
     cert: Maybe<&2, Cert>, +ca: String, choice: Maybe<&2, Proxy>) ->
@@ -3737,8 +3846,8 @@ def pool.origin.choice(p: Pool, method: String, ms: U32,
     case None{}:
       IO.pure(Pool & Result<&1, &1, Err, Res>, (p, Fail{ErrUrl{}}))
     case Some{proxy}:
-      pool.origin.proxy(p, method, ms, headers, body, hf, scheme, host, port,
-        target, cert, ca, proxy)
+      pool.origin.route(p, method, ms, origin.route(method, headers, body, hf,
+        scheme, host, port, target, cert, ca, proxy))
 
 def pool.origin(p: Pool, method: String, ms: U32,
     headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, hf: String,
@@ -3862,21 +3971,25 @@ def pool.next.ca(same: Bool, +ca: String) -> String:
     case False{}:
       ""
 
-def pool.next.move(p: Pool, +old: String, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, +ca: String, n: Next) -> Hops:
+# The certificate and CA file go on only to a hop on the same origin.
+def next.trust(+old: String, cert: Maybe<&2, Cert>, +ca: String, n: Next) -> Next & Maybe<&2, Cert> & String:
   match n:
     case NGo{left, h}:
       Hop{method, +url, headers, body} = h
       +same = String.eq(old, redirect.origin(url))
-      Hops{p, NGo{left, Hop{method, url, headers, body}},
-        Bool.pick(Maybe<&2, Cert>, same, cert, None{}), jar, pool.next.ca(same, ca)}
+      (NGo{left, Hop{method, url, headers, body}}, Bool.pick(Maybe<&2, Cert>, same, cert, None{}), pool.next.ca(same, ca))
     case NDone{r}:
-      Hops{p, NDone{r}, None{}, jar, ""}
+      (NDone{r}, None{}, "")
     case NStop{}:
-      Hops{p, NStop{}, None{}, jar, ""}
+      (NStop{}, None{}, "")
+
+def pool.next.move(p: Pool, jar: Maybe<&2, Jar>, nt: Next & Maybe<&2, Cert> & String) -> Hops:
+  (n, cert, ca) = nt
+  Hops{p, n, cert, jar, ca}
 
 def pool.next.of(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, p: Pool, +url: Url.Abs, h: Hop, r: Maybe<&2, Jar> & Result<&1, &1, Err, Res>) -> Hops:
   (jar, m) = r
-  pool.next.move(p, redirect.origin(url), cert, jar, ca, fetch.policy(mode, left, h, m))
+  pool.next.move(p, jar, next.trust(redirect.origin(url), cert, ca, fetch.policy(mode, left, h, m)))
 
 # The jar takes the response's Set-Cookie fields first, redirect or not.
 def pool.next(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>, x: Pool & Result<&1, &1, Err, Res> & Hop) -> Hops:
@@ -3923,12 +4036,12 @@ def ce.split(xs: List<&2, String>) -> List<&2, String>:
       List.append(&2, String, ce.norm(String.split(v, ',')), ce.split(t))
 
 # Ok: decoded so far. Bad: a coding failed. Skip: a coding we cannot decode, so the body stays as sent.
-type Dec is Data:
-  DecOk{b: String}
+type Dec is Type:
+  DecOk{b: Bytes.Bytes}
   DecBad{}
   DecSkip{}
 
-def ce.of(m: Maybe<&2, String>) -> Dec:
+def ce.of(m: Maybe<&1, Bytes.Bytes>) -> Dec:
   match m:
     case None{}:
       DecBad{}
@@ -3936,17 +4049,43 @@ def ce.of(m: Maybe<&2, String>) -> Dec:
       DecOk{b}
 
 # Servers send deflate both with and without the zlib wrapper.
-def ce.deflate(+b: String, m: Maybe<&2, String>) -> Dec:
+def ce.deflate.raw(b: Bytes.Bytes, m: Maybe<&1, Bytes.Bytes>) -> Dec:
   match m:
     case Some{out}:
       DecOk{out}
     case None{}:
       ce.of(Zlib.inflate(b))
 
-def ce.apply(+c: String, +b: String) -> Dec:
-  Bool.pick(Dec, Bool.or(String.eq(c, "gzip"), String.eq(c, "x-gzip")), ce.of(Zlib.gunzip(b)),
-    Bool.pick(Dec, String.eq(c, "deflate"), ce.deflate(b, Zlib.unzlib(b)),
-      Bool.pick(Dec, String.eq(c, "identity"), DecOk{b}, DecSkip{})))
+def ce.deflate.of(r: Bytes.Bytes & Bytes.Bytes) -> Dec:
+  (a, b) = r
+  ce.deflate.raw(b, Zlib.unzlib(a))
+
+def ce.deflate(b: Bytes.Bytes) -> Dec:
+  ce.deflate.of(Bytes.clone(b))
+
+def ce.apply.id(on: Bool, b: Bytes.Bytes) -> Dec:
+  match on:
+    case True{}:
+      DecOk{b}
+    case False{}:
+      DecSkip{}
+
+def ce.apply.de(on: Bool, +c: String, b: Bytes.Bytes) -> Dec:
+  match on:
+    case True{}:
+      ce.deflate(b)
+    case False{}:
+      ce.apply.id(String.eq(c, "identity"), b)
+
+def ce.apply.gz(on: Bool, +c: String, b: Bytes.Bytes) -> Dec:
+  match on:
+    case True{}:
+      ce.of(Zlib.gunzip(b))
+    case False{}:
+      ce.apply.de(String.eq(c, "deflate"), c, b)
+
+def ce.apply(+c: String, b: Bytes.Bytes) -> Dec:
+  ce.apply.gz(Bool.or(String.eq(c, "gzip"), String.eq(c, "x-gzip")), c, b)
 
 def ce.go(cs: List<&2, String>, d: Dec) -> Dec:
   match cs:
@@ -3954,30 +4093,33 @@ def ce.go(cs: List<&2, String>, d: Dec) -> Dec:
       d
     case Con{+c, t}:
       match d:
-        case DecOk{+b}:
+        case DecOk{b}:
           ce.go(t, ce.apply(c, b))
         case DecBad{}:
           DecBad{}
         case DecSkip{}:
           DecSkip{}
 
-def decoded.pick(d: Dec, +status: U32, headers: Map<&2, List<&2, String>>, body: String) -> Result<&1, &1, Err, Res>:
+def decoded.pick(d: Dec, +status: U32, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> Result<&1, &1, Err, Res>:
   match d:
     case DecOk{b}:
-      Done{Res{status, headers, Bytes.from_string(b)}}
+      Done{Res{status, headers, b}}
     case DecBad{}:
       Fail{ErrBad{}}
     case DecSkip{}:
-      Done{Res{status, headers, Bytes.from_string(body)}}
+      Done{Res{status, headers, body}}
 
-# ponytail: the codings run on a String copy of the body; give zlib a Bytes input if gzip bodies get big.
+# One copy decodes; the other is the body as sent, for a coding we cannot decode.
+def decoded.both(+status: U32, +headers: Map<&2, List<&2, String>>, cs: List<&2, String>, r: Bytes.Bytes & Bytes.Bytes) -> Result<&1, &1, Err, Res>:
+  (a, body) = r
+  decoded.pick(ce.go(cs, DecOk{a}), status, headers, body)
+
 def decoded.cs(+status: U32, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, cs: List<&2, String>) -> Result<&1, &1, Err, Res>:
   match cs:
     case Nil{}:
       Done{Res{status, headers, body}}
     case Con{c, t}:
-      +s = Bytes.to_string(body)
-      decoded.pick(ce.go(Con{c, t}, DecOk{s}), status, headers, s)
+      decoded.both(status, headers, Con{c, t}, Bytes.clone(body))
 
 def decoded.go(empty: Bool, +status: U32, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> Result<&1, &1, Err, Res>:
   match empty:
@@ -4002,24 +4144,23 @@ def decoded.m(r: Result<&1, &1, Err, Res>) -> Maybe<&1, Res>:
 def decoded.some(res: Res) -> Maybe<&1, Res>:
   decoded.m(decoded(res))
 
-def ce.words(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Maybe<&1, Bytes.Bytes>:
+def ce.words(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> Maybe<&1, Bytes.Bytes>:
   match r:
     case Fail{e}:
       None{}
-    case Done{(+len, buf)}:
-      Some{Bytes.Bytes{len, buf}}
+    case Done{b}:
+      Some{b}
 
 # A decoded body stops at 16 MiB, like a received one.
-def ce.eff(~eff: U32 -> U32 -> Array<U32> -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>), b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
-  Bytes.Bytes{+len, buf} = b
+def ce.eff(~eff: U32 -> Bytes.Bytes -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>), b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
   do IO<Maybe<&1, Bytes.Bytes>>:
-    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- eff(16777216, len, buf)
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- eff(16777216, b)
     return ce.words(r)
 
 def ce.dec(d: Dec) -> Maybe<&1, Bytes.Bytes>:
   match d:
     case DecOk{b}:
-      Some{Bytes.from_string(b)}
+      Some{b}
     case DecBad{}:
       None{}
     case DecSkip{}:
@@ -4029,22 +4170,21 @@ def ce.dec(d: Dec) -> Maybe<&1, Bytes.Bytes>:
 def ce.io.deflate(on: Bool, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
   match on:
     case True{}:
-      +s = Bytes.to_string(b)
-      IO.pure(Maybe<&1, Bytes.Bytes>, ce.dec(ce.deflate(s, Zlib.unzlib(s))))
+      IO.pure(Maybe<&1, Bytes.Bytes>, ce.dec(ce.deflate(b)))
     case False{}:
       IO.pure(Maybe<&1, Bytes.Bytes>, Some{b})
 
 def ce.io.zstd(on: Bool, +c: String, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
   match on:
     case True{}:
-      ce.eff(~Zlib.zstd.words, b)
+      ce.eff(~Zlib.zstd, b)
     case False{}:
       ce.io.deflate(String.eq(c, "deflate"), b)
 
 def ce.io.br(on: Bool, +c: String, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
   match on:
     case True{}:
-      ce.eff(~Zlib.brotli.words, b)
+      ce.eff(~Zlib.brotli, b)
     case False{}:
       ce.io.zstd(String.eq(c, "zstd"), c, b)
 
@@ -4052,7 +4192,7 @@ def ce.io.br(on: Bool, +c: String, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>)
 def ce.io.gz(on: Bool, +c: String, b: Bytes.Bytes) -> IO(Maybe<&1, Bytes.Bytes>):
   match on:
     case True{}:
-      ce.eff(~Zlib.inflate.words, b)
+      ce.eff(~Zlib.libz.inflate, b)
     case False{}:
       ce.io.br(String.eq(c, "br"), c, b)
 
@@ -4118,17 +4258,16 @@ def decoded.io(+enc: String, res: Res) -> IO(Result<&1, &1, Err, Res>):
   decoded.io.go(U32.is_zero(len), enc, status, headers, Bytes.Bytes{len, buf})
 
 # An effect on empty input fails with ENOENT only when its library does not load.
-def codings.ok(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Bool:
+def codings.ok(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> Bool:
   match r:
     case Fail{(+c, why)}:
       Bool.not(U32.is_eq(c, 2))
     case Done{p}:
       True{}
 
-def codings.has(~eff: U32 -> U32 -> Array<U32> -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>), b: Bytes.Bytes) -> IO(Bool):
-  Bytes.Bytes{+len, buf} = b
+def codings.has(~eff: U32 -> Bytes.Bytes -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>), b: Bytes.Bytes) -> IO(Bool):
   do IO<Bool>:
-    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- eff(0, len, buf)
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- eff(0, b)
     return codings.ok(r)
 
 def codings.add(has: Bool, +enc: String, +c: String) -> String:
@@ -4137,8 +4276,8 @@ def codings.add(has: Bool, +enc: String, +c: String) -> String:
 # gzip and deflate, then br and zstd when their C library loads.
 def codings() -> IO(String):
   do IO<String>:
-    b : Bool <- codings.has(~Zlib.brotli.words, Bytes.new(0))
-    z : Bool <- codings.has(~Zlib.zstd.words, Bytes.new(0))
+    b : Bool <- codings.has(~Zlib.brotli, Bytes.new(0))
+    z : Bool <- codings.has(~Zlib.zstd, Bytes.new(0))
     return codings.add(z, codings.add(b, "gzip, deflate", "br"), "zstd")
 
 # The final response of a fetch, after redirects.
@@ -4494,8 +4633,9 @@ type Po is Type:
   PoEnd{}
   PoBad{e: Err}
 
+# back: the pool key, while the connection can take another request after this body.
 type Stream is Type:
-  Stream{tls: Bool, s: Socket, ms: U32, res: Res, rb: Rb, out: Po, decs: List<&1, Zlib.Decoder>}
+  Stream{tls: Bool, s: Socket, ms: U32, res: Res, rb: Rb, out: Po, decs: List<&1, Zlib.Decoder>, back: Maybe<&2, String>}
 
 type Pc is Type:
   Pc{rb: Rb, out: Po}
@@ -4544,21 +4684,32 @@ def pc.end(ok: Bool) -> Pc:
 def pc.eof(st: Rb) -> Pc:
   pc.end(rb.eof(st))
 
-def stream.mk(+tls: Bool, s: Socket, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, pc: Pc) -> Stream:
+# pc.of, and whether bytes came past the end of the body.
+def stream.pc.of(bf: Bf) -> Pc & Bool:
+  Bf{st, parts, rest} = bf
+  Bytes.Bytes{+len, buf} = rest
+  (pc.fed.of(rb.body(parts), st), Bool.not(U32.is_zero(len)))
+
+def stream.pc(rb: Rb, piece: Bytes.Bytes) -> Pc & Bool:
+  stream.pc.of(rb.feed(rb, Nil{}, piece))
+
+# Bytes past the body put the socket out of step with the server, so it cannot go back to a pool.
+def stream.mk(+tls: Bool, s: Socket, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, back: Maybe<&2, String>, x: Pc & Bool) -> Stream:
+  (pc, extra) = x
   Pc{rb, out} = pc
-  Stream{tls, s, ms, res, rb, out, decs}
+  Stream{tls, s, ms, res, rb, out, decs, Bool.pick(Maybe<&2, String>, extra, None{}, back)}
 
-def stream.got.piece(+tls: Bool, s: Socket, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, +rb: Rb, p: U32 & Array<U32>) -> Stream:
+def stream.got.piece(+tls: Bool, s: Socket, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, back: Maybe<&2, String>, +rb: Rb, p: U32 & Array<U32>) -> Stream:
   (+len, buf) = p
-  stream.mk(tls, s, ms, res, decs, Bool.pick(Pc, U32.is_zero(len), pc.eof(rb), pc.of(rb, Bytes.Bytes{len, buf})))
+  stream.mk(tls, s, ms, res, decs, back, Bool.pick(Pc & Bool, U32.is_zero(len), (pc.eof(rb), False{}), stream.pc(rb, Bytes.Bytes{len, buf})))
 
-def stream.got(+tls: Bool, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, +rb: Rb, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Stream:
+def stream.got(+tls: Bool, +ms: U32, res: Res, decs: List<&1, Zlib.Decoder>, back: Maybe<&2, String>, +rb: Rb, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Stream:
   (s, r) = m
   match r:
     case Fail{(+code, why)}:
-      Stream{tls, s, ms, res, RbDone{}, PoBad{err.or_late(code, ErrRead{code, why})}, decs}
+      Stream{tls, s, ms, res, RbDone{}, PoBad{err.or_late(code, ErrRead{code, why})}, decs, back}
     case Done{p}:
-      stream.got.piece(tls, s, ms, res, decs, rb, p)
+      stream.got.piece(tls, s, ms, res, decs, back, rb, p)
 
 def stream.after(+rb: Rb) -> Po:
   match rb:
@@ -4576,13 +4727,13 @@ def stream.after(+rb: Rb) -> Po:
 type Fed is Type:
   Fed{decs: List<&1, Zlib.Decoder>, body: Result<&1, &1, Err, Bytes.Bytes>}
 
-def stream.feed.received(done: List<&1, Zlib.Decoder>, m: Zlib.Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Fed:
+def stream.feed.received(done: List<&1, Zlib.Decoder>, m: Zlib.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes>) -> Fed:
   (d, r) = m
   match r:
     case Fail{e}:
       Fed{d <> done, Fail{ErrBad{}}}
-    case Done{(+len, buf)}:
-      Fed{d <> done, Done{Bytes.Bytes{len, buf}}}
+    case Done{b}:
+      Fed{d <> done, Done{b}}
 
 def stream.feed.step(st: Fed, d: Zlib.Decoder) -> IO(Fed):
   Fed{done, body} = st
@@ -4590,10 +4741,8 @@ def stream.feed.step(st: Fed, d: Zlib.Decoder) -> IO(Fed):
     case Fail{e}:
       IO.pure(Fed, Fed{d <> done, Fail{e}})
     case Done{b}:
-      Bytes.Bytes{+len, buf} = b
       do IO<Fed>:
-        m : Zlib.Decoder & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
-          Zlib.dec.feed.words(d, 16777216, len, buf)
+        m : Zlib.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes> <- Zlib.dec.push(d, 16777216, b)
         return stream.feed.received(done, m)
 
 def stream.feed.one(prev: IO(Fed), d: Zlib.Decoder) -> IO(Fed):
@@ -4618,24 +4767,24 @@ def stream.ready(empty: Bool, +rb: Rb, b: Bytes.Bytes) -> Po:
     case False{}:
       PoReady{b}
 
-def stream.feed.got(+tls: Bool, s: Socket, +ms: U32, res: Res, +rb: Rb, st: Fed) -> Stream:
+def stream.feed.got(+tls: Bool, s: Socket, +ms: U32, res: Res, +rb: Rb, back: Maybe<&2, String>, st: Fed) -> Stream:
   Fed{decs, body} = st
   match body:
     case Fail{e}:
-      Stream{tls, s, ms, res, rb, PoBad{e}, decs}
+      Stream{tls, s, ms, res, rb, PoBad{e}, decs, back}
     case Done{b}:
       Bytes.Bytes{+len, buf} = b
-      Stream{tls, s, ms, res, rb, stream.ready(U32.is_zero(len), rb, Bytes.Bytes{len, buf}), decs}
+      Stream{tls, s, ms, res, rb, stream.ready(U32.is_zero(len), rb, Bytes.Bytes{len, buf}), decs, back}
 
 def stream.feed.st(st: Stream, b: Bytes.Bytes) -> IO(Stream):
-  Stream{+tls, s, +ms, res, +rb, out, decs} = st
+  Stream{+tls, s, +ms, res, +rb, out, decs, back} = st
   match decs:
     case Nil{}:
-      IO.pure(Stream, Stream{tls, s, ms, res, rb, PoReady{b}, Nil{}})
+      IO.pure(Stream, Stream{tls, s, ms, res, rb, PoReady{b}, Nil{}, back})
     case Con{d, rest}:
       do IO<Stream>:
         fed : Fed <- stream.feed.all(Con{d, rest}, b)
-        return stream.feed.got(tls, s, ms, res, rb, fed)
+        return stream.feed.got(tls, s, ms, res, rb, back, fed)
 
 def stream.finish.ok(r: Result<&1, &1, U32 & String, Unit>) -> Bool:
   match r:
@@ -4654,54 +4803,91 @@ def stream.finish(decs: List<&1, Zlib.Decoder>) -> IO(Bool):
         tail : Bool <- stream.finish(rest)
         return Bool.and(stream.finish.ok(r), tail)
 
-def stream.ended(good: Bool, +tls: Bool, s: Socket, +ms: U32, res: Res, +rb: Rb) ->
+def stream.ended(good: Bool, +tls: Bool, s: Socket, +ms: U32, res: Res, +rb: Rb, back: Maybe<&2, String>) ->
   Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>:
   match good:
     case True{}:
-      (Stream{tls, s, ms, res, rb, PoEnd{}, Nil{}}, Done{None{}})
+      (Stream{tls, s, ms, res, rb, PoEnd{}, Nil{}, back}, Done{None{}})
     case False{}:
-      (Stream{tls, s, ms, res, rb, PoBad{ErrBad{}}, Nil{}}, Fail{ErrBad{}})
+      (Stream{tls, s, ms, res, rb, PoBad{ErrBad{}}, Nil{}, back}, Fail{ErrBad{}})
 
 # The next piece of the body; None at the end. A piece is never empty.
 @unsafe
 def stream.read(st: Stream) -> IO(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>):
-  Stream{+tls, s, +ms, res, +rb, out, decs} = st
+  Stream{+tls, s, +ms, res, +rb, out, decs, back} = st
   match out:
     case PoPiece{b}:
       do IO<Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>>:
-        next : Stream <- stream.feed.st(Stream{tls, s, ms, res, rb, PoNone{}, decs}, b)
+        next : Stream <- stream.feed.st(Stream{tls, s, ms, res, rb, PoNone{}, decs, back}, b)
         stream.read(next)
     case PoReady{b}:
       IO.pure(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>,
-        (Stream{tls, s, ms, res, rb, stream.after(rb), decs}, Done{Some{b}}))
+        (Stream{tls, s, ms, res, rb, stream.after(rb), decs, back}, Done{Some{b}}))
     case PoEnd{}:
       do IO<Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>>:
         good : Bool <- stream.finish(decs)
-        return stream.ended(good, tls, s, ms, res, rb)
+        return stream.ended(good, tls, s, ms, res, rb, back)
     case PoBad{+e}:
       IO.pure(Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>,
-        (Stream{tls, s, ms, res, rb, PoBad{e}, decs}, Fail{e}))
+        (Stream{tls, s, ms, res, rb, PoBad{e}, decs, back}, Fail{e}))
     case PoNone{}:
       do IO<Stream & Result<&1, &1, Err, Maybe<&1, Bytes.Bytes>>>:
         m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- io.recv.words(tls, s, 65536, ms)
-        stream.read(stream.got(tls, ms, res, decs, rb, m))
+        stream.read(stream.got(tls, ms, res, decs, back, rb, m))
 
 # Status and headers. Its body is empty: read the body with stream.read.
 def stream.res(st: Stream) -> Stream & Res:
-  Stream{tls, s, ms, res, rb, out, decs} = st
+  Stream{tls, s, ms, res, rb, out, decs, back} = st
   Res{+status, +headers, body} = res
-  (Stream{tls, s, ms, Res{status, headers, body}, rb, out, decs}, Res{status, headers, Bytes.new(0)})
+  (Stream{tls, s, ms, Res{status, headers, body}, rb, out, decs, back}, Res{status, headers, Bytes.new(0)})
 
 def stream.close(st: Stream) -> IO(Unit):
-  Stream{tls, s, ms, res, rb, out, decs} = st
+  Stream{tls, s, ms, res, rb, out, decs, back} = st
   do IO<Unit>:
     good : Bool <- stream.finish(decs)
     io.close(tls, s)
 
+def stream.po.end(out: Po) -> Bool:
+  match out:
+    case PoEnd{}:
+      True{}
+    case other:
+      False{}
+
+def stream.rb.done(+rb: Rb) -> Bool:
+  match rb:
+    case RbDone{}:
+      True{}
+    case other:
+      False{}
+
+def stream.give(whole: Bool, back: Maybe<&2, String>, p: Pool, +tls: Bool, s: Socket) -> IO(Pool):
+  match whole:
+    case True{}:
+      match back:
+        case Some{+key}:
+          pool.give(p, key, Conn{tls, s})
+        case None{}:
+          do IO<Pool>:
+            io.close(tls, s)
+            return p
+    case False{}:
+      do IO<Pool>:
+        io.close(tls, s)
+        return p
+
+# stream.close, but a body read to its end and decoded cleanly gives its connection to the pool.
+def pool.stream.close(p: Pool, st: Stream) -> IO(Pool):
+  Stream{+tls, s, ms, res, +rb, out, decs, back} = st
+  do IO<Pool>:
+    good : Bool <- stream.finish(decs)
+    stream.give(Bool.and(good, Bool.and(stream.po.end(out), stream.rb.done(rb))), back, p, tls, s)
+
 # Head read state: still scanning, cut short or bad, or the head with the bytes after it.
+# none: no response byte arrived, so a reused socket may be stale.
 type Sh is Type:
   ShMore{buf: Bytes.Bytes, k: U32}
-  ShBad{err: Maybe<&2, Err>}
+  ShBad{err: Maybe<&2, Err>, none: Bool}
   ShRes{res: Res, rb: Rb, rest: Bytes.Bytes}
 
 def sh.of(hs: Hs) -> Sh:
@@ -4709,21 +4895,26 @@ def sh.of(hs: Hs) -> Sh:
     case HsWait{buf, k}:
       ShMore{buf, k}
     case HsBad{}:
-      ShBad{None{}}
+      ShBad{None{}, False{}}
     case HsSeek{buf, from, k}:
-      ShBad{None{}}
+      ShBad{None{}, False{}}
     case HsRes{res, rb, rest}:
       ShRes{res, rb, rest}
 
+def sh.none(buf: Bytes.Bytes, +k: U32) -> Bool:
+  Bytes.Bytes{+len, b} = buf
+  Bool.and(U32.is_zero(len), U32.is_zero(k))
+
 def sh.piece(+head: Bool, buf: Bytes.Bytes, +k: U32, p: U32 & Array<U32>) -> Sh:
+  Bytes.Bytes{+ol, ob} = buf
   (+len, b) = p
-  Bool.pick(Sh, U32.is_zero(len), ShBad{None{}}, sh.of(hs.more(head, k, buf, Bytes.Bytes{len, b})))
+  Bool.pick(Sh, U32.is_zero(len), ShBad{None{}, Bool.and(U32.is_zero(ol), U32.is_zero(k))}, sh.of(hs.more(head, k, Bytes.Bytes{ol, ob}, Bytes.Bytes{len, b})))
 
 def sh.next(+head: Bool, buf: Bytes.Bytes, +k: U32, m: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Socket & Sh:
   (s, r) = m
   match r:
     case Fail{(+code, why)}:
-      (s, ShBad{Some{err.or_late(code, ErrRead{code, why})}})
+      (s, ShBad{Some{err.or_late(code, ErrRead{code, why})}, sh.none(buf, k)})
     case Done{p}:
       (s, sh.piece(head, buf, k, p))
 
@@ -4734,70 +4925,166 @@ def fetch.fail.of(r: Result<&1, &1, Err, Res>) -> Result<&1, &1, Err, Stream>:
     case Done{res}:
       Fail{ErrBad{}}
 
+# The connection can take another request only when the server did not say close and the body does not end at close.
+def stream.back(back: Maybe<&2, String>, +rb: Rb, +headers: Map<&2, List<&2, String>>) -> Maybe<&2, String>:
+  Bool.pick(Maybe<&2, String>, Bool.and(Bool.not(rb.eof(rb)), Bool.not(res.conn_close(headers))), back, None{})
+
 # Reads until the final head is in; the body bytes that came with it are the first piece.
 @unsafe
-def stream.head(+tls: Bool, +ms: U32, +head: Bool, st: Socket & Sh) -> IO(Result<&1, &1, Err, Stream>):
+def stream.head(+tls: Bool, +ms: U32, +head: Bool, back: Maybe<&2, String>, st: Socket & Sh) -> IO(Bool & Result<&1, &1, Err, Stream>):
   (s, sh) = st
   match sh:
     case ShMore{buf, +k}:
-      do IO<Result<&1, &1, Err, Stream>>:
+      do IO<Bool & Result<&1, &1, Err, Stream>>:
         m : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- io.recv.words(tls, s, 65536, ms)
-        stream.head(tls, ms, head, sh.next(head, buf, k, m))
-    case ShBad{err}:
-      do IO<Result<&1, &1, Err, Stream>>:
+        stream.head(tls, ms, head, back, sh.next(head, buf, k, m))
+    case ShBad{err, +none}:
+      do IO<Bool & Result<&1, &1, Err, Stream>>:
         r : Result<&1, &1, Err, Res> <- fetch.bad(tls, s, err)
-        return fetch.fail.of(r)
-    case ShRes{res, rb, rest}:
-      IO.pure(Result<&1, &1, Err, Stream>, Done{stream.mk(tls, s, ms, res, Nil{}, pc.of(rb, rest))})
+        return (none, fetch.fail.of(r))
+    case ShRes{res, +rb, rest}:
+      Res{+status, +headers, body} = res
+      IO.pure(Bool & Result<&1, &1, Err, Stream>, (False{}, Done{stream.mk(tls, s, ms, Res{status, headers, body}, Nil{},
+        stream.back(back, rb, headers), stream.pc(rb, rest))}))
 
-def stream.sent(+tls: Bool, +ms: U32, +head: Bool, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Result<&1, &1, Err, Stream>):
+def stream.sent(+tls: Bool, +ms: U32, +head: Bool, back: Maybe<&2, String>, m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Bool & Result<&1, &1, Err, Stream>):
   (s, r) = m
   match r:
     case Fail{(+code, why)}:
-      do IO<Result<&1, &1, Err, Stream>>:
+      do IO<Bool & Result<&1, &1, Err, Stream>>:
         io.close(tls, s)
-        return Fail{err.or_late(code, ErrWrite{code, why})}
+        return (True{}, Fail{err.or_late(code, ErrWrite{code, why})})
     case Done{u}:
-      stream.head(tls, ms, head, (s, ShMore{Bytes.new(0), 0}))
+      stream.head(tls, ms, head, back, (s, ShMore{Bytes.new(0), 0}))
 
-def stream.conn(r: Result<&1, &1, Err, Conn>, +ms: U32, +head: Bool, wire: Bytes.Bytes) -> IO(Result<&1, &1, Err, Stream>):
+# The bool is true when the open failed before any response byte.
+def stream.conn(r: Result<&1, &1, Err, Conn>, +ms: U32, +head: Bool, back: Maybe<&2, String>, wire: Bytes.Bytes) -> IO(Bool & Result<&1, &1, Err, Stream>):
   match r:
     case Fail{e}:
-      IO.pure(Result<&1, &1, Err, Stream>, Fail{e})
+      IO.pure(Bool & Result<&1, &1, Err, Stream>, (False{}, Fail{e}))
     case Done{c}:
       match c:
         case Conn{+tls, s}:
-          do IO<Result<&1, &1, Err, Stream>>:
+          do IO<Bool & Result<&1, &1, Err, Stream>>:
             sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(tls, s, wire)
-            stream.sent(tls, ms, head, sent)
+            stream.sent(tls, ms, head, back, sent)
         case ConnH2{s, client}:
-          do IO<Result<&1, &1, Err, Stream>>:
+          do IO<Bool & Result<&1, &1, Err, Stream>>:
             Wire.tls.close(s)
-            return Fail{ErrBad{}}
+            return (False{}, Fail{ErrBad{}})
 
-# One connection per stream; the request says close.
-def stream.origin(+ms: U32, +head: Bool, wire: Bytes.Bytes, a: Url.Abs, known: Bool) -> IO(Result<&1, &1, Err, Stream>):
-  Url.Abs{+scheme, +host, +port, target} = a
+def stream.opened(x: Bool & Result<&1, &1, Err, Stream>) -> Result<&1, &1, Err, Stream>:
+  (none, r) = x
+  r
+
+# A new connection, with no h2 offer.
+def stream.fresh(+ms: U32, +head: Bool, back: Maybe<&2, String>, route: Route, wire: Bytes.Bytes) -> IO(Result<&1, &1, Err, Stream>):
+  do IO<Result<&1, &1, Err, Stream>>:
+    c : Result<&1, &1, Err, Conn> <- route.open(ms, False{}, route)
+    x : Bool & Result<&1, &1, Err, Stream> <- stream.conn(c, ms, head, back, wire)
+    return stream.opened(x)
+
+def stream.stale(again: Bool, p: Pool, +ms: U32, +head: Bool, +key: String, route: Route, spare: Bytes.Bytes, e: Err) ->
+    IO(Pool & Result<&1, &1, Err, Stream>):
+  match again:
+    case True{}:
+      do IO<Pool & Result<&1, &1, Err, Stream>>:
+        got : Result<&1, &1, Err, Stream> <- stream.fresh(ms, head, Some{key}, route, spare)
+        return (p, got)
+    case False{}:
+      IO.pure(Pool & Result<&1, &1, Err, Stream>, (p, Fail{e}))
+
+def stream.reused(p: Pool, +ms: U32, +head: Bool, +idem: Bool, +key: String, route: Route, spare: Bytes.Bytes,
+    x: Bool & Result<&1, &1, Err, Stream>) -> IO(Pool & Result<&1, &1, Err, Stream>):
+  (+none, r) = x
+  match r:
+    case Done{st}:
+      IO.pure(Pool & Result<&1, &1, Err, Stream>, (p, Done{st}))
+    case Fail{e}:
+      stream.stale(pool.retry(none, idem), p, ms, head, key, route, spare, e)
+
+# An idle socket from the pool; an h2 session goes back, since a stream speaks HTTP/1.1.
+def stream.idle(p: Pool, +ms: U32, +head: Bool, +idem: Bool, +key: String, route: Route,
+    r: Bytes.Bytes & Bytes.Bytes, c: Conn) -> IO(Pool & Result<&1, &1, Err, Stream>):
+  (wire, spare) = r
+  match c:
+    case Conn{tls, s}:
+      do IO<Pool & Result<&1, &1, Err, Stream>>:
+        x : Bool & Result<&1, &1, Err, Stream> <- stream.conn(Done{Conn{tls, s}}, ms, head, Some{key}, wire)
+        stream.reused(p, ms, head, idem, key, route, spare, x)
+    case ConnH2{s, client}:
+      do IO<Pool & Result<&1, &1, Err, Stream>>:
+        next : Pool <- pool.give(p, key, ConnH2{s, client})
+        got : Result<&1, &1, Err, Stream> <- stream.fresh(ms, head, Some{key}, route, spare)
+        return (next, got)
+
+# Copy the request only for a reused socket, for a stale-socket retry.
+def stream.take(taken: Pool & Maybe<&1, Conn>, +ms: U32, +head: Bool, +idem: Bool, +key: String, route: Route,
+    wire: Bytes.Bytes) -> IO(Pool & Result<&1, &1, Err, Stream>):
+  (p, m) = taken
+  match m:
+    case None{}:
+      do IO<Pool & Result<&1, &1, Err, Stream>>:
+        got : Result<&1, &1, Err, Stream> <- stream.fresh(ms, head, Some{key}, route, wire)
+        return (p, got)
+    case Some{c}:
+      stream.idle(p, ms, head, idem, key, route, Bytes.slice(wire, 0, 4294967295), c)
+
+# One HTTP/1.1 connection per stream: an idle one from the pool, else a new one. The request keeps it alive.
+# A reused socket that fails before any response byte is tried once more on a new one, for an idempotent method.
+def stream.route(p: Pool, +ms: U32, r: String & Send & Route) -> IO(Pool & Result<&1, &1, Err, Stream>):
+  (+key, request, route) = r
+  Send{+method, target, authority, headers, body} = request
+  do IO<Pool & Result<&1, &1, Err, Stream>>:
+    taken : Pool & Maybe<&1, Conn> <- pool.take.live(p, key)
+    stream.take(taken, ms, String.eq(method, "HEAD"), pool.idempotent(method), key, route,
+      encode_req.on(method, target, authority, headers, body, False{}))
+
+def stream.origin.choice(p: Pool, +method: String, +ms: U32,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, hf: String,
+    scheme: String, host: String, port: U32, target: String,
+    cert: Maybe<&2, Cert>, +ca: String, choice: Maybe<&2, Proxy>) ->
+    IO(Pool & Result<&1, &1, Err, Stream>):
+  match choice:
+    case None{}:
+      IO.pure(Pool & Result<&1, &1, Err, Stream>, (p, Fail{ErrUrl{}}))
+    case Some{proxy}:
+      stream.route(p, ms, origin.route(method, headers, body, hf, scheme, host,
+        port, target, cert, ca, proxy))
+
+# cert and ca: the client identity and trusted CA file for this origin.
+def stream.origin(p: Pool, +method: String, +ms: U32, headers: Map<&2, List<&2, String>>,
+    body: Bytes.Bytes, hf: String, a: Url.Abs, known: Bool,
+    cert: Maybe<&2, Cert>, +ca: String, choice: Maybe<&2, Proxy>) ->
+    IO(Pool & Result<&1, &1, Err, Stream>):
+  Url.Abs{scheme, host, port, target} = a
   match known:
     case False{}:
-      IO.pure(Result<&1, &1, Err, Stream>, Fail{ErrUrl{}})
+      IO.pure(Pool & Result<&1, &1, Err, Stream>, (p, Fail{ErrUrl{}}))
     case True{}:
-      do IO<Result<&1, &1, Err, Stream>>:
-        ips : List<&2, String> <- Dns.resolve.all(host)
-        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{}, False{}, "")
-        stream.conn(c, ms, head, wire)
+      stream.origin.choice(p, method, ms, headers, body, hf, scheme, host, port,
+        target, cert, ca, choice)
 
-def stream.one.of(+method: String, +url: Url.Abs, +headers: Map<&2, List<&2, String>>, +ms: U32, r: Bytes.Bytes & Bytes.Bytes) -> IO(Hop & Result<&1, &1, Err, Stream>):
-  Url.Abs{scheme, host, port, +target} = url
+def stream.one.back(h: Hop, pr: Pool & Result<&1, &1, Err, Stream>) -> Pool & Hop & Result<&1, &1, Err, Stream>:
+  (p, r) = pr
+  (p, h, r)
+
+# sent is headers plus any jar cookies; the hop keeps headers, so cookies never pile up across hops.
+def stream.one.of(p: Pool, +method: String, +url: Url.Abs, headers: Map<&2, List<&2, String>>, sent: Map<&2, List<&2, String>>,
+    +ms: U32, r: Bytes.Bytes & Bytes.Bytes, cert: Maybe<&2, Cert>, +ca: String) -> IO(Pool & Hop & Result<&1, &1, Err, Stream>):
+  Url.Abs{+scheme, +host, +port, target} = url
   (body, wire) = r
-  do IO<Hop & Result<&1, &1, Err, Stream>>:
-    got : Result<&1, &1, Err, Stream> <- stream.origin(ms, String.eq(method, "HEAD"), encode_req.on(method, target, Url.host_field(url), headers, wire, True{}), url, pool.scheme.ok(url))
-    return (Hop{method, url, headers, body}, got)
+  do IO<Pool & Hop & Result<&1, &1, Err, Stream>>:
+    choice : Maybe<&2, Proxy> <- proxy.select(scheme, host, port)
+    got : Pool & Result<&1, &1, Err, Stream> <-
+      stream.origin(p, method, ms, sent, wire, Url.host_field(url), url,
+        pool.scheme.ok(url), cert, ca, choice)
+    return stream.one.back(Hop{method, url, headers, body}, got)
 
-# One request on its own connection. The hop comes back for the redirect.
-def stream.one(h: Hop, +ms: U32) -> IO(Hop & Result<&1, &1, Err, Stream>):
+# One request, on an idle socket to its origin when the pool has one. The hop comes back for the redirect.
+def stream.one(p: Pool, h: Hop, +ms: U32, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>) -> IO(Pool & Hop & Result<&1, &1, Err, Stream>):
   Hop{+method, +url, +headers, body} = h
-  stream.one.of(method, url, headers, ms, Bytes.slice(body, 0, 4294967295))
+  stream.one.of(p, method, url, headers, jar.opt.apply(jar, url, headers), ms, Bytes.slice(body, 0, 4294967295), cert, ca)
 
 # Go: the next request. Drop: close this stream, then go on. Done: the answer.
 type Sn is Type:
@@ -4818,40 +5105,71 @@ def sn.of(n: Next) -> Sn:
         case Done{r}:
           SnDone{Fail{ErrBad{}}}
 
+def stream.decide.done(st: Stream, m: Result<&1, &1, Err, Res>) -> Sn:
+  match m:
+    case Fail{e}:
+      SnDrop{st, NDone{Fail{e}}}
+    case Done{r}:
+      SnDone{Done{st}}
+
 def stream.decide.n(st: Stream, n: Next) -> Sn:
   match n:
     case NDone{m}:
-      SnDone{Done{st}}
+      stream.decide.done(st, m)
     case NGo{l, h}:
       SnDrop{st, NGo{l, h}}
     case NStop{}:
       SnDrop{st, NStop{}}
 
-def stream.decide.of(+left: Nat, hop: Hop, sr: Stream & Res) -> Sn:
-  (st, res) = sr
-  stream.decide.n(st, fetch.decide(left, hop, Done{res}))
+# The redirect loop's state for a stream: what to do next, the client identity, the jar, and the CA file.
+type StreamHops is Type:
+  StreamHops{next: Sn, cert: Maybe<&2, Cert>, jar: Maybe<&2, Jar>, ca: String}
 
-def stream.decide(+left: Nat, x: Hop & Result<&1, &1, Err, Stream>) -> Sn:
+def stream.decide.trust(st: Stream, jar: Maybe<&2, Jar>, nt: Next & Maybe<&2, Cert> & String) -> StreamHops:
+  (n, cert, ca) = nt
+  StreamHops{stream.decide.n(st, n), cert, jar, ca}
+
+def stream.decide.jar(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, st: Stream, +old: String, hop: Hop,
+    r: Maybe<&2, Jar> & Result<&1, &1, Err, Res>) -> StreamHops:
+  (jar, m) = r
+  stream.decide.trust(st, jar, next.trust(old, cert, ca, fetch.policy(mode, left, hop, m)))
+
+# The jar takes the response's Set-Cookie fields first, redirect or not.
+def stream.decide.of(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>, hop: Hop, sr: Stream & Res) -> StreamHops:
+  Hop{method, +url, headers, body} = hop
+  (st, res) = sr
+  stream.decide.jar(mode, left, cert, ca, st, redirect.origin(url), Hop{method, url, headers, body}, jar.opt.store(jar, url, Done{res}))
+
+def stream.decide(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>, x: Hop & Result<&1, &1, Err, Stream>) -> StreamHops:
   (hop, r) = x
   match r:
     case Fail{e}:
-      SnDone{Fail{e}}
+      StreamHops{SnDone{Fail{e}}, cert, jar, ca}
     case Done{st}:
-      stream.decide.of(left, hop, stream.res(st))
+      stream.decide.of(mode, left, cert, ca, jar, hop, stream.res(st))
 
+def stream.step(+mode: Mode, left: Nat, cert: Maybe<&2, Cert>, +ca: String, jar: Maybe<&2, Jar>,
+    x: Pool & Hop & Result<&1, &1, Err, Stream>) -> Pool & StreamHops:
+  (p, hop, r) = x
+  (p, stream.decide(mode, left, cert, ca, jar, (hop, r)))
+
+# mode says what a redirect does, as in pool.hops. A dropped redirect gives its connection to the pool
+# when its body has ended. The pool and the jar come back beside the stream.
 @unsafe
-def stream.hops(+ms: U32, sn: Sn) -> IO(Result<&1, &1, Err, Stream>):
+def stream.hops(+mode: Mode, +ms: U32, x: Pool & StreamHops) -> IO(Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  (p, hs) = x
+  StreamHops{sn, +cert, +jar, +ca} = hs
   match sn:
     case SnDone{r}:
-      IO.pure(Result<&1, &1, Err, Stream>, r)
-    case SnGo{+left, hop}:
-      do IO<Result<&1, &1, Err, Stream>>:
-        x : Hop & Result<&1, &1, Err, Stream> <- stream.one(hop, ms)
-        stream.hops(ms, stream.decide(left, x))
+      IO.pure(Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>, (p, jar, r))
+    case SnGo{left, hop}:
+      do IO<Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+        y : Pool & Hop & Result<&1, &1, Err, Stream> <- stream.one(p, hop, ms, cert, ca, jar)
+        stream.hops(mode, ms, stream.step(mode, left, cert, ca, jar, y))
     case SnDrop{st, next}:
-      do IO<Result<&1, &1, Err, Stream>>:
-        stream.close(st)
-        stream.hops(ms, sn.of(next))
+      do IO<Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+        q : Pool <- pool.stream.close(p, st)
+        stream.hops(mode, ms, (q, StreamHops{sn.of(next), cert, jar, ca}))
 
 type Opened is Type:
   Opened{decs: List<&1, Zlib.Decoder>, bad: Bool}
@@ -4908,8 +5226,8 @@ def stream.open.all(cs: List<&2, String>) -> IO(Opened):
   List.foldl(~&2, ~String, ~IO(Opened), ~stream.open.one, cs, IO.pure(Opened, Opened{Nil{}, False{}}))
 
 def stream.put.decs(st: Stream, decs: List<&1, Zlib.Decoder>) -> Stream:
-  Stream{tls, s, ms, res, rb, out, old} = st
-  Stream{tls, s, ms, res, rb, out, decs}
+  Stream{tls, s, ms, res, rb, out, old, back} = st
+  Stream{tls, s, ms, res, rb, out, decs, back}
 
 def stream.init.opened(st: Stream, opened: Opened) -> IO(Result<&1, &1, Err, Stream>):
   Opened{decs, bad} = opened
@@ -4931,11 +5249,11 @@ def stream.init.known(known: Bool, st: Stream, cs: List<&2, String>) -> IO(Resul
         stream.init.opened(st, opened)
 
 def stream.init.st(+enc: String, st: Stream) -> IO(Result<&1, &1, Err, Stream>):
-  Stream{tls, s, ms, res, rb, out, decs} = st
+  Stream{tls, s, ms, res, rb, out, decs, back} = st
   Res{+status, +headers, body} = res
   +cs = List.reverse(&2, String, ce.split(fields(headers, "content-encoding")))
   stream.init.known(ce.known(cs, Con{"identity", Con{"x-gzip", ce.split(Con{enc, Nil{}})}}),
-    Stream{tls, s, ms, Res{status, headers, body}, rb, out, decs}, cs)
+    Stream{tls, s, ms, Res{status, headers, body}, rb, out, decs, back}, cs)
 
 def stream.init(+enc: String, r: Result<&1, &1, Err, Stream>) -> IO(Result<&1, &1, Err, Stream>):
   match r:
@@ -4944,6 +5262,12 @@ def stream.init(+enc: String, r: Result<&1, &1, Err, Stream>) -> IO(Result<&1, &
     case Done{st}:
       stream.init.st(enc, st)
 
+def stream.init.pool(+enc: String, x: Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>) -> IO(Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  (p, jar, r) = x
+  do IO<Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+    s : Result<&1, &1, Err, Stream> <- stream.init(enc, r)
+    return (p, jar, s)
+
 def stream.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, u: Maybe<&2, Url.Abs>) -> Sn:
   match u:
     case None{}:
@@ -4951,24 +5275,85 @@ def stream.start(method: String, headers: Map<&2, List<&2, String>>, body: Bytes
     case Some{a}:
       SnGo{20n, Hop{method, a, req.put(Map.to_list(&2, List<&2, String>, headers), empty()), body}}
 
-# Open a raw stream. Its body bytes and headers remain as sent.
+def stream.only(x: Maybe<&2, Jar> & Result<&1, &1, Err, Stream>) -> Result<&1, &1, Err, Stream>:
+  (jar, r) = x
+  r
+
+def pool.stream.only(x: Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>) -> Pool & Result<&1, &1, Err, Stream>:
+  (p, jar, r) = x
+  (p, r)
+
+# A one-off pool ends with the open; it closes any idle socket a redirect gave back.
+def stream.unpooled(x: Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>) -> IO(Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  (p, jar, r) = x
+  do IO<Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+    pool.close(p)
+    return (jar, r)
+
+# open.raw.how on a pool: each hop takes an idle socket to its origin when the pool has one.
+def pool.open.raw.how(p: Pool, mode: Mode, cert: Maybe<&2, Cert>, ca: String, jar: Maybe<&2, Jar>, method: String, url: String,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  stream.hops(mode, ms, (p, StreamHops{stream.start(method, headers, body, Url.absolute(url)), cert, jar, ca}))
+
+# A raw stream with every choice of fetch: mode for redirects, cert and ca for the first origin and each
+# same-origin hop ("" trusts the default store), and a jar that gives cookies to every hop and takes them
+# from every response. The jar comes back beside the stream. Body bytes and headers remain as sent.
+def open.raw.how(mode: Mode, cert: Maybe<&2, Cert>, ca: String, jar: Maybe<&2, Jar>, method: String, url: String,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  do IO<Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+    x : Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream> <- pool.open.raw.how(pool.new(), mode, cert, ca, jar, method, url, headers, body, ms)
+    stream.unpooled(x)
+
+# Open a raw stream. It follows redirects, with no client certificate and no jar.
 def open.raw.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Result<&1, &1, Err, Stream>):
-  stream.hops(ms, stream.start(method, headers, body, Url.absolute(url)))
+  do IO<Result<&1, &1, Err, Stream>>:
+    x : Maybe<&2, Jar> & Result<&1, &1, Err, Stream> <- open.raw.how(ModeFollow{}, None{}, "", None{}, method, url, headers, body, ms)
+    return stream.only(x)
 
 def open.raw(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Result<&1, &1, Err, Stream>):
   open.raw.with(method, url, headers, body, 30000)
 
-def open.with.enc(+enc: String, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Result<&1, &1, Err, Stream>):
-  do IO<Result<&1, &1, Err, Stream>>:
-    r : Result<&1, &1, Err, Stream> <-
-      stream.hops(ms, stream.start(method, accept.enc(headers, enc), body, Url.absolute(url)))
-    stream.init(enc, r)
+def pool.open.how.enc(+enc: String, p: Pool, mode: Mode, cert: Maybe<&2, Cert>, ca: String, jar: Maybe<&2, Jar>, method: String, url: String,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  do IO<Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+    x : Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream> <-
+      stream.hops(mode, ms, (p, StreamHops{stream.start(method, accept.enc(headers, enc), body, Url.absolute(url)), cert, jar, ca}))
+    stream.init.pool(enc, x)
 
-# Follow redirects, then decode each body piece by Content-Encoding. Unknown codings stay raw.
+# open.how on a pool. Give a stream back with pool.stream.close.
+def pool.open.how(p: Pool, mode: Mode, cert: Maybe<&2, Cert>, ca: String, jar: Maybe<&2, Jar>, method: String, url: String,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  do IO<Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+    enc : String <- codings()
+    pool.open.how.enc(enc, p, mode, cert, ca, jar, method, url, headers, body, ms)
+
+def pool.open.with(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Pool & Result<&1, &1, Err, Stream>):
+  do IO<Pool & Result<&1, &1, Err, Stream>>:
+    x : Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream> <- pool.open.how(p, ModeFollow{}, None{}, "", None{}, method, url, headers, body, ms)
+    return pool.stream.only(x)
+
+# open on a pool: an idle socket to the origin when the pool has one, else a new one.
+def pool.open(p: Pool, method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Pool & Result<&1, &1, Err, Stream>):
+  pool.open.with(p, method, url, headers, body, 30000)
+
+def open.how.enc(+enc: String, mode: Mode, cert: Maybe<&2, Cert>, ca: String, jar: Maybe<&2, Jar>, method: String, url: String,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  do IO<Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+    x : Pool & Maybe<&2, Jar> & Result<&1, &1, Err, Stream> <- pool.open.how.enc(enc, pool.new(), mode, cert, ca, jar, method, url, headers, body, ms)
+    stream.unpooled(x)
+
+# open.raw.how, then each body piece decoded by Content-Encoding (see codings). Unknown codings stay raw.
+def open.how(mode: Mode, cert: Maybe<&2, Cert>, ca: String, jar: Maybe<&2, Jar>, method: String, url: String,
+    headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Maybe<&2, Jar> & Result<&1, &1, Err, Stream>):
+  do IO<Maybe<&2, Jar> & Result<&1, &1, Err, Stream>>:
+    enc : String <- codings()
+    open.how.enc(enc, mode, cert, ca, jar, method, url, headers, body, ms)
+
+# Follow redirects, then decode each body piece by Content-Encoding. No client certificate and no jar.
 def open.with(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, +ms: U32) -> IO(Result<&1, &1, Err, Stream>):
   do IO<Result<&1, &1, Err, Stream>>:
-    enc : String <- codings()
-    open.with.enc(enc, method, url, headers, body, ms)
+    x : Maybe<&2, Jar> & Result<&1, &1, Err, Stream> <- open.how(ModeFollow{}, None{}, "", None{}, method, url, headers, body, ms)
+    return stream.only(x)
 
 def open(method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Result<&1, &1, Err, Stream>):
   open.with(method, url, headers, body, 30000)
@@ -5023,27 +5408,54 @@ def up.conn(r: Result<&1, &1, Err, Conn>, +ms: U32, +head: Bool, wire: String) -
 def up.head(+method: String, +target: String, +hf: String, +headers: Map<&2, List<&2, String>>) -> String:
   request(method, target, set(set(set(req.put(Map.to_list(&2, List<&2, String>, headers), empty()), "host", hf), "connection", "close"), "transfer-encoding", "chunked"), "")
 
-def up.origin(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>, a: Url.Abs, known: Bool) -> IO(Result<&1, &1, Err, Up>):
-  Url.Abs{+scheme, +host, +port, +target} = a
+def up.route(+ms: U32, r: String & Send & Route) -> IO(Result<&1, &1, Err, Up>):
+  (key, request, route) = r
+  Send{+method, +target, +authority, +headers, body} = request
+  do IO<Result<&1, &1, Err, Up>>:
+    c : Result<&1, &1, Err, Conn> <- route.open(ms, False{}, route)
+    up.conn(c, ms, String.eq(method, "HEAD"), up.head(method, target, authority, headers))
+
+def up.origin.choice(+method: String, +ms: U32,
+    headers: Map<&2, List<&2, String>>, hf: String,
+    scheme: String, host: String, port: U32, target: String,
+    cert: Maybe<&2, Cert>, +ca: String, choice: Maybe<&2, Proxy>) ->
+    IO(Result<&1, &1, Err, Up>):
+  match choice:
+    case None{}:
+      IO.pure(Result<&1, &1, Err, Up>, Fail{ErrUrl{}})
+    case Some{proxy}:
+      up.route(ms, origin.route(method, headers, Bytes.new(0), hf, scheme, host,
+        port, target, cert, ca, proxy))
+
+def up.origin(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>,
+    hf: String, a: Url.Abs, known: Bool, cert: Maybe<&2, Cert>, +ca: String) ->
+    IO(Result<&1, &1, Err, Up>):
+  Url.Abs{+scheme, +host, +port, target} = a
   match known:
     case False{}:
       IO.pure(Result<&1, &1, Err, Up>, Fail{ErrUrl{}})
     case True{}:
       do IO<Result<&1, &1, Err, Up>>:
-        ips : List<&2, String> <- Dns.resolve.all(host)
-        c : Result<&1, &1, Err, Conn> <- conn.open.all(String.eq(scheme, "https"), ms, host, port, ips, None{}, False{}, "")
-        up.conn(c, ms, String.eq(method, "HEAD"), up.head(method, target, Url.host_field(a), headers))
+        choice : Maybe<&2, Proxy> <- proxy.select(scheme, host, port)
+        up.origin.choice(method, ms, headers, hf, scheme, host, port, target,
+          cert, ca, choice)
 
-def up.url(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>, u: Maybe<&2, Url.Abs>) -> IO(Result<&1, &1, Err, Up>):
+def up.url(+method: String, +ms: U32, headers: Map<&2, List<&2, String>>,
+    u: Maybe<&2, Url.Abs>, cert: Maybe<&2, Cert>, +ca: String) ->
+    IO(Result<&1, &1, Err, Up>):
   match u:
     case None{}:
       IO.pure(Result<&1, &1, Err, Up>, Fail{ErrUrl{}})
     case Some{+a}:
-      up.origin(method, ms, headers, a, pool.scheme.ok(a))
+      up.origin(method, ms, headers, Url.host_field(a), a, pool.scheme.ok(a), cert, ca)
 
-# Http.upload(method, url, headers) sends the head. A streamed body cannot be replayed, so redirects are not followed.
+# cert and ca as in open.how. A streamed body cannot be replayed, so redirects are not followed.
+def upload.how(cert: Maybe<&2, Cert>, +ca: String, +method: String, url: String,
+    headers: Map<&2, List<&2, String>>, +ms: U32) -> IO(Result<&1, &1, Err, Up>):
+  up.url(method, ms, headers, Url.absolute(url), cert, ca)
+
 def upload.with(+method: String, url: String, headers: Map<&2, List<&2, String>>, +ms: U32) -> IO(Result<&1, &1, Err, Up>):
-  up.url(method, ms, headers, Url.absolute(url))
+  upload.how(None{}, "", method, url, headers, ms)
 
 def upload(+method: String, url: String, headers: Map<&2, List<&2, String>>) -> IO(Result<&1, &1, Err, Up>):
   upload.with(method, url, headers, 30000)
@@ -5091,7 +5503,8 @@ def upload.finish(up: Up) -> IO(Result<&1, &1, Err, Stream>):
     case None{}:
       do IO<Result<&1, &1, Err, Stream>>:
         sent : Socket & Result<&1, &1, U32 & String, Unit> <- io.send.bytes(tls, s, Bytes.from_string("0\r\n\r\n"))
-        stream.sent(tls, ms, head, sent)
+        x : Bool & Result<&1, &1, Err, Stream> <- stream.sent(tls, ms, head, None{}, sent)
+        return stream.opened(x)
 
 type ServerConfig is Data:
   ServerConfig{host: String, port: U32, body_bytes: U32, header_bytes: U32,

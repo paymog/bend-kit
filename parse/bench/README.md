@@ -4,6 +4,8 @@ This times a JSON grammar written on parser combinators, on one fixed document. 
 
 ## Run
 
+Run these commands from `parse/bench/`.
+
 ```sh
 python3 run.py          # 3 runs per variant, median, 4000 records
 python3 run.py 5        # 5 runs

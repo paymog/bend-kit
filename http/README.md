@@ -3,13 +3,11 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.31.0.0/http.bend as Http
-import bend-kit-http@0.31.0.0/completion.bend as Completion
+import bend-kit-http@0.38.5.0/http.bend as Http
+import bend-kit-http@0.38.5.0/completion.bend as Completion
 ```
 
-`Http.Body` is `Bytes` from `0x49814d83de8f70993a43e1002be29ecd/bytes.bend`, which the entry file names as bytes `0.3.0.0`. It is not `bend-kit-bytes@0.3.2.0`. JSON values passed to `post.json` come from `0x584fc27920487ceab242392391418d7f/json.bend` (json `0.5.0.1`), not `bend-kit-json@0.5.1.0`. DNS lookup uses `bend-kit-dns@0.5.0.0`. TLS uses `bend-kit-wire@0.4.6.0`.
-
-`hairpin` and the packages on it import `bend-kit-http@0.23.0.1`. That `Http.Res` is a different type.
+`Http.Body` uses `bend-kit-bytes@0.3.3.0`. JSON values for `post.json` use `bend-kit-json@0.7.0.0`. DNS lookup uses `bend-kit-dns@0.7.1.0`. TLS uses `bend-kit-wire@0.4.8.0`.
 
 HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if `libssl` is not on the default path. A body over about 30 KB overflows `bend file.bend`. Build with `bend file.bend -o app`.
 
@@ -17,7 +15,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.31.0.0/http.bend as Http
+import bend-kit-http@0.38.5.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -55,7 +53,7 @@ def main() -> IO(Unit):
 
 HTTPS `fetch` offers `h2,http/1.1` through ALPN. An HTTP/2 response uses the same `Res` type. Streams and uploads negotiate HTTP/1.1 only. For several addresses, the client tries them in DNS order until TCP connects, within the step timeout. Attempts are sequential.
 
-`fetch` and `pool.fetch` read `http_proxy`, `https_proxy`, and `no_proxy`, or the uppercase names when the lowercase ones are absent. An HTTP proxy gets an absolute-form target. An HTTPS proxy gets `CONNECT` before TLS to the origin. Certificate and host checks still apply. Streaming and uploads connect directly and ignore those variables.
+`fetch`, `pool.fetch`, `open`, `open.how`, `upload`, and `upload.how` read `http_proxy`, `https_proxy`, and `no_proxy`, or the uppercase names when the lowercase ones are absent. An HTTP proxy gets an absolute-form target. An HTTPS proxy gets `CONNECT` before TLS to the origin. Certificate and host checks still apply.
 
 `fetch.cert` presents a PEM client chain and key. The identity follows same-origin redirects and is dropped after a cross-origin redirect. `post.json(url, v)` POSTs compact JSON with `content-type: application/json`. `resolve(base, ref)` applies RFC 3986 §5.2 and returns `None` when `base` is not an absolute `http` or `https` URL. `fetch.retry(n, method, url, headers, body)` allows `n` extra tries of an idempotent method after connect failure, timeout, or 408, 429, 500, 502, 503, or 504.
 
@@ -73,9 +71,11 @@ A response over 16 MiB of body or 64 KiB of head is `ErrBad`. `Content-Length` t
 
 ## Streams, pools, and cookies
 
-`open` follows redirects and returns a `Stream` when the head is in. `stream.res` is the status and headers. `stream.read` is the next decoded piece, or `None` at the end. `stream.close` closes the socket. `open.raw` returns bytes as sent. `upload` sends a chunked body. `upload.write` sends one piece. `upload.finish` ends the body and returns the response as a `Stream`. Uploads do not follow redirects.
+`open` follows redirects and returns a `Stream` when the head is in. `stream.res` is the status and headers. `stream.read` is the next decoded piece, or `None` at the end. `stream.close` closes the socket. `open.raw` returns bytes as sent. `open.how(mode, cert, ca, jar, method, url, headers, body, ms)` opens a stream as `fetch` sends a request: `mode` decides what a redirect does, `cert` and the CA file `ca` follow only same-origin hops (`""` trusts the default store, as in `fetch.ca`), and the jar, when it is `Some`, sends and stores cookies on every hop. It returns the jar beside the stream. `open.raw.how` does the same with bytes as sent. `upload` sends a chunked body. `upload.how(cert, ca, method, url, headers, ms)` does the same with a client certificate and a CA file. `upload.write` sends one piece. `upload.finish` ends the body and returns the response as a `Stream`. Uploads do not follow redirects.
 
-`pool.fetch` is `fetch` on a pool of idle sockets. It returns the pool beside the result. Pass that pool on. `pool.close` closes the idle sockets. The default cap is 8 idle sockets per origin. `pool.new.with(cap)` sets another. A reused socket that fails before any response byte is retried once for GET, HEAD, OPTIONS, TRACE, PUT, and DELETE. For an HTTP/2 origin, the pool keeps one session and closes it after GOAWAY.
+`pool.fetch` is `fetch` on a pool of idle sockets. It returns the pool beside the result. Pass that pool on. `pool.close` closes the idle sockets. The default cap is 8 idle sockets per origin. `pool.new.with(cap)` sets another. Before it reuses an idle HTTP/1.1 socket, the pool peeks it with `Wire.idle`. A socket that the server closed, or that has bytes waiting, is closed, and the next idle socket or a new one is used, for every method. `pool.take.live` is that take. A server can still close a socket between the peek and the request. Then a reused socket that fails before any response byte is retried once for GET, HEAD, OPTIONS, TRACE, PUT, and DELETE. For an HTTP/2 origin, the pool keeps one session and closes it after GOAWAY.
+
+`pool.open(p, method, url, headers, body)` is `open` on a pool. It takes an idle socket to the origin when the pool has one, after the same peek as `pool.fetch`, else it dials, and it returns the pool beside the stream. `pool.open.with` sets the timeout, and `pool.open.how` and `pool.open.raw.how` take the choices of `open.how` and `open.raw.how`. A reused socket that fails before any response byte is retried once on a new socket, for the same methods as `pool.fetch`. `pool.stream.close(p, st)` gives the socket back to the pool when the body was read to its end and decoded cleanly. It closes the socket when the stream ends early, a decoder fails, the server sent `Connection: close` or a close-delimited body, or bytes came past the body. A stream speaks HTTP/1.1 only, so an HTTP/2 session in the pool stays there and the stream dials its own socket. A redirect with an empty body gives its socket back before the next hop. `open` uses a pool of its own for one stream, so `stream.close` still closes the socket.
 
 `fetch.all(reqs, n)` runs each `Fetch{method, url, headers, body}` on at most `n` workers. Each worker owns a pool. Results stay in request order. A failure is a `Fail` in its place.
 
@@ -87,8 +87,8 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.31.0.0/http.bend as Http
-import bend-kit-http@0.31.0.0/completion.bend as Completion
+import bend-kit-http@0.38.5.0/http.bend as Http
+import bend-kit-http@0.38.5.0/completion.bend as Completion
 
 def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
@@ -108,7 +108,7 @@ def main() -> IO(Unit):
 
 `server.start` returns your affine owner beside `Done{server}` or a `StartupError`. `InvalidConfig` and `BindError` both return the owner, so you can close it. `Done` means the listener is accepting. Do not treat a failure as ready.
 
-`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.6.0`.
+`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.6.2`.
 
 `server.run` consumes the server and returns `ServerExit` after the listener is closed and the accepted work has returned. `server.close` does that close and returns the counts. It waits until handlers and cleanup callbacks return. It can wait forever. `server.stop` refuses new admission and returns `True` the first time. Stop is not drain. You still run or close the server. A callback that does not return is not cancelled. An external supervisor has to enforce a process deadline.
 
@@ -119,6 +119,8 @@ def main() -> IO(Unit):
 A buffered unit is one connection's retained input: incomplete headers, the decoded body, and at most one 64 KiB pipelined suffix. During framing the connection retains at most `8*T` logical octets, where `T` is header bytes + body bytes + 65536 + 1. That is not an RSS figure. Application stream state is extra. Idle sockets keep their reservation, so `buffered` below `connections` lowers how many sockets are admitted.
 
 Rejected connections are closed without a read buffer. A parsed request that exceeds active or buffered capacity gets `503` and `Connection: close`, and the handler is not called. The drain of a rejected request stops after 32 MiB or about 2.5 seconds.
+
+`0.31.1.0` keeps each count in a [`resources`](../resources) pool. A connection reserves one connection unit and one buffered unit together, and a refused buffer returns the connection unit. Every release splits one unit off the grant that its takes joined, so a release with no take stops the server with `Admission.give: no lease of this kind is held` instead of wrapping a counter.
 
 Deadlines do not cancel a handler. Affine erasure does not close an application file or socket. The `abort` and `dispose` callbacks do that, and they must return.
 

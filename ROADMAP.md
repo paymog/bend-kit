@@ -58,14 +58,15 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 - [x] Non-cryptographic hashing (#27): FNV-1a, xxHash, SipHash-1-3, CRC-32, and Adler-32 over `Bytes`. `zlib` still has its own CRC-32 and Adler-32.
 - [x] Cryptography: SHA-2, SHA-1, HMAC, HKDF, secure random (#28)
-- [x] Random numbers: seeded PRNGs and distributions (#29). `F64` distributions such as normal wait on F64 (#37).
+- [x] Random numbers: seeded PRNGs and distributions (#29). `F64` distributions such as normal are not wired to `f64` yet.
 - [x] Property-based testing (#30): seeded generators, shrinking, and a runner that prints the seed and smallest reachable failure.
 - [x] Regex (linear time, RE2-style) (#32)
 - [x] Serialization (#33): `csv` (RFC 4180) and `cbor` (RFC 8949) over `Bytes`. Use [eztoml](https://github.com/Emerging-Patterns/eztoml) for TOML 1.0. MessagePack and YAML wait for a caller.
 - [x] CLI argument parsing (#34): use [shake](https://github.com/Emerging-Patterns/shake) from the hub
 - [x] Logging (#35): `notch`
 - [ ] Big numbers: BigInt, BigDecimal, rationals (#36)
-- [ ] F64: 64-bit floating point (#37)
+- [x] F64: 64-bit floating point (#37). Soft-float on two `U32` halves until Base has `F64`.
+- [x] Protocol Buffers (#310): pure proto3 wire codec and typed Bend code generation through `protoc`.
 
 ### Tier 3
 
@@ -76,8 +77,8 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Redis and Valkey client: `redis`, RESP3 over `wire` (#205). Pub/sub, cluster, sentinel, and client-side caching come later.
 - [x] LLM API client: `llm`, Anthropic Messages and OpenAI Chat Completions on `hairpin`, with an SSE parser (#250). Typed tool use, images, and pooled streams come later.
 - [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
-- [ ] Templating and Markdown (#43)
-- [ ] Math and statistics (#44)
+- [x] Templating and Markdown (#43): `template`, Mustache with HTML escaping by default, and `markdown`, CommonMark 0.31.2 to HTML. Partials, set delimiters, and GitHub extensions come later.
+- [x] Math and statistics: descriptive statistics, quantiles, a histogram, and linear regression over `F64`, plus `U32` gcd, lcm, and integer square root (#44).
 - [ ] Diff and text utilities (#46)
 
 ### Existing packages
@@ -87,7 +88,6 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Later
 
-- [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist.
 - [ ] Windows support (the effects use POSIX sockets and `dlopen`).
 - [ ] Test on an x86_64 Mac.
 

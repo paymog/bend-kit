@@ -1,8 +1,8 @@
 import Base
 import ./parse.bend as P
 import ./json.bend as J
-import ../json/json.bend as Json
-import 0xcfc8be7b076f41f95c8e118383892d55/encoding.bend as Enc
+import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
 
 def show(r: P.Res<J.Val>) -> IO(Unit):
   match r:

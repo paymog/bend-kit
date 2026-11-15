@@ -1,14 +1,14 @@
 # cbor
 
-CBOR encode and decode over `Bytes`, RFC 8949.
+Encode and decode CBOR values over `Bytes` as specified in RFC 8949.
 
 ```bend
-import bend-kit-cbor@0.1.0.1/cbor.bend as Cbor
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-cbor@0.3.0.0/cbor.bend as Cbor
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
-`Val` is `UInt`, `NInt`, `BStr`, `TStr`, `Arr`, `Obj`, `Tag`, `Sim`, or `Flt`. Widths that do not fit in a `U32` use `W64`, two `U32` halves.
+`Val` has these constructors: `UInt`, `NInt`, `BStr`, `TStr`, `Arr`, `Obj`, `Tag`, `Sim`, and `Flt`. Values wider than a `U32` use `W64`. It holds two `U32` halves.
 
-`decode` returns `None` on truncation, a reserved additional-info, a bad break, non-UTF-8 text, or trailing bytes. Indefinite strings, arrays, and maps come back as one definite value. `encode` returns `None` when a text string is not UTF-8, a half-float does not fit in 16 bits, or a simple value is not valid.
+`decode` returns `None` for truncated input, a reserved additional information value, an invalid break, invalid UTF-8 text, or trailing bytes. It combines indefinite strings, arrays, and maps into definite values. `encode` returns `None` for invalid UTF-8 text, half-float bits wider than 16 bits, or an invalid simple value.
 
-`check.bend` round-trips the hex vector `bf61610161629f0203ffff`, an indefinite map that decodes to a definite map.
+`check.bend` decodes and encodes the hex vector `bf61610161629f0203ffff`. This indefinite map decodes to a definite map.

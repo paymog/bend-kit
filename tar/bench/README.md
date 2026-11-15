@@ -4,6 +4,8 @@ This times `Tar.decode` (Bytes to a list of entries) and `Tar.encode` (the entri
 
 ## Run
 
+Run from `tar/bench`.
+
 ```sh
 python3 run.py          # 3 runs per variant, median, 2,000 entries
 python3 run.py 5        # 5 runs

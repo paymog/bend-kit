@@ -1,7 +1,7 @@
 # CBOR benchmark: decode one fixed document from Bytes, and encode it back to Bytes (see README.md).
 import Base
 import ../cbor.bend as Cbor
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Checksum: h = h*31 + b, u32, then add the length.
 def hash.go(n: Nat, r: Array<U32> & U32, +i: U32, +h: U32) -> U32:

@@ -13,7 +13,7 @@ You need `bend`, `clang`, `cargo`, `bun`, `node`, `python3`, and OpenSSL 3. `run
 
 ## Input
 
-**sha256**: **N = 16,777,216** zero bytes (16 MiB), made in memory before the timer starts. The digest does not depend on the content, so zeros keep every program to one line of setup.
+**sha256**: **N = 16,777,216** zero bytes (16 MiB), made in memory before the timer starts. Every program hashes the same bytes. Zeros need only one line of setup.
 
 **pbkdf2**: password `password`, salt `salt`, **100,000** iterations, 32 output octets.
 

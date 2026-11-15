@@ -1,10 +1,10 @@
 # Dense-array attribution control, not a general JSON decoder or production remedy.
 import Base
 import ../json/json.bend as Json
-import 0x49814d83de8f70993a43e1002be29ecd/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ../http/http.bend as Http
 import ./json_progress_probe.bend as Progress
-import bend-kit-time@0.1.0.0/time.bend as Time
+import bend-kit-time@0.3.0.0/time.bend as Time
 
 # Explicit traversal isolates automatic-erasure cost: https://github.com/bendlang/bend/issues/1307
 def numbers(values: List<&1, Json.Val>, count: U32) -> U32:

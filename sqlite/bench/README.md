@@ -7,6 +7,8 @@ This times two SQLite workloads on an in-memory database, in Bend and in C, Rust
 
 ## Run
 
+Run these commands from `sqlite/bench/`.
+
 ```sh
 python3 run.py            # 3 runs per variant, median, N = 100,000 rows
 python3 run.py 5          # 5 runs
