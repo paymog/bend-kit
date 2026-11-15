@@ -246,7 +246,11 @@ function spawn(cmd, args, env, cwd) {
 }
 
 function wait(pid, k) {
-  const proc = process_procs.get(Number(pid));
+  const n = Number(pid);
+  if (!Number.isInteger(n) || n < 1 || n > 2147483647) {
+    return io_fail(process_einval());
+  }
+  const proc = process_procs.get(n);
   if (proc === undefined) {
     return io_fail(10);
   }

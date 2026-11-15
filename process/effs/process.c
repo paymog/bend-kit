@@ -688,7 +688,13 @@ static Term process_wait_pack(Env e, IoWork* w) {
 }
 
 Term wait_run(Env e, Term* f, IoWork* w) {
-  w->hand = (intptr_t)(pid_t)(u32)f[0];
+  // Check before conversion: waitpid treats 0 and negative pids as selectors.
+  u32 pid = (u32)f[0];
+  if (pid == 0 || pid > INT32_MAX) {
+    w->code = EINVAL;
+    return process_wait_pack(e, w);
+  }
+  w->hand = (intptr_t)(pid_t)pid;
   return io_work(w, process_wait_call, process_wait_pack);
 }
 

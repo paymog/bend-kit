@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `process` 0.5.0.1: reject `wait` PIDs outside 1..2147483647 before signed conversion or host waiting. Zero and wrapped negative selectors fail with `EINVAL`, without reaping another child. No new API.
+
 - `stats` 0.1.4.0: select adjacent quantile ranks with stable three-way partitions, then use the same type-7 interpolation. Limit partition passes and sort the remaining bucket on exhaustion. Median takes 1.158 ms on 10000 values, down from 4.950 ms in the preceding run.
 - `stats` 0.1.3.0: find histogram bins by binary search over array edges and update array counts. This takes O(k + n log k) time, not one scan per bin. Keep the closed last bin and all existing fixture results.
 - `stats` 0.1.2.0: order gcd arguments before Euclid's loop and prove symmetry for every `U32` pair. The gcd and lcm divisibility laws and natural-number isqrt bounds remain unproved; their U32 arithmetic bridges did not close.

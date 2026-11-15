@@ -2,8 +2,10 @@
 
 Run an executable with literal arguments and a child working directory. Stdin, stdout, and stderr are byte-exact.
 
+`wait` accepts PID values from `1` through `2147483647`. Zero and larger values return `EINVAL` before reaching the host wait operation; they cannot select a process group or an arbitrary child.
+
 ```bend
-import bend-kit-process@0.5.0.0/process.bend as Proc
+import bend-kit-process@0.5.0.1/process.bend as Proc
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
