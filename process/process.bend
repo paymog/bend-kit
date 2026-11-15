@@ -20,6 +20,7 @@ def spawn(cmd: String, args: List<&2, String>, env: List<&2, String>, cwd: Strin
   import "./effs/process.js"
 
 # Reaps a spawned child. A signaled child has status 128 + signal number.
+# pid is 1..2147483647; 0 and larger are EINVAL, never group/any-child selectors.
 def wait(pid: U32) -> IO(Result<&1, &1, U32 & String, U32>):
   import "./effs/process.c"
   import "./effs/process.js"

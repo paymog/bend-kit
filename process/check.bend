@@ -133,6 +133,37 @@ def expect.os() -> IO(Unit):
     again : String <- IO.try(String, Proc.cwd())
     expect.yes(String.eq(dir, again), "cwd/chdir")
 
+def expect.wait.einval(value: Result<&1, &1, U32 & String, U32>, message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(U32.is_eq(code, 22), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.wait.child(expected: U32, child: U32 & File & File & File) -> IO(Unit):
+  (pid, input, output, errors) = child
+  do IO<Unit>:
+    File.close(input)
+    File.close(output)
+    File.close(errors)
+    status : U32 <- IO.try(U32, Proc.wait(pid))
+    expect.yes(U32.is_eq(status, expected), "invalid wait must not reap another child")
+
+def expect.wait.pids() -> IO(Unit):
+  do IO<Unit>:
+    first : U32 & File & File & File <- IO.try(U32 & File & File & File,
+      Proc.spawn("/bin/sh", ["-c", "exit 17"], [], "."))
+    second : U32 & File & File & File <- IO.try(U32 & File & File & File,
+      Proc.spawn("/bin/sh", ["-c", "exit 23"], [], "."))
+    zero : Result<&1, &1, U32 & String, U32> <- Proc.wait(0)
+    expect.wait.einval(zero, "wait(0) must not select the process group")
+    high : Result<&1, &1, U32 & String, U32> <- Proc.wait(2147483648)
+    expect.wait.einval(high, "wait(INT_MAX+1) must not select a group")
+    every : Result<&1, &1, U32 & String, U32> <- Proc.wait(4294967295)
+    expect.wait.einval(every, "wait(UINT_MAX) must not select any child")
+    expect.wait.child(17, first)
+    expect.wait.child(23, second)
+
 def signal.send(own: U32) ->
   IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
   Proc.run("/bin/kill", ["-TERM", U32.show(own)], [], ".", Bytes.from_string(""))
@@ -176,6 +207,7 @@ def main() -> IO(Unit):
     expect.child("stream", "stream", child)
     expect.cwd()
     expect.os()
+    expect.wait.pids()
     expect.signal()
 
     IO.print("process smoke ok")

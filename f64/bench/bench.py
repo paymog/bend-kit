@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import struct, time
+import math, struct, time
 
 VALS = [
     (1072693248, 0),
@@ -66,3 +66,10 @@ t0 = time.perf_counter()
 h = checksum(text)
 ms = (time.perf_counter() - t0) * 1e3
 print(f"read\t{ms:.3f}\t{h}")
+
+t0 = time.perf_counter()
+h = 0
+for x in nums:
+    h ^= mix(math.sqrt(abs(x)))
+ms = (time.perf_counter() - t0) * 1e3
+print(f"sqrt\t{ms:.3f}\t{h}")

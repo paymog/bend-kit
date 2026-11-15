@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import statistics, struct, time
+import bisect, statistics, struct, time
 
 def xs(x):
     x ^= (x << 13) & 0xFFFFFFFF
@@ -25,7 +25,16 @@ def variance(v):
         s += (x - m) * (x - m)
     return s / (len(v) - 1)
 
-for op, f in [("mean", statistics.fmean), ("variance", variance), ("median", statistics.median)]:
+def histogram(v):
+    edges = [float(i * 10486) for i in range(101)]
+    counts = [0] * 100
+    for x in v:
+        if edges[0] <= x <= edges[-1]:
+            i = min(bisect.bisect_right(edges, x) - 1, 99)
+            counts[i] += 1
+    return float(sum((i + 1) * n for i, n in enumerate(counts)))
+
+for op, f in [("mean", statistics.fmean), ("variance", variance), ("median", statistics.median), ("histogram", histogram)]:
     t0 = time.perf_counter()
     r = f(v)
     ms = (time.perf_counter() - t0) * 1e3

@@ -6,11 +6,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OPS = ["fold", "show", "read"]
+OPS = ["fold", "show", "read", "sqrt"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 VARIANTS = {
-    "C": (["cc", "-O2", "-o", OUT / "c", "bench.c"], [OUT / "c"]),
+    "C": (["cc", "-O2", "-o", OUT / "c", "bench.c", "-lm"], [OUT / "c"]),
     "Rust": (["rustc", "-C", "opt-level=3", "-o", OUT / "rs", "bench.rs"], [OUT / "rs"]),
     "Bun": (None, ["bun", "bench.ts"]),
     "Node": (None, ["node", "--no-warnings", "bench.ts"]),

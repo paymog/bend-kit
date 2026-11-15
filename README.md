@@ -89,16 +89,16 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`f64`](f64) | `bend-kit-f64@0.1.1.0/f64.bend` | IEEE 754 binary64 add, subtract, multiply, divide, and shortest decimal text. Soft-float on two `U32` halves. |
+| [`f64`](f64) | `bend-kit-f64@0.1.3.0/f64.bend` | IEEE 754 binary64 arithmetic, square root, integer conversion, and shortest decimal text. Soft-float on two `U32` halves. |
 | [`bignum`](bignum) | `bend-kit-bignum@0.1.0.0/bigint.bend` | Exact integers, decimals, and rationals. Import `decimal.bend` or `rational.bend` for those types. |
-| [`stats`](stats) | `bend-kit-stats@0.1.0.0/stats.bend` | Mean, variance, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
-| [`json`](json) | `bend-kit-json@0.7.1.0/json.bend` | JSON values as RFC 8259, over `Bytes`. |
+| [`stats`](stats) | `bend-kit-stats@0.1.4.0/stats.bend` | Mean, variance, standard deviation, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
+| [`json`](json) | `bend-kit-json@0.7.2.0/json.bend` | JSON values as RFC 8259, over `Bytes`. |
 | [`csv`](csv) | `bend-kit-csv@0.3.0.0/csv.bend` | RFC 4180 records over `Bytes`. |
 | [`cbor`](cbor) | `bend-kit-cbor@0.3.0.0/cbor.bend` | RFC 8949 encode and decode over `Bytes`. |
 | [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.0.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
 | [`migrate`](migrate) | `bend-kit-migrate@0.3.0.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
-| [`archive`](archive) | `bend-kit-archive@0.5.1.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
+| [`archive`](archive) | `bend-kit-archive@0.5.1.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.5.1.1/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.0.0/crdt.bend` | Grow-only counters, keyed by dense indices or sparse IDs, whose merges are proved commutative, associative, idempotent, and convergent. CBOR wire form. |
 
@@ -135,7 +135,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`files`](files) | `bend-kit-files@0.3.1.0/files.bend` | POSIX paths, directories, and packed file IO. |
 | [`storage`](storage) | `bend-kit-storage@0.3.1.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, ingress checks, and reachability collection. |
 | [`stream`](stream) | `bend-kit-stream@0.3.2.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
-| [`process`](process) | `bend-kit-process@0.5.0.0/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
+| [`process`](process) | `bend-kit-process@0.5.0.1/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.5.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
 | [`time`](time) | `bend-kit-time@0.3.0.0/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.1/random.bend` | Seeded xoshiro128**. Not for cryptography. |

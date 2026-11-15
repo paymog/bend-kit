@@ -1,5 +1,5 @@
 import Base
-import bend-kit-f64@0.1.1.0/f64.bend as F
+import bend-kit-f64@0.1.3.0/f64.bend as F
 import ./stats.bend as S
 
 def n(k: U32) -> F.F64:
@@ -42,6 +42,24 @@ law variance:
 
 law variance_one:
   {S.Stats.variance([n(7)]) == None{} : Maybe<&2, F.F64>}
+
+law pstdev:
+  {S.Stats.pstdev(data()) == Some{bits(1073741824, 0)} : Maybe<&2, F.F64>}
+
+law stdev:
+  {S.Stats.stdev(data()) == Some{bits(1073814222, 3848283178)} : Maybe<&2, F.F64>}
+
+law pstdev_one:
+  {S.Stats.pstdev([n(7)]) == Some{F.F64.zero()} : Maybe<&2, F.F64>}
+
+law stdev_one:
+  {S.Stats.stdev([n(7)]) == None{} : Maybe<&2, F.F64>}
+
+law pstdev_empty:
+  {S.Stats.pstdev(none()) == None{} : Maybe<&2, F.F64>}
+
+law stdev_empty:
+  {S.Stats.stdev(none()) == None{} : Maybe<&2, F.F64>}
 
 law median_even:
   {S.Stats.median(data()) == Some{bits(1074921472, 0)} : Maybe<&2, F.F64>}
@@ -137,3 +155,17 @@ law isqrt_square:
 
 law isqrt_max:
   {S.U32.isqrt(4294967295) == 65535 : U32}
+
+law gcd_symmetric:
+  for +a: U32
+  for +b: U32
+  {S.U32.gcd(a, b) == S.U32.gcd(b, a) : U32}
+
+law histogram_empty_edges:
+  {S.Stats.histogram(Nil{}, data()) == Nil{} : List<&2, U32>}
+
+law histogram_nan:
+  {S.Stats.histogram([n(0), n(1)], [F.F64.nan(), n(0), n(1)]) == [2] : List<&2, U32>}
+
+law histogram_duplicate_edges:
+  {S.Stats.histogram([n(0), n(1), n(1), n(2)], [n(0), n(1), n(2)]) == [1, 0, 2] : List<&2, U32>}

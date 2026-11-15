@@ -8,6 +8,16 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `process` 0.5.0.1: reject `wait` PIDs outside 1..2147483647 before signed conversion or host waiting. Zero and wrapped negative selectors fail with `EINVAL`, without reaping another child. No new API.
+
+- `stats` 0.1.4.0: select adjacent quantile ranks with stable three-way partitions, then use the same type-7 interpolation. Limit partition passes and sort the remaining bucket on exhaustion. Median takes 1.158 ms on 10000 values, down from 4.950 ms in the preceding run.
+- `stats` 0.1.3.0: find histogram bins by binary search over array edges and update array counts. This takes O(k + n log k) time, not one scan per bin. Keep the closed last bin and all existing fixture results.
+- `stats` 0.1.2.0: order gcd arguments before Euclid's loop and prove symmetry for every `U32` pair. The gcd and lcm divisibility laws and natural-number isqrt bounds remain unproved; their U32 arithmetic bridges did not close.
+- `stats` 0.1.1.0: add population and sample standard deviation with the same empty and short-input cases as variance. Import `f64` 0.1.3.0.
+- `json` 0.7.2.0: import `f64` 0.1.3.0. No API change.
+- `f64` 0.1.3.0: add `F64.floor`, `F64.ceil`, and `F64.trunc` with signed zero, infinity, and quiet NaN results. Add `F64.to_u32`, which truncates toward zero and checks the range.
+- `f64` 0.1.2.0: add `F64.sqrt`, correctly rounded to nearest, ties to even. It handles subnormals, preserves signed zero and positive infinity, and returns a quiet NaN for negative inputs and NaNs.
+- `archive` 0.5.1.1: imports `hash` 0.3.0.4 and `zlib` 0.5.1.1, so CRC-32 checks run by slicing-by-8. No API change.
 - `template` 0.1.0.0: new package. Mustache templates: variables, sections over lists and maps, inverted sections, comments, dotted names, and standalone lines. `{{name}}` escapes `&`, `<`, `>`, `"`, and `'`; `{{{name}}}` and `{{& name}}` do not. The context is a Base `Map`. It passes the 104 tests of the Mustache spec's interpolation, sections, inverted, and comments files that use no partials or set delimiters.
 - `markdown` 0.1.0.0: new package. CommonMark 0.31.2 to HTML in pure Bend. All 652 spec examples pass; `LAWS.bend` proves 25 of them and 8 escaping cases.
 - `journal` 0.3.1.1 and `zlib` 0.5.1.1: import `hash` 0.3.0.4, whose `crc32` runs by slicing-by-8. No API change.

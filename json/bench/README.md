@@ -170,3 +170,13 @@ fields, which was not run on 0.6.1.0. The checksums matched. Measured on
 | 512 fields | 0.1 | 7.626 | 0.251 | 808511251 |
 | 2048 fields | 0.2 | 111.965 | 1.145 | 506996187 |
 | 8192 fields | 0.7 | -- | 5.584 | 1022124379 |
+
+## f64 0.1.3.0 re-pin
+
+`python3 bench/run.py` from `json/`, on M4 Pro macOS, gives these medians of three runs on the standard 4000-record input (1,361,421 bytes). Times are in ms. Parse, encode, and unique-key checksums agree at `4114665117`.
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| parse.bytes | 3.5 | 3.0 | 1.5 | 3.0 | 5.0 | 5.3 |
+| encode.bytes | 2.9 | 0.6 | 0.6 | 1.4 | 4.2 | 4.0 |
+| unique.keys | -- | -- | -- | -- | -- | 6.771 |

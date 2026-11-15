@@ -3,11 +3,11 @@
 JSON values follow RFC 8259. The package stores and parses them as UTF-8 `Bytes`. A number stays as text in `Num{s}` until you convert it.
 
 ```bend
-import bend-kit-json@0.7.1.0/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
-`json.bend` imports `bend-kit-bytes@0.3.3.0` and `bend-kit-f64@0.1.1.0`. Use this bytes version with `Json.Val`. A caller that imports an older json version can have different types.
+`json.bend` imports `bend-kit-bytes@0.3.3.0` and `bend-kit-f64@0.1.3.0`. Use this bytes version with `Json.Val`. A caller that imports an older json version can have different types.
 
 ```bend
 def show(m: Maybe<&1, Json.Val>) -> IO(Unit):
