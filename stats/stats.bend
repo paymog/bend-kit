@@ -343,54 +343,38 @@ def U32.lcm.of(+q: U32, +b: U32) -> Maybe<&2, U32>:
 def U32.lcm(+a: U32, +b: U32) -> Maybe<&2, U32>:
   U32.lcm.of((a / U32.gcd(a, b) : U32), b)
 
-def U32.isqrt.pick(ok: Bool, c: U32, r: U32) -> U32:
-  match ok:
-    case True{}:
-      c
-    case False{}:
-      r
+def U32.isqrt.next(+n: Nat, +r: Nat) -> Nat:
+  Nat.div(Nat.add(r, Nat.div(n, r)), 2n)
 
-def U32.isqrt.go(+k: Nat, +n: U32, +r: U32, +step: U32) -> U32:
+def U32.isqrt.refine(k: Nat, +n: Nat, r: Nat) -> Nat:
   match k:
     case 0n:
       r
     case 1n+p:
-      +half = U32.div(step, 2)
-      +c = (r + half : U32)
-      U32.isqrt.go(p, n, U32.isqrt.pick(U32.is_le((c * c : U32), n), c, r), half)
+      U32.isqrt.refine(p, n, U32.isqrt.next(n, r))
 
-def U32.isqrt.newton(+n: U32, +r: U32) -> U32:
-  ((r + n / r) / 2 : U32)
+def U32.isqrt.correct_loop(+r: Nat, k: Nat, high: Bool, +n: Nat) -> Nat:
+  match r k high:
+    case 0n _ _:
+      0n
+    case 1n+q 0n _:
+      0n
+    case 1n+q 1n+p False{}:
+      1n+q
+    case 1n+q 1n+p True{}:
+      U32.isqrt.correct_loop(q, p, Nat.is_lt(n, Nat.mul(q, q)), n)
 
-def U32.isqrt.correct(high: Bool, r: U32) -> U32:
-  match high:
-    case True{}:
-      (r - 1 : U32)
-    case False{}:
-      r
+def U32.isqrt.correct_nat(k: Nat, high: Bool, n: Nat, r: Nat) -> Nat:
+  U32.isqrt.correct_loop(r, k, high, n)
 
-def U32.isqrt.accept(ok: Bool, n: U32, r: U32) -> U32:
-  match ok:
-    case True{}:
-      r
-    case False{}:
-      # The proved search covers any candidate that fails certification.
-      U32.isqrt.go(16n, n, 0, 65536)
+def U32.isqrt.estimate(limit: Nat, +n: Nat, seed: Nat) -> Nat:
+  Nat.min(U32.isqrt.refine(3n, n, U32.isqrt.next(n, 1n+seed)), limit)
 
-def U32.isqrt.certify(+n: U32, +r: U32) -> U32:
-  +next = U32.inc(r)
-  U32.isqrt.accept(Bool.and(U32.is_le((r * r : U32), n),
-    Bool.or(U32.is_eq(r, 65535), Bool.and(U32.is_lt(r, 65536),
-      Bool.and(U32.is_lt(next, 65536), U32.is_lt(n, (next * next : U32)))))), n, r)
-
-def U32.isqrt.candidate(+n: U32) -> U32:
-  r = (1 << Nat.add(1n, Nat.div(U32.log2(n), 2n)) : U32)
-  r = U32.isqrt.newton(n, r)
-  r = U32.isqrt.newton(n, r)
-  r = U32.isqrt.newton(n, r)
-  +r = U32.isqrt.newton(n, r)
-  U32.isqrt.correct(U32.is_gt(r, (n / r : U32)), r)
+def U32.isqrt.of(limit: Nat, fuel: Nat, +n: Nat, seed: Nat) -> U32:
+  +r = U32.isqrt.estimate(limit, n, seed)
+  U32.from_nat(U32.isqrt.correct_nat(fuel, Nat.is_lt(n, Nat.mul(r, r)), n, r))
 
 # The floor of the square root.
 def U32.isqrt(+n: U32) -> U32:
-  U32.isqrt.certify(n, U32.isqrt.candidate(n))
+  seed = (1 << Nat.add(1n, Nat.div(U32.log2(n), 2n)) : U32)
+  U32.isqrt.of(65536n, 65537n, U32.to_nat(n), U32.to_nat(seed))

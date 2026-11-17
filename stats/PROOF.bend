@@ -656,168 +656,6 @@ def pow2_le_add(+m: Nat, +n: Nat) -> N.le(L.pow2(n), L.pow2(Nat.add(m, n))):
       N.le_trans(L.pow2(n), L.pow2(Nat.add(p, n)), L.pow2(1n+Nat.add(p, n)),
         pow2_le_add(p, n), N.le_double(L.pow2(Nat.add(p, n))))
 
-def halve_pow2(+p: Nat) -> {Nat.div(L.pow2(1n+p), 2n) == L.pow2(p) : Nat}:
-  %N.double_eq_two_mul_sym(L.pow2(p)) : {Nat.div(_, 2n) == L.pow2(p) : Nat}
-  N.mul_div_cancel_left(L.pow2(p), 1n)
-
-def Frame(+k: Nat, +n: Nat, +r: Nat, +limit: Nat) -> Type:
-  N.le(Nat.mul(r, r), n) &
-    (N.lt(n, Nat.mul(Nat.add(r, L.pow2(k)), Nat.add(r, L.pow2(k)))) &
-      N.le(Nat.add(r, L.pow2(k)), limit))
-
-def candidate_next(+p: Nat, +r: Nat, +c: Nat, ec: {c == Nat.add(r, L.pow2(p)) : Nat}) ->
-  {Nat.add(c, L.pow2(p)) == Nat.add(r, L.pow2(1n+p)) : Nat}:
-  %Equal.sym(Nat, c, Nat.add(r, L.pow2(p)), ec) : {Nat.add(_, L.pow2(p)) == Nat.add(r, L.pow2(1n+p)) : Nat}
-  %N.double_eq_add_sym(L.pow2(p)) : {Nat.add(Nat.add(r, L.pow2(p)), L.pow2(p)) == Nat.add(r, _) : Nat}
-  N.add_assoc(r, L.pow2(p), L.pow2(p))
-
-def candidate_lt(+p: Nat, +n: Nat, +r: Nat, +limit: Nat, h: Frame(1n+p, n, r, limit)) ->
-  N.lt(Nat.add(r, L.pow2(p)), limit):
-  (lo, interval) = h
-  (hi, cap) = interval
-  N.lt_of_lt_of_le(Nat.add(r, L.pow2(p)), Nat.add(r, L.pow2(1n+p)), limit,
-    N.add_lt_add_left(L.pow2(p), L.pow2(1n+p), r, pow2_lt_step(p)), cap)
-
-def frame_taken(+p: Nat, +n: Nat, +r: Nat, +c: Nat, +limit: Nat,
-  ec: {c == Nat.add(r, L.pow2(p)) : Nat}, lo: N.le(Nat.mul(c, c), n), h: Frame(1n+p, n, r, limit)) ->
-  Frame(p, n, c, limit):
-  (old_lo, interval) = h
-  (
-    lo,
-    (
-      %Equal.sym(Nat, Nat.add(c, L.pow2(p)), Nat.add(r, L.pow2(1n+p)), candidate_next(p, r, c, ec)) :
-        N.lt(n, Nat.mul(_, _)) & N.le(_, limit)
-      interval
-    )
-  )
-
-def frame_rejected(+p: Nat, +n: Nat, +r: Nat, +c: Nat, +limit: Nat,
-  ec: {c == Nat.add(r, L.pow2(p)) : Nat}, hi: N.lt(n, Nat.mul(c, c)), h: Frame(1n+p, n, r, limit)) ->
-  Frame(p, n, r, limit):
-  (lo, interval) = h
-  (old_hi, cap) = interval
-  (
-    lo,
-    (
-      (
-        %ec : N.lt(n, Nat.mul(_, _))
-        hi
-      ),
-      N.le_trans(Nat.add(r, L.pow2(p)), Nat.add(r, L.pow2(1n+p)), limit,
-        N.add_le_add_left(L.pow2(p), L.pow2(1n+p), r, N.le_double(L.pow2(p))), cap)
-    )
-  )
-
-def frame_pick(ok: Bool, +p: Nat, +n: Nat, +r: Nat, +c: Nat, +limit: Nat,
-  ec: {c == Nat.add(r, L.pow2(p)) : Nat},
-  test: {Nat.is_le(Nat.mul(c, c), n) == ok : Bool}, h: Frame(1n+p, n, r, limit)) ->
-  Frame(p, n, Bool.pick(Nat, ok, c, r), limit):
-  match ok:
-    case True{}:
-      frame_taken(p, n, r, c, limit, ec, test, h)
-    case False{}:
-      frame_rejected(p, n, r, c, limit, ec, N.lt_of_not_le(Nat.mul(c, c), n, test), h)
-
-def half_word(+p: Nat, +step: U32, hstep: {U32.to_nat(step) == L.pow2(1n+p) : Nat}) ->
-  {U32.to_nat(U32.div(step, 2)) == L.pow2(p) : Nat}:
-  Equal.trans(Nat, U32.to_nat(U32.div(step, 2)), Nat.div(U32.to_nat(step), 2n), L.pow2(p),
-    L.u32_div_nat(step, 2, {==}),
-    (
-      %Equal.sym(Nat, U32.to_nat(step), L.pow2(1n+p), hstep) :
-        {Nat.div(_, 2n) == L.pow2(p) : Nat}
-      halve_pow2(p)
-    ))
-
-def candidate_word(+p: Nat, +n: Nat, +r: U32, +half: U32, +limit: Nat,
-  hhalf: {U32.to_nat(half) == L.pow2(p) : Nat}, h: Frame(1n+p, n, U32.to_nat(r), limit),
-  hlimit: N.le(limit, L.pow2(32n))) ->
-  {U32.to_nat(U32.add(r, half)) == Nat.add(U32.to_nat(r), L.pow2(p)) : Nat}:
-  +e = Equal.cong(Nat, Nat, v => Nat.add(U32.to_nat(r), v), U32.to_nat(half), L.pow2(p), hhalf)
-  Equal.trans(Nat, U32.to_nat(U32.add(r, half)), Nat.add(U32.to_nat(r), U32.to_nat(half)),
-    Nat.add(U32.to_nat(r), L.pow2(p)),
-    L.u32_add_nat(r, half,
-      L.lt_rw(Nat.add(U32.to_nat(r), U32.to_nat(half)), Nat.add(U32.to_nat(r), L.pow2(p)), L.pow2(32n), e,
-        N.lt_of_lt_of_le(Nat.add(U32.to_nat(r), L.pow2(p)), limit, L.pow2(32n),
-          candidate_lt(p, n, U32.to_nat(r), limit, h), hlimit))), e)
-
-def square_word(+c: U32, +limit: Nat, hlimit: {Nat.mul(limit, limit) == L.pow2(32n) : Nat},
-  +hc: N.lt(U32.to_nat(c), limit)) ->
-  {U32.to_nat(U32.mul(c, c)) == Nat.mul(U32.to_nat(c), U32.to_nat(c)) : Nat}:
-  L.u32_mul_nat(c, c,
-    (
-      %hlimit : N.lt(Nat.mul(U32.to_nat(c), U32.to_nat(c)), _)
-      N.mul_lt_mul_of_lt_of_lt(U32.to_nat(c), U32.to_nat(c), limit, limit, hc, hc)
-    ))
-
-def square_test(+c: U32, +n: U32,
-  es: {U32.to_nat(U32.mul(c, c)) == Nat.mul(U32.to_nat(c), U32.to_nat(c)) : Nat}) ->
-  {U32.is_le(U32.mul(c, c), n) == Nat.is_le(Nat.mul(U32.to_nat(c), U32.to_nat(c)), U32.to_nat(n)) : Bool}:
-  Equal.trans(Bool, U32.is_le(U32.mul(c, c), n), Nat.is_le(U32.to_nat(U32.mul(c, c)), U32.to_nat(n)),
-    Nat.is_le(Nat.mul(U32.to_nat(c), U32.to_nat(c)), U32.to_nat(n)), L.u32_is_le_nat(U32.mul(c, c), n),
-    Equal.cong(Nat, Bool, v => Nat.is_le(v, U32.to_nat(n)), U32.to_nat(U32.mul(c, c)),
-      Nat.mul(U32.to_nat(c), U32.to_nat(c)), es))
-
-def pick_nat(ok: Bool, +c: U32, +r: U32) ->
-  {U32.to_nat(S.U32.isqrt.pick(ok, c, r)) == Bool.pick(Nat, ok, U32.to_nat(c), U32.to_nat(r)) : Nat}:
-  match ok:
-    case True{}:
-      {==}
-    case False{}:
-      {==}
-
-def frame_pick_word(+ok: Bool, +p: Nat, +n: U32, +r: U32, +c: U32, +limit: Nat,
-  ec: {U32.to_nat(c) == Nat.add(U32.to_nat(r), L.pow2(p)) : Nat},
-  test: {Nat.is_le(Nat.mul(U32.to_nat(c), U32.to_nat(c)), U32.to_nat(n)) == ok : Bool},
-  h: Frame(1n+p, U32.to_nat(n), U32.to_nat(r), limit)) ->
-  Frame(p, U32.to_nat(n), U32.to_nat(S.U32.isqrt.pick(ok, c, r)), limit):
-  %Equal.sym(Nat, U32.to_nat(S.U32.isqrt.pick(ok, c, r)), Bool.pick(Nat, ok, U32.to_nat(c), U32.to_nat(r)),
-    pick_nat(ok, c, r)) : Frame(p, U32.to_nat(n), _, limit)
-  frame_pick(ok, p, U32.to_nat(n), U32.to_nat(r), U32.to_nat(c), limit, ec, test, h)
-
-def frame_done(+n: Nat, +r: Nat, +limit: Nat, h: Frame(0n, n, r, limit)) -> Laws.SqrtBounds(n, r):
-  (lo, interval) = h
-  (hi, cap) = interval
-  (
-    lo,
-    (
-      %N.add_comm(r, 1n) : N.lt(n, Nat.mul(_, _))
-      hi
-    )
-  )
-
-def sqrt_frame(+p: Nat, +n: U32, +r: U32, +step: U32, +limit: Nat,
-  hlimit: {Nat.mul(limit, limit) == L.pow2(32n) : Nat}, hlelimit: N.le(limit, L.pow2(32n)),
-  hstep: {U32.to_nat(step) == L.pow2(1n+p) : Nat}, h: Frame(1n+p, U32.to_nat(n), U32.to_nat(r), limit)) ->
-  Frame(p, U32.to_nat(n), U32.to_nat(S.U32.isqrt.pick(
-    U32.is_le(U32.mul(U32.add(r, U32.div(step, 2)), U32.add(r, U32.div(step, 2))), n),
-    U32.add(r, U32.div(step, 2)), r)), limit):
-  (+lo, interval) = h
-  (+hi, cap) = interval
-  +cap : N.le(Nat.add(U32.to_nat(r), L.pow2(1n+p)), limit) = cap
-  +half = U32.div(step, 2)
-  +c = U32.add(r, half)
-  +eh = half_word(p, step, hstep)
-  +ec = candidate_word(p, U32.to_nat(n), r, half, limit, eh, (lo, (hi, cap)), hlelimit)
-  +hc = L.lt_rw(U32.to_nat(c), Nat.add(U32.to_nat(r), L.pow2(p)), limit, ec,
-    candidate_lt(p, U32.to_nat(n), U32.to_nat(r), limit, (lo, (hi, cap))))
-  +es = square_word(c, limit, hlimit, hc)
-  frame_pick_word(U32.is_le(U32.mul(c, c), n), p, n, r, c, limit, ec,
-    Equal.sym(Bool, U32.is_le(U32.mul(c, c), n), Nat.is_le(Nat.mul(U32.to_nat(c), U32.to_nat(c)), U32.to_nat(n)),
-      square_test(c, n, es)), (lo, (hi, cap)))
-
-def sqrt_go(+k: Nat, +n: U32, +r: U32, +step: U32, +limit: Nat,
-  +hlimit: {Nat.mul(limit, limit) == L.pow2(32n) : Nat}, +hlelimit: N.le(limit, L.pow2(32n)),
-  +hstep: {U32.to_nat(step) == L.pow2(k) : Nat}, h: Frame(k, U32.to_nat(n), U32.to_nat(r), limit)) ->
-  Laws.SqrtBounds(U32.to_nat(n), U32.to_nat(S.U32.isqrt.go(k, n, r, step))):
-  match k:
-    case 0n:
-      frame_done(U32.to_nat(n), U32.to_nat(r), limit, h)
-    case 1n+p:
-      +half = U32.div(step, 2)
-      +c = U32.add(r, half)
-      sqrt_go(p, n, S.U32.isqrt.pick(U32.is_le(U32.mul(c, c), n), c, r), half, limit, hlimit, hlelimit,
-        half_word(p, step, hstep), sqrt_frame(p, n, r, step, limit, hlimit, hlelimit, hstep, h))
-
 def power_word(+n: Nat, +p: Nat) -> Word(n):
   match n:
     case 0n:
@@ -853,177 +691,270 @@ def initial_step() -> {U32.to_nat(65536) == L.pow2(16n) : Nat}:
         Equal.cong(U32, Nat, U32.to_nat, U32{power_word(32n, 16n)}, 65536, power_word_literal()))),
     power_word_nat(32n, 16n, {==}))
 
-def initial_frame(+p: Nat, +n: U32, +r: U32, +limit: Nat, +e: {limit == L.pow2(p) : Nat},
-  square: {Nat.mul(limit, limit) == L.pow2(32n) : Nat}, er: {U32.to_nat(r) == 0n : Nat}) ->
-  Frame(p, U32.to_nat(n), U32.to_nat(r), limit):
-  %Equal.sym(Nat, U32.to_nat(r), 0n, er) : Frame(p, U32.to_nat(n), _, limit)
-  (
-    N.zero_le(U32.to_nat(n)),
-    (
-      (
-        %e : N.lt(U32.to_nat(n), Nat.mul(_, _))
-        %Equal.sym(Nat, Nat.mul(limit, limit), L.pow2(32n), square) : N.lt(U32.to_nat(n), _)
-        L.u32_to_nat_lt(n)
-      ),
-      (
-        %e : N.le(_, limit)
-        N.le_refl(limit)
-      )
-    )
-  )
-
 def square_limit() -> {Nat.mul(L.pow2(16n), L.pow2(16n)) == L.pow2(32n) : Nat}:
   Equal.trans(Nat, Nat.mul(L.pow2(16n), L.pow2(16n)), L.pow2(Nat.add(16n, 16n)), L.pow2(32n),
     pow2_mul(16n, 16n), Equal.cong(Nat, Nat, L.pow2, Nat.add(16n, 16n), 32n, {==}))
 
-def le_limit() -> N.le(L.pow2(16n), L.pow2(32n)):
-  %Equal.cong(Nat, Nat, L.pow2, Nat.add(16n, 16n), 32n, {==}) : N.le(L.pow2(16n), _)
-  pow2_le_add(16n, 16n)
+def Upper(+n: Nat, +r: Nat) -> Data:
+  N.lt(n, Nat.mul(1n+r, 1n+r))
 
-def sqrt_fallback(+n: U32) -> Laws.SqrtBounds(U32.to_nat(n), U32.to_nat(S.U32.isqrt.go(16n, n, 0, 65536))):
-  sqrt_go(16n, n, 0, 65536, L.pow2(16n), square_limit(), le_limit(),
-    initial_step(), initial_frame(16n, n, 0, L.pow2(16n), {==}, square_limit(), {==}))
+def sqrt_math_le_transport(+a: Nat, +b: Nat, +c: Nat, +d: Nat,
+  e: {a == c : Nat}, f: {b == d : Nat}, h: N.le(a, b)) -> N.le(c, d):
+  %e : N.le(_, d)
+  %f : N.le(a, _)
+  h
 
-def max_root_cap() -> N.lt(U32.to_nat(65535), L.pow2(16n)):
-  %initial_step() :
-    N.lt(U32.to_nat(65535), _)
-  Equal.trans(Bool, Nat.is_lt(U32.to_nat(65535), U32.to_nat(65536)), U32.is_lt(65535, 65536), True{},
-    Equal.sym(Bool, U32.is_lt(65535, 65536), Nat.is_lt(U32.to_nat(65535), U32.to_nat(65536)),
-      L.u32_is_lt_nat(65535, 65536)), {==})
+def sqrt_math_sum_succ(+a: Nat, +b: Nat) ->
+  {Nat.add(1n+a, 1n+b) == 2n+Nat.add(a, b) : Nat}:
+  Equal.cong(Nat, Nat, x => 1n+x, Nat.add(a, 1n+b), 1n+Nat.add(a, b), N.add_succ(a, b))
 
-def max_root_next() -> {1n+U32.to_nat(65535) == L.pow2(16n) : Nat}:
-  Equal.trans(Nat, 1n+U32.to_nat(65535), U32.to_nat(U32.inc(65535)), L.pow2(16n),
-    Equal.sym(Nat, U32.to_nat(U32.inc(65535)), 1n+U32.to_nat(65535),
-      L.u32_inc_nat(65535,
-        N.lt_of_le_of_lt(1n+U32.to_nat(65535), L.pow2(16n), L.pow2(32n),
-          N.succ_le_of_lt(U32.to_nat(65535), L.pow2(16n), max_root_cap()),
-          N.lt_of_lt_of_le(L.pow2(16n), L.pow2(17n), L.pow2(32n),
-            pow2_lt_step(16n), pow2_le_add(15n, 17n))))),
-    Equal.trans(Nat, U32.to_nat(U32.inc(65535)), U32.to_nat(65536), L.pow2(16n),
-      Equal.cong(U32, Nat, U32.to_nat, U32.inc(65535), 65536, {==}), initial_step()))
+def sqrt_math_product_succ(+a: Nat, +b: Nat) ->
+  {Nat.mul(1n+a, 1n+b) == 1n+Nat.add(Nat.add(a, b), Nat.mul(a, b)) : Nat}:
+  %Equal.sym(Nat, Nat.mul(a, 1n+b), Nat.add(Nat.mul(a, b), a), N.mul_succ(a, b)) :
+    {1n+Nat.add(b, _) == 1n+Nat.add(Nat.add(a, b), Nat.mul(a, b)) : Nat}
+  %N.add_comm(a, Nat.mul(a, b)) :
+    {1n+Nat.add(b, _) == 1n+Nat.add(Nat.add(a, b), Nat.mul(a, b)) : Nat}
+  %N.add_assoc(b, a, Nat.mul(a, b)) :
+    {1n+_ == 1n+Nat.add(Nat.add(a, b), Nat.mul(a, b)) : Nat}
+  %N.add_comm(a, b) :
+    {1n+Nat.add(_, Nat.mul(a, b)) == 1n+Nat.add(Nat.add(a, b), Nat.mul(a, b)) : Nat}
+  {==}
 
-def root_low(+n: U32, +r: U32, cap: N.lt(U32.to_nat(r), L.pow2(16n)),
-  h: {U32.is_le(U32.mul(r, r), n) == True{} : Bool}) ->
-  N.le(Nat.mul(U32.to_nat(r), U32.to_nat(r)), U32.to_nat(n)):
-  Equal.trans(Bool, Nat.is_le(Nat.mul(U32.to_nat(r), U32.to_nat(r)), U32.to_nat(n)),
-    U32.is_le(U32.mul(r, r), n), True{},
-    Equal.sym(Bool, U32.is_le(U32.mul(r, r), n),
-      Nat.is_le(Nat.mul(U32.to_nat(r), U32.to_nat(r)), U32.to_nat(n)),
-      square_test(r, n, square_word(r, L.pow2(16n), square_limit(), cap))), h)
+# Strip one from each positive factor and one from the half-sum bound.
+def sqrt_math_amgm(+s: Nat, +a: Nat, +b: Nat,
+  h: N.le(Nat.add(a, b), Nat.add(s, s))) -> N.le(Nat.mul(a, b), Nat.mul(s, s)):
+  match s:
+    case 0n:
+      match a:
+        case 0n:
+          N.zero_le(0n)
+        case 1n+p:
+          Empty.absurd(N.le(Nat.mul(1n+p, b), 0n),
+            N.succ_ne_zero(Nat.add(p, b))(N.le_zero_eq(1n+Nat.add(p, b), h)))
+    case 1n+t:
+      match a:
+        case 0n:
+          N.zero_le(Nat.mul(1n+t, 1n+t))
+        case 1n+p:
+          match b:
+            case 0n:
+              %Equal.sym(Nat, Nat.mul(1n+p, 0n), 0n, N.mul_zero(1n+p)) :
+                N.le(_, Nat.mul(1n+t, 1n+t))
+              N.zero_le(Nat.mul(1n+t, 1n+t))
+            case 1n+q:
+              +hs : N.le(Nat.add(p, q), Nat.add(t, t)) =
+                sqrt_math_le_transport(Nat.add(1n+p, 1n+q), Nat.add(1n+t, 1n+t),
+                  2n+Nat.add(p, q), 2n+Nat.add(t, t),
+                  sqrt_math_sum_succ(p, q), sqrt_math_sum_succ(t, t), h)
+              %Equal.sym(Nat, Nat.mul(1n+p, 1n+q), 1n+Nat.add(Nat.add(p, q), Nat.mul(p, q)),
+                sqrt_math_product_succ(p, q)) : N.le(_, Nat.mul(1n+t, 1n+t))
+              %Equal.sym(Nat, Nat.mul(1n+t, 1n+t), 1n+Nat.add(Nat.add(t, t), Nat.mul(t, t)),
+                sqrt_math_product_succ(t, t)) :
+                N.le(1n+Nat.add(Nat.add(p, q), Nat.mul(p, q)), _)
+              N.add_le_add(Nat.add(p, q), Nat.mul(p, q), Nat.add(t, t), Nat.mul(t, t),
+                hs, sqrt_math_amgm(t, p, q, hs))
 
-def root_top(+n: U32, +r: U32, htop: {U32.is_eq(r, 65535) == True{} : Bool},
-  hlo: {U32.is_le(U32.mul(r, r), n) == True{} : Bool}) ->
-  Laws.SqrtBounds(U32.to_nat(n), U32.to_nat(r)):
-  +er = N.eq_of_is_eq(U32.to_nat(r), U32.to_nat(65535),
-    Equal.trans(Bool, Nat.is_eq(U32.to_nat(r), U32.to_nat(65535)), U32.is_eq(r, 65535), True{},
-      Equal.sym(Bool, U32.is_eq(r, 65535), Nat.is_eq(U32.to_nat(r), U32.to_nat(65535)),
-        L.u32_is_eq_nat(r, 65535)), htop))
-  +en = Equal.trans(Nat, 1n+U32.to_nat(r), 1n+U32.to_nat(65535), L.pow2(16n),
-    Equal.cong(Nat, Nat, x => 1n+x, U32.to_nat(r), U32.to_nat(65535), er), max_root_next())
-  (
-    root_low(n, r,
+def sqrt_math_quotient_strict(+n: Nat, +p: Nat) ->
+  N.lt(n, Nat.mul(1n+p, 1n+Nat.div(n, 1n+p))):
+  +q = Nat.div(n, 1n+p)
+  %N.mul_comm(1n+q, 1n+p) : N.lt(n, _)
+  N.lt_of_not_le(Nat.mul(1n+q, 1n+p), n,
+    Equal.trans(Bool, Nat.is_le(Nat.mul(1n+q, 1n+p), n), Nat.is_le(1n+q, q), False{},
+      Equal.sym(Bool, Nat.is_le(1n+q, q), Nat.is_le(Nat.mul(1n+q, 1n+p), n),
+        N.le_div_iff_mul_le(1n+q, n, p)),
+      N.not_le_of_lt(q, 1n+q, N.lt_succ_self(q))))
+
+def sqrt_math_mul_two(+s: Nat) -> {Nat.mul(s, 2n) == Nat.add(s, s) : Nat}:
+  %N.mul_comm(2n, s) : {_ == Nat.add(s, s) : Nat}
+  %Equal.sym(Nat, Nat.add(s, 0n), s, N.add_zero(s)) :
+    {Nat.add(s, _) == Nat.add(s, s) : Nat}
+  {==}
+
+def sqrt_math_half_sum(+a: Nat, +b: Nat) ->
+  N.le(Nat.add(a, 1n+b),
+    Nat.add(1n+Nat.div(Nat.add(a, b), 2n), 1n+Nat.div(Nat.add(a, b), 2n))):
+  +m = Nat.add(a, b)
+  +s = {1n+Nat.div(m, 2n) : Nat}
+  sqrt_math_le_transport(1n+m, Nat.mul(s, 2n), Nat.add(a, 1n+b), Nat.add(s, s),
+    Equal.sym(Nat, Nat.add(a, 1n+b), 1n+m, N.add_succ(a, b)), sqrt_math_mul_two(s),
+    N.succ_le_of_lt(m, Nat.mul(s, 2n),
       (
-        %en : N.lt(U32.to_nat(r), _)
-        N.lt_succ_self(U32.to_nat(r))
-      ), hlo),
+        %N.mul_comm(2n, s) : N.lt(m, _)
+        sqrt_math_quotient_strict(m, 1n)
+      )))
+
+def sqrt_next_positive(+n: Nat, +p: Nat) -> Upper(n, S.U32.isqrt.next(n, 1n+p)):
+  +q = Nat.div(n, 1n+p)
+  +s = {1n+S.U32.isqrt.next(n, 1n+p) : Nat}
+  N.lt_of_lt_of_le(n, Nat.mul(1n+p, 1n+q), Nat.mul(s, s),
+    sqrt_math_quotient_strict(n, p),
+    sqrt_math_amgm(s, 1n+p, 1n+q, sqrt_math_half_sum(1n+p, q)))
+
+def sqrt_next_upper(+n: Nat, +r: Nat, h: Upper(n, r)) -> Upper(n, S.U32.isqrt.next(n, r)):
+  match r:
+    case 0n:
+      h
+    case 1n+p:
+      sqrt_next_positive(n, p)
+
+def sqrt_refine_upper(k: Nat, +n: Nat, +r: Nat, h: Upper(n, r)) ->
+  Upper(n, S.U32.isqrt.refine(k, n, r)):
+  match k:
+    case 0n:
+      h
+    case 1n+p:
+      sqrt_refine_upper(p, n, S.U32.isqrt.next(n, r), sqrt_next_upper(n, r, h))
+
+def sqrt_correct_lift(+n: Nat, +q: Nat, +result: Nat,
+  facts: Laws.SqrtBounds(n, result) & N.le(result, q)) ->
+  Laws.SqrtBounds(n, result) & N.le(result, 1n+q):
+  (bounds, decreased) = facts
+  (bounds, N.le_trans(result, q, 1n+q, decreased, N.le_succ(q)))
+
+def sqrt_correct_zero(high: Bool, n: Nat, +r: Nat) ->
+  {S.U32.isqrt.correct_nat(0n, high, n, r) == 0n : Nat}:
+  match r:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+def sqrt_correct_false(+p: Nat, +n: Nat, +r: Nat) ->
+  {S.U32.isqrt.correct_nat(1n+p, False{}, n, r) == r : Nat}:
+  match r:
+    case 0n:
+      {==}
+    case 1n+q:
+      {==}
+
+def sqrt_correct(+k: Nat, high: Bool, +n: Nat, +r: Nat,
+  e: {high == Nat.is_lt(n, Nat.mul(r, r)) : Bool},
+  upper: Upper(n, r), budget: N.le(r, k)) ->
+  Laws.SqrtBounds(n, S.U32.isqrt.correct_nat(k, high, n, r)) &
+    N.le(S.U32.isqrt.correct_nat(k, high, n, r), r):
+  match k:
+    case 0n:
+      %Equal.sym(Nat, S.U32.isqrt.correct_nat(0n, high, n, r), 0n, sqrt_correct_zero(high, n, r)) :
+        Laws.SqrtBounds(n, _) & N.le(_, r)
+      (
+        (
+          N.zero_le(n),
+          (
+            %N.le_zero_eq(r, budget) : Upper(n, _)
+            upper
+          )
+        ),
+        N.zero_le(r)
+      )
+    case 1n+p:
+      match high:
+        case False{}:
+          %Equal.sym(Nat, S.U32.isqrt.correct_nat(1n+p, False{}, n, r), r, sqrt_correct_false(p, n, r)) :
+            Laws.SqrtBounds(n, _) & N.le(_, r)
+          (
+            (
+              N.le_of_not_lt(n, Nat.mul(r, r),
+                Equal.sym(Bool, False{}, Nat.is_lt(n, Nat.mul(r, r)), e)),
+              upper
+            ),
+            N.le_refl(r)
+          )
+        case True{}:
+          match r:
+            case 0n:
+              Empty.absurd(
+                Laws.SqrtBounds(n, 0n) & N.le(0n, 0n),
+                N.lt_zero(n)(Equal.sym(Bool, True{}, Nat.is_lt(n, 0n), e)))
+            case 1n+q:
+              sqrt_correct_lift(n, q, S.U32.isqrt.correct_nat(p, Nat.is_lt(n, Nat.mul(q, q)), n, q),
+                sqrt_correct(p, Nat.is_lt(n, Nat.mul(q, q)), n, q, {==},
+                  Equal.sym(Bool, True{}, Nat.is_lt(n, Nat.mul(1n+q, 1n+q)), e),
+                  N.le_of_succ_le_succ(q, p, budget)))
+
+def sqrt_start(+n: Nat, +limit: Nat,
+  square: {Nat.mul(limit, limit) == L.pow2(32n) : Nat}, h: N.lt(n, L.pow2(32n))) -> Upper(n, limit):
+  N.lt_trans(n, Nat.mul(limit, limit), Nat.mul(1n+limit, 1n+limit),
     (
-      %Equal.sym(Nat, 1n+U32.to_nat(r), L.pow2(16n), en) : N.lt(U32.to_nat(n), Nat.mul(_, _))
-      %Equal.sym(Nat, Nat.mul(L.pow2(16n), L.pow2(16n)), L.pow2(32n), square_limit()) :
-        N.lt(U32.to_nat(n), _)
-      L.u32_to_nat_lt(n)
-    )
-  )
+      %Equal.sym(Nat, Nat.mul(limit, limit), L.pow2(32n), square) : N.lt(n, _)
+      h
+    ), N.mul_lt_mul_of_lt_of_lt(limit, limit, 1n+limit, 1n+limit,
+      N.lt_succ_self(limit), N.lt_succ_self(limit)))
 
-def root_cap(+r: U32, +bound: U32, +limit: Nat, e: {U32.to_nat(bound) == limit : Nat},
-  h: {U32.is_lt(r, bound) == True{} : Bool}) -> N.lt(U32.to_nat(r), limit):
-  %e : N.lt(U32.to_nat(r), _)
-  Equal.trans(Bool, Nat.is_lt(U32.to_nat(r), U32.to_nat(bound)), U32.is_lt(r, bound), True{},
-    Equal.sym(Bool, U32.is_lt(r, bound), Nat.is_lt(U32.to_nat(r), U32.to_nat(bound)),
-      L.u32_is_lt_nat(r, bound)), h)
+def sqrt_limit_square(+limit: Nat, e: {limit == L.pow2(16n) : Nat}) ->
+  {Nat.mul(limit, limit) == L.pow2(32n) : Nat}:
+  Equal.trans(Nat, Nat.mul(limit, limit), Nat.mul(L.pow2(16n), L.pow2(16n)), L.pow2(32n),
+    Equal.cong(Nat, Nat, x => Nat.mul(x, x), limit, L.pow2(16n), e), square_limit())
 
-def root_inc_bound(+r: Nat, h: N.lt(r, L.pow2(16n))) -> N.lt(1n+r, L.pow2(32n)):
-  N.lt_of_le_of_lt(1n+r, L.pow2(16n), L.pow2(32n),
-    N.succ_le_of_lt(r, L.pow2(16n), h),
+def sqrt_limit_fits(+limit: Nat, e: {limit == L.pow2(16n) : Nat}) -> N.lt(limit, L.pow2(32n)):
+  L.lt_rw(limit, L.pow2(16n), L.pow2(32n), e,
     N.lt_of_lt_of_le(L.pow2(16n), L.pow2(17n), L.pow2(32n),
       pow2_lt_step(16n), pow2_le_add(15n, 17n)))
 
-def root_inner(+n: U32, +r: U32,
-  hcap: {U32.is_lt(r, 65536) == True{} : Bool},
-  hncap: {U32.is_lt(U32.inc(r), 65536) == True{} : Bool},
-  hlo: {U32.is_le(U32.mul(r, r), n) == True{} : Bool},
-  hhi: {U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r))) == True{} : Bool}) ->
-  Laws.SqrtBounds(U32.to_nat(n), U32.to_nat(r)):
-  +cap = root_cap(r, 65536, L.pow2(16n), initial_step(), hcap)
-  +next_cap = root_cap(U32.inc(r), 65536, L.pow2(16n), initial_step(), hncap)
-  +er = L.u32_inc_nat(r, root_inc_bound(U32.to_nat(r), cap))
-  +es = square_word(U32.inc(r), L.pow2(16n), square_limit(), next_cap)
-  (
-    root_low(n, r, cap, hlo),
-    (
-      %er : N.lt(U32.to_nat(n), Nat.mul(_, _))
-      %es : N.lt(U32.to_nat(n), _)
-      Equal.trans(Bool, Nat.is_lt(U32.to_nat(n), U32.to_nat(U32.mul(U32.inc(r), U32.inc(r)))),
-        U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r))), True{},
-        Equal.sym(Bool, U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r))),
-          Nat.is_lt(U32.to_nat(n), U32.to_nat(U32.mul(U32.inc(r), U32.inc(r)))),
-          L.u32_is_lt_nat(n, U32.mul(U32.inc(r), U32.inc(r)))), hhi)
-    )
-  )
+def sqrt_word_le(+a: U32, +b: U32, h: {U32.is_le(a, b) == True{} : Bool}) -> N.le(U32.to_nat(a), U32.to_nat(b)):
+  Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{},
+    Equal.sym(Bool, U32.is_le(a, b), Nat.is_le(U32.to_nat(a), U32.to_nat(b)), L.u32_is_le_nat(a, b)), h)
 
-def root_and_left(a: Bool, b: Bool, h: {Bool.and(a, b) == True{} : Bool}) -> {a == True{} : Bool}:
-  match a:
+def sqrt_min_case(left: Bool, +n: Nat, +limit: Nat, +r: Nat,
+  e: {Nat.is_le(limit, r) == left : Bool}, hl: Upper(n, limit), hr: Upper(n, r)) ->
+  Upper(n, Nat.min(limit, r)):
+  match left:
     case True{}:
-      {==}
+      %Equal.sym(Nat, Nat.min(limit, r), limit, N.min_eq_left(limit, r, e)) : Upper(n, _)
+      hl
     case False{}:
-      h
+      %Equal.sym(Nat, Nat.min(limit, r), r,
+        N.min_eq_right(limit, r, N.le_of_lt(r, limit, N.lt_of_not_le(limit, r, e)))) : Upper(n, _)
+      hr
 
-def root_and_right(a: Bool, +b: Bool, h: {Bool.and(a, b) == True{} : Bool}) -> {b == True{} : Bool}:
-  match a:
-    case True{}:
-      h
-    case False{}:
-      Empty.absurd({b == True{} : Bool},
-        N.succ_ne_zero(0n)(Equal.cong(Bool, Nat, L.b2n, True{}, False{},
-          Equal.sym(Bool, False{}, True{}, h))))
+def sqrt_estimate(+limit: Nat, +n: Nat, +seed: Nat, hl: Upper(n, limit)) ->
+  Upper(n, S.U32.isqrt.estimate(limit, n, seed)) & N.le(S.U32.isqrt.estimate(limit, n, seed), limit):
+  +r = S.U32.isqrt.refine(3n, n, S.U32.isqrt.next(n, 1n+seed))
+  (sqrt_min_case(Nat.is_le(r, limit), n, r, limit, {==},
+    sqrt_refine_upper(3n, n, S.U32.isqrt.next(n, 1n+seed), sqrt_next_positive(n, seed)), hl),
+    N.min_le_right(r, limit))
 
-def root_valid(top: Bool, +n: U32, +r: U32,
-  htop: {U32.is_eq(r, 65535) == top : Bool},
-  hlo: {U32.is_le(U32.mul(r, r), n) == True{} : Bool},
-  +h: {Bool.or(top, Bool.and(U32.is_lt(r, 65536),
-    Bool.and(U32.is_lt(U32.inc(r), 65536), U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r)))))) == True{} : Bool}) ->
-  Laws.SqrtBounds(U32.to_nat(n), U32.to_nat(r)):
-  match top:
-    case True{}:
-      root_top(n, r, htop, hlo)
-    case False{}:
-      +cap = U32.is_lt(r, 65536)
-      +next_cap = U32.is_lt(U32.inc(r), 65536)
-      +hi = U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r)))
-      +tail = root_and_right(cap, Bool.and(next_cap, hi), h)
-      root_inner(n, r, root_and_left(cap, Bool.and(next_cap, hi), h),
-        root_and_left(next_cap, hi, tail), hlo, root_and_right(next_cap, hi, tail))
+def sqrt_encode(+n: Nat, +r: Nat, +limit: Nat, bounds: Laws.SqrtBounds(n, r),
+  cap: N.le(r, limit), fit: N.lt(limit, L.pow2(32n))) -> Laws.SqrtBounds(n, U32.to_nat(U32.from_nat(r))):
+  %Equal.sym(Nat, U32.to_nat(U32.from_nat(r)), r,
+    L.u32_to_from_nat(r, N.lt_of_le_of_lt(r, limit, L.pow2(32n), cap, fit))) : Laws.SqrtBounds(n, _)
+  bounds
 
-def root_accept(ok: Bool, +n: U32, +r: U32,
-  +h: {Bool.and(U32.is_le(U32.mul(r, r), n),
-    Bool.or(U32.is_eq(r, 65535), Bool.and(U32.is_lt(r, 65536),
-      Bool.and(U32.is_lt(U32.inc(r), 65536), U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r))))))) == ok : Bool}) ->
-  Laws.SqrtBounds(U32.to_nat(n), U32.to_nat(S.U32.isqrt.accept(ok, n, r))):
-  match ok:
-    case True{}:
-      +lo = U32.is_le(U32.mul(r, r), n)
-      +rest = Bool.or(U32.is_eq(r, 65535), Bool.and(U32.is_lt(r, 65536),
-        Bool.and(U32.is_lt(U32.inc(r), 65536), U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r))))))
-      root_valid(U32.is_eq(r, 65535), n, r, {==},
-        root_and_left(lo, rest, h), root_and_right(lo, rest, h))
-    case False{}:
-      sqrt_fallback(n)
+def sqrt_finish(+n: Nat, +r: Nat, +limit: Nat, +result: Nat,
+  facts: Laws.SqrtBounds(n, result) & N.le(result, r), cap: N.le(r, limit), fit: N.lt(limit, L.pow2(32n))) ->
+  Laws.SqrtBounds(n, U32.to_nat(U32.from_nat(result))):
+  (bounds, decreased) = facts
+  sqrt_encode(n, result, limit, bounds, N.le_trans(result, r, limit, decreased, cap), fit)
 
-def root_certify(+n: U32, +r: U32) ->
-  Laws.SqrtBounds(U32.to_nat(n), U32.to_nat(S.U32.isqrt.certify(n, r))):
-  root_accept(Bool.and(U32.is_le(U32.mul(r, r), n),
-    Bool.or(U32.is_eq(r, 65535), Bool.and(U32.is_lt(r, 65536),
-      Bool.and(U32.is_lt(U32.inc(r), 65536), U32.is_lt(n, U32.mul(U32.inc(r), U32.inc(r))))))),
-    n, r, {==})
+def sqrt_from_estimate(+n: Nat, +r: Nat, +limit: Nat, +fuel: Nat,
+  upper: Upper(n, r), +cap: N.le(r, limit), fit: N.lt(limit, L.pow2(32n)), budget: N.le(limit, fuel)) ->
+  Laws.SqrtBounds(n, U32.to_nat(U32.from_nat(S.U32.isqrt.correct_nat(fuel, Nat.is_lt(n, Nat.mul(r, r)), n, r)))):
+  sqrt_finish(n, r, limit, S.U32.isqrt.correct_nat(fuel, Nat.is_lt(n, Nat.mul(r, r)), n, r),
+    sqrt_correct(fuel, Nat.is_lt(n, Nat.mul(r, r)), n, r, {==}, upper,
+      N.le_trans(r, limit, fuel, cap, budget)), cap, fit)
+
+def sqrt_estimate_lift(+n: Nat, +seed: Nat, +limit: Nat, +fuel: Nat,
+  facts: Upper(n, S.U32.isqrt.estimate(limit, n, seed)) & N.le(S.U32.isqrt.estimate(limit, n, seed), limit),
+  fit: N.lt(limit, L.pow2(32n)), budget: N.le(limit, fuel)) ->
+  Laws.SqrtBounds(n, U32.to_nat(U32.from_nat(S.U32.isqrt.correct_nat(fuel,
+    Nat.is_lt(n, Nat.mul(S.U32.isqrt.estimate(limit, n, seed), S.U32.isqrt.estimate(limit, n, seed))),
+    n, S.U32.isqrt.estimate(limit, n, seed))))):
+  (upper, cap) = facts
+  sqrt_from_estimate(n, S.U32.isqrt.estimate(limit, n, seed), limit, fuel, upper, cap, fit, budget)
+
+def sqrt_result(+n: Nat, +seed: Nat, +limit: Nat, +fuel: Nat,
+  start: Upper(n, limit), fit: N.lt(limit, L.pow2(32n)), budget: N.le(limit, fuel)) ->
+  Laws.SqrtBounds(n, U32.to_nat(U32.from_nat(S.U32.isqrt.correct_nat(fuel,
+    Nat.is_lt(n, Nat.mul(S.U32.isqrt.estimate(limit, n, seed), S.U32.isqrt.estimate(limit, n, seed))),
+    n, S.U32.isqrt.estimate(limit, n, seed))))):
+  sqrt_estimate_lift(n, seed, limit, fuel, sqrt_estimate(limit, n, seed, start), fit, budget)
+
+def sqrt_of_bounds(+limit: U32, +fuel: U32, +n: U32, +seed: U32,
+  +e: {U32.to_nat(limit) == L.pow2(16n) : Nat}, budget: {U32.is_le(limit, fuel) == True{} : Bool}) ->
+  Laws.SqrtBounds(U32.to_nat(n),
+    U32.to_nat(S.U32.isqrt.of(U32.to_nat(limit), U32.to_nat(fuel), U32.to_nat(n), U32.to_nat(seed)))):
+  sqrt_result(U32.to_nat(n), U32.to_nat(seed), U32.to_nat(limit), U32.to_nat(fuel),
+    sqrt_start(U32.to_nat(n), U32.to_nat(limit), sqrt_limit_square(U32.to_nat(limit), e), L.u32_to_nat_lt(n)),
+    sqrt_limit_fits(U32.to_nat(limit), e), sqrt_word_le(limit, fuel, budget))
 
 def Laws.isqrt_bounds(n):
-  root_certify(n, S.U32.isqrt.candidate(n))
+  sqrt_of_bounds(65536, 65537, n, (1 << Nat.add(1n, Nat.div(U32.log2(n), 2n)) : U32), initial_step(), {==})
