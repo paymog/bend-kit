@@ -19,9 +19,28 @@ def spawn(cmd: String, args: List<&2, String>, env: List<&2, String>, cwd: Strin
   import "./effs/process.c"
   import "./effs/process.js"
 
+# Like run.raw, bounded. The child leads its own process group. The call ends
+# with SIGKILL to that group while it still holds the unreaped child, then
+# reaps the child. ms is a deadline for the whole call (0: none); a miss is
+# ETIMEDOUT. max_out caps stdout and stderr, each, in bytes (0: none); more is
+# EFBIG. A descendant that keeps an output open holds the call until the
+# deadline. A descendant that leaves the group (setsid, setpgid) escapes the
+# kill. If anything else reaps the child first, nothing is signaled and the
+# call fails with ECHILD; it also refuses (ECHILD) while SIGCHLD is ignored.
+def run.bounded.raw(cmd: String, args: List<&2, String>, env: List<&2, String>,
+                    cwd: String, stdin: String, ms: U32, max_out: U32) ->
+  IO(Result<&1, &1, U32 & String, U32 & String & String>):
+  import "./effs/process.c"
+  import "./effs/process.js"
+
 # Reaps a spawned child. A signaled child has status 128 + signal number.
 # pid is 1..2147483647; 0 and larger are EINVAL, never group/any-child selectors.
 def wait(pid: U32) -> IO(Result<&1, &1, U32 & String, U32>):
+  import "./effs/process.c"
+  import "./effs/process.js"
+
+# The host's ETIMEDOUT error code: 110 on Linux, 60 on macOS.
+def etimedout() -> IO(U32):
   import "./effs/process.c"
   import "./effs/process.js"
 
@@ -77,3 +96,21 @@ def run(cmd: String, args: List<&2, String>, env: List<&2, String>,
     result : Result<&1, &1, U32 & String, U32 & String & String> <-
       run.raw(cmd, args, env, cwd, Bytes.to_string(stdin))
     return run.result(result)
+
+# run with run.bounded.raw's deadline, output cap, and group kill.
+def run.bounded(cmd: String, args: List<&2, String>, env: List<&2, String>,
+                cwd: String, stdin: Bytes.Bytes, ms: U32, max_out: U32) ->
+  IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
+  do IO<Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>>:
+    result : Result<&1, &1, U32 & String, U32 & String & String> <-
+      run.bounded.raw(cmd, args, env, cwd, Bytes.to_string(stdin), ms, max_out)
+    return run.result(result)
+
+# A deadline miss: code is the host's ETIMEDOUT, passed as timeout (from
+# etimedout()), since ETIMEDOUT differs between systems.
+def timed_out(timeout: U32, code: U32) -> Bool:
+  U32.is_eq(code, timeout)
+
+# Output past max_out: EFBIG is 27 on Linux and macOS.
+def too_big(code: U32) -> Bool:
+  U32.is_eq(code, 27)

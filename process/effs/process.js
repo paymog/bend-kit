@@ -4,6 +4,8 @@
 // ponytail: run.raw blocks other Bend fibers in JS while the child runs;
 // replace spawnSync with a nonblocking three-pipe pump if concurrency matters.
 // wait: WNOHANG waitpid on tracked pid (not proc.exited: promises stall under io_run).
+// run.bounded.raw: libc posix_spawn through bun:ffi, so this code alone spawns,
+// signals, and reaps the group leader; Bun never sees the child.
 
 function process_einval() {
   return 22;
@@ -226,6 +228,345 @@ function run_raw(cmd, args, env, cwd, stdin, k) {
   }
 }
 
+function process_bounded_libc() {
+  if (process_bounded_libc.lib === undefined) {
+    const ffi = require("bun:ffi");
+    const mac = process.platform === "darwin";
+    const T = { i: "i32", h: "i16", p: "ptr", U: "u64", I: "i64" };
+    process_bounded_libc.lib = ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6",
+      Object.fromEntries(("posix_spawnp:pppppp>i posix_spawn_file_actions_init:p>i"
+        + " posix_spawn_file_actions_destroy:p>i posix_spawn_file_actions_adddup2:pii>i"
+        + " posix_spawn_file_actions_addclose:pi>i posix_spawn_file_actions_addchdir_np:pp>i"
+        + " posix_spawnattr_init:p>i posix_spawnattr_destroy:p>i posix_spawnattr_setflags:ph>i"
+        + " posix_spawnattr_setpgroup:pi>i posix_spawnattr_setsigdefault:pp>i"
+        + " posix_spawnattr_setsigmask:pp>i sigemptyset:p>i sigaddset:pi>i sigaction:ipp>i"
+        + " pipe:p>i poll:pii>i write:ipU>I waitid:iipi>i waitpid:ipi>i kill:ii>i").split(" ")
+        .map((s) => {
+          const [name, args, ret] = s.split(/[:>]/);
+          return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
+        }))).symbols;
+    process_bounded_libc.mac = mac;
+  }
+  return process_bounded_libc;
+}
+
+function process_cstr(s) {
+  return Buffer.from(s + "\0", "utf8");
+}
+
+// A NULL-terminated char* array; keep holds the strings alive.
+function process_cstr_array(xs, keep) {
+  const { ptr } = require("bun:ffi");
+  const arr = new BigUint64Array(xs.length + 1);
+  xs.forEach((x, i) => {
+    const b = process_cstr(x);
+    keep.push(b);
+    arr[i] = BigInt(ptr(b));
+  });
+  keep.push(arr);
+  return arr;
+}
+
+// True when the kernel would reap our children by itself (SIGCHLD ignored or
+// SA_NOCLDWAIT): a leader's pid could then be reused before the group kill.
+function process_autoreaps(c) {
+  const { ptr, read } = require("bun:ffi");
+  const sa = new Uint8Array(256);
+  if (c.lib.sigaction(c.mac ? 20 : 17, null, ptr(sa)) < 0) {
+    return true;
+  }
+  const handler = read.u64(ptr(sa), 0);
+  const flags = read.i32(ptr(sa), c.mac ? 12 : 136);
+  return handler === 1n || (flags & (c.mac ? 0x20 : 2)) !== 0;
+}
+
+// 0 while the leader is our unreaped child (exited.v tells whether it has
+// exited); else the errno, such as ECHILD once anything else reaped it.
+function process_leader_held(c, pid, exited) {
+  const { ptr, read } = require("bun:ffi");
+  const sys = io_sys();
+  const info = new Uint8Array(256);
+  const flags = 4 | 1 | (c.mac ? 0x20 : 0x01000000);
+  for (;;) {
+    info.fill(0);
+    if (c.lib.waitid(c.mac ? 0 : 1, pid, ptr(info), flags) === 0) {
+      exited.v = read.i32(ptr(info), c.mac ? 12 : 16) !== 0;
+      return 0;
+    }
+    const code = sys.errno();
+    if (code !== 4) {
+      return code;
+    }
+  }
+}
+
+// Spawns argv as the leader of a new process group, with three pipes.
+function process_bounded_spawn(c, argv, environment, cwd) {
+  const { ptr } = require("bun:ffi");
+  const sys = io_sys();
+  const fds = new Int32Array(6).fill(-1);
+  const close_all = () => fds.forEach((fd) => fd >= 0 && sys.close(fd));
+  for (let i = 0; i < 6; i += 2) {
+    if (c.lib.pipe(ptr(fds.subarray(i, i + 2))) < 0) {
+      const code = sys.errno();
+      close_all();
+      return { code };
+    }
+  }
+  const nonblock = c.mac ? 0x4 : 0x800;
+  for (const fd of fds) {
+    if (sys.fcntl(fd, 2, 1) < 0) {
+      const code = sys.errno();
+      close_all();
+      return { code };
+    }
+  }
+  for (const fd of [fds[1], fds[2], fds[4]]) {
+    const fl = sys.fcntl(fd, 3, 0);
+    if (fl < 0 || sys.fcntl(fd, 4, fl | nonblock) < 0) {
+      const code = sys.errno();
+      close_all();
+      return { code };
+    }
+  }
+  const keep = [];
+  const args = process_cstr_array(argv, keep);
+  const envp = process_cstr_array(Object.entries(environment).map(([k, v]) => k + "=" + v), keep);
+  const dir = process_cstr(cwd);
+  const actions = new Uint8Array(256);
+  const attrs = new Uint8Array(512);
+  const defaults = new Uint8Array(128);
+  const mask = new Uint8Array(128);
+  const pid = new Int32Array(1);
+  let rc = c.lib.posix_spawn_file_actions_init(ptr(actions));
+  if (rc !== 0) {
+    close_all();
+    return { code: rc };
+  }
+  rc = c.lib.posix_spawn_file_actions_addchdir_np(ptr(actions), ptr(dir));
+  rc = rc || c.lib.posix_spawn_file_actions_adddup2(ptr(actions), fds[0], 0);
+  rc = rc || c.lib.posix_spawn_file_actions_adddup2(ptr(actions), fds[3], 1);
+  rc = rc || c.lib.posix_spawn_file_actions_adddup2(ptr(actions), fds[5], 2);
+  for (const fd of fds) {
+    rc = rc || c.lib.posix_spawn_file_actions_addclose(ptr(actions), fd);
+  }
+  let attrs_ready = false;
+  if (rc === 0) {
+    rc = c.lib.posix_spawnattr_init(ptr(attrs));
+    attrs_ready = rc === 0;
+  }
+  if (rc === 0) {
+    c.lib.sigemptyset(ptr(defaults));
+    c.lib.sigaddset(ptr(defaults), 13);
+    c.lib.sigemptyset(ptr(mask));
+    rc = c.lib.posix_spawnattr_setsigdefault(ptr(attrs), ptr(defaults));
+    rc = rc || c.lib.posix_spawnattr_setsigmask(ptr(attrs), ptr(mask));
+    rc = rc || c.lib.posix_spawnattr_setpgroup(ptr(attrs), 0);
+    rc = rc || c.lib.posix_spawnattr_setflags(ptr(attrs), 0x02 | 0x04 | 0x08);
+  }
+  if (rc === 0) {
+    rc = c.lib.posix_spawnp(ptr(pid), ptr(keep[0]), ptr(actions), ptr(attrs), ptr(args), ptr(envp));
+  }
+  if (attrs_ready) {
+    c.lib.posix_spawnattr_destroy(ptr(attrs));
+  }
+  c.lib.posix_spawn_file_actions_destroy(ptr(actions));
+  for (const i of [0, 3, 5]) {
+    sys.close(fds[i]);
+    fds[i] = -1;
+  }
+  if (rc !== 0) {
+    close_all();
+    return { code: rc };
+  }
+  return { code: 0, pid: pid[0], in_w: fds[1], out_r: fds[2], err_r: fds[4] };
+}
+
+// Writes stdin and reads stdout and stderr until both close, the deadline
+// passes (ETIMEDOUT) or a stream passes limit (EFBIG). Closes every fd.
+function process_bounded_pump(c, job, inb, deadline, limit) {
+  const { ptr } = require("bun:ffi");
+  const sys = io_sys();
+  const fds = { in: inb.length ? job.in_w : -1, out: job.out_r, err: job.err_r };
+  if (!inb.length) {
+    sys.close(job.in_w);
+  }
+  const close = (name) => {
+    sys.close(fds[name]);
+    fds[name] = -1;
+  };
+  const close_all = () => ["in", "out", "err"].forEach((n) => fds[n] >= 0 && close(n));
+  const chunks = { out: [], err: [] };
+  const lens = { out: 0, err: 0 };
+  const buf = new Uint8Array(65536);
+  const etimedout_code = etimedout();
+  let written = 0;
+  for (;;) {
+    const names = ["in", "out", "err"].filter((n) => fds[n] >= 0);
+    if (!names.includes("out") && !names.includes("err")) {
+      close_all();
+      break;
+    }
+    let left = -1;
+    if (deadline) {
+      left = Math.ceil(deadline - performance.now());
+      if (left <= 0) {
+        close_all();
+        return { code: etimedout_code };
+      }
+      left = Math.min(left, 2147483647);
+    }
+    const pf = new Int32Array(names.length * 2);
+    const pv = new Int16Array(pf.buffer);
+    names.forEach((n, i) => {
+      pf[i * 2] = fds[n];
+      pv[i * 4 + 2] = n === "in" ? 4 : 1;
+    });
+    const ready = c.lib.poll(ptr(pf), names.length, left);
+    if (ready < 0) {
+      const code = sys.errno();
+      if (code === 4) {
+        continue;
+      }
+      close_all();
+      return { code };
+    }
+    for (let i = 0; i < names.length; i += 1) {
+      const n = names[i];
+      if (pv[i * 4 + 3] === 0) {
+        continue;
+      }
+      if (n === "in") {
+        const r = Number(c.lib.write(fds.in, ptr(inb, written), inb.length - written));
+        if (r < 0) {
+          const code = sys.errno();
+          if (code === 32) {
+            close("in");
+          } else if (code !== 4 && code !== (c.mac ? 35 : 11)) {
+            close_all();
+            return { code };
+          }
+        } else {
+          written += r;
+          if (written >= inb.length) {
+            close("in");
+          }
+        }
+        continue;
+      }
+      const r = Number(sys.read(fds[n], ptr(buf), buf.length));
+      if (r < 0) {
+        const code = sys.errno();
+        if (code === 4 || code === (c.mac ? 35 : 11)) {
+          continue;
+        }
+        close_all();
+        return { code };
+      }
+      if (r === 0) {
+        close(n);
+        continue;
+      }
+      if (limit && r > limit - lens[n]) {
+        close_all();
+        return { code: 27 };
+      }
+      chunks[n].push(Buffer.from(buf.subarray(0, r)));
+      lens[n] += r;
+    }
+  }
+  return { code: 0, out: Buffer.concat(chunks.out), err: Buffer.concat(chunks.err) };
+}
+
+// Like run_raw, in a new process group, with a deadline and a per-stream
+// output cap. The group kill is sent only while this call still holds the
+// unreaped leader, so the group id cannot have been reused. If anything else
+// reaped the leader, nothing is signaled and the call fails with ECHILD.
+function run_bounded_raw(cmd, args, env, cwd, stdin, ms, max_out, k) {
+  const argv = process_argv(cmd, args);
+  if (argv === null || process_has_nul(cwd)) {
+    return io_fail(process_einval());
+  }
+  const environment = process_env(env);
+  if (environment === null) {
+    return io_fail(process_einval());
+  }
+  const inb = process_octets(stdin);
+  if (inb === null) {
+    return io_fail(process_einval());
+  }
+  const echild = 10;
+  let c;
+  try {
+    c = process_bounded_libc();
+  } catch (e) {
+    return io_fail(process_errno_named("ENOSYS"));
+  }
+  if (process_autoreaps(c)) {
+    return io_fail(echild);
+  }
+  const deadline = Number(ms) ? performance.now() + Number(ms) : 0;
+  const job = process_bounded_spawn(c, argv, environment, cwd);
+  if (job.code) {
+    return io_fail(job.code);
+  }
+  const pumped = process_bounded_pump(c, job, inb, deadline, Number(max_out));
+  let failed = pumped.code;
+  const exited = { v: false };
+  let held = false;
+  if (failed) {
+    held = process_leader_held(c, job.pid, exited) === 0;
+  } else {
+    const etimedout_code = etimedout();
+    let nap = 1;
+    for (;;) {
+      const r = process_leader_held(c, job.pid, exited);
+      if (r !== 0) {
+        failed = r;
+        break;
+      }
+      if (exited.v) {
+        held = true;
+        break;
+      }
+      if (deadline && performance.now() >= deadline) {
+        failed = etimedout_code;
+        held = true;
+        break;
+      }
+      const wait = deadline ? Math.min(nap, Math.max(1, deadline - performance.now())) : nap;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
+      nap = Math.min(nap * 2, 16);
+    }
+  }
+  if (!held) {
+    return io_fail(echild);
+  }
+  c.lib.kill(-job.pid, 9);
+  const { ptr } = require("bun:ffi");
+  const status = new Int32Array(1);
+  let r;
+  do {
+    r = c.lib.waitpid(job.pid, ptr(status), 0);
+  } while (r < 0 && io_sys().errno() === 4);
+  if (!failed && r < 0) {
+    failed = io_sys().errno();
+  }
+  if (failed) {
+    return io_fail(failed);
+  }
+  return io_done(process_result(
+    process_exit_status(status[0]),
+    process_wire_text(pumped.out, pumped.out.length),
+    process_wire_text(pumped.err, pumped.err.length),
+  ));
+}
+
+function process_errno_named(name) {
+  const code = require("os").constants.errno[name];
+  return typeof code === "number" ? code : process_einval();
+}
+
 function spawn(cmd, args, env, cwd) {
   const argv = process_argv(cmd, args);
   if (argv === null || process_has_nul(cwd)) {
@@ -243,6 +584,12 @@ function spawn(cmd, args, env, cwd) {
   process_track(proc);
   const files = io_tup(stdin_w, io_tup(stdout_r, stderr_r));
   return io_done(io_tup(proc.pid >>> 0, files));
+}
+
+// The host's ETIMEDOUT: 110 on Linux, 60 on macOS.
+function etimedout() {
+  const code = require("os").constants.errno.ETIMEDOUT;
+  return (typeof code === "number" ? code : (process.platform === "darwin" ? 60 : 110)) >>> 0;
 }
 
 function wait(pid, k) {
@@ -381,8 +728,10 @@ function signal_poll() {
 }
 
 io_eff(CID(run.raw), run_raw);
+io_eff(CID(run.bounded.raw), run_bounded_raw);
 io_eff(CID(spawn), spawn);
 io_eff(CID(wait), wait);
+io_eff(CID(etimedout), etimedout);
 io_eff(CID(read_stdin), read_stdin);
 io_eff(CID(exit.raw), exit_raw);
 io_eff(CID(cwd), cwd);

@@ -164,6 +164,110 @@ def expect.wait.pids() -> IO(Unit):
     expect.wait.child(17, first)
     expect.wait.child(23, second)
 
+def expect.etimedout.os(+os: String, +timeout: U32) -> IO(Unit):
+  do IO<Unit>:
+    expect.yes(Bool.or(Bool.not(String.eq(os, "Linux\n")), U32.is_eq(timeout, 110)), "Linux ETIMEDOUT is 110")
+    expect.yes(Bool.or(Bool.not(String.eq(os, "Linux\n")), Bool.not(Proc.timed_out(timeout, 60))),
+      "Linux 60 is ENOSTR, not a timeout")
+    expect.yes(Bool.or(Bool.not(String.eq(os, "Darwin\n")), U32.is_eq(timeout, 60)), "Darwin ETIMEDOUT is 60")
+
+def expect.etimedout(+timeout: U32, value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
+  (code, out, err) = value
+  do IO<Unit>:
+    expect.yes(U32.is_eq(code, 0), "uname exit code")
+    expect.etimedout.os(Bytes.to_string(out), timeout)
+
+def expect.run.timeout(value: Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>,
+                       timeout: U32, message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(Proc.timed_out(timeout, code), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.run.too_big(value: Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>,
+                       message: String) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(Proc.too_big(code), message)
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+def expect.size(measured: Bytes.Bytes & U32, expected: U32) -> Bool:
+  (rest, n) = measured
+  U32.is_eq(n, expected)
+
+def expect.width(value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
+  (code, out, err) = value
+  do IO<Unit>:
+    expect.yes(expect.size(Bytes.length(out), 1000), "output of exactly max_out bytes")
+    expect.yes(U32.is_eq(code, 0), "bounded exit code")
+    expect.yes(String.eq(Bytes.to_string(err), ""), "bounded stderr")
+
+def expect.bounded.status(expected: U32, value: U32 & Bytes.Bytes & Bytes.Bytes,
+                          message: String) -> IO(Unit):
+  (code, out, err) = value
+  expect.yes(U32.is_eq(code, expected), message)
+
+# The child exits at once, but its background descendant keeps stdout open, so
+# the call runs into its deadline. The group kill ends the descendant before it
+# writes the marker.
+def expect.group(timeout: U32) -> IO(Unit):
+  do IO<Unit>:
+    own : U32 <- Proc.pid()
+    +marker : String = ".process-bounded-" ++ U32.show(own)
+    held : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "(sleep 1; echo survived > \"$1\") & exit 0",
+        "process-bounded", marker], [], ".", Bytes.from_string(""), 300, 0)
+    expect.run.timeout(held, timeout, "descendant holding stdout runs into the deadline")
+    IO.sleep(1500)
+    gone : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run("/bin/sh", ["-c", "test ! -e \"$1\" || { rm -f \"$1\"; exit 1; }",
+        "process-bounded-gone", marker], [], ".", Bytes.from_string("")))
+    expect.command("", gone)
+
+def expect.bounded() -> IO(Unit):
+  do IO<Unit>:
+    +timeout : U32 <- Proc.etimedout()
+    echo : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/echo", ["hello; not a shell"], [], ".", Bytes.from_string(""),
+        5000, 1024))
+    expect.echo(echo)
+    cat : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/cat", [], [], ".", Bytes.from_string("a\0b"), 5000, 0))
+    expect.cat(cat)
+    slow : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sleep", ["5"], [], ".", Bytes.from_string(""), 200, 0)
+    expect.run.timeout(slow, timeout, "deadline")
+    quiet : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "exec >&- 2>&-; exec sleep 5"], [], ".",
+        Bytes.from_string(""), 200, 0)
+    expect.run.timeout(quiet, timeout, "a child that closes its outputs meets the deadline")
+    exact : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/sh", ["-c", "printf %1000s ''"], [], ".", Bytes.from_string(""),
+        5000, 1000))
+    expect.width(exact)
+    over : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "printf %1001s ''"], [], ".", Bytes.from_string(""),
+        5000, 1000)
+    expect.run.too_big(over, "stdout past max_out")
+    over_err : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/sh", ["-c", "printf %1001s '' >&2"], [], ".",
+        Bytes.from_string(""), 5000, 1000)
+    expect.run.too_big(over_err, "stderr past max_out")
+    flood : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/usr/bin/env", ["yes"], [], ".", Bytes.from_string(""), 5000, 4096)
+    expect.run.too_big(flood, "endless output stops at max_out")
+    shut : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/sh", ["-c", "exec <&-; sleep 0.1; exit 3"], [], ".",
+        Bytes.from_string(String.repeat("x", 20000n)), 5000, 0))
+    expect.bounded.status(3, shut, "a child that closes stdin early keeps its status")
+    signaled : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/sh", ["-c", "kill -9 $$"], [], ".", Bytes.from_string(""),
+        5000, 0))
+    expect.bounded.status(137, signaled, "a signaled leader is 128 + signal")
+    expect.group(timeout)
+
 def signal.send(own: U32) ->
   IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
   Proc.run("/bin/kill", ["-TERM", U32.show(own)], [], ".", Bytes.from_string(""))
@@ -208,6 +312,11 @@ def main() -> IO(Unit):
     expect.cwd()
     expect.os()
     expect.wait.pids()
+    +host_timeout : U32 <- Proc.etimedout()
+    uname : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run("/usr/bin/uname", ["-s"], [], ".", Bytes.from_string("")))
+    expect.etimedout(host_timeout, uname)
+    expect.bounded()
     expect.signal()
 
     IO.print("process smoke ok")
