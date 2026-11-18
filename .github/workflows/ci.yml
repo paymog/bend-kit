@@ -77,6 +77,7 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           bend process/check.bend -o "$RUNNER_TEMP/bend-kit-process-check.js"
           bun "$RUNNER_TEMP/bend-kit-process-check.js"
+          process/ownership-check.sh
       - name: CA and mTLS checks ${{ matrix.package }}
         if: hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         run: |

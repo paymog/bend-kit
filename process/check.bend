@@ -226,6 +226,65 @@ def expect.group(timeout: U32) -> IO(Unit):
         "process-bounded-gone", marker], [], ".", Bytes.from_string("")))
     expect.command("", gone)
 
+def expect.bounded.fails(value: Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>,
+                         message: String) -> IO(Unit):
+  match value:
+    case Fail{_}:
+      IO.pure(Unit, Unit{})
+    case Done{_}:
+      IO.die(Unit, 1, message)
+
+# Bad inputs fail before or at spawn and leave nothing running.
+def expect.bounded.invalid() -> IO(Unit):
+  do IO<Unit>:
+    missing : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/nonexistent/process-bounded", [], [], ".", Bytes.from_string(""), 5000, 0)
+    expect.bounded.fails(missing, "bounded: missing executable fails")
+    nowhere : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/echo", ["x"], [], "/nonexistent/process-bounded",
+        Bytes.from_string(""), 5000, 0)
+    expect.bounded.fails(nowhere, "bounded: missing cwd fails")
+    nul : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
+      Proc.run.bounded("/bin/echo", ["a\0b"], [], ".", Bytes.from_string(""), 5000, 0)
+    expect.bounded.fails(nul, "bounded: NUL in an argument fails")
+    unlimited : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/echo", ["hello; not a shell"], [], ".", Bytes.from_string(""), 0, 0))
+    expect.echo(unlimited)
+
+def expect.bounded.times(n: Nat) -> IO(Unit):
+  match n:
+    case Zero{}:
+      IO.pure(Unit, Unit{})
+    case Succ{k}:
+      do IO<Unit>:
+        done : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+          Proc.run.bounded("/bin/sh", ["-c", "exit 4"], [], ".", Bytes.from_string("in"), 5000, 64))
+        expect.bounded.status(4, done, "repeated bounded run status")
+        expect.bounded.times(k)
+
+# Open file descriptors of this process (Linux /proc; elsewhere 0, so only the
+# zombie count is compared there) and zombie children it has not reaped.
+def expect.census(own: U32) -> IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
+  Proc.run("/bin/sh", ["-c",
+    "f=$(ls /proc/$1/fd 2>/dev/null | wc -l); z=$(ps -A -o ppid= -o stat= | awk -v p=$1 '$1==p && $2 ~ /^Z/' | wc -l); echo $f $z",
+    "process-census", U32.show(own)], [], ".", Bytes.from_string(""))
+
+def expect.census.same(before: U32 & Bytes.Bytes & Bytes.Bytes,
+                       after: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
+  (b_code, b_out, b_err) = before
+  (a_code, a_out, a_err) = after
+  do IO<Unit>:
+    expect.yes(String.eq(Bytes.to_string(b_out), Bytes.to_string(a_out)),
+      "200 bounded runs leak no file descriptors and leave no zombies")
+
+def expect.bounded.repeat() -> IO(Unit):
+  do IO<Unit>:
+    +own : U32 <- Proc.pid()
+    before : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    expect.bounded.times(200n)
+    after : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    expect.census.same(before, after)
+
 def expect.bounded() -> IO(Unit):
   do IO<Unit>:
     +timeout : U32 <- Proc.etimedout()
@@ -267,6 +326,8 @@ def expect.bounded() -> IO(Unit):
         5000, 0))
     expect.bounded.status(137, signaled, "a signaled leader is 128 + signal")
     expect.group(timeout)
+    expect.bounded.invalid()
+    expect.bounded.repeat()
 
 def signal.send(own: U32) ->
   IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes>):
