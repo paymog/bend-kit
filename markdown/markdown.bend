@@ -666,30 +666,46 @@ def close_tag(+s: String) -> Maybe<&2, Nat>:
     c : Nat <- tok(">", String.drop(s, b))
     return Nat.add(b, c)
 
-def comment(+s: String) -> Maybe<&2, Nat>:
+# The closers that an earlier < showed are missing from the rest of the paragraph: -->, ?>, ]]>, and the > of a declaration.
+type Ms is Data:
+  Ms{com: Bool, pi: Bool, cd: Bool, dec: Bool}
+
+# cut, unless pat is known to be missing.
+def cut.if(no: Bool, +s: String, +pat: String) -> Maybe<&2, Nat>:
+  when(Maybe<&2, Nat>, no, u => None{}, u => cut(s, pat))
+
+def comment(+no: Bool, +s: String) -> Maybe<&2, Nat>:
   +a = String.drop(s, 4n)
   do Maybe<&2, Nat>:
     _ : Nat <- tok("<!--", s)
-    b : Nat <- or(tok(">", a), or(tok("->", a), cut(a, "-->")))
+    b : Nat <- or(tok(">", a), or(tok("->", a), cut.if(no, a, "-->")))
     return Nat.add(4n, b)
 
-def decl(+s: String) -> Maybe<&2, Nat>:
+def decl(+no: Bool, +s: String) -> Maybe<&2, Nat>:
   do Maybe<&2, Nat>:
     _ : Nat <- tok("<!", s)
     _ : Nat <- need(is_alpha(hd(String.drop(s, 2n))), 0n)
-    c : Nat <- cut(String.drop(s, 2n), ">")
+    c : Nat <- cut.if(no, String.drop(s, 2n), ">")
     return Nat.add(2n, c)
 
-def cut.after(+p: String, +s: String, +pat: String) -> Maybe<&2, Nat>:
+def cut.after(+no: Bool, +p: String, +s: String, +pat: String) -> Maybe<&2, Nat>:
   +n = String.length(p)
   do Maybe<&2, Nat>:
     _ : Nat <- tok(p, s)
-    c : Nat <- cut(String.drop(s, n), pat)
+    c : Nat <- cut.if(no, String.drop(s, n), pat)
     return Nat.add(n, c)
 
 # The length of the raw inline HTML at the start of s.
-def raw_html(+s: String) -> Maybe<&2, Nat>:
-  or(open_tag(s), or(close_tag(s), or(comment(s), or(cut.after("<?", s, "?>"), or(cut.after("<![CDATA[", s, "]]>"), decl(s))))))
+def raw_html(ms: Ms, +s: String) -> Maybe<&2, Nat>:
+  match ms:
+    case Ms{com, pi, cd, dec}:
+      or(open_tag(s), or(close_tag(s), or(comment(com, s), or(cut.after(pi, "<?", s, "?>"), or(cut.after(cd, "<![CDATA[", s, "]]>"), decl(dec, s))))))
+
+# After a < at t that was not inline HTML: the closer it scanned for is missing from the rest.
+def ms.add(+t: String, m: Ms) -> Ms:
+  match m:
+    case Ms{com, pi, cd, dec}:
+      Ms{com || String.starts_with(t, "!--"), pi || String.starts_with(t, "?"), cd || String.starts_with(t, "![CDATA["), dec || (String.starts_with(t, "!") && is_alpha(hd(String.drop(t, 1n))))}
 
 # ---- blocks
 
@@ -1934,19 +1950,19 @@ def lt.html(m: Maybe<&2, Nat>, +s: String, +buf: String, out: List<&2, Inl>, +o:
       +raw = String.take(s, n)
       Is{String.drop(s, n), 62, SNil{}, IHtml{html_out(o, raw), raw} <> flush(buf, out)}
 
-def lt.email(m: Maybe<&2, Got>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
+def lt.email(m: Maybe<&2, Got>, +ms: Ms, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
   match m:
     case Some{Got{+v, rest}}:
       Is{rest, 62, SNil{}, IHtml{"<a href=\"mailto:" ++ href(v) ++ "\">" ++ esc(v) ++ "</a>", v} <> flush(buf, out)}
     case None{}:
-      lt.html(raw_html(s), s, buf, out, o)
+      lt.html(raw_html(ms, s), s, buf, out, o)
 
-def lt.uri(m: Maybe<&2, Got>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
+def lt.uri(m: Maybe<&2, Got>, +ms: Ms, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
   match m:
     case Some{Got{+v, rest}}:
       Is{rest, 62, SNil{}, IHtml{"<a href=\"" ++ url(o.safe(o), v) ++ "\">" ++ esc(v) ++ "</a>", v} <> flush(buf, out)}
     case None{}:
-      lt.email(auto.email(String.drop(s, 1n)), s, buf, out, o)
+      lt.email(auto.email(String.drop(s, 1n)), ms, s, buf, out, o)
 
 def amp.got(m: Maybe<&2, Got>, +t: String, buf: String, out: List<&2, Inl>) -> Is:
   match m:
@@ -2343,7 +2359,17 @@ def opens(k: Ic, +n: Nat) -> Nat:
     case _:
       n
 
-def istep(k: Ic, +open: Nat, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
+# A < step that ends with prev still < was not inline HTML or an autolink.
+def misses(k: Ic, +t: String, st: Is, +ms: Ms) -> Ms:
+  match k:
+    case IcLt{}:
+      match st:
+        case Is{s, prev, buf, out}:
+          when(Ms, eq(prev, 60), u => ms.add(t, ms), u => ms)
+    case _:
+      ms
+
+def istep(k: Ic, +open: Nat, +ms: Ms, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match k:
     case IcOther{}:
       other(o.gfm(o) && al.bound(prev), y, t, buf, out, o)
@@ -2360,13 +2386,13 @@ def istep(k: Ic, +open: Nat, +y: U32, +t: String, +prev: U32, +buf: String, +out
     case IcClose{}:
       when(Is, Nat.is_eq(open, 0n), u => Is{t, 93, SCon{']', SNil{}}, flush(buf, out)}, u => close.br(brk(flush(buf, out), Nil{}), t, flush(buf, out), refs, o))
     case IcLt{}:
-      lt.uri(auto.uri(t), SCon{Chr{y}, t}, buf, out, o)
+      lt.uri(auto.uri(t), ms, SCon{Chr{y}, t}, buf, out, o)
     case IcAmp{}:
       amp.got(ent(t), t, buf, out)
     case IcNl{}:
       nl(t, buf, out)
 
-def inl.go(f: Nat, st: Is, +open: Nat, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
+def inl.go(f: Nat, st: Is, +open: Nat, +ms: Ms, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
   match f:
     case 0n:
       Nil{}
@@ -2378,11 +2404,12 @@ def inl.go(f: Nat, st: Is, +open: Nat, +refs: List<&2, Ref>, +o: Opts) -> List<&
               List.reverse(&2, Inl, flush(buf, out))
             case SCon{Chr{+y}, +t}:
               +k = ic(y, hd(t), o.gfm(o))
-              inl.go(g, istep(k, open, y, t, prev, buf, out, refs, o), opens(k, open), refs, o)
+              +st2 = istep(k, open, ms, y, t, prev, buf, out, refs, o)
+              inl.go(g, st2, opens(k, open), misses(k, t, st2, ms), refs, o)
 
 # A paragraph or heading's text as HTML.
 def inline(+s: String, +refs: List<&2, Ref>, +o: Opts) -> String:
-  r.inl(emph(inl.go(Nat.add(String.length(s), 2n), Is{s, 10, SNil{}, Nil{}}, 0n, refs, o)))
+  r.inl(emph(inl.go(Nat.add(String.length(s), 2n), Is{s, 10, SNil{}, Nil{}}, 0n, Ms{False{}, False{}, False{}, False{}}, refs, o)))
 
 # ---- HTML
 

@@ -38,3 +38,5 @@ def main() -> IO(Unit):
     sizes(False{}, "noref", "See [plain] here.\n")
     sizes(False{}, "stray", "See plain] here.\n")
     sizes(False{}, "closers", "Some a* b_ text here.\n")
+    sizes(False{}, "comment", "a <!-- b\n")
+    sizes(False{}, "decl", "a <!x b\n")

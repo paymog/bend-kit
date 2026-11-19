@@ -37,7 +37,7 @@ Bend took 311.8 ms on 2026-11-13. `Bool.pick` evaluates both of its branches, so
 
 ## Paragraph scaling
 
-`scale.bend` times one render of one paragraph of N copies of a line, followed by the definition `[foo]: /url`. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. The `ref` line is `See [foo] here.`, a shortcut reference link. The `noref` line is `See [plain] here.`, with no definition. The `stray` line is `See plain] here.`, with no open bracket. The `closers` line is `Some a* b_ text here.`, with two emphasis closers that have no opener. Doubling N should about double the time.
+`scale.bend` times one render of one paragraph of N copies of a line, followed by the definition `[foo]: /url`. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. The `ref` line is `See [foo] here.`, a shortcut reference link. The `noref` line is `See [plain] here.`, with no definition. The `stray` line is `See plain] here.`, with no open bracket. The `closers` line is `Some a* b_ text here.`, with two emphasis closers that have no opener. The `comment` line is `a <!-- b` and the `decl` line is `a <!x b`; neither is ever closed. Doubling N should about double the time.
 
 ```sh
 bend scale.bend -o out/scale && ./out/scale
@@ -102,6 +102,18 @@ Emphasis closers with no opener, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times
 | 1600 | 843.2 | 19.3 |
 
 Each closer with no opener searched the whole stack. The emphasis pass now keeps the reference implementation's `openers_bottom`: for each closer kind (character, whether the closer can open, and its length mod 3) the height below which no opener fits. A miss raises that height to the top of the stack, and a match lowers every height to the new top.
+
+Unclosed HTML comments and declarations, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `before` is `markdown` 0.3.6.0; `after` is 0.3.7.0.
+
+| lines | comment before | comment after | decl before | decl after |
+|---:|---:|---:|---:|---:|
+| 100 | 1.5 | 0.5 | 1.0 | 0.5 |
+| 200 | 5.0 | 1.1 | 4.0 | 1.0 |
+| 400 | 22.1 | 2.4 | 17.9 | 2.1 |
+| 800 | 87.4 | 5.6 | 74.1 | 5.0 |
+| 1600 | 355.1 | 10.9 | 285.9 | 9.5 |
+
+Each `<!--`, `<?`, `<![CDATA[`, or `<!` with a letter scanned the rest of the paragraph for its closer. When the closer was missing, every later one scanned again. The scanner now remembers, as cmark does, which closers a failed `<` showed to be missing, and skips those scans for the rest of the paragraph.
 
 ## Caveats
 
