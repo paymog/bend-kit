@@ -591,6 +591,37 @@ static void process_job_close_fds(ProcessJob* j) {
 #ifndef PROCESS_RUN
 #define PROCESS_RUN
 
+static ProcessJob* process_run_job_build(Env e, Term* f, IoWork* w) {
+  u64         cmd_len = 0;
+  char*       cmd     = io_cstr(e, f[0], &cmd_len);
+  bool        bad     = false;
+  char**      argv    = process_argv_build(e, cmd, f[1], &bad);
+  char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
+  u64         cwd_len = 0;
+  char*       cwd     = io_cstr(e, f[3], &cwd_len);
+  u64         in_len  = 0;
+  bool        in_bad  = false;
+  char*       in      = process_octets(e, f[4], &in_len, &in_bad);
+  bad                 = bad || in_bad || io_nul(cwd, cwd_len);
+  ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
+  j->cmd              = cmd;
+  j->cwd              = cwd;
+  j->argv             = argv;
+  j->envp             = envp;
+  j->in               = in;
+  j->in_len           = in_len;
+  j->in_wr            = -1;
+  j->out_rd           = -1;
+  j->err_rd           = -1;
+  w->data             = (char*)j;
+  w->code             = 0;
+  if (bad || io_nul(cmd, cmd_len) || !argv || !envp) {
+    w->code = bad ? EINVAL : EILSEQ;
+    return NULL;
+  }
+  return j;
+}
+
 static Term process_run_raw_pack(Env e, IoWork* w) {
   ProcessJob* j = (ProcessJob*)w->data;
   Term        r;
@@ -647,30 +678,7 @@ static void process_run_raw_call(IoWork* w) {
 }
 
 Term run_raw_run(Env e, Term* f, IoWork* w) {
-  u64         cmd_len = 0;
-  char*       cmd     = io_cstr(e, f[0], &cmd_len);
-  bool        bad     = false;
-  char**      argv    = process_argv_build(e, cmd, f[1], &bad);
-  char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
-  u64         cwd_len = 0;
-  char*       cwd     = io_cstr(e, f[3], &cwd_len);
-  u64         in_len  = 0;
-  bool        in_bad  = false;
-  char*       in      = process_octets(e, f[4], &in_len, &in_bad);
-  bad                 = bad || in_bad || io_nul(cwd, cwd_len);
-  ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
-  j->cmd              = cmd;
-  j->cwd              = cwd;
-  j->argv             = argv;
-  j->envp             = envp;
-  j->in               = in;
-  j->in_len           = in_len;
-  j->in_wr            = -1;
-  j->out_rd           = -1;
-  j->err_rd           = -1;
-  w->data             = (char*)j;
-  if (bad || io_nul(cmd, cmd_len) || !argv || !envp) {
-    w->code = bad ? EINVAL : EILSEQ;
+  if (!process_run_job_build(e, f, w)) {
     return process_run_raw_pack(e, w);
   }
   return io_work(w, process_run_raw_call, process_run_raw_pack);
@@ -785,36 +793,14 @@ static void process_run_bounded_call(IoWork* w) {
 }
 
 Term run_bounded_raw_run(Env e, Term* f, IoWork* w) {
-  u64         cmd_len = 0;
-  char*       cmd     = io_cstr(e, f[0], &cmd_len);
-  bool        bad     = false;
-  char**      argv    = process_argv_build(e, cmd, f[1], &bad);
-  char**      envp    = bad ? NULL : process_env_build(e, f[2], &bad);
-  u64         cwd_len = 0;
-  char*       cwd     = io_cstr(e, f[3], &cwd_len);
-  u64         in_len  = 0;
-  bool        in_bad  = false;
-  char*       in      = process_octets(e, f[4], &in_len, &in_bad);
-  u32         ms      = (u32)f[5];
-  bad                 = bad || in_bad || io_nul(cwd, cwd_len);
-  ProcessJob* j       = io_mem(calloc(1, sizeof(ProcessJob)));
-  j->cmd              = cmd;
-  j->cwd              = cwd;
-  j->argv             = argv;
-  j->envp             = envp;
-  j->in               = in;
-  j->in_len           = in_len;
-  j->in_wr            = -1;
-  j->out_rd           = -1;
-  j->err_rd           = -1;
-  j->deadline_ns      = ms ? process_now_ns() + (u64)ms * 1000000ull : 0;
-  j->max_out          = (u32)f[6];
-  j->group            = true;
-  w->data             = (char*)j;
-  if (bad || io_nul(cmd, cmd_len) || !argv || !envp) {
-    w->code = bad ? EINVAL : EILSEQ;
+  ProcessJob* j = process_run_job_build(e, f, w);
+  if (!j) {
     return process_run_raw_pack(e, w);
   }
+  u32 ms         = (u32)f[5];
+  j->deadline_ns = ms ? process_now_ns() + (u64)ms * 1000000ull : 0;
+  j->max_out     = (u32)f[6];
+  j->group       = true;
   return io_work(w, process_run_bounded_call, process_run_raw_pack);
 }
 

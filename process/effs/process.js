@@ -232,7 +232,8 @@ function process_bounded_libc() {
   if (process_bounded_libc.lib === undefined) {
     const ffi = require("bun:ffi");
     const mac = process.platform === "darwin";
-    const T = { i: "i32", h: "i16", p: "ptr", U: "u64", I: "i64" };
+    // nfds_t is unsigned int on Darwin and unsigned long on 64-bit Linux.
+    const T = { i: "i32", h: "i16", p: "ptr", U: "u64", I: "i64", n: mac ? "u32" : "u64" };
     process_bounded_libc.lib = ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6",
       Object.fromEntries(("posix_spawnp:pppppp>i posix_spawn_file_actions_init:p>i"
         + " posix_spawn_file_actions_destroy:p>i posix_spawn_file_actions_adddup2:pii>i"
@@ -240,7 +241,7 @@ function process_bounded_libc() {
         + " posix_spawnattr_init:p>i posix_spawnattr_destroy:p>i posix_spawnattr_setflags:ph>i"
         + " posix_spawnattr_setpgroup:pi>i posix_spawnattr_setsigdefault:pp>i"
         + " posix_spawnattr_setsigmask:pp>i sigemptyset:p>i sigaddset:pi>i sigaction:ipp>i"
-        + " pipe:p>i poll:pii>i write:ipU>I waitid:iipi>i waitpid:ipi>i kill:ii>i").split(" ")
+        + " pipe:p>i poll:pni>i write:ipU>I waitid:iipi>i waitpid:ipi>i kill:ii>i").split(" ")
         .map((s) => {
           const [name, args, ret] = s.split(/[:>]/);
           return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
@@ -289,7 +290,8 @@ function process_leader_held(c, pid, exited) {
   const flags = 4 | 1 | (c.mac ? 0x20 : 0x01000000);
   for (;;) {
     info.fill(0);
-    if (c.lib.waitid(c.mac ? 0 : 1, pid, ptr(info), flags) === 0) {
+    // P_PID is 1 on both Linux and macOS; 0 is P_ALL, which ignores pid.
+    if (c.lib.waitid(1, pid, ptr(info), flags) === 0) {
       exited.v = read.i32(ptr(info), c.mac ? 12 : 16) !== 0;
       return 0;
     }
@@ -479,10 +481,8 @@ function process_bounded_pump(c, job, inb, deadline, limit) {
 }
 
 // Like run_raw, in a new process group, with a deadline and a per-stream
-// output cap. The group kill is sent only while this call still holds the
-// unreaped leader, so the group id cannot have been reused. If anything else
-// reaped the leader, nothing is signaled and the call fails with ECHILD.
-function run_bounded_raw(cmd, args, env, cwd, stdin, ms, max_out, k) {
+// output cap. This call owns the group leader through cleanup and final reap.
+function run_bounded_raw(cmd, args, env, cwd, stdin, ms, max_out) {
   const argv = process_argv(cmd, args);
   if (argv === null || process_has_nul(cwd)) {
     return io_fail(process_einval());
@@ -539,6 +539,9 @@ function run_bounded_raw(cmd, args, env, cwd, stdin, ms, max_out, k) {
       nap = Math.min(nap * 2, 16);
     }
   }
+  // If the leader was already reaped, do not signal the group: its ID may
+  // have been reused. The caller must not reap the leader concurrently;
+  // this ownership check and the group signal are not atomic.
   if (!held) {
     return io_fail(echild);
   }

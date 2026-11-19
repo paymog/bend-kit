@@ -20,4 +20,6 @@ if command -v bun >/dev/null; then
   bend ownership.bend -o "$out/ownership.js"
   ignore bun "$out/ownership.js"
   [ ! -e .process-ownership-marker ] || { echo "js: the command ran" >&2; exit 1; }
+  echo "== js process selector and fake-ffi ownership"
+  bun ./selector-check.js
 fi
