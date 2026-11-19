@@ -617,19 +617,22 @@ def take_len(+xs: List<&2, U32>, +n: Nat, h: MNat.le(n, List.length(&2, U32, xs)
       %take_len(t, p, h) : {1n+List.length(&2, U32, List.take(&2, U32, t, p)) == 1n+_ : Nat}
       {==}
 
-def unmask_len(xs: List<&2, U32>, +key: U32) -> {List.length(&2, U32, WS.list.unmask.go(xs, key)) == List.length(&2, U32, xs) : Nat}:
+def unmask_len(xs: List<&2, U32>, +a: U32, +b: U32, +c: U32, +d: U32) -> {List.length(&2, U32, WS.list.unmask.go(xs, a, b, c, d)) == List.length(&2, U32, xs) : Nat}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +t}:
-      %unmask_len(t, ((key >> 8n) .|. (key << 24n) : U32)) :
-        {1n+List.length(&2, U32, WS.list.unmask.go(t, ((key >> 8n) .|. (key << 24n) : U32))) == 1n+_ : Nat}
+      %unmask_len(t, b, c, d, a) :
+        {1n+List.length(&2, U32, WS.list.unmask.go(t, b, c, d, a)) == 1n+_ : Nat}
       {==}
+
+def unmask_key_len(xs: List<&2, U32>, +key: U32) -> {List.length(&2, U32, WS.list.unmask(key, xs)) == List.length(&2, U32, xs) : Nat}:
+  unmask_len(xs, (key % 256 : U32), ((key / 256) % 256 : U32), (((key / 256) / 256) % 256 : U32), (((key / 256) / 256) / 256 : U32))
 
 def unmask_when_len(m: Bool, +key: U32, +ys: List<&2, U32>) -> {List.length(&2, U32, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, key, ys)) == List.length(&2, U32, ys) : Nat}:
   match m:
     case True{}:
-      unmask_len(ys, key)
+      unmask_key_len(ys, key)
     case False{}:
       {==}
 
@@ -1071,16 +1074,19 @@ def HSp(+p: List<&2, U32>) -> U32:
   HS(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535))
 
 # Masking twice gives the payload back.
-def unmask_twice(xs: List<&2, U32>, +key: U32) -> {WS.list.unmask.go(WS.list.unmask.go(xs, key), key) == xs : List<&2, U32>}:
+def unmask_twice(xs: List<&2, U32>, +a: U32, +b: U32, +c: U32, +d: U32) -> {WS.list.unmask.go(WS.list.unmask.go(xs, a, b, c, d), a, b, c, d) == xs : List<&2, U32>}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +t}:
-      %Equal.sym(U32, U32.xor(U32.xor(x, (key .&. 255 : U32)), (key .&. 255 : U32)), x, Lemmas.u32_xor_twice(x, (key .&. 255 : U32))) :
-        {Con{_, WS.list.unmask.go(WS.list.unmask.go(t, ((key >> 8n) .|. (key << 24n) : U32)), ((key >> 8n) .|. (key << 24n) : U32))} == Con{x, t} : List<&2, U32>}
-      %Equal.sym(List<&2, U32>, WS.list.unmask.go(WS.list.unmask.go(t, ((key >> 8n) .|. (key << 24n) : U32)), ((key >> 8n) .|. (key << 24n) : U32)), t, unmask_twice(t, ((key >> 8n) .|. (key << 24n) : U32))) :
+      %Equal.sym(U32, U32.xor(U32.xor(x, a), a), x, Lemmas.u32_xor_twice(x, a)) :
+        {Con{_, WS.list.unmask.go(WS.list.unmask.go(t, b, c, d, a), b, c, d, a)} == Con{x, t} : List<&2, U32>}
+      %Equal.sym(List<&2, U32>, WS.list.unmask.go(WS.list.unmask.go(t, b, c, d, a), b, c, d, a), t, unmask_twice(t, b, c, d, a)) :
         {Con{x, _} == Con{x, t} : List<&2, U32>}
       {==}
+
+def unmask_key_twice(xs: List<&2, U32>, +key: U32) -> {WS.list.unmask(key, WS.list.unmask(key, xs)) == xs : List<&2, U32>}:
+  unmask_twice(xs, (key % 256 : U32), ((key / 256) % 256 : U32), (((key / 256) / 256) % 256 : U32), (((key / 256) / 256) / 256 : U32))
 
 def oct(+y: U32) -> {U32.add(U32.mul(U32.div(y, 256), 256), U32.mod(y, 256)) == y : U32}:
   Lemmas.u32_div_mul_add_mod(y, 256, {==})
@@ -1240,14 +1246,14 @@ def mbody_len(key: Maybe<&2, U32>, +p: List<&2, U32>) -> {List.length(&2, U32, m
     case None{}:
       {==}
     case Some{+k}:
-      unmask_len(p, k)
+      unmask_key_len(p, k)
 
 def eu_of(key: Maybe<&2, U32>, +p: List<&2, U32>) -> {WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, Laws.wire.masked(key), key_of(key), mbody(key, p)) == p : List<&2, U32>}:
   match key:
     case None{}:
       {==}
     case Some{+k}:
-      unmask_twice(p, k)
+      unmask_key_twice(p, k)
 
 def eLq(+key: Maybe<&2, U32>, +p: List<&2, U32>, +max: U32, fit: MNat.le(List.length(&2, U32, p), U32.to_nat(max))) ->
   {U32.to_nat(lp(p)) == List.length(&2, U32, mbody(key, p)) : Nat}:
@@ -1421,3 +1427,23 @@ def Laws.prefix_need(fin, o, key, max, p, k, ok, fit, less):
     hdr_form(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535), fin, o, key, p, lp(p), List.length(&2, U32, p), {==}, ln(List.length(&2, U32, p), max, fit), ok),
     eH_form(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535), fin, o, key, lp(p)),
     eLq(key, p, max, fit), fitq(key, p, max, fit), less_split(fin, o, key, p, k, less))
+
+# Key octet j mod 4.
+def ko(+ks: List<&2, U32>, +j: Nat) -> U32:
+  Laws.key.at(ks, Nat.mod(j, 4n))
+
+# Started at octet i, the turning key holds octets i to i + 3 mod 4.
+def xmask_go(p: List<&2, U32>, +i: Nat, +ks: List<&2, U32>) ->
+  {WS.list.unmask.go(p, ko(ks, i), ko(ks, 1n+i), ko(ks, 1n+1n+i), ko(ks, 1n+1n+1n+i)) == Laws.xmask(p, i, ks) : List<&2, U32>}:
+  match p:
+    case Nil{}:
+      {==}
+    case Con{+x, +t}:
+      %Equal.cong(Nat, U32, j => Laws.key.at(ks, j), Nat.mod(Nat.add(4n, i), 4n), Nat.mod(i, 4n), MNat.add_mod_left(i, 4n)) :
+        {Con{(x .^. ko(ks, i) : U32), WS.list.unmask.go(t, ko(ks, 1n+i), ko(ks, 1n+1n+i), ko(ks, 1n+1n+1n+i), _)} == Laws.xmask(Con{x, t}, i, ks) : List<&2, U32>}
+      %xmask_go(t, 1n+i, ks) :
+        {Con{(x .^. ko(ks, i) : U32), WS.list.unmask.go(t, ko(ks, 1n+i), ko(ks, 1n+1n+i), ko(ks, 1n+1n+1n+i), ko(ks, 1n+1n+1n+1n+i))} == Con{(x .^. ko(ks, i) : U32), _} : List<&2, U32>}
+      {==}
+
+def Laws.unmask_rfc(k, p):
+  xmask_go(p, 0n, Laws.little(3n, k))

@@ -510,6 +510,32 @@ law prefix_need:
   for +less: MNat.lt(k, List.length(&2, U32, wire(fin, o, key, p)))
   {WS.list.next(wire.masked(key), max, List.take(&2, U32, wire(fin, o, key, p), k)) == WS.Need{List.take(&2, U32, wire(fin, o, key, p), k)} : WS.Decode<List<&2, U32>, List<&2, U32>>}
 
+# Octet j of ks, 0 past its end.
+def key.at(ks: List<&2, U32>, j: Nat) -> U32:
+  match ks:
+    case Nil{}:
+      0
+    case Con{+k, t}:
+      match j:
+        case 0n:
+          k
+        case 1n+i:
+          key.at(t, i)
+
+# RFC 6455 §5.3: octet i of p goes XOR octet i mod 4 of the key ks.
+def xmask(p: List<&2, U32>, +i: Nat, +ks: List<&2, U32>) -> List<&2, U32>:
+  match p:
+    case Nil{}:
+      Nil{}
+    case Con{+x, t}:
+      Con{(x .^. key.at(ks, Nat.mod(i, 4n)) : U32), xmask(t, 1n+i, ks)}
+
+# The model masks as §5.3 says, with the key octets in the order wire.body sends them.
+law unmask_rfc:
+  for +k: U32
+  for +p: List<&2, U32>
+  {WS.list.unmask(k, p) == xmask(p, 0n, little(3n, k)) : List<&2, U32>}
+
 # WS.bytes.cut ends at pos + hs + len, within end, once Bytes.fits holds for the end - pos octets left: nothing wraps.
 law cut_exact:
   for +pos: U32

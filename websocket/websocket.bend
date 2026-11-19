@@ -584,16 +584,16 @@ def list.cut(xs: List<&2, U32>, +hs: U32, +len: U32) -> List<&2, U32> & List<&2,
   (List.take(&2, U32, List.drop(&2, U32, ys, U32.to_nat(hs)), U32.to_nat(len)),
     List.drop(&2, U32, ys, Nat.add(U32.to_nat(hs), U32.to_nat(len))))
 
-# Octet i goes XOR key byte i mod 4; the key turns one byte per octet.
-def list.unmask.go(xs: List<&2, U32>, +key: U32) -> List<&2, U32>:
+# Octet i goes XOR key octet i mod 4 (§5.3): a, b, c, d are the key's octets, low first, and turn one place per octet.
+def list.unmask.go(xs: List<&2, U32>, +a: U32, +b: U32, +c: U32, +d: U32) -> List<&2, U32>:
   match xs:
     case Nil{}:
       Nil{}
     case Con{+x, t}:
-      Con{(x .^. (key .&. 255 : U32) : U32), list.unmask.go(t, ((key >> 8n) .|. (key << 24n) : U32))}
+      Con{(x .^. a : U32), list.unmask.go(t, b, c, d, a)}
 
 def list.unmask(+key: U32, xs: List<&2, U32>) -> List<&2, U32>:
-  list.unmask.go(xs, key)
+  list.unmask.go(xs, (key % 256 : U32), ((key / 256) % 256 : U32), (((key / 256) / 256) % 256 : U32), (((key / 256) / 256) / 256 : U32))
 
 def list.next(+masked: Bool, +max: U32, xs: List<&2, U32>) -> Decode<List<&2, U32>, List<&2, U32>>:
   next(~List<&2, U32>, ~List<&2, U32>, ~list.prefix, ~list.fits, ~list.cut, ~list.unmask, masked, max, xs)
