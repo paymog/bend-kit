@@ -3,7 +3,7 @@
 CommonMark 0.31.2 to HTML in pure Bend, with opt-in GitHub Flavored Markdown extensions. All 652 spec examples pass.
 
 ```bend
-import bend-kit-markdown@0.3.8.0/markdown.bend as M
+import bend-kit-markdown@0.3.9.0/markdown.bend as M
 ```
 
 ```bend
@@ -45,6 +45,6 @@ python3 markdown/conformance.py --gfm    # the GFM spec's extension examples wit
 python3 markdown/gen.py                  # rewrite entities.bend from Python's html.entities
 ```
 
-`conformance.py` downloads `spec.json` for 0.31.2 and checks all 652 examples byte for byte. With `--safe`, it compares `to_html_safe` with cmark 0.31.2 on the same 652 inputs; all match. With `--gfm`, it runs the 24 extension examples of the cmark-gfm 0.29.0.gfm.13 spec (tables, task lists, strikethrough, autolinks, and the tag filter); all pass. `LAWS.bend` holds 25 spec examples, 8 escaping laws, 7 safe-mode laws, and 8 GFM laws. Two laws hold for every string: the text escape `esc` leaves no `<`, `>`, or `"`, and each `&` it writes starts `&amp;`, `&lt;`, `&gt;`, or `&quot;`.
+`conformance.py` downloads `spec.json` for 0.31.2 and checks all 652 examples byte for byte. With `--safe`, it compares `to_html_safe` with cmark 0.31.2 on the same 652 inputs; all match. With `--gfm`, it runs the 24 extension examples of the cmark-gfm 0.29.0.gfm.13 spec (tables, task lists, strikethrough, autolinks, and the tag filter); all pass. `LAWS.bend` holds 25 spec examples, 8 escaping laws, 1 alt text law, 7 safe-mode laws, and 8 GFM laws. Two laws hold for every string: the text escape `esc` leaves no `<`, `>`, or `"`, and each `&` it writes starts `&amp;`, `&lt;`, `&gt;`, or `&quot;`.
 
 `bench/README.md` compares `to_html` with cmark and libraries in Rust, JavaScript, and Python.

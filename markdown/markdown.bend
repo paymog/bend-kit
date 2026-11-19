@@ -1975,12 +1975,12 @@ def amp.got(m: Maybe<&2, Got>, +t: String, buf: String, out: List<&2, Inl>) -> I
 def nl(+t: String, +buf: String, out: List<&2, Inl>) -> Is:
   +k = count(32, buf)
   +b2 = String.drop(buf, k)
-  Is{skip(~(c => is_sp(c)), t), 10, SNil{}, IHtml{Bool.pick(String, Nat.is_ge(k, 2n), "<br />\n", "\n"), "\n"} <> flush(b2, out)}
+  Is{skip(~(c => is_sp(c)), t), 10, SNil{}, IHtml{Bool.pick(String, Nat.is_ge(k, 2n), "<br />\n", "\n"), " "} <> flush(b2, out)}
 
 def bs(+t: String, +buf: String, +out: List<&2, Inl>) -> Is:
   +x = hd(t)
   Bool.pick(Is, is_apunct(x), Is{String.drop(t, 1n), x, SCon{Chr{x}, buf}, out},
-    Bool.pick(Is, eq(x, 10), Is{skip(~(c => is_sp(c)), String.drop(t, 1n)), 10, SNil{}, IHtml{"<br />\n", "\n"} <> flush(buf, out)},
+    Bool.pick(Is, eq(x, 10), Is{skip(~(c => is_sp(c)), String.drop(t, 1n)), 10, SNil{}, IHtml{"<br />\n", " "} <> flush(buf, out)},
       Is{t, 92, SCon{'\\', buf}, out}))
 
 def delim(+c: U32, +s: String, +prev: U32, +buf: String, +out: List<&2, Inl>) -> Is:
