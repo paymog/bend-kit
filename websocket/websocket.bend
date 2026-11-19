@@ -400,25 +400,26 @@ def header.err(+masked: Bool, +b0: U32, +m: Bool, +hi: U32, +len: U32) -> Maybe<
 def header.check(+masked: Bool, +b0: U32, +m: Bool, +key: U32, +hs: U32, +hi: U32, +len: U32) -> Header:
   header.verdict(header.err(masked, b0, m, hi, len), U32.is_ne((b0 .&. 128 : U32), 0), (b0 .&. 15 : U32), m, key, hs, len)
 
+# Four octets, most significant first. Multiply and add, not shift and or: the proofs reason about them over Nat.
+def be32(+a: U32, +b: U32, +c: U32, +d: U32) -> U32:
+  (((a * 256 + b) * 256 + c) * 256 + d : U32)
+
 # The mask key (§5.3) follows the length; its first octet is the key's low byte.
 def header.key(m: Bool, t: List<&2, U32>, +masked: Bool, +b0: U32, +hs: U32, +hi: U32, +len: U32) -> Header:
   match m:
     case True{}:
       match t:
         case Con{+k0, Con{+k1, Con{+k2, Con{+k3, r}}}}:
-          header.check(masked, b0, True{}, (k0 .|. (k1 << 8n) .|. (k2 << 16n) .|. (k3 << 24n) : U32), (hs + 4 : U32), hi, len)
+          header.check(masked, b0, True{}, be32(k3, k2, k1, k0), (hs + 4 : U32), hi, len)
         case _:
           HNeed{}
     case False{}:
       header.check(masked, b0, False{}, 0, hs, hi, len)
 
-def be32(+a: U32, +b: U32, +c: U32, +d: U32) -> U32:
-  ((a << 24n) .|. (b << 16n) .|. (c << 8n) .|. d : U32)
-
 def header.ext16(t: List<&2, U32>, +masked: Bool, +b0: U32, +m: Bool) -> Header:
   match t:
     case Con{+x, Con{+y, r}}:
-      header.key(m, r, masked, b0, 4, 0, ((x << 8n) .|. y : U32))
+      header.key(m, r, masked, b0, 4, 0, (x * 256 + y : U32))
     case _:
       HNeed{}
 
