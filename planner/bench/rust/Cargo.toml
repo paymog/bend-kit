@@ -1,0 +1,11 @@
+[package]
+name = "planner-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+petgraph = "=0.8.3"
+
+[profile.release]
+opt-level = 3

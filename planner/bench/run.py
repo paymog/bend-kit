@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Build and run the planner benchmark; print a markdown table. See README.md."""
+import os, statistics, subprocess, sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+OUT = HERE / "out"
+RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+ROUNDS = sys.argv[2] if len(sys.argv) > 2 else "16"
+ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
+
+# name -> (build argv or None, run argv). Every program plans the same graph ROUNDS times.
+VARIANTS = {
+    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "planner-bench", ROUNDS]),
+    "Bun": (["sh", "-c", "npm install -s --prefix out/js toposort@2.0.2 && cp bench.ts out/js/"], ["bun", OUT / "js" / "bench.ts", ROUNDS]),
+    "Node": (None, ["node", "--no-warnings", "--experimental-strip-types", OUT / "js" / "bench.ts", ROUNDS]),
+    "Python": (None, [sys.executable, "bench.py", ROUNDS]),
+    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", ROUNDS]),
+}
+
+
+def parse(text):
+    """-> (ms, checksum). Baselines print `plan ms chk`; Bend prints `chk plan v` and `ms plan v`."""
+    ms = chk = None
+    for line in text.splitlines():
+        p = line.split("\t")
+        if len(p) != 3:
+            continue
+        if p[0] == "chk":
+            chk = p[2]
+        elif p[0] == "ms":
+            ms = float(p[2])
+        else:
+            ms, chk = float(p[1]), p[2]
+    return ms, chk
+
+
+def main():
+    OUT.mkdir(exist_ok=True)
+    times, checks = {}, {}
+    for name, (build, run) in VARIANTS.items():
+        if build and subprocess.run(build, cwd=HERE, env=ENV).returncode != 0:
+            sys.exit(f"build failed: {name}")
+        runs = []
+        for _ in range(RUNS):
+            r = subprocess.run(run, cwd=HERE, env=ENV, capture_output=True, text=True)
+            if r.returncode != 0:
+                sys.exit(f"{name} failed:\n{r.stderr}")
+            runs.append(parse(r.stdout))
+        times[name] = statistics.median(ms for ms, _ in runs)
+        checks[name] = runs[0][1]
+        print(f"ran {name}", file=sys.stderr)
+
+    if len(set(checks.values())) > 1:
+        sys.exit(f"checksum mismatch: {checks}")
+    print("| op | " + " | ".join(times) + " |")
+    print("|---|" + "---:|" * len(times))
+    print(f"| plan x{ROUNDS} | " + " | ".join(f"{t:,.1f}" for t in times.values()) + " |")
+    print()
+    print(f"checksum: {next(iter(checks.values()))}")
+
+
+main()

@@ -415,50 +415,126 @@ def op.code(o: Op) -> U32:
     case OPong{}:
       10
 
-# Control frames must not be fragmented (§5.5).
-def op.ok(fin: Bool, o: Op) -> Bool:
-  match fin:
-    case True{}:
+# Control frames must not be fragmented, and carry at most 125 octets (§5.5).
+def op.ok(o: Op, fin: Bool, +n: Nat) -> Bool:
+  match o:
+    case OClose{}:
+      Bool.and(fin, Nat.is_le(n, 125n))
+    case OPing{}:
+      Bool.and(fin, Nat.is_le(n, 125n))
+    case OPong{}:
+      Bool.and(fin, Nat.is_le(n, 125n))
+    case _:
       True{}
+
+# x as k + 1 octets, most significant first. The first octet is x / 256^k, so x must be below 256^(k+1).
+def big(k: Nat, +x: U32) -> List<&2, U32>:
+  match k:
+    case 0n:
+      [x]
+    case 1n+j:
+      cat(big(j, (x / 256 : U32)), [(x % 256 : U32)])
+
+# x as k + 1 octets, least significant first, as big puts them.
+def little(k: Nat, +x: U32) -> List<&2, U32>:
+  match k:
+    case 0n:
+      [x]
+    case 1n+j:
+      Con{(x % 256 : U32), little(j, (x / 256 : U32))}
+
+# The second octet: the mask bit, then a 7-bit length.
+def wire.b1(m: Bool, +l7: U32) -> U32:
+  match m:
+    case True{}:
+      (128 + l7 : U32)
     case False{}:
-      match o:
-        case OClose{}:
-          False{}
-        case OPing{}:
-          False{}
-        case OPong{}:
-          False{}
-        case _:
-          True{}
+      l7
 
-# An unmasked frame with a 7-bit length, as a server sends it.
-def wire(fin: Bool, o: Op, +p: List<&2, U32>) -> List<&2, U32>:
-  Con{(Bool.pick(U32, fin, 128, 0) .|. op.code(o) : U32), Con{U32.from_nat(List.length(&2, U32, p)), p}}
+# The length l in its shortest form (§5.2): 7 bits, else 16, else 64, big-endian.
+def wire.len.form(short: Bool, mid: Bool, +m: Bool, +l: U32) -> List<&2, U32>:
+  match short:
+    case True{}:
+      [wire.b1(m, l)]
+    case False{}:
+      match mid:
+        case True{}:
+          Con{wire.b1(m, 126), big(1n, l)}
+        case False{}:
+          Con{wire.b1(m, 127), cat([0, 0, 0, 0], big(3n, l))}
 
-# A client decodes such a frame and leaves what follows it.
+def wire.len(+m: Bool, +l: U32) -> List<&2, U32>:
+  wire.len.form(U32.is_le(l, 125), U32.is_le(l, 65535), m, l)
+
+def wire.masked(key: Maybe<&2, U32>) -> Bool:
+  match key:
+    case None{}:
+      False{}
+    case Some{k}:
+      True{}
+
+# The octets after the length: the payload, or the mask key and the payload masked with it.
+def wire.body(key: Maybe<&2, U32>, +p: List<&2, U32>) -> List<&2, U32>:
+  match key:
+    case None{}:
+      p
+    case Some{+k}:
+      cat(little(3n, k), WS.list.unmask(k, p))
+
+# A frame as a peer sends it: a client masks with Some{key}, a server sends None.
+def wire(fin: Bool, o: Op, +key: Maybe<&2, U32>, +p: List<&2, U32>) -> List<&2, U32>:
+  Con{(Bool.pick(U32, fin, 128, 0) .|. op.code(o) : U32), cat(wire.len(wire.masked(key), U32.from_nat(List.length(&2, U32, p))), wire.body(key, p))}
+
+# The peer decodes such a frame, in any length form, and leaves what follows it.
 law roundtrip:
   for +fin: Bool
   for +o: Op
+  for +key: Maybe<&2, U32>
   for +max: U32
   for +p: List<&2, U32>
   for +ys: List<&2, U32>
-  for ok: {op.ok(fin, o) == True{} : Bool}
-  for +short: MNat.le(List.length(&2, U32, p), 125n)
+  for ok: {op.ok(o, fin, List.length(&2, U32, p)) == True{} : Bool}
   for +fit: MNat.le(List.length(&2, U32, p), U32.to_nat(max))
-  {WS.list.next(False{}, max, cat(wire(fin, o, p), ys)) == WS.Got{WS.Frame{fin, op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  {WS.list.next(wire.masked(key), max, cat(wire(fin, o, key, p), ys)) == WS.Got{WS.Frame{fin, op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
 
 # Every strict prefix of such a frame is incomplete, not malformed.
 law prefix_need:
   for +fin: Bool
   for +o: Op
+  for +key: Maybe<&2, U32>
   for +max: U32
   for +p: List<&2, U32>
   for +k: Nat
-  for ok: {op.ok(fin, o) == True{} : Bool}
-  for +short: MNat.le(List.length(&2, U32, p), 125n)
+  for ok: {op.ok(o, fin, List.length(&2, U32, p)) == True{} : Bool}
   for +fit: MNat.le(List.length(&2, U32, p), U32.to_nat(max))
-  for +less: MNat.lt(k, List.length(&2, U32, wire(fin, o, p)))
-  {WS.list.next(False{}, max, List.take(&2, U32, wire(fin, o, p), k)) == WS.Need{List.take(&2, U32, wire(fin, o, p), k)} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  for +less: MNat.lt(k, List.length(&2, U32, wire(fin, o, key, p)))
+  {WS.list.next(wire.masked(key), max, List.take(&2, U32, wire(fin, o, key, p), k)) == WS.Need{List.take(&2, U32, wire(fin, o, key, p), k)} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+
+# Octet j of ks, 0 past its end.
+def key.at(ks: List<&2, U32>, j: Nat) -> U32:
+  match ks:
+    case Nil{}:
+      0
+    case Con{+k, t}:
+      match j:
+        case 0n:
+          k
+        case 1n+i:
+          key.at(t, i)
+
+# RFC 6455 §5.3: octet i of p goes XOR octet i mod 4 of the key ks.
+def xmask(p: List<&2, U32>, +i: Nat, +ks: List<&2, U32>) -> List<&2, U32>:
+  match p:
+    case Nil{}:
+      Nil{}
+    case Con{+x, t}:
+      Con{(x .^. key.at(ks, Nat.mod(i, 4n)) : U32), xmask(t, 1n+i, ks)}
+
+# The model masks as §5.3 says, with the key octets in the order wire.body sends them.
+law unmask_rfc:
+  for +k: U32
+  for +p: List<&2, U32>
+  {WS.list.unmask(k, p) == xmask(p, 0n, little(3n, k)) : List<&2, U32>}
 
 # WS.bytes.cut ends at pos + hs + len, within end, once Bytes.fits holds for the end - pos octets left: nothing wraps.
 law cut_exact:

@@ -73,6 +73,9 @@ law escape_href:
 law escape_alt:
   {M.to_html("![a & \"b\" <c>](/i)\n") == "<p><img src=\"/i\" alt=\"a &amp; &quot;b&quot; &lt;c&gt;\" /></p>\n" : String}
 
+law alt_line_breaks:
+  {M.to_html("![a\nb  \nc\\\nd](/i)\n") == "<p><img src=\"/i\" alt=\"a b c d\" /></p>\n" : String}
+
 law escape_entity_kept:
   {M.to_html("&amp;lt;\n") == "<p>&amp;lt;</p>\n" : String}
 

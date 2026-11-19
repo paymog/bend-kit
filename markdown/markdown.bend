@@ -553,20 +553,20 @@ def refdef(+s: String) -> Maybe<&2, RefGot>:
 
 # ---- raw HTML
 
-def cut.go(+s: String, hit: Bool, +pat: String) -> Maybe<&2, String>:
+def cut.go(+s: String, hit: Bool, +pat: String, +n: Nat) -> Maybe<&2, Nat>:
   match s:
     case SNil{}:
       None{}
     case SCon{c, t}:
       match hit:
         case True{}:
-          Some{String.drop(SCon{c, t}, String.length(pat))}
+          Some{Nat.add(n, String.length(pat))}
         case False{}:
-          cut.go(t, String.starts_with(t, pat), pat)
+          cut.go(t, String.starts_with(t, pat), pat, 1n+n)
 
-# The text after the first pat in s.
-def cut(+s: String, +pat: String) -> Maybe<&2, String>:
-  cut.go(s, String.starts_with(s, pat), pat)
+# The length of s up to and through the first pat.
+def cut(+s: String, +pat: String) -> Maybe<&2, Nat>:
+  cut.go(s, String.starts_with(s, pat), pat, 0n)
 
 def is_wsn(+c: U32) -> Bool:
   is_sp(c) || is_nl(c)
@@ -574,95 +574,138 @@ def is_wsn(+c: U32) -> Bool:
 def wsp(+s: String) -> String:
   skip(~(c => is_wsn(c)), s)
 
-def need(ok: Bool, +s: String) -> Maybe<&2, String>:
-  Bool.pick(Maybe<&2, String>, ok, Some{s}, None{})
+# The length of the longest prefix of s whose code points satisfy p.
+def run(~p: U32 -> Bool, +s: String) -> Nat:
+  String.length(fst(span(~p, s)))
 
-def tagname(+s: String) -> Maybe<&2, String>:
-  need(is_alpha(hd(s)), skip(~(c => is_alnum(c) || eq(c, 45)), s))
+def wsn(+s: String) -> Nat:
+  run(~(c => is_wsn(c)), s)
 
-def attrname(+s: String) -> Maybe<&2, String>:
+def need(ok: Bool, +n: Nat) -> Maybe<&2, Nat>:
+  Bool.pick(Maybe<&2, Nat>, ok, Some{n}, None{})
+
+def tok(+p: String, +s: String) -> Maybe<&2, Nat>:
+  need(String.starts_with(s, p), String.length(p))
+
+def add(+a: Nat, m: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
+  match m:
+    case None{}:
+      None{}
+    case Some{b}:
+      Some{Nat.add(a, b)}
+
+def tagname(+s: String) -> Maybe<&2, Nat>:
+  need(is_alpha(hd(s)), run(~(c => is_alnum(c) || eq(c, 45)), s))
+
+def attrname(+s: String) -> Maybe<&2, Nat>:
   +c = hd(s)
-  need(is_alpha(c) || eq(c, 95) || eq(c, 58), skip(~(x => is_alnum(x) || eq(x, 95) || eq(x, 46) || eq(x, 58) || eq(x, 45)), s))
+  need(is_alpha(c) || eq(c, 95) || eq(c, 58), run(~(x => is_alnum(x) || eq(x, 95) || eq(x, 46) || eq(x, 58) || eq(x, 45)), s))
 
 def unquoted(+c: U32) -> Bool:
   Bool.not(eq(c, 0) || is_wsn(c) || eq(c, 34) || eq(c, 39) || eq(c, 61) || eq(c, 60) || eq(c, 62) || eq(c, 96))
 
-def attrval(+s: String) -> Maybe<&2, String>:
+def attrval(+s: String) -> Maybe<&2, Nat>:
   +q = hd(s)
-  Bool.pick(Maybe<&2, String>, eq(q, 34) || eq(q, 39), cut(String.drop(s, 1n), one(q)),
-    need(unquoted(q), skip(~(c => unquoted(c)), s)))
+  when(Maybe<&2, Nat>, eq(q, 34) || eq(q, 39), u => add(1n, cut(String.drop(s, 1n), one(q))),
+    u => need(unquoted(q), run(~(c => unquoted(c)), s)))
 
-def or(a: Maybe<&2, String>, b: Maybe<&2, String>) -> Maybe<&2, String>:
+def or(a: Maybe<&2, Nat>, b: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
   match a:
     case Some{x}:
       Some{x}
     case None{}:
       b
 
-def attr.value(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- lit("=", wsp(s))
-    b : String <- attrval(wsp(a))
-    return b
+def attr.value(+s: String) -> Maybe<&2, Nat>:
+  +a = wsn(s)
+  do Maybe<&2, Nat>:
+    b : Nat <- tok("=", String.drop(s, a))
+    +c : Nat = Nat.add(a, b)
+    +d : Nat = Nat.add(c, wsn(String.drop(s, c)))
+    e : Nat <- attrval(String.drop(s, d))
+    return Nat.add(d, e)
 
-def attr(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- need(is_wsn(hd(s)), wsp(s))
-    +b : String <- attrname(a)
-    return Maybe.default(&2, String, attr.value(b), b)
+def attr(+s: String) -> Maybe<&2, Nat>:
+  +a = wsn(s)
+  do Maybe<&2, Nat>:
+    +b : Nat <- add(a, need(is_wsn(hd(s)), 0n))
+    +c : Nat <- add(b, attrname(String.drop(s, b)))
+    return Maybe.default(&2, Nat, add(c, attr.value(String.drop(s, c))), c)
 
-def attrs.go(f: Nat, m: Maybe<&2, String>, +s: String) -> String:
+def attrs.go(f: String, m: Maybe<&2, Nat>, +s: String, +n: Nat) -> Nat:
   match f:
-    case 0n:
-      s
-    case 1n+g:
+    case SNil{}:
+      n
+    case SCon{x, g}:
       match m:
         case None{}:
-          s
-        case Some{+r}:
-          attrs.go(g, attr(r), r)
+          n
+        case Some{+k}:
+          +r = String.drop(s, k)
+          attrs.go(g, attr(r), r, Nat.add(n, k))
 
-def attrs(+s: String) -> String:
-  attrs.go(String.length(s), attr(s), s)
+# Each attribute takes at least one code point, so s itself is enough fuel.
+def attrs(+s: String) -> Nat:
+  attrs.go(s, attr(s), s, 0n)
 
-def open_tag(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- lit("<", s)
-    b : String <- tagname(a)
-    +c : String = wsp(attrs(b))
-    d : String <- or(lit("/>", c), lit(">", c))
-    return d
+def open_tag(+s: String) -> Maybe<&2, Nat>:
+  do Maybe<&2, Nat>:
+    z : Nat <- tok("<", s)
+    +a : Nat <- add(1n, tagname(String.drop(s, 1n)))
+    +b : Nat = Nat.add(a, attrs(String.drop(s, a)))
+    +c : Nat = Nat.add(b, wsn(String.drop(s, b)))
+    +r : String = String.drop(s, c)
+    d : Nat <- or(tok("/>", r), tok(">", r))
+    return Nat.add(c, d)
 
-def close_tag(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- lit("</", s)
-    b : String <- tagname(a)
-    c : String <- lit(">", wsp(b))
-    return c
+def close_tag(+s: String) -> Maybe<&2, Nat>:
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok("</", s)
+    +a : Nat <- add(2n, tagname(String.drop(s, 2n)))
+    +b : Nat = Nat.add(a, wsn(String.drop(s, a)))
+    c : Nat <- tok(">", String.drop(s, b))
+    return Nat.add(b, c)
 
-def comment(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    +a : String <- lit("<!--", s)
-    b : String <- or(lit(">", a), or(lit("->", a), cut(a, "-->")))
-    return b
+# The closers that an earlier < showed are missing from the rest of the paragraph: -->, ?>, ]]>, and the > of a declaration.
+type Ms is Data:
+  Ms{com: Bool, pi: Bool, cd: Bool, dec: Bool}
 
-def decl(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    +a : String <- lit("<!", s)
-    b : String <- need(is_alpha(hd(a)), a)
-    c : String <- cut(b, ">")
-    return c
+# cut, unless pat is known to be missing.
+def cut.if(no: Bool, +s: String, +pat: String) -> Maybe<&2, Nat>:
+  when(Maybe<&2, Nat>, no, u => None{}, u => cut(s, pat))
 
-def cut.after(m: Maybe<&2, String>, +pat: String) -> Maybe<&2, String>:
+def comment(+no: Bool, +s: String) -> Maybe<&2, Nat>:
+  +a = String.drop(s, 4n)
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok("<!--", s)
+    b : Nat <- or(tok(">", a), or(tok("->", a), cut.if(no, a, "-->")))
+    return Nat.add(4n, b)
+
+def decl(+no: Bool, +s: String) -> Maybe<&2, Nat>:
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok("<!", s)
+    _ : Nat <- need(is_alpha(hd(String.drop(s, 2n))), 0n)
+    c : Nat <- cut.if(no, String.drop(s, 2n), ">")
+    return Nat.add(2n, c)
+
+def cut.after(+no: Bool, +p: String, +s: String, +pat: String) -> Maybe<&2, Nat>:
+  +n = String.length(p)
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok(p, s)
+    c : Nat <- cut.if(no, String.drop(s, n), pat)
+    return Nat.add(n, c)
+
+# The length of the raw inline HTML at the start of s.
+def raw_html(ms: Ms, +s: String) -> Maybe<&2, Nat>:
+  match ms:
+    case Ms{com, pi, cd, dec}:
+      or(open_tag(s), or(close_tag(s), or(comment(com, s), or(cut.after(pi, "<?", s, "?>"), or(cut.after(cd, "<![CDATA[", s, "]]>"), decl(dec, s))))))
+
+# After a < at t that was not inline HTML: the closer it scanned for is missing from the rest.
+def ms.add(+t: String, m: Ms) -> Ms:
   match m:
-    case None{}:
-      None{}
-    case Some{r}:
-      cut(r, pat)
-
-# Raw inline HTML at the start of s: the text after it.
-def raw_html(+s: String) -> Maybe<&2, String>:
-  or(open_tag(s), or(close_tag(s), or(comment(s), or(cut.after(lit("<?", s), "?>"), or(cut.after(lit("<![CDATA[", s), "]]>"), decl(s))))))
+    case Ms{com, pi, cd, dec}:
+      Ms{com || String.starts_with(t, "!--"), pi || String.starts_with(t, "?"), cd || String.starts_with(t, "![CDATA["), dec || (String.starts_with(t, "!") && is_alpha(hd(String.drop(t, 1n))))}
 
 # ---- blocks
 
@@ -1066,12 +1109,12 @@ def html1.one(m: Maybe<&2, String>) -> Bool:
 def html1(+s: String) -> Bool:
   html1.one(lit_ci("<script", s)) || html1.one(lit_ci("<pre", s)) || html1.one(lit_ci("<style", s)) || html1.one(lit_ci("<textarea", s))
 
-def html7.ok(m: Maybe<&2, String>) -> Bool:
+def html7.ok(m: Maybe<&2, Nat>, +s: String) -> Bool:
   match m:
     case None{}:
       False{}
-    case Some{r}:
-      is_blank(r)
+    case Some{n}:
+      is_blank(String.drop(s, n))
 
 def html_start.lt(lt: Bool, +s: String, +cpara: Bool) -> U32:
   match lt:
@@ -1084,7 +1127,7 @@ def html_start.lt(lt: Bool, +s: String, +cpara: Bool) -> U32:
             Bool.pick(U32, String.starts_with(s, "<!") && is_alpha(hd(String.drop(s, 2n))), 4,
               Bool.pick(U32, String.starts_with(s, "<![CDATA["), 5,
                 Bool.pick(U32, html6(s), 6,
-                  Bool.pick(U32, Bool.not(cpara) && (html7.ok(open_tag(s)) || html7.ok(close_tag(s))), 7, 0)))))))
+                  Bool.pick(U32, Bool.not(cpara) && (html7.ok(open_tag(s), s) || html7.ok(close_tag(s), s)), 7, 0)))))))
 
 # The HTML block kind (1 to 7) that a line at s starts, or 0.
 def html_start(+s: String, +cpara: Bool) -> U32:
@@ -1561,7 +1604,7 @@ type Inl is Data:
   IText{s: String}
   IHtml{html: String, plain: String}
   IDelim{c: U32, n: U32, orig: U32, open: Bool, close: Bool}
-  IBrack{img: Bool, active: Bool, after: String}
+  IBrack{img: Bool, active: Bool, after: String, ms: Ms}
   IMark{}
 
 def rep(+c: U32, n: U32) -> String:
@@ -1577,7 +1620,7 @@ def r.inl(xs: List<&2, Inl>) -> String:
       h ++ r.inl(rest)
     case Con{IDelim{c, n, o, op, cl}, rest}:
       rep(c, n) ++ r.inl(rest)
-    case Con{IBrack{img, a, af}, rest}:
+    case Con{IBrack{img, a, af, m}, rest}:
       Bool.pick(String, img, "![", "[") ++ r.inl(rest)
     case Con{IMark{}, rest}:
       r.inl(rest)
@@ -1592,35 +1635,71 @@ def p.inl(xs: List<&2, Inl>) -> String:
       p ++ p.inl(rest)
     case Con{IDelim{c, n, o, op, cl}, rest}:
       rep(c, n) ++ p.inl(rest)
-    case Con{IBrack{img, a, af}, rest}:
+    case Con{IBrack{img, a, af, m}, rest}:
       Bool.pick(String, img, "![", "[") ++ p.inl(rest)
     case Con{IMark{}, rest}:
       p.inl(rest)
 
 # ---- emphasis
 
-# A matching opener: the inlines after it (oldest first), the opener, and the stack below it.
+# A matching opener: the inlines after it (oldest first), the opener, the height of the stack below it, and that stack.
 type Fd is Data:
-  Fd{above: List<&2, Inl>, c: U32, n: U32, o: U32, op: Bool, cl: Bool, below: List<&2, Inl>}
+  Fd{above: List<&2, Inl>, c: U32, n: U32, o: U32, op: Bool, cl: Bool, hb: Nat, below: List<&2, Inl>}
 
 type Rs is Data:
   RDone{}
   RNone{}
   RFound{fd: Fd}
 
+# A closer kind's openers_bottom, as in the CommonMark reference: the bottom h inlines of the stack hold no opener for it.
+type Bot is Data:
+  Bot{k: U32, h: Nat}
+
+# The emphasis stack, newest first, its height, and the bottom of each closer kind.
+type Em is Data:
+  Em{stack: List<&2, Inl>, h: Nat, bots: List<&2, Bot>}
+
+# Whether an opener fits a closer depends only on its character, whether it can open, and its length mod 3.
+def bot.key(+c: U32, +copen: Bool, +orig: U32) -> U32:
+  ((c * 6) + Bool.pick(U32, copen, 3, 0) + (orig % 3) : U32)
+
+def bot.get(bs: List<&2, Bot>, +k: U32) -> Nat:
+  match bs:
+    case Nil{}:
+      0n
+    case Con{Bot{k2, +h}, rest}:
+      when(Nat, eq(k2, k), u => h, u => bot.get(rest, k))
+
+def bot.put(bs: List<&2, Bot>, +k: U32, +h: Nat) -> List<&2, Bot>:
+  match bs:
+    case Nil{}:
+      [Bot{k, h}]
+    case Con{Bot{+k2, +h2}, +rest}:
+      when(List<&2, Bot>, eq(k2, k), u => Bot{k, h} <> rest, u => Bot{k2, h2} <> bot.put(rest, k, h))
+
+def bot.clamp(bs: List<&2, Bot>, +h: Nat) -> List<&2, Bot>:
+  match bs:
+    case Nil{}:
+      Nil{}
+    case Con{Bot{k, h2}, rest}:
+      Bot{k, Nat.min(h, h2)} <> bot.clamp(rest, h)
+
 # Rule of three: a run that can both open and close matches only if the lengths do not sum to a multiple of 3, unless both are.
 def odd_fail(+ocl: Bool, +o: U32, +copen: Bool, +orig: U32) -> Bool:
   (ocl || copen) && eq(((o + orig) % 3 : U32), 0) && Bool.not(eq((o % 3 : U32), 0) && eq((orig % 3 : U32), 0))
 
-def find(stack: List<&2, Inl>, +c: U32, +orig: U32, +copen: Bool, +acc: List<&2, Inl>) -> Maybe<&2, Fd>:
+# Searches the stack, h high, for an opener above its bottom bot.
+def find(stack: List<&2, Inl>, +h: Nat, +bot: Nat, +c: U32, +orig: U32, +copen: Bool, +acc: List<&2, Inl>) -> Maybe<&2, Fd>:
   match stack:
     case Nil{}:
       None{}
     case Con{IDelim{+c2, +n2, +o2, +op2, +cl2}, +rest}:
+      +hb = Nat.sub(h, 1n)
       +fits = Bool.pick(Bool, eq(c, 126), eq(o2, orig), Bool.not(odd_fail(cl2, o2, copen, orig)))
-      when(Maybe<&2, Fd>, eq(c2, c) && op2 && fits, u => Some{Fd{acc, c2, n2, o2, op2, cl2, rest}}, u => find(rest, c, orig, copen, IDelim{c2, n2, o2, op2, cl2} <> acc))
-    case Con{x, rest}:
-      find(rest, c, orig, copen, x <> acc)
+      when(Maybe<&2, Fd>, Nat.is_le(h, bot), u => None{},
+        u => when(Maybe<&2, Fd>, eq(c2, c) && op2 && fits, v => Some{Fd{acc, c2, n2, o2, op2, cl2, hb, rest}}, v => find(rest, hb, bot, c, orig, copen, IDelim{c2, n2, o2, op2, cl2} <> acc)))
+    case Con{+x, +rest}:
+      when(Maybe<&2, Fd>, Nat.is_le(h, bot), u => None{}, u => find(rest, Nat.sub(h, 1n), bot, c, orig, copen, x <> acc))
 
 def rs.of(m: Maybe<&2, Fd>) -> Rs:
   match m:
@@ -1629,12 +1708,12 @@ def rs.of(m: Maybe<&2, Fd>) -> Rs:
     case Some{fd}:
       RFound{fd}
 
-def seek(more: Bool, stack: List<&2, Inl>, +c: U32, +orig: U32, +copen: Bool) -> Rs:
+def seek(more: Bool, +stack: List<&2, Inl>, +h: Nat, +bots: List<&2, Bot>, +c: U32, +orig: U32, +copen: Bool) -> Rs:
   match more:
     case False{}:
       RDone{}
     case True{}:
-      rs.of(find(stack, c, orig, copen, Nil{}))
+      rs.of(find(stack, h, bot.get(bots, bot.key(c, copen, orig)), c, orig, copen, Nil{}))
 
 def wrap(+c: U32, +use: U32, +xs: List<&2, Inl>) -> Inl:
   +tag = Bool.pick(String, eq(c, 126), "del", Bool.pick(String, eq(use, 2), "strong", "em"))
@@ -1644,42 +1723,54 @@ def wrap(+c: U32, +use: U32, +xs: List<&2, Inl>) -> Inl:
 def keep(+n: U32, +c: U32, +o: U32, +op: Bool, +cl: Bool, +below: List<&2, Inl>) -> List<&2, Inl>:
   Bool.pick(List<&2, Inl>, eq(n, 0), below, IDelim{c, n, o, op, cl} <> below)
 
-# Matches the closer, n long, against openers until it runs out or none is left.
-def resolve(f: Nat, r: Rs, +stack: List<&2, Inl>, +c: U32, +n: U32, +orig: U32, +copen: Bool) -> List<&2, Inl>:
+# Matches the closer, n long, against openers until it runs out or none is left. A miss raises the closer kind's bottom to the stack top; a match lowers every bottom to the new top.
+def resolve(f: Nat, r: Rs, +stack: List<&2, Inl>, +h: Nat, +bots: List<&2, Bot>, +c: U32, +n: U32, +orig: U32, +copen: Bool) -> Em:
   match f:
     case 0n:
-      stack
+      Em{stack, h, bots}
     case 1n+g:
       match r:
         case RDone{}:
-          stack
+          Em{stack, h, bots}
         case RNone{}:
-          Bool.pick(List<&2, Inl>, copen, IDelim{c, n, orig, copen, True{}} <> stack, IText{rep(c, n)} <> stack)
-        case RFound{Fd{above, c2, +n2, o2, op2, cl2, below}}:
+          +b2 = bot.put(bots, bot.key(c, copen, orig), h)
+          Bool.pick(Em, copen, Em{IDelim{c, n, orig, copen, True{}} <> stack, 1n+h, b2}, Em{IText{rep(c, n)} <> stack, 1n+h, b2})
+        case RFound{Fd{above, c2, +n2, o2, op2, cl2, +hb, below}}:
           +use = Bool.pick(U32, eq(c, 126), n, Bool.pick(U32, U32.is_ge(n, 2) && U32.is_ge(n2, 2), 2, 1))
-          +st2 = {wrap(c, use, above) <> keep((n2 - use : U32), c2, o2, op2, cl2, below) : List<&2, Inl>}
+          +left = (n2 - use : U32)
+          +st2 = {wrap(c, use, above) <> keep(left, c2, o2, op2, cl2, below) : List<&2, Inl>}
+          +h2 = Nat.add(hb, Bool.pick(Nat, eq(left, 0), 1n, 2n))
+          +b2 = bot.clamp(bots, h2)
           +nr = (n - use : U32)
-          resolve(g, seek(U32.is_gt(nr, 0), st2, c, orig, copen), st2, c, nr, orig, copen)
+          resolve(g, seek(U32.is_gt(nr, 0), st2, h2, b2, c, orig, copen), st2, h2, b2, c, nr, orig, copen)
 
-def emph.delim(cl: Bool, +stack: List<&2, Inl>, +c: U32, +n: U32, +o: U32, +op: Bool) -> List<&2, Inl>:
+def emph.delim(cl: Bool, em: Em, +c: U32, +n: U32, +o: U32, +op: Bool) -> Em:
   match cl:
     case False{}:
-      IDelim{c, n, o, op, False{}} <> stack
+      match em:
+        case Em{stack, h, bots}:
+          Em{IDelim{c, n, o, op, False{}} <> stack, 1n+h, bots}
     case True{}:
-      resolve(1n+U32.to_nat(n), seek(True{}, stack, c, o, op), stack, c, n, o, op)
+      match em:
+        case Em{+stack, +h, +bots}:
+          resolve(1n+U32.to_nat(n), seek(True{}, stack, h, bots, c, o, op), stack, h, bots, c, n, o, op)
 
-def emph.go(xs: List<&2, Inl>, +stack: List<&2, Inl>) -> List<&2, Inl>:
+def emph.go(xs: List<&2, Inl>, em: Em) -> List<&2, Inl>:
   match xs:
     case Nil{}:
-      List.reverse(&2, Inl, stack)
+      match em:
+        case Em{stack, h, bots}:
+          List.reverse(&2, Inl, stack)
     case Con{IDelim{c, n, o, op, cl}, rest}:
-      emph.go(rest, emph.delim(cl, stack, c, n, o, op))
+      emph.go(rest, emph.delim(cl, em, c, n, o, op))
     case Con{x, rest}:
-      emph.go(rest, x <> stack)
+      match em:
+        case Em{stack, h, bots}:
+          emph.go(rest, Em{x <> stack, 1n+h, bots})
 
 # Emphasis and strong emphasis, by the delimiter run rules.
 def emph(xs: List<&2, Inl>) -> List<&2, Inl>:
-  emph.go(xs, Nil{})
+  emph.go(xs, Em{Nil{}, 0n, Nil{}})
 
 # ---- inline scanner
 
@@ -1851,27 +1942,27 @@ def html_out(o: Opts, +raw: String) -> String:
             case False{}:
               raw
 
-def lt.html(m: Maybe<&2, String>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
+def lt.html(m: Maybe<&2, Nat>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
   match m:
     case None{}:
       Is{String.drop(s, 1n), 60, SCon{'<', buf}, out}
-    case Some{+rest}:
-      +raw = String.take(s, Nat.sub(String.length(s), String.length(rest)))
-      Is{rest, 62, SNil{}, IHtml{html_out(o, raw), raw} <> flush(buf, out)}
+    case Some{+n}:
+      +raw = String.take(s, n)
+      Is{String.drop(s, n), 62, SNil{}, IHtml{html_out(o, raw), raw} <> flush(buf, out)}
 
-def lt.email(m: Maybe<&2, Got>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
+def lt.email(m: Maybe<&2, Got>, +ms: Ms, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
   match m:
     case Some{Got{+v, rest}}:
       Is{rest, 62, SNil{}, IHtml{"<a href=\"mailto:" ++ href(v) ++ "\">" ++ esc(v) ++ "</a>", v} <> flush(buf, out)}
     case None{}:
-      lt.html(raw_html(s), s, buf, out, o)
+      lt.html(raw_html(ms, s), s, buf, out, o)
 
-def lt.uri(m: Maybe<&2, Got>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
+def lt.uri(m: Maybe<&2, Got>, +ms: Ms, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
   match m:
     case Some{Got{+v, rest}}:
       Is{rest, 62, SNil{}, IHtml{"<a href=\"" ++ url(o.safe(o), v) ++ "\">" ++ esc(v) ++ "</a>", v} <> flush(buf, out)}
     case None{}:
-      lt.email(auto.email(String.drop(s, 1n)), s, buf, out, o)
+      lt.email(auto.email(String.drop(s, 1n)), ms, s, buf, out, o)
 
 def amp.got(m: Maybe<&2, Got>, +t: String, buf: String, out: List<&2, Inl>) -> Is:
   match m:
@@ -1884,12 +1975,12 @@ def amp.got(m: Maybe<&2, Got>, +t: String, buf: String, out: List<&2, Inl>) -> I
 def nl(+t: String, +buf: String, out: List<&2, Inl>) -> Is:
   +k = count(32, buf)
   +b2 = String.drop(buf, k)
-  Is{skip(~(c => is_sp(c)), t), 10, SNil{}, IHtml{Bool.pick(String, Nat.is_ge(k, 2n), "<br />\n", "\n"), "\n"} <> flush(b2, out)}
+  Is{skip(~(c => is_sp(c)), t), 10, SNil{}, IHtml{Bool.pick(String, Nat.is_ge(k, 2n), "<br />\n", "\n"), " "} <> flush(b2, out)}
 
 def bs(+t: String, +buf: String, +out: List<&2, Inl>) -> Is:
   +x = hd(t)
   Bool.pick(Is, is_apunct(x), Is{String.drop(t, 1n), x, SCon{Chr{x}, buf}, out},
-    Bool.pick(Is, eq(x, 10), Is{skip(~(c => is_sp(c)), String.drop(t, 1n)), 10, SNil{}, IHtml{"<br />\n", "\n"} <> flush(buf, out)},
+    Bool.pick(Is, eq(x, 10), Is{skip(~(c => is_sp(c)), String.drop(t, 1n)), 10, SNil{}, IHtml{"<br />\n", " "} <> flush(buf, out)},
       Is{t, 92, SCon{'\\', buf}, out}))
 
 def delim(+c: U32, +s: String, +prev: U32, +buf: String, +out: List<&2, Inl>) -> Is:
@@ -1998,17 +2089,16 @@ def al.tail(+pre: String, +d: Nat, +s: String) -> Maybe<&2, Al>:
 def al.www(+s: String) -> Maybe<&2, Al>:
   Bool.pick(Maybe<&2, Al>, String.starts_with(s, "www."), al.tail("http://", al.dom(s, False{}), s), None{})
 
-def al.scheme.of(m: Maybe<&2, String>, +s: String) -> Maybe<&2, Al>:
+def al.scheme.of(m: Maybe<&2, String>, +k: Nat, +s: String) -> Maybe<&2, Al>:
   match m:
     case None{}:
       None{}
     case Some{+a}:
-      +k = Nat.sub(String.length(s), String.length(a))
       +d = Bool.pick(Nat, al.host(hd(a)), al.dom(a, True{}), 0n)
       al.tail("", Bool.pick(Nat, Nat.is_eq(d, 0n), 0n, Nat.add(k, d)), s)
 
 def al.scheme(+p: String, +s: String) -> Maybe<&2, Al>:
-  al.scheme.of(lit(p, s), s)
+  al.scheme.of(lit(p, s), String.length(p), s)
 
 def al.mail_ch(+c: U32) -> Bool:
   is_alnum(c) || eq(c, 46) || eq(c, 43) || eq(c, 45) || eq(c, 95)
@@ -2067,14 +2157,14 @@ def other(try: Bool, +y: U32, +t: String, +buf: String, out: List<&2, Inl>, +o: 
 
 # Splits the output at its newest bracket: the inlines after it (oldest first), the bracket, and the rest.
 type Bk is Data:
-  Bk{above: List<&2, Inl>, img: Bool, active: Bool, after: String, below: List<&2, Inl>}
+  Bk{above: List<&2, Inl>, img: Bool, active: Bool, after: String, ms: Ms, below: List<&2, Inl>}
 
 def brk(out: List<&2, Inl>, acc: List<&2, Inl>) -> Maybe<&2, Bk>:
   match out:
     case Nil{}:
       None{}
-    case Con{IBrack{img, a, af}, rest}:
-      Some{Bk{acc, img, a, af, rest}}
+    case Con{IBrack{img, a, af, m}, rest}:
+      Some{Bk{acc, img, a, af, m, rest}}
     case Con{x, rest}:
       brk(rest, x <> acc)
 
@@ -2085,10 +2175,10 @@ def deact(xs: List<&2, Inl>) -> List<&2, Inl>:
       Nil{}
     case Con{IMark{}, rest}:
       IMark{} <> rest
-    case Con{IBrack{False{}, False{}, af}, rest}:
-      IBrack{False{}, False{}, af} <> rest
-    case Con{IBrack{False{}, True{}, af}, rest}:
-      IBrack{False{}, False{}, af} <> deact(rest)
+    case Con{IBrack{False{}, False{}, af, m}, rest}:
+      IBrack{False{}, False{}, af, m} <> rest
+    case Con{IBrack{False{}, True{}, af, m}, rest}:
+      IBrack{False{}, False{}, af, m} <> deact(rest)
     case Con{x, rest}:
       x <> deact(rest)
 
@@ -2112,15 +2202,22 @@ def lookup.got(m: Maybe<&2, Ref>, +rest: String) -> Maybe<&2, Lt>:
 def lookup(+refs: List<&2, Ref>, +raw: String, +rest: String) -> Maybe<&2, Lt>:
   lookup.got(Bool.pick(Maybe<&2, Ref>, Nat.is_le(String.length(raw), 999n) && Bool.not(is_blank(raw)), find_ref(refs, norm(raw)), None{}), rest)
 
-def ref.full(m: Maybe<&2, Got>, +t: String, +raw: String, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
+def lookup.raw(+refs: List<&2, Ref>, m: Maybe<&2, String>, +rest: String) -> Maybe<&2, Lt>:
+  match m:
+    case None{}:
+      None{}
+    case Some{raw}:
+      lookup(refs, raw, rest)
+
+def ref.full(m: Maybe<&2, Got>, +t: String, +raw: Maybe<&2, String>, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
   match m:
     case Some{Got{lab, rest}}:
       lookup(refs, lab, rest)
     case None{}:
-      when(Maybe<&2, Lt>, String.starts_with(t, "[]"), u => lookup(refs, raw, String.drop(t, 2n)), u => lookup(refs, raw, t))
+      when(Maybe<&2, Lt>, String.starts_with(t, "[]"), u => lookup.raw(refs, raw, String.drop(t, 2n)), u => lookup.raw(refs, raw, t))
 
-def ref.tail(+t: String, +raw: String, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
-  ref.full(Bool.pick(Maybe<&2, Got>, eq(hd(t), 91), label(String.drop(t, 1n)), None{}), t, raw, refs)
+def ref.tail(+t: String, +raw: Maybe<&2, String>, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
+  ref.full(when(Maybe<&2, Got>, eq(hd(t), 91), u => label(String.drop(t, 1n)), u => None{}), t, raw, refs)
 
 def inl.close.of(+d: String, v: String, m: Maybe<&2, String>) -> Maybe<&2, Lt>:
   match m:
@@ -2185,25 +2282,80 @@ def link.try(m: Maybe<&2, Lt>, above: List<&2, Inl>, +img: Bool, below: List<&2,
     case None{}:
       link.fail(above, img, below, t)
 
-# An inline link, else a reference link. The raw label costs the length of the rest of the paragraph, so it waits for the inline link to fail.
-def link.inl(m: Maybe<&2, Lt>, above: List<&2, Inl>, +img: Bool, below: List<&2, Inl>, +t: String, +after: String, +refs: List<&2, Ref>, +o: Opts) -> Is:
+def lab.tick.of(m: Maybe<&2, Got>, +n: Nat) -> Nat:
+  match m:
+    case None{}:
+      n
+    case Some{Got{v, r}}:
+      Nat.add(Nat.add(n, n), String.length(v))
+
+def lab.tick(+n: Nat, +s: String) -> Nat:
+  lab.tick.of(tick.go(String.drop(s, n), False{}, 0n, n, SNil{}), n)
+
+def lab.lt(u: Maybe<&2, Got>, e: Maybe<&2, Got>, h: Maybe<&2, Nat>) -> Nat:
+  match u:
+    case Some{Got{v, r}}:
+      Nat.add(2n, String.length(v))
+    case None{}:
+      match e:
+        case Some{Got{v, r}}:
+          Nat.add(2n, String.length(v))
+        case None{}:
+          Maybe.default(&2, Nat, h, 1n)
+
+def lab.al(m: Maybe<&2, Al>) -> Nat:
+  match m:
+    case None{}:
+      1n
+    case Some{Al{h, x}}:
+      String.length(x)
+
+# How many code points the piece at s takes, by the inline scanner's rules: an escape, a code span, an autolink, raw HTML, a GFM extended autolink after prev, or one code point.
+def lab.len(+c: U32, +prev: U32, +ms: Ms, +gfm: Bool, +s: String) -> Nat:
+  +t = String.drop(s, 1n)
+  when(Nat, eq(c, 92), u => Bool.pick(Nat, is_apunct(hd(t)), 2n, 1n),
+    u => when(Nat, eq(c, 96), u => lab.tick(count(96, s), s),
+      u => when(Nat, eq(c, 60), u => lab.lt(auto.uri(t), auto.email(t), raw_html(ms, s)),
+        u => when(Nat, gfm && al.bound(prev), u => lab.al(al(s)), u => 1n))))
+
+# The length of a bracket's raw label: the text up to the ] that closes it, scanned as the inline scanner scans it. None when another bracket comes first or the label passes 999 code points.
+def lab.go(f: Nat, +s: String, +n: Nat, +prev: U32, +ms: Ms, +gfm: Bool) -> Maybe<&2, Nat>:
+  match f:
+    case 0n:
+      None{}
+    case 1n+g:
+      +c = hd(s)
+      +k = lab.len(c, prev, ms, gfm, s)
+      +ms2 = when(Ms, eq(c, 60) && Nat.is_eq(k, 1n), u => ms.add(String.drop(s, 1n), ms), u => ms)
+      when(Maybe<&2, Nat>, eq(c, 93), u => Some{n},
+        u => when(Maybe<&2, Nat>, eq(c, 91) || eq(c, 0) || Nat.is_gt(n, 999n), u => None{},
+          u => lab.go(g, String.drop(s, k), Nat.add(n, k), hd(String.reverse(String.take(s, k))), ms2, gfm)))
+
+def lab.take(m: Maybe<&2, Nat>, +after: String) -> Maybe<&2, String>:
+  match m:
+    case None{}:
+      None{}
+    case Some{n}:
+      Some{String.take(after, n)}
+
+# An inline link, else a reference link.
+def link.inl(m: Maybe<&2, Lt>, +above: List<&2, Inl>, +img: Bool, below: List<&2, Inl>, +t: String, +after: String, +ms: Ms, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match m:
     case Some{lt}:
       link.make(lt, above, img, below, o)
     case None{}:
-      +raw = String.take(after, Nat.sub(Nat.sub(String.length(after), String.length(t)), 1n))
-      link.try(ref.tail(t, raw, refs), above, img, below, t, o)
+      link.try(ref.tail(t, lab.take(lab.go(1000n, after, 0n, 91, ms, o.gfm(o)), after), refs), above, img, below, t, o)
 
 def close.br(m: Maybe<&2, Bk>, +t: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match m:
     case None{}:
       Is{t, 93, SCon{']', SNil{}}, out}
-    case Some{Bk{above, +img, active, +after, below}}:
+    case Some{Bk{above, +img, active, +after, +ms, below}}:
       match active:
         case False{}:
           link.fail(above, img, below, t)
         case True{}:
-          link.inl(inl.tail(t), above, img, below, t, after, refs, o)
+          link.inl(inl.tail(t), above, img, below, t, after, ms, refs, o)
 
 # ---- the scanner loop
 
@@ -2230,7 +2382,29 @@ def ic(+c: U32, +nx: U32, +gfm: Bool) -> Ic:
                 Bool.pick(Ic, eq(c, 38), IcAmp{},
                   Bool.pick(Ic, eq(c, 10), IcNl{}, IcOther{})))))))))
 
-def istep(k: Ic, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
+# How many brackets are open after a step of kind k.
+def opens(k: Ic, +n: Nat) -> Nat:
+  match k:
+    case IcOpen{}:
+      1n+n
+    case IcBang{}:
+      1n+n
+    case IcClose{}:
+      Nat.sub(n, 1n)
+    case _:
+      n
+
+# A < step that ends with prev still < was not inline HTML or an autolink.
+def misses(k: Ic, +t: String, st: Is, +ms: Ms) -> Ms:
+  match k:
+    case IcLt{}:
+      match st:
+        case Is{s, prev, buf, out}:
+          when(Ms, eq(prev, 60), u => ms.add(t, ms), u => ms)
+    case _:
+      ms
+
+def istep(k: Ic, +open: Nat, +ms: Ms, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match k:
     case IcOther{}:
       other(o.gfm(o) && al.bound(prev), y, t, buf, out, o)
@@ -2241,19 +2415,19 @@ def istep(k: Ic, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, I
     case IcStar{}:
       delim(y, SCon{Chr{y}, t}, prev, buf, out)
     case IcOpen{}:
-      Is{t, 91, SNil{}, IBrack{False{}, True{}, t} <> flush(buf, out)}
+      Is{t, 91, SNil{}, IBrack{False{}, True{}, t, ms} <> flush(buf, out)}
     case IcBang{}:
-      Is{String.drop(t, 1n), 91, SNil{}, IBrack{True{}, True{}, String.drop(t, 1n)} <> flush(buf, out)}
+      Is{String.drop(t, 1n), 91, SNil{}, IBrack{True{}, True{}, String.drop(t, 1n), ms} <> flush(buf, out)}
     case IcClose{}:
-      close.br(brk(flush(buf, out), Nil{}), t, flush(buf, out), refs, o)
+      when(Is, Nat.is_eq(open, 0n), u => Is{t, 93, SCon{']', SNil{}}, flush(buf, out)}, u => close.br(brk(flush(buf, out), Nil{}), t, flush(buf, out), refs, o))
     case IcLt{}:
-      lt.uri(auto.uri(t), SCon{Chr{y}, t}, buf, out, o)
+      lt.uri(auto.uri(t), ms, SCon{Chr{y}, t}, buf, out, o)
     case IcAmp{}:
       amp.got(ent(t), t, buf, out)
     case IcNl{}:
       nl(t, buf, out)
 
-def inl.go(f: Nat, st: Is, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
+def inl.go(f: Nat, st: Is, +open: Nat, +ms: Ms, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
   match f:
     case 0n:
       Nil{}
@@ -2264,11 +2438,13 @@ def inl.go(f: Nat, st: Is, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
             case SNil{}:
               List.reverse(&2, Inl, flush(buf, out))
             case SCon{Chr{+y}, +t}:
-              inl.go(g, istep(ic(y, hd(t), o.gfm(o)), y, t, prev, buf, out, refs, o), refs, o)
+              +k = ic(y, hd(t), o.gfm(o))
+              +st2 = istep(k, open, ms, y, t, prev, buf, out, refs, o)
+              inl.go(g, st2, opens(k, open), misses(k, t, st2, ms), refs, o)
 
 # A paragraph or heading's text as HTML.
 def inline(+s: String, +refs: List<&2, Ref>, +o: Opts) -> String:
-  r.inl(emph(inl.go(Nat.add(String.length(s), 2n), Is{s, 10, SNil{}, Nil{}}, refs, o)))
+  r.inl(emph(inl.go(Nat.add(String.length(s), 2n), Is{s, 10, SNil{}, Nil{}}, 0n, Ms{False{}, False{}, False{}, False{}}, refs, o)))
 
 # ---- HTML
 
@@ -2349,7 +2525,7 @@ def tbl.find(ls: List<&2, String>, +before: List<&2, String>) -> Maybe<&2, Tb>:
           +hc = tbl.cells(h)
           +dc = tbl.cells(d)
           +hit = String.contains(d, "-") && tbl.drow(dc) && Nat.is_eq(List.length(&2, String, hc), List.length(&2, String, dc))
-          Bool.pick(Maybe<&2, Tb>, hit, Some{Tb{List.reverse(&2, String, before), hc, tbl.aligns(dc), rest}}, tbl.find(tl, h <> before))
+          when(Maybe<&2, Tb>, hit, u => Some{Tb{List.reverse(&2, String, before), hc, tbl.aligns(dc), rest}}, u => tbl.find(tl, h <> before))
         case Nil{}:
           None{}
     case Nil{}:
@@ -2394,7 +2570,7 @@ def r.para(gfm: Bool, +t: String, +tight: Bool, +refs: List<&2, Ref>, +o: Opts, 
     case False{}:
       r.text(t, tight, refs, o, "", out)
     case True{}:
-      r.tbl(Bool.pick(Maybe<&2, Tb>, String.contains(t, "|"), tbl.find(String.split(t, '\n'), Nil{}), None{}), t, tight, refs, o, out)
+      r.tbl(when(Maybe<&2, Tb>, String.contains(t, "|"), u => tbl.find(String.split(t, '\n'), Nil{}), u => None{}), t, tight, refs, o, out)
 
 # A GFM task list item's first paragraph: 0 for none, 1 for [ ], 2 for [x] or [X].
 def task.kind(+gfm: Bool, +t: String) -> U32:

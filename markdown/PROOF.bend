@@ -119,6 +119,9 @@ def Laws.escape_href():
 def Laws.escape_alt():
   {==}
 
+def Laws.alt_line_breaks():
+  {==}
+
 def Laws.escape_entity_kept():
   {==}
 
