@@ -37,7 +37,7 @@ Bend took 311.8 ms on 2026-11-13. `Bool.pick` evaluates both of its branches, so
 
 ## Paragraph scaling
 
-`scale.bend` times one render of one paragraph of N copies of a line, followed by the definition `[foo]: /url`. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. The `ref` line is `See [foo] here.`, a shortcut reference link. The `noref` line is `See [plain] here.`, with no definition. The `stray` line is `See plain] here.`, with no open bracket. The `closers` line is `Some a* b_ text here.`, with two emphasis closers that have no opener. The `comment` line is `a <!-- b` and the `decl` line is `a <!x b`; neither is ever closed. Doubling N should about double the time.
+`scale.bend` times one render of one paragraph of N copies of a line, followed by the definition `[foo]: /url`. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. The `ref` line is `See [foo] here.`, a shortcut reference link. The `noref` line is `See [plain] here.`, with no definition. The `stray` line is `See plain] here.`, with no open bracket. The `closers` line is `Some a* b_ text here.`, with two emphasis closers that have no opener. The `comment` line is `a <!-- b` and the `decl` line is `a <!x b`; neither is ever closed. The `codelabel` line is ``See [a `]` b] here.``, a bracket with a `]` inside a code span. Doubling N should about double the time.
 
 ```sh
 bend scale.bend -o out/scale && ./out/scale
@@ -114,6 +114,18 @@ Unclosed HTML comments and declarations, M4 Pro, 2026-11-18, Bend 2.0.38, one ru
 | 1600 | 355.1 | 10.9 | 285.9 | 9.5 |
 
 Each `<!--`, `<?`, `<![CDATA[`, or `<!` with a letter scanned the rest of the paragraph for its closer. When the closer was missing, every later one scanned again. The scanner now remembers, as cmark does, which closers a failed `<` showed to be missing, and skips those scans for the rest of the paragraph.
+
+A `]` inside a code span in brackets, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `before` is `markdown` 0.3.7.0; `after` is 0.3.8.0.
+
+| lines | codelabel before | codelabel after |
+|---:|---:|---:|
+| 100 | 4.7 | 1.3 |
+| 200 | 18.7 | 2.7 |
+| 400 | 74.2 | 7.0 |
+| 800 | 303.0 | 11.8 |
+| 1600 | 1151.5 | 26.8 |
+
+The raw label scan stopped at the first unescaped bracket, so a `]` inside a code span, raw HTML, or an autolink sent it back to the lengths of two tails of the paragraph. The scan now steps over escapes, code spans, autolinks, raw HTML, and GFM extended autolinks as the inline scanner does, so the first `]` it meets is the one that closes the bracket. Each bracket carries the scanner's record of missing HTML closers, so the scan does not repeat a failed search.
 
 ## Caveats
 

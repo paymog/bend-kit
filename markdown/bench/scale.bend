@@ -40,3 +40,4 @@ def main() -> IO(Unit):
     sizes(False{}, "closers", "Some a* b_ text here.\n")
     sizes(False{}, "comment", "a <!-- b\n")
     sizes(False{}, "decl", "a <!x b\n")
+    sizes(False{}, "codelabel", "See [a `]` b] here.\n")

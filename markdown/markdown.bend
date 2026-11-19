@@ -1604,7 +1604,7 @@ type Inl is Data:
   IText{s: String}
   IHtml{html: String, plain: String}
   IDelim{c: U32, n: U32, orig: U32, open: Bool, close: Bool}
-  IBrack{img: Bool, active: Bool, after: String}
+  IBrack{img: Bool, active: Bool, after: String, ms: Ms}
   IMark{}
 
 def rep(+c: U32, n: U32) -> String:
@@ -1620,7 +1620,7 @@ def r.inl(xs: List<&2, Inl>) -> String:
       h ++ r.inl(rest)
     case Con{IDelim{c, n, o, op, cl}, rest}:
       rep(c, n) ++ r.inl(rest)
-    case Con{IBrack{img, a, af}, rest}:
+    case Con{IBrack{img, a, af, m}, rest}:
       Bool.pick(String, img, "![", "[") ++ r.inl(rest)
     case Con{IMark{}, rest}:
       r.inl(rest)
@@ -1635,7 +1635,7 @@ def p.inl(xs: List<&2, Inl>) -> String:
       p ++ p.inl(rest)
     case Con{IDelim{c, n, o, op, cl}, rest}:
       rep(c, n) ++ p.inl(rest)
-    case Con{IBrack{img, a, af}, rest}:
+    case Con{IBrack{img, a, af, m}, rest}:
       Bool.pick(String, img, "![", "[") ++ p.inl(rest)
     case Con{IMark{}, rest}:
       p.inl(rest)
@@ -2157,14 +2157,14 @@ def other(try: Bool, +y: U32, +t: String, +buf: String, out: List<&2, Inl>, +o: 
 
 # Splits the output at its newest bracket: the inlines after it (oldest first), the bracket, and the rest.
 type Bk is Data:
-  Bk{above: List<&2, Inl>, img: Bool, active: Bool, after: String, below: List<&2, Inl>}
+  Bk{above: List<&2, Inl>, img: Bool, active: Bool, after: String, ms: Ms, below: List<&2, Inl>}
 
 def brk(out: List<&2, Inl>, acc: List<&2, Inl>) -> Maybe<&2, Bk>:
   match out:
     case Nil{}:
       None{}
-    case Con{IBrack{img, a, af}, rest}:
-      Some{Bk{acc, img, a, af, rest}}
+    case Con{IBrack{img, a, af, m}, rest}:
+      Some{Bk{acc, img, a, af, m, rest}}
     case Con{x, rest}:
       brk(rest, x <> acc)
 
@@ -2175,10 +2175,10 @@ def deact(xs: List<&2, Inl>) -> List<&2, Inl>:
       Nil{}
     case Con{IMark{}, rest}:
       IMark{} <> rest
-    case Con{IBrack{False{}, False{}, af}, rest}:
-      IBrack{False{}, False{}, af} <> rest
-    case Con{IBrack{False{}, True{}, af}, rest}:
-      IBrack{False{}, False{}, af} <> deact(rest)
+    case Con{IBrack{False{}, False{}, af, m}, rest}:
+      IBrack{False{}, False{}, af, m} <> rest
+    case Con{IBrack{False{}, True{}, af, m}, rest}:
+      IBrack{False{}, False{}, af, m} <> deact(rest)
     case Con{x, rest}:
       x <> deact(rest)
 
@@ -2282,45 +2282,80 @@ def link.try(m: Maybe<&2, Lt>, above: List<&2, Inl>, +img: Bool, below: List<&2,
     case None{}:
       link.fail(above, img, below, t)
 
-def got.v(m: Maybe<&2, Got>) -> Maybe<&2, String>:
+def lab.tick.of(m: Maybe<&2, Got>, +n: Nat) -> Nat:
+  match m:
+    case None{}:
+      n
+    case Some{Got{v, r}}:
+      Nat.add(Nat.add(n, n), String.length(v))
+
+def lab.tick(+n: Nat, +s: String) -> Nat:
+  lab.tick.of(tick.go(String.drop(s, n), False{}, 0n, n, SNil{}), n)
+
+def lab.lt(u: Maybe<&2, Got>, e: Maybe<&2, Got>, h: Maybe<&2, Nat>) -> Nat:
+  match u:
+    case Some{Got{v, r}}:
+      Nat.add(2n, String.length(v))
+    case None{}:
+      match e:
+        case Some{Got{v, r}}:
+          Nat.add(2n, String.length(v))
+        case None{}:
+          Maybe.default(&2, Nat, h, 1n)
+
+def lab.al(m: Maybe<&2, Al>) -> Nat:
+  match m:
+    case None{}:
+      1n
+    case Some{Al{h, x}}:
+      String.length(x)
+
+# How many code points the piece at s takes, by the inline scanner's rules: an escape, a code span, an autolink, raw HTML, a GFM extended autolink after prev, or one code point.
+def lab.len(+c: U32, +prev: U32, +ms: Ms, +gfm: Bool, +s: String) -> Nat:
+  +t = String.drop(s, 1n)
+  when(Nat, eq(c, 92), u => Bool.pick(Nat, is_apunct(hd(t)), 2n, 1n),
+    u => when(Nat, eq(c, 96), u => lab.tick(count(96, s), s),
+      u => when(Nat, eq(c, 60), u => lab.lt(auto.uri(t), auto.email(t), raw_html(ms, s)),
+        u => when(Nat, gfm && al.bound(prev), u => lab.al(al(s)), u => 1n))))
+
+# The length of a bracket's raw label: the text up to the ] that closes it, scanned as the inline scanner scans it. None when another bracket comes first or the label passes 999 code points.
+def lab.go(f: Nat, +s: String, +n: Nat, +prev: U32, +ms: Ms, +gfm: Bool) -> Maybe<&2, Nat>:
+  match f:
+    case 0n:
+      None{}
+    case 1n+g:
+      +c = hd(s)
+      +k = lab.len(c, prev, ms, gfm, s)
+      +ms2 = when(Ms, eq(c, 60) && Nat.is_eq(k, 1n), u => ms.add(String.drop(s, 1n), ms), u => ms)
+      when(Maybe<&2, Nat>, eq(c, 93), u => Some{n},
+        u => when(Maybe<&2, Nat>, eq(c, 91) || eq(c, 0) || Nat.is_gt(n, 999n), u => None{},
+          u => lab.go(g, String.drop(s, k), Nat.add(n, k), hd(String.reverse(String.take(s, k))), ms2, gfm)))
+
+def lab.take(m: Maybe<&2, Nat>, +after: String) -> Maybe<&2, String>:
   match m:
     case None{}:
       None{}
-    case Some{Got{v, r}}:
-      Some{v}
-
-def has_rb(xs: List<&2, Inl>) -> Bool:
-  match xs:
-    case Nil{}:
-      False{}
-    case Con{IHtml{h, +p}, rest}:
-      String.contains(p, "]") || has_rb(rest)
-    case Con{x, rest}:
-      has_rb(rest)
-
-# The raw label of a bracket whose inline link failed. label stops at the first unescaped bracket, which is this ] unless a code span, raw HTML, or autolink took a ] before it.
-def raw_label(+above: List<&2, Inl>, +after: String, +t: String) -> Maybe<&2, String>:
-  # ponytail: a ] inside a code span, raw HTML, or autolink in the label measures the rest of the paragraph; scan like cmark if that input matters
-  when(Maybe<&2, String>, has_rb(above), u => Some{String.take(after, Nat.sub(Nat.sub(String.length(after), String.length(t)), 1n))}, u => got.v(label(after)))
+    case Some{n}:
+      Some{String.take(after, n)}
 
 # An inline link, else a reference link.
-def link.inl(m: Maybe<&2, Lt>, +above: List<&2, Inl>, +img: Bool, below: List<&2, Inl>, +t: String, +after: String, +refs: List<&2, Ref>, +o: Opts) -> Is:
+def link.inl(m: Maybe<&2, Lt>, +above: List<&2, Inl>, +img: Bool, below: List<&2, Inl>, +t: String, +after: String, +ms: Ms, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match m:
     case Some{lt}:
       link.make(lt, above, img, below, o)
     case None{}:
-      link.try(ref.tail(t, raw_label(above, after, t), refs), above, img, below, t, o)
+      link.try(ref.tail(t, lab.take(lab.go(1000n, after, 0n, 91, ms, o.gfm(o)), after), refs), above, img, below, t, o)
 
 def close.br(m: Maybe<&2, Bk>, +t: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match m:
     case None{}:
       Is{t, 93, SCon{']', SNil{}}, out}
-    case Some{Bk{above, +img, active, +after, below}}:
+    case Some{Bk{above, +img, active, +after, +ms, below}}:
       match active:
         case False{}:
           link.fail(above, img, below, t)
         case True{}:
-          link.inl(inl.tail(t), above, img, below, t, after, refs, o)
+          link.inl(inl.tail(t), above, img, below, t, after, ms, refs, o)
 
 # ---- the scanner loop
 
@@ -2380,9 +2415,9 @@ def istep(k: Ic, +open: Nat, +ms: Ms, +y: U32, +t: String, +prev: U32, +buf: Str
     case IcStar{}:
       delim(y, SCon{Chr{y}, t}, prev, buf, out)
     case IcOpen{}:
-      Is{t, 91, SNil{}, IBrack{False{}, True{}, t} <> flush(buf, out)}
+      Is{t, 91, SNil{}, IBrack{False{}, True{}, t, ms} <> flush(buf, out)}
     case IcBang{}:
-      Is{String.drop(t, 1n), 91, SNil{}, IBrack{True{}, True{}, String.drop(t, 1n)} <> flush(buf, out)}
+      Is{String.drop(t, 1n), 91, SNil{}, IBrack{True{}, True{}, String.drop(t, 1n), ms} <> flush(buf, out)}
     case IcClose{}:
       when(Is, Nat.is_eq(open, 0n), u => Is{t, 93, SCon{']', SNil{}}, flush(buf, out)}, u => close.br(brk(flush(buf, out), Nil{}), t, flush(buf, out), refs, o))
     case IcLt{}:
