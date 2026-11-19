@@ -12,7 +12,7 @@ def para(n: Nat, +l: String) -> String:
 
 def time(+gfm: Bool, +name: String, +l: String, +n: Nat) -> IO(Unit):
   do IO<Unit>:
-    +d : String = para(n, l)
+    +d : String = para(n, l) ++ "\n[foo]: /url\n"
     t0 : Time.Duration <- Time.mono()
     len : Nat = String.length(M.to_html_with(M.Opts{False{}, gfm}, d))
     t1 : Time.Duration <- Time.mono()
@@ -34,3 +34,6 @@ def main() -> IO(Unit):
     sizes(False{}, "plain", plain ++ amp)
     sizes(False{}, "html", "Some <b>bold</b> text here.\n")
     sizes(True{}, "gfm", "See https://example.com/a for more.\n")
+    sizes(False{}, "ref", "See [foo] here.\n")
+    sizes(False{}, "noref", "See [plain] here.\n")
+    sizes(False{}, "stray", "See plain] here.\n")

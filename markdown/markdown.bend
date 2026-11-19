@@ -2138,15 +2138,22 @@ def lookup.got(m: Maybe<&2, Ref>, +rest: String) -> Maybe<&2, Lt>:
 def lookup(+refs: List<&2, Ref>, +raw: String, +rest: String) -> Maybe<&2, Lt>:
   lookup.got(Bool.pick(Maybe<&2, Ref>, Nat.is_le(String.length(raw), 999n) && Bool.not(is_blank(raw)), find_ref(refs, norm(raw)), None{}), rest)
 
-def ref.full(m: Maybe<&2, Got>, +t: String, +raw: String, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
+def lookup.raw(+refs: List<&2, Ref>, m: Maybe<&2, String>, +rest: String) -> Maybe<&2, Lt>:
+  match m:
+    case None{}:
+      None{}
+    case Some{raw}:
+      lookup(refs, raw, rest)
+
+def ref.full(m: Maybe<&2, Got>, +t: String, +raw: Maybe<&2, String>, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
   match m:
     case Some{Got{lab, rest}}:
       lookup(refs, lab, rest)
     case None{}:
-      when(Maybe<&2, Lt>, String.starts_with(t, "[]"), u => lookup(refs, raw, String.drop(t, 2n)), u => lookup(refs, raw, t))
+      when(Maybe<&2, Lt>, String.starts_with(t, "[]"), u => lookup.raw(refs, raw, String.drop(t, 2n)), u => lookup.raw(refs, raw, t))
 
-def ref.tail(+t: String, +raw: String, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
-  ref.full(Bool.pick(Maybe<&2, Got>, eq(hd(t), 91), label(String.drop(t, 1n)), None{}), t, raw, refs)
+def ref.tail(+t: String, +raw: Maybe<&2, String>, +refs: List<&2, Ref>) -> Maybe<&2, Lt>:
+  ref.full(when(Maybe<&2, Got>, eq(hd(t), 91), u => label(String.drop(t, 1n)), u => None{}), t, raw, refs)
 
 def inl.close.of(+d: String, v: String, m: Maybe<&2, String>) -> Maybe<&2, Lt>:
   match m:
@@ -2211,14 +2218,34 @@ def link.try(m: Maybe<&2, Lt>, above: List<&2, Inl>, +img: Bool, below: List<&2,
     case None{}:
       link.fail(above, img, below, t)
 
-# An inline link, else a reference link. The raw label costs the length of the rest of the paragraph, so it waits for the inline link to fail.
-def link.inl(m: Maybe<&2, Lt>, above: List<&2, Inl>, +img: Bool, below: List<&2, Inl>, +t: String, +after: String, +refs: List<&2, Ref>, +o: Opts) -> Is:
+def got.v(m: Maybe<&2, Got>) -> Maybe<&2, String>:
+  match m:
+    case None{}:
+      None{}
+    case Some{Got{v, r}}:
+      Some{v}
+
+def has_rb(xs: List<&2, Inl>) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{IHtml{h, +p}, rest}:
+      String.contains(p, "]") || has_rb(rest)
+    case Con{x, rest}:
+      has_rb(rest)
+
+# The raw label of a bracket whose inline link failed. label stops at the first unescaped bracket, which is this ] unless a code span, raw HTML, or autolink took a ] before it.
+def raw_label(+above: List<&2, Inl>, +after: String, +t: String) -> Maybe<&2, String>:
+  # ponytail: a ] inside a code span, raw HTML, or autolink in the label measures the rest of the paragraph; scan like cmark if that input matters
+  when(Maybe<&2, String>, has_rb(above), u => Some{String.take(after, Nat.sub(Nat.sub(String.length(after), String.length(t)), 1n))}, u => got.v(label(after)))
+
+# An inline link, else a reference link.
+def link.inl(m: Maybe<&2, Lt>, +above: List<&2, Inl>, +img: Bool, below: List<&2, Inl>, +t: String, +after: String, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match m:
     case Some{lt}:
       link.make(lt, above, img, below, o)
     case None{}:
-      +raw = String.take(after, Nat.sub(Nat.sub(String.length(after), String.length(t)), 1n))
-      link.try(ref.tail(t, raw, refs), above, img, below, t, o)
+      link.try(ref.tail(t, raw_label(above, after, t), refs), above, img, below, t, o)
 
 def close.br(m: Maybe<&2, Bk>, +t: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match m:
@@ -2256,7 +2283,19 @@ def ic(+c: U32, +nx: U32, +gfm: Bool) -> Ic:
                 Bool.pick(Ic, eq(c, 38), IcAmp{},
                   Bool.pick(Ic, eq(c, 10), IcNl{}, IcOther{})))))))))
 
-def istep(k: Ic, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
+# How many brackets are open after a step of kind k.
+def opens(k: Ic, +n: Nat) -> Nat:
+  match k:
+    case IcOpen{}:
+      1n+n
+    case IcBang{}:
+      1n+n
+    case IcClose{}:
+      Nat.sub(n, 1n)
+    case _:
+      n
+
+def istep(k: Ic, +open: Nat, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, Inl>, +refs: List<&2, Ref>, +o: Opts) -> Is:
   match k:
     case IcOther{}:
       other(o.gfm(o) && al.bound(prev), y, t, buf, out, o)
@@ -2271,7 +2310,7 @@ def istep(k: Ic, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, I
     case IcBang{}:
       Is{String.drop(t, 1n), 91, SNil{}, IBrack{True{}, True{}, String.drop(t, 1n)} <> flush(buf, out)}
     case IcClose{}:
-      close.br(brk(flush(buf, out), Nil{}), t, flush(buf, out), refs, o)
+      when(Is, Nat.is_eq(open, 0n), u => Is{t, 93, SCon{']', SNil{}}, flush(buf, out)}, u => close.br(brk(flush(buf, out), Nil{}), t, flush(buf, out), refs, o))
     case IcLt{}:
       lt.uri(auto.uri(t), SCon{Chr{y}, t}, buf, out, o)
     case IcAmp{}:
@@ -2279,7 +2318,7 @@ def istep(k: Ic, +y: U32, +t: String, +prev: U32, +buf: String, +out: List<&2, I
     case IcNl{}:
       nl(t, buf, out)
 
-def inl.go(f: Nat, st: Is, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
+def inl.go(f: Nat, st: Is, +open: Nat, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
   match f:
     case 0n:
       Nil{}
@@ -2290,11 +2329,12 @@ def inl.go(f: Nat, st: Is, +refs: List<&2, Ref>, +o: Opts) -> List<&2, Inl>:
             case SNil{}:
               List.reverse(&2, Inl, flush(buf, out))
             case SCon{Chr{+y}, +t}:
-              inl.go(g, istep(ic(y, hd(t), o.gfm(o)), y, t, prev, buf, out, refs, o), refs, o)
+              +k = ic(y, hd(t), o.gfm(o))
+              inl.go(g, istep(k, open, y, t, prev, buf, out, refs, o), opens(k, open), refs, o)
 
 # A paragraph or heading's text as HTML.
 def inline(+s: String, +refs: List<&2, Ref>, +o: Opts) -> String:
-  r.inl(emph(inl.go(Nat.add(String.length(s), 2n), Is{s, 10, SNil{}, Nil{}}, refs, o)))
+  r.inl(emph(inl.go(Nat.add(String.length(s), 2n), Is{s, 10, SNil{}, Nil{}}, 0n, refs, o)))
 
 # ---- HTML
 

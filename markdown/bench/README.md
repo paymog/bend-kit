@@ -37,7 +37,7 @@ Bend took 311.8 ms on 2026-11-13. `Bool.pick` evaluates both of its branches, so
 
 ## Paragraph scaling
 
-`scale.bend` times one render of one paragraph of N copies of a line. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. Doubling N should about double the time.
+`scale.bend` times one render of one paragraph of N copies of a line, followed by the definition `[foo]: /url`. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. The `ref` line is `See [foo] here.`, a shortcut reference link. The `noref` line is `See [plain] here.`, with no definition. The `stray` line is `See plain] here.`, with no open bracket. Doubling N should about double the time.
 
 ```sh
 bend scale.bend -o out/scale && ./out/scale
@@ -78,6 +78,18 @@ GFM extended autolinks, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in m
 | 1600 | 2068.9 | 67.6 |
 
 Two passes grew with the square of the paragraph length. Each scheme autolink measured the rest of the paragraph to find the length of its scheme. The table search ran on every GFM paragraph, even with no `|`, and reversed the lines above each line through `Bool.pick`. The scheme length now comes from the scheme, and the table search takes its branches through `when`.
+
+Brackets, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `before` is `markdown` 0.3.4.0; `after` is 0.3.5.0.
+
+| lines | ref before | ref after | noref before | noref after | stray before | stray after |
+|---:|---:|---:|---:|---:|---:|---:|
+| 100 | 2.5 | 0.9 | 3.0 | 0.9 | 1.3 | 0.8 |
+| 200 | 11.3 | 1.9 | 14.0 | 2.1 | 4.3 | 2.1 |
+| 400 | 48.7 | 4.6 | 58.3 | 4.0 | 15.8 | 3.4 |
+| 800 | 196.1 | 9.1 | 235.9 | 8.2 | 60.7 | 7.3 |
+| 1600 | 785.3 | 18.5 | 943.1 | 19.2 | 237.1 | 13.8 |
+
+Each `]` after a failed inline link measured the rest of the paragraph twice to cut out its raw label, and a `]` with no open bracket walked every inline before it. The raw label is now the text up to the first unescaped bracket after the `[`, which `label` scans. When a code span, raw HTML, or autolink in the brackets holds a `]`, the label may stop early, so that case still measures the rest of the paragraph. The scanner counts open brackets, and a `]` with none open is text at once.
 
 ## Caveats
 
