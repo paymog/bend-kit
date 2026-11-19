@@ -2025,17 +2025,16 @@ def al.tail(+pre: String, +d: Nat, +s: String) -> Maybe<&2, Al>:
 def al.www(+s: String) -> Maybe<&2, Al>:
   Bool.pick(Maybe<&2, Al>, String.starts_with(s, "www."), al.tail("http://", al.dom(s, False{}), s), None{})
 
-def al.scheme.of(m: Maybe<&2, String>, +s: String) -> Maybe<&2, Al>:
+def al.scheme.of(m: Maybe<&2, String>, +k: Nat, +s: String) -> Maybe<&2, Al>:
   match m:
     case None{}:
       None{}
     case Some{+a}:
-      +k = Nat.sub(String.length(s), String.length(a))
       +d = Bool.pick(Nat, al.host(hd(a)), al.dom(a, True{}), 0n)
       al.tail("", Bool.pick(Nat, Nat.is_eq(d, 0n), 0n, Nat.add(k, d)), s)
 
 def al.scheme(+p: String, +s: String) -> Maybe<&2, Al>:
-  al.scheme.of(lit(p, s), s)
+  al.scheme.of(lit(p, s), String.length(p), s)
 
 def al.mail_ch(+c: U32) -> Bool:
   is_alnum(c) || eq(c, 46) || eq(c, 43) || eq(c, 45) || eq(c, 95)
@@ -2376,7 +2375,7 @@ def tbl.find(ls: List<&2, String>, +before: List<&2, String>) -> Maybe<&2, Tb>:
           +hc = tbl.cells(h)
           +dc = tbl.cells(d)
           +hit = String.contains(d, "-") && tbl.drow(dc) && Nat.is_eq(List.length(&2, String, hc), List.length(&2, String, dc))
-          Bool.pick(Maybe<&2, Tb>, hit, Some{Tb{List.reverse(&2, String, before), hc, tbl.aligns(dc), rest}}, tbl.find(tl, h <> before))
+          when(Maybe<&2, Tb>, hit, u => Some{Tb{List.reverse(&2, String, before), hc, tbl.aligns(dc), rest}}, u => tbl.find(tl, h <> before))
         case Nil{}:
           None{}
     case Nil{}:
@@ -2421,7 +2420,7 @@ def r.para(gfm: Bool, +t: String, +tight: Bool, +refs: List<&2, Ref>, +o: Opts, 
     case False{}:
       r.text(t, tight, refs, o, "", out)
     case True{}:
-      r.tbl(Bool.pick(Maybe<&2, Tb>, String.contains(t, "|"), tbl.find(String.split(t, '\n'), Nil{}), None{}), t, tight, refs, o, out)
+      r.tbl(when(Maybe<&2, Tb>, String.contains(t, "|"), u => tbl.find(String.split(t, '\n'), Nil{}), u => None{}), t, tight, refs, o, out)
 
 # A GFM task list item's first paragraph: 0 for none, 1 for [ ], 2 for [x] or [X].
 def task.kind(+gfm: Bool, +t: String) -> U32:

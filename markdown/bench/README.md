@@ -37,7 +37,7 @@ Bend took 311.8 ms on 2026-11-13. `Bool.pick` evaluates both of its branches, so
 
 ## Paragraph scaling
 
-`scale.bend` times one `to_html` call on one paragraph of N copies of a line. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. Doubling N should about double the time.
+`scale.bend` times one render of one paragraph of N copies of a line. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. Doubling N should about double the time.
 
 ```sh
 bend scale.bend -o out/scale && ./out/scale
@@ -66,6 +66,18 @@ Raw inline HTML, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `bef
 | 1600 | 3229.6 | 23.3 |
 
 Each raw HTML tag measured the rest of the paragraph three times: twice to cut out its own text, and once for the fuel of its attribute loop. The tag parsers now return the length of the tag. The attribute loop takes its fuel from the text itself, one code point for each attribute, so it never measures the text.
+
+GFM extended autolinks, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `before` is `markdown` 0.3.3.0; `after` is 0.3.4.0.
+
+| lines | gfm before | gfm after |
+|---:|---:|---:|
+| 100 | 9.5 | 3.5 |
+| 200 | 35.2 | 7.0 |
+| 400 | 124.8 | 14.4 |
+| 800 | 466.3 | 28.4 |
+| 1600 | 2068.9 | 67.6 |
+
+Two passes grew with the square of the paragraph length. Each scheme autolink measured the rest of the paragraph to find the length of its scheme. The table search ran on every GFM paragraph, even with no `|`, and reversed the lines above each line through `Bool.pick`. The scheme length now comes from the scheme, and the table search takes its branches through `when`.
 
 ## Caveats
 

@@ -3,7 +3,7 @@
 CommonMark 0.31.2 to HTML in pure Bend, with opt-in GitHub Flavored Markdown extensions. All 652 spec examples pass.
 
 ```bend
-import bend-kit-markdown@0.3.3.0/markdown.bend as M
+import bend-kit-markdown@0.3.4.0/markdown.bend as M
 ```
 
 ```bend
