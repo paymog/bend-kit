@@ -37,7 +37,7 @@ Bend took 311.8 ms on 2026-11-13. `Bool.pick` evaluates both of its branches, so
 
 ## Paragraph scaling
 
-`scale.bend` times one `to_html` call on one paragraph of N copies of a line. The line has emphasis, strong emphasis, a code span, and an entity reference. The `links` input also has an inline link with a title on each line. Doubling N should about double the time.
+`scale.bend` times one `to_html` call on one paragraph of N copies of a line. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. Doubling N should about double the time.
 
 ```sh
 bend scale.bend -o out/scale && ./out/scale
@@ -54,6 +54,18 @@ M4 Pro, 2026-11-17, Bend 2.0.38, one run. Times are in ms. `before` is `markdown
 | 1600 | 4023.8 | 62.9 | 923.1 | 46.6 |
 
 Three passes grew with the square of the paragraph length. `find` matched each emphasis closer through `Bool.pick`, so it walked the whole stack below the opener too. Each link deactivated the brackets in every inline before it. Each link also computed its reference label from the lengths of two tails of the paragraph, even when the inline link matched. `find` now takes the chosen branch through `when`. A link leaves an `IMark`, and `deact` stops at it. The reference label waits for the inline link to fail.
+
+Raw inline HTML, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `before` is `markdown` 0.3.2.0; `after` is 0.3.3.0.
+
+| lines | html before | html after |
+|---:|---:|---:|
+| 100 | 7.6 | 1.1 |
+| 200 | 39.0 | 2.4 |
+| 400 | 177.9 | 5.1 |
+| 800 | 779.8 | 10.5 |
+| 1600 | 3229.6 | 23.3 |
+
+Each raw HTML tag measured the rest of the paragraph three times: twice to cut out its own text, and once for the fuel of its attribute loop. The tag parsers now return the length of the tag. The attribute loop takes its fuel from the text itself, one code point for each attribute, so it never measures the text.
 
 ## Caveats
 

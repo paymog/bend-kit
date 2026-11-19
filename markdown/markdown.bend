@@ -553,20 +553,20 @@ def refdef(+s: String) -> Maybe<&2, RefGot>:
 
 # ---- raw HTML
 
-def cut.go(+s: String, hit: Bool, +pat: String) -> Maybe<&2, String>:
+def cut.go(+s: String, hit: Bool, +pat: String, +n: Nat) -> Maybe<&2, Nat>:
   match s:
     case SNil{}:
       None{}
     case SCon{c, t}:
       match hit:
         case True{}:
-          Some{String.drop(SCon{c, t}, String.length(pat))}
+          Some{Nat.add(n, String.length(pat))}
         case False{}:
-          cut.go(t, String.starts_with(t, pat), pat)
+          cut.go(t, String.starts_with(t, pat), pat, 1n+n)
 
-# The text after the first pat in s.
-def cut(+s: String, +pat: String) -> Maybe<&2, String>:
-  cut.go(s, String.starts_with(s, pat), pat)
+# The length of s up to and through the first pat.
+def cut(+s: String, +pat: String) -> Maybe<&2, Nat>:
+  cut.go(s, String.starts_with(s, pat), pat, 0n)
 
 def is_wsn(+c: U32) -> Bool:
   is_sp(c) || is_nl(c)
@@ -574,95 +574,122 @@ def is_wsn(+c: U32) -> Bool:
 def wsp(+s: String) -> String:
   skip(~(c => is_wsn(c)), s)
 
-def need(ok: Bool, +s: String) -> Maybe<&2, String>:
-  Bool.pick(Maybe<&2, String>, ok, Some{s}, None{})
+# The length of the longest prefix of s whose code points satisfy p.
+def run(~p: U32 -> Bool, +s: String) -> Nat:
+  String.length(fst(span(~p, s)))
 
-def tagname(+s: String) -> Maybe<&2, String>:
-  need(is_alpha(hd(s)), skip(~(c => is_alnum(c) || eq(c, 45)), s))
+def wsn(+s: String) -> Nat:
+  run(~(c => is_wsn(c)), s)
 
-def attrname(+s: String) -> Maybe<&2, String>:
+def need(ok: Bool, +n: Nat) -> Maybe<&2, Nat>:
+  Bool.pick(Maybe<&2, Nat>, ok, Some{n}, None{})
+
+def tok(+p: String, +s: String) -> Maybe<&2, Nat>:
+  need(String.starts_with(s, p), String.length(p))
+
+def add(+a: Nat, m: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
+  match m:
+    case None{}:
+      None{}
+    case Some{b}:
+      Some{Nat.add(a, b)}
+
+def tagname(+s: String) -> Maybe<&2, Nat>:
+  need(is_alpha(hd(s)), run(~(c => is_alnum(c) || eq(c, 45)), s))
+
+def attrname(+s: String) -> Maybe<&2, Nat>:
   +c = hd(s)
-  need(is_alpha(c) || eq(c, 95) || eq(c, 58), skip(~(x => is_alnum(x) || eq(x, 95) || eq(x, 46) || eq(x, 58) || eq(x, 45)), s))
+  need(is_alpha(c) || eq(c, 95) || eq(c, 58), run(~(x => is_alnum(x) || eq(x, 95) || eq(x, 46) || eq(x, 58) || eq(x, 45)), s))
 
 def unquoted(+c: U32) -> Bool:
   Bool.not(eq(c, 0) || is_wsn(c) || eq(c, 34) || eq(c, 39) || eq(c, 61) || eq(c, 60) || eq(c, 62) || eq(c, 96))
 
-def attrval(+s: String) -> Maybe<&2, String>:
+def attrval(+s: String) -> Maybe<&2, Nat>:
   +q = hd(s)
-  Bool.pick(Maybe<&2, String>, eq(q, 34) || eq(q, 39), cut(String.drop(s, 1n), one(q)),
-    need(unquoted(q), skip(~(c => unquoted(c)), s)))
+  when(Maybe<&2, Nat>, eq(q, 34) || eq(q, 39), u => add(1n, cut(String.drop(s, 1n), one(q))),
+    u => need(unquoted(q), run(~(c => unquoted(c)), s)))
 
-def or(a: Maybe<&2, String>, b: Maybe<&2, String>) -> Maybe<&2, String>:
+def or(a: Maybe<&2, Nat>, b: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
   match a:
     case Some{x}:
       Some{x}
     case None{}:
       b
 
-def attr.value(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- lit("=", wsp(s))
-    b : String <- attrval(wsp(a))
-    return b
+def attr.value(+s: String) -> Maybe<&2, Nat>:
+  +a = wsn(s)
+  do Maybe<&2, Nat>:
+    b : Nat <- tok("=", String.drop(s, a))
+    +c : Nat = Nat.add(a, b)
+    +d : Nat = Nat.add(c, wsn(String.drop(s, c)))
+    e : Nat <- attrval(String.drop(s, d))
+    return Nat.add(d, e)
 
-def attr(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- need(is_wsn(hd(s)), wsp(s))
-    +b : String <- attrname(a)
-    return Maybe.default(&2, String, attr.value(b), b)
+def attr(+s: String) -> Maybe<&2, Nat>:
+  +a = wsn(s)
+  do Maybe<&2, Nat>:
+    +b : Nat <- add(a, need(is_wsn(hd(s)), 0n))
+    +c : Nat <- add(b, attrname(String.drop(s, b)))
+    return Maybe.default(&2, Nat, add(c, attr.value(String.drop(s, c))), c)
 
-def attrs.go(f: Nat, m: Maybe<&2, String>, +s: String) -> String:
+def attrs.go(f: String, m: Maybe<&2, Nat>, +s: String, +n: Nat) -> Nat:
   match f:
-    case 0n:
-      s
-    case 1n+g:
+    case SNil{}:
+      n
+    case SCon{x, g}:
       match m:
         case None{}:
-          s
-        case Some{+r}:
-          attrs.go(g, attr(r), r)
+          n
+        case Some{+k}:
+          +r = String.drop(s, k)
+          attrs.go(g, attr(r), r, Nat.add(n, k))
 
-def attrs(+s: String) -> String:
-  attrs.go(String.length(s), attr(s), s)
+# Each attribute takes at least one code point, so s itself is enough fuel.
+def attrs(+s: String) -> Nat:
+  attrs.go(s, attr(s), s, 0n)
 
-def open_tag(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- lit("<", s)
-    b : String <- tagname(a)
-    +c : String = wsp(attrs(b))
-    d : String <- or(lit("/>", c), lit(">", c))
-    return d
+def open_tag(+s: String) -> Maybe<&2, Nat>:
+  do Maybe<&2, Nat>:
+    z : Nat <- tok("<", s)
+    +a : Nat <- add(1n, tagname(String.drop(s, 1n)))
+    +b : Nat = Nat.add(a, attrs(String.drop(s, a)))
+    +c : Nat = Nat.add(b, wsn(String.drop(s, b)))
+    +r : String = String.drop(s, c)
+    d : Nat <- or(tok("/>", r), tok(">", r))
+    return Nat.add(c, d)
 
-def close_tag(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    a : String <- lit("</", s)
-    b : String <- tagname(a)
-    c : String <- lit(">", wsp(b))
-    return c
+def close_tag(+s: String) -> Maybe<&2, Nat>:
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok("</", s)
+    +a : Nat <- add(2n, tagname(String.drop(s, 2n)))
+    +b : Nat = Nat.add(a, wsn(String.drop(s, a)))
+    c : Nat <- tok(">", String.drop(s, b))
+    return Nat.add(b, c)
 
-def comment(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    +a : String <- lit("<!--", s)
-    b : String <- or(lit(">", a), or(lit("->", a), cut(a, "-->")))
-    return b
+def comment(+s: String) -> Maybe<&2, Nat>:
+  +a = String.drop(s, 4n)
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok("<!--", s)
+    b : Nat <- or(tok(">", a), or(tok("->", a), cut(a, "-->")))
+    return Nat.add(4n, b)
 
-def decl(+s: String) -> Maybe<&2, String>:
-  do Maybe<&2, String>:
-    +a : String <- lit("<!", s)
-    b : String <- need(is_alpha(hd(a)), a)
-    c : String <- cut(b, ">")
-    return c
+def decl(+s: String) -> Maybe<&2, Nat>:
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok("<!", s)
+    _ : Nat <- need(is_alpha(hd(String.drop(s, 2n))), 0n)
+    c : Nat <- cut(String.drop(s, 2n), ">")
+    return Nat.add(2n, c)
 
-def cut.after(m: Maybe<&2, String>, +pat: String) -> Maybe<&2, String>:
-  match m:
-    case None{}:
-      None{}
-    case Some{r}:
-      cut(r, pat)
+def cut.after(+p: String, +s: String, +pat: String) -> Maybe<&2, Nat>:
+  +n = String.length(p)
+  do Maybe<&2, Nat>:
+    _ : Nat <- tok(p, s)
+    c : Nat <- cut(String.drop(s, n), pat)
+    return Nat.add(n, c)
 
-# Raw inline HTML at the start of s: the text after it.
-def raw_html(+s: String) -> Maybe<&2, String>:
-  or(open_tag(s), or(close_tag(s), or(comment(s), or(cut.after(lit("<?", s), "?>"), or(cut.after(lit("<![CDATA[", s), "]]>"), decl(s))))))
+# The length of the raw inline HTML at the start of s.
+def raw_html(+s: String) -> Maybe<&2, Nat>:
+  or(open_tag(s), or(close_tag(s), or(comment(s), or(cut.after("<?", s, "?>"), or(cut.after("<![CDATA[", s, "]]>"), decl(s))))))
 
 # ---- blocks
 
@@ -1066,12 +1093,12 @@ def html1.one(m: Maybe<&2, String>) -> Bool:
 def html1(+s: String) -> Bool:
   html1.one(lit_ci("<script", s)) || html1.one(lit_ci("<pre", s)) || html1.one(lit_ci("<style", s)) || html1.one(lit_ci("<textarea", s))
 
-def html7.ok(m: Maybe<&2, String>) -> Bool:
+def html7.ok(m: Maybe<&2, Nat>, +s: String) -> Bool:
   match m:
     case None{}:
       False{}
-    case Some{r}:
-      is_blank(r)
+    case Some{n}:
+      is_blank(String.drop(s, n))
 
 def html_start.lt(lt: Bool, +s: String, +cpara: Bool) -> U32:
   match lt:
@@ -1084,7 +1111,7 @@ def html_start.lt(lt: Bool, +s: String, +cpara: Bool) -> U32:
             Bool.pick(U32, String.starts_with(s, "<!") && is_alpha(hd(String.drop(s, 2n))), 4,
               Bool.pick(U32, String.starts_with(s, "<![CDATA["), 5,
                 Bool.pick(U32, html6(s), 6,
-                  Bool.pick(U32, Bool.not(cpara) && (html7.ok(open_tag(s)) || html7.ok(close_tag(s))), 7, 0)))))))
+                  Bool.pick(U32, Bool.not(cpara) && (html7.ok(open_tag(s), s) || html7.ok(close_tag(s), s)), 7, 0)))))))
 
 # The HTML block kind (1 to 7) that a line at s starts, or 0.
 def html_start(+s: String, +cpara: Bool) -> U32:
@@ -1851,13 +1878,13 @@ def html_out(o: Opts, +raw: String) -> String:
             case False{}:
               raw
 
-def lt.html(m: Maybe<&2, String>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
+def lt.html(m: Maybe<&2, Nat>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
   match m:
     case None{}:
       Is{String.drop(s, 1n), 60, SCon{'<', buf}, out}
-    case Some{+rest}:
-      +raw = String.take(s, Nat.sub(String.length(s), String.length(rest)))
-      Is{rest, 62, SNil{}, IHtml{html_out(o, raw), raw} <> flush(buf, out)}
+    case Some{+n}:
+      +raw = String.take(s, n)
+      Is{String.drop(s, n), 62, SNil{}, IHtml{html_out(o, raw), raw} <> flush(buf, out)}
 
 def lt.email(m: Maybe<&2, Got>, +s: String, +buf: String, out: List<&2, Inl>, +o: Opts) -> Is:
   match m:
