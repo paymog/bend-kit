@@ -37,7 +37,7 @@ Bend took 311.8 ms on 2026-11-13. `Bool.pick` evaluates both of its branches, so
 
 ## Paragraph scaling
 
-`scale.bend` times one render of one paragraph of N copies of a line, followed by the definition `[foo]: /url`. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. The `ref` line is `See [foo] here.`, a shortcut reference link. The `noref` line is `See [plain] here.`, with no definition. The `stray` line is `See plain] here.`, with no open bracket. Doubling N should about double the time.
+`scale.bend` times one render of one paragraph of N copies of a line, followed by the definition `[foo]: /url`. The `plain` line has emphasis, strong emphasis, a code span, and an entity reference. The `links` line also has an inline link with a title. The `html` line is `Some <b>bold</b> text here.`, with two raw HTML tags. The `gfm` line is `See https://example.com/a for more.`, rendered with `gfm` on, so it has an extended autolink. The `ref` line is `See [foo] here.`, a shortcut reference link. The `noref` line is `See [plain] here.`, with no definition. The `stray` line is `See plain] here.`, with no open bracket. The `closers` line is `Some a* b_ text here.`, with two emphasis closers that have no opener. Doubling N should about double the time.
 
 ```sh
 bend scale.bend -o out/scale && ./out/scale
@@ -90,6 +90,18 @@ Brackets, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `before` is
 | 1600 | 785.3 | 18.5 | 943.1 | 19.2 | 237.1 | 13.8 |
 
 Each `]` after a failed inline link measured the rest of the paragraph twice to cut out its raw label, and a `]` with no open bracket walked every inline before it. The raw label is now the text up to the first unescaped bracket after the `[`, which `label` scans. When a code span, raw HTML, or autolink in the brackets holds a `]`, the label may stop early, so that case still measures the rest of the paragraph. The scanner counts open brackets, and a `]` with none open is text at once.
+
+Emphasis closers with no opener, M4 Pro, 2026-11-18, Bend 2.0.38, one run. Times are in ms. `before` is `markdown` 0.3.5.0; `after` is 0.3.6.0.
+
+| lines | closers before | closers after |
+|---:|---:|---:|
+| 100 | 3.6 | 1.1 |
+| 200 | 14.4 | 2.3 |
+| 400 | 58.3 | 4.7 |
+| 800 | 229.2 | 9.5 |
+| 1600 | 843.2 | 19.3 |
+
+Each closer with no opener searched the whole stack. The emphasis pass now keeps the reference implementation's `openers_bottom`: for each closer kind (character, whether the closer can open, and its length mod 3) the height below which no opener fits. A miss raises that height to the top of the stack, and a match lowers every height to the new top.
 
 ## Caveats
 

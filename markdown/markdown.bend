@@ -1626,28 +1626,64 @@ def p.inl(xs: List<&2, Inl>) -> String:
 
 # ---- emphasis
 
-# A matching opener: the inlines after it (oldest first), the opener, and the stack below it.
+# A matching opener: the inlines after it (oldest first), the opener, the height of the stack below it, and that stack.
 type Fd is Data:
-  Fd{above: List<&2, Inl>, c: U32, n: U32, o: U32, op: Bool, cl: Bool, below: List<&2, Inl>}
+  Fd{above: List<&2, Inl>, c: U32, n: U32, o: U32, op: Bool, cl: Bool, hb: Nat, below: List<&2, Inl>}
 
 type Rs is Data:
   RDone{}
   RNone{}
   RFound{fd: Fd}
 
+# A closer kind's openers_bottom, as in the CommonMark reference: the bottom h inlines of the stack hold no opener for it.
+type Bot is Data:
+  Bot{k: U32, h: Nat}
+
+# The emphasis stack, newest first, its height, and the bottom of each closer kind.
+type Em is Data:
+  Em{stack: List<&2, Inl>, h: Nat, bots: List<&2, Bot>}
+
+# Whether an opener fits a closer depends only on its character, whether it can open, and its length mod 3.
+def bot.key(+c: U32, +copen: Bool, +orig: U32) -> U32:
+  ((c * 6) + Bool.pick(U32, copen, 3, 0) + (orig % 3) : U32)
+
+def bot.get(bs: List<&2, Bot>, +k: U32) -> Nat:
+  match bs:
+    case Nil{}:
+      0n
+    case Con{Bot{k2, +h}, rest}:
+      when(Nat, eq(k2, k), u => h, u => bot.get(rest, k))
+
+def bot.put(bs: List<&2, Bot>, +k: U32, +h: Nat) -> List<&2, Bot>:
+  match bs:
+    case Nil{}:
+      [Bot{k, h}]
+    case Con{Bot{+k2, +h2}, +rest}:
+      when(List<&2, Bot>, eq(k2, k), u => Bot{k, h} <> rest, u => Bot{k2, h2} <> bot.put(rest, k, h))
+
+def bot.clamp(bs: List<&2, Bot>, +h: Nat) -> List<&2, Bot>:
+  match bs:
+    case Nil{}:
+      Nil{}
+    case Con{Bot{k, h2}, rest}:
+      Bot{k, Nat.min(h, h2)} <> bot.clamp(rest, h)
+
 # Rule of three: a run that can both open and close matches only if the lengths do not sum to a multiple of 3, unless both are.
 def odd_fail(+ocl: Bool, +o: U32, +copen: Bool, +orig: U32) -> Bool:
   (ocl || copen) && eq(((o + orig) % 3 : U32), 0) && Bool.not(eq((o % 3 : U32), 0) && eq((orig % 3 : U32), 0))
 
-def find(stack: List<&2, Inl>, +c: U32, +orig: U32, +copen: Bool, +acc: List<&2, Inl>) -> Maybe<&2, Fd>:
+# Searches the stack, h high, for an opener above its bottom bot.
+def find(stack: List<&2, Inl>, +h: Nat, +bot: Nat, +c: U32, +orig: U32, +copen: Bool, +acc: List<&2, Inl>) -> Maybe<&2, Fd>:
   match stack:
     case Nil{}:
       None{}
     case Con{IDelim{+c2, +n2, +o2, +op2, +cl2}, +rest}:
+      +hb = Nat.sub(h, 1n)
       +fits = Bool.pick(Bool, eq(c, 126), eq(o2, orig), Bool.not(odd_fail(cl2, o2, copen, orig)))
-      when(Maybe<&2, Fd>, eq(c2, c) && op2 && fits, u => Some{Fd{acc, c2, n2, o2, op2, cl2, rest}}, u => find(rest, c, orig, copen, IDelim{c2, n2, o2, op2, cl2} <> acc))
-    case Con{x, rest}:
-      find(rest, c, orig, copen, x <> acc)
+      when(Maybe<&2, Fd>, Nat.is_le(h, bot), u => None{},
+        u => when(Maybe<&2, Fd>, eq(c2, c) && op2 && fits, v => Some{Fd{acc, c2, n2, o2, op2, cl2, hb, rest}}, v => find(rest, hb, bot, c, orig, copen, IDelim{c2, n2, o2, op2, cl2} <> acc)))
+    case Con{+x, +rest}:
+      when(Maybe<&2, Fd>, Nat.is_le(h, bot), u => None{}, u => find(rest, Nat.sub(h, 1n), bot, c, orig, copen, x <> acc))
 
 def rs.of(m: Maybe<&2, Fd>) -> Rs:
   match m:
@@ -1656,12 +1692,12 @@ def rs.of(m: Maybe<&2, Fd>) -> Rs:
     case Some{fd}:
       RFound{fd}
 
-def seek(more: Bool, stack: List<&2, Inl>, +c: U32, +orig: U32, +copen: Bool) -> Rs:
+def seek(more: Bool, +stack: List<&2, Inl>, +h: Nat, +bots: List<&2, Bot>, +c: U32, +orig: U32, +copen: Bool) -> Rs:
   match more:
     case False{}:
       RDone{}
     case True{}:
-      rs.of(find(stack, c, orig, copen, Nil{}))
+      rs.of(find(stack, h, bot.get(bots, bot.key(c, copen, orig)), c, orig, copen, Nil{}))
 
 def wrap(+c: U32, +use: U32, +xs: List<&2, Inl>) -> Inl:
   +tag = Bool.pick(String, eq(c, 126), "del", Bool.pick(String, eq(use, 2), "strong", "em"))
@@ -1671,42 +1707,54 @@ def wrap(+c: U32, +use: U32, +xs: List<&2, Inl>) -> Inl:
 def keep(+n: U32, +c: U32, +o: U32, +op: Bool, +cl: Bool, +below: List<&2, Inl>) -> List<&2, Inl>:
   Bool.pick(List<&2, Inl>, eq(n, 0), below, IDelim{c, n, o, op, cl} <> below)
 
-# Matches the closer, n long, against openers until it runs out or none is left.
-def resolve(f: Nat, r: Rs, +stack: List<&2, Inl>, +c: U32, +n: U32, +orig: U32, +copen: Bool) -> List<&2, Inl>:
+# Matches the closer, n long, against openers until it runs out or none is left. A miss raises the closer kind's bottom to the stack top; a match lowers every bottom to the new top.
+def resolve(f: Nat, r: Rs, +stack: List<&2, Inl>, +h: Nat, +bots: List<&2, Bot>, +c: U32, +n: U32, +orig: U32, +copen: Bool) -> Em:
   match f:
     case 0n:
-      stack
+      Em{stack, h, bots}
     case 1n+g:
       match r:
         case RDone{}:
-          stack
+          Em{stack, h, bots}
         case RNone{}:
-          Bool.pick(List<&2, Inl>, copen, IDelim{c, n, orig, copen, True{}} <> stack, IText{rep(c, n)} <> stack)
-        case RFound{Fd{above, c2, +n2, o2, op2, cl2, below}}:
+          +b2 = bot.put(bots, bot.key(c, copen, orig), h)
+          Bool.pick(Em, copen, Em{IDelim{c, n, orig, copen, True{}} <> stack, 1n+h, b2}, Em{IText{rep(c, n)} <> stack, 1n+h, b2})
+        case RFound{Fd{above, c2, +n2, o2, op2, cl2, +hb, below}}:
           +use = Bool.pick(U32, eq(c, 126), n, Bool.pick(U32, U32.is_ge(n, 2) && U32.is_ge(n2, 2), 2, 1))
-          +st2 = {wrap(c, use, above) <> keep((n2 - use : U32), c2, o2, op2, cl2, below) : List<&2, Inl>}
+          +left = (n2 - use : U32)
+          +st2 = {wrap(c, use, above) <> keep(left, c2, o2, op2, cl2, below) : List<&2, Inl>}
+          +h2 = Nat.add(hb, Bool.pick(Nat, eq(left, 0), 1n, 2n))
+          +b2 = bot.clamp(bots, h2)
           +nr = (n - use : U32)
-          resolve(g, seek(U32.is_gt(nr, 0), st2, c, orig, copen), st2, c, nr, orig, copen)
+          resolve(g, seek(U32.is_gt(nr, 0), st2, h2, b2, c, orig, copen), st2, h2, b2, c, nr, orig, copen)
 
-def emph.delim(cl: Bool, +stack: List<&2, Inl>, +c: U32, +n: U32, +o: U32, +op: Bool) -> List<&2, Inl>:
+def emph.delim(cl: Bool, em: Em, +c: U32, +n: U32, +o: U32, +op: Bool) -> Em:
   match cl:
     case False{}:
-      IDelim{c, n, o, op, False{}} <> stack
+      match em:
+        case Em{stack, h, bots}:
+          Em{IDelim{c, n, o, op, False{}} <> stack, 1n+h, bots}
     case True{}:
-      resolve(1n+U32.to_nat(n), seek(True{}, stack, c, o, op), stack, c, n, o, op)
+      match em:
+        case Em{+stack, +h, +bots}:
+          resolve(1n+U32.to_nat(n), seek(True{}, stack, h, bots, c, o, op), stack, h, bots, c, n, o, op)
 
-def emph.go(xs: List<&2, Inl>, +stack: List<&2, Inl>) -> List<&2, Inl>:
+def emph.go(xs: List<&2, Inl>, em: Em) -> List<&2, Inl>:
   match xs:
     case Nil{}:
-      List.reverse(&2, Inl, stack)
+      match em:
+        case Em{stack, h, bots}:
+          List.reverse(&2, Inl, stack)
     case Con{IDelim{c, n, o, op, cl}, rest}:
-      emph.go(rest, emph.delim(cl, stack, c, n, o, op))
+      emph.go(rest, emph.delim(cl, em, c, n, o, op))
     case Con{x, rest}:
-      emph.go(rest, x <> stack)
+      match em:
+        case Em{stack, h, bots}:
+          emph.go(rest, Em{x <> stack, 1n+h, bots})
 
 # Emphasis and strong emphasis, by the delimiter run rules.
 def emph(xs: List<&2, Inl>) -> List<&2, Inl>:
-  emph.go(xs, Nil{})
+  emph.go(xs, Em{Nil{}, 0n, Nil{}})
 
 # ---- inline scanner
 
