@@ -3,7 +3,7 @@
 Proved laws that relate `Word` and `U32` arithmetic to `Nat`. Use them to prove claims about runtime integers. The Nat and List lemmas come from [`bend-mathlib`](https://github.com/bendlib/bendlib). This package holds the laws that mathlib does not have, such as those bounded by `pow2(n)`, and eleven laws that mathlib's `u32.bend` and `nat.bend` state the same way, kept under their names here and proved by the mathlib laws.
 
 ```bend
-import bend-kit-lemmas@0.1.3.0/lemmas.bend as Lemmas
+import bend-kit-lemmas@0.1.4.0/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 ```
 
@@ -27,6 +27,8 @@ def Laws.fits_exact(len, i, n):
 | `u32_mul_mod` | multiplication wraps modulo `2^32` |
 | `u32_divmod_nat` | for a positive divisor, `q*b + r == a` and `r < b` over `Nat` |
 | `u32_div_nat`, `u32_mod_nat` | division and remainder equal the corresponding `Nat` operations for a positive divisor |
+| `u32_div_mul_add_mod` | `(a / b) * b + a % b == a` as `U32`s, for a positive divisor |
+| `u32_xor_twice`, `word_xor_twice` | XOR with the same value twice gives the input back |
 | `u32_inc_nat` | `to_nat(U32.inc(a)) == 1 + to_nat(a)` when that is below `2^32` |
 | `u32_to_from_nat`, `u32_from_to_nat` | `from_nat` and `to_nat` are inverses below `2^32` |
 | `u32_fits_nat` | `n <= len && i <= len - n` holds exactly when `i + n <= len` |

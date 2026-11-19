@@ -106,3 +106,12 @@ def Laws.u32_div_nat(a, b, hb):
 
 def Laws.u32_mod_nat(a, b, hb):
   Lemmas.u32_mod_nat(a, b, hb)
+
+def Laws.word_xor_twice(n, a, b):
+  Lemmas.word_xor_twice(n, a, b)
+
+def Laws.u32_xor_twice(a, b):
+  Lemmas.u32_xor_twice(a, b)
+
+def Laws.u32_div_mul_add_mod(a, b, hb):
+  Lemmas.u32_div_mul_add_mod(a, b, hb)

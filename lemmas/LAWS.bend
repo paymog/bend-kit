@@ -228,3 +228,22 @@ law u32_mod_nat:
   for +b: U32
   for +hb: MNat.lt(0n, U32.to_nat(b))
   {U32.to_nat(U32.mod(a, b)) == Nat.mod(U32.to_nat(a), U32.to_nat(b)) : Nat}
+
+# XOR with the same word twice gives the word back.
+law word_xor_twice:
+  for n: Nat
+  for a: Word(n)
+  for b: Word(n)
+  {Word.xor(n, Word.xor(n, a, b), b) == a : Word(n)}
+
+law u32_xor_twice:
+  for +a: U32
+  for +b: U32
+  {U32.xor(U32.xor(a, b), b) == a : U32}
+
+# The quotient times the divisor plus the remainder rebuilds a U32.
+law u32_div_mul_add_mod:
+  for +a: U32
+  for +b: U32
+  for +hb: MNat.lt(0n, U32.to_nat(b))
+  {U32.add(U32.mul(U32.div(a, b), b), U32.mod(a, b)) == a : U32}

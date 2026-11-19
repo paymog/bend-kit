@@ -1071,77 +1071,19 @@ def HSp(+p: List<&2, U32>) -> U32:
   HS(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535))
 
 # Masking twice gives the payload back.
-def xor_twice(x: Bool, y: Bool) -> {Bool.xor(Bool.xor(x, y), y) == x : Bool}:
-  match x y:
-    case True{} True{}:
-      {==}
-    case True{} False{}:
-      {==}
-    case False{} True{}:
-      {==}
-    case False{} False{}:
-      {==}
-
-def word_xor_twice(n: Nat, a: Word(n), b: Word(n)) -> {Word.xor(n, Word.xor(n, a, b), b) == a : Word(n)}:
-  match n:
-    case 0n:
-      match a b:
-        case WNil{} WNil{}:
-          {==}
-    case 1n+p:
-      match a b:
-        case WCon{+x, +at} WCon{+y, +bt}:
-          %Equal.sym(Bool, Bool.xor(Bool.xor(x, y), y), x, xor_twice(x, y)) :
-            {WCon{_, Word.xor(p, Word.xor(p, at, bt), bt)} == WCon{x, at} : Word(1n+p)}
-          %Equal.sym(Word(p), Word.xor(p, Word.xor(p, at, bt), bt), at, word_xor_twice(p, at, bt)) :
-            {WCon{x, _} == WCon{x, at} : Word(1n+p)}
-          {==}
-
-def u32_xor_twice(+x: U32, +y: U32) -> {U32.xor(U32.xor(x, y), y) == x : U32}:
-  match x y:
-    case U32{+xw} U32{+yw}:
-      Equal.cong(Word(32n), U32, w => U32{w}, Word.xor(32n, Word.xor(32n, xw, yw), yw), xw, word_xor_twice(32n, xw, yw))
-
 def unmask_twice(xs: List<&2, U32>, +key: U32) -> {WS.list.unmask.go(WS.list.unmask.go(xs, key), key) == xs : List<&2, U32>}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +t}:
-      %Equal.sym(U32, U32.xor(U32.xor(x, (key .&. 255 : U32)), (key .&. 255 : U32)), x, u32_xor_twice(x, (key .&. 255 : U32))) :
+      %Equal.sym(U32, U32.xor(U32.xor(x, (key .&. 255 : U32)), (key .&. 255 : U32)), x, Lemmas.u32_xor_twice(x, (key .&. 255 : U32))) :
         {Con{_, WS.list.unmask.go(WS.list.unmask.go(t, ((key >> 8n) .|. (key << 24n) : U32)), ((key >> 8n) .|. (key << 24n) : U32))} == Con{x, t} : List<&2, U32>}
       %Equal.sym(List<&2, U32>, WS.list.unmask.go(WS.list.unmask.go(t, ((key >> 8n) .|. (key << 24n) : U32)), ((key >> 8n) .|. (key << 24n) : U32)), t, unmask_twice(t, ((key >> 8n) .|. (key << 24n) : U32))) :
         {Con{x, _} == Con{x, t} : List<&2, U32>}
       {==}
 
-# y / b * b + y % b rebuilds y.
-def rebuild.le(+QB: Nat, +R: Nat, +A: Nat, e: {Nat.add(QB, R) == A : Nat}) -> MNat.le(QB, A):
-  %e : MNat.le(QB, _)
-  MNat.le_add_right(QB, R)
-
-def rebuild.sum(+M: U32, +QB: Nat, +R: Nat, +A: Nat, em: {U32.to_nat(M) == QB : Nat}, e: {Nat.add(QB, R) == A : Nat}) -> {Nat.add(U32.to_nat(M), R) == A : Nat}:
-  %Equal.sym(Nat, U32.to_nat(M), QB, em) : {Nat.add(_, R) == A : Nat}
-  e
-
-def rebuild.go(+y: U32, +b: U32, +e: {Nat.add(Nat.mul(U32.to_nat(U32.div(y, b)), U32.to_nat(b)), U32.to_nat(U32.mod(y, b))) == U32.to_nat(y) : Nat}) ->
-  {U32.add(U32.mul(U32.div(y, b), b), U32.mod(y, b)) == y : U32}:
-  +em = Lemmas.u32_mul_nat(U32.div(y, b), b,
-    MNat.lt_of_le_of_lt(Nat.mul(U32.to_nat(U32.div(y, b)), U32.to_nat(b)), U32.to_nat(y), Lemmas.pow2(32n),
-      rebuild.le(Nat.mul(U32.to_nat(U32.div(y, b)), U32.to_nat(b)), U32.to_nat(U32.mod(y, b)), U32.to_nat(y), e), Lemmas.u32_to_nat_lt(y)))
-  +es = rebuild.sum(U32.mul(U32.div(y, b), b), Nat.mul(U32.to_nat(U32.div(y, b)), U32.to_nat(b)), U32.to_nat(U32.mod(y, b)), U32.to_nat(y), em, e)
-  Lemmas.u32_to_nat_inj(U32.add(U32.mul(U32.div(y, b), b), U32.mod(y, b)), y,
-    Equal.trans(Nat, U32.to_nat(U32.add(U32.mul(U32.div(y, b), b), U32.mod(y, b))), Nat.add(U32.to_nat(U32.mul(U32.div(y, b), b)), U32.to_nat(U32.mod(y, b))), U32.to_nat(y),
-      Lemmas.u32_add_nat(U32.mul(U32.div(y, b), b), U32.mod(y, b),
-        Lemmas.lt_rw(Nat.add(U32.to_nat(U32.mul(U32.div(y, b), b)), U32.to_nat(U32.mod(y, b))), U32.to_nat(y), Lemmas.pow2(32n), es, Lemmas.u32_to_nat_lt(y))),
-      es))
-
-def rebuild.pair(+y: U32, +b: U32,
-  h: {Nat.add(Nat.mul(U32.to_nat(U32.div(y, b)), U32.to_nat(b)), U32.to_nat(U32.mod(y, b))) == U32.to_nat(y) : Nat} & MNat.lt(U32.to_nat(U32.mod(y, b)), U32.to_nat(b))) ->
-  {U32.add(U32.mul(U32.div(y, b), b), U32.mod(y, b)) == y : U32}:
-  (e, hr) = h
-  rebuild.go(y, b, e)
-
 def oct(+y: U32) -> {U32.add(U32.mul(U32.div(y, 256), 256), U32.mod(y, 256)) == y : U32}:
-  rebuild.pair(y, 256, Lemmas.u32_divmod_nat(y, 256, {==}))
+  Lemmas.u32_div_mul_add_mod(y, 256, {==})
 
 # The four octets of x, most significant first, give x back.
 def chain(+x: U32) -> {WS.be32(U32.div(U32.div(U32.div(x, 256), 256), 256), U32.mod(U32.div(U32.div(x, 256), 256), 256), U32.mod(U32.div(x, 256), 256), U32.mod(x, 256)) == x : U32}:

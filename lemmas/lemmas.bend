@@ -1543,3 +1543,82 @@ law u32_mod_nat:
 def u32_mod_nat(a, b, hb):
   mod_unique_pair(U32.to_nat(U32.div(a, b)), U32.to_nat(U32.mod(a, b)), U32.to_nat(a), U32.to_nat(b),
     u32_divmod_nat(a, b, hb))
+
+def xor_twice(x: Bool, y: Bool) -> {Bool.xor(Bool.xor(x, y), y) == x : Bool}:
+  match x y:
+    case True{} True{}:
+      {==}
+    case True{} False{}:
+      {==}
+    case False{} True{}:
+      {==}
+    case False{} False{}:
+      {==}
+
+# XOR with the same word twice gives the word back.
+law word_xor_twice:
+  for n: Nat
+  for a: Word(n)
+  for b: Word(n)
+  {Word.xor(n, Word.xor(n, a, b), b) == a : Word(n)}
+
+def word_xor_twice(n, a, b):
+  match n:
+    case 0n:
+      match a b:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+p:
+      match a b:
+        case WCon{+x, +at} WCon{+y, +bt}:
+          %Equal.sym(Bool, Bool.xor(Bool.xor(x, y), y), x, xor_twice(x, y)) :
+            {WCon{_, Word.xor(p, Word.xor(p, at, bt), bt)} == WCon{x, at} : Word(1n+p)}
+          %Equal.sym(Word(p), Word.xor(p, Word.xor(p, at, bt), bt), at, word_xor_twice(p, at, bt)) :
+            {WCon{x, _} == WCon{x, at} : Word(1n+p)}
+          {==}
+
+law u32_xor_twice:
+  for +a: U32
+  for +b: U32
+  {U32.xor(U32.xor(a, b), b) == a : U32}
+
+def u32_xor_twice(a, b):
+  match a b:
+    case U32{+aw} U32{+bw}:
+      Equal.cong(Word(32n), U32, w => U32{w}, Word.xor(32n, Word.xor(32n, aw, bw), bw), aw, word_xor_twice(32n, aw, bw))
+
+def div_mul_add_mod.le(+qb: Nat, +r: Nat, +a: Nat, e: {Nat.add(qb, r) == a : Nat}) -> MNat.le(qb, a):
+  %e : MNat.le(qb, _)
+  MNat.le_add_right(qb, r)
+
+def div_mul_add_mod.sum(+m: U32, +qb: Nat, +r: Nat, +a: Nat, em: {U32.to_nat(m) == qb : Nat}, e: {Nat.add(qb, r) == a : Nat}) -> {Nat.add(U32.to_nat(m), r) == a : Nat}:
+  %Equal.sym(Nat, U32.to_nat(m), qb, em) : {Nat.add(_, r) == a : Nat}
+  e
+
+def div_mul_add_mod.go(+a: U32, +b: U32, +e: {Nat.add(Nat.mul(U32.to_nat(U32.div(a, b)), U32.to_nat(b)), U32.to_nat(U32.mod(a, b))) == U32.to_nat(a) : Nat}) ->
+  {U32.add(U32.mul(U32.div(a, b), b), U32.mod(a, b)) == a : U32}:
+  +em = u32_mul_nat(U32.div(a, b), b,
+    MNat.lt_of_le_of_lt(Nat.mul(U32.to_nat(U32.div(a, b)), U32.to_nat(b)), U32.to_nat(a), pow2(32n),
+      div_mul_add_mod.le(Nat.mul(U32.to_nat(U32.div(a, b)), U32.to_nat(b)), U32.to_nat(U32.mod(a, b)), U32.to_nat(a), e), u32_to_nat_lt(a)))
+  +es = div_mul_add_mod.sum(U32.mul(U32.div(a, b), b), Nat.mul(U32.to_nat(U32.div(a, b)), U32.to_nat(b)), U32.to_nat(U32.mod(a, b)), U32.to_nat(a), em, e)
+  u32_to_nat_inj(U32.add(U32.mul(U32.div(a, b), b), U32.mod(a, b)), a,
+    Equal.trans(Nat, U32.to_nat(U32.add(U32.mul(U32.div(a, b), b), U32.mod(a, b))), Nat.add(U32.to_nat(U32.mul(U32.div(a, b), b)), U32.to_nat(U32.mod(a, b))), U32.to_nat(a),
+      u32_add_nat(U32.mul(U32.div(a, b), b), U32.mod(a, b),
+        lt_rw(Nat.add(U32.to_nat(U32.mul(U32.div(a, b), b)), U32.to_nat(U32.mod(a, b))), U32.to_nat(a), pow2(32n), es, u32_to_nat_lt(a))),
+      es))
+
+def div_mul_add_mod.pair(+a: U32, +b: U32,
+  h: {Nat.add(Nat.mul(U32.to_nat(U32.div(a, b)), U32.to_nat(b)), U32.to_nat(U32.mod(a, b))) == U32.to_nat(a) : Nat} & MNat.lt(U32.to_nat(U32.mod(a, b)), U32.to_nat(b))) ->
+  {U32.add(U32.mul(U32.div(a, b), b), U32.mod(a, b)) == a : U32}:
+  (e, hr) = h
+  div_mul_add_mod.go(a, b, e)
+
+# The quotient times the divisor plus the remainder rebuilds a U32.
+law u32_div_mul_add_mod:
+  for +a: U32
+  for +b: U32
+  for +hb: MNat.lt(0n, U32.to_nat(b))
+  {U32.add(U32.mul(U32.div(a, b), b), U32.mod(a, b)) == a : U32}
+
+def u32_div_mul_add_mod(a, b, hb):
+  div_mul_add_mod.pair(a, b, u32_divmod_nat(a, b, hb))
