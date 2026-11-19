@@ -79,7 +79,7 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
 - [x] Templating and Markdown (#43): `template`, Mustache with HTML escaping by default, and `markdown`, CommonMark 0.31.2 to HTML with opt-in GitHub extensions.
 - [x] Math and statistics: descriptive statistics, quantiles, a histogram, and linear regression over `F64`, plus `U32` gcd, lcm, and integer square root (#44).
-- [ ] Diff and text utilities (#46)
+- [x] Diff and text utilities: Myers diff with unified output, Levenshtein distance, and word wrap by display width (#46).
 
 ### Existing packages
 
