@@ -67,12 +67,12 @@ def walk(-A: Data, ms: List<&2, Move>, a: List<&2, A>, b: List<&2, A>) -> List<&
     case Con{_, t} _ _:
       walk(A, t, a, b)
 
-# ---- Myers O(ND) diff
+# ---- Myers O(ND) diff in linear space
 
-# One furthest-reaching path on a diagonal: x old items consumed, a and b the rest, path newest first.
+# The furthest point reached on one diagonal: x and y items consumed, a and b the rest.
 type Tip<-A: Data> is Data:
   Dead{}
-  Tip{x: U32, a: List<&2, A>, b: List<&2, A>, path: List<&2, Move>}
+  Tip{x: U32, y: U32, a: List<&2, A>, b: List<&2, A>}
 
 def heads(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Bool:
   match a b:
@@ -82,57 +82,68 @@ def heads(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Bo
       False{}
 
 # more says whether the heads of a and b match.
-def snake(~A: Data, ~eq: A -> A -> Bool, a: List<&2, A>, more: Bool, b: List<&2, A>, +x: U32, p: List<&2, Move>) -> Tip<A>:
+def snake(~A: Data, ~eq: A -> A -> Bool, a: List<&2, A>, more: Bool, b: List<&2, A>, +x: U32, +y: U32) -> Tip<A>:
   match a more b:
     case Con{_, +t} True{} Con{_, +u}:
-      snake(~A, ~eq, t, heads(~A, ~eq, t, u), u, (x + 1 : U32), MSame{} <> p)
+      snake(~A, ~eq, t, heads(~A, ~eq, t, u), u, (x + 1 : U32), (y + 1 : U32))
     case _ _ _:
-      Tip{x, a, b, p}
+      Tip{x, y, a, b}
 
 def slide(~A: Data, ~eq: A -> A -> Bool, tip: Tip<A>) -> Tip<A>:
   match tip:
     case Dead{}:
       Dead{}
-    case Tip{x, +a, +b, p}:
-      snake(~A, ~eq, a, heads(~A, ~eq, a, b), b, x, p)
+    case Tip{x, y, +a, +b}:
+      snake(~A, ~eq, a, heads(~A, ~eq, a, b), b, x, y)
 
 def tip.del(-A: Data, tip: Tip<A>) -> Tip<A>:
   match tip:
-    case Tip{x, Con{_, t}, b, p}:
-      Tip{(x + 1 : U32), t, b, MDel{} <> p}
+    case Tip{x, y, Con{_, t}, b}:
+      Tip{(x + 1 : U32), y, t, b}
     case _:
       Dead{}
 
 def tip.ins(-A: Data, tip: Tip<A>) -> Tip<A>:
   match tip:
-    case Tip{x, a, Con{_, u}, p}:
-      Tip{x, a, u, MIns{} <> p}
+    case Tip{x, y, a, Con{_, u}}:
+      Tip{x, (y + 1 : U32), a, u}
     case _:
       Dead{}
 
-def choose.pick(-A: Data, right: Bool, l: Tip<A>, r: Tip<A>) -> Tip<A>:
-  match right:
-    case True{}:
-      r
-    case False{}:
-      l
+def tip.reach(-A: Data, +tip: Tip<A>, +step: U32) -> U32:
+  match tip:
+    case Dead{}:
+      0
+    case Tip{x, _, _, _}:
+      (x + step : U32)
 
-# Myers' rule: go down from k+1 when V[k-1] < V[k+1]; l is already one step right of V[k-1].
-def choose(-A: Data, l: Tip<A>, r: Tip<A>) -> Tip<A>:
-  match l r:
-    case Dead{} _:
-      r
-    case Tip{+lx, la, lb, lp} Dead{}:
-      Tip{lx, la, lb, lp}
-    case Tip{+lx, la, lb, lp} Tip{+rx, ra, rb, rp}:
-      choose.pick(A, U32.is_le(lx, rx), Tip{lx, la, lb, lp}, Tip{rx, ra, rb, rp})
+# The first tip, or the other one moved when the first is Dead.
+def choose.or(-A: Data, ins: Bool, first: Tip<A>, other: Tip<A>) -> Tip<A>:
+  match ins first:
+    case True{} Dead{}:
+      tip.ins(A, other)
+    case False{} Dead{}:
+      tip.del(A, other)
+    case _ _:
+      first
+
+def choose.pick(-A: Data, down: Bool, prev: Tip<A>, next: Tip<A>) -> Tip<A>:
+  match down:
+    case True{}:
+      choose.or(A, False{}, tip.ins(A, next), prev)
+    case False{}:
+      choose.or(A, True{}, tip.del(A, prev), next)
+
+# Myers' rule for diagonal k: go down from next (k+1) when V[k-1] < V[k+1], else right from prev (k-1).
+def choose(-A: Data, +prev: Tip<A>, +next: Tip<A>) -> Tip<A>:
+  choose.pick(A, U32.is_le(tip.reach(A, prev, 1), tip.reach(A, next, 0)), prev, next)
 
 def step.mid(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>, +prev: Tip<A>) -> List<&2, Tip<A>>:
   match ts:
     case Nil{}:
       [slide(~A, ~eq, tip.del(A, prev))]
     case Con{+t, rest}:
-      slide(~A, ~eq, choose(A, tip.del(A, prev), tip.ins(A, t))) <> step.mid(~A, ~eq, rest, t)
+      slide(~A, ~eq, choose(A, prev, t)) <> step.mid(~A, ~eq, rest, t)
 
 # Diagonals -d..d, low k first, become -(d+1)..d+1.
 def step(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>) -> List<&2, Tip<A>>:
@@ -142,52 +153,199 @@ def step(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>) -> List<&2, Tip<A>
     case Con{+t, rest}:
       slide(~A, ~eq, tip.ins(A, t)) <> step.mid(~A, ~eq, rest, t)
 
-def find(-A: Data, ts: List<&2, Tip<A>>) -> Maybe<&2, List<&2, Move>>:
+# A point on a shortest path, and the items after it.
+type Split<-A: Data> is Data:
+  Split{x: U32, y: U32, a: List<&2, A>, b: List<&2, A>}
+
+type Dec is Data:
+  AdvF{}
+  AdvR{}
+  Hit{}
+  End{}
+
+def decide.cmp(+l: U32, +r: U32, +reach: Bool) -> Dec:
+  Bool.pick(Dec, U32.is_lt(l, r), AdvF{}, Bool.pick(Dec, U32.is_lt(r, l), AdvR{}, Bool.pick(Dec, reach, Hit{}, AdvF{})))
+
+# f holds forward tips by ascending k = x - y. r holds reverse tips by ascending forward diagonal N - M - k'.
+# Both diagonals match when x1 - y1 = (n - m) - (x2 - y2), written without subtraction.
+def decide(-A: Data, +f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Dec:
+  match f r:
+    case Con{Dead{}, _} _:
+      AdvF{}
+    case _ Con{Dead{}, _}:
+      AdvR{}
+    case Con{Tip{+x1, +y1, _, _}, _} Con{Tip{+x2, +y2, _, _}, _}:
+      decide.cmp((x1 + x2 + m : U32), (y1 + y2 + n : U32), U32.is_le(n, (x1 + x2 : U32)))
+    case _ _:
+      End{}
+
+def overlap.hit(-A: Data, +f: List<&2, Tip<A>>) -> Maybe<&2, Split<A>>:
+  match f:
+    case Con{Tip{x, y, a, b}, _}:
+      Some{Split{x, y, a, b}}
+    case _:
+      None{}
+
+def overlap.go(-A: Data, fuel: Nat, d: Dec, +f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
+  match fuel d:
+    case 1n+p AdvF{}:
+      +ft = List.tail(&2, Tip<A>, f)
+      overlap.go(A, p, decide(A, ft, r, n, m), ft, r, n, m)
+    case 1n+p AdvR{}:
+      +rt = List.tail(&2, Tip<A>, r)
+      overlap.go(A, p, decide(A, f, rt, n, m), f, rt, n, m)
+    case _ Hit{}:
+      overlap.hit(A, f)
+    case _ _:
+      None{}
+
+# The forward tip whose diagonal the reverse frontier has passed, if any.
+def overlap(-A: Data, +fuel: Nat, +f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
+  overlap.go(A, fuel, decide(A, f, r, n, m), f, r, n, m)
+
+def overlap.pick(-A: Data, odd: Bool, +fuel: Nat, +f: List<&2, Tip<A>>, r0: List<&2, Tip<A>>, r1: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
+  match odd:
+    case True{}:
+      overlap(A, fuel, f, r0, n, m)
+    case False{}:
+      overlap(A, fuel, f, r1, n, m)
+
+def step.desc.mid(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>, +prev: Tip<A>) -> List<&2, Tip<A>>:
   match ts:
     case Nil{}:
-      None{}
-    case Con{Tip{_, Nil{}, Nil{}, p}, _}:
-      Some{p}
-    case Con{_, rest}:
-      find(A, rest)
+      [slide(~A, ~eq, tip.ins(A, prev))]
+    case Con{+t, rest}:
+      slide(~A, ~eq, choose(A, t, prev)) <> step.desc.mid(~A, ~eq, rest, t)
 
-def run(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, found: Maybe<&2, List<&2, Move>>, ts: List<&2, Tip<A>>) -> List<&2, Move>:
-  match fuel found:
-    case _ Some{p}:
-      List.reverse(&2, Move, p)
-    case 0n None{}:
+# step for a frontier kept high k first, so the reverse frontier lines up with the forward one.
+def step.desc(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>) -> List<&2, Tip<A>>:
+  match ts:
+    case Nil{}:
       Nil{}
-    case 1n+f None{}:
-      +next = step(~A, ~eq, ts)
-      run(~A, ~eq, f, find(A, next), next)
+    case Con{+t, rest}:
+      slide(~A, ~eq, tip.del(A, t)) <> step.desc.mid(~A, ~eq, rest, t)
 
+# Myers' middle snake: grow d-paths from both ends. When N - M is odd, a forward d-path is checked
+# against the reverse (d-1)-paths; when even, against the reverse d-paths.
+def bisect(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, found: Maybe<&2, Split<A>>, +odd: Bool, +of: Nat, f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
+  match fuel found:
+    case _ Some{s}:
+      Some{s}
+    case 0n None{}:
+      None{}
+    case 1n+p None{}:
+      +f2 = step(~A, ~eq, f)
+      +r2 = step.desc(~A, ~eq, r)
+      bisect(~A, ~eq, p, overlap.pick(A, odd, of, f2, r, r2, n, m), odd, of, f2, r2, n, m)
+
+def middle(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Maybe<&2, Split<A>>:
+  +n = U32.from_nat(List.length(&2, A, a))
+  +m = U32.from_nat(List.length(&2, A, b))
+  +odd = U32.is_eq(((n + m : U32) .&. 1 : U32), 1)
+  +size = Nat.add(List.length(&2, A, a), List.length(&2, A, b))
+  +of = Nat.add(Nat.mul(2n, size), 4n)
+  +f = {[slide(~A, ~eq, Tip{0, 0, a, b})] : List<&2, Tip<A>>}
+  +r = {[slide(~A, ~eq, Tip{0, 0, List.reverse(&2, A, a), List.reverse(&2, A, b)})] : List<&2, Tip<A>>}
+  bisect(~A, ~eq, 1n+size, overlap.pick(A, odd, of, f, Nil{}, r, n, m), odd, of, f, r, n, m)
+
+def common(~A: Data, ~eq: A -> A -> Bool, a: List<&2, A>, more: Bool, b: List<&2, A>, +k: Nat) -> Nat:
+  match a more b:
+    case Con{_, +t} True{} Con{_, +u}:
+      common(~A, ~eq, t, heads(~A, ~eq, t, u), u, 1n+k)
+    case _ _ _:
+      k
+
+def prefix(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Nat:
+  common(~A, ~eq, a, heads(~A, ~eq, a, b), b, 0n)
+
+# A segment still to diff, or moves ready to emit.
+type Job<-A: Data> is Data:
+  JSolve{a: List<&2, A>, b: List<&2, A>}
+  JEmit{ms: List<&2, Move>}
+
+def plan.split(-A: Data, s: Maybe<&2, Split<A>>, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
+  match s:
+    case Some{Split{x, y, sa, sb}}:
+      [JSolve{sa, sb}, JSolve{List.take(&2, A, a, U32.to_nat(x)), List.take(&2, A, b, U32.to_nat(y))}]
+    case None{}:
+      [JEmit{List.append(&2, Move, List.replicate(Move, List.length(&2, A, a), MDel{}),
+        List.replicate(Move, List.length(&2, A, b), MIns{}))}]
+
+def plan.mid(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
+  match a b:
+    case Nil{} _:
+      [JEmit{List.replicate(Move, List.length(&2, A, b), MIns{})}]
+    case _ Nil{}:
+      [JEmit{List.replicate(Move, List.length(&2, A, a), MDel{})}]
+    case _ _:
+      plan.split(A, middle(~A, ~eq, a, b), a, b)
+
+def plan.trim(~A: Data, ~eq: A -> A -> Bool, +p: Nat, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
+  +k = prefix(~A, ~eq, List.reverse(&2, A, a), List.reverse(&2, A, b))
+  +a2 = List.take(&2, A, a, Nat.sub(List.length(&2, A, a), k))
+  +b2 = List.take(&2, A, b, Nat.sub(List.length(&2, A, b), k))
+  JEmit{List.replicate(Move, k, MSame{})} <> List.append(&2, Job<A>, plan.mid(~A, ~eq, a2, b2), [JEmit{List.replicate(Move, p, MSame{})}])
+
+# Jobs for one segment, last first: the common suffix, the middle, then the common prefix.
+def plan(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
+  +p = prefix(~A, ~eq, a, b)
+  plan.trim(~A, ~eq, p, List.drop(&2, A, a, p), List.drop(&2, A, b, p))
+
+# Runs jobs from the end of the script back to its start, so each emit prepends.
+def solve(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, js: List<&2, Job<A>>, acc: List<&2, Move>) -> List<&2, Move>:
+  match fuel js:
+    case 1n+f Con{JSolve{a, b}, t}:
+      solve(~A, ~eq, f, List.append(&2, Job<A>, plan(~A, ~eq, a, b), t), acc)
+    case 1n+f Con{JEmit{ms}, t}:
+      solve(~A, ~eq, f, t, List.append(&2, Move, ms, acc))
+    case _ _:
+      acc
+
+def canon.flush(d: Nat, i: Nat, rest: List<&2, Move>) -> List<&2, Move>:
+  List.append(&2, Move, List.replicate(Move, d, MDel{}), List.append(&2, Move, List.replicate(Move, i, MIns{}), rest))
+
+# Each run of changes puts its deletes first, as diff does.
+def canon(ms: List<&2, Move>, +d: Nat, +i: Nat) -> List<&2, Move>:
+  match ms:
+    case Nil{}:
+      canon.flush(d, i, Nil{})
+    case Con{MSame{}, t}:
+      canon.flush(d, i, MSame{} <> canon(t, 0n, 0n))
+    case Con{MDel{}, t}:
+      canon(t, 1n+d, i)
+    case Con{MIns{}, t}:
+      canon(t, d, 1n+i)
+
+# Each split leaves two smaller segments, and each segment plans at most 4 jobs.
 def moves(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Move>:
-  +t0 = {[slide(~A, ~eq, Tip{0, a, b, Nil{}})] : List<&2, Tip<A>>}
-  run(~A, ~eq, 1n+Nat.add(List.length(&2, A, a), List.length(&2, A, b)), find(A, t0), t0)
+  +size = Nat.add(List.length(&2, A, a), List.length(&2, A, b))
+  canon(solve(~A, ~eq, Nat.add(Nat.mul(8n, size), 8n), [JSolve{a, b}], Nil{}), 0n, 0n)
 
 # A shortest edit script from a to b. eq decides which items match.
 def diff(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Edit<A>>:
   walk(A, moves(~A, ~eq, a, b), a, b)
 
-def lines.fin(empty: Bool, +h: String) -> List<&2, String>:
-  match empty:
-    case True{}:
-      Nil{}
-    case False{}:
-      [h]
-
-def lines.go(xs: List<&2, String>) -> List<&2, String>:
-  match xs:
+def lines.push(c: Char, ls: List<&2, String>) -> List<&2, String>:
+  match ls:
     case Nil{}:
-      Nil{}
-    case Con{+h, Nil{}}:
-      lines.fin(String.is_empty(h), h)
+      [SCon{c, SNil{}}]
     case Con{h, t}:
-      h <> lines.go(t)
+      SCon{c, h} <> t
 
-# Lines split on "\n". A final "\n" ends the last line; it does not start an empty one.
+def lines.pick(nl: Bool, c: Char, ls: List<&2, String>) -> List<&2, String>:
+  match nl:
+    case True{}:
+      SCon{c, SNil{}} <> ls
+    case False{}:
+      lines.push(c, ls)
+
+# Lines with their "\n". Only the last line can lack one, and joining the lines gives s back.
 def lines(s: String) -> List<&2, String>:
-  lines.go(String.lines(s))
+  match s:
+    case SNil{}:
+      Nil{}
+    case SCon{+c, t}:
+      lines.pick(Char.is_eq(c, '\n'), c, lines(t))
 
 def diff_lines(a: String, b: String) -> List<&2, Edit<String>>:
   diff(~String, ~String.eq, lines(a), lines(b))
@@ -277,10 +435,14 @@ def open(cur: Maybe<&2, Hunk>, +o: U32, +n: U32) -> Hunk:
     case Some{h}:
       h
 
-def hunk.add(h: Hunk, text: String, +dold: U32, +dnew: U32) -> Hunk:
+# Text whose line lacks "\n" is the last line of its file, as diff -u marks it.
+def eol(+text: String) -> String:
+  Bool.pick(String, String.ends_with(text, "\n"), "", "\n\\ No newline at end of file\n")
+
+def hunk.add(h: Hunk, +text: String, +dold: U32, +dnew: U32) -> Hunk:
   match h:
     case Hunk{o, n, ol, nl, body}:
-      Hunk{o, n, (ol + dold : U32), (nl + dnew : U32), (text ++ "\n") <> body}
+      Hunk{o, n, (ol + dold : U32), (nl + dnew : U32), (text ++ eol(text)) <> body}
 
 # o and n count the old and new lines before the row.
 def emit(rs: List<&2, Row>, +o: U32, +n: U32, cur: Maybe<&2, Hunk>, out: List<&2, String>) -> List<&2, String>:
@@ -300,7 +462,7 @@ def unified.fin(hs: List<&2, String>, old_name: String, new_name: String) -> Str
       "--- " ++ old_name ++ "\n+++ " ++ new_name ++ "\n" ++ String.concat(List.reverse(&2, String, hs))
 
 # Unified diff text with ctx lines of context around each change; "" when nothing changed.
-# Lines carry no newline, so a missing final newline is not marked.
+# Each line must end with "\n" except the last line of a file, as lines() gives them.
 def unified(old_name: String, new_name: String, +es: List<&2, Edit<String>>, +ctx: U32) -> String:
   unified.fin(emit(rows(es, ahead(String, es), ctx, far()), 0, 0, None{}, Nil{}), old_name, new_name)
 
@@ -375,77 +537,123 @@ def words.go(s: String, st: String & List<&2, String>) -> List<&2, String>:
 def words(s: String) -> List<&2, String>:
   words.go(s, (SNil{}, Nil{}))
 
-# The line being built, its display width, and the finished lines, newest first.
-type Wrap is Data:
-  Wrap{cur: String, w: U32, out: List<&2, String>}
+def fits(+line: String, +width: U32) -> Bool:
+  U32.is_le(Tty.width(line), width)
 
-def wrap.flush(cur: String, out: List<&2, String>) -> List<&2, String>:
-  match cur:
-    case SNil{}:
-      out
-    case SCon{h, t}:
-      SCon{h, t} <> out
+def single.of(gs: List<&2, String>) -> Bool:
+  match gs:
+    case Con{_, Nil{}}:
+      True{}
+    case _:
+      False{}
 
-def chop.pick(push: Bool, st: Wrap, g: String, +gw: U32) -> Wrap:
-  match push:
+# One grapheme cluster: the only kind of line that may be wider than the width.
+def single(+s: String) -> Bool:
+  single.of(Unicode.graphemes(s))
+
+def ok.pick(f: Bool, +s: String) -> Bool:
+  match f:
     case True{}:
-      match st:
-        case Wrap{cur, w, out}:
-          Wrap{g, gw, cur <> out}
+      True{}
     case False{}:
-      match st:
-        case Wrap{cur, w, out}:
-          Wrap{cur ++ g, (w + gw : U32), out}
+      single(s)
 
-def chop.one(st: Wrap, +g: String, +width: U32) -> Wrap:
+# What wrap promises for each line: it fits, or it is one grapheme cluster.
+def ok(+s: String, +width: U32) -> Bool:
+  ok.pick(fits(s, width), s)
+
+# The finished lines, newest first, and the line being built.
+type Wr is Data:
+  Wr{out: List<&2, String>, cur: Maybe<&2, String>}
+
+def step0.pick(f: Bool, out: List<&2, String>, s: String, +c: Char) -> Wr:
+  match f:
+    case True{}:
+      Wr{out, Some{s ++ SCon{c, SNil{}}}}
+    case False{}:
+      Wr{s <> out, Some{SCon{c, SNil{}}}}
+
+def step0(st: Wr, +c: Char, +width: U32) -> Wr:
   match st:
-    case Wrap{+cur, +w, out}:
-      +gw = Tty.cluster(g)
-      chop.pick(Bool.not(String.is_empty(cur)) && U32.is_lt(width, (w + gw : U32)), Wrap{cur, w, out}, g, gw)
+    case Wr{out, None{}}:
+      Wr{out, Some{SCon{c, SNil{}}}}
+    case Wr{out, Some{+s}}:
+      step0.pick(fits(s ++ SCon{c, SNil{}}, width), out, s, c)
 
-# Breaks a word wider than the line at grapheme boundaries.
-def chop(gs: List<&2, String>, +width: U32, st: Wrap) -> Wrap:
+# Code points, for a piece that neither fits nor segments as one cluster. One code point is one cluster.
+def run0(s: String, +width: U32, st: Wr) -> Wr:
+  match s:
+    case SNil{}:
+      st
+    case SCon{c, t}:
+      run0(t, width, step0(st, c, width))
+
+def start1(ok: Bool, out: List<&2, String>, +g: String, +width: U32) -> Wr:
+  match ok:
+    case True{}:
+      Wr{out, Some{g}}
+    case False{}:
+      run0(g, width, Wr{out, None{}})
+
+def step1.pick(f: Bool, out: List<&2, String>, s: String, +g: String, +width: U32) -> Wr:
+  match f:
+    case True{}:
+      Wr{out, Some{s ++ g}}
+    case False{}:
+      start1(ok(g, width), s <> out, g, width)
+
+def step1(st: Wr, +g: String, +width: U32) -> Wr:
+  match st:
+    case Wr{out, None{}}:
+      start1(ok(g, width), out, g, width)
+    case Wr{out, Some{+s}}:
+      step1.pick(fits(s ++ g, width), out, s, g, width)
+
+# Grapheme clusters, for a word wider than the line.
+def run1(gs: List<&2, String>, +width: U32, st: Wr) -> Wr:
   match gs:
     case Nil{}:
       st
     case Con{g, t}:
-      chop(t, width, chop.one(st, g, width))
+      run1(t, width, step1(st, g, width))
 
-def place(fits: Bool, out: List<&2, String>, +word: String, +ww: U32, +width: U32) -> Wrap:
-  match fits:
+def start2(ok: Bool, out: List<&2, String>, +w: String, +width: U32) -> Wr:
+  match ok:
     case True{}:
-      Wrap{word, ww, out}
+      Wr{out, Some{w}}
     case False{}:
-      chop(Unicode.graphemes(word), width, Wrap{"", 0, out})
+      run1(Unicode.graphemes(w), width, Wr{out, None{}})
 
-def wrap.word.pick(join: Bool, st: Wrap, word: String, +ww: U32, +width: U32) -> Wrap:
-  match join:
+def step2.pick(f: Bool, out: List<&2, String>, s: String, +w: String, +width: U32) -> Wr:
+  match f:
     case True{}:
-      match st:
-        case Wrap{cur, w, out}:
-          Wrap{cur ++ " " ++ word, (w + 1 + ww : U32), out}
+      Wr{out, Some{s ++ " " ++ w}}
     case False{}:
-      match st:
-        case Wrap{cur, w, out}:
-          place(U32.is_le(ww, width), wrap.flush(cur, out), word, ww, width)
+      start2(ok(w, width), s <> out, w, width)
 
-def wrap.word(st: Wrap, +word: String, +width: U32) -> Wrap:
+def step2(st: Wr, +w: String, +width: U32) -> Wr:
   match st:
-    case Wrap{+cur, +w, out}:
-      +ww = Tty.width(word)
-      wrap.word.pick(Bool.not(String.is_empty(cur)) && U32.is_le((w + 1 + ww : U32), width), Wrap{cur, w, out}, word, ww, width)
+    case Wr{out, None{}}:
+      start2(ok(w, width), out, w, width)
+    case Wr{out, Some{+s}}:
+      step2.pick(fits(s ++ " " ++ w, width), out, s, w, width)
 
-def wrap.go(ws: List<&2, String>, +width: U32, st: Wrap) -> List<&2, String>:
+def run2(ws: List<&2, String>, +width: U32, st: Wr) -> Wr:
   match ws:
     case Nil{}:
-      match st:
-        case Wrap{cur, w, out}:
-          List.reverse(&2, String, wrap.flush(cur, out))
-    case Con{word, t}:
-      wrap.go(t, width, wrap.word(st, word, width))
+      st
+    case Con{w, t}:
+      run2(t, width, step2(st, w, width))
+
+def wrap.lines(st: Wr) -> List<&2, String>:
+  match st:
+    case Wr{out, None{}}:
+      List.reverse(&2, String, out)
+    case Wr{out, Some{s}}:
+      List.reverse(&2, String, s <> out)
 
 # Greedy word wrap to width display columns. Whitespace runs separate words; lines join words with one space.
-# A word wider than width is broken between grapheme clusters. Only a single cluster wider than width
-# makes a line wider than width.
+# Each candidate line is measured whole, so a cluster that spans a join counts right. A word wider than width
+# breaks between grapheme clusters; a cluster wider than width stays whole on its own line.
 def wrap(text: String, +width: U32) -> List<&2, String>:
-  wrap.go(words(text), width, Wrap{"", 0, Nil{}})
+  wrap.lines(run2(words(text), width, Wr{Nil{}, None{}}))

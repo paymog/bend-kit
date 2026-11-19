@@ -99,10 +99,10 @@ def main() -> IO(Unit):
   do IO<Unit>:
     args : List<&1, String> <- IO.args()
     +s : U32 = scale(args)
-    +a : List<&2, String> = old.go(U32.to_nat((s * 10000 : U32)), 0)
-    +b : List<&2, String> = new.go(U32.to_nat((s * 10000 : U32)), 0)
+    +a : String = String.join(old.go(U32.to_nat((s * 10000 : U32)), 0), "\n") ++ "\n"
+    +b : String = String.join(new.go(U32.to_nat((s * 10000 : U32)), 0), "\n") ++ "\n"
     t0 : Time.Duration <- Time.mono()
-    IO.print("chk\tdiff\t" ++ U32.show(changes(T.diff(~String, ~String.eq, a, b), 0)))
+    IO.print("chk\tdiff\t" ++ U32.show(changes(T.diff_lines(a, b), 0)))
     t1 : Time.Duration <- Time.mono()
     IO.print("ms\tdiff\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
     t2 : Time.Duration <- Time.mono()
