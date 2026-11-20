@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http`: check pooled fetches and complete chunked response streams through the authenticated TLS CONNECT relay. No API change.
 - `http`: check a successful TLS upload through an authenticated CONNECT relay. Verify chunk framing and the exact body at the private-CA origin. No API change.
 - `camber`: bind response and typed-input acceptance servers to port 0 and connect to the port each server reports. Keep the listener open through readiness and serving.
 

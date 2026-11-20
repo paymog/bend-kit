@@ -26,6 +26,20 @@ cert, key, ports_path = sys.argv[1:4]
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     def do_GET(self):
+        if self.path in ("/tunnel-pool", "/tunnel-stream"):
+            if self.headers.get("Proxy-Authorization") is not None:
+                self.send_error(400)
+                return
+            self.send_response(200)
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            route = b"pooled" if self.path == "/tunnel-pool" else b"streamed"
+            for piece in (b"tunnel ", route, b" response complete"):
+                self.wfile.write(f"{len(piece):x}\r\n".encode() + piece + b"\r\n")
+                self.wfile.flush()
+            self.wfile.write(b"0\r\n\r\n")
+            self.wfile.flush()
+            return
         if self.path == "/go":
             body, status, loc = b"", 302, "/ok"
         else:
@@ -81,6 +95,8 @@ class Proxy(BaseHTTPRequestHandler):
             return
         with socket.create_connection(("127.0.0.1", s.server_port), timeout=5) as origin:
             self.connection.settimeout(5)
+            with open(ports_path + ".connects", "a") as f:
+                f.write("CONNECT\n")
             self.send_response(200, "Connection Established")
             self.end_headers()
             while True:
@@ -123,3 +139,7 @@ if [ "${1:-native}" = js ]; then
 else
   "$dir/ca_check" "$dir/ca.pem" "https://localhost:$port" "$port" "http://u:p@127.0.0.1:$proxy_port"
 fi
+[ "$(wc -l <"$dir/ports.connects" | tr -d ' ')" = 3 ] || {
+  echo "expected upload, pooled fetch, and response stream CONNECT tunnels" >&2
+  exit 1
+}
