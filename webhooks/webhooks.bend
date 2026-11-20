@@ -5,9 +5,9 @@ import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-hairpin@0.14.1.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.14.1.1/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.38.6.0/http.bend as Http
+import bend-kit-http@0.38.6.1/http.bend as Http
 
 # Every MAC is HMAC-SHA256 over the body exactly as received, never a re-encoding of parsed JSON.
 # Headers are Http.Req headers: lowercase names, octet-string values. Each verify hands the body back.
