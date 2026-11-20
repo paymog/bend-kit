@@ -9,6 +9,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 ## Unreleased
 
 - `files` 0.4.0.0: `stat` returns size and whole Unix seconds as `(hi, lo)` U32 halves in `Info`, without 32-bit wrap. Negative times use 64-bit two's complement. Breaking.
+- `http`: check streamed uploads with a client certificate, rejection without a certificate, and HTTPS proxy CONNECT authentication. No API change.
 - CI: check prose and import versions in the root and package READMEs against each package's current `VERSION`, with `scripts/pins.allow` exceptions. Run the pin check on README-only pull requests.
 - `text` 0.2.0.1: diff keeps the items and Myers' frontiers in arrays, updated in place, and `diff_lines` diffs FNV-1a hashes of the lines. If a hash collision matches two unequal lines, it diffs the strings instead. The bench diff of 10,000 lines takes 6.3 ms, down from 41.9 ms, and two unrelated 10,000-line lists of strings take 3.0 s, down from 6.9 s. Output does not change. No API change.
 - planner 0.4.2.0: add `par.fast`, the parallel run model with statuses, the graph, and the stale set in ordered maps, with law `par_index`. `build` uses it and looks up tasks, stamps, and command output by index, so a run of 1,000 nodes takes about 10 ms instead of about 145 ms. Re-pin `process` to 0.5.1.0.

@@ -298,6 +298,22 @@ def opened.got(+name: String, +want: String, x: Maybe<&2, Http.Jar> & Result<&1,
         opened.body(name, want, got)
         return m
 
+# A failed write stays in the Up, so upload.finish reports it.
+def upload.wrote(r: Http.Up & Result<&2, &2, Http.Err, Unit>) ->
+    IO(Result<&1, &1, Http.Err, Http.Stream>):
+  (up, w) = r
+  Http.upload.finish(up)
+
+def upload.started(r: Result<&1, &1, Http.Err, Http.Up>) ->
+    IO(Result<&1, &1, Http.Err, Http.Stream>):
+  match r:
+    case Fail{e}:
+      IO.pure(Result<&1, &1, Http.Err, Http.Stream>, Fail{e})
+    case Done{up}:
+      do IO<Result<&1, &1, Http.Err, Http.Stream>>:
+        w : Http.Up & Result<&2, &2, Http.Err, Unit> <- Http.upload.write(up, Bytes.from_string("hi"))
+        upload.wrote(w)
+
 def mtls.ok(+want: String, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match r:
     case Fail{e}:
@@ -331,6 +347,17 @@ def mtls.pool.bad(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http
     mtls.err(r)
     return p
 
+def mtls.upload.err(r: Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
+  match r:
+    case Fail{Http.ErrTls{code, why}}:
+      IO.print("ok mTLS upload rejected")
+    case Fail{other}:
+      IO.die(Unit, 1, "mTLS upload failed without TLS error")
+    case Done{st}:
+      do IO<Unit>:
+        Http.stream.close(st)
+        IO.die(Unit, 1, "mTLS upload accepted a missing certificate")
+
 def mtls.run(+one: String, +key1: String, +two: String, +key2: String, +base: String) -> IO(Unit):
   do IO<Unit>:
     missing : Result<&1, &1, Http.Err, Http.Res> <-
@@ -339,6 +366,14 @@ def mtls.run(+one: String, +key1: String, +two: String, +key2: String, +base: St
     accepted : Result<&1, &1, Http.Err, Http.Res> <-
       Http.fetch.cert("GET", base ++ "/who", Http.empty(), Bytes.new(0), one, key1)
     mtls.ok("client-one", accepted)
+    began : Result<&1, &1, Http.Err, Http.Up> <-
+      Http.upload.how(Some{Http.Cert{one, key1}}, "", "GET", base ++ "/who", Http.empty(), 30000)
+    uploaded : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(began)
+    ju : Maybe<&2, Http.Jar> <- opened.got("mTLS upload identity", "client-one", (None{}, uploaded))
+    bare : Result<&1, &1, Http.Err, Http.Up> <-
+      Http.upload.how(None{}, "", "GET", base ++ "/who", Http.empty(), 30000)
+    rejected : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(bare)
+    mtls.upload.err(rejected)
     same : Result<&1, &1, Http.Err, Http.Res> <-
       Http.fetch.cert("GET", base ++ "/same", Http.empty(), Bytes.new(0), one, key1)
     mtls.ok("client-one", same)
@@ -588,7 +623,7 @@ def local.proxy.http.accept(inbox: Chan(Admission.Command), m: Listener & Result
     IO(Listener):
   Http.conn(~(req => local.reply(local.proxy.http(req))), ~Completion.ignore, Http.limits(1048576n), inbox, m)
 
-# Three forward requests, then two CONNECT tunnels: pool, stream, and upload, then pool and stream.
+# Three forward requests, then three CONNECT tunnels: pool, stream, and upload in each group.
 def local.proxy.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
@@ -602,7 +637,9 @@ def local.proxy.serve(l: Listener) -> IO(Unit):
     l3 : Listener <- local.proxy.tunnel.accept(third)
     fourth : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l3)
     l4 : Listener <- local.proxy.tunnel.accept(fourth)
-    Listener.close(l4)
+    fifth : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l4)
+    l5 : Listener <- local.proxy.tunnel.accept(fifth)
+    Listener.close(l5)
     Admission.close(inbox)
 
 def local.proxy.first(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) ->
@@ -651,22 +688,6 @@ def local.proxy.last(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) ->
     Http.pool.close(p)
     local.proxy.last.result(result)
 
-# A failed write stays in the Up, so upload.finish reports it.
-def local.proxy.upload.wrote(r: Http.Up & Result<&2, &2, Http.Err, Unit>) ->
-    IO(Result<&1, &1, Http.Err, Http.Stream>):
-  (up, w) = r
-  Http.upload.finish(up)
-
-def local.proxy.upload(r: Result<&1, &1, Http.Err, Http.Up>) ->
-    IO(Result<&1, &1, Http.Err, Http.Stream>):
-  match r:
-    case Fail{e}:
-      IO.die(Result<&1, &1, Http.Err, Http.Stream>, 1, "proxy upload connect failed")
-    case Done{up}:
-      do IO<Result<&1, &1, Http.Err, Http.Stream>>:
-        w : Http.Up & Result<&2, &2, Http.Err, Unit> <- Http.upload.write(up, Bytes.from_string("hi"))
-        local.proxy.upload.wrote(w)
-
 def local.stream.unpool(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Result<&1, &1, Http.Err, Http.Stream>):
   (p, r) = pr
   do IO<Result<&1, &1, Http.Err, Http.Stream>>:
@@ -693,7 +714,7 @@ def local.proxy.test(lp: Listener & U32) -> IO(Unit):
       Http.up.origin.choice("POST", 2000, Http.empty(), "elsewhere.test", "http",
         "elsewhere.test", 80, "/path", None{}, "",
         Http.proxy.from.url(proxy))
-    uploaded : Result<&1, &1, Http.Err, Http.Stream> <- local.proxy.upload(began)
+    uploaded : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(began)
     ju : Maybe<&2, Http.Jar> <- opened.got("proxy upload body", "proxy", (None{}, uploaded))
     second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
       Http.pool.origin.choice(p, "GET", 2000, Http.empty(), Bytes.new(0),
@@ -706,6 +727,11 @@ def local.proxy.test(lp: Listener & U32) -> IO(Unit):
         Http.proxy.from.url(proxy))
     tunneled : Result<&1, &1, Http.Err, Http.Stream> <- local.stream.unpool(tunnel)
     local.proxy.stream.last(tunneled)
+    tunnel_upload : Result<&1, &1, Http.Err, Http.Up> <-
+      Http.up.origin.choice("POST", 2000, Http.empty(), "elsewhere.test", "https",
+        "elsewhere.test", 443, "/path", None{}, "", Http.proxy.from.url(proxy))
+    upload_tunneled : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(tunnel_upload)
+    local.proxy.stream.last(upload_tunneled)
 
 def spool.end(p: Http.Pool, +name: String, host: String, got: Http.Stream & Bytes.Bytes & U32) -> IO(Http.Pool):
   (st, body, n) = got
