@@ -1,8 +1,8 @@
 # Old subscription records, read through the real decode and migration chain by a billing consumer.
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-json@0.7.2.0/json.bend as Json
-import bend-kit-encoding@0.5.0.0/encoding.bend as Encoding
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-json@0.7.2.1/json.bend as Json
+import bend-kit-encoding@0.5.0.1/encoding.bend as Encoding
 import ./migrate.bend as M
 
 def ok(good: Bool, +name: String) -> IO(Unit):
@@ -131,7 +131,7 @@ def numbers.go(f: Nat, +n: U32) -> Maybe<&2, U32>:
     case 0n:
       None{}
     case 1n+p:
-      Bool.pick(Maybe<&2, U32>, same(M.u32.read(M.u32.text(n)), n), numbers.go(p, (n + 1 : U32)), Some{n})
+      Bool.pick(Maybe<&2, U32>, same(M.u32.read(Bytes.u32.show(n)), n), numbers.go(p, (n + 1 : U32)), Some{n})
 
 def numbers(+lo: U32, count: Nat) -> IO(Unit):
   +bad = number.got(numbers.go(count, lo))
@@ -191,6 +191,10 @@ def main() -> IO(Unit):
     number("10000000000", "none")
     number("", "none")
     number("01", "none")
+    number("00", "none")
+    number("00000000000", "none")
+    number("0123456789", "none")
+    number("04294967295", "none")
     number("12a", "none")
     number("-1", "none")
     numbers(0, 20000n)

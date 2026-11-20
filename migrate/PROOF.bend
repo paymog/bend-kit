@@ -1,8 +1,10 @@
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-json@0.7.2.0/json.bend as Json
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-json@0.7.2.1/json.bend as Json
 import ./migrate.bend as M
 import ./LAWS.bend as Laws
+import bend-kit-bytes@0.3.3.1/roundtrip-proof.bend as DecimalProof
+import bend-kit-bytes@0.3.3.1/decimal-proof.bend as Decimal
 
 # Result lemmas
 # -------------
@@ -238,71 +240,77 @@ def Laws.status_roundtrip(s):
 # Wire round trip
 # ---------------
 
-def v1_fin(~digits: @n: U32 -> {M.u32.read(M.u32.text(n)) == Some{n} : Maybe<&2, U32>}, +i: U32, -p: Bytes.Bytes, +c: U32, -a: Bool) -> {M.V1.finish(M.u32.read(M.u32.text(i)), p, M.u32.read(M.u32.text(c)), a) == Done{M.R1{M.V1{i, p, c, a}}} : Result<&1, &1, M.Error, M.Record>}:
-  %Equal.sym(Maybe<&2, U32>, M.u32.read(M.u32.text(i)), Some{i}, digits(i)) : {M.V1.finish(_, p, M.u32.read(M.u32.text(c)), a) == Done{M.R1{M.V1{i, p, c, a}}} : Result<&1, &1, M.Error, M.Record>}
-  %Equal.sym(Maybe<&2, U32>, M.u32.read(M.u32.text(c)), Some{c}, digits(c)) : {M.V1.finish(Some{i}, p, _, a) == Done{M.R1{M.V1{i, p, c, a}}} : Result<&1, &1, M.Error, M.Record>}
+def digits(+n: U32) -> {M.u32.read(Bytes.u32.show(n)) == Some{n} : Maybe<&2, U32>}:
+  +w = Bytes.u32.width(10n, U32.is_lt(n, 10), n, 1)
+  %Equal.sym(Maybe<&2, U32>, Bytes.u32.read(Bytes.u32.show(n)), Some{n}, DecimalProof.raw(n)) : {M.u32.canonical(w, _) == Some{n} : Maybe<&2, U32>}
+  %Equal.sym(Bool, U32.is_eq(w, w), True{}, Decimal.eq_refl(w)) : {Bool.pick(Maybe<&2, U32>, _, Some{n}, None{}) == Some{n} : Maybe<&2, U32>}
   {==}
 
-def v2_fin(~digits: @n: U32 -> {M.u32.read(M.u32.text(n)) == Some{n} : Maybe<&2, U32>}, +i: U32, -p: Bytes.Bytes, +c: U32, -pe: M.Period, -s: M.Status, -n: Maybe<&1, Bytes.Bytes>) -> {M.V2.finish(M.u32.read(M.u32.text(i)), p, M.u32.read(M.u32.text(c)), pe, s, n) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}:
-  %Equal.sym(Maybe<&2, U32>, M.u32.read(M.u32.text(i)), Some{i}, digits(i)) : {M.V2.finish(_, p, M.u32.read(M.u32.text(c)), pe, s, n) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}
-  %Equal.sym(Maybe<&2, U32>, M.u32.read(M.u32.text(c)), Some{c}, digits(c)) : {M.V2.finish(Some{i}, p, _, pe, s, n) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}
+def v1_fin(+i: U32, -p: Bytes.Bytes, +c: U32, -a: Bool) -> {M.V1.finish(M.u32.read(Bytes.u32.show(i)), p, M.u32.read(Bytes.u32.show(c)), a) == Done{M.R1{M.V1{i, p, c, a}}} : Result<&1, &1, M.Error, M.Record>}:
+  %Equal.sym(Maybe<&2, U32>, M.u32.read(Bytes.u32.show(i)), Some{i}, digits(i)) : {M.V1.finish(_, p, M.u32.read(Bytes.u32.show(c)), a) == Done{M.R1{M.V1{i, p, c, a}}} : Result<&1, &1, M.Error, M.Record>}
+  %Equal.sym(Maybe<&2, U32>, M.u32.read(Bytes.u32.show(c)), Some{c}, digits(c)) : {M.V1.finish(Some{i}, p, _, a) == Done{M.R1{M.V1{i, p, c, a}}} : Result<&1, &1, M.Error, M.Record>}
   {==}
 
-def v3_fin(~digits: @n: U32 -> {M.u32.read(M.u32.text(n)) == Some{n} : Maybe<&2, U32>}, +i: U32, -p: Bytes.Bytes, +c: U32, -pe: M.Period, -s: M.Status) -> {M.V3.finish(M.u32.read(M.u32.text(i)), p, M.u32.read(M.u32.text(c)), pe, s) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}:
-  %Equal.sym(Maybe<&2, U32>, M.u32.read(M.u32.text(i)), Some{i}, digits(i)) : {M.V3.finish(_, p, M.u32.read(M.u32.text(c)), pe, s) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}
-  %Equal.sym(Maybe<&2, U32>, M.u32.read(M.u32.text(c)), Some{c}, digits(c)) : {M.V3.finish(Some{i}, p, _, pe, s) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}
+def v2_fin(+i: U32, -p: Bytes.Bytes, +c: U32, -pe: M.Period, -s: M.Status, -n: Maybe<&1, Bytes.Bytes>) -> {M.V2.finish(M.u32.read(Bytes.u32.show(i)), p, M.u32.read(Bytes.u32.show(c)), pe, s, n) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}:
+  %Equal.sym(Maybe<&2, U32>, M.u32.read(Bytes.u32.show(i)), Some{i}, digits(i)) : {M.V2.finish(_, p, M.u32.read(Bytes.u32.show(c)), pe, s, n) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}
+  %Equal.sym(Maybe<&2, U32>, M.u32.read(Bytes.u32.show(c)), Some{c}, digits(c)) : {M.V2.finish(Some{i}, p, _, pe, s, n) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}
   {==}
 
-def v2_shape(~digits: @n: U32 -> {M.u32.read(M.u32.text(n)) == Some{n} : Maybe<&2, U32>}, +i: U32, -p: Bytes.Bytes, +c: U32, pe: M.Period, s: M.Status, n: Maybe<&1, Bytes.Bytes>) -> {M.decode.shape(M.V2.json(M.V2{i, p, c, pe, s, n})) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}:
+def v3_fin(+i: U32, -p: Bytes.Bytes, +c: U32, -pe: M.Period, -s: M.Status) -> {M.V3.finish(M.u32.read(Bytes.u32.show(i)), p, M.u32.read(Bytes.u32.show(c)), pe, s) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}:
+  %Equal.sym(Maybe<&2, U32>, M.u32.read(Bytes.u32.show(i)), Some{i}, digits(i)) : {M.V3.finish(_, p, M.u32.read(Bytes.u32.show(c)), pe, s) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}
+  %Equal.sym(Maybe<&2, U32>, M.u32.read(Bytes.u32.show(c)), Some{c}, digits(c)) : {M.V3.finish(Some{i}, p, _, pe, s) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}
+  {==}
+
+def v2_shape(+i: U32, -p: Bytes.Bytes, +c: U32, pe: M.Period, s: M.Status, n: Maybe<&1, Bytes.Bytes>) -> {M.decode.shape(M.V2.json(M.V2{i, p, c, pe, s, n})) == Done{M.R2{M.V2{i, p, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}:
   match pe s n:
     case M.Monthly{} M.Active{} None{}:
-      v2_fin(~digits, i, p, c, M.Monthly{}, M.Active{}, None{})
+      v2_fin(i, p, c, M.Monthly{}, M.Active{}, None{})
     case M.Monthly{} M.Active{} Some{b}:
-      v2_fin(~digits, i, p, c, M.Monthly{}, M.Active{}, Some{b})
+      v2_fin(i, p, c, M.Monthly{}, M.Active{}, Some{b})
     case M.Monthly{} M.Paused{} None{}:
-      v2_fin(~digits, i, p, c, M.Monthly{}, M.Paused{}, None{})
+      v2_fin(i, p, c, M.Monthly{}, M.Paused{}, None{})
     case M.Monthly{} M.Paused{} Some{b}:
-      v2_fin(~digits, i, p, c, M.Monthly{}, M.Paused{}, Some{b})
+      v2_fin(i, p, c, M.Monthly{}, M.Paused{}, Some{b})
     case M.Monthly{} M.Cancelled{} None{}:
-      v2_fin(~digits, i, p, c, M.Monthly{}, M.Cancelled{}, None{})
+      v2_fin(i, p, c, M.Monthly{}, M.Cancelled{}, None{})
     case M.Monthly{} M.Cancelled{} Some{b}:
-      v2_fin(~digits, i, p, c, M.Monthly{}, M.Cancelled{}, Some{b})
+      v2_fin(i, p, c, M.Monthly{}, M.Cancelled{}, Some{b})
     case M.Yearly{} M.Active{} None{}:
-      v2_fin(~digits, i, p, c, M.Yearly{}, M.Active{}, None{})
+      v2_fin(i, p, c, M.Yearly{}, M.Active{}, None{})
     case M.Yearly{} M.Active{} Some{b}:
-      v2_fin(~digits, i, p, c, M.Yearly{}, M.Active{}, Some{b})
+      v2_fin(i, p, c, M.Yearly{}, M.Active{}, Some{b})
     case M.Yearly{} M.Paused{} None{}:
-      v2_fin(~digits, i, p, c, M.Yearly{}, M.Paused{}, None{})
+      v2_fin(i, p, c, M.Yearly{}, M.Paused{}, None{})
     case M.Yearly{} M.Paused{} Some{b}:
-      v2_fin(~digits, i, p, c, M.Yearly{}, M.Paused{}, Some{b})
+      v2_fin(i, p, c, M.Yearly{}, M.Paused{}, Some{b})
     case M.Yearly{} M.Cancelled{} None{}:
-      v2_fin(~digits, i, p, c, M.Yearly{}, M.Cancelled{}, None{})
+      v2_fin(i, p, c, M.Yearly{}, M.Cancelled{}, None{})
     case M.Yearly{} M.Cancelled{} Some{b}:
-      v2_fin(~digits, i, p, c, M.Yearly{}, M.Cancelled{}, Some{b})
+      v2_fin(i, p, c, M.Yearly{}, M.Cancelled{}, Some{b})
 
-def v3_shape(~digits: @n: U32 -> {M.u32.read(M.u32.text(n)) == Some{n} : Maybe<&2, U32>}, +i: U32, -p: Bytes.Bytes, +c: U32, pe: M.Period, s: M.Status) -> {M.decode.shape(M.V3.json(M.V3{i, p, c, pe, s})) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}:
+def v3_shape(+i: U32, -p: Bytes.Bytes, +c: U32, pe: M.Period, s: M.Status) -> {M.decode.shape(M.V3.json(M.V3{i, p, c, pe, s})) == Done{M.R3{M.V3{i, p, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}:
   match pe s:
     case M.Monthly{} M.Active{}:
-      v3_fin(~digits, i, p, c, M.Monthly{}, M.Active{})
+      v3_fin(i, p, c, M.Monthly{}, M.Active{})
     case M.Monthly{} M.Paused{}:
-      v3_fin(~digits, i, p, c, M.Monthly{}, M.Paused{})
+      v3_fin(i, p, c, M.Monthly{}, M.Paused{})
     case M.Monthly{} M.Cancelled{}:
-      v3_fin(~digits, i, p, c, M.Monthly{}, M.Cancelled{})
+      v3_fin(i, p, c, M.Monthly{}, M.Cancelled{})
     case M.Yearly{} M.Active{}:
-      v3_fin(~digits, i, p, c, M.Yearly{}, M.Active{})
+      v3_fin(i, p, c, M.Yearly{}, M.Active{})
     case M.Yearly{} M.Paused{}:
-      v3_fin(~digits, i, p, c, M.Yearly{}, M.Paused{})
+      v3_fin(i, p, c, M.Yearly{}, M.Paused{})
     case M.Yearly{} M.Cancelled{}:
-      v3_fin(~digits, i, p, c, M.Yearly{}, M.Cancelled{})
+      v3_fin(i, p, c, M.Yearly{}, M.Cancelled{})
 
-def Laws.shape_roundtrip(digits, r):
+def Laws.shape_roundtrip(r):
   match r:
     case M.R1{M.V1{i, p, c, a}}:
-      v1_fin(~digits, i, p, c, a)
+      v1_fin(i, p, c, a)
     case M.R2{M.V2{i, p, c, pe, s, n}}:
-      v2_shape(~digits, i, p, c, pe, s, n)
+      v2_shape(i, p, c, pe, s, n)
     case M.R3{M.V3{i, p, c, pe, s}}:
-      v3_shape(~digits, i, p, c, pe, s)
+      v3_shape(i, p, c, pe, s)
 
 def true_motive(b: Bool) -> Type:
   match b:
@@ -322,14 +330,14 @@ def check_if_done(m: Maybe<&2, M.Key>, -x: M.Record, e: {M.none(m) == True{} : B
     case Some{k}:
       Empty.absurd({M.Record.check.if(Some{k}, x) == Done{x} : Result<&1, &1, M.Error, M.Record>}, false_true(e))
 
-def Laws.val_roundtrip(digits, r, h):
+def Laws.val_roundtrip(r, h):
   match r:
     case M.R1{M.V1{+i, Bytes.Bytes{+len, buf}, +c, +a}}:
-      %Equal.sym(Result<&1, &1, M.Error, M.Record>, M.decode.shape(M.Record.json(M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}})), Done{M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}}}, Laws.shape_roundtrip(~digits, M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}})) : {Result.bind(&1, &1, M.Error, M.Record, M.Record, _, M.Record.check) == Done{M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}}} : Result<&1, &1, M.Error, M.Record>}
+      %Equal.sym(Result<&1, &1, M.Error, M.Record>, M.decode.shape(M.Record.json(M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}})), Done{M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}}}, Laws.shape_roundtrip(M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}})) : {Result.bind(&1, &1, M.Error, M.Record, M.Record, _, M.Record.check) == Done{M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}}} : Result<&1, &1, M.Error, M.Record>}
       check_if_done(M.Terms.problem(len, c), M.R1{M.V1{i, Bytes.Bytes{len, buf}, c, a}}, h)
     case M.R2{M.V2{+i, Bytes.Bytes{+len, buf}, +c, +pe, +s, n}}:
-      %Equal.sym(Result<&1, &1, M.Error, M.Record>, M.decode.shape(M.Record.json(M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}})), Done{M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}}}, Laws.shape_roundtrip(~digits, M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}})) : {Result.bind(&1, &1, M.Error, M.Record, M.Record, _, M.Record.check) == Done{M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}
+      %Equal.sym(Result<&1, &1, M.Error, M.Record>, M.decode.shape(M.Record.json(M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}})), Done{M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}}}, Laws.shape_roundtrip(M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}})) : {Result.bind(&1, &1, M.Error, M.Record, M.Record, _, M.Record.check) == Done{M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}}} : Result<&1, &1, M.Error, M.Record>}
       check_if_done(M.Terms.problem(len, c), M.R2{M.V2{i, Bytes.Bytes{len, buf}, c, pe, s, n}}, h)
     case M.R3{M.V3{+i, Bytes.Bytes{+len, buf}, +c, +pe, +s}}:
-      %Equal.sym(Result<&1, &1, M.Error, M.Record>, M.decode.shape(M.Record.json(M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}})), Done{M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}}}, Laws.shape_roundtrip(~digits, M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}})) : {Result.bind(&1, &1, M.Error, M.Record, M.Record, _, M.Record.check) == Done{M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}
+      %Equal.sym(Result<&1, &1, M.Error, M.Record>, M.decode.shape(M.Record.json(M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}})), Done{M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}}}, Laws.shape_roundtrip(M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}})) : {Result.bind(&1, &1, M.Error, M.Record, M.Record, _, M.Record.check) == Done{M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}}} : Result<&1, &1, M.Error, M.Record>}
       check_if_done(M.Terms.problem(len, c), M.R3{M.V3{i, Bytes.Bytes{len, buf}, c, pe, s}}, h)

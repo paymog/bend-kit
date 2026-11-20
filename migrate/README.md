@@ -3,10 +3,10 @@
 Versioned records for one family: subscriptions. A record arrives as JSON in version 1, 2, or 3. `migrate` validates it, migrates it to the version you need, and encodes it again. The laws prove that each migration keeps what the record means to billing, and that decoding an encoded record gives it back.
 
 ```bend
-import bend-kit-migrate@0.3.1.0/migrate.bend as M
+import bend-kit-migrate@0.4.0.0/migrate.bend as M
 ```
 
-It imports `bend-kit-json@0.7.2.0` and `bend-kit-bytes@0.3.3.0`. Everything is bytes: decode takes and encode gives UTF-8 `Bytes.Bytes`, and the text fields of a record (`plan` and the note) are `Bytes.Bytes` too. Convert to `String` only at the edge, to print.
+It imports `bend-kit-json@0.7.2.1` and `bend-kit-bytes@0.3.3.1`. Everything is bytes: decode takes and encode gives UTF-8 `Bytes.Bytes`, and the text fields of a record (`plan` and the note) are `Bytes.Bytes` too. Convert to `String` only at the edge, to print.
 
 The package is one worked family, not a schema language. To version another record family, copy this package and replace the types, the terms, and the migrations.
 
@@ -16,9 +16,9 @@ A billing job reads records that old writers stored, and bills them with v3 rule
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-json@0.7.2.0/json.bend as Json
-import bend-kit-migrate@0.3.1.0/migrate.bend as M
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-json@0.7.2.1/json.bend as Json
+import bend-kit-migrate@0.4.0.0/migrate.bend as M
 
 def bill(p: M.V3 & M.Dropped) -> String:
   (M.V3{i, plan, c, pe, s}, d) = p
@@ -82,7 +82,7 @@ Decode walks the object's fields once. It files each value under its `Key`, then
 
 Unknown and unexpected fields are errors, not ignored: every version's fields are known, so an extra field means a writer bug, and ignoring it would drop data without a trace.
 
-`encode(r)` writes the record in its own version, with fields in the order of the table above. v2 always writes `period`, and writes `note` only when it is `Some`. `u32.text(n)` writes a number as decimal digit bytes.
+`encode(r)` writes the record in its own version, with fields in the order of the table above. v2 always writes `period`, and writes `note` only when it is `Some`. `Bytes.u32.show(n)` writes a number as decimal digit bytes. `u32.read` uses the shared bytes reader and requires the canonical digit count, so leading zeros and lengths above ten are still rejected.
 
 ## Laws
 
@@ -109,12 +109,11 @@ Unknown and unexpected fields are errors, not ignored: every version's fields ar
 
 Equality in the laws is equality of the record values: the same `U32`s, the same `Bytes` values, and the same constructors.
 
-`shape_roundtrip` and `val_roundtrip` take one hypothesis: the decimal codec gives every `U32` back, `u32.read(u32.text(n)) == Some{n}`. The laws prove everything else about the round trip: keys, versions, field order, defaults, the unknown, duplicate, and unexpected checks, strings, flags, periods, and statuses.
+`shape_roundtrip` and `val_roundtrip` have no decimal codec hypothesis. The proof reuses the bytes decimal theorem and proves that the strict reader accepts the canonical digit count.
 
 ## Trust boundary
 
 - **Meaning.** The terms are the author's claim about what each version means. The laws cover only what the terms say.
-- **Decimal digits.** No law proves `u32.read(u32.text(n)) == Some{n}` for every `n`. Bend has no laws yet for `U32` division and bit shifts, or for `Bytes` with a length that is not a constant. `check.bend` writes and reads back every `n` below 20,000, the 10,000 values below `2^32`, and the values on each side of 10^5 and 10^9.
 - **JSON text.** The laws work on `Json.Val`. Parsing and printing JSON text is `bend-kit-json`'s, and `check.bend` tests `decode(encode(r))` on bytes for each version.
 - **Key constants.** The `Tag` constants are the packed words of the key names. `key_roundtrip` proves the encoder and the decoder agree; `check.bend` proves that they match the JSON text other writers produce.
 
@@ -127,6 +126,6 @@ Equality in the laws is equality of the record values: the same `U32`s, the same
 - an empty plan and a zero price fail as invalid; versions 0 and 4 are unsupported;
 - each version encodes, decodes, and encodes to the same bytes;
 - a v3 record downgrades to v1 when v1 can hold it, and fails with the field that v1 cannot hold otherwise;
-- `u32.read` rejects an empty string, a leading zero, a sign, a letter, and values of `2^32` and above, and reads back what `u32.text` writes over the ranges above.
+- `u32.read` rejects an empty string, a leading zero, a sign, a letter, and values of `2^32` and above, and reads back what `Bytes.u32.show` writes over the ranges above.
 
 `bench/` times decode, upgrade, and encode of 20,000 records against C, Rust, JavaScript, and Python. See [bench/README.md](bench/README.md).
