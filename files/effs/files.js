@@ -33,9 +33,13 @@ function stat_raw(path) {
     return io_fail(got.code);
   }
   try {
-    const st = require("fs").statSync(got.p);
+    const st = require("fs").statSync(got.p, { bigint: true });
     const kind = st.isFile() ? 0 : st.isDirectory() ? 1 : 2;
-    return io_done(io_tup(kind, st.size >>> 0, (Math.floor(st.mtimeMs / 1000) >>> 0)));
+    const mtime = st.mtimeNs / 1000000000n;
+    const seconds = st.mtimeNs % 1000000000n < 0n ? mtime - 1n : mtime;
+    return io_done(io_tup(kind,
+      io_tup(Number((st.size >> 32n) & 0xffffffffn), Number(st.size & 0xffffffffn)),
+      io_tup(Number((seconds >> 32n) & 0xffffffffn), Number(seconds & 0xffffffffn))));
   } catch (e) {
     return files_err(e);
   }
