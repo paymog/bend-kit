@@ -1,6 +1,6 @@
 # Hairpin: an HTTP client with a base URL, default headers, a pool, cookies, mTLS, redirects, and proven retries. Source: https://github.com/paymog/bend-kit/tree/main/hairpin
 import Base
-import bend-kit-http@0.38.6.0/http.bend as Http
+import bend-kit-http@0.38.6.1/http.bend as Http
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-json@0.7.2.0/json.bend as Json
