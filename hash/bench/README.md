@@ -43,6 +43,8 @@ M4 Pro, macOS 26.6.2, 2026-11-13, `hash` 0.3.0.4. Median of three runs. Times ar
 
 Versions: Bend 2.0.38, Apple clang 17.0.0, rustc 1.91.0, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
 
+The `hash` 0.3.1.0 helper release was checked on 2026-11-20 with Bend 2.0.40 and one run per variant (`python3 run.py 1`). All eight checksums matched. Bend times in ms were CRC-32 6.6, short CRC-32 0.4, Adler-32 16.0, FNV-1a 32 17.0, FNV-1a 64 34.0, xxHash32 1.8, xxHash64 4.7, and SipHash-1-3 4.5.
+
 `hash` 0.3.0.4 runs CRC-32 by slicing-by-8: eight table lookups per 64-bit lane, over eight tables, each a `match`. One word and then single bytes take the tail.
 
 | `crc32` variant | `hash` | crc32 | crc32_short |

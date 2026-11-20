@@ -4,11 +4,14 @@ import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Each hash hands the buffer back beside its value. A buffer's bytes at or past len are 0.
 # Each hash also has a .str form over a byte string (one Char per octet), copied to Bytes first.
-#   import bend-kit-hash@0.3.0.4/hash.bend as Hash
+#   import bend-kit-hash@0.3.1.0/hash.bend as Hash
 
 # A 64-bit value as two halves. Base has no native U64, and int's U64 is a bit list.
 type W64 is Data:
   W64{hi: U32, lo: U32}
+
+def W64.of(+hi: U32, +lo: U32) -> W64:
+  W64{hi, lo}
 
 def W64.xor(a: W64, b: W64) -> W64:
   match a b:
@@ -60,6 +63,11 @@ def W64.shr(+k: Nat, +j: Nat, a: W64) -> W64:
   match a:
     case W64{+h, +l}:
       W64{(h >> k : U32), ((l >> k) .|. (h << j) : U32)}
+
+def W64.hi(a: W64) -> U32:
+  match a:
+    case W64{h, l}:
+      h
 
 def W64.lo(a: W64) -> U32:
   match a:
