@@ -1,5 +1,7 @@
 import Base
 import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.7.4.0/bool.bend as MBool
+import bend-kit-collections@0.1.5.0/hmap.bend as M
 import bend-kit-scheduler@0.4.3.0/queue.bend as Q
 import bend-kit-scheduler@0.4.3.0/queue_laws.bend as QL
 import bend-kit-scheduler@0.4.3.0/queue_proof.bend as QP
@@ -658,3 +660,80 @@ def step_wf(~A: Data, s: R.State<A>, op: R.Op<A>, wf: WF(~A, R.dead(A, s))) -> W
 
 def Laws.dead_wf(A, s, wf, op):
   step_wf(~A, s, op, wf)
+
+# The decoder's adjacent comparisons imply the existing dead-ticket invariant.
+def ascending.clash(+a: Nat, +b: Nat, e: {a == b : Nat}) -> MNat.lt(a, b) -> Empty:
+  %Equal.sym(Nat, a, b, e) : MNat.lt(_, b) -> Empty
+  h => MNat.lt_irrefl(b)(h)
+
+def ascending.ne(+a: Nat, +b: Nat, h: MNat.lt(a, b)) -> {Bool.not(Nat.is_eq(a, b)) == True{} : Bool}:
+  split(c => {Bool.not(c) == True{} : Bool}, Nat.is_eq(a, b),
+    e => Empty.absurd({Bool.not(True{}) == True{} : Bool}, ascending.clash(a, b, MNat.eq_of_is_eq(a, b, e))(h)),
+    e => {==})
+
+def ascending.absent(~A: Data, xs: List<&2, M.Entry<Nat, R.Dead<A>>>, +previous: Nat, +key: Nat,
+    +bound: {Nat.is_le(key, previous) == True{} : Bool},
+    +ordered: {R.rd.ascending(~A, xs, previous) == True{} : Bool}) ->
+    {CL.hmap_absent(~Nat, ~R.Dead<A>, ~Nat.is_eq, xs, key) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+j, v}, +rest}:
+      +step = MBool.eq_true_of_and_left(Nat.is_lt(previous, j), R.rd.ascending(~A, rest, j), ordered)
+      +tail = MBool.eq_true_of_and_right(Nat.is_lt(previous, j), R.rd.ascending(~A, rest, j), ordered)
+      +kj = MNat.lt_of_le_of_lt(key, previous, j, bound, step)
+      MBool.and_eq_true(Bool.not(Nat.is_eq(key, j)), CL.hmap_absent(~Nat, ~R.Dead<A>, ~Nat.is_eq, rest, key),
+        ascending.ne(key, j, kj),
+        ascending.absent(~A, rest, j, key, MNat.le_of_lt(key, j, kj), tail))
+
+def ascending.distinct(~A: Data, xs: List<&2, M.Entry<Nat, R.Dead<A>>>, +previous: Nat,
+    ordered: {R.rd.ascending(~A, xs, previous) == True{} : Bool}) ->
+    {CL.hmap_distinct(~Nat, ~R.Dead<A>, ~Nat.is_eq, xs) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+j, v}, +rest}:
+      +tail = MBool.eq_true_of_and_right(Nat.is_lt(previous, j), R.rd.ascending(~A, rest, j), ordered)
+      MBool.and_eq_true(CL.hmap_absent(~Nat, ~R.Dead<A>, ~Nat.is_eq, rest, j), CL.hmap_distinct(~Nat, ~R.Dead<A>, ~Nat.is_eq, rest),
+        ascending.absent(~A, rest, j, j, MNat.le_refl(j), tail),
+        ascending.distinct(~A, rest, j, tail))
+
+def distinct.wf(~A: Data, xs: List<&2, M.Entry<Nat, R.Dead<A>>>,
+    ordered: {R.rd.distinct(~A, xs) == True{} : Bool}) ->
+    {CL.hmap_distinct(~Nat, ~R.Dead<A>, ~Nat.is_eq, xs) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+j, v}, +rest}:
+      +ordered = ordered
+      MBool.and_eq_true(CL.hmap_absent(~Nat, ~R.Dead<A>, ~Nat.is_eq, rest, j), CL.hmap_distinct(~Nat, ~R.Dead<A>, ~Nat.is_eq, rest),
+        ascending.absent(~A, rest, j, j, MNat.le_refl(j), ordered),
+        ascending.distinct(~A, rest, j, ordered))
+
+def valid.wf.go(~A: Data, +n: Nat, ds: R.Graves(A), +valid: {R.rd.valid.go(~A, n, ds) == True{} : Bool}) ->
+    {CL.hmap_wf.go(~Nat, ~R.Dead<A>, ~R.dead.hash, ~Nat.is_eq, n, ds) == True{} : Bool}:
+  match n:
+    case 0n:
+      match ds:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{h, es}:
+          distinct.wf(~A, es, valid)
+        case M.HBranch{lo, hi}:
+          valid
+    case 1n+p:
+      match ds:
+        case M.HNil{}:
+          {==}
+        case M.HLeaf{+h, +es}:
+          MBool.and_eq_true(CL.hmap_hashed(~Nat, ~R.Dead<A>, ~R.dead.hash, es, h), CL.hmap_distinct(~Nat, ~R.Dead<A>, ~Nat.is_eq, es),
+            MBool.eq_true_of_and_left(CL.hmap_hashed(~Nat, ~R.Dead<A>, ~R.dead.hash, es, h), R.rd.distinct(~A, es), valid),
+            distinct.wf(~A, es, MBool.eq_true_of_and_right(CL.hmap_hashed(~Nat, ~R.Dead<A>, ~R.dead.hash, es, h), R.rd.distinct(~A, es), valid)))
+        case M.HBranch{+lo, +hi}:
+          MBool.and_eq_true(CL.hmap_wf.go(~Nat, ~R.Dead<A>, ~R.dead.hash, ~Nat.is_eq, p, lo), CL.hmap_wf.go(~Nat, ~R.Dead<A>, ~R.dead.hash, ~Nat.is_eq, p, hi),
+            valid.wf.go(~A, p, lo, MBool.eq_true_of_and_left(R.rd.valid.go(~A, p, lo), R.rd.valid.go(~A, p, hi), valid)),
+            valid.wf.go(~A, p, hi, MBool.eq_true_of_and_right(R.rd.valid.go(~A, p, lo), R.rd.valid.go(~A, p, hi), valid)))
+
+def decoded.wf(~A: Data, ds: R.Graves(A), valid: {R.rd.valid(~A, ds) == True{} : Bool}) ->
+    {Laws.dead.wf(~A, ds) == True{} : Bool}:
+  valid.wf.go(~A, 32n, ds, valid)

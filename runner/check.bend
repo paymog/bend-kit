@@ -162,6 +162,21 @@ def describe(s: R.State<String>) -> String:
   "next=" ++ Nat.show(n) ++ " pending=" ++ Nat.show(R.pending(String, R.State{Q.State{n, h, run}, ts, ds, bs})) ++ " running=" ++ Nat.show(List.length(&2, Q.Ticket<String>, run)) ++
     " tries=" ++ U32.show(O.OMap.size(Nat, R.Try, ts)) ++ " fails=" ++ Nat.show(fails(O.OMap.to_list(Nat, R.Try, ts))) ++ " dead=" ++ Nat.show(M.HMap.size(Nat, R.Dead<String>, ds))
 
+def collision.entries(+n: Nat) -> List<&2, M.Entry<Nat, R.Dead<String>>>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      +id = Nat.mul(p, Nat.mul(65536n, 65536n))
+      M.Entry{id, R.Dead{Q.Ticket{id, 0n, Nat.show(p)}, R.WhyFailed{}, p}} <> collision.entries(p)
+
+def collision.count(m: Maybe<&2, R.Rec<String>>) -> Nat:
+  match m:
+    case Some{R.Snap{s}}:
+      M.HMap.size(Nat, R.Dead<String>, R.dead(String, s))
+    case _:
+      0n
+
 def snapshots() -> IO(Unit):
   do IO<Unit>:
     same(describe(sample()), "next=5 pending=2 running=1 tries=3 fails=1 dead=1", "the sample state has pending, running, retried, and dead tickets")
@@ -188,6 +203,14 @@ def snapshots() -> IO(Unit):
     same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}, M.Entry{7n, dead7()}]}))), "none", "a snapshot with two entries for one id in a bucket does not decode")
     same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{3, [M.Entry{7n, dead7()}]}))), "none", "a snapshot whose bucket hash does not match its keys does not decode")
     same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]}))), hex(regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]})), "a snapshot with a well-formed hand-built bucket decodes")
+    same(rec(R.encode.snap(~String, ~penc, regraved(R.new(String), M.HLeaf{0, collision.entries(3n)}))),
+      hex(regraved(R.new(String), M.HLeaf{0, List.reverse(&2, M.Entry<Nat, R.Dead<String>>, collision.entries(3n))})),
+      "an unsorted colliding bucket decodes in id order and keeps each ticket")
+    same(Nat.show(collision.count(R.decode.rec(~String, ~pdec, R.encode.snap(~String, ~penc,
+      regraved(R.new(String), M.HLeaf{0, collision.entries(1024n)}))))), "1024", "a snapshot with many colliding ids decodes")
+    same(rec(R.encode.snap(~String, ~penc, regraved(R.new(String),
+      M.HLeaf{0, M.Entry{0n, dead7()} <> List.append(&2, M.Entry<Nat, R.Dead<String>>, collision.entries(3n), [M.Entry{0n, dead7()}])}))),
+      "none", "a duplicate separated by other colliding ids does not decode")
 
 def codec() -> IO(Unit):
   +t = big()
