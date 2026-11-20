@@ -223,11 +223,7 @@ def pick.held(-A: Data, k: R.Pick<A>, h: Nat) -> Nat:
       h
 
 def release.pool(r: Res.Release) -> Res.Pool:
-  match r:
-    case Res.Released{p}:
-      p
-    case Res.Kept{p, g}:
-      p
+  R.loop.release(r)
 
 # The pool after the picked ticket's grant goes back.
 def pick.round(-A: Data, k: R.Pick<A>) -> Res.Pool:
@@ -267,6 +263,47 @@ law pick_release:
   for s: R.State<A>
   for now: Nat
   {pick.round(A, R.pick(~A, Res.Pool{o, c, h}, s, now)) == Res.Pool{o, c, h} : Res.Pool}
+
+# The pool bound holds after every prefix, for arbitrary claim and finish orders.
+law loop_capacity:
+  for ~A: Data
+  for es: List<&2, R.LoopEvent>
+  for s: R.Loop<A>
+  for bound: MNat.le(Res.reserved(R.loop.pool(A, s)), Res.capacity(R.loop.pool(A, s)))
+  MNat.le(Res.reserved(R.loop.pool(A, R.loop.fold(~A, es, s))), Res.capacity(R.loop.pool(A, R.loop.fold(~A, es, s))))
+
+law loop_capacity_stable:
+  for ~A: Data
+  for es: List<&2, R.LoopEvent>
+  for s: R.Loop<A>
+  {Res.capacity(R.loop.pool(A, R.loop.fold(~A, es, s))) == Res.capacity(R.loop.pool(A, s)) : Nat}
+
+# The model covers claims and finishes; cancellation can leave a live flight outside the queue.
+law loop_flights:
+  for ~A: Data
+  for es: List<&2, R.LoopEvent>
+  for s: R.Loop<A>
+  for same: {R.loop.flights(A, s) == Q.running(A, R.queue(A, R.loop.state(A, s))) : List<&2, Q.Ticket<A>>}
+  {R.loop.flights(A, R.loop.fold(~A, es, s)) == Q.running(A, R.queue(A, R.loop.state(A, R.loop.fold(~A, es, s)))) : List<&2, Q.Ticket<A>>}
+
+# A matching finish gives back one unit; a repeated finish gives back none.
+law loop_finish_releases:
+  for ~A: Data
+  for +i: Nat
+  for o: Nat
+  for c: Nat
+  for h: Nat
+  for s: R.State<A>
+  for fs: List<&2, Q.Ticket<A>>
+  for t: Q.Ticket<A>
+  for found: {Q.find.list(A, fs, i) == Some{t} : Maybe<&2, Q.Ticket<A>>}
+  {R.loop.pool(A, R.loop.step(~A, R.Finish{i}, R.Loop{Res.Pool{o, c, 1n+h}, s, fs})) == Res.Pool{o, c, h} : Res.Pool}
+
+law loop_finish_once:
+  for ~A: Data
+  for +i: Nat
+  for s: R.Loop<A>
+  {R.loop.step(~A, R.Finish{i}, R.loop.step(~A, R.Finish{i}, s)) == R.loop.step(~A, R.Finish{i}, s) : R.Loop<A>}
 
 # ---- a failed attempt waits retry's wait
 

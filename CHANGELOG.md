@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.17.0.1: model claims and finishes as a pure event fold. Prove the capacity bound for every prefix and finish order, fixed capacity, queue/flight agreement, one-unit release, and duplicate-finish idempotence. Use the model's release transition in the runtime.
+
 - `runner` 0.17.0.0: move pure state, retry decisions, and record codecs to `model.bend`. Runtime entry points stay in `runner.bend` and use the shared model. Laws and proofs import only the model, so the proof gate needs no foreign-code exception. Import pure types and operations from `model.bend`; the old entry-module exports are removed. Breaking.
 
 - `http` 0.38.6.1 and `runner` 0.16.0.1: rename internal constructors that Bend 2.0.40's Base also declares. `http`'s admission `Lost{}` is now `Unjoined{}`, and `runner`'s compaction `Lost{err}` is now `Stranded{err}`. Under Bend 2.0.40 the old names fail the check with "duplicate declaration: Lost". No API change.

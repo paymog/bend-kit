@@ -737,3 +737,219 @@ def valid.wf.go(~A: Data, +n: Nat, ds: R.Graves(A), +valid: {R.rd.valid.go(~A, n
 def decoded.wf(~A: Data, ds: R.Graves(A), valid: {R.rd.valid(~A, ds) == True{} : Bool}) ->
     {Laws.dead.wf(~A, ds) == True{} : Bool}:
   valid.wf.go(~A, 32n, ds, valid)
+
+# ---- settle loop
+
+def loop.bound(-A: Data, +s: R.Loop<A>) -> Data:
+  MNat.le(Res.reserved(R.loop.pool(A, s)), Res.capacity(R.loop.pool(A, s)))
+
+def loop.claim.bound(~A: Data, +o: Nat, +c: Nat, +h: Nat, +s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat, +e: MNat.le(h, c)) ->
+    loop.bound(A, R.loop.claim(~A, R.pick(~A, Res.Pool{o, c, h}, s, now), s, fs, now)):
+  pick_cases(~A, k => loop.bound(A, R.loop.claim(~A, k, s, fs, now)), Res.Pool{o, c, h}, s, now, e,
+    t => split(b => loop.bound(A, R.loop.claim(~A, R.pick.took(A, Res.reserve.go(b, o, c, h, 1n), t), s, fs, now)),
+      Nat.is_le(Nat.add(h, 1n), c), f => f, f => e))
+
+def loop.finish.bound(~A: Data, tk: Q.Taken<A>, +o: Nat, +c: Nat, +h: Nat, s: R.State<A>, i: Nat, +e: MNat.le(h, c)) ->
+    loop.bound(A, R.loop.finished(~A, tk, Res.Pool{o, c, h}, s, i)):
+  match tk:
+    case Q.Taken{fs, None{}}:
+      e
+    case Q.Taken{fs, Some{t}}:
+      split(b => MNat.le(Res.reserved(R.loop.release(Res.release.go(b, o, c, h, o, 1n))), Res.capacity(R.loop.release(Res.release.go(b, o, c, h, o, 1n)))),
+        Bool.and(Nat.is_eq(o, o), Nat.is_le(1n, h)),
+        f => MNat.le_trans(Nat.sub(h, 1n), h, c, MNat.sub_le(h, 1n), e),
+        f => e)
+
+def loop.step.bound(~A: Data, e: R.LoopEvent, s: R.Loop<A>, bound: loop.bound(A, s)) -> loop.bound(A, R.loop.step(~A, e, s)):
+  match e s:
+    case R.Claim{+now} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.claim.bound(~A, o, c, h, s, fs, now, bound)
+    case R.Finish{+i} R.Loop{Res.Pool{+o, +c, +h}, s, fs}:
+      loop.finish.bound(~A, Q.take.list(A, fs, i), o, c, h, s, i, bound)
+
+def Laws.loop_capacity(A, es, s, bound):
+  match es:
+    case Nil{}:
+      bound
+    case Con{+e, rest}:
+      +s = s
+      Laws.loop_capacity(~A, rest, R.loop.step(~A, e, s), loop.step.bound(~A, e, s, bound))
+
+def loop.claim.cap(~A: Data, +o: Nat, +c: Nat, +h: Nat, +s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat) ->
+    {Res.capacity(R.loop.pool(A, R.loop.claim(~A, R.pick(~A, Res.Pool{o, c, h}, s, now), s, fs, now))) == c : Nat}:
+  pick_cases(~A, k => {Res.capacity(R.loop.pool(A, R.loop.claim(~A, k, s, fs, now))) == c : Nat}, Res.Pool{o, c, h}, s, now, {==},
+    t => split(b => {Res.capacity(R.loop.pool(A, R.loop.claim(~A, R.pick.took(A, Res.reserve.go(b, o, c, h, 1n), t), s, fs, now))) == c : Nat},
+      Nat.is_le(Nat.add(h, 1n), c), f => {==}, f => {==}))
+
+def loop.finish.cap(~A: Data, tk: Q.Taken<A>, +o: Nat, +c: Nat, +h: Nat, s: R.State<A>, i: Nat) ->
+    {Res.capacity(R.loop.pool(A, R.loop.finished(~A, tk, Res.Pool{o, c, h}, s, i))) == c : Nat}:
+  match tk:
+    case Q.Taken{fs, None{}}:
+      {==}
+    case Q.Taken{fs, Some{t}}:
+      split(b => {Res.capacity(R.loop.release(Res.release.go(b, o, c, h, o, 1n))) == c : Nat},
+        Bool.and(Nat.is_eq(o, o), Nat.is_le(1n, h)), f => {==}, f => {==})
+
+def loop.step.cap(~A: Data, e: R.LoopEvent, s: R.Loop<A>) ->
+    {Res.capacity(R.loop.pool(A, R.loop.step(~A, e, s))) == Res.capacity(R.loop.pool(A, s)) : Nat}:
+  match e s:
+    case R.Claim{+now} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.claim.cap(~A, o, c, h, s, fs, now)
+    case R.Finish{+i} R.Loop{Res.Pool{+o, +c, +h}, s, fs}:
+      loop.finish.cap(~A, Q.take.list(A, fs, i), o, c, h, s, i)
+
+def Laws.loop_capacity_stable(A, es, s):
+  match es:
+    case Nil{}:
+      {==}
+    case Con{+e, rest}:
+      +s = s
+      Equal.trans(Nat, Res.capacity(R.loop.pool(A, R.loop.fold(~A, rest, R.loop.step(~A, e, s)))), Res.capacity(R.loop.pool(A, R.loop.step(~A, e, s))), Res.capacity(R.loop.pool(A, s)),
+        Laws.loop_capacity_stable(~A, rest, R.loop.step(~A, e, s)), loop.step.cap(~A, e, s))
+
+def Laws.loop_finish_releases(A, i, o, c, h, s, fs, t, found):
+  +o = o
+  +c = c
+  +h = h
+  +s = s
+  +fs = fs
+  %Equal.sym(Q.Taken<A>, Q.take.list(A, fs, i), Q.Taken{Q.remove.list(A, fs, i), Q.find.list(A, fs, i)}, QL.take_equivalent(A, fs, i)) : {R.loop.pool(A, R.loop.finished(~A, _, Res.Pool{o, c, 1n+h}, s, i)) == Res.Pool{o, c, h} : Res.Pool}
+  %Equal.sym(Maybe<&2, Q.Ticket<A>>, Q.find.list(A, fs, i), Some{t}, found) : {R.loop.pool(A, R.loop.finished(~A, Q.Taken{Q.remove.list(A, fs, i), _}, Res.Pool{o, c, 1n+h}, s, i)) == Res.Pool{o, c, h} : Res.Pool}
+  %MNat.add_comm(h, 1n) : {R.loop.release(Res.release(Res.Pool{o, c, _}, Res.Grant{o, 1n})) == Res.Pool{o, c, h} : Res.Pool}
+  took.release.go(o, c, h)
+
+def loop.take.idle(-A: Data, +fs: List<&2, Q.Ticket<A>>, +i: Nat, er: QL.absent.list(A, fs, i)) ->
+    {Q.take.list(A, fs, i) == Q.Taken{fs, None{}} : Q.Taken<A>}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{+t, +rest}:
+      QL.Both{et, erest} = er
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, rest, i), Q.Taken{rest, None{}}, loop.take.idle(A, rest, i, erest)) : {Q.take.keep(A, Nat.is_eq(Q.id(A, t), i), t, _) == Q.Taken{Con{t, rest}, None{}} : Q.Taken<A>}
+      %Equal.sym(Bool, Nat.is_eq(Q.id(A, t), i), False{}, et) : {Q.take.keep(A, _, t, Q.Taken{rest, None{}}) == Q.Taken{Con{t, rest}, None{}} : Q.Taken<A>}
+      {==}
+
+def loop.finish.idle(~A: Data, +i: Nat, +s: R.Loop<A>, er: QL.absent.list(A, R.loop.flights(A, s), i)) ->
+    {R.loop.step(~A, R.Finish{i}, s) == s : R.Loop<A>}:
+  match s:
+    case R.Loop{Res.Pool{o, c, h}, s, fs}:
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, fs, i), Q.Taken{fs, None{}}, loop.take.idle(A, fs, i, er)) : {R.loop.finished(~A, _, Res.Pool{o, c, h}, s, i) == R.Loop{Res.Pool{o, c, h}, s, fs} : R.Loop<A>}
+      {==}
+
+def loop.finished.absent(~A: Data, tk: Q.Taken<A>, o: Nat, c: Nat, h: Nat, s: R.State<A>, +i: Nat, er: taken.rem_ok(A, tk, i)) ->
+    QL.absent.list(A, R.loop.flights(A, R.loop.finished(~A, tk, Res.Pool{o, c, h}, s, i)), i):
+  match tk:
+    case Q.Taken{fs, None{}}:
+      er
+    case Q.Taken{fs, Some{t}}:
+      er
+
+def Laws.loop_finish_once(A, i, s):
+  match s:
+    case R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.finish.idle(~A, i, R.loop.finished(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i),
+        loop.finished.absent(~A, Q.take.list(A, fs, i), o, c, h, s, i, take_absent(A, fs, i)))
+
+def loop.sync(-A: Data, +s: R.Loop<A>) -> Data:
+  {R.loop.flights(A, s) == Q.running(A, R.queue(A, R.loop.state(A, s))) : List<&2, Q.Ticket<A>>}
+
+def loop.claim.sync.pick(-A: Data, k: R.Pick<A>, s: R.State<A>, fs: List<&2, Q.Ticket<A>>, now: Nat) -> Data:
+  match k:
+    case R.Idle{p}:
+      {fs == Q.running(A, R.queue(A, s)) : List<&2, Q.Ticket<A>>}
+    case R.Picked{p, t, g}:
+      {Con{t, fs} == Q.running(A, R.queue(A, R.step(~A, s, R.Select{now}))) : List<&2, Q.Ticket<A>>}
+
+def loop.claim.sync.took(~A: Data, r: Res.Reserve, +t: Q.Ticket<A>, +s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat,
+    same: {fs == Q.running(A, R.queue(A, s)) : List<&2, Q.Ticket<A>>},
+    selected: {Con{t, fs} == Q.running(A, R.queue(A, R.step(~A, s, R.Select{now}))) : List<&2, Q.Ticket<A>>}) ->
+    loop.claim.sync.pick(A, R.pick.took(A, r, t), s, fs, now):
+  match r:
+    case Res.Took{p, g}:
+      selected
+    case Res.Refused{p}:
+      same
+
+def loop.selected.sync(~A: Data, +n: Nat, +size: Nat, +t: Q.Ticket<A>, +l: H.Heap<Q.Ticket<A>>, +r: H.Heap<Q.Ticket<A>>, +old: List<&2, Q.Ticket<A>>,
+    +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +fs: List<&2, Q.Ticket<A>>, +now: Nat,
+    same: {fs == old : List<&2, Q.Ticket<A>>}, due: {Nat.is_le(Q.deadline(A, t), now) == True{} : Bool}) ->
+    {Con{t, fs} == Q.running(A, R.queue(A, R.step(~A, R.State{Q.State{n, H.HNode{size, t, l, r}, old}, ts, ds, bs}, R.Select{now}))) : List<&2, Q.Ticket<A>>}:
+  %Equal.sym(Bool, Nat.is_le(Q.deadline(A, t), now), True{}, due) :
+    {Con{t, fs} == Q.running(A, R.queue(A, R.step.selected(A, Q.select.due(~A, _, n, H.HNode{size, t, l, r}, old, t, l, r), ts, ds, bs))) : List<&2, Q.Ticket<A>>}
+  %Equal.sym(List<&2, Q.Ticket<A>>, fs, old, same) : {Con{t, _} == Con{t, old} : List<&2, Q.Ticket<A>>}
+  {==}
+
+def loop.claim.sync.evidence(~A: Data, +p: Res.Pool, s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat,
+    +same: {fs == Q.running(A, R.queue(A, s)) : List<&2, Q.Ticket<A>>}) ->
+    loop.claim.sync.pick(A, R.pick(~A, p, s, now), s, fs, now):
+  match s:
+    case R.State{Q.State{n, H.HLeaf{}, old}, ts, ds, bs}:
+      same
+    case R.State{Q.State{+n, H.HNode{+size, +t, +l, +r}, +old}, +ts, +ds, +bs}:
+      split(b => loop.claim.sync.pick(A, R.pick.sel(A, Q.select.due(~A, b, n, H.HNode{size, t, l, r}, old, t, l, r), p),
+        R.State{Q.State{n, H.HNode{size, t, l, r}, old}, ts, ds, bs}, fs, now), Nat.is_le(Q.deadline(A, t), now),
+        due => loop.claim.sync.took(~A, Res.reserve(p, 1n), t, R.State{Q.State{n, H.HNode{size, t, l, r}, old}, ts, ds, bs}, fs, now, same,
+          loop.selected.sync(~A, n, size, t, l, r, old, ts, ds, bs, fs, now, same, due)),
+        due => same)
+
+def loop.claim.synced(~A: Data, k: R.Pick<A>, s: R.State<A>, fs: List<&2, Q.Ticket<A>>, now: Nat,
+    same: loop.claim.sync.pick(A, k, s, fs, now)) -> loop.sync(A, R.loop.claim(~A, k, s, fs, now)):
+  match k:
+    case R.Idle{p}:
+      same
+    case R.Picked{p, t, g}:
+      same
+
+def loop.take.unchanged(-A: Data, tk: Q.Taken<A>, old: List<&2, Q.Ticket<A>>) -> Data:
+  match tk:
+    case Q.Taken{fs, None{}}:
+      {fs == old : List<&2, Q.Ticket<A>>}
+    case Q.Taken{fs, Some{t}}:
+      Unit
+
+def loop.take.keep.unchanged(-A: Data, b: Bool, +t: Q.Ticket<A>, +old: List<&2, Q.Ticket<A>>, tk: Q.Taken<A>,
+    er: loop.take.unchanged(A, tk, old)) -> loop.take.unchanged(A, Q.take.keep(A, b, t, tk), Con{t, old}):
+  match b tk:
+    case True{} Q.Taken{fs, m}:
+      Unit{}
+    case False{} Q.Taken{fs, None{}}:
+      %Equal.sym(List<&2, Q.Ticket<A>>, fs, old, er) : {Con{t, _} == Con{t, old} : List<&2, Q.Ticket<A>>}
+      {==}
+    case False{} Q.Taken{fs, Some{f}}:
+      Unit{}
+
+def loop.take.original(-A: Data, +xs: List<&2, Q.Ticket<A>>, +i: Nat) -> loop.take.unchanged(A, Q.take.list(A, xs, i), xs):
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+t, +rest}:
+      loop.take.keep.unchanged(A, Nat.is_eq(Q.id(A, t), i), t, rest, Q.take.list(A, rest, i), loop.take.original(A, rest, i))
+
+def loop.finish.synced(~A: Data, tk: Q.Taken<A>, p: Res.Pool, +n: Nat, +heap: H.Heap<Q.Ticket<A>>, +old: List<&2, Q.Ticket<A>>,
+    +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +i: Nat,
+    eq: {tk == Q.take.list(A, old, i) : Q.Taken<A>}) ->
+    loop.sync(A, R.loop.finished(~A, tk, p, R.State{Q.State{n, heap, old}, ts, ds, bs}, i)):
+  match tk p:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, h}:
+      %Equal.sym(Q.Taken<A>, Q.Taken{fs, None{}}, Q.take.list(A, old, i), eq) : loop.take.unchanged(A, _, old)
+      loop.take.original(A, old, i)
+    case Q.Taken{fs, Some{t}} Res.Pool{o, c, h}:
+      %eq : {fs == Q.running(A, R.queue(A, R.step.completed(A, Q.complete.taken(A, _, n, heap), R.tries.drop(ts, i), ds, bs))) : List<&2, Q.Ticket<A>>}
+      {==}
+
+def loop.step.sync(~A: Data, +e: R.LoopEvent, s: R.Loop<A>, same: loop.sync(A, s)) -> loop.sync(A, R.loop.step(~A, e, s)):
+  match e s:
+    case R.Claim{+now} R.Loop{+p, R.State{Q.State{+n, +heap, +old}, +ts, +ds, +bs}, +fs}:
+      loop.claim.synced(~A, R.pick(~A, p, R.State{Q.State{n, heap, old}, ts, ds, bs}, now), R.State{Q.State{n, heap, old}, ts, ds, bs}, fs, now,
+        loop.claim.sync.evidence(~A, p, R.State{Q.State{n, heap, old}, ts, ds, bs}, fs, now, same))
+    case R.Finish{+i} R.Loop{+p, R.State{Q.State{+n, +heap, +old}, +ts, +ds, +bs}, +fs}:
+      %Equal.sym(List<&2, Q.Ticket<A>>, fs, old, same) : loop.sync(A, R.loop.finished(~A, Q.take.list(A, _, i), p, R.State{Q.State{n, heap, old}, ts, ds, bs}, i))
+      loop.finish.synced(~A, Q.take.list(A, old, i), p, n, heap, old, ts, ds, bs, i, {==})
+
+def Laws.loop_flights(A, es, s, same):
+  match es:
+    case Nil{}:
+      same
+    case Con{+e, rest}:
+      +s = s
+      Laws.loop_flights(~A, rest, R.loop.step(~A, e, s), loop.step.sync(~A, e, s, same))

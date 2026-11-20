@@ -166,17 +166,9 @@ def ask.cancel(-A: Data, +ib: Chan(Msg<A>), +id: Nat) -> IO(Out(Unit)):
 
 # ---- one round
 
-# A grant of this runner's pool always fits it, so Kept does not happen.
-def release.got(-A: Data, x: Res.Release, j: Log, s: Model.State<A>, c: Config, ib: Chan(Msg<A>), fs: List<&1, Flight<A>>) -> Runner<A>:
-  match x:
-    case Res.Released{p}:
-      Runner{j, s, p, c, ib, fs}
-    case Res.Kept{p, g}:
-      Runner{j, s, p, c, ib, fs}
-
 def release(-A: Data, r: Runner<A>, g: Res.Grant) -> Runner<A>:
   Runner{j, s, p, c, ib, fs} = r
-  release.got(A, Res.release(p, g), j, s, c, ib, fs)
+  Runner{j, s, Model.loop.release(Res.release(p, g)), c, ib, fs}
 
 def claim.held(-A: Data, y: Ran(A), g: Res.Grant, next: Runner<A> -> IO(Claimed(A))) -> IO(Claimed(A)):
   match y:
