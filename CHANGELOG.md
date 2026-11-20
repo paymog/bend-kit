@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- Benchmarks: stop the integer and resources clocks before checksum output. Keep Unicode input size fixed across languages. Remove the protobuf scaling table whose command and versions were not recorded.
+
 - `text` 0.2.1.1: `wrap` adds a non-ASCII word's width to the line's width whenever a cluster boundary falls between the line and the joining space, which fails only after a Prepend character. It segments just the space and the word, not the whole line. A new `wrap_utf` bench of Cyrillic words takes 20.8 ms, down from 55.3 ms. Output does not change. No API change.
 - `text` 0.2.1.0: add `diff_by(~A, ~eq, ~key, a, b)`, which runs Myers over `U32` keys and checks each matched pair with `eq`, and `fnv(s)`, a 32-bit FNV-1a string key. `diff_lines` uses them. Two unrelated 10,000-line lists of strings take 0.17 s with `diff_by`, against 2.1 s with `diff`. `wrap` measures a printable ASCII word by its length when the line ends in printable ASCII, then checks every line and falls back to measuring each line whole; the bench wrap takes 12.8 ms, down from 44 ms. Output does not change.
 - `http`: check pooled fetches and complete chunked response streams through the authenticated TLS CONNECT relay. No API change.

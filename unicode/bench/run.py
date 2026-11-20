@@ -6,7 +6,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-TARGET = int(sys.argv[2]) if len(sys.argv) > 2 else 1_000_000
+if len(sys.argv) > 2:
+    sys.exit("usage: run.py [runs] (input size is fixed at 1,000,000 bytes)")
+TARGET = 1_000_000
 OPS = ["nfc", "graphemes"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1", "NODE_NO_WARNINGS": "1"}
 

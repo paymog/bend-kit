@@ -28,16 +28,3 @@ Versions: Bend 2.0.35; protoc 36.2; Apple clang 17.0.0 (`-O2`); rustc 1.91.0 wit
 
 These are small-fixture timings, not a claim about arbitrary message sizes or map workloads. The packed codec is pure Bend. Official native codecs remain faster on sequential byte work.
 
-## Duplicate-child merge scaling
-
-The native interoperability program receives `8201022001` repeated N times. Each fragment merges one unknown varint into the same singular Child. The table reports median whole-process wall time from three sequential runs, including startup.
-
-These are historical measurements. The command and tool versions for this scaling run were not recorded here. `python3 protobuf/interop.py` checks duplicate-child merge behavior, but it does not reproduce this timing table.
-
-| Fragments | Before, ms | After, ms | Encoded bytes |
-|---:|---:|---:|---:|
-| 256 | 3.112 | 3.251 | 516 |
-| 2048 | 9.079 | 3.792 | 4100 |
-| 8192 | 108.534 | 6.832 | 16389 |
-
-The decoder now retains reverse accumulators through duplicate merges and finalizes the retained message tree once. The interoperability checks also verify varying unknown values in singular, repeated, map, and recursive children.
