@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `process` 0.5.1.1: use the standard spawn directory action for macOS 26 deployment targets and glibc 2.39 or later. Keep the extension for older targets. No API change.
+
 - `http` 0.39.0.0: stream HTTP/2 response DATA over pooled sessions, negotiate h2 for fresh streams, and cancel unfinished streams before returning the session. Collect incremental HTTP/2 events for buffered fetches. Stream transport records change. Breaking.
 
 - `http2` 0.5.0.0: emit stream-tagged informational headers, final headers, DATA chunks, trailers, and completion without retaining response bodies. Add stream cancellation that preserves the session, HPACK state, and connection credit for in-flight frames. Breaking.

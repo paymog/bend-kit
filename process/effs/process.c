@@ -511,7 +511,12 @@ static int process_pipe_spawn(ProcessJob* j) {
     errno = rc;
     return -1;
   }
+#if (defined(__APPLE__) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000) \
+  || (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 39)))
+  rc = posix_spawn_file_actions_addchdir(&actions, j->cwd);
+#else
   rc = posix_spawn_file_actions_addchdir_np(&actions, j->cwd);
+#endif
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, in[0], STDIN_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, out[1], STDOUT_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, err[1], STDERR_FILENO);
