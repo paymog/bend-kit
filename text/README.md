@@ -3,7 +3,7 @@
 Myers diff with unified output, Levenshtein distance, and word wrap by display width. Pure Bend.
 
 ```bend
-import bend-kit-text@0.2.1.0/text.bend as Text
+import bend-kit-text@0.2.1.1/text.bend as Text
 ```
 
 `text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend` and `bend-kit-tty@0.1.0.1/text.bend`.
@@ -36,7 +36,7 @@ An `Edit<A>` is `Same{old, new}`, `Del{old}`, or `Ins{new}`. `Same` holds both i
 
 `wrap(text, width)` breaks text into lines of at most `width` display columns, greedily. Runs of whitespace separate words, and a line joins its words with one space. A cluster that spans a join counts right: a space followed by VS16 is one 2-column cluster. A word wider than `width` breaks between grapheme clusters. A cluster wider than `width`, such as a wide CJK character with `width` 1, stays whole on its own line.
 
-`wrap` adds the length of a printable ASCII word to the width of a line that ends in printable ASCII, because no cluster can span that join. Otherwise it measures the candidate line whole. Then it checks every line. If one is too wide, it wraps again and measures every candidate line whole, as `wrap.slow` does. `check.bend` compares the two on 3,000 random texts of combining marks, VS16, ZWJ, wide, Prepend, and spacing-mark characters.
+`wrap` adds a word's width to the line's width when a cluster boundary falls between the line and the joining space. Only a line that ends in a Prepend character, such as U+0600, lacks one; then `wrap` measures the candidate line whole. A printable ASCII word after a printable ASCII line needs no segmentation: its width is its length. Then `wrap` checks every line. If one is too wide, it wraps again and measures every candidate line whole, as `wrap.slow` does. `check.bend` compares the two on 3,000 random texts of combining marks, VS16, ZWJ, wide, Prepend, and spacing-mark characters.
 
 Display width comes from `tty`: East Asian Wide and Fullwidth clusters take 2 columns, combining marks 0, and Ambiguous characters 1. Escape sequences are not stripped, so wrap text before you style it.
 

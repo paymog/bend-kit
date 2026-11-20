@@ -758,23 +758,39 @@ def ascii(s: String) -> Bool:
     case SCon{Chr{+c}, t}:
       Bool.and(printable(c), ascii(t))
 
-def ascii.last.go(s: String, +c: U32) -> Bool:
+def last.go(s: String, +c: U32) -> U32:
   match s:
     case SNil{}:
-      printable(c)
+      c
     case SCon{Chr{+d}, t}:
-      ascii.last.go(t, d)
+      last.go(t, d)
 
-def ascii.last(s: String) -> Bool:
-  match s:
-    case SNil{}:
+# The last code point of s, or 0.
+def last(s: String) -> U32:
+  last.go(s, 0)
+
+def two(gs: List<&2, String>) -> Bool:
+  match gs:
+    case Con{_, Con{_, Nil{}}}:
+      True{}
+    case _:
       False{}
-    case SCon{Chr{+c}, t}:
-      ascii.last.go(t, c)
 
-# The finished lines, newest first; the words of the open line, newest first; its width; and whether it ends in printable ASCII.
+# Whether a cluster boundary falls between code point c and a space. Only a Prepend c joins one.
+def apart(+c: U32) -> Bool:
+  two(Unicode.graphemes(SCon{Chr{c}, " "}))
+
+# The end of a line after word w. Any printable ASCII char stands for the last char of a printable ASCII word.
+def fw.end(aw: Bool, w: String) -> U32:
+  match aw:
+    case True{}:
+      97
+    case False{}:
+      last(w)
+
+# The finished lines, newest first; the words of the open line, newest first; its width; and its last code point.
 type Fw is Data:
-  Fw{out: List<&2, String>, cur: List<&2, String>, cw: U32, asc: Bool}
+  Fw{out: List<&2, String>, cur: List<&2, String>, cw: U32, end: U32}
 
 def fw.line(cur: List<&2, String>) -> String:
   String.join(List.reverse(&2, String, cur), " ")
@@ -789,14 +805,14 @@ def fw.close(out: List<&2, String>, cur: List<&2, String>) -> List<&2, String>:
 def fw.from(st: Wr) -> Fw:
   match st:
     case Wr{out, None{}}:
-      Fw{out, Nil{}, 0, False{}}
+      Fw{out, Nil{}, 0, 0}
     case Wr{out, Some{+s}}:
-      Fw{out, [s], Tty.width(s), False{}}
+      Fw{out, [s], Tty.width(s), last(s)}
 
-def fw.begin(fits: Bool, out: List<&2, String>, +w: String, +ww: U32, +width: U32, +last: Bool) -> Fw:
+def fw.begin(fits: Bool, out: List<&2, String>, +w: String, +ww: U32, +width: U32, +aw: Bool) -> Fw:
   match fits:
     case True{}:
-      Fw{out, [w], ww, last}
+      Fw{out, [w], ww, fw.end(aw, w)}
     case False{}:
       fw.from(start2(ok(w, width), out, w, width))
 
@@ -807,31 +823,40 @@ def fw.start(asc: Bool, out: List<&2, String>, +w: String, +width: U32) -> Fw:
       fw.begin(U32.is_le(ww, width), out, w, ww, width, True{})
     case False{}:
       +ww = Tty.width(w)
-      fw.begin(U32.is_le(ww, width), out, w, ww, width, ascii.last(w))
+      fw.begin(U32.is_le(ww, width), out, w, ww, width, False{})
 
-def fw.add(fits: Bool, out: List<&2, String>, +cur: List<&2, String>, +nw: U32, +w: String, +width: U32, +aw: Bool, +last: Bool) -> Fw:
+def fw.add(fits: Bool, out: List<&2, String>, +cur: List<&2, String>, +nw: U32, +w: String, +width: U32, +aw: Bool) -> Fw:
   match fits:
     case True{}:
-      Fw{out, w <> cur, nw, last}
+      Fw{out, w <> cur, nw, fw.end(aw, w)}
     case False{}:
       fw.start(aw, fw.close(out, cur), w, width)
 
-# Clusters cannot span the space between two printable ASCII chars, so then the widths add.
-def fw.next(sure: Bool, out: List<&2, String>, +cur: List<&2, String>, +cw: U32, +w: String, +width: U32, +aw: Bool) -> Fw:
+# A boundary between the line and the space keeps the line's clusters apart from those of the space and the word, so the widths add.
+def fw.join(sure: Bool, +gs: List<&2, String>, out: List<&2, String>, +cur: List<&2, String>, +cw: U32, +w: String, +width: U32, +aw: Bool) -> Fw:
   match sure:
     case True{}:
-      +nw = (cw + 1 + U32.from_nat(String.length(w)) : U32)
-      fw.add(U32.is_le(nw, width), out, cur, nw, w, width, aw, True{})
+      +nw = (cw + Tty.width.go(gs, 0) : U32)
+      fw.add(U32.is_le(nw, width), out, cur, nw, w, width, aw)
     case False{}:
       +nw = Tty.width(fw.line(cur) ++ " " ++ w)
-      fw.add(U32.is_le(nw, width), out, cur, nw, w, width, aw, ascii.last(w))
+      fw.add(U32.is_le(nw, width), out, cur, nw, w, width, aw)
+
+# Printable ASCII on both sides of the space needs no segmentation: each char is one cluster one column wide.
+def fw.next(asc: Bool, out: List<&2, String>, +cur: List<&2, String>, +cw: U32, +end: U32, +w: String, +width: U32, +aw: Bool) -> Fw:
+  match asc:
+    case True{}:
+      +nw = (cw + 1 + U32.from_nat(String.length(w)) : U32)
+      fw.add(U32.is_le(nw, width), out, cur, nw, w, width, aw)
+    case False{}:
+      fw.join(apart(end), Unicode.graphemes(" " ++ w), out, cur, cw, w, width, aw)
 
 def fw.step.go(st: Fw, +aw: Bool, +w: String, +width: U32) -> Fw:
   match st:
     case Fw{out, Nil{}, _, _}:
       fw.start(aw, out, w, width)
-    case Fw{out, Con{+h, +t}, +cw, +asc}:
-      fw.next(Bool.and(asc, aw), out, Con{h, t}, cw, w, width, aw)
+    case Fw{out, Con{+h, +t}, +cw, +end}:
+      fw.next(Bool.and(printable(end), aw), out, Con{h, t}, cw, end, w, width, aw)
 
 def fw.step(st: Fw, +w: String, +width: U32) -> Fw:
   fw.step.go(st, ascii(w), w, width)
@@ -848,9 +873,9 @@ def fw.lines(st: Fw) -> List<&2, String>:
     case Fw{out, cur, _, _}:
       List.reverse(&2, String, fw.close(out, cur))
 
-# The same lines as wrap.slow, measuring a printable ASCII word by its length.
+# The same lines as wrap.slow, adding widths when no cluster spans the joining space.
 def wrap.fast(text: String, +width: U32) -> List<&2, String>:
-  fw.lines(fw.run(words(text), width, Fw{Nil{}, Nil{}, 0, False{}}))
+  fw.lines(fw.run(words(text), width, Fw{Nil{}, Nil{}, 0, 0}))
 
 def wrap.pick(good: Bool, ls: List<&2, String>, text: String, +width: U32) -> List<&2, String>:
   match good:

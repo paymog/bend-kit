@@ -20,8 +20,9 @@ Every program makes the same input from the same generator: x ← (x × 11035152
 - `diff`: the old list is the 10,000 lines `line 0` to `line 9999`. The new list changes line i to `changed i` when i mod 50 = 7, drops it when i mod 70 = 11, and adds `added i` after it when i mod 90 = 13. The checksum is the count of deleted and inserted lines. Every line is unique, so every library finds the same count. Bend gets the two texts as strings and its time includes splitting them into lines; the others get line arrays.
 - `distance`: 20,000 pairs of words from the stream, from seed 1. The time includes making the words. The checksum is the sum of the distances.
 - `wrap`: 20,000 words from seed 1, joined with spaces, wrapped to 72 columns. The checksum is the line count and the total length of the lines.
+- `wrap_utf`: the same, with each letter Cyrillic `а` + (x >> 16) mod 26 (U+0430 to U+0449). Each is one code point and one column, so every library agrees on the lines, and none is ASCII. The checksum counts code points.
 
-| language | diff | distance | wrap |
+| language | diff | distance | wrap, wrap_utf |
 |---|---|---|---|
 | Bend | `Text.diff_lines(a, b)` | `Text.distance(a, b)` | `Text.wrap(text, 72)` |
 | Rust | `similar::capture_diff_slices(Algorithm::Myers, ..)` | `strsim::levenshtein` | `textwrap::wrap` |
@@ -36,13 +37,14 @@ Versions: Bend 2.0.38, rustc 1.91.0 with similar 3.2.1, strsim 0.11.1, and textw
 
 | op | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|
-| diff | 0.5 | 26.9 | 20.1 | 29.1 | 6.4 |
-| distance | 3.1 | 5.2 | 5.3 | 57.2 | 15.2 |
-| wrap | 3.9 | — | — | 12.5 | 12.8 |
+| diff | 0.5 | 26.8 | 20.3 | 28.8 | 6.4 |
+| distance | 3.2 | 5.1 | 5.1 | 58.5 | 15.4 |
+| wrap | 3.9 | — | — | 12.4 | 13.3 |
+| wrap_utf | 4.6 | — | — | 15.0 | 20.8 |
 
-Every program prints the checksums 654 for `diff`, 174397 for `distance`, and 2632:177792 for `wrap`.
+Every program prints the checksums 654 for `diff`, 174397 for `distance`, and 2632:177792 for `wrap` and `wrap_utf`.
 
-`text` 0.1.0.0 took 43.8 ms for `diff` and 13.7 ms for `wrap`. 0.2.0.0 took 41.9 ms for `diff` and 44.3 ms for `wrap`, because it measured each candidate line whole. 0.2.1.0 measures a printable ASCII word by its length, then checks each line once.
+`text` 0.1.0.0 took 43.8 ms for `diff` and 13.7 ms for `wrap`. 0.2.0.0 took 41.9 ms for `diff` and 44.3 ms for `wrap`, because it measured each candidate line whole. 0.2.1.0 measures a printable ASCII word by its length, then checks each line once; it took 55.3 ms for `wrap_utf`, because it still measured non-ASCII lines whole. 0.2.1.1 segments only the space and the new word.
 
 ## Many edits
 

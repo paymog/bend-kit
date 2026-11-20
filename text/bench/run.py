@@ -17,7 +17,7 @@ VARIANTS = {
     "Python": (None, ["uv", "run", "-q", "--with", "rapidfuzz==3.14.3", "python", "bench.py"]),
     "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
 }
-OPS = ["diff", "distance", "wrap"]
+OPS = ["diff", "distance", "wrap", "wrap_utf"]
 
 
 def parse(text):

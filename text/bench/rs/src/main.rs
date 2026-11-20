@@ -6,15 +6,19 @@ fn lcg(x: u32) -> u32 {
     x.wrapping_mul(1103515245).wrapping_add(12345) & 0x7FFF_FFFF
 }
 
-fn word(mut x: u32) -> (String, u32) {
+fn word_of(mut x: u32, base: u32) -> (String, u32) {
     x = lcg(x);
     let n = 4 + (x >> 16) % 9;
     let mut w = String::new();
     for _ in 0..n {
         x = lcg(x);
-        w.push((97 + (x >> 16) % 26) as u8 as char);
+        w.push(char::from_u32(base + (x >> 16) % 26).unwrap());
     }
     (w, x)
+}
+
+fn word(x: u32) -> (String, u32) {
+    word_of(x, 97)
 }
 
 fn report(op: &str, t0: Instant, chk: String) {
@@ -71,4 +75,17 @@ fn main() {
     let ls = textwrap::wrap(&text, 72);
     let chars: usize = ls.iter().map(|l| l.len()).sum();
     report("wrap", t0, format!("{}:{}", ls.len(), chars));
+
+    let mut ws = Vec::new();
+    let mut x = 1u32;
+    for _ in 0..s * 20000 {
+        let (w, x1) = word_of(x, 1072);
+        x = x1;
+        ws.push(w);
+    }
+    let text = ws.join(" ");
+    let t0 = Instant::now();
+    let ls = textwrap::wrap(&text, 72);
+    let chars: usize = ls.iter().map(|l| l.chars().count()).sum();
+    report("wrap_utf", t0, format!("{}:{}", ls.len(), chars));
 }

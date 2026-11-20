@@ -9,18 +9,25 @@ def lcg(+x: U32) -> U32:
 def letter(+y: U32) -> Char:
   Chr{(97 + ((y >> 16n : U32) % 26 : U32) : U32)}
 
-def word.go(n: Nat, +x: U32, acc: String) -> String & U32:
+# Cyrillic а to щ: one code point, one column, not ASCII.
+def letter.u(+y: U32) -> Char:
+  Chr{(1072 + ((y >> 16n : U32) % 26 : U32) : U32)}
+
+def word.go(n: Nat, +u: Bool, +x: U32, acc: String) -> String & U32:
   match n:
     case 0n:
       (String.reverse(acc), x)
     case 1n+p:
       +y = lcg(x)
-      word.go(p, y, SCon{letter(y), acc})
+      word.go(p, u, y, SCon{Bool.pick(Char, u, letter.u(y), letter(y)), acc})
 
-# 4 to 12 lowercase letters from the stream, and the next state.
-def word(+x: U32) -> String & U32:
+# 4 to 12 letters from the stream, and the next state. u picks Cyrillic letters.
+def word.of(+u: Bool, +x: U32) -> String & U32:
   +y = lcg(x)
-  word.go(U32.to_nat((4 + ((y >> 16n : U32) % 9 : U32) : U32)), y, SNil{})
+  word.go(U32.to_nat((4 + ((y >> 16n : U32) % 9 : U32) : U32)), u, y, SNil{})
+
+def word(+x: U32) -> String & U32:
+  word.of(False{}, x)
 
 def line(name: String, +i: U32) -> String:
   name ++ " " ++ U32.show(i)
@@ -72,13 +79,13 @@ def dist.go(k: Nat, +acc: U32, q: U32 & U32) -> U32:
       (d, x) = q
       dist.go(p, (acc + d : U32), step.b(word(x)))
 
-def text.go(k: Nat, acc: List<&2, String>, p: String & U32) -> List<&2, String>:
+def text.go(k: Nat, +u: Bool, acc: List<&2, String>, p: String & U32) -> List<&2, String>:
   match k:
     case 0n:
       List.reverse(&2, String, acc)
     case 1n+q:
       (w, x) = p
-      text.go(q, w <> acc, word(x))
+      text.go(q, u, w <> acc, word.of(u, x))
 
 def wrap.sum(ls: List<&2, String>, +n: U32, +c: U32) -> String:
   match ls:
@@ -109,8 +116,13 @@ def main() -> IO(Unit):
     IO.print("chk\tdistance\t" ++ U32.show(dist.go(U32.to_nat((s * 20000 : U32)), 0, (0, 1))))
     t3 : Time.Duration <- Time.mono()
     IO.print("ms\tdistance\t" ++ Time.Duration.show_ms(Time.Duration.sub(t3, t2)))
-    +text : String = String.join(text.go(U32.to_nat((s * 20000 : U32)), Nil{}, word(1)), " ")
+    +text : String = String.join(text.go(U32.to_nat((s * 20000 : U32)), False{}, Nil{}, word(1)), " ")
     t4 : Time.Duration <- Time.mono()
     IO.print("chk\twrap\t" ++ wrap.sum(T.wrap(text, 72), 0, 0))
     t5 : Time.Duration <- Time.mono()
     IO.print("ms\twrap\t" ++ Time.Duration.show_ms(Time.Duration.sub(t5, t4)))
+    +utext : String = String.join(text.go(U32.to_nat((s * 20000 : U32)), True{}, Nil{}, word.of(True{}, 1)), " ")
+    t6 : Time.Duration <- Time.mono()
+    IO.print("chk\twrap_utf\t" ++ wrap.sum(T.wrap(utext, 72), 0, 0))
+    t7 : Time.Duration <- Time.mono()
+    IO.print("ms\twrap_utf\t" ++ Time.Duration.show_ms(Time.Duration.sub(t7, t6)))
