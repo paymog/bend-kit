@@ -30,6 +30,16 @@ Versions: Bend 2.0.38, Apple clang 17.0.0, cJSON 1.7.19, rustc 1.91.0, serde_jso
 
 In migrate 0.1.0.0, Bend took 83.6 ms on the same input. That version turned every key and string into a `String` and compared field names as strings. 0.2.0.0 keeps text in `Bytes`, compares keys as packed words, and reads and writes numbers as digit bytes. A run that timed each phase of the Bend program measured about 10 ms to parse, 18 ms to decode, upgrade, and build the v3 values, and 11 ms to encode.
 
+### Shared decimal codec
+
+M4 Pro, macOS 26.7.2, 2026-11-20. One run of `python3 run.py 1 20000`, after the 300-record smoke run. All six variants print `1959877304`.
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| migrate (ms) | 18.6 | 10.2 | 9.8 | 10.3 | 33.0 | 45.2 |
+
+Versions: Bend 2.0.40, Apple clang 21.0.0, cJSON 1.7.19, rustc 1.91.0, Bun 1.4.4, Node 24.0.1, Python 3.14.6. The unchanged codec took 46.3 ms in one run on the same machine. These single runs do not establish a speed change.
+
 ## The calls
 
 | language | parse | per record | encode |
