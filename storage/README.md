@@ -3,10 +3,10 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.3.1.0/storage.bend as S
+import bend-kit-storage@0.4.0.0/storage.bend as S
 ```
 
-It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-files@0.3.1.0`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-collections@0.1.5.0`. SHA-256 comes from OpenSSL 3 through `crypto`; set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path.
+It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-files@0.4.0.0`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-collections@0.1.5.0`. SHA-256 comes from OpenSSL 3 through `crypto`; set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path.
 
 ## Example
 
@@ -14,7 +14,7 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.3.1.0/storage.bend as S
+import bend-kit-storage@0.4.0.0/storage.bend as S
 
 def ship(+root: S.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -142,7 +142,7 @@ The proofs cover the pure core. They do not cover hashing, the disk, or the copy
 
 - `get` and `put` on an `Index` take O(log n) comparisons of digests. A comparison reads at most eight words. See [bench/README.md](bench/README.md).
 - `Disk.load` reads and checks every object in the store. `Disk.checkout`, `sync`, and `Disk.collect` read only the objects their roots reach, so their cost grows with the closure, not with the store. `Disk.collect` also lists every file in `dir/objects`.
-- A file is at most 4 GiB minus one octet, because `Blob.len` is a `U32`.
+- A file is at most 4 GiB minus one octet, because `Blob.len` is a `U32`. A larger file fails before the read starts.
 
 ## Bench
 

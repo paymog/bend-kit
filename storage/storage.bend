@@ -1,7 +1,7 @@
 # Content-addressed object store: Merkle trees, sync plans, and reachability GC with proved laws. Source: https://github.com/paymog/bend-kit/tree/main/storage
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
 import bend-kit-collections@0.1.5.0/omap.bend as OMap
 import bend-kit-collections@0.1.5.0/order.bend as Order
@@ -768,9 +768,11 @@ def read.check(+size: U32, b: Bytes.Bytes) -> Run(Bytes.Bytes):
     Run.check(U32.is_eq(len, size), "short read")
     return Bytes.Bytes{len, buf}
 
-def info.size(i: Files.Info) -> U32:
-  Files.Info{k, +n, t} = i
-  n
+def info.size(i: Files.Info) -> Run(U32):
+  Files.Info{k, (hi, lo), t} = i
+  do Run<U32>:
+    Run.check(U32.is_eq(hi, 0), "file exceeds the 32-bit Bytes length limit")
+    return lo
 
 def read.sized(+path: String, +size: U32) -> Run(Bytes.Bytes):
   do Run<Bytes.Bytes>:
@@ -782,7 +784,8 @@ def read.sized(+path: String, +size: U32) -> Run(Bytes.Bytes):
 def read(+path: String) -> Run(Bytes.Bytes):
   do Run<Bytes.Bytes>:
     info : Files.Info <- Files.stat(path)
-    read.sized(path, info.size(info))
+    size : U32 <- info.size(info)
+    read.sized(path, size)
 
 
 def Disk.put.if(there: Bool, +dir: String, +d: Digest, +path: String, b: Bytes.Bytes) -> Run(Unit):

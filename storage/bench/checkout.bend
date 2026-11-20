@@ -1,6 +1,6 @@
 # Storage checkout bench: a small root from a large store, on demand and through a full load (see README.md).
 import Base
-import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
 import ../../time/time.bend as Time
 import ../storage.bend as S
 import ./bench.bend as B
