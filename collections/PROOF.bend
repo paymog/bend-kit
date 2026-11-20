@@ -1191,6 +1191,278 @@ def del.bnd(
 def Laws.omap_del_searchtree(K, V, cmp, refl, eq, flip, trans, m, tree, k):
   del.bnd(~K, ~V, ~cmp, ~trans, m, None{}, None{}, k, tree)
 
+def get.upper_none(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~flip: Flip(~K, ~cmp),
+  t: O.OMap<K, V>, +lb: Maybe<&2, K>, +x: K,
+  +bt: {Laws.bounded(~K, ~V, ~cmp, t, lb, Some{x}) == True{} : Bool}
+) -> {g(~K, ~V, ~cmp, t, x) == None{} : Maybe<&2, V>}:
+  match t:
+    case O.OTip{}:
+      {==}
+    case O.OBin{s, +k, +v, +lo, +hi}:
+      %Equal.sym(Maybe<&2, V>, g(~K, ~V, ~cmp, O.OBin{0, k, v, lo, hi}, x),
+        g(~K, ~V, ~cmp, hi, x),
+        get.gt(~K, ~V, ~cmp, x, k, v, lo, hi,
+          gt_of_lt(~K, ~cmp, ~flip, k, x,
+            lt_of(cmp(k, x), bn.b(~K, ~V, ~cmp, lb, Some{x}, k, v, lo, hi, bt))))) :
+        {_ == None{} : Maybe<&2, V>}
+      get.upper_none(~K, ~V, ~cmp, ~flip, hi, Some{k}, x,
+        bn.h(~K, ~V, ~cmp, lb, Some{x}, k, v, lo, hi, bt))
+
+def pm.node(~K: Data, ~V: Data, r: K & V & O.OMap<K, V>) -> O.OMap<K, V>:
+  (k, v, t) = r
+  O.OBin{0, k, v, O.OTip{}, t}
+
+def pm.fin.get.go(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  +mk: K, +mv: V, +t: O.OMap<K, V>, +lb: Maybe<&2, K>, +ub: Maybe<&2, K>,
+  +k: K, +v: V, +hi: O.OMap<K, V>, +lo: O.OMap<K, V>, +x: K,
+  +pmr: {PM(~K, ~V, ~cmp, lb, Some{k}, {(mk, mv, t) : K & V & O.OMap<K, V>}) == True{} : Bool},
+  eh: {Laws.bounded(~K, ~V, ~cmp, hi, Some{k}, ub) == True{} : Bool},
+  ih: {g(~K, ~V, ~cmp, O.OBin{0, mk, mv, O.OTip{}, t}, x) == g(~K, ~V, ~cmp, lo, x) : Maybe<&2, V>}
+) -> {g(~K, ~V, ~cmp, pm.node(~K, ~V,
+       O.OMap.pop_min.fin(K, V, k, v, hi, {(mk, mv, t) : K & V & O.OMap<K, V>})), x)
+      == g(~K, ~V, ~cmp, O.OBin{0, k, v, lo, hi}, x) : Maybe<&2, V>}:
+  +a = Laws.above(~K, ~cmp, lb, mk)
+  +b = Laws.below(~K, ~cmp, Some{k}, mk)
+  +c = Laws.bounded(~K, ~V, ~cmp, t, Some{mk}, Some{k})
+  +mkk = lt_of(cmp(mk, k), c3.b(a, b, c, pmr))
+  %Equal.sym(Maybe<&2, V>,
+    g(~K, ~V, ~cmp, O.OBin{0, mk, mv, O.OTip{}, O.OMap.balance(K, V, k, v, t, hi)}, x),
+    g(~K, ~V, ~cmp, O.OBin{0, mk, mv, O.OTip{}, O.OBin{0, k, v, t, hi}}, x),
+    Equal.cong(Maybe<&2, V>, Maybe<&2, V>,
+      y => O.Cmp.case(Maybe<&2, V>, cmp(x, mk), u => None{}, u => Some{mv}, u => y),
+      g(~K, ~V, ~cmp, O.OMap.balance(K, V, k, v, t, hi), x),
+      g(~K, ~V, ~cmp, O.OBin{0, k, v, t, hi}, x),
+      balance.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, Some{mk}, ub, x, k, v, t, hi,
+        c3.c(a, b, c, pmr), eh))) :
+    {_ == g(~K, ~V, ~cmp, O.OBin{0, k, v, lo, hi}, x) : Maybe<&2, V>}
+  %rot_lo.single.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+    x, mk, mv, O.OTip{}, k, v, t, hi, mkk) :
+    {_ == g(~K, ~V, ~cmp, O.OBin{0, k, v, lo, hi}, x) : Maybe<&2, V>}
+  Equal.cong(Maybe<&2, V>, Maybe<&2, V>,
+    y => O.Cmp.case(Maybe<&2, V>, cmp(x, k), u => y, u => Some{v}, u => g(~K, ~V, ~cmp, hi, x)),
+    g(~K, ~V, ~cmp, O.OBin{0, mk, mv, O.OTip{}, t}, x), g(~K, ~V, ~cmp, lo, x), ih)
+
+def pm.fin.get(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  r: K & V & O.OMap<K, V>, +lb: Maybe<&2, K>, +ub: Maybe<&2, K>,
+  +k: K, +v: V, +hi: O.OMap<K, V>, +lo: O.OMap<K, V>, +x: K,
+  pmr: {PM(~K, ~V, ~cmp, lb, Some{k}, r) == True{} : Bool},
+  eh: {Laws.bounded(~K, ~V, ~cmp, hi, Some{k}, ub) == True{} : Bool},
+  ih: {g(~K, ~V, ~cmp, pm.node(~K, ~V, r), x) == g(~K, ~V, ~cmp, lo, x) : Maybe<&2, V>}
+) -> {g(~K, ~V, ~cmp, pm.node(~K, ~V, O.OMap.pop_min.fin(K, V, k, v, hi, r)), x)
+      == g(~K, ~V, ~cmp, O.OBin{0, k, v, lo, hi}, x) : Maybe<&2, V>}:
+  (mk, rest) = r
+  (mv, t) = rest
+  pm.fin.get.go(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+    mk, mv, t, lb, ub, k, v, hi, lo, x, pmr, eh, ih)
+
+def pm.get(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  lo: O.OMap<K, V>, +lb: Maybe<&2, K>, +ub: Maybe<&2, K>, +k: K, +v: V,
+  +hi: O.OMap<K, V>, +x: K,
+  +bt: {Laws.bounded(~K, ~V, ~cmp, O.OBin{0, k, v, lo, hi}, lb, ub) == True{} : Bool}
+) -> {g(~K, ~V, ~cmp, pm.node(~K, ~V, O.OMap.pop_min(K, V, lo, k, v, hi)), x)
+      == g(~K, ~V, ~cmp, O.OBin{0, k, v, lo, hi}, x) : Maybe<&2, V>}:
+  match lo:
+    case O.OTip{}:
+      {==}
+    case O.OBin{s, +lk, +lv, +ll, +lh}:
+      +bl = bn.l(~K, ~V, ~cmp, lb, ub, k, v, O.OBin{0, lk, lv, ll, lh}, hi, bt)
+      pm.fin.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+        O.OMap.pop_min(K, V, ll, lk, lv, lh), lb, ub, k, v, hi,
+        O.OBin{0, lk, lv, ll, lh}, x,
+        pm.bnd(~K, ~V, ~cmp, ~trans, ll, lb, Some{k}, lk, lv, lh, bl),
+        bn.h(~K, ~V, ~cmp, lb, ub, k, v, O.OBin{0, lk, lv, ll, lh}, hi, bt),
+        pm.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, ll, lb, Some{k}, lk, lv, lh, x, bl))
+
+def gone(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, c: Cmp, +x: K,
+  lo: O.OMap<K, V>, hi: O.OMap<K, V>
+) -> Maybe<&2, V>:
+  O.Cmp.case(Maybe<&2, V>, c, u => g(~K, ~V, ~cmp, lo, x), u => None{},
+    u => g(~K, ~V, ~cmp, hi, x))
+
+def glue.fin.get.go(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  +mk: K, +mv: V, +t: O.OMap<K, V>, +lo: O.OMap<K, V>, +hi: O.OMap<K, V>,
+  +lb: Maybe<&2, K>, +ub: Maybe<&2, K>, +key: K, +x: K,
+  +el: {Laws.bounded(~K, ~V, ~cmp, lo, lb, Some{key}) == True{} : Bool},
+  +pmr: {PM(~K, ~V, ~cmp, Some{key}, ub, {(mk, mv, t) : K & V & O.OMap<K, V>}) == True{} : Bool},
+  ih: {g(~K, ~V, ~cmp, O.OBin{0, mk, mv, O.OTip{}, t}, x) == g(~K, ~V, ~cmp, hi, x) : Maybe<&2, V>}
+) -> {g(~K, ~V, ~cmp, O.OMap.glue.fin(K, V, lo, {(mk, mv, t) : K & V & O.OMap<K, V>}), x)
+      == gone(~K, ~V, ~cmp, cmp(x, key), x, lo, hi) : Maybe<&2, V>}:
+  +a = Laws.above(~K, ~cmp, Some{key}, mk)
+  +b = Laws.below(~K, ~cmp, ub, mk)
+  +c = Laws.bounded(~K, ~V, ~cmp, t, Some{mk}, ub)
+  +km = lt_of(cmp(key, mk), c3.a(a, b, c, pmr))
+  %Equal.sym(Maybe<&2, V>, g(~K, ~V, ~cmp, O.OMap.balance(K, V, mk, mv, lo, t), x),
+    g(~K, ~V, ~cmp, O.OBin{0, mk, mv, lo, t}, x),
+    balance.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, lb, ub, x, mk, mv, lo, t,
+      weaken_hi(~K, ~V, ~cmp, ~trans, lo, lb, key, Some{mk}, el, lt_true(cmp(key, mk), km)),
+      c3.c(a, b, c, pmr))) :
+    {_ == gone(~K, ~V, ~cmp, cmp(x, key), x, lo, hi) : Maybe<&2, V>}
+  split(d => {getc(~K, ~V, ~cmp, cmp(x, mk), x, mv, lo, t)
+      == gone(~K, ~V, ~cmp, d, x, lo, hi) : Maybe<&2, V>},
+    cmp(x, key),
+    e => get.lt(~K, ~V, ~cmp, x, mk, mv, lo, t, trans(x, key, mk, e, km)),
+    e => rw(K, y => {g(~K, ~V, ~cmp, O.OBin{0, mk, mv, lo, t}, y) == None{} : Maybe<&2, V>},
+      x, key, eq(x, key, e),
+      mtr(V, g(~K, ~V, ~cmp, O.OBin{0, mk, mv, lo, t}, key), g(~K, ~V, ~cmp, lo, key), None{},
+        get.lt(~K, ~V, ~cmp, key, mk, mv, lo, t, km),
+        get.upper_none(~K, ~V, ~cmp, ~flip, lo, lb, key, el))),
+    e => mtr(V, g(~K, ~V, ~cmp, O.OBin{0, mk, mv, lo, t}, x),
+      g(~K, ~V, ~cmp, O.OBin{0, mk, mv, O.OTip{}, t}, x), g(~K, ~V, ~cmp, hi, x),
+      Equal.cong(Maybe<&2, V>, Maybe<&2, V>,
+        y => O.Cmp.case(Maybe<&2, V>, cmp(x, mk), u => y, u => Some{mv}, u => g(~K, ~V, ~cmp, t, x)),
+        g(~K, ~V, ~cmp, lo, x), None{},
+        get.upper_none(~K, ~V, ~cmp, ~flip, lo, lb, x,
+          weaken_hi(~K, ~V, ~cmp, ~trans, lo, lb, key, Some{x}, el,
+            lt_true(cmp(key, x), gt_flip(~K, ~cmp, ~flip, x, key, e))))),
+      ih))
+
+def glue.fin.get(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  r: K & V & O.OMap<K, V>, +lo: O.OMap<K, V>, +hi: O.OMap<K, V>,
+  +lb: Maybe<&2, K>, +ub: Maybe<&2, K>, +key: K, +x: K,
+  el: {Laws.bounded(~K, ~V, ~cmp, lo, lb, Some{key}) == True{} : Bool},
+  pmr: {PM(~K, ~V, ~cmp, Some{key}, ub, r) == True{} : Bool},
+  ih: {g(~K, ~V, ~cmp, pm.node(~K, ~V, r), x) == g(~K, ~V, ~cmp, hi, x) : Maybe<&2, V>}
+) -> {g(~K, ~V, ~cmp, O.OMap.glue.fin(K, V, lo, r), x)
+      == gone(~K, ~V, ~cmp, cmp(x, key), x, lo, hi) : Maybe<&2, V>}:
+  (mk, rest) = r
+  (mv, t) = rest
+  glue.fin.get.go(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+    mk, mv, t, lo, hi, lb, ub, key, x, el, pmr, ih)
+
+def glue.get(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  hi: O.OMap<K, V>, +lo: O.OMap<K, V>, +lb: Maybe<&2, K>, +ub: Maybe<&2, K>, +key: K, +x: K,
+  +el: {Laws.bounded(~K, ~V, ~cmp, lo, lb, Some{key}) == True{} : Bool},
+  +eh: {Laws.bounded(~K, ~V, ~cmp, hi, Some{key}, ub) == True{} : Bool}
+) -> {g(~K, ~V, ~cmp, O.OMap.glue(K, V, lo, hi), x)
+      == gone(~K, ~V, ~cmp, cmp(x, key), x, lo, hi) : Maybe<&2, V>}:
+  match hi:
+    case O.OTip{}:
+      split(c => {g(~K, ~V, ~cmp, lo, x) == gone(~K, ~V, ~cmp, c, x, lo, O.OTip{}) : Maybe<&2, V>},
+        cmp(x, key),
+        e => {==},
+        e => rw(K, y => {g(~K, ~V, ~cmp, lo, y) == None{} : Maybe<&2, V>}, x, key, eq(x, key, e),
+          get.upper_none(~K, ~V, ~cmp, ~flip, lo, lb, key, el)),
+        e => get.upper_none(~K, ~V, ~cmp, ~flip, lo, lb, x,
+          weaken_hi(~K, ~V, ~cmp, ~trans, lo, lb, key, Some{x}, el,
+            lt_true(cmp(key, x), gt_flip(~K, ~cmp, ~flip, x, key, e)))))
+    case O.OBin{s, +k, +v, +hl, +hh}:
+      glue.fin.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+        O.OMap.pop_min(K, V, hl, k, v, hh), lo, O.OBin{0, k, v, hl, hh}, lb, ub, key, x, el,
+        pm.bnd(~K, ~V, ~cmp, ~trans, hl, Some{key}, ub, k, v, hh, eh),
+        pm.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, hl, Some{key}, ub, k, v, hh, x, eh))
+
+def get_del_same(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  t: O.OMap<K, V>, +lb: Maybe<&2, K>, +ub: Maybe<&2, K>, +k: K,
+  +bt: {Laws.bounded(~K, ~V, ~cmp, t, lb, ub) == True{} : Bool}
+) -> {g(~K, ~V, ~cmp, O.OMap.del(~K, ~V, ~cmp, t, k), k) == None{} : Maybe<&2, V>}:
+  match t:
+    case O.OTip{}:
+      {==}
+    case O.OBin{s, +key, +val, +lo, +hi}:
+      +bl = bn.l(~K, ~V, ~cmp, lb, ub, key, val, lo, hi, bt)
+      +bh = bn.h(~K, ~V, ~cmp, lb, ub, key, val, lo, hi, bt)
+      +dl = O.OMap.del(~K, ~V, ~cmp, lo, k)
+      +dh = O.OMap.del(~K, ~V, ~cmp, hi, k)
+      cmp.split(O.OMap<K, V>, Maybe<&2, V>, y => g(~K, ~V, ~cmp, y, k), None{}, cmp(k, key),
+        u => O.OMap.balance(K, V, key, val, O.OMap.del(~K, ~V, ~cmp, lo, k), hi),
+        u => O.OMap.glue(K, V, lo, hi),
+        u => O.OMap.balance(K, V, key, val, lo, O.OMap.del(~K, ~V, ~cmp, hi, k)),
+        +e => mtr(V, g(~K, ~V, ~cmp, O.OMap.balance(K, V, key, val, dl, hi), k),
+          g(~K, ~V, ~cmp, O.OBin{0, key, val, dl, hi}, k), None{},
+          balance.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, lb, ub, k, key, val, dl, hi,
+            del.bnd(~K, ~V, ~cmp, ~trans, lo, lb, Some{key}, k, bl), bh),
+          mtr(V, g(~K, ~V, ~cmp, O.OBin{0, key, val, dl, hi}, k), g(~K, ~V, ~cmp, dl, k), None{},
+            get.lt(~K, ~V, ~cmp, k, key, val, dl, hi, e),
+            get_del_same(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, lo, lb, Some{key}, k, bl))),
+        e => mtr(V, g(~K, ~V, ~cmp, O.OMap.glue(K, V, lo, hi), k),
+          gone(~K, ~V, ~cmp, cmp(k, key), k, lo, hi), None{},
+          glue.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, hi, lo, lb, ub, key, k, bl, bh),
+          rw(Cmp, c => {gone(~K, ~V, ~cmp, c, k, lo, hi) == None{} : Maybe<&2, V>},
+            cmp(k, key), EQ{}, e, {==})),
+        +e => mtr(V, g(~K, ~V, ~cmp, O.OMap.balance(K, V, key, val, lo, dh), k),
+          g(~K, ~V, ~cmp, O.OBin{0, key, val, lo, dh}, k), None{},
+          balance.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, lb, ub, k, key, val, lo, dh,
+            bl, del.bnd(~K, ~V, ~cmp, ~trans, hi, Some{key}, ub, k, bh)),
+          mtr(V, g(~K, ~V, ~cmp, O.OBin{0, key, val, lo, dh}, k), g(~K, ~V, ~cmp, dh, k), None{},
+            get.gt(~K, ~V, ~cmp, k, key, val, lo, dh, e),
+            get_del_same(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, hi, Some{key}, ub, k, bh))))
+
+def Laws.omap_get_del_same(K, V, cmp, refl, eq, flip, trans, m, tree, k):
+  get_del_same(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, m, None{}, None{}, k, tree)
+
+def get_del_other(
+  ~K: Data, ~V: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  t: O.OMap<K, V>, +lb: Maybe<&2, K>, +ub: Maybe<&2, K>, +k2: K, +k: K,
+  +bt: {Laws.bounded(~K, ~V, ~cmp, t, lb, ub) == True{} : Bool},
+  +nef: {Cmp.is_eq(cmp(k2, k)) == False{} : Bool}
+) -> {g(~K, ~V, ~cmp, O.OMap.del(~K, ~V, ~cmp, t, k2), k)
+      == g(~K, ~V, ~cmp, t, k) : Maybe<&2, V>}:
+  match t:
+    case O.OTip{}:
+      {==}
+    case O.OBin{+s, +key, +val, +lo, +hi}:
+      +bl = bn.l(~K, ~V, ~cmp, lb, ub, key, val, lo, hi, bt)
+      +bh = bn.h(~K, ~V, ~cmp, lb, ub, key, val, lo, hi, bt)
+      +dl = O.OMap.del(~K, ~V, ~cmp, lo, k2)
+      +dh = O.OMap.del(~K, ~V, ~cmp, hi, k2)
+      +old = {O.OBin{s, key, val, lo, hi} : O.OMap<K, V>}
+      cmp.split(O.OMap<K, V>, Maybe<&2, V>, y => g(~K, ~V, ~cmp, y, k),
+        g(~K, ~V, ~cmp, old, k), cmp(k2, key),
+        u => O.OMap.balance(K, V, key, val, O.OMap.del(~K, ~V, ~cmp, lo, k2), hi),
+        u => O.OMap.glue(K, V, lo, hi),
+        u => O.OMap.balance(K, V, key, val, lo, O.OMap.del(~K, ~V, ~cmp, hi, k2)),
+        e => mtr(V, g(~K, ~V, ~cmp, O.OMap.balance(K, V, key, val, dl, hi), k),
+          g(~K, ~V, ~cmp, O.OBin{0, key, val, dl, hi}, k), g(~K, ~V, ~cmp, old, k),
+          balance.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, lb, ub, k, key, val, dl, hi,
+            del.bnd(~K, ~V, ~cmp, ~trans, lo, lb, Some{key}, k2, bl), bh),
+          split(c => {getc(~K, ~V, ~cmp, c, k, val, dl, hi)
+              == getc(~K, ~V, ~cmp, c, k, val, lo, hi) : Maybe<&2, V>},
+            cmp(k, key),
+            e2 => get_del_other(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+              lo, lb, Some{key}, k2, k, bl, nef),
+            e2 => {==}, e2 => {==})),
+        +e => mtr(V, g(~K, ~V, ~cmp, O.OMap.glue(K, V, lo, hi), k),
+          gone(~K, ~V, ~cmp, cmp(k, key), k, lo, hi), g(~K, ~V, ~cmp, old, k),
+          glue.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, hi, lo, lb, ub, key, k, bl, bh),
+          split(c => {gone(~K, ~V, ~cmp, c, k, lo, hi)
+              == getc(~K, ~V, ~cmp, c, k, val, lo, hi) : Maybe<&2, V>},
+            cmp(k, key),
+            e2 => {==},
+            e2 => ne_absurd({None{} == Some{val} : Maybe<&2, V>}, cmp(k2, k), nef,
+              rw(K, y => {cmp(y, k) == EQ{} : Cmp}, k2, key, eq(k2, key, e),
+                eq_flip(~K, ~cmp, ~flip, k, key, e2))),
+            e2 => {==})),
+        e => mtr(V, g(~K, ~V, ~cmp, O.OMap.balance(K, V, key, val, lo, dh), k),
+          g(~K, ~V, ~cmp, O.OBin{0, key, val, lo, dh}, k), g(~K, ~V, ~cmp, old, k),
+          balance.get(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans, lb, ub, k, key, val, lo, dh,
+            bl, del.bnd(~K, ~V, ~cmp, ~trans, hi, Some{key}, ub, k2, bh)),
+          split(c => {getc(~K, ~V, ~cmp, c, k, val, lo, dh)
+              == getc(~K, ~V, ~cmp, c, k, val, lo, hi) : Maybe<&2, V>},
+            cmp(k, key), e2 => {==}, e2 => {==},
+            e2 => get_del_other(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+              hi, Some{key}, ub, k2, k, bh, nef))))
+
+def Laws.omap_get_del_other_key(K, V, cmp, refl, eq, flip, trans, m, tree, k2, k, ne):
+  get_del_other(~K, ~V, ~cmp, ~refl, ~eq, ~flip, ~trans,
+    m, None{}, None{}, k2, k, tree, neq_false(cmp(k2, k), ne))
+
 def Laws.omap_new_weight_balanced(K, V):
   {==}
 

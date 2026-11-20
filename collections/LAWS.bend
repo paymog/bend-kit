@@ -221,6 +221,35 @@ law omap_get_put_other_key:
   {O.OMap.get(~K, ~V, ~cmp, O.OMap.put(~K, ~V, ~cmp, m, k2, v), k)
    == O.OMap.get(~K, ~V, ~cmp, m, k) : Maybe<&2, V>}
 
+law omap_get_del_same:
+  for ~K: Data
+  for ~V: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for ~flip: @x: K -> @y: K -> {cmp(y, x) == flip(cmp(x, y)) : Cmp}
+  for ~trans: @x: K -> @y: K -> @z: K -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for m: O.OMap<K, V>
+  for tree: {searchtree(~K, ~V, ~cmp, m) == True{} : Bool}
+  for +k: K
+  {O.OMap.get(~K, ~V, ~cmp, O.OMap.del(~K, ~V, ~cmp, m, k), k) == None{} : Maybe<&2, V>}
+
+law omap_get_del_other_key:
+  for ~K: Data
+  for ~V: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for ~flip: @x: K -> @y: K -> {cmp(y, x) == flip(cmp(x, y)) : Cmp}
+  for ~trans: @x: K -> @y: K -> @z: K -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for m: O.OMap<K, V>
+  for tree: {searchtree(~K, ~V, ~cmp, m) == True{} : Bool}
+  for +k2: K
+  for +k: K
+  for ne: {cmp(k2, k) != EQ{} : Cmp}
+  {O.OMap.get(~K, ~V, ~cmp, O.OMap.del(~K, ~V, ~cmp, m, k2), k)
+   == O.OMap.get(~K, ~V, ~cmp, m, k) : Maybe<&2, V>}
+
 # Order.string is a total order with EQ meaning equal strings: it meets the
 # refl, eq, flip and trans facts that the OMap laws above take. It answers for
 # every pair, so it is total; flip makes it antisymmetric.
