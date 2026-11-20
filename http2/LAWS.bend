@@ -3,6 +3,7 @@ import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./http2.bend as H
 import ./huffman.bend as Huff
 import ./hpack.bend as Hp
+import ./events.bend as Events
 
 def round.result(r: Result<&1, &1, H.Error, Bytes.Bytes>) -> H.Decode:
   match r:
@@ -520,7 +521,7 @@ def client.stall.header(d: H.Decode) -> Bool:
 def client.stall.result(r: H.Reply) -> Bool:
   match r:
     case H.Advanced{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
-        remote_end, head, headers, partial, body, Bytes.Bytes{+remaining, buf}}, Nil{}},
+        remote_end, head, partial, Bytes.Bytes{+remaining, buf}}, Nil{}},
         encoder, decoder, control}, Con{packet, Nil{}}, Nil{}}:
       Bool.and(U32.is_eq(remaining, 3),
         Bool.and(Bool.not(local_end), client.stall.header(H.parse(16384, packet))))
@@ -537,7 +538,7 @@ def client.stall.data(d: H.Decode) -> Bool:
 def client.stall.resumed(r: H.Reply) -> Bool:
   match r:
     case H.Advanced{H.Client{input, Con{H.Stream{id, send_window, recv_window, +local_end,
-        remote_end, head, headers, partial, body, Bytes.Bytes{+remaining, buf}}, Nil{}},
+        remote_end, head, partial, Bytes.Bytes{+remaining, buf}}, Nil{}},
         encoder, decoder, control}, Con{ack_packet, Con{data_packet, Nil{}}}, Nil{}}:
       Bool.and(U32.is_eq(remaining, 0),
         Bool.and(local_end, client.stall.data(H.parse(16384, data_packet))))
@@ -569,7 +570,7 @@ def client.response.result(r: H.Reply) -> Bool:
         H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}},
         Con{ack_packet, Nil{}},
-        Con{H.Response{1, Con{Hp.Field{":status", "200", 0}, Nil{}}, Bytes.Bytes{0, buf}}, Nil{}}}:
+        Con{H.Headers{1, Con{Hp.Field{":status", "200", 0}, Nil{}}}, Con{H.Complete{1}, Nil{}}}}:
       U32.is_eq(active, 0)
     case _:
       False{}
@@ -603,8 +604,8 @@ def client.response.interim(r: H.Reply) -> Bool:
         H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}},
         Con{ack_packet, Nil{}},
-        Con{H.Response{1, Con{Hp.Field{":status", "100", 0}, Nil{}}, Bytes.Bytes{0, first_body}},
-          Con{H.Response{1, Con{Hp.Field{":status", "200", 0}, Nil{}}, Bytes.Bytes{0, final_body}}, Nil{}}}}:
+        Con{H.Informational{1, Con{Hp.Field{":status", "100", 0}, Nil{}}},
+          Con{H.Headers{1, Con{Hp.Field{":status", "200", 0}, Nil{}}}, Con{H.Complete{1}, Nil{}}}}}:
       U32.is_eq(active, 0)
     case _:
       False{}
@@ -632,3 +633,9 @@ law client_settings_window_underflow:
 
 law client_settings_window_recovers:
   {H.client.window.adjust(4294967295, 1) == Some{0} : Maybe<&1, U32>}
+
+law client_incremental_events:
+  {Events.incremental() == True{} : Bool}
+
+law client_cancel_preserves_session:
+  {Events.cancellation() == True{} : Bool}

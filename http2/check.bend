@@ -3,6 +3,7 @@ import ./http2.bend as H
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./hpack.bend as Hp
 import ./live.bend as Live
+import ./events.bend as Events
 
 def ensure(ok: Bool, +why: String) -> IO(Unit):
   match ok:
@@ -49,10 +50,10 @@ def client.fixture.result(r: H.Reply) -> IO(Unit):
         H.Control{next, +active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}},
         Con{ack_packet, Nil{}},
-        Con{H.Response{+id, Con{Hp.Field{name, value, mode}, Nil{}}, Bytes.Bytes{+len, buf}}, Nil{}}}:
+        Con{H.Headers{+id, Con{Hp.Field{name, value, mode}, Nil{}}}, Con{H.Complete{1}, Nil{}}}}:
       ensure(Bool.and(U32.is_eq(active, 0), Bool.and(U32.is_eq(id, 1),
-        Bool.and(U32.is_eq(len, 0), Bool.and(String.eq(name, ":status"), String.eq(value, "200"))))),
-        "request receives decoded response and releases stream")
+        Bool.and(String.eq(name, ":status"), String.eq(value, "200")))),
+        "final headers precede completion and release stream")
     case _:
       IO.die(Unit, 1, "response or SETTINGS ACK missing")
 
@@ -84,4 +85,6 @@ def main() -> IO(Unit):
     frame: Unit <- encoded(H.encode(16384, H.Frame{0, 1, 1, Bytes.new(16384)}))
     pack: Unit <- hpack.encoded(Hp.encode([Hp.Field{":authority", "www.example.com", 0}], True{}, Hp.new(4096)))
     fixture: Unit <- client.fixture.frame(H.encode(16384, H.Frame{1, 5, 1, Bytes.set(Bytes.new(1), 0, 136)}))
+    incremental: Unit <- ensure(Events.incremental(), "incremental interleaved headers, DATA, and trailers")
+    canceled: Unit <- ensure(Events.cancellation(), "cancellation preserves HPACK, credit, and another stream")
     Live.run()
