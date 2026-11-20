@@ -1,7 +1,7 @@
 # Harness startup retains each kernel-assigned listener through the normal owner path.
 import Base
 import ./camber.bend as C
-import bend-kit-http@0.38.6.0/http.bend as H
+import bend-kit-http@0.38.6.1/http.bend as H
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 def config.port(config: H.ServerConfig, port: U32) -> H.ServerConfig:
