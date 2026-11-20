@@ -18,7 +18,7 @@ def main() -> IO(Unit):
   show(A.dot(A.from_list([1.0, 2.0, 3.0]), A.from_list([4.0, 5.0, 6.0])))
 ```
 
-This package imports `bend-kit-bytes@0.3.3.0` and `bend-kit-files@0.3.0.0`. `from_bytes.le`, `to_bytes.le`, and their `.be` twins take and give that `Bytes.Bytes`.
+This package imports `bend-kit-bytes@0.3.3.0` and `bend-kit-files@0.4.0.0`. `from_bytes.le`, `to_bytes.le`, and their `.be` twins take and give that `Bytes.Bytes`.
 
 A call that reads an array returns the array beside its result. Pass that array on. `get` returns `None` when the index is at or past `len`, and `set` then leaves the array unchanged. `map` and `zip_with` write into the array they are given. `zip_with`, `add`, and `mul` give `b` back, and they return `False` with both arrays unchanged when the two lengths differ. `dot` returns `None` when the lengths differ.
 
