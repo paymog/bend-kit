@@ -1,6 +1,18 @@
 import Base
 import ./LAWS.bend as Laws
 
+def Laws.w64_hi_of():
+  {==}
+
+def Laws.w64_lo_of():
+  {==}
+
+def Laws.w64_hi_of_bounds():
+  {==}
+
+def Laws.w64_lo_of_bounds():
+  {==}
+
 def Laws.fnv1a32_empty():
   {==}
 

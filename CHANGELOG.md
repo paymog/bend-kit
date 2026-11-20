@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hash` 0.3.1.0: add `W64.of` and `W64.hi` to construct 64-bit seeds and keys and read both halves without matching the constructor.
+
 - `llm` 0.14.1.0: return a refused stream's connection to the client pool after its error body is drained. Keep incomplete and failed drains out of the pool.
 
 - `collections` 0.1.6.0: prove that ordered-map deletion removes the selected key and preserves lookup at every unequal key, for any total-order comparator on a search tree. No runtime change.

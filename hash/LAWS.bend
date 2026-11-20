@@ -2,6 +2,18 @@ import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./hash.bend as Hash
 
+law w64_hi_of:
+  {Hash.W64.hi(Hash.W64.of(3421674724, 2216829733)) == 3421674724 : U32}
+
+law w64_lo_of:
+  {Hash.W64.lo(Hash.W64.of(3421674724, 2216829733)) == 2216829733 : U32}
+
+law w64_hi_of_bounds:
+  {Hash.W64.hi(Hash.W64.of(4294967295, 0)) == 4294967295 : U32}
+
+law w64_lo_of_bounds:
+  {Hash.W64.lo(Hash.W64.of(0, 4294967295)) == 4294967295 : U32}
+
 def b(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
 
