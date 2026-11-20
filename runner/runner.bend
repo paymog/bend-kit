@@ -11,7 +11,7 @@ import bend-kit-collections@0.1.5.0/omap.bend as O
 import bend-kit-collections@0.1.5.0/hmap.bend as M
 import bend-kit-collections@0.1.5.0/LAWS.bend as CL
 import bend-kit-collections@0.1.5.0/PROOF.bend as CP
-import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
 
 # Why retry gave up on a ticket: its budget was spent, its deadline passed, its failure must not repeat,
 # or another try would repeat its failure.
