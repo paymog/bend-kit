@@ -131,9 +131,9 @@ type FileType is Data:
   Directory{}
   Other{}
 
-# mtime is whole seconds since the Unix epoch. size and mtime wrap at 2^32.
+# size and whole Unix seconds are (hi, lo), each with 64 bits.
 type Info is Data:
-  Info{kind: FileType, size: U32, mtime: U32}
+  Info{kind: FileType, size: Sigma<&2, &2, U32, _ => U32>, mtime: Sigma<&2, &2, U32, _ => U32>}
 
 # Entry names, NUL-separated, in the order the OS gives them.
 def list_dir.raw(path: String) -> IO(Result<&1, &1, U32 & String, String>):
@@ -143,7 +143,7 @@ def list_dir.raw(path: String) -> IO(Result<&1, &1, U32 & String, String>):
 # (kind, size, mtime); kind 0 is a regular file, 1 a directory, 2 other.
 # Symbolic links are followed.
 def stat.raw(path: String) ->
-  IO(Result<&1, &1, U32 & String, U32 & U32 & U32>):
+  IO(Result<&1, &1, U32 & String, U32 & (U32 & U32) & (U32 & U32)>):
   import "./effs/files.c"
   import "./effs/files.js"
 
@@ -239,23 +239,23 @@ def stat.kind(+k: U32) -> FileType:
   Bool.pick(FileType, U32.is_eq(k, 0), Regular{},
     Bool.pick(FileType, U32.is_eq(k, 1), Directory{}, Other{}))
 
-def stat.fin(r: Result<&1, &1, U32 & String, U32 & U32 & U32>) ->
+def stat.fin(r: Result<&1, &1, U32 & String, U32 & (U32 & U32) & (U32 & U32)>) ->
   Result<&1, &1, U32 & String, Info>:
   match r:
     case Fail{e}:
       Fail{e}
-    case Done{(k, size, mtime)}:
-      Done{Info{stat.kind(k), size, mtime}}
+    case Done{(k, (size_hi, size_lo), (mtime_hi, mtime_lo))}:
+      Done{Info{stat.kind(k), (size_hi, size_lo), (mtime_hi, mtime_lo)}}
 
 def stat(path: String) -> IO(Result<&1, &1, U32 & String, Info>):
   do IO<Result<&1, &1, U32 & String, Info>>:
-    r : Result<&1, &1, U32 & String, U32 & U32 & U32> <- stat.raw(path)
+    r : Result<&1, &1, U32 & String, U32 & (U32 & U32) & (U32 & U32)> <- stat.raw(path)
     return stat.fin(r)
 
 def exists(path: String) -> IO(Bool):
   do IO<Bool>:
-    r : Result<&1, &1, U32 & String, U32 & U32 & U32> <- stat.raw(path)
-    return Result.is_done(&1, &1, U32 & String, U32 & U32 & U32, r)
+    r : Result<&1, &1, U32 & String, U32 & (U32 & U32) & (U32 & U32)> <- stat.raw(path)
+    return Result.is_done(&1, &1, U32 & String, U32 & (U32 & U32) & (U32 & U32), r)
 
 def mkdir_all.dir(r: Result<&1, &1, U32 & String, Info>) ->
   Result<&1, &1, U32 & String, Unit>:

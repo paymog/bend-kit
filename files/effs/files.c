@@ -136,8 +136,8 @@ static void stat_raw_call(IoWork* w) {
     return;
   }
   w->word = files_kind(st.st_mode);
-  w->made = (intptr_t)(uint32_t)st.st_size;
-  w->hand = (intptr_t)(uint32_t)st.st_mtime;
+  w->made = (intptr_t)st.st_size;
+  w->hand = (intptr_t)st.st_mtime;
 }
 
 static Term stat_raw_pack(Env e, IoWork* w) {
@@ -145,8 +145,11 @@ static Term stat_raw_pack(Env e, IoWork* w) {
   if (w->code != 0) {
     return io_fail(e, w->code, NULL);
   }
+  u64 size = (u64)w->made;
+  u64 mtime = (u64)w->hand;
   Term t = io_tup(e, (Term)w->word,
-    io_tup(e, (Term)(uint32_t)w->made, (Term)(uint32_t)w->hand));
+    io_tup(e, io_tup(e, (Term)(u32)(size >> 32), (Term)(u32)size),
+      io_tup(e, (Term)(u32)(mtime >> 32), (Term)(u32)mtime)));
   return io_done(e, t);
 }
 

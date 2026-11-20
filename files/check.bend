@@ -18,8 +18,9 @@ def names_ok(xs: List<&2, String>) -> Bool:
 
 def stat_ok(i: Fs.Info) -> Bool:
   match i:
-    case Fs.Info{Fs.Regular{}, size, mtime}:
-      U32.is_eq(size, 3)
+    case Fs.Info{Fs.Regular{}, (hi, lo), (mtime_hi, mtime_lo)}:
+      U32.is_eq(hi, 0) && U32.is_eq(lo, 3) &&
+        U32.is_eq(mtime_hi, 0) && U32.is_gt(mtime_lo, 0)
     case Fs.Info{kind, size, mtime}:
       False{}
 
@@ -128,6 +129,31 @@ def packed(dir: String) -> IO(Unit):
     File.close(file)
     IO.try(Unit, Fs.remove(path))
 
+def sparse_ok(i: Fs.Info) -> Bool:
+  match i:
+    case Fs.Info{Fs.Regular{}, (hi, lo), (mtime_hi, mtime_lo)}:
+      U32.is_eq(hi, 1) && U32.is_eq(lo, 1073741824) &&
+        U32.is_eq(mtime_hi, 1) && U32.is_eq(mtime_lo, 1073741824)
+    case Fs.Info{kind, size, mtime}:
+      False{}
+
+def sparse.ran(ran: U32 & String & String) -> IO(Unit):
+  match ran:
+    case (code, out, err):
+      require(U32.is_eq(code, 0), "sparse fixture failed: " ++ out ++ err)
+
+def sparse(dir: String) -> IO(Unit):
+  do IO<Unit>:
+    +path : String = Fs.path.join(dir, "sparse")
+    ran : U32 & String & String <- IO.try(U32 & String & String,
+      Process.run("python3", ["-c",
+        "import os,sys; p=sys.argv[1]; open(p,'wb').close(); os.truncate(p,5*1024**3); os.utime(p,ns=(5*1024**3*10**9,5*1024**3*10**9))",
+        path], "", 4096, 10000))
+    info : Fs.Info <- IO.try(Fs.Info, Fs.stat(path))
+    IO.try(Unit, Fs.remove(path))
+    sparse.ran(ran)
+    require(sparse_ok(info), "stat lost high size or mtime bits")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     require(String.eq(Fs.path.parent("."), ".") &&
@@ -136,6 +162,7 @@ def main() -> IO(Unit):
     empty : List<&2, String> <- IO.try(List<&2, String>, Fs.list_dir(dir))
     require(List.is_empty(&2, String, empty), "new temp directory is not empty")
     packed(dir)
+    sparse(dir)
     +nested : String = Fs.path.join(dir, "nested/child")
     IO.try(Unit, Fs.mkdir_all(nested))
     IO.try(Unit, Fs.mkdir_all(nested))
