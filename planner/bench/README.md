@@ -1,6 +1,6 @@
 # Planner benchmark
 
-This times the hot path of `planner`: the plan of one target whose closure is a whole graph. It compares `plan` against a topological sort from a standard or popular library in Rust, Python, and JavaScript.
+This times the hot path of `planner`: the plan of one target whose closure is a whole graph. It compares `plan.fast` against a topological sort from a standard or popular library in Rust, Python, and JavaScript. A second, Bend-only program times the parallel run model that `build` drives.
 
 ## Run
 
@@ -46,3 +46,19 @@ Every program prints the checksum 8008000.
 
 - Bend times itself with `Time.mono`. It reads the plan count from argv, so the work cannot run before the clock starts.
 - One machine, one graph shape, one size.
+
+## The run model
+
+`par.bend` plans the same graph, then runs the pure parallel model over the plan: every node is stale, at most four run at once, and each command succeeds. The baselines have no equivalent, so this program is Bend only.
+
+```sh
+bend par.bend -o out/par && out/par 16
+```
+
+Same machine and date, five runs, median, in ms. Each round includes its `plan.fast`. The checksum adds, for each status, 1 plus its node number: 8008000.
+
+| op | `par` (lists) | `par.fast` (ordered maps) |
+|---|---:|---:|
+| plan and run x16 | 2,428.3 | 267.1 |
+
+`par` looks up each status and prerequisite in lists, so one run takes O(n²) comparisons. `par.fast` keeps the statuses, the graph, and the stale set in `OMap`s; law `par_index` proves that it runs as `par`. The running set stays a list, because it holds at most `limit` nodes.
