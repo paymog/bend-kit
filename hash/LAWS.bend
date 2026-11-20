@@ -51,6 +51,9 @@ def ones(n: Nat) -> Bytes.Bytes:
 def sip(n: Nat) -> Hash.W64:
   v64(Hash.siphash13(iota(n), Hash.W64{117835012, 50462976}, Hash.W64{252579084, 185207048}))
 
+def sip24(n: Nat) -> Hash.W64:
+  v64(Hash.siphash24(iota(n), Hash.W64.of(117835012, 50462976), Hash.W64.of(252579084, 185207048)))
+
 # The bytes 0 .. 7 with len n: the bytes past len are not 0.
 def dirty(b: Bytes.Bytes, +n: U32) -> Bytes.Bytes:
   match b:
@@ -142,6 +145,25 @@ law siphash13_15:
 
 law siphash13_63:
   {sip(63n) == Hash.W64{2635698274, 3082531752} : Hash.W64}
+
+# SipHash-2-4: the paper's reference vectors, key 00..0f and message 00..n-1.
+law siphash24_0:
+  {sip24(0n) == Hash.W64.of(1919933255, 3708685873) : Hash.W64}
+
+law siphash24_1:
+  {sip24(1n) == Hash.W64.of(1962424773, 2480695293) : Hash.W64}
+
+law siphash24_7:
+  {sip24(7n) == Hash.W64.of(2869035253, 2332152119) : Hash.W64}
+
+law siphash24_8:
+  {sip24(8n) == Hash.W64.of(2482369913, 2593334370) : Hash.W64}
+
+law siphash24_15:
+  {sip24(15n) == Hash.W64.of(2703870561, 1237206501) : Hash.W64}
+
+law siphash24_63:
+  {sip24(63n) == Hash.W64.of(2508862028, 3943056754) : Hash.W64}
 
 # SipHash-1-3 reads only the first len bytes, whatever the buffer holds past len.
 law siphash13_dirty_1:

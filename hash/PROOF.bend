@@ -91,6 +91,24 @@ def Laws.siphash13_15():
 def Laws.siphash13_63():
   {==}
 
+def Laws.siphash24_0():
+  {==}
+
+def Laws.siphash24_1():
+  {==}
+
+def Laws.siphash24_7():
+  {==}
+
+def Laws.siphash24_8():
+  {==}
+
+def Laws.siphash24_15():
+  {==}
+
+def Laws.siphash24_63():
+  {==}
+
 def Laws.siphash13_dirty_1():
   {==}
 

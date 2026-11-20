@@ -1,10 +1,10 @@
-# Non-cryptographic hashes over Bytes: FNV-1a, xxHash, SipHash-1-3, CRC-32, and Adler-32. Source: https://github.com/paymog/bend-kit/tree/main/hash
+# Non-cryptographic hashes over Bytes: FNV-1a, xxHash, SipHash-1-3 and SipHash-2-4, CRC-32, and Adler-32. Source: https://github.com/paymog/bend-kit/tree/main/hash
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Each hash hands the buffer back beside its value. A buffer's bytes at or past len are 0.
 # Each hash also has a .str form over a byte string (one Char per octet), copied to Bytes first.
-#   import bend-kit-hash@0.3.1.0/hash.bend as Hash
+#   import bend-kit-hash@0.3.2.0/hash.bend as Hash
 
 # A 64-bit value as two halves. Base has no native U64, and int's U64 is a bit list.
 type W64 is Data:
@@ -2430,7 +2430,7 @@ def xxh64(b: Bytes.Bytes, +seed: W64) -> Bytes.Bytes & W64:
   Bytes.Bytes{+len, buf} = b
   x64.mid(len, x64.start(U32.is_le(32, len), len, seed, buf))
 
-# SipHash-1-3 (Aumasson and Bernstein, 2012): one round per block, three to finish.
+# SipHash-c-d (Aumasson and Bernstein, 2012).
 type S4 is Data:
   S4{v0: W64, v1: W64, v2: W64, v3: W64}
 
@@ -2444,40 +2444,53 @@ def sip.round(s: S4) -> S4:
   +c2 = W64.add(a2, b1)
   S4{c0, W64.xor(W64.rotl(17n, 15n, b1), c2), W64.swap(c2), W64.xor(W64.rotl(21n, 11n, b3), c0)}
 
+def sip.rounds(n: Nat, s: S4) -> S4:
+  match n:
+    case 0n:
+      s
+    case 1n+p:
+      sip.rounds(p, sip.round(s))
+
 def sip.post(+m: W64, s: S4) -> S4:
   S4{v0, v1, v2, v3} = s
   S4{W64.xor(v0, m), v1, v2, v3}
 
-def sip.block(s: S4, +m: W64) -> S4:
+def sip.block(~c: Nat, s: S4, +m: W64) -> S4:
   S4{v0, v1, v2, v3} = s
-  sip.post(m, sip.round(S4{v0, v1, v2, W64.xor(v3, m)}))
+  sip.post(m, sip.rounds(c, S4{v0, v1, v2, W64.xor(v3, m)}))
 
 def sip.fin(s: S4) -> W64:
   S4{v0, v1, v2, v3} = s
   W64.xor(W64.xor(v0, v1), W64.xor(v2, v3))
 
-def sip.end(s: S4) -> W64:
+def sip.end(~d: Nat, s: S4) -> W64:
   S4{v0, v1, v2, v3} = s
-  sip.fin(sip.round(sip.round(sip.round(S4{v0, v1, W64.xor(v2, W64{0, 255}), v3}))))
+  sip.fin(sip.rounds(d, S4{v0, v1, W64.xor(v2, W64{0, 255}), v3}))
 
 # The low n bytes of w, for n <= 4, so bytes past len never reach the hash.
 def sip.keep(+w: U32, +n: U32) -> U32:
   Bool.pick(U32, U32.is_lt(n, 4), (w .&. (U32.shln(1, U32.to_nat((n * 8 : U32))) - 1) : U32), w)
 
 # The last block: the len % 8 bytes left, and len mod 256 in the top byte.
-def sip.last(+len: U32, r: Array<U32> & W64, s: S4) -> Bytes.Bytes & W64:
+def sip.last(~c: Nat, ~d: Nat, +len: U32, r: Array<U32> & W64, s: S4) -> Bytes.Bytes & W64:
   (a, W64{+hi, +lo}) = r
   +k = (len .&. 7 : U32)
   +top = ((len .&. 255) << 24n : U32)
-  (Bytes.Bytes{len, a}, sip.end(sip.block(s, W64{(sip.keep(hi, Bool.pick(U32, U32.is_lt(4, k), (k - 4 : U32), 0)) .|. top : U32), sip.keep(lo, U32.min(k, 4))})))
+  (Bytes.Bytes{len, a}, sip.end(~d, sip.block(~c, s, W64{(sip.keep(hi, Bool.pick(U32, U32.is_lt(4, k), (k - 4 : U32), 0)) .|. top : U32), sip.keep(lo, U32.min(k, 4))})))
 
-def sip.rest(+len: U32, r: Array<U32> & S4) -> Bytes.Bytes & W64:
+def sip.rest(~c: Nat, ~d: Nat, +len: U32, r: Array<U32> & S4) -> Bytes.Bytes & W64:
   (a, s) = r
-  sip.last(len, get2(a, ((len >> 3n) << 1n : U32)), s)
+  sip.last(~c, ~d, len, get2(a, ((len >> 3n) << 1n : U32)), s)
+
+def sip.hash(~c: Nat, ~d: Nat, b: Bytes.Bytes, +k0: W64, +k1: W64) -> Bytes.Bytes & W64:
+  Bytes.Bytes{+len, buf} = b
+  sip.rest(~c, ~d, len, dfrom(~S4, ~(s => m => sip.block(~c, s, m)), U32.to_nat((len >> 3n : U32)), buf, 0, S4{W64.xor(k0, W64{1936682341, 1886610805}), W64.xor(k1, W64{1685025377, 1852075885}), W64.xor(k0, W64{1819895653, 1852142177}), W64.xor(k1, W64{1952801890, 2037671283})}))
 
 def siphash13(b: Bytes.Bytes, +k0: W64, +k1: W64) -> Bytes.Bytes & W64:
-  Bytes.Bytes{+len, buf} = b
-  sip.rest(len, dfrom(~S4, ~sip.block, U32.to_nat((len >> 3n : U32)), buf, 0, S4{W64.xor(k0, W64{1936682341, 1886610805}), W64.xor(k1, W64{1685025377, 1852075885}), W64.xor(k0, W64{1819895653, 1852142177}), W64.xor(k1, W64{1952801890, 2037671283})}))
+  sip.hash(~1n, ~3n, b, k0, k1)
+
+def siphash24(b: Bytes.Bytes, +k0: W64, +k1: W64) -> Bytes.Bytes & W64:
+  sip.hash(~2n, ~4n, b, k0, k1)
 
 # The same hashes over a byte string. ponytail: copies to Bytes; hash short strings in place if the copy shows up in profiles.
 def v32(r: Bytes.Bytes & U32) -> U32:
@@ -2502,6 +2515,9 @@ def xxh64.str(+s: String, +seed: W64) -> W64:
 
 def siphash13.str(+s: String, +k0: W64, +k1: W64) -> W64:
   v64(siphash13(Bytes.from_string(s), k0, k1))
+
+def siphash24.str(+s: String, +k0: W64, +k1: W64) -> W64:
+  v64(siphash24(Bytes.from_string(s), k0, k1))
 
 def crc32.str(+s: String) -> U32:
   v32(crc32(Bytes.from_string(s)))
