@@ -108,7 +108,7 @@ def main() -> IO(Unit):
 
 `server.start` returns your affine owner beside `Done{server}` or a `StartupError`. `InvalidConfig` and `BindError` both return the owner, so you can close it. `Done` means the listener is accepting. Do not treat a failure as ready.
 
-`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.6.2`.
+`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.8.0`.
 
 `server.run` consumes the server and returns `ServerExit` after the listener is closed and the accepted work has returned. `server.close` does that close and returns the counts. It waits until handlers and cleanup callbacks return. It can wait forever. `server.stop` refuses new admission and returns `True` the first time. Stop is not drain. You still run or close the server. A callback that does not return is not cancelled. An external supervisor has to enforce a process deadline.
 
