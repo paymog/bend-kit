@@ -7,13 +7,13 @@ def lcg(x):
     return (x * 1103515245 + 12345) & 0xFFFFFFFF & 0x7FFFFFFF
 
 
-def word(x):
+def word(x, base=97):
     x = lcg(x)
     n = 4 + (x >> 16) % 9
     out = []
     for _ in range(n):
         x = lcg(x)
-        out.append(chr(97 + (x >> 16) % 26))
+        out.append(chr(base + (x >> 16) % 26))
     return "".join(out), x
 
 
@@ -57,6 +57,15 @@ def main():
     t0 = time.perf_counter()
     ls = textwrap.wrap(text, 72)
     report("wrap", t0, f"{len(ls)}:{sum(map(len, ls))}")
+
+    ws, x = [], 1
+    for _ in range(s * 20000):
+        w, x = word(x, 1072)
+        ws.append(w)
+    text = " ".join(ws)
+    t0 = time.perf_counter()
+    ls = textwrap.wrap(text, 72)
+    report("wrap_utf", t0, f"{len(ls)}:{sum(map(len, ls))}")
 
 
 main()
