@@ -27,9 +27,8 @@ for d in "$@"; do
   named=bend-kit-$d@$(<"$d/VERSION")
   if hash=$(curl -fs "$hub/name/$named"); then
     metadata=$(curl -fs "$hub/package/$hash.json")
-    hub_entry=$(jq -r '.entry' <<<"$metadata")
-    if [ "$hub_entry" != "$entry" ] && [ "$hub_entry" != "$d/$entry" ]; then
-      echo "$named is on the hub with another entry: raise $d/VERSION"
+    if ! jq -e --arg entry "$entry" --arg rooted "$d/$entry" '.files | has($entry) or has($rooted)' <<<"$metadata" >/dev/null; then
+      echo "$named is on the hub without $entry: raise $d/VERSION"
       fail=1
       continue
     fi
