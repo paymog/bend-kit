@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` 0.38.6.1 and `runner` 0.16.0.1: rename internal constructors that Bend 2.0.40's Base also declares. `http`'s admission `Lost{}` is now `Unjoined{}`, and `runner`'s compaction `Lost{err}` is now `Stranded{err}`. Under Bend 2.0.40 the old names fail the check with "duplicate declaration: Lost". No API change.
+
 - `camber` 0.16.0.1: reuse JSON's strict unique-key parser for typed inputs. Remove the local duplicate-key walker. Keep status codes, decoded-key comparison, and the caller's depth cap unchanged.
 
 - `camber` 0.16.0.0: move pure owner accounting to `ledger.bend` and prove its fresh-return rejection, full-pool rejection, lend/return counts, and capacity bounds. Import ledger operations from that module; the old entry-module ledger exports are removed. Actor-facing `Counts` and owner behavior stay unchanged. Breaking.

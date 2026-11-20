@@ -37,7 +37,7 @@ type Booked is Type:
 type Taken is Type:
   Admitted{lease: Lease}
   Full{lease: Lease}
-  Lost{}
+  Unjoined{}
 
 def lease.open(+owner: Nat, capacity: U32) -> Lease:
   Lease{Res.new(owner, U32.to_nat(capacity)), Res.Grant{owner, 0n}}
@@ -51,7 +51,7 @@ def lease.joined(combined: Res.Combine, pool: Res.Pool) -> Taken:
     case Res.Joined{grant}:
       Admitted{Lease{pool, grant}}
     case Res.Apart{first, second}:
-      Lost{}
+      Unjoined{}
 
 def lease.took(reserved: Res.Reserve, held: Res.Grant) -> Taken:
   match reserved:
@@ -123,7 +123,7 @@ def acquire.buffered(taken: Taken, connections: Lease, active: Lease, marks: Mar
       Booked{marked(Ledger{connections, active, buffered, marks}), True{}}
     case Full{buffered}:
       acquire.rollback(lease.give(connections), active, buffered, marks)
-    case Lost{}:
+    case Unjoined{}:
       Broken{}
 
 # A connection holds one connection unit and one buffer unit, taken together.
@@ -133,7 +133,7 @@ def acquire.connection(taken: Taken, active: Lease, buffered: Lease, marks: Mark
       acquire.buffered(lease.take(buffered), connections, active, marks)
     case Full{connections}:
       Booked{Ledger{connections, active, buffered, refused(0, marks)}, False{}}
-    case Lost{}:
+    case Unjoined{}:
       Broken{}
 
 def acquire.active(taken: Taken, connections: Lease, buffered: Lease, marks: Marks) -> Booked:
@@ -142,7 +142,7 @@ def acquire.active(taken: Taken, connections: Lease, buffered: Lease, marks: Mar
       Booked{marked(Ledger{connections, active, buffered, marks}), True{}}
     case Full{active}:
       Booked{Ledger{connections, active, buffered, refused(1, marks)}, False{}}
-    case Lost{}:
+    case Unjoined{}:
       Broken{}
 
 def acquire(kind: U32, ledger: Ledger) -> Booked:

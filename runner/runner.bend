@@ -1480,16 +1480,16 @@ def flights.none(-A: Data, fs: List<&1, Flight<A>>) -> List<&1, Flight<A>> & Boo
 # ---- compaction
 
 # Kept: compaction failed before the rename, and the old journal stands.
-# Lost: the rename happened, but the new journal did not open. Moved: the journal at path is the snapshot.
+# Stranded: the rename happened, but the new journal did not open. Moved: the journal at path is the snapshot.
 type Swap is Type:
   Kept{err: U32 & String}
-  Lost{err: U32 & String}
+  Stranded{err: U32 & String}
   Moved{journal: J.Journal}
 
 def swap.reopened(x: Out(J.Journal & Unit)) -> Swap:
   match x:
     case Fail{e}:
-      Lost{e}
+      Stranded{e}
     case Done{(j, u)}:
       Moved{j}
 
@@ -1540,7 +1540,7 @@ def compact.moved(x: Swap, j: J.Journal, +max: U32, path: String, +limit: U32, +
   match x:
     case Kept{e}:
       IO.pure(Log & Out(Unit), (Log{j, path, limit, base}, Fail{e}))
-    case Lost{e}:
+    case Stranded{e}:
       IO.pure(Log & Out(Unit), (Log{log.stop(j), path, limit, base}, Fail{e}))
     case Moved{k}:
       do IO<Log & Out(Unit)>:
