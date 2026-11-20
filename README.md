@@ -134,8 +134,8 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`files`](files) | `bend-kit-files@0.3.1.0/files.bend` | POSIX paths, directories, and packed file IO. |
-| [`storage`](storage) | `bend-kit-storage@0.3.1.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, ingress checks, and reachability collection. |
-| [`stream`](stream) | `bend-kit-stream@0.3.2.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
+| [`storage`](storage) | `bend-kit-storage@0.4.0.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, ingress checks, and reachability collection. |
+| [`stream`](stream) | `bend-kit-stream@0.4.0.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.1.0/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.5.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
 | [`time`](time) | `bend-kit-time@0.3.0.0/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
@@ -145,7 +145,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
 | [`journal`](journal) | `bend-kit-journal@0.3.1.1/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
 | [`runner`](runner) | `bend-kit-runner@0.15.0.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
-| [`planner`](planner) | `bend-kit-planner@0.4.2.0/planner.bend` | Dependency plans with proved order, closure, completeness, true errors, minimal invalidation, and safe reuse, plus a parallel build runner over real commands. |
+| [`planner`](planner) | `bend-kit-planner@0.5.0.0/planner.bend` | Dependency plans with proved order, closure, completeness, true errors, minimal invalidation, and safe reuse, plus a parallel build runner over real commands. |
 | [`commands`](commands) | `bend-kit-commands@0.4.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.3.1.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
 | [`notch`](notch) | `bend-kit-notch@0.4.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
