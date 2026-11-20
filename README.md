@@ -75,7 +75,7 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`bytes`](bytes) | `bend-kit-bytes@0.3.3.1/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
 | [`bits`](bits) | `bend-kit-bits@0.1.0.1/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman decode tables. |
-| [`encoding`](encoding) | `bend-kit-encoding@0.5.0.0/encoding.bend` | UTF-8 between `String` and `Bytes`. |
+| [`encoding`](encoding) | `bend-kit-encoding@0.5.0.1/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
 | [`regex`](regex) | `bend-kit-regex@0.9.0.0/regex.bend` | Linear-time RE2 matching, with capture groups and `(?i)`. |
 | [`parse`](parse) | `bend-kit-parse@0.2.0.0/parse.bend` | Parser combinators over text. `parse/json.bend` is a JSON grammar on them, not the `json` package. |
@@ -94,7 +94,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`f32array`](f32array) | `bend-kit-f32array@0.1.0.0/f32array.bend` | Packed `F32` arrays: get, set, slice, map, fold, zip, dot, sum, max, and little- or big-endian `Bytes` and files. |
 | [`bignum`](bignum) | `bend-kit-bignum@0.1.0.0/bigint.bend` | Exact integers, decimals, and rationals. Import `decimal.bend` or `rational.bend` for those types. |
 | [`stats`](stats) | `bend-kit-stats@0.1.7.0/stats.bend` | Mean, variance, standard deviation, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
-| [`json`](json) | `bend-kit-json@0.7.2.0/json.bend` | JSON values as RFC 8259, over `Bytes`. |
+| [`json`](json) | `bend-kit-json@0.7.2.1/json.bend` | JSON values as RFC 8259, over `Bytes`. |
 | [`csv`](csv) | `bend-kit-csv@0.3.0.0/csv.bend` | RFC 4180 records over `Bytes`. |
 | [`cbor`](cbor) | `bend-kit-cbor@0.3.0.0/cbor.bend` | RFC 8949 encode and decode over `Bytes`. |
 | [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.1.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
