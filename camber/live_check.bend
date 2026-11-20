@@ -14,7 +14,7 @@ type Counts is Data:
 type Message is Type:
   Submit{request: Http.Req, reply: Chan(Http.Res)}
   Enter{slot: U32}
-  Leave{slot: U32}
+  Depart{slot: U32}
   Inspect{reply: Chan(Counts)}
   Stop{}
 
@@ -132,7 +132,7 @@ def work(bundle: Bundle, request: Http.Req) -> IO(Bundle & Http.Res):
     send(owner, Enter{slot})
     wait(String.eq(Http.header(headers, "x-hold"), "yes"), release)
     result : Bundle & Http.Res <- execute(String.eq(method, "GET") && String.eq(Http.header(headers, "x-order"), "store-first"), Bundle{slot, store, file, plan, owner, release}, Http.Req{method, path, headers, body})
-    send(owner, Leave{slot})
+    send(owner, Depart{slot})
     return result
 
 def admit(full: Bool, jobs: Chan(Http.Req & Chan(Http.Res)), counts: Counts, request: Http.Req, reply: Chan(Http.Res)) -> IO(Counts):
@@ -159,7 +159,7 @@ def transition(counts: Counts, message: Message) -> IO(Counts):
         Registry.require(U32.is_eq((mask .&. bit : U32), 0), "bundle was used concurrently")
         IO.print("ENTER " ++ U32.show(slot))
         return Counts{busy, (mask .|. bit : U32), completed, rejected}
-    case Leave{+slot}:
+    case Depart{+slot}:
       +bit = (1 << U32.to_nat(slot) : U32)
       do IO<Counts>:
         Registry.require(U32.is_gt(busy, 0) && U32.is_ne((mask .&. bit : U32), 0), "bundle returned without admission")
@@ -204,9 +204,9 @@ def owner(fuel: Nat, +limit: U32, +messages: Chan(Message), +jobs: Chan(Http.Req
               do IO<Counts>:
                 next : Counts <- transition(counts, Enter{slot})
                 owner(p, limit, messages, jobs, Waiting{next})
-            case Leave{slot}:
+            case Depart{slot}:
               do IO<Counts>:
-                next : Counts <- transition(counts, Leave{slot})
+                next : Counts <- transition(counts, Depart{slot})
                 owner(p, limit, messages, jobs, Waiting{next})
             case Stop{}:
               owner.stop(counts, jobs)

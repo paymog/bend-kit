@@ -71,7 +71,7 @@ def failed_write(path: String) -> IO(Unit):
 
 type OwnerEvent is Data:
   Enter{slot: U32}
-  Leave{slot: U32}
+  Depart{slot: U32}
   Closed{slot: U32}
 
 type Worker is Type:
@@ -119,7 +119,7 @@ def work.ready(slot: U32, store: App.Store, +events: Chan(OwnerEvent), +release:
     send(events, Enter{slot})
     wait(block, release)
     result : App.Store & Http.Res <- App.dispatch(store, req)
-    send(events, Leave{slot})
+    send(events, Depart{slot})
     return work.result(slot, events, release, result)
 
 def work(worker: Worker, req: Http.Req) -> IO(Worker & Http.Res):
@@ -134,7 +134,7 @@ def observe.event(counts: Counts, event: OwnerEvent) -> IO(Counts):
       do IO<Counts>:
         require(U32.is_eq((mask .&. bit : U32), 0), "an affine instance was lent twice")
         return Counts{(mask .|. bit : U32), (busy + 1 : U32), closed}
-    case Leave{+slot}:
+    case Depart{+slot}:
       +bit = (1 << U32.to_nat(slot) : U32)
       do IO<Counts>:
         require(U32.is_ne((mask .&. bit : U32), 0), "instance returned without checkout")
