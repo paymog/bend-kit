@@ -213,82 +213,10 @@ def text.accepted(accepted: Bool, body: Http.Body) -> Result<&2, &1, U32, String
 def text(headers: Map<&2, List<&2, String>>, body: Http.Body) -> Result<&2, &1, U32, String>:
   text.accepted(media(False{}, headers), body)
 
-# An explicit stack avoids mutually recursive tree walkers. Each decoded object
-# has its own key set; escaped and literal spellings compare as the same text.
-type Parent is Type:
-  Object{key: Bytes.Bytes, rest: List<&1, Bytes.Bytes & Json.Val>, acc: List<&1, Bytes.Bytes & Json.Val>, seen: Set()}
-  Array{rest: List<&1, Json.Val>, acc: List<&1, Json.Val>}
-
-type Walk is Type:
-  Value{value: Json.Val, parents: List<&1, Parent>}
-  Fields{fields: List<&1, Bytes.Bytes & Json.Val>, acc: List<&1, Bytes.Bytes & Json.Val>, seen: Set(), parents: List<&1, Parent>}
-  Items{values: List<&1, Json.Val>, acc: List<&1, Json.Val>, parents: List<&1, Parent>}
-  Returned{value: Json.Val, parents: List<&1, Parent>}
-
-def unique.field(repeated: Bool, key: Bytes.Bytes, value: Json.Val, rest: List<&1, Bytes.Bytes & Json.Val>, acc: List<&1, Bytes.Bytes & Json.Val>, seen: Set(), parents: List<&1, Parent>) -> Maybe<&1, Walk>:
-  match repeated:
-    case True{}: None{}
-    case False{}: Some{Value{value, Object{key, rest, acc, seen} <> parents}}
-
-def unique.seen(pair: Set() & Bool, name: String, key: Bytes.Bytes, value: Json.Val, rest: List<&1, Bytes.Bytes & Json.Val>, acc: List<&1, Bytes.Bytes & Json.Val>, parents: List<&1, Parent>) -> Maybe<&1, Walk>:
-  (seen, repeated) = pair
-  unique.field(repeated, key, value, rest, acc, Set.add(seen, name), parents)
-
-def unique.key(text: Maybe<&2, String>, key: Bytes.Bytes, value: Json.Val, rest: List<&1, Bytes.Bytes & Json.Val>, acc: List<&1, Bytes.Bytes & Json.Val>, seen: Set(), parents: List<&1, Parent>) -> Maybe<&1, Walk>:
-  match text:
-    case None{}: None{}
-    case Some{+name}:
-      unique.seen(Set.has(seen, name), name, key, value, rest, acc, parents)
-
-def unique.borrowed(pair: Http.Body & Maybe<&2, String>, value: Json.Val, rest: List<&1, Bytes.Bytes & Json.Val>, acc: List<&1, Bytes.Bytes & Json.Val>, seen: Set(), parents: List<&1, Parent>) -> Maybe<&1, Walk>:
-  (key, text) = pair
-  unique.key(text, key, value, rest, acc, seen, parents)
-
-def unique.step(step: Walk) -> Maybe<&1, Walk>:
-  match step:
-    case Value{value, parents}:
-      match value:
-        case Json.Obj{fields}: Some{Fields{fields, Nil{}, Set.new(), parents}}
-        case Json.Arr{values}: Some{Items{values, Nil{}, parents}}
-        case Json.Null{}: Some{Returned{Json.Null{}, parents}}
-        case Json.Flag{on}: Some{Returned{Json.Flag{on}, parents}}
-        case Json.Num{number}: Some{Returned{Json.Num{number}, parents}}
-        case Json.Str{text}: Some{Returned{Json.Str{text}, parents}}
-    case Fields{fields, acc, seen, parents}:
-      match fields:
-        case Nil{}: Some{Returned{Json.Obj{List.reverse(&1, Bytes.Bytes & Json.Val, acc)}, parents}}
-        case (key, value) <> rest:
-          unique.borrowed(utf8.borrow(key), value, rest, acc, seen, parents)
-    case Items{values, acc, parents}:
-      match values:
-        case Nil{}: Some{Returned{Json.Arr{List.reverse(&1, Json.Val, acc)}, parents}}
-        case value <> rest: Some{Value{value, Array{rest, acc} <> parents}}
-    case Returned{value, parents}:
-      match parents:
-        case Nil{}: Some{Returned{value, Nil{}}}
-        case Object{key, rest, acc, seen} <> parents: Some{Fields{rest, (key, value) <> acc, seen, parents}}
-        case Array{rest, acc} <> parents: Some{Items{rest, value <> acc, parents}}
-
-def unique(fuel: Nat, step: Maybe<&1, Walk>) -> Maybe<&1, Json.Val>:
-  match fuel:
-    case 0n: None{}
-    case 1n+rest:
-      match step:
-        case None{}: None{}
-        case Some{Returned{value, Nil{}}}: Some{value}
-        case Some{state}: unique(rest, unique.step(state))
-
-def json.parsed(fuel: Nat, value: Maybe<&1, Json.Val>) -> Result<&2, &1, U32, Json.Val>:
-  match value:
-    case None{}: Fail{400}
-    case Some{value}: checked(~Json.Val, unique(fuel, Some{Value{value, Nil{}}}))
-
 def json.accepted(accepted: Bool, cap: U32, body: Http.Body) -> Result<&2, &1, U32, Json.Val>:
   match accepted:
     case False{}: Fail{415}
-    case True{}:
-      Bytes.Bytes{+len, buffer} = body
-      json.parsed(Nat.add(Nat.mul(U32.to_nat(len), 4n), 8n), Json.parse.strict.bytes(Bytes.Bytes{len, buffer}, cap))
+    case True{}: checked(~Json.Val, Json.parse.strict.unique.bytes(body, cap))
 
 def json.with_depth(headers: Map<&2, List<&2, String>>, body: Http.Body, cap: U32) -> Result<&2, &1, U32, Json.Val>:
   json.accepted(media(True{}, headers), cap, body)
