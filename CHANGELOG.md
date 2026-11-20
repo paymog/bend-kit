@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `camber` 0.16.0.0: move pure owner accounting to `ledger.bend` and prove its fresh-return rejection, full-pool rejection, lend/return counts, and capacity bounds. Import ledger operations from that module; the old entry-module ledger exports are removed. Actor-facing `Counts` and owner behavior stay unchanged. Breaking.
+
 - Benchmarks: stop the integer and resources clocks before checksum output. Keep Unicode input size fixed across languages. Remove the protobuf scaling table whose command and versions were not recorded.
 
 - `text` 0.2.1.1: `wrap` adds a non-ASCII word's width to the line's width whenever a cluster boundary falls between the line and the joining space, which fails only after a Prepend character. It segments just the space and the word, not the whole line. A new `wrap_utf` bench of Cyrillic words takes 20.8 ms, down from 55.3 ms. Output does not change. No API change.
