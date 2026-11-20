@@ -667,3 +667,7 @@ law u32_show_max:
 
 law u32_roundtrip:
   {Bytes.u32.read(Bytes.u32.show(1234567)) == Some{1234567} : Maybe<&2, U32>}
+
+law u32_roundtrip_all:
+  for +n: U32
+  {Maybe.map(&2, U32, Nat, U32.to_nat, Bytes.u32.read(Bytes.u32.show(n))) == Some{U32.to_nat(n)} : Maybe<&2, Nat>}

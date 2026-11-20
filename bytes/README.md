@@ -22,6 +22,8 @@ def main() -> IO(Unit):
 | `u32.read(b: Bytes) -> Maybe<&2, U32>` | The value of ASCII decimal digits. `None` for an empty buffer, a non-digit, or a value above 4294967295. The call consumes the buffer. |
 | `u32.show(n: U32) -> Bytes` | `n` as ASCII decimal digits, with no leading zeros. |
 
+`u32_roundtrip_all` proves that reading `u32.show(n)` gives every U32 `n` back. The law projects the result through `U32.to_nat`. The proof covers packed byte writes, reads, decimal arithmetic, and the digit count. It does not change the runtime codec.
+
 
 ## Positional reads and writes
 
@@ -55,4 +57,4 @@ forge a limit or pair it with another cursor. No region operation slices or
 copies the input. The public constructors follow Bend's existing `Bytes`
 convention: callers must preserve the packed layout and region invariants.
 
-Run `scripts/check.sh bytes` for concrete laws and native-array checks.
+Run `scripts/check.sh bytes` for the universal decimal round-trip law, concrete laws, and native-array checks.

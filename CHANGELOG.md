@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `lemmas` 0.1.5.1: prove that adding one equals `U32.inc`, including wraparound. `bytes` proves the decimal read/show round trip for every U32 without a runtime change.
+
 - `lemmas` 0.1.5.0: export the U32 maximum bridge, algebra, and order proofs from `crdt`. G-Counter, K-Counter, and PN-Counter proofs use the shared lemmas. `collections` no longer imports `lemmas`, so it needs no re-pin.
 
 - `jwt` 0.12.0.1, `llm` 0.14.0.1, `oauth2` 0.12.0.1, `sigv4` 0.12.0.1, and `webhooks` 0.12.0.1: import `http` 0.38.6.1 and `hairpin` 0.14.1.1, so they build on Bend 2.0.40. The camber examples and the authz check import `camber` 0.16.0.2. No API change.
