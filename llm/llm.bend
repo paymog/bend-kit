@@ -431,56 +431,60 @@ def open.judge(r: Result<&1, &1, Http.Err, Http.Stream>) -> Result<&1, &1, Http.
     case Done{st}:
       open.res(Http.stream.res(st))
 
-# A refused stream's error body, at most f more pieces, then the stream closed.
-def drain(f: Nat, x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>, acc: Bytes.Bytes) -> IO(Bytes.Bytes):
+# A refused stream's error body, at most f more pieces; only a complete body returns its connection.
+def drain(f: Nat, c: Hairpin.Client, x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>, acc: Bytes.Bytes) -> IO(Hairpin.Client & Bytes.Bytes):
   match f:
     case 0n:
       (h, r) = x
-      do IO<Bytes.Bytes>:
+      do IO<Hairpin.Client & Bytes.Bytes>:
         Http.stream.close(h)
-        return acc
+        return (c, acc)
     case 1n+g:
       (h, r) = x
       match r:
         case Fail{e}:
-          do IO<Bytes.Bytes>:
+          do IO<Hairpin.Client & Bytes.Bytes>:
             Http.stream.close(h)
-            return acc
+            return (c, acc)
         case Done{m}:
           match m:
             case None{}:
-              do IO<Bytes.Bytes>:
-                Http.stream.close(h)
-                return acc
+              do IO<Hairpin.Client & Bytes.Bytes>:
+                p : Hairpin.Client <- Hairpin.stream.close(c, h)
+                return (p, acc)
             case Some{b}:
-              do IO<Bytes.Bytes>:
+              do IO<Hairpin.Client & Bytes.Bytes>:
                 y : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
-                drain(g, y, Bytes.append(acc, b))
+                drain(g, c, y, Bytes.append(acc, b))
 
-def start.refused(+status: U32, h: Http.Stream) -> IO(Result<&1, &1, Err, Http.Stream>):
-  do IO<Result<&1, &1, Err, Http.Stream>>:
+def start.error(+status: U32, x: Hairpin.Client & Bytes.Bytes) -> Hairpin.Client & Result<&1, &1, Err, Http.Stream>:
+  (c, b) = x
+  (c, Fail{ErrApi{status, Enc.utf8.decode(b)}})
+
+def start.refused(+status: U32, c: Hairpin.Client, h: Http.Stream) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
+  do IO<Hairpin.Client & Result<&1, &1, Err, Http.Stream>>:
     y : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
-    b : Bytes.Bytes <- drain(64n, y, Bytes.new(0))
-    return Fail{ErrApi{status, Enc.utf8.decode(b)}}
+    x : Hairpin.Client & Bytes.Bytes <- drain(64n, c, y, Bytes.new(0))
+    return start.error(status, x)
 
-def start.ok(good: Bool, +status: U32, h: Http.Stream) -> IO(Result<&1, &1, Err, Http.Stream>):
+def start.ok(good: Bool, +status: U32, c: Hairpin.Client, h: Http.Stream) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
   match good:
     case True{}:
-      IO.pure(Result<&1, &1, Err, Http.Stream>, Done{h})
+      IO.pure(Hairpin.Client & Result<&1, &1, Err, Http.Stream>, (c, Done{h}))
     case False{}:
-      start.refused(status, h)
+      start.refused(status, c, h)
 
-def start.res(x: Http.Stream & Http.Res) -> IO(Result<&1, &1, Err, Http.Stream>):
+def start.res(c: Hairpin.Client, x: Http.Stream & Http.Res) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
   (h, res) = x
   Http.Res{+status, hd, b} = res
-  start.ok(ok(status), status, h)
+  start.ok(ok(status), status, c, h)
 
-def start(r: Result<&1, &1, Hairpin.Err, Http.Stream>) -> IO(Result<&1, &1, Err, Http.Stream>):
+def start(c: Hairpin.Client, r: Result<&1, &1, Hairpin.Err, Http.Stream>) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
   match r:
     case Fail{e}:
-      IO.pure(Result<&1, &1, Err, Http.Stream>, Fail{ErrNet{e}})
+      IO.pure(Hairpin.Client & Result<&1, &1, Err, Http.Stream>, (c, Fail{ErrNet{e}}))
     case Done{h}:
-      start.res(Http.stream.res(h))
+      start.res(c, Http.stream.res(h))
 
 def stream.of(r: Result<&1, &1, Err, Http.Stream>, +api: Api) -> Result<&1, &1, Err, Stream>:
   match r:
@@ -489,12 +493,17 @@ def stream.of(r: Result<&1, &1, Err, Http.Stream>, +api: Api) -> Result<&1, &1, 
     case Done{h}:
       Done{Stream{api, h, Sse.reader()}}
 
+def stream.result(+api: Api, base: String, headers: Map<&2, List<&2, String>>, +ms: U32, +n: U32,
+    x: Hairpin.Client & Result<&1, &1, Err, Http.Stream>) -> Client & Result<&1, &1, Err, Stream>:
+  (h, s) = x
+  (Client{api, base, headers, ms, n, h}, stream.of(s, api))
+
 def stream.done(+api: Api, base: String, headers: Map<&2, List<&2, String>>, +ms: U32, +n: U32,
     x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream>) -> IO(Client & Result<&1, &1, Err, Stream>):
   (h, b, r) = x
   do IO<Client & Result<&1, &1, Err, Stream>>:
-    s : Result<&1, &1, Err, Http.Stream> <- start(r)
-    return (Client{api, base, headers, ms, n, h}, stream.of(s, api))
+    y : Hairpin.Client & Result<&1, &1, Err, Http.Stream> <- start(h, r)
+    return stream.result(api, base, headers, ms, n, y)
 
 def open.budget(+api: Api, +base: String, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, y: Hairpin.Client & Retry.Budget) ->
     IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream>):
