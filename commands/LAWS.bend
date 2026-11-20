@@ -1,5 +1,5 @@
 import Base
-import ./commands.bend as C
+import ./model.bend as C
 
 # Each law holds for every domain: any state, payload, result, and effect types, any payload
 # comparison eq, any copies dup_p and dup_r, and any decide. `found` is the record that the store holds for the command's id.

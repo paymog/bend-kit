@@ -1,6 +1,7 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./commands.bend as C
+import ./model.bend as M
 import ./ledger.bend as L
 
 def ok(c: Bool, msg: String) -> IO(Unit):
@@ -15,7 +16,7 @@ def same(+got: String, +want: String, msg: String) -> IO(Unit):
 
 def handled(+st: C.Store, id: String, p: String, at: U32, +want: String, msg: String) -> IO(Unit):
   do IO<Unit>:
-    r : C.Reply<Bytes.Bytes> <- IO.try(C.Reply<Bytes.Bytes>, C.handle(~L.keys, ~L.decide, st, id, Bytes.from_string(p), at))
+    r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~L.keys, ~L.decide, st, id, Bytes.from_string(p), at))
     same(L.reply.show(r), want, msg)
 
 def shown(m: Maybe<Bytes.Bytes>) -> String:
@@ -110,7 +111,7 @@ def crash() -> IO(Unit):
     handled(st, "evt_4", credit("a", "1"), 200, "fresh accepted 301", "the uncommitted record is rolled back")
     IO.try(Unit, C.close(st))
 
-def busy(r: Result<&1, &1, U32 & String, C.Reply<Bytes.Bytes>>) -> IO(Unit):
+def busy(r: Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>) -> IO(Unit):
   match r:
     case Fail{(+code, m)}:
       ok(U32.is_eq(code, 5), "the second writer waits, then fails with SQLITE_BUSY: " ++ U32.show(code) ++ " " ++ m)
@@ -122,13 +123,13 @@ def inflight.go(a: C.Store, +b: C.Store) -> IO(Unit):
   C.Store{db, +begin, +commit, rollback, +find, +read, +save, +del, +keep, +emit} = a
   do IO<Unit>:
     IO.try(Unit, C.exec(begin))
-    found : Maybe<C.Record<Bytes.Bytes, Bytes.Bytes>> <- IO.try(Maybe<C.Record<Bytes.Bytes, Bytes.Bytes>>, C.seen.get(find, "evt_5"))
-    ok(Maybe.is_none(&1, C.Record<Bytes.Bytes, Bytes.Bytes>, found), "evt_5 is new")
-    r : Result<&1, &1, U32 & String, C.Reply<Bytes.Bytes>> <- C.handle(~L.keys, ~L.decide, b, "evt_5", Bytes.from_string(credit("a", "7")), 200)
+    found : Maybe<M.Record<Bytes.Bytes, Bytes.Bytes>> <- IO.try(Maybe<M.Record<Bytes.Bytes, Bytes.Bytes>>, C.seen.get(find, "evt_5"))
+    ok(Maybe.is_none(&1, M.Record<Bytes.Bytes, Bytes.Bytes>, found), "evt_5 is new")
+    r : Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>> <- C.handle(~L.keys, ~L.decide, b, "evt_5", Bytes.from_string(credit("a", "7")), 200)
     busy(r)
     rs : List<C.Row> <- IO.try(List<C.Row>, C.rows.get([Bytes.from_string("a")], read))
-    step : C.Step<List<C.Row>, Bytes.Bytes, Bytes.Bytes, Bytes.Bytes> = C.step(~List<C.Row>, ~Bytes.Bytes, ~Bytes.Bytes, ~Bytes.Bytes, ~C.same, ~Bytes.clone, ~Bytes.clone, ~L.decide, None{}, rs, Bytes.from_string(credit("a", "7")), 200)
-    w : C.Reply<Bytes.Bytes> <- IO.try(C.Reply<Bytes.Bytes>, C.written(step, commit, save, del, keep, emit, "evt_5"))
+    step : M.Step<List<C.Row>, Bytes.Bytes, Bytes.Bytes, Bytes.Bytes> = M.step(~List<C.Row>, ~Bytes.Bytes, ~Bytes.Bytes, ~Bytes.Bytes, ~C.same, ~Bytes.clone, ~Bytes.clone, ~L.decide, None{}, rs, Bytes.from_string(credit("a", "7")), 200)
+    w : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.written(step, commit, save, del, keep, emit, "evt_5"))
     same(L.reply.show(w), "fresh accepted 308", "the first writer commits")
     handled(b, "evt_5", credit("a", "7"), 200, "replayed accepted 308", "the second writer's retry replays")
 
@@ -195,6 +196,46 @@ def many() -> IO(Unit):
     handled(st, "evt_many", credit("acct_77777", "5"), 400, "replayed accepted 105", "a duplicate among 100,000 accounts replays")
     IO.try(Unit, C.close(st))
 
+def selection(p: Bytes.Bytes) -> C.Read:
+  C.Range{Bytes.from_string("acct_7777"), Bytes.from_string("acct_7778"), Maybe.default(&2, U32, Bytes.u32.read(p), 0)}
+
+def selected(rs: List<C.Row>) -> String:
+  match rs:
+    case Nil{}:
+      ""
+    case Con{C.Row{k, Some{v}}, rest}:
+      Bytes.to_string(k) ++ "=" ++ Bytes.to_string(v) ++ ";" ++ selected(rest)
+    case Con{C.Row{k, None{}}, rest}:
+      "missing;" ++ selected(rest)
+
+def summarize(rs: List<C.Row>, p: Bytes.Bytes) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+  M.Accept{[], Bytes.from_string(selected(rs)), []}
+
+def limited(r: Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>) -> IO(Unit):
+  match r:
+    case Fail{(code, msg)}:
+      ok(U32.is_eq(code, 18), "a full range fails with SQLITE_TOOBIG")
+    case Done{x}:
+      IO.die(Unit, 1, "a full range must not give decide a partial state")
+
+def empty.selection(p: Bytes.Bytes) -> C.Read:
+  C.Range{Bytes.from_string("absent/"), Bytes.from_string("absent0"), 0}
+
+def ranges() -> IO(Unit):
+  do IO<Unit>:
+    +st : C.Store <- IO.try(C.Store, C.open(path(), 10000))
+    too_many : Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>> <- C.handle(~selection, ~summarize, st, "range", Bytes.from_string("10"), 500)
+    limited(too_many)
+    zero : Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>> <- C.handle(~selection, ~summarize, st, "zero", Bytes.from_string("0"), 500)
+    limited(zero)
+    r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~selection, ~summarize, st, "range", Bytes.from_string("11"), 500))
+    same(L.reply.show(r), "fresh accepted acct_7777=100;acct_77770=100;acct_77771=100;acct_77772=100;acct_77773=100;acct_77774=100;acct_77775=100;acct_77776=100;acct_77777=105;acct_77778=100;acct_77779=100;", "a prefix reads exactly its rows in key order and a failed read records nothing")
+    replay : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~empty.selection, ~summarize, st, "range", Bytes.from_string("11"), 500))
+    same(L.reply.show(replay), "replayed accepted acct_7777=100;acct_77770=100;acct_77771=100;acct_77772=100;acct_77773=100;acct_77774=100;acct_77775=100;acct_77776=100;acct_77777=105;acct_77778=100;acct_77779=100;", "a retry replays without reading its range")
+    e : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~empty.selection, ~summarize, st, "empty", Bytes.from_string("0"), 500))
+    same(L.reply.show(e), "fresh accepted ", "an empty range fits a zero bound")
+    IO.try(Unit, C.close(st))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     rm()
@@ -205,5 +246,6 @@ def main() -> IO(Unit):
     race()
     retention()
     many()
+    ranges()
     rm()
     IO.print("commands check ok")

@@ -3,7 +3,7 @@
 Retry-safe commands. Each command has an id and a payload. The first delivery of an id reads the rows that the command names, runs your `decide`, and commits the rows it writes, a record of the outcome, and the outbox effects in one SQLite transaction. A retry of the id with the same payload writes nothing and replays the recorded outcome. A retry with a different payload is a conflict.
 
 ```bend
-import bend-kit-commands@0.4.0.0/commands.bend as C
+import bend-kit-commands@0.5.0.0/commands.bend as C
 ```
 
 It imports `bend-kit-sqlite@0.1.0.1` and `bend-kit-bytes@0.3.3.0`. The store's database and statement handles are that sqlite version's `U32` ids. Payloads, row keys and values, results, and effects are that bytes version's `Bytes.Bytes`.
@@ -31,13 +31,14 @@ A running total in one row, key `total`. Each payload is an amount in decimal, t
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-commands@0.4.0.0/commands.bend as C
+import bend-kit-commands@0.5.0.0/commands.bend as C
+import bend-kit-commands@0.5.0.0/model.bend as M
 
 def num(b: Bytes.Bytes) -> U32:
   Maybe.default(&2, U32, Bytes.u32.read(b), 0)
 
-def keys(p: Bytes.Bytes) -> List<Bytes.Bytes>:
-  [Bytes.from_string("total")]
+def keys(p: Bytes.Bytes) -> C.Read:
+  C.Keys{[Bytes.from_string("total")]}
 
 def total(rs: List<C.Row>) -> U32:
   match rs:
@@ -46,15 +47,15 @@ def total(rs: List<C.Row>) -> U32:
     case _:
       0
 
-def decide(rs: List<C.Row>, p: Bytes.Bytes) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+def decide(rs: List<C.Row>, p: Bytes.Bytes) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
   +t = (total(rs) + num(p) : U32)
-  C.Accept{[C.Row{Bytes.from_string("total"), Some{Bytes.u32.show(t)}}], Bytes.u32.show(t), [Bytes.append(Bytes.from_string("total="), Bytes.u32.show(t))]}
+  M.Accept{[C.Row{Bytes.from_string("total"), Some{Bytes.u32.show(t)}}], Bytes.u32.show(t), [Bytes.append(Bytes.from_string("total="), Bytes.u32.show(t))]}
 
 def main() -> IO(Unit):
   do IO<Unit>:
     +st : C.Store <- IO.try(C.Store, C.open("totals.db", 5000))
-    a : C.Reply<Bytes.Bytes> <- IO.try(C.Reply<Bytes.Bytes>, C.handle(~keys, ~decide, st, "evt_1", Bytes.from_string("5"), 1760000000))
-    b : C.Reply<Bytes.Bytes> <- IO.try(C.Reply<Bytes.Bytes>, C.handle(~keys, ~decide, st, "evt_1", Bytes.from_string("5"), 1760000060))
+    a : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~keys, ~decide, st, "evt_1", Bytes.from_string("5"), 1760000000))
+    b : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~keys, ~decide, st, "evt_1", Bytes.from_string("5"), 1760000060))
     IO.try(Unit, C.close(st))
 ```
 
@@ -64,7 +65,13 @@ def main() -> IO(Unit):
 
 ## API
 
-`~keys: Bytes -> List<Bytes>` takes the payload and names the row keys that the command reads. `~decide: List<Row> -> Bytes -> Decision<List<Row>, Bytes, Bytes>` takes those rows and the payload, where `Bytes` is `Bytes.Bytes`. It gets one `Row{key, value}` for each key, in the order `keys` gave; `value` is `None` when no row holds the key. It answers `Accept{rows, result, effects}` or `Refuse{result}`. Each written row with `Some{v}` puts `v` at its key, and each with `None` deletes the key; a later row for a key wins. `decide` may write keys it did not read. It is pure, so it cannot run an effect: put the effect in the outbox.
+`model.bend` exports `step` and its generic types: `Decision`, `Outcome`, `Record`, `Reply`, and `Step`. It has no effects. `commands.bend` exports the SQLite store, `Row`, and `Read`.
+
+`~keys: Bytes -> Read` takes the payload and describes the rows to read. `Keys{keys}` gets one `Row{key, value}` for each exact key, in input order; `value` is `None` when no row holds the key. `Range{lower, upper, max_rows}` reads existing keys in the half-open byte range `[lower, upper)`, in ascending BLOB key order, with one indexed `SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k`. Both bounds are bytes. For example, `Range{Bytes.from_string("customer/42/"), Bytes.from_string("customer/420"), 100}` reads that customer's prefix.
+
+The range must contain at most `max_rows` rows. The reader checks one extra row without decoding its value. If the range is larger, `handle` fails with `SQLITE_TOOBIG` (18), rolls back, and records nothing. It never gives `decide` a truncated state. A zero bound accepts only an empty range. Equal or reversed bounds read no rows. Choose a bound that fits your command's memory budget; each selected value is read whole.
+
+`~decide: List<Row> -> Bytes -> Decision<List<Row>, Bytes, Bytes>` takes the selected rows and the payload, where `Bytes` is `Bytes.Bytes`. It answers `Accept{rows, result, effects}` or `Refuse{result}`. Each written row with `Some{v}` puts `v` at its key, and each with `None` deletes the key; a later row for a key wins. `decide` may write keys it did not read. It is pure, so it cannot run an effect: put the effect in the outbox.
 
 | def | does |
 |---|---|
@@ -127,10 +134,10 @@ This is not exactly-once execution of external effects. A command's effects are 
 ## Trust boundary
 
 - **Payload comparison and copies.** The laws take `eq`, `dup_p`, and `dup_r` as given. `retry_replays` needs `eq(x, x)` and `dup(x) == (x, x)` for every `x`. The store uses `same`, which is `Bytes.eq`, and `Bytes.clone`. Neither fact is proven.
-- **The store.** The laws are about `step`. `handle` gives `step` the record that `commands_seen` holds for the id and the rows that `keys` names, commits `Write` with one `INSERT OR REPLACE` or `DELETE` per row and two kinds of `INSERT`, and commits `Note` with one `INSERT`. That wiring, SQLite's atomicity, and `BEGIN IMMEDIATE`'s isolation are trust assumptions. `check.bend` tests them; it is not a proof.
+- **The store.** The laws are about `step`. `handle` gives `step` the record that `commands_seen` holds for the id and the rows that `keys` selects, commits `Write` with one `INSERT OR REPLACE` or `DELETE` per row and two kinds of `INSERT`, and commits `Note` with one `INSERT`. That wiring, SQLite's atomicity, and `BEGIN IMMEDIATE`'s isolation are trust assumptions. `check.bend` tests them; it is not a proof.
 - **Durability.** A `COMMIT` is durable as SQLite's journal mode and `synchronous` setting make it. The defaults (rollback journal, `FULL`) sync before `COMMIT` returns.
 - **Concurrency.** Any number of processes may open one file. `BEGIN IMMEDIATE` takes the write lock before the lookup, so two deliveries of one id never both find no record. One `Store` serves one task at a time.
-- **Size.** A command reads the rows that `keys` names, with one indexed lookup each, and writes the rows that `decide` returns. The cost of a command grows with those rows, not with the table. Keep each value small: a row is read and written whole.
+- **Size.** Exact keys use one indexed lookup each. A range uses one indexed scan and reads at most its bound plus one row. Writes touch only the rows that `decide` returns. The cost grows with those rows, not with the table. Keep each value small: a row is read and written whole.
 
 ## Checks
 
@@ -146,5 +153,6 @@ This is not exactly-once execution of external effects. A command's effects are 
 - the outbox delivers in commit order, and `ack` empties it;
 - `prune` forgets old records, so an old id applies again, while a newer id still replays;
 - among 100,000 seeded accounts, a credit applies to its account, a neighbor keeps its balance, and a duplicate replays.
+- a prefix among those 100,000 rows returns exactly its rows in key order; a full range fails without recording a command, an exact bound succeeds, and an empty range fits a zero bound.
 
 `bench/` times `handle` for new commands and duplicates. See [bench/README.md](bench/README.md).

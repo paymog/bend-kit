@@ -1,6 +1,7 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./commands.bend as C
+import ./model.bend as M
 import ./ledger.bend as L
 
 # Writes inside a transaction, then dies before COMMIT.
@@ -9,12 +10,12 @@ def crash(st: C.Store) -> IO(Unit):
   do IO<Unit>:
     IO.try(Unit, C.exec(begin))
     IO.try(Unit, C.rows.put([C.Row{Bytes.from_string("a"), Some{Bytes.from_string("999")}}], save, del))
-    IO.try(Unit, C.seen.put(C.Record{Bytes.from_string("{\"account\":\"a\",\"credit\":1}"), C.Accepted{Bytes.from_string("999")}, 200}, keep, "evt_4"))
+    IO.try(Unit, C.seen.put(M.Record{Bytes.from_string("{\"account\":\"a\",\"credit\":1}"), M.Accepted{Bytes.from_string("999")}, 200}, keep, "evt_4"))
     IO.die(Unit, 9, "crash before COMMIT")
 
-def fresh(r: C.Reply<Bytes.Bytes>) -> U32:
+def fresh(r: M.Reply<Bytes.Bytes>) -> U32:
   match r:
-    case C.Fresh{o}:
+    case M.Fresh{o}:
       1
     case _:
       0
@@ -26,7 +27,7 @@ def race(n: Nat, +st: C.Store, +i: U32, +k: U32) -> IO(Unit):
       IO.print("fresh=" ++ U32.show(k))
     case 1n+m:
       do IO<Unit>:
-        r : C.Reply<Bytes.Bytes> <- IO.try(C.Reply<Bytes.Bytes>, C.handle(~L.keys, ~L.decide, st, "race_" ++ U32.show(i), Bytes.from_string("{\"account\":\"race\",\"credit\":1}"), 200))
+        r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~L.keys, ~L.decide, st, "race_" ++ U32.show(i), Bytes.from_string("{\"account\":\"race\",\"credit\":1}"), 200))
         race(m, st, (i + 1 : U32), (k + fresh(r) : U32))
 
 def run(xs: List<String>) -> IO(Unit):

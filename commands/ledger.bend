@@ -1,6 +1,7 @@
 # A payment ledger fed by webhook events: each event id is a command id, so a redelivered event applies once.
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import ./model.bend as M
 import bend-kit-json@0.7.2.0/json.bend as Json
 import ./commands.bend as C
 
@@ -72,8 +73,8 @@ def keys.of(o: Maybe<&2, Op>) -> List<Bytes.Bytes>:
     case None{}:
       []
 
-def keys(p: Bytes.Bytes) -> List<Bytes.Bytes>:
-  keys.of(payload(p))
+def keys(p: Bytes.Bytes) -> C.Read:
+  C.Keys{keys.of(payload(p))}
 
 # The balance in the account's row: 0 when no row holds it, None when the row does not decode.
 def balance(rs: List<C.Row>) -> Maybe<&2, U32>:
@@ -85,17 +86,17 @@ def balance(rs: List<C.Row>) -> Maybe<&2, U32>:
     case Nil{}:
       None{}
 
-def accepted(+a: String, +n: U32) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
-  C.Accept{[C.Row{Bytes.from_string(a), Some{Bytes.u32.show(n)}}], Bytes.u32.show(n), [Bytes.from_string(a ++ "=" ++ U32.show(n))]}
+def accepted(+a: String, +n: U32) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+  M.Accept{[C.Row{Bytes.from_string(a), Some{Bytes.u32.show(n)}}], Bytes.u32.show(n), [Bytes.from_string(a ++ "=" ++ U32.show(n))]}
 
-def settle(ok: Bool, +a: String, +n: U32, why: String) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+def settle(ok: Bool, +a: String, +n: U32, why: String) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
   match ok:
     case True{}:
       accepted(a, n)
     case False{}:
-      C.Refuse{Bytes.from_string(why)}
+      M.Refuse{Bytes.from_string(why)}
 
-def apply(o: Op, +b: U32) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+def apply(o: Op, +b: U32) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
   match o:
     case Credit{+a, +n}:
       +t = (b + n : U32)
@@ -103,31 +104,31 @@ def apply(o: Op, +b: U32) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
     case Debit{+a, +n}:
       settle(U32.is_le(n, b), a, (b - n : U32), "insufficient funds")
 
-def decide.go(o: Maybe<&2, Op>, b: Maybe<&2, U32>) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+def decide.go(o: Maybe<&2, Op>, b: Maybe<&2, U32>) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
   match o b:
     case Some{x} Some{n}:
       apply(x, n)
     case None{} _:
-      C.Refuse{Bytes.from_string("invalid payload")}
+      M.Refuse{Bytes.from_string("invalid payload")}
     case Some{x} None{}:
-      C.Refuse{Bytes.from_string("balance does not decode")}
+      M.Refuse{Bytes.from_string("balance does not decode")}
 
 # A credit or debit of one account. rs holds the account's row. The result is the new balance; the effect notifies the account holder.
-def decide(rs: List<C.Row>, p: Bytes.Bytes) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+def decide(rs: List<C.Row>, p: Bytes.Bytes) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
   decide.go(payload(p), balance(rs))
 
-def outcome.show(o: C.Outcome<Bytes.Bytes>) -> String:
+def outcome.show(o: M.Outcome<Bytes.Bytes>) -> String:
   match o:
-    case C.Accepted{r}:
+    case M.Accepted{r}:
       "accepted " ++ Bytes.to_string(r)
-    case C.Refused{r}:
+    case M.Refused{r}:
       "refused " ++ Bytes.to_string(r)
 
-def reply.show(r: C.Reply<Bytes.Bytes>) -> String:
+def reply.show(r: M.Reply<Bytes.Bytes>) -> String:
   match r:
-    case C.Fresh{o}:
+    case M.Fresh{o}:
       "fresh " ++ outcome.show(o)
-    case C.Replayed{o}:
+    case M.Replayed{o}:
       "replayed " ++ outcome.show(o)
-    case C.Conflict{}:
+    case M.Conflict{}:
       "conflict"
