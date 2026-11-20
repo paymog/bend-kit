@@ -67,239 +67,248 @@ def walk(-A: Data, ms: List<&2, Move>, a: List<&2, A>, b: List<&2, A>) -> List<&
     case Con{_, t} _ _:
       walk(A, t, a, b)
 
-# ---- Myers O(ND) diff in linear space
+# ---- Myers O(ND) diff in linear space, over arrays
 
-# The furthest point reached on one diagonal: x and y items consumed, a and b the rest.
-type Tip<-A: Data> is Data:
-  Dead{}
-  Tip{x: U32, y: U32, a: List<&2, A>, b: List<&2, A>}
+# The items, and the forward and reverse frontiers: v[off + k] is the furthest x on diagonal k = x - y.
+type Ctx<-A: Data> is Type:
+  Ctx{a: Array<A>, b: Array<A>, vf: Array<U32>, vb: Array<U32>}
 
-def heads(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Bool:
-  match a b:
-    case Con{x, _} Con{y, _}:
-      eq(x, y)
-    case _ _:
-      False{}
+# A segment of n items of a from os, and m items of b from ns. off centres the frontiers.
+type Geo is Data:
+  Geo{os: U32, ns: U32, n: U32, m: U32, off: U32}
 
-# more says whether the heads of a and b match.
-def snake(~A: Data, ~eq: A -> A -> Bool, a: List<&2, A>, more: Bool, b: List<&2, A>, +x: U32, +y: U32) -> Tip<A>:
-  match a more b:
-    case Con{_, +t} True{} Con{_, +u}:
-      snake(~A, ~eq, t, heads(~A, ~eq, t, u), u, (x + 1 : U32), (y + 1 : U32))
-    case _ _ _:
-      Tip{x, y, a, b}
+type Pt is Data:
+  Pt{x: U32, y: U32}
 
-def slide(~A: Data, ~eq: A -> A -> Bool, tip: Tip<A>) -> Tip<A>:
-  match tip:
-    case Dead{}:
-      Dead{}
-    case Tip{x, y, +a, +b}:
-      snake(~A, ~eq, a, heads(~A, ~eq, a, b), b, x, y)
+def geo.os(+g: Geo) -> U32:
+  match g:
+    case Geo{os, _, _, _, _}:
+      os
 
-def tip.del(-A: Data, tip: Tip<A>) -> Tip<A>:
-  match tip:
-    case Tip{x, y, Con{_, t}, b}:
-      Tip{(x + 1 : U32), y, t, b}
-    case _:
-      Dead{}
+def geo.ns(+g: Geo) -> U32:
+  match g:
+    case Geo{_, ns, _, _, _}:
+      ns
 
-def tip.ins(-A: Data, tip: Tip<A>) -> Tip<A>:
-  match tip:
-    case Tip{x, y, a, Con{_, u}}:
-      Tip{x, (y + 1 : U32), a, u}
-    case _:
-      Dead{}
+def geo.n(+g: Geo) -> U32:
+  match g:
+    case Geo{_, _, n, _, _}:
+      n
 
-def tip.reach(-A: Data, +tip: Tip<A>, +step: U32) -> U32:
-  match tip:
-    case Dead{}:
-      0
-    case Tip{x, _, _, _}:
-      (x + step : U32)
+def geo.m(+g: Geo) -> U32:
+  match g:
+    case Geo{_, _, _, m, _}:
+      m
 
-# The first tip, or the other one moved when the first is Dead.
-def choose.or(-A: Data, ins: Bool, first: Tip<A>, other: Tip<A>) -> Tip<A>:
-  match ins first:
-    case True{} Dead{}:
-      tip.ins(A, other)
-    case False{} Dead{}:
-      tip.del(A, other)
-    case _ _:
-      first
+def geo.off(+g: Geo) -> U32:
+  match g:
+    case Geo{_, _, _, _, off}:
+      off
 
-def choose.pick(-A: Data, down: Bool, prev: Tip<A>, next: Tip<A>) -> Tip<A>:
-  match down:
+def same.b(~A: Data, ~eq: A -> A -> Bool, x: A, a: Array<A>, r: Array<A> & A) -> Array<A> & Array<A> & Bool:
+  (b, y) = r
+  (a, b, eq(x, y))
+
+def same.a(~A: Data, ~eq: A -> A -> Bool, r: Array<A> & A, b: Array<A>, +j: U32) -> Array<A> & Array<A> & Bool:
+  (a, x) = r
+  same.b(~A, ~eq, x, a, Array.get(A, b, j))
+
+def probe.in(~A: Data, ~eq: A -> A -> Bool, inr: Bool, a: Array<A>, b: Array<A>, +rev: Bool, +g: Geo, +x: U32, +y: U32) -> Array<A> & Array<A> & Bool:
+  match inr:
     case True{}:
-      choose.or(A, False{}, tip.ins(A, next), prev)
+      i = Bool.pick(U32, rev, (geo.os(g) + geo.n(g) - 1 - x : U32), (geo.os(g) + x : U32))
+      j = Bool.pick(U32, rev, (geo.ns(g) + geo.m(g) - 1 - y : U32), (geo.ns(g) + y : U32))
+      same.a(~A, ~eq, Array.get(A, a, i), b, j)
     case False{}:
-      choose.or(A, True{}, tip.del(A, prev), next)
+      (a, b, False{})
 
-# Myers' rule for diagonal k: go down from next (k+1) when V[k-1] < V[k+1], else right from prev (k-1).
-def choose(-A: Data, +prev: Tip<A>, +next: Tip<A>) -> Tip<A>:
-  choose.pick(A, U32.is_le(tip.reach(A, prev, 1), tip.reach(A, next, 0)), prev, next)
+# Whether item x of the segment of a matches item y of the segment of b. rev counts from the segment end.
+def probe(~A: Data, ~eq: A -> A -> Bool, a: Array<A>, b: Array<A>, +rev: Bool, +g: Geo, +x: U32, +y: U32) -> Array<A> & Array<A> & Bool:
+  probe.in(~A, ~eq, Bool.and(U32.is_lt(x, geo.n(g)), U32.is_lt(y, geo.m(g))), a, b, rev, g, x, y)
 
-def step.mid(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>, +prev: Tip<A>) -> List<&2, Tip<A>>:
-  match ts:
-    case Nil{}:
-      [slide(~A, ~eq, tip.del(A, prev))]
-    case Con{+t, rest}:
-      slide(~A, ~eq, choose(A, prev, t)) <> step.mid(~A, ~eq, rest, t)
+def snake(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, r: Array<A> & Array<A> & Bool, +rev: Bool, +g: Geo, +x: U32, +y: U32) -> Array<A> & Array<A> & U32:
+  match fuel:
+    case 0n:
+      (a, b, _) = r
+      (a, b, x)
+    case 1n+p:
+      (a, b, ok) = r
+      match ok:
+        case True{}:
+          snake(~A, ~eq, p, probe(~A, ~eq, a, b, rev, g, (x + 1 : U32), (y + 1 : U32)), rev, g, (x + 1 : U32), (y + 1 : U32))
+        case False{}:
+          (a, b, x)
 
-# Diagonals -d..d, low k first, become -(d+1)..d+1.
-def step(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>) -> List<&2, Tip<A>>:
-  match ts:
-    case Nil{}:
-      Nil{}
-    case Con{+t, rest}:
-      slide(~A, ~eq, tip.ins(A, t)) <> step.mid(~A, ~eq, rest, t)
+# The x where the run of matches from (x, y) ends.
+def slide(~A: Data, ~eq: A -> A -> Bool, a: Array<A>, b: Array<A>, +rev: Bool, +g: Geo, +x: U32, +y: U32) -> Array<A> & Array<A> & U32:
+  snake(~A, ~eq, U32.to_nat(geo.n(g)), probe(~A, ~eq, a, b, rev, g, x, y), rev, g, x, y)
 
-# A point on a shortest path, and the items after it.
-type Split<-A: Data> is Data:
-  Split{x: U32, y: U32, a: List<&2, A>, b: List<&2, A>}
-
-type Dec is Data:
-  AdvF{}
-  AdvR{}
-  Hit{}
-  End{}
-
-def decide.cmp(+l: U32, +r: U32, +reach: Bool) -> Dec:
-  Bool.pick(Dec, U32.is_lt(l, r), AdvF{}, Bool.pick(Dec, U32.is_lt(r, l), AdvR{}, Bool.pick(Dec, reach, Hit{}, AdvF{})))
-
-# f holds forward tips by ascending k = x - y. r holds reverse tips by ascending forward diagonal N - M - k'.
-# Both diagonals match when x1 - y1 = (n - m) - (x2 - y2), written without subtraction.
-def decide(-A: Data, +f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Dec:
-  match f r:
-    case Con{Dead{}, _} _:
-      AdvF{}
-    case _ Con{Dead{}, _}:
-      AdvR{}
-    case Con{Tip{+x1, +y1, _, _}, _} Con{Tip{+x2, +y2, _, _}, _}:
-      decide.cmp((x1 + x2 + m : U32), (y1 + y2 + n : U32), U32.is_le(n, (x1 + x2 : U32)))
-    case _ _:
-      End{}
-
-def overlap.hit(-A: Data, +f: List<&2, Tip<A>>) -> Maybe<&2, Split<A>>:
-  match f:
-    case Con{Tip{x, y, a, b}, _}:
-      Some{Split{x, y, a, b}}
-    case _:
-      None{}
-
-def overlap.go(-A: Data, fuel: Nat, d: Dec, +f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
-  match fuel d:
-    case 1n+p AdvF{}:
-      +ft = List.tail(&2, Tip<A>, f)
-      overlap.go(A, p, decide(A, ft, r, n, m), ft, r, n, m)
-    case 1n+p AdvR{}:
-      +rt = List.tail(&2, Tip<A>, r)
-      overlap.go(A, p, decide(A, f, rt, n, m), f, rt, n, m)
-    case _ Hit{}:
-      overlap.hit(A, f)
-    case _ _:
-      None{}
-
-# The forward tip whose diagonal the reverse frontier has passed, if any.
-def overlap(-A: Data, +fuel: Nat, +f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
-  overlap.go(A, fuel, decide(A, f, r, n, m), f, r, n, m)
-
-def overlap.pick(-A: Data, odd: Bool, +fuel: Nat, +f: List<&2, Tip<A>>, r0: List<&2, Tip<A>>, r1: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
-  match odd:
+# v is the frontier that moves, w the other one.
+def ctx.mk(~A: Data, rev: Bool, a: Array<A>, b: Array<A>, v: Array<U32>, w: Array<U32>) -> Ctx<A>:
+  match rev:
     case True{}:
-      overlap(A, fuel, f, r0, n, m)
+      Ctx{a, b, w, v}
     case False{}:
-      overlap(A, fuel, f, r1, n, m)
+      Ctx{a, b, v, w}
 
-def step.desc.mid(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>, +prev: Tip<A>) -> List<&2, Tip<A>>:
-  match ts:
-    case Nil{}:
-      [slide(~A, ~eq, tip.ins(A, prev))]
-    case Con{+t, rest}:
-      slide(~A, ~eq, choose(A, t, prev)) <> step.desc.mid(~A, ~eq, rest, t)
+def at.hit(~A: Data, r: Array<U32> & U32, a: Array<A>, b: Array<A>, v: Array<U32>, +rev: Bool, +g: Geo, +k: U32, +x: U32, +x0: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  (w, u) = r
+  p = Bool.pick(Pt, rev, Pt{(geo.os(g) + geo.n(g) - x : U32), (geo.ns(g) + geo.m(g) - x + k : U32)}, Pt{(geo.os(g) + x0 : U32), (geo.ns(g) + x0 - k : U32)})
+  (ctx.mk(~A, rev, a, b, v, w), Bool.pick(Maybe<&2, Pt>, U32.is_le(geo.n(g), (x + u : U32)), Some{p}, None{}))
 
-# step for a frontier kept high k first, so the reverse frontier lines up with the forward one.
-def step.desc(~A: Data, ~eq: A -> A -> Bool, ts: List<&2, Tip<A>>) -> List<&2, Tip<A>>:
-  match ts:
-    case Nil{}:
-      Nil{}
-    case Con{+t, rest}:
-      slide(~A, ~eq, tip.del(A, t)) <> step.desc.mid(~A, ~eq, rest, t)
+def at.chk(~A: Data, on: Bool, a: Array<A>, b: Array<A>, v: Array<U32>, w: Array<U32>, +rev: Bool, +g: Geo, +k: U32, +x: U32, +x0: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  match on:
+    case True{}:
+      at.hit(~A, Array.get(U32, w, (geo.off(g) + geo.n(g) - geo.m(g) - k : U32)), a, b, v, rev, g, k, x, x0)
+    case False{}:
+      (ctx.mk(~A, rev, a, b, v, w), None{})
 
-# Myers' middle snake: grow d-paths from both ends. When N - M is odd, a forward d-path is checked
-# against the reverse (d-1)-paths; when even, against the reverse d-paths.
-def bisect(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, found: Maybe<&2, Split<A>>, +odd: Bool, +of: Nat, f: List<&2, Tip<A>>, +r: List<&2, Tip<A>>, +n: U32, +m: U32) -> Maybe<&2, Split<A>>:
-  match fuel found:
-    case _ Some{s}:
-      Some{s}
-    case 0n None{}:
-      None{}
-    case 1n+p None{}:
-      +f2 = step(~A, ~eq, f)
-      +r2 = step.desc(~A, ~eq, r)
-      bisect(~A, ~eq, p, overlap.pick(A, odd, of, f2, r, r2, n, m), odd, of, f2, r2, n, m)
+# Myers' overlap test: forward d-paths meet reverse (d-1)-paths when n - m is odd, reverse d-paths when even.
+def at.snk(~A: Data, r: Array<A> & Array<A> & U32, v: Array<U32>, w: Array<U32>, +rev: Bool, +g: Geo, +d: U32, +k: U32, +x0: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  (a, bx) = r
+  (b, x1) = bx
+  +x = {x1 : U32}
+  +dl = (geo.n(g) - geo.m(g) : U32)
+  +odd = U32.is_eq((dl .&. 1 : U32), 1)
+  fwd = Bool.and(Bool.and(odd, U32.is_ne(d, 0)), U32.is_le((k - dl + d - 1 : U32), (d + d - 2 : U32)))
+  bwd = Bool.and(Bool.not(odd), U32.is_le((k - dl + d : U32), (d + d : U32)))
+  at.chk(~A, Bool.pick(Bool, rev, bwd, fwd), a, b, Array.set(U32, v, (geo.off(g) + k : U32), x), w, rev, g, k, x, x0)
 
-def middle(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Maybe<&2, Split<A>>:
-  +n = U32.from_nat(List.length(&2, A, a))
-  +m = U32.from_nat(List.length(&2, A, b))
-  +odd = U32.is_eq(((n + m : U32) .&. 1 : U32), 1)
-  +size = Nat.add(List.length(&2, A, a), List.length(&2, A, b))
-  +of = Nat.add(Nat.mul(2n, size), 4n)
-  +f = {[slide(~A, ~eq, Tip{0, 0, a, b})] : List<&2, Tip<A>>}
-  +r = {[slide(~A, ~eq, Tip{0, 0, List.reverse(&2, A, a), List.reverse(&2, A, b)})] : List<&2, Tip<A>>}
-  bisect(~A, ~eq, 1n+size, overlap.pick(A, odd, of, f, Nil{}, r, n, m), odd, of, f, r, n, m)
+# Myers' rule for diagonal k: go down from k+1 when V[k-1] < V[k+1], else right from k-1.
+def at.hi(~A: Data, ~eq: A -> A -> Bool, r: Array<U32> & U32, +lo: U32, a: Array<A>, b: Array<A>, w: Array<U32>, +rev: Bool, +g: Geo, +d: U32, +k: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  (v, +hi) = r
+  down = Bool.or(U32.is_eq(k, (0 - d : U32)), Bool.and(U32.is_ne(k, d), U32.is_lt(lo, hi)))
+  +x0 = Bool.pick(U32, down, hi, (lo + 1 : U32))
+  at.snk(~A, slide(~A, ~eq, a, b, rev, g, x0, (x0 - k : U32)), v, w, rev, g, d, k, x0)
 
-def common(~A: Data, ~eq: A -> A -> Bool, a: List<&2, A>, more: Bool, b: List<&2, A>, +k: Nat) -> Nat:
-  match a more b:
-    case Con{_, +t} True{} Con{_, +u}:
-      common(~A, ~eq, t, heads(~A, ~eq, t, u), u, 1n+k)
-    case _ _ _:
-      k
+def at.lo(~A: Data, ~eq: A -> A -> Bool, r: Array<U32> & U32, a: Array<A>, b: Array<A>, w: Array<U32>, +rev: Bool, +g: Geo, +d: U32, +k: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  (v, lo) = r
+  at.hi(~A, ~eq, Array.get(U32, v, (geo.off(g) + k + 1 : U32)), lo, a, b, w, rev, g, d, k)
 
-def prefix(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Nat:
-  common(~A, ~eq, a, heads(~A, ~eq, a, b), b, 0n)
+# One diagonal of one sweep.
+def at(~A: Data, ~eq: A -> A -> Bool, rev: Bool, c: Ctx<A>, +g: Geo, +d: U32, +k: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  match rev c:
+    case True{} Ctx{a, b, vf, vb}:
+      at.lo(~A, ~eq, Array.get(U32, vb, (geo.off(g) + k - 1 : U32)), a, b, vf, True{}, g, d, k)
+    case False{} Ctx{a, b, vf, vb}:
+      at.lo(~A, ~eq, Array.get(U32, vf, (geo.off(g) + k - 1 : U32)), a, b, vb, False{}, g, d, k)
+
+# Diagonals k, k + 2, ... until fuel runs out or a sweep meets the other frontier.
+def sweep(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, r: Ctx<A> & Maybe<&2, Pt>, +rev: Bool, +g: Geo, +d: U32, +k: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  match fuel:
+    case 0n:
+      (c, s) = r
+      (c, s)
+    case 1n+p:
+      (c, s) = r
+      match s:
+        case None{}:
+          sweep(~A, ~eq, p, at(~A, ~eq, rev, c, g, d, k), rev, g, d, (k + 2 : U32))
+        case Some{q}:
+          (c, Some{q})
+
+def round.back(~A: Data, ~eq: A -> A -> Bool, r: Ctx<A> & Maybe<&2, Pt>, +g: Geo, +d: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  (c, s) = r
+  match s:
+    case None{}:
+      sweep(~A, ~eq, U32.to_nat((d + 1 : U32)), (c, None{}), True{}, g, d, (0 - d : U32))
+    case Some{q}:
+      (c, Some{q})
+
+def round(~A: Data, ~eq: A -> A -> Bool, c: Ctx<A>, +g: Geo, +d: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  round.back(~A, ~eq, sweep(~A, ~eq, U32.to_nat((d + 1 : U32)), (c, None{}), False{}, g, d, (0 - d : U32)), g, d)
+
+def middle.go(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, r: Ctx<A> & Maybe<&2, Pt>, +g: Geo, +d: U32) -> Ctx<A> & Maybe<&2, Pt>:
+  match fuel:
+    case 0n:
+      (c, s) = r
+      (c, s)
+    case 1n+p:
+      (c, s) = r
+      match s:
+        case None{}:
+          middle.go(~A, ~eq, p, round(~A, ~eq, c, g, d), g, (d + 1 : U32))
+        case Some{q}:
+          (c, Some{q})
+
+# Myers' middle snake: grow d-paths from both ends of the segment until they meet. The meeting point is on a shortest path.
+def middle(~A: Data, ~eq: A -> A -> Bool, c: Ctx<A>, +g: Geo) -> Ctx<A> & Maybe<&2, Pt>:
+  match c:
+    case Ctx{a, b, vf, vb}:
+      vf = Array.set(U32, vf, (geo.off(g) + 1 : U32), 0)
+      vb = Array.set(U32, vb, (geo.off(g) + 1 : U32), 0)
+      middle.go(~A, ~eq, U32.to_nat((geo.n(g) + geo.m(g) + 1 : U32)), (Ctx{a, b, vf, vb}, None{}), g, 0)
 
 # A segment still to diff, or moves ready to emit.
-type Job<-A: Data> is Data:
-  JSolve{a: List<&2, A>, b: List<&2, A>}
+type Job is Data:
+  JSolve{os: U32, oe: U32, ns: U32, ne: U32}
   JEmit{ms: List<&2, Move>}
 
-def plan.split(-A: Data, s: Maybe<&2, Split<A>>, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
+def changes(+dels: U32, +ins: U32) -> List<&2, Move>:
+  List.append(&2, Move, List.replicate(Move, U32.to_nat(dels), MDel{}), List.replicate(Move, U32.to_nat(ins), MIns{}))
+
+def plan.split(~A: Data, r: Ctx<A> & Maybe<&2, Pt>, +os: U32, +oe: U32, +ns: U32, +ne: U32) -> Ctx<A> & List<&2, Job>:
+  (c, s) = r
   match s:
-    case Some{Split{x, y, sa, sb}}:
-      [JSolve{sa, sb}, JSolve{List.take(&2, A, a, U32.to_nat(x)), List.take(&2, A, b, U32.to_nat(y))}]
+    case Some{Pt{+x, +y}}:
+      (c, [JSolve{x, oe, y, ne}, JSolve{os, x, ns, y}])
     case None{}:
-      [JEmit{List.append(&2, Move, List.replicate(Move, List.length(&2, A, a), MDel{}),
-        List.replicate(Move, List.length(&2, A, b), MIns{}))}]
+      (c, [JEmit{changes((oe - os : U32), (ne - ns : U32))}])
 
-def plan.mid(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
-  match a b:
-    case Nil{} _:
-      [JEmit{List.replicate(Move, List.length(&2, A, b), MIns{})}]
-    case _ Nil{}:
-      [JEmit{List.replicate(Move, List.length(&2, A, a), MDel{})}]
+def plan.mid(~A: Data, ~eq: A -> A -> Bool, ea: Bool, eb: Bool, c: Ctx<A>, +os: U32, +oe: U32, +ns: U32, +ne: U32, +off: U32) -> Ctx<A> & List<&2, Job>:
+  match ea eb:
+    case True{} _:
+      (c, [JEmit{changes(0, (ne - ns : U32))}])
+    case _ True{}:
+      (c, [JEmit{changes((oe - os : U32), 0)}])
     case _ _:
-      plan.split(A, middle(~A, ~eq, a, b), a, b)
+      plan.split(~A, middle(~A, ~eq, c, Geo{os, ns, (oe - os : U32), (ne - ns : U32), off}), os, oe, ns, ne)
 
-def plan.trim(~A: Data, ~eq: A -> A -> Bool, +p: Nat, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
-  +k = prefix(~A, ~eq, List.reverse(&2, A, a), List.reverse(&2, A, b))
-  +a2 = List.take(&2, A, a, Nat.sub(List.length(&2, A, a), k))
-  +b2 = List.take(&2, A, b, Nat.sub(List.length(&2, A, b), k))
-  JEmit{List.replicate(Move, k, MSame{})} <> List.append(&2, Job<A>, plan.mid(~A, ~eq, a2, b2), [JEmit{List.replicate(Move, p, MSame{})}])
+def plan.wrap(~A: Data, r: Ctx<A> & List<&2, Job>, +p: U32, +s: U32) -> Ctx<A> & List<&2, Job>:
+  (c, js) = r
+  same = {[JEmit{List.replicate(Move, U32.to_nat(p), MSame{})}] : List<&2, Job>}
+  (c, JEmit{List.replicate(Move, U32.to_nat(s), MSame{})} <> List.append(&2, Job, js, same))
+
+def plan.suf(~A: Data, ~eq: A -> A -> Bool, r: Array<A> & Array<A> & U32, vf: Array<U32>, vb: Array<U32>, +p: U32, +os: U32, +oe: U32, +ns: U32, +ne: U32, +off: U32) -> Ctx<A> & List<&2, Job>:
+  (a, b, s1) = r
+  +s = {s1 : U32}
+  +os2 = (os + p : U32)
+  +oe2 = (oe - s : U32)
+  +ns2 = (ns + p : U32)
+  +ne2 = (ne - s : U32)
+  plan.wrap(~A, plan.mid(~A, ~eq, U32.is_eq(os2, oe2), U32.is_eq(ns2, ne2), Ctx{a, b, vf, vb}, os2, oe2, ns2, ne2, off), p, s)
+
+def plan.pre(~A: Data, ~eq: A -> A -> Bool, r: Array<A> & Array<A> & U32, vf: Array<U32>, vb: Array<U32>, +os: U32, +oe: U32, +ns: U32, +ne: U32, +off: U32) -> Ctx<A> & List<&2, Job>:
+  (a, b, p1) = r
+  +p = {p1 : U32}
+  +g : Geo = Geo{(os + p : U32), (ns + p : U32), (oe - os - p : U32), (ne - ns - p : U32), off}
+  plan.suf(~A, ~eq, slide(~A, ~eq, a, b, True{}, g, 0, 0), vf, vb, p, os, oe, ns, ne, off)
 
 # Jobs for one segment, last first: the common suffix, the middle, then the common prefix.
-def plan(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Job<A>>:
-  +p = prefix(~A, ~eq, a, b)
-  plan.trim(~A, ~eq, p, List.drop(&2, A, a, p), List.drop(&2, A, b, p))
+def plan(~A: Data, ~eq: A -> A -> Bool, c: Ctx<A>, +os: U32, +oe: U32, +ns: U32, +ne: U32, +off: U32) -> Ctx<A> & List<&2, Job>:
+  match c:
+    case Ctx{a, b, vf, vb}:
+      plan.pre(~A, ~eq, slide(~A, ~eq, a, b, False{}, Geo{os, ns, (oe - os : U32), (ne - ns : U32), off}, 0, 0), vf, vb, os, oe, ns, ne, off)
+
+def plan.then(~A: Data, r: Ctx<A> & List<&2, Job>, t: List<&2, Job>) -> Ctx<A> & List<&2, Job>:
+  (c, js) = r
+  (c, List.append(&2, Job, js, t))
 
 # Runs jobs from the end of the script back to its start, so each emit prepends.
-def solve(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, js: List<&2, Job<A>>, acc: List<&2, Move>) -> List<&2, Move>:
-  match fuel js:
-    case 1n+f Con{JSolve{a, b}, t}:
-      solve(~A, ~eq, f, List.append(&2, Job<A>, plan(~A, ~eq, a, b), t), acc)
-    case 1n+f Con{JEmit{ms}, t}:
-      solve(~A, ~eq, f, t, List.append(&2, Move, ms, acc))
-    case _ _:
+def solve(~A: Data, ~eq: A -> A -> Bool, fuel: Nat, r: Ctx<A> & List<&2, Job>, +off: U32, acc: List<&2, Move>) -> List<&2, Move>:
+  match fuel:
+    case 0n:
+      (_, _) = r
       acc
+    case 1n+f:
+      (c, js) = r
+      match js:
+        case Con{JSolve{os, oe, ns, ne}, t}:
+          solve(~A, ~eq, f, plan.then(~A, plan(~A, ~eq, c, os, oe, ns, ne, off), t), off, acc)
+        case Con{JEmit{ms}, t}:
+          solve(~A, ~eq, f, (c, t), off, List.append(&2, Move, ms, acc))
+        case Nil{}:
+          acc
 
 def canon.flush(d: Nat, i: Nat, rest: List<&2, Move>) -> List<&2, Move>:
   List.append(&2, Move, List.replicate(Move, d, MDel{}), List.append(&2, Move, List.replicate(Move, i, MIns{}), rest))
@@ -316,10 +325,36 @@ def canon(ms: List<&2, Move>, +d: Nat, +i: Nat) -> List<&2, Move>:
     case Con{MIns{}, t}:
       canon(t, d, 1n+i)
 
+def fill(~A: Data, xs: List<&2, A>, arr: Array<A>, +i: U32) -> Array<A>:
+  match xs:
+    case Nil{}:
+      arr
+    case Con{x, t}:
+      fill(~A, t, Array.set(A, arr, i, x), (i + 1 : U32))
+
+# An array of n slots or more.
+def array(~A: Data, +n: U32, +v: A) -> Array<A>:
+  Array.new(A, Nat.add(U32.log2(n), 1n), v)
+
 # Each split leaves two smaller segments, and each segment plans at most 4 jobs.
-def moves(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Move>:
+def moves.go(~A: Data, ~eq: A -> A -> Bool, +x: A, +y: A, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Move>:
+  +n = U32.from_nat(List.length(&2, A, a))
+  +m = U32.from_nat(List.length(&2, A, b))
+  +off = (n + m + 2 : U32)
+  c : Ctx<A> = Ctx{fill(~A, a, array(~A, n, x), 0), fill(~A, b, array(~A, m, y), 0), array(~U32, (off + off : U32), 0), array(~U32, (off + off : U32), 0)}
   +size = Nat.add(List.length(&2, A, a), List.length(&2, A, b))
-  canon(solve(~A, ~eq, Nat.add(Nat.mul(8n, size), 8n), [JSolve{a, b}], Nil{}), 0n, 0n)
+  canon(solve(~A, ~eq, Nat.add(Nat.mul(8n, size), 8n), (c, [JSolve{0, n, 0, m}]), off, Nil{}), 0n, 0n)
+
+def moves(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Move>:
+  match a b:
+    case Con{+x, +xs} Con{+y, +ys}:
+      moves.go(~A, ~eq, x, y, x <> xs, y <> ys)
+    case Nil{} Con{+y, +ys}:
+      List.replicate(Move, List.length(&2, A, y <> ys), MIns{})
+    case Con{+x, +xs} Nil{}:
+      List.replicate(Move, List.length(&2, A, x <> xs), MDel{})
+    case Nil{} Nil{}:
+      Nil{}
 
 # A shortest edit script from a to b. eq decides which items match.
 def diff(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Edit<A>>:
@@ -347,8 +382,50 @@ def lines(s: String) -> List<&2, String>:
     case SCon{+c, t}:
       lines.pick(Char.is_eq(c, '\n'), c, lines(t))
 
+def fnv(s: String, +h: U32) -> U32:
+  match s:
+    case SNil{}:
+      h
+    case SCon{Chr{c}, t}:
+      fnv(t, (U32.xor(h, c) * 16777619 : U32))
+
+def hashes(ls: List<&2, String>) -> List<&2, U32>:
+  match ls:
+    case Nil{}:
+      Nil{}
+    case Con{l, t}:
+      fnv(l, 2166136261) <> hashes(t)
+
+# Whether every pair that walk would match holds equal lines.
+def lines.ok(ms: List<&2, Move>, a: List<&2, String>, b: List<&2, String>) -> Bool:
+  match ms a b:
+    case Nil{} _ _:
+      True{}
+    case Con{MSame{}, t} Con{x, xs} Con{y, ys}:
+      Bool.and(String.eq(x, y), lines.ok(t, xs, ys))
+    case Con{MDel{}, t} Con{_, xs} _:
+      lines.ok(t, xs, b)
+    case Con{MIns{}, t} _ Con{_, ys}:
+      lines.ok(t, a, ys)
+    case Con{_, t} _ _:
+      lines.ok(t, a, b)
+
+def lines.pick.moves(ok: Bool, ms: List<&2, Move>, +a: List<&2, String>, +b: List<&2, String>) -> List<&2, Move>:
+  match ok:
+    case True{}:
+      ms
+    case False{}:
+      moves(~String, ~String.eq, a, b)
+
+# Diffs line hashes, which is much faster than comparing strings. A hash collision that pairs unequal lines falls back to strings.
+def lines.moves(+a: List<&2, String>, +b: List<&2, String>) -> List<&2, Move>:
+  +ms = moves(~U32, ~U32.is_eq, hashes(a), hashes(b))
+  lines.pick.moves(lines.ok(ms, a, b), ms, a, b)
+
 def diff_lines(a: String, b: String) -> List<&2, Edit<String>>:
-  diff(~String, ~String.eq, lines(a), lines(b))
+  +la = lines(a)
+  +lb = lines(b)
+  walk(String, lines.moves(la, lb), la, lb)
 
 def diff_chars(a: String, b: String) -> List<&2, Edit<Char>>:
   diff(~Char, ~Char.is_eq, String.to_list(a), String.to_list(b))

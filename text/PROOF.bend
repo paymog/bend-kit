@@ -101,8 +101,8 @@ def Laws.lines_join(s):
 def Laws.diff_lines_after(a, b):
   +la = T.lines(a)
   +lb = T.lines(b)
-  Equal.trans(String, String.concat(T.after(String, T.diff(~String, ~String.eq, la, lb))), String.concat(lb), b,
-    Equal.cong(List<&2, String>, String, ls => String.concat(ls), T.after(String, T.diff(~String, ~String.eq, la, lb)), lb, Laws.diff_after(~String, ~String.eq, la, lb)),
+  Equal.trans(String, String.concat(T.after(String, T.walk(String, T.lines.moves(la, lb), la, lb))), String.concat(lb), b,
+    Equal.cong(List<&2, String>, String, ls => String.concat(ls), T.after(String, T.walk(String, T.lines.moves(la, lb), la, lb)), lb, Laws.walk_after(~String, T.lines.moves(la, lb), la, lb)),
     Laws.lines_join(b))
 
 def Laws.myers_paper():

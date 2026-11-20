@@ -36,13 +36,13 @@ Versions: Bend 2.0.38, rustc 1.91.0 with similar 3.2.1, strsim 0.11.1, and textw
 
 | op | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|
-| diff | 0.5 | 31.2 | 23.5 | 31.5 | 41.9 |
-| distance | 3.0 | 6.6 | 6.4 | 63.4 | 14.6 |
-| wrap | 5.1 | — | — | 12.8 | 44.3 |
+| diff | 0.6 | 32.3 | 20.5 | 28.9 | 6.3 |
+| distance | 3.0 | 5.5 | 5.3 | 57.2 | 15.2 |
+| wrap | 3.9 | — | — | 12.4 | 44.5 |
 
 Every program prints the checksums 654 for `diff`, 174397 for `distance`, and 2632:177792 for `wrap`.
 
-`text` 0.1.0.0 took 43.8 ms for `diff` and 13.7 ms for `wrap`. Wrap is slower now because it measures each candidate line whole, which its width proof needs.
+`text` 0.1.0.0 took 43.8 ms for `diff` and 13.7 ms for `wrap`, and 0.2.0.0 took 41.9 ms for `diff`. Wrap is slower now because it measures each candidate line whole, which its width proof needs.
 
 ## Many edits
 
@@ -54,12 +54,13 @@ Every program prints the checksums 654 for `diff`, 174397 for `distance`, and 26
 | 10,000 | 0.1.0.0 | 51.2 s | 1.21 GB |
 | 4,000 | 0.2.0.0 | 1.2 s | 5.0 MB |
 | 10,000 | 0.2.0.0 | 6.9 s | 9.8 MB |
+| 10,000 | 0.2.0.1 | 3.0 s | 7.0 MB |
 
-0.1.0.0 kept one path list per diagonal, so memory grew as D². 0.2.0.0 finds the middle snake from both ends and keeps only the frontiers.
+0.1.0.0 kept one path list per diagonal, so memory grew as D². 0.2.0.0 finds the middle snake from both ends and keeps only the frontiers. 0.2.0.1 keeps the items and frontiers in arrays. This bench calls `diff` on strings, not `diff_lines`, so it compares strings.
 
 ## Reading it
 
-- `similar` runs the same linear-space Myers on slices. Bend walks linked lists and allocates a tip for each diagonal in each round. Comparing lines as interned `U32` ids instead of `String`s cut the Myers part from 45 ms to 39 ms, but interning 20,000 lines in a Base `Map` cost 18 ms, so `diff_lines` compares strings.
+- `similar` runs the same linear-space Myers on slices. Bend does too: the items and both frontiers are arrays, updated in place. Of Bend's 6.3 ms, splitting the two texts into lines takes about 4 ms and Myers on the line hashes about 2 ms. Myers on the `String`s instead of their hashes takes 29 ms.
 - Bend's distance keeps one DP row as a list. `strsim` and `fastest-levenshtein` use arrays, and `fastest-levenshtein` uses bit-parallel rows for short strings.
 - Bend's wrap runs grapheme segmentation and the display-width table over each candidate line. `textwrap` in Python counts code points.
 

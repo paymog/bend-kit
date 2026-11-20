@@ -78,6 +78,7 @@ def main() -> IO(Unit):
   do IO<Unit>:
     IO.print(show(T.diff_chars("ABCABBA", "CBABAC")))
     IO.print(T.unified("old.txt", "new.txt", T.diff_lines("a\nb\nc\nd", "a\nB\nc\nd\ne\n"), 3))
+    IO.print("FNV-1a collision lines: " ++ T.unified("a", "b", T.diff_lines("x\naan1wu\ny\n", "x\naa0tfa\ny\n"), 0))
     IO.print("non-shortest diffs in 3000 random pairs: " ++ U32.show(bad(3000n, 0, (0, 7))))
     IO.print("distance kitten sitting: " ++ U32.show(T.distance("kitten", "sitting")))
     IO.print(String.join(T.wrap("The quick brown fox jumps over the lazy dog. 日本語の文章も折り返す。", 16), "\n"))
