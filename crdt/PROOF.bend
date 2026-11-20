@@ -247,6 +247,70 @@ def Laws.merge_least(a, b, c, ha, hb):
           MBool.eq_true_of_and_right(U32.is_le(x, z), Crdt.GCounter.le(xs, zs), ha),
           MBool.eq_true_of_and_right(U32.is_le(y, z), Crdt.GCounter.le(ys, zs), hb)))
 
+def Laws.le_refl(a):
+  le_refl_list(a)
+
+def le32_trans(
+  +a: U32, +b: U32, +c: U32,
+  hab: {U32.is_le(a, b) == True{} : Bool}, hbc: {U32.is_le(b, c) == True{} : Bool}
+) -> {U32.is_le(a, c) == True{} : Bool}:
+  %le_nat_sym(a, c) : {_ == True{} : Bool}
+  MNat.le_trans(U32.to_nat(a), U32.to_nat(b), U32.to_nat(c),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{}, le_nat_sym(a, b), hab),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(b), U32.to_nat(c)), U32.is_le(b, c), True{}, le_nat_sym(b, c), hbc))
+
+def zero_le32(+a: U32) -> {U32.is_le(0, a) == True{} : Bool}:
+  %le_nat_sym(0, a) : {_ == True{} : Bool}
+  MNat.zero_le(U32.to_nat(a))
+
+def le32_eq0(
+  +x: U32, +y: U32, hxy: {U32.is_le(x, y) == True{} : Bool}, hy: {U32.is_eq(y, 0) == True{} : Bool}
+) -> {U32.is_eq(x, 0) == True{} : Bool}:
+  Equal.trans(Bool, U32.is_eq(x, 0), U32.is_le(x, 0), True{},
+    eq0_le(x), le32_trans(x, y, 0, hxy, eq0_to_le(y, hy)))
+
+def Laws.le_trans(a, b, c, hab, hbc):
+  match a b c:
+    case Nil{} _ _:
+      {==}
+    case Con{x, xs} Nil{} Nil{}:
+      hab
+    case Con{+x, +xs} Nil{} Con{+z, +zs}:
+      +hab = hab
+      MBool.and_eq_true(U32.is_le(x, z), Crdt.GCounter.le(xs, zs),
+        le32_trans(x, 0, z, eq0_to_le(x,
+          MBool.eq_true_of_and_left(U32.is_eq(x, 0), Crdt.GCounter.le(xs, Nil{}), hab)), zero_le32(z)),
+        Laws.le_trans(xs, Nil{}, zs,
+          MBool.eq_true_of_and_right(U32.is_eq(x, 0), Crdt.GCounter.le(xs, Nil{}), hab), {==}))
+    case Con{+x, +xs} Con{+y, +ys} Nil{}:
+      +hab = hab
+      +hbc = hbc
+      MBool.and_eq_true(U32.is_eq(x, 0), Crdt.GCounter.le(xs, Nil{}),
+        le32_eq0(x, y,
+          MBool.eq_true_of_and_left(U32.is_le(x, y), Crdt.GCounter.le(xs, ys), hab),
+          MBool.eq_true_of_and_left(U32.is_eq(y, 0), Crdt.GCounter.le(ys, Nil{}), hbc)),
+        Laws.le_trans(xs, ys, Nil{},
+          MBool.eq_true_of_and_right(U32.is_le(x, y), Crdt.GCounter.le(xs, ys), hab),
+          MBool.eq_true_of_and_right(U32.is_eq(y, 0), Crdt.GCounter.le(ys, Nil{}), hbc)))
+    case Con{+x, +xs} Con{+y, +ys} Con{+z, +zs}:
+      +hab = hab
+      +hbc = hbc
+      MBool.and_eq_true(U32.is_le(x, z), Crdt.GCounter.le(xs, zs),
+        le32_trans(x, y, z,
+          MBool.eq_true_of_and_left(U32.is_le(x, y), Crdt.GCounter.le(xs, ys), hab),
+          MBool.eq_true_of_and_left(U32.is_le(y, z), Crdt.GCounter.le(ys, zs), hbc)),
+        Laws.le_trans(xs, ys, zs,
+          MBool.eq_true_of_and_right(U32.is_le(x, y), Crdt.GCounter.le(xs, ys), hab),
+          MBool.eq_true_of_and_right(U32.is_le(y, z), Crdt.GCounter.le(ys, zs), hbc)))
+
+def Laws.merge_mono(a, b, c, hab):
+  +a = a
+  +b = b
+  +c = c
+  Laws.merge_least(a, c, Crdt.GCounter.merge(b, c),
+    Laws.le_trans(a, b, Crdt.GCounter.merge(b, c), hab, Laws.merge_upper_l(b, c)),
+    Laws.merge_upper_r(b, c))
+
 def inc_at_grows(
   ok: Bool, +c: U32, +n: U32, +t: List<&2, U32>, h: {U32.is_lt(c, n) == ok : Bool}
 ) -> {Laws.grows(Con{c, t}, Crdt.GCounter.inc.at(ok, n, t)) == True{} : Bool}:
@@ -365,6 +429,46 @@ def valid_tail(t: List<&2, U32>, -c: U32, h: {Crdt.GCounter.valid.go(t, c) == Tr
       {==}
     case Con{d, u}:
       h
+
+def valid_nonempty_not_le_nil(
+  t: List<&2, U32>, +x: U32,
+  hv: {Crdt.GCounter.valid.go(t, x) == True{} : Bool},
+  h: {Crdt.GCounter.le(Con{x, t}, Nil{}) == True{} : Bool}
+) -> Empty:
+  match t:
+    case Nil{}:
+      MBool.false_ne_true()(
+        %eq32(x, 0, MBool.eq_true_of_and_left(U32.is_eq(x, 0), True{}, h)) : {U32.is_ne(_, 0) == True{} : Bool}
+        hv)
+    case Con{+y, +ys}:
+      valid_nonempty_not_le_nil(ys, y, hv,
+        MBool.eq_true_of_and_right(U32.is_eq(x, 0), Crdt.GCounter.le(Con{y, ys}, Nil{}), h))
+
+def le32_antisymm(
+  +x: U32, +y: U32, hxy: {U32.is_le(x, y) == True{} : Bool}, hyx: {U32.is_le(y, x) == True{} : Bool}
+) -> {x == y : U32}:
+  Lemmas.u32_to_nat_inj(x, y, MNat.le_antisymm(U32.to_nat(x), U32.to_nat(y),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(x), U32.to_nat(y)), U32.is_le(x, y), True{}, le_nat_sym(x, y), hxy),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(y), U32.to_nat(x)), U32.is_le(y, x), True{}, le_nat_sym(y, x), hyx)))
+
+def Laws.le_antisymm(a, b, va, vb, hab, hba):
+  match a b:
+    case Nil{} Nil{}:
+      {==}
+    case Nil{} Con{+y, +ys}:
+      Empty.absurd({Nil{} == Con{y, ys} : List<&2, U32>}, valid_nonempty_not_le_nil(ys, y, vb, hba))
+    case Con{+x, +xs} Nil{}:
+      Empty.absurd({Con{x, xs} == Nil{} : List<&2, U32>}, valid_nonempty_not_le_nil(xs, x, va, hab))
+    case Con{+x, +xs} Con{+y, +ys}:
+      +hab = hab
+      +hba = hba
+      cons_eq(x, y, xs, ys,
+        le32_antisymm(x, y,
+          MBool.eq_true_of_and_left(U32.is_le(x, y), Crdt.GCounter.le(xs, ys), hab),
+          MBool.eq_true_of_and_left(U32.is_le(y, x), Crdt.GCounter.le(ys, xs), hba)),
+        Laws.le_antisymm(xs, ys, valid_tail(xs, x, va), valid_tail(ys, y, vb),
+          MBool.eq_true_of_and_right(U32.is_le(x, y), Crdt.GCounter.le(xs, ys), hab),
+          MBool.eq_true_of_and_right(U32.is_le(y, x), Crdt.GCounter.le(ys, xs), hba)))
 
 def inc_valid_ok(s: List<&2, U32>, i: Nat, h: {Crdt.GCounter.valid(s) == True{} : Bool}) -> {inc_ok(Crdt.GCounter.inc(s, i)) == True{} : Bool}:
   match s i:

@@ -67,6 +67,9 @@ The wire form is a CBOR array. Item `i` is the count of replica `i`. `decode` re
 |---|---|
 | `merge_comm`, `merge_assoc`, `merge_idem` | merge is commutative, associative, and idempotent |
 | `merge_upper_l`, `merge_upper_r`, `merge_least` | merge is the least upper bound in the component-wise order `le` |
+| `le_refl`, `le_trans` | `le` is reflexive and transitive on all lists |
+| `le_antisymm` | two valid states that are at most each other are equal |
+| `merge_mono` | `le(a, b)` implies `le(merge(a, c), merge(b, c))` |
 | `inc_grows` | a successful increment gives a state at least `s` |
 | `merge_valid`, `inc_valid` | merge and increment keep a state valid |
 | `converge` | if each state in `xs` is in `ys` and each state in `ys` is in `xs`, `merge_all(xs) == merge_all(ys)` |
@@ -74,6 +77,8 @@ The wire form is a CBOR array. Item `i` is the count of replica `i`. `decode` re
 | `cbor_roundtrip` | a valid state with at most `cap` entries decodes to itself |
 
 The equalities are equalities of lists. Valid states have one form, so no separate equivalence is needed. `converge` is the reason duplicates and reordering do not matter: a replica's state is the merge of the states it has received, and that merge does not depend on order or repeats.
+
+`le` is a partial order on valid states. On raw lists it is only a preorder: `[]` and `[0]` are at most each other but are not equal lists. Reflexivity, transitivity, and merge monotonicity need no validity assumption.
 
 ## KCounter
 
