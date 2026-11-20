@@ -34,3 +34,7 @@ def main() -> IO(Unit):
     IO.print("chk\tunrelated\t" ++ U32.show(changes(T.diff(~String, ~String.eq, side(n, "a", 0), side(n, "b", 0)), 0)))
     t1 : Time.Duration <- Time.mono()
     IO.print("ms\tunrelated\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
+    t2 : Time.Duration <- Time.mono()
+    IO.print("chk\tunrelated diff_by\t" ++ U32.show(changes(T.diff_by(~String, ~String.eq, ~T.fnv, side(n, "a", 0), side(n, "b", 0)), 0)))
+    t3 : Time.Duration <- Time.mono()
+    IO.print("ms\tunrelated diff_by\t" ++ Time.Duration.show_ms(Time.Duration.sub(t3, t2)))

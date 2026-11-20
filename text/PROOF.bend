@@ -101,8 +101,9 @@ def Laws.lines_join(s):
 def Laws.diff_lines_after(a, b):
   +la = T.lines(a)
   +lb = T.lines(b)
-  Equal.trans(String, String.concat(T.after(String, T.walk(String, T.lines.moves(la, lb), la, lb))), String.concat(lb), b,
-    Equal.cong(List<&2, String>, String, ls => String.concat(ls), T.after(String, T.walk(String, T.lines.moves(la, lb), la, lb)), lb, Laws.walk_after(~String, T.lines.moves(la, lb), la, lb)),
+  +ms = T.moves_by(~String, ~String.eq, ~T.fnv, la, lb)
+  Equal.trans(String, String.concat(T.after(String, T.walk(String, ms, la, lb))), String.concat(lb), b,
+    Equal.cong(List<&2, String>, String, ls => String.concat(ls), T.after(String, T.walk(String, ms, la, lb)), lb, Laws.walk_after(~String, ms, la, lb)),
     Laws.lines_join(b))
 
 def Laws.myers_paper():
@@ -382,5 +383,23 @@ def lines_ok(st: T.Wr, +n: U32, +i: {inv(st, n) == True{} : Bool}) -> {Laws.all_
       rev_ok(s <> out, Nil{}, n,
         and_i(T.ok(s, n), Laws.all_ok(out, n), and_r(Laws.all_ok(out, n), T.ok(s, n), i), and_l(Laws.all_ok(out, n), T.ok(s, n), i)), {==})
 
-def Laws.wrap_ok(text, width):
+def slow_ok(+text: String, +width: U32) -> {Laws.all_ok(T.wrap.slow(text, width), width) == True{} : Bool}:
   lines_ok(T.run2(T.words(text), width, T.Wr{Nil{}, None{}}), width, run2_ok(T.words(text), width, T.Wr{Nil{}, None{}}, {==}))
+
+def all_ok_same(ls: List<&2, String>, +n: U32) -> {Laws.all_ok(ls, n) == T.all_ok(ls, n) : Bool}:
+  match ls:
+    case Nil{}:
+      {==}
+    case Con{+l, t}:
+      Equal.cong(Bool, Bool, x => Bool.and(T.ok(l, n), x), Laws.all_ok(t, n), T.all_ok(t, n), all_ok_same(t, n))
+
+def pick_ok(b: Bool, +ls: List<&2, String>, +text: String, +n: U32, eb: {T.all_ok(ls, n) == b : Bool}
+) -> {Laws.all_ok(T.wrap.pick(b, ls, text, n), n) == True{} : Bool}:
+  match b:
+    case True{}:
+      Equal.trans(Bool, Laws.all_ok(ls, n), T.all_ok(ls, n), True{}, all_ok_same(ls, n), eb)
+    case False{}:
+      slow_ok(text, n)
+
+def Laws.wrap_ok(text, width):
+  pick_ok(T.all_ok(T.wrap.fast(text, width), width), T.wrap.fast(text, width), text, width, {==})

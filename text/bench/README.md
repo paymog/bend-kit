@@ -30,19 +30,19 @@ Every program makes the same input from the same generator: x ← (x × 11035152
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-11-19. Five runs (`python3 run.py 5`), median, in ms.
+M4 Pro, macOS 26.6.2, 2026-11-20. Five runs (`python3 run.py 5`), median, in ms.
 
 Versions: Bend 2.0.38, rustc 1.91.0 with similar 3.2.1, strsim 0.11.1, and textwrap 0.16.4, Bun 1.4.4 and Node 24.0.1 with diff 9.0.0 and fastest-levenshtein 1.0.16, Python 3.14.6 with rapidfuzz 3.14.3.
 
 | op | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|
-| diff | 0.6 | 32.3 | 20.5 | 28.9 | 6.3 |
-| distance | 3.0 | 5.5 | 5.3 | 57.2 | 15.2 |
-| wrap | 3.9 | — | — | 12.4 | 44.5 |
+| diff | 0.5 | 26.9 | 20.1 | 29.1 | 6.4 |
+| distance | 3.1 | 5.2 | 5.3 | 57.2 | 15.2 |
+| wrap | 3.9 | — | — | 12.5 | 12.8 |
 
 Every program prints the checksums 654 for `diff`, 174397 for `distance`, and 2632:177792 for `wrap`.
 
-`text` 0.1.0.0 took 43.8 ms for `diff` and 13.7 ms for `wrap`, and 0.2.0.0 took 41.9 ms for `diff`. Wrap is slower now because it measures each candidate line whole, which its width proof needs.
+`text` 0.1.0.0 took 43.8 ms for `diff` and 13.7 ms for `wrap`. 0.2.0.0 took 41.9 ms for `diff` and 44.3 ms for `wrap`, because it measured each candidate line whole. 0.2.1.0 measures a printable ASCII word by its length, then checks each line once.
 
 ## Many edits
 
@@ -55,14 +55,18 @@ Every program prints the checksums 654 for `diff`, 174397 for `distance`, and 26
 | 4,000 | 0.2.0.0 | 1.2 s | 5.0 MB |
 | 10,000 | 0.2.0.0 | 6.9 s | 9.8 MB |
 | 10,000 | 0.2.0.1 | 3.0 s | 7.0 MB |
+| 10,000 | 0.2.1.0, `diff` | 2.1 s | 7.2 MB |
+| 10,000 | 0.2.1.0, `diff_by` with `fnv` | 0.17 s | 7.2 MB |
 
-0.1.0.0 kept one path list per diagonal, so memory grew as D². 0.2.0.0 finds the middle snake from both ends and keeps only the frontiers. 0.2.0.1 keeps the items and frontiers in arrays. This bench calls `diff` on strings, not `diff_lines`, so it compares strings.
+0.1.0.0 kept one path list per diagonal, so memory grew as D². 0.2.0.0 finds the middle snake from both ends and keeps only the frontiers. 0.2.0.1 keeps the items and frontiers in arrays. The bench runs `diff` with `String.eq`, then `diff_by` with `String.eq` and `fnv` keys, on the same lists.
 
 ## Reading it
 
-- `similar` runs the same linear-space Myers on slices. Bend does too: the items and both frontiers are arrays, updated in place. Of Bend's 6.3 ms, splitting the two texts into lines takes about 4 ms and Myers on the line hashes about 2 ms. Myers on the `String`s instead of their hashes takes 29 ms.
+- `similar` runs the same linear-space Myers on slices. Bend does too: the items and both frontiers are arrays, updated in place. Of Bend's 6.4 ms, splitting the two texts into lines takes about 3.5 ms and Myers on the line hashes about 1.2 ms.
+- Myers over the `String` lines takes 23 ms instead of 1.2 ms over their hashes, for the same script. `Array.get` hands out a shared copy of the item, and `String.eq` then pays a reference count on each cell it reads: about 80 ns a char, where walking an owned string with `String.length` takes about 7 ns. A `U32` carries no count.
+- Splitting the lines costs about 17 ns a char. Building the lines and their hashes in one pass, or matching chars as `U32`, did not change it.
 - Bend's distance keeps one DP row as a list. `strsim` and `fastest-levenshtein` use arrays, and `fastest-levenshtein` uses bit-parallel rows for short strings.
-- Bend's wrap runs grapheme segmentation and the display-width table over each candidate line. `textwrap` in Python counts code points.
+- Bend's wrap runs grapheme segmentation and the display-width table once over each line, to check it. `textwrap` in Python counts code points.
 
 ## Not compared
 

@@ -360,6 +360,44 @@ def moves(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> Li
 def diff(~A: Data, ~eq: A -> A -> Bool, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Edit<A>>:
   walk(A, moves(~A, ~eq, a, b), a, b)
 
+def keys(~A: Data, ~key: A -> U32, xs: List<&2, A>) -> List<&2, U32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{x, t}:
+      key(x) <> keys(~A, ~key, t)
+
+# Whether every pair that walk would match is equal by eq.
+def paired(~A: Data, ~eq: A -> A -> Bool, ms: List<&2, Move>, a: List<&2, A>, b: List<&2, A>) -> Bool:
+  match ms a b:
+    case Nil{} _ _:
+      True{}
+    case Con{MSame{}, t} Con{x, xs} Con{y, ys}:
+      Bool.and(eq(x, y), paired(~A, ~eq, t, xs, ys))
+    case Con{MDel{}, t} Con{_, xs} _:
+      paired(~A, ~eq, t, xs, b)
+    case Con{MIns{}, t} _ Con{_, ys}:
+      paired(~A, ~eq, t, a, ys)
+    case Con{_, t} _ _:
+      paired(~A, ~eq, t, a, b)
+
+def moves_by.pick(~A: Data, ~eq: A -> A -> Bool, ok: Bool, ms: List<&2, Move>, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Move>:
+  match ok:
+    case True{}:
+      ms
+    case False{}:
+      moves(~A, ~eq, a, b)
+
+# Diffs the keys, then checks each matched pair with eq. If two unequal items share a key and get matched, it diffs the items instead.
+def moves_by(~A: Data, ~eq: A -> A -> Bool, ~key: A -> U32, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Move>:
+  +ms = moves(~U32, ~U32.is_eq, keys(~A, ~key, a), keys(~A, ~key, b))
+  moves_by.pick(~A, ~eq, paired(~A, ~eq, ms, a, b), ms, a, b)
+
+# diff, but Myers compares U32 keys, which is much faster than comparing items such as strings.
+# Equal items must have equal keys. The script is the same length as diff's.
+def diff_by(~A: Data, ~eq: A -> A -> Bool, ~key: A -> U32, +a: List<&2, A>, +b: List<&2, A>) -> List<&2, Edit<A>>:
+  walk(A, moves_by(~A, ~eq, ~key, a, b), a, b)
+
 def lines.push(c: Char, ls: List<&2, String>) -> List<&2, String>:
   match ls:
     case Nil{}:
@@ -382,50 +420,19 @@ def lines(s: String) -> List<&2, String>:
     case SCon{+c, t}:
       lines.pick(Char.is_eq(c, '\n'), c, lines(t))
 
-def fnv(s: String, +h: U32) -> U32:
+# 32-bit FNV-1a, a key for diff_by.
+def fnv.go(s: String, +h: U32) -> U32:
   match s:
     case SNil{}:
       h
     case SCon{Chr{c}, t}:
-      fnv(t, (U32.xor(h, c) * 16777619 : U32))
+      fnv.go(t, (U32.xor(h, c) * 16777619 : U32))
 
-def hashes(ls: List<&2, String>) -> List<&2, U32>:
-  match ls:
-    case Nil{}:
-      Nil{}
-    case Con{l, t}:
-      fnv(l, 2166136261) <> hashes(t)
-
-# Whether every pair that walk would match holds equal lines.
-def lines.ok(ms: List<&2, Move>, a: List<&2, String>, b: List<&2, String>) -> Bool:
-  match ms a b:
-    case Nil{} _ _:
-      True{}
-    case Con{MSame{}, t} Con{x, xs} Con{y, ys}:
-      Bool.and(String.eq(x, y), lines.ok(t, xs, ys))
-    case Con{MDel{}, t} Con{_, xs} _:
-      lines.ok(t, xs, b)
-    case Con{MIns{}, t} _ Con{_, ys}:
-      lines.ok(t, a, ys)
-    case Con{_, t} _ _:
-      lines.ok(t, a, b)
-
-def lines.pick.moves(ok: Bool, ms: List<&2, Move>, +a: List<&2, String>, +b: List<&2, String>) -> List<&2, Move>:
-  match ok:
-    case True{}:
-      ms
-    case False{}:
-      moves(~String, ~String.eq, a, b)
-
-# Diffs line hashes, which is much faster than comparing strings. A hash collision that pairs unequal lines falls back to strings.
-def lines.moves(+a: List<&2, String>, +b: List<&2, String>) -> List<&2, Move>:
-  +ms = moves(~U32, ~U32.is_eq, hashes(a), hashes(b))
-  lines.pick.moves(lines.ok(ms, a, b), ms, a, b)
+def fnv(s: String) -> U32:
+  fnv.go(s, 2166136261)
 
 def diff_lines(a: String, b: String) -> List<&2, Edit<String>>:
-  +la = lines(a)
-  +lb = lines(b)
-  walk(String, lines.moves(la, lb), la, lb)
+  diff_by(~String, ~String.eq, ~fnv, lines(a), lines(b))
 
 def diff_chars(a: String, b: String) -> List<&2, Edit<Char>>:
   diff(~Char, ~Char.is_eq, String.to_list(a), String.to_list(b))
@@ -729,8 +736,132 @@ def wrap.lines(st: Wr) -> List<&2, String>:
     case Wr{out, Some{s}}:
       List.reverse(&2, String, s <> out)
 
-# Greedy word wrap to width display columns. Whitespace runs separate words; lines join words with one space.
-# Each candidate line is measured whole, so a cluster that spans a join counts right. A word wider than width
-# breaks between grapheme clusters; a cluster wider than width stays whole on its own line.
-def wrap(text: String, +width: U32) -> List<&2, String>:
+# Wraps by measuring each candidate line whole. wrap falls back to it.
+def wrap.slow(text: String, +width: U32) -> List<&2, String>:
   wrap.lines(run2(words(text), width, Wr{Nil{}, None{}}))
+
+def all_ok(ls: List<&2, String>, +width: U32) -> Bool:
+  match ls:
+    case Nil{}:
+      True{}
+    case Con{l, t}:
+      Bool.and(ok(l, width), all_ok(t, width))
+
+def printable(+c: U32) -> Bool:
+  U32.is_lt((c - 33 : U32), 94)
+
+# Only printable ASCII, so each char is one cluster one column wide.
+def ascii(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{Chr{+c}, t}:
+      Bool.and(printable(c), ascii(t))
+
+def ascii.last.go(s: String, +c: U32) -> Bool:
+  match s:
+    case SNil{}:
+      printable(c)
+    case SCon{Chr{+d}, t}:
+      ascii.last.go(t, d)
+
+def ascii.last(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{Chr{+c}, t}:
+      ascii.last.go(t, c)
+
+# The finished lines, newest first; the words of the open line, newest first; its width; and whether it ends in printable ASCII.
+type Fw is Data:
+  Fw{out: List<&2, String>, cur: List<&2, String>, cw: U32, asc: Bool}
+
+def fw.line(cur: List<&2, String>) -> String:
+  String.join(List.reverse(&2, String, cur), " ")
+
+def fw.close(out: List<&2, String>, cur: List<&2, String>) -> List<&2, String>:
+  match cur:
+    case Nil{}:
+      out
+    case Con{h, t}:
+      fw.line(Con{h, t}) <> out
+
+def fw.from(st: Wr) -> Fw:
+  match st:
+    case Wr{out, None{}}:
+      Fw{out, Nil{}, 0, False{}}
+    case Wr{out, Some{+s}}:
+      Fw{out, [s], Tty.width(s), False{}}
+
+def fw.begin(fits: Bool, out: List<&2, String>, +w: String, +ww: U32, +width: U32, +last: Bool) -> Fw:
+  match fits:
+    case True{}:
+      Fw{out, [w], ww, last}
+    case False{}:
+      fw.from(start2(ok(w, width), out, w, width))
+
+def fw.start(asc: Bool, out: List<&2, String>, +w: String, +width: U32) -> Fw:
+  match asc:
+    case True{}:
+      +ww = U32.from_nat(String.length(w))
+      fw.begin(U32.is_le(ww, width), out, w, ww, width, True{})
+    case False{}:
+      +ww = Tty.width(w)
+      fw.begin(U32.is_le(ww, width), out, w, ww, width, ascii.last(w))
+
+def fw.add(fits: Bool, out: List<&2, String>, +cur: List<&2, String>, +nw: U32, +w: String, +width: U32, +aw: Bool, +last: Bool) -> Fw:
+  match fits:
+    case True{}:
+      Fw{out, w <> cur, nw, last}
+    case False{}:
+      fw.start(aw, fw.close(out, cur), w, width)
+
+# Clusters cannot span the space between two printable ASCII chars, so then the widths add.
+def fw.next(sure: Bool, out: List<&2, String>, +cur: List<&2, String>, +cw: U32, +w: String, +width: U32, +aw: Bool) -> Fw:
+  match sure:
+    case True{}:
+      +nw = (cw + 1 + U32.from_nat(String.length(w)) : U32)
+      fw.add(U32.is_le(nw, width), out, cur, nw, w, width, aw, True{})
+    case False{}:
+      +nw = Tty.width(fw.line(cur) ++ " " ++ w)
+      fw.add(U32.is_le(nw, width), out, cur, nw, w, width, aw, ascii.last(w))
+
+def fw.step.go(st: Fw, +aw: Bool, +w: String, +width: U32) -> Fw:
+  match st:
+    case Fw{out, Nil{}, _, _}:
+      fw.start(aw, out, w, width)
+    case Fw{out, Con{+h, +t}, +cw, +asc}:
+      fw.next(Bool.and(asc, aw), out, Con{h, t}, cw, w, width, aw)
+
+def fw.step(st: Fw, +w: String, +width: U32) -> Fw:
+  fw.step.go(st, ascii(w), w, width)
+
+def fw.run(ws: List<&2, String>, +width: U32, st: Fw) -> Fw:
+  match ws:
+    case Nil{}:
+      st
+    case Con{w, t}:
+      fw.run(t, width, fw.step(st, w, width))
+
+def fw.lines(st: Fw) -> List<&2, String>:
+  match st:
+    case Fw{out, cur, _, _}:
+      List.reverse(&2, String, fw.close(out, cur))
+
+# The same lines as wrap.slow, measuring a printable ASCII word by its length.
+def wrap.fast(text: String, +width: U32) -> List<&2, String>:
+  fw.lines(fw.run(words(text), width, Fw{Nil{}, Nil{}, 0, False{}}))
+
+def wrap.pick(good: Bool, ls: List<&2, String>, text: String, +width: U32) -> List<&2, String>:
+  match good:
+    case True{}:
+      ls
+    case False{}:
+      wrap.slow(text, width)
+
+# Greedy word wrap to width display columns. Whitespace runs separate words; lines join words with one space.
+# A word wider than width breaks between grapheme clusters; a cluster wider than width stays whole on its own line.
+# The fast path's lines are checked with ok; if one fails, every line is measured whole instead.
+def wrap(+text: String, +width: U32) -> List<&2, String>:
+  +ls = wrap.fast(text, width)
+  wrap.pick(all_ok(ls, width), ls, text, width)
