@@ -788,6 +788,47 @@ def rd.entries(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, more: B
         rest : List<&2, M.Entry<Nat, Dead<A>>> <- rd.entries(~A, ~pdec, f, m)
         return Con{M.Entry{k, Dead{t, w, at}}, rest}
 
+def rd.entry.le(~A: Data, a: M.Entry<Nat, Dead<A>>, b: M.Entry<Nat, Dead<A>>) -> Bool:
+  M.Entry{k, v} = a
+  M.Entry{j, w} = b
+  Nat.is_le(k, j)
+
+def rd.ascending(~A: Data, xs: List<&2, M.Entry<Nat, Dead<A>>>, +previous: Nat) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{+key, value}, rest}:
+      Nat.is_lt(previous, key) && rd.ascending(~A, rest, key)
+
+def rd.distinct(~A: Data, xs: List<&2, M.Entry<Nat, Dead<A>>>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{key, value}, rest}:
+      rd.ascending(~A, rest, key)
+
+def rd.valid.go(~A: Data, +n: Nat, ds: Graves(A)) -> Bool:
+  match n:
+    case 0n:
+      match ds:
+        case M.HNil{}:
+          True{}
+        case M.HLeaf{h, es}:
+          rd.distinct(~A, es)
+        case M.HBranch{lo, hi}:
+          False{}
+    case 1n+p:
+      match ds:
+        case M.HNil{}:
+          True{}
+        case M.HLeaf{h, +es}:
+          CL.hmap_hashed(~Nat, ~Dead<A>, ~dead.hash, es, h) && rd.distinct(~A, es)
+        case M.HBranch{lo, hi}:
+          rd.valid.go(~A, p, lo) && rd.valid.go(~A, p, hi)
+
+def rd.valid(~A: Data, ds: Graves(A)) -> Bool:
+  rd.valid.go(~A, 32n, ds)
+
 # A trie node whose kind is already read: nil is kind 0, leaf kind 1, and branch kind 2. Any other kind fails.
 def rd.graves(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, nil: Bool, leaf: Bool, branch: Bool) -> Dec(Graves(A)):
   match fuel nil leaf branch:
@@ -800,7 +841,7 @@ def rd.graves(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, nil: Boo
         h : U32 <- rd.u32()
         m : Bool <- rd.flag()
         es : List<&2, M.Entry<Nat, Dead<A>>> <- rd.entries(~A, ~pdec, f, m)
-        return M.HLeaf{h, es}
+        return M.HLeaf{h, List.sort(~M.Entry<Nat, Dead<A>>, ~(a => b => rd.entry.le(~A, a, b)), es)}
     case 1n+f False{} False{} True{}:
       do Dec<Graves(A)>:
         +lk : U32 <- rd.u32()
@@ -895,7 +936,7 @@ def rd.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat) -> Dec(St
     ts : O.OMap<Nat, Try> <- rd.tries(fuel, tf)
     +dk : U32 <- rd.u32()
     +dt : Graves(A) <- rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
-    ds : Graves(A) <- rd.wf(A, CL.hmap_wf(~Nat, ~Dead<A>, ~dead.hash, ~Nat.is_eq, dt), dt)
+    ds : Graves(A) <- rd.wf(A, rd.valid(~A, dt), dt)
     bf : Bool <- rd.flag()
     bs : Map<&2, Retry.State> <- rd.brks(fuel, bf, Map.new(&2, Retry.State))
     return State{Q.State{n, h, run}, ts, ds, bs}

@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.15.0.0/runner.bend as R
+import bend-kit-runner@0.15.0.1/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.3.1.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.15.0.0/runner.bend as R
+import bend-kit-runner@0.15.0.1/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -132,6 +132,8 @@ Completed jobs keep their records, so a journal grows with its history. `compact
 A crash leaves either the old journal or the new one, and both replay to the same state. A leftover `path.compact` is removed by the next compaction. When compaction fails before the rename, the old journal stands and the runner goes on. When it fails after the rename, appends stop until the runner is reopened.
 
 A `Snap` record is tag 7 and the next id, then the pending heap, the running list, the tries, the dead tickets, and the breakers, node by node, so the replayed trees have the live shape. Each heap, list, and map node or cell starts with a u32 flag of 1, and each end is a flag of 0. A ticket is its u64 id and deadline, then a u32 length and the payload. Each node of the dead-ticket trie is a u32 kind: 0 empty, 1 a bucket, or 2 a branch followed by its two halves. A bucket is its u32 hash, then its entries, each a flag of 1, the u64 id, the ticket, a u32 why, and the u64 `at`, then a flag of 0. A snapshot whose trie is not well formed, as `collections`' `hmap_wf` defines it, does not decode: a bucket must not hold one id twice, and its ids must hash to its hash. A breaker is its target and its state, as in a `Break`. The snapshot is one record, so it must fit `limit`, not `max`.
+
+The decoder sorts each bucket by id and checks adjacent ids for strict order. For k entries in one bucket, this costs O(k log k), not O(k²). Old snapshots with unsorted buckets still decode. Tickets and values do not change, but re-encoding a decoded snapshot puts each bucket's entries in id order. `PROOF.bend` proves that the fast check implies `hmap_wf`.
 
 ## Laws
 

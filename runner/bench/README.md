@@ -58,7 +58,7 @@ Every program prints checksum `607518720` and `32768/65536` (pending tickets / n
 
 Compaction cuts open's replay by 3.6x here. The log holds 196,608 records, and the compacted journal holds one: the 32,768 pending tickets and their tries. Replay time then follows the live state, not the history. Half of the jobs here are still pending; a runner whose jobs finish gains more.
 
-Replay is O(n log n) in Bend: the queue is a heap, the tries are an ordered map, and the dead tickets are a hash trie keyed by id. Native Bend took 19 ms at 2^12 jobs, 83 ms at 2^14, and 431 ms at 2^16 on Bend 2.0.36. The `dead` row took 23 ms at 2^12, 107 ms at 2^14, and 581 ms at 2^16 on Bend 2.0.38: each `Cancel` and `Revive` costs about the same at every size. A snapshot rebuilds the same trees without the heap and map work, so its decode is linear in its size.
+Replay is O(n log n) in Bend: the queue is a heap, the tries are an ordered map, and the dead tickets are a hash trie keyed by id. Native Bend took 19 ms at 2^12 jobs, 83 ms at 2^14, and 431 ms at 2^16 on Bend 2.0.36. The `dead` row took 23 ms at 2^12, 107 ms at 2^14, and 581 ms at 2^16 on Bend 2.0.38: each `Cancel` and `Revive` costs about the same at every size. A snapshot rebuilds the same trees without the heap and map work. Its decoder sorts each dead-ticket bucket, so a bucket of k colliding ids costs O(k log k).
 
 `journal`'s bench shows that its frame scan alone takes about 300 ms for 2^20 records, because `Hash.crc32` rebuilds its table per record. Here the scan is a part of the total, and the heap and map work is the rest. This bench does not split them.
 
@@ -67,3 +67,9 @@ Replay is O(n log n) in Bend: the queue is a heap, the tries are an ordered map,
 - Bend times itself with `Time.mono`. It reads the size from argv, so the replay cannot run before the clock starts. Building the log is outside the timer.
 - One machine, one size, one thread.
 - The Rust and Python loops are the obvious replay over a standard-library heap. They keep payloads and tries in hash maps, as the runner keeps them in its state. They are not a second runner: they have no retry, breaker, or pool.
+
+## Hostile snapshot buckets
+
+Run `flock /tmp/bend-kit-bend.lock bend snapshot.bend` from this folder. It decodes 10,000 dead tickets twice: one descending bucket with ids `i * 2^32`, and 10,000 separate buckets. Both rows must print count `10000`. Snapshot construction is outside the timers. This uses the same decoder as `open`, without journal framing.
+
+On 2026-11-19, macOS arm64, Bend 2.0.38's Bun lane: the old decoder (`bend-kit-runner@0.15.0.0`) took 819.9 ms for the colliding bucket. The new decoder took 41.8 ms for that bucket and 55.4 ms for separate buckets. This is one run, not a cross-language comparison. The old check made 49,995,000 pairwise equality calls. Sorting and adjacent comparisons replace that quadratic walk.
