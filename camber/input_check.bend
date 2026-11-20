@@ -6,6 +6,7 @@ import ./input.bend as Input
 import bend-kit-http@0.38.6.0/http.bend as H
 import bend-kit-http@0.38.6.0/completion.bend as T
 import bend-kit-bytes@0.3.3.0/bytes.bend as B
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 def ready(result: Result<&2, &2, C.RegistrationError, C.Application<Unit, App.Config, C.Policy<Unit>>>) -> IO(C.Application<Unit, App.Config, C.Policy<Unit>>):
   match result:
@@ -76,18 +77,18 @@ def live.observe(context: Live, status: U32, outcome: T.Outcome) -> IO(Unit):
     count : Nat <- C.receive(Nat, remaining)
     live.remaining(count, remaining, stop)
 
-def live.controlled(controlled: H.Server<Live> & H.ServerControl, context: Live) -> IO(Unit):
+def live.controlled(controlled: H.Server<Live> & H.ServerControl, context: Live, port: U32) -> IO(Unit):
   (server, control) = controlled
   Live{config, remaining, +stop} = context
   do IO<Unit>:
     sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, stop, control)
-    IO.print("READY")
+    IO.print("READY " ++ U32.show(port))
     exited : H.ServerExit <- H.server.run(~Live, ~live.handler, ~live.observe, server)
     Chan.close(Nat, remaining)
     Chan.close(H.ServerControl, stop)
     IO.print("CLOSED")
 
-def live.started(started: Unit & Result<&2, &1, H.StartupError, H.Server<Live>>, context: Live) -> IO(Unit):
+def live.started(started: Unit & Result<&2, &1, H.StartupError, H.Server<Live>>, context: Live, port: U32) -> IO(Unit):
   (owner, result) = started
   match result:
     case Fail{error}:
@@ -96,28 +97,33 @@ def live.started(started: Unit & Result<&2, &1, H.StartupError, H.Server<Live>>,
         Chan.close(Nat, remaining)
         Chan.close(H.ServerControl, stop)
         IO.die(Unit, 1, "live bind failed")
-    case Done{server}: live.controlled(H.server.control(~Live, server), context)
+    case Done{server}: live.controlled(H.server.control(~Live, server), context, port)
 
-def live(port: String, count: String, depth: String, journal: String) -> IO(Unit):
+def live.bound(bound: Listener & U32, n: U32, cap: U32, journal: String) -> IO(Unit):
+  (listener, +port) = bound
   do IO<Unit>:
-    p : U32 <- integer(Input.u32(port))
-    n : U32 <- integer(Input.u32(count))
-    cap : U32 <- integer(Input.u32(depth))
     +remaining : Chan(Nat) <- Chan.new(Nat, 1)
     stop : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
     sent : Result<&1, &1, Nat, Unit> <- Chan.send(Nat, remaining, U32.to_nat(n))
     +context : Live = Live{App.Config{journal, cap}, remaining, stop}
     started : Unit & Result<&2, &1, H.StartupError, H.Server<Live>> <-
-      H.server.start(~Live, ~Unit, context, Unit{}, C.server.config(p))
-    live.started(started, context)
+      H.server.started(~Live, ~Unit, context, Unit{}, C.server.config(port), Done{listener})
+    live.started(started, context, port)
+
+def live(count: String, depth: String, journal: String) -> IO(Unit):
+  do IO<Unit>:
+    n : U32 <- integer(Input.u32(count))
+    cap : U32 <- integer(Input.u32(depth))
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    live.bound(bound, n, cap, journal)
 
 def args(values: List<&1, String>) -> IO(Unit):
   match values:
     case program <> "direct" <> method <> target <> media <> encoding <> auth <> hex <> depth <> journal <> Nil{}:
       direct(method, target, media, encoding, auth, hex, depth, journal)
-    case program <> "live" <> port <> count <> depth <> journal <> Nil{}:
-      live(port, count, depth, journal)
-    case _: IO.die(Unit, 1, "usage: input_check direct <method> <target> <media|-> <encoding|-> <auth|-> <hex> <depth> <journal>; or live <port> <count> <depth> <journal>")
+    case program <> "live" <> count <> depth <> journal <> Nil{}:
+      live(count, depth, journal)
+    case _: IO.die(Unit, 1, "usage: input_check direct <method> <target> <media|-> <encoding|-> <auth|-> <hex> <depth> <journal>; or live <count> <depth> <journal>")
 
 def main() -> IO(Unit):
   do IO<Unit>:
