@@ -75,6 +75,8 @@ def main() -> IO(Unit):
     b6 : Bytes.Bytes <- stop64("xxh64", t5, Hash.xxh64(b5, Hash.W64{0, 0}))
     t6 : Time.Duration <- Time.mono()
     b7 : Bytes.Bytes <- stop64("siphash13", t6, Hash.siphash13(b6, Hash.W64{0, 0}, Hash.W64{0, 0}))
+    t24 : Time.Duration <- Time.mono()
+    b8 : Bytes.Bytes <- stop64("siphash24", t24, Hash.siphash24(b7, Hash.W64.of(0, 0), Hash.W64.of(0, 0)))
     s0 : Bytes.Bytes = fill(16n, Bytes.new(16), 0)
     t7 : Time.Duration <- Time.mono()
     s1 : Bytes.Bytes <- stop("crc32_short", t7, short(100000n, (s0, 0)))

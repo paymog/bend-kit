@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <zlib.h>
+#include <sodium.h>
 
 static double now_ms(void) {
   struct timespec t;
@@ -30,6 +31,14 @@ int main(void) {
   for (int i = 0; i < 100000; i++) s = crc32(0L, buf, 16);
   t1 = now_ms();
   printf("crc32_short\t%.3f\t%08lx\n", t1 - t0, s);
+  unsigned char key[crypto_shorthash_siphash24_KEYBYTES] = {0};
+  unsigned char digest[crypto_shorthash_siphash24_BYTES];
+  t0 = now_ms();
+  if (crypto_shorthash_siphash24(digest, buf, n, key) != 0) return 1;
+  t1 = now_ms();
+  printf("siphash24\t%.3f\t", t1 - t0);
+  for (size_t i = sizeof(digest); i > 0; i--) printf("%02x", digest[i - 1]);
+  printf("\n");
   free(buf);
   return 0;
 }

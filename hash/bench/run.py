@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Build and run the hash benchmark; print a markdown table. See README.md."""
-import os, statistics, subprocess, sys
+import os, shlex, statistics, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OPS = ["crc32", "crc32_short", "adler32", "fnv1a32", "fnv1a64", "xxh32", "xxh64", "siphash13"]
+OPS = ["crc32", "crc32_short", "adler32", "fnv1a32", "fnv1a64", "xxh32", "xxh64", "siphash13", "siphash24"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1", "PYTHONHASHSEED": "0"}
+SODIUM = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs", "libsodium"], text=True))
 
 # name -> (build argv or None, run argv). Every program prints `op<TAB>ms<TAB>checksum` per op.
 VARIANTS = {
-    "C": (["clang", "-O2", "-o", OUT / "c", "bench.c", "-lz"], [OUT / "c"]),
+    "C": (["clang", "-O2", "-o", OUT / "c", "bench.c", "-lz", *SODIUM], [OUT / "c"]),
     "Rust": (["rustc", "-C", "opt-level=3", "-C", "target-cpu=native", "-o", OUT / "rs", "bench.rs"], [OUT / "rs"]),
     "Bun": (None, ["bun", "bench.ts"]),
     "Node": (None, ["node", "bench.ts"]),
