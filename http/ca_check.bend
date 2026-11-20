@@ -55,20 +55,20 @@ def pool.ok(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
     body.ok("pool.fetch.ca", "ok", r)
     Http.pool.close(p)
 
-def stream.piece(+name: String, r: Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Unit):
+def stream.piece(+name: String, +want: String, r: Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Unit):
   match r:
     case Done{Some{b}}:
-      body.eq(name, String.eq(Http.to_string(b), "ok"))
+      body.eq(name, String.eq(Http.to_string(b), want))
     case _:
       die(name ++ " read")
 
-def stream.body(+name: String, r: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Unit):
+def stream.body(+name: String, +want: String, r: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Unit):
   (st, got) = r
   do IO<Unit>:
     Http.stream.close(st)
-    stream.piece(name, got)
+    stream.piece(name, want, got)
 
-def stream.ok(+name: String, x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
+def stream.ok(+name: String, +want: String, x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
   (jar, r) = x
   match r:
     case Fail{e}:
@@ -76,7 +76,7 @@ def stream.ok(+name: String, x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, H
     case Done{st}:
       do IO<Unit>:
         got : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
-        stream.body(name, got)
+        stream.body(name, want, got)
 
 def stream.fail(+name: String, +want: U32, x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
   (jar, r) = x
@@ -106,7 +106,7 @@ def upload.ok(r: Result<&1, &1, Http.Err, Http.Up>) -> IO(Unit):
       do IO<Unit>:
         w : Http.Up & Result<&2, &2, Http.Err, Unit> <- Http.upload.write(up, Http.from_string("hi"))
         x : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <- upload.sent(w)
-        stream.ok("upload.how ca", x)
+        stream.ok("upload.how ca", "ok", x)
 
 def upload.fail(r: Result<&1, &1, Http.Err, Http.Up>) -> IO(Unit):
   match r:
@@ -117,7 +117,29 @@ def upload.fail(r: Result<&1, &1, Http.Err, Http.Up>) -> IO(Unit):
     case Fail{e}:
       stream.fail("upload.how default store rejects private CA", 100, (None{}, Fail{e}))
 
-def run(+ca: String, +base: String) -> IO(Unit):
+def upload.written(r: Http.Up & Result<&2, &2, Http.Err, Unit>) -> IO(Http.Up):
+  match r:
+    case (up, Done{Unit{}}):
+      IO.pure(Http.Up, up)
+    case (up, Fail{e}):
+      IO.die(Http.Up, 1, "CONNECT upload write failed")
+
+def upload.tunnel(r: Result<&1, &1, Http.Err, Http.Up>) -> IO(Unit):
+  match r:
+    case Fail{e}:
+      die("CONNECT upload open failed")
+    case Done{up}:
+      do IO<Unit>:
+        first : Http.Up & Result<&2, &2, Http.Err, Unit> <-
+          Http.upload.write(up, Http.from_string("first\r\n"))
+        next : Http.Up <- upload.written(first)
+        second : Http.Up & Result<&2, &2, Http.Err, Unit> <-
+          Http.upload.write(next, Http.from_string("second last"))
+        last : Http.Up <- upload.written(second)
+        finished : Result<&1, &1, Http.Err, Http.Stream> <- Http.upload.finish(last)
+        stream.ok("CONNECT TLS upload body at origin", "tunnel upload verified", (None{}, finished))
+
+def run(+ca: String, +base: String, +port: U32, proxy: String) -> IO(Unit):
   do IO<Unit>:
     ok : Result<&1, &1, Http.Err, Http.Res> <-
       Http.fetch.ca("GET", base ++ "/ok", Http.empty(), Http.from_string(""), ca)
@@ -136,7 +158,7 @@ def run(+ca: String, +base: String) -> IO(Unit):
     pool.ok(pooled)
     opened : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
       Http.open.how(Http.ModeFollow{}, None{}, ca, None{}, "GET", base ++ "/go", Http.empty(), Http.from_string(""), 30000)
-    stream.ok("open.how ca redirect", opened)
+    stream.ok("open.how ca redirect", "ok", opened)
     plain : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
       Http.open.how(Http.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/ok", Http.empty(), Http.from_string(""), 30000)
     stream.fail("open.how default store rejects private CA", 100, plain)
@@ -146,13 +168,24 @@ def run(+ca: String, +base: String) -> IO(Unit):
     refused : Result<&1, &1, Http.Err, Http.Up> <-
       Http.upload.how(None{}, "", "POST", base ++ "/ok", Http.empty(), 30000)
     upload.fail(refused)
+    tunneled : Result<&1, &1, Http.Err, Http.Up> <-
+      Http.up.origin.choice("POST", 5000, Http.empty(), "localhost:" ++ U32.show(port),
+        "https", "localhost", port, "/tunnel", None{}, ca, Http.proxy.from.url(proxy))
+    upload.tunnel(tunneled)
+
+def main.port(ca: String, base: String, proxy: String, port: Maybe<&2, U32>) -> IO(Unit):
+  match port:
+    case Some{n}:
+      run(ca, base, n, proxy)
+    case None{}:
+      die("ca_check needs a valid origin port")
 
 def main.args(args: List<&1, String>) -> IO(Unit):
   match args:
-    case Con{ca, Con{base, Nil{}}}:
-      run(ca, base)
+    case Con{ca, Con{base, Con{port, Con{proxy, Nil{}}}}}:
+      main.port(ca, base, proxy, U32.read(port))
     case _:
-      die("ca_check needs a CA file path and the server base URL")
+      die("ca_check needs a CA file path, server base URL, origin port, and proxy URL")
 
 def main() -> IO(Unit):
   do IO<Unit>:
