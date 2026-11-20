@@ -795,6 +795,89 @@ def asks.cancel(+dir: String) -> IO(Unit):
     r3 : R.Runner<String> <- opened(path, 100n)
     closed("next=1 pending=0 running=0 tries=0 fails=0 dead=0", "reopen replays the cancel", view(r3))
 
+def reviver(ib: Chan(R.Msg<String>), +log: String) -> IO(Unit):
+  do IO<Unit>:
+    IO.sleep(200)
+    u : Unit <- IO.try(Unit, R.ask.revive(String, ib, 0n, 0n))
+    note(log, "revived")
+
+def asks.revive(+dir: String) -> IO(Unit):
+  +path = dir ++ "/ask-revive.journal"
+  +log = dir ++ "/ask-revive.log"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 100n)
+    r1 : R.Runner<String> <- enq(r0, 0n, log ++ "|dead:r")
+    r2 : R.Runner<String> <- drain(r1)
+    r3 : R.Runner<String> <- enq(r2, 0n, log ++ "|slow:s")
+    r4 : R.Runner<String> <- beside(R.inbox(String, r3), ib => reviver(ib, log))
+    closed("next=2 pending=0 running=0 tries=0 fails=0 dead=1", "the revived ticket runs in the same drain", view(r4))
+    +ys : List<&2, String> <- read(log)
+    same(counts(ys, ["revived", "dead:r", "end dead:r"]), "revived=1 dead:r=2 end dead:r=2 ", "revive answers and runs the original payload again")
+    same(last(ys, ""), "end slow:s", "revive answers and its attempt ends before the slow job ends")
+
+def purge.ask(all: Bool, ib: Chan(R.Msg<String>), +before: Nat) -> IO(R.Out(Unit)):
+  match all:
+    case True{}:
+      R.ask.purge.all(String, ib)
+    case False{}:
+      R.ask.purge(String, ib, before)
+
+def purger(+all: Bool, ib: Chan(R.Msg<String>), +before: Nat, +log: String) -> IO(Unit):
+  do IO<Unit>:
+    IO.sleep(200)
+    u : Unit <- IO.try(Unit, purge.ask(all, ib, before))
+    note(log, "purged")
+
+def asks.purge(+dir: String) -> IO(Unit):
+  +path = dir ++ "/ask-purge.journal"
+  +log = dir ++ "/ask-purge.log"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 100n)
+    r1 : R.Runner<String> <- enq(r0, 0n, log ++ "|dead:a")
+    r2 : R.Runner<String> <- drain(r1)
+    +t : Nat <- R.clock()
+    IO.sleep(5)
+    r3 : R.Runner<String> <- enq(r2, 0n, log ++ "|dead:b")
+    r4 : R.Runner<String> <- drain(r3)
+    r5 : R.Runner<String> <- enq(r4, 0n, log ++ "|slow:s")
+    r6 : R.Runner<String> <- beside(R.inbox(String, r5), ib => purger(False{}, ib, Nat.add(t, 1n), log))
+    closed("next=3 pending=0 running=0 tries=0 fails=0 dead=1", "ask.purge retains the newer grave", view(r6))
+    r7 : R.Runner<String> <- opened(path, 100n)
+    r8 : R.Runner<String> <- held(dead.of(R.state(String, r7)), "1:failed:" ++ log ++ "|dead:b ", "ask.purge survives reopen")
+    r9 : R.Runner<String> <- enq(r8, 0n, log ++ "|slow:s")
+    r10 : R.Runner<String> <- beside(R.inbox(String, r9), ib => purger(True{}, ib, 0n, log))
+    closed("next=4 pending=0 running=0 tries=0 fails=0 dead=0", "ask.purge.all removes the remaining grave", view(r10))
+    +ys : List<&2, String> <- read(log)
+    same(counts(ys, ["purged"]), "purged=2 ", "both purge asks answer while the runner drains")
+    same(last(ys, ""), "end slow:s", "purge.all answers before the slow job ends")
+    r11 : R.Runner<String> <- opened(path, 100n)
+    closed("next=4 pending=0 running=0 tries=0 fails=0 dead=0", "ask.purge.all survives reopen", view(r11))
+
+def refused(y: R.Out(Unit)) -> IO(Unit):
+  match y:
+    case Done{u}:
+      IO.die(Unit, 1, "a closed runner accepted an ask")
+    case Fail{(c, m)}:
+      same(U32.show(c) ++ " " ++ m, "32 runner: the runner closed", "close refuses the queued ask")
+
+def closing.ask(x: R.Runner<String> & Chan(R.Msg<String>), act: Chan(R.Msg<String>) -> IO(R.Out(Unit))) -> IO(Unit):
+  (r, ib) = x
+  do IO<Unit>:
+    ch : Chan(Unit) <- IO.fork(Unit, IO.bind(R.Out(Unit), Unit, act(ib), refused))
+    IO.sleep(100)
+    R.close(String, r)
+    u : Unit <- IO.join(Unit, ch)
+    return Unit{}
+
+def asks.close.admin(+dir: String) -> IO(Unit):
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(dir ++ "/close-revive.journal", 100n)
+    closing.ask(R.inbox(String, r0), ib => R.ask.revive(String, ib, 0n, 0n))
+    r1 : R.Runner<String> <- opened(dir ++ "/close-purge.journal", 100n)
+    closing.ask(R.inbox(String, r1), ib => R.ask.purge(String, ib, 0n))
+    r2 : R.Runner<String> <- opened(dir ++ "/close-purge-all.journal", 100n)
+    closing.ask(R.inbox(String, r2), ib => R.ask.purge.all(String, ib))
+
 def asker(ib: Chan(R.Msg<String>), +log: String) -> IO(Unit):
   do IO<Unit>:
     y : R.Out(Nat) <- R.ask.enqueue(String, ib, 0n, log ++ "|ok:late")
@@ -884,7 +967,10 @@ def all(+dir: String) -> IO(Unit):
     overlap(dir)
     asks(dir)
     asks.cancel(dir)
+    asks.revive(dir)
+    asks.purge(dir)
     asks.close(dir)
+    asks.close.admin(dir)
     asks.idle(dir)
     asks.due(dir)
     compaction(dir)

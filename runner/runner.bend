@@ -29,11 +29,14 @@ type Flight<-A: Data> is Type:
 def Out(-X: Type) -> Type:
   Result<&1, &1, U32 & String, X>
 
-# A message to the fiber that owns the runner. Ended: an attempt finished. Add and Drop: another fiber asks for an enqueue or a cancel.
+# A message to the owner: an attempt's outcome, or another fiber's durable queue operation.
 type Msg<-A: Data> is Type:
   Ended{id: Nat, outcome: Retry.Outcome}
   Add{deadline: Nat, payload: A, reply: Chan(Out(Nat))}
   Drop{id: Nat, reply: Chan(Out(Unit))}
+  ReviveAsk{id: Nat, deadline: Nat, reply: Chan(Out(Unit))}
+  PurgeAsk{before: Nat, reply: Chan(Out(Unit))}
+  PurgeAllAsk{reply: Chan(Out(Unit))}
 
 # An open runner. Replaying its journal gives its state; its pool bounds the attempts that run at once.
 # Each attempt sends its outcome, and each other fiber its ask, on inbox. flights are the attempts that run.
@@ -127,7 +130,7 @@ def purge.all(~A: Data, ~penc: A -> Bytes.Bytes, r: Runner<A>) -> IO(Ran(A)):
 
 # ---- asks from other fibers
 
-# The runner back, and its inbox. Another fiber passes the inbox to ask.enqueue and ask.cancel.
+# The runner back, and its inbox for asks from other fibers.
 def inbox(-A: Data, r: Runner<A>) -> Runner<A> & Chan(Msg<A>):
   Runner{j, s, p, c, +ib, fs} = r
   (Runner{j, s, p, c, ib, fs}, ib)
@@ -163,6 +166,15 @@ def ask.enqueue(-A: Data, +ib: Chan(Msg<A>), +deadline: Nat, x: A) -> IO(Out(Nat
 # From another fiber: cancels ticket id, as cancel does. The answer comes when the owner reads the inbox.
 def ask.cancel(-A: Data, +ib: Chan(Msg<A>), +id: Nat) -> IO(Out(Unit)):
   ask(A, Unit, ib, rep => Drop{id, rep})
+
+def ask.revive(-A: Data, +ib: Chan(Msg<A>), +id: Nat, +deadline: Nat) -> IO(Out(Unit)):
+  ask(A, Unit, ib, rep => ReviveAsk{id, deadline, rep})
+
+def ask.purge(-A: Data, +ib: Chan(Msg<A>), +before: Nat) -> IO(Out(Unit)):
+  ask(A, Unit, ib, rep => PurgeAsk{before, rep})
+
+def ask.purge.all(-A: Data, +ib: Chan(Msg<A>)) -> IO(Out(Unit)):
+  ask(A, Unit, ib, rep => PurgeAllAsk{rep})
 
 # ---- one round
 
@@ -359,17 +371,17 @@ def added(-A: Data, +rep: Chan(Out(Nat)), y: Runner<A> & Out(Nat), err: Out(Unit
     case (r, Fail{e}):
       asked.fail(A, Nat, rep, r, e, err, next)
 
-def dropped(-A: Data, +rep: Chan(Out(Unit)), y: Ran(A), err: Out(Unit),
+def dropped(-A: Data, +rep: Chan(Out(Unit)), y: Ran(A), fuel: Nat, err: Out(Unit),
     next: Runner<A> -> Nat -> Out(Unit) -> IO(Runner<A> & Out(Bool))) -> IO(Runner<A> & Out(Bool)):
   match y:
     case (r, Done{u}):
       do IO<Runner<A> & Out(Bool)>:
         x : Result<&1, &1, Out(Unit), Unit> <- Chan.send(Out(Unit), rep, Done{Unit{}})
-        next(r, 0n, err)
+        next(r, fuel, err)
     case (r, Fail{e}):
       asked.fail(A, Unit, rep, r, e, err, next)
 
-# Settles an ended attempt, or appends an ask's op and answers it. next gets the claim fuel the message adds: 1 for an enqueue.
+# Settles an attempt or commits and answers an ask; enqueue and revive each add one claim.
 def handle(~A: Data, ~penc: A -> Bytes.Bytes, m: Msg<A>, +now: Nat, +rnd: Nat, r: Runner<A>, err: Out(Unit),
     next: Runner<A> -> Nat -> Out(Unit) -> IO(Runner<A> & Out(Bool))) -> IO(Runner<A> & Out(Bool)):
   match m:
@@ -378,7 +390,13 @@ def handle(~A: Data, ~penc: A -> Bytes.Bytes, m: Msg<A>, +now: Nat, +rnd: Nat, r
     case Add{+d, x, +rep}:
       IO.bind(Runner<A> & Out(Nat), Runner<A> & Out(Bool), enqueue(~A, ~penc, r, d, x), y => added(A, rep, y, err, next))
     case Drop{+i, +rep}:
-      IO.bind(Ran(A), Runner<A> & Out(Bool), cancel(~A, ~penc, r, i), y => dropped(A, rep, y, err, next))
+      IO.bind(Ran(A), Runner<A> & Out(Bool), cancel(~A, ~penc, r, i), y => dropped(A, rep, y, 0n, err, next))
+    case ReviveAsk{+i, +d, +rep}:
+      IO.bind(Ran(A), Runner<A> & Out(Bool), revive(~A, ~penc, r, i, d), y => dropped(A, rep, y, 1n, err, next))
+    case PurgeAsk{+before, +rep}:
+      IO.bind(Ran(A), Runner<A> & Out(Bool), purge(~A, ~penc, r, before), y => dropped(A, rep, y, 0n, err, next))
+    case PurgeAllAsk{+rep}:
+      IO.bind(Ran(A), Runner<A> & Out(Bool), purge.all(~A, ~penc, r), y => dropped(A, rep, y, 0n, err, next))
 
 def merged(-A: Data, e: Out(Unit), k: Claimed(A)) -> Claimed(A):
   (r, n, err) = k
@@ -700,6 +718,18 @@ def close.answer(-A: Data, m: Msg<A>) -> IO(Unit):
         y : Result<&1, &1, Out(Nat), Unit> <- Chan.send(Out(Nat), rep, Fail{(32, "runner: the runner closed")})
         return Unit{}
     case Drop{i, rep}:
+      do IO<Unit>:
+        y : Result<&1, &1, Out(Unit), Unit> <- Chan.send(Out(Unit), rep, Fail{(32, "runner: the runner closed")})
+        return Unit{}
+    case ReviveAsk{i, d, rep}:
+      do IO<Unit>:
+        y : Result<&1, &1, Out(Unit), Unit> <- Chan.send(Out(Unit), rep, Fail{(32, "runner: the runner closed")})
+        return Unit{}
+    case PurgeAsk{before, rep}:
+      do IO<Unit>:
+        y : Result<&1, &1, Out(Unit), Unit> <- Chan.send(Out(Unit), rep, Fail{(32, "runner: the runner closed")})
+        return Unit{}
+    case PurgeAllAsk{rep}:
       do IO<Unit>:
         y : Result<&1, &1, Out(Unit), Unit> <- Chan.send(Out(Unit), rep, Fail{(32, "runner: the runner closed")})
         return Unit{}
