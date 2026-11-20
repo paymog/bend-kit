@@ -103,6 +103,44 @@ law u32_is_eq_nat:
   for b: U32
   {U32.is_eq(a, b) == Nat.is_eq(U32.to_nat(a), U32.to_nat(b)) : Bool}
 
+law u32_max_nat:
+  for a: U32
+  for b: U32
+  {U32.to_nat(U32.max(a, b)) == Nat.max(U32.to_nat(a), U32.to_nat(b)) : Nat}
+
+law u32_max_comm:
+  for a: U32
+  for b: U32
+  {U32.max(a, b) == U32.max(b, a) : U32}
+
+law u32_max_assoc:
+  for a: U32
+  for b: U32
+  for c: U32
+  {U32.max(U32.max(a, b), c) == U32.max(a, U32.max(b, c)) : U32}
+
+law u32_max_self:
+  for a: U32
+  {U32.max(a, a) == a : U32}
+
+law u32_le_max_l:
+  for a: U32
+  for b: U32
+  {U32.is_le(a, U32.max(a, b)) == True{} : Bool}
+
+law u32_le_max_r:
+  for a: U32
+  for b: U32
+  {U32.is_le(b, U32.max(a, b)) == True{} : Bool}
+
+law u32_max_le:
+  for a: U32
+  for b: U32
+  for c: U32
+  for ha: {U32.is_le(a, c) == True{} : Bool}
+  for hb: {U32.is_le(b, c) == True{} : Bool}
+  {U32.is_le(U32.max(a, b), c) == True{} : Bool}
+
 # Addition without overflow is exact.
 law u32_add_nat:
   for a: U32

@@ -1,64 +1,15 @@
 import Base
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-mathlib@0.8.0.0/bool.bend as MBool
-import bend-mathlib@0.8.0.0/u32.bend as MU32
 import bend-kit-cbor@0.3.0.0/cbor.bend as Cbor
 import ../lemmas/lemmas.bend as Lemmas
 import ./crdt.bend as Crdt
 import ./LAWS.bend as Laws
 
-def max_nat_sym(+a: U32, +b: U32) -> {Nat.max(U32.to_nat(a), U32.to_nat(b)) == U32.to_nat(U32.max(a, b)) : Nat}:
-  MU32.u32_max_to_nat_sym(a, b)
-
-def max_comm(+a: U32, +b: U32) -> {U32.max(a, b) == U32.max(b, a) : U32}:
-  Lemmas.u32_to_nat_inj(U32.max(a, b), U32.max(b, a),
-    %max_nat_sym(a, b) : {_ == U32.to_nat(U32.max(b, a)) : Nat}
-    %max_nat_sym(b, a) : {Nat.max(U32.to_nat(a), U32.to_nat(b)) == _ : Nat}
-    MNat.max_comm(U32.to_nat(a), U32.to_nat(b)))
-
-def max_assoc(+a: U32, +b: U32, +c: U32) -> {U32.max(U32.max(a, b), c) == U32.max(a, U32.max(b, c)) : U32}:
-  Lemmas.u32_to_nat_inj(U32.max(U32.max(a, b), c), U32.max(a, U32.max(b, c)),
-    %max_nat_sym(U32.max(a, b), c) : {_ == U32.to_nat(U32.max(a, U32.max(b, c))) : Nat}
-    %max_nat_sym(a, b) : {Nat.max(_, U32.to_nat(c)) == U32.to_nat(U32.max(a, U32.max(b, c))) : Nat}
-    %max_nat_sym(a, U32.max(b, c)) : {Nat.max(Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(c)) == _ : Nat}
-    %max_nat_sym(b, c) : {Nat.max(Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(c)) == Nat.max(U32.to_nat(a), _) : Nat}
-    MNat.max_assoc(U32.to_nat(a), U32.to_nat(b), U32.to_nat(c)))
-
-def max_self(+a: U32) -> {U32.max(a, a) == a : U32}:
-  Lemmas.u32_to_nat_inj(U32.max(a, a), a,
-    %max_nat_sym(a, a) : {_ == U32.to_nat(a) : Nat}
-    MNat.max_self(U32.to_nat(a)))
-
 # U32 order facts, read through to_nat.
-def le_nat_sym(+a: U32, +b: U32) -> {Nat.is_le(U32.to_nat(a), U32.to_nat(b)) == U32.is_le(a, b) : Bool}:
-  Equal.sym(Bool, U32.is_le(a, b), Nat.is_le(U32.to_nat(a), U32.to_nat(b)), Lemmas.u32_is_le_nat(a, b))
-
 def le_refl(+a: U32) -> {U32.is_le(a, a) == True{} : Bool}:
-  %le_nat_sym(a, a) : {_ == True{} : Bool}
+  %Lemmas.u32_le_nat_sym(a, a) : {_ == True{} : Bool}
   MNat.le_refl(U32.to_nat(a))
-
-def le_max_l(+a: U32, +b: U32) -> {U32.is_le(a, U32.max(a, b)) == True{} : Bool}:
-  %le_nat_sym(a, U32.max(a, b)) : {_ == True{} : Bool}
-  %max_nat_sym(a, b) : {Nat.is_le(U32.to_nat(a), _) == True{} : Bool}
-  MNat.le_max_left(U32.to_nat(a), U32.to_nat(b))
-
-def le_max_r(+a: U32, +b: U32) -> {U32.is_le(b, U32.max(a, b)) == True{} : Bool}:
-  %le_nat_sym(b, U32.max(a, b)) : {_ == True{} : Bool}
-  %max_nat_sym(a, b) : {Nat.is_le(U32.to_nat(b), _) == True{} : Bool}
-  MNat.le_max_right(U32.to_nat(a), U32.to_nat(b))
-
-def max_le(
-  +a: U32, +b: U32, +c: U32,
-  ha: {U32.is_le(a, c) == True{} : Bool}, hb: {U32.is_le(b, c) == True{} : Bool}
-) -> {U32.is_le(U32.max(a, b), c) == True{} : Bool}:
-  %le_nat_sym(U32.max(a, b), c) : {_ == True{} : Bool}
-  %max_nat_sym(a, b) : {Nat.is_le(_, U32.to_nat(c)) == True{} : Bool}
-  %Equal.sym(Bool, Nat.is_le(Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(c)),
-    Bool.and(Nat.is_le(U32.to_nat(a), U32.to_nat(c)), Nat.is_le(U32.to_nat(b), U32.to_nat(c))),
-    MNat.max_le(U32.to_nat(a), U32.to_nat(b), U32.to_nat(c))) : {_ == True{} : Bool}
-  %Lemmas.u32_is_le_nat(a, c) : {Bool.and(_, Nat.is_le(U32.to_nat(b), U32.to_nat(c))) == True{} : Bool}
-  %Lemmas.u32_is_le_nat(b, c) : {Bool.and(U32.is_le(a, c), _) == True{} : Bool}
-  MBool.and_eq_true(U32.is_le(a, c), U32.is_le(b, c), ha, hb)
 
 def cmp_lt_le(k: Cmp, h: {Cmp.is_lt(k) == True{} : Bool}) -> {Cmp.is_le(k) == True{} : Bool}:
   match k:
@@ -68,20 +19,6 @@ def cmp_lt_le(k: Cmp, h: {Cmp.is_lt(k) == True{} : Bool}) -> {Cmp.is_le(k) == Tr
       Empty.absurd({Cmp.is_le(EQ{}) == True{} : Bool}, MBool.false_ne_true()(h))
     case GT{}:
       Empty.absurd({Cmp.is_le(GT{}) == True{} : Bool}, MBool.false_ne_true()(h))
-
-def cmp_nat_sym(+a: U32, +b: U32) -> {Nat.cmp(U32.to_nat(a), U32.to_nat(b)) == U32.cmp(a, b) : Cmp}:
-  Equal.sym(Cmp, U32.cmp(a, b), Nat.cmp(U32.to_nat(a), U32.to_nat(b)), Lemmas.u32_cmp_nat(a, b))
-
-def ne0_nat(
-  n: Nat, +m: Nat, h: {Bool.not(Cmp.is_eq(Nat.cmp(n, 0n))) == True{} : Bool}
-) -> {Bool.not(Cmp.is_eq(Nat.cmp(Nat.max(n, m), 0n))) == True{} : Bool}:
-  match n m:
-    case 0n _:
-      Empty.absurd({Bool.not(Cmp.is_eq(Nat.cmp(Nat.max(0n, m), 0n))) == True{} : Bool}, MBool.false_ne_true()(h))
-    case 1n+p 0n:
-      {==}
-    case 1n+p 1n+q:
-      {==}
 
 def lt_ne0_nat(
   a: Nat, b: Nat, h: {Cmp.is_lt(Nat.cmp(a, b)) == True{} : Bool}
@@ -94,46 +31,14 @@ def lt_ne0_nat(
     case _ 1n+q:
       {==}
 
-# A count of 0 compares the same as a count at most 0.
-def eq0_le_nat(n: Nat) -> {Cmp.is_eq(Nat.cmp(n, 0n)) == Cmp.is_le(Nat.cmp(n, 0n)) : Bool}:
-  match n:
-    case 0n:
-      {==}
-    case 1n+p:
-      {==}
-
-def eq0_le(+x: U32) -> {U32.is_eq(x, 0) == U32.is_le(x, 0) : Bool}:
-  %cmp_nat_sym(x, 0) : {Cmp.is_eq(_) == Cmp.is_le(_) : Bool}
-  eq0_le_nat(U32.to_nat(x))
-
-def eq0_to_le(+x: U32, h: {U32.is_eq(x, 0) == True{} : Bool}) -> {U32.is_le(x, 0) == True{} : Bool}:
-  Equal.trans(Bool, U32.is_le(x, 0), U32.is_eq(x, 0), True{},
-    Equal.sym(Bool, U32.is_eq(x, 0), U32.is_le(x, 0), eq0_le(x)), h)
-
-def max_eq0(
-  +x: U32, +y: U32, hx: {U32.is_eq(x, 0) == True{} : Bool}, hy: {U32.is_eq(y, 0) == True{} : Bool}
-) -> {U32.is_eq(U32.max(x, y), 0) == True{} : Bool}:
-  Equal.trans(Bool, U32.is_eq(U32.max(x, y), 0), U32.is_le(U32.max(x, y), 0), True{},
-    eq0_le(U32.max(x, y)), max_le(x, y, 0, eq0_to_le(x, hx), eq0_to_le(y, hy)))
-
-def ne0_max(
-  +x: U32, +y: U32, h: {U32.is_ne(x, 0) == True{} : Bool}
-) -> {U32.is_ne(U32.max(x, y), 0) == True{} : Bool}:
-  %cmp_nat_sym(U32.max(x, y), 0) : {Bool.not(Cmp.is_eq(_)) == True{} : Bool}
-  %max_nat_sym(x, y) : {Bool.not(Cmp.is_eq(Nat.cmp(_, U32.to_nat(0)))) == True{} : Bool}
-  ne0_nat(U32.to_nat(x), U32.to_nat(y),
-    Equal.trans(Bool, Bool.not(Cmp.is_eq(Nat.cmp(U32.to_nat(x), U32.to_nat(0)))), U32.is_ne(x, 0), True{},
-      Equal.cong(Cmp, Bool, k => Bool.not(Cmp.is_eq(k)), Nat.cmp(U32.to_nat(x), U32.to_nat(0)), U32.cmp(x, 0),
-        cmp_nat_sym(x, 0)), h))
-
 def lt_ne0(
   +c: U32, +n: U32, h: {U32.is_lt(c, n) == True{} : Bool}
 ) -> {U32.is_ne(n, 0) == True{} : Bool}:
-  %cmp_nat_sym(n, 0) : {Bool.not(Cmp.is_eq(_)) == True{} : Bool}
+  %Lemmas.u32_cmp_nat_sym(n, 0) : {Bool.not(Cmp.is_eq(_)) == True{} : Bool}
   lt_ne0_nat(U32.to_nat(c), U32.to_nat(n),
     Equal.trans(Bool, Cmp.is_lt(Nat.cmp(U32.to_nat(c), U32.to_nat(n))), U32.is_lt(c, n), True{},
       Equal.cong(Cmp, Bool, k => Cmp.is_lt(k), Nat.cmp(U32.to_nat(c), U32.to_nat(n)), U32.cmp(c, n),
-        cmp_nat_sym(c, n)), h))
+        Lemmas.u32_cmp_nat_sym(c, n)), h))
 
 def eq32(+x: U32, +y: U32, h: {U32.is_eq(x, y) == True{} : Bool}) -> {x == y : U32}:
   Lemmas.u32_to_nat_inj(x, y, MNat.eq_of_is_eq(U32.to_nat(x), U32.to_nat(y),
@@ -172,7 +77,7 @@ def Laws.merge_comm(a, b):
       {==}
     case Con{+x, +xs} Con{+y, +ys}:
       cons_eq(U32.max(x, y), U32.max(y, x), Crdt.GCounter.merge(xs, ys), Crdt.GCounter.merge(ys, xs),
-        max_comm(x, y), Laws.merge_comm(xs, ys))
+        Lemmas.u32_max_comm(x, y), Laws.merge_comm(xs, ys))
 
 def Laws.merge_assoc(a, b, c):
   match a b c:
@@ -193,14 +98,14 @@ def Laws.merge_assoc(a, b, c):
     case Con{+x, +xs} Con{+y, +ys} Con{+z, +zs}:
       cons_eq(U32.max(U32.max(x, y), z), U32.max(x, U32.max(y, z)),
         Crdt.GCounter.merge(Crdt.GCounter.merge(xs, ys), zs), Crdt.GCounter.merge(xs, Crdt.GCounter.merge(ys, zs)),
-        max_assoc(x, y, z), Laws.merge_assoc(xs, ys, zs))
+        Lemmas.u32_max_assoc(x, y, z), Laws.merge_assoc(xs, ys, zs))
 
 def Laws.merge_idem(a):
   match a:
     case Nil{}:
       {==}
     case Con{+x, +xs}:
-      cons_eq(U32.max(x, x), x, Crdt.GCounter.merge(xs, xs), xs, max_self(x), Laws.merge_idem(xs))
+      cons_eq(U32.max(x, x), x, Crdt.GCounter.merge(xs, xs), xs, Lemmas.u32_max_self(x), Laws.merge_idem(xs))
 
 def Laws.merge_upper_l(a, b):
   match a b:
@@ -210,7 +115,7 @@ def Laws.merge_upper_l(a, b):
       le_refl_list(Con{x, xs})
     case Con{+x, +xs} Con{+y, +ys}:
       MBool.and_eq_true(U32.is_le(x, U32.max(x, y)), Crdt.GCounter.le(xs, Crdt.GCounter.merge(xs, ys)),
-        le_max_l(x, y), Laws.merge_upper_l(xs, ys))
+        Lemmas.u32_le_max_l(x, y), Laws.merge_upper_l(xs, ys))
 
 def Laws.merge_upper_r(a, b):
   +a = a
@@ -230,7 +135,7 @@ def Laws.merge_least(a, b, c, ha, hb):
       +ha = ha
       +hb = hb
       MBool.and_eq_true(U32.is_eq(U32.max(x, y), 0), Crdt.GCounter.le(Crdt.GCounter.merge(xs, ys), Nil{}),
-        max_eq0(x, y,
+        Lemmas.u32_max_eq0(x, y,
           MBool.eq_true_of_and_left(U32.is_eq(x, 0), Crdt.GCounter.le(xs, Nil{}), ha),
           MBool.eq_true_of_and_left(U32.is_eq(y, 0), Crdt.GCounter.le(ys, Nil{}), hb)),
         Laws.merge_least(xs, ys, Nil{},
@@ -240,7 +145,7 @@ def Laws.merge_least(a, b, c, ha, hb):
       +ha = ha
       +hb = hb
       MBool.and_eq_true(U32.is_le(U32.max(x, y), z), Crdt.GCounter.le(Crdt.GCounter.merge(xs, ys), zs),
-        max_le(x, y, z,
+        Lemmas.u32_max_le(x, y, z,
           MBool.eq_true_of_and_left(U32.is_le(x, z), Crdt.GCounter.le(xs, zs), ha),
           MBool.eq_true_of_and_left(U32.is_le(y, z), Crdt.GCounter.le(ys, zs), hb)),
         Laws.merge_least(xs, ys, zs,
@@ -254,20 +159,20 @@ def le32_trans(
   +a: U32, +b: U32, +c: U32,
   hab: {U32.is_le(a, b) == True{} : Bool}, hbc: {U32.is_le(b, c) == True{} : Bool}
 ) -> {U32.is_le(a, c) == True{} : Bool}:
-  %le_nat_sym(a, c) : {_ == True{} : Bool}
+  %Lemmas.u32_le_nat_sym(a, c) : {_ == True{} : Bool}
   MNat.le_trans(U32.to_nat(a), U32.to_nat(b), U32.to_nat(c),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{}, le_nat_sym(a, b), hab),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(b), U32.to_nat(c)), U32.is_le(b, c), True{}, le_nat_sym(b, c), hbc))
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{}, Lemmas.u32_le_nat_sym(a, b), hab),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(b), U32.to_nat(c)), U32.is_le(b, c), True{}, Lemmas.u32_le_nat_sym(b, c), hbc))
 
 def zero_le32(+a: U32) -> {U32.is_le(0, a) == True{} : Bool}:
-  %le_nat_sym(0, a) : {_ == True{} : Bool}
+  %Lemmas.u32_le_nat_sym(0, a) : {_ == True{} : Bool}
   MNat.zero_le(U32.to_nat(a))
 
 def le32_eq0(
   +x: U32, +y: U32, hxy: {U32.is_le(x, y) == True{} : Bool}, hy: {U32.is_eq(y, 0) == True{} : Bool}
 ) -> {U32.is_eq(x, 0) == True{} : Bool}:
   Equal.trans(Bool, U32.is_eq(x, 0), U32.is_le(x, 0), True{},
-    eq0_le(x), le32_trans(x, y, 0, hxy, eq0_to_le(y, hy)))
+    Lemmas.u32_eq0_le(x), le32_trans(x, y, 0, hxy, Lemmas.u32_eq0_to_le(y, hy)))
 
 def Laws.le_trans(a, b, c, hab, hbc):
   match a b c:
@@ -278,7 +183,7 @@ def Laws.le_trans(a, b, c, hab, hbc):
     case Con{+x, +xs} Nil{} Con{+z, +zs}:
       +hab = hab
       MBool.and_eq_true(U32.is_le(x, z), Crdt.GCounter.le(xs, zs),
-        le32_trans(x, 0, z, eq0_to_le(x,
+        le32_trans(x, 0, z, Lemmas.u32_eq0_to_le(x,
           MBool.eq_true_of_and_left(U32.is_eq(x, 0), Crdt.GCounter.le(xs, Nil{}), hab)), zero_le32(z)),
         Laws.le_trans(xs, Nil{}, zs,
           MBool.eq_true_of_and_right(U32.is_eq(x, 0), Crdt.GCounter.le(xs, Nil{}), hab), {==}))
@@ -345,7 +250,7 @@ def valid_go(
 ) -> {Crdt.GCounter.valid.go(Crdt.GCounter.merge(xs, ys), U32.max(x, y)) == True{} : Bool}:
   match xs ys:
     case Nil{} Nil{}:
-      ne0_max(x, y, hx)
+      Lemmas.u32_ne0_max(x, y, hx)
     case Nil{} Con{v, vs}:
       hy
     case Con{u, us} Nil{}:
@@ -448,8 +353,8 @@ def le32_antisymm(
   +x: U32, +y: U32, hxy: {U32.is_le(x, y) == True{} : Bool}, hyx: {U32.is_le(y, x) == True{} : Bool}
 ) -> {x == y : U32}:
   Lemmas.u32_to_nat_inj(x, y, MNat.le_antisymm(U32.to_nat(x), U32.to_nat(y),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(x), U32.to_nat(y)), U32.is_le(x, y), True{}, le_nat_sym(x, y), hxy),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(y), U32.to_nat(x)), U32.is_le(y, x), True{}, le_nat_sym(y, x), hyx)))
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(x), U32.to_nat(y)), U32.is_le(x, y), True{}, Lemmas.u32_le_nat_sym(x, y), hxy),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(y), U32.to_nat(x)), U32.is_le(y, x), True{}, Lemmas.u32_le_nat_sym(y, x), hyx)))
 
 def Laws.le_antisymm(a, b, va, vb, hab, hba):
   match a b:
@@ -842,32 +747,24 @@ def gt_flip(
     Equal.cong(Cmp, Cmp, c => Laws.flip(c), cmp(x, y), GT{}, e))
 
 # U32 order and maximum facts.
-def max0_r(+a: U32) -> {U32.max(a, 0) == a : U32}:
-  Lemmas.u32_to_nat_inj(U32.max(a, 0), a,
-    %max_nat_sym(a, 0) : {_ == U32.to_nat(a) : Nat}
-    MNat.max_zero(U32.to_nat(a)))
-
-def max0_l(+a: U32) -> {U32.max(0, a) == a : U32}:
-  Equal.trans(U32, U32.max(0, a), U32.max(a, 0), a, max_comm(0, a), max0_r(a))
-
 def zero_le(+a: U32) -> {U32.is_le(0, a) == True{} : Bool}:
-  %le_nat_sym(0, a) : {_ == True{} : Bool}
+  %Lemmas.u32_le_nat_sym(0, a) : {_ == True{} : Bool}
   MNat.zero_le(U32.to_nat(a))
 
 def le_trans(
   +a: U32, +b: U32, +c: U32, ab: {U32.is_le(a, b) == True{} : Bool}, bc: {U32.is_le(b, c) == True{} : Bool}
 ) -> {U32.is_le(a, c) == True{} : Bool}:
-  %le_nat_sym(a, c) : {_ == True{} : Bool}
+  %Lemmas.u32_le_nat_sym(a, c) : {_ == True{} : Bool}
   MNat.le_trans(U32.to_nat(a), U32.to_nat(b), U32.to_nat(c),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{}, le_nat_sym(a, b), ab),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(b), U32.to_nat(c)), U32.is_le(b, c), True{}, le_nat_sym(b, c), bc))
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{}, Lemmas.u32_le_nat_sym(a, b), ab),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(b), U32.to_nat(c)), U32.is_le(b, c), True{}, Lemmas.u32_le_nat_sym(b, c), bc))
 
 def le_antisymm(
   +a: U32, +b: U32, ab: {U32.is_le(a, b) == True{} : Bool}, ba: {U32.is_le(b, a) == True{} : Bool}
 ) -> {a == b : U32}:
   Lemmas.u32_to_nat_inj(a, b, MNat.le_antisymm(U32.to_nat(a), U32.to_nat(b),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{}, le_nat_sym(a, b), ab),
-    Equal.trans(Bool, Nat.is_le(U32.to_nat(b), U32.to_nat(a)), U32.is_le(b, a), True{}, le_nat_sym(b, a), ba)))
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(a), U32.to_nat(b)), U32.is_le(a, b), True{}, Lemmas.u32_le_nat_sym(a, b), ab),
+    Equal.trans(Bool, Nat.is_le(U32.to_nat(b), U32.to_nat(a)), U32.is_le(b, a), True{}, Lemmas.u32_le_nat_sym(b, a), ba)))
 
 # c <= u and u == v give c <= v.
 def le_rw(+c: U32, -u: U32, -v: U32, e: {u == v : U32}, h: {U32.is_le(c, u) == True{} : Bool}) -> {U32.is_le(c, v) == True{} : Bool}:
@@ -878,31 +775,14 @@ def le_rw_l(-u: U32, -v: U32, +c: U32, e: {u == v : U32}, h: {U32.is_le(u, c) ==
   %e : {U32.is_le(_, c) == True{} : Bool}
   h
 
-def lcomm32(+p: U32, +a: U32, +t: U32) -> {U32.max(p, U32.max(a, t)) == U32.max(a, U32.max(p, t)) : U32}:
-  Equal.trans(U32, U32.max(p, U32.max(a, t)), U32.max(U32.max(p, a), t), U32.max(a, U32.max(p, t)),
-    Equal.sym(U32, U32.max(U32.max(p, a), t), U32.max(p, U32.max(a, t)), max_assoc(p, a, t)),
-    Equal.trans(U32, U32.max(U32.max(p, a), t), U32.max(U32.max(a, p), t), U32.max(a, U32.max(p, t)),
-      Equal.cong(U32, U32, z => U32.max(z, t), U32.max(p, a), U32.max(a, p), max_comm(p, a)),
-      max_assoc(a, p, t)))
-
-def max4(+p: U32, +q: U32, +r: U32, +t: U32) -> {U32.max(U32.max(p, q), U32.max(r, t)) == U32.max(U32.max(p, r), U32.max(q, t)) : U32}:
-  Equal.trans(U32, U32.max(U32.max(p, q), U32.max(r, t)), U32.max(p, U32.max(q, U32.max(r, t))),
-    U32.max(U32.max(p, r), U32.max(q, t)),
-    max_assoc(p, q, U32.max(r, t)),
-    Equal.trans(U32, U32.max(p, U32.max(q, U32.max(r, t))), U32.max(p, U32.max(r, U32.max(q, t))),
-      U32.max(U32.max(p, r), U32.max(q, t)),
-      Equal.cong(U32, U32, z => U32.max(p, z), U32.max(q, U32.max(r, t)), U32.max(r, U32.max(q, t)), lcomm32(q, r, t)),
-      Equal.sym(U32, U32.max(U32.max(p, r), U32.max(q, t)), U32.max(p, U32.max(r, U32.max(q, t))),
-        max_assoc(p, r, U32.max(q, t)))))
-
 def hit_max(q: Cmp, +c: U32, +d: U32) -> {Crdt.KCounter.hit(q, U32.max(c, d)) == U32.max(Crdt.KCounter.hit(q, c), Crdt.KCounter.hit(q, d)) : U32}:
   match q:
     case LT{}:
-      Equal.sym(U32, U32.max(0, 0), 0, max_self(0))
+      Equal.sym(U32, U32.max(0, 0), 0, Lemmas.u32_max_self(0))
     case EQ{}:
       {==}
     case GT{}:
-      Equal.sym(U32, U32.max(0, 0), 0, max_self(0))
+      Equal.sym(U32, U32.max(0, 0), 0, Lemmas.u32_max_self(0))
 
 # get of a merge is the maximum of the two gets, for any states.
 def get_merge.go(
@@ -911,10 +791,10 @@ def get_merge.go(
 ) -> {KG(~K, ~cmp, KMG(~K, ~cmp, a, b, q), k) == U32.max(KG(~K, ~cmp, a, k), KG(~K, ~cmp, b, k)) : U32}:
   match a b q:
     case Crdt.KNil{} +b _:
-      Equal.sym(U32, U32.max(0, KG(~K, ~cmp, b, k)), KG(~K, ~cmp, b, k), max0_l(KG(~K, ~cmp, b, k)))
+      Equal.sym(U32, U32.max(0, KG(~K, ~cmp, b, k)), KG(~K, ~cmp, b, k), Lemmas.u32_max0_l(KG(~K, ~cmp, b, k)))
     case Crdt.KCon{+x, +c, +r} Crdt.KNil{} _:
       Equal.sym(U32, U32.max(KG(~K, ~cmp, Crdt.KCon{x, c, r}, k), 0), KG(~K, ~cmp, Crdt.KCon{x, c, r}, k),
-        max0_r(KG(~K, ~cmp, Crdt.KCon{x, c, r}, k)))
+        Lemmas.u32_max0_r(KG(~K, ~cmp, Crdt.KCon{x, c, r}, k)))
     case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} LT{}:
       +p = Crdt.KCounter.hit(cmp(k, x), c)
       +gb = KG(~K, ~cmp, Crdt.KCon{y, d, t}, k)
@@ -923,7 +803,7 @@ def get_merge.go(
         U32.max(p, U32.max(gr, gb)), U32.max(U32.max(p, gr), gb),
         Equal.cong(U32, U32, z => U32.max(p, z), KG(~K, ~cmp, KM(~K, ~cmp, r, Crdt.KCon{y, d, t}), k),
           U32.max(gr, gb), get_merge.go(~K, ~cmp, ~eq, r, Crdt.KCon{y, d, t}, KH2(~K, ~cmp, r, Crdt.KCon{y, d, t}), k, {==})),
-        Equal.sym(U32, U32.max(U32.max(p, gr), gb), U32.max(p, U32.max(gr, gb)), max_assoc(p, gr, gb)))
+        Equal.sym(U32, U32.max(U32.max(p, gr), gb), U32.max(p, U32.max(gr, gb)), Lemmas.u32_max_assoc(p, gr, gb)))
     case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} EQ{}:
       +p = Crdt.KCounter.hit(cmp(k, x), c)
       +px = Crdt.KCounter.hit(cmp(k, x), d)
@@ -942,7 +822,7 @@ def get_merge.go(
         Equal.trans(U32, U32.max(U32.max(p, px), U32.max(gr, gt)),
           U32.max(U32.max(p, gr), U32.max(px, gt)),
           U32.max(U32.max(p, gr), U32.max(Crdt.KCounter.hit(cmp(k, y), d), gt)),
-          max4(p, px, gr, gt),
+          Lemmas.u32_max_four(p, px, gr, gt),
           Equal.cong(K, U32, z => U32.max(U32.max(p, gr), U32.max(Crdt.KCounter.hit(cmp(k, z), d), gt)),
             x, y, eq(x, y, e))))
     case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} GT{}:
@@ -953,7 +833,7 @@ def get_merge.go(
         U32.max(pq, U32.max(ga, gt)), U32.max(ga, U32.max(pq, gt)),
         Equal.cong(U32, U32, z => U32.max(pq, z), KG(~K, ~cmp, KM(~K, ~cmp, Crdt.KCon{x, c, r}, t), k),
           U32.max(ga, gt), get_merge.go(~K, ~cmp, ~eq, Crdt.KCon{x, c, r}, t, KH2(~K, ~cmp, Crdt.KCon{x, c, r}, t), k, {==})),
-        lcomm32(pq, ga, gt))
+        Lemmas.u32_max_left_comm(pq, ga, gt))
 
 def get_merge(
   ~K: Data, ~cmp: K -> K -> Cmp, ~eq: Eq(~K, ~cmp), +a: Crdt.KCounter<K>, +b: Crdt.KCounter<K>, +k: K
@@ -966,7 +846,7 @@ def Laws.k_merge_comm(K, cmp, eq, a, b, k):
   Equal.trans(U32, KG(~K, ~cmp, KM(~K, ~cmp, a, b), k), U32.max(KG(~K, ~cmp, a, k), KG(~K, ~cmp, b, k)),
     KG(~K, ~cmp, KM(~K, ~cmp, b, a), k), get_merge(~K, ~cmp, ~eq, a, b, k),
     Equal.trans(U32, U32.max(KG(~K, ~cmp, a, k), KG(~K, ~cmp, b, k)), U32.max(KG(~K, ~cmp, b, k), KG(~K, ~cmp, a, k)),
-      KG(~K, ~cmp, KM(~K, ~cmp, b, a), k), max_comm(KG(~K, ~cmp, a, k), KG(~K, ~cmp, b, k)),
+      KG(~K, ~cmp, KM(~K, ~cmp, b, a), k), Lemmas.u32_max_comm(KG(~K, ~cmp, a, k), KG(~K, ~cmp, b, k)),
       Equal.sym(U32, KG(~K, ~cmp, KM(~K, ~cmp, b, a), k), U32.max(KG(~K, ~cmp, b, k), KG(~K, ~cmp, a, k)),
         get_merge(~K, ~cmp, ~eq, b, a, k))))
 
@@ -985,7 +865,7 @@ def Laws.k_merge_assoc(K, cmp, eq, a, b, c, k):
       Equal.cong(U32, U32, z => U32.max(z, gc), KG(~K, ~cmp, KM(~K, ~cmp, a, b), k), U32.max(ga, gb),
         get_merge(~K, ~cmp, ~eq, a, b, k))),
     Equal.trans(U32, U32.max(U32.max(ga, gb), gc), U32.max(ga, U32.max(gb, gc)),
-      KG(~K, ~cmp, KM(~K, ~cmp, a, KM(~K, ~cmp, b, c)), k), max_assoc(ga, gb, gc),
+      KG(~K, ~cmp, KM(~K, ~cmp, a, KM(~K, ~cmp, b, c)), k), Lemmas.u32_max_assoc(ga, gb, gc),
       Equal.sym(U32, KG(~K, ~cmp, KM(~K, ~cmp, a, KM(~K, ~cmp, b, c)), k), U32.max(ga, U32.max(gb, gc)),
         Equal.trans(U32, KG(~K, ~cmp, KM(~K, ~cmp, a, KM(~K, ~cmp, b, c)), k),
           U32.max(ga, KG(~K, ~cmp, KM(~K, ~cmp, b, c), k)), U32.max(ga, U32.max(gb, gc)),
@@ -996,7 +876,7 @@ def Laws.k_merge_assoc(K, cmp, eq, a, b, c, k):
 def Laws.k_merge_idem(K, cmp, eq, a, k):
   +a = a
   Equal.trans(U32, KG(~K, ~cmp, KM(~K, ~cmp, a, a), k), U32.max(KG(~K, ~cmp, a, k), KG(~K, ~cmp, a, k)),
-    KG(~K, ~cmp, a, k), get_merge(~K, ~cmp, ~eq, a, a, k), max_self(KG(~K, ~cmp, a, k)))
+    KG(~K, ~cmp, a, k), get_merge(~K, ~cmp, ~eq, a, a, k), Lemmas.u32_max_self(KG(~K, ~cmp, a, k)))
 
 # le, read through get.
 def hit_le(
@@ -1021,7 +901,7 @@ def le_get(
       zero_le(KG(~K, ~cmp, b, k))
     case Crdt.KCon{+x, +c, +r}:
       +h = h
-      max_le(Crdt.KCounter.hit(cmp(k, x), c), KG(~K, ~cmp, r, k), KG(~K, ~cmp, b, k),
+      Lemmas.u32_max_le(Crdt.KCounter.hit(cmp(k, x), c), KG(~K, ~cmp, r, k), KG(~K, ~cmp, b, k),
         hit_le(~K, ~cmp, ~eq, cmp(k, x), k, x, c, b, {==},
           MBool.eq_true_of_and_left(U32.is_le(c, KG(~K, ~cmp, b, x)), KL(~K, ~cmp, r, b), h)),
         le_get(~K, ~cmp, ~eq, r, b,
@@ -1040,7 +920,7 @@ def le_ext(
       MBool.and_eq_true(U32.is_le(d, KG(~K, ~cmp, Crdt.KCon{x, c, b}, y)), KL(~K, ~cmp, r, Crdt.KCon{x, c, b}),
         le_trans(d, KG(~K, ~cmp, b, y), KG(~K, ~cmp, Crdt.KCon{x, c, b}, y),
           MBool.eq_true_of_and_left(U32.is_le(d, KG(~K, ~cmp, b, y)), KL(~K, ~cmp, r, b), h),
-          le_max_r(Crdt.KCounter.hit(cmp(y, x), c), KG(~K, ~cmp, b, y))),
+          Lemmas.u32_le_max_r(Crdt.KCounter.hit(cmp(y, x), c), KG(~K, ~cmp, b, y))),
         le_ext(~K, ~cmp, r, b, x, c,
           MBool.eq_true_of_and_right(U32.is_le(d, KG(~K, ~cmp, b, y)), KL(~K, ~cmp, r, b), h)))
 
@@ -1051,7 +931,7 @@ def le_self(~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), a: Crdt.KCount
     case Crdt.KCon{+x, +c, +r}:
       MBool.and_eq_true(U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{x, c, r}, x)), KL(~K, ~cmp, r, Crdt.KCon{x, c, r}),
         %Equal.sym(Cmp, cmp(x, x), EQ{}, refl(x)) : {U32.is_le(c, U32.max(Crdt.KCounter.hit(_, c), KG(~K, ~cmp, r, x))) == True{} : Bool}
-        le_max_l(c, KG(~K, ~cmp, r, x)),
+        Lemmas.u32_le_max_l(c, KG(~K, ~cmp, r, x)),
         le_ext(~K, ~cmp, r, r, x, c, le_self(~K, ~cmp, ~refl, r)))
 
 def le_merge_r(
@@ -1069,7 +949,7 @@ def le_merge_r(
             get_merge(~K, ~cmp, ~eq, t, b, x)),
           le_trans(c, KG(~K, ~cmp, t, x), U32.max(KG(~K, ~cmp, t, x), KG(~K, ~cmp, b, x)),
             MBool.eq_true_of_and_left(U32.is_le(c, KG(~K, ~cmp, t, x)), KL(~K, ~cmp, r, t), h),
-            le_max_l(KG(~K, ~cmp, t, x), KG(~K, ~cmp, b, x)))),
+            Lemmas.u32_le_max_l(KG(~K, ~cmp, t, x), KG(~K, ~cmp, b, x)))),
         le_merge_r(~K, ~cmp, ~eq, r, t, b,
           MBool.eq_true_of_and_right(U32.is_le(c, KG(~K, ~cmp, t, x)), KL(~K, ~cmp, r, t), h)))
 
@@ -1088,7 +968,7 @@ def le_merge_l(
             get_merge(~K, ~cmp, ~eq, a, t, x)),
           le_trans(c, KG(~K, ~cmp, t, x), U32.max(KG(~K, ~cmp, a, x), KG(~K, ~cmp, t, x)),
             MBool.eq_true_of_and_left(U32.is_le(c, KG(~K, ~cmp, t, x)), KL(~K, ~cmp, r, t), h),
-            le_max_r(KG(~K, ~cmp, a, x), KG(~K, ~cmp, t, x)))),
+            Lemmas.u32_le_max_r(KG(~K, ~cmp, a, x), KG(~K, ~cmp, t, x)))),
         le_merge_l(~K, ~cmp, ~eq, r, t, a,
           MBool.eq_true_of_and_right(U32.is_le(c, KG(~K, ~cmp, t, x)), KL(~K, ~cmp, r, t), h)))
 
@@ -1121,7 +1001,7 @@ def least.go(
           MBool.eq_true_of_and_right(U32.is_le(cx, KG(~K, ~cmp, c, x)), KL(~K, ~cmp, r, c), ha), hb, {==}))
     case Crdt.KCon{+x, +cx, +r} Crdt.KCon{+y, +cy, +t} EQ{}:
       MBool.and_eq_true(U32.is_le(U32.max(cx, cy), KG(~K, ~cmp, c, x)), KL(~K, ~cmp, KM(~K, ~cmp, r, t), c),
-        max_le(cx, cy, KG(~K, ~cmp, c, x),
+        Lemmas.u32_max_le(cx, cy, KG(~K, ~cmp, c, x),
           MBool.eq_true_of_and_left(U32.is_le(cx, KG(~K, ~cmp, c, x)), KL(~K, ~cmp, r, c), ha),
           %Equal.sym(K, x, y, eq(x, y, e)) : {U32.is_le(cy, KG(~K, ~cmp, c, _)) == True{} : Bool}
           MBool.eq_true_of_and_left(U32.is_le(cy, KG(~K, ~cmp, c, y)), KL(~K, ~cmp, t, c), hb)),
@@ -1148,7 +1028,7 @@ def le_head(
   h: {U32.is_le(c, n) == True{} : Bool}
 ) -> {U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{x, n, u}, x)) == True{} : Bool}:
   %Equal.sym(Cmp, cmp(x, x), EQ{}, refl(x)) : {U32.is_le(c, U32.max(Crdt.KCounter.hit(_, n), KG(~K, ~cmp, u, x))) == True{} : Bool}
-  le_trans(c, n, U32.max(n, KG(~K, ~cmp, u, x)), h, le_max_l(n, KG(~K, ~cmp, u, x)))
+  le_trans(c, n, U32.max(n, KG(~K, ~cmp, u, x)), h, Lemmas.u32_le_max_l(n, KG(~K, ~cmp, u, x)))
 
 def k_grows_cons(
   ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), m: Maybe<&2, Crdt.KCounter<K>>, +x: K, +c: U32,
@@ -1247,7 +1127,7 @@ def merge_valid.go(
         merge_valid.go(~K, ~cmp, ~eq, ~flip, r, Crdt.KCon{y, d, t}, KH2(~K, ~cmp, r, Crdt.KCon{y, d, t}),
           v.tail(~K, ~cmp, x, c, r, ha), hb, {==}))
     case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} EQ{}:
-      v.cons(~K, ~cmp, x, U32.max(c, d), KM(~K, ~cmp, r, t), ne0_max(c, d, v.ne(~K, ~cmp, x, c, r, ha)),
+      v.cons(~K, ~cmp, x, U32.max(c, d), KM(~K, ~cmp, r, t), Lemmas.u32_ne0_max(c, d, v.ne(~K, ~cmp, x, c, r, ha)),
         above_merge(~K, ~cmp, r, t, x, v.above(~K, ~cmp, x, c, r, ha),
           %Equal.sym(K, x, y, eq(x, y, e)) : {KA(~K, ~cmp, t, _) == True{} : Bool}
           v.above(~K, ~cmp, y, d, t, hb)),
@@ -1399,10 +1279,10 @@ def k_absorb.go(
   match b:
     case True{}:
       %Equal.sym(Crdt.KCounter<K>, x, y, k_same_sound(~K, ~cmp, ~eq, x, y, hb)) : {U32.is_le(KG(~K, ~cmp, _, k), U32.max(KG(~K, ~cmp, y, k), KG(~K, ~cmp, f, k))) == True{} : Bool}
-      le_max_l(KG(~K, ~cmp, y, k), KG(~K, ~cmp, f, k))
+      Lemmas.u32_le_max_l(KG(~K, ~cmp, y, k), KG(~K, ~cmp, f, k))
     case False{}:
       le_trans(KG(~K, ~cmp, x, k), KG(~K, ~cmp, f, k), U32.max(KG(~K, ~cmp, y, k), KG(~K, ~cmp, f, k)),
-        ih(h), le_max_r(KG(~K, ~cmp, y, k), KG(~K, ~cmp, f, k)))
+        ih(h), Lemmas.u32_le_max_r(KG(~K, ~cmp, y, k), KG(~K, ~cmp, f, k)))
 
 def k_absorb(
   ~K: Data, ~cmp: K -> K -> Cmp, ~eq: Eq(~K, ~cmp), +x: Crdt.KCounter<K>, ys: List<&2, Crdt.KCounter<K>>, +k: K,
@@ -1432,7 +1312,7 @@ def k_covered(
         KG(~K, ~cmp, KM(~K, ~cmp, x, KMA(~K, ~cmp, t)), k), KG(~K, ~cmp, KMA(~K, ~cmp, ys), k),
         Equal.sym(U32, KG(~K, ~cmp, KM(~K, ~cmp, x, KMA(~K, ~cmp, t)), k),
           U32.max(KG(~K, ~cmp, x, k), KG(~K, ~cmp, KMA(~K, ~cmp, t), k)), get_merge(~K, ~cmp, ~eq, x, KMA(~K, ~cmp, t), k)),
-        max_le(KG(~K, ~cmp, x, k), KG(~K, ~cmp, KMA(~K, ~cmp, t), k), KG(~K, ~cmp, KMA(~K, ~cmp, ys), k),
+        Lemmas.u32_max_le(KG(~K, ~cmp, x, k), KG(~K, ~cmp, KMA(~K, ~cmp, t), k), KG(~K, ~cmp, KMA(~K, ~cmp, ys), k),
           k_absorb(~K, ~cmp, ~eq, x, ys, k,
             MBool.eq_true_of_and_left(Laws.k.member(~K, ~cmp, x, ys), Laws.k.covers(~K, ~cmp, t, ys), h)),
           k_covered(~K, ~cmp, ~eq, t, ys, k,
