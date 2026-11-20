@@ -52,6 +52,9 @@ def cases():
     for index, body in enumerate(bad):
         add(f"json-reject-{index}", body=body, status=400)
     add("same-key-different-object", body=b'[{"x":1},{"x":2}]', expected=b'[{"x":1},{"x":2}]')
+    for body in (b'{"":1,"":2}', b'{"a\\u0000b":1,"a\\u0000b":2}', b'{"x":1,"y":2,"\\u0078":3}'):
+        add("duplicate-key-" + body.hex(), body=body, status=400)
+    add("unique-key-order", body=b'{"z":1,"":2,"a\\u0000b":3,"a":4}', expected=b'{"z":1,"":2,"a\\u0000b":3,"a":4}')
     add("valid-surrogate-pair", body=b'"\\uD83D\\uDE00"', expected='"😀"'.encode())
     for number in (b"-0", b"1e+02", b"1.2300", b"9007199254740993", b"4294967296"):
         add("exact-number-" + number.decode(), body=number, expected=number)
