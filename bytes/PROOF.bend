@@ -2,6 +2,7 @@ import Base
 import ./bytes.bend as Bytes
 import ../lemmas/lemmas.bend as Lemmas
 import ./LAWS.bend as Laws
+import ./roundtrip-proof.bend as DecimalProof
 
 def Laws.roundtrip_empty():
   {==}
@@ -521,3 +522,7 @@ def Laws.u32_show_max():
 
 def Laws.u32_roundtrip():
   {==}
+
+def Laws.u32_roundtrip_all(n):
+  Equal.cong(Maybe<&2, U32>, Maybe<&2, Nat>, m => Maybe.map(&2, U32, Nat, U32.to_nat, m),
+    Bytes.u32.read(Bytes.u32.show(n)), Some{n}, DecimalProof.raw(n))

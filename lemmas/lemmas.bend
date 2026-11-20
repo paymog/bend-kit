@@ -1744,3 +1744,58 @@ law u32_div_mul_add_mod:
 
 def u32_div_mul_add_mod(a, b, hb):
   div_mul_add_mod.pair(a, b, u32_divmod_nat(a, b, hb))
+
+def adc_zero(+n: Nat, w: Word(n), c: Bool) -> {Word.adc(n, w, Word.zero(n), False{}, c) == Bool.pick(Word(n), c, Word.inc(n, w), w) : Word(n)}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          match c:
+            case False{}:
+              {==}
+            case True{}:
+              {==}
+    case 1n+p:
+      match w:
+        case WCon{False{}, +t}:
+          match c:
+            case False{}:
+              %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, False{}), t, adc_zero(p, t, False{})) : {WCon{False{}, _} == WCon{False{}, t} : Word(1n+p)}
+              {==}
+            case True{}:
+              %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, False{}), t, adc_zero(p, t, False{})) : {WCon{True{}, _} == WCon{True{}, t} : Word(1n+p)}
+              {==}
+        case WCon{True{}, +t}:
+          match c:
+            case False{}:
+              %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, False{}), t, adc_zero(p, t, False{})) : {WCon{True{}, _} == WCon{True{}, t} : Word(1n+p)}
+              {==}
+            case True{}:
+              %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, True{}), Word.inc(p, t), adc_zero(p, t, True{})) : {WCon{False{}, _} == WCon{False{}, Word.inc(p, t)} : Word(1n+p)}
+              {==}
+
+def one(n: Nat) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      WCon{True{}, Word.zero(p)}
+
+def add_one_word(+n: Nat, w: Word(n)) -> {Word.add(n, w, one(n)) == Word.inc(n, w) : Word(n)}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      match w:
+        case WCon{False{}, +t}:
+          %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, False{}), t, adc_zero(p, t, False{})) : {WCon{True{}, _} == WCon{True{}, t} : Word(1n+p)}
+          {==}
+        case WCon{True{}, +t}:
+          %Equal.sym(Word(p), Word.adc(p, t, Word.zero(p), False{}, True{}), Word.inc(p, t), adc_zero(p, t, True{})) : {WCon{False{}, _} == WCon{False{}, Word.inc(p, t)} : Word(1n+p)}
+          {==}
+
+def u32_add_one(+n: U32) -> {U32.add(n, 1) == U32.inc(n) : U32}:
+  match n:
+    case U32{+w}:
+      Equal.cong(Word(32n), U32, t => U32{t}, Word.add(32n, w, one(32n)), Word.inc(32n, w), add_one_word(32n, w))
+
