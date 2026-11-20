@@ -81,6 +81,35 @@ law merge_least:
   for hb: {Crdt.GCounter.le(b, c) == True{} : Bool}
   {Crdt.GCounter.le(Crdt.GCounter.merge(a, b), c) == True{} : Bool}
 
+# The component-wise order is a partial order on valid states.
+law le_refl:
+  for a: List<&2, U32>
+  {Crdt.GCounter.le(a, a) == True{} : Bool}
+
+law le_trans:
+  for a: List<&2, U32>
+  for b: List<&2, U32>
+  for c: List<&2, U32>
+  for hab: {Crdt.GCounter.le(a, b) == True{} : Bool}
+  for hbc: {Crdt.GCounter.le(b, c) == True{} : Bool}
+  {Crdt.GCounter.le(a, c) == True{} : Bool}
+
+law le_antisymm:
+  for a: List<&2, U32>
+  for b: List<&2, U32>
+  for va: {Crdt.GCounter.valid(a) == True{} : Bool}
+  for vb: {Crdt.GCounter.valid(b) == True{} : Bool}
+  for hab: {Crdt.GCounter.le(a, b) == True{} : Bool}
+  for hba: {Crdt.GCounter.le(b, a) == True{} : Bool}
+  {a == b : List<&2, U32>}
+
+law merge_mono:
+  for a: List<&2, U32>
+  for b: List<&2, U32>
+  for c: List<&2, U32>
+  for hab: {Crdt.GCounter.le(a, b) == True{} : Bool}
+  {Crdt.GCounter.le(Crdt.GCounter.merge(a, c), Crdt.GCounter.merge(b, c)) == True{} : Bool}
+
 # A local increment never lowers a count.
 law inc_grows:
   for s: List<&2, U32>

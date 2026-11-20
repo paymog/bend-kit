@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `crdt`: prove universal reflexivity, transitivity, antisymmetry on valid G-Counter states, and merge monotonicity. No runtime change.
+
 - `crdt` 0.2.1.0: add a PN-Counter with checked signed values, validated CBOR states, and universal merge and convergence proofs built from the G-Counter laws.
 
 - `runner` 0.17.1.0: add `ask.revive`, `ask.purge`, and `ask.purge.all` for other fibers. Revive adds one claim to the current round. Each ask answers after its journal record is durable, or fails when the runner closes.
