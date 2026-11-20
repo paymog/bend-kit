@@ -5,7 +5,7 @@ import bend-kit-journal@0.3.1.1/journal.bend as J
 import bend-kit-scheduler@0.4.3.0/queue.bend as Q
 import bend-kit-collections@0.1.5.0/heap.bend as H
 import bend-kit-time@0.3.0.0/time.bend as Time
-import ../runner.bend as R
+import ../model.bend as R
 
 def penc(x: U32) -> Bytes.Bytes:
   Bytes.set.u32le(Bytes.new(4), 0, x)

@@ -5,7 +5,7 @@ import bend-kit-collections@0.1.5.0/heap.bend as H
 import bend-kit-collections@0.1.5.0/LAWS.bend as CL
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import ./runner.bend as R
+import ./model.bend as R
 
 # ---- replay
 

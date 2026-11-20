@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.16.0.1/runner.bend as R
+import bend-kit-runner@0.17.0.0/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.4.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.16.0.1/runner.bend as R
+import bend-kit-runner@0.17.0.0/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -79,6 +79,8 @@ def main() -> IO(Unit):
 [example.bend](example.bend) is a full webhook outbox: each job signs a Standard Webhooks POST with `bend-kit-webhooks` and sends it through `bend-kit-hairpin`. Its receiver answers 503 once, and the runner requeues that delivery and completes it on the next attempt.
 
 ## API
+
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.0.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt. Answer `Retry.Rejected` for a client error, such as a 404: the job is dead, and the target's breaker does not count it.
 
@@ -137,7 +139,7 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 
 ## Laws
 
-`LAWS.bend` states them and `PROOF.bend` proves them over the runner's own `step`, `apply`, `load`, `pick`, and `after`. `open` folds `load`, which steps an op record as `apply` does.
+`LAWS.bend` states them and `PROOF.bend` proves them over `model.bend`'s `step`, `apply`, `load`, `pick`, and `after`. Neither file imports the foreign runtime. `bend PROOF.bend --check-only` must print `ALL PROOFS CHECK`. `open` folds `load`, which steps an op record as `apply` does.
 
 | law | claim |
 |---|---|
