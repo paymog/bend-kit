@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.17.0.2: prove that reviving an abandoned ticket restores its payload at the requested deadline and removes its grave. Prove that reviving an id that is not dead leaves the state unchanged. Skip dead-trie deletion for an absent id, so that no-op also preserves noncanonical trie shapes.
+
 - `runner` 0.17.0.1: model claims and finishes as a pure event fold. Prove the capacity bound for every prefix and finish order, fixed capacity, queue/flight agreement, one-unit release, and duplicate-finish idempotence. Use the model's release transition in the runtime.
 
 - `hairpin` 0.14.1.1 and `camber` 0.16.0.2: import `http` 0.38.6.1, so they build on Bend 2.0.40. No API change.

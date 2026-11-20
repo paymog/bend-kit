@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.17.0.1/runner.bend as R
+import bend-kit-runner@0.17.0.2/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.4.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.17.0.1/runner.bend as R
+import bend-kit-runner@0.17.0.2/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.0.1/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.0.2/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt. Answer `Retry.Rejected` for a client error, such as a 404: the job is dead, and the target's breaker does not count it.
 
@@ -150,6 +150,8 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 | `cancel_never_selected` | After `Cancel{i}` and any ops, no `Select` takes ticket `i`, when `i` was issued and the dead-ticket trie is well formed. |
 | `recovered_never_selected` | The `Complete` claim for the state that `open` replays from the journal. |
 | `dead_never_selected` | After `Abandon{i, why, at}` and any ops with no `Revive` of `i`, no `Select` takes ticket `i`. It assumes `i` was issued and was not pending. |
+| `revive_pending` | After abandoning a running ticket, reviving it pushes its original payload with the requested id and deadline into the pending heap, and removes its grave. The dead-ticket trie must be well formed. |
+| `revive_noop` | Reviving an id that is not dead leaves the entire state unchanged. |
 | `dead_wf` | Every op keeps the dead-ticket trie well formed, as `collections`' `hmap_wf` defines it. `new` starts with an empty trie, so every state that ops reach from it meets the hypothesis above. |
 | `pick_holds_one` | A picked attempt holds exactly one more pool unit; an idle pick holds none. |
 | `pick_bounded` | The units held after a pick never exceed the capacity. |

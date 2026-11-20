@@ -299,13 +299,13 @@ def revive.ok(-A: Data, m: Maybe<&2, R.Dead<A>>, +j: Nat, +i: Nat) -> Data:
       {Nat.is_eq(j, i) == False{} : Bool}
 
 def revive_inv(~A: Data, +i: Nat, -P: R.Graves(A) -> Data, m: Maybe<&2, R.Dead<A>>, +j: Nat, +n: Nat, +h: H.Heap<Q.Ticket<A>>, r: List<&2, Q.Ticket<A>>, ts: R.Tries(),
-    rest: R.Graves(A), bs: R.Breakers(), +d: Nat, lt: MNat.lt(i, n), eh: QL.absent.heap(A, h, i), er: QL.absent.list(A, r, i), em: revive.ok(A, m, j, i), ed: P(rest)) ->
+    +rest: R.Graves(A), bs: R.Breakers(), +d: Nat, lt: MNat.lt(i, n), eh: QL.absent.heap(A, h, i), er: QL.absent.list(A, r, i), em: revive.ok(A, m, j, i), ed: P(rest), dropped: P(R.dead.drop(~A, rest, j))) ->
     inv(A, i, P, R.step.revived(~A, m, j, n, h, r, ts, rest, bs, d)):
   match m:
     case None{}:
       QL.Both{lt, QL.Both{eh, QL.Both{er, ed}}}
     case Some{R.Dead{Q.Ticket{k, old, x}, w, at}}:
-      QL.Both{lt, QL.Both{QP.merge_all.full(~A, QL.absent.ticket(A, i), H.HNode{1n, Q.Ticket{j, d, x}, H.HLeaf{}, H.HLeaf{}}, h, QL.Both{em, QL.Both{Unit{}, Unit{}}}, eh), QL.Both{er, ed}}}
+      QL.Both{lt, QL.Both{QP.merge_all.full(~A, QL.absent.ticket(A, i), H.HNode{1n, Q.Ticket{j, d, x}, H.HLeaf{}, H.HLeaf{}}, h, QL.Both{em, QL.Both{Unit{}, Unit{}}}, eh), QL.Both{er, dropped}}}
 
 # ---- dead tickets
 
@@ -419,7 +419,7 @@ def step_gone(~A: Data, +i: Nat, s: R.State<A>, op: R.Op<A>, g: gone(~A, i, s)) 
     case R.State{Q.State{n, h, r}, ts, +ds, bs} R.Revive{+j, d}:
       QL.Both{lt, QL.Both{eh, QL.Both{er, ed}}} = g
       QL.Both{+eg, +wf} = ed
-      revive_inv(~A, i, P.gone(~A, i), R.dead.get(~A, ds, j), j, n, h, r, ts, R.dead.drop(~A, ds, j), bs, d, lt, eh, er, revive_ok(~A, ds, j, i, eg), drop_keeps(~A, ds, j, i, QL.Both{eg, wf}))
+      revive_inv(~A, i, P.gone(~A, i), R.dead.get(~A, ds, j), j, n, h, r, ts, ds, bs, d, lt, eh, er, revive_ok(~A, ds, j, i, eg), QL.Both{eg, wf}, drop_keeps(~A, ds, j, i, QL.Both{eg, wf}))
     case R.State{Q.State{n, h, r}, ts, +ds, bs} R.Purge{+t}:
       QL.Both{lt, QL.Both{eh, QL.Both{er, ed}}} = g
       QL.Both{lt, QL.Both{eh, QL.Both{er, purge_keeps(~A, ds, t, i, ed)}}}
@@ -464,7 +464,7 @@ def step_buried(~A: Data, +i: Nat, s: R.State<A>, op: R.Op<A>, g: inv(A, i, anyt
       abandon_inv(~A, i, anything(A), Q.take.list(A, r, j), n, h, R.tries.drop(ts, j), ds, bs, w, at, lt, eh, ok_rem(A, Q.take.list(A, r, j), i, take_ok(A, r, j, i, er)), Unit{})
     case R.State{Q.State{n, h, r}, ts, +ds, bs} R.Revive{+j, d}:
       QL.Both{lt, QL.Both{eh, QL.Both{er, ed}}} = g
-      revive_inv(~A, i, anything(A), R.dead.get(~A, ds, j), j, n, h, r, ts, R.dead.drop(~A, ds, j), bs, d, lt, eh, er, any_ok(A, R.dead.get(~A, ds, j), j, i, no), Unit{})
+      revive_inv(~A, i, anything(A), R.dead.get(~A, ds, j), j, n, h, r, ts, ds, bs, d, lt, eh, er, any_ok(A, R.dead.get(~A, ds, j), j, i, no), Unit{}, Unit{})
     case R.State{Q.State{n, h, r}, ts, ds, bs} R.Purge{t}:
       QL.Both{lt, QL.Both{eh, QL.Both{er, ed}}} = g
       QL.Both{lt, QL.Both{eh, QL.Both{er, Unit{}}}}
@@ -618,13 +618,13 @@ def wf.abandoned(~A: Data, r: Q.State<A> & Maybe<&2, Q.Ticket<A>>, ts: R.Tries()
     case (q, t):
       bury_wf(~A, t, ds, w, at, wf)
 
-def wf.revived(~A: Data, m: Maybe<&2, R.Dead<A>>, +j: Nat, n: Nat, h: H.Heap<Q.Ticket<A>>, r: List<&2, Q.Ticket<A>>, ts: R.Tries(), rest: R.Graves(A), bs: R.Breakers(), +d: Nat,
+def wf.revived(~A: Data, m: Maybe<&2, R.Dead<A>>, +j: Nat, n: Nat, h: H.Heap<Q.Ticket<A>>, r: List<&2, Q.Ticket<A>>, ts: R.Tries(), +rest: R.Graves(A), bs: R.Breakers(), +d: Nat,
     wf: WF(~A, rest)) -> WF(~A, R.dead(A, R.step.revived(~A, m, j, n, h, r, ts, rest, bs, d))):
   match m:
     case None{}:
       wf
     case Some{R.Dead{Q.Ticket{k, old, x}, w, at}}:
-      wf
+      CL.hmap_del_wf(~Nat, ~R.Dead<A>, ~R.dead.hash, ~Nat.is_eq, rest, wf, j)
 
 def drops_wf(~A: Data, ks: List<&2, Nat>, +ds: R.Graves(A), +wf: WF(~A, ds)) -> WF(~A, R.dead.drops(~A, ks, ds)):
   match ks:
@@ -650,13 +650,34 @@ def step_wf(~A: Data, s: R.State<A>, op: R.Op<A>, wf: WF(~A, R.dead(A, s))) -> W
     case R.State{q, ts, ds, bs} R.Abandon{+i, w, at}:
       wf.abandoned(~A, Q.complete(A, i, q), R.tries.drop(ts, i), ds, bs, w, at, wf)
     case R.State{Q.State{n, h, r}, ts, +ds, bs} R.Revive{+i, d}:
-      wf.revived(~A, R.dead.get(~A, ds, i), i, n, h, r, ts, R.dead.drop(~A, ds, i), bs, d, CL.hmap_del_wf(~Nat, ~R.Dead<A>, ~R.dead.hash, ~Nat.is_eq, ds, wf, i))
+      wf.revived(~A, R.dead.get(~A, ds, i), i, n, h, r, ts, ds, bs, d, wf)
     case R.State{q, ts, +ds, bs} R.Purge{t}:
       drops_wf(~A, R.dead.old(A, R.dead.list(A, ds), t), ds, wf)
     case R.State{q, ts, ds, bs} R.PurgeAll{}:
       {==}
     case R.State{q, ts, ds, bs} R.Break{k, b}:
       wf
+
+def Laws.revive_pending(A, s, i, old, x, running, wf, w, at, d):
+  match s:
+    case R.State{Q.State{n, +h, +r}, +ts, +ds, +bs}:
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, r, i), Q.Taken{Q.remove.list(A, r, i), Q.find.list(A, r, i)}, QL.take_equivalent(A, r, i)) :
+        Laws.revive.post(~A, R.step(~A, R.step.abandoned(~A, Q.complete.taken(A, _, n, h), R.tries.drop(ts, i), ds, bs, w, at), R.Revive{i, d}), h, i, d, x)
+      %Equal.sym(Maybe<&2, Q.Ticket<A>>, Q.find.list(A, r, i), Some{Q.Ticket{i, old, x}}, running) :
+        Laws.revive.post(~A, R.step(~A, R.step.abandoned(~A, (Q.State{n, h, Q.remove.list(A, r, i)}, _), R.tries.drop(ts, i), ds, bs, w, at), R.Revive{i, d}), h, i, d, x)
+      +buried = R.dead.bury(~A, Some{Q.Ticket{i, old, x}}, ds, w, at)
+      %Equal.sym(Maybe<&2, R.Dead<A>>, R.dead.get(~A, buried, i), Some{R.Dead{Q.Ticket{i, old, x}, w, at}},
+        CL.hmap_get_put_same(~Nat, ~R.Dead<A>, ~R.dead.hash, ~Nat.is_eq, ~MNat.is_eq_refl, ds, wf, i, R.Dead{Q.Ticket{i, old, x}, w, at})) :
+        Laws.revive.post(~A, R.step.revived(~A, _, i, n, h, Q.remove.list(A, r, i), R.tries.drop(ts, i), buried, bs, d), h, i, d, x)
+      QL.Both{{==}, CL.hmap_get_del_same(~Nat, ~R.Dead<A>, ~R.dead.hash, ~Nat.is_eq, ~MNat.eq_of_is_eq, buried,
+        bury_wf(~A, Some{Q.Ticket{i, old, x}}, ds, w, at, wf), i)}
+
+def Laws.revive_noop(A, s, i, d, alive):
+  match s:
+    case R.State{Q.State{n, h, r}, ts, +ds, bs}:
+      %Equal.sym(Maybe<&2, R.Dead<A>>, R.dead.get(~A, ds, i), None{}, alive) :
+        {R.step.revived(~A, _, i, n, h, r, ts, ds, bs, d) == R.State{Q.State{n, h, r}, ts, ds, bs} : R.State<A>}
+      {==}
 
 def Laws.dead_wf(A, s, wf, op):
   step_wf(~A, s, op, wf)

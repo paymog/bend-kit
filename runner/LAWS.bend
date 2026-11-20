@@ -1,6 +1,7 @@
 import Base
 import bend-mathlib@0.7.4.0/nat.bend as MNat
 import bend-kit-scheduler@0.4.3.0/queue.bend as Q
+import bend-kit-scheduler@0.4.3.0/queue_laws.bend as QL
 import bend-kit-collections@0.1.5.0/heap.bend as H
 import bend-kit-collections@0.1.5.0/LAWS.bend as CL
 import bend-kit-resources@0.1.0.0/resources.bend as Res
@@ -196,6 +197,35 @@ law dead_never_selected:
   for t: Q.Ticket<A>
   for e: {next(~A, now, live(~A, ops, R.step(~A, s, R.Abandon{i, w, at}))) == Some{t} : Maybe<&2, Q.Ticket<A>>}
   {Nat.is_eq(Q.id(A, t), i) == False{} : Bool}
+
+def revive.post(~A: Data, +s: R.State<A>, h: H.Heap<Q.Ticket<A>>, +i: Nat, d: Nat, x: A) -> Data:
+  QL.Both<
+    {Q.pending(A, R.queue(A, s)) == H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, h) : H.Heap<Q.Ticket<A>>},
+    {R.dead.get(~A, R.dead(A, s), i) == None{} : Maybe<&2, R.Dead<A>>}>
+
+# Abandon keeps the running payload; Revive puts it back at the requested deadline and removes its grave.
+law revive_pending:
+  for ~A: Data
+  for +s: R.State<A>
+  for +i: Nat
+  for +old: Nat
+  for +x: A
+  for running: {Q.find.list(A, Q.running(A, R.queue(A, s)), i) == Some{Q.Ticket{i, old, x}} : Maybe<&2, Q.Ticket<A>>}
+  for +wf: {dead.wf(~A, R.dead(A, s)) == True{} : Bool}
+  for +w: R.Why
+  for +at: Nat
+  for +d: Nat
+  revive.post(~A, R.step(~A, R.step(~A, s, R.Abandon{i, w, at}), R.Revive{i, d}), Q.pending(A, R.queue(A, s)), i, d, x)
+
+# Revive leaves the entire state unchanged when its id is not dead.
+law revive_noop:
+  for ~A: Data
+  for +s: R.State<A>
+  for +i: Nat
+  for d: Nat
+  for alive: {R.dead.get(~A, R.dead(A, s), i) == None{} : Maybe<&2, R.Dead<A>>}
+  {R.step(~A, s, R.Revive{i, d}) == s : R.State<A>}
+
 
 # Every op keeps the dead-ticket trie well formed.
 law dead_wf:

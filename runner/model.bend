@@ -254,7 +254,7 @@ def step.revived(~A: Data, m: Maybe<&2, Dead<A>>, +i: Nat, n: Nat, h: H.Heap<Q.T
     case None{}:
       State{Q.State{n, h, r}, ts, ds, bs}
     case Some{Dead{Q.Ticket{k, old, x}, w, at}}:
-      State{Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, h), r}, O.OMap.put(~Nat, ~Try, ~Nat.cmp, ts, i, Try{0n, d}), ds, bs}
+      State{Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, h), r}, O.OMap.put(~Nat, ~Try, ~Nat.cmp, ts, i, Try{0n, d}), dead.drop(~A, ds, i), bs}
 
 # A closed breaker with no failures reads the same as an absent one, so it leaves the map.
 def step.broke(bs: Breakers(), k: String, b: Retry.State) -> Breakers():
@@ -282,7 +282,7 @@ def step(~A: Data, s: State<A>, op: Op<A>) -> State<A>:
     case State{q, ts, ds, bs} Abandon{+i, w, at}:
       step.abandoned(~A, Q.complete(A, i, q), tries.drop(ts, i), ds, bs, w, at)
     case State{Q.State{n, h, r}, ts, +ds, bs} Revive{+i, d}:
-      step.revived(~A, dead.get(~A, ds, i), i, n, h, r, ts, dead.drop(~A, ds, i), bs, d)
+      step.revived(~A, dead.get(~A, ds, i), i, n, h, r, ts, ds, bs, d)
     case State{q, ts, ds, bs} Purge{t}:
       State{q, ts, dead.purge(~A, ds, t), bs}
     case State{q, ts, ds, bs} PurgeAll{}:
