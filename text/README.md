@@ -3,7 +3,7 @@
 Myers diff with unified output, Levenshtein distance, and word wrap by display width. Pure Bend.
 
 ```bend
-import bend-kit-text@0.2.0.0/text.bend as Text
+import bend-kit-text@0.2.0.1/text.bend as Text
 ```
 
 `text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend` and `bend-kit-tty@0.1.0.1/text.bend`.
@@ -18,11 +18,13 @@ def main() -> IO(Unit):
 
 ## Diff
 
-`diff(~A, ~eq, a, b)` returns a shortest edit script from list `a` to list `b`, as a `List<&2, Edit<A>>`. `eq` decides which items match. It strips the common prefix and suffix, then runs Myers' O(ND) algorithm with his linear-space refinement: it finds the middle of a shortest path from both ends and splits there. Time grows with the input length times the number of edits D, and memory with the input length alone. Two unrelated 10,000-line files (D = 20,000) take about 7 s and 10 MB natively. In each run of changes, deletes come before inserts.
+`diff(~A, ~eq, a, b)` returns a shortest edit script from list `a` to list `b`, as a `List<&2, Edit<A>>`. `eq` decides which items match. It copies both lists into arrays, strips the common prefix and suffix, then runs Myers' O(ND) algorithm with his linear-space refinement: it finds the middle of a shortest path from both ends and splits there. Time grows with the input length times the number of edits D, and memory with the input length alone. Two unrelated 10,000-line lists of strings (D = 20,000) take about 3 s and 7 MB natively. In each run of changes, deletes come before inserts.
 
 An `Edit<A>` is `Same{old, new}`, `Del{old}`, or `Ins{new}`. `Same` holds both items, so an `eq` that matches unequal items loses nothing. `before(A, es)` gives the old list back and `after(A, es)` gives the new list. `PROOF.bend` proves `before(diff(a, b)) == a` and `after(diff(a, b)) == b` for every `eq`, `a`, and `b`. `check.bend` compares the script length with a dynamic-programming bound on 3,000 random pairs.
 
 `diff_lines(a, b)` diffs the lines of two strings, and `diff_chars(a, b)` diffs their code points. `lines(s)` keeps each line's `"\n"`, so only the last line can lack one: `"a\nb"` is `["a\n", "b"]`. Joining the lines gives `s` back, and `PROOF.bend` proves that joining the new side of `diff_lines(a, b)` gives `b`. A line that gains or loses its final newline is a changed line.
+
+`diff_lines` diffs 32-bit FNV-1a hashes of the lines, because comparing two hashes is much faster than comparing two strings. Then it checks every pair of lines that the script matches. If a hash collision matched two unequal lines, it diffs the strings instead. Equal lines have equal hashes, so a script that passes the check is a shortest script for the strings too.
 
 `unified(old_name, new_name, es, ctx)` prints `diff -U<ctx>` text for a line script: the `---` and `+++` headers, then each hunk with `ctx` lines of context. Two changes share a hunk when at most `2 * ctx` unchanged lines separate them. A line without `"\n"` gets `\ No newline at end of file` after it. It returns `""` when nothing changed. The headers have no timestamps. Pass a script whose lines end with `"\n"` except the last, as `diff_lines` makes.
 
