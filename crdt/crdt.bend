@@ -1,4 +1,4 @@
-# Replicated data types: grow-only counters with proved merges. Source: https://github.com/paymog/bend-kit/tree/main/crdt
+# Replicated data types: grow-only and positive-negative counters with proved merges. Source: https://github.com/paymog/bend-kit/tree/main/crdt
 #
 # A GCounter is a list of U32 counts. Entry i is the count of replica i, and a
 # missing entry counts as 0. This is the state-based G-Counter of Shapiro et
@@ -194,6 +194,90 @@ def GCounter.decode.go(m: Maybe<&1, Cbor.Val>, +cap: U32) -> Maybe<&2, List<&2, 
 # CBOR bytes to a valid state with at most cap replicas, or None.
 def GCounter.decode(b: Bytes.Bytes, +cap: U32) -> Maybe<&2, List<&2, U32>>:
   GCounter.decode.go(Cbor.decode(b), cap)
+
+type PNCounter is Data:
+  PN{positive: List<&2, U32>, negative: List<&2, U32>}
+
+def PNCounter.new() -> PNCounter:
+  PN{GCounter.new(), GCounter.new()}
+
+def PNCounter.make(p: Maybe<&2, List<&2, U32>>, n: Maybe<&2, List<&2, U32>>) -> Maybe<&2, PNCounter>:
+  do Maybe<&2, PNCounter>:
+    a : List<&2, U32> <- p
+    b : List<&2, U32> <- n
+    return PN{a, b}
+
+def PNCounter.inc(s: PNCounter, i: Nat) -> Maybe<&2, PNCounter>:
+  PN{p, n} = s
+  PNCounter.make(GCounter.inc(p, i), Some{n})
+
+def PNCounter.dec(s: PNCounter, i: Nat) -> Maybe<&2, PNCounter>:
+  PN{p, n} = s
+  PNCounter.make(Some{p}, GCounter.inc(n, i))
+
+def PNCounter.merge(a: PNCounter, b: PNCounter) -> PNCounter:
+  PN{ap, an} = a
+  PN{bp, bn} = b
+  PN{GCounter.merge(ap, bp), GCounter.merge(an, bn)}
+
+def PNCounter.merge_all(xs: List<&2, PNCounter>) -> PNCounter:
+  match xs:
+    case Nil{}:
+      PNCounter.new()
+    case Con{x, t}:
+      PNCounter.merge(x, PNCounter.merge_all(t))
+
+def PNCounter.le(a: PNCounter, b: PNCounter) -> Bool:
+  PN{ap, an} = a
+  PN{bp, bn} = b
+  Bool.and(GCounter.le(ap, bp), GCounter.le(an, bn))
+
+def PNCounter.valid(s: PNCounter) -> Bool:
+  PN{p, n} = s
+  Bool.and(GCounter.valid(p), GCounter.valid(n))
+
+def PNCounter.value.diff(negative: Bool, p: U32, n: U32) -> Bool & U32:
+  match negative:
+    case True{}:
+      (True{}, (n - p : U32))
+    case False{}:
+      (False{}, (p - n : U32))
+
+def PNCounter.value.totals(p: Maybe<&2, U32>, n: Maybe<&2, U32>) -> Maybe<&1, Bool & U32>:
+  match p n:
+    case Some{+a} Some{+b}:
+      Some{PNCounter.value.diff(U32.is_lt(a, b), a, b)}
+    case _ _:
+      None{}
+
+# The sign (True means negative) and magnitude; None if either half overflows.
+def PNCounter.value(s: PNCounter) -> Maybe<&1, Bool & U32>:
+  PN{p, n} = s
+  PNCounter.value.totals(GCounter.value(p), GCounter.value(n))
+
+def PNCounter.to_cbor(s: PNCounter) -> Cbor.Val:
+  PN{p, n} = s
+  Cbor.Arr{[GCounter.to_cbor(p), GCounter.to_cbor(n)]}
+
+def PNCounter.from_cbor(v: Cbor.Val, +cap: U32) -> Maybe<&2, PNCounter>:
+  match v:
+    case Cbor.Arr{Con{p, Con{n, Nil{}}}}:
+      PNCounter.make(GCounter.from_cbor(p, cap), GCounter.from_cbor(n, cap))
+    case _:
+      None{}
+
+def PNCounter.encode(s: PNCounter) -> Maybe<&1, Bytes.Bytes>:
+  Cbor.encode(PNCounter.to_cbor(s))
+
+def PNCounter.decode.go(m: Maybe<&1, Cbor.Val>, cap: U32) -> Maybe<&2, PNCounter>:
+  match m:
+    case None{}:
+      None{}
+    case Some{v}:
+      PNCounter.from_cbor(v, cap)
+
+def PNCounter.decode(b: Bytes.Bytes, cap: U32) -> Maybe<&2, PNCounter>:
+  PNCounter.decode.go(Cbor.decode(b), cap)
 
 # A G-Counter keyed by replica IDs. A valid state lists IDs in ascending cmp
 # order, each with a count above 0.

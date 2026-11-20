@@ -13,7 +13,7 @@ VARIANTS = {
     "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "crdt-bench", "14"]),
     "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "14"]),
 }
-OPS = ["gossip", "gossip-sparse"]
+OPS = ["gossip", "gossip-sparse", "gossip-pn"]
 
 
 def parse(text):

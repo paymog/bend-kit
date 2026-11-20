@@ -93,6 +93,53 @@ def kchecksum(xs: List<&2, Crdt.KCounter<U32>>, +acc: U32) -> U32:
     case Con{s, t}:
       kchecksum(t, (acc + Maybe.default(&2, U32, Crdt.KCounter.value(U32, s), 0) : U32))
 
+def pnincs(xs: List<&2, Crdt.PNCounter>, +r: Nat) -> List<&2, Crdt.PNCounter>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{s, t}:
+      +next = do Maybe<&2, Crdt.PNCounter>:
+        a : Crdt.PNCounter <- Crdt.PNCounter.inc(s, r)
+        b : Crdt.PNCounter <- Crdt.PNCounter.inc(a, r)
+        Crdt.PNCounter.dec(b, r)
+      Con{Maybe.default(&2, Crdt.PNCounter, next, Crdt.PNCounter.new()), pnincs(t, 1n+r)}
+
+def pnmerges(xs: List<&2, Crdt.PNCounter>, ys: List<&2, Crdt.PNCounter>) -> List<&2, Crdt.PNCounter>:
+  match xs ys:
+    case Con{x, xt} Con{y, yt}:
+      Con{Crdt.PNCounter.merge(x, y), pnmerges(xt, yt)}
+    case _ _:
+      Nil{}
+
+def pnrotate(xs: List<&2, Crdt.PNCounter>) -> List<&2, Crdt.PNCounter>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      List.append(&2, Crdt.PNCounter, t, [h])
+
+def pnrounds(n: Nat, +xs: List<&2, Crdt.PNCounter>) -> List<&2, Crdt.PNCounter>:
+  match n:
+    case 0n:
+      xs
+    case 1n+p:
+      +ys = pnincs(xs, 0n)
+      pnrounds(p, pnmerges(ys, pnrotate(ys)))
+
+def pnvalue(m: Maybe<&1, Bool & U32>) -> U32:
+  match m:
+    case None{}:
+      0
+    case Some{(negative, n)}:
+      Bool.pick(U32, negative, 0, n)
+
+def pnchecksum(xs: List<&2, Crdt.PNCounter>, +acc: U32) -> U32:
+  match xs:
+    case Nil{}:
+      acc
+    case Con{s, t}:
+      pnchecksum(t, (acc + pnvalue(Crdt.PNCounter.value(s)) : U32))
+
 def lg(args: List<&1, String>) -> Nat:
   match args:
     case program <> n <> Nil{}:
@@ -117,3 +164,9 @@ def main() -> IO(Unit):
     IO.print("chk\tgossip-sparse\t" ++ U32.show(kv))
     t3 : Time.Duration <- Time.mono()
     IO.print("ms\tgossip-sparse\t" ++ Time.Duration.show_ms(Time.Duration.sub(t3, t2)))
+    t4 : Time.Duration <- Time.mono()
+    +pnstart : List<&2, Crdt.PNCounter> = List.replicate(Crdt.PNCounter, 16n, Crdt.PNCounter.new())
+    +pnv : U32 = pnchecksum(pnrounds(n, pnstart), 0)
+    t5 : Time.Duration <- Time.mono()
+    IO.print("chk\tgossip-pn\t" ++ U32.show(pnv))
+    IO.print("ms\tgossip-pn\t" ++ Time.Duration.show_ms(Time.Duration.sub(t5, t4)))

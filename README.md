@@ -102,7 +102,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`tar`](tar) | `bend-kit-tar@0.3.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
 | [`archive`](archive) | `bend-kit-archive@0.5.1.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.5.1.1/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
-| [`crdt`](crdt) | `bend-kit-crdt@0.2.0.0/crdt.bend` | Grow-only counters, keyed by dense indices or sparse IDs, whose merges are proved commutative, associative, idempotent, and convergent. CBOR wire form. |
+| [`crdt`](crdt) | `bend-kit-crdt@0.2.1.0/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
 
 ### Network
 
