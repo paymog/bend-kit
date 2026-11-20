@@ -2,4 +2,5 @@
 */bench/out/
 */out/
 unicode/ucd/
+regex/ucd/
 __pycache__/

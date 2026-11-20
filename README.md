@@ -77,7 +77,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`bits`](bits) | `bend-kit-bits@0.1.0.1/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman decode tables. |
 | [`encoding`](encoding) | `bend-kit-encoding@0.5.0.0/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
-| [`regex`](regex) | `bend-kit-regex@0.8.0.0/regex.bend` | Linear-time RE2 matching, with capture groups. |
+| [`regex`](regex) | `bend-kit-regex@0.9.0.0/regex.bend` | Linear-time RE2 matching, with capture groups and `(?i)`. |
 | [`parse`](parse) | `bend-kit-parse@0.2.0.0/parse.bend` | Parser combinators over text. `parse/json.bend` is a JSON grammar on them, not the `json` package. |
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `{}` formatting, padding, and shortest `F32` text. |
 | [`text`](text) | `bend-kit-text@0.2.0.0/text.bend` | Myers diff with unified output, Levenshtein distance, and word wrap by display width. |
