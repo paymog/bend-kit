@@ -512,7 +512,7 @@ static int process_pipe_spawn(ProcessJob* j) {
     return -1;
   }
 #if (defined(__APPLE__) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000) \
-  || (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 39)))
+  || (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 44)))
   rc = posix_spawn_file_actions_addchdir(&actions, j->cwd);
 #else
   rc = posix_spawn_file_actions_addchdir_np(&actions, j->cwd);
