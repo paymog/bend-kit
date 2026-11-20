@@ -223,11 +223,10 @@ def wait_completed(guard, count):
 
 def live(command, folder, lane, fixture='users', fault='trace', order='forward', rows=None):
     rows = cases() if rows is None else rows
-    port, ctrl = shared.free_port(), shared.free_port()
     journal = folder / f'{lane}-live-journal'
-    guard = Guard(command + [fixture, order, fault, str(port), str(ctrl), str(journal)])
+    guard = Guard(command + [fixture, order, fault, '0', '0', str(journal)])
     try:
-        guard.wait_for('READY')
+        port, ctrl = guard.ports()
         for n, row in enumerate(rows, 1):
             offset = len(guard.text())
             result = request(port, row)
@@ -257,9 +256,8 @@ def plain_cases():
 
 
 def overlap(command, folder, lane):
-    port, ctrl = shared.free_port(), shared.free_port()
     journal = folder / f'{lane}-overlap-journal'
-    guard = Guard(command + ['users', 'forward', 'testing', str(port), str(ctrl), str(journal)])
+    guard = Guard(command + ['users', 'forward', 'testing', '0', '0', str(journal)])
     output, errors = [], []
     def held_request():
         try:
@@ -275,7 +273,7 @@ def overlap(command, folder, lane):
         except BaseException as error:
             errors.append(error)
     try:
-        guard.wait_for('READY')
+        port, ctrl = guard.ports()
         first = threading.Thread(target=held_request)
         first.start()
         guard.wait_for('REQUEST HELD')
@@ -331,12 +329,11 @@ def overlap(command, folder, lane):
 
 
 def standalone(command, folder, lane, rows=None):
-    port, ctrl = shared.free_port(), shared.free_port()
     journal = folder / f'{lane}-standalone-journal'
-    guard = Guard(command + [str(port), str(ctrl), str(journal)])
+    guard = Guard(command + ['0', '0', str(journal)])
     observed = []
     try:
-        guard.wait_for('READY users demo')
+        port, ctrl = guard.ports('READY users demo')
         if rows is None:
             rows = [case('CASE_SECRET', target='/health?tag=QUERY_SECRET', token='', expected={'ok': True}, domain=[]),
                     case('default-user'),

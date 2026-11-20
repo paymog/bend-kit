@@ -72,6 +72,14 @@ def run(args, timeout=120, on_line=None):
     return text
 
 
+def ready_ports(text, prefix="READY", count=1):
+    lines = [line.split() for line in text.splitlines() if line.startswith(prefix + " ")]
+    assert len(lines) == count, ("missing or duplicate listener ports", text)
+    ports = tuple(int(line[1]) for line in lines)
+    assert all(0 < port <= 65535 for port in ports), lines
+    return ports
+
+
 def run_live(args, clients, timeout=120):
     failures, threads = [], []
 
@@ -84,8 +92,7 @@ def run_live(args, clients, timeout=120):
     def output(line):
         if line.startswith("READY "):
             assert not threads, "duplicate readiness"
-            port = int(line.split()[1])
-            assert 0 < port <= 65535, line
+            port, = ready_ports(line)
             thread = threading.Thread(target=connect, args=(port,), daemon=True)
             threads.append(thread)
             thread.start()

@@ -89,6 +89,8 @@ Plain `Http.Req -> IO(Http.Res)` handlers remain usable inside Camber and beside
 
 `serving_check.bend` and `run_serving.py` exercise real File bundles and explicit yielding gates through a plain published-HTTP control listener. No timers release held work. The smallest native/JS bind-close smoke passed; full direct/live and overload/drain receipts are recorded in [`serving_results.json`](serving_results.json). Historical experimental socket transports, failures and budgets remain separate; they are not the public server. No arbitrary cancellation, handler replay, hard CPU deadline or embedded-server isolation is promised.
 
+The serving, notice, users, and transport-risk harnesses bind port 0 and read each retained listener's port from live output. `probe_server.bend` adapts startup for local regression consumers. `users_probe_server.bend` uses the distinct published Camber types and shares the same transport adapter. These helpers do not change the published API. The Python harnesses share the readiness parser in `run_owner.py`. Their occupied-port tests keep the blocking socket open until startup fails.
+
 Published HTTP0.30.0.0 is `0x8bc87dd4d1e610fe1bf336b567537a8c`; Wire0.4.5.0 is `0x1435aec27074c8141b74747909079afc`. Existing shared HTTP drain evidence remains in [`../http/drain_results.json`](../http/drain_results.json). Actual dedicated native/JS launchd deployment and TLS recipes are in [`deploy/README.md`](deploy/README.md). [`deploy/results.json`](deploy/results.json), invocation6, records all eight final-source cases: cooperative owner completion and actual Store close, platform-forced CPU/IO exit, PID reaping and peer closure within the frozen 5-second grace plus 1-second teardown budget, and unchanged origin-form targets through TLS. These are repository consumers, not new hub modules or hard runtime cancellation.
 
 `users.bend` is the reusable four-route consumer over published Camber0.10.0.0, HTTP0.34.0.0 and Json0.6.0.0. Its one affine Store owner holds the map and File; application configuration receives only the copied owner context. `users_direct.bend` and `users_live.bend` exercise that same public application and dispatcher separately. `users_demo.bend` adds a second loopback published-HTTP listener whose only administrative command is `POST /stop`. That listener trusts local processes, is not an authentication or supervisor boundary, and must never be proxied or exposed. It demonstrates cooperative application/store/control joins only; dedicated forced-exit supervision is exercised separately in [`deploy/README.md`](deploy/README.md).
@@ -99,18 +101,18 @@ The demo uses `Bearer seven` for Alice/id7 and `Bearer eight` for Bob/id8. These
 
 ```sh
 bend camber/users_demo.bend -o /tmp/camber-users
-/tmp/camber-users 8080 8081 /tmp/camber-users.journal
+/tmp/camber-users 0 0 /tmp/camber-users.journal
 ```
 
-Use another terminal:
+Use the first `PORT` line as `APP_PORT` and the second as `CONTROL_PORT` in another terminal:
 
 ```sh
-curl http://127.0.0.1:8080/health
-curl -H 'Authorization: Bearer seven' http://127.0.0.1:8080/users/7
-curl -H 'Authorization: Bearer eight' http://127.0.0.1:8080/users/me
-curl -H 'Authorization: Bearer seven' -H 'Content-Type: application/json' \
-  -d '{"name":"Cara"}' http://127.0.0.1:8080/users
-curl -X POST http://127.0.0.1:8081/stop
+curl "http://127.0.0.1:$APP_PORT/health"
+curl -H 'Authorization: Bearer seven' "http://127.0.0.1:$APP_PORT/users/7"
+curl -H 'Authorization: Bearer eight' "http://127.0.0.1:$APP_PORT/users/me"
+curl -X POST -H 'Authorization: Bearer seven' -H 'Content-Type: application/json' \
+  -d '{"name":"Cara"}' "http://127.0.0.1:$APP_PORT/users"
+curl -X POST "http://127.0.0.1:$CONTROL_PORT/stop"
 ```
 
 For JavaScript, compile to `/tmp/camber-users.js` and run it with `bun` using the same three arguments. `python3 camber/run_users.py --phase full --lane both` runs the sequential direct/live, owner, plain-byte and standalone acceptance. Cumulative source-bound successes and adverses are in [`users_results.json`](users_results.json) and [`users_attempts.json`](users_attempts.json). The successful full invocation contains252 scenario records, including grouped owner/overlap/standalone scenarios with several requests. This is runtime evidence, not a new pure proof, performance budget, or forced-exit guarantee.

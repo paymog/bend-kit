@@ -13,17 +13,12 @@ from pathlib import Path
 from run_dispatch import ROOT, guarded
 from run_live import Peer
 from run_risks import event_time, observe
+from run_owner import ready_ports
 
 
-def free_port():
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        return reservation.getsockname()[1]
-
-
-def admission(port, partial_count):
+def admission(partial_count):
     def interact(process, wait_for):
-        wait_for("READY")
+        port, = ready_ports(wait_for("READY ")["text"])
         with ExitStack() as stack:
             held = Peer(port)
             stack.callback(held.close)
@@ -56,7 +51,6 @@ def admission(port, partial_count):
                 overflow.send("POST", "/users", b'{"name":"Cara"}', close=True)
                 overflow.response(503, b"")
                 transport_overflow = "parsed-application-503"
-            wait_for("LISTENER CLOSED")
             rejected = int(not at_transport_cap)
             counts = {"limit": 1, "busy": 1, "mask": 1, "completed": 0, "rejected": rejected}
             control.capacity(counts)
@@ -72,7 +66,7 @@ def admission(port, partial_count):
             control.capacity(recovered)
             control.send("GET", "/_capacity", close=True)
             control.response(200, json.dumps(recovered, separators=(",", ":")).encode())
-            return {"incomplete_body_peers_attempted": partial_count,
+            details = {"incomplete_body_peers_attempted": partial_count,
                     "partial_locally_completed_sendalls": locally_sent,
                     "partial_body_bytes_locally_sent": locally_sent * 1024,
                     "unsafe_partial_close_events": unsafe_partial_closes,
@@ -80,12 +74,14 @@ def admission(port, partial_count):
                     "transport_overflow": transport_overflow, "admitted_connection_cap": 128,
                     "established_server_endpoints": len(endpoints), "endpoint_evidence": endpoints,
                     "exceeds_proposed_128_connection_default": len(endpoints) > 128}
+        wait_for("LISTENER CLOSED")
+        return details
     return interact
 
 
-def writing(port, reset):
+def writing(reset):
     def interact(process, wait_for):
-        wait_for("READY")
+        port, = ready_ports(wait_for("READY ")["text"])
         with socket.create_connection(("127.0.0.1", port), timeout=3) as peer:
             wait_for("WRITE_ARMED")
             if reset:
@@ -116,7 +112,7 @@ def main():
         for lane, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("probe" + suffix)
             _, rss, seconds = guarded(["bend", ROOT / "camber/transport_probe.bend", "-o", binary], 180)
-            command = [str(binary), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(binary)]
+            command = [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(binary)]
             data = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss, "cases": {}}
             results["lanes"][lane] = data
             with socket.socket() as occupied:
@@ -132,8 +128,8 @@ def main():
                 assert all(record["resource_files_created"].values()), record
                 print(f"{lane}/startup: returncode={record['returncode']}; readiness={record['readiness_reported']}", flush=True)
             for partial in (1, 129):
-                port, path = free_port(), temp / f"{lane}-admission-{partial}"
-                record = observe(command + ["admission", str(path), str(port), str(partial + 3)], path, admission(port, partial))
+                path = temp / f"{lane}-admission-{partial}"
+                record = observe(command + ["admission", str(path), "0", str(partial + 3)], path, admission(partial))
                 record["audit_bytes"] = Path(str(path) + "-audit-0").read_text()
                 record["explicit_bundle_close_observed"] = event_time(record, "CLOSED 0") is not None
                 data["cases"][f"admission_{partial}_incomplete"] = record
@@ -142,8 +138,8 @@ def main():
                 assert 2 <= record["established_server_endpoints"] <= 128, record
                 print(f"{lane}/admission-{partial}: {record['established_server_endpoints']} endpoints; one busy worker", flush=True)
             for reset in (False, True):
-                port, path = free_port(), temp / f"{lane}-write-{reset}"
-                record = observe(command + ["write", str(path), str(port), "1"], path, writing(port, reset))
+                path = temp / f"{lane}-write-{reset}"
+                record = observe(command + ["write", str(path), "0", "1"], path, writing(reset))
                 record["raw_write_succeeded"] = event_time(record, "WRITE_SUCCEEDED") is not None
                 record["raw_write_failed"] = event_time(record, "WRITE_FAILED") is not None
                 record["public_turn_close"] = event_time(record, "PUBLIC_TURN_CLOSE") is not None

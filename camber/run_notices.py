@@ -86,11 +86,15 @@ def wait_notices(server, count):
 
 
 def start(executable, folder, mode):
-    port, control = serving.free_port(), serving.free_port()
     journal = folder / (mode + '-journal')
-    server = serving.Guard(executable + [mode, str(port), str(journal), str(control)])
+    server = serving.Guard(executable + [mode, '0', str(journal), '0'])
+    try:
+        port, control = server.ports()
+    except BaseException:
+        server.kill()
+        server.finish()
+        raise
     OWNED.append((server, port, control))
-    server.wait_for('READY')
     return server, port, control, journal
 
 

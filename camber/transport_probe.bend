@@ -3,6 +3,7 @@ import Base
 import ./live_check.bend as Live
 import ../http/http.bend as Http
 import ../http/completion.bend as Completion
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 def written(result: Socket & Result<&1, &1, U32 & String, Unit>) -> IO((Socket & Http.Turn) & Completion.Outcome):
   (socket, outcome) = result
@@ -47,11 +48,16 @@ def accepted(result: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Sock
     Listener.close(listener)
     return socket
 
+def listening(bound: Listener & U32) -> IO(Listener & Result<&1, &1, U32 & String, Socket>):
+  (listener, port) = bound
+  do IO<Listener & Result<&1, &1, U32 & String, Socket>>:
+    IO.print("READY " ++ U32.show(port))
+    TCP.accept(listener)
+
 def write(port: U32) -> IO(Unit):
   do IO<Unit>:
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    IO.print("READY")
-    connection : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
+    connection : Listener & Result<&1, &1, U32 & String, Socket> <- listening(bound)
     socket : Socket <- accepted(connection)
     IO.print("WRITE_ARMED")
     IO.sleep(200)

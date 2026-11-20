@@ -1,5 +1,7 @@
 # Runnable loopback users demo plus a separate loopback owner-stop listener; no supervisor claim.
 import Base
+import ./probe_server.bend as Probe
+import ./users_probe_server.bend as UsersProbe
 import ./users.bend as U
 import bend-kit-camber@0.15.1.0/camber.bend as C
 import bend-kit-http@0.38.6.0/http.bend as H
@@ -72,7 +74,7 @@ def server.controlled(controlled: C.Server<U.Action, U.State, U.Config, String> 
   (server, stop) = controlled
   do IO<Unit>:
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, self}, Unit{}, C.server.config(control_port))
+    result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- Probe.transport(~Control, ~Unit, Control{stop, self}, Unit{}, C.server.config(control_port))
     control.started(result, server, owner, self)
 
 def server.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, control_port: U32) -> IO(Unit):
@@ -88,7 +90,7 @@ def prepared(prepared: C.Owner<U.Store, U32, U.Operation, String, U.User> & C.Co
   (owner, context) = prepared
   do IO<Unit>:
     config : U.Config = U.Config{context, U.Disabled{}, ""}
-    result : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- C.server.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
+    result : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- UsersProbe.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
       ~U.before, ~U.after, ~U.run, ~U.mapper, ~U.destroy, U.application(config, False{}), C.server.config(port), [U.fresh(), U.fresh(), U.fresh(), U.fresh()])
     server.started(result, owner, control_port)
 
