@@ -4051,6 +4051,207 @@ def inv_fast_eq(
 def Laws.stale_index(K, eq, cmp, crefl, ceq, cflip, ctrans, agree, p, g, changed):
   inv_fast_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, p, g, changed, Nil{})
 
+# Indexes: parallel execution
+# ---------------------------
+
+def sidx_tree(~K: Data, ~cmp: K -> K -> Cmp, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  st: List<&2, P.Entry<K>>
+) -> {ST(~K, ~P.Status, ~cmp, P.sidx(~K, ~cmp, st)) == True{} : Bool}:
+  match st:
+    case Nil{}:
+      Col.omap_new_searchtree(~K, ~P.Status, ~cmp)
+    case Con{P.Entry{+x, +s}, +t}:
+      Col.omap_put_searchtree(~K, ~P.Status, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, P.sidx(~K, ~cmp, t),
+        sidx_tree(~K, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, t), x, s)
+
+def SGet(~K: Data, ~cmp: K -> K -> Cmp, +si: OMap.OMap<K, P.Status>, +k: K) -> Maybe<&2, P.Status>:
+  OMap.OMap.get(~K, ~P.Status, ~cmp, si, k)
+
+def sget.if(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~eq: K -> K -> Bool, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  ~agree: Agree(~K, ~cmp, ~eq), c: Bool, +x: K, +s: P.Status, +t: List<&2, P.Entry<K>>, +k: K,
+  +hc: {eq(k, x) == c : Bool}, ih: {SGet(~K, ~cmp, P.sidx(~K, ~cmp, t), k) == St(~K, ~eq, t, k) : Maybe<&2, P.Status>}
+) -> {SGet(~K, ~cmp, P.sidx(~K, ~cmp, P.Entry{x, s} <> t), k) == St(~K, ~eq, P.Entry{x, s} <> t, k) : Maybe<&2, P.Status>}:
+  match c:
+    case True{}:
+      +m = P.sidx(~K, ~cmp, t)
+      +tree = sidx_tree(~K, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, t)
+      %Equal.sym(Maybe<&2, P.Status>, St(~K, ~eq, P.Entry{x, s} <> t, k), Some{s}, st_hit(~K, ~eq, x, s, t, k, hc)) :
+        {SGet(~K, ~cmp, P.sidx(~K, ~cmp, P.Entry{x, s} <> t), k) == _ : Maybe<&2, P.Status>}
+      %Equal.sym(K, k, x, sound_of(~K, ~cmp, ~eq, ~ceq, ~agree, k, x, hc)) : {SGet(~K, ~cmp, P.sidx(~K, ~cmp, P.Entry{x, s} <> t), _) == Some{s} : Maybe<&2, P.Status>}
+      Col.omap_get_put_same(~K, ~P.Status, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, x, s)
+    case False{}:
+      +m = P.sidx(~K, ~cmp, t)
+      +tree = sidx_tree(~K, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, t)
+      %Equal.sym(Maybe<&2, P.Status>, St(~K, ~eq, P.Entry{x, s} <> t, k), St(~K, ~eq, t, k), st_miss(~K, ~eq, x, s, t, k, hc)) :
+        {SGet(~K, ~cmp, P.sidx(~K, ~cmp, P.Entry{x, s} <> t), k) == _ : Maybe<&2, P.Status>}
+      %Equal.sym(Maybe<&2, P.Status>, SGet(~K, ~cmp, OMap.OMap.put(~K, ~P.Status, ~cmp, m, x, s), k), SGet(~K, ~cmp, m, k),
+        Col.omap_get_put_other_key(~K, ~P.Status, ~cmp, ~crefl, ~ceq, ~cflip, ~ctrans, m, tree, x, k,
+          ne_of_false(~K, ~cmp, ~eq, ~crefl, ~ceq, ~agree, k, x, hc), s)) : {_ == St(~K, ~eq, t, k) : Maybe<&2, P.Status>}
+      ih
+
+# The status index finds the status that status finds.
+def sget(~K: Data, ~cmp: K -> K -> Cmp, ~eq: K -> K -> Bool, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  ~agree: Agree(~K, ~cmp, ~eq), st: List<&2, P.Entry<K>>, +k: K) -> {SGet(~K, ~cmp, P.sidx(~K, ~cmp, st), k) == St(~K, ~eq, st, k) : Maybe<&2, P.Status>}:
+  match st:
+    case Nil{}:
+      {==}
+    case Con{P.Entry{+x, +s}, +t}:
+      sget.if(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, eq(k, x), x, s, t, k, {==}, sget(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, t, k))
+
+def ready_fast(~K: Data, ~cmp: K -> K -> Cmp, ~eq: K -> K -> Bool, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  ~agree: Agree(~K, ~cmp, ~eq), ds: List<&2, K>, +st: List<&2, P.Entry<K>>) ->
+  {P.ready.fast(~K, ~cmp, ds, P.sidx(~K, ~cmp, st)) == P.ready(~K, ~eq, ds, st) : Bool}:
+  match ds:
+    case Nil{}:
+      {==}
+    case Con{+d, +t}:
+      %Equal.sym(Maybe<&2, P.Status>, SGet(~K, ~cmp, P.sidx(~K, ~cmp, st), d), St(~K, ~eq, st, d), sget(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, st, d)) :
+        {Bool.and(P.ok.at(_), P.ready.fast(~K, ~cmp, t, P.sidx(~K, ~cmp, st))) == Bool.and(P.ok.at(St(~K, ~eq, st, d)), P.ready(~K, ~eq, t, st)) : Bool}
+      %Equal.sym(Bool, P.ready.fast(~K, ~cmp, t, P.sidx(~K, ~cmp, st)), P.ready(~K, ~eq, t, st), ready_fast(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, t, st)) :
+        {Bool.and(P.ok.at(St(~K, ~eq, st, d)), _) == Bool.and(P.ok.at(St(~K, ~eq, st, d)), P.ready(~K, ~eq, t, st)) : Bool}
+      {==}
+
+def pnode_eq(~K: Data, ~cmp: K -> K -> Cmp, ~eq: K -> K -> Bool, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  ~agree: Agree(~K, ~cmp, ~eq), m: Maybe<&2, List<&2, K>>, +st: List<&2, P.Entry<K>>, +running: List<&2, K>, b: Bool, room: Bool) ->
+  {P.decide.par.node.fast(~K, ~eq, ~cmp, m, P.sidx(~K, ~cmp, st), running, b, room) == P.decide.par.node(~K, ~eq, m, st, running, b, room) : P.Step}:
+  match m:
+    case None{}:
+      {==}
+    case Some{+ds}:
+      %Equal.sym(Bool, P.ready.fast(~K, ~cmp, ds, P.sidx(~K, ~cmp, st)), P.ready(~K, ~eq, ds, st), ready_fast(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, ds, st)) :
+        {P.decide.par.wait(P.any_in(~K, ~eq, ds, running), _, b, room) == P.decide.par.wait(P.any_in(~K, ~eq, ds, running), P.ready(~K, ~eq, ds, st), b, room) : P.Step}
+      {==}
+
+def pseen_eq(~K: Data, ~cmp: K -> K -> Cmp, ~eq: K -> K -> Bool, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  ~agree: Agree(~K, ~cmp, ~eq), c: Bool, +g: List<&2, P.Node<K>>, +stale: List<&2, K>, +limit: Nat, +st: List<&2, P.Entry<K>>, +running: List<&2, K>, +x: K) ->
+  {P.decide.par.seen.fast(~K, ~eq, ~cmp, c, P.gidx(~K, ~cmp, g), P.idx(~K, ~cmp, stale), limit, P.sidx(~K, ~cmp, st), running, x)
+    == P.decide.par.seen(~K, ~eq, c, g, stale, limit, st, running, x) : P.Step}:
+  match c:
+    case True{}:
+      {==}
+    case False{}:
+      +room = P.le(1n+List.length(&2, K, running), limit)
+      %Equal.sym(Maybe<&2, List<&2, K>>, GGet(~K, ~cmp, P.gidx(~K, ~cmp, g), x), P.deps(~K, ~eq, g, x), gget(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, g, x)) :
+        {P.decide.par.node.fast(~K, ~eq, ~cmp, _, P.sidx(~K, ~cmp, st), running, OMap.OSet.has(~K, ~cmp, P.idx(~K, ~cmp, stale), x), room)
+          == P.decide.par.node(~K, ~eq, P.deps(~K, ~eq, g, x), st, running, P.member(~K, ~eq, stale, x), room) : P.Step}
+      %Equal.sym(Bool, IHas(~K, ~cmp, P.idx(~K, ~cmp, stale), x), P.member(~K, ~eq, stale, x), ihas(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, stale, x)) :
+        {P.decide.par.node.fast(~K, ~eq, ~cmp, P.deps(~K, ~eq, g, x), P.sidx(~K, ~cmp, st), running, _, room)
+          == P.decide.par.node(~K, ~eq, P.deps(~K, ~eq, g, x), st, running, P.member(~K, ~eq, stale, x), room) : P.Step}
+      pnode_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, P.deps(~K, ~eq, g, x), st, running, P.member(~K, ~eq, stale, x), room)
+
+def pdecide_eq(~K: Data, ~cmp: K -> K -> Cmp, ~eq: K -> K -> Bool, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  ~agree: Agree(~K, ~cmp, ~eq), +g: List<&2, P.Node<K>>, +stale: List<&2, K>, +limit: Nat, pool: P.Pool<K>, +x: K) ->
+  {P.decide.par.fast(~K, ~eq, ~cmp, P.gidx(~K, ~cmp, g), P.idx(~K, ~cmp, stale), limit, P.lift(~K, ~cmp, pool), x)
+    == P.decide.par(~K, ~eq, g, stale, limit, pool, x) : P.Step}:
+  match pool:
+    case P.Pool{+st, +running, +log}:
+      %Equal.sym(Maybe<&2, P.Status>, SGet(~K, ~cmp, P.sidx(~K, ~cmp, st), x), St(~K, ~eq, st, x), sget(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, st, x)) :
+        {P.decide.par.seen.fast(~K, ~eq, ~cmp, Bool.or(Maybe.is_some(&2, P.Status, _), P.member(~K, ~eq, running, x)),
+            P.gidx(~K, ~cmp, g), P.idx(~K, ~cmp, stale), limit, P.sidx(~K, ~cmp, st), running, x)
+          == P.decide.par.seen(~K, ~eq, Bool.or(Maybe.is_some(&2, P.Status, St(~K, ~eq, st, x)), P.member(~K, ~eq, running, x)), g, stale, limit, st, running, x) : P.Step}
+      pseen_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, Bool.or(Maybe.is_some(&2, P.Status, St(~K, ~eq, st, x)), P.member(~K, ~eq, running, x)), g, stale, limit, st, running, x)
+
+def papply_eq(~K: Data, ~cmp: K -> K -> Cmp, a: P.Step, pool: P.Pool<K>, +x: K) ->
+  {P.apply.fast(~K, ~cmp, a, P.lift(~K, ~cmp, pool), x) == P.lift(~K, ~cmp, P.apply(K, a, pool, x)) : P.FPool<K>}:
+  match a pool:
+    case P.PSkip{} P.Pool{st, r, l}:
+      {==}
+    case P.PMark{s} P.Pool{st, r, l}:
+      {==}
+    case P.PStart{} P.Pool{st, r, l}:
+      {==}
+    case P.PWait{} P.Pool{st, r, l}:
+      {==}
+
+def pfin_if(~K: Data, ~cmp: K -> K -> Cmp, c: Bool, +y: K, +ok: Bool, +st: List<&2, P.Entry<K>>, +running: List<&2, K>, +dr: List<&2, K>, +log: List<&2, K>) ->
+  {P.FPool{P.finish.if(K, c, y, ok, st, running, dr, log), P.finish.si(~K, ~cmp, c, P.sidx(~K, ~cmp, st), y, ok)}
+    == P.lift(~K, ~cmp, P.finish.if(K, c, y, ok, st, running, dr, log)) : P.FPool<K>}:
+  match c:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def pfinish_eq(~K: Data, ~eq: K -> K -> Bool, ~cmp: K -> K -> Cmp, pool: P.Pool<K>, e: P.Fin<K>) ->
+  {P.finish.fast(~K, ~eq, ~cmp, P.lift(~K, ~cmp, pool), e) == P.lift(~K, ~cmp, P.finish(~K, ~eq, pool, e)) : P.FPool<K>}:
+  match pool e:
+    case P.Pool{+st, +running, +log} P.Fin{+y, +ok}:
+      pfin_if(~K, ~cmp, P.member(~K, ~eq, running, y), y, ok, st, running, P.drop(~K, ~eq, running, y), log)
+
+def pat_eq(~K: Data, ~cmp: K -> K -> Cmp, a: P.Step,
+  wL: Unit -> P.FPool<K>, wR: Unit -> P.Pool<K>, gL: Unit -> P.FPool<K>, gR: Unit -> P.Pool<K>,
+  ew: {wL(Unit{}) == P.lift(~K, ~cmp, wR(Unit{})) : P.FPool<K>}, eg: {gL(Unit{}) == P.lift(~K, ~cmp, gR(Unit{})) : P.FPool<K>}
+) -> {P.par.at(P.FPool<K>, a, wL, gL) == P.lift(~K, ~cmp, P.par.at(P.Pool<K>, a, wR, gR)) : P.FPool<K>}:
+  match a:
+    case P.PSkip{}:
+      eg
+    case P.PMark{s}:
+      eg
+    case P.PStart{}:
+      eg
+    case P.PWait{}:
+      ew
+
+# The indexed parallel run answers as the list run, with an exact status index.
+def par_fast_eq(~K: Data, ~cmp: K -> K -> Cmp, ~eq: K -> K -> Bool, ~crefl: CRefl(~K, ~cmp), ~ceq: CEq(~K, ~cmp), ~cflip: CFlip(~K, ~cmp), ~ctrans: CTrans(~K, ~cmp),
+  ~agree: Agree(~K, ~cmp, ~eq), es: List<&2, P.Fin<K>>, p: List<&2, K>, +g: List<&2, P.Node<K>>, +stale: List<&2, K>, +limit: Nat, +pool: P.Pool<K>) ->
+  {P.par.fast(~K, ~eq, ~cmp, es, p, P.gidx(~K, ~cmp, g), P.idx(~K, ~cmp, stale), limit, P.lift(~K, ~cmp, pool))
+    == P.lift(~K, ~cmp, P.par(~K, ~eq, es, p, g, stale, limit, pool)) : P.FPool<K>}:
+  match es:
+    case Nil{}:
+      match p:
+        case Nil{}:
+          {==}
+        case Con{+x, +t}:
+          +gi = P.gidx(~K, ~cmp, g)
+          +si = P.idx(~K, ~cmp, stale)
+          +a = P.decide.par(~K, ~eq, g, stale, limit, pool, x)
+          %Equal.sym(P.Step, P.decide.par.fast(~K, ~eq, ~cmp, gi, si, limit, P.lift(~K, ~cmp, pool), x), a, pdecide_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, g, stale, limit, pool, x)) :
+            {P.par.at(P.FPool<K>, _, u => P.lift(~K, ~cmp, pool), u => P.par.fast(~K, ~eq, ~cmp, Nil{}, t, gi, si, limit, P.apply.fast(~K, ~cmp, _, P.lift(~K, ~cmp, pool), x)))
+              == P.lift(~K, ~cmp, P.par.at(P.Pool<K>, a, u => pool, u => P.par(~K, ~eq, Nil{}, t, g, stale, limit, P.apply(K, a, pool, x)))) : P.FPool<K>}
+          pat_eq(~K, ~cmp, a,
+            u => P.lift(~K, ~cmp, pool), u => pool,
+            u => P.par.fast(~K, ~eq, ~cmp, Nil{}, t, gi, si, limit, P.apply.fast(~K, ~cmp, a, P.lift(~K, ~cmp, pool), x)),
+            u => P.par(~K, ~eq, Nil{}, t, g, stale, limit, P.apply(K, a, pool, x)),
+            {==},
+            (%Equal.sym(P.FPool<K>, P.apply.fast(~K, ~cmp, a, P.lift(~K, ~cmp, pool), x), P.lift(~K, ~cmp, P.apply(K, a, pool, x)), papply_eq(~K, ~cmp, a, pool, x)) :
+              {P.par.fast(~K, ~eq, ~cmp, Nil{}, t, gi, si, limit, _) == P.lift(~K, ~cmp, P.par(~K, ~eq, Nil{}, t, g, stale, limit, P.apply(K, a, pool, x))) : P.FPool<K>}
+              par_fast_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, Nil{}, t, g, stale, limit, P.apply(K, a, pool, x))))
+    case Con{+e, +r}:
+      match p:
+        case Nil{}:
+          +gi = P.gidx(~K, ~cmp, g)
+          +si = P.idx(~K, ~cmp, stale)
+          %Equal.sym(P.FPool<K>, P.finish.fast(~K, ~eq, ~cmp, P.lift(~K, ~cmp, pool), e), P.lift(~K, ~cmp, P.finish(~K, ~eq, pool, e)), pfinish_eq(~K, ~eq, ~cmp, pool, e)) :
+            {P.par.fast(~K, ~eq, ~cmp, r, Nil{}, gi, si, limit, _) == P.lift(~K, ~cmp, P.par(~K, ~eq, r, Nil{}, g, stale, limit, P.finish(~K, ~eq, pool, e))) : P.FPool<K>}
+          par_fast_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, r, Nil{}, g, stale, limit, P.finish(~K, ~eq, pool, e))
+        case Con{+x, +t}:
+          +gi = P.gidx(~K, ~cmp, g)
+          +si = P.idx(~K, ~cmp, stale)
+          +a = P.decide.par(~K, ~eq, g, stale, limit, pool, x)
+          %Equal.sym(P.Step, P.decide.par.fast(~K, ~eq, ~cmp, gi, si, limit, P.lift(~K, ~cmp, pool), x), a, pdecide_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, g, stale, limit, pool, x)) :
+            {P.par.at(P.FPool<K>, _,
+                u => P.par.fast(~K, ~eq, ~cmp, r, x <> t, gi, si, limit, P.finish.fast(~K, ~eq, ~cmp, P.lift(~K, ~cmp, pool), e)),
+                u => P.par.fast(~K, ~eq, ~cmp, e <> r, t, gi, si, limit, P.apply.fast(~K, ~cmp, _, P.lift(~K, ~cmp, pool), x)))
+              == P.lift(~K, ~cmp, P.par.at(P.Pool<K>, a,
+                u => P.par(~K, ~eq, r, x <> t, g, stale, limit, P.finish(~K, ~eq, pool, e)),
+                u => P.par(~K, ~eq, e <> r, t, g, stale, limit, P.apply(K, a, pool, x)))) : P.FPool<K>}
+          pat_eq(~K, ~cmp, a,
+            u => P.par.fast(~K, ~eq, ~cmp, r, x <> t, gi, si, limit, P.finish.fast(~K, ~eq, ~cmp, P.lift(~K, ~cmp, pool), e)),
+            u => P.par(~K, ~eq, r, x <> t, g, stale, limit, P.finish(~K, ~eq, pool, e)),
+            u => P.par.fast(~K, ~eq, ~cmp, e <> r, t, gi, si, limit, P.apply.fast(~K, ~cmp, a, P.lift(~K, ~cmp, pool), x)),
+            u => P.par(~K, ~eq, e <> r, t, g, stale, limit, P.apply(K, a, pool, x)),
+            (%Equal.sym(P.FPool<K>, P.finish.fast(~K, ~eq, ~cmp, P.lift(~K, ~cmp, pool), e), P.lift(~K, ~cmp, P.finish(~K, ~eq, pool, e)), pfinish_eq(~K, ~eq, ~cmp, pool, e)) :
+              {P.par.fast(~K, ~eq, ~cmp, r, x <> t, gi, si, limit, _) == P.lift(~K, ~cmp, P.par(~K, ~eq, r, x <> t, g, stale, limit, P.finish(~K, ~eq, pool, e))) : P.FPool<K>}
+              par_fast_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, r, x <> t, g, stale, limit, P.finish(~K, ~eq, pool, e))),
+            (%Equal.sym(P.FPool<K>, P.apply.fast(~K, ~cmp, a, P.lift(~K, ~cmp, pool), x), P.lift(~K, ~cmp, P.apply(K, a, pool, x)), papply_eq(~K, ~cmp, a, pool, x)) :
+              {P.par.fast(~K, ~eq, ~cmp, e <> r, t, gi, si, limit, _) == P.lift(~K, ~cmp, P.par(~K, ~eq, e <> r, t, g, stale, limit, P.apply(K, a, pool, x))) : P.FPool<K>}
+              par_fast_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, e <> r, t, g, stale, limit, P.apply(K, a, pool, x))))
+
+def Laws.par_index(K, eq, cmp, crefl, ceq, cflip, ctrans, agree, es, p, g, stale, limit, pool):
+  par_fast_eq(~K, ~cmp, ~eq, ~crefl, ~ceq, ~cflip, ~ctrans, ~agree, es, p, g, stale, limit, pool)
+
 # Fixtures
 # --------
 

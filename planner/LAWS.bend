@@ -547,6 +547,26 @@ law par_total:
   for hx: {P.member(~K, ~eq, p, x) == True{} : Bool}
   {Maybe.is_some(&2, P.Status, P.status(~K, ~eq, statuses(K, prun(~K, ~eq, es, p, g, stale, limit)), x)) == True{} : Bool}
 
+# par.fast runs as par and keeps its status index exact, under the order facts of plan_index.
+# So every parallel law holds for it too.
+law par_index:
+  for ~K: Data
+  for ~eq: K -> K -> Bool
+  for ~cmp: K -> K -> Cmp
+  for ~crefl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~ceq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for ~cflip: @x: K -> @y: K -> {cmp(y, x) == Col.flip(cmp(x, y)) : Cmp}
+  for ~ctrans: @x: K -> @y: K -> @z: K -> {cmp(x, y) == LT{} : Cmp} -> {cmp(y, z) == LT{} : Cmp} -> {cmp(x, z) == LT{} : Cmp}
+  for ~agree: @x: K -> @y: K -> {eq(x, y) == Cmp.is_eq(cmp(x, y)) : Bool}
+  for es: List<&2, P.Fin<K>>
+  for p: List<&2, K>
+  for g: List<&2, P.Node<K>>
+  for stale: List<&2, K>
+  for limit: Nat
+  for pool: P.Pool<K>
+  {P.par.fast(~K, ~eq, ~cmp, es, p, P.gidx(~K, ~cmp, g), P.idx(~K, ~cmp, stale), limit, P.lift(~K, ~cmp, pool))
+   == P.lift(~K, ~cmp, P.par(~K, ~eq, es, p, g, stale, limit, pool)) : P.FPool<K>}
+
 # The diamond with room for two: base runs alone, lib and gen run together, then app.
 law fixture_par:
   {prun(~String, ~String.eq, [P.Fin{"base", True{}}, P.Fin{"gen", True{}}, P.Fin{"lib", True{}}, P.Fin{"app", True{}}],

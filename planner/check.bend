@@ -2,7 +2,7 @@
 import Base
 import ./planner.bend as P
 import bend-kit-files@0.3.1.0/files.bend as Files
-import bend-kit-process@0.5.0.1/process.bend as Proc
+import bend-kit-process@0.5.1.0/process.bend as Proc
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # A diamond whose middle tasks each sleep for a second, logging when they start (+) and end (-).

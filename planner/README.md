@@ -3,10 +3,10 @@
 Dependency plans for builds and task graphs. `plan` gives the dependency closure of the requested targets in an order where every prerequisite comes first, or says which node is missing or which cycle blocks the plan. `invalidate` finds what an input change makes stale, and `exec` decides which nodes run, which are reused, and which are skipped. `build` runs real commands on top of them. `LAWS.bend` states these properties for every graph, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-planner@0.4.1.0/planner.bend as P
+import bend-kit-planner@0.4.2.0/planner.bend as P
 ```
 
-It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-hash@0.3.0.4`, `bend-kit-files@0.3.1.0`, `bend-kit-process@0.5.0.1`, and `bend-kit-collections@0.1.5.0`.
+It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-hash@0.3.0.4`, `bend-kit-files@0.3.1.0`, `bend-kit-process@0.5.1.0`, and `bend-kit-collections@0.1.5.0`.
 
 ## Example
 
@@ -14,7 +14,7 @@ Build `app` from `lib`. A second build reuses both; a change to `lib.c` rebuilds
 
 ```bend
 import Base
-import bend-kit-planner@0.4.1.0/planner.bend as P
+import bend-kit-planner@0.4.2.0/planner.bend as P
 
 def tasks() -> List<&2, P.Task>:
   [P.Task{"app", ["lib"], ["cc", "-o", "app", "main.c", "lib.o"], ["main.c"]},
@@ -99,6 +99,7 @@ The build layer fixes `K` to `String`.
 |---|---|
 | `par(es, p, g, stale, limit, pool)` | the model of a parallel run: `es` holds the finishes in the order they arrive |
 | `decide.par(g, stale, limit, pool, x)` | `PSkip{}`, `PMark{status}`, `PStart{}`, or `PWait{}` for node `x` |
+| `par.fast(~cmp, es, p, gidx(g), idx(stale), limit, lift(pool))` | `lift` of the `par` answer: the pool and an ordered map of its statuses |
 | `finish(pool, e)`, `apply(a, pool, x)` | the pool after a finish, or after a decision |
 
 ## Laws
@@ -130,6 +131,7 @@ The build layer fixes `K` to `String`.
 | `par_fresh` | in a parallel run, a stale node is never reused |
 | `par_limit` | no more than `limit` commands run at once |
 | `par_total` | with room for one command, a run that ends with nothing running gives every node of `p` a status |
+| `par_index` | for a total order `cmp` that agrees with `eq`, `par.fast` runs as `par` and its status index stays exact |
 
 Every law takes `eq` as sound: `eq(x, y)` gives `x == y`. The completeness and parallel laws also take it as reflexive: `eq(x, x)`. `String.eq` is both. The `exec_` and `par_` laws hold for any node list, not only a plan, and the `par_` laws hold for every order in which commands finish. The fixture laws check the same functions on a diamond, a cycle, and a missing node.
 
@@ -147,7 +149,8 @@ The proofs cover the pure core. They do not cover hashing, the disk, or the comm
 ## Limits
 
 - `plan.fast` and `invalidate.fast` take O(n log n) comparisons, and `build` uses them. A plan of 1,000 nodes takes about 7 ms. See [bench/README.md](bench/README.md).
-- `plan` and `invalidate` are the list models that the laws speak about. They take O(n²) comparisons. `exec` and the parallel runner still look up prerequisites and states in lists, so a build of n tasks takes O(n²) comparisons outside the plan.
+- `build` runs through `par.fast` and looks up tasks, stamps, and command output in ordered maps, so a build of n tasks takes O(n log n) comparisons outside the commands. The run model on 1,000 nodes takes about 10 ms.
+- `plan`, `invalidate`, `exec`, and `par` are the list models that the laws speak about. They take O(n²) comparisons. `exec` has no indexed version, because `build` does not use it.
 - A task id is printable ASCII and not empty, because the stamps file holds one id per line.
 
 ## Bench

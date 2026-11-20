@@ -3,7 +3,7 @@ import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-hash@0.3.0.4/hash.bend as Hash
 import bend-kit-files@0.3.1.0/files.bend as Files
-import bend-kit-process@0.5.0.1/process.bend as Proc
+import bend-kit-process@0.5.1.0/process.bend as Proc
 import bend-kit-collections@0.1.5.0/omap.bend as OMap
 import bend-kit-collections@0.1.5.0/order.bend as Order
 
@@ -649,8 +649,115 @@ def par(
             u => par(~K, ~eq, r, x <> t, g, stale, limit, finish(~K, ~eq, pool, e)),
             u => par(~K, ~eq, e <> r, t, g, stale, limit, apply(K, a, pool, x)))
 
+# Indexed parallel execution
+# --------------------------
+# The same run with the statuses, the graph, and the stale set in ordered maps under cmp.
+# running stays a list: it holds at most limit nodes.
+
+# The status of each node; the newest entry wins, as status does.
+def sidx(~K: Data, ~cmp: K -> K -> Cmp, st: List<&2, Entry<K>>) -> OMap.OMap<K, Status>:
+  match st:
+    case Nil{}:
+      OMap.OMap.new(K, Status)
+    case Con{Entry{+x, +s}, t}:
+      OMap.OMap.put(~K, ~Status, ~cmp, sidx(~K, ~cmp, t), x, s)
+
+# A pool and the index of its statuses.
+type FPool<-K: Data> is Data:
+  FPool{pool: Pool<K>, si: OMap.OMap<K, Status>}
+
+def lift(~K: Data, ~cmp: K -> K -> Cmp, pool: Pool<K>) -> FPool<K>:
+  match pool:
+    case Pool{+st, running, log}:
+      FPool{Pool{st, running, log}, sidx(~K, ~cmp, st)}
+
+def status.fast(~K: Data, ~cmp: K -> K -> Cmp, +si: OMap.OMap<K, Status>, +k: K) -> Maybe<&2, Status>:
+  OMap.OMap.get(~K, ~Status, ~cmp, si, k)
+
+def ready.fast(~K: Data, ~cmp: K -> K -> Cmp, ds: List<&2, K>, +si: OMap.OMap<K, Status>) -> Bool:
+  match ds:
+    case Nil{}:
+      True{}
+    case Con{+d, t}:
+      Bool.and(ok.at(status.fast(~K, ~cmp, si, d)), ready.fast(~K, ~cmp, t, si))
+
+def decide.par.node.fast(~K: Data, ~eq: K -> K -> Bool, ~cmp: K -> K -> Cmp, m: Maybe<&2, List<&2, K>>, +si: OMap.OMap<K, Status>, +running: List<&2, K>, stale: Bool, room: Bool) -> Step:
+  match m:
+    case None{}:
+      PMark{Skipped{}}
+    case Some{+ds}:
+      decide.par.wait(any_in(~K, ~eq, ds, running), ready.fast(~K, ~cmp, ds, si), stale, room)
+
+def decide.par.seen.fast(
+  ~K: Data, ~eq: K -> K -> Bool, ~cmp: K -> K -> Cmp, seen: Bool, +gi: OMap.OMap<K, List<&2, K>>, +stalei: OMap.OSet(K), +limit: Nat,
+  +si: OMap.OMap<K, Status>, +running: List<&2, K>, +x: K
+) -> Step:
+  match seen:
+    case True{}:
+      PSkip{}
+    case False{}:
+      decide.par.node.fast(~K, ~eq, ~cmp, OMap.OMap.get(~K, ~List<&2, K>, ~cmp, gi, x), si, running, OMap.OSet.has(~K, ~cmp, stalei, x),
+        le(1n+List.length(&2, K, running), limit))
+
+def decide.par.fast(~K: Data, ~eq: K -> K -> Bool, ~cmp: K -> K -> Cmp, +gi: OMap.OMap<K, List<&2, K>>, +stalei: OMap.OSet(K), +limit: Nat, fp: FPool<K>, +x: K) -> Step:
+  match fp:
+    case FPool{Pool{st, +running, log}, +si}:
+      decide.par.seen.fast(~K, ~eq, ~cmp, Bool.or(Maybe.is_some(&2, Status, status.fast(~K, ~cmp, si, x)), member(~K, ~eq, running, x)), gi, stalei, limit, si, running, x)
+
+def apply.si(~K: Data, ~cmp: K -> K -> Cmp, a: Step, si: OMap.OMap<K, Status>, +x: K) -> OMap.OMap<K, Status>:
+  match a:
+    case PMark{s}:
+      OMap.OMap.put(~K, ~Status, ~cmp, si, x, s)
+    case _:
+      si
+
+def apply.fast(~K: Data, ~cmp: K -> K -> Cmp, +a: Step, fp: FPool<K>, +x: K) -> FPool<K>:
+  match fp:
+    case FPool{pool, si}:
+      FPool{apply(K, a, pool, x), apply.si(~K, ~cmp, a, si, x)}
+
+def finish.si(~K: Data, ~cmp: K -> K -> Cmp, run: Bool, si: OMap.OMap<K, Status>, +y: K, ok: Bool) -> OMap.OMap<K, Status>:
+  match run:
+    case True{}:
+      OMap.OMap.put(~K, ~Status, ~cmp, si, y, Fin.status(ok))
+    case False{}:
+      si
+
+def finish.fast(~K: Data, ~eq: K -> K -> Bool, ~cmp: K -> K -> Cmp, fp: FPool<K>, e: Fin<K>) -> FPool<K>:
+  match fp e:
+    case FPool{Pool{st, +running, log}, si} Fin{+y, +ok}:
+      +run = member(~K, ~eq, running, y)
+      FPool{finish.if(K, run, y, ok, st, running, drop(~K, ~eq, running, y), log), finish.si(~K, ~cmp, run, si, y, ok)}
+
+# par, in O(n log n) comparisons when cmp is a total order whose EQ agrees with eq.
+def par.fast(
+  ~K: Data, ~eq: K -> K -> Bool, ~cmp: K -> K -> Cmp, es: List<&2, Fin<K>>, p: List<&2, K>, +gi: OMap.OMap<K, List<&2, K>>,
+  +stalei: OMap.OSet(K), +limit: Nat, +fp: FPool<K>
+) -> FPool<K>:
+  match es:
+    case Nil{}:
+      match p:
+        case Nil{}:
+          fp
+        case Con{+x, +t}:
+          +a = decide.par.fast(~K, ~eq, ~cmp, gi, stalei, limit, fp, x)
+          par.at(FPool<K>, a, u => fp, u => par.fast(~K, ~eq, ~cmp, Nil{}, t, gi, stalei, limit, apply.fast(~K, ~cmp, a, fp, x)))
+    case Con{+e, +r}:
+      match p:
+        case Nil{}:
+          par.fast(~K, ~eq, ~cmp, r, Nil{}, gi, stalei, limit, finish.fast(~K, ~eq, ~cmp, fp, e))
+        case Con{+x, +t}:
+          +a = decide.par.fast(~K, ~eq, ~cmp, gi, stalei, limit, fp, x)
+          par.at(FPool<K>, a,
+            u => par.fast(~K, ~eq, ~cmp, r, x <> t, gi, stalei, limit, finish.fast(~K, ~eq, ~cmp, fp, e)),
+            u => par.fast(~K, ~eq, ~cmp, e <> r, t, gi, stalei, limit, apply.fast(~K, ~cmp, a, fp, x)))
+
 # Builds
 # ------
+
+# Equal strings, as the order that build indexes them by sees them.
+def String.same(a: String, b: String) -> Bool:
+  Cmp.is_eq(Order.string(a, b))
 
 # A node with its command and the source files it reads.
 type Task is Data:
@@ -691,13 +798,16 @@ def graph(ts: List<&2, Task>) -> List<&2, Node<String>>:
     case Con{t, r}:
       Task.node(t) <> graph(r)
 
-# The first task named k.
-def task(ts: List<&2, Task>, +k: String) -> Maybe<&2, Task>:
+# Each task by id; the first task with an id wins.
+def tidx(ts: List<&2, Task>) -> OMap.OMap<String, Task>:
   match ts:
     case Nil{}:
-      None{}
-    case Con{Task{+id, +ds, +a, +i}, r}:
-      when(Maybe<&2, Task>, u => task(r, k), String.eq(k, id), Some{Task{id, ds, a, i}})
+      OMap.OMap.new(String, Task)
+    case Con{Task{+id, ds, a, i}, r}:
+      OMap.OMap.put(~String, ~Task, ~Order.string, tidx(r), id, Task{id, ds, a, i})
+
+def task(+ti: OMap.OMap<String, Task>, +k: String) -> Maybe<&2, Task>:
+  OMap.OMap.get(~String, ~Task, ~Order.string, ti, k)
 
 def id.char(c: Char) -> Bool:
   +n = Char.to_u32(c)
@@ -825,21 +935,25 @@ def Task.stamp(t: Task, +dir: String) -> IO(String):
 type Stamp is Data:
   Stamp{node: String, hash: String}
 
-def lookup(xs: List<&2, Stamp>, +k: String) -> Maybe<&2, String>:
+# Each stamp by node; the first stamp of a node wins.
+def stamps.idx(xs: List<&2, Stamp>) -> OMap.OMap<String, String>:
   match xs:
     case Nil{}:
-      None{}
+      OMap.OMap.new(String, String)
     case Con{Stamp{+x, +v}, t}:
-      when(Maybe<&2, String>, u => lookup(t, k), String.eq(k, x), Some{v})
+      OMap.OMap.put(~String, ~String, ~Order.string, stamps.idx(t), x, v)
 
-def stamps.now(p: List<&2, String>, +ts: List<&2, Task>, +dir: String, acc: List<&2, Stamp>) -> IO(List<&2, Stamp>):
+def lookup(+xi: OMap.OMap<String, String>, +k: String) -> Maybe<&2, String>:
+  OMap.OMap.get(~String, ~String, ~Order.string, xi, k)
+
+def stamps.now(p: List<&2, String>, +ti: OMap.OMap<String, Task>, +dir: String, acc: List<&2, Stamp>) -> IO(List<&2, Stamp>):
   match p:
     case Nil{}:
       IO.pure(List<&2, Stamp>, acc)
     case Con{+x, t}:
       IO.bind(String, List<&2, Stamp>,
-        Task.stamp(Maybe.default(&2, Task, task(ts, x), Task{x, Nil{}, Nil{}, Nil{}}), dir),
-        s => stamps.now(t, ts, dir, Stamp{x, s} <> acc))
+        Task.stamp(Maybe.default(&2, Task, task(ti, x), Task{x, Nil{}, Nil{}, Nil{}}), dir),
+        s => stamps.now(t, ti, dir, Stamp{x, s} <> acc))
 
 def same(a: Maybe<&2, String>, b: Maybe<&2, String>) -> Bool:
   match a b:
@@ -849,7 +963,7 @@ def same(a: Maybe<&2, String>, b: Maybe<&2, String>) -> Bool:
       False{}
 
 # The nodes of p whose stamp now is not the recorded one.
-def changed(p: List<&2, String>, +old: List<&2, Stamp>, +now: List<&2, Stamp>) -> List<&2, String>:
+def changed(p: List<&2, String>, +old: OMap.OMap<String, String>, +now: OMap.OMap<String, String>) -> List<&2, String>:
   match p:
     case Nil{}:
       Nil{}
@@ -857,7 +971,7 @@ def changed(p: List<&2, String>, +old: List<&2, Stamp>, +now: List<&2, Stamp>) -
       invalidate.if(String, Bool.not(same(lookup(old, x), lookup(now, x))), x, changed(t, old, now))
 
 # The stamps of the nodes that ended Built or Fresh, and the old stamps of nodes the run did not reach.
-def after.new(st: List<&2, Entry<String>>, +now: List<&2, Stamp>) -> List<&2, Stamp>:
+def after.new(st: List<&2, Entry<String>>, +now: OMap.OMap<String, String>) -> List<&2, Stamp>:
   match st:
     case Nil{}:
       Nil{}
@@ -865,16 +979,16 @@ def after.new(st: List<&2, Entry<String>>, +now: List<&2, Stamp>) -> List<&2, St
       +r = after.new(t, now)
       Bool.pick(List<&2, Stamp>, Status.ok(s), Stamp{x, Maybe.default(&2, String, lookup(now, x), "")} <> r, r)
 
-def after.keep(old: List<&2, Stamp>, +done: List<&2, String>) -> List<&2, Stamp>:
+def after.keep(old: List<&2, Stamp>, +done: OMap.OMap<String, Status>) -> List<&2, Stamp>:
   match old:
     case Nil{}:
       Nil{}
     case Con{Stamp{+k, +v}, t}:
       +r = after.keep(t, done)
-      Bool.pick(List<&2, Stamp>, member(~String, ~String.eq, done, k), r, Stamp{k, v} <> r)
+      Bool.pick(List<&2, Stamp>, Maybe.is_some(&2, Status, status.fast(~String, ~Order.string, done, k)), r, Stamp{k, v} <> r)
 
-def after(+st: List<&2, Entry<String>>, +now: List<&2, Stamp>, old: List<&2, Stamp>) -> List<&2, Stamp>:
-  cat(Stamp, after.new(st, now), after.keep(old, keys(String, st)))
+def after(+st: List<&2, Entry<String>>, +si: OMap.OMap<String, Status>, +now: OMap.OMap<String, String>, old: List<&2, Stamp>) -> List<&2, Stamp>:
+  cat(Stamp, after.new(st, now), after.keep(old, si))
 
 def stamps.line(e: Stamp) -> String:
   match e:
@@ -1016,7 +1130,7 @@ type Msg is Data:
   Msg{node: String, ran: Maybe<&2, Ran>}
 
 type Ledger is Data:
-  Ledger{pool: Pool<String>, logs: List<&2, Log>}
+  Ledger{pool: FPool<String>, logs: List<&2, Log>}
 
 def run.job(dir: String, m: Maybe<&2, Task>, +x: String, chan: Chan(Msg)) -> IO(Unit):
   do IO<Unit>:
@@ -1024,28 +1138,28 @@ def run.job(dir: String, m: Maybe<&2, Task>, +x: String, chan: Chan(Msg)) -> IO(
     s : Result<&1, &1, Msg, Unit> <- Chan.send(Msg, chan, Msg{x, r})
     return Unit{}
 
-def run.msg(m: Maybe<&1, Msg>, +pool: Pool<String>, +logs: List<&2, Log>, k: Pool<String> -> List<&2, Log> -> IO(Ledger)) -> IO(Ledger):
+def run.msg(m: Maybe<&1, Msg>, +pool: FPool<String>, +logs: List<&2, Log>, k: FPool<String> -> List<&2, Log> -> IO(Ledger)) -> IO(Ledger):
   match m:
     case None{}:
       IO.pure(Ledger, Ledger{pool, logs})
     case Some{Msg{+y, +r}}:
-      k(finish(~String, ~String.eq, pool, Fin{y, run.ok(r)}), run.log(y, r, logs))
+      k(finish.fast(~String, ~String.same, ~Order.string, pool, Fin{y, run.ok(r)}), run.log(y, r, logs))
 
 # Takes the next finished command, then goes on with k.
-def run.recv(+chan: Chan(Msg), +pool: Pool<String>, +logs: List<&2, Log>, k: Pool<String> -> List<&2, Log> -> IO(Ledger)) -> IO(Ledger):
+def run.recv(+chan: Chan(Msg), +pool: FPool<String>, +logs: List<&2, Log>, k: FPool<String> -> List<&2, Log> -> IO(Ledger)) -> IO(Ledger):
   IO.bind(Maybe<&1, Msg>, Ledger, Chan.recv(Msg, chan), m => run.msg(m, pool, logs, k))
 
 # Waits for n running commands.
-def run.drain(n: Nat, +pool: Pool<String>, +logs: List<&2, Log>, +chan: Chan(Msg)) -> IO(Ledger):
+def run.drain(n: Nat, +pool: FPool<String>, +logs: List<&2, Log>, +chan: Chan(Msg)) -> IO(Ledger):
   match n:
     case 0n:
       IO.pure(Ledger, Ledger{pool, logs})
     case 1n+m:
       run.recv(chan, pool, logs, q => l => run.drain(m, q, l, chan))
 
-def Pool.busy(pool: Pool<String>) -> Nat:
+def Pool.busy(pool: FPool<String>) -> Nat:
   match pool:
-    case Pool{st, running, log}:
+    case FPool{Pool{st, running, log}, si}:
       List.length(&2, String, running)
 
 def par.case(-R: Type, a: Step, wait: Unit -> R, start: Unit -> R, other: Unit -> R) -> R:
@@ -1059,8 +1173,8 @@ def par.case(-R: Type, a: Step, wait: Unit -> R, start: Unit -> R, other: Unit -
 
 # par, with each finish from a running job. Each wait finishes a node started earlier, so n = 1 + |p| is enough.
 def run.par(
-  n: Nat, p: List<&2, String>, +ts: List<&2, Task>, +g: List<&2, Node<String>>, +stale: List<&2, String>, +limit: Nat,
-  +pool: Pool<String>, +logs: List<&2, Log>, +dir: String, +chan: Chan(Msg)
+  n: Nat, p: List<&2, String>, +ti: OMap.OMap<String, Task>, +gi: OMap.OMap<String, List<&2, String>>, +stale: OMap.OSet(String), +limit: Nat,
+  +pool: FPool<String>, +logs: List<&2, Log>, +dir: String, +chan: Chan(Msg)
 ) -> IO(Ledger):
   match n:
     case 0n:
@@ -1070,19 +1184,20 @@ def run.par(
         case Nil{}:
           run.drain(Pool.busy(pool), pool, logs, chan)
         case Con{+x, +t}:
-          +a = decide.par(~String, ~String.eq, g, stale, limit, pool, x)
+          +a = decide.par.fast(~String, ~String.same, ~Order.string, gi, stale, limit, pool, x)
           par.case(IO(Ledger), a,
-            u => run.recv(chan, pool, logs, q => l => run.par(m, x <> t, ts, g, stale, limit, q, l, dir, chan)),
-            u => IO.bind(Unit, Ledger, IO.spawn(Unit, run.job(dir, task(ts, x), x, chan)),
-              v => run.par(1n+m, t, ts, g, stale, limit, apply(String, PStart{}, pool, x), logs, dir, chan)),
-            u => run.par(1n+m, t, ts, g, stale, limit, apply(String, a, pool, x), logs, dir, chan))
+            u => run.recv(chan, pool, logs, q => l => run.par(m, x <> t, ti, gi, stale, limit, q, l, dir, chan)),
+            u => IO.bind(Unit, Ledger, IO.spawn(Unit, run.job(dir, task(ti, x), x, chan)),
+              v => run.par(1n+m, t, ti, gi, stale, limit, apply.fast(~String, ~Order.string, PStart{}, pool, x), logs, dir, chan)),
+            u => run.par(1n+m, t, ti, gi, stale, limit, apply.fast(~String, ~Order.string, a, pool, x), logs, dir, chan))
 
-def ran.find(logs: List<&2, Log>, +k: String) -> Maybe<&2, Ran>:
+# What each node's command left; the newest log of a node wins.
+def ran.idx(logs: List<&2, Log>) -> OMap.OMap<String, Ran>:
   match logs:
     case Nil{}:
-      None{}
+      OMap.OMap.new(String, Ran)
     case Con{Log{+x, +r}, t}:
-      when(Maybe<&2, Ran>, u => ran.find(t, k), String.eq(k, x), Some{r})
+      OMap.OMap.put(~String, ~Ran, ~Order.string, ran.idx(t), x, r)
 
 def outcome.of(m: Maybe<&2, Status>, +x: String, r: Maybe<&2, Ran>, rest: List<&2, Outcome>) -> List<&2, Outcome>:
   match m:
@@ -1092,16 +1207,12 @@ def outcome.of(m: Maybe<&2, Status>, +x: String, r: Maybe<&2, Ran>, rest: List<&
       Outcome{x, s, r} <> rest
 
 # Each node of p that has a status, in plan order.
-def outcomes(p: List<&2, String>, +st: List<&2, Entry<String>>, +logs: List<&2, Log>) -> List<&2, Outcome>:
+def outcomes(p: List<&2, String>, +si: OMap.OMap<String, Status>, +ri: OMap.OMap<String, Ran>) -> List<&2, Outcome>:
   match p:
     case Nil{}:
       Nil{}
     case Con{+x, t}:
-      outcome.of(status(~String, ~String.eq, st, x), x, ran.find(logs, x), outcomes(t, st, logs))
-
-# Equal strings, as the order that build indexes them by sees them.
-def String.same(a: String, b: String) -> Bool:
-  Cmp.is_eq(Order.string(a, b))
+      outcome.of(status.fast(~String, ~Order.string, si, x), x, OMap.OMap.get(~String, ~Ran, ~Order.string, ri, x), outcomes(t, si, ri))
 
 def build.ids(m: Maybe<&2, String>) -> Run(Unit):
   match m:
@@ -1117,24 +1228,27 @@ def build.plan(r: Result<&2, &2, Error<String>, List<&2, String>>) -> Run(List<&
     case Done{p}:
       Run.pure(List<&2, String>, p)
 
-def build.done(+path: String, p: List<&2, String>, +now: List<&2, Stamp>, old: List<&2, Stamp>, l: Ledger) -> Run(List<&2, Outcome>):
+def build.done(+path: String, p: List<&2, String>, +now: OMap.OMap<String, String>, old: List<&2, Stamp>, l: Ledger) -> Run(List<&2, Outcome>):
   match l:
-    case Ledger{Pool{+st, running, log}, logs}:
+    case Ledger{FPool{Pool{st, running, log}, +si}, logs}:
       do Run<List<&2, Outcome>>:
-        stamps.write(path, after(st, now, old))
-        return outcomes(p, st, logs)
+        stamps.write(path, after(st, si, now, old))
+        return outcomes(p, si, ran.idx(logs))
 
 # Plans targets, runs each stale task in dir, up to jobs at once, reuses the rest, and records stamps in path.
 # The result is each planned node with its status and command output, in plan order.
 def build(+tasks: List<&2, Task>, +targets: List<&2, String>, +dir: String, +path: String, +jobs: U32) -> Run(List<&2, Outcome>):
   +g = graph(tasks)
+  +ti = tidx(tasks)
   +limit = U32.to_nat(U32.max(jobs, 1))
   do Run<List<&2, Outcome>>:
     build.ids(ids.bad(tasks))
     +p : List<&2, String> <- build.plan(plan.fast(~String, ~String.same, ~Order.string, g, targets))
     +old : List<&2, Stamp> <- Run.lift(List<&2, Stamp>, stamps.read(path))
-    +now : List<&2, Stamp> <- Run.lift(List<&2, Stamp>, stamps.now(p, tasks, dir, Nil{}))
-    +stale : List<&2, String> = invalidate.fast(~String, ~Order.string, p, g, changed(p, old, now))
+    now : List<&2, Stamp> <- Run.lift(List<&2, Stamp>, stamps.now(p, ti, dir, Nil{}))
+    +ni : OMap.OMap<String, String> = stamps.idx(now)
+    +stale : List<&2, String> = invalidate.fast(~String, ~Order.string, p, g, changed(p, stamps.idx(old), ni))
     +chan : Chan(Msg) <- Run.lift(Chan(Msg), Chan.new(Msg, U32.max(jobs, 1)))
-    l : Ledger <- Run.lift(Ledger, run.par(1n+List.length(&2, String, p), p, tasks, g, stale, limit, Pool{Nil{}, Nil{}, Nil{}}, Nil{}, dir, chan))
-    build.done(path, p, now, old, l)
+    l : Ledger <- Run.lift(Ledger, run.par(1n+List.length(&2, String, p), p, ti, gidx(~String, ~Order.string, g), idx(~String, ~Order.string, stale), limit,
+      FPool{Pool{Nil{}, Nil{}, Nil{}}, OMap.OMap.new(String, Status)}, Nil{}, dir, chan))
+    build.done(path, p, ni, old, l)
