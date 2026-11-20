@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ./encoding.bend as Enc
 
 def octets(xs: List<&2, U32>) -> String:
