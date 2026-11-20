@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `llm` 0.14.1.0: return a refused stream's connection to the client pool after its error body is drained. Keep incomplete and failed drains out of the pool.
+
 - `collections` 0.1.6.0: prove that ordered-map deletion removes the selected key and preserves lookup at every unequal key, for any total-order comparator on a search tree. No runtime change.
 
 - `commands` 0.5.0.0: let commands select exact keys or a bounded half-open key range with one indexed SQLite scan. Reject oversized ranges instead of giving `decide` partial state. The read callback now returns `Read`. Move the unchanged `step` and its types to pure `model.bend`, so the five laws import no effects. Breaking.

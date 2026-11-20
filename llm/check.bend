@@ -323,6 +323,49 @@ def pooled.stream() -> IO(Unit):
     b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
     pooled.stream.on(b)
 
+def refused.reply(first: Bool) -> IO(Http.Reply):
+  match first:
+    case True{}:
+      wrap(IO.pure(Http.Res, Http.Res{529, Http.empty(), Bytes.from_string("{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\"}}")}))
+    case False{}:
+      sse.reply(Http.Req{"POST", "/", Http.empty(), Bytes.new(0)})
+
+def refused.request(req: Http.Req) -> IO(Http.Reply):
+  Http.Req{method, path, headers, body} = req
+  refused.reply(String.eq(Bytes.to_string(body), "true"))
+
+def refused.serve(l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
+    a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l2 : Listener <- Http.conn(~refused.request, ~Completion.ignore, Http.limits(1048576n), inbox, a)
+    Listener.close(l2)
+    Admission.close(inbox)
+
+def refused.keep(x: Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream>) -> IO(Llm.Client):
+  (c, r) = x
+  do IO<Llm.Client>:
+    refused.r(r)
+    return c
+
+def refused.pool.on(b: Listener & U32) -> IO(Unit):
+  (l, +port) = b
+  do IO<Unit>:
+    ch : Chan(Unit) <- IO.fork(Unit, refused.serve(l))
+    x : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <-
+      Llm.stream.raw(Llm.timeout(Llm.retry(Llm.base(Llm.anthropic("k"), url(port)), 0), 1000), Json.Flag{True{}})
+    c : Llm.Client <- refused.keep(x)
+    y : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <- Llm.stream.raw(c, Json.Flag{False{}})
+    d : Llm.Client <- pool.got("a drained refusal returns its connection for the next stream", y)
+    Llm.close(d)
+    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
+    served("1", m)
+
+def refused.pool() -> IO(Unit):
+  do IO<Unit>:
+    b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    refused.pool.on(b)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     verdict("20000 events in 7-byte reads", chunks(many(20000), 7), 20000, 88890)
@@ -331,3 +374,4 @@ def main() -> IO(Unit):
     overloaded()
     overloaded.stream()
     pooled.stream()
+    refused.pool()
