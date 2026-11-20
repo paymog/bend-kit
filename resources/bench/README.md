@@ -11,7 +11,7 @@ python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
 ```
 
-You need `bend`, `cc`, `cargo`, `bun`, `node`, `npm`, and `python3`. The recorded results used Bend 2.0.35. `run.py` installs `async-sema@3.1.1` into `out/js`, and Cargo fetches `tokio`. Binaries go to `out/`, which git ignores. The script exits non-zero if a build or install fails, or if two programs disagree on the checksum.
+You need `bend`, `cc`, `cargo`, `bun`, `node`, `npm`, and `python3`. The recorded results used Bend 2.0.38. `run.py` installs `async-sema@3.1.1` into `out/js`, and Cargo fetches `tokio`. Binaries go to `out/`, which git ignores. The script exits non-zero if a build or install fails, or if two programs disagree on the checksum.
 
 ## The op
 
@@ -29,13 +29,13 @@ C's standard library has no counting semaphore, and macOS does not implement unn
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-10-08. Five runs (`python3 run.py 5`), median, in ms.
+M4 Pro, macOS 26.7.2, 2026-11-20. Five runs (`python3 run.py 5`), median, in ms.
 
-Versions: Bend 2.0.35, Apple clang 17.0.0, rustc 1.91.0, tokio 1.47.1, Bun 1.3.14, Node 24.0.1, async-sema 3.1.1, Python 3.14.6.
+Versions: Bend 2.0.38, Apple clang 21.0.0, rustc 1.91.0, tokio 1.47.1, Bun 1.4.4, Node 24.0.1, async-sema 3.1.1, Python 3.14.6.
 
 | op | C | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| lease | 4.9 | 4.1 | 28.9 | 9.8 | 1,188.3 | 0.4 |
+| lease | 3.9 | 4.1 | 13.4 | 9.0 | 480.4 | 0.3 |
 
 Every program prints the checksum 32522240.
 
@@ -48,5 +48,5 @@ Every program prints the checksum 32522240.
 ## Caveats
 
 - Bend times itself with `Time.mono`, a nanosecond clock. It reads R from argv, so the work cannot run before the clock starts.
-- Bend reads the stop time after it prints the checksum. The measured time includes checksum output.
+- Bend reads the stop time before it formats or prints the checksum.
 - One machine, one size, one thread.

@@ -14,7 +14,7 @@ python3 run.py 1    # 1 run on the default input
 
 You need `bend`, `bun`, `node`, and `python3`. `gen_input.py` writes `out/input.txt`; Bend builds the same text in memory (see below). Binaries go to `out/`, which git ignores. A full run takes about 10 seconds. It exits non-zero if a build fails, or if checksums disagree.
 
-Keep the target at 1,000,000 bytes. The runner's second argument changes only the file input. Bend still builds 4,717 seed copies. A different target can produce different checksums across languages.
+The input target is fixed at 1,000,000 bytes in every language. The runner accepts only the optional run count; it rejects a custom target.
 
 ## Input
 
@@ -42,14 +42,14 @@ Bend evaluates strictly: the result is computed before `Time.mono()` is read for
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Bend peak RSS about **39 MiB** on the 1 MiB input (`time -l ./out/bend`).
+M4 Pro, macOS 26.7.2, 2026-11-20. Median of three runs (`python3 run.py 3`).
 
 | op | Bend ms | Bun ms | Node ms | Python ms | Bend MB/s | Bun MB/s | Node MB/s | Python MB/s |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| nfc | 23.7 | 1.5 | 1.0 | 11.8 | 42.12 | 668.01 | 973.71 | 85.08 |
-| graphemes | 9.6 | 19.9 | 28.9 | n/a | 104.40 | 50.24 | 34.64 | n/a |
+| nfc | 25.2 | 1.7 | 1.1 | 12.0 | 39.61 | 582.07 | 940.74 | 83.44 |
+| graphemes | 10.6 | 18.6 | 30.9 | n/a | 94.18 | 53.67 | 32.31 | n/a |
 
-Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Versions: Bend 2.0.38, Bun 1.4.4, Node 24.0.1, Python 3.14.6.
 
 ## The calls
 

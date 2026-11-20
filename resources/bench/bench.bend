@@ -84,6 +84,6 @@ def main() -> IO(Unit):
     +n : Nat = Nat.pow(2n, lg(args))
     t0 : Time.Duration <- Time.mono()
     +v : U32 = checksum(rounds(n, State{Res.new(0n, 64n), Res.Grant{0n, 0n}, 0, 0}))
-    IO.print("chk\tlease\t" ++ U32.show(v))
     t1 : Time.Duration <- Time.mono()
+    IO.print("chk\tlease\t" ++ U32.show(v))
     IO.print("ms\tlease\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))

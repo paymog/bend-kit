@@ -14,20 +14,14 @@ def N2() -> Nat:
 def num(s: String) -> Int.U64:
   Maybe.default(&2, Int.U64, Int.U64.read(s), Int.U64.MIN())
 
-def stamp(+name: String, t0: Time.Duration) -> IO(Unit):
+def lap.s(+name: String, t0: Time.Duration, +v: String) -> IO(Unit):
   do IO<Unit>:
     t1 : Time.Duration <- Time.mono()
+    IO.print("chk\t" ++ name ++ "\t" ++ v)
     IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
 
 def lap(+name: String, t0: Time.Duration, +v: Int.U64) -> IO(Unit):
-  do IO<Unit>:
-    IO.print("chk\t" ++ name ++ "\t" ++ Int.U64.show(v))
-    stamp(name, t0)
-
-def lap.s(+name: String, t0: Time.Duration, +v: String) -> IO(Unit):
-  do IO<Unit>:
-    IO.print("chk\t" ++ name ++ "\t" ++ v)
-    stamp(name, t0)
+  lap.s(name, t0, Int.U64.show(v))
 
 # x = x*1664525 + 1013904223 and acc = acc + x / 1000, in wrapping I32.
 def i32(n: Nat, x: Int.I32, acc: Int.I32) -> Int.I32:
