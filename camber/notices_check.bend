@@ -1,5 +1,6 @@
 # Real entered policies, expected notice errors, live stats and retained File effects.
 import Base
+import ./probe_server.bend as Probe
 import ./camber.bend as C
 import ./notices.bend as N
 import ./serving_check.bend as Existing
@@ -230,7 +231,7 @@ def application.observed(observed: C.Server<U32, File, Config, String> & H.Serve
   do IO<Unit>:
     sent : Result<&1, &1, H.ServerStats, Unit> <- Chan.send(H.ServerStats, channel, stats)
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, stats, gate, self}, Unit{}, C.server.config(control_port))
+    control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- Probe.transport(~Control, ~Unit, Control{stop, stats, gate, self}, Unit{}, C.server.config(control_port))
     control.started(control_result, server, self)
     discarded : H.ServerStats <- C.receive(H.ServerStats, channel)
     Chan.close(H.ServerStats, channel)
@@ -253,7 +254,7 @@ def ports(mode: String, port: Maybe<&2, U32>, path: String, control_port: Maybe<
         +gate : Chan(Unit) <- Chan.new(Unit, 1)
         +stats : Chan(H.ServerStats) <- Chan.new(H.ServerStats, 1)
         +config : Config = Config{mode, gate, stats}
-        result : Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>> <- C.server.start(~U32, ~File, ~Config, ~String, ~String,
+        result : Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>> <- Probe.start(~U32, ~File, ~Config, ~String, ~String,
           ~before, ~after, ~(a => s => k => selected => req => run(a, s, k, selected, req)), ~mapper, ~Existing.destroy, application(config), C.server.config(p), [file])
         started(result, config, cp)
     case _ _: IO.die(Unit, 1, "invalid ports")

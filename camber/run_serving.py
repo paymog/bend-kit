@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 
+from run_owner import ready_ports
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / 'camber/serving_results.json'
 RECEIPTS = json.loads(EVIDENCE.read_text()) if EVIDENCE.exists() else []
@@ -123,15 +124,12 @@ class Guard:
             time.sleep(.02)
         raise AssertionError(f'missing {marker}: {self.text()}')
 
+    def ports(self, marker='READY'):
+        return ready_ports(self.wait_for(marker), prefix='PORT', count=2)
+
 
 def run(argv):
     return Guard(argv).finish()
-
-
-def free_port():
-    with socket.socket() as peer:
-        peer.bind(('127.0.0.1', 0))
-        return peer.getsockname()[1]
 
 
 def request(port, method, target, body=b'', media='application/json', deny=''):
@@ -195,12 +193,12 @@ def finish_server(server, control_port, app_port):
 
 
 def lane(executable, folder, small):
-    app_port, control_port = free_port(), free_port()
+    app_port = control_port = 0
     journal = folder / 'small-journal'
     text = run(executable + ['small', str(app_port), str(journal), str(control_port)])
     assert 'JOINED CLOSED' in text and text.count('BUNDLE CLOSED') == 1
     assert journal.read_text() == 'CLOSED\n'
-    released(app_port)
+    released(ready_ports(text, prefix='PORT')[0])
     if small:
         return
     for mode in ('invalid', 'registration'):
@@ -233,9 +231,9 @@ def lane(executable, folder, small):
     ]
     expected = [direct(executable, folder / f'direct-{i}', *row[:-1]) for i, row in enumerate(rows)]
     journal = folder / 'live'
-    server = Guard(executable + ['live', str(app_port), str(journal), str(control_port)])
+    server = Guard(executable + ['live', '0', str(journal), '0'])
     try:
-        server.wait_for('READY\n')
+        app_port, control_port = server.ports('READY\n')
         beside = request(control_port, 'POST', '/plain', b'\x00\xffbeside')
         assert beside == (201, {'x-plain': 'packed'}, b'\x00\xffbeside'), beside
         for row, comparison in zip(rows, expected):
@@ -251,7 +249,7 @@ def lane(executable, folder, small):
             server.finish()
     for mode, target, status in (('overload', '/hold', 200), ('wait', '/plain', 201)):
         journal = folder / mode
-        server = Guard(executable + [mode, str(app_port), str(journal), str(control_port)])
+        server = Guard(executable + [mode, '0', str(journal), '0'])
         results, errors = [], []
         def operation():
             try:
@@ -260,7 +258,7 @@ def lane(executable, folder, small):
                 errors.append(str(error))
         client = threading.Thread(target=operation)
         try:
-            server.wait_for('READY\n')
+            app_port, control_port = server.ports('READY\n')
             client.start()
             if mode == 'overload':
                 server.wait_for('HELD\n')

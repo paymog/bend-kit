@@ -6,6 +6,7 @@ import ./interface_check.bend as Registry
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
 import ../concurrency/concurrency.bend as Conc
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 type Counts is Data:
   Counts{busy: U32, mask: U32, completed: U32, rejected: U32}
@@ -272,6 +273,12 @@ def direct(+path: String) -> IO(Unit):
     Users.close(s4)
     IO.print("DIRECT PASS")
 
+def listening(bound: Listener & U32, context: Context, connections: U32) -> IO(List<Chan(Unit)>):
+  (listener, port) = bound
+  do IO<List<Chan(Unit)>>:
+    IO.print("READY " ++ U32.show(port))
+    Transport.accept(~Context, ~handle, U32.to_nat(connections), context, 65536n, listener)
+
 def start(+limit: U32, path: String, port: U32, connections: U32, store_mode: String, audit_mode: String) -> IO(Unit):
   +path = path
   do IO<Unit>:
@@ -285,9 +292,8 @@ def start(+limit: U32, path: String, port: U32, connections: U32, store_mode: St
     states : List<Bundle> <- bundles(U32.to_nat(limit), 0, path, store_mode, audit_mode, messages, release)
     workers : List<Chan(Bundle)> <- Conc.pool.start(~Bundle, ~Http.Req, ~Http.Res, ~work, states, 256n, jobs)
     finished : Chan(Counts) <- IO.fork(Counts, owner(128n, limit, messages, jobs, Waiting{Counts{0, 0, 0, 0}}))
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    IO.print("READY")
-    connections_done : List<Chan(Unit)> <- Transport.accept(~Context, ~handle, U32.to_nat(connections), Context{messages, release, limit}, 65536n, listener)
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
+    connections_done : List<Chan(Unit)> <- listening(bound, Context{messages, release, limit}, connections)
     Transport.join(connections_done)
     send(messages, Stop{})
     final : Counts <- IO.join(Counts, finished)
