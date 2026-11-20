@@ -9,6 +9,7 @@ import bend-kit-collections@0.1.5.0/omap.bend as O
 import bend-kit-collections@0.1.5.0/hmap.bend as M
 import bend-kit-collections@0.1.5.0/LAWS.bend as CL
 import bend-kit-collections@0.1.5.0/PROOF.bend as CP
+import bend-kit-collections@0.1.5.0/order.bend as Order
 
 # Why retry gave up on a ticket: its budget was spent, its deadline passed, its failure must not repeat,
 # or another try would repeat its failure.
@@ -52,7 +53,7 @@ def Tries() -> Data:
 
 # The breaker state of each target that has one, by target. An absent target is closed with no failures.
 def Breakers() -> Data:
-  Map<&2, Retry.State>
+  M.HMap<String, Retry.State>
 
 def dead.hash(i: Nat) -> U32:
   U32.from_nat(i)
@@ -66,7 +67,7 @@ type State<-A: Data> is Data:
   State{queue: Q.State<A>, tries: Tries(), dead: Graves(A), breakers: Breakers()}
 
 def new(-A: Data) -> State<A>:
-  State{Q.new(A), O.OMap.new(Nat, Try), M.HMap.new(Nat, Dead<A>), Map.new(&2, Retry.State)}
+  State{Q.new(A), O.OMap.new(Nat, Try), M.HMap.new(Nat, Dead<A>), M.HMap.new(String, Retry.State)}
 
 def queue(-A: Data, s: State<A>) -> Q.State<A>:
   State{q, ts, ds, bs} = s
@@ -166,13 +167,28 @@ def tries.bump(+ts: Tries(), +i: Nat) -> Tries():
 
 # ---- breakers
 
-def brk.got(r: Breakers() & Retry.State) -> Retry.State:
-  (m, b) = r
-  b
+def brk.hash.go(key: String, acc: U32) -> U32:
+  match key:
+    case SNil{}:
+      acc
+    case SCon{Chr{c}, rest}:
+      brk.hash.go(rest, ((acc .^. c) * 16777619 : U32))
 
-# The breaker state of target key.
+def brk.hash(key: String) -> U32:
+  brk.hash.go(key, 2166136261)
+
+def brk.eq(a: String, b: String) -> Bool:
+  Cmp.is_eq(Order.string(a, b))
+
+def brk.got(m: Maybe<&2, Retry.State>) -> Retry.State:
+  match m:
+    case None{}:
+      Retry.CircuitClosed{Nil{}}
+    case Some{b}:
+      b
+
 def brk.get(-A: Data, s: State<A>, key: String) -> Retry.State:
-  brk.got(Map.get(Retry.State, Retry.CircuitClosed{Nil{}}, breakers(A, s), key))
+  brk.got(M.HMap.get(~String, ~Retry.State, ~brk.hash, ~brk.eq, breakers(A, s), key))
 
 def brk.state(br: Retry.Breaker, old: Retry.State) -> Retry.State:
   match br:
@@ -210,14 +226,21 @@ def calm.state(b: Retry.State) -> Retry.State:
     case Retry.CircuitHalf{k}:
       Retry.CircuitHalf{0n}
 
+def calm.entries(es: List<&2, M.Entry<String, Retry.State>>) -> List<&2, M.Entry<String, Retry.State>>:
+  match es:
+    case Nil{}:
+      Nil{}
+    case Con{M.Entry{k, b}, rest}:
+      M.Entry{k, calm.state(b)} <> calm.entries(rest)
+
 def calm.map(m: Breakers()) -> Breakers():
   match m:
-    case MTip{}:
-      MTip{}
-    case MLeaf{k, v}:
-      MLeaf{k, calm.state(v)}
-    case MNode{p, lo, hi}:
-      MNode{p, calm.map(lo), calm.map(hi)}
+    case M.HNil{}:
+      M.HNil{}
+    case M.HLeaf{h, es}:
+      M.HLeaf{h, calm.entries(es)}
+    case M.HBranch{lo, hi}:
+      M.HBranch{calm.map(lo), calm.map(hi)}
 
 # The probes of a half-open breaker died with the process that ran them, so open counts none in flight.
 def calm(-A: Data, s: State<A>) -> State<A>:
@@ -260,9 +283,9 @@ def step.revived(~A: Data, m: Maybe<&2, Dead<A>>, +i: Nat, n: Nat, h: H.Heap<Q.T
 def step.broke(bs: Breakers(), k: String, b: Retry.State) -> Breakers():
   match b:
     case Retry.CircuitClosed{Nil{}}:
-      Map.del(&2, Retry.State, bs, k)
+      M.HMap.del(~String, ~Retry.State, ~brk.hash, ~brk.eq, bs, k)
     case b:
-      Map.set(&2, Retry.State, bs, k, b)
+      M.HMap.put(~String, ~Retry.State, ~brk.hash, ~brk.eq, bs, k, b)
 
 # The state after op. Live and replay both run it, so they agree.
 def step(~A: Data, s: State<A>, op: Op<A>) -> State<A>:
@@ -657,6 +680,22 @@ def snap.graves(~A: Data, ~penc: A -> Bytes.Bytes, ds: Graves(A), out: Bytes.Byt
     case M.HBranch{lo, hi}:
       snap.graves(~A, ~penc, hi, snap.graves(~A, ~penc, lo, snap.u32(out, 2)))
 
+def brk.entries.leaf(es: List<&2, M.Entry<String, Retry.State>>, acc: List<&2, Sigma<&2, &2, String, _ => Retry.State>>) -> List<&2, Sigma<&2, &2, String, _ => Retry.State>>:
+  match es:
+    case Nil{}:
+      acc
+    case Con{M.Entry{k, b}, rest}:
+      (k, b) <> brk.entries.leaf(rest, acc)
+
+def brk.entries(bs: Breakers(), acc: List<&2, Sigma<&2, &2, String, _ => Retry.State>>) -> List<&2, Sigma<&2, &2, String, _ => Retry.State>>:
+  match bs:
+    case M.HNil{}:
+      acc
+    case M.HLeaf{h, es}:
+      brk.entries.leaf(es, acc)
+    case M.HBranch{lo, hi}:
+      brk.entries(lo, brk.entries(hi, acc))
+
 def snap.brks(xs: List<&2, Sigma<&2, &2, String, _ => Retry.State>>, out: Bytes.Bytes) -> Bytes.Bytes:
   match xs:
     case Nil{}:
@@ -667,7 +706,7 @@ def snap.brks(xs: List<&2, Sigma<&2, &2, String, _ => Retry.State>>, out: Bytes.
 # The Snap record of s.
 def encode.snap(~A: Data, ~penc: A -> Bytes.Bytes, s: State<A>) -> Bytes.Bytes:
   State{Q.State{+n, h, run}, ts, ds, bs} = s
-  snap.brks(Map.to_list(&2, Retry.State, bs),
+  snap.brks(brk.entries(bs, Nil{}),
     snap.graves(~A, ~penc, ds, snap.tries(ts, snap.run(~A, ~penc, run, snap.heap(~A, ~penc, h, snap.u64(snap.u32(Bytes.new(0), 7), n))))))
 
 def encode.rec(~A: Data, ~penc: A -> Bytes.Bytes, r: Rec<A>) -> Bytes.Bytes:
@@ -964,18 +1003,18 @@ def rd.break(-A: Data, +fuel: Nat) -> Dec(Op<A>):
     b : Retry.State <- rd.brk(fuel)
     return Break{k, b}
 
-def rd.brks(+fuel: Nat, more: Bool, acc: Map<&2, Retry.State>) -> Dec(Map<&2, Retry.State>):
+def rd.brks(+fuel: Nat, more: Bool, acc: Breakers()) -> Dec(Breakers()):
   match fuel more:
     case 0n b:
-      Dec.fail(Map<&2, Retry.State>)
+      Dec.fail(Breakers())
     case 1n+f False{}:
-      Dec.pure(Map<&2, Retry.State>, acc)
+      Dec.pure(Breakers(), acc)
     case 1n+f True{}:
-      do Dec<Map<&2, Retry.State>>:
+      do Dec<Breakers()>:
         k : String <- rd.key(f)
         b : Retry.State <- rd.brk(f)
         m : Bool <- rd.flag()
-        rd.brks(f, m, Map.set(&2, Retry.State, acc, k, b))
+        rd.brks(f, m, M.HMap.put(~String, ~Retry.State, ~brk.hash, ~brk.eq, acc, k, b))
 
 def rd.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat) -> Dec(State<A>):
   do Dec<State<A>>:
@@ -990,7 +1029,7 @@ def rd.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat) -> Dec(St
     +dt : Graves(A) <- rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
     ds : Graves(A) <- rd.wf(A, rd.valid(~A, dt), dt)
     bf : Bool <- rd.flag()
-    bs : Map<&2, Retry.State> <- rd.brks(fuel, bf, Map.new(&2, Retry.State))
+    bs : Breakers() <- rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
     return State{Q.State{n, h, run}, ts, ds, bs}
 
 # The value read, when the reader ended at len, the record's end.

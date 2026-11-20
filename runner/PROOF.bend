@@ -12,6 +12,7 @@ import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import ./model.bend as R
 import ./LAWS.bend as Laws
+import bend-kit-collections@0.1.5.0/order.bend as Order
 
 def split(-P: Bool -> Type, b: Bool, yes: {b == True{} : Bool} -> P(True{}), no: {b == False{} : Bool} -> P(False{})) -> P(b):
   match b:
@@ -36,6 +37,331 @@ def Laws.replay_live(A, X, enc, dec, round, ops, s):
 
 def Laws.replay_prefix(A, X, enc, dec, round, ops, k, s):
   replay.go(~A, ~X, ~enc, ~dec, ~round, List.take(&2, R.Op<A>, ops, k), s)
+
+def breaker.refl(k: String) -> {R.brk.eq(k, k) == True{} : Bool}:
+  +k = k
+  Equal.cong(Cmp, Bool, Cmp.is_eq, Order.string(k, k), EQ{}, CL.order_string_refl(k))
+
+def breaker.cmp.eq(+c: Cmp, e: {Cmp.is_eq(c) == True{} : Bool}) -> {c == EQ{} : Cmp}:
+  match c:
+    case LT{}:
+      Empty.absurd({LT{} == EQ{} : Cmp}, MBool.false_ne_true()(e))
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({GT{} == EQ{} : Cmp}, MBool.false_ne_true()(e))
+
+def breaker.sound(a: String, b: String, e: {R.brk.eq(a, b) == True{} : Bool}) -> {a == b : String}:
+  +a = a
+  +b = b
+  CL.order_string_eq(a, b, breaker.cmp.eq(Order.string(a, b), e))
+
+def breaker.next(-A: Data, bs: R.Breakers(), op: R.Op<A>) -> R.Breakers():
+  match op:
+    case R.Break{k, b}:
+      R.step.broke(bs, k, b)
+    case op:
+      bs
+
+def breaker.enqueued(-A: Data, r: Q.State<A> & Nat, ts: R.Tries(), ds: R.Graves(A), +bs: R.Breakers(), d: Nat) ->
+    {R.breakers(A, R.step.enqueued(A, r, ts, ds, bs, d)) == bs : R.Breakers()}:
+  match r:
+    case (q, i):
+      {==}
+
+def breaker.selected(-A: Data, r: Q.State<A> & Maybe<&2, Q.Ticket<A>>, ts: R.Tries(), ds: R.Graves(A), +bs: R.Breakers()) ->
+    {R.breakers(A, R.step.selected(A, r, ts, ds, bs)) == bs : R.Breakers()}:
+  match r:
+    case (q, t):
+      {==}
+
+def breaker.completed(-A: Data, r: Q.State<A> & Maybe<&2, Q.Ticket<A>>, ts: R.Tries(), ds: R.Graves(A), +bs: R.Breakers()) ->
+    {R.breakers(A, R.step.completed(A, r, ts, ds, bs)) == bs : R.Breakers()}:
+  match r:
+    case (q, t):
+      {==}
+
+def breaker.requeued(-A: Data, r: Q.State<A> & Bool, ts: R.Tries(), ds: R.Graves(A), +bs: R.Breakers()) ->
+    {R.breakers(A, R.step.requeued(A, r, ts, ds, bs)) == bs : R.Breakers()}:
+  match r:
+    case (q, t):
+      {==}
+
+def breaker.abandoned(~A: Data, r: Q.State<A> & Maybe<&2, Q.Ticket<A>>, ts: R.Tries(), ds: R.Graves(A), +bs: R.Breakers(), w: R.Why, at: Nat) ->
+    {R.breakers(A, R.step.abandoned(~A, r, ts, ds, bs, w, at)) == bs : R.Breakers()}:
+  match r:
+    case (q, t):
+      {==}
+
+def breaker.revived(~A: Data, m: Maybe<&2, R.Dead<A>>, i: Nat, n: Nat, h: H.Heap<Q.Ticket<A>>, r: List<&2, Q.Ticket<A>>, ts: R.Tries(), ds: R.Graves(A), +bs: R.Breakers(), d: Nat) ->
+    {R.breakers(A, R.step.revived(~A, m, i, n, h, r, ts, ds, bs, d)) == bs : R.Breakers()}:
+  match m:
+    case None{}:
+      {==}
+    case Some{R.Dead{Q.Ticket{k, old, x}, w, at}}:
+      {==}
+
+def breaker.step(~A: Data, +s: R.State<A>, +op: R.Op<A>) ->
+    {R.breakers(A, R.step(~A, s, op)) == breaker.next(A, R.breakers(A, s), op) : R.Breakers()}:
+  match s op:
+    case R.State{q, ts, ds, bs} R.Enqueue{d, x}:
+      breaker.enqueued(A, Q.enqueue(~A, d, x, q), ts, ds, bs, d)
+    case R.State{q, ts, ds, bs} R.Select{now}:
+      breaker.selected(A, Q.select(~A, now, q), ts, ds, bs)
+    case R.State{q, ts, ds, bs} R.Complete{i}:
+      breaker.completed(A, Q.complete(A, i, q), R.tries.drop(ts, i), ds, bs)
+    case R.State{q, ts, ds, bs} R.Cancel{i}:
+      {==}
+    case R.State{q, ts, ds, bs} R.Requeue{i, d}:
+      breaker.requeued(A, Q.requeue(~A, i, d, q), R.tries.bump(ts, i), ds, bs)
+    case R.State{q, ts, ds, bs} R.Defer{i, d}:
+      breaker.requeued(A, Q.requeue(~A, i, d, q), ts, ds, bs)
+    case R.State{q, ts, ds, bs} R.Abandon{i, w, at}:
+      breaker.abandoned(~A, Q.complete(A, i, q), R.tries.drop(ts, i), ds, bs, w, at)
+    case R.State{Q.State{n, h, r}, ts, ds, bs} R.Revive{i, d}:
+      breaker.revived(~A, R.dead.get(~A, ds, i), i, n, h, r, ts, ds, bs, d)
+    case R.State{q, ts, ds, bs} R.Purge{t}:
+      {==}
+    case R.State{q, ts, ds, bs} R.PurgeAll{}:
+      {==}
+    case R.State{q, ts, ds, bs} R.Break{k, b}:
+      {==}
+
+def breaker.broke.wf(+bs: R.Breakers(), +k: String, b: Retry.State,
+    wf: {Laws.breaker.wf(bs) == True{} : Bool}) -> {Laws.breaker.wf(R.step.broke(bs, k, b)) == True{} : Bool}:
+  match b:
+    case Retry.CircuitClosed{Nil{}}:
+      CL.hmap_del_wf(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, wf, k)
+    case Retry.CircuitClosed{Con{f, fs}}:
+      CL.hmap_put_wf(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.refl, ~breaker.sound, bs, wf, k, Retry.CircuitClosed{Con{f, fs}})
+    case Retry.CircuitOpen{u}:
+      CL.hmap_put_wf(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.refl, ~breaker.sound, bs, wf, k, Retry.CircuitOpen{u})
+    case Retry.CircuitHalf{p}:
+      CL.hmap_put_wf(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.refl, ~breaker.sound, bs, wf, k, Retry.CircuitHalf{p})
+
+def breaker.next.wf(~A: Data, +bs: R.Breakers(), op: R.Op<A>,
+    wf: {Laws.breaker.wf(bs) == True{} : Bool}) -> {Laws.breaker.wf(breaker.next(A, bs, op)) == True{} : Bool}:
+  match op:
+    case R.Break{k, b}:
+      breaker.broke.wf(bs, k, b, wf)
+    case R.Enqueue{d, x}:
+      wf
+    case R.Select{now}:
+      wf
+    case R.Complete{i}:
+      wf
+    case R.Cancel{i}:
+      wf
+    case R.Requeue{i, d}:
+      wf
+    case R.Defer{i, d}:
+      wf
+    case R.Abandon{i, w, at}:
+      wf
+    case R.Revive{i, d}:
+      wf
+    case R.Purge{t}:
+      wf
+    case R.PurgeAll{}:
+      wf
+
+def breaker.step.wf(~A: Data, +s: R.State<A>, +op: R.Op<A>,
+    wf: {Laws.breaker.wf(R.breakers(A, s)) == True{} : Bool}) -> {Laws.breaker.wf(R.breakers(A, R.step(~A, s, op))) == True{} : Bool}:
+  %Equal.sym(R.Breakers(), R.breakers(A, R.step(~A, s, op)), breaker.next(A, R.breakers(A, s), op), breaker.step(~A, s, op)) : {Laws.breaker.wf(_) == True{} : Bool}
+  breaker.next.wf(~A, R.breakers(A, s), op, wf)
+
+def breaker.put.same(+bs: R.Breakers(), +k: String, +b: Retry.State, wf: {Laws.breaker.wf(bs) == True{} : Bool}) ->
+    {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, k, b), k)) == b : Retry.State}:
+  Equal.cong(Maybe<&2, Retry.State>, Retry.State, R.brk.got,
+    M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, k, b), k), Some{b},
+    CL.hmap_get_put_same(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.refl, bs, wf, k, b))
+
+def breaker.put.other(+bs: R.Breakers(), +j: String, +b: Retry.State, +k: String, ne: {j != k : String}, wf: {Laws.breaker.wf(bs) == True{} : Bool}) ->
+    {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, j, b), k)) ==
+     R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, k)) : Retry.State}:
+  Equal.cong(Maybe<&2, Retry.State>, Retry.State, R.brk.got,
+    M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, j, b), k),
+    M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, k),
+    CL.hmap_get_put_other_key(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.sound, bs, wf, j, k, ne, b))
+
+def breaker.broke.same(+bs: R.Breakers(), +k: String, +b: Retry.State,
+    wf: {Laws.breaker.wf(bs) == True{} : Bool}) ->
+    {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.step.broke(bs, k, b), k)) == b : Retry.State}:
+  match b:
+    case Retry.CircuitClosed{Nil{}}:
+      %CL.hmap_get_del_same(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.sound, bs, wf, k) : {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.step.broke(bs, k, Retry.CircuitClosed{Nil{}}), k)) == R.brk.got(_) : Retry.State}
+      {==}
+    case Retry.CircuitClosed{Con{f, fs}}:
+      breaker.put.same(bs, k, Retry.CircuitClosed{Con{f, fs}}, wf)
+    case Retry.CircuitOpen{u}:
+      breaker.put.same(bs, k, Retry.CircuitOpen{u}, wf)
+    case Retry.CircuitHalf{p}:
+      breaker.put.same(bs, k, Retry.CircuitHalf{p}, wf)
+
+def breaker.broke.other(+bs: R.Breakers(), +j: String, b: Retry.State, +k: String, ne: {j != k : String},
+    wf: {Laws.breaker.wf(bs) == True{} : Bool}) ->
+    {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.step.broke(bs, j, b), k)) ==
+     R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, k)) : Retry.State}:
+  match b:
+    case Retry.CircuitClosed{Nil{}}:
+      %CL.hmap_get_del_other_key(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.sound, bs, j, k, ne) :
+        {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.step.broke(bs, j, Retry.CircuitClosed{Nil{}}), k)) == R.brk.got(_) : Retry.State}
+      {==}
+    case Retry.CircuitClosed{Con{f, fs}}:
+      breaker.put.other(bs, j, Retry.CircuitClosed{Con{f, fs}}, k, ne, wf)
+    case Retry.CircuitOpen{u}:
+      breaker.put.other(bs, j, Retry.CircuitOpen{u}, k, ne, wf)
+    case Retry.CircuitHalf{p}:
+      breaker.put.other(bs, j, Retry.CircuitHalf{p}, k, ne, wf)
+
+def breaker.next.other(~A: Data, +bs: R.Breakers(), +op: R.Op<A>, +k: String, untouched: Laws.breaker.untouched(A, op, k),
+    wf: {Laws.breaker.wf(bs) == True{} : Bool}) ->
+    {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, breaker.next(A, bs, op), k)) ==
+     R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, k)) : Retry.State}:
+  match op:
+    case R.Break{j, b}:
+      breaker.broke.other(bs, j, b, k, untouched, wf)
+    case R.Enqueue{d, x}:
+      {==}
+    case R.Select{now}:
+      {==}
+    case R.Complete{i}:
+      {==}
+    case R.Cancel{i}:
+      {==}
+    case R.Requeue{i, d}:
+      {==}
+    case R.Defer{i, d}:
+      {==}
+    case R.Abandon{i, w, at}:
+      {==}
+    case R.Revive{i, d}:
+      {==}
+    case R.Purge{t}:
+      {==}
+    case R.PurgeAll{}:
+      {==}
+
+def breaker.live(~A: Data, ops: List<&2, R.Op<A>>, +s: R.State<A>, +k: String, untouched: Laws.breaker.untouched.all(A, ops, k),
+    +wf: {Laws.breaker.wf(R.breakers(A, s)) == True{} : Bool}) ->
+    {R.brk.get(A, Laws.live(~A, ops, s), k) == R.brk.get(A, s, k) : Retry.State}:
+  match ops:
+    case Nil{}:
+      {==}
+    case Con{+op, +rest}:
+      (one, more) = untouched
+      %Equal.sym(Retry.State, R.brk.get(A, Laws.live(~A, rest, R.step(~A, s, op)), k), R.brk.get(A, R.step(~A, s, op), k), breaker.live(~A, rest, R.step(~A, s, op), k, more, breaker.step.wf(~A, s, op, wf))) :
+        {_ == R.brk.get(A, s, k) : Retry.State}
+      %Equal.sym(R.Breakers(), R.breakers(A, R.step(~A, s, op)), breaker.next(A, R.breakers(A, s), op), breaker.step(~A, s, op)) :
+        {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, _, k)) == R.brk.get(A, s, k) : Retry.State}
+      breaker.next.other(~A, R.breakers(A, s), op, k, one, wf)
+
+def breaker.reachable.wf(~A: Data, ops: List<&2, R.Op<A>>, +s: R.State<A>,
+    wf: {Laws.breaker.wf(R.breakers(A, s)) == True{} : Bool}) ->
+    {Laws.breaker.wf(R.breakers(A, Laws.live(~A, ops, s))) == True{} : Bool}:
+  match ops:
+    case Nil{}:
+      wf
+    case Con{+op, rest}:
+      breaker.reachable.wf(~A, rest, R.step(~A, s, op), breaker.step.wf(~A, s, op, wf))
+
+def breaker.new.wf(~A: Data, ops: List<&2, R.Op<A>>) ->
+    {Laws.breaker.wf(R.breakers(A, Laws.live(~A, ops, R.new(A)))) == True{} : Bool}:
+  breaker.reachable.wf(~A, ops, R.new(A), {==})
+
+def Laws.replay_breaker(A, X, enc, dec, round, s, wf, k, b, ops, untouched):
+  +wf = wf
+  %Equal.sym(Maybe<&2, R.State<A>>, Laws.replayed(~A, ~X, ~enc, ~dec, R.Break{k, b} <> ops, s), Some{Laws.live(~A, R.Break{k, b} <> ops, s)}, replay.go(~A, ~X, ~enc, ~dec, ~round, R.Break{k, b} <> ops, s)) :
+    {Laws.breaker.recovered(A, _, k) == Some{b} : Maybe<&2, Retry.State>}
+  %Equal.sym(Retry.State, R.brk.get(A, Laws.live(~A, ops, R.step(~A, s, R.Break{k, b})), k), R.brk.get(A, R.step(~A, s, R.Break{k, b}), k), breaker.live(~A, ops, R.step(~A, s, R.Break{k, b}), k, untouched, breaker.step.wf(~A, s, R.Break{k, b}, wf))) :
+    {Some{_} == Some{b} : Maybe<&2, Retry.State>}
+  %Equal.sym(R.Breakers(), R.breakers(A, R.step(~A, s, R.Break{k, b})), R.step.broke(R.breakers(A, s), k, b), breaker.step(~A, s, R.Break{k, b})) :
+    {Some{R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, _, k))} == Some{b} : Maybe<&2, Retry.State>}
+  %breaker.broke.same(R.breakers(A, s), k, b, wf) : {Some{R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.step.broke(R.breakers(A, s), k, b), k))} == Some{_} : Maybe<&2, Retry.State>}
+  {==}
+
+def calm.result(m: Maybe<&2, Retry.State>) -> Maybe<&2, Retry.State>:
+  match m:
+    case None{}:
+      None{}
+    case Some{b}:
+      Some{R.calm.state(b)}
+
+def calm.entries(es: List<&2, M.Entry<String, Retry.State>>, +k: String) ->
+    {M.HMap.entries.get(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(es), k) ==
+     calm.result(M.HMap.entries.get(~String, ~Retry.State, ~R.brk.eq, es, k)) : Maybe<&2, Retry.State>}:
+  match es:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+j, +b}, +rest}:
+      split(c => {
+        M.HMap.bool(Maybe<&2, Retry.State>, c, u => Some{R.calm.state(b)}, u => M.HMap.entries.get(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(rest), k)) ==
+        calm.result(M.HMap.bool(Maybe<&2, Retry.State>, c, u => Some{b}, u => M.HMap.entries.get(~String, ~Retry.State, ~R.brk.eq, rest, k))) : Maybe<&2, Retry.State>},
+        R.brk.eq(k, j),
+        e => {==},
+        e => calm.entries(rest, k))
+
+def calm.get(+n: Nat, +mask: U32, bs: R.Breakers(), +hash: U32, +k: String) ->
+    {M.HMap.get.go(~String, ~Retry.State, ~R.brk.eq, n, mask, R.calm.map(bs), hash, k) ==
+     calm.result(M.HMap.get.go(~String, ~Retry.State, ~R.brk.eq, n, mask, bs, hash, k)) : Maybe<&2, Retry.State>}:
+  match n bs:
+    case 0n M.HNil{}:
+      {==}
+    case 0n M.HLeaf{h, es}:
+      calm.entries(es, k)
+    case 0n M.HBranch{lo, hi}:
+      {==}
+    case 1n+p M.HNil{}:
+      {==}
+    case 1n+p M.HLeaf{+h, +es}:
+      split(c => {
+        M.HMap.bool(Maybe<&2, Retry.State>, c, u => M.HMap.entries.get(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(es), k), u => None{}) ==
+        calm.result(M.HMap.bool(Maybe<&2, Retry.State>, c, u => M.HMap.entries.get(~String, ~Retry.State, ~R.brk.eq, es, k), u => None{})) : Maybe<&2, Retry.State>},
+        U32.is_eq(h, hash),
+        e => calm.entries(es, k),
+        e => {==})
+    case 1n+p M.HBranch{+lo, +hi}:
+      split(c => {
+        M.HMap.bool(Maybe<&2, Retry.State>, c,
+          u => M.HMap.get.go(~String, ~Retry.State, ~R.brk.eq, p, (mask << 1n : U32), R.calm.map(lo), hash, k),
+          u => M.HMap.get.go(~String, ~Retry.State, ~R.brk.eq, p, (mask << 1n : U32), R.calm.map(hi), hash, k)) ==
+        calm.result(M.HMap.bool(Maybe<&2, Retry.State>, c,
+          u => M.HMap.get.go(~String, ~Retry.State, ~R.brk.eq, p, (mask << 1n : U32), lo, hash, k),
+          u => M.HMap.get.go(~String, ~Retry.State, ~R.brk.eq, p, (mask << 1n : U32), hi, hash, k))) : Maybe<&2, Retry.State>},
+        U32.is_eq((hash .&. mask : U32), 0),
+        e => calm.get(p, (mask << 1n : U32), lo, hash, k),
+        e => calm.get(p, (mask << 1n : U32), hi, hash, k))
+
+def calm.got(m: Maybe<&2, Retry.State>) ->
+    {R.brk.got(calm.result(m)) == R.calm.state(R.brk.got(m)) : Retry.State}:
+  match m:
+    case None{}:
+      {==}
+    case Some{b}:
+      {==}
+
+def calm.spec(b: Retry.State) -> {R.calm.state(b) == Laws.breaker.after_crash(b) : Retry.State}:
+  match b:
+    case Retry.CircuitClosed{fs}:
+      {==}
+    case Retry.CircuitOpen{until}:
+      {==}
+    case Retry.CircuitHalf{probes}:
+      {==}
+
+def Laws.calm_breaker(A, s, k):
+  match s:
+    case R.State{q, ts, ds, +bs}:
+      +before = M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs, k)
+      %calm.spec(R.brk.got(before)) :
+        {R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.calm.map(bs), k)) == _ : Retry.State}
+      Equal.trans(Retry.State,
+        R.brk.got(M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.calm.map(bs), k)),
+        R.brk.got(calm.result(before)), R.calm.state(R.brk.got(before)),
+        Equal.cong(Maybe<&2, Retry.State>, Retry.State, R.brk.got,
+          M.HMap.get(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, R.calm.map(bs), k), calm.result(before),
+          calm.get(32n, 1, bs, R.brk.hash(k), k)),
+        calm.got(before))
 
 # ---- compaction
 

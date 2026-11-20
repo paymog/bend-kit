@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.17.1.0/runner.bend as R
+import bend-kit-runner@0.18.0.0/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.4.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.17.1.0/runner.bend as R
+import bend-kit-runner@0.18.0.0/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,9 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.1.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.18.0.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+
+`Breakers()` is a `collections.HMap<String, Retry.State>`. It replaces Base's map so the breaker proofs can use the checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings. This changes the pure state representation, not the journal format. Old journals and snapshots remain readable.
 
 `~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt. Answer `Retry.Rejected` for a client error, such as a 404: the job is dead, and the target's breaker does not count it.
 
@@ -149,6 +151,8 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 | `replay_live` | When every record decodes to its op, replaying the records of any ops gives the state that applying them live gives. |
 | `replay_prefix` | The same for the first `k` ops: the committed prefix that recovery keeps after a crash. |
 | `replay_snapshot` | When every record decodes to itself, replaying a snapshot of `live(ops, s)` and then the records of `more` gives `live(more, live(ops, s))`, from any start state. |
+| `replay_breaker` | After `Break{k, b}`, replay restores `k` to `b` through any later ops with no `Break` of `k`. It assumes a round-trip codec and a well-formed breaker trie. `new` and every live transition preserve that invariant. |
+| `calm_breaker` | Recovery keeps each open breaker's `until` and each closed breaker's failures. It resets each half-open breaker's probes to zero. This holds for every target, including an absent one. |
 | `complete_never_selected` | After `Complete{i}` and any ops, no `Select` takes ticket `i`. It assumes `i` was issued and was neither pending nor dead, as a running ticket is, and that the dead-ticket trie is well formed. |
 | `cancel_never_selected` | After `Cancel{i}` and any ops, no `Select` takes ticket `i`, when `i` was issued and the dead-ticket trie is well formed. |
 | `recovered_never_selected` | The `Complete` claim for the state that `open` replays from the journal. |

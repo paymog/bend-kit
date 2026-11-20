@@ -109,6 +109,9 @@ def sample() -> Model.State<String>:
     Model.Enqueue{40n, "e"}, Model.Cancel{4n}, Model.Select{30n}, Model.Abandon{0n, Model.WhyUnsafe{}, big()}, Model.Break{"local", Retry.CircuitClosed{[7n]}},
     Model.Break{"λ:443", Retry.CircuitClosed{[1n, big()]}}, Model.Break{"h", Retry.CircuitHalf{2n}}, Model.Break{"local", Retry.CircuitOpen{big()}}], Model.new(String))
 
+def colliding.breakers() -> Model.State<String>:
+  live([Model.Break{"costarring", Retry.CircuitOpen{10n}}, Model.Break{"liquid", Retry.CircuitHalf{2n}}], Model.new(String))
+
 # Three tickets abandoned at 10, 20, and 30, so that the dead-ticket trie has a branch.
 def graveyard() -> Model.State<String>:
   live([Model.Enqueue{0n, "x"}, Model.Enqueue{0n, "y"}, Model.Enqueue{0n, "z"}, Model.Select{0n}, Model.Select{0n}, Model.Select{0n},
@@ -189,6 +192,10 @@ def snapshots() -> IO(Unit):
     same(hex(live([Model.Break{"t", Retry.CircuitClosed{[7n]}}, Model.Break{"t", Retry.CircuitClosed{[]}}], Model.new(String))), hex(Model.new(String)), "a target that failed and then recovered leaves no breaker in the snapshot")
     same(brk(Model.calm(String, sample()), "h"), "half 0", "open counts no probe of a half-open breaker in flight")
     same(brk(Model.calm(String, sample()), "local"), "open 1700000000123", "open keeps an open breaker's until")
+    same(U32.show(Model.brk.hash("costarring")), U32.show(Model.brk.hash("liquid")), "the breaker fixture has a hash collision")
+    same(brk(colliding.breakers(), "costarring"), "open 10", "colliding targets keep separate breaker states")
+    same(brk(colliding.breakers(), "liquid"), "half 2", "a later colliding target does not replace the first")
+    same(rec(Model.encode.snap(~String, ~penc, colliding.breakers())), hex(colliding.breakers()), "colliding breaker snapshots round-trip without changing entry order")
     same(rec(Model.encode.snap(~String, ~penc, Model.new(String))), hex(Model.new(String)), "an empty snapshot round-trips")
     same(rec(Model.encode(~String, ~penc, Model.Cancel{8n})), "op cancel 8", "an op record decodes as an op")
     same(rec(Bytes.snd(Bytes.slice(Model.encode.snap(~String, ~penc, sample()), 0, 60))), "none", "a short snapshot does not decode")
