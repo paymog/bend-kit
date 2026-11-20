@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.17.0.2/runner.bend as R
+import bend-kit-runner@0.17.1.0/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.4.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
@@ -11,7 +11,7 @@ It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-r
 ```mermaid
 flowchart LR
   E[enqueue / cancel] -->|append| J[(journal)]
-  A[ask.enqueue / ask.cancel] -->|inbox| T[tick]
+  A[ask.enqueue / ask.cancel / ask.revive / ask.purge / ask.purge.all] -->|inbox| T[tick]
   T -->|append, answer| J
   J -->|replay at open| S[Queue.State + tries]
   S -->|Select, due| P{pool unit?}
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.17.0.2/runner.bend as R
+import bend-kit-runner@0.17.1.0/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.0.2/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.1.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt. Answer `Retry.Rejected` for a client error, such as a 404: the job is dead, and the target's breaker does not count it.
 
@@ -97,6 +97,9 @@ def main() -> IO(Unit):
 | `inbox(A, r)` | The runner and its inbox, a `Chan(Msg<A>)`. Pass the inbox to another fiber. |
 | `ask.enqueue(A, inbox, deadline, x)` | From another fiber: `enqueue`, answered with the ticket id once the record is durable. |
 | `ask.cancel(A, inbox, id)` | From another fiber: `cancel`. A running attempt finishes, and its outcome does not requeue the ticket. |
+| `ask.revive(A, inbox, id, deadline)` | From another fiber: `revive`. Adds one claim to the current round, so a revived ticket can run in that round. |
+| `ask.purge(A, inbox, before)` | From another fiber: `purge`. |
+| `ask.purge.all(A, inbox)` | From another fiber: `purge.all`. |
 | `compact(~A, ~penc, r)` | Replaces the journal with one snapshot record of the state. See [Compaction](#compaction). |
 | `state(A, r)` | The runner and a copy of its `State`. `dead(A, s)` is its dead tickets, a hash trie by ticket id: `dead.get(~A, ds, id)` finds one, and `dead.list(A, ds)` lists them in no set order. Each is a `Dead{ticket, why, at}` with its payload and the wall-clock ms when retry gave up. `brk.get(A, s, target)` is the `Retry.State` of a target's breaker. |
 | `close(A, r)` | Closes the inbox and the journal. Each ask still in the inbox fails with `runner: the runner closed`, and no op is appended for it. |
@@ -203,7 +206,9 @@ The events cover successful claims and completion settles. They do not assume FI
 - with capacity 2, one tick runs a slow job and five fast jobs: the fast jobs finish in the free unit while the slow one runs, and no more than 2 attempts run at once;
 - while a 1 s job runs, another fiber's `ask.enqueue` answers its id before the job ends, and the new job runs in the same drain;
 - another fiber's `ask.cancel` of a failing job while its attempt runs leaves the ticket cancelled after the attempt ends, and across a reopen;
-- an `ask.enqueue` in the inbox when the owner calls `close` fails at once, and a reopen finds no ticket for it;
+- while a 1 s job runs, `ask.revive` answers and its revived ticket runs before the slow job ends in the same drain;
+- `ask.purge` retains newer dead tickets and `ask.purge.all` removes all dead tickets while another attempt runs; both survive reopen;
+- queued `ask.enqueue`, `ask.revive`, `ask.purge`, and `ask.purge.all` calls fail when the owner closes the runner;
 - `compact` shrinks a drained journal to a snapshot larger than `max`, and reopening it with later records gives the same state; with `compact` at 1, each tick leaves one snapshot frame;
 - a child completes x, writes and fsyncs the snapshot, and dies before the rename. Reopening gives the snapshot's state, a later compaction replaces the stale file, and x does not run again;
 - a child completes x, compacts, then dies inside z's attempt. Reopening replays the snapshot and z's records, z runs again, and x does not;
