@@ -1,6 +1,7 @@
 # Pure runner state transitions, retry decisions, and journal codecs.
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.0/encoding.bend as Encoding
 import bend-kit-scheduler@0.4.3.0/queue.bend as Q
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
@@ -523,7 +524,7 @@ def held(-A: Data, why: Retry.Deny, br: Retry.Breaker, +id: Nat, +now: Nat) -> O
 
 # ---- the record codec: a u32le tag, then u64le fields; an Enqueue then holds the payload.
 # An Abandon is tag 8, then id, why.code, and at. A Purge is tag 11 and before; a PurgeAll is tag 12.
-# A Break is tag 10, then its target and its breaker state.
+# A Break is tag 13, then its UTF-8 target and its breaker state.
 
 def why.code(w: Why) -> Nat:
   match w:
@@ -552,16 +553,13 @@ def snap.u32(out: Bytes.Bytes, +v: U32) -> Bytes.Bytes:
 def snap.u64(out: Bytes.Bytes, +n: Nat) -> Bytes.Bytes:
   Bytes.append(out, put.u64(Bytes.new(8), 0, n))
 
-def snap.chars(s: String, out: Bytes.Bytes) -> Bytes.Bytes:
-  match s:
-    case SNil{}:
-      out
-    case SCon{Chr{c}, t}:
-      snap.chars(t, snap.u32(out, c))
+def snap.key.bytes(out: Bytes.Bytes, b: Bytes.Bytes) -> Bytes.Bytes:
+  Bytes.Bytes{+len, buf} = b
+  Bytes.append(snap.u32(out, len), Bytes.Bytes{len, buf})
 
-# A target is a u32 count of chars, then each char as a u32.
-def snap.key(out: Bytes.Bytes, +k: String) -> Bytes.Bytes:
-  snap.chars(k, snap.u32(out, Bytes.count(k, 0)))
+# A target is a u32 octet length, then UTF-8 octets.
+def snap.key(out: Bytes.Bytes, k: String) -> Bytes.Bytes:
+  snap.key.bytes(out, Encoding.utf8.encode(k))
 
 def snap.nats(xs: List<&2, Nat>, out: Bytes.Bytes) -> Bytes.Bytes:
   match xs:
@@ -603,7 +601,7 @@ def encode(~A: Data, ~penc: A -> Bytes.Bytes, op: Op<A>) -> Bytes.Bytes:
     case PurgeAll{}:
       head(12, 0n, 0n)
     case Break{k, b}:
-      snap.brk(snap.key(snap.u32(Bytes.new(0), 10), k), b)
+      snap.brk(snap.key(snap.u32(Bytes.new(0), 13), k), b)
 
 def get.field(m: Maybe<&2, U32>) -> U32:
   match m:
@@ -628,7 +626,7 @@ def get.lo(+at: U32, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Nat:
 def get.u64(b: Bytes.Bytes, +at: U32) -> Bytes.Bytes & Nat:
   get.lo(at, Bytes.get.u32le(b, at))
 
-# ---- the snapshot codec: tag 7 and the next id, then the heap, the running list, the tries, the dead tickets, and the breakers.
+# ---- the snapshot codec: tag 14 and the next id, then the heap, the running list, the tries, the dead tickets, and the breakers.
 # A u32 flag starts each tree node and list cell (1) and marks each end (0), so decode rebuilds the same shape.
 # A ticket is its u64 id and deadline, then a u32 length and the payload.
 # The dead tickets are a trie: each node is a u32 kind, 0 empty, 1 a bucket, or 2 a branch, then its lo and hi nodes.
@@ -707,7 +705,7 @@ def snap.brks(xs: List<&2, Sigma<&2, &2, String, _ => Retry.State>>, out: Bytes.
 def encode.snap(~A: Data, ~penc: A -> Bytes.Bytes, s: State<A>) -> Bytes.Bytes:
   State{Q.State{+n, h, run}, ts, ds, bs} = s
   snap.brks(brk.entries(bs, Nil{}),
-    snap.graves(~A, ~penc, ds, snap.tries(ts, snap.run(~A, ~penc, run, snap.heap(~A, ~penc, h, snap.u64(snap.u32(Bytes.new(0), 7), n))))))
+    snap.graves(~A, ~penc, ds, snap.tries(ts, snap.run(~A, ~penc, run, snap.heap(~A, ~penc, h, snap.u64(snap.u32(Bytes.new(0), 14), n))))))
 
 def encode.rec(~A: Data, ~penc: A -> Bytes.Bytes, r: Rec<A>) -> Bytes.Bytes:
   match r:
@@ -951,24 +949,13 @@ def rd.wf(-A: Data, ok: Bool, ds: Graves(A)) -> Dec(Graves(A)):
     case False{}:
       Dec.fail(Graves(A))
 
-# Each rd.* sequence reader takes the count or flag already read. fuel bounds its length: every item holds at least 4 octets.
-def rd.chars(+fuel: Nat, end: Bool, +n: U32) -> Dec(String):
-  match fuel end:
-    case 0n b:
-      Dec.fail(String)
-    case 1n+f True{}:
-      Dec.pure(String, SNil{})
-    case 1n+f False{}:
-      +k = (n - 1 : U32)
-      do Dec<String>:
-        c : U32 <- rd.u32()
-        rest : String <- rd.chars(f, U32.is_eq(k, 0), k)
-        return SCon{Chr{c}, rest}
-
-def rd.key(+fuel: Nat) -> Dec(String):
+def rd.key() -> Dec(String):
   do Dec<String>:
-    +n : U32 <- rd.u32()
-    rd.chars(fuel, U32.is_eq(n, 0), n)
+    n : U32 <- rd.u32()
+    octets : Bytes.Bytes <- rd.cut(n)
+    return Encoding.utf8.decode(octets)
+
+# Each sequence reader takes the count or flag already read; fuel bounds its length.
 
 def rd.nats(+fuel: Nat, end: Bool, +n: U32) -> Dec(List<&2, Nat>):
   match fuel end:
@@ -999,7 +986,7 @@ def rd.brk(+fuel: Nat) -> Dec(Retry.State):
 
 def rd.break(-A: Data, +fuel: Nat) -> Dec(Op<A>):
   do Dec<Op<A>>:
-    k : String <- rd.key(fuel)
+    k : String <- rd.key()
     b : Retry.State <- rd.brk(fuel)
     return Break{k, b}
 
@@ -1011,7 +998,7 @@ def rd.brks(+fuel: Nat, more: Bool, acc: Breakers()) -> Dec(Breakers()):
       Dec.pure(Breakers(), acc)
     case 1n+f True{}:
       do Dec<Breakers()>:
-        k : String <- rd.key(f)
+        k : String <- rd.key()
         b : Retry.State <- rd.brk(f)
         m : Bool <- rd.flag()
         rd.brks(f, m, M.HMap.put(~String, ~Retry.State, ~brk.hash, ~brk.eq, acc, k, b))
@@ -1108,7 +1095,7 @@ def decode.tag.if(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, brk: Bool, +tag:
 
 def decode.tag(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +len: U32, r: Bytes.Bytes & U32) -> Maybe<&2, Op<A>>:
   (b, +tag) = r
-  decode.tag.if(~A, ~pdec, U32.is_eq(tag, 10), tag, len, b)
+  decode.tag.if(~A, ~pdec, U32.is_eq(tag, 13), tag, len, b)
 
 def decode.len(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, ok: Bool, +len: U32, b: Bytes.Bytes) -> Maybe<&2, Op<A>>:
   match ok:
@@ -1150,7 +1137,7 @@ def decode.rec.if(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, snap: Bool, b: B
 
 def decode.rec.tag(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, r: Bytes.Bytes & U32) -> Maybe<&2, Rec<A>>:
   (b, +tag) = r
-  decode.rec.if(~A, ~pdec, U32.is_eq(tag, 7), b)
+  decode.rec.if(~A, ~pdec, U32.is_eq(tag, 14), b)
 
 # The Rec of a journal record, or None when it is neither a Snap nor an op that encode.rec writes.
 def decode.rec(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes) -> Maybe<&2, Rec<A>>:

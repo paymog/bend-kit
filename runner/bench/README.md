@@ -54,6 +54,8 @@ Versions: Bend 2.0.38, rustc 1.91.0, crc32fast 1.5.0, Python 3.14.6.
 
 Every program prints checksum `607518720` and `32768/65536` (pending tickets / next id) for `replay` and `compacted`, and checksum `674627584` and `32768/65536` for `dead`.
 
+UTF-8 codec smoke, 2026-11-20, macOS arm64, Bend 2.0.38: `python3 run.py 1 10` (one run, 1,024 jobs). Replay took 0.1 ms in Rust, 1.9 ms in Python, and 2.7 ms in Bend. Dead-ticket replay took 0.2, 2.4, and 3.7 ms. Bend's compacted replay took 1.7 ms. Checksums agreed: replay `9623552`, dead `10672128`, both `512/1024`. This fixture has no breaker targets; the codec checks cover their UTF-8 bytes and round trips.
+
 ## Reading it
 
 Compaction cuts open's replay by 3.6x here. The log holds 196,608 records, and the compacted journal holds one: the 32,768 pending tickets and their tries. Replay time then follows the live state, not the history. Half of the jobs here are still pending; a runner whose jobs finish gains more.

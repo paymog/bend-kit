@@ -3,10 +3,10 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.18.0.0/runner.bend as R
+import bend-kit-runner@0.19.0.0/runner.bend as R
 ```
 
-It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.4.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
+It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.4.0.0`, `bend-kit-encoding@0.5.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.18.0.0/runner.bend as R
+import bend-kit-runner@0.19.0.0/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,9 +80,9 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.18.0.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.19.0.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
-`Breakers()` is a `collections.HMap<String, Retry.State>`. It replaces Base's map so the breaker proofs can use the checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings. This changes the pure state representation, not the journal format. Old journals and snapshots remain readable.
+`Breakers()` is a `collections.HMap<String, Retry.State>`. The breaker proofs use its checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings.
 
 `~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt. Answer `Retry.Rejected` for a client error, such as a 404: the job is dead, and the target's breaker does not count it.
 
@@ -128,7 +128,9 @@ Every transition is one journal record, appended and fsynced before the state ch
 
 The dead tickets are a `collections` hash trie keyed by ticket id, so `Cancel` and `Revive` of a dead ticket take a fixed number of steps, whatever the count of dead tickets. A `Purge` walks every dead ticket once.
 
-The record is a u32le tag (1 to 6, 8, 9, 11, or 12), then u64le fields, then the payload for `Enqueue`. An `Abandon` is 28 octets: its id, its why (0 spent, 1 late, 2 unsafe, 3 failed), and its `at`. A `Purge` is tag 11 and `before`; a `PurgeAll` is tag 12. A `Break` is tag 10, then the target as a u32 count of chars and each char as a u32, then the breaker state: a u32 kind, 0 closed with a u32 count and each failure time as a u64, 1 open with its `until`, or 2 half-open with its probes in flight. A ticket's budget is the policy's attempts less its failures, and its deadline is the policy deadline after its first due time. `Select` is journaled so that the replayed queue equals the live one, running list included. A dead ticket is neither pending nor running, so `drain` does not wait for it.
+The record is a u32le tag (1 to 6, 8, 9, 11, or 12), then u64le fields, then the payload for `Enqueue`. An `Abandon` is 28 octets: its id, its why (0 spent, 1 late, 2 unsafe, 3 failed), and its `at`. A `Purge` is tag 11 and `before`; a `PurgeAll` is tag 12. A `Break` is tag 13, then the target as a u32le octet length and UTF-8 octets, then the breaker state: a u32 kind, 0 closed with a u32 count and each failure time as a u64, 1 open with its `until`, or 2 half-open with its probes in flight. An ASCII target uses one octet per char. A ticket's budget is the policy's attempts less its failures, and its deadline is the policy deadline after its first due time. `Select` is journaled so that the replayed queue equals the live one, running list included. A dead ticket is neither pending nor running, so `drain` does not wait for it.
+
+Version 0.19.0.0 changes the journal format. It rejects old tag 10 breaker records and tag 7 snapshots; it does not migrate them. Back up an old journal before upgrade. Drain pending and running tickets with the old runner and handle any dead tickets before starting a new journal, or convert the journal offline with its old payload codec. Preserve breaker states if cooldowns must survive the upgrade. Do not reopen the old path with the new runner.
 
 The breakers are part of the durable state, so a reopen restores each target's breaker, and an open breaker keeps its `until`. A `Break` is appended before the attempt that the change admits starts. A half-open breaker's probes died with the old process, so `open` counts none in flight. A closed breaker with failures in its window adds one `Break` for each failure.
 
@@ -138,9 +140,9 @@ Completed jobs keep their records, so a journal grows with its history. `compact
 
 A crash leaves either the old journal or the new one, and both replay to the same state. A leftover `path.compact` is removed by the next compaction. When compaction fails before the rename, the old journal stands and the runner goes on. When it fails after the rename, appends stop until the runner is reopened.
 
-A `Snap` record is tag 7 and the next id, then the pending heap, the running list, the tries, the dead tickets, and the breakers, node by node, so the replayed trees have the live shape. Each heap, list, and map node or cell starts with a u32 flag of 1, and each end is a flag of 0. A ticket is its u64 id and deadline, then a u32 length and the payload. Each node of the dead-ticket trie is a u32 kind: 0 empty, 1 a bucket, or 2 a branch followed by its two halves. A bucket is its u32 hash, then its entries, each a flag of 1, the u64 id, the ticket, a u32 why, and the u64 `at`, then a flag of 0. A snapshot whose trie is not well formed, as `collections`' `hmap_wf` defines it, does not decode: a bucket must not hold one id twice, and its ids must hash to its hash. A breaker is its target and its state, as in a `Break`. The snapshot is one record, so it must fit `limit`, not `max`.
+A `Snap` record is tag 14 and the next id, then the pending heap, the running list, the tries, the dead tickets, and the breakers, node by node, so the replayed trees have the live shape. Each heap, list, and map node or cell starts with a u32 flag of 1, and each end is a flag of 0. A ticket is its u64 id and deadline, then a u32 length and the payload. Each node of the dead-ticket trie is a u32 kind: 0 empty, 1 a bucket, or 2 a branch followed by its two halves. A bucket is its u32 hash, then its entries, each a flag of 1, the u64 id, the ticket, a u32 why, and the u64 `at`, then a flag of 0. A snapshot whose trie is not well formed, as `collections`' `hmap_wf` defines it, does not decode: a bucket must not hold one id twice, and its ids must hash to its hash. A breaker is its target and its state, as in a `Break`. The snapshot is one record, so it must fit `limit`, not `max`.
 
-The decoder sorts each bucket by id and checks adjacent ids for strict order. For k entries in one bucket, this costs O(k log k), not O(k²). Old snapshots with unsorted buckets still decode. Tickets and values do not change, but re-encoding a decoded snapshot puts each bucket's entries in id order. `PROOF.bend` proves that the fast check implies `hmap_wf`.
+The decoder sorts each bucket by id and checks adjacent ids for strict order. For k entries in one bucket, this costs O(k log k), not O(k²). Unsorted buckets still decode in the current format. Tickets and values do not change, but re-encoding a decoded snapshot puts each bucket's entries in id order. `PROOF.bend` proves that the fast check implies `hmap_wf`.
 
 ## Laws
 
