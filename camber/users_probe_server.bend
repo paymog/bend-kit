@@ -1,7 +1,7 @@
 # Published Camber types are distinct from the local regression fixture types.
 import Base
-import bend-kit-camber@0.15.1.0/camber.bend as C
-import bend-kit-http@0.38.6.0/http.bend as H
+import bend-kit-camber@0.16.0.2/camber.bend as C
+import bend-kit-http@0.38.6.1/http.bend as H
 import ./probe_server.bend as Probe
 
 def prepared(~A: Data, ~S: Type, ~K: Data, ~N: Data,

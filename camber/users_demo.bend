@@ -3,9 +3,9 @@ import Base
 import ./probe_server.bend as Probe
 import ./users_probe_server.bend as UsersProbe
 import ./users.bend as U
-import bend-kit-camber@0.15.1.0/camber.bend as C
-import bend-kit-http@0.38.6.0/http.bend as H
-import bend-kit-http@0.38.6.0/completion.bend as T
+import bend-kit-camber@0.16.0.2/camber.bend as C
+import bend-kit-http@0.38.6.1/http.bend as H
+import bend-kit-http@0.38.6.1/completion.bend as T
 
 def done(completion: T.Completion<C.ApplicationReport<String>>) -> IO(Unit):
   IO.pure(Unit, Unit{})
