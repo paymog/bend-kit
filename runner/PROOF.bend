@@ -10,7 +10,7 @@ import bend-kit-collections@0.1.5.0/LAWS.bend as CL
 import bend-kit-collections@0.1.5.0/PROOF.bend as CP
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import ./runner.bend as R
+import ./model.bend as R
 import ./LAWS.bend as Laws
 
 def split(-P: Bool -> Type, b: Bool, yes: {b == True{} : Bool} -> P(True{}), no: {b == False{} : Bool} -> P(False{})) -> P(b):

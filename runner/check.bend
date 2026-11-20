@@ -8,6 +8,7 @@ import bend-kit-collections@0.1.5.0/heap.bend as H
 import bend-kit-collections@0.1.5.0/omap.bend as O
 import bend-kit-collections@0.1.5.0/hmap.bend as M
 import ./runner.bend as R
+import ./model.bend as Model
 import ./example.bend as Example
 
 def ok(good: Bool, +name: String) -> IO(Unit):
@@ -35,15 +36,15 @@ def penc(s: String) -> Bytes.Bytes:
 def pdec(b: Bytes.Bytes) -> Maybe<&2, String>:
   Some{Bytes.to_string(b)}
 
-def show.why(w: R.Why) -> String:
+def show.why(w: Model.Why) -> String:
   match w:
-    case R.WhySpent{}:
+    case Model.WhySpent{}:
       "spent"
-    case R.WhyLate{}:
+    case Model.WhyLate{}:
       "late"
-    case R.WhyUnsafe{}:
+    case Model.WhyUnsafe{}:
       "unsafe"
-    case R.WhyFailed{}:
+    case Model.WhyFailed{}:
       "failed"
 
 def show.nats(xs: List<&2, Nat>) -> String:
@@ -62,185 +63,185 @@ def show.brk(b: Retry.State) -> String:
     case Retry.CircuitHalf{k}:
       "half " ++ Nat.show(k)
 
-def show(m: Maybe<&2, R.Op<String>>) -> String:
+def show(m: Maybe<&2, Model.Op<String>>) -> String:
   match m:
     case None{}:
       "none"
-    case Some{R.Enqueue{d, x}}:
+    case Some{Model.Enqueue{d, x}}:
       "enqueue " ++ Nat.show(d) ++ " " ++ x
-    case Some{R.Select{n}}:
+    case Some{Model.Select{n}}:
       "select " ++ Nat.show(n)
-    case Some{R.Complete{i}}:
+    case Some{Model.Complete{i}}:
       "complete " ++ Nat.show(i)
-    case Some{R.Cancel{i}}:
+    case Some{Model.Cancel{i}}:
       "cancel " ++ Nat.show(i)
-    case Some{R.Requeue{i, d}}:
+    case Some{Model.Requeue{i, d}}:
       "requeue " ++ Nat.show(i) ++ " " ++ Nat.show(d)
-    case Some{R.Defer{i, d}}:
+    case Some{Model.Defer{i, d}}:
       "defer " ++ Nat.show(i) ++ " " ++ Nat.show(d)
-    case Some{R.Abandon{i, w, at}}:
+    case Some{Model.Abandon{i, w, at}}:
       "abandon " ++ Nat.show(i) ++ " " ++ show.why(w) ++ " " ++ Nat.show(at)
-    case Some{R.Revive{i, d}}:
+    case Some{Model.Revive{i, d}}:
       "revive " ++ Nat.show(i) ++ " " ++ Nat.show(d)
-    case Some{R.Purge{t}}:
+    case Some{Model.Purge{t}}:
       "purge " ++ Nat.show(t)
-    case Some{R.PurgeAll{}}:
+    case Some{Model.PurgeAll{}}:
       "purge all"
-    case Some{R.Break{k, b}}:
+    case Some{Model.Break{k, b}}:
       "break " ++ k ++ " " ++ show.brk(b)
 
-def rt(+op: R.Op<String>) -> String:
-  show(R.decode(~String, ~pdec, R.encode(~String, ~penc, op)))
+def rt(+op: Model.Op<String>) -> String:
+  show(Model.decode(~String, ~pdec, Model.encode(~String, ~penc, op)))
 
 def big() -> Nat:
   Nat.add(Nat.mul(1700n, 1000000000n), 123n)
 
-def live(ops: List<&2, R.Op<String>>, s: R.State<String>) -> R.State<String>:
+def live(ops: List<&2, Model.Op<String>>, s: Model.State<String>) -> Model.State<String>:
   match ops:
     case Nil{}:
       s
     case Con{op, rest}:
-      live(rest, R.step(~String, s, op))
+      live(rest, Model.step(~String, s, op))
 
 # Two tickets pending, one running, one requeued once, one cancelled, one dead, and three breakers.
-def sample() -> R.State<String>:
-  live([R.Enqueue{5n, "a"}, R.Enqueue{big(), "b|c"}, R.Enqueue{3n, ""}, R.Select{10n}, R.Requeue{2n, 20n}, R.Select{30n}, R.Enqueue{1n, "d"},
-    R.Enqueue{40n, "e"}, R.Cancel{4n}, R.Select{30n}, R.Abandon{0n, R.WhyUnsafe{}, big()}, R.Break{"local", Retry.CircuitClosed{[7n]}},
-    R.Break{"λ:443", Retry.CircuitClosed{[1n, big()]}}, R.Break{"h", Retry.CircuitHalf{2n}}, R.Break{"local", Retry.CircuitOpen{big()}}], R.new(String))
+def sample() -> Model.State<String>:
+  live([Model.Enqueue{5n, "a"}, Model.Enqueue{big(), "b|c"}, Model.Enqueue{3n, ""}, Model.Select{10n}, Model.Requeue{2n, 20n}, Model.Select{30n}, Model.Enqueue{1n, "d"},
+    Model.Enqueue{40n, "e"}, Model.Cancel{4n}, Model.Select{30n}, Model.Abandon{0n, Model.WhyUnsafe{}, big()}, Model.Break{"local", Retry.CircuitClosed{[7n]}},
+    Model.Break{"λ:443", Retry.CircuitClosed{[1n, big()]}}, Model.Break{"h", Retry.CircuitHalf{2n}}, Model.Break{"local", Retry.CircuitOpen{big()}}], Model.new(String))
 
 # Three tickets abandoned at 10, 20, and 30, so that the dead-ticket trie has a branch.
-def graveyard() -> R.State<String>:
-  live([R.Enqueue{0n, "x"}, R.Enqueue{0n, "y"}, R.Enqueue{0n, "z"}, R.Select{0n}, R.Select{0n}, R.Select{0n},
-    R.Abandon{0n, R.WhyFailed{}, 10n}, R.Abandon{1n, R.WhySpent{}, 20n}, R.Abandon{2n, R.WhyLate{}, 30n}], R.new(String))
+def graveyard() -> Model.State<String>:
+  live([Model.Enqueue{0n, "x"}, Model.Enqueue{0n, "y"}, Model.Enqueue{0n, "z"}, Model.Select{0n}, Model.Select{0n}, Model.Select{0n},
+    Model.Abandon{0n, Model.WhyFailed{}, 10n}, Model.Abandon{1n, Model.WhySpent{}, 20n}, Model.Abandon{2n, Model.WhyLate{}, 30n}], Model.new(String))
 
-def dead7() -> R.Dead<String>:
-  R.Dead{Q.Ticket{7n, 0n, "x"}, R.WhyFailed{}, 1n}
+def dead7() -> Model.Dead<String>:
+  Model.Dead{Q.Ticket{7n, 0n, "x"}, Model.WhyFailed{}, 1n}
 
 # s with its dead-ticket trie replaced by ds, which no op would build.
-def regraved(s: R.State<String>, ds: R.Graves(String)) -> R.State<String>:
-  R.State{q, ts, old, bs} = s
-  R.State{q, ts, ds, bs}
+def regraved(s: Model.State<String>, ds: Model.Graves(String)) -> Model.State<String>:
+  Model.State{q, ts, old, bs} = s
+  Model.State{q, ts, ds, bs}
 
-def brk(s: R.State<String>, +key: String) -> String:
-  show.brk(R.brk.get(String, s, key))
+def brk(s: Model.State<String>, +key: String) -> String:
+  show.brk(Model.brk.get(String, s, key))
 
-def hex(s: R.State<String>) -> String:
-  Bytes.to_hex(R.encode.snap(~String, ~penc, s))
+def hex(s: Model.State<String>) -> String:
+  Bytes.to_hex(Model.encode.snap(~String, ~penc, s))
 
-def shown.rec(m: Maybe<&2, R.Rec<String>>) -> String:
+def shown.rec(m: Maybe<&2, Model.Rec<String>>) -> String:
   match m:
     case None{}:
       "none"
-    case Some{R.Snap{s}}:
+    case Some{Model.Snap{s}}:
       hex(s)
-    case Some{R.Do{op}}:
+    case Some{Model.Do{op}}:
       "op " ++ show(Some{op})
 
 def rec(b: Bytes.Bytes) -> String:
-  shown.rec(R.decode.rec(~String, ~pdec, b))
+  shown.rec(Model.decode.rec(~String, ~pdec, b))
 
-def fails(ts: List<&1, Nat & R.Try>) -> Nat:
+def fails(ts: List<&1, Nat & Model.Try>) -> Nat:
   match ts:
     case Nil{}:
       0n
-    case Con{(i, R.Try{f, st}), rest}:
+    case Con{(i, Model.Try{f, st}), rest}:
       Nat.add(f, fails(rest))
 
-def graves.go(ds: List<&2, R.Dead<String>>) -> List<&2, String>:
+def graves.go(ds: List<&2, Model.Dead<String>>) -> List<&2, String>:
   match ds:
     case Nil{}:
       Nil{}
-    case Con{R.Dead{Q.Ticket{i, d, x}, w, at}, rest}:
+    case Con{Model.Dead{Q.Ticket{i, d, x}, w, at}, rest}:
       Con{Nat.show(i) ++ ":" ++ show.why(w) ++ ":" ++ x, graves.go(rest)}
 
 # Each dead ticket as id:why:payload, sorted, then a space.
-def graves(ds: R.Graves(String)) -> String:
-  String.join(List.sort(~String, ~String.is_le, graves.go(R.dead.list(String, ds))), " ") ++ " "
+def graves(ds: Model.Graves(String)) -> String:
+  String.join(List.sort(~String, ~String.is_le, graves.go(Model.dead.list(String, ds))), " ") ++ " "
 
-def describe(s: R.State<String>) -> String:
-  R.State{Q.State{+n, +h, +run}, +ts, +ds, +bs} = s
-  "next=" ++ Nat.show(n) ++ " pending=" ++ Nat.show(R.pending(String, R.State{Q.State{n, h, run}, ts, ds, bs})) ++ " running=" ++ Nat.show(List.length(&2, Q.Ticket<String>, run)) ++
-    " tries=" ++ U32.show(O.OMap.size(Nat, R.Try, ts)) ++ " fails=" ++ Nat.show(fails(O.OMap.to_list(Nat, R.Try, ts))) ++ " dead=" ++ Nat.show(M.HMap.size(Nat, R.Dead<String>, ds))
+def describe(s: Model.State<String>) -> String:
+  Model.State{Q.State{+n, +h, +run}, +ts, +ds, +bs} = s
+  "next=" ++ Nat.show(n) ++ " pending=" ++ Nat.show(Model.pending(String, Model.State{Q.State{n, h, run}, ts, ds, bs})) ++ " running=" ++ Nat.show(List.length(&2, Q.Ticket<String>, run)) ++
+    " tries=" ++ U32.show(O.OMap.size(Nat, Model.Try, ts)) ++ " fails=" ++ Nat.show(fails(O.OMap.to_list(Nat, Model.Try, ts))) ++ " dead=" ++ Nat.show(M.HMap.size(Nat, Model.Dead<String>, ds))
 
-def collision.entries(+n: Nat) -> List<&2, M.Entry<Nat, R.Dead<String>>>:
+def collision.entries(+n: Nat) -> List<&2, M.Entry<Nat, Model.Dead<String>>>:
   match n:
     case 0n:
       Nil{}
     case 1n+p:
       +id = Nat.mul(p, Nat.mul(65536n, 65536n))
-      M.Entry{id, R.Dead{Q.Ticket{id, 0n, Nat.show(p)}, R.WhyFailed{}, p}} <> collision.entries(p)
+      M.Entry{id, Model.Dead{Q.Ticket{id, 0n, Nat.show(p)}, Model.WhyFailed{}, p}} <> collision.entries(p)
 
-def collision.count(m: Maybe<&2, R.Rec<String>>) -> Nat:
+def collision.count(m: Maybe<&2, Model.Rec<String>>) -> Nat:
   match m:
-    case Some{R.Snap{s}}:
-      M.HMap.size(Nat, R.Dead<String>, R.dead(String, s))
+    case Some{Model.Snap{s}}:
+      M.HMap.size(Nat, Model.Dead<String>, Model.dead(String, s))
     case _:
       0n
 
 def snapshots() -> IO(Unit):
   do IO<Unit>:
     same(describe(sample()), "next=5 pending=2 running=1 tries=3 fails=1 dead=1", "the sample state has pending, running, retried, and dead tickets")
-    same(graves(R.dead(String, sample())), "0:unsafe:a ", "a dead ticket keeps its payload and why")
-    same(rec(R.encode.snap(~String, ~penc, sample())), hex(sample()), "a snapshot decodes to the same heap, running list, tries, dead tickets, and breakers")
+    same(graves(Model.dead(String, sample())), "0:unsafe:a ", "a dead ticket keeps its payload and why")
+    same(rec(Model.encode.snap(~String, ~penc, sample())), hex(sample()), "a snapshot decodes to the same heap, running list, tries, dead tickets, and breakers")
     same(brk(sample(), "local"), "open 1700000000123", "a later Break replaces the target's breaker")
     same(brk(sample(), "λ:443"), "closed 1 1700000000123", "a Break keeps a closed breaker's failures")
     same(brk(sample(), "none"), "closed", "a target with no Break is closed")
-    same(hex(live([R.Break{"t", Retry.CircuitClosed{[7n]}}, R.Break{"t", Retry.CircuitClosed{[]}}], R.new(String))), hex(R.new(String)), "a target that failed and then recovered leaves no breaker in the snapshot")
-    same(brk(R.calm(String, sample()), "h"), "half 0", "open counts no probe of a half-open breaker in flight")
-    same(brk(R.calm(String, sample()), "local"), "open 1700000000123", "open keeps an open breaker's until")
-    same(rec(R.encode.snap(~String, ~penc, R.new(String))), hex(R.new(String)), "an empty snapshot round-trips")
-    same(rec(R.encode(~String, ~penc, R.Cancel{8n})), "op cancel 8", "an op record decodes as an op")
-    same(rec(Bytes.snd(Bytes.slice(R.encode.snap(~String, ~penc, sample()), 0, 60))), "none", "a short snapshot does not decode")
-    same(rec(Bytes.append(R.encode.snap(~String, ~penc, sample()), Bytes.new(4))), "none", "a snapshot with octets after it does not decode")
-    same(rec(Bytes.set(R.encode.snap(~String, ~penc, sample()), 12, 2)), "none", "a snapshot flag other than 0 or 1 does not decode")
-    same(graves(R.dead(String, graveyard())), "0:failed:x 1:spent:y 2:late:z ", "each dead ticket keeps its payload and why")
-    same(rec(R.encode.snap(~String, ~penc, graveyard())), hex(graveyard()), "a snapshot decodes to the same dead-ticket trie")
-    same(graves(R.dead(String, R.step(~String, graveyard(), R.Purge{20n}))), "1:spent:y 2:late:z ", "a Purge drops only the tickets abandoned before its time")
-    same(rec(R.encode.snap(~String, ~penc, R.step(~String, graveyard(), R.Purge{20n}))), hex(R.step(~String, graveyard(), R.Purge{20n})), "a snapshot after a Purge round-trips")
-    same(describe(R.step(~String, graveyard(), R.PurgeAll{})), "next=3 pending=0 running=0 tries=0 fails=0 dead=0", "a PurgeAll drops every dead ticket")
-    same(describe(R.step(~String, R.step(~String, graveyard(), R.Purge{20n}), R.Revive{0n, 5n})), "next=3 pending=0 running=0 tries=0 fails=0 dead=2", "a purged ticket does not revive")
-    same(describe(R.step(~String, graveyard(), R.Revive{1n, 5n})), "next=3 pending=1 running=0 tries=1 fails=0 dead=2", "a Revive takes one dead ticket by id")
-    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}, M.Entry{7n, dead7()}]}))), "none", "a snapshot with two entries for one id in a bucket does not decode")
-    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{3, [M.Entry{7n, dead7()}]}))), "none", "a snapshot whose bucket hash does not match its keys does not decode")
-    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]}))), hex(regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]})), "a snapshot with a well-formed hand-built bucket decodes")
-    same(rec(R.encode.snap(~String, ~penc, regraved(R.new(String), M.HLeaf{0, collision.entries(3n)}))),
-      hex(regraved(R.new(String), M.HLeaf{0, List.reverse(&2, M.Entry<Nat, R.Dead<String>>, collision.entries(3n))})),
+    same(hex(live([Model.Break{"t", Retry.CircuitClosed{[7n]}}, Model.Break{"t", Retry.CircuitClosed{[]}}], Model.new(String))), hex(Model.new(String)), "a target that failed and then recovered leaves no breaker in the snapshot")
+    same(brk(Model.calm(String, sample()), "h"), "half 0", "open counts no probe of a half-open breaker in flight")
+    same(brk(Model.calm(String, sample()), "local"), "open 1700000000123", "open keeps an open breaker's until")
+    same(rec(Model.encode.snap(~String, ~penc, Model.new(String))), hex(Model.new(String)), "an empty snapshot round-trips")
+    same(rec(Model.encode(~String, ~penc, Model.Cancel{8n})), "op cancel 8", "an op record decodes as an op")
+    same(rec(Bytes.snd(Bytes.slice(Model.encode.snap(~String, ~penc, sample()), 0, 60))), "none", "a short snapshot does not decode")
+    same(rec(Bytes.append(Model.encode.snap(~String, ~penc, sample()), Bytes.new(4))), "none", "a snapshot with octets after it does not decode")
+    same(rec(Bytes.set(Model.encode.snap(~String, ~penc, sample()), 12, 2)), "none", "a snapshot flag other than 0 or 1 does not decode")
+    same(graves(Model.dead(String, graveyard())), "0:failed:x 1:spent:y 2:late:z ", "each dead ticket keeps its payload and why")
+    same(rec(Model.encode.snap(~String, ~penc, graveyard())), hex(graveyard()), "a snapshot decodes to the same dead-ticket trie")
+    same(graves(Model.dead(String, Model.step(~String, graveyard(), Model.Purge{20n}))), "1:spent:y 2:late:z ", "a Purge drops only the tickets abandoned before its time")
+    same(rec(Model.encode.snap(~String, ~penc, Model.step(~String, graveyard(), Model.Purge{20n}))), hex(Model.step(~String, graveyard(), Model.Purge{20n})), "a snapshot after a Purge round-trips")
+    same(describe(Model.step(~String, graveyard(), Model.PurgeAll{})), "next=3 pending=0 running=0 tries=0 fails=0 dead=0", "a PurgeAll drops every dead ticket")
+    same(describe(Model.step(~String, Model.step(~String, graveyard(), Model.Purge{20n}), Model.Revive{0n, 5n})), "next=3 pending=0 running=0 tries=0 fails=0 dead=2", "a purged ticket does not revive")
+    same(describe(Model.step(~String, graveyard(), Model.Revive{1n, 5n})), "next=3 pending=1 running=0 tries=1 fails=0 dead=2", "a Revive takes one dead ticket by id")
+    same(rec(Model.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}, M.Entry{7n, dead7()}]}))), "none", "a snapshot with two entries for one id in a bucket does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{3, [M.Entry{7n, dead7()}]}))), "none", "a snapshot whose bucket hash does not match its keys does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]}))), hex(regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]})), "a snapshot with a well-formed hand-built bucket decodes")
+    same(rec(Model.encode.snap(~String, ~penc, regraved(Model.new(String), M.HLeaf{0, collision.entries(3n)}))),
+      hex(regraved(Model.new(String), M.HLeaf{0, List.reverse(&2, M.Entry<Nat, Model.Dead<String>>, collision.entries(3n))})),
       "an unsorted colliding bucket decodes in id order and keeps each ticket")
-    same(Nat.show(collision.count(R.decode.rec(~String, ~pdec, R.encode.snap(~String, ~penc,
-      regraved(R.new(String), M.HLeaf{0, collision.entries(1024n)}))))), "1024", "a snapshot with many colliding ids decodes")
-    same(rec(R.encode.snap(~String, ~penc, regraved(R.new(String),
-      M.HLeaf{0, M.Entry{0n, dead7()} <> List.append(&2, M.Entry<Nat, R.Dead<String>>, collision.entries(3n), [M.Entry{0n, dead7()}])}))),
+    same(Nat.show(collision.count(Model.decode.rec(~String, ~pdec, Model.encode.snap(~String, ~penc,
+      regraved(Model.new(String), M.HLeaf{0, collision.entries(1024n)}))))), "1024", "a snapshot with many colliding ids decodes")
+    same(rec(Model.encode.snap(~String, ~penc, regraved(Model.new(String),
+      M.HLeaf{0, M.Entry{0n, dead7()} <> List.append(&2, M.Entry<Nat, Model.Dead<String>>, collision.entries(3n), [M.Entry{0n, dead7()}])}))),
       "none", "a duplicate separated by other colliding ids does not decode")
 
 def codec() -> IO(Unit):
   +t = big()
   do IO<Unit>:
-    same(rt(R.Enqueue{t, "a|b"}), "enqueue 1700000000123 a|b", "an Enqueue keeps a 41-bit deadline and its payload")
-    same(rt(R.Enqueue{0n, ""}), "enqueue 0 ", "an Enqueue keeps an empty payload")
-    same(rt(R.Select{t}), "select 1700000000123", "a Select keeps its now")
-    same(rt(R.Complete{7n}), "complete 7", "a Complete keeps its id")
-    same(rt(R.Cancel{8n}), "cancel 8", "a Cancel keeps its id")
-    same(rt(R.Requeue{9n, t}), "requeue 9 1700000000123", "a Requeue keeps its id and deadline")
-    same(rt(R.Defer{10n, t}), "defer 10 1700000000123", "a Defer keeps its id and deadline")
-    same(rt(R.Abandon{11n, R.WhySpent{}, t}), "abandon 11 spent 1700000000123", "an Abandon keeps its id, a spent why, and its time")
-    same(rt(R.Abandon{11n, R.WhyLate{}, 0n}), "abandon 11 late 0", "an Abandon keeps a late why")
-    same(rt(R.Abandon{11n, R.WhyUnsafe{}, 0n}), "abandon 11 unsafe 0", "an Abandon keeps an unsafe why")
-    same(rt(R.Abandon{11n, R.WhyFailed{}, 0n}), "abandon 11 failed 0", "an Abandon keeps a failed why")
-    same(rt(R.Revive{12n, t}), "revive 12 1700000000123", "a Revive keeps its id and deadline")
-    same(rt(R.Purge{t}), "purge 1700000000123", "a Purge keeps its time")
-    same(rt(R.PurgeAll{}), "purge all", "a PurgeAll round-trips")
-    same(rt(R.Break{"λ:443", Retry.CircuitClosed{[t, 5n]}}), "break λ:443 closed 1700000000123 5", "a Break keeps its target and a closed breaker's failures")
-    same(rt(R.Break{"", Retry.CircuitClosed{[]}}), "break  closed", "a Break keeps an empty target and no failures")
-    same(rt(R.Break{"t", Retry.CircuitOpen{t}}), "break t open 1700000000123", "a Break keeps an open breaker's until")
-    same(rt(R.Break{"t", Retry.CircuitHalf{3n}}), "break t half 3", "a Break keeps a half-open breaker's probes")
-    same(show(R.decode(~String, ~pdec, Bytes.set(R.encode(~String, ~penc, R.Break{"t", Retry.CircuitHalf{3n}}), 12, 3))), "none", "a Break with an unknown kind is not an op")
-    same(show(R.decode(~String, ~pdec, Bytes.append(R.encode(~String, ~penc, R.Break{"t", Retry.CircuitHalf{3n}}), Bytes.new(4)))), "none", "a Break with octets after it is not an op")
-    same(show(R.decode(~String, ~pdec, Bytes.snd(Bytes.slice(R.encode(~String, ~penc, R.Break{"t", Retry.CircuitHalf{3n}}), 0, 20)))), "none", "a short Break is not an op")
-    same(show(R.decode(~String, ~pdec, Bytes.set(R.encode(~String, ~penc, R.Abandon{11n, R.WhySpent{}, 0n}), 12, 4))), "none", "an Abandon with an unknown why is not an op")
-    same(show(R.decode(~String, ~pdec, Bytes.snd(Bytes.slice(R.encode(~String, ~penc, R.Abandon{11n, R.WhySpent{}, 0n}), 0, 20)))), "none", "an Abandon without its time is not an op")
-    same(show(R.decode(~String, ~pdec, Bytes.from_string("abc"))), "none", "a record shorter than a head is not an op")
-    same(show(R.decode(~String, ~pdec, Bytes.set(R.encode(~String, ~penc, R.Cancel{8n}), 0, 13))), "none", "an unknown tag is not an op")
-    same(show(R.decode(~String, ~pdec, Bytes.snd(Bytes.slice(R.encode(~String, ~penc, R.Cancel{8n}), 0, 16)))), "none", "a short Cancel is not an op")
+    same(rt(Model.Enqueue{t, "a|b"}), "enqueue 1700000000123 a|b", "an Enqueue keeps a 41-bit deadline and its payload")
+    same(rt(Model.Enqueue{0n, ""}), "enqueue 0 ", "an Enqueue keeps an empty payload")
+    same(rt(Model.Select{t}), "select 1700000000123", "a Select keeps its now")
+    same(rt(Model.Complete{7n}), "complete 7", "a Complete keeps its id")
+    same(rt(Model.Cancel{8n}), "cancel 8", "a Cancel keeps its id")
+    same(rt(Model.Requeue{9n, t}), "requeue 9 1700000000123", "a Requeue keeps its id and deadline")
+    same(rt(Model.Defer{10n, t}), "defer 10 1700000000123", "a Defer keeps its id and deadline")
+    same(rt(Model.Abandon{11n, Model.WhySpent{}, t}), "abandon 11 spent 1700000000123", "an Abandon keeps its id, a spent why, and its time")
+    same(rt(Model.Abandon{11n, Model.WhyLate{}, 0n}), "abandon 11 late 0", "an Abandon keeps a late why")
+    same(rt(Model.Abandon{11n, Model.WhyUnsafe{}, 0n}), "abandon 11 unsafe 0", "an Abandon keeps an unsafe why")
+    same(rt(Model.Abandon{11n, Model.WhyFailed{}, 0n}), "abandon 11 failed 0", "an Abandon keeps a failed why")
+    same(rt(Model.Revive{12n, t}), "revive 12 1700000000123", "a Revive keeps its id and deadline")
+    same(rt(Model.Purge{t}), "purge 1700000000123", "a Purge keeps its time")
+    same(rt(Model.PurgeAll{}), "purge all", "a PurgeAll round-trips")
+    same(rt(Model.Break{"λ:443", Retry.CircuitClosed{[t, 5n]}}), "break λ:443 closed 1700000000123 5", "a Break keeps its target and a closed breaker's failures")
+    same(rt(Model.Break{"", Retry.CircuitClosed{[]}}), "break  closed", "a Break keeps an empty target and no failures")
+    same(rt(Model.Break{"t", Retry.CircuitOpen{t}}), "break t open 1700000000123", "a Break keeps an open breaker's until")
+    same(rt(Model.Break{"t", Retry.CircuitHalf{3n}}), "break t half 3", "a Break keeps a half-open breaker's probes")
+    same(show(Model.decode(~String, ~pdec, Bytes.set(Model.encode(~String, ~penc, Model.Break{"t", Retry.CircuitHalf{3n}}), 12, 3))), "none", "a Break with an unknown kind is not an op")
+    same(show(Model.decode(~String, ~pdec, Bytes.append(Model.encode(~String, ~penc, Model.Break{"t", Retry.CircuitHalf{3n}}), Bytes.new(4)))), "none", "a Break with octets after it is not an op")
+    same(show(Model.decode(~String, ~pdec, Bytes.snd(Bytes.slice(Model.encode(~String, ~penc, Model.Break{"t", Retry.CircuitHalf{3n}}), 0, 20)))), "none", "a short Break is not an op")
+    same(show(Model.decode(~String, ~pdec, Bytes.set(Model.encode(~String, ~penc, Model.Abandon{11n, Model.WhySpent{}, 0n}), 12, 4))), "none", "an Abandon with an unknown why is not an op")
+    same(show(Model.decode(~String, ~pdec, Bytes.snd(Bytes.slice(Model.encode(~String, ~penc, Model.Abandon{11n, Model.WhySpent{}, 0n}), 0, 20)))), "none", "an Abandon without its time is not an op")
+    same(show(Model.decode(~String, ~pdec, Bytes.from_string("abc"))), "none", "a record shorter than a head is not an op")
+    same(show(Model.decode(~String, ~pdec, Bytes.set(Model.encode(~String, ~penc, Model.Cancel{8n}), 0, 13))), "none", "an unknown tag is not an op")
+    same(show(Model.decode(~String, ~pdec, Bytes.snd(Bytes.slice(Model.encode(~String, ~penc, Model.Cancel{8n}), 0, 16)))), "none", "a short Cancel is not an op")
 
 # ---- jobs: "log|kind:name". work notes the job in log, runs it, then notes "end" and the job, and answers by kind.
 # A slow job ("slow:" or "slowfail:") sleeps 1 s before it ends. A "fail:" or "slowfail:" job fails, and another try can help.
@@ -347,7 +348,7 @@ def counts(xs: List<&2, String>, ks: List<&2, String>) -> String:
       +ys = xs
       k ++ "=" ++ Nat.show(count(ys, k)) ++ " " ++ counts(ys, rest)
 
-def view.of(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
+def view.of(x: R.Runner<String> & Model.State<String>) -> R.Runner<String> & String:
   (r, s) = x
   (r, describe(s))
 
@@ -366,11 +367,11 @@ def held(x: R.Runner<String> & String, +want: String, +name: String) -> IO(R.Run
     same(got, want, name)
     return r
 
-def dead.of(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
+def dead.of(x: R.Runner<String> & Model.State<String>) -> R.Runner<String> & String:
   (r, s) = x
-  (r, graves(R.dead(String, s)))
+  (r, graves(Model.dead(String, s)))
 
-def brk.of(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
+def brk.of(x: R.Runner<String> & Model.State<String>) -> R.Runner<String> & String:
   (r, s) = x
   (r, brk(s, "local"))
 
@@ -469,9 +470,9 @@ def root(-A: Data, h: H.Heap<Q.Ticket<A>>) -> Nat:
     case H.HNode{n, t, l, r}:
       Q.deadline(A, t)
 
-def deferred(+now: Nat, x: R.Runner<String> & R.State<String>) -> IO(R.Runner<String>):
+def deferred(+now: Nat, x: R.Runner<String> & Model.State<String>) -> IO(R.Runner<String>):
   (r, s) = x
-  R.State{q, ts, ds, bs} = s
+  Model.State{q, ts, ds, bs} = s
   do IO<R.Runner<String>>:
     ok(Nat.is_le(Nat.add(now, 50000n), root(String, Q.pending(String, q))), "a held job waits for the breaker's cooldown")
     return r
@@ -535,7 +536,7 @@ def compacted(y: R.Ran(String)) -> IO(R.Runner<String>):
       IO.die(R.Runner<String>, 1, "bad compact: " ++ m)
 
 # The runner back, and the hex of its state's snapshot: equal hex means an equal state.
-def state.hex(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
+def state.hex(x: R.Runner<String> & Model.State<String>) -> R.Runner<String> & String:
   (r, s) = x
   (r, hex(s))
 
@@ -549,9 +550,9 @@ def len.of(r: Bytes.Bytes & U32) -> U32:
   (b, n) = r
   n
 
-def state.size(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
+def state.size(x: R.Runner<String> & Model.State<String>) -> R.Runner<String> & String:
   (r, s) = x
-  (r, U32.show((12 + len.of(Bytes.length(R.encode.snap(~String, ~penc, s))) : U32)))
+  (r, U32.show((12 + len.of(Bytes.length(Model.encode.snap(~String, ~penc, s))) : U32)))
 
 def far() -> Nat:
   Nat.mul(4000n, 1000000000n)
@@ -631,14 +632,14 @@ def purged(+dir: String) -> IO(Unit):
     r13 : R.Runner<String> <- opened(path, 100n)
     closed("next=3 pending=0 running=0 tries=0 fails=0 dead=0", "a purge of all dead jobs survives a reopen", view(r13))
 
-def found.hex(m: Maybe<&2, R.State<String>>) -> String:
+def found.hex(m: Maybe<&2, Model.State<String>>) -> String:
   match m:
     case None{}:
       "none"
     case Some{s}:
       hex(s)
 
-def found(m: J.Journal & Maybe<&2, R.State<String>>) -> IO(String):
+def found(m: J.Journal & Maybe<&2, Model.State<String>>) -> IO(String):
   (j, s) = m
   do IO<String>:
     J.close(j)
@@ -647,8 +648,8 @@ def found(m: J.Journal & Maybe<&2, R.State<String>>) -> IO(String):
 # The state in the snapshot file that a crashed compaction left behind.
 def snapshot.hex(+path: String) -> IO(String):
   do IO<String>:
-    m : J.Journal & Maybe<&2, R.State<String>> <- IO.try(J.Journal & Maybe<&2, R.State<String>>,
-      J.open(~Maybe<&2, R.State<String>>, ~(a => b => R.replay.step(~String, ~pdec, a, b)), path, 1048576, 1048576, Some{R.new(String)}))
+    m : J.Journal & Maybe<&2, Model.State<String>> <- IO.try(J.Journal & Maybe<&2, Model.State<String>>,
+      J.open(~Maybe<&2, Model.State<String>>, ~(a => b => Model.replay.step(~String, ~pdec, a, b)), path, 1048576, 1048576, Some{Model.new(String)}))
     found(m)
 
 # A child completes x, writes the snapshot, and dies before the rename. Reopen gives the state of the snapshot, and x does not run again.

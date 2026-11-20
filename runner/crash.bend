@@ -7,6 +7,7 @@ import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-journal@0.3.1.1/journal.bend as J
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import ./runner.bend as R
+import ./model.bend as Model
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -89,11 +90,11 @@ def fst(x: J.Journal & Unit) -> J.Journal:
   j
 
 # The first half of R.compact: the snapshot is durable in path.compact, and the journal is not yet replaced.
-def snapshot(+path: String, x: R.Runner<String> & R.State<String>) -> IO(Unit):
+def snapshot(+path: String, x: R.Runner<String> & Model.State<String>) -> IO(Unit):
   (r, s) = x
   do IO<Unit>:
     j : J.Journal & Unit <- IO.try(J.Journal & Unit, J.open(~Unit, ~(a => b => a), path ++ ".compact", 1048576, 1048576, Unit{}))
-    y : J.Journal & R.Out(Unit) <- J.append(fst(j), R.encode.snap(~String, ~penc, s))
+    y : J.Journal & R.Out(Unit) <- J.append(fst(j), Model.encode.snap(~String, ~penc, s))
     appended(y)
 
 # One unit of capacity, so x completes before y starts.
