@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `json` 0.7.2.1 and `encoding` 0.5.0.1: import the proof-bearing `bytes` 0.3.3.1 release so their byte types match migrate's decimal proof. No runtime API change.
+
 - `bytes` 0.3.3.1: publish the reusable decimal round-trip proof beside the unchanged runtime codec. Packages can use an optional `publish.bend` to include proof modules without importing them at runtime.
 
 - `lemmas` 0.1.5.1: prove that adding one equals `U32.inc`, including wraparound. `bytes` proves the decimal read/show round trip for every U32 without a runtime change.
