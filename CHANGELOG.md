@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `text` 0.2.1.0: add `diff_by(~A, ~eq, ~key, a, b)`, which runs Myers over `U32` keys and checks each matched pair with `eq`, and `fnv(s)`, a 32-bit FNV-1a string key. `diff_lines` uses them. Two unrelated 10,000-line lists of strings take 0.17 s with `diff_by`, against 2.1 s with `diff`. `wrap` measures a printable ASCII word by its length when the line ends in printable ASCII, then checks every line and falls back to measuring each line whole; the bench wrap takes 12.8 ms, down from 44 ms. Output does not change.
 - `http`: check pooled fetches and complete chunked response streams through the authenticated TLS CONNECT relay. No API change.
 - `http`: check a successful TLS upload through an authenticated CONNECT relay. Verify chunk framing and the exact body at the private-CA origin. No API change.
 - `camber`: bind response and typed-input acceptance servers to port 0 and connect to the port each server reports. Keep the listener open through readiness and serving.

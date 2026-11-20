@@ -57,9 +57,16 @@ def gen(+x: U32) -> List<&2, U32> & U32:
   +y = lcg(x)
   gen.go(U32.to_nat(((y >> 16n : U32) % 16 : U32)), y, Nil{})
 
+# A key that collides: 0 and 2 share one, so diff_by must catch the bad pairs.
+def parity(x: U32) -> U32:
+  (x % 2 : U32)
+
 def bad.two(+a: List<&2, U32>, p: List<&2, U32> & U32) -> U32 & U32:
   (+b, x) = p
-  (Bool.pick(U32, U32.is_eq(changes(T.diff(~U32, ~U32.is_eq, a, b), 0), indel(a, b)), 0, 1), x)
+  +d = indel(a, b)
+  +ok1 = U32.is_eq(changes(T.diff(~U32, ~U32.is_eq, a, b), 0), d)
+  +ok2 = U32.is_eq(changes(T.diff_by(~U32, ~U32.is_eq, ~parity, a, b), 0), d)
+  (Bool.pick(U32, Bool.and(ok1, ok2), 0, 1), x)
 
 def bad.one(p: List<&2, U32> & U32) -> U32 & U32:
   (a, x) = p
@@ -74,6 +81,40 @@ def bad(k: Nat, +n: U32, q: U32 & U32) -> U32:
       (e, x) = q
       bad(p, (n + e : U32), bad.one(gen(x)))
 
+# Pieces that test cluster joins: combining marks, VS16, ZWJ, wide, Prepend, spacing marks, and spaces.
+def piece(+k: U32) -> String:
+  Bool.pick(String, U32.is_lt(k, 6),
+    Bool.pick(String, U32.is_lt(k, 3), Bool.pick(String, U32.is_eq(k, 0), "a", Bool.pick(String, U32.is_eq(k, 1), "bc", " ")),
+      Bool.pick(String, U32.is_eq(k, 3), "  ", Bool.pick(String, U32.is_eq(k, 4), "\u{301}", "\u{FE0F}"))),
+    Bool.pick(String, U32.is_lt(k, 9), Bool.pick(String, U32.is_eq(k, 6), "日", Bool.pick(String, U32.is_eq(k, 7), "é", "\u{200D}")),
+      Bool.pick(String, U32.is_eq(k, 9), "👍", Bool.pick(String, U32.is_eq(k, 10), "\u{600}", Bool.pick(String, U32.is_eq(k, 11), "\u{93E}", "\t")))))
+
+def rtext.go(n: Nat, +x: U32, acc: String) -> String & U32:
+  match n:
+    case 0n:
+      (acc, x)
+    case 1n+p:
+      +y = lcg(x)
+      rtext.go(p, y, piece(((y >> 16n : U32) % 13 : U32)) ++ acc)
+
+# 0 to 29 pieces, and the next state.
+def rtext(+x: U32) -> String & U32:
+  +y = lcg(x)
+  rtext.go(U32.to_nat(((y >> 16n : U32) % 30 : U32)), y, "")
+
+def wrap.same(+t: String, +w: U32) -> Bool:
+  String.eq(String.join(T.wrap.fast(t, w), "\n"), String.join(T.wrap.slow(t, w), "\n"))
+
+def wrap.diff(k: Nat, +n: U32, q: String & U32) -> U32:
+  match k:
+    case 0n:
+      (t, x) = q
+      n
+    case 1n+p:
+      (+t, +x) = q
+      +w = (1 + ((x >> 8n : U32) % 12 : U32) : U32)
+      wrap.diff(p, (n + Bool.pick(U32, wrap.same(t, w), 0, 1) : U32), rtext(x))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     IO.print(show(T.diff_chars("ABCABBA", "CBABAC")))
@@ -81,4 +122,5 @@ def main() -> IO(Unit):
     IO.print("FNV-1a collision lines: " ++ T.unified("a", "b", T.diff_lines("x\naan1wu\ny\n", "x\naa0tfa\ny\n"), 0))
     IO.print("non-shortest diffs in 3000 random pairs: " ++ U32.show(bad(3000n, 0, (0, 7))))
     IO.print("distance kitten sitting: " ++ U32.show(T.distance("kitten", "sitting")))
+    IO.print("wrap fast/slow mismatches in 3000 random texts: " ++ U32.show(wrap.diff(3000n, 0, rtext(11))))
     IO.print(String.join(T.wrap("The quick brown fox jumps over the lazy dog. 日本語の文章も折り返す。", 16), "\n"))
