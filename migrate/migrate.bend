@@ -1,7 +1,7 @@
 # Versioned subscription records: validated JSON decode, proved migrations, and encode. Source: https://github.com/paymog/bend-kit/tree/main/migrate
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-json@0.7.2.0/json.bend as Json
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-json@0.7.2.1/json.bend as Json
 
 type Period is Data:
   Monthly{}
@@ -297,50 +297,17 @@ def Status.find(+t: Tag) -> Maybe<&2, Status>:
 # Numbers as bytes
 # ----------------
 
-def u32.over(+acc: U32, +d: U32) -> Bool:
-  Bool.or(U32.is_lt(429496729, acc), Bool.and(U32.is_eq(acc, 429496729), U32.is_lt(5, d)))
-
-def u32.end(ok: Bool, +acc: U32) -> Maybe<&2, U32>:
-  match ok:
-    case True{}:
-      Some{acc}
-    case False{}:
+def u32.canonical(+len: U32, r: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match r:
+    case None{}:
       None{}
-
-def u32.go(n: Nat, r: Array<U32> & U32, +i: U32, +acc: U32, ok: Bool) -> Maybe<&2, U32>:
-  match n:
-    case 0n:
-      u32.end(ok, acc)
-    case 1n+p:
-      (a, +c) = r
-      +d = (c - 48 : U32)
-      u32.go(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), (acc * 10 + d : U32), ok && U32.is_lt(d, 10) && Bool.not(u32.over(acc, d)))
-
-def u32.first(+len: U32, r: Array<U32> & U32) -> Maybe<&2, U32>:
-  (a, +c) = r
-  +lead0 = U32.is_eq(c, 48) && U32.is_lt(1, len)
-  u32.go(U32.to_nat(len), (a, c), 0, 0, U32.is_lt(0, len) && U32.is_lt(len, 11) && Bool.not(lead0))
+    case Some{+n}:
+      Bool.pick(Maybe<&2, U32>, U32.is_eq(len, Bytes.u32.width(10n, U32.is_lt(n, 10), n, 1)), Some{n}, None{})
 
 # Decimal digits with no sign, fraction, exponent, or leading zero, below 2^32.
 def u32.read(b: Bytes.Bytes) -> Maybe<&2, U32>:
   Bytes.Bytes{+len, buf} = b
-  u32.first(len, Bytes.peek(buf, 0))
-
-def u32.width(+n: U32) -> U32:
-  Bool.pick(U32, U32.is_lt(n, 10), 1, Bool.pick(U32, U32.is_lt(n, 100), 2, Bool.pick(U32, U32.is_lt(n, 1000), 3, Bool.pick(U32, U32.is_lt(n, 10000), 4, Bool.pick(U32, U32.is_lt(n, 100000), 5, Bool.pick(U32, U32.is_lt(n, 1000000), 6, Bool.pick(U32, U32.is_lt(n, 10000000), 7, Bool.pick(U32, U32.is_lt(n, 100000000), 8, Bool.pick(U32, U32.is_lt(n, 1000000000), 9, 10)))))))))
-
-def u32.fill(f: Nat, a: Array<U32>, +i: U32, +n: U32) -> Array<U32>:
-  match f:
-    case 0n:
-      a
-    case 1n+p:
-      +q = (n / 10 : U32)
-      u32.fill(p, Bytes.poke(a, i, (48 + n - q * 10 : U32)), (i - 1 : U32), q)
-
-# n in decimal digits.
-def u32.text(+n: U32) -> Bytes.Bytes:
-  +k = u32.width(n)
-  Bytes.Bytes{k, u32.fill(U32.to_nat(k), Bytes.alloc(k), (k - 1 : U32), n)}
+  u32.canonical(len, Bytes.u32.read(Bytes.Bytes{len, buf}))
 
 # Decode
 # ------
@@ -655,7 +622,7 @@ def kv(k: Key, v: Json.Val) -> Bytes.Bytes & Json.Val:
   (Key.bytes(k), v)
 
 def num(+n: U32) -> Json.Val:
-  Json.Num{u32.text(n)}
+  Json.Num{Bytes.u32.show(n)}
 
 def Period.json(p: Period) -> Json.Val:
   Json.Str{Tag.bytes(Period.tag(p))}

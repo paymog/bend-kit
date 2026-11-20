@@ -1,6 +1,6 @@
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-json@0.7.2.0/json.bend as Json
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-json@0.7.2.1/json.bend as Json
 import ./migrate.bend as M
 
 def v3(p: M.V3 & M.Dropped) -> M.V3:
@@ -189,15 +189,13 @@ law status_roundtrip:
 # Wire round trip
 # ---------------
 
-# If the decimal codec gives every U32 back, decoding an encoded record of any version gives the record back.
+# Decoding an encoded record of any version gives the record back.
 law shape_roundtrip:
-  for ~digits: @n: U32 -> {M.u32.read(M.u32.text(n)) == Some{n} : Maybe<&2, U32>}
   for r: M.Record
   {M.decode.shape(M.Record.json(r)) == Done{r} : Result<&1, &1, M.Error, M.Record>}
 
-# With the same codec, a valid record of any version survives encode and the full decode.
+# A valid record of any version survives encode and the full decode.
 law val_roundtrip:
-  for ~digits: @n: U32 -> {M.u32.read(M.u32.text(n)) == Some{n} : Maybe<&2, U32>}
   for r: M.Record
   for h: {M.Record.valid(r) == True{} : Bool}
   {M.decode.val(M.Record.json(r)) == Done{r} : Result<&1, &1, M.Error, M.Record>}
