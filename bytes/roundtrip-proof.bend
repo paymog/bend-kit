@@ -3,7 +3,7 @@ import ./bytes.bend as Bytes
 import ./decimal-proof.bend as Decimal
 import ./array-proof.bend as ArrayModel
 import ./packed-proof.bend as Packed
-import ../lemmas/lemmas.bend as Lemmas
+import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ./ascii-proof.bend as Ascii
 import ./codec-proof.bend as Codec

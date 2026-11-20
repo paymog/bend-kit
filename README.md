@@ -14,7 +14,7 @@ You need [Bend 2.0.38 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def show(r: Bytes.Bytes & U32) -> IO(Unit):
   (b, n) = r
@@ -24,7 +24,7 @@ def main() -> IO(Unit):
   show(Bytes.length(Bytes.from_string("hi")))
 ```
 
-`bend` fetches that import and checks it against the published hash. `bend-kit-bytes@0.3.3.0` is `0x632652e3c1c0183f12728faf3870bb68`. A name and its hash are the same package. A different version is a different type.
+`bend` fetches that import and checks it against the published hash. A name and its hash are the same package. A different version is a different type.
 
 The kit is in alpha. Types, names, and entry points can change. There is no compatibility shim. A break raises the second number of `VERSION`, from `0.3.0.0` to `0.4.0.0`, and the packages that import it move with it.
 
@@ -73,7 +73,7 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`bytes`](bytes) | `bend-kit-bytes@0.3.3.0/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
+| [`bytes`](bytes) | `bend-kit-bytes@0.3.3.1/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
 | [`bits`](bits) | `bend-kit-bits@0.1.0.1/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman decode tables. |
 | [`encoding`](encoding) | `bend-kit-encoding@0.5.0.0/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
@@ -180,6 +180,7 @@ Each package is one folder. The folder name is the package name.
 ```
 <package>/
   <package>.bend   entry file; its first comment line is the hub description
+  publish.bend     optional publication entry; includes extra modules, such as proofs
   VERSION          the hub version; CI publishes it on merge to main
   LAWS.bend        the claims
   PROOF.bend       a proof of each claim
@@ -187,6 +188,8 @@ Each package is one folder. The folder name is the package name.
   effs/            .c and .js effects, when the package has them
   bench/           timings, run by hand
 ```
+
+`scripts/publish.sh` uses `publish.bend` when present, otherwise `<package>.bend`. Its first line must match `<package>.bend`, so the hub description and source link stay the same. `--check` checks the optional entry and compares every published file with the hub. Consumers still import the runtime entry.
 
 `http/smoke.bend` does live fetches. `llm/smoke.bend`, `postgres/smoke.bend`, and `redis/smoke.bend` talk to a live service when their keys or server are set.
 

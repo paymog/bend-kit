@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `bytes` 0.3.3.1: publish the reusable decimal round-trip proof beside the unchanged runtime codec. Packages can use an optional `publish.bend` to include proof modules without importing them at runtime.
+
 - `lemmas` 0.1.5.1: prove that adding one equals `U32.inc`, including wraparound. `bytes` proves the decimal read/show round trip for every U32 without a runtime change.
 
 - `lemmas` 0.1.5.0: export the U32 maximum bridge, algebra, and order proofs from `crdt`. G-Counter, K-Counter, and PN-Counter proofs use the shared lemmas. `collections` no longer imports `lemmas`, so it needs no re-pin.

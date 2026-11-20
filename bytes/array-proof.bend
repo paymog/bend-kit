@@ -1,6 +1,6 @@
 # Pure perfect-tree Array<U32> laws for the one, two, and four-word decimal buffers.
 import Base
-import ../lemmas/lemmas.bend as Lemmas
+import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-mathlib@0.8.0.0/bool.bend as MBool
 
