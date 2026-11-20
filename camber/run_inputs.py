@@ -4,9 +4,7 @@ from pathlib import Path
 import json
 import socket
 import tempfile
-import threading
-import time
-from run_owner import ROOT, run
+from run_owner import ROOT, run, run_live
 
 
 def cases():
@@ -112,52 +110,34 @@ def assert_case(case, receipt, journal):
     assert journal.count("map") <= 1, (case, journal)
 
 
-def live(command, rows, journal, direct):
-    receipts, failures = [], []
+def live(command, args, rows, journal, direct):
+    receipts = []
 
-    def clients():
-        try:
-            deadline = time.monotonic() + 30
-            first = None
-            while first is None:
-                try:
-                    first = socket.create_connection(("127.0.0.1", 18335), timeout=1)
-                except ConnectionRefusedError:
-                    if time.monotonic() > deadline:
-                        raise
-                    time.sleep(0.05)
-            offset = 0
-            for index, case in enumerate(rows):
-                connection = first if index == 0 else socket.create_connection(("127.0.0.1", 18335), timeout=5)
-                body = bytes.fromhex(case["body"])
-                fields = [("Host", "example.test"), ("Connection", "close"), ("Content-Length", str(len(body)))]
-                for name, key in (("Content-Type", "media"), ("Content-Encoding", "encoding"), ("Authorization", "auth")):
-                    if case[key] != "-":
-                        fields.append((name, case[key]))
-                raw = f'{case["method"]} {case["target"]} HTTP/1.1\r\n'.encode() + b"".join(f"{k}: {v}\r\n".encode() for k, v in fields) + b"\r\n" + body
-                with connection:
-                    connection.settimeout(15)
-                    connection.sendall(raw)
-                    chunks = []
-                    while chunk := connection.recv(65536):
-                        chunks.append(chunk)
-                receipt = response(b"".join(chunks))
-                events = journal.read_text().splitlines()
-                observed = events[offset:]
-                offset = len(events)
-                assert_case(case, receipt, observed)
-                assert receipt == direct[case["name"]], (case["name"], receipt, direct[case["name"]])
-                receipts.append(dict(name=case["name"], response=receipt, journal=observed))
-        except BaseException as error:
-            failures.append(error)
+    def clients(port):
+        offset = 0
+        for case in rows:
+            connection = socket.create_connection(("127.0.0.1", port), timeout=5)
+            body = bytes.fromhex(case["body"])
+            fields = [("Host", "example.test"), ("Connection", "close"), ("Content-Length", str(len(body)))]
+            for name, key in (("Content-Type", "media"), ("Content-Encoding", "encoding"), ("Authorization", "auth")):
+                if case[key] != "-":
+                    fields.append((name, case[key]))
+            raw = f'{case["method"]} {case["target"]} HTTP/1.1\r\n'.encode() + b"".join(f"{k}: {v}\r\n".encode() for k, v in fields) + b"\r\n" + body
+            with connection:
+                connection.settimeout(15)
+                connection.sendall(raw)
+                chunks = []
+                while chunk := connection.recv(65536):
+                    chunks.append(chunk)
+            receipt = response(b"".join(chunks))
+            events = journal.read_text().splitlines()
+            observed = events[offset:]
+            offset = len(events)
+            assert_case(case, receipt, observed)
+            assert receipt == direct[case["name"]], (case["name"], receipt, direct[case["name"]])
+            receipts.append(dict(name=case["name"], response=receipt, journal=observed))
 
-    thread = threading.Thread(target=clients, daemon=True)
-    thread.start()
-    output = run(command, timeout=180)
-    thread.join(timeout=20)
-    assert not thread.is_alive(), "live client unfinished"
-    if failures:
-        raise failures[0]
+    output = run_live(command + ["live"] + args, clients, timeout=180)
     assert "CLOSED" in output, output
     assert len(receipts) == len(rows)
     return receipts
@@ -192,7 +172,7 @@ def main():
                 for cap in sorted({case["depth"] for case in rows}):
                     subset = [case for case in rows if case["depth"] == cap]
                     journal = temp / f"{lane}-live-{cap}.journal"
-                    evidence["lanes"][lane]["live"].extend(live(command + ["live", "18335", str(len(subset)), str(cap), str(journal)], subset, journal, direct))
+                    evidence["lanes"][lane]["live"].extend(live(command, [str(len(subset)), str(cap), str(journal)], subset, journal, direct))
                 for source in ("check", "dispatch_check", "response_check", "scoped_check", "response_live"):
                     binary = temp / (source + extension)
                     run(["bend", f"camber/{source}.bend", "-o", str(binary)])

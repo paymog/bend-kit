@@ -2,6 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../zlib.bend as Z
+import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def from_bytes(xs: List<&2, U32>) -> String:
   match xs:
@@ -28,26 +29,22 @@ def chk(s: String, h: U32) -> U32:
 def lap(+name: String, t0: Time.Duration, t1: Time.Duration, out: String) -> IO(Unit):
   IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(chk(out, 0)))
 
-def op.inflated(t0: Time.Duration, m: Maybe<&2, String>) -> IO(Unit):
-  match m:
-    case None{}:
-      IO.print("inflate\t0\tfailed")
-    case Some{+out}:
-      do IO<Unit>:
-        t1 : Time.Duration <- Time.mono()
-        lap("inflate", t0, t1, out)
-
-def op.inflate(s: String) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.inflated(t0, Z.gunzip(s))
-
-def unwrap(m: Maybe<&2, String>) -> String:
+def text(m: Maybe<&1, Bytes.Bytes>) -> String:
   match m:
     case None{}:
       "failed"
-    case Some{s}:
-      s
+    case Some{b}:
+      Bytes.to_string(b)
+
+def op.inflated(t0: Time.Duration, m: Maybe<&1, Bytes.Bytes>) -> IO(Unit):
+  do IO<Unit>:
+    t1 : Time.Duration <- Time.mono()
+    lap("inflate", t0, t1, text(m))
+
+def op.inflate(b: Bytes.Bytes) -> IO(Unit):
+  do IO<Unit>:
+    t0 : Time.Duration <- Time.mono()
+    op.inflated(t0, Z.gunzip(b))
 
 def saved(r: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (f, x) = r
@@ -63,18 +60,24 @@ def save(+gz: String, r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
         saved(w)
 
 # The checksum is of the round trip; run.py also feeds out/bend.gz to gzip -d.
-def op.deflated(t0: Time.Duration, +gz: String) -> IO(Unit):
+def op.report(t0: Time.Duration, t1: Time.Duration, gz: Bytes.Bytes) -> IO(Unit):
+  Bytes.Bytes{+len, buf} = gz
+  +s = Bytes.to_string(Bytes.Bytes{len, buf})
+  do IO<Unit>:
+    IO.print("size\t0\t" ++ U32.show(len))
+    lap("deflate", t0, t1, text(Z.gunzip(Bytes.from_string(s))))
+    f : Result<&1, &1, U32 & String, File> <- File.open("out/bend.gz", "w")
+    save(s, f)
+
+def op.deflated(t0: Time.Duration, gz: Bytes.Bytes) -> IO(Unit):
   do IO<Unit>:
     t1 : Time.Duration <- Time.mono()
-    IO.print("size\t0\t" ++ U32.show(Z.slen(gz, 0)))
-    lap("deflate", t0, t1, unwrap(Z.gunzip(gz)))
-    f : Result<&1, &1, U32 & String, File> <- File.open("out/bend.gz", "w")
-    save(gz, f)
+    op.report(t0, t1, gz)
 
-def op.deflate(s: String) -> IO(Unit):
+def op.deflate(b: Bytes.Bytes) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    op.deflated(t0, Z.gzip(s))
+    op.deflated(t0, Z.gzip(b))
 
 def bytes.of(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> List<&2, U32>:
   match r:
@@ -83,13 +86,13 @@ def bytes.of(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> List<&2, U32>:
     case Done{xs}:
       xs
 
-def read(~op: String -> IO(Unit), m: File & Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
+def read(~op: Bytes.Bytes -> IO(Unit), m: File & Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
   (f, r) = m
   do IO<Unit>:
     File.close(f)
-    op(from_bytes(bytes.of(r)))
+    op(Bytes.from_string(from_bytes(bytes.of(r))))
 
-def opened(~op: String -> IO(Unit), r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
+def opened(~op: Bytes.Bytes -> IO(Unit), r: Result<&1, &1, U32 & String, File>) -> IO(Unit):
   match r:
     case Fail{e}:
       IO.print("open\t0\tfailed")

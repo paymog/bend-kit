@@ -1,15 +1,17 @@
 # Durable job runner: a journaled scheduler queue, bounded by a resources pool, with retry and a breaker per target. Source: https://github.com/paymog/bend-kit/tree/main/runner
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-journal@0.3.0.1/journal.bend as J
-import bend-kit-scheduler@0.4.0.0/queue.bend as Q
+import bend-kit-journal@0.3.1.1/journal.bend as J
+import bend-kit-scheduler@0.4.3.0/queue.bend as Q
 import bend-kit-resources@0.1.0.0/resources.bend as Res
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-time@0.3.0.0/time.bend as Time
-import bend-kit-collections@0.1.4.1/heap.bend as H
-import bend-kit-collections@0.1.4.1/omap.bend as O
-import bend-kit-collections@0.1.4.1/hmap.bend as M
-import bend-kit-files@0.3.0.0/files.bend as Files
+import bend-kit-collections@0.1.5.0/heap.bend as H
+import bend-kit-collections@0.1.5.0/omap.bend as O
+import bend-kit-collections@0.1.5.0/hmap.bend as M
+import bend-kit-collections@0.1.5.0/LAWS.bend as CL
+import bend-kit-collections@0.1.5.0/PROOF.bend as CP
+import bend-kit-files@0.4.0.0/files.bend as Files
 
 # Why retry gave up on a ticket: its budget was spent, its deadline passed, its failure must not repeat,
 # or another try would repeat its failure.
@@ -257,6 +259,14 @@ def step.revived(~A: Data, m: Maybe<&2, Dead<A>>, +i: Nat, n: Nat, h: H.Heap<Q.T
     case Some{Dead{Q.Ticket{k, old, x}, w, at}}:
       State{Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, h), r}, O.OMap.put(~Nat, ~Try, ~Nat.cmp, ts, i, Try{0n, d}), ds, bs}
 
+# A closed breaker with no failures reads the same as an absent one, so it leaves the map.
+def step.broke(bs: Breakers(), k: String, b: Retry.State) -> Breakers():
+  match b:
+    case Retry.CircuitClosed{Nil{}}:
+      Map.del(&2, Retry.State, bs, k)
+    case b:
+      Map.set(&2, Retry.State, bs, k, b)
+
 # The state after op. Live and replay both run it, so they agree.
 def step(~A: Data, s: State<A>, op: Op<A>) -> State<A>:
   match s op:
@@ -281,7 +291,7 @@ def step(~A: Data, s: State<A>, op: Op<A>) -> State<A>:
     case State{q, ts, ds, bs} PurgeAll{}:
       State{q, ts, M.HMap.new(Nat, Dead<A>), bs}
     case State{q, ts, ds, bs} Break{k, b}:
-      State{q, ts, ds, Map.set(&2, Retry.State, bs, k, b)}
+      State{q, ts, ds, step.broke(bs, k, b)}
 
 def apply.op(~A: Data, m: Maybe<&2, Op<A>>, s: State<A>) -> Maybe<&2, State<A>>:
   match m:
@@ -391,6 +401,8 @@ def stopped(-A: Data, o: Retry.Outcome, b: Retry.Budget, +id: Nat, +now: Nat) ->
       Complete{id}
     case Retry.Failed{}:
       Abandon{id, WhyFailed{}, now}
+    case Retry.Rejected{}:
+      Abandon{id, WhyFailed{}, now}
     case Retry.Unsafe{}:
       Abandon{id, WhyUnsafe{}, now}
     case Retry.Transient{w}:
@@ -407,6 +419,10 @@ def after.plan(-A: Data, pl: Retry.Plan, o: Retry.Outcome, b: Retry.Budget, +id:
 # complete when o is settled, or abandon when retry gave up.
 def after(-A: Data, +o: Retry.Outcome, p: Retry.Policy, +b: Retry.Budget, +id: Nat, +n: Nat, +now: Nat, +r: Nat) -> Op<A>:
   after.plan(A, Retry.plan(o, p, b, n, now, r), o, b, id, now)
+
+# A target's breaker after an attempt ends at now with o.
+def brk.after(+circ: Retry.Circuit, old: Retry.State, +now: Nat, o: Retry.Outcome) -> Retry.Breaker:
+  Retry.Breaker.done(Retry.BreakerOn{circ, old}, now, Retry.failed(o))
 
 # When an open breaker lets attempts start again.
 def until(br: Retry.Breaker, +now: Nat) -> Nat:
@@ -772,6 +788,47 @@ def rd.entries(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, more: B
         rest : List<&2, M.Entry<Nat, Dead<A>>> <- rd.entries(~A, ~pdec, f, m)
         return Con{M.Entry{k, Dead{t, w, at}}, rest}
 
+def rd.entry.le(~A: Data, a: M.Entry<Nat, Dead<A>>, b: M.Entry<Nat, Dead<A>>) -> Bool:
+  M.Entry{k, v} = a
+  M.Entry{j, w} = b
+  Nat.is_le(k, j)
+
+def rd.ascending(~A: Data, xs: List<&2, M.Entry<Nat, Dead<A>>>, +previous: Nat) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{+key, value}, rest}:
+      Nat.is_lt(previous, key) && rd.ascending(~A, rest, key)
+
+def rd.distinct(~A: Data, xs: List<&2, M.Entry<Nat, Dead<A>>>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{key, value}, rest}:
+      rd.ascending(~A, rest, key)
+
+def rd.valid.go(~A: Data, +n: Nat, ds: Graves(A)) -> Bool:
+  match n:
+    case 0n:
+      match ds:
+        case M.HNil{}:
+          True{}
+        case M.HLeaf{h, es}:
+          rd.distinct(~A, es)
+        case M.HBranch{lo, hi}:
+          False{}
+    case 1n+p:
+      match ds:
+        case M.HNil{}:
+          True{}
+        case M.HLeaf{h, +es}:
+          CL.hmap_hashed(~Nat, ~Dead<A>, ~dead.hash, es, h) && rd.distinct(~A, es)
+        case M.HBranch{lo, hi}:
+          rd.valid.go(~A, p, lo) && rd.valid.go(~A, p, hi)
+
+def rd.valid(~A: Data, ds: Graves(A)) -> Bool:
+  rd.valid.go(~A, 32n, ds)
+
 # A trie node whose kind is already read: nil is kind 0, leaf kind 1, and branch kind 2. Any other kind fails.
 def rd.graves(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, nil: Bool, leaf: Bool, branch: Bool) -> Dec(Graves(A)):
   match fuel nil leaf branch:
@@ -784,7 +841,7 @@ def rd.graves(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, nil: Boo
         h : U32 <- rd.u32()
         m : Bool <- rd.flag()
         es : List<&2, M.Entry<Nat, Dead<A>>> <- rd.entries(~A, ~pdec, f, m)
-        return M.HLeaf{h, es}
+        return M.HLeaf{h, List.sort(~M.Entry<Nat, Dead<A>>, ~(a => b => rd.entry.le(~A, a, b)), es)}
     case 1n+f False{} False{} True{}:
       do Dec<Graves(A)>:
         +lk : U32 <- rd.u32()
@@ -793,6 +850,14 @@ def rd.graves(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat, nil: Boo
         hi : Graves(A) <- rd.graves(~A, ~pdec, f, U32.is_eq(hk, 0), U32.is_eq(hk, 1), U32.is_eq(hk, 2))
         return M.HBranch{lo, hi}
     case 1n+f False{} False{} False{}:
+      Dec.fail(Graves(A))
+
+# The trie, when it is well formed as the never-selected laws assume.
+def rd.wf(-A: Data, ok: Bool, ds: Graves(A)) -> Dec(Graves(A)):
+  match ok:
+    case True{}:
+      Dec.pure(Graves(A), ds)
+    case False{}:
       Dec.fail(Graves(A))
 
 # Each rd.* sequence reader takes the count or flag already read. fuel bounds its length: every item holds at least 4 octets.
@@ -870,7 +935,8 @@ def rd.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, +fuel: Nat) -> Dec(St
     tf : Bool <- rd.flag()
     ts : O.OMap<Nat, Try> <- rd.tries(fuel, tf)
     +dk : U32 <- rd.u32()
-    ds : Graves(A) <- rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+    +dt : Graves(A) <- rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+    ds : Graves(A) <- rd.wf(A, rd.valid(~A, dt), dt)
     bf : Bool <- rd.flag()
     bs : Map<&2, Retry.State> <- rd.brks(fuel, bf, Map.new(&2, Retry.State))
     return State{Q.State{n, h, run}, ts, ds, bs}
@@ -1279,7 +1345,7 @@ def settle.op(~A: Data, ~penc: A -> Bytes.Bytes, +o: Retry.Outcome, b: Retry.Bud
   Config{pol, circ, idle, every} = c
   +old = brk.get(A, s, key)
   do IO<Runner<A> & Out(Bool)>:
-    y : Ran(A) <- trip(~A, ~penc, Runner{j, s, p, c, ib, fs}, key, old, Retry.Breaker.done(Retry.BreakerOn{circ, old}, now, Retry.failed(o)))
+    y : Ran(A) <- trip(~A, ~penc, Runner{j, s, p, c, ib, fs}, key, old, brk.after(circ, old, now, o))
     settle.br(~A, ~penc, after(A, o, pol, b, id, fails(tries.get(tries(A, s), id)), now, rnd), y, g, err, next)
 
 def random(r: Out(U32)) -> Nat:
@@ -1641,12 +1707,31 @@ def drain.woke(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A
     case Wait{u}:
       next(r)
 
-def drain.wait(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +idle: U32, r: Runner<A>,
+# ms to wait: idle, or less when the earliest pending ticket falls due sooner.
+def drain.ms(-A: Data, idle: U32, now: Nat, m: Maybe<&2, Q.Ticket<A>>) -> U32:
+  match m:
+    case None{}:
+      idle
+    case Some{Q.Ticket{i, d, x}}:
+      U32.from_nat(Nat.min(U32.to_nat(idle), Nat.sub(d, now)))
+
+def soonest(-A: Data, s: State<A>) -> Maybe<&2, Q.Ticket<A>>:
+  State{Q.State{n, h, run}, ts, ds, bs} = s
+  H.Heap.peek(Q.Ticket<A>, h)
+
+def drain.poll(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +ms: U32, r: Runner<A>,
     next: Runner<A> -> IO(Ran(A))) -> IO(Ran(A)):
   Runner{j, s, p, c, +ib, fs} = r
   do IO<Ran(A)>:
-    x : Poll<&1, &1, Maybe<&1, Msg<A>>, Unit> <- Chan.try_recv(Msg<A>, ib, idle)
-    drain.woke(~A, ~penc, ~target, ~work, idle, x, Runner{j, s, p, c, ib, fs}, next)
+    x : Poll<&1, &1, Maybe<&1, Msg<A>>, Unit> <- Chan.try_recv(Msg<A>, ib, ms)
+    drain.woke(~A, ~penc, ~target, ~work, ms, x, Runner{j, s, p, c, ib, fs}, next)
+
+def drain.wait(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +idle: U32, r: Runner<A>,
+    next: Runner<A> -> IO(Ran(A))) -> IO(Ran(A)):
+  Runner{j, +s, p, c, ib, fs} = r
+  do IO<Ran(A)>:
+    now : Nat <- clock()
+    drain.poll(~A, ~penc, ~target, ~work, drain.ms(A, idle, now, soonest(A, s)), Runner{j, s, p, c, ib, fs}, next)
 
 def drain.ticked(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), +idle: U32,
     t: Runner<A> & Out(Bool), next: Runner<A> -> IO(Ran(A))) -> IO(Ran(A)):
@@ -1677,8 +1762,8 @@ def drain.end(-A: Data, x: Runner<A> & Bool) -> Ran(A):
   (r, done) = x
   (r, Bool.pick(Out(Unit), done, Done{Unit{}}, Fail{(62, "runner: drain ran out of rounds")}))
 
-# Ticks until no ticket is pending or running and no attempt runs. After a round that did nothing, it waits up to idle ms
-# for a message, and handles one that arrives at once.
+# Ticks until no ticket is pending or running and no attempt runs. After a round that did nothing, it waits for a message
+# up to idle ms, or until the earliest pending ticket is due when that is sooner, and handles one that arrives at once.
 # Fails when fuel rounds leave work.
 def drain(~A: Data, ~penc: A -> Bytes.Bytes, ~target: A -> String, ~work: A -> IO(Retry.Outcome), fuel: Nat, r: Runner<A>) -> IO(Ran(A)):
   match fuel:

@@ -1,4 +1,4 @@
-# Hashes, HMAC, HKDF, RSA and ECDSA signatures, and secure random bytes through OpenSSL 3 libcrypto. Source: https://github.com/paymog/bend-kit/tree/main/crypto
+# Digests, HMAC, HKDF, PBKDF2, scrypt, AEAD, and RSA and ECDSA signatures through OpenSSL 3 libcrypto, plus OS secure random bytes. Source: https://github.com/paymog/bend-kit/tree/main/crypto
 import Base
 
 # Bytes travel as (len, words): len octets, four to a U32 word, low byte first, as Wire.recv.words gives them.

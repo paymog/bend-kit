@@ -3,13 +3,13 @@
 `camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.34.0.0. Package version: `0.10.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.3.0.0.
 
 ```bend
-import bend-kit-camber@0.15.0.0/camber.bend as Camber
-import bend-kit-camber@0.15.0.0/input.bend as Input
-import bend-kit-camber@0.15.0.0/notices.bend as Notices
-import bend-kit-http@0.38.0.0/http.bend as Http
+import bend-kit-camber@0.15.1.0/camber.bend as Camber
+import bend-kit-camber@0.15.1.0/input.bend as Input
+import bend-kit-camber@0.15.1.0/notices.bend as Notices
+import bend-kit-http@0.38.6.0/http.bend as Http
 ```
 
-`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. `Http` values here are `bend-kit-http@0.38.0.0`, `bend-kit-router@0.2.0.0`, and `bend-kit-json@0.7.0.0`.
+`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. `Http` values here are `bend-kit-http@0.38.6.0`, `bend-kit-router@0.2.0.0`, and `bend-kit-json@0.7.2.0`.
 
 
 ## API
@@ -89,28 +89,30 @@ Plain `Http.Req -> IO(Http.Res)` handlers remain usable inside Camber and beside
 
 `serving_check.bend` and `run_serving.py` exercise real File bundles and explicit yielding gates through a plain published-HTTP control listener. No timers release held work. The smallest native/JS bind-close smoke passed; full direct/live and overload/drain receipts are recorded in [`serving_results.json`](serving_results.json). Historical experimental socket transports, failures and budgets remain separate; they are not the public server. No arbitrary cancellation, handler replay, hard CPU deadline or embedded-server isolation is promised.
 
+The serving, notice, users, and transport-risk harnesses bind port 0 and read each retained listener's port from live output. `probe_server.bend` adapts startup for local regression consumers. `users_probe_server.bend` uses the distinct published Camber types and shares the same transport adapter. These helpers do not change the published API. The Python harnesses share the readiness parser in `run_owner.py`. Their occupied-port tests keep the blocking socket open until startup fails.
+
 Published HTTP0.30.0.0 is `0x8bc87dd4d1e610fe1bf336b567537a8c`; Wire0.4.5.0 is `0x1435aec27074c8141b74747909079afc`. Existing shared HTTP drain evidence remains in [`../http/drain_results.json`](../http/drain_results.json). Actual dedicated native/JS launchd deployment and TLS recipes are in [`deploy/README.md`](deploy/README.md). [`deploy/results.json`](deploy/results.json), invocation6, records all eight final-source cases: cooperative owner completion and actual Store close, platform-forced CPU/IO exit, PID reaping and peer closure within the frozen 5-second grace plus 1-second teardown budget, and unchanged origin-form targets through TLS. These are repository consumers, not new hub modules or hard runtime cancellation.
 
 `users.bend` is the reusable four-route consumer over published Camber0.10.0.0, HTTP0.34.0.0 and Json0.6.0.0. Its one affine Store owner holds the map and File; application configuration receives only the copied owner context. `users_direct.bend` and `users_live.bend` exercise that same public application and dispatcher separately. `users_demo.bend` adds a second loopback published-HTTP listener whose only administrative command is `POST /stop`. That listener trusts local processes, is not an authentication or supervisor boundary, and must never be proxied or exposed. It demonstrates cooperative application/store/control joins only; dedicated forced-exit supervision is exercised separately in [`deploy/README.md`](deploy/README.md).
 
-The `users*.bend` files are repository examples that consume published packages. They are not modules published at `bend-kit-camber@0.15.0.0/users.bend`; compile them from this checkout. Sibling imports now use the current named package versions.
+The `users*.bend` files are repository examples that consume published packages. They are not modules published at `bend-kit-camber@0.15.1.0/users.bend`; compile them from this checkout. Sibling imports now use the current named package versions.
 
 The demo uses `Bearer seven` for Alice/id7 and `Bearer eight` for Bob/id8. These fixed credentials are not an authentication product. The store is an in-memory map with an owned diagnostic File, not durable database storage. Default operation does not log requests, credentials, raw targets, query values, Host, or domain records. Trace and fault controls belong only to the separate acceptance consumers.
 
 ```sh
 bend camber/users_demo.bend -o /tmp/camber-users
-/tmp/camber-users 8080 8081 /tmp/camber-users.journal
+/tmp/camber-users 0 0 /tmp/camber-users.journal
 ```
 
-Use another terminal:
+Use the first `PORT` line as `APP_PORT` and the second as `CONTROL_PORT` in another terminal:
 
 ```sh
-curl http://127.0.0.1:8080/health
-curl -H 'Authorization: Bearer seven' http://127.0.0.1:8080/users/7
-curl -H 'Authorization: Bearer eight' http://127.0.0.1:8080/users/me
-curl -H 'Authorization: Bearer seven' -H 'Content-Type: application/json' \
-  -d '{"name":"Cara"}' http://127.0.0.1:8080/users
-curl -X POST http://127.0.0.1:8081/stop
+curl "http://127.0.0.1:$APP_PORT/health"
+curl -H 'Authorization: Bearer seven' "http://127.0.0.1:$APP_PORT/users/7"
+curl -H 'Authorization: Bearer eight' "http://127.0.0.1:$APP_PORT/users/me"
+curl -X POST -H 'Authorization: Bearer seven' -H 'Content-Type: application/json' \
+  -d '{"name":"Cara"}' "http://127.0.0.1:$APP_PORT/users"
+curl -X POST "http://127.0.0.1:$CONTROL_PORT/stop"
 ```
 
 For JavaScript, compile to `/tmp/camber-users.js` and run it with `bun` using the same three arguments. `python3 camber/run_users.py --phase full --lane both` runs the sequential direct/live, owner, plain-byte and standalone acceptance. Cumulative source-bound successes and adverses are in [`users_results.json`](users_results.json) and [`users_attempts.json`](users_attempts.json). The successful full invocation contains252 scenario records, including grouped owner/overlap/standalone scenarios with several requests. This is runtime evidence, not a new pure proof, performance budget, or forced-exit guarantee.
@@ -173,13 +175,13 @@ The lifecycle receive loop uses `@unsafe` because its termination depends on an 
 
 The first consumer checks exposed Bend's prohibition on destructuring computed IO/array results and an incorrect `Http.text` argument/quantity annotation; the fixture now uses parameter-bound helpers, packed-byte conversion only in assertions, and explicit reusable status metadata. Review also replaced eager group lookup with the existing lazy-helper pattern.
 
-`bash scripts/publish.sh --check camber` exited 0 with `bend-kit-camber@0.8.0.0 will publish`. Hub Http/Router/Target imports resolved during compilation. No manual publication was performed.
+`bash scripts/publish.sh --check camber` exited 0 with `bend-kit-camber` version `0.8.0.0` — `will publish`. Hub Http/Router/Target imports resolved during compilation. No manual publication was performed.
 
 The entry check explicitly reported 278 definitions relying on unsafe/foreign code, including imported Http/Wire effects and the existing owner lifecycle. The empty Camber proof inventory printed `ALL PROOFS CHECK`; it is not mathematical evidence of IO or routing behavior. No new unsafe or foreign definitions were added. These are direct-dispatch observations, not socket framing, HEAD/204/304 transport suppression, hook lifecycle, response validation, or serving evidence.
 
 ## Output validation verification (0.2.0.0 historical receipt)
 
-The package gate `bash scripts/check.sh camber` passed with the public response checks included in `check.bend`. `bash scripts/publish.sh --check camber` passed and printed `bend-kit-camber@0.8.0.0 will publish`. Compiled `dispatch_check.bend` and `response_check.bend` passed natively and under Bun after `bend ... -o <binary>` / `bend ... -o <file.js>`. Fixtures observed the public JSON projection excluding secret/internal fields, UTF-8 café bytes, binary NUL/FF preservation, empty and allowed redirect semantics, unsafe Location rejection, status/header/framing/Connection rejection, repeated cookies, and unsuppressed direct HEAD/204/304 bodies. The original packed route-dispatch check and a separate plain-adapter check both observed word `796983040`.
+The package gate `bash scripts/check.sh camber` passed with the public response checks included in `check.bend`. `bash scripts/publish.sh --check camber` passed and printed `bend-kit-camber` version `0.8.0.0` — `will publish`. Compiled `dispatch_check.bend` and `response_check.bend` passed natively and under Bun after `bend ... -o <binary>` / `bend ... -o <file.js>`. Fixtures observed the public JSON projection excluding secret/internal fields, UTF-8 café bytes, binary NUL/FF preservation, empty and allowed redirect semantics, unsafe Location rejection, status/header/framing/Connection rejection, repeated cookies, and unsuppressed direct HEAD/204/304 bodies. The original packed route-dispatch check and a separate plain-adapter check both observed word `796983040`.
 
 Compiled `response_live.bend` passed in native and JS lanes. Real loopback clients received zero bytes for each of 21 invalid outputs, while both plain and routed handlers returned expected `InvalidResponse`. The final valid response reached shared `Http.talk.send` and sent distinct `set-cookie: a=1` and `set-cookie: b=2` lines plus `ok`. This finite acceptance caller is not a Camber server, parser, or mapper.
 
@@ -195,7 +197,7 @@ R6.5 checks observe one mapper event or none, transform halt, failure after prev
 
 `python3 camber/run_response.py` completed its package and scoped publication gates and all four native/JS consumers with exit0. Live loopback clients observed zero bytes for21 invalid standalone `plain` outputs, then exactly one safe500 for21 invalid routed originals in each lane. Routed recovery uses the actual `Completion.response` through shared `Http.talk.send`: clients reject private/secret bodies, original application headers, or a second HTTP response. The valid final response still carries two distinct Set-Cookie lines. This finite caller proves write-boundary recovery, not production serving or completion notifications. The invocation was wrapped once in `run_owner.run`; after the child succeeded, that outer wrapper attempted to reread owner journals already checked/deleted by the child and raised FileNotFoundError. That wrapper error is not hidden or a failing application scenario.
 
-`python3 camber/run_owner.py` separately exited0 after actual compiled native/JS owner+dispatch+helper+scoped regressions, journal checks, and explicit bundle/listener cleanup. `python3 camber/run_surface.py` exited0 for all47 unchanged experimental scoped cases per lane; these receipts preserve the experiments, not substitute for the public-dispatch evidence. The scoped publication check printed `bend-kit-camber@0.8.0.0 will publish`; nothing was manually published. The final owner compilation peak was6,216,560 KiB; final standalone scoped compilation peaked at5,326,784 KiB native and4,456,464 KiB JS. Every guarded command required10 GiB free disk and killed a process exceeding20 GiB RSS; no limit was reached. Temporary binaries and journals were removed and sockets/listeners closed.
+`python3 camber/run_owner.py` separately exited0 after actual compiled native/JS owner+dispatch+helper+scoped regressions, journal checks, and explicit bundle/listener cleanup. `python3 camber/run_surface.py` exited0 for all47 unchanged experimental scoped cases per lane; these receipts preserve the experiments, not substitute for the public-dispatch evidence. The scoped publication check printed `bend-kit-camber` version `0.8.0.0` — `will publish`; nothing was manually published. The final owner compilation peak was6,216,560 KiB; final standalone scoped compilation peaked at5,326,784 KiB native and4,456,464 KiB JS. Every guarded command required10 GiB free disk and killed a process exceeding20 GiB RSS; no limit was reached. Temporary binaries and journals were removed and sockets/listeners closed.
 
 The entry check discloses278 existing unsafe/foreign dependencies, including imported HTTP/Wire effects and the owner lifecycle. No unsafe or foreign definition was added; human-owned LAWS and adverse FINDINGS remain unchanged. The empty proof inventory is not mathematical evidence of IO behavior. This leaf does not deliver body codecs, transport framing/deadlines, live completion notifications/logging, server lifecycle, cancellation, exception containment, or peer receipt. It makes no public-dispatch throughput or release-performance-budget claim.
 
@@ -203,7 +205,7 @@ Full package release remains incomplete until the complete-application/cross-lan
 
 ## Historical typed input verification (0.4.0.0, initial PR head)
 
-`python3 camber/run_inputs.py` exited0 after the coordinator's source review and exclusive Bend verification-slot grant. It ran `bash scripts/check.sh camber`, `bash scripts/publish.sh --check camber` (reported `bend-kit-camber@0.8.0.0 will publish`), and compiled `input_check`, `check`, `dispatch_check`, `response_check`, `scoped_check`, and `response_live` with both `bend camber/<source>.bend -o <temporary-binary>` and `bend camber/<source>.bend -o <temporary-file.js>`. Native binaries and `bun <temporary-file.js>` were run sequentially. No manual publication occurred.
+`python3 camber/run_inputs.py` exited0 after the coordinator's source review and exclusive Bend verification-slot grant. It ran `bash scripts/check.sh camber`, `bash scripts/publish.sh --check camber` (reported `bend-kit-camber` version `0.8.0.0` — `will publish`), and compiled `input_check`, `check`, `dispatch_check`, `response_check`, `scoped_check`, and `response_live` with both `bend camber/<source>.bend -o <temporary-binary>` and `bend camber/<source>.bend -o <temporary-file.js>`. Native binaries and `bun <temporary-file.js>` were run sequentially. No manual publication occurred.
 
 [The historical input receipt](https://github.com/paymog/bend-kit/blob/0591c1f6cfc8ecc32108dd4387daa35e37fc56ec/camber/input_results.json) at initial PR head `0591c1f6cfc8ecc32108dd4387daa35e37fc56ec` records120 cases per lane and surface: native/direct, native/live, JS/direct, JS/live (480 checked request outcomes). Each set observed35 status200, two201,62 expected400, two auth401, and19 expected415 outcomes. Direct and real loopback requests agreed exactly on status, body bytes and all application headers (transport framing excluded). File journals show `auth,decode,business` only on success, `auth,decode,map` on applicable decoder rejections, and auth alone on early rejection. Invalid router target/query syntax maps before a route's auth scope is entered, as required by R6.6. Rejected inputs never record a business event; expected failures map once.
 
@@ -211,7 +213,7 @@ The cases cover once-decoded path captures, U32 max/overflow/nondigits/empty val
 
 The same command retained compiled owner journal/explicit-close, registration/direct-dispatch, output-helper and26-case scoped-lifecycle regressions in both lanes. Real clients also retained21 invalid standalone responses with zero bytes sent,21 invalid routed originals recovered to exactly one safe500 without private body/headers, and the final valid response with distinct Set-Cookie fields. The finite input caller uses published Http's existing connection IO; its template-only transport constructs an application per request, so these are correctness receipts, not serving/startup or throughput measurements.
 
-Adverse development evidence: three initial guarded native smoke compiles exited1, first for a computed tuple scrutinee, then a nominal packed-Bytes identity mismatch (`bend-kit-bytes@0.3.2.0/bytes.Bytes` versus newer `Bytes.Bytes`), then reusable-versus-affine callback quantity mismatch. Parameter-pair helper seams, the exact published Bytes identity shared by Http/Json, and affine callbacks with local Data copying corrected these; no checker warning was suppressed. The final guarded smoke compiled and returned200 for `/users/%37?limit=1` with an actual `auth,decode,business` journal before the full successful gate.
+Adverse development evidence: three initial guarded native smoke compiles exited1, first for a computed tuple scrutinee, then a nominal packed-Bytes identity mismatch (`bend-kit-bytes` version `0.3.2.0` type `bytes.Bytes` versus newer `Bytes.Bytes`), then reusable-versus-affine callback quantity mismatch. Parameter-pair helper seams, the exact published Bytes identity shared by Http/Json, and affine callbacks with local Data copying corrected these; no checker warning was suppressed. The final guarded smoke compiled and returned200 for `/users/%37?limit=1` with an actual `auth,decode,business` journal before the full successful gate.
 
 The entry still discloses278 unsafe/foreign dependencies; no new unsafe or foreign implementation was added. Human LAWS and research/benchmark artifacts remain unchanged. The maximum sampled RSS in the complete gate was6,459,616KiB, below the20GiB kill ceiling; disk headroom was checked before each process. The verification slot was released with no matched compiler/runtime processes, no listeners on18335 or18333,34,663,456,768 bytes free, and all owned temporary builds/journals removed. HTTP admission/T3, production serving, completion notifications, archive publication, and the full release benchmark remain outside this leaf.
 
@@ -233,6 +235,6 @@ With an explicitly held File bundle, each lane observed24 exact503 rejects, no r
 
 The affected package gate exited0 and disclosed315 unsafe/foreign-dependent definitions; the empty human law gate is not IO proof. The migrated owner passed both native/JS Busy→same affine owner retry, disposed Data reply, startup rollback and close. Its paired File journals independently matched principals7/8/10/12; destructor markers matched once per returned bundle and partial cleanup. Peak aggregate RSS in the final serving/owner matrix was6,561,968KiB (native owner compilation), below the20GiB descendant ceiling. Very short native executions with0/32KiB sampled peaks are not memory benchmarks.
 
-A temporary guarded verification script reused the existing input/response consumers without overwriting their historical evidence. It verified134 input cases per lane directly and live (536 comparisons/journals total),21 plain invalid responses with zero bytes plus21 routed safe mapped500 responses per lane, and repeated Set-Cookie preservation. The finite input fixture now stops and joins published HTTP's owner rather than calling an obsolete template-only socket loop. Historical dispatch benchmark native/JS eight checksums matched at3 measured iterations; this is not final public-dispatch release/performance proof. `bash scripts/publish.sh --check camber` exited0: `bend-kit-camber@0.8.0.0 will publish`; no manual publication occurred.
+A temporary guarded verification script reused the existing input/response consumers without overwriting their historical evidence. It verified134 input cases per lane directly and live (536 comparisons/journals total),21 plain invalid responses with zero bytes plus21 routed safe mapped500 responses per lane, and repeated Set-Cookie preservation. The finite input fixture now stops and joins published HTTP's owner rather than calling an obsolete template-only socket loop. Historical dispatch benchmark native/JS eight checksums matched at3 measured iterations; this is not final public-dispatch release/performance proof. `bash scripts/publish.sh --check camber` exited0: `bend-kit-camber` version `0.8.0.0` — `will publish`; no manual publication occurred.
 
 [`serving_results.json`](serving_results.json) preserves every command/output, peak, observed process identity/release, descriptor/rebind observation and retained journal receipt. It retains the five initial compile failures, owner tuple-let rejection, wrong fixture auth mapping and its forced failure cleanup (never success), initial TIME_WAIT rebind failure, and later input/writer API migration failures. Successful final commands used no forced cleanup. Temporary binaries, retained-script scaffold and owned test journals were removed. Historical failures/budgets, unsafe/foreign exclusions and external-supervisor limitations remain unchanged.

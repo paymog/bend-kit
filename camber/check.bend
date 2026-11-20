@@ -1,6 +1,7 @@
 # Real File bundles, deterministic concurrent principals, failure and close checks.
 import Base
 import ./camber.bend as Camber
+import bend-kit-files@0.4.0.0/files.bend as Files
 import ./dispatch_check.bend as Dispatch
 import ./response_check.bend as Response
 import ./scoped_check.bend as Scoped
@@ -324,11 +325,52 @@ def scenario(+path: String) -> IO(Unit):
     opened : Camber.Owner<Bundle, U32, Input, U32, U32> <- started(startup)
     scenario.opened(opened, path)
 
+def journal.read(r: File & Result<&1, &1, U32 & String, String>) -> IO(String):
+  (file, got) = r
+  do IO<String>:
+    File.close(file)
+    IO.pass(String, got)
+
+def journal.text(path: String) -> IO(String):
+  do IO<String>:
+    file : File <- IO.try(File, File.open(path, "r"))
+    r : File & Result<&1, &1, U32 & String, String> <- File.read(file, 4096)
+    journal.read(r)
+
+def journal.has(+lines: List<&2, String>, +x: String) -> Bool:
+  List.contains(~String, ~String.eq, lines, x)
+
+# Each bundle's two files agree, and the four principals each landed once.
+def journal.check(+path: String) -> IO(Unit):
+  do IO<Unit>:
+    +a0 : String <- journal.text(path ++ "-a-0")
+    b0 : String <- journal.text(path ++ "-b-0")
+    +a1 : String <- journal.text(path ++ "-a-1")
+    b1 : String <- journal.text(path ++ "-b-1")
+    require(String.eq(a0, b0) && String.eq(a1, b1), "bundle resources disagree about principal/order")
+    +lines : List<&2, String> = List.filter(~String, ~(s => Bool.not(String.is_empty(s))), String.split(a0 ++ a1, '\n'))
+    require(Nat.is_eq(List.length(&2, String, lines), 4n) && journal.has(lines, "7") && journal.has(lines, "8") && journal.has(lines, "10") && journal.has(lines, "12"), "bundle journals hold the wrong principals")
+    IO.print("camber journal: PASS")
+
+def journal.remove(+dir: String, names: List<&2, String>) -> IO(Unit):
+  match names:
+    case Nil{}:
+      IO.try(Unit, Files.remove(dir))
+    case Con{name, rest}:
+      do IO<Unit>:
+        IO.try(Unit, Files.remove(Files.path.join(dir, name)))
+        journal.remove(dir, rest)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     seed : U32 <- IO.try(U32, IO.random_u32())
     ledger.check()
-    scenario("camber-owner-336-" ++ U32.show(seed))
+    +dir : String <- IO.try(String, Files.temp_dir())
+    +path : String = Files.path.join(dir, "camber-owner-" ++ U32.show(seed))
+    scenario(path)
+    journal.check(path)
+    names : List<&2, String> <- IO.try(List<&2, String>, Files.list_dir(dir))
+    journal.remove(dir, names)
     Dispatch.main()
     Response.main()
     Scoped.check()

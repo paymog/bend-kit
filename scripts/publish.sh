@@ -30,7 +30,10 @@ for d in "$@"; do
     echo "== $named will publish"
   else
     echo "== publish $named"
+    # --publish takes only a LICENSE beside a published file, so copy the root one in.
+    cp LICENSE "$d/LICENSE"
     (cd "$d" && bend "$d.bend" --publish "$named")
+    rm "$d/LICENSE"
   fi
 done
 exit $fail

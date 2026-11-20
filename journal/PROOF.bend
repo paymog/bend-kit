@@ -1,6 +1,7 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/list.bend as MList
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/list.bend as MList
 import ../lemmas/lemmas.bend as Lemmas
 import ./LAWS.bend as Laws
 import ./journal.bend as J
@@ -14,10 +15,10 @@ def len(xs: List<&2, U32>) -> Nat:
 def R() -> Type:
   J.Recovery<&2, List<&2, U32>, List<&2, U32>>
 def boom(-A: Type, e: {True{} == False{} : Bool}) -> A:
-  Empty.absurd(A, MNat.internal_false_ne_true(Equal.sym(Bool, True{}, False{}, e)))
+  Empty.absurd(A, MBool.false_ne_true()(Equal.sym(Bool, True{}, False{}, e)))
 
 def boom2(-A: Type, e: {False{} == True{} : Bool}) -> A:
-  Empty.absurd(A, MNat.internal_false_ne_true(e))
+  Empty.absurd(A, MBool.false_ne_true()(e))
 
 def eq_refl(+a: U32) -> {U32.is_eq(a, a) == True{} : Bool}:
   Equal.trans(Bool, U32.is_eq(a, a), Nat.is_eq(U32.to_nat(a), U32.to_nat(a)), True{}, Lemmas.u32_is_eq_nat(a, a), MNat.is_eq_refl(U32.to_nat(a)))
@@ -179,8 +180,8 @@ def prefix(rs: List<&2, List<&2, U32>>, n: Nat, +max: U32, +t: List<&2, U32>, +t
         case 0n:
           boom2({J.list.recover(0n, max, cat(J.list.log(Con{p, r}), t)) == J.Recovery{Con{p, r}, tail, t} : R}, enough)
         case 1n+ +m:
-          +small = MList.internal_and_left(Nat.is_le(len(p), U32.to_nat(max)), Laws.fit(max, r), fits)
-          +fitr = MList.internal_and_right(Nat.is_le(len(p), U32.to_nat(max)), Laws.fit(max, r), fits)
+          +small = MBool.eq_true_of_and_left(Nat.is_le(len(p), U32.to_nat(max)), Laws.fit(max, r), fits)
+          +fitr = MBool.eq_true_of_and_right(Nat.is_le(len(p), U32.to_nat(max)), Laws.fit(max, r), fits)
           %MList.append_assoc_sym(&2, U32, J.list.frame(p), J.list.log(r), t) : {J.list.recover(1n+m, max, _) == J.Recovery{Con{p, r}, tail, t} : R}
           %Equal.sym(R, J.list.recover(1n+m, max, cat(J.list.frame(p), cat(J.list.log(r), t))), J.recover.con(~&2, ~List<&2, U32>, ~List<&2, U32>, p, J.list.recover(m, max, cat(J.list.log(r), t))), peel(m, max, p, cat(J.list.log(r), t), small)) : {_ == J.Recovery{Con{p, r}, tail, t} : R}
           %Equal.sym(R, J.list.recover(m, max, cat(J.list.log(r), t)), J.Recovery{r, tail, t}, prefix(r, m, max, t, tail, fitr, enough, stop)) : {J.recover.con(~&2, ~List<&2, U32>, ~List<&2, U32>, p, _) == J.Recovery{Con{p, r}, tail, t} : R}

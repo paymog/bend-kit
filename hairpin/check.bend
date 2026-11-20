@@ -1,11 +1,11 @@
 import Base
 import ./hairpin.bend as Hairpin
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
-import bend-kit-http@0.38.0.0/http.bend as Http
-import bend-kit-http@0.38.0.0/admission.bend as Admission
-import bend-kit-http@0.38.0.0/completion.bend as Completion
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
+import bend-kit-http@0.38.6.0/http.bend as Http
+import bend-kit-http@0.38.6.0/admission.bend as Admission
+import bend-kit-http@0.38.6.0/completion.bend as Completion
 import bend-kit-time@0.3.0.0/time.bend as Time
-import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 def ok(b: Bool, +name: String) -> IO(Unit):

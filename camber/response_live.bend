@@ -2,8 +2,9 @@
 import Base
 import ./camber.bend as C
 import ./dispatch_check.bend as Check
-import bend-kit-http@0.38.0.0/http.bend as H
-import bend-kit-http@0.38.0.0/completion.bend as T
+import bend-kit-http@0.38.6.0/http.bend as H
+import bend-kit-http@0.38.6.0/completion.bend as T
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 type Case is Data:
   Case{status: U32, name: String, value: String}
@@ -110,13 +111,18 @@ def finish(pair: Listener & Socket) -> IO(Unit):
     Listener.close(last)
     IO.print("live response safety: PASS")
 
-def main() -> IO(Unit):
+def serve(bound: Listener & U32) -> IO(Unit):
+  (listener, port) = bound
   do IO<Unit>:
     +app : C.Application<U32, Unit, C.Policy<Unit>> <- ready(C.application(~U32, ~Unit, ~C.Policy<Unit>, [C.Route{"GET", "/", 0, [], C.policy(~Unit, 1, Nil{}, Nil{})}], [], Unit{}, C.policy(~Unit, 0, Nil{}, Nil{})))
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 18333))
-    IO.print("READY")
+    IO.print("READY " ++ U32.show(port))
     plain_done : Listener <- invalid(cases(), listener, app, False{})
     next : Listener <- invalid(cases(), plain_done, app, True{})
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(next)
     pair : Listener & Socket <- accepted(a)
     finish(pair)
+
+def main() -> IO(Unit):
+  do IO<Unit>:
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    serve(bound)

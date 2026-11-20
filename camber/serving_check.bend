@@ -1,10 +1,11 @@
 # Actual File ownership and explicit gates through published HTTP, native and JS.
 import Base
+import ./probe_server.bend as Probe
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.38.0.0/http.bend as H
-import bend-kit-http@0.38.0.0/completion.bend as T
-import bend-kit-json@0.7.0.0/json.bend as J
+import bend-kit-http@0.38.6.0/http.bend as H
+import bend-kit-http@0.38.6.0/completion.bend as T
+import bend-kit-json@0.7.2.0/json.bend as J
 import bend-kit-bytes@0.3.3.0/bytes.bend as B
 
 type Config is Data:
@@ -240,7 +241,7 @@ def application.observed(observed: C.Server<U32, File, Config, String> & H.Serve
   do IO<Unit>:
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
     control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <-
-      H.server.start(~Control, ~Unit, Control{stop, stats, gate, blocked, self}, Unit{}, C.server.config(control_port))
+      Probe.transport(~Control, ~Unit, Control{stop, stats, gate, blocked, self}, Unit{}, C.server.config(control_port))
     control.started(server, gate, self, control_result)
 
 def application.controlled(controlled: C.Server<U32, File, Config, String> & H.ServerControl,
@@ -291,7 +292,7 @@ def start(+mode: String, port: U32, path: String, control_port: U32) -> IO(Unit)
     gate : Chan(Unit) <- Chan.new(Unit, 1)
     +application_config : Config = Config{gate}
     result : Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>> <-
-      C.server.start(~U32, ~File, ~Config, ~Unit, ~String, ~before, ~after, ~run, ~mapper, ~destroy,
+      Probe.start(~U32, ~File, ~Config, ~Unit, ~String, ~before, ~after, ~run, ~mapper, ~destroy,
         registration(String.eq(mode, "registration"), application_config), config(mode, port), [file])
     started(result, mode, application_config, control_port)
 

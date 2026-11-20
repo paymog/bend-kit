@@ -3,10 +3,10 @@
 Cache validity for keyed values: expiry, negative results, invalidation, eviction, and fetch completions that cannot bring back stale data. It decides what a cache may serve. It does not fetch, store to disk, or talk to the network: your code does the fetch, and the cache decides whether the result lands.
 
 ```bend
-import bend-kit-cache@0.3.0.0/cache.bend as C
+import bend-kit-cache@0.3.1.0/cache.bend as C
 ```
 
-It imports `bend-kit-collections@0.1.4.1` (`omap.bend` and `order.bend`). Keys are `String`, in `Order.string` order; values are any `Data` type `V`.
+It imports `bend-kit-collections@0.1.5.0` (`omap.bend` and `order.bend`). Keys are `String`, in `Order.string` order; values are any `Data` type `V`.
 
 ## Example
 
@@ -14,7 +14,7 @@ A configuration value changes upstream while a fetch of the old value is in flig
 
 ```bend
 import Base
-import bend-kit-cache@0.3.0.0/cache.bend as C
+import bend-kit-cache@0.3.1.0/cache.bend as C
 
 def show(r: Maybe<&2, C.Entry<String>>) -> String:
   match r:
@@ -105,7 +105,7 @@ The laws above cover one key. These cover the keyed `Cache`:
 | `new_keyed`, `apply_keyed` | `Cache.new` gives a cache whose slots form a search tree under `Order.string`, and every operation keeps it one. |
 | `apply_other_key` | `start`, `complete`, `invalidate`, or `evict` on one key leaves the slot of every other key as it was. |
 
-Their proofs cite `omap_put_searchtree`, `omap_get_put_other_key`, and the `Order.string` order laws from `bend-kit-collections@0.1.4.1`.
+Their proofs cite `omap_put_searchtree`, `omap_get_put_other_key`, and the `Order.string` order laws from `bend-kit-collections@0.1.5.0`.
 
 ## Trust boundary
 

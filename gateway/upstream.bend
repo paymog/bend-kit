@@ -1,7 +1,7 @@
 # A local upstream for the gateway checks and demo. It prints each request it serves.
 import Base
-import bend-kit-http@0.38.0.0/http.bend as H
-import bend-kit-http@0.38.0.0/completion.bend as T
+import bend-kit-http@0.38.6.0/http.bend as H
+import bend-kit-http@0.38.6.0/completion.bend as T
 
 # /items/gone is missing, /items/broken fails, /items/slow-* answers after 1.5 s.
 def kind(target: String) -> U32:

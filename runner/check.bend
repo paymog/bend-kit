@@ -1,12 +1,12 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-journal@0.3.0.1/journal.bend as J
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
-import bend-kit-scheduler@0.4.0.0/queue.bend as Q
-import bend-kit-files@0.3.0.0/files.bend as Files
-import bend-kit-collections@0.1.4.1/heap.bend as H
-import bend-kit-collections@0.1.4.1/omap.bend as O
-import bend-kit-collections@0.1.4.1/hmap.bend as M
+import bend-kit-journal@0.3.1.1/journal.bend as J
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
+import bend-kit-scheduler@0.4.3.0/queue.bend as Q
+import bend-kit-files@0.4.0.0/files.bend as Files
+import bend-kit-collections@0.1.5.0/heap.bend as H
+import bend-kit-collections@0.1.5.0/omap.bend as O
+import bend-kit-collections@0.1.5.0/hmap.bend as M
 import ./runner.bend as R
 import ./example.bend as Example
 
@@ -113,6 +113,14 @@ def graveyard() -> R.State<String>:
   live([R.Enqueue{0n, "x"}, R.Enqueue{0n, "y"}, R.Enqueue{0n, "z"}, R.Select{0n}, R.Select{0n}, R.Select{0n},
     R.Abandon{0n, R.WhyFailed{}, 10n}, R.Abandon{1n, R.WhySpent{}, 20n}, R.Abandon{2n, R.WhyLate{}, 30n}], R.new(String))
 
+def dead7() -> R.Dead<String>:
+  R.Dead{Q.Ticket{7n, 0n, "x"}, R.WhyFailed{}, 1n}
+
+# s with its dead-ticket trie replaced by ds, which no op would build.
+def regraved(s: R.State<String>, ds: R.Graves(String)) -> R.State<String>:
+  R.State{q, ts, old, bs} = s
+  R.State{q, ts, ds, bs}
+
 def brk(s: R.State<String>, +key: String) -> String:
   show.brk(R.brk.get(String, s, key))
 
@@ -154,6 +162,21 @@ def describe(s: R.State<String>) -> String:
   "next=" ++ Nat.show(n) ++ " pending=" ++ Nat.show(R.pending(String, R.State{Q.State{n, h, run}, ts, ds, bs})) ++ " running=" ++ Nat.show(List.length(&2, Q.Ticket<String>, run)) ++
     " tries=" ++ U32.show(O.OMap.size(Nat, R.Try, ts)) ++ " fails=" ++ Nat.show(fails(O.OMap.to_list(Nat, R.Try, ts))) ++ " dead=" ++ Nat.show(M.HMap.size(Nat, R.Dead<String>, ds))
 
+def collision.entries(+n: Nat) -> List<&2, M.Entry<Nat, R.Dead<String>>>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      +id = Nat.mul(p, Nat.mul(65536n, 65536n))
+      M.Entry{id, R.Dead{Q.Ticket{id, 0n, Nat.show(p)}, R.WhyFailed{}, p}} <> collision.entries(p)
+
+def collision.count(m: Maybe<&2, R.Rec<String>>) -> Nat:
+  match m:
+    case Some{R.Snap{s}}:
+      M.HMap.size(Nat, R.Dead<String>, R.dead(String, s))
+    case _:
+      0n
+
 def snapshots() -> IO(Unit):
   do IO<Unit>:
     same(describe(sample()), "next=5 pending=2 running=1 tries=3 fails=1 dead=1", "the sample state has pending, running, retried, and dead tickets")
@@ -162,6 +185,7 @@ def snapshots() -> IO(Unit):
     same(brk(sample(), "local"), "open 1700000000123", "a later Break replaces the target's breaker")
     same(brk(sample(), "λ:443"), "closed 1 1700000000123", "a Break keeps a closed breaker's failures")
     same(brk(sample(), "none"), "closed", "a target with no Break is closed")
+    same(hex(live([R.Break{"t", Retry.CircuitClosed{[7n]}}, R.Break{"t", Retry.CircuitClosed{[]}}], R.new(String))), hex(R.new(String)), "a target that failed and then recovered leaves no breaker in the snapshot")
     same(brk(R.calm(String, sample()), "h"), "half 0", "open counts no probe of a half-open breaker in flight")
     same(brk(R.calm(String, sample()), "local"), "open 1700000000123", "open keeps an open breaker's until")
     same(rec(R.encode.snap(~String, ~penc, R.new(String))), hex(R.new(String)), "an empty snapshot round-trips")
@@ -176,6 +200,17 @@ def snapshots() -> IO(Unit):
     same(describe(R.step(~String, graveyard(), R.PurgeAll{})), "next=3 pending=0 running=0 tries=0 fails=0 dead=0", "a PurgeAll drops every dead ticket")
     same(describe(R.step(~String, R.step(~String, graveyard(), R.Purge{20n}), R.Revive{0n, 5n})), "next=3 pending=0 running=0 tries=0 fails=0 dead=2", "a purged ticket does not revive")
     same(describe(R.step(~String, graveyard(), R.Revive{1n, 5n})), "next=3 pending=1 running=0 tries=1 fails=0 dead=2", "a Revive takes one dead ticket by id")
+    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}, M.Entry{7n, dead7()}]}))), "none", "a snapshot with two entries for one id in a bucket does not decode")
+    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{3, [M.Entry{7n, dead7()}]}))), "none", "a snapshot whose bucket hash does not match its keys does not decode")
+    same(rec(R.encode.snap(~String, ~penc, regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]}))), hex(regraved(graveyard(), M.HLeaf{7, [M.Entry{7n, dead7()}]})), "a snapshot with a well-formed hand-built bucket decodes")
+    same(rec(R.encode.snap(~String, ~penc, regraved(R.new(String), M.HLeaf{0, collision.entries(3n)}))),
+      hex(regraved(R.new(String), M.HLeaf{0, List.reverse(&2, M.Entry<Nat, R.Dead<String>>, collision.entries(3n))})),
+      "an unsorted colliding bucket decodes in id order and keeps each ticket")
+    same(Nat.show(collision.count(R.decode.rec(~String, ~pdec, R.encode.snap(~String, ~penc,
+      regraved(R.new(String), M.HLeaf{0, collision.entries(1024n)}))))), "1024", "a snapshot with many colliding ids decodes")
+    same(rec(R.encode.snap(~String, ~penc, regraved(R.new(String),
+      M.HLeaf{0, M.Entry{0n, dead7()} <> List.append(&2, M.Entry<Nat, R.Dead<String>>, collision.entries(3n), [M.Entry{0n, dead7()}])}))),
+      "none", "a duplicate separated by other colliding ids does not decode")
 
 def codec() -> IO(Unit):
   +t = big()
@@ -209,7 +244,7 @@ def codec() -> IO(Unit):
 
 # ---- jobs: "log|kind:name". work notes the job in log, runs it, then notes "end" and the job, and answers by kind.
 # A slow job ("slow:" or "slowfail:") sleeps 1 s before it ends. A "fail:" or "slowfail:" job fails, and another try can help.
-# A "dead:" job fails, and another try would repeat the failure.
+# A "dead:" job fails, and another try would repeat the failure. A "reject:" job is a client error.
 def note.close(r: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (f, x) = r
   File.close(f)
@@ -222,7 +257,8 @@ def note(+log: String, +spec: String) -> IO(Unit):
 
 def outcome(+spec: String) -> Retry.Outcome:
   Bool.pick(Retry.Outcome, String.starts_with(spec, "dead:"), Retry.Failed{},
-  Bool.pick(Retry.Outcome, Bool.or(String.starts_with(spec, "fail:"), String.starts_with(spec, "slowfail:")), Retry.Transient{Some{0n}}, Retry.Settled{}))
+  Bool.pick(Retry.Outcome, String.starts_with(spec, "reject:"), Retry.Rejected{},
+  Bool.pick(Retry.Outcome, Bool.or(String.starts_with(spec, "fail:"), String.starts_with(spec, "slowfail:")), Retry.Transient{Some{0n}}, Retry.Settled{})))
 
 def work.go(xs: List<&2, String>) -> IO(Retry.Outcome):
   match xs:
@@ -334,6 +370,10 @@ def dead.of(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
   (r, s) = x
   (r, graves(R.dead(String, s)))
 
+def brk.of(x: R.Runner<String> & R.State<String>) -> R.Runner<String> & String:
+  (r, s) = x
+  (r, brk(s, "local"))
+
 # Three jobs: two succeed once. One fails every time; after the policy's 3 attempts it is dead, with its payload.
 # It stays dead across a reopen, runs 3 attempts again after a revive, and a cancel drops it.
 def durable(+dir: String) -> IO(Unit):
@@ -374,6 +414,21 @@ def failed(+dir: String) -> IO(Unit):
     closed("0:failed:" ++ log ++ "|dead:f ", "the dead job keeps its payload and a failed why", dead.of(R.state(String, r3)))
     xs : List<&2, String> <- read(log)
     same(counts(xs, ["dead:f"]), "dead:f=1 ", "a failure that would repeat runs one attempt")
+
+# One failure opens this breaker, but a client error is not the target's failure, so the next job still runs.
+def rejected(+dir: String) -> IO(Unit):
+  +path = dir ++ "/rejected.journal"
+  +log = dir ++ "/rejected.log"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 1n)
+    r1 : R.Runner<String> <- enq(r0, 0n, log ++ "|reject:a")
+    r2 : R.Runner<String> <- enq(r1, 0n, log ++ "|ok:b")
+    r3 : R.Runner<String> <- drain(r2)
+    r4 : R.Runner<String> <- held(view(r3), "next=2 pending=0 running=0 tries=0 fails=0 dead=1", "a client error makes its job dead, and the next job completes")
+    r5 : R.Runner<String> <- held(brk.of(R.state(String, r4)), "closed", "a client error leaves the breaker closed")
+    closed("0:failed:" ++ log ++ "|reject:a ", "the rejected job keeps its payload and a failed why", dead.of(R.state(String, r5)))
+    xs : List<&2, String> <- read(log)
+    same(counts(xs, ["reject:a", "ok:b"]), "reject:a=1 ok:b=1 ", "a client error runs one attempt")
 
 def status(r: Result<&1, &1, U32 & String, U32 & (String & String)>) -> U32:
   match r:
@@ -458,17 +513,19 @@ def breaker.restart(+dir: String) -> IO(Unit):
     xs : List<&2, String> <- read(log)
     same(counts(xs, ["fail:p", "ok:r"]), "fail:p=1 ok:r=0 ", "a reopen keeps the open breaker, and no attempt starts before the cooldown ends")
 
-def stat.size(r: Result<&1, &1, U32 & String, Files.Info>) -> U32:
+def stat.size(r: Result<&1, &1, U32 & String, Files.Info>) -> IO(U32):
   match r:
-    case Done{Files.Info{k, n, t}}:
-      n
+    case Done{Files.Info{k, (hi, lo), t}}:
+      do IO<U32>:
+        ok(U32.is_eq(hi, 0), "the journal size fits U32")
+        return lo
     case Fail{e}:
-      0
+      IO.die(U32, 1, "stat failed")
 
 def size(+path: String) -> IO(U32):
   do IO<U32>:
     r : Result<&1, &1, U32 & String, Files.Info> <- Files.stat(path)
-    return stat.size(r)
+    stat.size(r)
 
 def compacted(y: R.Ran(String)) -> IO(R.Runner<String>):
   match y:
@@ -801,10 +858,24 @@ def asks.idle(+dir: String) -> IO(Unit):
     same(counts(ys, ["answered 1", "late", "end ok:n"]), "answered 1=1 late=0 end ok:n=1 ", "an ask during the idle wait answers within 500 ms")
     same(last(ys, ""), "end ok:d", "the asked job ends before the job due later")
 
+# Idle 1 s, and one job due in 100 ms. The drain starts it near its deadline, not after the whole idle wait.
+def asks.due(+dir: String) -> IO(Unit):
+  +path = dir ++ "/due.journal"
+  +log = dir ++ "/due.log"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- IO.try(R.Runner<String>, R.open(~String, ~penc, ~pdec, path, 4096, 1048576, config.idle(), 2n))
+    +t0 : Nat <- R.clock()
+    r1 : R.Runner<String> <- enq(r0, Nat.add(t0, 100n), log ++ "|ok:d")
+    r2 : R.Runner<String> <- drain(r1)
+    t1 : Nat <- R.clock()
+    closed("next=1 pending=0 running=0 tries=0 fails=0 dead=0", "a job due before idle ends runs", view(r2))
+    same(Bool.pick(String, Nat.is_lt(Nat.sub(t1, t0), 600n), "early", "late"), "early", "the drain starts a job due in 100 ms well before idle ends")
+
 def all(+dir: String) -> IO(Unit):
   do IO<Unit>:
     durable(dir)
     failed(dir)
+    rejected(dir)
     purged(dir)
     crash(dir)
     breaker(dir)
@@ -814,6 +885,7 @@ def all(+dir: String) -> IO(Unit):
     asks.cancel(dir)
     asks.close(dir)
     asks.idle(dir)
+    asks.due(dir)
     compaction(dir)
     compaction.auto(dir)
     crash.snapshot(dir)

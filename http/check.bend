@@ -3,11 +3,12 @@ import ./http.bend as Http
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import bend-kit-http2@0.4.0.0/hpack.bend as Hpack
 import bend-kit-http2@0.4.0.0/http2.bend as H2
 import bend-kit-bytes@0.3.3.0/bytes.bend as HBytes
 import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 
 def show_req(req: Http.Req) -> IO(Unit):
@@ -23,21 +24,21 @@ def show(m: Maybe<&1, Http.Req>) -> IO(Unit):
     case Some{req}:
       show_req(req)
 
-def pool.key() -> String:
-  Http.pool.key("http", "127.0.0.1", 47811)
+def pool.key(port: U32) -> String:
+  Http.pool.key("http", "127.0.0.1", port)
 
-def pool.give.r(p: Http.Pool, r: Result<&1, &1, Http.Err, Http.Conn>) -> IO(Http.Pool):
+def pool.give.r(port: U32, p: Http.Pool, r: Result<&1, &1, Http.Err, Http.Conn>) -> IO(Http.Pool):
   match r:
     case Fail{e}:
       IO.die(Http.Pool, 1, "pool: connect failed")
     case Done{c}:
-      Http.pool.give(p, pool.key(), c)
+      Http.pool.give(p, pool.key(port), c)
 
 # A new socket to the local listener, given to the pool.
-def pool.give.new(p: Http.Pool) -> IO(Http.Pool):
+def pool.give.new(+port: U32, p: Http.Pool) -> IO(Http.Pool):
   do IO<Http.Pool>:
-    r : Result<&1, &1, Http.Err, Http.Conn> <- Http.conn.open(False{}, 2000, "127.0.0.1", "127.0.0.1", 47811)
-    pool.give.r(p, r)
+    r : Result<&1, &1, Http.Err, Http.Conn> <- Http.conn.open(False{}, 2000, "127.0.0.1", "127.0.0.1", port)
+    pool.give.r(port, p, r)
 
 # y when the pool had an idle socket, n when it did not.
 def pool.took(+seen: String, pm: Http.Pool & Maybe<&1, Http.Conn>) -> IO(Http.Pool & String):
@@ -50,9 +51,9 @@ def pool.took(+seen: String, pm: Http.Pool & Maybe<&1, Http.Conn>) -> IO(Http.Po
         Http.conn.close(c)
         return (p, seen ++ "y")
 
-def pool.take(ps: Http.Pool & String) -> IO(Http.Pool & String):
+def pool.take(port: U32, ps: Http.Pool & String) -> IO(Http.Pool & String):
   (p, +seen) = ps
-  pool.took(seen, Http.pool.take(p, pool.key()))
+  pool.took(seen, Http.pool.take(p, pool.key(port)))
 
 def pool.verdict(ok: Bool, +seen: String) -> IO(Unit):
   match ok:
@@ -68,23 +69,34 @@ def pool.report(+want: String, ps: Http.Pool & String) -> IO(Unit):
     pool.verdict(String.eq(seen, want), seen)
 
 # Two sockets given, then three takes: want has y for each take that found an idle socket.
-def pool.run(p: Http.Pool, +want: String) -> IO(Unit):
+def pool.run(+port: U32, p: Http.Pool, +want: String) -> IO(Unit):
   do IO<Unit>:
-    p1 : Http.Pool <- pool.give.new(p)
-    p2 : Http.Pool <- pool.give.new(p1)
-    a : Http.Pool & String <- pool.take((p2, ""))
-    b : Http.Pool & String <- pool.take(a)
-    c : Http.Pool & String <- pool.take(b)
+    p1 : Http.Pool <- pool.give.new(port, p)
+    p2 : Http.Pool <- pool.give.new(port, p1)
+    a : Http.Pool & String <- pool.take(port, (p2, ""))
+    b : Http.Pool & String <- pool.take(port, a)
+    c : Http.Pool & String <- pool.take(port, b)
     pool.report(want, c)
 
-def test.listen6(port: U32) -> IO(Result<&1, &1, U32 & String, Listener & U32>):
-  import "../wire/effs/ipv6_test.c"
-  import "../wire/effs/ipv6_test.js"
+def pool.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  do IO<Unit>:
+    pool.run(port, Http.pool.new(), "yyn")
+    pool.run(port, Http.pool.new.with(1), "ynn")
+    Listener.close(l)
 
-# The shared test twin also declares this UDP effect.
-def test.udp6(port: U32) -> IO(Result<&1, &1, U32 & String, Socket & U32>):
-  import "../wire/effs/ipv6_test.c"
-  import "../wire/effs/ipv6_test.js"
+def local.bound(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Listener & U32):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Listener & U32, 1, "IPv4 bind: " ++ U32.show(code) ++ " " ++ why)
+    case Done{lp}:
+      IO.pure(Listener & U32, lp)
+
+# A loopback listener on a port the OS picks, so a busy fixed port cannot fail the check.
+def local.listen() -> IO(Listener & U32):
+  do IO<Listener & U32>:
+    r : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen("127.0.0.1", 0)
+    local.bound(r)
 
 def local.reply(operation: IO(Http.Res)) -> IO(Http.Reply):
   do IO<Http.Reply>:
@@ -131,12 +143,13 @@ def local.ipv6(r: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
         result : Result<&1, &1, Http.Err, Http.Res> <- Http.get("http://" ++ want ++ "/x")
         local.got(want, result)
 
-def local.fallback() -> IO(Unit):
+def local.fallback(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  +at = "localhost:" ++ U32.show(port)
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47812))
     IO.spawn(Unit, local.accept(l))
-    result : Result<&1, &1, Http.Err, Http.Res> <- Http.get("http://localhost:47812/x")
-    local.got("localhost:47812", result)
+    result : Result<&1, &1, Http.Err, Http.Res> <- Http.get("http://" ++ at ++ "/x")
+    local.got(at, result)
 
 def local.gz.sent(m: Socket & Result<&1, &1, U32 & String, Unit>) -> Socket:
   (s, r) = m
@@ -251,18 +264,19 @@ def local.gz.check(+want: String, +pieces: U32, r: Result<&1, &1, Http.Err, Http
         got : Http.Stream & Bytes.Bytes & U32 <- local.gz.read(20n, GrRead{st, Bytes.new(0), 0})
         local.gz.checked(want, pieces, got)
 
-def local.gz.test() -> IO(Unit):
+def local.gz.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  +url = "http://127.0.0.1:" ++ U32.show(port) ++ "/"
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47813))
     IO.spawn(Unit, local.gz.serve(l))
     decoded : Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
+      Http.open("GET", url, Http.empty(), Bytes.new(0))
     local.gz.check("616c70686120626574612067616d6d61", 1, decoded)
     raw : Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.raw("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
+      Http.open.raw("GET", url, Http.empty(), Bytes.new(0))
     local.gz.check("1f8b08000000000002ff4bcc29c84854484a2d4954484fcccd4d040045445d3410000000", 2, raw)
     deflated : Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open("GET", "http://127.0.0.1:47813/", Http.empty(), Bytes.new(0))
+      Http.open("GET", url, Http.empty(), Bytes.new(0))
     local.gz.check("68656c6c6f20726177", 1, deflated)
 
 def opened.body(+name: String, +want: String, got: Http.Stream & Bytes.Bytes & U32) -> IO(Unit):
@@ -283,6 +297,22 @@ def opened.got(+name: String, +want: String, x: Maybe<&2, Http.Jar> & Result<&1,
         got : Http.Stream & Bytes.Bytes & U32 <- local.gz.read(20n, GrRead{st, Bytes.new(0), 0})
         opened.body(name, want, got)
         return m
+
+# A failed write stays in the Up, so upload.finish reports it.
+def upload.wrote(r: Http.Up & Result<&2, &2, Http.Err, Unit>) ->
+    IO(Result<&1, &1, Http.Err, Http.Stream>):
+  (up, w) = r
+  Http.upload.finish(up)
+
+def upload.started(r: Result<&1, &1, Http.Err, Http.Up>) ->
+    IO(Result<&1, &1, Http.Err, Http.Stream>):
+  match r:
+    case Fail{e}:
+      IO.pure(Result<&1, &1, Http.Err, Http.Stream>, Fail{e})
+    case Done{up}:
+      do IO<Result<&1, &1, Http.Err, Http.Stream>>:
+        w : Http.Up & Result<&2, &2, Http.Err, Unit> <- Http.upload.write(up, Bytes.from_string("hi"))
+        upload.wrote(w)
 
 def mtls.ok(+want: String, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match r:
@@ -317,61 +347,94 @@ def mtls.pool.bad(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http
     mtls.err(r)
     return p
 
-def mtls.run(+one: String, +key1: String, +two: String, +key2: String) -> IO(Unit):
+def mtls.upload.err(r: Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
+  match r:
+    case Fail{Http.ErrTls{code, why}}:
+      IO.print("ok mTLS upload rejected")
+    case Fail{other}:
+      IO.die(Unit, 1, "mTLS upload failed without TLS error")
+    case Done{st}:
+      do IO<Unit>:
+        Http.stream.close(st)
+        IO.die(Unit, 1, "mTLS upload accepted a missing certificate")
+
+def mtls.run(+one: String, +key1: String, +two: String, +key2: String, +base: String) -> IO(Unit):
   do IO<Unit>:
     missing : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch("GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0))
+      Http.fetch("GET", base ++ "/who", Http.empty(), Bytes.new(0))
     mtls.err(missing)
     accepted : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.cert("GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), one, key1)
+      Http.fetch.cert("GET", base ++ "/who", Http.empty(), Bytes.new(0), one, key1)
     mtls.ok("client-one", accepted)
+    began : Result<&1, &1, Http.Err, Http.Up> <-
+      Http.upload.how(Some{Http.Cert{one, key1}}, "", "GET", base ++ "/who", Http.empty(), 30000)
+    uploaded : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(began)
+    ju : Maybe<&2, Http.Jar> <- opened.got("mTLS upload identity", "client-one", (None{}, uploaded))
+    bare : Result<&1, &1, Http.Err, Http.Up> <-
+      Http.upload.how(None{}, "", "GET", base ++ "/who", Http.empty(), 30000)
+    rejected : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(bare)
+    mtls.upload.err(rejected)
     same : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.cert("GET", "https://localhost:39444/same", Http.empty(), Bytes.new(0), one, key1)
+      Http.fetch.cert("GET", base ++ "/same", Http.empty(), Bytes.new(0), one, key1)
     mtls.ok("client-one", same)
     cross : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.cert("GET", "https://localhost:39444/cross", Http.empty(), Bytes.new(0), one, key1)
+      Http.fetch.cert("GET", base ++ "/cross", Http.empty(), Bytes.new(0), one, key1)
     mtls.ok("clean", cross)
     back : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.cert("GET", "https://localhost:39444/back", Http.empty(), Bytes.new(0), one, key1)
+      Http.fetch.cert("GET", base ++ "/back", Http.empty(), Bytes.new(0), one, key1)
     mtls.err(back)
     streamed : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.how(Http.ModeFollow{}, Some{Http.Cert{one, key1}}, "", None{}, "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), 30000)
+      Http.open.how(Http.ModeFollow{}, Some{Http.Cert{one, key1}}, "", None{}, "GET", base ++ "/who", Http.empty(), Bytes.new(0), 30000)
     j1 : Maybe<&2, Http.Jar> <- opened.got("mTLS stream identity", "client-one", streamed)
     crossed : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.how(Http.ModeFollow{}, Some{Http.Cert{one, key1}}, "", None{}, "GET", "https://localhost:39444/cross", Http.empty(), Bytes.new(0), 30000)
+      Http.open.how(Http.ModeFollow{}, Some{Http.Cert{one, key1}}, "", None{}, "GET", base ++ "/cross", Http.empty(), Bytes.new(0), 30000)
     j2 : Maybe<&2, Http.Jar> <- opened.got("mTLS stream: no certificate after a cross-origin redirect", "clean", crossed)
     first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch.cert(Http.pool.new(), "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), one, key1)
+      Http.pool.fetch.cert(Http.pool.new(), "GET", base ++ "/who", Http.empty(), Bytes.new(0), one, key1)
     p1 : Http.Pool <- mtls.pool.good("client-one", first)
     no_cert : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch(p1, "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0))
+      Http.pool.fetch(p1, "GET", base ++ "/who", Http.empty(), Bytes.new(0))
     p2 : Http.Pool <- mtls.pool.bad(no_cert)
     second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch.cert(p2, "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), two, key2)
+      Http.pool.fetch.cert(p2, "GET", base ++ "/who", Http.empty(), Bytes.new(0), two, key2)
     p3 : Http.Pool <- mtls.pool.good("client-two", second)
     again : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch.cert(p3, "GET", "https://localhost:39444/who", Http.empty(), Bytes.new(0), one, key1)
+      Http.pool.fetch.cert(p3, "GET", base ++ "/who", Http.empty(), Bytes.new(0), one, key1)
     p4 : Http.Pool <- mtls.pool.good("client-one", again)
     Http.pool.close(p4)
+
+def h2.idle.got(+name: String, +want: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool):
+  (p, r) = pr
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, name ++ ": fetch failed")
+    case Done{Http.Res{+status, headers, body}}:
+      do IO<Http.Pool>:
+        local.ok(Bool.and(U32.is_eq(status, 200), String.eq(Bytes.to_string(body), want)), name)
+        return p
+
+# The HTTP/2 server answers one request per connection with the connection number, then closes TCP.
+def h2.idle(+base: String) -> IO(Unit):
+  do IO<Unit>:
+    first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch(Http.pool.new(), "GET", base ++ "/a", Http.empty(), Bytes.new(0))
+    p1 : Http.Pool <- h2.idle.got("h2 pool: GET", "1", first)
+    IO.sleep(500)
+    second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch(p1, "POST", base ++ "/b", Http.empty(), Bytes.from_string("x"))
+    p2 : Http.Pool <- h2.idle.got("h2 pool: POST on a new connection after the server closed the idle session", "2", second)
+    Http.pool.close(p2)
 
 def mtls.args(xs: List<&1, String>) -> IO(Unit):
   match xs:
     case Nil{}:
       IO.pure(Unit, Unit{})
-    case Con{one, tail}:
-      match tail:
-        case Nil{}:
-          IO.die(Unit, 1, "mTLS needs four certificate paths")
-        case Con{key1, rest}:
-          match rest:
-            case Nil{}:
-              IO.die(Unit, 1, "mTLS needs four certificate paths")
-            case Con{two, last}:
-              match last:
-                case Nil{}:
-                  IO.die(Unit, 1, "mTLS needs four certificate paths")
-                case Con{key2, extra}:
-                  mtls.run(one, key1, two, key2)
+    case Con{one, Con{key1, Con{two, Con{key2, Con{base, Con{h2, Nil{}}}}}}}:
+      do IO<Unit>:
+        mtls.run(one, key1, two, key2, base)
+        h2.idle(h2)
+    case _:
+      IO.die(Unit, 1, "mTLS needs four certificate paths, the server base URL, and the HTTP/2 base URL")
 
 def h2.has(xs: List<&2, Hpack.Field>, +want: String) -> Bool:
   match xs:
@@ -489,21 +552,22 @@ def retry.check(+name: String, +status: U32, +want: String, r: Result<&1, &1, Ht
       local.ok(Bool.and(U32.is_eq(got, status), String.eq(Bytes.to_string(body), want)), name)
 
 # The body names the connection that answered, so "try 3" is the third try.
-def retry.test() -> IO(Unit):
+def retry.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  +base = "http://127.0.0.1:" ++ U32.show(port)
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47814))
     IO.spawn(Unit, retry.serve(l))
     flaky : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.retry(2, "GET", "http://127.0.0.1:47814/flaky", Http.empty(), Bytes.new(0))
+      Http.fetch.retry(2, "GET", base ++ "/flaky", Http.empty(), Bytes.new(0))
     retry.check("retry GET: 503, 500, then 200 on try 3 of 3", 200, "try 3", flaky)
     post : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.retry(2, "POST", "http://127.0.0.1:47814/post", Http.empty(), Bytes.from_string("x"))
+      Http.fetch.retry(2, "POST", base ++ "/post", Http.empty(), Bytes.from_string("x"))
     retry.check("retry POST: one try, 503 kept", 503, "post", post)
     spent : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.retry(1, "GET", "http://127.0.0.1:47814/spent", Http.empty(), Bytes.new(0))
+      Http.fetch.retry(1, "GET", base ++ "/spent", Http.empty(), Bytes.new(0))
     retry.check("retry exhausted: last 504 kept", 504, "try 6", spent)
     posted : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.post.json("http://127.0.0.1:47814/json", Json.Arr{[Json.Num{Bytes.from_string("1")}, Json.Flag{True{}}]})
+      Http.post.json(base ++ "/json", Json.Arr{[Json.Num{Bytes.from_string("1")}, Json.Flag{True{}}]})
     retry.check("post.json", 200, "POST application/json [1,true]", posted)
 
 def local.proxy.http(req: Http.Req) -> IO(Http.Res):
@@ -559,7 +623,7 @@ def local.proxy.http.accept(inbox: Chan(Admission.Command), m: Listener & Result
     IO(Listener):
   Http.conn(~(req => local.reply(local.proxy.http(req))), ~Completion.ignore, Http.limits(1048576n), inbox, m)
 
-# Three forward requests, then two CONNECT tunnels: pool, stream, and upload, then pool and stream.
+# Three forward requests, then three CONNECT tunnels: pool, stream, and upload in each group.
 def local.proxy.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
@@ -573,7 +637,9 @@ def local.proxy.serve(l: Listener) -> IO(Unit):
     l3 : Listener <- local.proxy.tunnel.accept(third)
     fourth : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l3)
     l4 : Listener <- local.proxy.tunnel.accept(fourth)
-    Listener.close(l4)
+    fifth : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l4)
+    l5 : Listener <- local.proxy.tunnel.accept(fifth)
+    Listener.close(l5)
     Admission.close(inbox)
 
 def local.proxy.first(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) ->
@@ -622,68 +688,58 @@ def local.proxy.last(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) ->
     Http.pool.close(p)
     local.proxy.last.result(result)
 
-# A failed write stays in the Up, so upload.finish reports it.
-def local.proxy.upload.wrote(r: Http.Up & Result<&2, &2, Http.Err, Unit>) ->
-    IO(Result<&1, &1, Http.Err, Http.Stream>):
-  (up, w) = r
-  Http.upload.finish(up)
-
-def local.proxy.upload(r: Result<&1, &1, Http.Err, Http.Up>) ->
-    IO(Result<&1, &1, Http.Err, Http.Stream>):
-  match r:
-    case Fail{e}:
-      IO.die(Result<&1, &1, Http.Err, Http.Stream>, 1, "proxy upload connect failed")
-    case Done{up}:
-      do IO<Result<&1, &1, Http.Err, Http.Stream>>:
-        w : Http.Up & Result<&2, &2, Http.Err, Unit> <- Http.upload.write(up, Bytes.from_string("hi"))
-        local.proxy.upload.wrote(w)
-
 def local.stream.unpool(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Result<&1, &1, Http.Err, Http.Stream>):
   (p, r) = pr
   do IO<Result<&1, &1, Http.Err, Http.Stream>>:
     Http.pool.close(p)
     return r
 
-def local.proxy.test() -> IO(Unit):
+def local.proxy.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  +proxy = "http://u:p@127.0.0.1:" ++ U32.show(port)
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47815))
     IO.spawn(Unit, local.proxy.serve(l))
     first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
       Http.pool.origin.choice(Http.pool.new(), "GET", 2000, Http.empty(),
         Bytes.new(0), "elsewhere.test", "http", "elsewhere.test", 80, "/path",
-        None{}, "", Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
+        None{}, "", Http.proxy.from.url(proxy))
     p : Http.Pool <- local.proxy.first(first)
     pooled : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
       Http.stream.origin.choice(Http.pool.new(), "GET", 2000, Http.empty(), Bytes.new(0),
         "elsewhere.test", "http", "elsewhere.test", 80, "/path", None{}, "",
-        Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
+        Http.proxy.from.url(proxy))
     streamed : Result<&1, &1, Http.Err, Http.Stream> <- local.stream.unpool(pooled)
     j : Maybe<&2, Http.Jar> <- opened.got("proxy stream body", "proxy", (None{}, streamed))
     began : Result<&1, &1, Http.Err, Http.Up> <-
       Http.up.origin.choice("POST", 2000, Http.empty(), "elsewhere.test", "http",
         "elsewhere.test", 80, "/path", None{}, "",
-        Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
-    uploaded : Result<&1, &1, Http.Err, Http.Stream> <- local.proxy.upload(began)
+        Http.proxy.from.url(proxy))
+    uploaded : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(began)
     ju : Maybe<&2, Http.Jar> <- opened.got("proxy upload body", "proxy", (None{}, uploaded))
     second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
       Http.pool.origin.choice(p, "GET", 2000, Http.empty(), Bytes.new(0),
         "elsewhere.test", "https", "elsewhere.test", 443, "/path", None{}, "",
-        Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
+        Http.proxy.from.url(proxy))
     local.proxy.last(second)
     tunnel : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
       Http.stream.origin.choice(Http.pool.new(), "GET", 2000, Http.empty(), Bytes.new(0),
         "elsewhere.test", "https", "elsewhere.test", 443, "/path", None{}, "",
-        Http.proxy.from.url("http://u:p@127.0.0.1:47815"))
+        Http.proxy.from.url(proxy))
     tunneled : Result<&1, &1, Http.Err, Http.Stream> <- local.stream.unpool(tunnel)
     local.proxy.stream.last(tunneled)
+    tunnel_upload : Result<&1, &1, Http.Err, Http.Up> <-
+      Http.up.origin.choice("POST", 2000, Http.empty(), "elsewhere.test", "https",
+        "elsewhere.test", 443, "/path", None{}, "", Http.proxy.from.url(proxy))
+    upload_tunneled : Result<&1, &1, Http.Err, Http.Stream> <- upload.started(tunnel_upload)
+    local.proxy.stream.last(upload_tunneled)
 
-def spool.end(p: Http.Pool, +name: String, got: Http.Stream & Bytes.Bytes & U32) -> IO(Http.Pool):
+def spool.end(p: Http.Pool, +name: String, host: String, got: Http.Stream & Bytes.Bytes & U32) -> IO(Http.Pool):
   (st, body, n) = got
   do IO<Http.Pool>:
-    local.ok(String.eq(Bytes.to_string(body), "127.0.0.1:47818"), name)
+    local.ok(String.eq(Bytes.to_string(body), host), name)
     Http.pool.stream.close(p, st)
 
-def spool.read(+name: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool):
+def spool.read(+name: String, host: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool):
   (p, r) = pr
   match r:
     case Fail{e}:
@@ -691,7 +747,7 @@ def spool.read(+name: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stre
     case Done{st}:
       do IO<Http.Pool>:
         got : Http.Stream & Bytes.Bytes & U32 <- local.gz.read(20n, GrRead{st, Bytes.new(0), 0})
-        spool.end(p, name, got)
+        spool.end(p, name, host, got)
 
 def spool.early(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool):
   (p, r) = pr
@@ -715,20 +771,100 @@ def spool.left(pm: Http.Pool & Maybe<&1, Http.Conn>) -> IO(Unit):
         IO.die(Unit, 1, "pooled stream: a stream closed early gave its connection back")
 
 # The listener takes one connection, so the second and third streams must reuse it.
-def spool.test() -> IO(Unit):
+def spool.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  +host = "127.0.0.1:" ++ U32.show(port)
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47818))
     IO.spawn(Unit, local.accept(l))
     a : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.pool.open.with(Http.pool.new(), "GET", "http://127.0.0.1:47818/a", Http.empty(), Bytes.new(0), 2000)
-    p1 : Http.Pool <- spool.read("pooled stream: first read to the end", a)
+      Http.pool.open.with(Http.pool.new(), "GET", "http://" ++ host ++ "/a", Http.empty(), Bytes.new(0), 2000)
+    p1 : Http.Pool <- spool.read("pooled stream: first read to the end", host, a)
     b : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.pool.open.with(p1, "GET", "http://127.0.0.1:47818/b", Http.empty(), Bytes.new(0), 2000)
-    p2 : Http.Pool <- spool.read("pooled stream: second on the same connection", b)
+      Http.pool.open.with(p1, "GET", "http://" ++ host ++ "/b", Http.empty(), Bytes.new(0), 2000)
+    p2 : Http.Pool <- spool.read("pooled stream: second on the same connection", host, b)
     c : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.pool.open.with(p2, "GET", "http://127.0.0.1:47818/c", Http.empty(), Bytes.new(0), 2000)
+      Http.pool.open.with(p2, "GET", "http://" ++ host ++ "/c", Http.empty(), Bytes.new(0), 2000)
     p3 : Http.Pool <- spool.early(c)
-    spool.left(Http.pool.take(p3, Http.pool.key("http", "127.0.0.1", 47818)))
+    spool.left(Http.pool.take(p3, Http.pool.key("http", "127.0.0.1", port)))
+
+def stale.srv.closed(sent: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  (s, r) = sent
+  Socket.close(s)
+
+def stale.srv.reply(+want: String, +body: String, got: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  match got:
+    case (s, Fail{(+code, why)}):
+      do IO<Unit>:
+        Socket.close(s)
+        IO.die(Unit, 1, "stale pool: server recv: " ++ why)
+    case (s, Done{+req}):
+      do IO<Unit>:
+        local.ok(String.starts_with(req, want), "stale pool: server got " ++ want)
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <-
+          Wire.send(s, "HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\n" ++ body)
+        stale.srv.closed(sent)
+
+def stale.srv.one(+want: String, +body: String, a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
+  match a:
+    case (l, Fail{(+code, why)}):
+      IO.die(Listener, 1, "stale pool: accept: " ++ why)
+    case (l, Done{s}):
+      do IO<Listener>:
+        got : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(s, 4096, 2000)
+        stale.srv.reply(want, body, got)
+        return l
+
+# Each connection answers one request, keeps the connection alive in its reply, then closes it.
+def stale.serve(l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    l1 : Listener <- stale.srv.one("GET ", "a", a)
+    b : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l1)
+    l2 : Listener <- stale.srv.one("POST ", "b", b)
+    c : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l2)
+    l3 : Listener <- stale.srv.one("POST ", "c", c)
+    Listener.close(l3)
+
+def stale.got(+name: String, +want: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool):
+  (p, r) = pr
+  do IO<Http.Pool>:
+    retry.check(name, 200, want, r)
+    return p
+
+def stale.stream.end(p: Http.Pool, +name: String, +want: String, got: Http.Stream & Bytes.Bytes & U32) -> IO(Http.Pool):
+  (st, body, n) = got
+  do IO<Http.Pool>:
+    local.ok(String.eq(Bytes.to_string(body), want), name)
+    Http.pool.stream.close(p, st)
+
+def stale.stream(+name: String, +want: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool):
+  (p, r) = pr
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, name ++ ": open failed")
+    case Done{st}:
+      do IO<Http.Pool>:
+        got : Http.Stream & Bytes.Bytes & U32 <- local.gz.read(20n, GrRead{st, Bytes.new(0), 0})
+        stale.stream.end(p, name, want, got)
+
+# The server closes each pooled socket; each POST must take a new connection, not fail on the dead one.
+def stale.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  +base = "http://127.0.0.1:" ++ U32.show(port)
+  do IO<Unit>:
+    IO.spawn(Unit, stale.serve(l))
+    first : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.with(Http.pool.new(), "GET", base ++ "/a", Http.empty(), Bytes.new(0), 2000)
+    p1 : Http.Pool <- stale.got("stale pool: GET", "a", first)
+    IO.sleep(100)
+    second : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.with(p1, "POST", base ++ "/b", Http.empty(), Bytes.from_string("x"), 2000)
+    p2 : Http.Pool <- stale.got("stale pool: POST on a new connection after the server closed the idle one", "b", second)
+    IO.sleep(100)
+    third : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
+      Http.pool.open.with(p2, "POST", base ++ "/c", Http.empty(), Bytes.from_string("x"), 2000)
+    p3 : Http.Pool <- stale.stream("stale pool: streamed POST on a new connection after the server closed the idle one", "c", third)
+    Http.pool.close(p3)
 
 # The fetch.all server answers each path after 100 ms and closes its connection.
 # Sixteen requests therefore make sixteen connections, even with pooled workers.
@@ -758,12 +894,12 @@ def all.serve(n: Nat, l: Listener) -> IO(Unit):
 def all.path(+i: U32) -> String:
   "/" ++ U32.show(i)
 
-def all.reqs(n: Nat, +i: U32) -> List<Http.Fetch>:
+def all.reqs(n: Nat, +base: String, +i: U32) -> List<Http.Fetch>:
   match n:
     case 0n:
       Nil{}
     case 1n+p:
-      Http.Fetch{"GET", "http://127.0.0.1:47816" ++ all.path(i), Http.empty(), Bytes.new(0)} <> all.reqs(p, (i + 1 : U32))
+      Http.Fetch{"GET", base ++ all.path(i), Http.empty(), Bytes.new(0)} <> all.reqs(p, base, (i + 1 : U32))
 
 def all.paths(n: Nat, +i: U32) -> List<&2, String>:
   match n:
@@ -815,12 +951,12 @@ def all.timed(t0: Nat, rs: List<Result<&1, &1, Http.Err, Http.Res>>) -> IO(Unit)
     t1 : Nat <- IO.now()
     all.check((t1 - t0 : Nat), rs)
 
-def all.test() -> IO(Unit):
+def all.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47816))
     IO.spawn(Unit, all.serve(16n, l))
     t0 : Nat <- IO.now()
-    rs : List<Result<&1, &1, Http.Err, Http.Res>> <- Http.fetch.all(all.reqs(16n, 0), 8)
+    rs : List<Result<&1, &1, Http.Err, Http.Res>> <- Http.fetch.all(all.reqs(16n, "http://127.0.0.1:" ++ U32.show(port), 0), 8)
     all.timed(t0, rs)
     none : List<Result<&1, &1, Http.Err, Http.Res>> <- Http.fetch.all(Nil{}, 8)
     local.ok(all.same(all.bodies(none), Nil{}), "fetch.all: no requests, no results")
@@ -867,21 +1003,21 @@ def cookie.got(+name: String, +want: String, r: Http.Pool & Http.Jar & Result<&1
 def cookie.sent(+j: Http.Jar, url: String) -> String:
   Http.header(Http.jar.apply(j, url, Http.empty()), "cookie")
 
-def cookie.end(pj: Http.Pool & Http.Jar) -> IO(Unit):
+def cookie.end(+port: U32, pj: Http.Pool & Http.Jar) -> IO(Unit):
   (p, +j) = pj
   do IO<Unit>:
-    local.ok(String.eq(cookie.sent(j, "http://127.0.0.1:47817/"), "sid=abc; last=1"), "cookie jar kept redirect and final Set-Cookie")
-    local.ok(String.is_empty(cookie.sent(j, "http://localhost:47817/")), "cookie jar: host-only cookie not sent to another host")
+    local.ok(String.eq(cookie.sent(j, "http://127.0.0.1:" ++ U32.show(port) ++ "/"), "sid=abc; last=1"), "cookie jar kept redirect and final Set-Cookie")
+    local.ok(String.is_empty(cookie.sent(j, "http://localhost:" ++ U32.show(port) ++ "/")), "cookie jar: host-only cookie not sent to another host")
     Http.pool.close(p)
 
 # The jar the first fetch gave back is used again, with a caller cookie that must share one field.
-def cookie.again(pj: Http.Pool & Http.Jar) -> IO(Unit):
+def cookie.again(+port: U32, pj: Http.Pool & Http.Jar) -> IO(Unit):
   (p, j) = pj
   do IO<Unit>:
     r : Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch.jar(p, j, "GET", "http://127.0.0.1:47817/home", Http.set(Http.empty(), "Cookie", "pre=1"), Bytes.new(0))
+      Http.pool.fetch.jar(p, j, "GET", "http://127.0.0.1:" ++ U32.show(port) ++ "/home", Http.set(Http.empty(), "Cookie", "pre=1"), Bytes.new(0))
     pj2 : Http.Pool & Http.Jar <- cookie.got("cookie jar: caller cookie and jar in one field", "pre=1; sid=abc; last=1", r)
-    cookie.end(pj2)
+    cookie.end(port, pj2)
 
 def cookie.flags(cs: List<&2, Http.Cookie>) -> String:
   match cs:
@@ -911,20 +1047,20 @@ def cookie.pure(+now: Time.Instant) -> IO(Unit):
     local.ok(String.is_empty(cookie.sent(cookie.stored(now, "https://s.example/", "__Secure-c=1"), "https://s.example/")), "cookie __Secure- without Secure ignored")
 
 # A redirect that sets a cookie: the next hop, on the same fetch, must send it.
-def cookie.live(+now: Time.Instant) -> IO(Unit):
+def cookie.live(+now: Time.Instant, lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
   do IO<Unit>:
     cookie.pure(now)
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47817))
     IO.spawn(Unit, cookie.serve(l))
     r : Http.Pool & Http.Jar & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch.jar(Http.pool.new(), Http.jar.new(now), "GET", "http://127.0.0.1:47817/login", Http.empty(), Bytes.new(0))
+      Http.pool.fetch.jar(Http.pool.new(), Http.jar.new(now), "GET", "http://127.0.0.1:" ++ U32.show(port) ++ "/login", Http.empty(), Bytes.new(0))
     pj : Http.Pool & Http.Jar <- cookie.got("cookie jar: redirect cookie reached the next hop", "sid=abc", r)
-    cookie.again(pj)
+    cookie.again(port, pj)
 
-def cookie.test() -> IO(Unit):
+def cookie.test(lp: Listener & U32) -> IO(Unit):
   do IO<Unit>:
     now : Time.Instant <- Time.now()
-    cookie.live(now)
+    cookie.live(now, lp)
 
 # cookie.srv, one connection per accept, then the listener closes.
 def redir.serve(n: Nat, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
@@ -944,12 +1080,12 @@ def redir.start(l: Listener) -> IO(Unit):
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     redir.serve(4n, inbox, l)
 
-def redir.jar(m: Maybe<&2, Http.Jar>) -> String:
+def redir.jar(url: String, m: Maybe<&2, Http.Jar>) -> String:
   match m:
     case None{}:
       "no jar"
     case Some{j}:
-      cookie.sent(j, "http://127.0.0.1:47818/")
+      cookie.sent(j, url)
 
 def redir.error(x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
   (m, r) = x
@@ -981,20 +1117,21 @@ def redir.manual(x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>)
       redir.manual.res(Http.stream.res(st))
 
 # /login answers 302 to /home with a cookie; /home echoes the cookies it got.
-def redir.test() -> IO(Unit):
+def redir.test(lp: Listener & U32) -> IO(Unit):
+  (l, +port) = lp
+  +base = "http://127.0.0.1:" ++ U32.show(port)
   do IO<Unit>:
     now : Time.Instant <- Time.now()
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47818))
     IO.spawn(Unit, redir.start(l))
     followed : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.how(Http.ModeFollow{}, None{}, "", Some{Http.jar.new(now)}, "GET", "http://127.0.0.1:47818/login", Http.empty(), Bytes.new(0), 2000)
+      Http.open.how(Http.ModeFollow{}, None{}, "", Some{Http.jar.new(now)}, "GET", base ++ "/login", Http.empty(), Bytes.new(0), 2000)
     j : Maybe<&2, Http.Jar> <- opened.got("stream jar: Set-Cookie on the first hop is sent on the second", "sid=abc", followed)
-    local.ok(String.eq(redir.jar(j), "sid=abc; last=1"), "stream jar comes back with both Set-Cookie fields")
+    local.ok(String.eq(redir.jar(base ++ "/", j), "sid=abc; last=1"), "stream jar comes back with both Set-Cookie fields")
     failed : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.how(Http.ModeError{}, None{}, "", None{}, "GET", "http://127.0.0.1:47818/login", Http.empty(), Bytes.new(0), 2000)
+      Http.open.how(Http.ModeError{}, None{}, "", None{}, "GET", base ++ "/login", Http.empty(), Bytes.new(0), 2000)
     redir.error(failed)
     manual : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.how(Http.ModeManual{}, None{}, "", None{}, "GET", "http://127.0.0.1:47818/login", Http.empty(), Bytes.new(0), 2000)
+      Http.open.how(Http.ModeManual{}, None{}, "", None{}, "GET", base ++ "/login", Http.empty(), Bytes.new(0), 2000)
     redir.manual(manual)
 
 def limits.overflow(turn: Http.Turn) -> Bool:
@@ -1055,20 +1192,28 @@ def main() -> IO(Unit):
     IO.print(Bytes.to_string(Http.res_body(Http.parse_res("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"))))
     IO.print(Http.sanitize("a\rb\nc"))
     h2.check()
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47811))
-    pool.run(Http.pool.new(), "yyn")
-    pool.run(Http.pool.new.with(1), "ynn")
-    Listener.close(l)
-    r : Result<&1, &1, U32 & String, Listener & U32> <- test.listen6(0)
+    pl : Listener & U32 <- local.listen()
+    pool.test(pl)
+    r : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen("::1", 0)
     local.ipv6(r)
-    local.fallback()
-    local.gz.test()
+    fl : Listener & U32 <- local.listen()
+    local.fallback(fl)
+    gl : Listener & U32 <- local.listen()
+    local.gz.test(gl)
     resolve.check()
-    retry.test()
-    local.proxy.test()
-    spool.test()
-    all.test()
-    cookie.test()
-    redir.test()
+    rl : Listener & U32 <- local.listen()
+    retry.test(rl)
+    xl : Listener & U32 <- local.listen()
+    local.proxy.test(xl)
+    sl : Listener & U32 <- local.listen()
+    spool.test(sl)
+    tl : Listener & U32 <- local.listen()
+    stale.test(tl)
+    al : Listener & U32 <- local.listen()
+    all.test(al)
+    cl : Listener & U32 <- local.listen()
+    cookie.test(cl)
+    dl : Listener & U32 <- local.listen()
+    redir.test(dl)
     args : List<&1, String> <- IO.args()
     mtls.args(List.tail(&1, String, args))

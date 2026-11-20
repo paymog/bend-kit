@@ -1,7 +1,7 @@
 # Cryptography
 
 ```bend
-import bend-kit-crypto@0.2.2.1/crypto.bend as Crypto
+import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
 ```
 
 Set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path. `random.words` uses the OS generator and does not load libcrypto.

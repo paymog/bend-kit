@@ -3,11 +3,11 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.38.0.0/http.bend as Http
-import bend-kit-http@0.38.0.0/completion.bend as Completion
+import bend-kit-http@0.38.6.0/http.bend as Http
+import bend-kit-http@0.38.6.0/completion.bend as Completion
 ```
 
-`Http.Body` uses `bend-kit-bytes@0.3.3.0`. JSON values for `post.json` use `bend-kit-json@0.7.0.0`. DNS lookup uses `bend-kit-dns@0.7.0.0`. TLS uses `bend-kit-wire@0.4.6.2`.
+`Http.Body` uses `bend-kit-bytes@0.3.3.0`. JSON values for `post.json` use `bend-kit-json@0.7.2.0`. DNS lookup uses `bend-kit-dns@0.7.1.0`. TLS uses `bend-kit-wire@0.4.8.0`.
 
 HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if `libssl` is not on the default path. A body over about 30 KB overflows `bend file.bend`. Build with `bend file.bend -o app`.
 
@@ -15,7 +15,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.38.0.0/http.bend as Http
+import bend-kit-http@0.38.6.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -73,9 +73,9 @@ A response over 16 MiB of body or 64 KiB of head is `ErrBad`. `Content-Length` t
 
 `open` follows redirects and returns a `Stream` when the head is in. `stream.res` is the status and headers. `stream.read` is the next decoded piece, or `None` at the end. `stream.close` closes the socket. `open.raw` returns bytes as sent. `open.how(mode, cert, ca, jar, method, url, headers, body, ms)` opens a stream as `fetch` sends a request: `mode` decides what a redirect does, `cert` and the CA file `ca` follow only same-origin hops (`""` trusts the default store, as in `fetch.ca`), and the jar, when it is `Some`, sends and stores cookies on every hop. It returns the jar beside the stream. `open.raw.how` does the same with bytes as sent. `upload` sends a chunked body. `upload.how(cert, ca, method, url, headers, ms)` does the same with a client certificate and a CA file. `upload.write` sends one piece. `upload.finish` ends the body and returns the response as a `Stream`. Uploads do not follow redirects.
 
-`pool.fetch` is `fetch` on a pool of idle sockets. It returns the pool beside the result. Pass that pool on. `pool.close` closes the idle sockets. The default cap is 8 idle sockets per origin. `pool.new.with(cap)` sets another. A reused socket that fails before any response byte is retried once for GET, HEAD, OPTIONS, TRACE, PUT, and DELETE. For an HTTP/2 origin, the pool keeps one session and closes it after GOAWAY.
+`pool.fetch` is `fetch` on a pool of idle sockets. It returns the pool beside the result. Pass that pool on. `pool.close` closes the idle sockets. The default cap is 8 idle sockets per origin. `pool.new.with(cap)` sets another. Before it reuses an idle HTTP/1.1 socket, the pool peeks it with `Wire.idle`. A socket that the server closed, or that has bytes waiting, is closed, and the next idle socket or a new one is used, for every method. `pool.take.live` is that take. A server can still close a socket between the peek and the request. Then a reused socket that fails before any response byte is retried once for GET, HEAD, OPTIONS, TRACE, PUT, and DELETE. For an HTTP/2 origin, the pool keeps one session and closes it after GOAWAY.
 
-`pool.open(p, method, url, headers, body)` is `open` on a pool. It takes an idle socket to the origin when the pool has one, else it dials, and it returns the pool beside the stream. `pool.open.with` sets the timeout, and `pool.open.how` and `pool.open.raw.how` take the choices of `open.how` and `open.raw.how`. A reused socket that fails before any response byte is retried once on a new socket, for the same methods as `pool.fetch`. `pool.stream.close(p, st)` gives the socket back to the pool when the body was read to its end and decoded cleanly. It closes the socket when the stream ends early, a decoder fails, the server sent `Connection: close` or a close-delimited body, or bytes came past the body. A stream speaks HTTP/1.1 only, so an HTTP/2 session in the pool stays there and the stream dials its own socket. A redirect with an empty body gives its socket back before the next hop. `open` uses a pool of its own for one stream, so `stream.close` still closes the socket.
+`pool.open(p, method, url, headers, body)` is `open` on a pool. It takes an idle socket to the origin when the pool has one, after the same peek as `pool.fetch`, else it dials, and it returns the pool beside the stream. `pool.open.with` sets the timeout, and `pool.open.how` and `pool.open.raw.how` take the choices of `open.how` and `open.raw.how`. A reused socket that fails before any response byte is retried once on a new socket, for the same methods as `pool.fetch`. `pool.stream.close(p, st)` gives the socket back to the pool when the body was read to its end and decoded cleanly. It closes the socket when the stream ends early, a decoder fails, the server sent `Connection: close` or a close-delimited body, or bytes came past the body. A stream speaks HTTP/1.1 only, so an HTTP/2 session in the pool stays there and the stream dials its own socket. A redirect with an empty body gives its socket back before the next hop. `open` uses a pool of its own for one stream, so `stream.close` still closes the socket.
 
 `fetch.all(reqs, n)` runs each `Fetch{method, url, headers, body}` on at most `n` workers. Each worker owns a pool. Results stay in request order. A failure is a `Fail` in its place.
 
@@ -87,8 +87,8 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.38.0.0/http.bend as Http
-import bend-kit-http@0.38.0.0/completion.bend as Completion
+import bend-kit-http@0.38.6.0/http.bend as Http
+import bend-kit-http@0.38.6.0/completion.bend as Completion
 
 def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
@@ -108,7 +108,7 @@ def main() -> IO(Unit):
 
 `server.start` returns your affine owner beside `Done{server}` or a `StartupError`. `InvalidConfig` and `BindError` both return the owner, so you can close it. `Done` means the listener is accepting. Do not treat a failure as ready.
 
-`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.6.2`.
+`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.8.0`.
 
 `server.run` consumes the server and returns `ServerExit` after the listener is closed and the accepted work has returned. `server.close` does that close and returns the counts. It waits until handlers and cleanup callbacks return. It can wait forever. `server.stop` refuses new admission and returns `True` the first time. Stop is not drain. You still run or close the server. A callback that does not return is not cancelled. An external supervisor has to enforce a process deadline.
 

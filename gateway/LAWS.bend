@@ -1,8 +1,8 @@
 import Base
 import bend-kit-authz@0.1.0.0/authz.bend as Az
 import bend-kit-resources@0.1.0.0/resources.bend as Res
-import bend-kit-cache@0.3.0.0/cache.bend as C
-import bend-kit-collections@0.1.4.1/omap.bend as OMap
+import bend-kit-cache@0.3.1.0/cache.bend as C
+import bend-kit-collections@0.1.5.0/omap.bend as OMap
 import ./gateway.bend as G
 
 # A gate as copyable data: the pool, the owner and units of the joined grant, and the cache.

@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "mustache": "4.2.0"
+  },
+  "devDependencies": {
+    "@types/mustache": "4.2.6"
+  }
+}

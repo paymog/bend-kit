@@ -25,12 +25,17 @@ if [ "${1:-native}" = js ]; then
 else
   bend ca_check.bend -o "$dir/ca_check"
 fi
-openssl s_server -accept 39445 -cert "$dir/server.pem" -key "$dir/server.key" \
-  -tls1_2 -quiet -naccept 4 >"$dir/server.log" 2>&1 &
+python3 "$here/tls-server.py" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
-sleep 1
+i=0
+while [ ! -s "$dir/ports" ]; do
+  i=$((i + 1))
+  [ "$i" -le 100 ] || { cat "$dir/server.log" >&2; exit 1; }
+  sleep 0.1
+done
+read -r port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  bun "$dir/ca_check.js" "$dir/ca.pem"
+  bun "$dir/ca_check.js" "$dir/ca.pem" "$port"
 else
-  "$dir/ca_check" "$dir/ca.pem"
+  "$dir/ca_check" "$dir/ca.pem" "$port"
 fi

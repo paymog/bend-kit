@@ -1,7 +1,8 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/list.bend as MList
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/list.bend as MList
 import ../lemmas/lemmas.bend as Lemmas
 import ./LAWS.bend as Laws
 import ./websocket.bend as WS
@@ -239,7 +240,7 @@ def key_more(m: Bool, t: List<&2, U32>, q: List<&2, U32>, +masked: Bool, +b0: U3
         case Con{k0, Con{k1, Con{k2, Nil{}}}}:
           {==}
         case Con{+k0, Con{+k1, Con{+k2, Con{+k3, r}}}}:
-          decided(WS.header.check(masked, b0, True{}, (k0 .|. (k1 << 8n) .|. (k2 << 16n) .|. (k3 << 24n) : U32), (hs + 4 : U32), hi, len))
+          decided(WS.header.check(masked, b0, True{}, WS.be32(k3, k2, k1, k0), (hs + 4 : U32), hi, len))
     case False{}:
       decided(WS.header.check(masked, b0, False{}, 0, hs, hi, len))
 
@@ -251,7 +252,7 @@ def ext16_more(t: List<&2, U32>, q: List<&2, U32>, +masked: Bool, +b0: U32, +m: 
     case Con{x, Nil{}}:
       {==}
     case Con{+x, Con{+y, r}}:
-      key_more(m, r, q, masked, b0, 4, 0, ((x << 8n) .|. y : U32))
+      key_more(m, r, q, masked, b0, 4, 0, (x * 256 + y : U32))
 
 def ext64_more(t: List<&2, U32>, q: List<&2, U32>, +masked: Bool, +b0: U32, +m: Bool) ->
   {WS.header.ext64(cat(t, q), masked, b0, m) == known(WS.header.ext64(t, masked, b0, m), WS.header.ext64(cat(t, q), masked, b0, m)) : WS.Header}:
@@ -313,7 +314,7 @@ def le_sub_of_add_le(a: Nat, b: Nat, c: Nat, h: MNat.le(Nat.add(a, b), c)) -> MN
     case 0n 1n+q:
       h
     case 1n+p 0n:
-      Empty.absurd(MNat.le(b, Nat.sub(0n, 1n+p)), MNat.internal_false_ne_true(h))
+      Empty.absurd(MNat.le(b, Nat.sub(0n, 1n+p)), MBool.false_ne_true()(h))
     case 1n+p 1n+q:
       le_sub_of_add_le(p, b, q, h)
 
@@ -539,7 +540,7 @@ def key_hs(m: Bool, t: List<&2, U32>, +masked: Bool, +b0: U32, +hs: U32, +hi: U3
         case Con{k0, Con{k1, Con{k2, Nil{}}}}:
           Unit{}
         case Con{+k0, Con{+k1, Con{+k2, Con{+k3, r}}}}:
-          check_hs(masked, b0, True{}, (k0 .|. (k1 << 8n) .|. (k2 << 16n) .|. (k3 << 24n) : U32), (hs + 4 : U32), hi, len, h4)
+          check_hs(masked, b0, True{}, WS.be32(k3, k2, k1, k0), (hs + 4 : U32), hi, len, h4)
     case False{}:
       check_hs(masked, b0, False{}, 0, hs, hi, len, h0)
 
@@ -550,7 +551,7 @@ def ext16_hs(t: List<&2, U32>, +masked: Bool, +b0: U32, +m: Bool) -> hsize(WS.he
     case Con{x, Nil{}}:
       Unit{}
     case Con{+x, Con{+y, r}}:
-      key_hs(m, r, masked, b0, 4, 0, ((x << 8n) .|. y : U32), ({==}, {==}), ({==}, {==}))
+      key_hs(m, r, masked, b0, 4, 0, (x * 256 + y : U32), ({==}, {==}), ({==}, {==}))
 
 def ext64_hs(t: List<&2, U32>, +masked: Bool, +b0: U32, +m: Bool) -> hsize(WS.header.ext64(t, masked, b0, m)):
   match t:
@@ -609,26 +610,29 @@ def take_len(+xs: List<&2, U32>, +n: Nat, h: MNat.le(n, List.length(&2, U32, xs)
     case Nil{} 0n:
       {==}
     case Nil{} 1n+p:
-      Empty.absurd({List.length(&2, U32, List.take(&2, U32, Nil{}, 1n+p)) == 1n+p : Nat}, MNat.internal_false_ne_true(h))
+      Empty.absurd({List.length(&2, U32, List.take(&2, U32, Nil{}, 1n+p)) == 1n+p : Nat}, MBool.false_ne_true()(h))
     case Con{x, t} 0n:
       {==}
     case Con{x, +t} 1n+p:
       %take_len(t, p, h) : {1n+List.length(&2, U32, List.take(&2, U32, t, p)) == 1n+_ : Nat}
       {==}
 
-def unmask_len(xs: List<&2, U32>, +key: U32) -> {List.length(&2, U32, WS.list.unmask.go(xs, key)) == List.length(&2, U32, xs) : Nat}:
+def unmask_len(xs: List<&2, U32>, +a: U32, +b: U32, +c: U32, +d: U32) -> {List.length(&2, U32, WS.list.unmask.go(xs, a, b, c, d)) == List.length(&2, U32, xs) : Nat}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +t}:
-      %unmask_len(t, ((key >> 8n) .|. (key << 24n) : U32)) :
-        {1n+List.length(&2, U32, WS.list.unmask.go(t, ((key >> 8n) .|. (key << 24n) : U32))) == 1n+_ : Nat}
+      %unmask_len(t, b, c, d, a) :
+        {1n+List.length(&2, U32, WS.list.unmask.go(t, b, c, d, a)) == 1n+_ : Nat}
       {==}
+
+def unmask_key_len(xs: List<&2, U32>, +key: U32) -> {List.length(&2, U32, WS.list.unmask(key, xs)) == List.length(&2, U32, xs) : Nat}:
+  unmask_len(xs, (key % 256 : U32), ((key / 256) % 256 : U32), (((key / 256) / 256) % 256 : U32), (((key / 256) / 256) / 256 : U32))
 
 def unmask_when_len(m: Bool, +key: U32, +ys: List<&2, U32>) -> {List.length(&2, U32, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, key, ys)) == List.length(&2, U32, ys) : Nat}:
   match m:
     case True{}:
-      unmask_len(ys, key)
+      unmask_key_len(ys, key)
     case False{}:
       {==}
 
@@ -693,9 +697,9 @@ def Laws.got_suffix(masked, max, xs, f, r, e):
 def progress_nat(+k: Nat, +l: Nat, h1: MNat.le(1n, k), h2: MNat.le(k, l)) -> MNat.lt(Nat.sub(l, k), l):
   match k l:
     case 0n _:
-      Empty.absurd(MNat.lt(Nat.sub(l, 0n), l), MNat.internal_false_ne_true(h1))
+      Empty.absurd(MNat.lt(Nat.sub(l, 0n), l), MBool.false_ne_true()(h1))
     case 1n+a 0n:
-      Empty.absurd(MNat.lt(Nat.sub(0n, 1n+a), 0n), MNat.internal_false_ne_true(h2))
+      Empty.absurd(MNat.lt(Nat.sub(0n, 1n+a), 0n), MBool.false_ne_true()(h2))
     case 1n+a 1n+b:
       MNat.sub_lt(b, a)
 
@@ -771,7 +775,7 @@ def key_long(m: Bool, +k0: U32, +k1: U32, +k2: U32, +k3: U32, +r: List<&2, U32>,
   {is_need(WS.header.key(m, Con{k0, Con{k1, Con{k2, Con{k3, r}}}}, masked, b0, hs, hi, len)) == False{} : Bool}:
   match m:
     case True{}:
-      check_decided(masked, b0, True{}, (k0 .|. (k1 << 8n) .|. (k2 << 16n) .|. (k3 << 24n) : U32), (hs + 4 : U32), hi, len)
+      check_decided(masked, b0, True{}, WS.be32(k3, k2, k1, k0), (hs + 4 : U32), hi, len)
     case False{}:
       check_decided(masked, b0, False{}, 0, hs, hi, len)
 
@@ -783,7 +787,7 @@ def ext_long(short: Bool, mid: Bool, +masked: Bool, +b0: U32, +m: Bool, +l7: U32
     case False{}:
       match mid:
         case True{}:
-          key_long(m, c5, c6, c7, c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Con{c14, rest}}}}}}, masked, b0, 4, 0, ((c3 << 8n) .|. c4 : U32))
+          key_long(m, c5, c6, c7, c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Con{c14, rest}}}}}}, masked, b0, 4, 0, (c3 * 256 + c4 : U32))
         case False{}:
           key_long(m, c11, c12, c13, c14, rest, masked, b0, 10, WS.be32(c3, c4, c5, c6), WS.be32(c7, c8, c9, c10))
 
@@ -800,33 +804,33 @@ def header_long(p: List<&2, U32>, +masked: Bool, h: MNat.le(14n, List.length(&2,
   {is_need(WS.header(p, masked)) == False{} : Bool}:
   match p:
     case Nil{}:
-      Empty.absurd({is_need(WS.header(Nil{}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Nil{}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Nil{}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Nil{}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Nil{}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Nil{}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Nil{}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Nil{}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Nil{}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Nil{}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Nil{}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Nil{}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Nil{}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Nil{}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Nil{}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Nil{}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Nil{}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Nil{}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Nil{}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Nil{}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Nil{}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Nil{}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Nil{}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Nil{}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Nil{}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Nil{}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Nil{}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Nil{}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Nil{}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Nil{}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Nil{}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Nil{}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Nil{}}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Nil{}}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Nil{}}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Nil{}}}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Nil{}}}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Nil{}}}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Nil{}}}}}}}}}}}}}}:
-      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Nil{}}}}}}}}}}}}}}, masked)) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({is_need(WS.header(Con{c1, Con{c2, Con{c3, Con{c4, Con{c5, Con{c6, Con{c7, Con{c8, Con{c9, Con{c10, Con{c11, Con{c12, Con{c13, Nil{}}}}}}}}}}}}}}, masked)) == False{} : Bool}, MBool.false_ne_true()(h))
     case Con{+c1, Con{+c2, Con{+c3, Con{+c4, Con{+c5, Con{+c6, Con{+c7, Con{+c8, Con{+c9, Con{+c10, Con{+c11, Con{+c12, Con{+c13, Con{+c14, rest}}}}}}}}}}}}}}:
       b1_long(U32.is_le(128, c2), masked, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, rest)
 
@@ -840,7 +844,7 @@ def need_short.c(+masked: Bool, +max: U32, +xs: List<&2, U32>, c: Bool, +ec: {Na
   match c:
     case True{}:
       +hl = header_long(xs, masked, ec)
-      Empty.absurd(MNat.lt(List.length(&2, U32, xs), Nat.add(14n, U32.to_nat(max))), MNat.internal_false_ne_true(need_clash(xs, masked, eh, hl)))
+      Empty.absurd(MNat.lt(List.length(&2, U32, xs), Nat.add(14n, U32.to_nat(max))), MBool.false_ne_true()(need_clash(xs, masked, eh, hl)))
     case False{}:
       MNat.lt_of_lt_of_le(List.length(&2, U32, xs), 14n, Nat.add(14n, U32.to_nat(max)), MNat.lt_of_not_le(14n, List.length(&2, U32, xs), ec), MNat.le_add_right(14n, U32.to_nat(max)))
 
@@ -890,7 +894,7 @@ def add_le_of_le_sub(+a: Nat, +b: Nat, +c: Nat, h1: MNat.le(b, c), h2: MNat.le(a
     case 0n 1n+q:
       h2
     case 1n+p 0n:
-      Empty.absurd(MNat.le(Nat.add(1n+p, a), 0n), MNat.internal_false_ne_true(h1))
+      Empty.absurd(MNat.le(Nat.add(1n+p, a), 0n), MBool.false_ne_true()(h1))
     case 1n+p 1n+q:
       add_le_of_le_sub(a, p, q, h1, h2)
 
@@ -929,21 +933,7 @@ def Laws.cut_within(pos, end, hs, len, le, h):
   %Equal.sym(Nat, U32.to_nat(((pos + hs : U32) + len : U32)), Nat.add(U32.to_nat(pos), Nat.add(U32.to_nat(hs), U32.to_nat(len))), Laws.cut_exact(pos, end, hs, len, le, h)) : MNat.le(_, U32.to_nat(end))
   cut.within(pos, end, hs, len, le, h)
 
-def lt32(+n: Nat, h: MNat.le(n, 125n)) -> MNat.lt(n, Lemmas.pow2(32n)):
-  MNat.lt_of_le_of_lt(n, U32.to_nat(125), Lemmas.pow2(32n), h, Lemmas.u32_to_nat_lt(125))
-
-def b1_nat(+n: Nat, h: MNat.le(n, 125n)) -> {U32.to_nat(U32.from_nat(n)) == n : Nat}:
-  Lemmas.u32_to_from_nat(n, lt32(n, h))
-
-def b1_m(+n: Nat, +h: MNat.le(n, 125n)) -> {U32.is_le(128, U32.from_nat(n)) == False{} : Bool}:
-  %Equal.sym(Bool, U32.is_le(128, U32.from_nat(n)), Nat.is_le(U32.to_nat(128), U32.to_nat(U32.from_nat(n))), Lemmas.u32_is_le_nat(128, U32.from_nat(n))) : {_ == False{} : Bool}
-  %Equal.sym(Nat, U32.to_nat(U32.from_nat(n)), n, b1_nat(n, h)) : {Nat.is_le(U32.to_nat(128), _) == False{} : Bool}
-  MNat.not_le_of_lt(n, U32.to_nat(128), MNat.lt_of_le_of_lt(n, 125n, U32.to_nat(128), h, {==}))
-
-def b1_s(+n: Nat, +h: MNat.le(n, 125n)) -> {U32.is_lt(U32.from_nat(n), 126) == True{} : Bool}:
-  %Equal.sym(Bool, U32.is_lt(U32.from_nat(n), 126), Nat.is_lt(U32.to_nat(U32.from_nat(n)), U32.to_nat(126)), Lemmas.u32_is_lt_nat(U32.from_nat(n), 126)) : {_ == True{} : Bool}
-  %Equal.sym(Nat, U32.to_nat(U32.from_nat(n)), n, b1_nat(n, h)) : {Nat.is_lt(_, U32.to_nat(126)) == True{} : Bool}
-  MNat.lt_of_le_of_lt(n, 125n, U32.to_nat(126), h, {==})
+# Frames in every length form, masked or not.
 
 def le_not_gt(c: Cmp, h: {Cmp.is_le(c) == True{} : Bool}) -> {Cmp.is_gt(c) == False{} : Bool}:
   match c:
@@ -952,106 +942,508 @@ def le_not_gt(c: Cmp, h: {Cmp.is_le(c) == True{} : Bool}) -> {Cmp.is_gt(c) == Fa
     case EQ{}:
       {==}
     case GT{}:
-      Empty.absurd({Cmp.is_gt(GT{}) == False{} : Bool}, MNat.internal_false_ne_true(h))
+      Empty.absurd({Cmp.is_gt(GT{}) == False{} : Bool}, MBool.false_ne_true()(h))
 
-def b1_g(+n: Nat, +h: MNat.le(n, 125n)) -> {U32.is_gt(U32.from_nat(n), 125) == False{} : Bool}:
-  %Equal.sym(Cmp, U32.cmp(U32.from_nat(n), 125), Nat.cmp(U32.to_nat(U32.from_nat(n)), U32.to_nat(125)), Lemmas.u32_cmp_nat(U32.from_nat(n), 125)) : {Cmp.is_gt(_) == False{} : Bool}
-  %Equal.sym(Nat, U32.to_nat(U32.from_nat(n)), n, b1_nat(n, h)) : {Cmp.is_gt(Nat.cmp(_, U32.to_nat(125))) == False{} : Bool}
+def gt_false(+L: U32, +n: Nat, eL: {U32.to_nat(L) == n : Nat}, h: MNat.le(n, 125n)) -> {U32.is_gt(L, 125) == False{} : Bool}:
+  %Equal.sym(Cmp, U32.cmp(L, 125), Nat.cmp(U32.to_nat(L), U32.to_nat(125)), Lemmas.u32_cmp_nat(L, 125)) : {Cmp.is_gt(_) == False{} : Bool}
+  %Equal.sym(Nat, U32.to_nat(L), n, eL) : {Cmp.is_gt(Nat.cmp(_, U32.to_nat(125))) == False{} : Bool}
   le_not_gt(Nat.cmp(n, U32.to_nat(125)), h)
 
-def b1_z(+max: U32, +n: Nat, +h: MNat.le(n, 125n), fit: MNat.le(n, U32.to_nat(max))) -> {U32.is_lt(max, U32.from_nat(n)) == False{} : Bool}:
-  %Equal.sym(Bool, U32.is_lt(max, U32.from_nat(n)), Nat.is_lt(U32.to_nat(max), U32.to_nat(U32.from_nat(n))), Lemmas.u32_is_lt_nat(max, U32.from_nat(n))) : {_ == False{} : Bool}
-  %Equal.sym(Nat, U32.to_nat(U32.from_nat(n)), n, b1_nat(n, h)) : {Nat.is_lt(U32.to_nat(max), _) == False{} : Bool}
-  MNat.not_lt_of_le(n, U32.to_nat(max), fit)
+def b0(+fin: Bool, +o: Laws.Op) -> U32:
+  (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32)
 
-# The header of an unmasked frame with a 7-bit length, decoded on a client.
-def rt_check(+fin: Bool, +o: Laws.Op, +b1: U32, ok: {Laws.op.ok(fin, o) == True{} : Bool}, hg: {U32.is_gt(b1, 125) == False{} : Bool}) ->
-  {WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}:
-  match fin o:
-    case True{} Laws.OCont{}:
+# The header of a frame the laws build, once its fields are read.
+def rt_check(m: Bool, +fin: Bool, +o: Laws.Op, +K: U32, +hs: U32, +L: U32, +n: Nat, +eL: {U32.to_nat(L) == n : Nat}, ok: {Laws.op.ok(o, fin, n) == True{} : Bool}) ->
+  {WS.header.check(m, b0(fin, o), m, K, hs, 0, L) == WS.HOk{fin, Laws.op.code(o), m, K, hs, L} : WS.Header}:
+  match m fin o:
+    case True{} True{} Laws.OCont{}:
       {==}
-    case True{} Laws.OText{}:
+    case True{} True{} Laws.OText{}:
       {==}
-    case True{} Laws.OBin{}:
+    case True{} True{} Laws.OBin{}:
       {==}
-    case True{} Laws.OClose{}:
-      %Equal.sym(Bool, U32.is_gt(b1, 125), False{}, hg) :
-        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 8, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 8, False{}, 0, 2, b1) == WS.HOk{True{}, 8, False{}, 0, 2, b1} : WS.Header}
+    case True{} True{} Laws.OClose{}:
+      %Equal.sym(Bool, U32.is_gt(L, 125), False{}, gt_false(L, n, eL, ok)) :
+        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 8, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 8, True{}, K, hs, L) == WS.HOk{True{}, 8, True{}, K, hs, L} : WS.Header}
       {==}
-    case True{} Laws.OPing{}:
-      %Equal.sym(Bool, U32.is_gt(b1, 125), False{}, hg) :
-        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 9, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 9, False{}, 0, 2, b1) == WS.HOk{True{}, 9, False{}, 0, 2, b1} : WS.Header}
+    case True{} True{} Laws.OPing{}:
+      %Equal.sym(Bool, U32.is_gt(L, 125), False{}, gt_false(L, n, eL, ok)) :
+        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 9, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 9, True{}, K, hs, L) == WS.HOk{True{}, 9, True{}, K, hs, L} : WS.Header}
       {==}
-    case True{} Laws.OPong{}:
-      %Equal.sym(Bool, U32.is_gt(b1, 125), False{}, hg) :
-        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 10, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 10, False{}, 0, 2, b1) == WS.HOk{True{}, 10, False{}, 0, 2, b1} : WS.Header}
+    case True{} True{} Laws.OPong{}:
+      %Equal.sym(Bool, U32.is_gt(L, 125), False{}, gt_false(L, n, eL, ok)) :
+        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 10, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 10, True{}, K, hs, L) == WS.HOk{True{}, 10, True{}, K, hs, L} : WS.Header}
       {==}
-    case False{} Laws.OCont{}:
+    case True{} False{} Laws.OCont{}:
       {==}
-    case False{} Laws.OText{}:
+    case True{} False{} Laws.OText{}:
       {==}
-    case False{} Laws.OBin{}:
+    case True{} False{} Laws.OBin{}:
       {==}
-    case False{} Laws.OClose{}:
-      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MNat.internal_false_ne_true(ok))
-    case False{} Laws.OPing{}:
-      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MNat.internal_false_ne_true(ok))
-    case False{} Laws.OPong{}:
-      Empty.absurd({WS.header.check(False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, 0, 2, 0, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}, MNat.internal_false_ne_true(ok))
+    case True{} False{} Laws.OClose{}:
+      Empty.absurd({WS.header.check(True{}, b0(False{}, Laws.OClose{}), True{}, K, hs, 0, L) == WS.HOk{False{}, 8, True{}, K, hs, L} : WS.Header}, MBool.false_ne_true()(ok))
+    case True{} False{} Laws.OPing{}:
+      Empty.absurd({WS.header.check(True{}, b0(False{}, Laws.OPing{}), True{}, K, hs, 0, L) == WS.HOk{False{}, 9, True{}, K, hs, L} : WS.Header}, MBool.false_ne_true()(ok))
+    case True{} False{} Laws.OPong{}:
+      Empty.absurd({WS.header.check(True{}, b0(False{}, Laws.OPong{}), True{}, K, hs, 0, L) == WS.HOk{False{}, 10, True{}, K, hs, L} : WS.Header}, MBool.false_ne_true()(ok))
+    case False{} True{} Laws.OCont{}:
+      {==}
+    case False{} True{} Laws.OText{}:
+      {==}
+    case False{} True{} Laws.OBin{}:
+      {==}
+    case False{} True{} Laws.OClose{}:
+      %Equal.sym(Bool, U32.is_gt(L, 125), False{}, gt_false(L, n, eL, ok)) :
+        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 8, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 8, False{}, K, hs, L) == WS.HOk{True{}, 8, False{}, K, hs, L} : WS.Header}
+      {==}
+    case False{} True{} Laws.OPing{}:
+      %Equal.sym(Bool, U32.is_gt(L, 125), False{}, gt_false(L, n, eL, ok)) :
+        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 9, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 9, False{}, K, hs, L) == WS.HOk{True{}, 9, False{}, K, hs, L} : WS.Header}
+      {==}
+    case False{} True{} Laws.OPong{}:
+      %Equal.sym(Bool, U32.is_gt(L, 125), False{}, gt_false(L, n, eL, ok)) :
+        {WS.header.verdict(WS.first(WS.rules.big(True{}, 0, 10, _), WS.first(WS.reject(False{}, 1002, "mask bit does not match the peer's role"), WS.reject(False{}, 1009, "frame over the size limit"))), True{}, 10, False{}, K, hs, L) == WS.HOk{True{}, 10, False{}, K, hs, L} : WS.Header}
+      {==}
+    case False{} False{} Laws.OCont{}:
+      {==}
+    case False{} False{} Laws.OText{}:
+      {==}
+    case False{} False{} Laws.OBin{}:
+      {==}
+    case False{} False{} Laws.OClose{}:
+      Empty.absurd({WS.header.check(False{}, b0(False{}, Laws.OClose{}), False{}, K, hs, 0, L) == WS.HOk{False{}, 8, False{}, K, hs, L} : WS.Header}, MBool.false_ne_true()(ok))
+    case False{} False{} Laws.OPing{}:
+      Empty.absurd({WS.header.check(False{}, b0(False{}, Laws.OPing{}), False{}, K, hs, 0, L) == WS.HOk{False{}, 9, False{}, K, hs, L} : WS.Header}, MBool.false_ne_true()(ok))
+    case False{} False{} Laws.OPong{}:
+      Empty.absurd({WS.header.check(False{}, b0(False{}, Laws.OPong{}), False{}, K, hs, 0, L) == WS.HOk{False{}, 10, False{}, K, hs, L} : WS.Header}, MBool.false_ne_true()(ok))
 
-def rt_head(+fin: Bool, +o: Laws.Op, +b1: U32, +t: List<&2, U32>, ok: {Laws.op.ok(fin, o) == True{} : Bool},
-  hm: {U32.is_le(128, b1) == False{} : Bool}, hs: {U32.is_lt(b1, 126) == True{} : Bool}, hg: {U32.is_gt(b1, 125) == False{} : Bool}) ->
-  {WS.header(Con{(Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), Con{b1, t}}, False{}) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}:
-  %Equal.sym(Bool, U32.is_le(128, b1), False{}, hm) : {WS.header.b1(_, t, False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}
-  %Equal.sym(Bool, U32.is_lt(b1, 126), True{}, hs) : {WS.header.ext(_, U32.is_eq(b1, 126), t, False{}, (Bool.pick(U32, fin, 128, 0) .|. Laws.op.code(o) : U32), False{}, b1) == WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, b1} : WS.Header}
-  rt_check(fin, o, b1, ok, hg)
+# The payload length as the laws put it on the wire.
+def lp(+p: List<&2, U32>) -> U32:
+  U32.from_nat(List.length(&2, U32, p))
 
-def rt_fits(+p: List<&2, U32>, +ys: List<&2, U32>, +fin: Bool, +o: Laws.Op, +short: MNat.le(List.length(&2, U32, p), 125n)) ->
-  {Nat.is_le(Nat.add(U32.to_nat(2), U32.to_nat(U32.from_nat(List.length(&2, U32, p)))), List.length(&2, U32, cat(Laws.wire(fin, o, p), ys))) == True{} : Bool}:
-  %Equal.sym(Nat, U32.to_nat(U32.from_nat(List.length(&2, U32, p))), List.length(&2, U32, p), b1_nat(List.length(&2, U32, p), short)) : MNat.le(_, List.length(&2, U32, cat(p, ys)))
-  le_cat(List.length(&2, U32, p), p, ys, MNat.le_refl(List.length(&2, U32, p)))
+def ln(+n: Nat, +max: U32, fit: MNat.le(n, U32.to_nat(max))) -> {U32.to_nat(U32.from_nat(n)) == n : Nat}:
+  Lemmas.u32_to_from_nat(n, MNat.lt_of_le_of_lt(n, U32.to_nat(max), Lemmas.pow2(32n), fit, Lemmas.u32_to_nat_lt(max)))
 
-def Laws.roundtrip(fin, o, max, p, ys, ok, short, fit):
-  %Equal.sym(WS.Header, WS.header(cat(Laws.wire(fin, o, p), ys), False{}), WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, U32.from_nat(List.length(&2, U32, p))}, rt_head(fin, o, U32.from_nat(List.length(&2, U32, p)), cat(p, ys), ok, b1_m(List.length(&2, U32, p), short), b1_s(List.length(&2, U32, p), short), b1_g(List.length(&2, U32, p), short))) :
-    {WS.next.head(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, max, _, cat(Laws.wire(fin, o, p), ys)) == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %Equal.sym(Bool, U32.is_lt(max, U32.from_nat(List.length(&2, U32, p))), False{}, b1_z(max, List.length(&2, U32, p), short, fit)) :
-    {WS.next.size(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, _, fin, Laws.op.code(o), False{}, 0, 2, U32.from_nat(List.length(&2, U32, p)), cat(Laws.wire(fin, o, p), ys)) == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %Equal.sym(Bool, Nat.is_le(Nat.add(U32.to_nat(2), U32.to_nat(U32.from_nat(List.length(&2, U32, p)))), List.length(&2, U32, cat(Laws.wire(fin, o, p), ys))), True{}, rt_fits(p, ys, fin, o, short)) :
-    {WS.next.fits(~List<&2, U32>, ~List<&2, U32>, ~WS.list.cut, ~WS.list.unmask, fin, Laws.op.code(o), False{}, 0, 2, U32.from_nat(List.length(&2, U32, p)), (cat(Laws.wire(fin, o, p), ys), _)) == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %Equal.sym(Nat, U32.to_nat(U32.from_nat(List.length(&2, U32, p))), List.length(&2, U32, p), b1_nat(List.length(&2, U32, p), short)) :
-    {WS.Got{WS.Frame{fin, Laws.op.code(o), List.take(&2, U32, List.drop(&2, U32, cat(p, ys), 0n), _)}, List.drop(&2, U32, cat(p, ys), _)} == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %MList.drop_zero_sym(&2, U32, cat(p, ys)) :
-    {WS.Got{WS.Frame{fin, Laws.op.code(o), List.take(&2, U32, _, List.length(&2, U32, p))}, List.drop(&2, U32, cat(p, ys), List.length(&2, U32, p))} == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %MList.take_append_of_le_length_sym(&2, U32, p, ys, List.length(&2, U32, p), MNat.le_refl(List.length(&2, U32, p))) :
-    {WS.Got{WS.Frame{fin, Laws.op.code(o), _}, List.drop(&2, U32, cat(p, ys), List.length(&2, U32, p))} == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %MList.take_length_sym(U32, p) :
-    {WS.Got{WS.Frame{fin, Laws.op.code(o), _}, List.drop(&2, U32, cat(p, ys), List.length(&2, U32, p))} == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %MList.drop_append_of_le_length_sym(&2, U32, p, ys, List.length(&2, U32, p), MNat.le_refl(List.length(&2, U32, p))) :
-    {WS.Got{WS.Frame{fin, Laws.op.code(o), p}, _} == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-  %MList.drop_length_sym(U32, p) :
-    {WS.Got{WS.Frame{fin, Laws.op.code(o), p}, cat(_, ys)} == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+# A frame splits into its header octets and its payload octets.
+def kbytes(key: Maybe<&2, U32>) -> List<&2, U32>:
+  match key:
+    case None{}:
+      Nil{}
+    case Some{+k}:
+      Laws.little(3n, k)
+
+def mbody(key: Maybe<&2, U32>, +p: List<&2, U32>) -> List<&2, U32>:
+  match key:
+    case None{}:
+      p
+    case Some{+k}:
+      WS.list.unmask(k, p)
+
+def key_of(key: Maybe<&2, U32>) -> U32:
+  match key:
+    case None{}:
+      0
+    case Some{+k}:
+      k
+
+def hs_of(key: Maybe<&2, U32>, +hs: U32) -> U32:
+  match key:
+    case None{}:
+      hs
+    case Some{k}:
+      (hs + 4 : U32)
+
+def H(short: Bool, mid: Bool, +fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +l: U32) -> List<&2, U32>:
+  Con{b0(fin, o), cat(Laws.wire.len.form(short, mid, Laws.wire.masked(key), l), kbytes(key))}
+
+def HS(short: Bool, mid: Bool) -> U32:
+  match short:
+    case True{}:
+      2
+    case False{}:
+      match mid:
+        case True{}:
+          4
+        case False{}:
+          10
+
+def Hp(+fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +p: List<&2, U32>) -> List<&2, U32>:
+  H(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535), fin, o, key, lp(p))
+
+def HSp(+p: List<&2, U32>) -> U32:
+  HS(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535))
+
+# Masking twice gives the payload back.
+def unmask_twice(xs: List<&2, U32>, +a: U32, +b: U32, +c: U32, +d: U32) -> {WS.list.unmask.go(WS.list.unmask.go(xs, a, b, c, d), a, b, c, d) == xs : List<&2, U32>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +t}:
+      %Equal.sym(U32, U32.xor(U32.xor(x, a), a), x, Lemmas.u32_xor_twice(x, a)) :
+        {Con{_, WS.list.unmask.go(WS.list.unmask.go(t, b, c, d, a), b, c, d, a)} == Con{x, t} : List<&2, U32>}
+      %Equal.sym(List<&2, U32>, WS.list.unmask.go(WS.list.unmask.go(t, b, c, d, a), b, c, d, a), t, unmask_twice(t, b, c, d, a)) :
+        {Con{x, _} == Con{x, t} : List<&2, U32>}
+      {==}
+
+def unmask_key_twice(xs: List<&2, U32>, +key: U32) -> {WS.list.unmask(key, WS.list.unmask(key, xs)) == xs : List<&2, U32>}:
+  unmask_twice(xs, (key % 256 : U32), ((key / 256) % 256 : U32), (((key / 256) / 256) % 256 : U32), (((key / 256) / 256) / 256 : U32))
+
+def oct(+y: U32) -> {U32.add(U32.mul(U32.div(y, 256), 256), U32.mod(y, 256)) == y : U32}:
+  Lemmas.u32_div_mul_add_mod(y, 256, {==})
+
+# The four octets of x, most significant first, give x back.
+def chain(+x: U32) -> {WS.be32(U32.div(U32.div(U32.div(x, 256), 256), 256), U32.mod(U32.div(U32.div(x, 256), 256), 256), U32.mod(U32.div(x, 256), 256), U32.mod(x, 256)) == x : U32}:
+  %Equal.sym(U32, U32.add(U32.mul(U32.div(U32.div(U32.div(x, 256), 256), 256), 256), U32.mod(U32.div(U32.div(x, 256), 256), 256)), U32.div(U32.div(x, 256), 256), oct(U32.div(U32.div(x, 256), 256))) :
+    {U32.add(U32.mul(U32.add(U32.mul(_, 256), U32.mod(U32.div(x, 256), 256)), 256), U32.mod(x, 256)) == x : U32}
+  %Equal.sym(U32, U32.add(U32.mul(U32.div(U32.div(x, 256), 256), 256), U32.mod(U32.div(x, 256), 256)), U32.div(x, 256), oct(U32.div(x, 256))) :
+    {U32.add(U32.mul(_, 256), U32.mod(x, 256)) == x : U32}
+  oct(x)
+
+def key_hdr(key: Maybe<&2, U32>, +q: List<&2, U32>, +masked: Bool, +h0: U32, +hs: U32, +hi: U32, +len: U32) ->
+  {WS.header.key(Laws.wire.masked(key), cat(kbytes(key), q), masked, h0, hs, hi, len) == WS.header.check(masked, h0, Laws.wire.masked(key), key_of(key), hs_of(key, hs), hi, len) : WS.Header}:
+  match key:
+    case None{}:
+      {==}
+    case Some{+k}:
+      %Equal.sym(U32, WS.be32(U32.div(U32.div(U32.div(k, 256), 256), 256), U32.mod(U32.div(U32.div(k, 256), 256), 256), U32.mod(U32.div(k, 256), 256), U32.mod(k, 256)), k, chain(k)) :
+        {WS.header.check(masked, h0, True{}, _, (hs + 4 : U32), hi, len) == WS.header.check(masked, h0, True{}, k, (hs + 4 : U32), hi, len) : WS.Header}
+      {==}
+
+def fin_hdr(+key: Maybe<&2, U32>, +q: List<&2, U32>, +fin: Bool, +o: Laws.Op, +hs: U32, +L: U32, +n: Nat, eL: {U32.to_nat(L) == n : Nat}, ok: {Laws.op.ok(o, fin, n) == True{} : Bool}) ->
+  {WS.header.key(Laws.wire.masked(key), cat(kbytes(key), q), Laws.wire.masked(key), b0(fin, o), hs, 0, L) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, hs), L} : WS.Header}:
+  Equal.trans(WS.Header, WS.header.key(Laws.wire.masked(key), cat(kbytes(key), q), Laws.wire.masked(key), b0(fin, o), hs, 0, L),
+    WS.header.check(Laws.wire.masked(key), b0(fin, o), Laws.wire.masked(key), key_of(key), hs_of(key, hs), 0, L),
+    WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, hs), L},
+    key_hdr(key, q, Laws.wire.masked(key), b0(fin, o), hs, 0, L),
+    rt_check(Laws.wire.masked(key), fin, o, key_of(key), hs_of(key, hs), L, n, eL, ok))
+
+# The second octet: the mask bit, then a 7-bit length of at most 127.
+def b1_low(+l7: U32, h7: MNat.le(U32.to_nat(l7), 127n)) -> {U32.is_le(128, l7) == False{} : Bool}:
+  %Equal.sym(Bool, U32.is_le(128, l7), Nat.is_le(U32.to_nat(128), U32.to_nat(l7)), Lemmas.u32_is_le_nat(128, l7)) : {_ == False{} : Bool}
+  MNat.not_le_of_lt(U32.to_nat(l7), U32.to_nat(128), MNat.lt_succ_of_le(U32.to_nat(l7), 127n, h7))
+
+def add128(+l7: U32, h7: MNat.le(U32.to_nat(l7), 127n)) -> {U32.to_nat((128 + l7 : U32)) == Nat.add(U32.to_nat(128), U32.to_nat(l7)) : Nat}:
+  Lemmas.u32_add_nat(128, l7, MNat.lt_of_le_of_lt(Nat.add(U32.to_nat(128), U32.to_nat(l7)), U32.to_nat(255), Lemmas.pow2(32n),
+    MNat.add_le_add_left(U32.to_nat(l7), 127n, U32.to_nat(128), h7), Lemmas.u32_to_nat_lt(255)))
+
+def high_le(+l7: U32, h7: MNat.le(U32.to_nat(l7), 127n)) -> MNat.le(U32.to_nat(128), U32.to_nat((128 + l7 : U32))):
+  %Equal.sym(Nat, U32.to_nat((128 + l7 : U32)), Nat.add(U32.to_nat(128), U32.to_nat(l7)), add128(l7, h7)) : MNat.le(U32.to_nat(128), _)
+  MNat.le_add_right(U32.to_nat(128), U32.to_nat(l7))
+
+def b1_high(+l7: U32, h7: MNat.le(U32.to_nat(l7), 127n)) -> {U32.is_le(128, (128 + l7 : U32)) == True{} : Bool}:
+  %Equal.sym(Bool, U32.is_le(128, (128 + l7 : U32)), Nat.is_le(U32.to_nat(128), U32.to_nat((128 + l7 : U32))), Lemmas.u32_is_le_nat(128, (128 + l7 : U32))) : {_ == True{} : Bool}
+  high_le(l7, h7)
+
+def b1_sub.nat(+l7: U32, +h7: MNat.le(U32.to_nat(l7), 127n)) -> {U32.to_nat(((128 + l7 : U32) - 128 : U32)) == U32.to_nat(l7) : Nat}:
+  %Equal.sym(Nat, U32.to_nat(((128 + l7 : U32) - 128 : U32)), Nat.sub(U32.to_nat((128 + l7 : U32)), U32.to_nat(128)), Lemmas.u32_sub_nat((128 + l7 : U32), 128, high_le(l7, h7))) :
+    {_ == U32.to_nat(l7) : Nat}
+  %Equal.sym(Nat, U32.to_nat((128 + l7 : U32)), Nat.add(U32.to_nat(128), U32.to_nat(l7)), add128(l7, h7)) : {Nat.sub(_, U32.to_nat(128)) == U32.to_nat(l7) : Nat}
+  MNat.add_sub_cancel_left(U32.to_nat(128), U32.to_nat(l7))
+
+def b1_sub(+l7: U32, h7: MNat.le(U32.to_nat(l7), 127n)) -> {((128 + l7 : U32) - 128 : U32) == l7 : U32}:
+  Lemmas.u32_to_nat_inj(((128 + l7 : U32) - 128 : U32), l7, b1_sub.nat(l7, h7))
+
+def b1_ext(m: Bool, +l7: U32, +t: List<&2, U32>, +masked: Bool, +h0: U32, +h7: MNat.le(U32.to_nat(l7), 127n)) ->
+  {WS.header.b1(U32.is_le(128, Laws.wire.b1(m, l7)), t, masked, h0, Laws.wire.b1(m, l7)) == WS.header.ext(U32.is_lt(l7, 126), U32.is_eq(l7, 126), t, masked, h0, m, l7) : WS.Header}:
+  match m:
+    case False{}:
+      %Equal.sym(Bool, U32.is_le(128, l7), False{}, b1_low(l7, h7)) :
+        {WS.header.b1(_, t, masked, h0, l7) == WS.header.ext(U32.is_lt(l7, 126), U32.is_eq(l7, 126), t, masked, h0, False{}, l7) : WS.Header}
+      {==}
+    case True{}:
+      %Equal.sym(Bool, U32.is_le(128, (128 + l7 : U32)), True{}, b1_high(l7, h7)) :
+        {WS.header.b1(_, t, masked, h0, (128 + l7 : U32)) == WS.header.ext(U32.is_lt(l7, 126), U32.is_eq(l7, 126), t, masked, h0, True{}, l7) : WS.Header}
+      %Equal.sym(U32, ((128 + l7 : U32) - 128 : U32), l7, b1_sub(l7, h7)) :
+        {WS.header.ext(U32.is_lt(_, 126), U32.is_eq(_, 126), t, masked, h0, True{}, _) == WS.header.ext(U32.is_lt(l7, 126), U32.is_eq(l7, 126), t, masked, h0, True{}, l7) : WS.Header}
+      {==}
+
+def lt126(+l: U32, +n: Nat, eL: {U32.to_nat(l) == n : Nat}, h: MNat.le(n, 125n)) -> {U32.is_lt(l, 126) == True{} : Bool}:
+  %Equal.sym(Bool, U32.is_lt(l, 126), Nat.is_lt(U32.to_nat(l), U32.to_nat(126)), Lemmas.u32_is_lt_nat(l, 126)) : {_ == True{} : Bool}
+  %Equal.sym(Nat, U32.to_nat(l), n, eL) : {Nat.is_lt(_, U32.to_nat(126)) == True{} : Bool}
+  MNat.lt_of_le_of_lt(n, 125n, U32.to_nat(126), h, {==})
+
+def le127(+l: U32, +n: Nat, eL: {U32.to_nat(l) == n : Nat}, h: MNat.le(n, 125n)) -> MNat.le(U32.to_nat(l), 127n):
+  %Equal.sym(Nat, U32.to_nat(l), n, eL) : MNat.le(_, 127n)
+  MNat.le_trans(n, 125n, 127n, h, {==})
+
+def le125(+l: U32, +n: Nat, eL: {U32.to_nat(l) == n : Nat}, es: {U32.is_le(l, 125) == True{} : Bool}) -> MNat.le(n, 125n):
+  %eL : MNat.le(_, 125n)
+  %Lemmas.u32_is_le_nat(l, 125) : {_ == True{} : Bool}
+  es
+
+# The header of each length form.
+def hdr7(mid: Bool, +fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +p: List<&2, U32>, +l: U32, +n: Nat,
+  +eL: {U32.to_nat(l) == n : Nat}, +h: MNat.le(n, 125n), ok: {Laws.op.ok(o, fin, n) == True{} : Bool}) ->
+  {WS.header(cat(H(True{}, mid, fin, o, key, l), mbody(key, p)), Laws.wire.masked(key)) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 2), l} : WS.Header}:
+  %Equal.sym(WS.Header,
+    WS.header.b1(U32.is_le(128, Laws.wire.b1(Laws.wire.masked(key), l)), cat(kbytes(key), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), Laws.wire.b1(Laws.wire.masked(key), l)),
+    WS.header.ext(U32.is_lt(l, 126), U32.is_eq(l, 126), cat(kbytes(key), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), Laws.wire.masked(key), l),
+    b1_ext(Laws.wire.masked(key), l, cat(kbytes(key), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), le127(l, n, eL, h))) :
+    {_ == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 2), l} : WS.Header}
+  %Equal.sym(Bool, U32.is_lt(l, 126), True{}, lt126(l, n, eL, h)) :
+    {WS.header.ext(_, U32.is_eq(l, 126), cat(kbytes(key), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), Laws.wire.masked(key), l) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 2), l} : WS.Header}
+  fin_hdr(key, mbody(key, p), fin, o, 2, l, n, eL, ok)
+
+def hdr16(+fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +p: List<&2, U32>, +l: U32, +n: Nat,
+  eL: {U32.to_nat(l) == n : Nat}, ok: {Laws.op.ok(o, fin, n) == True{} : Bool}) ->
+  {WS.header(cat(H(False{}, True{}, fin, o, key, l), mbody(key, p)), Laws.wire.masked(key)) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 4), l} : WS.Header}:
+  %Equal.sym(WS.Header,
+    WS.header.b1(U32.is_le(128, Laws.wire.b1(Laws.wire.masked(key), 126)), cat(cat(Laws.big(1n, l), kbytes(key)), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), Laws.wire.b1(Laws.wire.masked(key), 126)),
+    WS.header.ext(U32.is_lt(126, 126), U32.is_eq(126, 126), cat(cat(Laws.big(1n, l), kbytes(key)), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), Laws.wire.masked(key), 126),
+    b1_ext(Laws.wire.masked(key), 126, cat(cat(Laws.big(1n, l), kbytes(key)), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), {==})) :
+    {_ == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 4), l} : WS.Header}
+  %Equal.sym(U32, U32.add(U32.mul(U32.div(l, 256), 256), U32.mod(l, 256)), l, oct(l)) :
+    {WS.header.key(Laws.wire.masked(key), cat(kbytes(key), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), 4, 0, _) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 4), l} : WS.Header}
+  fin_hdr(key, mbody(key, p), fin, o, 4, l, n, eL, ok)
+
+def hdr64(+fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +p: List<&2, U32>, +l: U32, +n: Nat,
+  eL: {U32.to_nat(l) == n : Nat}, ok: {Laws.op.ok(o, fin, n) == True{} : Bool}) ->
+  {WS.header(cat(H(False{}, False{}, fin, o, key, l), mbody(key, p)), Laws.wire.masked(key)) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 10), l} : WS.Header}:
+  %Equal.sym(WS.Header,
+    WS.header.b1(U32.is_le(128, Laws.wire.b1(Laws.wire.masked(key), 127)), cat(cat(cat([0, 0, 0, 0], Laws.big(3n, l)), kbytes(key)), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), Laws.wire.b1(Laws.wire.masked(key), 127)),
+    WS.header.ext(U32.is_lt(127, 126), U32.is_eq(127, 126), cat(cat(cat([0, 0, 0, 0], Laws.big(3n, l)), kbytes(key)), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), Laws.wire.masked(key), 127),
+    b1_ext(Laws.wire.masked(key), 127, cat(cat(cat([0, 0, 0, 0], Laws.big(3n, l)), kbytes(key)), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), {==})) :
+    {_ == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 10), l} : WS.Header}
+  %Equal.sym(U32, WS.be32(U32.div(U32.div(U32.div(l, 256), 256), 256), U32.mod(U32.div(U32.div(l, 256), 256), 256), U32.mod(U32.div(l, 256), 256), U32.mod(l, 256)), l, chain(l)) :
+    {WS.header.key(Laws.wire.masked(key), cat(kbytes(key), mbody(key, p)), Laws.wire.masked(key), b0(fin, o), 10, WS.be32(0, 0, 0, 0), _) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, 10), l} : WS.Header}
+  fin_hdr(key, mbody(key, p), fin, o, 10, l, n, eL, ok)
+
+def hdr_form(short: Bool, mid: Bool, +fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +p: List<&2, U32>, +l: U32, +n: Nat,
+  es: {U32.is_le(l, 125) == short : Bool}, +eL: {U32.to_nat(l) == n : Nat}, ok: {Laws.op.ok(o, fin, n) == True{} : Bool}) ->
+  {WS.header(cat(H(short, mid, fin, o, key, l), mbody(key, p)), Laws.wire.masked(key)) == WS.HOk{fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, HS(short, mid)), l} : WS.Header}:
+  match short mid:
+    case True{} True{}:
+      hdr7(True{}, fin, o, key, p, l, n, eL, le125(l, n, eL, es), ok)
+    case True{} False{}:
+      hdr7(False{}, fin, o, key, p, l, n, eL, le125(l, n, eL, es), ok)
+    case False{} True{}:
+      hdr16(fin, o, key, p, l, n, eL, ok)
+    case False{} False{}:
+      hdr64(fin, o, key, p, l, n, eL, ok)
+
+def eH_form(short: Bool, mid: Bool, +fin: Bool, +o: Laws.Op, key: Maybe<&2, U32>, +l: U32) ->
+  {U32.to_nat(hs_of(key, HS(short, mid))) == List.length(&2, U32, H(short, mid, fin, o, key, l)) : Nat}:
+  match short mid key:
+    case True{} True{} None{}:
+      {==}
+    case True{} True{} Some{k}:
+      {==}
+    case True{} False{} None{}:
+      {==}
+    case True{} False{} Some{k}:
+      {==}
+    case False{} True{} None{}:
+      {==}
+    case False{} True{} Some{k}:
+      {==}
+    case False{} False{} None{}:
+      {==}
+    case False{} False{} Some{k}:
+      {==}
+
+def mbody_len(key: Maybe<&2, U32>, +p: List<&2, U32>) -> {List.length(&2, U32, mbody(key, p)) == List.length(&2, U32, p) : Nat}:
+  match key:
+    case None{}:
+      {==}
+    case Some{+k}:
+      unmask_key_len(p, k)
+
+def eu_of(key: Maybe<&2, U32>, +p: List<&2, U32>) -> {WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, Laws.wire.masked(key), key_of(key), mbody(key, p)) == p : List<&2, U32>}:
+  match key:
+    case None{}:
+      {==}
+    case Some{+k}:
+      unmask_key_twice(p, k)
+
+def eLq(+key: Maybe<&2, U32>, +p: List<&2, U32>, +max: U32, fit: MNat.le(List.length(&2, U32, p), U32.to_nat(max))) ->
+  {U32.to_nat(lp(p)) == List.length(&2, U32, mbody(key, p)) : Nat}:
+  %Equal.sym(Nat, List.length(&2, U32, mbody(key, p)), List.length(&2, U32, p), mbody_len(key, p)) : {U32.to_nat(lp(p)) == _ : Nat}
+  ln(List.length(&2, U32, p), max, fit)
+
+def fitq(+key: Maybe<&2, U32>, +p: List<&2, U32>, +max: U32, fit: MNat.le(List.length(&2, U32, p), U32.to_nat(max))) ->
+  MNat.le(List.length(&2, U32, mbody(key, p)), U32.to_nat(max)):
+  %Equal.sym(Nat, List.length(&2, U32, mbody(key, p)), List.length(&2, U32, p), mbody_len(key, p)) : MNat.le(_, U32.to_nat(max))
+  fit
+
+def body_split(key: Maybe<&2, U32>, +p: List<&2, U32>) -> {cat(kbytes(key), mbody(key, p)) == Laws.wire.body(key, p) : List<&2, U32>}:
+  match key:
+    case None{}:
+      {==}
+    case Some{+k}:
+      {==}
+
+def wire_split(+fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +p: List<&2, U32>) ->
+  {cat(Hp(fin, o, key, p), mbody(key, p)) == Laws.wire(fin, o, key, p) : List<&2, U32>}:
+  %body_split(key, p) :
+    {cat(Hp(fin, o, key, p), mbody(key, p)) == Con{b0(fin, o), cat(Laws.wire.len(Laws.wire.masked(key), lp(p)), _)} : List<&2, U32>}
+  %MList.append_assoc(&2, U32, Laws.wire.len(Laws.wire.masked(key), lp(p)), kbytes(key), mbody(key, p)) :
+    {cat(Hp(fin, o, key, p), mbody(key, p)) == Con{b0(fin, o), _} : List<&2, U32>}
   {==}
 
-def pn_fits(+p: List<&2, U32>, +j: Nat, +short: MNat.le(List.length(&2, U32, p), 125n), less: MNat.lt(j, List.length(&2, U32, p))) ->
-  {Nat.is_le(Nat.add(U32.to_nat(2), U32.to_nat(U32.from_nat(List.length(&2, U32, p)))), 1n+1n+List.length(&2, U32, List.take(&2, U32, p, j))) == False{} : Bool}:
-  %Equal.sym(Nat, U32.to_nat(U32.from_nat(List.length(&2, U32, p))), List.length(&2, U32, p), b1_nat(List.length(&2, U32, p), short)) : {Nat.is_le(_, List.length(&2, U32, List.take(&2, U32, p, j))) == False{} : Bool}
-  MNat.not_le_of_lt(List.length(&2, U32, List.take(&2, U32, p, j)), List.length(&2, U32, p),
-    MNat.lt_of_le_of_lt(List.length(&2, U32, List.take(&2, U32, p, j)), j, List.length(&2, U32, p), MList.length_take_le(&2, U32, p, j), less))
+def less_split(+fin: Bool, +o: Laws.Op, +key: Maybe<&2, U32>, +p: List<&2, U32>, +k: Nat, less: MNat.lt(k, List.length(&2, U32, Laws.wire(fin, o, key, p)))) ->
+  MNat.lt(k, List.length(&2, U32, cat(Hp(fin, o, key, p), mbody(key, p)))):
+  %Equal.sym(List<&2, U32>, cat(Hp(fin, o, key, p), mbody(key, p)), Laws.wire(fin, o, key, p), wire_split(fin, o, key, p)) : MNat.lt(k, List.length(&2, U32, _))
+  less
 
-def Laws.prefix_need(fin, o, max, p, k, ok, short, fit, less):
-  match k:
-    case 0n:
+# Decoding any frame whose header is decided.
+def not_over(+max: U32, +L: U32, +n: Nat, eL: {U32.to_nat(L) == n : Nat}, fit: MNat.le(n, U32.to_nat(max))) -> {U32.is_lt(max, L) == False{} : Bool}:
+  %Equal.sym(Bool, U32.is_lt(max, L), Nat.is_lt(U32.to_nat(max), U32.to_nat(L)), Lemmas.u32_is_lt_nat(max, L)) : {_ == False{} : Bool}
+  %Equal.sym(Nat, U32.to_nat(L), n, eL) : {Nat.is_lt(U32.to_nat(max), _) == False{} : Bool}
+  MNat.not_lt_of_le(n, U32.to_nat(max), fit)
+
+def hcat(+masked: Bool, +W: List<&2, U32>, +ys: List<&2, U32>, +fin: Bool, +op: U32, +m: Bool, +K: U32, +hs: U32, +L: U32,
+  eh: {WS.header(W, masked) == WS.HOk{fin, op, m, K, hs, L} : WS.Header}) ->
+  {WS.header(cat(W, ys), masked) == WS.HOk{fin, op, m, K, hs, L} : WS.Header}:
+  %eh : {WS.header(cat(W, ys), masked) == known(_, WS.header(cat(W, ys), masked)) : WS.Header}
+  header_more(W, ys, masked)
+
+def rt_cut_fits(+H: List<&2, U32>, +q: List<&2, U32>, +ys: List<&2, U32>, +hs: U32, +L: U32,
+  eH: {U32.to_nat(hs) == List.length(&2, U32, H) : Nat}, eL: {U32.to_nat(L) == List.length(&2, U32, q) : Nat}) ->
+  {Nat.is_le(Nat.add(U32.to_nat(hs), U32.to_nat(L)), List.length(&2, U32, cat(cat(H, q), ys))) == True{} : Bool}:
+  %Equal.sym(Nat, U32.to_nat(hs), List.length(&2, U32, H), eH) : MNat.le(Nat.add(_, U32.to_nat(L)), List.length(&2, U32, cat(cat(H, q), ys)))
+  %Equal.sym(Nat, U32.to_nat(L), List.length(&2, U32, q), eL) : MNat.le(Nat.add(List.length(&2, U32, H), _), List.length(&2, U32, cat(cat(H, q), ys)))
+  %MList.length_append(&2, U32, H, q) : MNat.le(_, List.length(&2, U32, cat(cat(H, q), ys)))
+  le_cat(List.length(&2, U32, cat(H, q)), cat(H, q), ys, MNat.le_refl(List.length(&2, U32, cat(H, q))))
+
+def rt_cut(+H: List<&2, U32>, +q: List<&2, U32>, +ys: List<&2, U32>, +fin: Bool, +op: U32, +m: Bool, +K: U32, +hs: U32, +L: U32, +p: List<&2, U32>,
+  +eH: {U32.to_nat(hs) == List.length(&2, U32, H) : Nat}, +eL: {U32.to_nat(L) == List.length(&2, U32, q) : Nat},
+  eu: {WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, q) == p : List<&2, U32>}) ->
+  {WS.next.fits(~List<&2, U32>, ~List<&2, U32>, ~WS.list.cut, ~WS.list.unmask, fin, op, m, K, hs, L, WS.list.fits(cat(cat(H, q), ys), hs, L)) == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}:
+  %Equal.sym(Bool, Nat.is_le(Nat.add(U32.to_nat(hs), U32.to_nat(L)), List.length(&2, U32, cat(cat(H, q), ys))), True{}, rt_cut_fits(H, q, ys, hs, L, eH, eL)) :
+    {WS.next.fits(~List<&2, U32>, ~List<&2, U32>, ~WS.list.cut, ~WS.list.unmask, fin, op, m, K, hs, L, (cat(cat(H, q), ys), _)) == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %Equal.sym(Nat, U32.to_nat(hs), List.length(&2, U32, H), eH) :
+    {WS.Got{WS.Frame{fin, op, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, List.take(&2, U32, List.drop(&2, U32, cat(cat(H, q), ys), _), U32.to_nat(L)))}, List.drop(&2, U32, cat(cat(H, q), ys), Nat.add(_, U32.to_nat(L)))} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %Equal.sym(Nat, U32.to_nat(L), List.length(&2, U32, q), eL) :
+    {WS.Got{WS.Frame{fin, op, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, List.take(&2, U32, List.drop(&2, U32, cat(cat(H, q), ys), List.length(&2, U32, H)), _))}, List.drop(&2, U32, cat(cat(H, q), ys), Nat.add(List.length(&2, U32, H), _))} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %MList.append_assoc_sym(&2, U32, H, q, ys) :
+    {WS.Got{WS.Frame{fin, op, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, List.take(&2, U32, List.drop(&2, U32, _, List.length(&2, U32, H)), List.length(&2, U32, q)))}, List.drop(&2, U32, _, Nat.add(List.length(&2, U32, H), List.length(&2, U32, q)))} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %MList.drop_left_sym(&2, U32, H, cat(q, ys)) :
+    {WS.Got{WS.Frame{fin, op, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, List.take(&2, U32, _, List.length(&2, U32, q)))}, List.drop(&2, U32, cat(H, cat(q, ys)), Nat.add(List.length(&2, U32, H), List.length(&2, U32, q)))} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %MList.take_left_sym(&2, U32, q, ys) :
+    {WS.Got{WS.Frame{fin, op, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, _)}, List.drop(&2, U32, cat(H, cat(q, ys)), Nat.add(List.length(&2, U32, H), List.length(&2, U32, q)))} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %Equal.sym(List<&2, U32>, WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, q), p, eu) :
+    {WS.Got{WS.Frame{fin, op, _}, List.drop(&2, U32, cat(H, cat(q, ys)), Nat.add(List.length(&2, U32, H), List.length(&2, U32, q)))} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %MList.drop_append_sym(&2, U32, H, cat(q, ys), List.length(&2, U32, q)) :
+    {WS.Got{WS.Frame{fin, op, p}, _} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %MList.drop_left_sym(&2, U32, q, ys) :
+    {WS.Got{WS.Frame{fin, op, p}, _} == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  {==}
+
+def rt_gen(+masked: Bool, +max: U32, +H: List<&2, U32>, +q: List<&2, U32>, +ys: List<&2, U32>, +fin: Bool, +op: U32, +m: Bool, +K: U32, +hs: U32, +L: U32, +p: List<&2, U32>,
+  eh: {WS.header(cat(H, q), masked) == WS.HOk{fin, op, m, K, hs, L} : WS.Header},
+  eH: {U32.to_nat(hs) == List.length(&2, U32, H) : Nat},
+  +eL: {U32.to_nat(L) == List.length(&2, U32, q) : Nat},
+  eu: {WS.unmask.when(~List<&2, U32>, ~WS.list.unmask, m, K, q) == p : List<&2, U32>},
+  fit: MNat.le(List.length(&2, U32, q), U32.to_nat(max))) ->
+  {WS.list.next(masked, max, cat(cat(H, q), ys)) == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}:
+  %Equal.sym(WS.Header, WS.header(cat(cat(H, q), ys), masked), WS.HOk{fin, op, m, K, hs, L}, hcat(masked, cat(H, q), ys, fin, op, m, K, hs, L, eh)) :
+    {WS.next.head(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, max, _, cat(cat(H, q), ys)) == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  %Equal.sym(Bool, U32.is_lt(max, L), False{}, not_over(max, L, List.length(&2, U32, q), eL, fit)) :
+    {WS.next.size(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, _, fin, op, m, K, hs, L, cat(cat(H, q), ys)) == WS.Got{WS.Frame{fin, op, p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  rt_cut(H, q, ys, fin, op, m, K, hs, L, p, eH, eL, eu)
+
+def hm_w(+W: List<&2, U32>, +k: Nat, +masked: Bool) ->
+  {WS.header(W, masked) == known(WS.header(List.take(&2, U32, W, k), masked), WS.header(W, masked)) : WS.Header}:
+  %MList.take_append_drop(&2, U32, W, k) :
+    {WS.header(_, masked) == known(WS.header(List.take(&2, U32, W, k), masked), WS.header(_, masked)) : WS.Header}
+  header_more(List.take(&2, U32, W, k), List.drop(&2, U32, W, k), masked)
+
+def pn_ek(+masked: Bool, +W: List<&2, U32>, +k: Nat, +fin: Bool, +op: U32, +m: Bool, +K: U32, +hs: U32, +L: U32,
+  eh: {WS.header(W, masked) == WS.HOk{fin, op, m, K, hs, L} : WS.Header}) ->
+  {WS.HOk{fin, op, m, K, hs, L} == known(WS.header(List.take(&2, U32, W, k), masked), WS.HOk{fin, op, m, K, hs, L}) : WS.Header}:
+  %eh : {_ == known(WS.header(List.take(&2, U32, W, k), masked), _) : WS.Header}
+  hm_w(W, k, masked)
+
+def ok_disc(h: WS.Header) -> Type:
+  match h:
+    case WS.HOk{fin, op, m, key, hs, len}:
+      Unit
+    case _:
+      Empty
+
+def ok_not_bad(-fin: Bool, -op: U32, -m: Bool, -K: U32, -hs: U32, -L: U32, -code: U32, -why: String,
+  e: {WS.HOk{fin, op, m, K, hs, L} == WS.HBad{code, why} : WS.Header}) -> Empty:
+  %e : ok_disc(_)
+  Unit{}
+
+def pn_h(+masked: Bool, +max: U32, +xs: List<&2, U32>, +fin: Bool, +op: U32, +m: Bool, +K: U32, +hs: U32, +L: U32, h: WS.Header,
+  eh: {WS.header(xs, masked) == h : WS.Header},
+  ek: {WS.HOk{fin, op, m, K, hs, L} == known(h, WS.HOk{fin, op, m, K, hs, L}) : WS.Header},
+  no: {U32.is_lt(max, L) == False{} : Bool},
+  nf: {Nat.is_le(Nat.add(U32.to_nat(hs), U32.to_nat(L)), List.length(&2, U32, xs)) == False{} : Bool}) ->
+  {WS.list.next(masked, max, xs) == WS.Need{xs} : WS.Decode<List<&2, U32>, List<&2, U32>>}:
+  match h:
+    case WS.HNeed{}:
+      %Equal.sym(WS.Header, WS.header(xs, masked), WS.HNeed{}, eh) :
+        {WS.next.head(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, max, _, xs) == WS.Need{xs} : WS.Decode<List<&2, U32>, List<&2, U32>>}
       {==}
-    case 1n+k1:
-      match k1:
-        case 0n:
-          {==}
-        case 1n+j:
-          %Equal.sym(WS.Header, WS.header(List.take(&2, U32, Laws.wire(fin, o, p), 1n+1n+j), False{}), WS.HOk{fin, Laws.op.code(o), False{}, 0, 2, U32.from_nat(List.length(&2, U32, p))}, rt_head(fin, o, U32.from_nat(List.length(&2, U32, p)), List.take(&2, U32, p, j), ok, b1_m(List.length(&2, U32, p), short), b1_s(List.length(&2, U32, p), short), b1_g(List.length(&2, U32, p), short))) :
-            {WS.next.head(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, max, _, List.take(&2, U32, Laws.wire(fin, o, p), 1n+1n+j)) == WS.Need{List.take(&2, U32, Laws.wire(fin, o, p), 1n+1n+j)} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-          %Equal.sym(Bool, U32.is_lt(max, U32.from_nat(List.length(&2, U32, p))), False{}, b1_z(max, List.length(&2, U32, p), short, fit)) :
-            {WS.next.size(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, _, fin, Laws.op.code(o), False{}, 0, 2, U32.from_nat(List.length(&2, U32, p)), List.take(&2, U32, Laws.wire(fin, o, p), 1n+1n+j)) == WS.Need{List.take(&2, U32, Laws.wire(fin, o, p), 1n+1n+j)} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-          %Equal.sym(Bool, Nat.is_le(Nat.add(U32.to_nat(2), U32.to_nat(U32.from_nat(List.length(&2, U32, p)))), 1n+1n+List.length(&2, U32, List.take(&2, U32, p, j))), False{}, pn_fits(p, j, short, less)) :
-            {WS.next.fits(~List<&2, U32>, ~List<&2, U32>, ~WS.list.cut, ~WS.list.unmask, fin, Laws.op.code(o), False{}, 0, 2, U32.from_nat(List.length(&2, U32, p)), (List.take(&2, U32, Laws.wire(fin, o, p), 1n+1n+j), _)) == WS.Need{List.take(&2, U32, Laws.wire(fin, o, p), 1n+1n+j)} : WS.Decode<List<&2, U32>, List<&2, U32>>}
-          {==}
+    case WS.HBad{code, why}:
+      Empty.absurd({WS.list.next(masked, max, xs) == WS.Need{xs} : WS.Decode<List<&2, U32>, List<&2, U32>>}, ok_not_bad(fin, op, m, K, hs, L, code, why, ek))
+    case WS.HOk{+f2, +o2, +m2, +k2, +hs2, +l2}:
+      +e3 = Equal.trans(WS.Header, WS.header(xs, masked), WS.HOk{f2, o2, m2, k2, hs2, l2}, WS.HOk{fin, op, m, K, hs, L}, eh,
+        Equal.sym(WS.Header, WS.HOk{fin, op, m, K, hs, L}, WS.HOk{f2, o2, m2, k2, hs2, l2}, ek))
+      %Equal.sym(WS.Header, WS.header(xs, masked), WS.HOk{fin, op, m, K, hs, L}, e3) :
+        {WS.next.head(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, max, _, xs) == WS.Need{xs} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+      %Equal.sym(Bool, U32.is_lt(max, L), False{}, no) :
+        {WS.next.size(~List<&2, U32>, ~List<&2, U32>, ~WS.list.fits, ~WS.list.cut, ~WS.list.unmask, _, fin, op, m, K, hs, L, xs) == WS.Need{xs} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+      %Equal.sym(Bool, Nat.is_le(Nat.add(U32.to_nat(hs), U32.to_nat(L)), List.length(&2, U32, xs)), False{}, nf) :
+        {WS.next.fits(~List<&2, U32>, ~List<&2, U32>, ~WS.list.cut, ~WS.list.unmask, fin, op, m, K, hs, L, (xs, _)) == WS.Need{xs} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+      {==}
 
+def pn_less(+H: List<&2, U32>, +q: List<&2, U32>, +k: Nat, +hs: U32, +L: U32,
+  eH: {U32.to_nat(hs) == List.length(&2, U32, H) : Nat}, eL: {U32.to_nat(L) == List.length(&2, U32, q) : Nat},
+  less: MNat.lt(k, List.length(&2, U32, cat(H, q)))) -> MNat.lt(k, Nat.add(U32.to_nat(hs), U32.to_nat(L))):
+  %Equal.sym(Nat, U32.to_nat(hs), List.length(&2, U32, H), eH) : MNat.lt(k, Nat.add(_, U32.to_nat(L)))
+  %Equal.sym(Nat, U32.to_nat(L), List.length(&2, U32, q), eL) : MNat.lt(k, Nat.add(List.length(&2, U32, H), _))
+  %MList.length_append(&2, U32, H, q) : MNat.lt(k, _)
+  less
+
+def pn_gen(+masked: Bool, +max: U32, +H: List<&2, U32>, +q: List<&2, U32>, +k: Nat, +fin: Bool, +op: U32, +m: Bool, +K: U32, +hs: U32, +L: U32,
+  eh: {WS.header(cat(H, q), masked) == WS.HOk{fin, op, m, K, hs, L} : WS.Header},
+  eH: {U32.to_nat(hs) == List.length(&2, U32, H) : Nat},
+  +eL: {U32.to_nat(L) == List.length(&2, U32, q) : Nat},
+  fit: MNat.le(List.length(&2, U32, q), U32.to_nat(max)),
+  less: MNat.lt(k, List.length(&2, U32, cat(H, q)))) ->
+  {WS.list.next(masked, max, List.take(&2, U32, cat(H, q), k)) == WS.Need{List.take(&2, U32, cat(H, q), k)} : WS.Decode<List<&2, U32>, List<&2, U32>>}:
+  pn_h(masked, max, List.take(&2, U32, cat(H, q), k), fin, op, m, K, hs, L, WS.header(List.take(&2, U32, cat(H, q), k), masked), {==},
+    pn_ek(masked, cat(H, q), k, fin, op, m, K, hs, L, eh),
+    not_over(max, L, List.length(&2, U32, q), eL, fit),
+    MNat.not_le_of_lt(List.length(&2, U32, List.take(&2, U32, cat(H, q), k)), Nat.add(U32.to_nat(hs), U32.to_nat(L)),
+      MNat.lt_of_le_of_lt(List.length(&2, U32, List.take(&2, U32, cat(H, q), k)), k, Nat.add(U32.to_nat(hs), U32.to_nat(L)),
+        MList.length_take_le(&2, U32, cat(H, q), k), pn_less(H, q, k, hs, L, eH, eL, less))))
+
+def Laws.roundtrip(fin, o, key, max, p, ys, ok, fit):
+  %wire_split(fin, o, key, p) :
+    {WS.list.next(Laws.wire.masked(key), max, cat(_, ys)) == WS.Got{WS.Frame{fin, Laws.op.code(o), p}, ys} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  rt_gen(Laws.wire.masked(key), max, Hp(fin, o, key, p), mbody(key, p), ys, fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, HSp(p)), lp(p), p,
+    hdr_form(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535), fin, o, key, p, lp(p), List.length(&2, U32, p), {==}, ln(List.length(&2, U32, p), max, fit), ok),
+    eH_form(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535), fin, o, key, lp(p)),
+    eLq(key, p, max, fit), eu_of(key, p), fitq(key, p, max, fit))
+
+def Laws.prefix_need(fin, o, key, max, p, k, ok, fit, less):
+  %wire_split(fin, o, key, p) :
+    {WS.list.next(Laws.wire.masked(key), max, List.take(&2, U32, _, k)) == WS.Need{List.take(&2, U32, _, k)} : WS.Decode<List<&2, U32>, List<&2, U32>>}
+  pn_gen(Laws.wire.masked(key), max, Hp(fin, o, key, p), mbody(key, p), k, fin, Laws.op.code(o), Laws.wire.masked(key), key_of(key), hs_of(key, HSp(p)), lp(p),
+    hdr_form(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535), fin, o, key, p, lp(p), List.length(&2, U32, p), {==}, ln(List.length(&2, U32, p), max, fit), ok),
+    eH_form(U32.is_le(lp(p), 125), U32.is_le(lp(p), 65535), fin, o, key, lp(p)),
+    eLq(key, p, max, fit), fitq(key, p, max, fit), less_split(fin, o, key, p, k, less))
+
+# Key octet j mod 4.
+def ko(+ks: List<&2, U32>, +j: Nat) -> U32:
+  Laws.key.at(ks, Nat.mod(j, 4n))
+
+# Started at octet i, the turning key holds octets i to i + 3 mod 4.
+def xmask_go(p: List<&2, U32>, +i: Nat, +ks: List<&2, U32>) ->
+  {WS.list.unmask.go(p, ko(ks, i), ko(ks, 1n+i), ko(ks, 1n+1n+i), ko(ks, 1n+1n+1n+i)) == Laws.xmask(p, i, ks) : List<&2, U32>}:
+  match p:
+    case Nil{}:
+      {==}
+    case Con{+x, +t}:
+      %Equal.cong(Nat, U32, j => Laws.key.at(ks, j), Nat.mod(Nat.add(4n, i), 4n), Nat.mod(i, 4n), MNat.add_mod_left(i, 4n)) :
+        {Con{(x .^. ko(ks, i) : U32), WS.list.unmask.go(t, ko(ks, 1n+i), ko(ks, 1n+1n+i), ko(ks, 1n+1n+1n+i), _)} == Laws.xmask(Con{x, t}, i, ks) : List<&2, U32>}
+      %xmask_go(t, 1n+i, ks) :
+        {Con{(x .^. ko(ks, i) : U32), WS.list.unmask.go(t, ko(ks, 1n+i), ko(ks, 1n+1n+i), ko(ks, 1n+1n+1n+i), ko(ks, 1n+1n+1n+1n+i))} == Con{(x .^. ko(ks, i) : U32), _} : List<&2, U32>}
+      {==}
+
+def Laws.unmask_rfc(k, p):
+  xmask_go(p, 0n, Laws.little(3n, k))

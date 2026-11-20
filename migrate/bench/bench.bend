@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../migrate.bend as M
-import bend-kit-json@0.7.0.0/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
 # Checksum: h = h*31 + c, u32, then add the length.

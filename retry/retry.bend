@@ -32,11 +32,13 @@ type Breaker is Data:
   BreakerOff{}
   BreakerOn{circuit: Circuit, state: State}
 
-# Settled: a success. Failed: a failure that another try would repeat. Unsafe: a transient failure of a
+# Settled: a success. Failed: a failure that another try would repeat. Rejected: the caller is at fault (such as
+# a 4xx), so another try would repeat it, and it is not the target's failure. Unsafe: a transient failure of a
 # request that must not repeat. Transient: another try can help; after is the server's wait in ms.
 type Outcome is Data:
   Settled{}
   Failed{}
+  Rejected{}
   Unsafe{}
   Transient{after: Maybe<&2, Nat>}
 
@@ -228,7 +230,7 @@ def plan.at(+w: Nat, b: Budget, +now: Nat) -> Plan:
   Budget{left, d} = b
   plan.left(left, w, d, now)
 
-# After an attempt ends at now: stop, or wait ms and then ask admit again. Settled, Failed, and Unsafe always stop.
+# After an attempt ends at now: stop, or wait ms and then ask admit again. Settled, Failed, Rejected, and Unsafe always stop.
 # A transient outcome stops when the budget is spent or the wait would reach the deadline.
 def plan(o: Outcome, p: Policy, b: Budget, +n: Nat, +now: Nat, +r: Nat) -> Plan:
   match o:
@@ -236,18 +238,22 @@ def plan(o: Outcome, p: Policy, b: Budget, +n: Nat, +now: Nat, +r: Nat) -> Plan:
       PlanStop{}
     case Failed{}:
       PlanStop{}
+    case Rejected{}:
+      PlanStop{}
     case Unsafe{}:
       PlanStop{}
     case Transient{after}:
       plan.at(wait(after, p, n, r), b, now)
 
-# Failed, Unsafe, and Transient count as failures for the breaker.
+# Failed, Unsafe, and Transient count as failures for the breaker. Settled and Rejected do not.
 def failed(o: Outcome) -> Bool:
   match o:
     case Settled{}:
       False{}
     case Failed{}:
       True{}
+    case Rejected{}:
+      False{}
     case Unsafe{}:
       True{}
     case Transient{after}:

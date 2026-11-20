@@ -2,14 +2,15 @@
 # A receiver on 127.0.0.1 answers 503, then 200: the runner requeues the first delivery and then completes both.
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-webhooks@0.11.0.0/webhooks.bend as W
-import bend-kit-hairpin@0.13.0.0/hairpin.bend as Hairpin
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
-import bend-kit-http@0.38.0.0/http.bend as Http
-import bend-kit-http@0.38.0.0/admission.bend as Admission
-import bend-kit-http@0.38.0.0/completion.bend as Completion
+import bend-kit-webhooks@0.12.0.0/webhooks.bend as W
+import bend-kit-hairpin@0.14.1.0/hairpin.bend as Hairpin
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
+import bend-kit-http@0.38.6.0/http.bend as Http
+import bend-kit-http@0.38.6.0/admission.bend as Admission
+import bend-kit-http@0.38.6.0/completion.bend as Completion
 import bend-kit-time@0.3.0.0/time.bend as Time
-import bend-kit-files@0.3.0.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 import ./runner.bend as R
 
 # ---- the job
@@ -42,10 +43,12 @@ def secret() -> String:
   "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
 
 # A 2xx is delivered. A timeout, a refused connect, 408, 429, or a 5xx may clear on a later attempt.
-# Any other answer will not change, so the runner keeps the hook dead.
+# Any other 4xx is the sender's fault, so the hook stays dead and the target's breaker does not count it.
+# Any other answer will not change either, so the runner keeps the hook dead.
 def judge.status(+s: U32) -> Retry.Outcome:
   Bool.pick(Retry.Outcome, Bool.and(U32.is_ge(s, 200), U32.is_lt(s, 300)), Retry.Settled{},
-  Bool.pick(Retry.Outcome, Bool.or(Bool.or(U32.is_eq(s, 408), U32.is_eq(s, 429)), U32.is_ge(s, 500)), Retry.Transient{None{}}, Retry.Failed{}))
+  Bool.pick(Retry.Outcome, Bool.or(Bool.or(U32.is_eq(s, 408), U32.is_eq(s, 429)), U32.is_ge(s, 500)), Retry.Transient{None{}},
+  Bool.pick(Retry.Outcome, U32.is_ge(s, 400), Retry.Rejected{}, Retry.Failed{})))
 
 def judge(r: Result<&1, &1, W.SendErr, Http.Res>) -> Retry.Outcome:
   match r:
@@ -135,8 +138,8 @@ def drained(y: R.Ran(Hook)) -> IO(R.Runner<Hook>):
     case (r, Fail{(c, m)}):
       IO.die(R.Runner<Hook>, 1, "bad webhook drain: " ++ m)
 
-def url() -> String:
-  "http://127.0.0.1:47861/hooks"
+def url(+port: U32) -> String:
+  "http://127.0.0.1:" ++ U32.show(port) ++ "/hooks"
 
 def finished(m: Maybe<&1, Unit>) -> IO(Unit):
   match m:
@@ -146,18 +149,23 @@ def finished(m: Maybe<&1, Unit>) -> IO(Unit):
       IO.print("ok webhooks: one 503 retried, then both events delivered, three attempts in all")
 
 # Two events to one receiver, one attempt at a time. The first attempt gets 503; the runner requeues it.
-def run(+path: String) -> IO(Unit):
+def run.on(+path: String, b: Listener & U32) -> IO(Unit):
+  (l, +port) = b
   do IO<Unit>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 47861))
     ch : Chan(Unit) <- IO.fork(Unit, serve([True{}, False{}, False{}], l))
     r0 : R.Runner<Hook> <- IO.try(R.Runner<Hook>, R.open(~Hook, ~Hook.encode, ~Hook.decode, path, 65536, 1048576, config(), 1n))
-    r1 : R.Runner<Hook> <- enq(r0, Hook{url(), "msg_1", "{\"event\": 1}"})
-    r2 : R.Runner<Hook> <- enq(r1, Hook{url(), "msg_2", "{\"event\": 2}"})
+    r1 : R.Runner<Hook> <- enq(r0, Hook{url(port), "msg_1", "{\"event\": 1}"})
+    r2 : R.Runner<Hook> <- enq(r1, Hook{url(port), "msg_2", "{\"event\": 2}"})
     y : R.Ran(Hook) <- R.drain(~Hook, ~Hook.encode, ~Hook.target, ~deliver, 200n, r2)
     r3 : R.Runner<Hook> <- drained(y)
     R.close(Hook, r3)
     m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
     finished(m)
+
+def run(+path: String) -> IO(Unit):
+  do IO<Unit>:
+    b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    run.on(path, b)
 
 def main() -> IO(Unit):
   do IO<Unit>:

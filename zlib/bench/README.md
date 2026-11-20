@@ -1,6 +1,6 @@
 # Zlib benchmark
 
-This times `gunzip` on one fixed gzip member and `gzip` on its plain text, in Bend and in JavaScript (Bun and Node) and Python. Bend runs twice: `bench.bend` uses the pure `gunzip` and `gzip`, and `native.bend` uses the libz effects `inflate.words` and `gzip.words`.
+This times `gunzip` on one fixed gzip member and `gzip` on its plain text, in Bend and in JavaScript (Bun and Node) and Python. Bend runs twice: `bench.bend` uses the pure `gunzip` and `gzip`, and `native.bend` uses `libz.inflate` and `libz.gzip`.
 
 ## Run
 
@@ -25,26 +25,28 @@ C and Rust are omitted: neither standard library ships gzip or DEFLATE.
 Each program reads its inputs before any timer starts. The timed ops:
 
 - **`inflate`**: one `gunzip` / `gzip.decompress` / `gunzipSync` call on `out/payload.gz`.
-- **`deflate`**: one `gzip` / `gzip.compress` / `gzipSync` / `gzip.words` call on `out/plain.bin`, level 6 where the library has levels. The pure Bend `gzip` has no levels; `gzip.words` uses level 6.
+- **`deflate`**: one `gzip` / `gzip.compress` / `gzipSync` / `libz.gzip` call on `out/plain.bin`, level 6 where the library has levels. The pure Bend `gzip` has no levels; `libz.gzip` uses level 6.
 
 After each timer stops, the program prints a checksum of the plain bytes: `h = h*31 + b` in wrapping u32. For `deflate`, that is the checksum of its own output gunzipped again. Expected for both: **2339964736**.
 
 Throughput in the table is plain bytes per second (decimal MB/s). **gzip bytes** is the size of each language's `deflate` output.
 
-Bend reads the files with `File.read_bytes` so the bytes are not UTF-8 decoded. `native.bend` turns them into `Bytes` before the timer starts, and turns the output back into a `String` for the checksum after it stops. Bend peak RSS was about **6 MB** on **64 KiB** plain and about **227 MB** on the 4 MiB run of `bench.bend`.
+Bend reads the files with `File.read_bytes` so the bytes are not UTF-8 decoded. Both Bend programs turn them into `Bytes` before the timer starts, and turn the output back into a `String` for the checksum after it stops. Bend peak RSS was about **221 MB** on the 4 MiB run of `bench.bend`.
 
 ## Results
 
-M4 Pro, macOS 26.6.2, arm64, 2026-09-27. Median of three runs. Times are in ms.
+M4 Pro, macOS 26.6.2, arm64, 2026-10-27. Median of three runs. Times are in ms.
 
 | variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |
 |---:|---:|---:|---:|---:|---:|---:|
-| Bun | 6.6 | 639 | 40.7 | 103 | 1,063,003 | 3.95x |
-| Node | 6.3 | 663 | 77.1 | 54 | 1,045,511 | 4.01x |
-| Python | 2.9 | 1,444 | 119.6 | 35 | 1,050,286 | 3.99x |
-| Bend | 217.8 | 19 | 688.0 | 6 | 1,422,023 | 2.95x |
-| Bend (libz) | 4.7 | 887 | 125.8 | 33 | 1,050,286 | 3.99x |
+| Bun | 6.3 | 666 | 40.3 | 104 | 1,063,003 | 3.95x |
+| Node | 6.2 | 675 | 74.5 | 56 | 1,045,511 | 4.01x |
+| Python | 2.9 | 1,438 | 116.4 | 36 | 1,050,286 | 3.99x |
+| Bend | 110.9 | 38 | 131.1 | 32 | 1,422,023 | 2.95x |
+| Bend (libz) | 4.7 | 897 | 118.6 | 35 | 1,050,286 | 3.99x |
 
 The pure Bend ratio is lower because it writes one fixed-Huffman block with greedy matching; the others use dynamic Huffman trees and lazy matching. `Bend (libz)` and Python call the same libz at level 6, so their outputs are the same size.
 
-Versions: Bend 2.0.31, Bun 1.3.14, Node 24.0.1, Python 3.14.6.
+Over `Bytes`, the pure Bend codecs run about 2× faster on `inflate` (217.8 ms with octet `String`s) and about 5× faster on `deflate` (688.0 ms), on Bend 2.0.31 then and 2.0.38 now.
+
+Versions: Bend 2.0.38, Bun 1.3.14, Node 24.0.1, Python 3.14.6.

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import threading
 import subprocess
 import tempfile
 import time
@@ -11,16 +12,29 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(args, timeout=120):
+def run(args, timeout=120, on_line=None):
     if shutil.disk_usage(ROOT).free < 10 * 1024**3:
         raise RuntimeError("less than 10 GiB disk headroom")
     print("$", " ".join(map(str, args)), flush=True)
-    with tempfile.TemporaryFile(mode="w+") as output:
+    with tempfile.NamedTemporaryFile(mode="w+") as output, open(output.name) as reader:
         process = subprocess.Popen(args, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+
+        def drain():
+            if on_line is None:
+                return
+            while True:
+                position = reader.tell()
+                line = reader.readline()
+                if not line.endswith("\n"):
+                    reader.seek(position)
+                    return
+                on_line(line)
+
         started = time.monotonic()
         peak = 0
         try:
             while process.poll() is None:
+                drain()
                 snapshot = subprocess.check_output(["ps", "-axo", "pid=,ppid=,rss="], text=True)
                 rows = [tuple(map(int, line.split())) for line in snapshot.splitlines()]
                 members = {process.pid}
@@ -42,31 +56,53 @@ def run(args, timeout=120):
             process.wait()
             raise
         output.seek(0)
+        drain()
         text = output.read()
     print(text, end="")
     print(f"exit={process.returncode} peak_rss_kib={peak}", flush=True)
-    journals = [line.removeprefix("JOURNAL ") for line in text.splitlines() if line.startswith("JOURNAL ")]
-    try:
-        if process.returncode:
-            raise RuntimeError("command failed")
-        for journal in journals:
-            path = Path(journal)
-            seen = []
-            for slot in range(2):
-                a = Path(f"{path}-a-{slot}").read_text()
-                b = Path(f"{path}-b-{slot}").read_text()
-                assert a == b, "bundle resources disagree about principal/order"
-                seen.extend(a.splitlines())
-            assert sorted(seen) == ["10", "12", "7", "8"], seen
-            assert text.splitlines().count("PARTIAL CLOSED") == 1
-            assert text.splitlines().count("CLOSED 0") == 2
-            assert text.splitlines().count("CLOSED 1") == 3
-            assert "camber owner: PASS" in text
-            print("journals/explicit closes: PASS", flush=True)
-    finally:
-        for journal in journals:
-            for file in Path(journal).parent.glob(Path(journal).name + "-*"):
-                file.unlink()
+    if process.returncode:
+        raise RuntimeError("command failed")
+    if "JOURNAL " in text:
+        assert "camber journal: PASS" in text
+        assert text.splitlines().count("PARTIAL CLOSED") == 1
+        assert text.splitlines().count("CLOSED 0") == 2
+        assert text.splitlines().count("CLOSED 1") == 3
+        assert "camber owner: PASS" in text
+        print("journals/explicit closes: PASS", flush=True)
+    return text
+
+
+def ready_ports(text, prefix="READY", count=1):
+    lines = [line.split() for line in text.splitlines() if line.startswith(prefix + " ")]
+    assert len(lines) == count, ("missing or duplicate listener ports", text)
+    ports = tuple(int(line[1]) for line in lines)
+    assert all(0 < port <= 65535 for port in ports), lines
+    return ports
+
+
+def run_live(args, clients, timeout=120):
+    failures, threads = [], []
+
+    def connect(port):
+        try:
+            clients(port)
+        except BaseException as error:
+            failures.append(error)
+
+    def output(line):
+        if line.startswith("READY "):
+            assert not threads, "duplicate readiness"
+            port, = ready_ports(line)
+            thread = threading.Thread(target=connect, args=(port,), daemon=True)
+            threads.append(thread)
+            thread.start()
+
+    text = run(args, timeout=timeout, on_line=output)
+    assert len(threads) == 1, "server did not report its port"
+    threads[0].join(timeout=20)
+    assert not threads[0].is_alive(), "live client unfinished"
+    if failures:
+        raise failures[0]
     return text
 
 

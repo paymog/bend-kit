@@ -1,9 +1,11 @@
 # Published live-only acceptance consumer: same public users application and real transport/Store joins.
 import Base
+import ./probe_server.bend as Probe
+import ./users_probe_server.bend as UsersProbe
 import ./users.bend as U
-import bend-kit-camber@0.15.0.0/camber.bend as C
-import bend-kit-http@0.38.0.0/http.bend as H
-import bend-kit-http@0.38.0.0/completion.bend as T
+import bend-kit-camber@0.15.1.0/camber.bend as C
+import bend-kit-http@0.38.6.0/http.bend as H
+import bend-kit-http@0.38.6.0/completion.bend as T
 
 def store.closed(result: C.OwnerClose<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
   match result:
@@ -86,7 +88,7 @@ def live.prepared(controlled: C.Server<U.Action, U.State, U.Config, String> & H.
   (server, stop) = controlled
   do IO<Unit>:
     +own : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    started : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, gate, own}, Unit{}, C.server.config(port))
+    started : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- Probe.transport(~Control, ~Unit, Control{stop, gate, own}, Unit{}, C.server.config(port))
     live.controlled(started, server, own, owner, gate, arrived)
 
 def live.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit), port: U32) -> IO(Unit):
@@ -102,7 +104,7 @@ def live.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.Sta
 
 def start(app: Result<&2, &2, C.RegistrationError, C.Application<U.Action, U.Config, C.Policy<String>>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit), port: U32, control_port: U32) -> IO(Unit):
   do IO<Unit>:
-    started : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- C.server.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
+    started : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- UsersProbe.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
       ~U.before, ~U.after, ~U.run, ~U.mapper, ~U.destroy, app, C.server.config(port), [U.fresh(), U.fresh(), U.fresh(), U.fresh()])
     live.started(started, owner, gate, arrived, control_port)
 

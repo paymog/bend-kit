@@ -1,7 +1,7 @@
 # Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. Source: https://github.com/paymog/bend-kit/tree/main/cache
 import Base
-import bend-kit-collections@0.1.4.1/omap.bend as OMap
-import bend-kit-collections@0.1.4.1/order.bend as Order
+import bend-kit-collections@0.1.5.0/omap.bend as OMap
+import bend-kit-collections@0.1.5.0/order.bend as Order
 
 # How long a result stays fresh, in the units of the caller's clock.
 type Policy is Data:

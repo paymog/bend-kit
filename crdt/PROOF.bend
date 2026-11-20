@@ -1,33 +1,14 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/u32.bend as MU32
 import bend-kit-cbor@0.3.0.0/cbor.bend as Cbor
 import ../lemmas/lemmas.bend as Lemmas
 import ./crdt.bend as Crdt
 import ./LAWS.bend as Laws
 
-# U32.max picks b when a < b, so its value is the Nat maximum.
-def max_pick(
-  c: Bool, +a: U32, +b: U32,
-  h: {Nat.is_lt(U32.to_nat(a), U32.to_nat(b)) == c : Bool}
-) -> {U32.to_nat(Bool.pick(U32, c, b, a)) == Nat.max(U32.to_nat(a), U32.to_nat(b)) : Nat}:
-  match c:
-    case True{}:
-      Equal.sym(Nat, Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(b),
-        MNat.max_eq_right(U32.to_nat(a), U32.to_nat(b), MNat.le_of_lt(U32.to_nat(a), U32.to_nat(b), h)))
-    case False{}:
-      Equal.sym(Nat, Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(a),
-        MNat.max_eq_left(U32.to_nat(a), U32.to_nat(b), MNat.le_of_not_lt(U32.to_nat(a), U32.to_nat(b), h)))
-
-def max_nat(a: U32, b: U32) -> {U32.to_nat(U32.max(a, b)) == Nat.max(U32.to_nat(a), U32.to_nat(b)) : Nat}:
-  match a b:
-    case U32{+x} U32{+y}:
-      max_pick(U32.is_lt(U32{x}, U32{y}), U32{x}, U32{y},
-        Equal.sym(Bool, U32.is_lt(U32{x}, U32{y}), Nat.is_lt(U32.to_nat(U32{x}), U32.to_nat(U32{y})),
-          Lemmas.u32_is_lt_nat(U32{x}, U32{y})))
-
 def max_nat_sym(+a: U32, +b: U32) -> {Nat.max(U32.to_nat(a), U32.to_nat(b)) == U32.to_nat(U32.max(a, b)) : Nat}:
-  Equal.sym(Nat, U32.to_nat(U32.max(a, b)), Nat.max(U32.to_nat(a), U32.to_nat(b)), max_nat(a, b))
+  MU32.u32_max_to_nat_sym(a, b)
 
 def max_comm(+a: U32, +b: U32) -> {U32.max(a, b) == U32.max(b, a) : U32}:
   Lemmas.u32_to_nat_inj(U32.max(a, b), U32.max(b, a),

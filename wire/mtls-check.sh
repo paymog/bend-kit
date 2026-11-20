@@ -31,25 +31,35 @@ else
   bend check.bend -o "$dir/check"
 fi
 if [ "${1:-native}" = linux ]; then
-  docker run --rm -v "$dir:/w" oven/bun:1 sh -c '
-    apt-get -qq update >/dev/null && apt-get -qq install -y openssl libssl3 ca-certificates >/dev/null 2>&1
-    openssl s_server -accept 39444 -cert /w/server.pem -key /w/server.key \
-      -CAfile /w/ca.pem -Verify 1 -tls1_2 -quiet -naccept 3 >/w/server.log 2>&1 &
+  docker run --rm -v "$dir:/w" -v "$here/tls-server.py:/w/server.py:ro" oven/bun:1 sh -c '
+    set -eu
+    apt-get -qq update >/dev/null && apt-get -qq install -y python3 libssl3 ca-certificates >/dev/null 2>&1
+    python3 /w/server.py /w/server.pem /w/server.key /w/ports /w/ca.pem >/w/server.log 2>&1 &
     server=$!
-    sleep 1
-    SSL_CERT_FILE=/w/ca.pem bun /w/check.js /w/client.pem /w/client.key
-    status=$?
+    trap '\''kill "$server" 2>/dev/null || :'\'' EXIT INT TERM
+    i=0
+    while [ ! -s /w/ports ]; do
+      i=$((i + 1))
+      [ "$i" -le 100 ] || { cat /w/server.log >&2; exit 1; }
+      sleep 0.1
+    done
+    read -r port </w/ports
+    SSL_CERT_FILE=/w/ca.pem bun /w/check.js /w/client.pem /w/client.key "$port"
     kill "$server" 2>/dev/null || :
-    exit "$status"
   '
   exit
 fi
-openssl s_server -accept 39444 -cert "$dir/server.pem" -key "$dir/server.key" \
-  -CAfile "$dir/ca.pem" -Verify 1 -tls1_2 -quiet -naccept 3 >"$dir/server.log" 2>&1 &
+python3 "$here/tls-server.py" "$dir/server.pem" "$dir/server.key" "$dir/ports" "$dir/ca.pem" >"$dir/server.log" 2>&1 &
 server=$!
-sleep 1
+i=0
+while [ ! -s "$dir/ports" ]; do
+  i=$((i + 1))
+  [ "$i" -le 100 ] || { cat "$dir/server.log" >&2; exit 1; }
+  sleep 0.1
+done
+read -r port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/client.pem" "$dir/client.key"
+  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/client.pem" "$dir/client.key" "$port"
 else
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/client.pem" "$dir/client.key"
+  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/client.pem" "$dir/client.key" "$port"
 fi

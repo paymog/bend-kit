@@ -1,8 +1,8 @@
 # ZIP archives read over Bytes: stored and DEFLATE entries, checked against their CRC-32 and sizes. Source: https://github.com/paymog/bend-kit/tree/main/archive
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-zlib@0.4.0.1/zlib.bend as Zlib
-import bend-kit-hash@0.3.0.1/hash.bend as Hash
+import bend-kit-zlib@0.5.1.1/zlib.bend as Zlib
+import bend-kit-hash@0.3.0.4/hash.bend as Hash
 
 # One member: its name and contents as raw bytes, its method (0 stored, 8 DEFLATE), and its CRC-32.
 type Entry is Type:
@@ -256,19 +256,18 @@ def headers(input: Bytes.Bytes) -> Bytes.Bytes & Result<&1, &1, U32 & String, Li
   Bytes.Bytes{+len, buf} = input
   headers.fin(len, headers.at(U32.is_lt(len, 22), buf, len))
 
-def inflated(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Result<&1, &1, U32 & String, Bytes.Bytes>:
+def inflated(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> Result<&1, &1, U32 & String, Bytes.Bytes>:
   match r:
     case Fail{e}:
       (+code, msg) = e
       Fail{Bool.pick(U32 & String, U32.is_eq(code, 27), (22, "entry size differs from the central directory"), (code, "DEFLATE entry: " ++ msg))}
-    case Done{(+n, w)}:
-      Done{Bytes.Bytes{n, w}}
+    case Done{b}:
+      Done{b}
 
 # Output past size is refused inside libz, so a bomb never grows beyond its declared size.
 def inflate.of(+size: U32, b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
-  Bytes.Bytes{+n, buf} = b
   do IO<Result<&1, &1, U32 & String, Bytes.Bytes>>:
-    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Zlib.inflate.raw.words(size, n, buf)
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Zlib.libz.inflate.raw(size, b)
     return inflated(r)
 
 def decode(stored: Bool, +size: U32, raw: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):

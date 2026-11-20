@@ -61,6 +61,15 @@ def Laws.u32_fraction_none():
 def Laws.u32_overflow_none():
   {==}
 
+def Laws.f32_string_none():
+  {==}
+
+def Laws.f64_exponent():
+  {==}
+
+def Laws.f64_string_none():
+  {==}
+
 def Laws.trailing_junk():
   {==}
 

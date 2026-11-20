@@ -3,7 +3,7 @@
 A pure retry policy for Bend 2: a shared attempt budget, an operation deadline, bounded backoff with equal jitter, and a circuit breaker. It imports only `Base`, so a caller that does not use HTTP can use it.
 
 ```bend
-import bend-kit-retry@0.2.0.0/retry.bend as Retry
+import bend-kit-retry@0.3.0.0/retry.bend as Retry
 ```
 
 `bend-kit-hairpin` uses this package for its retries. Import the same `retry` version that your `hairpin` version imports, because another version has a different `Retry.Budget`.
@@ -13,9 +13,9 @@ The defs are pure. The caller reads the clock, makes the attempts, sleeps, and c
 ## The loop
 
 1. **Admit.** `Retry.admit(breaker, budget, now)` checks the deadline, then the budget, then the breaker. It returns the new breaker, the new budget, and a `Gate`. Only `GateGo` starts an attempt, and it takes one attempt from the budget. `GateNo{why}` gives `DenyLate`, `DenySpent`, or `DenyOpen`.
-2. **Classify.** The caller turns the result of the attempt into an `Outcome`: `Settled` (a success), `Failed` (a failure that another try would repeat), `Unsafe` (a transient failure of an operation that must not repeat), or `Transient{after}` (another try can help; `after` is the server's wait in ms).
-3. **Tell the breaker.** `Retry.Breaker.done(breaker, now, Retry.failed(outcome))`. `Failed`, `Unsafe`, and `Transient` count as failures.
-4. **Plan.** `Retry.plan(outcome, policy, budget, n, now, r)` gives `PlanStop` or `PlanWait{ms}`. `n` is the retry number (0 first) and `r` is a random number for the jitter. `Settled`, `Failed`, and `Unsafe` stop. `Transient` waits `after`, or `min(cap, base * 2^n)` with equal jitter, at most `cap` either way. It stops when the budget is spent or when the wait would reach the deadline.
+2. **Classify.** The caller turns the result of the attempt into an `Outcome`: `Settled` (a success), `Failed` (a failure that another try would repeat), `Rejected` (the caller is at fault, such as a 4xx, so another try would repeat it), `Unsafe` (a transient failure of an operation that must not repeat), or `Transient{after}` (another try can help; `after` is the server's wait in ms).
+3. **Tell the breaker.** `Retry.Breaker.done(breaker, now, Retry.failed(outcome))`. `Failed`, `Unsafe`, and `Transient` count as failures. `Settled` and `Rejected` do not, so a run of client errors does not open the circuit.
+4. **Plan.** `Retry.plan(outcome, policy, budget, n, now, r)` gives `PlanStop` or `PlanWait{ms}`. `n` is the retry number (0 first) and `r` is a random number for the jitter. `Settled`, `Failed`, `Rejected`, and `Unsafe` stop. `Transient` waits `after`, or `min(cap, base * 2^n)` with equal jitter, at most `cap` either way. It stops when the budget is spent or when the wait would reach the deadline.
 
 | Value | Meaning |
 |---|---|
@@ -48,8 +48,8 @@ A layer with its own retry loop above another one multiplies attempts: 3 outer t
 - `deadline_denies`: no attempt is admitted at or after the deadline. `deadline_before_admits` shows that one is admitted just before it.
 - `delay_le_cap`, `jitter_floor`, `jitter_ceiling`: each backoff step is at most the cap, and equal jitter keeps the wait in `[d/2, d]`.
 - `wait_le_cap`, `wait_fits_u32`: every wait, a server's wait included, is at most the `U32` cap, so the conversion to a `U32` sleep is exact. Nothing overflows.
-- `plan_settled_stops`, `plan_failed_stops`, `plan_unsafe_stops`: a non-retryable outcome never schedules another attempt. `plan_spent_stops` and `plan_late_stops`: neither does a spent budget, nor a wait that would reach the deadline.
-- `failed_counts`: a failure that another try would repeat counts against the breaker.
+- `plan_settled_stops`, `plan_failed_stops`, `plan_rejected_stops`, `plan_unsafe_stops`: a non-retryable outcome never schedules another attempt. `plan_spent_stops` and `plan_late_stops`: neither does a spent budget, nor a wait that would reach the deadline.
+- `failed_counts`: a failure that another try would repeat counts against the breaker. `rejected_not_counted`: a caller's fault does not.
 - `probe_limit`, `done_frees_probes`: a half-open circuit never has more than `probes` attempts in flight.
 - `closed_admits`, `open_denies_before_cooldown`, `open_probes_after_cooldown`, `half_success_closes`, `half_failure_opens`, `open_ignores_done`, `closed_success_clears`, `closed_failure_under_threshold`: each transition of the circuit breaker.
 

@@ -1,8 +1,8 @@
 # Postgres client: protocol 3.0 over TCP or TLS, SCRAM-SHA-256, prepared queries, and a pool. Source: https://github.com/paymog/bend-kit/tree/main/postgres
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-wire@0.4.6.2/wire.bend as Wire
-import bend-kit-dns@0.7.0.0/dns.bend as Dns
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
+import bend-kit-dns@0.7.1.0/dns.bend as Dns
 import ./codec.bend as Codec
 import ./scram.bend as Scram
 

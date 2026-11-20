@@ -78,9 +78,9 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 - [x] Redis and Valkey client: `redis`, RESP3 over `wire` (#205). Pub/sub, cluster, sentinel, and client-side caching come later.
 - [x] LLM API client: `llm`, Anthropic Messages and OpenAI Chat Completions on `hairpin`, with an SSE parser (#250). Typed tool use, images, and pooled streams come later.
 - [x] Networking: RFC 6455 WebSocket client, RFC 6265bis cookie jar, and RFC 7578 multipart form-data (#42).
-- [ ] Templating and Markdown (#43)
-- [ ] Math and statistics (#44)
-- [ ] Diff and text utilities (#46)
+- [x] Templating and Markdown (#43): `template`, Mustache with HTML escaping by default, and `markdown`, CommonMark 0.31.2 to HTML with opt-in GitHub extensions.
+- [x] Math and statistics: descriptive statistics, quantiles, a histogram, and linear regression over `F64`, plus `U32` gcd, lcm, and integer square root (#44).
+- [x] Diff and text utilities: Myers diff with unified output, Levenshtein distance, and word wrap by display width (#46).
 
 ### Existing packages
 
@@ -89,7 +89,6 @@ New packages are tracked as GitHub issues with a `pri-high`, `pri-med`, or `pri-
 
 ## Later
 
-- [ ] **JSON number to F32.** `Json.at` and `Json.u32` exist.
 - [ ] Windows support (the effects use POSIX sockets and `dlopen`).
 - [ ] Test on an x86_64 Mac.
 

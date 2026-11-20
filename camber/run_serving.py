@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 
+from run_owner import ready_ports
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / 'camber/serving_results.json'
 RECEIPTS = json.loads(EVIDENCE.read_text()) if EVIDENCE.exists() else []
@@ -123,15 +124,12 @@ class Guard:
             time.sleep(.02)
         raise AssertionError(f'missing {marker}: {self.text()}')
 
+    def ports(self, marker='READY'):
+        return ready_ports(self.wait_for(marker), prefix='PORT', count=2)
+
 
 def run(argv):
     return Guard(argv).finish()
-
-
-def free_port():
-    with socket.socket() as peer:
-        peer.bind(('127.0.0.1', 0))
-        return peer.getsockname()[1]
 
 
 def request(port, method, target, body=b'', media='application/json', deny=''):
@@ -195,12 +193,12 @@ def finish_server(server, control_port, app_port):
 
 
 def lane(executable, folder, small):
-    app_port, control_port = free_port(), free_port()
+    app_port = control_port = 0
     journal = folder / 'small-journal'
     text = run(executable + ['small', str(app_port), str(journal), str(control_port)])
     assert 'JOINED CLOSED' in text and text.count('BUNDLE CLOSED') == 1
     assert journal.read_text() == 'CLOSED\n'
-    released(app_port)
+    released(ready_ports(text, prefix='PORT')[0])
     if small:
         return
     for mode in ('invalid', 'registration'):
@@ -233,9 +231,9 @@ def lane(executable, folder, small):
     ]
     expected = [direct(executable, folder / f'direct-{i}', *row[:-1]) for i, row in enumerate(rows)]
     journal = folder / 'live'
-    server = Guard(executable + ['live', str(app_port), str(journal), str(control_port)])
+    server = Guard(executable + ['live', '0', str(journal), '0'])
     try:
-        server.wait_for('READY\n')
+        app_port, control_port = server.ports('READY\n')
         beside = request(control_port, 'POST', '/plain', b'\x00\xffbeside')
         assert beside == (201, {'x-plain': 'packed'}, b'\x00\xffbeside'), beside
         for row, comparison in zip(rows, expected):
@@ -251,7 +249,7 @@ def lane(executable, folder, small):
             server.finish()
     for mode, target, status in (('overload', '/hold', 200), ('wait', '/plain', 201)):
         journal = folder / mode
-        server = Guard(executable + [mode, str(app_port), str(journal), str(control_port)])
+        server = Guard(executable + [mode, '0', str(journal), '0'])
         results, errors = [], []
         def operation():
             try:
@@ -260,7 +258,7 @@ def lane(executable, folder, small):
                 errors.append(str(error))
         client = threading.Thread(target=operation)
         try:
-            server.wait_for('READY\n')
+            app_port, control_port = server.ports('READY\n')
             client.start()
             if mode == 'overload':
                 server.wait_for('HELD\n')
@@ -300,26 +298,18 @@ def lane(executable, folder, small):
             client.join(5)
 
 
-def owner_journals(text, cwd):
+# check.bend checks and removes its own journal files under a temp dir.
+def owner_journals(text):
     for line in text.splitlines():
         if not line.startswith('JOURNAL '):
             continue
-        journal = cwd / line.removeprefix('JOURNAL ')
-        observed = []
-        for slot in range(2):
-            a = Path(f'{journal}-a-{slot}').read_text()
-            b = Path(f'{journal}-b-{slot}').read_text()
-            assert a == b, (journal, slot, a, b)
-            observed.extend(a.splitlines())
-        assert sorted(observed) == ['10', '12', '7', '8'], observed
+        assert 'camber journal: PASS' in text
         assert text.splitlines().count('PARTIAL CLOSED') == 1
         assert text.splitlines().count('CLOSED 0') == 2
         assert text.splitlines().count('CLOSED 1') == 3
-        RECEIPTS.append(dict(owner_journal=str(journal), paired_principals=observed,
+        RECEIPTS.append(dict(owner_journal=line.removeprefix('JOURNAL '), journal_checked=True,
                              partial_closed=1, slot0_closed=2, slot1_closed=3))
         EVIDENCE.write_text(json.dumps(RECEIPTS, indent=2) + '\n')
-        for owned in journal.parent.glob(journal.name + '-*'):
-            owned.unlink()
 
 
 def main():
@@ -329,7 +319,7 @@ def main():
     args = parser.parse_args()
     if args.checks:
         text = run(['bash', ROOT / 'scripts/check.sh', 'camber'])
-        owner_journals(text, ROOT / 'camber')
+        owner_journals(text)
     with tempfile.TemporaryDirectory(prefix='serving-', dir=ROOT / 'camber') as temporary:
         folder = Path(temporary)
         for extension, prefix in (('', []), ('.js', ['bun'])):
@@ -343,7 +333,7 @@ def main():
                 run(['bend', ROOT / 'camber/check.bend', '-o', executable])
                 text = run(prefix + [str(executable)])
                 assert 'camber owner: PASS' in text and 'close lost occupied capacity' not in text
-                owner_journals(text, ROOT)
+                owner_journals(text)
     EVIDENCE.write_text(json.dumps(RECEIPTS, indent=2) + '\n')
     print('PUBLIC SERVING PASS')
 

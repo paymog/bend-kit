@@ -1,7 +1,7 @@
 # Quantified queue contracts. Heap ordering is an explicit input invariant;
 # selection safety and cancellation/one-shot laws do not require it.
 import Base
-import bend-kit-collections@0.1.4.1/heap.bend as H
+import bend-kit-collections@0.1.5.0/heap.bend as H
 import ./queue.bend as Q
 
 # Ordinary & pairs are affine even when their fields are Data. Invariant

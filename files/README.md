@@ -3,7 +3,7 @@
 POSIX paths, directory listing, metadata, and packed file IO.
 
 ```bend
-import bend-kit-files@0.3.0.0/files.bend as Fs
+import bend-kit-files@0.4.0.0/files.bend as Fs
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
@@ -23,6 +23,8 @@ def main() -> IO(Unit):
 
 `read_bytes(file, max)` and `write_bytes(file, data)` use `Bytes`. This package imports `bend-kit-bytes@0.3.3.0`. `read.words` reads at most 1 MiB per call. A short read does not always mean EOF. `write.words` writes the whole buffer or fails. It does not undo bytes already written.
 
-`stat` follows symbolic links. `Info.size` and `Info.mtime` are `U32`. `mtime` is whole seconds since the Unix epoch. Both wrap at 2^32. `mkdir_all` creates each missing component. It fails if a component exists but is not a directory. `temp_dir` creates a new private directory under the system temp directory.
+`size64(file)` gives the size of an open file as `(hi, lo)`, which is `hi * 2^32 + lo` bytes. `read.words.at(file, hi, lo, max)` reads like `read.words`, at that byte offset. It does not move the file position. Use them for files over 4 GiB.
+
+`stat` follows symbolic links. `Info.size` and `Info.mtime` are `(hi, lo)` U32 halves: `hi * 2^32 + lo`. Size is in bytes. Mtime is whole seconds since the Unix epoch, with negative times encoded in 64-bit two's complement. `mkdir_all` creates each missing component. It fails if a component exists but is not a directory. `temp_dir` creates a new private directory under the system temp directory.
 
 The effects are `effs/files.c` and `effs/files.js`. Proofs do not cover them.

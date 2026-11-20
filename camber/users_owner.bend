@@ -2,8 +2,8 @@
 import Base
 import ./users.bend as U
 import ./users_direct.bend as Check
-import bend-kit-camber@0.15.0.0/camber.bend as C
-import bend-kit-http@0.38.0.0/http.bend as H
+import bend-kit-camber@0.15.1.0/camber.bend as C
+import bend-kit-http@0.38.6.0/http.bend as H
 
 def require.success(outcome: C.Outcome<String, U.User>) -> IO(Unit):
   match outcome:

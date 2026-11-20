@@ -409,3 +409,495 @@ def Laws.bad_count_order():
 
 def Laws.bad_flags():
   {==}
+
+def Laws.flag_leading():
+  {==}
+
+def Laws.bad_flag_inside():
+  {==}
+
+def Laws.bad_flag_group():
+  {==}
+
+def Laws.bad_flag_twice():
+  {==}
+
+def Laws.fold_literal():
+  {==}
+
+def Laws.fold_off_by_default():
+  {==}
+
+def Laws.fold_empty():
+  {==}
+
+def Laws.fold_class_range():
+  {==}
+
+def Laws.fold_class_range_non_ascii():
+  {==}
+
+def Laws.fold_negated_class():
+  {==}
+
+def Laws.fold_negated_class_non_ascii():
+  {==}
+
+def Laws.fold_word():
+  {==}
+
+def Laws.word_no_fold():
+  {==}
+
+def Laws.fold_not_word():
+  {==}
+
+def Laws.fold_not_word_in_class():
+  {==}
+
+def Laws.fold_digit():
+  {==}
+
+def Laws.fold_upper():
+  {==}
+
+def Laws.fold_not_upper():
+  {==}
+
+def Laws.fold_kelvin():
+  {==}
+
+def Laws.fold_long_s():
+  {==}
+
+def Laws.fold_sigma():
+  {==}
+
+def Laws.fold_accent():
+  {==}
+
+def Laws.fold_simple_only():
+  {==}
+
+def Laws.fold_sharp_s():
+  {==}
+
+def Laws.fold_captures():
+  {==}
+
+def Laws.fold_word_boundary():
+  {==}
+
+def Laws.fold_bytes_kelvin():
+  {==}
+
+def Laws.fold_bytes_literal():
+  {==}
+
+def Laws.fold_bytes_not_word():
+  {==}
+
+def Laws.fold_bits():
+  {==}
+
+def Laws.fold_bits_not_word():
+  {==}
+
+def Laws.fold_bits_bytes():
+  {==}
+
+def Laws.lead_boundary():
+  {==}
+
+def Laws.lead_boundary_bytes():
+  {==}
+
+def Laws.lead_boundary_after_wide():
+  {==}
+
+def Laws.lead_boundary_after_wide_bytes():
+  {==}
+
+def Laws.lead_not_boundary():
+  {==}
+
+def Laws.lead_not_boundary_bytes():
+  {==}
+
+def Laws.lead_start():
+  {==}
+
+def Laws.lead_start_bytes():
+  {==}
+
+def Laws.lead_digits():
+  {==}
+
+def Laws.lead_digits_bytes():
+  {==}
+
+def Laws.lead_fold_boundary():
+  {==}
+
+def Laws.lead_fold_boundary_bytes():
+  {==}
+
+def Laws.dfa_full():
+  {==}
+
+def Laws.dfa_full_bytes():
+  {==}
+
+def Laws.dfa_full_none():
+  {==}
+
+def Laws.dfa_full_none_bytes():
+  {==}
+
+def Laws.dfa_idle_prev():
+  {==}
+
+def Laws.dfa_idle_prev_bytes():
+  {==}
+
+def Laws.dfa_wide():
+  {==}
+
+def Laws.dfa_wide_bytes():
+  {==}
+
+def Laws.dfa_wide_lit():
+  {==}
+
+def Laws.dfa_wide_lit_bytes():
+  {==}
+
+def Laws.dfa_groups():
+  {==}
+
+def Laws.dfa_groups_bytes():
+  {==}
+
+def Laws.dfa_end():
+  {==}
+
+def Laws.dfa_end_bytes():
+  {==}
+
+def Laws.dfa_empty_text():
+  {==}
+
+def Laws.dfa_empty_text_bytes():
+  {==}
+
+def Laws.dfa_fold_wide():
+  {==}
+
+def Laws.dfa_fold_wide_bytes():
+  {==}
+
+def Laws.dfa_hit_boundary():
+  {==}
+
+def Laws.dfa_hit_boundary_bytes():
+  {==}
+
+def Laws.dfa_miss_boundary():
+  {==}
+
+def Laws.dfa_miss_boundary_bytes():
+  {==}
+
+def Laws.need_absent():
+  {==}
+
+def Laws.need_absent_bytes():
+  {==}
+
+def Laws.need_absent_hit():
+  {==}
+
+def Laws.need_absent_hit_bytes():
+  {==}
+
+def Laws.need_no_match():
+  {==}
+
+def Laws.need_no_match_bytes():
+  {==}
+
+def Laws.need_late():
+  {==}
+
+def Laws.need_late_bytes():
+  {==}
+
+def Laws.need_far():
+  {==}
+
+def Laws.need_far_bytes():
+  {==}
+
+def Laws.need_distance():
+  {==}
+
+def Laws.need_distance_bytes():
+  {==}
+
+def Laws.need_landing_boundary():
+  {==}
+
+def Laws.need_landing_boundary_bytes():
+  {==}
+
+def Laws.need_landing_boundary_hit():
+  {==}
+
+def Laws.need_landing_boundary_hit_bytes():
+  {==}
+
+def Laws.need_landing_prev():
+  {==}
+
+def Laws.need_landing_prev_bytes():
+  {==}
+
+def Laws.need_landing_prev_hit():
+  {==}
+
+def Laws.need_landing_prev_hit_bytes():
+  {==}
+
+def Laws.need_landing_start():
+  {==}
+
+def Laws.need_landing_start_bytes():
+  {==}
+
+def Laws.need_fold_kelvin():
+  {==}
+
+def Laws.need_fold_kelvin_bytes():
+  {==}
+
+def Laws.need_fold_long_s():
+  {==}
+
+def Laws.need_fold_long_s_bytes():
+  {==}
+
+def Laws.need_fold_sigma():
+  {==}
+
+def Laws.need_fold_sigma_bytes():
+  {==}
+
+def Laws.need_fold_case():
+  {==}
+
+def Laws.need_fold_case_hit():
+  {==}
+
+def Laws.need_fold_case_hit_bytes():
+  {==}
+
+def Laws.need_wide_before():
+  {==}
+
+def Laws.need_wide_before_bytes():
+  {==}
+
+def Laws.need_wide_boundary():
+  {==}
+
+def Laws.need_wide_boundary_bytes():
+  {==}
+
+def Laws.need_wide_class():
+  {==}
+
+def Laws.need_wide_class_bytes():
+  {==}
+
+def Laws.need_wide_letters():
+  {==}
+
+def Laws.need_wide_letters_bytes():
+  {==}
+
+def Laws.need_wide_align_bytes():
+  {==}
+
+def Laws.need_wide_invalid_bytes():
+  {==}
+
+def Laws.need_alt():
+  {==}
+
+def Laws.need_alt_bytes():
+  {==}
+
+def Laws.need_alt_absent():
+  {==}
+
+def Laws.need_alt_absent_bytes():
+  {==}
+
+def Laws.need_alt_far():
+  {==}
+
+def Laws.need_alt_far_bytes():
+  {==}
+
+def Laws.need_alt_fold():
+  {==}
+
+def Laws.need_alt_fold_bytes():
+  {==}
+
+def Laws.need_unbounded():
+  {==}
+
+def Laws.need_unbounded_bytes():
+  {==}
+
+def Laws.need_of_cat():
+  {==}
+
+def Laws.need_of_alt():
+  {==}
+
+def Laws.need_of_optional():
+  {==}
+
+def Laws.need_of_unbounded():
+  {==}
+
+def Laws.need_of_far():
+  {==}
+
+def Laws.need_of_far_bytes():
+  {==}
+
+def Laws.need_of_fold():
+  {==}
+
+def Laws.need_of_fold_bytes():
+  {==}
+
+def Laws.need_of_utf8_bytes():
+  {==}
+
+def Laws.need_of_fffd():
+  {==}
+
+def Laws.need_of_fffd_bytes():
+  {==}
+
+def Laws.need_gate_on():
+  {==}
+
+def Laws.need_gate_on_alt():
+  {==}
+
+def Laws.need_gate_boundary():
+  {==}
+
+def Laws.need_gate_far():
+  {==}
+
+def Laws.need_gate_unbounded():
+  {==}
+
+def Laws.need_anchor_rare():
+  {==}
+
+def Laws.need_anchor_first_on_tie():
+  {==}
+
+def Laws.need_anchor_alt_places():
+  {==}
+
+def Laws.need_anchor_fold():
+  {==}
+
+def Laws.need_anchor_wide_bytes():
+  {==}
+
+def Laws.need_anchor_inside():
+  {==}
+
+def Laws.need_anchor_inside_bytes():
+  {==}
+
+def Laws.need_anchor_inside_absent():
+  {==}
+
+def Laws.need_anchor_inside_absent_bytes():
+  {==}
+
+def Laws.need_anchor_start_bytes():
+  {==}
+
+def Laws.need_anchor_start_none_bytes():
+  {==}
+
+def Laws.need_anchor_back_start_bytes():
+  {==}
+
+def Laws.need_anchor_back_start():
+  {==}
+
+def Laws.need_anchor_back():
+  {==}
+
+def Laws.need_anchor_back_bytes():
+  {==}
+
+def Laws.need_anchor_clamp():
+  {==}
+
+def Laws.need_anchor_clamp_bytes():
+  {==}
+
+def Laws.need_anchor_clamp_start():
+  {==}
+
+def Laws.need_anchor_clamp_start_bytes():
+  {==}
+
+def Laws.need_anchor_fold_hit():
+  {==}
+
+def Laws.need_anchor_fold_hit_bytes():
+  {==}
+
+def Laws.need_anchor_fold_wide():
+  {==}
+
+def Laws.need_anchor_fold_wide_bytes():
+  {==}
+
+def Laws.need_anchor_wide():
+  {==}
+
+def Laws.need_anchor_wide_hit_bytes():
+  {==}
+
+def Laws.need_anchor_far():
+  {==}
+
+def Laws.need_anchor_far_bytes():
+  {==}
+
+def Laws.need_anchor_back_order():
+  {==}
+
+def Laws.need_anchor_back_order_bytes():
+  {==}
+
+def Laws.need_anchor_prefix_start():
+  {==}
+
+def Laws.need_anchor_prefix_start_bytes():
+  {==}

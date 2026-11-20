@@ -33,8 +33,15 @@ jobs:
       - name: Check sibling pins
         if: github.event_name == 'pull_request'
         run: |
-          pkgs=$(scripts/packages.sh "origin/${{ github.base_ref }}")
-          [ -z "$pkgs" ] || scripts/pins.sh "origin/${{ github.base_ref }}" $pkgs
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD)
+          bash scripts/pins-check.sh
+          if grep -qE '(^|/)README\.md$|^scripts/(pins|packages)\.sh$|^scripts/pins\.allow$' <<<"$changed"; then
+            scripts/pins.sh "$base"
+          else
+            pkgs=$(cut -d/ -f1 <<<"$changed" | sort -u | grep -xFf <(scripts/packages.sh) || true)
+            [ -z "$pkgs" ] || scripts/pins.sh "$base" $pkgs
+          fi
 
   check:
     needs: changes
@@ -71,6 +78,7 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           bend process/check.bend -o "$RUNNER_TEMP/bend-kit-process-check.js"
           bun "$RUNNER_TEMP/bend-kit-process-check.js"
+          process/ownership-check.sh
       - name: CA and mTLS checks ${{ matrix.package }}
         if: hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         run: |

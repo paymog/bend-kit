@@ -103,6 +103,10 @@ law write_masks_and_pads:
 law msb_write_masks_and_pads:
   {octets(True{}, [F{4, 255}, F{8, 0}]) == bytes([240, 0]) : String}
 
+# finish keeps the fewest 2^d words that hold the bytes, as Bytes.from_string does.
+law finish_is_canonical:
+  {written(False{}, [F{32, 67305985}, F{8, 5}]) == Bytes.from_string(bytes([1, 2, 3, 4, 5])) : Bytes.Bytes}
+
 law lsb_read_known:
   {gets([3, 5], False{}, reader([161])) == [Some{1}, Some{20}] : List<&2, Maybe<&2, U32>>}
 

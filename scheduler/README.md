@@ -1,10 +1,10 @@
 # scheduler
 
-Pure deadline queues and recurrence planning. Import `bend-kit-scheduler@0.4.0.0/queue.bend` as `Queue` and `bend-kit-scheduler@0.4.0.0/recurrence.bend` as `Recurrence`.
+Pure deadline queues and recurrence planning. Import `bend-kit-scheduler@0.4.3.0/queue.bend` as `Queue` and `bend-kit-scheduler@0.4.3.0/recurrence.bend` as `Recurrence`.
 
 ## Queue transitions
 
-`State<A>` stores copyable payloads in the `collections@0.1.3.0` skew heap. Thread the returned state through every transition; do not fork state snapshots into independent runners.
+`State<A>` stores copyable payloads in the `collections@0.1.5.0` skew heap. Thread the returned state through every transition; do not fork state snapshots into independent runners.
 
 | Operation | Result | Meaning |
 |---|---|---|
@@ -42,7 +42,9 @@ The proof model is exact mathematical Nat, with no modular arithmetic. **Bend 2.
 
 ## Proofs and checks
 
-`LAWS.bend` imports quantified queue and recurrence claims; `PROOF.bend` supplies constructive proofs. Queue claims use semantic predicates over every heap element and an ordered-heap predicate, rather than equality of internal heap shapes. Queue operations preserve that ordering predicate. Accurate cached heap sizes and element conservation rely on valid API construction and the pinned heap implementation; they are not additional quantified scheduler invariants. Nat comparison and arithmetic lemmas come from `bend-mathlib@0.7.4.0`. Payload equality is not needed for scheduling order; cancellation is by exact Nat ID.
+`LAWS.bend` imports quantified queue and recurrence claims; `PROOF.bend` supplies constructive proofs. Queue claims use semantic predicates over every heap element and an ordered-heap predicate, rather than equality of internal heap shapes. Queue operations preserve that ordering predicate. Accurate cached heap sizes and element conservation rely on valid API construction and the pinned heap implementation; they are not additional quantified scheduler invariants. Nat comparison and arithmetic lemmas come from `bend-mathlib@0.8.0.0`. Payload equality is not needed for scheduling order; cancellation is by exact Nat ID.
+
+`scheduler.bend` imports `PROOF.bend`, so the laws and proofs publish with the package. A dependent package can cite a queue lemma in its own proofs: import `bend-kit-scheduler@0.4.3.0/queue_laws.bend` for the predicates and claims, and `bend-kit-scheduler@0.4.3.0/queue_proof.bend` for the lemmas, such as `merge_all.full`, `remove_all`, `remove_absent.heap`, `remove_absent.list`, and `select_selected_absent`. The lemmas hold for the `queue.bend` of the same version only.
 
 ```sh
 scripts/check.sh scheduler

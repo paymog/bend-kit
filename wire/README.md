@@ -3,17 +3,19 @@
 Byte-exact TCP, UDP, and TLS. Calls consume a socket or listener and return it beside the result. `connect` returns a new socket inside the `Result`. `tls.close` consumes the socket and does not return it.
 
 ```bend
-import bend-kit-wire@0.4.6.2/wire.bend as Wire
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 ```
 
 `connect(host, port, ms)` opens TCP. `recv` and `send` move a byte `String`. The `.words` forms move packed `Array<U32>` buffers, four octets per word, and do not build a list cell per byte. `recv_from` and `send_to` are UDP. `ms` is a deadline in milliseconds. `0` means no deadline, except where a def says otherwise. `accept.deadline` rejects `0`. A miss is the host `ETIMEDOUT`: 60 on macOS, 110 on Linux.
 
 `tls.connect` checks the certificate chain and the host name. `tls.connect.cert` adds a PEM client chain and key. `tls.connect.ca` trusts the PEM certificates in one file for that handshake, instead of the default verify paths. Verification stays on. `tls.connect.alpn` returns the selected protocol. `tls.connect.alpn.ca` does both. Set `BEND_LIBSSL` when OpenSSL 3 `libssl` is not on the default path. Proofs do not cover `effs/wire.c` and `effs/wire.js`.
 
-`http`, `dns`, `stream`, `websocket`, `redis`, and `postgres` import `bend-kit-wire@0.4.6.2`. `Socket` and `Listener` come from Base, not from this package.
+`http`, `dns`, `stream`, `websocket`, `redis`, and `postgres` import this package. `Socket` and `Listener` come from Base, not from this package.
 
 | Def | Result | Use |
 |---|---|---|
+| `listen(host: String, port: U32)` | `IO(Result<&1, &1, U32 & String, Listener & U32>)` | Listen on a numeric IPv4 or IPv6 address, nonblocking as Base `TCP.listen`. The result holds the bound port, so port 0 lets the OS pick a free one. |
+| `idle(sock: Socket)` | `IO(Socket & Bool)` | `True` when no byte and no end of stream waits on the socket. It reads nothing. A connection pool calls it before it reuses an idle socket. |
 | `tls.close(sock: Socket)` | `IO(Unit)` | End the TLS session and close the socket. |
 
 
@@ -81,6 +83,8 @@ Existing `send.words` has its separate, unlimited-write contract. Consumers that
 Run `python3 -B wire/deadline_check.py` from the repository root. It compiles native and JS sequentially and uses actual loopback peers for exact binary success, empty success, peer reset, stalled reading with partial-progress accounting and exact prefix receipt, and invalid length/deadline boundaries. Each fixture explicitly closes its returned socket. Builds are RSS-limited to 20 GiB and the runner requires 10 GiB disk headroom; temporary binaries are removed.
 
 Host effects are outside Bend's proof guarantees. `scripts/check.sh wire` permits the disclosed foreign-code proof exclusions while checking types and running existing checks. Pure laws do not attest socket IO, clocks, buffer cleanup, or scheduling. CI publishes the version in `VERSION`. Do not publish by hand.
+
+`sh wire/ca-check.sh [native|js]` and `sh wire/mtls-check.sh [native|js]` require Python 3 and OpenSSL. Their TLS 1.2 servers bind `127.0.0.1:0` and pass the bound port to each client. The mTLS server requires a certificate signed by the test CA. `sh wire/mtls-check.sh linux` runs the JS check in Docker and installs Python 3 in the container.
 
 ### Observed acceptance (2026-10-03, macOS arm64)
 

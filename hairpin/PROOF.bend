@@ -37,6 +37,9 @@ def Laws.outcome_post_503():
 def Laws.outcome_settled():
   {==}
 
+def Laws.outcome_rejected():
+  {==}
+
 def Laws.outcome_failed():
   {==}
 
