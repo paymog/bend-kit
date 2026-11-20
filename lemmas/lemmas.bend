@@ -2,6 +2,7 @@
 import Base
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-mathlib@0.8.0.0/u32.bend as MU32
+import bend-mathlib@0.8.0.0/bool.bend as MBool
 
 # 2^n, by the doubling that Word.to_nat uses.
 def pow2(n: Nat) -> Nat:
@@ -222,6 +223,127 @@ law u32_to_nat_inj:
 
 def u32_to_nat_inj(a, b, h):
   MU32.u32_to_nat_inj(a, b, h)
+
+def u32_max_nat(+a: U32, +b: U32) -> {U32.to_nat(U32.max(a, b)) == Nat.max(U32.to_nat(a), U32.to_nat(b)) : Nat}:
+  MU32.u32_max_to_nat(a, b)
+
+def u32_max_nat_sym(+a: U32, +b: U32) -> {Nat.max(U32.to_nat(a), U32.to_nat(b)) == U32.to_nat(U32.max(a, b)) : Nat}:
+  MU32.u32_max_to_nat_sym(a, b)
+
+def u32_max_comm(+a: U32, +b: U32) -> {U32.max(a, b) == U32.max(b, a) : U32}:
+  u32_to_nat_inj(U32.max(a, b), U32.max(b, a),
+    %u32_max_nat_sym(a, b) : {_ == U32.to_nat(U32.max(b, a)) : Nat}
+    %u32_max_nat_sym(b, a) : {Nat.max(U32.to_nat(a), U32.to_nat(b)) == _ : Nat}
+    MNat.max_comm(U32.to_nat(a), U32.to_nat(b)))
+
+def u32_max_assoc(+a: U32, +b: U32, +c: U32) -> {U32.max(U32.max(a, b), c) == U32.max(a, U32.max(b, c)) : U32}:
+  u32_to_nat_inj(U32.max(U32.max(a, b), c), U32.max(a, U32.max(b, c)),
+    %u32_max_nat_sym(U32.max(a, b), c) : {_ == U32.to_nat(U32.max(a, U32.max(b, c))) : Nat}
+    %u32_max_nat_sym(a, b) : {Nat.max(_, U32.to_nat(c)) == U32.to_nat(U32.max(a, U32.max(b, c))) : Nat}
+    %u32_max_nat_sym(a, U32.max(b, c)) : {Nat.max(Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(c)) == _ : Nat}
+    %u32_max_nat_sym(b, c) : {Nat.max(Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(c)) == Nat.max(U32.to_nat(a), _) : Nat}
+    MNat.max_assoc(U32.to_nat(a), U32.to_nat(b), U32.to_nat(c)))
+
+def u32_max_self(+a: U32) -> {U32.max(a, a) == a : U32}:
+  u32_to_nat_inj(U32.max(a, a), a,
+    %u32_max_nat_sym(a, a) : {_ == U32.to_nat(a) : Nat}
+    MNat.max_self(U32.to_nat(a)))
+
+def u32_le_nat_sym(+a: U32, +b: U32) -> {Nat.is_le(U32.to_nat(a), U32.to_nat(b)) == U32.is_le(a, b) : Bool}:
+  Equal.sym(Bool, U32.is_le(a, b), Nat.is_le(U32.to_nat(a), U32.to_nat(b)), u32_is_le_nat(a, b))
+
+def u32_le_max_l(+a: U32, +b: U32) -> {U32.is_le(a, U32.max(a, b)) == True{} : Bool}:
+  %u32_le_nat_sym(a, U32.max(a, b)) : {_ == True{} : Bool}
+  %u32_max_nat_sym(a, b) : {Nat.is_le(U32.to_nat(a), _) == True{} : Bool}
+  MNat.le_max_left(U32.to_nat(a), U32.to_nat(b))
+
+def u32_le_max_r(+a: U32, +b: U32) -> {U32.is_le(b, U32.max(a, b)) == True{} : Bool}:
+  %u32_le_nat_sym(b, U32.max(a, b)) : {_ == True{} : Bool}
+  %u32_max_nat_sym(a, b) : {Nat.is_le(U32.to_nat(b), _) == True{} : Bool}
+  MNat.le_max_right(U32.to_nat(a), U32.to_nat(b))
+
+def u32_max_le(
+  +a: U32, +b: U32, +c: U32,
+  ha: {U32.is_le(a, c) == True{} : Bool}, hb: {U32.is_le(b, c) == True{} : Bool}
+) -> {U32.is_le(U32.max(a, b), c) == True{} : Bool}:
+  %u32_le_nat_sym(U32.max(a, b), c) : {_ == True{} : Bool}
+  %u32_max_nat_sym(a, b) : {Nat.is_le(_, U32.to_nat(c)) == True{} : Bool}
+  %Equal.sym(Bool, Nat.is_le(Nat.max(U32.to_nat(a), U32.to_nat(b)), U32.to_nat(c)),
+    Bool.and(Nat.is_le(U32.to_nat(a), U32.to_nat(c)), Nat.is_le(U32.to_nat(b), U32.to_nat(c))),
+    MNat.max_le(U32.to_nat(a), U32.to_nat(b), U32.to_nat(c))) : {_ == True{} : Bool}
+  %u32_is_le_nat(a, c) : {Bool.and(_, Nat.is_le(U32.to_nat(b), U32.to_nat(c))) == True{} : Bool}
+  %u32_is_le_nat(b, c) : {Bool.and(U32.is_le(a, c), _) == True{} : Bool}
+  MBool.and_eq_true(U32.is_le(a, c), U32.is_le(b, c), ha, hb)
+
+def u32_cmp_nat_sym(+a: U32, +b: U32) -> {Nat.cmp(U32.to_nat(a), U32.to_nat(b)) == U32.cmp(a, b) : Cmp}:
+  Equal.sym(Cmp, U32.cmp(a, b), Nat.cmp(U32.to_nat(a), U32.to_nat(b)), u32_cmp_nat(a, b))
+
+def max_ne0_nat(
+  n: Nat, +m: Nat, h: {Bool.not(Cmp.is_eq(Nat.cmp(n, 0n))) == True{} : Bool}
+) -> {Bool.not(Cmp.is_eq(Nat.cmp(Nat.max(n, m), 0n))) == True{} : Bool}:
+  match n m:
+    case 0n _:
+      Empty.absurd({Bool.not(Cmp.is_eq(Nat.cmp(Nat.max(0n, m), 0n))) == True{} : Bool}, MBool.false_ne_true()(h))
+    case 1n+p 0n:
+      {==}
+    case 1n+p 1n+q:
+      {==}
+
+def eq0_le_nat(n: Nat) -> {Cmp.is_eq(Nat.cmp(n, 0n)) == Cmp.is_le(Nat.cmp(n, 0n)) : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+def u32_eq0_le(+x: U32) -> {U32.is_eq(x, 0) == U32.is_le(x, 0) : Bool}:
+  %u32_cmp_nat_sym(x, 0) : {Cmp.is_eq(_) == Cmp.is_le(_) : Bool}
+  eq0_le_nat(U32.to_nat(x))
+
+def u32_eq0_to_le(+x: U32, h: {U32.is_eq(x, 0) == True{} : Bool}) -> {U32.is_le(x, 0) == True{} : Bool}:
+  Equal.trans(Bool, U32.is_le(x, 0), U32.is_eq(x, 0), True{},
+    Equal.sym(Bool, U32.is_eq(x, 0), U32.is_le(x, 0), u32_eq0_le(x)), h)
+
+def u32_max_eq0(
+  +x: U32, +y: U32, hx: {U32.is_eq(x, 0) == True{} : Bool}, hy: {U32.is_eq(y, 0) == True{} : Bool}
+) -> {U32.is_eq(U32.max(x, y), 0) == True{} : Bool}:
+  Equal.trans(Bool, U32.is_eq(U32.max(x, y), 0), U32.is_le(U32.max(x, y), 0), True{},
+    u32_eq0_le(U32.max(x, y)), u32_max_le(x, y, 0, u32_eq0_to_le(x, hx), u32_eq0_to_le(y, hy)))
+
+def u32_ne0_max(
+  +x: U32, +y: U32, h: {U32.is_ne(x, 0) == True{} : Bool}
+) -> {U32.is_ne(U32.max(x, y), 0) == True{} : Bool}:
+  %u32_cmp_nat_sym(U32.max(x, y), 0) : {Bool.not(Cmp.is_eq(_)) == True{} : Bool}
+  %u32_max_nat_sym(x, y) : {Bool.not(Cmp.is_eq(Nat.cmp(_, U32.to_nat(0)))) == True{} : Bool}
+  max_ne0_nat(U32.to_nat(x), U32.to_nat(y),
+    Equal.trans(Bool, Bool.not(Cmp.is_eq(Nat.cmp(U32.to_nat(x), U32.to_nat(0)))), U32.is_ne(x, 0), True{},
+      Equal.cong(Cmp, Bool, k => Bool.not(Cmp.is_eq(k)), Nat.cmp(U32.to_nat(x), U32.to_nat(0)), U32.cmp(x, 0),
+        u32_cmp_nat_sym(x, 0)), h))
+
+def u32_max0_r(+a: U32) -> {U32.max(a, 0) == a : U32}:
+  u32_to_nat_inj(U32.max(a, 0), a,
+    %u32_max_nat_sym(a, 0) : {_ == U32.to_nat(a) : Nat}
+    MNat.max_zero(U32.to_nat(a)))
+
+def u32_max0_l(+a: U32) -> {U32.max(0, a) == a : U32}:
+  Equal.trans(U32, U32.max(0, a), U32.max(a, 0), a, u32_max_comm(0, a), u32_max0_r(a))
+
+def u32_max_left_comm(+p: U32, +a: U32, +t: U32) -> {U32.max(p, U32.max(a, t)) == U32.max(a, U32.max(p, t)) : U32}:
+  Equal.trans(U32, U32.max(p, U32.max(a, t)), U32.max(U32.max(p, a), t), U32.max(a, U32.max(p, t)),
+    Equal.sym(U32, U32.max(U32.max(p, a), t), U32.max(p, U32.max(a, t)), u32_max_assoc(p, a, t)),
+    Equal.trans(U32, U32.max(U32.max(p, a), t), U32.max(U32.max(a, p), t), U32.max(a, U32.max(p, t)),
+      Equal.cong(U32, U32, z => U32.max(z, t), U32.max(p, a), U32.max(a, p), u32_max_comm(p, a)),
+      u32_max_assoc(a, p, t)))
+
+def u32_max_four(+p: U32, +q: U32, +r: U32, +t: U32) -> {U32.max(U32.max(p, q), U32.max(r, t)) == U32.max(U32.max(p, r), U32.max(q, t)) : U32}:
+  Equal.trans(U32, U32.max(U32.max(p, q), U32.max(r, t)), U32.max(p, U32.max(q, U32.max(r, t))),
+    U32.max(U32.max(p, r), U32.max(q, t)),
+    u32_max_assoc(p, q, U32.max(r, t)),
+    Equal.trans(U32, U32.max(p, U32.max(q, U32.max(r, t))), U32.max(p, U32.max(r, U32.max(q, t))),
+      U32.max(U32.max(p, r), U32.max(q, t)),
+      Equal.cong(U32, U32, z => U32.max(p, z), U32.max(q, U32.max(r, t)), U32.max(r, U32.max(q, t)), u32_max_left_comm(q, r, t)),
+      Equal.sym(U32, U32.max(U32.max(p, r), U32.max(q, t)), U32.max(p, U32.max(r, U32.max(q, t))),
+        u32_max_assoc(p, r, U32.max(q, t)))))
 
 def b2n(b: Bool) -> Nat:
   match b:

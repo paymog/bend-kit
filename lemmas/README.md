@@ -3,7 +3,7 @@
 Proved laws that relate `Word` and `U32` arithmetic to `Nat`. Use them to prove claims about runtime integers. The Nat and List lemmas come from [`bend-mathlib`](https://github.com/bendlib/bendlib). This package holds the laws that mathlib does not have, such as those bounded by `pow2(n)`, and eleven laws that mathlib's `u32.bend` and `nat.bend` state the same way, kept under their names here and proved by the mathlib laws.
 
 ```bend
-import bend-kit-lemmas@0.1.4.0/lemmas.bend as Lemmas
+import bend-kit-lemmas@0.1.5.0/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 ```
 
@@ -19,6 +19,11 @@ def Laws.fits_exact(len, i, n):
 | `u32_to_nat_lt` | `to_nat(a) < 2^32` |
 | `u32_to_nat_inj` | equal values give equal `U32`s |
 | `u32_cmp_nat`, `u32_is_lt_nat`, `u32_is_le_nat`, `u32_is_eq_nat` | `U32` comparisons give the same result as `Nat` comparisons of the values |
+| `u32_max_nat`, `u32_max_nat_sym` | `U32.max` has the same value as `Nat.max`, in either rewrite direction |
+| `u32_max_comm`, `u32_max_assoc`, `u32_max_self` | maximum is commutative, associative, and idempotent |
+| `u32_le_max_l`, `u32_le_max_r`, `u32_max_le` | maximum is the least upper bound |
+| `u32_max0_l`, `u32_max0_r`, `u32_max_eq0`, `u32_ne0_max` | zero is an identity; maximum preserves zero and nonzero bounds |
+| `u32_max_left_comm`, `u32_max_four` | reorder nested maxima |
 | `u32_add_nat` | `to_nat(a + b) == to_nat(a) + to_nat(b)` when the sum is below `2^32` |
 | `u32_add_mod` | `to_nat(a + b) == (to_nat(a) + to_nat(b)) mod 2^32` |
 | `u32_sub_nat` | `to_nat(a - b) == to_nat(a) - to_nat(b)` when `b <= a` |

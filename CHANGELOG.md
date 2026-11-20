@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `lemmas` 0.1.5.0: export the U32 maximum bridge, algebra, and order proofs from `crdt`. G-Counter, K-Counter, and PN-Counter proofs use the shared lemmas. `collections` no longer imports `lemmas`, so it needs no re-pin.
+
 - `crdt`: prove universal reflexivity, transitivity, antisymmetry on valid G-Counter states, and merge monotonicity. No runtime change.
 
 - `crdt` 0.2.1.0: add a PN-Counter with checked signed values, validated CBOR states, and universal merge and convergence proofs built from the G-Counter laws.

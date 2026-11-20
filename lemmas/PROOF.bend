@@ -47,6 +47,27 @@ def Laws.u32_is_le_nat(a, b):
 def Laws.u32_is_eq_nat(a, b):
   Lemmas.u32_is_eq_nat(a, b)
 
+def Laws.u32_max_nat(a, b):
+  Lemmas.u32_max_nat(a, b)
+
+def Laws.u32_max_comm(a, b):
+  Lemmas.u32_max_comm(a, b)
+
+def Laws.u32_max_assoc(a, b, c):
+  Lemmas.u32_max_assoc(a, b, c)
+
+def Laws.u32_max_self(a):
+  Lemmas.u32_max_self(a)
+
+def Laws.u32_le_max_l(a, b):
+  Lemmas.u32_le_max_l(a, b)
+
+def Laws.u32_le_max_r(a, b):
+  Lemmas.u32_le_max_r(a, b)
+
+def Laws.u32_max_le(a, b, c, ha, hb):
+  Lemmas.u32_max_le(a, b, c, ha, hb)
+
 def Laws.u32_add_nat(a, b, h):
   Lemmas.u32_add_nat(a, b, h)
 
