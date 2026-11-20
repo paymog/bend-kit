@@ -3,10 +3,10 @@ import Base
 import ./gateway.bend as G
 import ./app.bend as Gw
 import ./upstream.bend as Up
-import bend-kit-camber@0.15.1.0/camber.bend as C
-import bend-kit-http@0.38.6.0/http.bend as H
+import bend-kit-camber@0.16.0.2/camber.bend as C
+import bend-kit-http@0.38.6.1/http.bend as H
 import bend-kit-cache@0.3.1.0/cache.bend as Cache
-import bend-kit-hairpin@0.14.1.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.14.1.1/hairpin.bend as Hairpin
 
 def PORT() -> U32:
   18461

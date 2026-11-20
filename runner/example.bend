@@ -2,12 +2,12 @@
 # A receiver on 127.0.0.1 answers 503, then 200: the runner requeues the first delivery and then completes both.
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-webhooks@0.12.0.0/webhooks.bend as W
-import bend-kit-hairpin@0.14.1.0/hairpin.bend as Hairpin
+import bend-kit-webhooks@0.12.0.1/webhooks.bend as W
+import bend-kit-hairpin@0.14.1.1/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.38.6.0/http.bend as Http
-import bend-kit-http@0.38.6.0/admission.bend as Admission
-import bend-kit-http@0.38.6.0/completion.bend as Completion
+import bend-kit-http@0.38.6.1/http.bend as Http
+import bend-kit-http@0.38.6.1/admission.bend as Admission
+import bend-kit-http@0.38.6.1/completion.bend as Completion
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-files@0.4.0.0/files.bend as Files
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
