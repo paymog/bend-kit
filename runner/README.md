@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.17.0.0/runner.bend as R
+import bend-kit-runner@0.17.0.1/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.1`, `bend-kit-scheduler@0.4.3.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.0`, `bend-kit-collections@0.1.5.0`, `bend-kit-files@0.4.0.0`, and `bend-kit-bytes@0.3.3.0`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.3.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.17.0.0/runner.bend as R
+import bend-kit-runner@0.17.0.1/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.0.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.17.0.1/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `~penc: A -> Bytes.Bytes` and `~pdec: Bytes.Bytes -> Maybe<&2, A>` encode the payload. `pdec(penc(x))` must be `Some{x}`: the replay laws assume it. `~target: A -> String` names a job's breaker. `~work: A -> IO(Retry.Outcome)` runs one attempt. Answer `Retry.Rejected` for a client error, such as a 404: the job is dead, and the target's breaker does not count it.
 
@@ -139,7 +139,7 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 
 ## Laws
 
-`LAWS.bend` states them and `PROOF.bend` proves them over `model.bend`'s `step`, `apply`, `load`, `pick`, and `after`. Neither file imports the foreign runtime. `bend PROOF.bend --check-only` must print `ALL PROOFS CHECK`. `open` folds `load`, which steps an op record as `apply` does.
+`LAWS.bend` states them and `PROOF.bend` proves them over `model.bend`'s `step`, `apply`, `load`, `pick`, `after`, and `loop.fold`. Neither file imports the foreign runtime. `bend PROOF.bend --check-only` must print `ALL PROOFS CHECK`. `open` folds `load`, which steps an op record as `apply` does.
 
 | law | claim |
 |---|---|
@@ -154,6 +154,9 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 | `pick_holds_one` | A picked attempt holds exactly one more pool unit; an idle pick holds none. |
 | `pick_bounded` | The units held after a pick never exceed the capacity. |
 | `pick_release` | Releasing a picked grant once gives back the pool as it was before the pick. |
+| `loop_capacity`, `loop_capacity_stable` | Every finite sequence of claims and finishes keeps the units held within the initial capacity. Apply the laws to any prefix to cover each intermediate state. No finish order is assumed. |
+| `loop_flights` | Claims and finishes preserve equality between flights and the queue's running list, from any state where they agree. |
+| `loop_finish_releases`, `loop_finish_once` | A finish for a flight gives back one reserved unit. Finishing the same id again changes neither the pool, flights, nor queue. |
 | `requeue_wait` | When `retry.plan` waits `w`, the record is `Requeue{id, now + w}`. |
 | `settled_complete` | A `Settled` attempt gives `Complete{id}`. |
 | `unsafe_abandon` | An `Unsafe` attempt gives `Abandon{id, WhyUnsafe, now}`. |
@@ -163,6 +166,10 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 | `transient_abandon` | When `retry.plan` stops a `Transient` failure, the record is `Abandon{id, gave(b), now}`: `WhySpent` when no attempt is left, else `WhyLate`. |
 
 `journal`'s `replay` and `roundtrip` laws give the other half of `replay_prefix`: `open` folds exactly the committed records, in order. `scheduler`'s laws give the queue's own behavior, such as `requeue_token`.
+
+`Loop{pool, state, flights}` is the pure accounting view of the settle loop. `loop.fold` consumes `Claim{now}` and `Finish{id}` events. A claim uses the runtime's `pick` and `Select` transition. A finish takes the ticket by id, applies `Complete`, and uses the same release transition as the runtime. Flights represent one-unit grants from that pool; the runtime retains the affine grants. As in the queue, live attempts have distinct ticket ids. The capacity laws also hold for malformed accounting views.
+
+The events cover successful claims and completion settles. They do not assume FIFO finishes. An absent finish is a no-op. They do not model journal failure, breaker refusal, requeue, or cancellation. In particular, a cancelled job can still have a live flight, so equality with the queue's running list is not claimed across cancellation. These IO paths remain in the wiring checks.
 
 ## Trust boundary
 

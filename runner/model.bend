@@ -358,6 +358,61 @@ def pick(~A: Data, p: Res.Pool, s: State<A>, now: Nat) -> Pick<A>:
   State{q, ts, ds, bs} = s
   pick.sel(A, Q.select(~A, now, q), p)
 
+# A flight holds one unit; its affine grant is retained by the runtime.
+type Loop<-A: Data> is Data:
+  Loop{pool: Res.Pool, state: State<A>, flights: List<&2, Q.Ticket<A>>}
+
+type LoopEvent is Data:
+  Claim{now: Nat}
+  Finish{id: Nat}
+
+def loop.pool(-A: Data, s: Loop<A>) -> Res.Pool:
+  Loop{p, s, fs} = s
+  p
+
+def loop.state(-A: Data, s: Loop<A>) -> State<A>:
+  Loop{p, s, fs} = s
+  s
+
+def loop.flights(-A: Data, s: Loop<A>) -> List<&2, Q.Ticket<A>>:
+  Loop{p, s, fs} = s
+  fs
+
+def loop.release(r: Res.Release) -> Res.Pool:
+  match r:
+    case Res.Released{p}:
+      p
+    case Res.Kept{p, g}:
+      p
+
+def loop.claim(~A: Data, k: Pick<A>, s: State<A>, fs: List<&2, Q.Ticket<A>>, now: Nat) -> Loop<A>:
+  match k:
+    case Idle{p}:
+      Loop{p, s, fs}
+    case Picked{p, +t, g}:
+      Loop{p, step(~A, s, Select{now}), Con{t, fs}}
+
+def loop.finished(~A: Data, tk: Q.Taken<A>, p: Res.Pool, s: State<A>, +i: Nat) -> Loop<A>:
+  match tk p:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, h}:
+      Loop{Res.Pool{o, c, h}, s, fs}
+    case Q.Taken{fs, Some{t}} Res.Pool{+o, c, h}:
+      Loop{loop.release(Res.release(Res.Pool{o, c, h}, Res.Grant{o, 1n})), step(~A, s, Complete{i}), fs}
+
+def loop.step(~A: Data, e: LoopEvent, s: Loop<A>) -> Loop<A>:
+  match e s:
+    case Claim{+now} Loop{p, +s, fs}:
+      loop.claim(~A, pick(~A, p, s, now), s, fs, now)
+    case Finish{+i} Loop{p, s, fs}:
+      loop.finished(~A, Q.take.list(A, fs, i), p, s, i)
+
+def loop.fold(~A: Data, es: List<&2, LoopEvent>, s: Loop<A>) -> Loop<A>:
+  match es:
+    case Nil{}:
+      s
+    case Con{e, rest}:
+      loop.fold(~A, rest, loop.step(~A, e, s))
+
 # ---- retry
 
 # The budget left for ticket i: the policy's attempts less its failures, until its start plus the policy deadline.
