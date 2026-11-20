@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.18.0.0: prove that replay restores each target's last breaker state and that recovery preserves open cooldowns and closed failure windows while clearing half-open probes. Use the checked collections hash trie for breakers; the pure state representation changes, but the journal format stays compatible. Breaking.
+
 - `migrate` 0.4.0.0: prove record round trips without a decimal hypothesis. Use the shared bytes codec and theorem, with a canonical digit-count check that preserves strict decimal input. Remove `u32.text` and its duplicate codec helpers; callers use `Bytes.u32.show`. Breaking.
 
 - `json` 0.7.2.1 and `encoding` 0.5.0.1: import the proof-bearing `bytes` 0.3.3.1 release so their byte types match migrate's decimal proof. No runtime API change.

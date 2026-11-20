@@ -60,6 +60,59 @@ law replay_prefix:
   for s: R.State<A>
   {replayed(~A, ~X, ~enc, ~dec, List.take(&2, R.Op<A>, ops, k), s) == Some{live(~A, List.take(&2, R.Op<A>, ops, k), s)} : Maybe<&2, R.State<A>>}
 
+def breaker.wf(bs: R.Breakers()) -> Bool:
+  CL.hmap_wf(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, bs)
+
+def breaker.untouched(-A: Data, op: R.Op<A>, k: String) -> Type:
+  match op:
+    case R.Break{j, b}:
+      {j != k : String}
+    case op:
+      Unit
+
+def breaker.untouched.all(-A: Data, ops: List<&2, R.Op<A>>, +k: String) -> Type:
+  match ops:
+    case Nil{}:
+      Unit
+    case Con{op, rest}:
+      breaker.untouched(A, op, k) & breaker.untouched.all(A, rest, k)
+
+def breaker.recovered(-A: Data, m: Maybe<&2, R.State<A>>, k: String) -> Maybe<&2, Retry.State>:
+  match m:
+    case None{}:
+      None{}
+    case Some{s}:
+      Some{R.brk.get(A, s, k)}
+
+law replay_breaker:
+  for ~A: Data
+  for ~X: Type
+  for ~enc: R.Op<A> -> X
+  for ~dec: X -> Maybe<&2, R.Op<A>>
+  for ~round: @op: R.Op<A> -> {dec(enc(op)) == Some{op} : Maybe<&2, R.Op<A>>}
+  for +s: R.State<A>
+  for wf: {breaker.wf(R.breakers(A, s)) == True{} : Bool}
+  for +k: String
+  for +b: Retry.State
+  for +ops: List<&2, R.Op<A>>
+  for untouched: breaker.untouched.all(A, ops, k)
+  {breaker.recovered(A, replayed(~A, ~X, ~enc, ~dec, R.Break{k, b} <> ops, s), k) == Some{b} : Maybe<&2, Retry.State>}
+
+def breaker.after_crash(b: Retry.State) -> Retry.State:
+  match b:
+    case Retry.CircuitClosed{fs}:
+      Retry.CircuitClosed{fs}
+    case Retry.CircuitOpen{until}:
+      Retry.CircuitOpen{until}
+    case Retry.CircuitHalf{probes}:
+      Retry.CircuitHalf{0n}
+
+law calm_breaker:
+  for A: Data
+  for +s: R.State<A>
+  for +k: String
+  {R.brk.get(A, R.calm(A, s), k) == breaker.after_crash(R.brk.get(A, s, k)) : Retry.State}
+
 # ---- compaction
 
 # open's fold: each record, a snapshot or an op, into the replayed state.
