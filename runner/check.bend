@@ -3,7 +3,7 @@ import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-journal@0.3.1.1/journal.bend as J
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-scheduler@0.4.3.0/queue.bend as Q
-import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
 import bend-kit-collections@0.1.5.0/heap.bend as H
 import bend-kit-collections@0.1.5.0/omap.bend as O
 import bend-kit-collections@0.1.5.0/hmap.bend as M
@@ -513,17 +513,19 @@ def breaker.restart(+dir: String) -> IO(Unit):
     xs : List<&2, String> <- read(log)
     same(counts(xs, ["fail:p", "ok:r"]), "fail:p=1 ok:r=0 ", "a reopen keeps the open breaker, and no attempt starts before the cooldown ends")
 
-def stat.size(r: Result<&1, &1, U32 & String, Files.Info>) -> U32:
+def stat.size(r: Result<&1, &1, U32 & String, Files.Info>) -> IO(U32):
   match r:
-    case Done{Files.Info{k, n, t}}:
-      n
+    case Done{Files.Info{k, (hi, lo), t}}:
+      do IO<U32>:
+        ok(U32.is_eq(hi, 0), "the journal size fits U32")
+        return lo
     case Fail{e}:
-      0
+      IO.die(U32, 1, "stat failed")
 
 def size(+path: String) -> IO(U32):
   do IO<U32>:
     r : Result<&1, &1, U32 & String, Files.Info> <- Files.stat(path)
-    return stat.size(r)
+    stat.size(r)
 
 def compacted(y: R.Ran(String)) -> IO(R.Runner<String>):
   match y:

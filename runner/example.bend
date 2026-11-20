@@ -9,7 +9,7 @@ import bend-kit-http@0.38.6.0/http.bend as Http
 import bend-kit-http@0.38.6.0/admission.bend as Admission
 import bend-kit-http@0.38.6.0/completion.bend as Completion
 import bend-kit-time@0.3.0.0/time.bend as Time
-import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
 import ./runner.bend as R
 
