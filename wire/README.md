@@ -84,6 +84,8 @@ Run `python3 -B wire/deadline_check.py` from the repository root. It compiles na
 
 Host effects are outside Bend's proof guarantees. `scripts/check.sh wire` permits the disclosed foreign-code proof exclusions while checking types and running existing checks. Pure laws do not attest socket IO, clocks, buffer cleanup, or scheduling. CI publishes the version in `VERSION`. Do not publish by hand.
 
+`sh wire/ca-check.sh [native|js]` and `sh wire/mtls-check.sh [native|js]` require Python 3 and OpenSSL. Their TLS 1.2 servers bind `127.0.0.1:0` and pass the bound port to each client. The mTLS server requires a certificate signed by the test CA. `sh wire/mtls-check.sh linux` runs the JS check in Docker and installs Python 3 in the container.
+
 ### Observed acceptance (2026-10-03, macOS arm64)
 
 `python3 -B wire/deadline_check.py` passed all eight scenarios in each compiled lane. Both peers received the exact 4099-byte binary success payload. Empty writes succeeded; oversize length, zero budget, and budget above INT32_MAX returned EINVAL with zero bytes. Real reset peers returned EPIPE with zero bytes in this run. Every returned socket was explicitly closed.
