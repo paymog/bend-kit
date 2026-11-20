@@ -10,6 +10,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 - `runner` 0.15.0.1: sort each decoded snapshot bucket by id, then check adjacent ids for strict order. A bucket of k colliding ids takes O(k log k) instead of O(k²). Old unsorted snapshots still decode; re-encoding puts their bucket entries in id order. The fast check is proved to imply the existing dead-ticket invariant.
 
+- `storage` 0.4.0.0: import files 0.4.0.0 and reject a file above the U32 `Bytes` length limit before reading it. `info.size` now returns `Run(U32)`. Breaking.
+- `planner` 0.5.0.0 and `stream` 0.4.0.0: import files 0.4.0.0. Its metadata types change. Breaking.
 - `files` 0.4.0.0: `stat` returns size and whole Unix seconds as `(hi, lo)` U32 halves in `Info`, without 32-bit wrap. Negative times use 64-bit two's complement. Breaking.
 - `http`: check streamed uploads with a client certificate, rejection without a certificate, and HTTPS proxy CONNECT authentication. No API change.
 - CI: check prose and import versions in the root and package READMEs against each package's current `VERSION`, with `scripts/pins.allow` exceptions. Run the pin check on README-only pull requests.

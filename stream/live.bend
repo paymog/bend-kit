@@ -1,6 +1,6 @@
 import Base
 import ./stream.bend as Stream
-import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 

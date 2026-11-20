@@ -1,6 +1,6 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-files@0.3.1.0/files.bend as Files
+import bend-kit-files@0.4.0.0/files.bend as Files
 import ./storage.bend as S
 
 def ok(good: Bool, +name: String) -> IO(Unit):
@@ -258,6 +258,12 @@ def scenario(+dir: String, +abc: S.Digest) -> IO(Unit):
 def main() -> IO(Unit):
   do IO<Unit>:
     pure()
+    oversized : Result<&1, &1, U32 & String, U32> <-
+      S.info.size(Files.Info{Files.Regular{}, (1, 1073741824), (0, 0)})
+    ok(expect.fail(U32, oversized, "storage: file exceeds the 32-bit Bytes length limit"),
+      "a file over 4 GiB fails before its size is truncated")
+    small : U32 <- run(U32, S.info.size(Files.Info{Files.Regular{}, (0, 3), (0, 0)}))
+    ok(U32.is_eq(small, 3), "a small file keeps its size")
     dir : String <- IO.try(String, Files.temp_dir())
     abc : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("abc")))
     scenario(dir, abc)
