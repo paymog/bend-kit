@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` 0.39.0.0: stream HTTP/2 response DATA over pooled sessions, negotiate h2 for fresh streams, and cancel unfinished streams before returning the session. Collect incremental HTTP/2 events for buffered fetches. Stream transport records change. Breaking.
+
 - `http2` 0.5.0.0: emit stream-tagged informational headers, final headers, DATA chunks, trailers, and completion without retaining response bodies. Add stream cancellation that preserves the session, HPACK state, and connection credit for in-flight frames. Breaking.
 
 - `runner` 0.19.0.0: encode breaker targets as a u32 octet length and UTF-8, shared by records and snapshots. Break records use tag 13 and snapshots use tag 14. Old tag 10 records and tag 7 snapshots need an offline migration before upgrade. Breaking.

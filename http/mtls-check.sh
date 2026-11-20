@@ -41,9 +41,14 @@ while [ ! -s "$dir/ports" ]; do
   [ "$i" -le 100 ] || { cat "$dir/server.log" >&2; exit 1; }
   sleep 0.1
 done
-read -r port _ h2port <"$dir/ports"
+read -r port _ h2port streamport <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port" "https://localhost:$h2port"
+  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port" "https://localhost:$h2port" "https://localhost:$streamport"
 else
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port" "https://localhost:$h2port"
+  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port" "https://localhost:$h2port" "https://localhost:$streamport"
 fi
+[ "$(wc -l <"$dir/ports.streams" | tr -d ' ')" = 1 ] || {
+  echo "expected all HTTP/2 streams on one connection" >&2
+  exit 1
+}
+[ -s "$dir/ports.cancelled" ] || { echo "expected RST_STREAM(CANCEL)" >&2; exit 1; }

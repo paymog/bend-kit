@@ -36,7 +36,7 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.38.6.1` imports its siblings by name: `wire@0.4.8.0`, `http2@0.4.0.0`, `bytes@0.3.3.0`, `time@0.3.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.0`, `json@0.7.2.0`, `dns@0.7.1.0`, and `zlib@0.5.1.1`. `Http.Body` is `bend-kit-bytes@0.3.3.0`.
+`http@0.39.0.0` imports its siblings by name: `wire@0.4.8.0`, `http2@0.5.0.0`, `bytes@0.3.3.0`, `time@0.3.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.0`, `json@0.7.2.0`, `dns@0.7.1.0`, and `zlib@0.5.1.1`. `Http.Body` is `bend-kit-bytes@0.3.3.0`.
 
 `hairpin@0.14.1.1`, `camber@0.16.0.2`, `jwt@0.12.0.1`, `llm@0.14.0.1`, `oauth2@0.12.0.1`, `sigv4@0.12.0.1`, and `webhooks@0.12.0.1` import `bend-kit-http@0.38.6.1`, and all but `camber` import `bend-kit-hairpin@0.14.1.1`. A program that uses these versions together carries one copy of each C effect.
 
@@ -112,7 +112,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
 | [`dns`](dns) | `bend-kit-dns@0.7.1.0/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.8.0/wire.bend` | TCP, UDP, and TLS sockets. |
-| [`http`](http) | `bend-kit-http@0.38.6.1/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
+| [`http`](http) | `bend-kit-http@0.39.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.5.0.1/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.14.1.1/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
