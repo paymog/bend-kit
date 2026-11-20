@@ -3,7 +3,7 @@ import Base
 import ./bytes.bend as Bytes
 import ./array-proof.bend as ArrayModel
 import ./word-proof.bend as WordModel
-import ../lemmas/lemmas.bend as Lemmas
+import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-mathlib@0.8.0.0/bool.bend as MBool
 

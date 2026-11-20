@@ -90,7 +90,9 @@ jobs:
           done
       - name: Compare ${{ matrix.package }} with the hub
         if: github.event_name == 'pull_request'
-        run: scripts/publish.sh --check ${{ matrix.package }}
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          scripts/publish.sh --check ${{ matrix.package }}
       - name: Publish ${{ matrix.package }}
         if: github.event_name == 'push'
         env:
