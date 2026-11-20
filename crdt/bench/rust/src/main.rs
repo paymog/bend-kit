@@ -1,5 +1,5 @@
 // CRDT benchmark: crdts::GCounter (see ../README.md).
-use crdts::{CmRDT, CvRDT, GCounter};
+use crdts::{CmRDT, CvRDT, GCounter, PNCounter};
 use num_traits::ToPrimitive;
 use std::time::Instant;
 
@@ -24,9 +24,32 @@ fn gossip(name: &str, rounds: u64, id: impl Fn(usize) -> u32) {
     println!("{name}\t{ms:.3}\t{chk}");
 }
 
+fn gossip_pn(rounds: u64) {
+    let t0 = Instant::now();
+    let mut s: Vec<PNCounter<u32>> = (0..R).map(|_| PNCounter::new()).collect();
+    for _ in 0..rounds {
+        for (r, c) in s.iter_mut().enumerate() {
+            for _ in 0..2 {
+                let op = c.inc(r as u32);
+                c.apply(op);
+            }
+            let op = c.dec(r as u32);
+            c.apply(op);
+        }
+        let old = s.clone();
+        for r in 0..R {
+            s[r].merge(old[(r + 1) % R].clone());
+        }
+    }
+    let chk = s.iter().fold(0u32, |acc, c| acc.wrapping_add(c.read().to_u32().unwrap()));
+    let ms = t0.elapsed().as_secs_f64() * 1e3;
+    println!("gossip-pn\t{ms:.3}\t{chk}");
+}
+
 fn main() {
     let lg: u32 = std::env::args().nth(1).map_or(14, |a| a.parse().unwrap());
     let rounds = 1u64 << lg;
     gossip("gossip", rounds, |r| r as u32);
     gossip("gossip-sparse", rounds, |r| r as u32 * 250_000_000 + 7);
+    gossip_pn(rounds);
 }

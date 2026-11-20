@@ -1,6 +1,6 @@
 # CRDT benchmark
 
-This times the G-Counter hot path: local increments and state merges among 16 replicas. It compares `crdt` against `crdts::GCounter` in Rust, once with dense replica IDs and once with sparse ones.
+This times local updates and state merges among 16 replicas. It compares `crdt` against `crdts::GCounter` in Rust, once with dense replica IDs and once with sparse ones. It also compares `PNCounter` against `crdts::PNCounter`.
 
 ## Run
 
@@ -19,6 +19,8 @@ Each program starts 16 empty counters and runs R = 2^14 rounds. In a round, repl
 
 The program runs this twice. `gossip` gives replica r the ID r. `gossip-sparse` gives it the ID r * 250000000 + 7, so the IDs run from 7 to 3750000007.
 
+`gossip-pn` uses dense IDs. Each replica increments twice and decrements once per round, then merges its successor's state. It runs 524,288 increments, 262,144 decrements, and 262,144 merges. Both halves grow. Its net value and checksum match `gossip`.
+
 | language | op | increment | merge |
 |---|---|---|---|
 | Bend | `gossip` | `Crdt.GCounter.inc(s, r)` | `Crdt.GCounter.merge(s, t)` |
@@ -27,22 +29,24 @@ The program runs this twice. `gossip` gives replica r the ID r. `gossip-sparse` 
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-10-25. Five runs (`python3 run.py 5`), median, in ms.
+macOS arm64, 2026-11-20. Three runs (`python3 run.py 3`), median, in ms.
 
-Versions: Bend 2.0.38, rustc 1.91.0, crdts 7.3.2.
+Versions: Bend 2.0.40, rustc 1.91.0, crdts 7.3.2.
 
 | op | Rust | Bend |
 |---|---:|---:|
-| gossip | 91.6 | 56.9 |
-| gossip-sparse | 87.8 | 152.9 |
+| gossip | 78.3 | 55.3 |
+| gossip-sparse | 78.0 | 74.4 |
+| gossip-pn | 160.5 | 175.5 |
 
 Both programs print the checksum 4192624 for each op.
 
 ## Reading it
 
 - `crdts::GCounter` keeps a `BTreeMap` from actor to count and reads the total as a `BigUint`, so the actor values do not change its cost. Bend's `GCounter` keeps a list of `U32` counts, one for each replica index. The Bend state is smaller, and a merge walks two lists in step.
-- `KCounter` keeps a sorted list of `(id, count)` entries. A merge walks both lists in step and calls `cmp` once for each step, and an increment walks to the ID. It is about 2.7 times slower than the dense list and 1.7 times slower than Rust here. It wins when IDs are far apart: a dense list for these IDs would hold 3,750,000,008 entries.
+- `KCounter` keeps a sorted list of `(id, count)` entries. A merge walks both lists in step and calls `cmp` once for each step. It supports far-apart IDs without dense padding: a dense list for these IDs would hold 3,750,000,008 entries.
 - Rust clones the neighbor state, because `merge` takes it by value. Bend shares it.
+- `PNCounter` merges two dense G-Counters. Rust keeps two G-Counters backed by maps and reads their difference as a `BigInt`. Bend reads a checked signed magnitude.
 
 ## Not compared
 
@@ -53,5 +57,5 @@ Both programs print the checksum 4192624 for each op.
 ## Caveats
 
 - Bend times itself with `Time.mono`, a nanosecond clock. It reads R from argv, so the work cannot run before the clock starts.
-- Bend reads the stop time after it prints the checksum. The measured time includes checksum output.
+- The G-Counter timers include checksum output in Bend. The PN-Counter timer stops before output.
 - One machine, one size, one thread.

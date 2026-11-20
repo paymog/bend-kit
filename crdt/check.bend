@@ -263,6 +263,69 @@ def ksparse() -> IO(Unit):
     krejects("8107", "the sparse wire rejects an array")
     krejects("a12001", "the sparse wire rejects an ID that dec refuses")
 
+def pn.show.value(m: Maybe<&1, Bool & U32>) -> String:
+  match m:
+    case None{}:
+      "overflow"
+    case Some{(negative, n)}:
+      Bool.pick(String, negative, "-", "") ++ U32.show(n)
+
+def pn.show(m: Maybe<&2, Crdt.PNCounter>) -> String:
+  match m:
+    case None{}:
+      "none"
+    case Some{s}:
+      pn.show.value(Crdt.PNCounter.value(s))
+
+def pn.decode(m: Maybe<&1, Bytes.Bytes>, cap: U32) -> Maybe<&2, Crdt.PNCounter>:
+  match m:
+    case None{}:
+      None{}
+    case Some{b}:
+      Crdt.PNCounter.decode(b, cap)
+
+def pn.recv(m: Maybe<&2, Crdt.PNCounter>, d: Maybe<&2, Crdt.PNCounter>) -> Maybe<&2, Crdt.PNCounter>:
+  do Maybe<&2, Crdt.PNCounter>:
+    s : Crdt.PNCounter <- m
+    t : Crdt.PNCounter <- d
+    return Crdt.PNCounter.merge(s, t)
+
+def pn.rejects(hex: String, cap: U32, name: String) -> IO(Unit):
+  ok(String.eq(pn.show(pn.decode(Bytes.from_hex(hex), cap)), "none"), name)
+
+def pn.check() -> IO(Unit):
+  do IO<Unit>:
+    +a : Crdt.PNCounter = Crdt.PN{[1], []}
+    +b : Crdt.PNCounter = Crdt.PN{[], [0, 1]}
+    +b2 : Crdt.PNCounter = Crdt.PN{[], [0, 2]}
+    ok(String.eq(pn.show(Crdt.PNCounter.inc(Crdt.PNCounter.new(), 0n)), "1"), "PN increment")
+    ok(String.eq(pn.show(Crdt.PNCounter.dec(Crdt.PNCounter.new(), 1n)), "-1"), "PN decrement")
+    ok(String.eq(pn.show(Some{a}), "1"), "PN starts above zero")
+    +zero : Maybe<&2, Crdt.PNCounter> = pn.recv(Some{a}, pn.decode(Crdt.PNCounter.encode(b), CAP()))
+    ok(String.eq(pn.show(zero), "0"), "PN reaches zero")
+    +negative : Maybe<&2, Crdt.PNCounter> = pn.recv(Some{a}, pn.decode(Crdt.PNCounter.encode(b2), CAP()))
+    +reordered : Maybe<&2, Crdt.PNCounter> = pn.recv(pn.recv(negative, pn.decode(Crdt.PNCounter.encode(b), CAP())),
+      pn.decode(Crdt.PNCounter.encode(b2), CAP()))
+    ok(String.eq(pn.show(reordered), "-1"), "PN crosses zero despite reordered and duplicate states")
+    ok(String.eq(pn.show(pn.recv(Some{b2}, pn.decode(Crdt.PNCounter.encode(a), CAP()))), "-1"),
+      "PN peers converge across the wire")
+    ok(String.eq(pn.show(pn.recv(Some{Crdt.PN{[3], []}}, reordered)), "1"), "PN crosses back above zero")
+    ok(String.eq(pn.show(Crdt.PNCounter.inc(Crdt.PN{[4294967295], []}, 0n)), "none"), "PN increment overflow")
+    ok(String.eq(pn.show(Crdt.PNCounter.dec(Crdt.PN{[], [4294967295]}, 0n)), "none"), "PN decrement overflow")
+    ok(String.eq(pn.show(Some{Crdt.PN{[4294967295, 1], []}}), "overflow"), "PN positive total overflow")
+    ok(String.eq(pn.show(Some{Crdt.PN{[], [4294967295, 1]}}), "overflow"), "PN negative total overflow")
+    pn.rejects("82810080", 8, "PN rejects a positive trailing zero")
+    pn.rejects("82808100", 8, "PN rejects a negative trailing zero")
+    pn.rejects("82808120", 8, "PN rejects a negative component")
+    pn.rejects("8280811b0000000100000000", 8, "PN rejects a wide component")
+    pn.rejects("8280820101", 1, "PN caps the negative half")
+    pn.rejects("8282010180", 1, "PN caps the positive half")
+    pn.rejects("8180", 8, "PN rejects a missing half")
+    pn.rejects("83808080", 8, "PN rejects an extra half")
+    pn.rejects("820180", 8, "PN rejects a non-array half")
+    pn.rejects("a0", 8, "PN rejects a non-array state")
+    pn.rejects("8280", 8, "PN rejects truncated bytes")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     +zero : Maybe<&2, List<&2, U32>> = Some{Crdt.GCounter.new()}
@@ -299,3 +362,4 @@ def main() -> IO(Unit):
     rejects("8203", "the wire rejects truncated bytes")
     ok(String.eq(show(decode.hex("83030005")), "[3, 0, 5]"), "the wire accepts a gap")
     ksparse()
+    pn.check()

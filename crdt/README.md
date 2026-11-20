@@ -1,9 +1,9 @@
 # crdt
 
-Replicated data types with proved merges. The package has two grow-only counters (G-Counters), as in Shapiro et al., "A comprehensive study of Convergent and Commutative Replicated Data Types" (2011). `GCounter` keys replicas by small dense indices. `KCounter` keys them by sparse IDs of any `Data` type, such as random 32-bit node IDs or `String` names. Each replica counts its own events. Replicas exchange whole states in any order, and every replica that has seen the same states holds the same counter.
+Replicated data types with proved merges, as in Shapiro et al., "A comprehensive study of Convergent and Commutative Replicated Data Types" (2011). `GCounter` is a grow-only counter keyed by small dense indices. `KCounter` is a grow-only counter keyed by sparse IDs of any `Data` type. `PNCounter` adds decrements with a pair of dense G-Counters. Replicas exchange whole states in any order, and every replica that has seen the same states holds the same counter.
 
 ```bend
-import bend-kit-crdt@0.2.0.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.1.0/crdt.bend as Crdt
 ```
 
 It imports `bend-kit-cbor@0.3.0.0` and `bend-kit-bytes@0.3.3.0` for the wire form.
@@ -18,7 +18,7 @@ Replica 0 receives the state of replica 1 twice.
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.0.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.1.0/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -83,7 +83,7 @@ Replica 7 counts 2 events. Replica 4000000000 counts 1 event and merges the stat
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.0.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.1.0/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -130,6 +130,26 @@ It prints `3`.
 
 The order facts are `refl` (`cmp(x, x) == EQ`), `eq` (`cmp(x, y) == EQ` gives `x == y`), and `flip` (`cmp(y, x)` is the flip of `cmp(x, y)`). `U32.cmp` and a lexicographic `String` comparator have all three.
 
+## PNCounter
+
+`PNCounter` is `PN{positive, negative}`, a pair of dense G-Counter states. Increment the positive half to add one. Increment the negative half to subtract one. Each replica must update only its own index in both halves.
+
+| def | result |
+|---|---|
+| `PNCounter.new()` | both halves empty |
+| `PNCounter.inc(s, i)`, `PNCounter.dec(s, i)` | `Maybe<&2, PNCounter>`; `None` when the updated component is 4294967295 |
+| `PNCounter.merge(a, b)`, `PNCounter.merge_all(xs)` | merge both halves independently |
+| `PNCounter.le(a, b)`, `PNCounter.valid(s)` | the conjunction of the G-Counter predicates on both halves |
+| `PNCounter.value(s)` | `Maybe<&1, Bool & U32>`: sign and magnitude; `True` means negative; zero has sign `False` |
+| `PNCounter.to_cbor(s)`, `PNCounter.encode(s)` | CBOR `[positive, negative]`; each half uses the G-Counter wire form |
+| `PNCounter.from_cbor(v, cap)`, `PNCounter.decode(b, cap)` | `Maybe<&2, PNCounter>`; each half must be valid and have at most `cap` entries |
+
+`value` returns `None` when either half's total exceeds 4294967295, even when their difference would fit. It never wraps. State updates and merges do not require the totals to fit.
+
+Decode rejects missing or extra halves, malformed CBOR, non-array halves, negative or wide components, trailing zeros, and either half above the replica cap.
+
+`pn_merge_comm`, `pn_merge_assoc`, and `pn_merge_idem` prove the merge identities for every state. `pn_merge_upper_l`, `pn_merge_upper_r`, and `pn_merge_least` prove the least upper bound in the product order. `pn_converge` proves convergence when both histories cover the same states in each half; this includes reordered and repeated PN states. Each proof reuses the G-Counter laws. The wire rejection laws and `check.bend` cover invalid states. The runtime check exchanges newer, stale, and repeated states across CBOR and crosses zero in both directions.
+
 ## Trust boundary
 
 The proofs cover the pure functions. They do not cover the network or storage. Convergence holds under these conditions:
@@ -143,5 +163,5 @@ The package does not delete entries, compact states, or retire replicas.
 
 ## Bench
 
-`bench/` times increments and merges among 16 replicas against `crdts` in Rust, once with dense IDs and once with sparse `KCounter` IDs. See [bench/README.md](bench/README.md).
+`bench/` times increments and merges among 16 replicas against `crdts` in Rust, with dense G-Counters, sparse `KCounter` IDs, and PN-Counters. See [bench/README.md](bench/README.md).
 

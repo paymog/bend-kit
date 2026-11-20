@@ -576,6 +576,111 @@ def Laws.from_cbor_negative():
 def Laws.from_cbor_not_array():
   {==}
 
+def pn_eq(
+  -ap: List<&2, U32>, -an: List<&2, U32>, -bp: List<&2, U32>, -bn: List<&2, U32>,
+  hp: {ap == bp : List<&2, U32>}, hn: {an == bn : List<&2, U32>}
+) -> {Crdt.PN{ap, an} == Crdt.PN{bp, bn} : Crdt.PNCounter}:
+  %hp : {Crdt.PN{ap, an} == Crdt.PN{_, bn} : Crdt.PNCounter}
+  %hn : {Crdt.PN{ap, an} == Crdt.PN{ap, _} : Crdt.PNCounter}
+  {==}
+
+def Laws.pn_merge_comm(a, b):
+  match a b:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn}:
+      pn_eq(Crdt.GCounter.merge(ap, bp), Crdt.GCounter.merge(an, bn),
+        Crdt.GCounter.merge(bp, ap), Crdt.GCounter.merge(bn, an),
+        Laws.merge_comm(ap, bp), Laws.merge_comm(an, bn))
+
+def Laws.pn_merge_assoc(a, b, c):
+  match a b c:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn} Crdt.PN{+cp, +cn}:
+      pn_eq(Crdt.GCounter.merge(Crdt.GCounter.merge(ap, bp), cp),
+        Crdt.GCounter.merge(Crdt.GCounter.merge(an, bn), cn),
+        Crdt.GCounter.merge(ap, Crdt.GCounter.merge(bp, cp)),
+        Crdt.GCounter.merge(an, Crdt.GCounter.merge(bn, cn)),
+        Laws.merge_assoc(ap, bp, cp), Laws.merge_assoc(an, bn, cn))
+
+def Laws.pn_merge_idem(a):
+  match a:
+    case Crdt.PN{+p, +n}:
+      pn_eq(Crdt.GCounter.merge(p, p), Crdt.GCounter.merge(n, n), p, n,
+        Laws.merge_idem(p), Laws.merge_idem(n))
+
+def Laws.pn_merge_upper_l(a, b):
+  match a b:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn}:
+      MBool.and_eq_true(Crdt.GCounter.le(ap, Crdt.GCounter.merge(ap, bp)),
+        Crdt.GCounter.le(an, Crdt.GCounter.merge(an, bn)),
+        Laws.merge_upper_l(ap, bp), Laws.merge_upper_l(an, bn))
+
+def Laws.pn_merge_upper_r(a, b):
+  +a = a
+  +b = b
+  %Laws.pn_merge_comm(b, a) : {Crdt.PNCounter.le(b, _) == True{} : Bool}
+  Laws.pn_merge_upper_l(b, a)
+
+def Laws.pn_merge_least(a, b, c, ha, hb):
+  match a b c:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn} Crdt.PN{+cp, +cn}:
+      +ha = ha
+      +hb = hb
+      MBool.and_eq_true(Crdt.GCounter.le(Crdt.GCounter.merge(ap, bp), cp),
+        Crdt.GCounter.le(Crdt.GCounter.merge(an, bn), cn),
+        Laws.merge_least(ap, bp, cp,
+          MBool.eq_true_of_and_left(Crdt.GCounter.le(ap, cp), Crdt.GCounter.le(an, cn), ha),
+          MBool.eq_true_of_and_left(Crdt.GCounter.le(bp, cp), Crdt.GCounter.le(bn, cn), hb)),
+        Laws.merge_least(an, bn, cn,
+          MBool.eq_true_of_and_right(Crdt.GCounter.le(ap, cp), Crdt.GCounter.le(an, cn), ha),
+          MBool.eq_true_of_and_right(Crdt.GCounter.le(bp, cp), Crdt.GCounter.le(bn, cn), hb)))
+
+def pn_all_parts(+xs: List<&2, Crdt.PNCounter>) ->
+  {Crdt.PNCounter.merge_all(xs) == Crdt.PN{
+    Crdt.GCounter.merge_all(Laws.pn.parts(xs, False{})),
+    Crdt.GCounter.merge_all(Laws.pn.parts(xs, True{}))} : Crdt.PNCounter}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{Crdt.PN{+p, +n}, +t}:
+      Equal.cong(Crdt.PNCounter, Crdt.PNCounter, s => Crdt.PNCounter.merge(Crdt.PN{p, n}, s),
+        Crdt.PNCounter.merge_all(t), Crdt.PN{
+          Crdt.GCounter.merge_all(Laws.pn.parts(t, False{})),
+          Crdt.GCounter.merge_all(Laws.pn.parts(t, True{}))}, pn_all_parts(t))
+
+def Laws.pn_converge(xs, ys, hx, hy):
+  +xs = xs
+  +ys = ys
+  +hx = hx
+  +hy = hy
+  +xp = Laws.pn.parts(xs, False{})
+  +xn = Laws.pn.parts(xs, True{})
+  +yp = Laws.pn.parts(ys, False{})
+  +yn = Laws.pn.parts(ys, True{})
+  Equal.trans(Crdt.PNCounter, Crdt.PNCounter.merge_all(xs),
+    Crdt.PN{Crdt.GCounter.merge_all(xp), Crdt.GCounter.merge_all(xn)}, Crdt.PNCounter.merge_all(ys),
+    pn_all_parts(xs),
+    Equal.trans(Crdt.PNCounter,
+      Crdt.PN{Crdt.GCounter.merge_all(xp), Crdt.GCounter.merge_all(xn)},
+      Crdt.PN{Crdt.GCounter.merge_all(yp), Crdt.GCounter.merge_all(yn)}, Crdt.PNCounter.merge_all(ys),
+      pn_eq(Crdt.GCounter.merge_all(xp), Crdt.GCounter.merge_all(xn),
+        Crdt.GCounter.merge_all(yp), Crdt.GCounter.merge_all(yn),
+        Laws.converge(xp, yp,
+          MBool.eq_true_of_and_left(Laws.covers(xp, yp), Laws.covers(xn, yn), hx),
+          MBool.eq_true_of_and_left(Laws.covers(yp, xp), Laws.covers(yn, xn), hy)),
+        Laws.converge(xn, yn,
+          MBool.eq_true_of_and_right(Laws.covers(xp, yp), Laws.covers(xn, yn), hx),
+          MBool.eq_true_of_and_right(Laws.covers(yp, xp), Laws.covers(yn, xn), hy))),
+      Equal.sym(Crdt.PNCounter, Crdt.PNCounter.merge_all(ys),
+        Crdt.PN{Crdt.GCounter.merge_all(yp), Crdt.GCounter.merge_all(yn)}, pn_all_parts(ys))))
+
+def Laws.pn_from_cbor_trailing_zero():
+  {==}
+
+def Laws.pn_from_cbor_negative():
+  {==}
+
+def Laws.pn_from_cbor_over_cap():
+  {==}
+
 # KCounter.
 def Refl(~K: Data, ~cmp: K -> K -> Cmp) -> Type:
   @x: K -> {cmp(x, x) == EQ{} : Cmp}

@@ -167,6 +167,71 @@ law from_cbor_negative:
 law from_cbor_not_array:
   {Crdt.GCounter.from_cbor(uint(3), 8) == None{} : Maybe<&2, List<&2, U32>>}
 
+def pn.parts(xs: List<&2, Crdt.PNCounter>, +negative: Bool) -> List<&2, List<&2, U32>>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{Crdt.PN{p, n}, t}:
+      Con{Bool.pick(List<&2, U32>, negative, n, p), pn.parts(t, negative)}
+
+# Receiving the same PN states implies receiving the same states in each half.
+def pn.covers(+xs: List<&2, Crdt.PNCounter>, +ys: List<&2, Crdt.PNCounter>) -> Bool:
+  Bool.and(covers(pn.parts(xs, False{}), pn.parts(ys, False{})),
+    covers(pn.parts(xs, True{}), pn.parts(ys, True{})))
+
+law pn_merge_comm:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  {Crdt.PNCounter.merge(a, b) == Crdt.PNCounter.merge(b, a) : Crdt.PNCounter}
+
+law pn_merge_assoc:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  for c: Crdt.PNCounter
+  {Crdt.PNCounter.merge(Crdt.PNCounter.merge(a, b), c)
+   == Crdt.PNCounter.merge(a, Crdt.PNCounter.merge(b, c)) : Crdt.PNCounter}
+
+law pn_merge_idem:
+  for a: Crdt.PNCounter
+  {Crdt.PNCounter.merge(a, a) == a : Crdt.PNCounter}
+
+law pn_merge_upper_l:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  {Crdt.PNCounter.le(a, Crdt.PNCounter.merge(a, b)) == True{} : Bool}
+
+law pn_merge_upper_r:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  {Crdt.PNCounter.le(b, Crdt.PNCounter.merge(a, b)) == True{} : Bool}
+
+law pn_merge_least:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  for c: Crdt.PNCounter
+  for ha: {Crdt.PNCounter.le(a, c) == True{} : Bool}
+  for hb: {Crdt.PNCounter.le(b, c) == True{} : Bool}
+  {Crdt.PNCounter.le(Crdt.PNCounter.merge(a, b), c) == True{} : Bool}
+
+law pn_converge:
+  for xs: List<&2, Crdt.PNCounter>
+  for ys: List<&2, Crdt.PNCounter>
+  for hx: {pn.covers(xs, ys) == True{} : Bool}
+  for hy: {pn.covers(ys, xs) == True{} : Bool}
+  {Crdt.PNCounter.merge_all(xs) == Crdt.PNCounter.merge_all(ys) : Crdt.PNCounter}
+
+law pn_from_cbor_trailing_zero:
+  {Crdt.PNCounter.from_cbor(Cbor.Arr{[Cbor.Arr{[uint(0)]}, Cbor.Arr{[]}]}, 8)
+   == None{} : Maybe<&2, Crdt.PNCounter>}
+
+law pn_from_cbor_negative:
+  {Crdt.PNCounter.from_cbor(Cbor.Arr{[Cbor.Arr{[]}, Cbor.Arr{[Cbor.NInt{Cbor.W64{0, 0}}]}]}, 8)
+   == None{} : Maybe<&2, Crdt.PNCounter>}
+
+law pn_from_cbor_over_cap:
+  {Crdt.PNCounter.from_cbor(Cbor.Arr{[Cbor.Arr{[]}, Cbor.Arr{[uint(1), uint(1)]}]}, 1)
+   == None{} : Maybe<&2, Crdt.PNCounter>}
+
 # KCounter: a G-Counter keyed by sparse IDs. Two states are equal as counters
 # when get agrees on every ID, so the join laws quantify over the ID k.
 def flip(c: Cmp) -> Cmp:
