@@ -20,7 +20,7 @@ openssl x509 -req -in "$dir/server.csr" -CA "$dir/ca.pem" -CAkey "$dir/ca.key" \
   -CAcreateserial -copy_extensions copy -days 1 -out "$dir/server.pem" >/dev/null 2>&1
 
 cat >"$dir/server.py" <<'PY'
-import os, ssl, sys
+import os, select, socket, ssl, sys, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 cert, key, ports_path = sys.argv[1:4]
 class H(BaseHTTPRequestHandler):
@@ -37,15 +37,32 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
     def do_POST(self):
+        body = bytearray()
         while True:
-            n = int(self.rfile.readline().split(b";")[0], 16)
-            self.rfile.read(n + 2)
+            line = self.rfile.readline()
+            if not line:
+                raise ConnectionError("upload ended before the final chunk")
+            n = int(line.split(b";")[0], 16)
+            piece = self.rfile.read(n)
+            if len(piece) != n or self.rfile.read(2) != b"\r\n":
+                raise ValueError("invalid upload chunk")
+            body.extend(piece)
             if n == 0:
                 break
-        self.send_response(200)
-        self.send_header("Content-Length", "2")
+        if self.path == "/tunnel":
+            valid = (
+                body == b"first\r\nsecond last"
+                and self.headers.get("Transfer-Encoding") == "chunked"
+                and self.headers.get("Proxy-Authorization") is None
+            )
+            reply = b"tunnel upload verified" if valid else b"invalid tunnel upload"
+            status = 200 if valid else 400
+        else:
+            reply, status = b"ok", 200
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(reply)))
         self.end_headers()
-        self.wfile.write(b"ok")
+        self.wfile.write(reply)
     def log_message(self, fmt, *args):
         pass
 s = ThreadingHTTPServer(("127.0.0.1", 0), H)
@@ -53,8 +70,35 @@ ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.minimum_version = ctx.maximum_version = ssl.TLSVersion.TLSv1_2
 ctx.load_cert_chain(cert, key)
 s.socket = ctx.wrap_socket(s.socket, server_side=True)
+class Proxy(BaseHTTPRequestHandler):
+    def do_CONNECT(self):
+        if (
+            self.path != f"localhost:{s.server_port}"
+            or self.headers.get("Host") != self.path
+            or self.headers.get("Proxy-Authorization") != "Basic dTpw"
+        ):
+            self.send_error(400)
+            return
+        with socket.create_connection(("127.0.0.1", s.server_port), timeout=5) as origin:
+            self.connection.settimeout(5)
+            self.send_response(200, "Connection Established")
+            self.end_headers()
+            while True:
+                ready, _, _ = select.select([self.connection, origin], [], [], 5)
+                if not ready:
+                    raise TimeoutError("CONNECT relay stalled")
+                for source in ready:
+                    data = source.recv(65536)
+                    if not data:
+                        return
+                    target = origin if source is self.connection else self.connection
+                    target.sendall(data)
+    def log_message(self, fmt, *args):
+        pass
+proxy = ThreadingHTTPServer(("127.0.0.1", 0), Proxy)
+threading.Thread(target=proxy.serve_forever, daemon=True).start()
 with open(ports_path + ".tmp", "w") as f:
-    f.write(f"{s.server_port}\n")
+    f.write(f"{s.server_port} {proxy.server_port}\n")
 os.replace(ports_path + ".tmp", ports_path)
 s.serve_forever()
 PY
@@ -73,9 +117,9 @@ while [ ! -s "$dir/ports" ]; do
   [ "$i" -le 100 ] || { cat "$dir/server.log" >&2; exit 1; }
   sleep 0.1
 done
-read -r port <"$dir/ports"
+read -r port proxy_port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  bun "$dir/ca_check.js" "$dir/ca.pem" "https://localhost:$port"
+  bun "$dir/ca_check.js" "$dir/ca.pem" "https://localhost:$port" "$port" "http://u:p@127.0.0.1:$proxy_port"
 else
-  "$dir/ca_check" "$dir/ca.pem" "https://localhost:$port"
+  "$dir/ca_check" "$dir/ca.pem" "https://localhost:$port" "$port" "http://u:p@127.0.0.1:$proxy_port"
 fi

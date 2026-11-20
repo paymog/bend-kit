@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http`: check a successful TLS upload through an authenticated CONNECT relay. Verify chunk framing and the exact body at the private-CA origin. No API change.
 - `camber`: bind response and typed-input acceptance servers to port 0 and connect to the port each server reports. Keep the listener open through readiness and serving.
 
 - `runner` 0.15.0.1: sort each decoded snapshot bucket by id, then check adjacent ids for strict order. A bucket of k colliding ids takes O(k log k) instead of O(k²). Old unsorted snapshots still decode; re-encoding puts their bucket entries in id order. The fast check is proved to imply the existing dead-ticket invariant.
