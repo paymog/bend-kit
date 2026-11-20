@@ -67,4 +67,6 @@ File database, N = 2,000. Each new command's `COMMIT` waits for the disk, so `fr
 
 Versions: Bend 2.0.38, Apple clang 17.0.0, rustc 1.91.0, Bun 1.3.14, Python 3.14.6.
 
+Range-read release smoke, 2026-11-20, `python3 run.py 1 500`: all five variants agree on checksums 259210 and 2276155089. Bend 2.0.40 takes 4.8 ms fresh and 1.6 ms replay. The benchmark still uses exact keys; the integration check covers the bounded range scan among 100,000 rows.
+
 A duplicate costs Bend one indexed lookup, a payload compare, and a `COMMIT`, as in the other variants: `handle` reads rows only when the id has no record. For a new command, `handle` copies the payload, because it goes to `keys` and to `step`, and `step` copies the payload and the result, because each goes both to its consumer and to the record. `rows.get` copies each key, because it goes to the lookup and to the row that `decide` sees. The keyed rows took the in-memory fresh pass from 89.1 ms (one state row read by `k = 0`) to 104.2 ms.

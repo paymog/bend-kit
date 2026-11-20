@@ -1,5 +1,5 @@
 import Base
-import ./commands.bend as C
+import ./model.bend as C
 import ./LAWS.bend as Laws
 
 def Laws.duplicate_replays(S, P, R, E, eq, dup_p, dup_r, decide, q, o, t, p, same, s, at):

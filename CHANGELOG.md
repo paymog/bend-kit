@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `commands` 0.5.0.0: let commands select exact keys or a bounded half-open key range with one indexed SQLite scan. Reject oversized ranges instead of giving `decide` partial state. The read callback now returns `Read`. Move the unchanged `step` and its types to pure `model.bend`, so the five laws import no effects. Breaking.
+
 - `process` 0.5.1.1: use the standard spawn directory action for macOS 26 deployment targets and glibc 2.44 or later. Keep the extension for older targets. No API change.
 
 - `http` 0.39.0.0: stream HTTP/2 response DATA over pooled sessions, negotiate h2 for fresh streams, and cancel unfinished streams before returning the session. Collect incremental HTTP/2 events for buffered fetches. Stream transport records change. Breaking.

@@ -1,6 +1,7 @@
 # commands benchmark: N new commands, then the same N again as duplicates, through commands.handle (see README.md).
 import Base
 import ../../time/time.bend as Time
+import ../model.bend as M
 import ../commands.bend as C
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-sqlite@0.1.0.1/sqlite.bend as S
@@ -15,8 +16,8 @@ def total() -> Bytes.Bytes:
   Bytes.from_string("total")
 
 # Every command reads the one row "total".
-def keys(p: Bytes.Bytes) -> List<Bytes.Bytes>:
-  [total()]
+def keys(p: Bytes.Bytes) -> C.Read:
+  C.Keys{[total()]}
 
 def sum(rs: List<C.Row>) -> U32:
   match rs:
@@ -26,9 +27,9 @@ def sum(rs: List<C.Row>) -> U32:
       0
 
 # A running total: each payload is an amount, and the result is the new total.
-def decide(rs: List<C.Row>, p: Bytes.Bytes) -> C.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+def decide(rs: List<C.Row>, p: Bytes.Bytes) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
   +t = (sum(rs) + num(p) : U32)
-  C.Accept{[C.Row{total(), Some{Bytes.u32.show(t)}}], Bytes.u32.show(t), [Bytes.append(Bytes.from_string("total="), Bytes.u32.show(t))]}
+  M.Accept{[C.Row{total(), Some{Bytes.u32.show(t)}}], Bytes.u32.show(t), [Bytes.append(Bytes.from_string("total="), Bytes.u32.show(t))]}
 
 def got(m: Maybe<Bytes.Bytes>) -> U32:
   match m:
@@ -41,11 +42,11 @@ def lap(name: String, t0: Time.Duration, t1: Time.Duration, +c: U32) -> IO(Unit)
   IO.print(name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)) ++ "\t" ++ U32.show(c))
 
 # The result of an accepted reply of the wanted kind, or exit.
-def result(fresh: Bool, r: C.Reply<Bytes.Bytes>) -> IO(U32):
+def result(fresh: Bool, r: M.Reply<Bytes.Bytes>) -> IO(U32):
   match fresh r:
-    case True{} C.Fresh{C.Accepted{s}}:
+    case True{} M.Fresh{M.Accepted{s}}:
       IO.pure(U32, num(s))
-    case False{} C.Replayed{C.Accepted{s}}:
+    case False{} M.Replayed{M.Accepted{s}}:
       IO.pure(U32, num(s))
     case _ _:
       IO.die(U32, 1, "unexpected reply")
@@ -57,7 +58,7 @@ def run(n: Nat, +fresh: Bool, +st: C.Store, +i: U32, +x: U32, +h: U32) -> IO(U32
       IO.pure(U32, h)
     case 1n+p:
       do IO<U32>:
-        r : C.Reply<Bytes.Bytes> <- IO.try(C.Reply<Bytes.Bytes>, C.handle(~keys, ~decide, st, "cmd_" ++ U32.show(i), Bytes.u32.show(((x >> 1n) % 1000 : U32)), 200))
+        r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~keys, ~decide, st, "cmd_" ++ U32.show(i), Bytes.u32.show(((x >> 1n) % 1000 : U32)), 200))
         +v : U32 <- result(fresh, r)
         run(p, fresh, st, (i + 1 : U32), lcg(x), (h * 31 + v : U32))
 
