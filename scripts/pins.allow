@@ -5,4 +5,4 @@
 bend-kit-bytes@0.3.3.0  # Re-pin remaining importers after the proof-bearing release (#874).
 bend-kit-json@0.7.2.0  # Re-pin remaining consumers after the decimal proof migration (#874).
 bend-kit-encoding@0.5.0.0  # Re-pin remaining consumers after the decimal proof migration (#874).
-bend-kit-http2@0.4.0.0  # Migrate http's buffered and pooled streaming consumers after the incremental API publishes (#568).
+bend-kit-http@0.38.6.1  # Re-pin consumers after the pooled HTTP/2 streaming release (#885).

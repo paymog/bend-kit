@@ -3,8 +3,8 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.38.6.1/http.bend as Http
-import bend-kit-http@0.38.6.1/completion.bend as Completion
+import bend-kit-http@0.39.0.0/http.bend as Http
+import bend-kit-http@0.39.0.0/completion.bend as Completion
 ```
 
 `Http.Body` uses `bend-kit-bytes@0.3.3.0`. JSON values for `post.json` use `bend-kit-json@0.7.2.0`. DNS lookup uses `bend-kit-dns@0.7.1.0`. TLS uses `bend-kit-wire@0.4.8.0`.
@@ -15,7 +15,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.38.6.1/http.bend as Http
+import bend-kit-http@0.39.0.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -51,7 +51,7 @@ def main() -> IO(Unit):
 
 `Http.get(url)` is `fetch("GET", url, Http.empty(), Http.from_string(""))`. `Http.fetch(method, url, headers, body)` is the full call. `fetch.with` adds a per-step timeout in milliseconds. The default is 30 seconds. A redirect chain stops after 20 hops (`ErrRedirect`). `fetch.how` takes `ModeFollow`, `ModeManual`, or `ModeError`. `ETIMEDOUT` is 60 on macOS and 110 on Linux. Both become `ErrTimeout`.
 
-HTTPS `fetch` offers `h2,http/1.1` through ALPN. An HTTP/2 response uses the same `Res` type. Streams and uploads negotiate HTTP/1.1 only. For several addresses, the client tries them in DNS order until TCP connects, within the step timeout. Attempts are sequential.
+HTTPS fetches and response streams offer `h2,http/1.1` through ALPN. An HTTP/2 response uses the same `Res` type. Upload streams negotiate HTTP/1.1 only. HTTP/2 uses `bend-kit-http2@0.5.0.0`. For several addresses, the client tries them in DNS order until TCP connects, within the step timeout. Attempts are sequential.
 
 `fetch`, `pool.fetch`, `open`, `open.how`, `upload`, and `upload.how` read `http_proxy`, `https_proxy`, and `no_proxy`, or the uppercase names when the lowercase ones are absent. An HTTP proxy gets an absolute-form target. An HTTPS proxy gets `CONNECT` before TLS to the origin. Certificate and host checks still apply.
 
@@ -75,7 +75,7 @@ A response over 16 MiB of body or 64 KiB of head is `ErrBad`. `Content-Length` t
 
 `pool.fetch` is `fetch` on a pool of idle sockets. It returns the pool beside the result. Pass that pool on. `pool.close` closes the idle sockets. The default cap is 8 idle sockets per origin. `pool.new.with(cap)` sets another. Before it reuses an idle HTTP/1.1 socket, the pool peeks it with `Wire.idle`. A socket that the server closed, or that has bytes waiting, is closed, and the next idle socket or a new one is used, for every method. `pool.take.live` is that take. A server can still close a socket between the peek and the request. Then a reused socket that fails before any response byte is retried once for GET, HEAD, OPTIONS, TRACE, PUT, and DELETE. For an HTTP/2 origin, the pool keeps one session and closes it after GOAWAY.
 
-`pool.open(p, method, url, headers, body)` is `open` on a pool. It takes an idle socket to the origin when the pool has one, after the same peek as `pool.fetch`, else it dials, and it returns the pool beside the stream. `pool.open.with` sets the timeout, and `pool.open.how` and `pool.open.raw.how` take the choices of `open.how` and `open.raw.how`. A reused socket that fails before any response byte is retried once on a new socket, for the same methods as `pool.fetch`. `pool.stream.close(p, st)` gives the socket back to the pool when the body was read to its end and decoded cleanly. It closes the socket when the stream ends early, a decoder fails, the server sent `Connection: close` or a close-delimited body, or bytes came past the body. A stream speaks HTTP/1.1 only, so an HTTP/2 session in the pool stays there and the stream dials its own socket. A redirect with an empty body gives its socket back before the next hop. `open` uses a pool of its own for one stream, so `stream.close` still closes the socket.
+`pool.open(p, method, url, headers, body)` takes an idle connection to the origin or opens a new one with ALPN. It returns the pool beside the stream. `pool.open.with` sets the timeout. `pool.open.how` and `pool.open.raw.how` take the choices of `open.how` and `open.raw.how`. The stream owns its HTTP/2 session until `pool.stream.close(p, st)` returns it, so close one stream before you open the next on that session. Reads return DATA pieces without buffering the whole body. Informational headers and trailers do not replace final response headers. Socket reads are at most 16 KiB, and pending events come only from that read. Closing an unfinished HTTP/2 stream sends `RST_STREAM(CANCEL)` and preserves the session. An HTTP/1.1 stream returns its socket only after a clean body end; early close, decoder failure, `Connection: close`, a close-delimited body, or bytes past the body close that socket. A stale reused HTTP/1.1 socket is retried once for the same methods as `pool.fetch`.
 
 `fetch.all(reqs, n)` runs each `Fetch{method, url, headers, body}` on at most `n` workers. Each worker owns a pool. Results stay in request order. A failure is a `Fail` in its place.
 
@@ -87,8 +87,8 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.38.6.1/http.bend as Http
-import bend-kit-http@0.38.6.1/completion.bend as Completion
+import bend-kit-http@0.39.0.0/http.bend as Http
+import bend-kit-http@0.39.0.0/completion.bend as Completion
 
 def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
