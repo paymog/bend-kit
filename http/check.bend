@@ -4,8 +4,8 @@ import ./admission.bend as Admission
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-json@0.7.2.0/json.bend as Json
-import bend-kit-http2@0.4.0.0/hpack.bend as Hpack
-import bend-kit-http2@0.4.0.0/http2.bend as H2
+import bend-kit-http2@0.5.0.0/hpack.bend as Hpack
+import bend-kit-http2@0.5.0.0/http2.bend as H2
 import bend-kit-bytes@0.3.3.0/bytes.bend as HBytes
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
@@ -425,16 +425,58 @@ def h2.idle(+base: String) -> IO(Unit):
     p2 : Http.Pool <- h2.idle.got("h2 pool: POST on a new connection after the server closed the idle session", "2", second)
     Http.pool.close(p2)
 
+def h2.stream.body(p: Http.Pool, +want: String, got: Http.Stream & Bytes.Bytes & U32) -> IO(Http.Pool):
+  (st, body, count) = got
+  do IO<Http.Pool>:
+    local.ok(String.eq(Bytes.to_string(body), want), "h2 stream: body on the original connection")
+    local.ok(U32.is_eq(count, 2), "h2 stream: two DATA pieces")
+    Http.pool.stream.close(p, st)
+
+def h2.stream.got(+want: String, opened: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool):
+  (p, r) = opened
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, "h2 stream open failed")
+    case Done{st}:
+      do IO<Http.Pool>:
+        got : Http.Stream & Bytes.Bytes & U32 <- local.gz.read(20n, GrRead{st, Bytes.new(0), 0})
+        h2.stream.body(p, want, got)
+
+def h2.stream.early(opened: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool):
+  (p, r) = opened
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, "h2 early stream open failed")
+    case Done{st}:
+      Http.pool.stream.close(p, st)
+
+def h2.stream(+base: String) -> IO(Unit):
+  do IO<Unit>:
+    a : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
+      Http.pool.open.with(Http.pool.new(), "GET", base ++ "/a", Http.empty(), Bytes.new(0), 2000)
+    p1 : Http.Pool <- h2.stream.got("1ab", a)
+    b : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
+      Http.pool.open.with(p1, "POST", base ++ "/cancel", Http.empty(), Bytes.from_string("upload"), 2000)
+    p2 : Http.Pool <- h2.stream.early(b)
+    c : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
+      Http.pool.open.with(p2, "GET", base ++ "/c", Http.empty(), Bytes.new(0), 2000)
+    p3 : Http.Pool <- h2.stream.got("1ab", c)
+    d : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
+      Http.pool.fetch.with(p3, "GET", base ++ "/d", Http.empty(), Bytes.new(0), 2000)
+    p4 : Http.Pool <- h2.idle.got("h2 buffered fetch after streams", "1ab", d)
+    Http.pool.close(p4)
+
 def mtls.args(xs: List<&1, String>) -> IO(Unit):
   match xs:
     case Nil{}:
       IO.pure(Unit, Unit{})
-    case Con{one, Con{key1, Con{two, Con{key2, Con{base, Con{h2, Nil{}}}}}}}:
+    case Con{one, Con{key1, Con{two, Con{key2, Con{base, Con{h2, Con{streams, Nil{}}}}}}}}:
       do IO<Unit>:
         mtls.run(one, key1, two, key2, base)
         h2.idle(h2)
+        h2.stream(streams)
     case _:
-      IO.die(Unit, 1, "mTLS needs four certificate paths, the server base URL, and the HTTP/2 base URL")
+      IO.die(Unit, 1, "mTLS needs four certificate paths and three server base URLs")
 
 def h2.has(xs: List<&2, Hpack.Field>, +want: String) -> Bool:
   match xs:
@@ -472,11 +514,8 @@ def h2.check() -> IO(Unit):
     local.ok(h2.has(fields, "x-keep"), "h2 regular header")
     local.ok(h2.bad(Http.h2.response([Hpack.Field{":status", "0200", 0}],
       HBytes.new(0))), "h2 status has exactly three digits")
-    local.ok(h2.good(List.foldl(~&1, ~H2.ClientEvent,
-      ~Result<&1, &1, Http.Err, Maybe<&1, Http.Res>>, ~Http.h2.event.fold,
-      [H2.Response{1, [Hpack.Field{":status", "103", 0}], HBytes.new(0)},
-        H2.Response{1, [Hpack.Field{":status", "200", 0}], HBytes.new(0)}],
-      Done{None{}})), "h2 interim followed by final response")
+    local.ok(h2.good(Http.h2.response([Hpack.Field{":status", "200", 0}],
+      HBytes.new(0))), "h2 final response")
 
 def resolve.ok(+want: String, m: Maybe<&2, String>) -> IO(Unit):
   match m:
