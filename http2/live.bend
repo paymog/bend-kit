@@ -34,26 +34,24 @@ def status(xs: List<&2, Hp.Field>) -> Bool:
     case Con{Hp.Field{name, value, mode}, rest}:
       Bool.or(Bool.and(String.eq(name, ":status"), String.eq(value, "200")), status(rest))
 
-def match_status(good: Bool, s: Socket) -> IO(Unit):
+def match_status(good: Bool, s: Socket) -> IO(Socket):
   match good:
     case True{}:
-      Wire.tls.close(s)
+      IO.pure(Socket, s)
     case False{}:
-      do IO<Unit>:
+      do IO<Socket>:
         closed: Unit <- Wire.tls.close(s)
-        fail("public h2 status not 200")
+        IO.die(Socket, 1, "public h2 status not 200")
 
 def response(events: List<&1, H.ClientEvent>, s: Socket, c: H.Client,
     k: Socket -> H.Client -> IO(Unit)) -> IO(Unit):
   match events:
     case Nil{}:
       k(s, c)
-    case Con{H.Response{id, Con{Hp.Field{":status", SCon{Chr{49}, suffix}, mode}, fields}, body}, rest}:
-      response(rest, s, c, k)
-    case Con{H.Response{id, headers, body}, rest}:
+    case Con{H.Headers{id, headers}, rest}:
       do IO<Unit>:
-        checked: Unit <- match_status(status(headers), s)
-        IO.print("ok public h2 response status 200")
+        checked: Socket <- match_status(status(headers), s)
+        response(rest, checked, c, k)
     case Con{H.Reset{id, code}, rest}:
       do IO<Unit>:
         closed: Unit <- Wire.tls.close(s)
@@ -63,6 +61,12 @@ def response(events: List<&1, H.ClientEvent>, s: Socket, c: H.Client,
         closed: Unit <- Wire.tls.close(s)
         IO.die(Unit, 1, "public h2 GOAWAY: " ++ U32.show(code))
     case Con{H.Pong{data}, rest}:
+      response(rest, s, c, k)
+    case Con{H.Complete{id}, rest}:
+      do IO<Unit>:
+        closed: Unit <- Wire.tls.close(s)
+        IO.print("ok public h2 response status 200")
+    case Con{event, rest}:
       response(rest, s, c, k)
 
 def replied(r: H.Reply, s: Socket,

@@ -1,8 +1,8 @@
 # HTTP/2 client, frame codec, and HPACK
 
 ```bend
-import bend-kit-http2@0.4.0.0/http2.bend as H2
-import bend-kit-http2@0.4.0.0/hpack.bend as Hpack
+import bend-kit-http2@0.5.0.0/http2.bend as H2
+import bend-kit-http2@0.5.0.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
@@ -22,6 +22,20 @@ Call `Hpack.set_limit(max, state)` when the peer changes the encoder's table-siz
 
 `client.start()` returns a `Client` and the client preface with a SETTINGS frame. That frame disables server push. Send those bytes first. `client.request(client, fields, body)` allocates an odd stream ID. It returns `Advanced{client, writes, events}` or `Failed{error}`. Supply `:method`, `:scheme`, `:authority`, and `:path` as HPACK fields. Send `writes` in order. Keep the returned `client` for the next call.
 
-Pass each packed byte chunk to `client.receive(client, chunk)`. It buffers incomplete frames. It returns SETTINGS ACKs, PING replies, WINDOW_UPDATE credit, and resumed DATA in `writes`. A `Response{id, headers, body}` event completes a response. Interim 1xx responses arrive as separate events. `Reset`, `Shutdown`, and `Pong` report RST_STREAM, GOAWAY, and PING ACK. `client.ping.request(client, payload)` sends an eight-octet PING. DATA pauses when either flow-control window is empty. It resumes when the peer increases that window. GOAWAY prevents new requests but lets earlier streams finish.
+Pass each packed byte chunk to `client.receive(client, chunk)`. It buffers incomplete frames and header blocks, but never accumulates a response body. It returns SETTINGS ACKs, PING replies, WINDOW_UPDATE credit, and resumed request DATA in `writes`. Send all writes in order, including those returned with response events.
 
-The laws prove the RFC 7541 Appendix C.2 to C.6 examples. They also exercise SETTINGS, fragmented headers, a flow-control stall, and GOAWAY. `scripts/check.sh http2` runs a public `nghttp2.org` TLS/ALPN request. That check needs network access. Frame, HPACK, and native client connection benchmarks are in `bench/`.
+Events follow wire order and carry the response stream ID:
+
+- `Informational{id, headers}` carries each interim 1xx header block.
+- `Headers{id, headers}` carries the final response headers as soon as END_HEADERS arrives. It does not wait for END_STREAM.
+- `Chunk{id, bytes}` transfers one DATA frame's content, without padding. Empty DATA still emits an empty chunk. The client does not retain or re-emit these bytes.
+- `Trailers{id, headers}` carries the trailing header block, separate from final headers.
+- `Complete{id}` follows the final chunk or header event when END_STREAM arrives. HEADERS with END_STREAM emits `Headers` then `Complete`. Trailers emit `Trailers` then `Complete`.
+
+This separation follows [Rust h2's response head, DATA stream, and trailers](https://docs.rs/h2/latest/h2/struct.RecvStream.html). Each event has an ID because one receive can advance several streams. Buffered callers must collect their own headers and chunks until `Complete`. Flow-control credit is returned when DATA enters the event list, not when the caller consumes it. Bound socket reads and event queues to apply backpressure.
+
+`client.cancel(client, id)` cancels an active stream. It emits one RST_STREAM with CANCEL code `8`, removes that stream and its queued upload, and keeps other streams and connection state. Send the returned write before you return the session to a pool. Cancellation emits no response event. Unknown or already-completed IDs return `Failed` with STREAM_CLOSED. In-flight DATA on a closed stream is discarded but returns connection credit. In-flight header blocks still update HPACK, including a continuation that was pending at cancellation.
+
+`Reset`, `Shutdown`, and `Pong` report peer RST_STREAM, GOAWAY, and PING ACK. `client.ping.request(client, payload)` sends an eight-octet PING. Request DATA pauses when either flow-control window is empty. It resumes when the peer increases that window. GOAWAY prevents new requests but lets earlier streams finish.
+
+The laws prove the RFC 7541 Appendix C.2 to C.6 examples. They also exercise SETTINGS, fragmented headers, interleaved incremental events, cancellation, a flow-control stall, and GOAWAY. `scripts/check.sh http2` runs deterministic fixtures and a public `nghttp2.org` TLS/ALPN request. The public check needs network access. Frame, HPACK, and native client connection benchmarks are in `bench/`.

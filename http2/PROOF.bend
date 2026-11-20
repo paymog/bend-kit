@@ -339,3 +339,9 @@ def Laws.client_settings_window_underflow():
 
 def Laws.client_settings_window_recovers():
   {==}
+
+def Laws.client_incremental_events():
+  {==}
+
+def Laws.client_cancel_preserves_session():
+  {==}
