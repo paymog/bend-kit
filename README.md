@@ -36,9 +36,9 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.38.3.0` imports its siblings by name: `wire@0.4.8.0`, `http2@0.4.0.0`, `bytes@0.3.3.0`, `time@0.3.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.0`, `json@0.7.0.0`, `dns@0.7.0.0`, and `zlib@0.5.0.0`. `Http.Body` is `bend-kit-bytes@0.3.3.0`.
+`http@0.38.6.0` imports its siblings by name: `wire@0.4.8.0`, `http2@0.4.0.0`, `bytes@0.3.3.0`, `time@0.3.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.0`, `json@0.7.2.0`, `dns@0.7.1.0`, and `zlib@0.5.1.1`. `Http.Body` is `bend-kit-bytes@0.3.3.0`.
 
-`hairpin@0.13.0.1`, `camber@0.15.0.1`, `jwt@0.11.0.1`, `llm@0.13.0.1`, `oauth2@0.11.0.1`, `sigv4@0.11.0.1`, and `webhooks@0.11.0.1` import `bend-kit-http@0.38.1.1`, and all but `camber` import `bend-kit-hairpin@0.13.0.1`. A program that uses these versions together carries one copy of each C effect.
+`hairpin@0.14.1.0`, `camber@0.15.1.0`, `jwt@0.12.0.0`, `llm@0.14.0.0`, `oauth2@0.12.0.0`, `sigv4@0.12.0.0`, and `webhooks@0.12.0.0` import `bend-kit-http@0.38.6.0`, and all but `camber` import `bend-kit-hairpin@0.14.1.0`. A program that uses these versions together carries one copy of each C effect.
 
 ## Native libraries
 
@@ -197,7 +197,7 @@ scripts/check.sh bytes http   # some packages
 scripts/packages.sh origin/main
 ```
 
-`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package. A package with `effs/*.c`, and `webhooks`, also runs `scripts/native-check.sh`. `scripts/pins.sh` fails a pull request whose changed packages import a sibling at a version other than its `VERSION`, or by hash; `scripts/pins.allow` lists the exceptions. It also fails when this README names a changed package at a version other than its `VERSION`.
+`check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package. A package with `effs/*.c`, and `webhooks`, also runs `scripts/native-check.sh`. `scripts/pins.sh` fails a pull request whose changed packages import a sibling at a version other than its `VERSION`, or by hash; `scripts/pins.allow` lists the exceptions. It also checks every package version in the root and package READMEs against its current `VERSION`, including prose without an import path. A README-only pull request runs the pin check too.
 
 CI installs the Bend version pinned in `scripts/install-bend.sh`. To move to a new Bend, change `VER` and `SHA` in that script.
 

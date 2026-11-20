@@ -2,8 +2,8 @@
 # Fail when a package imports a sibling at a version other than the sibling's
 # VERSION at REF, or imports a sibling by hash. scripts/pins.allow lists the
 # exceptions, one import target (bend-kit-<pkg>@<version> or 0x<hash>) per line;
-# a line that no import in the kit uses fails too. A README.md import of a
-# package fails unless it names that package's VERSION in the working tree.
+# a line that no import in the kit uses fails too. Root and package README.md
+# pins must name the package's VERSION in the working tree, unless allowed.
 # When a VERSION differs from REF, print the importers of the old version: they
 # re-pin after the publish. An evidence/ folder holds recorded artifacts, which
 # keep the pins they ran with, so the scan skips it.
@@ -42,17 +42,21 @@ for target in $allow; do
   echo "scripts/pins.allow: no import uses $target; remove the line" >&2
   bad=1
 done
-for t in $(grep -oE 'bend-kit-[a-z0-9-]+@[0-9.]+/' README.md | sort -u); do
-  name=${t#bend-kit-}
-  name=${name%@*}
-  tr ' ' '\n' <<<"$*" | grep -qxF "$name" || continue
-  ver=${t#*@}
-  ver=${ver%/}
-  want=$(<"$name/VERSION") || want=missing
-  [ "$ver" = "$want" ] && continue
-  echo "README.md: names bend-kit-$name@$ver but $name/VERSION is $want" >&2
-  bad=1
+readmes=(README.md)
+for d in $all; do
+  [ ! -f "$d/README.md" ] || readmes+=("$d/README.md")
 done
+while IFS=: read -r file line target; do
+  name=${target%@*}
+  name=${name#bend-kit-}
+  grep -qxF "$name" <<<"$all" || continue
+  ver=${target#*@}
+  grep -qxF "bend-kit-$name@$ver" <<<"$allow" && continue
+  want=$(<"$name/VERSION")
+  [ "$ver" = "$want" ] && continue
+  echo "$file:$line: names $target but $name/VERSION is $want" >&2
+  bad=1
+done < <(grep -HnoE '[a-z0-9-]+@[0-9]+(\.[0-9]+)*' "${readmes[@]}" || true)
 for d in $all; do
   old=$(git show "$ref:$d/VERSION" 2>/dev/null) || continue
   new=$(<"$d/VERSION")

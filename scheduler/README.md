@@ -4,7 +4,7 @@ Pure deadline queues and recurrence planning. Import `bend-kit-scheduler@0.4.3.0
 
 ## Queue transitions
 
-`State<A>` stores copyable payloads in the `collections@0.1.3.0` skew heap. Thread the returned state through every transition; do not fork state snapshots into independent runners.
+`State<A>` stores copyable payloads in the `collections@0.1.5.0` skew heap. Thread the returned state through every transition; do not fork state snapshots into independent runners.
 
 | Operation | Result | Meaning |
 |---|---|---|

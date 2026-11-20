@@ -35,7 +35,8 @@ jobs:
         run: |
           base="origin/${{ github.base_ref }}"
           changed=$(git diff --name-only "$base"...HEAD)
-          if grep -qxE 'scripts/(pins|packages)\.sh' <<<"$changed"; then
+          bash scripts/pins-check.sh
+          if grep -qE '(^|/)README\.md$|^scripts/(pins|packages)\.sh$|^scripts/pins\.allow$' <<<"$changed"; then
             scripts/pins.sh "$base"
           else
             pkgs=$(cut -d/ -f1 <<<"$changed" | sort -u | grep -xFf <(scripts/packages.sh) || true)
