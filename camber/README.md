@@ -1,11 +1,11 @@
 # Camber
 
-`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.34.0.0. Package version: `0.10.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.3.0.0.
+`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.38.6.0. Package version: `0.16.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.3.0.0.
 
 ```bend
-import bend-kit-camber@0.15.1.0/camber.bend as Camber
-import bend-kit-camber@0.15.1.0/input.bend as Input
-import bend-kit-camber@0.15.1.0/notices.bend as Notices
+import bend-kit-camber@0.16.0.0/camber.bend as Camber
+import bend-kit-camber@0.16.0.0/input.bend as Input
+import bend-kit-camber@0.16.0.0/notices.bend as Notices
 import bend-kit-http@0.38.6.0/http.bend as Http
 ```
 
@@ -95,7 +95,7 @@ Published HTTP0.30.0.0 is `0x8bc87dd4d1e610fe1bf336b567537a8c`; Wire0.4.5.0 is `
 
 `users.bend` is the reusable four-route consumer over published Camber0.10.0.0, HTTP0.34.0.0 and Json0.6.0.0. Its one affine Store owner holds the map and File; application configuration receives only the copied owner context. `users_direct.bend` and `users_live.bend` exercise that same public application and dispatcher separately. `users_demo.bend` adds a second loopback published-HTTP listener whose only administrative command is `POST /stop`. That listener trusts local processes, is not an authentication or supervisor boundary, and must never be proxied or exposed. It demonstrates cooperative application/store/control joins only; dedicated forced-exit supervision is exercised separately in [`deploy/README.md`](deploy/README.md).
 
-The `users*.bend` files are repository examples that consume published packages. They are not modules published at `bend-kit-camber@0.15.1.0/users.bend`; compile them from this checkout. Sibling imports now use the current named package versions.
+The `users*.bend` files are repository examples that consume published packages. They are not published package modules; compile them from this checkout. The examples stay on Camber0.15.1.0 until the new release publishes; the pin wave is tracked in [#846](https://github.com/paymog/bend-kit/issues/846).
 
 The demo uses `Bearer seven` for Alice/id7 and `Bearer eight` for Bob/id8. These fixed credentials are not an authentication product. The store is an in-memory map with an owned diagnostic File, not durable database storage. Default operation does not log requests, credentials, raw targets, query values, Host, or domain records. Trace and fault controls belong only to the separate acceptance consumers.
 
@@ -165,7 +165,9 @@ Initial release accepts this measured boundary. The ceilings stay as recorded, a
 
 The command inbox has `room` buffered slots (zero uses rendezvous). Resource exhaustion is rejected, never queued waiting for a bundle. Callers blocked submitting to the bounded inbox must be counted inside the caller's admission limit; this dependency owner does not replace transport admission. Reply channels must have one slot so abandoned receivers cannot block the owner. Do not forge protocol messages or close the context's internal owner channel; use the public lifecycle API. Bend has no module privacy enforcement.
 
-The lifecycle receive loop uses `@unsafe` because its termination depends on an external orderly-close command, not structurally shrinking input. The post-close drain is structurally bounded by the inbox's slot count. Base channel/file effects also lie outside mathematical proofs. No human-authored Camber pure laws have been supplied: `LAWS.bend` contains only that disclosure, and `PROOF.bend` imports the empty inventory. There is no mathematical proof coverage beyond type checking and the structurally checked pure helpers; a clean empty proof gate does not attest IO correctness.
+The lifecycle receive loop uses `@unsafe` because its termination depends on an external orderly-close command, not structurally shrinking input. The post-close drain is structurally bounded by the inbox's slot count. Base channel/file effects also lie outside mathematical proofs. `ledger.bend` has no host imports. Its universal laws prove fresh-return rejection, full-pool rejection, exact lend/return counts, capacity bounds, and resource conservation. The bounds assume a valid pool and a matching aggregate grant, as maintained from `open` by the proved transitions. These proofs do not attest host IO or lifecycle safety.
+
+Import `bend-kit-camber@0.16.0.0/ledger.bend` for `Ledger`, `open`, `lend`, `give`, `counts`, and `refuse`. The old ledger exports in `camber.bend` are removed. Actor inspection still returns `Camber.Counts`; pure ledger inspection returns the separate `Ledger.Counts` projection. The owner maps that projection at its message boundary.
 
 `check.bend` remains the native/JS owner consumer with real two-File bundles, held principals, expected failures, exhaustion, counts, disposed caller replies, partial startup cleanup and Busy→same-owner retry. `python3 camber/run_serving.py --checks` runs the affected package gate and both actual compiled owner/serving lanes sequentially, with aggregate descendant RSS/disk guards and explicit listener release. [OWNER_EVIDENCE.md](OWNER_EVIDENCE.md) preserves the original owner receipts rather than rewriting historical measurements.
 
