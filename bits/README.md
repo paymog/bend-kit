@@ -5,7 +5,7 @@ Bit readers and writers over `Bytes`, in either bit order, and canonical Huffman
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-bits@0.2.0.0/bits.bend as Bits
+import bend-kit-bits@0.2.1.0/bits.bend as Bits
 
 # BFINAL, the first bit of a DEFLATE block header.
 def head(r: Bits.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -35,6 +35,8 @@ LSB-first, the first bit of a field is its least significant. MSB-first, it is i
 ## Writer
 
 `Writer.new()`, then `Writer.lsb(w, n, v)` or `Writer.msb(w, n, v)` appends the low `n` bits of `v`. `n` is cut to 32. `Writer.align(w)` pads with 0 bits to a byte boundary. `Writer.finish(w)` returns the `Bytes`, with 0 bits in the rest of the last byte. JPEG pads with 1 bits, so write them before `finish`. The buffer doubles when it fills, so writing is O(total).
+
+The two orders put a stream bit at different places in its byte, so one byte cannot hold fields of both orders. A write in the other order than the last write first pads with 0 bits to a byte boundary, as `Writer.align` does. A reader of such a stream must call `Reader.align` at the same switch.
 
 ## Huffman
 

@@ -224,6 +224,11 @@ def rejected.table(m: Maybe<&1, Bits.Huff>, s: String) -> Bool:
     case Some{h}:
       rejected.got(Bits.Huff.decode(h, Bits.Reader.new(Bytes.from_string(s))))
 
+# An order switch inside a byte would land on bits the earlier field already set.
+def mixed() -> Bool:
+  w = Bits.Writer.lsb(Bits.Writer.msb(Bits.Writer.lsb(Bits.Writer.new(), 1, 1), 7, 0), 3, 5)
+  String.eq(Bytes.to_string(Bits.Writer.finish(w)), "\u{1}\u{0}\u{5}")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     expect("lsb roundtrip, 20000 fields", roundtrip(False{}, 20000n, 12345))
@@ -247,4 +252,5 @@ def main() -> IO(Unit):
     expect("writer incomplete", enc.run(True{}, [Bits.Code{8, 16}]))
     expect("writer over-subscribed", enc.rejected(Bits.Huff.encode_lens([1, 1, 1])))
     expect("writer too long", enc.rejected(Bits.Huff.encode_lens([17])))
+    expect("order switch starts a new byte", mixed())
 
