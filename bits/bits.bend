@@ -122,7 +122,7 @@ def room(full: Bool, w: Writer) -> Writer:
       w
     case True{}:
       Writer{buf, +dep, pos} = w
-      Writer{Bytes.dst(Bytes.copy(U32.shln(4, U32.to_nat(dep)), buf, Array.new(U32, U32.to_nat((dep + 1 : U32)), 0), 0, 0)), (dep + 1 : U32), pos}
+      Writer{ANode{buf, Array.new(U32, U32.to_nat(dep), 0)}, (dep + 1 : U32), pos}
 
 def or.of(+k: U32, +x: U32, r: Array<U32> & U32) -> Array<U32>:
   (a, +old) = r
