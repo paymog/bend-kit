@@ -108,12 +108,12 @@ def Reader.align(r: Reader) -> Reader:
   Reader{len, buf, +pos} = r
   Reader{len, buf, ((pos + 7) .&. 4294967288 : U32)}
 
-# A writer's buf has 2^dep words, all 0 past bit pos.
+# A writer's buf has 2^dep words, all 0 past bit pos; msb is the order of the last write.
 type Writer is Type:
-  Writer{buf: Array<U32>, dep: U32, pos: U32}
+  Writer{buf: Array<U32>, dep: U32, pos: U32, msb: Bool}
 
 def Writer.new() -> Writer:
-  Writer{Array.new(U32, 0n, 0), 0, 0}
+  Writer{Array.new(U32, 0n, 0), 0, 0, False{}}
 
 # A write adds at most 32 bits, so one doubling always makes room.
 def room(full: Bool, w: Writer) -> Writer:
@@ -121,8 +121,8 @@ def room(full: Bool, w: Writer) -> Writer:
     case False{}:
       w
     case True{}:
-      Writer{buf, +dep, pos} = w
-      Writer{Bytes.dst(Bytes.copy(U32.shln(4, U32.to_nat(dep)), buf, Array.new(U32, U32.to_nat((dep + 1 : U32)), 0), 0, 0)), (dep + 1 : U32), pos}
+      Writer{buf, +dep, pos, msb} = w
+      Writer{Bytes.dst(Bytes.copy(U32.shln(4, U32.to_nat(dep)), buf, Array.new(U32, U32.to_nat((dep + 1 : U32)), 0), 0, 0)), (dep + 1 : U32), pos, msb}
 
 def or.of(+k: U32, +x: U32, r: Array<U32> & U32) -> Array<U32>:
   (a, +old) = r
@@ -150,16 +150,18 @@ def write.put(+k: U32, x: U32 & U32, a: Array<U32>) -> Array<U32>:
   or.if(U32.is_ne(x1, 0), or.if(U32.is_ne(x0, 0), a, k, x0), (k + 1 : U32), x1)
 
 def write.at(+msb: Bool, w: Writer, +n: U32, +v: U32) -> Writer:
-  Writer{buf, dep, +pos} = w
-  Writer{write.put((pos >> 5n : U32), parts(msb, (pos .&. 31 : U32), n, v), buf), dep, (pos + n : U32)}
+  Writer{buf, dep, +pos, last} = w
+  Writer{write.put((pos >> 5n : U32), parts(msb, (pos .&. 31 : U32), n, v), buf), dep, (pos + n : U32), msb}
 
+# The two orders put a stream bit at different places in its byte, so an order switch starts a new byte.
 def write(+msb: Bool, w: Writer, +n0: U32, +v: U32) -> Writer:
-  Writer{buf, +dep, +pos} = w
+  Writer{buf, +dep, +pos0, +last} = w
+  +pos = Bool.pick(U32, Bool.xor(msb, last), ((pos0 + 7) .&. 4294967288 : U32), pos0)
   +n = U32.min(n0, 32)
-  write.at(msb, room(U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((pos + n + 31) >> 5n : U32)), Writer{buf, dep, pos}), n, v)
+  write.at(msb, room(U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((pos + n + 31) >> 5n : U32)), Writer{buf, dep, pos, last}), n, v)
 
 # Appends the low n bits of v (n is cut to 32). LSB-first sends v's lowest bit first;
-# MSB-first sends bit n - 1 first.
+# MSB-first sends bit n - 1 first. A write in the other order than the last one first pads to a byte boundary.
 def Writer.lsb(w: Writer, +n: U32, +v: U32) -> Writer:
   write(False{}, w, n, v)
 
@@ -168,12 +170,12 @@ def Writer.msb(w: Writer, +n: U32, +v: U32) -> Writer:
 
 # Pads with 0 bits to the next byte boundary.
 def Writer.align(w: Writer) -> Writer:
-  Writer{buf, dep, +pos} = w
-  Writer{buf, dep, ((pos + 7) .&. 4294967288 : U32)}
+  Writer{buf, dep, +pos, msb} = w
+  Writer{buf, dep, ((pos + 7) .&. 4294967288 : U32), msb}
 
 # The bytes written; 0 bits fill the last byte.
 def Writer.finish(w: Writer) -> Bytes.Bytes:
-  Writer{buf, dep, +pos} = w
+  Writer{buf, dep, +pos, msb} = w
   Bytes.Bytes{((pos + 7) >> 3n : U32), buf}
 
 # A root of up to nine bits; longer codes use fixed-width secondary tables.

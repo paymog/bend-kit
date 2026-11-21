@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `bits` 0.2.1.0: a write in the other bit order than the last write first pads to a byte boundary. Before, a switch inside a byte could set bits of the earlier field. Streams in one order do not change.
+
 - `f32array` 0.2.1.0: read exact F32 and BF16 tensors at 64-bit byte offsets without moving the file position. Preserve BF16 bits on native; the JS lane retains Bend's existing NaN canonicalization limit.
 
 - `f32array` 0.2.0.0: use blocked pairwise sums and dot products. Add zero-copy CPU fork-join reductions in `parallel.bend`, with measured task cutoffs and float64 errors. Move file reads to `io.bend` so proofs import no effects. Addition order and file-read import paths change. Breaking.
