@@ -5,7 +5,7 @@ Bit readers and writers over `Bytes`, in either bit order, and canonical Huffman
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-bits@0.2.1.1/bits.bend as Bits
+import bend-kit-bits@0.3.0.0/bits.bend as Bits
 
 # BFINAL, the first bit of a DEFLATE block header.
 def head(r: Bits.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -30,6 +30,8 @@ def main() -> Maybe<&2, U32>:
 | `Reader.left(r)` | The bits left. |
 | `Reader.finish(r)` | The buffer back, and the bit position. |
 
+Bit positions, `Reader.skip` counts, and `Reader.left` counts are `Nat`. Field widths and values remain `U32`.
+
 LSB-first, the first bit of a field is its least significant. MSB-first, it is its most significant. JPEG byte stuffing (`0xFF 0x00`) is the caller's job: remove it before the reader sees the bytes.
 
 ## Writer
@@ -52,13 +54,13 @@ Both return `None` when a length exceeds 16 or the lengths over-subscribe the co
 
 ## Limits
 
-- Positions are U32 bit counts, so a stream holds under 512 MiB.
+- Positions are Nat bit counts. Stream lengths must fit `Bytes`: at most 4,294,967,295 bytes.
 - Decode tables use a root of up to 9 bits. Longer codes use secondary tables of `2^(max - 9)` entries per occupied root prefix. The `Huff` constructor now owns both arrays.
 - Symbols must be below 2^27.
 
 ## Checks
 
-`LAWS.bend` states read-after-write for every field width from 0 to 32, every U32 value, and every prefix written in the same order. The read value is `v mod 2^n`. The total bit count plus 31 must stay below `2^32`, because writer capacity arithmetic uses that sum. The existing fixture proofs also fix each bit layout and decode the fixed DEFLATE literal/length code (RFC 1951 §3.2.6) for all 288 symbols. They write every generated code for lengths `[2, 1, 3, 3]` and the fixed DEFLATE lengths, then decode them in both orders. `check.bend` round-trips 20,000 random fields per order on the native `Array`. `bench/` times decode against zlib and `bitstream-io`.
+`LAWS.bend` states read-after-write for every field width from 0 to 32, every U32 value, and every prefix written in the same order. The read value is `v mod 2^n`. The total bit count plus 31 must stay below `2^35`, within the Bytes length limit. The fixture proofs fix each bit layout and decode the fixed DEFLATE literal/length code (RFC 1951 §3.2.6) for all 288 symbols. They write every generated code for lengths `[2, 1, 3, 3]` and the fixed DEFLATE lengths, then decode them in both orders. `check.bend` round-trips 20,000 random fields per order. `scripts/native-check.sh bits` also runs `large-check.bend`: it grows a buffer across 512 MiB, then reads, peeks, skips, and aligns fields across and past byte `2^29` in both orders. `bench/` times decode against zlib and `bitstream-io`.
 
 `PROOF.bend` proves both universal laws. The proof preserves writer capacity and
 the zero suffix through each field in the prefix. It includes zero-width writes,

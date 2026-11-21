@@ -58,9 +58,9 @@ def gets(k: Nat, +msb: Bool, +x: U32, +ok: Bool, r: Bits.Reader & Maybe<&2, U32>
       +n = width(x)
       gets(p, msb, lcg(lcg(x)), Bool.and(ok, same(m, want)), get(msb, rd, n), (lcg(x) .&. Bits.mask(n) : U32))
 
-def at_end.left(+ok: Bool, r: Bits.Reader & U32) -> Bool:
+def at_end.left(+ok: Bool, r: Bits.Reader & Nat) -> Bool:
   (rd, +left) = r
-  Bool.and(ok, U32.is_lt(left, 8))
+  Bool.and(ok, Nat.is_lt(left, 8n))
 
 def at_end(r: Bits.Reader & Bool) -> Bool:
   (rd, +ok) = r
@@ -205,9 +205,9 @@ def enc.fixture(m: Maybe<&2, List<&2, Bits.Encoding>>) -> Bool:
     case _:
       False{}
 
-def rejected.pos(r: Bytes.Bytes & U32) -> Bool:
+def rejected.pos(r: Bytes.Bytes & Nat) -> Bool:
   (b, pos) = r
-  U32.is_eq(pos, 0)
+  Nat.is_eq(pos, 0n)
 
 def rejected.got(r: Bits.Huff & Bits.Reader & Maybe<&2, U32>) -> Bool:
   (h, rd, m) = r

@@ -111,7 +111,7 @@ law lsb_read_after_write:
   for +n: U32
   for +v: U32
   for width: {Nat.is_le(U32.to_nat(n), 32n) == True{} : Bool}
-  for room: {Nat.is_lt(Nat.add(Nat.add(prefix_bits(fs), U32.to_nat(n)), 31n), Lemmas.pow2(32n)) == True{} : Bool}
+  for room: {Nat.is_lt(Nat.add(Nat.add(prefix_bits(fs), U32.to_nat(n)), 31n), Lemmas.pow2(35n)) == True{} : Bool}
   {read_after_write(False{}, fs, n, v) == Some{Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n)))} : Maybe<&2, Nat>}
 
 law msb_read_after_write:
@@ -119,7 +119,7 @@ law msb_read_after_write:
   for +n: U32
   for +v: U32
   for width: {Nat.is_le(U32.to_nat(n), 32n) == True{} : Bool}
-  for room: {Nat.is_lt(Nat.add(Nat.add(prefix_bits(fs), U32.to_nat(n)), 31n), Lemmas.pow2(32n)) == True{} : Bool}
+  for room: {Nat.is_lt(Nat.add(Nat.add(prefix_bits(fs), U32.to_nat(n)), 31n), Lemmas.pow2(35n)) == True{} : Bool}
   {read_after_write(True{}, fs, n, v) == Some{Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n)))} : Maybe<&2, Nat>}
 
 # Widths 0 to 32, inside a byte, across bytes, and across words.
@@ -179,10 +179,10 @@ def after.skip(r: Bits.Reader & Bool) -> List<&2, Maybe<&2, U32>>:
   gets([8], False{}, rd)
 
 law skip_then_read:
-  {after.skip(Bits.Reader.skip(reader([1, 2, 3]), 8)) == [Some{2}] : List<&2, Maybe<&2, U32>>}
+  {after.skip(Bits.Reader.skip(reader([1, 2, 3]), 8n)) == [Some{2}] : List<&2, Maybe<&2, U32>>}
 
 law skip_past_end:
-  {after.skip(Bits.Reader.skip(reader([1, 2]), 17)) == [Some{1}] : List<&2, Maybe<&2, U32>>}
+  {after.skip(Bits.Reader.skip(reader([1, 2]), 17n)) == [Some{1}] : List<&2, Maybe<&2, U32>>}
 
 def after.align(r: Bits.Reader & Maybe<&2, U32>) -> List<&2, Maybe<&2, U32>>:
   (rd, x) = r

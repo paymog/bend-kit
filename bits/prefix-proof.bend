@@ -16,13 +16,6 @@ def min_width(+n: U32, h: N.le(U32.to_nat(n), 32n)) -> {U32.min(n, 32) == n : U3
     Equal.trans(Nat, U32.to_nat(U32.min(n, 32)), Nat.min(U32.to_nat(n), 32n), U32.to_nat(n),
       U.u32_min_to_nat(n, 32), N.min_eq_left(U32.to_nat(n), 32n, h)))
 
-# Transport the width without normalizing the writer: https://github.com/bendlang/bend/issues/1071.
-def width_bound(+p: Nat, +n: U32, +m: U32, +limit: Nat, e: {m == n : U32},
-  h: N.lt(Nat.add(p, U32.to_nat(n)), limit)) ->
-  N.lt(Nat.add(p, U32.to_nat(m)), limit):
-  %Equal.sym(U32, m, n, e) : N.lt(Nat.add(p, U32.to_nat(_)), limit)
-  h
-
 def width_position(+p: Nat, +end: Nat, +n: U32, +m: U32, e: {m == n : U32},
   h: {end == Nat.add(p, U32.to_nat(m)) : Nat}) ->
   {end == Nat.add(p, U32.to_nat(n)) : Nat}:
@@ -31,19 +24,16 @@ def width_position(+p: Nat, +end: Nat, +n: U32, +m: U32, e: {m == n : U32},
 
 
 def appended_position(+msb: Bool, +s: W.State, +n: U32, +v: U32,
-  +hn: N.le(U32.to_nat(n), 32n),
-  room: N.lt(Nat.add(U32.to_nat(W.position(s)), U32.to_nat(n)), L.pow2(32n))) ->
-  {U32.to_nat(W.position(W.write(msb, s, n, v))) == Nat.add(U32.to_nat(W.position(s)), U32.to_nat(n)) : Nat}:
-  width_position(U32.to_nat(W.position(s)), U32.to_nat(W.position(W.write(msb, s, n, v))),
-    n, U32.min(n, 32), min_width(n, hn),
-    W.write_position_nat(msb, s, n, v,
-      width_bound(U32.to_nat(W.position(s)), n, U32.min(n, 32), L.pow2(32n), min_width(n, hn), room)))
+  hn: N.le(U32.to_nat(n), 32n)) ->
+  {W.position(W.write(msb, s, n, v)) == Nat.add(W.position(s), U32.to_nat(n)) : Nat}:
+  width_position(W.position(s), W.position(W.write(msb, s, n, v)),
+    n, U32.min(n, 32), min_width(n, hn), W.write_position_nat(msb, s, n, v))
 
 # Pass scalar positions without matching a bounded state: https://github.com/bendlang/bend/issues/1071.
-def read_result(+msb: Bool, +t: A.Tree, +depth: U32, +pos: U32,
-  +written: A.Tree, +next_depth: U32, +end: U32, +n: U32, +v: U32,
-  step: {U32.to_nat(end) == Nat.add(U32.to_nat(pos), U32.to_nat(n)) : Nat},
-  room: N.lt(Nat.add(Nat.add(U32.to_nat(pos), U32.to_nat(n)), 31n), L.pow2(32n)),
+def read_result(+msb: Bool, +t: A.Tree, +depth: U32, +pos: Nat,
+  +written: A.Tree, +next_depth: U32, +end: Nat, +n: U32, +v: U32,
+  step: {end == Nat.add(pos, U32.to_nat(n)) : Nat},
+  room: N.lt(Nat.add(Nat.add(pos, U32.to_nat(n)), 31n), L.pow2(35n)),
   hn: N.le(U32.to_nat(n), 32n),
   field: {U32.to_nat(Bits.field(msb, n, W.window(msb, written, pos))) == Nat.mod(U32.to_nat(v), L.pow2(U32.to_nat(n))) : Nat},
   bridge: {Laws.put(msb, W.build(msb, W.State{t, depth, pos}), n, v) == W.build(msb, W.State{written, next_depth, end}) : Bits.Writer}) ->
@@ -78,7 +68,7 @@ def initial_read_bridge(msb: Bool, +n: U32, +v: U32) ->
       {==}
     case True{}:
       Equal.cong(Bits.Writer, Maybe<&2, Nat>,
-        q => Laws.read_after_skip(True{}, n, Bits.Reader.skip(Bits.Reader.new(Bits.Writer.finish(q)), 0)),
+        q => Laws.read_after_skip(True{}, n, Bits.Reader.skip(Bits.Reader.new(Bits.Writer.finish(q)), 0n)),
         Laws.put(True{}, Bits.Writer.new(), n, v), Laws.put(True{}, W.build(True{}, W.new()), n, v),
         initial_put_order(True{}, n, v))
 
@@ -109,13 +99,13 @@ def valid_eta(+msb: Bool, +s: W.State, h: W.valid(msb, s)) ->
   %state_eta(s) : W.valid(msb, _)
   h
 
-def room_at_position(+bits: Nat, +p: U32, +n: U32, +limit: Nat,
-  e: {U32.to_nat(p) == bits : Nat},
+def room_at_position(+bits: Nat, +p: Nat, +n: U32, +limit: Nat,
+  e: {p == bits : Nat},
   h: N.lt(Nat.add(Nat.add(bits, U32.to_nat(n)), 31n), limit)) ->
-  N.lt(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), limit):
-  L.lt_rw(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n),
+  N.lt(Nat.add(Nat.add(p, U32.to_nat(n)), 31n), limit):
+  L.lt_rw(Nat.add(Nat.add(p, U32.to_nat(n)), 31n),
     Nat.add(Nat.add(bits, U32.to_nat(n)), 31n), limit,
-    Equal.cong(Nat, Nat, q => Nat.add(Nat.add(q, U32.to_nat(n)), 31n), U32.to_nat(p), bits, e), h)
+    Equal.cong(Nat, Nat, q => Nat.add(Nat.add(q, U32.to_nat(n)), 31n), p, bits, e), h)
 
 def prefix_room_bound(+p: Nat, +n: Nat, +limit: Nat,
   h: N.lt(Nat.add(Nat.add(p, n), 31n), limit)) ->
@@ -123,16 +113,6 @@ def prefix_room_bound(+p: Nat, +n: Nat, +limit: Nat,
   N.lt_of_le_of_lt(Nat.add(p, 31n), Nat.add(Nat.add(p, n), 31n), limit,
     N.add_le_add_right(p, Nat.add(p, n), 31n, N.le_add_right(p, n)), h)
 
-# Preserve the initial-position syntax at the large bound: https://github.com/bendlang/bend/issues/1071.
-def new_prefix_bound(+bits: Nat, +n: Nat, +limit: Nat,
-  room: N.lt(Nat.add(Nat.add(bits, n), 31n), limit)) ->
-  N.lt(Nat.add(U32.to_nat(W.position(W.new())), bits), limit):
-  N.lt_of_le_of_lt(bits, Nat.add(Nat.add(bits, n), 31n), limit,
-    N.le_trans(bits, Nat.add(bits, n), Nat.add(Nat.add(bits, n), 31n),
-      N.le_add_right(bits, n), N.le_add_right(Nat.add(bits, n), 31n)), room)
-
-def prefix_position(+fs: List<&2, Laws.F>, +msb: Bool, +n: U32,
-  room: N.lt(Nat.add(Nat.add(Laws.prefix_bits(fs), U32.to_nat(n)), 31n), L.pow2(32n))) ->
-  {U32.to_nat(W.position(W.puts(fs, msb, W.new()))) == Laws.prefix_bits(fs) : Nat}:
-  W.puts_position(fs, msb, W.new(),
-    new_prefix_bound(Laws.prefix_bits(fs), U32.to_nat(n), L.pow2(32n), room))
+def prefix_position(+fs: List<&2, Laws.F>, +msb: Bool) ->
+  {W.position(W.puts(fs, msb, W.new())) == Laws.prefix_bits(fs) : Nat}:
+  W.puts_position(fs, msb, W.new())

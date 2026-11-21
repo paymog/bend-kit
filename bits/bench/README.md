@@ -127,3 +127,33 @@ measure one growth operation, not whole-stream write throughput.
 The fixed-block suite (`python3 run.py 3`) also passed all five checksums:
 Bend Huffman 8.40 ms and fields 0.57 ms; C 3.02 ms; Rust Huffman 36.33 ms
 and fields 0.61 ms; Python 1.77 ms; Bun 3.15 ms.
+
+## Large stream positions
+
+M4 Pro, macOS 25.6.0, arm64, Bend 2.0.40, Apple clang 21.0.0, 2026-11-21.
+The input is the same 1 MiB fixed block above. These are medians of 21 paired
+native runs, alternating the baseline at `792ac4b` and this implementation.
+Both binaries read the same `out/payload.bin`.
+
+| position representation | huffman ms | fields ms |
+|---|---:|---:|
+| U32 bit cursor | 8.267458 | 0.564542 |
+| Nat total and remaining bits | 9.059500 | 0.565375 |
+| change | +9.58% | +0.15% |
+
+Both operations stay below the 10% slowdown limit. A Nat cursor that recomputed
+the remaining bits on each read slowed fields by 26.47%, so the reader keeps
+total and remaining bits instead. Advancing subtracts from the remaining count.
+The window still reads exactly two array words. The writer uses a Nat cursor.
+
+The full suite (`python3 run.py 5`) also passed every checksum. Rust used
+rustc 1.91.0 and bitstream-io 4.10.0. Python was 3.14.6; Bun was 1.4.4.
+These separate five-run medians do not replace the paired comparison above.
+
+| variant | huffman ms | fields ms |
+|---|---:|---:|
+| Bend | 9.23 | 0.57 |
+| C (zlib inflate) | 2.97 | - |
+| Rust (bitstream-io) | 37.19 | 0.63 |
+| Python (zlib) | 1.87 | - |
+| Bun (node:zlib) | 3.30 | - |
