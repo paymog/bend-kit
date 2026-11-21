@@ -1,7 +1,7 @@
 # Append-only journal: checksummed frames, fsync'd appends, and crash recovery of the committed prefix. Source: https://github.com/paymog/bend-kit/tree/main/journal
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-hash@0.3.0.4/hash.bend as Hash
+import bend-kit-hash@0.3.2.0/hash.bend as Hash
 
 # A frame is one record and one commit: three u32 little-endian fields, then the payload.
 # len, then U32.not(len), then the CRC-32 of the payload, then len payload octets.
@@ -183,23 +183,9 @@ def list.cut(xs: List<&2, U32>, +hs: U32, +len: U32) -> List<&2, U32> & List<&2,
 def list.skip(xs: List<&2, U32>, +hs: U32, +len: U32) -> List<&2, U32>:
   List.drop(&2, U32, xs, Nat.add(U32.to_nat(hs), U32.to_nat(len)))
 
-def crc.bit(n: Nat, +c: U32) -> U32:
-  match n:
-    case 0n:
-      c
-    case 1n+m:
-      crc.bit(m, Bool.pick(U32, U32.is_eq((c .&. 1 : U32), 1), ((c >> 1n) .^. 3988292384 : U32), (c >> 1n : U32)))
-
-def crc.go(xs: List<&2, U32>, +c: U32) -> U32:
-  match xs:
-    case Nil{}:
-      c
-    case Con{+x, t}:
-      crc.go(t, crc.bit(8n, (c .^. (x .&. 255 : U32) : U32)))
-
-# CRC-32 (ISO-HDLC, as zlib and Hash.crc32) of a list of octets, bit by bit.
+# CRC-32 (ISO-HDLC, as zlib and Hash.crc32) of a list of octets.
 def list.crc(xs: List<&2, U32>) -> U32:
-  U32.not(crc.go(xs, 4294967295))
+  U32.not(List.foldl(~&2, ~U32, ~U32, ~(h => c => Hash.crc.byte(h, c)), xs, 4294967295))
 
 def list.sum(xs: List<&2, U32>) -> List<&2, U32> & U32:
   +ys = xs
@@ -263,7 +249,6 @@ def cur.skip(c: Cur, +hs: U32, +len: U32) -> Cur:
   Cur{b, +pos} = c
   Cur{b, (pos + hs + len : U32)}
 
-# ponytail: Hash.crc32 builds its 256-entry table per record; share one table if recovery gets hot.
 def cur.sum(p: Bytes.Bytes) -> Bytes.Bytes & U32:
   Hash.crc32(p)
 
