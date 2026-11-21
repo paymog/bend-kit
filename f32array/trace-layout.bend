@@ -71,15 +71,17 @@ def sequence_location(+xs: List<&2, C.Write>, +p: Nat, +b: Nat, +t: U32,
     case Nil{}:
       P.efq(C.Location(Nil{}, p, t, U32.to_nat(t)), P.lt_zero(p, hp))
     case Con{C.Write{+at, +ci, +lane}, +rest}:
-      (+ea, (+ec, (+hl, tail))) = seq
       match p:
         case 0n:
+          (+ea, (+ec, (+hl, tail))) = seq
           +atx = Equal.trans(Nat, at, b, U32.to_nat(t), ea, ex)
-          (eq, er) = source_coordinate(ci, lane, t, Equal.trans(Nat, U32.to_nat(t), at, Nat.add(Nat.mul(8n, U32.to_nat(ci)), U32.to_nat(lane)), Equal.sym(Nat, at, U32.to_nat(t), atx), ec), hl)
+          eq = Pair.fst({ci == (t >> 3n : U32) : U32}, {lane == (t .&. 7 : U32) : U32}, source_coordinate(ci, lane, t, Equal.trans(Nat, U32.to_nat(t), at, Nat.add(Nat.mul(8n, U32.to_nat(ci)), U32.to_nat(lane)), Equal.sym(Nat, at, U32.to_nat(t), atx), ec), hl))
+          er = Pair.snd({ci == (t >> 3n : U32) : U32}, {lane == (t .&. 7 : U32) : U32}, source_coordinate(ci, lane, t, Equal.trans(Nat, U32.to_nat(t), at, Nat.add(Nat.mul(8n, U32.to_nat(ci)), U32.to_nat(lane)), Equal.sym(Nat, at, U32.to_nat(t), atx), ec), hl))
           (atx, (eq, (er, avoid_sequence(rest, 1n+b, U32.to_nat(t),
             (%ex : P.lt(_, 1n+b)
              N.lt_succ_self(b)), tail))))
         case 1n++q:
+          (ea, (ec, (hl, tail))) = seq
           sequence_location(rest, q, 1n+b, t, hp,
             Equal.trans(Nat, Nat.add(q, 1n+b), 1n+Nat.add(q, b), U32.to_nat(t), Equal.sym(Nat, 1n+Nat.add(q, b), Nat.add(q, 1n+b), P.add_succ(q, b)), ex), tail)
 
@@ -93,11 +95,16 @@ def sequence_append(+xs: List<&2, C.Write>, +ys: List<&2, C.Write>, +b: Nat, seq
         (%P.add_succ(size(rest), b) : Sequence(ys, _)
          next)))))
 
-def small_fit(+k: Nat, +hk: P.lt(k, 8n)) -> P.lt(k, L.pow2(32n)):
-  N.lt_trans(k, 8n, L.pow2(32n), hk, Alloc.pow_lt(3n, 32n, {==}))
+# Keep power comparison conversions generic: https://github.com/bendlang/bend/issues/1071.
+def below_power(+k: Nat, +a: Nat, +b: Nat, +hk: P.lt(k, L.pow2(a)), +hab: P.lt(a, b)) -> P.lt(k, L.pow2(b)):
+  N.lt_trans(k, L.pow2(a), L.pow2(b), G.nat_lt(k, L.pow2(a), hk), G.nat_lt(L.pow2(a), L.pow2(b), Alloc.pow_lt(a, b, hab)))
 
+def small_fit(+k: Nat, +hk: P.lt(k, 8n)) -> P.lt(k, L.pow2(32n)):
+  below_power(k, 3n, 32n, hk, {==})
+
+# Convert the fit comparison explicitly: https://github.com/bendlang/bend/issues/1071.
 def address_offset(+i: U32, +k: Nat, +hi: P.lt(U32.to_nat(i), L.pow2(27n)), +hk: P.lt(k, 8n)) -> {U32.to_nat(((i << 3n : U32) + U32.from_nat(k) : U32)) == Nat.add(k, Nat.mul(8n, U32.to_nat(i))) : Nat}:
-  +ek = L.u32_to_from_nat(k, small_fit(k, hk))
+  +ek = L.u32_to_from_nat(k, G.nat_lt(k, L.pow2(32n), small_fit(k, hk)))
   Equal.trans(Nat, U32.to_nat(((i << 3n : U32) + U32.from_nat(k) : U32)), Nat.add(Nat.mul(8n, U32.to_nat(i)), U32.to_nat(U32.from_nat(k))), Nat.add(k, Nat.mul(8n, U32.to_nat(i))),
     G.address(i, U32.from_nat(k), hi, L.lt_rw(U32.to_nat(U32.from_nat(k)), k, 8n, ek, hk)),
     Equal.trans(Nat, Nat.add(Nat.mul(8n, U32.to_nat(i)), U32.to_nat(U32.from_nat(k))), Nat.add(Nat.mul(8n, U32.to_nat(i)), k), Nat.add(k, Nat.mul(8n, U32.to_nat(i))), Equal.cong(Nat, Nat, x => Nat.add(Nat.mul(8n, U32.to_nat(i)), x), U32.to_nat(U32.from_nat(k)), k, ek), N.add_comm(Nat.mul(8n, U32.to_nat(i)), k)))
@@ -106,11 +113,15 @@ def cell_sequence(+i: U32, +hi: P.lt(U32.to_nat(i), L.pow2(27n))) -> Sequence(C.
   (address_offset(i, 0n, hi, {==}), (G.address(i, 0, hi, {==}), ({==}, (address_offset(i, 1n, hi, {==}), (G.address(i, 1, hi, {==}), ({==}, (address_offset(i, 2n, hi, {==}), (G.address(i, 2, hi, {==}), ({==}, (address_offset(i, 3n, hi, {==}), (G.address(i, 3, hi, {==}), ({==}, (address_offset(i, 4n, hi, {==}), (G.address(i, 4, hi, {==}), ({==}, (address_offset(i, 5n, hi, {==}), (G.address(i, 5, hi, {==}), ({==}, (address_offset(i, 6n, hi, {==}), (G.address(i, 6, hi, {==}), ({==}, (address_offset(i, 7n, hi, {==}), (G.address(i, 7, hi, {==}), ({==}, Unit{}))))))))))))))))))))))))
 
 def small30(+k: Nat, +hk: P.lt(k, 8n)) -> P.lt(k, L.pow2(30n)):
-  N.lt_trans(k, 8n, L.pow2(30n), hk, Alloc.pow_lt(3n, 30n, {==}))
+  below_power(k, 3n, 30n, hk, {==})
+
+# Keep the power exponent generic: https://github.com/bendlang/bend/issues/1071.
+def scaled_power(+a: Nat, +d: Nat, +r: Nat, +ha: P.lt(a, L.pow2(d)), +hr: P.lt(r, 8n)) -> P.lt(Nat.add(Nat.mul(8n, a), r), L.pow2(3n+d)):
+  %Equal.sym(Nat, L.pow2(3n+d), Nat.mul(8n, L.pow2(d)), G.thrice(L.pow2(d))) : P.lt(Nat.add(Nat.mul(8n, a), r), _)
+  G.scaled_offset(a, L.pow2(d), 8n, r, ha, hr)
 
 def offset30(+ci: U32, +lane: U32, +hi: P.lt(U32.to_nat(ci), L.pow2(27n)), +hl: P.lt(U32.to_nat(lane), 8n)) -> P.lt(Nat.add(Nat.mul(8n, U32.to_nat(ci)), U32.to_nat(lane)), L.pow2(30n)):
-  %Equal.sym(Nat, L.pow2(30n), Nat.mul(8n, L.pow2(27n)), G.thrice(L.pow2(27n))) : P.lt(Nat.add(Nat.mul(8n, U32.to_nat(ci)), U32.to_nat(lane)), _)
-  G.scaled_offset(U32.to_nat(ci), L.pow2(27n), 8n, U32.to_nat(lane), hi, hl)
+  scaled_power(U32.to_nat(ci), 27n, U32.to_nat(lane), hi, hl)
 
 def sum_step(+i: U32, +p: Nat, +hi: P.lt(U32.to_nat(i), L.pow2(30n))) -> {Nat.add(U32.to_nat((i + 1 : U32)), p) == Nat.add(U32.to_nat(i), 1n+p) : Nat}:
   Equal.trans(Nat, Nat.add(U32.to_nat((i + 1 : U32)), p), 1n+Nat.add(U32.to_nat(i), p), Nat.add(U32.to_nat(i), 1n+p),
@@ -136,7 +147,8 @@ def tail_sequence(+n: Nat, +ci: U32, +j: U32, +lane: U32,
           (%P.add_succ(U32.to_nat(lane), p) : P.le(1n+U32.to_nat(lane), _)
            N.succ_le_succ(U32.to_nat(lane), Nat.add(U32.to_nat(lane), p), N.le_add_right(U32.to_nat(lane), p))), hs))
       +hl30 = small30(U32.to_nat(lane), hl)
-      +hj = L.lt_rw(U32.to_nat(j), Nat.add(Nat.mul(8n, U32.to_nat(ci)), U32.to_nat(lane)), L.pow2(30n), ej, offset30(ci, lane, hi, hl))
+      # Keep the bound transport opaque: https://github.com/bendlang/bend/issues/1071.
+      +hj = G.move_lt(U32.to_nat(j), Nat.add(Nat.mul(8n, U32.to_nat(ci)), U32.to_nat(lane)), L.pow2(30n), ej, offset30(ci, lane, hi, hl))
       ({==}, (ej, (hl,
         (%Alloc.increment_nat(j, hj) : Sequence(C.tail_trace(p, ci, (j + 1 : U32), (lane + 1 : U32)), _)
          tail_sequence(p, ci, (j + 1 : U32), (lane + 1 : U32), hi,
@@ -149,11 +161,12 @@ def next_base(+i: U32, +hi: P.lt(U32.to_nat(i), L.pow2(30n))) -> {Nat.mul(8n, U3
     Equal.cong(Nat, Nat, x => Nat.mul(8n, x), U32.to_nat((i + 1 : U32)), 1n+U32.to_nat(i), Alloc.increment_nat(i, hi)),
     Equal.trans(Nat, Nat.mul(8n, 1n+U32.to_nat(i)), Nat.add(Nat.mul(8n, U32.to_nat(i)), 8n), 8n+Nat.mul(8n, U32.to_nat(i)), N.mul_succ(8n, U32.to_nat(i)), N.add_comm(Nat.mul(8n, U32.to_nat(i)), 8n)))
 
+# Transport the literal before the bound: https://github.com/bendlang/bend/issues/1071.
 def add_zero32(+x: U32) -> {(x + 0 : U32) == x : U32}:
   L.u32_to_nat_inj((x + 0 : U32), x,
     Equal.trans(Nat, U32.to_nat((x + 0 : U32)), Nat.add(U32.to_nat(x), 0n), U32.to_nat(x),
-      L.u32_add_nat(x, 0, (%Equal.sym(Nat, Nat.add(U32.to_nat(x), 0n), U32.to_nat(x), N.add_zero(U32.to_nat(x))) : P.lt(_, L.pow2(32n))
-                          L.u32_to_nat_lt(x))),
+      L.u32_add_nat(x, 0, L.lt_rw(Nat.add(U32.to_nat(x), U32.to_nat(0)), U32.to_nat(x), L.pow2(32n),
+        Equal.trans(Nat, Nat.add(U32.to_nat(x), U32.to_nat(0)), Nat.add(U32.to_nat(x), 0n), U32.to_nat(x), Equal.cong(Nat, Nat, k => Nat.add(U32.to_nat(x), k), U32.to_nat(0), 0n, {==}), N.add_zero(U32.to_nat(x))), L.u32_to_nat_lt(x))),
       N.add_zero(U32.to_nat(x))))
 
 def shift_base(+i: U32, +hi: P.lt(U32.to_nat(i), L.pow2(27n))) -> {U32.to_nat((i << 3n : U32)) == Nat.mul(8n, U32.to_nat(i)) : Nat}:
@@ -161,32 +174,44 @@ def shift_base(+i: U32, +hi: P.lt(U32.to_nat(i), L.pow2(27n))) -> {U32.to_nat((i
     Equal.cong(U32, Nat, U32.to_nat, (i << 3n : U32), ((i << 3n : U32) + 0 : U32), Equal.sym(U32, ((i << 3n : U32) + 0 : U32), (i << 3n : U32), add_zero32((i << 3n : U32)))),
     address_offset(i, 0n, hi, {==}))
 
+# Keep comparison conversions explicit: https://github.com/bendlang/bend/issues/1071.
+def sum_left_bound(+a: Nat, +n: Nat, +cap: Nat, h: P.lt(Nat.add(a, n), cap)) -> P.lt(a, cap):
+  G.proof_lt(a, cap, N.lt_of_le_of_lt(a, Nat.add(a, n), cap, N.le_add_right(a, n), G.nat_lt(Nat.add(a, n), cap, h)))
+
 def encode_sequence(+n: Nat, +k: U32, +i: U32,
   +hi: P.lt(Nat.add(U32.to_nat(i), n), L.pow2(27n)), +hk: P.lt(U32.to_nat(k), 8n)) -> Sequence(C.encode_trace(n, k, i), Nat.mul(8n, U32.to_nat(i))):
-  +hc = N.lt_of_le_of_lt(U32.to_nat(i), Nat.add(U32.to_nat(i), n), L.pow2(27n), N.le_add_right(U32.to_nat(i), n), hi)
   match n:
     case 0n:
+      +hc = sum_left_bound(U32.to_nat(i), 0n, L.pow2(27n), hi)
       %shift_base(i, hc) : Sequence(C.tail_trace(U32.to_nat(k), i, (i << 3n : U32), 0), _)
       tail_sequence(U32.to_nat(k), i, (i << 3n : U32), 0, hc, N.le_of_lt(U32.to_nat(k), 8n, hk),
         Equal.trans(Nat, U32.to_nat((i << 3n : U32)), Nat.mul(8n, U32.to_nat(i)), Nat.add(Nat.mul(8n, U32.to_nat(i)), 0n), shift_base(i, hc), Equal.sym(Nat, Nat.add(Nat.mul(8n, U32.to_nat(i)), 0n), Nat.mul(8n, U32.to_nat(i)), N.add_zero(Nat.mul(8n, U32.to_nat(i))))))
     case 1n++p:
-      +hc30 = N.lt_trans(U32.to_nat(i), L.pow2(27n), L.pow2(30n), hc, Alloc.pow_lt(27n, 30n, {==}))
+      +hc = sum_left_bound(U32.to_nat(i), 1n+p, L.pow2(27n), hi)
+      +hc30 = below_power(U32.to_nat(i), 27n, 30n, hc, {==})
       sequence_append(C.cell_trace(i, (i << 3n : U32)), C.encode_trace(p, k, (i + 1 : U32)), Nat.mul(8n, U32.to_nat(i)), cell_sequence(i, hc),
         (%next_base(i, hc30) : Sequence(C.encode_trace(p, k, (i + 1 : U32)), _)
          encode_sequence(p, k, (i + 1 : U32),
-           L.lt_rw(Nat.add(U32.to_nat((i + 1 : U32)), p), Nat.add(U32.to_nat(i), 1n+p), L.pow2(27n), sum_step(i, p, hc30), hi), hk)))
+           G.move_lt(Nat.add(U32.to_nat((i + 1 : U32)), p), Nat.add(U32.to_nat(i), 1n+p), L.pow2(27n), sum_step(i, p, hc30), hi), hk)))
+
+# Keep the power exponent generic: https://github.com/bendlang/bend/issues/1071.
+def unscale_power(+x: Nat, +q: Nat, +r: Nat, +d: Nat,
+  +hx: P.lt(x, L.pow2(3n+d)), +e: {x == Nat.add(Nat.mul(8n, q), r) : Nat}) -> P.lt(q, L.pow2(d)):
+  N.lt_of_mul_lt_mul_left(8n, q, L.pow2(d),
+    (%G.thrice(L.pow2(d)) : P.lt(Nat.mul(8n, q), _)
+     N.lt_of_le_of_lt(Nat.mul(8n, q), x, L.pow2(3n+d),
+       (%Equal.sym(Nat, x, Nat.add(Nat.mul(8n, q), r), e) : P.le(Nat.mul(8n, q), _)
+        N.le_add_right(Nat.mul(8n, q), r)), G.nat_lt(x, L.pow2(3n+d), hx))))
 
 def cell_index_bound(+x: Nat, +q: Nat, +r: Nat,
   +hx: P.lt(x, L.pow2(30n)), +e: {x == Nat.add(Nat.mul(8n, q), r) : Nat}) -> P.lt(q, L.pow2(27n)):
-  N.lt_of_mul_lt_mul_left(8n, q, L.pow2(27n),
-    (%G.thrice(L.pow2(27n)) : P.lt(Nat.mul(8n, q), _)
-     N.lt_of_le_of_lt(Nat.mul(8n, q), x, L.pow2(30n),
-       (%Equal.sym(Nat, x, Nat.add(Nat.mul(8n, q), r), e) : P.le(Nat.mul(8n, q), _)
-        N.le_add_right(Nat.mul(8n, q), r)), hx)))
+  unscale_power(x, q, r, 27n, hx, e)
 
+# Transport the zero coordinate explicitly: https://github.com/bendlang/bend/issues/1071.
 def encoder_sequence(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n))) -> Sequence(C.encode_trace(U32.to_nat((len >> 3n : U32)), (len .&. 7 : U32), 0), 0n):
   encode_sequence(U32.to_nat((len >> 3n : U32)), (len .&. 7 : U32), 0,
-    cell_index_bound(U32.to_nat(len), U32.to_nat((len >> 3n : U32)), U32.to_nat((len .&. 7 : U32)), h, G.split3(len)), G.bound3(len))
+    G.move_lt(Nat.add(U32.to_nat(0), U32.to_nat((len >> 3n : U32))), U32.to_nat((len >> 3n : U32)), L.pow2(27n), {==},
+      cell_index_bound(U32.to_nat(len), U32.to_nat((len >> 3n : U32)), U32.to_nat((len .&. 7 : U32)), h, G.split3(len))), G.bound3(len))
 
 def size_append(+xs: List<&2, C.Write>, +ys: List<&2, C.Write>) -> {size(C.append(C.Write, xs, ys)) == Nat.add(size(xs), size(ys)) : Nat}:
   match xs:
@@ -211,7 +236,7 @@ def encode_size(+n: Nat, +k: U32, +i: U32) -> {size(C.encode_trace(n, k, i)) == 
         size_append(C.cell_trace(i, (i << 3n : U32)), C.encode_trace(p, k, (i + 1 : U32))),
         Equal.trans(Nat, 8n+size(C.encode_trace(p, k, (i + 1 : U32))), 8n+Nat.add(Nat.mul(8n, p), U32.to_nat(k)), Nat.add(Nat.mul(8n, 1n+p), U32.to_nat(k)),
           Equal.cong(Nat, Nat, x => 8n+x, size(C.encode_trace(p, k, (i + 1 : U32))), Nat.add(Nat.mul(8n, p), U32.to_nat(k)), encode_size(p, k, (i + 1 : U32))),
-          Equal.cong(Nat, Nat, x => Nat.add(x, U32.to_nat(k)), 8n+Nat.mul(8n, p), Nat.mul(8n, 1n+p), Equal.sym(Nat, Nat.mul(8n, 1n+p), 8n+Nat.mul(8n, p), Equal.trans(Nat, Nat.mul(8n, 1n+p), Nat.add(Nat.mul(8n, p), 8n), 8n+Nat.mul(8n, p), N.mul_succ(8n, p), N.add_comm(Nat.mul(8n, p), 8n)))))))
+          Equal.cong(Nat, Nat, x => Nat.add(x, U32.to_nat(k)), 8n+Nat.mul(8n, p), Nat.mul(8n, 1n+p), Equal.sym(Nat, Nat.mul(8n, 1n+p), 8n+Nat.mul(8n, p), Equal.trans(Nat, Nat.mul(8n, 1n+p), Nat.add(Nat.mul(8n, p), 8n), 8n+Nat.mul(8n, p), N.mul_succ(8n, p), N.add_comm(Nat.mul(8n, p), 8n))))))
 
 def encoder_location(+len: U32, +t: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n)), +ht: P.lt(U32.to_nat(t), U32.to_nat(len))) -> C.EncodeLocation(len, U32.to_nat(t), t, U32.to_nat(t)):
   +es = Equal.trans(Nat, size(C.encode_trace(U32.to_nat((len >> 3n : U32)), (len .&. 7 : U32), 0)), Nat.add(Nat.mul(8n, U32.to_nat((len >> 3n : U32))), U32.to_nat((len .&. 7 : U32))), U32.to_nat(len), encode_size(U32.to_nat((len >> 3n : U32)), (len .&. 7 : U32), 0), Equal.sym(Nat, U32.to_nat(len), Nat.add(Nat.mul(8n, U32.to_nat((len >> 3n : U32))), U32.to_nat((len .&. 7 : U32))), G.split3(len)))
@@ -233,17 +258,24 @@ def dsize(xs: List<&2, C.ReadWrite>) -> Nat:
     case Con{x, rest}:
       1n+dsize(rest)
 
+# Keep comparison conversions and transport opaque: https://github.com/bendlang/bend/issues/1071.
+def strict_sum_left_bound(+a: Nat, +p: Nat, +cap: Nat, h: P.le(Nat.add(a, 1n+p), cap)) -> P.lt(a, cap):
+  G.proof_lt(a, cap, N.lt_of_lt_of_le(a, Nat.add(a, 1n+p), cap, N.lt_add_of_pos_right(a, p), h))
+
+def move_le(-a: Nat, -b: Nat, -c: Nat, e: {a == b : Nat}, h: P.le(b, c)) -> P.le(a, c):
+  %Equal.sym(Nat, a, b, e) : P.le(_, c)
+  h
+
 def decode_sequence(+n: Nat, +i: U32, +hi: P.le(Nat.add(U32.to_nat(i), n), L.pow2(30n))) -> DSequence(C.decode_trace(n, i), U32.to_nat(i)):
   match n:
     case 0n:
       Unit{}
     case 1n++p:
-      +hc = N.lt_of_lt_of_le(U32.to_nat(i), Nat.add(U32.to_nat(i), 1n+p), L.pow2(30n), N.lt_add_of_pos_right(U32.to_nat(i), p), hi)
+      +hc = strict_sum_left_bound(U32.to_nat(i), p, L.pow2(30n), hi)
       ({==}, (Equal.cong(U32, U32, x => (x << 3n : U32), i, U32.from_nat(U32.to_nat(i)), Equal.sym(U32, U32.from_nat(U32.to_nat(i)), i, L.u32_from_to_nat(i))),
         (%Alloc.increment_nat(i, hc) : DSequence(C.decode_trace(p, (i + 1 : U32)), _)
          decode_sequence(p, (i + 1 : U32),
-           (%Equal.sym(Nat, Nat.add(U32.to_nat((i + 1 : U32)), p), Nat.add(U32.to_nat(i), 1n+p), sum_step(i, p, hc)) : P.le(_, L.pow2(30n))
-            hi)))))
+           move_le(Nat.add(U32.to_nat((i + 1 : U32)), p), Nat.add(U32.to_nat(i), 1n+p), L.pow2(30n), sum_step(i, p, hc), hi)))))
 
 def decode_size(+n: Nat, +i: U32) -> {dsize(C.decode_trace(n, i)) == n : Nat}:
   match n:
@@ -296,9 +328,9 @@ def dsequence_location(+xs: List<&2, C.ReadWrite>, +p: Nat, +b: Nat, +t: U32,
     case Nil{}:
       P.efq(C.DecLocation(Nil{}, p, t, U32.to_nat(t), U32.to_nat((t .&. 7 : U32))), P.lt_zero(p, hp))
     case Con{C.ReadWrite{+at, +j}, +rest}:
-      (+ea, (+ej, tail)) = seq
       match p:
         case 0n:
+          (+ea, (+ej, tail)) = seq
           +eq = Equal.trans(U32, U32.from_nat(b), U32.from_nat(U32.to_nat((t >> 3n : U32))), (t >> 3n : U32), Equal.cong(Nat, U32, U32.from_nat, b, U32.to_nat((t >> 3n : U32)), ex), L.u32_from_to_nat((t >> 3n : U32)))
           +eb = Equal.trans(U32, j, (U32.from_nat(b) << 3n : U32), ((t >> 3n : U32) << 3n : U32), ej, Equal.cong(U32, U32, x => (x << 3n : U32), U32.from_nat(b), (t >> 3n : U32), eq))
           (Equal.trans(Nat, at, b, U32.to_nat((t >> 3n : U32)), ea, ex),
@@ -308,6 +340,7 @@ def dsequence_location(+xs: List<&2, C.ReadWrite>, +p: Nat, +b: Nat, +t: U32,
                 (%ex : P.lt(_, 1n+b)
                  N.lt_succ_self(b)), tail)))))
         case 1n++q:
+          (ea, (ej, tail)) = seq
           dsequence_location(rest, q, 1n+b, t, hp,
             Equal.trans(Nat, Nat.add(q, 1n+b), 1n+Nat.add(q, b), U32.to_nat((t >> 3n : U32)), Equal.sym(Nat, 1n+Nat.add(q, b), Nat.add(q, 1n+b), P.add_succ(q, b)), ex), ht, tail)
 
@@ -321,13 +354,18 @@ def scalar_count_bound(+len: U32, +t: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n)
      %N.mul_comm(8n, q) : P.le(_, Nat.add(Nat.mul(8n, q), r))
      N.le_add_right(Nat.mul(8n, q), r)), ht)
 
+# Keep comparison conversions explicit: https://github.com/bendlang/bend/issues/1071.
+def proof_trans(+a: Nat, +b: Nat, +c: Nat, hab: P.lt(a, b), hbc: P.lt(b, c)) -> P.lt(a, c):
+  G.proof_lt(a, c, N.lt_trans(a, b, c, G.nat_lt(a, b, hab), G.nat_lt(b, c, hbc)))
+
 def decoder_location(+len: U32, +t: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n)), +ht: P.lt(U32.to_nat(t), U32.to_nat(len))) -> C.DecodeLocation(len, U32.to_nat((t >> 3n : U32)), t, U32.to_nat(t), U32.to_nat((t .&. 7 : U32))):
   dsequence_location(C.decode_trace(U32.to_nat(A.cells(len)), 0), U32.to_nat((t >> 3n : U32)), 0n, t,
     (%Equal.sym(Nat, dsize(C.decode_trace(U32.to_nat(A.cells(len)), 0)), U32.to_nat(A.cells(len)), decode_size(U32.to_nat(A.cells(len)), 0)) : P.lt(U32.to_nat((t >> 3n : U32)), _)
      scalar_count_bound(len, t, h, ht)),
     N.add_zero(U32.to_nat((t >> 3n : U32))),
-    N.lt_trans(U32.to_nat(t), U32.to_nat(len), L.pow2(30n), ht, h),
-    decode_sequence(U32.to_nat(A.cells(len)), 0, Alloc.cell_count_bound(len, h)))
+    proof_trans(U32.to_nat(t), U32.to_nat(len), L.pow2(30n), ht, h),
+    decode_sequence(U32.to_nat(A.cells(len)), 0,
+      move_le(Nat.add(U32.to_nat(0), U32.to_nat(A.cells(len))), U32.to_nat(A.cells(len)), L.pow2(30n), {==}, Alloc.cell_count_bound(len, h))))
 
 def pred_nat(+i: U32, +q: Nat, +ei: {U32.to_nat(i) == 1n+q : Nat}) -> {U32.to_nat((i - 1 : U32)) == q : Nat}:
   Equal.trans(Nat, U32.to_nat((i - 1 : U32)), Nat.sub(U32.to_nat(i), 1n), q,
@@ -420,27 +458,34 @@ def tail_bounds(+n: Nat, +j: U32, +len: U32, +d: Nat,
       Unit{}
     case 1n++p:
       +hj = N.lt_of_lt_of_le(U32.to_nat(j), Nat.add(U32.to_nat(j), 1n+p), U32.to_nat(len), N.lt_add_of_pos_right(U32.to_nat(j), p), budget)
-      +hj30 = N.lt_trans(U32.to_nat(j), U32.to_nat(len), L.pow2(30n), hj, h)
+      +hj30 = proof_trans(U32.to_nat(j), U32.to_nat(len), L.pow2(30n), hj, h)
       (N.lt_of_lt_of_le(U32.to_nat(j), U32.to_nat(len), Nat.pow(2n, d), hj, capacity),
        tail_bounds(p, (j + 1 : U32), len, d, h,
          (%Equal.sym(Nat, Nat.add(U32.to_nat((j + 1 : U32)), p), Nat.add(U32.to_nat(j), 1n+p), sum_step(j, p, hj30)) : P.le(_, U32.to_nat(len))
           budget), capacity))
 
+# Keep comparison conversions explicit: https://github.com/bendlang/bend/issues/1071.
+def proof_le_lt(+a: Nat, +b: Nat, +c: Nat, hab: P.le(a, b), hbc: P.lt(b, c)) -> P.lt(a, c):
+  G.proof_lt(a, c, N.lt_of_le_of_lt(a, b, c, hab, G.nat_lt(b, c, hbc)))
+
 def encode_bounds_go(+n: Nat, +k: U32, +i: U32, +len: U32, +d: Nat,
   +h: P.lt(U32.to_nat(len), L.pow2(30n)), +hk: P.lt(U32.to_nat(k), 8n),
   +budget: P.le(Nat.add(Nat.mul(8n, Nat.add(U32.to_nat(i), n)), U32.to_nat(k)), U32.to_nat(len)),
   +capacity: P.le(U32.to_nat(len), Nat.pow(2n, d))) -> Bridge.EncodeBounds(d, n, k, i):
-  +end = Nat.add(Nat.mul(8n, Nat.add(U32.to_nat(i), n)), U32.to_nat(k))
-  +hs = cell_index_bound(end, Nat.add(U32.to_nat(i), n), U32.to_nat(k), N.lt_of_le_of_lt(end, U32.to_nat(len), L.pow2(30n), budget, h), {==})
-  +hi = N.lt_of_le_of_lt(U32.to_nat(i), Nat.add(U32.to_nat(i), n), L.pow2(27n), N.le_add_right(U32.to_nat(i), n), hs)
   match n:
     case 0n:
+      +end = Nat.add(Nat.mul(8n, Nat.add(U32.to_nat(i), 0n)), U32.to_nat(k))
+      +hs = cell_index_bound(end, Nat.add(U32.to_nat(i), 0n), U32.to_nat(k), proof_le_lt(end, U32.to_nat(len), L.pow2(30n), budget, h), {==})
+      +hi = sum_left_bound(U32.to_nat(i), 0n, L.pow2(27n), hs)
       tail_bounds(U32.to_nat(k), (i << 3n : U32), len, d, h,
         (%Equal.sym(Nat, U32.to_nat((i << 3n : U32)), Nat.mul(8n, U32.to_nat(i)), shift_base(i, hi)) : P.le(Nat.add(_, U32.to_nat(k)), U32.to_nat(len))
          (%Equal.cong(Nat, Nat, x => Nat.add(Nat.mul(8n, x), U32.to_nat(k)), Nat.add(U32.to_nat(i), 0n), U32.to_nat(i), N.add_zero(U32.to_nat(i))) : P.le(_, U32.to_nat(len))
           budget)), capacity)
     case 1n++p:
-      +hi30 = N.lt_trans(U32.to_nat(i), L.pow2(27n), L.pow2(30n), hi, Alloc.pow_lt(27n, 30n, {==}))
+      +end = Nat.add(Nat.mul(8n, Nat.add(U32.to_nat(i), 1n+p)), U32.to_nat(k))
+      +hs = cell_index_bound(end, Nat.add(U32.to_nat(i), 1n+p), U32.to_nat(k), proof_le_lt(end, U32.to_nat(len), L.pow2(30n), budget, h), {==})
+      +hi = sum_left_bound(U32.to_nat(i), 1n+p, L.pow2(27n), hs)
+      +hi30 = below_power(U32.to_nat(i), 27n, 30n, hi, {==})
       +hnext = N.le_trans(1n+U32.to_nat(i), Nat.add(U32.to_nat(i), 1n+p), Nat.add(U32.to_nat(i), 1n+p),
         (%P.add_succ(U32.to_nat(i), p) : P.le(1n+U32.to_nat(i), _)
          N.succ_le_succ(U32.to_nat(i), Nat.add(U32.to_nat(i), p), N.le_add_right(U32.to_nat(i), p))), N.le_refl(Nat.add(U32.to_nat(i), 1n+p)))
@@ -459,9 +504,16 @@ def encode_bounds(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n))) -> Bridge.E
     (%G.split3(len) : P.le(_, U32.to_nat(len))
      N.le_refl(U32.to_nat(len))), Alloc.words_cover(len, h))
 
+# Keep comparison conversions explicit: https://github.com/bendlang/bend/issues/1071.
+def proof_le_of_lt(+a: Nat, +b: Nat, h: P.lt(a, b)) -> P.le(a, b):
+  N.le_of_lt(a, b, G.nat_lt(a, b, h))
+
+def proof_lt_le(+a: Nat, +b: Nat, +c: Nat, hab: P.lt(a, b), hbc: P.le(b, c)) -> P.lt(a, c):
+  G.proof_lt(a, c, N.lt_of_lt_of_le(a, b, c, G.nat_lt(a, b, hab), hbc))
+
 def cells27(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n))) -> P.le(U32.to_nat(A.cells(len)), L.pow2(27n)):
   %Equal.sym(Nat, U32.to_nat(A.cells(len)), Nat.div(Nat.add(U32.to_nat(len), 7n), 8n), G.cells_nat(len, h)) : P.le(_, L.pow2(27n))
-  Alloc.ceil_pow_bound(27n, U32.to_nat(len), N.le_of_lt(U32.to_nat(len), L.pow2(30n), h))
+  Alloc.ceil_pow_bound(27n, U32.to_nat(len), proof_le_of_lt(U32.to_nat(len), L.pow2(30n), h))
 
 def decode_bounds_go(+n: Nat, +i: U32, +len: U32,
   +h: P.lt(U32.to_nat(len), L.pow2(30n)), +h8: P.le(8n, U32.to_nat(len)),
@@ -471,7 +523,7 @@ def decode_bounds_go(+n: Nat, +i: U32, +len: U32,
       Unit{}
     case 1n++p:
       +hc = N.lt_of_lt_of_le(U32.to_nat(i), Nat.add(U32.to_nat(i), 1n+p), U32.to_nat(A.cells(len)), N.lt_add_of_pos_right(U32.to_nat(i), p), budget)
-      +hi = N.lt_of_lt_of_le(U32.to_nat(i), U32.to_nat(A.cells(len)), L.pow2(27n), hc, cells27(len, h))
+      +hi = proof_lt_le(U32.to_nat(i), U32.to_nat(A.cells(len)), L.pow2(27n), hc, cells27(len, h))
       +hcap = N.lt_of_lt_of_le(U32.to_nat(i), U32.to_nat(A.cells(len)), Alloc.cell_capacity(len), hc, Alloc.cells_cover(len, h))
       +room : P.le(8n+Nat.mul(8n, U32.to_nat(i)), Alloc.word_capacity(len)) = (
         %Equal.sym(Nat, Alloc.word_capacity(len), Nat.mul(8n, Alloc.cell_capacity(len)), Alloc.capacity_ratio(len, h, h8)) : P.le(8n+Nat.mul(8n, U32.to_nat(i)), _)
@@ -479,7 +531,7 @@ def decode_bounds_go(+n: Nat, +i: U32, +len: U32,
         N.mul_le_mul_left(1n+U32.to_nat(i), Alloc.cell_capacity(len), 8n, N.succ_le_of_lt(U32.to_nat(i), Alloc.cell_capacity(len), hcap)))
       (eight_bounds(Alloc.word_depth(len), i, hi, room), hcap,
         decode_bounds_go(p, (i + 1 : U32), len, h, h8,
-          (%Equal.sym(Nat, Nat.add(U32.to_nat((i + 1 : U32)), p), Nat.add(U32.to_nat(i), 1n+p), sum_step(i, p, N.lt_trans(U32.to_nat(i), L.pow2(27n), L.pow2(30n), hi, Alloc.pow_lt(27n, 30n, {==})))) : P.le(_, U32.to_nat(A.cells(len)))
+          (%Equal.sym(Nat, Nat.add(U32.to_nat((i + 1 : U32)), p), Nat.add(U32.to_nat(i), 1n+p), sum_step(i, p, below_power(U32.to_nat(i), 27n, 30n, hi, {==}))) : P.le(_, U32.to_nat(A.cells(len)))
            budget)))
 
 def decode_bounds(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n)), +h8: P.le(8n, U32.to_nat(len))) -> Bridge.DecodeBounds(Alloc.word_depth(len), Alloc.cell_depth(len), U32.to_nat(A.cells(len)), 0):
