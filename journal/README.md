@@ -3,10 +3,10 @@
 An append-only journal: checksummed frames, fsync'd appends, and crash recovery of the committed prefix. Use one to keep local state durable, such as a task list, a queue's progress, or applied commands.
 
 ```bend
-import bend-kit-journal@0.3.1.1/journal.bend as J
+import bend-kit-journal@0.3.1.2/journal.bend as J
 ```
 
-It imports `bend-kit-hash@0.3.0.4` and `bend-kit-bytes@0.3.3.0`. Payloads are that version's `Bytes`.
+It imports `bend-kit-hash@0.3.2.0` and `bend-kit-bytes@0.3.3.0`. Payloads are that version's `Bytes`.
 
 ## Example
 
@@ -15,7 +15,7 @@ A durable task list. Each record is `add <task>` or `done <task>`, and `open` fo
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-journal@0.3.1.1/journal.bend as J
+import bend-kit-journal@0.3.1.2/journal.bend as J
 
 def without(xs: List<&2, String>, +x: String) -> List<&2, String>:
   match xs:
@@ -110,7 +110,7 @@ Both length fields are checked before the payload is awaited. So a damaged lengt
 The model and `Bytes` run the same generic decoder, `next`, with different input operations. They differ in two ways, and the proofs do not cover either:
 
 - A model header field is four cells: the value, then three zeros. `Bytes` reads four little-endian octets with `Bytes.get.u32le`. Offsets agree. `check.bend` tests the octet layout.
-- The model's checksum is a bitwise CRC-32 over a list. `Bytes` uses `Hash.crc32`. `check.bend` tests that they agree on the CRC-32 check value. The proofs use no property of the checksum except that a value equals itself.
+- The model folds `Hash.crc.byte` over a list. `Bytes` uses `Hash.crc32`. `check.bend` tests that they agree on the CRC-32 check value. The proofs use no property of the checksum except that a value equals itself.
 
 ## Trust boundary
 

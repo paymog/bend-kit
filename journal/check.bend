@@ -1,6 +1,6 @@
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-hash@0.3.0.4/hash.bend as Hash
+import bend-kit-hash@0.3.2.0/hash.bend as Hash
 import bend-kit-files@0.4.0.0/files.bend as Files
 import ./journal.bend as J
 
@@ -78,6 +78,7 @@ def abc() -> Bytes.Bytes:
 def pure() -> IO(Unit):
   do IO<Unit>:
     ok(U32.is_eq(J.list.crc(codes("123456789")), 3421780262) && U32.is_eq(Hash.crc32.str("123456789"), 3421780262), "model CRC-32 and Hash.crc32 agree on the check value")
+    ok(U32.is_eq(J.list.crc(Nil{}), 0) && U32.is_eq(J.list.crc([256, 511]), J.list.crc([0, 255])), "model CRC-32 preserves empty input and octet masking")
     ok(U32.is_eq(field(Bytes.get.u32le(abc(), 0)), 3) && U32.is_eq(field(Bytes.get.u32le(abc(), 4)), U32.not(3)) && U32.is_eq(field(Bytes.get.u32le(abc(), 8)), Hash.crc32.str("abc")) && String.eq(Bytes.to_string(Bytes.snd(Bytes.slice(abc(), 12, 3))), "abc"), "a frame is len, not len, crc32, payload")
     ok(U32.is_eq(cuts(50n, 0, 0), 0), "every cut of a 3-record log recovers exactly its committed prefix")
     ok(String.eq(run(64, Bytes.snd(Bytes.slice(Bytes.set(sample(), 29, 0), 0, 40))), "alpha|corrupt:checksum mismatch|17"), "a damaged payload is corrupt, even before a torn tail")

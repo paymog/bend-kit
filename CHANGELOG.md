@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `journal` 0.3.1.2: compute the list-model CRC with the hash byte table instead of eight bit steps per octet. Import hash 0.3.2.0.
+
 - `zlib` 0.5.2.0: encode 32 KiB DEFLATE blocks with dynamic Huffman trees and lazy matching. Keep fixed codes when their bit cost is lower. Import bits 0.3.0.0 and use Nat reader positions.
 
 - `bits` 0.3.0.0: use Nat bit positions through the Bytes length limit, including streams past 512 MiB. Reader skip counts, remaining counts, and returned positions are Nat. Preserve two-word field windows and prove read-after-write with room below 2^35. Breaking.

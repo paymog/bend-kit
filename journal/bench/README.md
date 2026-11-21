@@ -39,11 +39,40 @@ Versions: Bend 2.0.36, Apple clang 17.0.0, rustc 1.91.0, crc32fast 1.5.0, Bun 1.
 
 Every program prints checksum `1372270592` and `1048576` records.
 
+With journal 0.3.1.2 and hash 0.3.2.0, the same command and checksum give these medians on 2026-11-21 (Apple M4 Pro, macOS 26.7.2 arm64):
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| recover | 18.2 (3.3x) | 5.5 (1.0x) | 45.5 (8.3x) | 65.2 (11.8x) | 625.8 (113.6x) | 34.4 (6.2x) |
+
+Versions: Bend 2.0.40, Apple clang 21.0.0, rustc 1.91.0, crc32fast 1.5.0, Bun 1.4.4, Node 24.0.1, Python 3.14.6. This rerun includes the hash dependency change; it does not isolate the list-model optimization.
+
 ## Reading it
 
-Bend's number is `replay.bytes`. Each record calls `Hash.crc32`, which rebuilds its 256-entry table (`journal.bend`, the ponytail note on `cur.sum`). The other programs call a library CRC-32 that keeps one table. That rebuild is the likely cause of most of the gap; this bench does not separate it from the frame walk.
+The first results table predates hash 0.3.2.0. That version uses static CRC tables, so the old per-record table-build cost no longer applies.
 
 Bend prints the argv count only after replay returns a clean log whose cursor is at the end of the buffer. The checksum is the fold, and it matches the scans that count each frame.
+
+## List-model CRC
+
+Build and run the list path separately:
+
+```sh
+mkdir -p out
+bend list.bend -o out/list
+for i in 1 2 3; do out/list 16777216; done
+```
+
+The input is 2^24 list cells with octet `i & 255`. Input construction is outside the timer. Only `J.list.crc` is timed, not frame recovery. Both implementations print CRC `706887085`, which also matches Python `zlib.crc32(bytes(range(256)) * 65536)`.
+
+Apple M4 Pro, macOS 26.7.2 arm64, 2026-11-21, Bend 2.0.40. Three native runs, median:
+
+| list CRC implementation | ms |
+|---|---:|
+| Eight bit steps per octet | 115.600 |
+| `Hash.crc.byte` fold | 57.040 |
+
+The table fold is 2.03x faster on this input. The baseline uses journal from commit `2243af4`; use the same `list.bend` driver with that revision's `journal.bend` to reproduce it. These numbers do not claim an improvement to the Bytes recovery path.
 
 ## Caveats
 
