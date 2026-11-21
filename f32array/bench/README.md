@@ -9,7 +9,7 @@ python3 run.py      # 3 runs, median
 python3 run.py 5    # 5 runs
 ```
 
-You need `bend`, `cc`, `rustc`, `bun`, `node`, `python3`, and NumPy. Binaries go to `out/`, which git ignores. It exits non-zero if a build fails, or if two programs disagree on a checksum.
+You need `bend`, `cc`, `rustc`, `bun`, `node`, `python3`, and NumPy. Binaries go to `out/`, which git ignores. It exits non-zero if a build fails, or if two programs disagree on a checksum. Bend uses `parallel.bend` for sum and dot, with eight CPU workers.
 
 ## The work
 
@@ -29,32 +29,66 @@ Each language uses its obvious loop or standard call. C uses `memcpy` and plain 
 
 ## Results
 
-M4 Pro, macOS, 2026-10-27. Bend 2.0.38, Apple clang 17.0.0 (`-O2`), rustc 1.91.0 (`opt-level=3`), Bun 1.3.14, Node 24.0.1, Python 3.14.6 with NumPy 2.4.2. Median of five runs. Times are in ms; `Nx` is the multiple of the fastest program for that op.
+M4 Pro, macOS, 2026-11-20. Bend 2.0.38, Apple clang 21.0.0 (`-O2`), rustc 1.91.0 (`opt-level=3`), Bun 1.4.4, Node 24.0.1, Python 3.14.6 with NumPy 2.4.2. Median of five runs with `python3 run.py 5`. Times are in ms; `Nx` is the multiple of the fastest program for that op.
 
 | op | C | Rust | Bun | Node | NumPy | Bend |
 |---|---:|---:|---:|---:|---:|---:|
-| from_bytes | 1.26 (2.7x) | 2.15 (4.6x) | 1.84 (3.9x) | 1.54 (3.3x) | 0.46 (1.0x) | 3.66 (7.9x) |
-| sum | 2.12 (4.0x) | 2.53 (4.7x) | 7.54 (14.1x) | 11.16 (20.9x) | 0.53 (1.0x) | 1.15 (2.2x) |
-| max | 1.91 (8.9x) | 0.27 (1.2x) | 4.39 (20.4x) | 5.49 (25.5x) | 0.22 (1.0x) | 3.32 (15.4x) |
-| dot | 2.42 (6.9x) | 2.57 (7.3x) | 25.74 (73.6x) | 25.55 (73.1x) | 0.35 (1.0x) | 1.95 (5.6x) |
-| map | 0.25 (1.0x) | 0.28 (1.1x) | 21.02 (85.1x) | 3.28 (13.3x) | 0.28 (1.1x) | 0.44 (1.8x) |
-| add | 0.34 (1.0x) | 0.37 (1.1x) | 6.36 (18.5x) | 8.51 (24.7x) | 0.37 (1.1x) | 0.45 (1.3x) |
-| to_bytes | 1.11 (3.2x) | 1.56 (4.5x) | 0.34 (1.0x) | 0.61 (1.8x) | 2.49 (7.2x) | 2.13 (6.2x) |
-| geomean vs fastest | 3.0x | 2.7x | 14.5x | 13.3x | 1.4x | 4.1x |
+| from_bytes | 0.98 (2.4x) | 1.83 (4.5x) | 1.04 (2.5x) | 1.32 (3.2x) | 0.41 (1.0x) | 3.25 (7.9x) |
+| sum | 2.21 (5.1x) | 2.23 (5.2x) | 6.80 (15.8x) | 10.73 (25.0x) | 0.52 (1.2x) | 0.43 (1.0x) |
+| max | 2.06 (10.6x) | 0.26 (1.3x) | 3.92 (20.0x) | 5.66 (28.9x) | 0.20 (1.0x) | 3.16 (16.2x) |
+| dot | 2.27 (8.6x) | 2.26 (8.6x) | 24.77 (93.9x) | 25.10 (95.1x) | 0.26 (1.0x) | 0.43 (1.6x) |
+| map | 0.25 (1.1x) | 0.24 (1.0x) | 19.08 (81.0x) | 2.99 (12.7x) | 0.26 (1.1x) | 0.49 (2.1x) |
+| add | 0.34 (1.0x) | 0.36 (1.1x) | 6.08 (18.0x) | 8.27 (24.5x) | 0.36 (1.1x) | 0.45 (1.3x) |
+| to_bytes | 0.99 (2.5x) | 1.12 (2.9x) | 1.08 (2.7x) | 0.39 (1.0x) | 2.36 (6.0x) | 2.08 (5.3x) |
+| geomean vs fastest | 3.1x | 2.6x | 16.3x | 13.2x | 1.4x | 3.1x |
 
 Every program printed checksums `2`, `6291456`, `3`, `14680064`, `4`, `6`, and `16777280`.
 
 ## Reading it
 
-- Each `Array` slot holds a cell of eight elements, so a loop does one array access per eight elements. `sum`, `dot`, and `max` also keep four running values instead of one, so the next add does not wait for the last one. Before these two changes, with one `F32` per slot and one running value, Bend took 2.49 ms for `sum`, 2.99 for `dot`, 12.87 for `max`, 1.37 for `map`, and 1.62 for `add`.
-- `sum` and `dot` now beat the C and Rust loops, which add one element at a time because IEEE rules stop the compiler from reordering the adds. NumPy adds pairwise with SIMD, and its `dot` calls BLAS, so it is still 2 to 6 times faster.
-- `map` and `add` are within 2x of C.
+- Each `Array` slot holds eight elements. Each sum leaf adds the lanes of each cell pairwise, then adds at most 16 cell totals sequentially. Higher nodes add equal halves pairwise.
+- The eight-worker sum and dot take about 0.43 ms each. The former sequential four-accumulator implementation measured 1.15 ms and 1.95 ms in the earlier 2026-10-27 run. Use the same-run comparison below to separate the algorithm from compiler and machine variation.
+- `map` and `add` are within 2.1x of C.
 - A loop that writes cells must not read the next cell ahead. The read-ahead form of `map` took 1.1 ms; reading and writing the same cell in each pass takes 0.3 to 0.4 ms. The read-only loops (`sum`, `dot`, `max`) read ahead without that cost.
-- `max` is the slowest op that is left: 3.3 ms against 1.9 ms in C.
+- `max` is the slowest remaining numeric op: 3.16 ms against 2.06 ms in C.
 - `from_bytes` and `to_bytes` move eight words per cell. C and JS copy the memory, so they are 2 to 6 times faster.
-- Every Bend op is one sequential loop. A fork-join split over the array's tree would use every core and give a pairwise sum. It has not been tried.
+- Only sum and dot use fork-join. Other ops remain sequential.
+
+## Cutoff and float64 error
+
+Run `BEND=/path/to/bend python3 reduce.py 3` from this folder. This separate Bend benchmark keeps the former four-accumulator loops as a baseline. It runs each variant on one process at a time. It checks that the pure and fork-join results have identical bits at every worker count and cutoff.
+
+The fixed input is `a[0] = 100000000`, every other `a[i] = 1`, and every `b[i] = 1`. All inputs and products are exact in float32. The float64 reference for both reductions is `100000000 + N - 1`, which is also the exact real sum. Bend prints float32 bits; Python decodes them before subtracting the float64 reference. Thus decimal display rounding cannot change the measured error.
+
+Same machine and versions as above. Median of three runs. Each time pair is sum / dot, in ms. The fork-join column uses eight workers and a 4,096-cell task cutoff. The old and pure columns use one worker.
+
+| N | old four sums | pure blocked pairwise | fork-join | old absolute error | pairwise absolute error |
+|---:|---:|---:|---:|---:|---:|
+| 49,152 | 0.0587 / 0.0455 | 0.0760 / 0.0691 | 0.1759 / 0.1389 | 12,287 | 7 |
+| 65,536 | 0.0648 / 0.0560 | 0.0775 / 0.0669 | 0.1920 / 0.1487 | 16,383 | 7 |
+| 262,144 | 0.0979 / 0.0859 | 0.1234 / 0.1498 | 0.2493 / 0.1953 | 65,535 | 7 |
+| 1,048,576 | 0.2674 / 0.2289 | 0.3271 / 0.5084 | 0.3087 / 0.2569 | 262,143 | 7 |
+| 4,194,304 | 0.8526 / 0.7917 | 1.1060 / 1.8461 | 0.4075 / 0.4253 | 1,048,575 | 7 |
+| 16,777,216 | 2.8884 / 3.0733 | 4.2572 / 7.3268 | 0.8320 / 1.1409 | 4,194,303 | 7 |
+
+Errors apply to both sum and dot. On the 49,152-term case, the result is `100049144`, against the reference `100049151`. The error is 7, not zero. A float32 result cannot represent the reference exactly. This input does not establish a bound for all inputs.
+
+The task-size sweep at N = 4,194,304 gave:
+
+| cell cutoff | elements per task | one worker, sum / dot ms | eight workers, sum / dot ms |
+|---:|---:|---:|---:|
+| 256 | 2,048 | 1.0856 / 1.8270 | 0.5108 / 0.6705 |
+| 4,096 | 32,768 | 1.0838 / 1.8750 | 0.4075 / 0.4253 |
+| 65,536 | 524,288 | 1.1434 / 1.8925 | 0.7940 / 1.0839 |
+| 1,048,576 | 8,388,608 | 1.0975 / 1.9388 | 3.4668 / 5.1755 |
+
+Use a 4,096-cell cutoff above 2^20 elements. Below that input size, use the pure sequential reduction: scheduling costs more than it saves. At 2^20, sum is near break-even against pure pairwise, while dot improves. This machine needs smaller tasks than the earlier upstream 2^23-multiply-add observation. The large unsplit eight-worker result is slower than one worker; worker count alone does not make a sequential call faster.
+
+The 16-cell sequential leaf avoids one recursive call per cell. An initial full cell-by-cell pairwise version took 49.48 / 73.47 ms on this input with eight workers and no split, and 4.93 / 7.84 ms with a 32,768-cell cutoff. These are single exploratory runs, not medians. The bounded sequential leaf keeps the accuracy gain without that recursive overhead.
+
+Fork-join does not clone the array. A pure structural `ANode` split was considered. In Bend 2.0.38's emitted C, `blk_half` allocates and copies each half; rebuilding `ANode` allocates and copies again. Sharing read-only handles with `Array.fork` and joining them after both calls avoids these copies. These unsafe Base operations stay in `parallel.bend`, outside the proof graph.
 
 ## Caveats
 
 - Bend times itself with `Time.mono`, a nanosecond clock. It prints each checksum before the second clock read, so the work is forced inside the timer.
-- These are micro-benchmarks on one machine, at one size.
+- These are micro-benchmarks on one machine. The main comparison uses one size; the reduction sweep uses six sizes and one adversarial input family.

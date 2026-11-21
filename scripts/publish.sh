@@ -5,6 +5,7 @@
 # With --check, publish nothing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/verdict.sh
 
 hub=${BEND_HUB:-https://hub.bend-lang.com}
 check=false
@@ -22,7 +23,7 @@ for d in "$@"; do
       fail=1
       continue
     fi
-    bend "$d/$entry" --check-only
+    verdict "$d/$entry" ""
   fi
   named=bend-kit-$d@$(<"$d/VERSION")
   if hash=$(curl -fs "$hub/name/$named"); then
