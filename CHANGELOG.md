@@ -16,6 +16,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 - `f32array` 0.2.0.0: use blocked pairwise sums and dot products. Add zero-copy CPU fork-join reductions in `parallel.bend`, with measured task cutoffs and float64 errors. Move file reads to `io.bend` so proofs import no effects. Addition order and file-read import paths change. Breaking.
 
+- `bits` 0.2.1.1: add universal packed-array and field proof foundations. Grow the writer by adding a zeroed subtree instead of copying the buffer.
+
 - `bits` 0.2.0.0: measure dynamic Huffman table builds and use a nine-bit root with secondary tables for long codes. The `Huff` constructor now owns two arrays. Breaking.
 
 - `bits` 0.1.1.0: build canonical writer codes from lengths or symbol/length pairs, without a decode table. Write each code in either stream order and prove every small and fixed DEFLATE code decodes back.
