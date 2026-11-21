@@ -1,8 +1,8 @@
 # HTTP/2 client, frame codec, and HPACK
 
 ```bend
-import bend-kit-http2@0.5.0.0/http2.bend as H2
-import bend-kit-http2@0.5.0.0/hpack.bend as Hpack
+import bend-kit-http2@0.5.0.1/http2.bend as H2
+import bend-kit-http2@0.5.0.1/hpack.bend as Hpack
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 

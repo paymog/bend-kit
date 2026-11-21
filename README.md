@@ -74,7 +74,7 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`bytes`](bytes) | `bend-kit-bytes@0.3.3.1/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
-| [`bits`](bits) | `bend-kit-bits@0.2.0.0/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman codes and decode tables. |
+| [`bits`](bits) | `bend-kit-bits@0.2.1.0/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman codes and decode tables. |
 | [`encoding`](encoding) | `bend-kit-encoding@0.5.0.1/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
 | [`regex`](regex) | `bend-kit-regex@0.9.0.0/regex.bend` | Linear-time RE2 matching, with capture groups and `(?i)`. |
@@ -113,7 +113,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`dns`](dns) | `bend-kit-dns@0.7.1.0/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.8.0/wire.bend` | TCP, UDP, and TLS sockets. |
 | [`http`](http) | `bend-kit-http@0.39.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
-| [`http2`](http2) | `bend-kit-http2@0.5.0.0/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
+| [`http2`](http2) | `bend-kit-http2@0.5.0.1/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.14.1.1/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
 | [`websocket`](websocket) | `bend-kit-websocket@0.4.1.2/websocket.bend` | RFC 6455 client handshake and frames. |
