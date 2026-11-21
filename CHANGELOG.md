@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.4.1.0: sync stores over HTTP(S) by walking immutable objects from a known root. Serve `GET /objects/<digest>` with HTTP 0.39.0.0. Check every fetched object through disk ingress. Test partial, repeated, repaired, missing, and tampered transfers on a port-0 loopback server.
+
 - `zlib`: compare decoded results as structural Bytes in all laws, including the canonical buffer layout. Remove the text conversion workaround. No runtime change.
 
 - `journal` 0.3.1.2: compute the list-model CRC with the hash byte table instead of eight bit steps per octet. Import hash 0.3.2.0.
