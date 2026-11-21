@@ -38,3 +38,66 @@ M4 Pro, macOS 26.6.2, arm64, 2026-10-27. Median of three runs. Times are in ms. 
 Bend's single-level table reads one 32-bit window and one table entry per symbol. `bitstream-io` reads one bit per tree step, so its Huffman decode is the slowest here. Python links its own zlib 1.2.12; C links Homebrew zlib 1.3.1.
 
 Versions: Bend 2.0.38, Apple clang 17.0.0 (`-O2`), rustc 1.91.0 with bitstream-io 4.10.0 (Cargo release build), Python 3.14.6, Bun 1.3.14. `Cargo.lock` pins the crate.
+
+## Dynamic table build cost
+
+```sh
+python3 run.py --build 3
+```
+
+This operation builds a complete literal/length tree with maximum length 15.
+Symbols 0–254 have length 8. Symbols 255–262 have lengths
+`[9, 10, 11, 12, 13, 14, 15, 15]`. The unused distance tree has one length-1 code.
+The input contains literals and end-of-block, without length/distance matches.
+The runner writes a valid dynamic DEFLATE header and checks zlib's result.
+Bend receives the same coded symbols, without the dynamic header.
+It times `Huff.from_lens` separately from `Huff.decode`, including the checksum.
+File reads and byte conversion are outside both timers.
+C times zlib's full inflate, including header parsing and table construction.
+It excludes file reads and the checksum, as in the fixed-block benchmark.
+All variants must return the plain input's checksum on every run.
+
+M4 Pro, macOS 25.6.0, arm64. Bend 2.0.40, Apple clang 17.0.0 (`-O2`),
+Homebrew zlib 1.3.1, Python 3.14.6.
+Each Bend cell is the median of 300 samples: 100 build/decode pairs per process,
+three processes per block size. C cells are medians of three processes.
+Times are milliseconds per block.
+
+| plain bytes | single-level build | single-level decode | build / decode | zlib inflate |
+|---:|---:|---:|---:|---:|
+| 1024 | 0.057354 | 0.043729 | 1.31 | 0.012000 |
+| 4096 | 0.054500 | 0.072791 | 0.75 | 0.016000 |
+| 8192 | 0.054583 | 0.113604 | 0.48 | 0.023000 |
+| 16383 | 0.054584 | 0.194812 | 0.28 | 0.036000 |
+
+The single-level build exceeded half the decode time at 1 and 4 KiB.
+The decoder now uses a 9-bit root and a secondary table for each occupied long-code
+prefix. This fixture needs 512 root entries and 64 secondary entries, rather than
+32768 entries. Trees of at most 9 bits still need only the root.
+Secondary tables use the maximum remaining width, not a separate width per prefix.
+Sparse long-code trees can therefore allocate unused secondary entries.
+
+| plain bytes | two-level build | two-level decode | build / decode | zlib inflate |
+|---:|---:|---:|---:|---:|
+| 1024 | 0.041604 | 0.042625 | 0.98 | 0.014000 |
+| 4096 | 0.041042 | 0.067333 | 0.61 | 0.015000 |
+| 8192 | 0.041917 | 0.100959 | 0.42 | 0.020000 |
+| 16383 | 0.040938 | 0.164729 | 0.25 | 0.037000 |
+
+Build cost fell by 25–28%. Canonical setup still dominates the shortest blocks.
+These inputs measure table setup, not a general DEFLATE throughput distribution.
+The fixed-block results above describe the old single-level implementation.
+
+The current fixed-block run (`python3 run.py 3`, same versions as the build run)
+gave the following results. All five checksums matched.
+
+| variant | huffman ms | huffman MB/s | fields ms |
+|---|---:|---:|---:|
+| Bend | 8.49 | 124 | 0.58 |
+| C (zlib inflate) | 3.00 | 349 | - |
+| Rust (bitstream-io) | 36.20 | 29 | 0.62 |
+| Python (zlib) | 1.82 | 577 | - |
+| Bun (node:zlib) | 3.14 | 334 | - |
+
+The old fixed-block run used a different Bend version and OS version.
+These runs do not isolate the effect of the table change on fixed-block decode.

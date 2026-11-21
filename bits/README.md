@@ -5,7 +5,7 @@ Bit readers and writers over `Bytes`, in either bit order, and canonical Huffman
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-bits@0.1.1.0/bits.bend as Bits
+import bend-kit-bits@0.2.0.0/bits.bend as Bits
 
 # BFINAL, the first bit of a DEFLATE block header.
 def head(r: Bits.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -49,7 +49,7 @@ Both return `None` when a length exceeds 16 or the lengths over-subscribe the co
 ## Limits
 
 - Positions are U32 bit counts, so a stream holds under 512 MiB.
-- The table has one level of `2^max` entries, where `max` is the longest code. A 15-bit DEFLATE code builds 32768 entries.
+- Decode tables use a root of up to 9 bits. Longer codes use secondary tables of `2^(max - 9)` entries per occupied root prefix. The `Huff` constructor now owns both arrays.
 - Symbols must be below 2^27.
 
 ## Checks
