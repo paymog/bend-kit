@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `zlib`: compare decoded results as structural Bytes in all laws, including the canonical buffer layout. Remove the text conversion workaround. No runtime change.
+
 - `journal` 0.3.1.2: compute the list-model CRC with the hash byte table instead of eight bit steps per octet. Import hash 0.3.2.0.
 
 - `zlib` 0.5.2.0: encode 32 KiB DEFLATE blocks with dynamic Huffman trees and lazy matching. Keep fixed codes when their bit cost is lower. Import bits 0.3.0.0 and use Nat reader positions.
