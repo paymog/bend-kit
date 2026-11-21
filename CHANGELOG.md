@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `zlib` 0.5.2.0: encode 32 KiB DEFLATE blocks with dynamic Huffman trees and lazy matching. Keep fixed codes when their bit cost is lower. Import bits 0.3.0.0 and use Nat reader positions.
+
 - `bits` 0.3.0.0: use Nat bit positions through the Bytes length limit, including streams past 512 MiB. Reader skip counts, remaining counts, and returned positions are Nat. Preserve two-word field windows and prove read-after-write with room below 2^35. Breaking.
 
 - `f32array`: replace get-after-set, lane-after-put, and little-endian Bytes round-trip fixtures with universal structural claims and proofs. The Bytes claim requires length below 2^30 and includes NaNs. No runtime change.

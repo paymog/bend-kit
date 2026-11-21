@@ -1,6 +1,8 @@
 import Base
 import ./zlib.bend as Z
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bits@0.3.0.0/bits.bend as Bits
+import ./encode.bend as Encode
 
 def str(xs: List<&2, U32>) -> String:
   match xs:
@@ -102,6 +104,14 @@ law deflate_run:
 
 law deflate_repeats:
   {text(Z.inflate(Z.deflate(b(String.repeat("the quick brown fox jumps over the lazy dog. ", 40n))))) == Some{String.repeat("the quick brown fox jumps over the lazy dog. ", 40n)} : Maybe<&2, String>}
+
+def dynamic.block() -> Bytes.Bytes:
+  +ll = Z.rep(97n, 0, Con{2, Z.rep(158n, 0, Con{2, Z.rep(28n, 0, Con{1, Nil{}})})})
+  +dl = {Con{1, Con{1, Z.rep(28n, 0, Nil{})}} : List<&2, U32>}
+  Bits.Writer.finish(Z.block.plan(Encode.Dynamic{ll, dl}, [Encode.Lit{97}, Encode.Copy{285, 0, 0, 0, 0, 0}], Bits.Writer.new(), 1))
+
+law deflate_dynamic:
+  {text(Z.inflate(dynamic.block())) == Some{String.repeat("a", 259n)} : Maybe<&2, String>}
 
 # These bytes decode with system gzip -d.
 law gzip_pinned:

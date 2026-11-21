@@ -9,5 +9,5 @@ bend-kit-http@0.38.6.1  # Re-pin consumers after the pooled HTTP/2 streaming rel
 bend-kit-process@0.5.1.0  # Re-pin planner after the spawn directory action release (#888).
 bend-kit-collections@0.1.5.0  # Re-pin consumers after the lookup-after-delete proof release (#894).
 bend-kit-hash@0.3.0.4  # Re-pin consumers after the W64 helper release (#898).
-bend-kit-bits@0.1.0.1  # Re-pin zlib after the canonical writer code release (#902).
 bend-kit-http2@0.5.0.0  # Re-pin http after http2 0.5.0.1 publishes (#886).
+bend-kit-zlib@0.5.1.1  # Re-pin archive and http after the dynamic encoder release (#920).

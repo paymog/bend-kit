@@ -1,7 +1,8 @@
 # DEFLATE, gzip, and zlib encoding and decoding (RFC 1951, 1952, 1950) over Bytes, plus gzip, zstd, and brotli through the C libraries. Source: https://github.com/paymog/bend-kit/tree/main/zlib
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-bits@0.1.0.1/bits.bend as Bits
+import bend-kit-bits@0.3.0.0/bits.bend as Bits
+import ./encode.bend as Encode
 import bend-kit-hash@0.3.0.4/hash.bend as Hash
 
 def bits(+n: U32) -> Nat:
@@ -485,9 +486,9 @@ def inf.go(k: Nat, st: Is) -> Is:
 type Inflated is Type:
   Inflated{out: Bytes.Bytes, src: Bytes.Bytes, at: U32}
 
-def inf.done(r: Bytes.Bytes & U32, o: Out) -> Maybe<&1, Inflated>:
+def inf.done(r: Bytes.Bytes & Nat, o: Out) -> Maybe<&1, Inflated>:
   (src, +pos) = r
-  Some{Inflated{out.bytes(o), src, ((pos + 7) >> 3n : U32)}}
+  Some{Inflated{out.bytes(o), src, Bits.pos.bytes(pos)}}
 
 def inf.fin(b: Br, o: Out) -> Maybe<&1, Inflated>:
   Br{r, bad} = b
@@ -515,7 +516,7 @@ def inf.start(ok: Bool, +len: U32, buf: Array<U32>, +at: U32) -> Maybe<&1, Infla
       None{}
     case True{}:
       +fuel = Nat.add(Nat.mul(bits((len - at : U32)), 8n), 8n)
-      inf.result(inf.go(fuel, Is{Br{Bits.Reader{len, buf, (at << 3n : U32)}, False{}}, Out{Array.new(U32, 0n, 0), 0, 0}, MoHead{}, False{}}))
+      inf.result(inf.go(fuel, Is{Br{Bits.Reader.at(len, buf, Nat.mul(bits(at), 8n)), False{}}, Out{Array.new(U32, 0n, 0), 0, 0}, MoHead{}, False{}}))
 
 # A raw DEFLATE stream that starts at byte at.
 def inflate.at(b: Bytes.Bytes, +at: U32) -> Maybe<&1, Inflated>:
@@ -747,8 +748,7 @@ def zl.head(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&1, Bytes.Bytes>:
 def unzlib(b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
   zl.head(Bytes.get.u16be(b, 0))
 
-# DEFLATE encoding: LZ77 over hash chains, then one final fixed-Huffman block (RFC 1951 §3.2.6).
-# ponytail: fixed Huffman only; dynamic trees would cut text output further.
+# DEFLATE encoding: lazy LZ77 over hash chains, then bounded Huffman blocks.
 
 def bw.code(w: Bits.Writer, cl: U32 & U32) -> Bits.Writer:
   (+c, +l) = cl
@@ -795,16 +795,6 @@ def cx.go(bs: List<&2, U32>, es: List<&2, U32>, +v: U32, +i: U32, +best: Cx) -> 
           cx.go(bt, et, v, (i + 1 : U32), Bool.pick(Cx, U32.is_le(b, v), Cx{i, b, e}, best))
 
 
-def em.len(w: Bits.Writer, +len: U32, c: Cx) -> Bits.Writer:
-  Cx{+i, +b, +e} = c
-  Bits.Writer.lsb(bw.code(w, fx.lit((i + 257 : U32))), e, (len - b : U32))
-
-def em.dist(w: Bits.Writer, +d: U32, c: Cx) -> Bits.Writer:
-  Cx{+i, +b, +e} = c
-  Bits.Writer.lsb(Bits.Writer.lsb(w, 5, Bits.rev(5n, i, 0)), e, (d - b : U32))
-
-def em.match(w: Bits.Writer, +len: U32, +d: U32) -> Bits.Writer:
-  em.dist(em.len(w, len, cx.go(len.base(), len.extra(), len, 0, Cx{0, 3, 0})), d, cx.go(dist.base(), dist.extra(), d, 0, Cx{0, 1, 0}))
 
 def em.lit(w: Bits.Writer, +c: U32) -> Bits.Writer:
   bw.code(w, fx.lit(c))
@@ -917,17 +907,16 @@ def ch.go(fuel: Nat, st: Ch) -> Ch:
         case False{}:
           Ch{z, i, c, max, blen, bdist, False{}}
 
-# Encoder: match finder, bit writer, position, input length, and whether bytes are left.
 type Es is Type:
-  Es{z: Lz, w: Bits.Writer, i: U32, n: U32, more: Bool}
+  Es{z: Lz, tokens: List<&2, Encode.Token>, i: U32, n: U32, more: Bool}
 
-def es.lit.of(r: Lz & U32, w: Bits.Writer, +i: U32, +n: U32) -> Es:
-  (z, +c) = r
+def es.lit.of(r: Lz & U32, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> Es:
+  (z, c) = r
   +j = (i + 1 : U32)
-  Es{z, em.lit(w, c), j, n, U32.is_lt(j, n)}
+  Es{z, Con{Encode.Lit{c}, tokens}, j, n, U32.is_lt(j, n)}
 
-def es.lit(z: Lz, w: Bits.Writer, +i: U32, +n: U32) -> Es:
-  es.lit.of(lz.at(z, i), w, i, n)
+def es.lit(z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> Es:
+  es.lit.of(lz.at(z, i), tokens, i, n)
 
 def ins.one(ok: Bool, z: Lz, +j: U32) -> Lz:
   match ok:
@@ -944,53 +933,129 @@ def ins.go(k: Nat, z: Lz, +j: U32, +n: U32) -> Lz:
     case 1n+f:
       ins.go(f, ins.one(U32.is_le((j + 3 : U32), n), z, j), (j + 1 : U32), n)
 
-def es.emit(hit: Bool, z: Lz, w: Bits.Writer, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
+def es.copy(+len: U32, +d: U32, lc: Cx, dc: Cx) -> Encode.Token:
+  Cx{+ls, +lb, le} = lc
+  Cx{ds, +db, de} = dc
+  Encode.Copy{(ls + 257 : U32), le, (len - lb : U32), ds, de, (d - db : U32)}
+
+def es.emit(hit: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
   match hit:
     case True{}:
       +j = (i + blen : U32)
-      Es{ins.go(bits((blen - 1 : U32)), z, (i + 1 : U32), n), em.match(w, blen, bdist), j, n, U32.is_lt(j, n)}
+      token = es.copy(blen, bdist, cx.go(len.base(), len.extra(), blen, 0, Cx{0, 3, 0}), cx.go(dist.base(), dist.extra(), bdist, 0, Cx{0, 1, 0}))
+      Es{ins.go(bits((blen - 1 : U32)), z, (i + 1 : U32), n), Con{token, tokens}, j, n, U32.is_lt(j, n)}
     case False{}:
-      es.lit(z, w, i, n)
+      es.lit(z, tokens, i, n)
 
-def es.pick(st: Ch, w: Bits.Writer, +n: U32) -> Es:
+def es.lazy.pick(st: Ch, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
+  Ch{z, j, c, max, +next, d, go} = st
+  es.emit(U32.is_le(next, blen), z, tokens, i, n, blen, bdist)
+
+def es.lazy.chain(r: Array<U32> & U32, src: Array<U32>, prev: Array<U32>, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
+  (head, +c) = r
+  +j = (i + 1 : U32)
+  +room = (n - j : U32)
+  +max = Bool.pick(U32, U32.is_lt(room, 258), room, 258)
+  es.lazy.pick(ch.go(32n, Ch{Lz{src, head, prev}, j, c, max, 0, 0, ch.ok(j, c, max, 0)}), tokens, i, n, blen, bdist)
+
+def es.lazy.hash(r: Lz & U32, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
+  (z, h) = r
+  Lz{src, head, prev} = z
+  es.lazy.chain(Array.get(U32, head, h), src, prev, tokens, i, n, blen, bdist)
+
+def es.lazy(ok: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
+  match ok:
+    case True{}:
+      es.lazy.hash(lz.hash(z, (i + 1 : U32)), tokens, i, n, blen, bdist)
+    case False{}:
+      es.emit(U32.is_le(3, blen), z, tokens, i, n, blen, bdist)
+
+def es.pick(st: Ch, tokens: List<&2, Encode.Token>, +n: U32) -> Es:
   Ch{z, +i, c, max, +blen, +bdist, go} = st
-  es.emit(U32.is_le(3, blen), z, w, i, n, blen, bdist)
+  es.lazy(Bool.and(U32.is_le(3, blen), Bool.and(U32.is_lt(blen, 258), U32.is_le((i + 4 : U32), n))), z, tokens, i, n, blen, bdist)
 
-# ponytail: greedy parse, 32 chain steps; lazy matching would compress text further.
-def es.chain(r: Lz & U32, w: Bits.Writer, +i: U32, +n: U32) -> Es:
+def es.chain(r: Lz & U32, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> Es:
   (z, +c) = r
   +room = (n - i : U32)
   +max = Bool.pick(U32, U32.is_lt(room, 258), room, 258)
-  es.pick(ch.go(32n, Ch{z, i, c, max, 0, 0, ch.ok(i, c, max, 0)}), w, n)
+  es.pick(ch.go(32n, Ch{z, i, c, max, 0, 0, ch.ok(i, c, max, 0)}), tokens, n)
 
-def es.find(short: Bool, z: Lz, w: Bits.Writer, +i: U32, +n: U32) -> Es:
+def es.find(short: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> Es:
   match short:
     case True{}:
-      es.lit(z, w, i, n)
+      es.lit(z, tokens, i, n)
     case False{}:
-      es.chain(lz.insert(z, i), w, i, n)
+      es.chain(lz.insert(z, i), tokens, i, n)
 
-# Each step consumes at least one byte, so n steps finish.
 def es.go(fuel: Nat, st: Es) -> Es:
   match fuel:
     case 0n:
       st
     case 1n+f:
-      Es{z, w, +i, +n, more} = st
+      Es{z, tokens, +i, +n, more} = st
       match more:
         case True{}:
-          es.go(f, es.find(U32.is_lt((n - i : U32), 3), z, w, i, n))
+          es.go(f, es.find(U32.is_lt((n - i : U32), 3), z, tokens, i, n))
         case False{}:
-          Es{z, w, i, n, False{}}
+          Es{z, tokens, i, n, False{}}
 
-def es.out(st: Es) -> Bits.Writer:
-  Es{z, w, i, n, more} = st
-  Bits.Writer.align(em.lit(w, 256))
+def block.fixed(xs: List<&2, Encode.Token>, w: Bits.Writer) -> Bits.Writer:
+  match xs:
+    case Nil{}:
+      em.lit(w, 256)
+    case Con{Encode.Lit{s}, t}:
+      block.fixed(t, em.lit(w, s))
+    case Con{Encode.Copy{ls, +le, lv, +ds, +de, dv}, t}:
+      w = Bits.Writer.lsb(bw.code(w, fx.lit(ls)), le, lv)
+      block.fixed(t, Bits.Writer.lsb(Bits.Writer.lsb(w, 5, Bits.rev(5n, ds, 0)), de, dv))
 
-# One final fixed-Huffman block (BFINAL = 1, BTYPE = 01) after what w holds, padded to a byte.
+def block.dynamic(tables: Maybe<&1, Encode.Tables>, xs: List<&2, Encode.Token>, w: Bits.Writer, +last: U32, ll: List<&2, U32>, dl: List<&2, U32>) -> Bits.Writer:
+  match tables:
+    case None{}:
+      block.fixed(xs, Bits.Writer.lsb(w, 3, (2 + last : U32)))
+    case Some{t}:
+      Encode.dynamic(xs, w, last, ll, dl, t)
+
+def block.plan(plan: Encode.Plan, xs: List<&2, Encode.Token>, w: Bits.Writer, +last: U32) -> Bits.Writer:
+  match plan:
+    case Encode.Fixed{}:
+      block.fixed(xs, Bits.Writer.lsb(w, 3, (2 + last : U32)))
+    case Encode.Dynamic{+ll, +dl}:
+      block.dynamic(Encode.tables(ll, dl), xs, w, last, ll, dl)
+
+def block.emit(small: Bool, +xs: List<&2, Encode.Token>, w: Bits.Writer, +last: U32) -> Bits.Writer:
+  match small:
+    case True{}:
+      block.fixed(xs, Bits.Writer.lsb(w, 3, (2 + last : U32)))
+    case False{}:
+      block.plan(Encode.plan(xs), xs, w, last)
+
+type Blocks is Type:
+  Blocks{z: Lz, w: Bits.Writer, i: U32, n: U32, more: Bool}
+
+def block.out(st: Es, w: Bits.Writer, +start: U32, +n: U32) -> Blocks:
+  Es{z, tokens, +i, end, more} = st
+  +last = U32.is_eq(i, n)
+  Blocks{z, block.emit(U32.is_le((i - start : U32), 128), List.reverse(&2, Encode.Token, tokens), w, Bool.pick(U32, last, 1, 0)), i, n, Bool.not(last)}
+
+def blocks.go(fuel: Nat, st: Blocks) -> Bits.Writer:
+  match fuel:
+    case 0n:
+      Blocks{z, w, i, n, more} = st
+      Bits.Writer.align(w)
+    case 1n+p:
+      Blocks{z, w, +i, +n, more} = st
+      match more:
+        case False{}:
+          Bits.Writer.align(w)
+        case True{}:
+          +size = Bool.pick(U32, U32.is_lt((n - i : U32), 32768), (n - i : U32), 32768)
+          +end = (i + size : U32)
+          blocks.go(p, block.out(es.go(bits(size), Es{z, Nil{}, i, end, U32.is_lt(i, end)}), w, i, n))
+
 def deflate.into(w: Bits.Writer, b: Bytes.Bytes) -> Bits.Writer:
   Bytes.Bytes{+n, src} = b
-  es.out(es.go(bits(n), Es{Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, Bits.Writer.lsb(w, 3, 3), 0, n, U32.is_lt(0, n)}))
+  blocks.go(Nat.add(Nat.div(bits(n), 32768n), 1n), Blocks{Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, w, 0, n, True{}})
 
 # Raw DEFLATE.
 def deflate(b: Bytes.Bytes) -> Bytes.Bytes:
