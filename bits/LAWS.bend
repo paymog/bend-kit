@@ -259,3 +259,32 @@ def somes(xs: List<&2, U32>) -> List<&2, Maybe<&2, U32>>:
 # Every symbol of the fixed literal/length code, encoded by the RFC's formula, decodes back.
 law huff_fixed_deflate_all:
   {dec(288n, huff(False{}, fixed.lens()), written(False{}, fixed.stream(syms(288n, 0)))) == somes(syms(288n, 0)) : List<&2, Maybe<&2, U32>>}
+
+def enc.puts(xs: List<&2, Bits.Encoding>, +msb: Bool, w: Bits.Writer) -> Bits.Writer:
+  match xs:
+    case Nil{}:
+      w
+    case Con{e, t}:
+      enc.puts(t, msb, Bits.Writer.code(msb, w, e))
+
+def enc.roundtrip.codes(m: Maybe<&2, List<&2, Bits.Encoding>>, +msb: Bool, +lens: List<&2, U32>) -> List<&2, Maybe<&2, U32>>:
+  match m:
+    case None{}:
+      Nil{}
+    case Some{+xs}:
+      dec(List.length(&2, Bits.Encoding, xs), huff(msb, lens), Bits.Writer.finish(enc.puts(xs, msb, Bits.Writer.new())))
+
+def enc.roundtrip(+msb: Bool, +lens: List<&2, U32>) -> List<&2, Maybe<&2, U32>>:
+  enc.roundtrip.codes(Bits.Huff.encode_lens(lens), msb, lens)
+
+law huff_writer_small_lsb:
+  {enc.roundtrip(False{}, small()) == somes(syms(4n, 0)) : List<&2, Maybe<&2, U32>>}
+
+law huff_writer_small_msb:
+  {enc.roundtrip(True{}, small()) == somes(syms(4n, 0)) : List<&2, Maybe<&2, U32>>}
+
+law huff_writer_fixed_lsb:
+  {enc.roundtrip(False{}, fixed.lens()) == somes(syms(288n, 0)) : List<&2, Maybe<&2, U32>>}
+
+law huff_writer_fixed_msb:
+  {enc.roundtrip(True{}, fixed.lens()) == somes(syms(288n, 0)) : List<&2, Maybe<&2, U32>>}

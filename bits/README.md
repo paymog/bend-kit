@@ -1,11 +1,11 @@
 # bits
 
-Bit readers and writers over `Bytes`, in either bit order, and canonical Huffman decode tables. DEFLATE (RFC 1951) and GIF send fields LSB-first. JPEG and MP3 send them MSB-first.
+Bit readers and writers over `Bytes`, in either bit order, and canonical Huffman codes and decode tables. DEFLATE (RFC 1951) and GIF send fields LSB-first. JPEG and MP3 send them MSB-first.
 
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-bits@0.1.0.1/bits.bend as Bits
+import bend-kit-bits@0.1.1.0/bits.bend as Bits
 
 # BFINAL, the first bit of a DEFLATE block header.
 def head(r: Bits.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -42,7 +42,9 @@ LSB-first, the first bit of a field is its least significant. MSB-first, it is i
 
 Both return `None` when a length exceeds 16 or the lengths over-subscribe the code space. An incomplete set is allowed. `Huff.decode(h, r)` reads one symbol and returns `(h, r, Some{sym})`. It returns `None`, with the reader unchanged, when the next bits start no code or the input ends inside one.
 
-A DEFLATE code goes most significant bit first even in its LSB-first stream. `Huff.from_lens(False{}, lens)` handles that. To write such a code, reverse its bits, then call `Writer.lsb`.
+`Huff.encode_lens(lens)` and `Huff.encode_codes(codes)` return `Some{encodings}` with the same validation and canonical assignment as the decoder. Each `Encoding{sym, len, value}` holds the canonical value, with its first stream bit at bit `len - 1`. Results keep input order and omit zero-length symbols. Empty input returns `Some{Nil{}}`. These builders use only the length counts, not a decode table.
+
+`Writer.code(msb, w, encoding)` writes one encoding in the stream's bit order. Huffman codes always send their most significant bit first. The LSB-first path reverses the code before calling `Writer.lsb`, as DEFLATE requires.
 
 ## Limits
 
@@ -52,4 +54,4 @@ A DEFLATE code goes most significant bit first even in its LSB-first stream. `Hu
 
 ## Checks
 
-`LAWS.bend` round-trips fields of widths 0 to 32 in both orders, fixes the bit layout of each order, and decodes the fixed DEFLATE literal/length code (RFC 1951 §3.2.6) for all 288 symbols. `check.bend` round-trips 20,000 random fields per order on the native `Array`. `bench/` times decode against zlib and `bitstream-io`.
+`LAWS.bend` round-trips fields of widths 0 to 32 in both orders, fixes the bit layout of each order, and decodes the fixed DEFLATE literal/length code (RFC 1951 §3.2.6) for all 288 symbols. It also writes every generated code for lengths `[2, 1, 3, 3]` and the fixed DEFLATE lengths, then decodes them in both orders. `check.bend` round-trips 20,000 random fields per order on the native `Array`. `bench/` times decode against zlib and `bitstream-io`.

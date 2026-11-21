@@ -152,9 +152,74 @@ def deep.run(m: Maybe<&1, Bits.Huff>) -> Bool:
     case Some{h}:
       deep.decs(17n, 0, (h, Bits.Reader.new(Bits.Writer.finish(deep.puts(17n, Bits.Writer.new(), 0))), True{}))
 
+def enc.puts(xs: List<&2, Bits.Encoding>, +msb: Bool, w: Bits.Writer) -> Bits.Writer:
+  match xs:
+    case Nil{}:
+      w
+    case Con{e, t}:
+      enc.puts(t, msb, Bits.Writer.code(msb, w, e))
+
+def enc.decs(xs: List<&2, Bits.Encoding>, st: Bits.Huff & Bits.Reader & Bool) -> Bool:
+  match xs:
+    case Nil{}:
+      (h, rd, ok) = st
+      ok
+    case Con{Bits.Encoding{+sym, len, value}, t}:
+      enc.decs(t, decs.step(sym, st))
+
+def enc.table(m: Maybe<&1, Bits.Huff>, +xs: List<&2, Bits.Encoding>, +msb: Bool) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{h}:
+      enc.decs(xs, (h, Bits.Reader.new(Bits.Writer.finish(enc.puts(xs, msb, Bits.Writer.new()))), True{}))
+
+def enc.codes(m: Maybe<&2, List<&2, Bits.Encoding>>, +cs: List<&2, Bits.Code>, +msb: Bool) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{xs}:
+      enc.table(Bits.Huff.from_codes(msb, cs), xs, msb)
+
+def enc.run(+msb: Bool, +cs: List<&2, Bits.Code>) -> Bool:
+  enc.codes(Bits.Huff.encode_codes(cs), cs, msb)
+
+def enc.rejected(m: Maybe<&2, List<&2, Bits.Encoding>>) -> Bool:
+  match m:
+    case None{}:
+      True{}
+    case Some{xs}:
+      False{}
+
+def enc.empty(m: Maybe<&2, List<&2, Bits.Encoding>>) -> Bool:
+  match m:
+    case Some{Nil{}}:
+      True{}
+    case _:
+      False{}
+
+def enc.fixture(m: Maybe<&2, List<&2, Bits.Encoding>>) -> Bool:
+  match m:
+    case Some{[Bits.Encoding{66, 2, 2}, Bits.Encoding{9, 1, 0}, Bits.Encoding{7, 2, 3}]}:
+      True{}
+    case _:
+      False{}
+
 def main() -> IO(Unit):
   do IO<Unit>:
     expect("lsb roundtrip, 20000 fields", roundtrip(False{}, 20000n, 12345))
     expect("msb roundtrip, 20000 fields", roundtrip(True{}, 20000n, 777))
     expect("fixed deflate decode, 50000 symbols", fixed.run(Bits.Huff.from_lens(False{}, fixed.lens()), 50000n, 99))
     expect("16-bit msb codes decode", deep.run(Bits.Huff.from_lens(True{}, deep.lens())))
+    expect("writer small lsb", enc.run(False{}, Bits.codes([2, 1, 3, 3], 0)))
+    expect("writer small msb", enc.run(True{}, Bits.codes([2, 1, 3, 3], 0)))
+    expect("writer fixed lsb", enc.run(False{}, Bits.codes(fixed.lens(), 0)))
+    expect("writer fixed msb", enc.run(True{}, Bits.codes(fixed.lens(), 0)))
+    expect("writer 16-bit codes", enc.run(False{}, Bits.codes(deep.lens(), 0)))
+    expect("writer sparse list order", enc.fixture(Bits.Huff.encode_codes([Bits.Code{66, 2}, Bits.Code{3, 0}, Bits.Code{9, 1}, Bits.Code{7, 2}])))
+    expect("writer empty", enc.empty(Bits.Huff.encode_lens([])))
+    expect("writer zero lengths", enc.empty(Bits.Huff.encode_lens([0, 0])))
+    expect("writer incomplete", enc.run(True{}, [Bits.Code{8, 16}]))
+    expect("writer over-subscribed", enc.rejected(Bits.Huff.encode_lens([1, 1, 1])))
+    expect("writer too long", enc.rejected(Bits.Huff.encode_lens([17])))
+
