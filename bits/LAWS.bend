@@ -1,6 +1,7 @@
 import Base
 import ./bits.bend as Bits
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 
 type F is Data:
   F{n: U32, v: U32}
@@ -78,6 +79,48 @@ def values(fs: List<&2, F>) -> List<&2, Maybe<&2, U32>>:
 
 def roundtrip(+msb: Bool, +fs: List<&2, F>) -> List<&2, Maybe<&2, U32>>:
   gets(widths(fs), msb, Bits.Reader.new(written(msb, fs)))
+
+def prefix_bits(fs: List<&2, F>) -> Nat:
+  match fs:
+    case Nil{}:
+      0n
+    case Con{F{n, v}, t}:
+      Nat.add(U32.to_nat(U32.min(n, 32)), prefix_bits(t))
+
+def read_nat(r: Bits.Reader & Maybe<&2, U32>) -> Maybe<&2, Nat>:
+  match r:
+    case (rd, None{}):
+      None{}
+    case (rd, Some{v}):
+      Some{U32.to_nat(v)}
+
+def read_after_skip(msb: Bool, n: U32, r: Bits.Reader & Bool) -> Maybe<&2, Nat>:
+  (rd, ok) = r
+  read_nat(get.at(msb, rd, n))
+
+def read_after_write_at(+msb: Bool, +n: U32, +v: U32, w: Bits.Writer) -> Maybe<&2, Nat>:
+  Bits.Writer{buf, dep, +pos, last} = w
+  read_after_skip(msb, n, Bits.Reader.skip(
+    Bits.Reader.new(Bits.Writer.finish(put(msb, Bits.Writer{buf, dep, pos, last}, n, v))), pos))
+
+def read_after_write(+msb: Bool, +fs: List<&2, F>, +n: U32, +v: U32) -> Maybe<&2, Nat>:
+  read_after_write_at(msb, n, v, puts(fs, msb, Bits.Writer.new()))
+
+law lsb_read_after_write:
+  for +fs: List<&2, F>
+  for +n: U32
+  for +v: U32
+  for width: {Nat.is_le(U32.to_nat(n), 32n) == True{} : Bool}
+  for room: {Nat.is_lt(Nat.add(Nat.add(prefix_bits(fs), U32.to_nat(n)), 31n), Lemmas.pow2(32n)) == True{} : Bool}
+  {read_after_write(False{}, fs, n, v) == Some{Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n)))} : Maybe<&2, Nat>}
+
+law msb_read_after_write:
+  for +fs: List<&2, F>
+  for +n: U32
+  for +v: U32
+  for width: {Nat.is_le(U32.to_nat(n), 32n) == True{} : Bool}
+  for room: {Nat.is_lt(Nat.add(Nat.add(prefix_bits(fs), U32.to_nat(n)), 31n), Lemmas.pow2(32n)) == True{} : Bool}
+  {read_after_write(True{}, fs, n, v) == Some{Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n)))} : Maybe<&2, Nat>}
 
 # Widths 0 to 32, inside a byte, across bytes, and across words.
 def mixed() -> List<&2, F>:
