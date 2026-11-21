@@ -399,34 +399,67 @@ def client.positive(+w: U32) -> U32:
 def client.available(+len: U32, +max: U32, +connection: U32, +stream: U32) -> U32:
   client.min(client.min(len, max), client.min(client.positive(connection), client.positive(stream)))
 
-def client.data.go(n: Nat, body: Bytes.Bytes, take: U32, +id: U32, +max: U32,
-    +connection: U32, +stream: U32, rev: List<&1, Bytes.Bytes>) -> Maybe<&1, BodySent>:
+type DataStep is Type:
+  DataFail{}
+  DataDone{sent: BodySent}
+  DataNext{body: Bytes.Bytes, take: U32, connection: U32, stream: U32, rev: List<&1, Bytes.Bytes>}
+
+def client.data.pack(m: Maybe<&1, Bytes.Bytes>, rest: Bytes.Bytes, +len: U32, +count: U32,
+    +max: U32, +connection: U32, +stream: U32, rev: List<&1, Bytes.Bytes>) -> DataStep:
+  match m:
+    case None{}:
+      DataFail{}
+    case Some{packet}:
+      +new_connection = (connection - count : U32)
+      +new_stream = (stream - count : U32)
+      +remaining = (len - count : U32)
+      DataNext{rest, client.available(remaining, max, new_connection, new_stream),
+        new_connection, new_stream, Con{packet, rev}}
+
+def client.data.take(take: U32, +len: U32, buf: Array<U32>, +id: U32, +max: U32,
+    +connection: U32, +stream: U32, rev: List<&1, Bytes.Bytes>) -> DataStep:
+  match take:
+    case 0:
+      DataDone{BodySent{Bytes.Bytes{len, buf}, False{}, stream, connection, List.reverse(&1, Bytes.Bytes, rev)}}
+    case +count:
+      with_slice(DataStep, Bytes.slice(Bytes.Bytes{len, buf}, 0, count), whole => part =>
+        with_slice(DataStep, Bytes.slice(whole, count, (len - count : U32)), unused => rest =>
+          client.data.pack(
+            client.frame(encode(max, Frame{0, Bool.pick(U32, U32.is_eq(count, len), 1, 0), id, part})),
+            rest, len, count, max, connection, stream, rev)))
+
+def client.data.step(body: Bytes.Bytes, take: U32, +id: U32, +max: U32,
+    +connection: U32, +stream: U32, rev: List<&1, Bytes.Bytes>) -> DataStep:
+  match body:
+    case Bytes.Bytes{0, buf}:
+      DataDone{BodySent{Bytes.Bytes{0, buf}, True{}, stream, connection, List.reverse(&1, Bytes.Bytes, rev)}}
+    case Bytes.Bytes{+len, buf}:
+      client.data.take(take, len, buf, id, max, connection, stream, rev)
+
+def client.data.go(n: Nat, step: DataStep, +id: U32, +max: U32) -> Maybe<&1, BodySent>:
   match n:
     case 0n:
-      None{}
+      match step:
+        case DataFail{}:
+          None{}
+        case DataDone{sent}:
+          Some{sent}
+        case DataNext{body, take, connection, stream, rev}:
+          None{}
     case 1n+p:
-      match body:
-        case Bytes.Bytes{0, buf}:
-          Some{BodySent{Bytes.Bytes{0, buf}, True{}, stream, connection, List.reverse(&1, Bytes.Bytes, rev)}}
-        case Bytes.Bytes{+len, buf}:
-          match take:
-            case 0:
-              Some{BodySent{Bytes.Bytes{len, buf}, False{}, stream, connection, List.reverse(&1, Bytes.Bytes, rev)}}
-            case +count:
-              with_slice(Maybe<&1, BodySent>, Bytes.slice(Bytes.Bytes{len, buf}, 0, count), whole => part =>
-                with_slice(Maybe<&1, BodySent>, Bytes.slice(whole, count, (len - count : U32)), unused => rest =>
-                  Maybe.bind(&1, Bytes.Bytes, BodySent,
-                    client.frame(encode(max, Frame{0, Bool.pick(U32, U32.is_eq(count, len), 1, 0), id, part})), packet =>
-                      +new_connection = (connection - count : U32)
-                      +new_stream = (stream - count : U32)
-                      +remaining = (len - count : U32)
-                      client.data.go(p, rest, client.available(remaining, max, new_connection, new_stream),
-                        id, max, new_connection, new_stream, Con{packet, rev}))))
+      match step:
+        case DataFail{}:
+          None{}
+        case DataDone{sent}:
+          Some{sent}
+        case DataNext{body, take, connection, stream, rev}:
+          client.data.go(p, client.data.step(body, take, id, max, connection, stream, rev), id, max)
 
 def client.data(+id: U32, +max: U32, +connection: U32, +stream: U32, body: Bytes.Bytes) -> Maybe<&1, BodySent>:
   Bytes.Bytes{+len, buf} = body
-  client.data.go(1n+U32.to_nat(len), Bytes.Bytes{len, buf},
-    client.available(len, max, connection, stream), id, max, connection, stream, Nil{})
+  client.data.go(1n+U32.to_nat(len),
+    DataNext{Bytes.Bytes{len, buf}, client.available(len, max, connection, stream), connection, stream, Nil{}},
+    id, max)
 
 def client.limit(m: Maybe<&2, U32>, active: U32) -> Bool:
   match m:
