@@ -2,7 +2,7 @@
 # Compile and run check.bend, from the package folder, for packages that ship C
 # effects; for webhooks: it links hairpin, http, and time from the hub, so its
 # build fails if two versions of one C effect slip in (bendlang/bend#1533); and
-# for commands: it drives SQLite through child processes.
+# for commands: it drives SQLite through child processes; for f32array: it checks CPU fork-join.
 # One package at a time: do not fan this out.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,14 +14,18 @@ trap cleanup EXIT
 shopt -s nullglob
 for d in "$@"; do
   cs=("$d"/effs/*.c)
-  [ ${#cs[@]} -eq 0 ] && [ "$d" != webhooks ] && [ "$d" != commands ] && continue
+  [ ${#cs[@]} -eq 0 ] && [ "$d" != webhooks ] && [ "$d" != commands ] && [ "$d" != f32array ] && continue
   [ -f "$d/check.bend" ] || { echo "$d has C effects but no check.bend" >&2; exit 1; }
   echo "== native $d"
   out=$(mktemp -d)
   (
     cd "$d"
     bend check.bend -o "$out/check"
-    "$out/check"
+    if [ "$d" = f32array ]; then
+      "$out/check" +RTS --threads 8
+    else
+      "$out/check"
+    fi
   )
   rm -rf "$out"
   out=

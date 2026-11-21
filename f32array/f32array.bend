@@ -1,7 +1,6 @@
 # Packed F32 arrays: get, set, slice, concat, map, fold, zip, dot, sum, max, and little- or big-endian Bytes and files. Source: https://github.com/paymog/bend-kit/tree/main/f32array
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-files@0.4.0.0/files.bend as Files
 
 # Eight elements per Array slot, so one access reads or writes eight.
 type Cell is Data:
@@ -324,27 +323,46 @@ def add(a: F32Array, b: F32Array) -> F32Array & F32Array & Bool:
 def mul(a: F32Array, b: F32Array) -> F32Array & F32Array & Bool:
   zip_with(~mul2, a, b)
 
-# Four running sums: lanes 0 and 4 of each cell go to s0, 1 and 5 to s1, and so on. The +0.0 lanes past len add nothing.
-def sum.go(n: Nat, r: Array<Cell> & Cell, +i: U32, s0: F32, s1: F32, s2: F32, s3: F32) -> Array<Cell> & F32:
+def sum.cell(c: Cell) -> F32:
+  Cell{x0, x1, x2, x3, x4, x5, x6, x7} = c
+  (((x0 + x1 : F32) + (x2 + x3 : F32) : F32) + ((x4 + x5 : F32) + (x6 + x7 : F32) : F32) : F32)
+
+def sum.merge(r: Array<Cell> & F32, +x: F32) -> Array<Cell> & F32:
+  (a, y) = r
+  (a, (x + y : F32))
+
+def sum.block(n: Nat, r: Array<Cell> & Cell, +i: U32, acc: F32) -> Array<Cell> & F32:
   match n:
     case 0n:
       (a, c) = r
-      (a, ((s0 + s1 : F32) + (s2 + s3 : F32) : F32))
+      (a, acc)
     case 1n+p:
-      (a, Cell{x0, x1, x2, x3, x4, x5, x6, x7}) = r
-      sum.go(p, Array.get(Cell, a, (i + 1 : U32)), (i + 1 : U32), ((s0 + x0 : F32) + x4 : F32), ((s1 + x1 : F32) + x5 : F32), ((s2 + x2 : F32) + x6 : F32), ((s3 + x3 : F32) + x7 : F32))
+      (a, c) = r
+      +j = (i + 1 : U32)
+      sum.block(p, Array.get(Cell, a, j), j, (acc + sum.cell(c) : F32))
+
+def sum.right(next: Array<Cell> -> Array<Cell> & F32, r: Array<Cell> & F32) -> Array<Cell> & F32:
+  (a, x) = r
+  sum.merge(next(a), x)
+
+def sum.range(d: Nat, +n: U32, +i: U32, a: Array<Cell>) -> Array<Cell> & F32:
+  match d:
+    case 0n:
+      sum.block(U32.to_nat(n), Array.get(Cell, a, i), i, 0.0)
+    case 1n+ +p:
+      +h = (n >> 1n : U32)
+      sum.right(a => sum.range(p, h, (i + h : U32), a), sum.range(p, h, i, a))
 
 def sum.fin(+len: U32, r: Array<Cell> & F32) -> F32Array & F32:
   (a, x) = r
   (F32Array{len, a}, x)
 
-# The sum. Element i goes to running sum i % 4, each from +0.0, and the four are added as (s0 + s1) + (s2 + s3).
-# ponytail: four running sums, so error still grows with len; a pairwise fork-join sum fixes accuracy and uses every core.
+# ponytail: at most 16 cell totals run sequentially; use finer leaves if their measured rounding error matters.
 def sum(a: F32Array) -> F32Array & F32:
   F32Array{+len, buf} = a
-  sum.fin(len, sum.go(U32.to_nat(cells(len)), Array.get(Cell, buf, 0), 0, 0.0, 0.0, 0.0, 0.0))
+  sum.fin(len, sum.range(Nat.sub(Bytes.depth(cells(len)), 4n), (1 << Bytes.depth(cells(len)) : U32), 0, buf))
 
-# Four running maxima, as sum.go keeps four sums, over n whole cells; then the first k lanes of the next cell.
+# Four running maxima over n whole cells, then the first k lanes of the next cell.
 def max.go(n: Nat, +k: U32, r: Array<Cell> & Cell, +i: U32, m0: F32, m1: F32, m2: F32, m3: F32) -> Array<Cell> & F32:
   match n:
     case 0n:
@@ -374,18 +392,38 @@ def max(a: F32Array) -> F32Array & Maybe<&2, F32>:
   F32Array{+len, buf} = a
   max.first(len, peek(buf, 0))
 
-# As sum.go, over the products of the two cells.
-def dot.go(n: Nat, r: Array<Cell> & Cell, s: Array<Cell> & Cell, +i: U32, s0: F32, s1: F32, s2: F32, s3: F32) -> Array<Cell> & Array<Cell> & F32:
+def dot.cell(a: Cell, b: Cell) -> F32:
+  Cell{x0, x1, x2, x3, x4, x5, x6, x7} = a
+  Cell{y0, y1, y2, y3, y4, y5, y6, y7} = b
+  sum.cell(Cell{(x0 * y0 : F32), (x1 * y1 : F32), (x2 * y2 : F32), (x3 * y3 : F32), (x4 * y4 : F32), (x5 * y5 : F32), (x6 * y6 : F32), (x7 * y7 : F32)})
+
+def dot.merge(r: Array<Cell> & Array<Cell> & F32, +x: F32) -> Array<Cell> & Array<Cell> & F32:
+  (a, b, y) = r
+  (a, b, (x + y : F32))
+
+def dot.block(n: Nat, r: Array<Cell> & Cell, s: Array<Cell> & Cell, +i: U32, acc: F32) -> Array<Cell> & Array<Cell> & F32:
   match n:
     case 0n:
       (a, x) = r
       (b, y) = s
-      (a, b, ((s0 + s1 : F32) + (s2 + s3 : F32) : F32))
+      (a, b, acc)
     case 1n+p:
-      (a, Cell{x0, x1, x2, x3, x4, x5, x6, x7}) = r
-      (b, Cell{y0, y1, y2, y3, y4, y5, y6, y7}) = s
+      (a, x) = r
+      (b, y) = s
       +j = (i + 1 : U32)
-      dot.go(p, Array.get(Cell, a, j), Array.get(Cell, b, j), j, ((s0 + x0 * y0 : F32) + x4 * y4 : F32), ((s1 + x1 * y1 : F32) + x5 * y5 : F32), ((s2 + x2 * y2 : F32) + x6 * y6 : F32), ((s3 + x3 * y3 : F32) + x7 * y7 : F32))
+      dot.block(p, Array.get(Cell, a, j), Array.get(Cell, b, j), j, (acc + dot.cell(x, y) : F32))
+
+def dot.right(next: Array<Cell> -> Array<Cell> -> Array<Cell> & Array<Cell> & F32, r: Array<Cell> & Array<Cell> & F32) -> Array<Cell> & Array<Cell> & F32:
+  (a, b, x) = r
+  dot.merge(next(a, b), x)
+
+def dot.range(d: Nat, +n: U32, +i: U32, a: Array<Cell>, b: Array<Cell>) -> Array<Cell> & Array<Cell> & F32:
+  match d:
+    case 0n:
+      dot.block(U32.to_nat(n), Array.get(Cell, a, i), Array.get(Cell, b, i), i, 0.0)
+    case 1n+ +p:
+      +h = (n >> 1n : U32)
+      dot.right(a => b => dot.range(p, h, (i + h : U32), a, b), dot.range(p, h, i, a, b))
 
 def dot.fin(+la: U32, +lb: U32, r: Array<Cell> & Array<Cell> & F32) -> F32Array & F32Array & Maybe<&2, F32>:
   (a, b, x) = r
@@ -394,11 +432,11 @@ def dot.fin(+la: U32, +lb: U32, r: Array<Cell> & Array<Cell> & F32) -> F32Array 
 def dot.if(same: Bool, +la: U32, xa: Array<Cell>, +lb: U32, ya: Array<Cell>) -> F32Array & F32Array & Maybe<&2, F32>:
   match same:
     case True{}:
-      dot.fin(la, lb, dot.go(U32.to_nat(cells(la)), Array.get(Cell, xa, 0), Array.get(Cell, ya, 0), 0, 0.0, 0.0, 0.0, 0.0))
+      dot.fin(la, lb, dot.range(Nat.sub(Bytes.depth(cells(la)), 4n), (1 << Bytes.depth(cells(la)) : U32), 0, xa, ya))
     case False{}:
       (F32Array{la, xa}, F32Array{lb, ya}, None{})
 
-# Both arrays back, and the sum of a[i] * b[i], added in four running sums as sum adds. None when the lengths differ.
+# Both arrays back, and the pairwise sum of a[i] * b[i]. None when the lengths differ.
 def dot(a: F32Array, b: F32Array) -> F32Array & F32Array & Maybe<&2, F32>:
   F32Array{+la, xa} = a
   F32Array{+lb, ya} = b
@@ -506,79 +544,3 @@ def to_bytes.le(a: F32Array) -> Bytes.Bytes:
 def to_bytes.be(a: F32Array) -> Bytes.Bytes:
   to_bytes.with(~to_bits.be, a)
 
-# A file read in progress: more bytes to read, or the final result.
-type Read is Type:
-  More{file: File, acc: Bytes.Bytes, left: U32}
-  Stop{file: File, result: Result<&1, &1, U32 & String, Bytes.Bytes>}
-
-def read.next(more: Bool, file: File, acc: Bytes.Bytes, +left: U32) -> Read:
-  match more:
-    case True{}:
-      More{file, acc, left}
-    case False{}:
-      Stop{file, Done{acc}}
-
-# A read of no bytes ends the loop early, so a file that shrank stops there.
-def read.step(got: File & Result<&1, &1, U32 & String, Bytes.Bytes>, acc: Bytes.Bytes, +left: U32) -> Read:
-  (file, r) = got
-  match r:
-    case Fail{e}:
-      Stop{file, Fail{e}}
-    case Done{Bytes.Bytes{+m, buf}}:
-      +rest = (left - U32.min(m, left) : U32)
-      read.next(Bool.and(U32.is_ne(m, 0), U32.is_ne(rest, 0)), file, Bytes.append(acc, Bytes.Bytes{m, buf}), rest)
-
-# Each pass reads at least one byte or stops, so left + 1 passes are enough.
-def read.loop(n: Nat, st: Read) -> IO(File & Result<&1, &1, U32 & String, Bytes.Bytes>):
-  match n:
-    case 0n:
-      match st:
-        case More{file, acc, left}:
-          IO.pure(File & Result<&1, &1, U32 & String, Bytes.Bytes>, (file, Done{acc}))
-        case Stop{file, result}:
-          IO.pure(File & Result<&1, &1, U32 & String, Bytes.Bytes>, (file, result))
-    case 1n+p:
-      match st:
-        case More{file, acc, +left}:
-          do IO<File & Result<&1, &1, U32 & String, Bytes.Bytes>>:
-            got : File & Result<&1, &1, U32 & String, Bytes.Bytes> <- Files.read_bytes(file, U32.min(left, 1048576))
-            read.loop(p, read.step(got, acc, left))
-        case Stop{file, result}:
-          IO.pure(File & Result<&1, &1, U32 & String, Bytes.Bytes>, (file, result))
-
-def read.sized(sz: File & Result<&1, &1, U32 & String, U32>) -> IO(File & Result<&1, &1, U32 & String, Bytes.Bytes>):
-  (file, r) = sz
-  match r:
-    case Fail{e}:
-      IO.pure(File & Result<&1, &1, U32 & String, Bytes.Bytes>, (file, Fail{e}))
-    case Done{+n}:
-      read.loop(1n+U32.to_nat(n), read.next(U32.is_ne(n, 0), file, Bytes.new(0), n))
-
-def read.decode(m: Maybe<&1, F32Array>) -> Result<&1, &1, U32 & String, F32Array>:
-  match m:
-    case None{}:
-      Fail{(22, "f32array: the file size is not a multiple of 4")}
-    case Some{a}:
-      Done{a}
-
-def read.fin(~f: Bytes.Bytes -> Maybe<&1, F32Array>, got: File & Result<&1, &1, U32 & String, Bytes.Bytes>) -> File & Result<&1, &1, U32 & String, F32Array>:
-  (file, r) = got
-  match r:
-    case Fail{e}:
-      (file, Fail{e})
-    case Done{b}:
-      (file, read.decode(f(b)))
-
-def read.with(~f: Bytes.Bytes -> Maybe<&1, F32Array>, file: File) -> IO(File & Result<&1, &1, U32 & String, F32Array>):
-  do IO<File & Result<&1, &1, U32 & String, F32Array>>:
-    sz : File & Result<&1, &1, U32 & String, U32> <- File.size(file)
-    got : File & Result<&1, &1, U32 & String, Bytes.Bytes> <- read.sized(sz)
-    return read.fin(~f, got)
-
-# The rest of an open file, four little-endian bytes per element. Fails EINVAL when its size is not a multiple of 4.
-def read.le(file: File) -> IO(File & Result<&1, &1, U32 & String, F32Array>):
-  read.with(~from_bytes.le, file)
-
-# The rest of an open file, four big-endian bytes per element. Fails EINVAL when its size is not a multiple of 4.
-def read.be(file: File) -> IO(File & Result<&1, &1, U32 & String, F32Array>):
-  read.with(~from_bytes.be, file)

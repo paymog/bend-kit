@@ -15,7 +15,7 @@ VARIANTS = {
     "Bun": (None, ["bun", "bench.ts"]),
     "Node": (None, ["node", "--no-warnings", "bench.ts"]),
     "NumPy": (None, ["python3", "bench.py"]),
-    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
+    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "+RTS", "--threads", "8"]),
 }
 
 

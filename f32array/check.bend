@@ -2,6 +2,8 @@ import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-files@0.4.0.0/files.bend as Files
 import ./f32array.bend as A
+import ./io.bend as F
+import ./parallel.bend as P
 
 # The laws cannot run F32 arithmetic in the checker. This runs it natively, and at sizes the checker would not reach.
 
@@ -87,6 +89,28 @@ def loaded(r: File & Result<&1, &1, U32 & String, A.F32Array>) -> IO(A.F32Array)
     File.close(f)
     IO.try(A.F32Array, IO.pure(Result<&1, &1, U32 & String, A.F32Array>, x))
 
+def precision() -> A.F32Array:
+  A.set(A.map(~plus1, A.new(49152)), 0, 100000000.0)
+
+def sum.kept(r: A.F32Array & F32) -> Bool:
+  (a, x) = r
+  Bool.and(F32.is_eq(x, 1050012.0), has(value(A.get(A.set(a, 300002, 9.0), 300002)), 9.0))
+
+def dot.kept(r: A.F32Array & A.F32Array & Maybe<&2, F32>) -> Bool:
+  (a, b, x) = r
+  Bool.and(has(x, 4050034.0), Bool.and(has(value(A.get(A.set(a, 0, 11.0), 0)), 11.0), has(value(A.get(A.set(b, 0, 12.0), 0)), 12.0)))
+
+def mismatch.kept(r: A.F32Array & A.F32Array & Maybe<&2, F32>) -> Bool:
+  (a, b, x) = r
+  match x:
+    case None{}:
+      Bool.and(has(value(A.get(a, 0)), 2.0), has(value(A.get(b, 1)), 3.0))
+    case Some{v}:
+      False{}
+
+def nan(+x: F32) -> Bool:
+  F32.is_ne(x, x)
+
 def main() -> IO(Unit):
   +n = {300003 : U32}
   do IO<Unit>:
@@ -107,13 +131,29 @@ def main() -> IO(Unit):
     expect("big_sum", F32.is_eq(big.sum(n), 1050012.0))
     expect("big_dot", has(big.dot(n), 4050034.0))
     expect("big_roundtrip", has(big.roundtrip(n), 10.0))
+    expect("sum_precision", F32.is_eq(total(A.sum(precision())), 100049144.0))
+    expect("dot_precision", has(product(A.dot(precision(), A.map(~plus1, A.new(49152)))), 100049144.0))
+    expect("fork_sum_precision", F32.is_eq(total(P.sum.with_cutoff(precision(), 16)), 100049144.0))
+    expect("fork_dot_precision", has(product(P.dot.with_cutoff(precision(), A.map(~plus1, A.new(49152)), 16)), 100049144.0))
+    expect("fork_sum_kept", sum.kept(P.sum.with_cutoff(ramp(n, 1), 16)))
+    expect("fork_dot_kept", dot.kept(P.dot.with_cutoff(ramp(n, 1), ramp(n, 5), 16)))
+    expect("fork_empty", F32.is_eq(total(P.sum.with_cutoff(A.new(0), 0)), 0.0))
+    expect("fork_dot_empty", has(product(P.dot.with_cutoff(A.new(0), A.new(0), 0)), 0.0))
+    expect("fork_one", F32.is_eq(total(P.sum.with_cutoff(A.from_list([2.5]), 0)), 2.5))
+    expect("fork_mismatch", mismatch.kept(P.dot.with_cutoff(A.from_list([2.0]), A.from_list([1.0, 3.0]), 0)))
+    expect("default_sum_parallel", F32.is_eq(total(P.sum(A.map(~plus1, A.new(1048576)))), 1048576.0))
+    expect("default_dot_parallel", has(product(P.dot(A.map(~plus1, A.new(1048576)), A.map(~plus1, A.new(1048576)))), 1048576.0))
+    expect("default_sum_small", F32.is_eq(total(P.sum(A.from_list([F32.neg(2.0), 1.0]))), F32.neg(1.0)))
+    expect("default_dot_small", has(product(P.dot(A.from_list([F32.neg(2.0)]), A.from_list([3.0]))), F32.neg(6.0)))
+    expect("sum_nan", nan(total(A.sum(A.from_list([A.of_bits(2143289344), 1.0])))))
+    expect("fork_sum_infinities", nan(total(P.sum.with_cutoff(A.from_list([A.of_bits(2139095040), A.of_bits(4286578688)]), 0))))
     +dir : String <- IO.try(String, Files.temp_dir())
     +path : String = dir ++ "/f32.bin"
     w : File <- IO.try(File, File.open(path, "w"))
     wr : File & Result<&1, &1, U32 & String, Unit> <- Files.write_bytes(w, A.to_bytes.le(ramp(n, 1)))
     wrote(wr)
     r : File <- IO.try(File, File.open(path, "r"))
-    got : File & Result<&1, &1, U32 & String, A.F32Array> <- A.read.le(r)
+    got : File & Result<&1, &1, U32 & String, A.F32Array> <- F.read.le(r)
     a : A.F32Array <- loaded(got)
     expect("read_le", F32.is_eq(total(A.sum(a)), 1050012.0))
     rm1 : Unit <- IO.try(Unit, Files.remove(path))

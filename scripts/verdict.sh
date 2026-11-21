@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Shared type-check policy for runtime entries and pure proofs.
+# Bend fails any check that imports @unsafe or foreign code. Accept that when
+# no def matching $2 relies on it: the file type-checks and its laws hold.
+verdict() {
+  local out
+  if out=$(bend "$1" --check-only 2>&1); then echo "$out"; return; fi
+  echo "$out"
+  printf '%s\n' "$out" | awk -v bad="$2" '
+    NR == 1 { ok = $0 == "SOME PROOFS FAIL"; next }
+    NR == 2 { ok = ok && /^Error: [0-9]+ defs? rel(y|ies) on unsafe or foreign code:$/; next }
+    /^bend [0-9.]+ is available: run bend update$/ { next }
+    /^Hint: / { next }
+    !/^defs that depend on [^:]+: / { ok = 0; next }
+    bad != "" { sub(/^[^:]+: /, ""); n = split($0, names, ", "); for (i = 1; i <= n; i++) if (names[i] ~ bad) ok = 0 }
+    END { exit !ok }'
+}

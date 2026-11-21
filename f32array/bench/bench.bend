@@ -3,6 +3,7 @@ import Base
 import ../../time/time.bend as Time
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ../f32array.bend as A
+import ../parallel.bend as P
 
 # N = 2^22 elements. a[i] = (i + 3) & 3 and b[i] = (5i + 3) & 3, so every sum is an exact integer.
 
@@ -102,7 +103,7 @@ def op.dot.done(t0: Time.Duration, r: A.F32Array & A.F32Array & Maybe<&2, F32>) 
 def op.dot(a: A.F32Array, b: A.F32Array) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    op.dot.done(t0, A.dot(a, b))
+    op.dot.done(t0, P.dot(a, b))
 
 def op.max.done(t0: Time.Duration, b: A.F32Array, r: A.F32Array & Maybe<&2, F32>) -> IO(Unit):
   (a, x) = r
@@ -124,7 +125,7 @@ def op.sum.done(t0: Time.Duration, b: A.F32Array, r: A.F32Array & F32) -> IO(Uni
 def op.sum(a: A.F32Array, b: A.F32Array) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    op.sum.done(t0, b, A.sum(a))
+    op.sum.done(t0, b, P.sum(a))
 
 def op.from.chk(t0: Time.Duration, b: A.F32Array, r: A.F32Array & U32) -> IO(Unit):
   (a, +v) = r
