@@ -226,3 +226,138 @@ def finish_guards(+p: U32, +n: U32, +end: U32,
      le_right_rw(U32.to_nat(n), U32.to_nat((finish_bits(end) - p : U32)),
        Nat.sub(rounded(Nat.add(U32.to_nat(p), U32.to_nat(n))), U32.to_nat(p)),
        finished_remaining_nat(p, n, end, e, hf, sk), rounded_remaining(U32.to_nat(p), U32.to_nat(n)))))
+
+def index(+p: U32) -> U32:
+  U32.shrn(p, 5n)
+
+def offset(+p: U32) -> U32:
+  U32.and(p, 31)
+
+def index_nat(+p: U32) -> {U32.to_nat(index(p)) == Nat.div(U32.to_nat(p), 32n) : Nat}:
+  Field.shrn_nat(p, 5n)
+
+def offset_nat(+p: U32) -> {U32.to_nat(offset(p)) == Nat.mod(U32.to_nat(p), 32n) : Nat}:
+  Field.mask_mod(p, 5, {==})
+
+# Keep division and bounds opaque to concrete words: https://github.com/bendlang/bend/issues/1071.
+def offset_bound_nat(+p: Nat, +s: Nat, e: {s == Nat.mod(p, 32n) : Nat}) -> MNat.le(s, 31n):
+  le_left_rw(s, Nat.mod(p, 32n), 31n, e,
+    MNat.le_of_lt_succ(Nat.mod(p, 32n), 31n, MNat.mod_lt(p, 31n)))
+
+def offset_bound(+p: U32) -> MNat.le(U32.to_nat(offset(p)), 31n):
+  offset_bound_nat(U32.to_nat(p), U32.to_nat(offset(p)), offset_nat(p))
+
+def position_split_nat(+p: Nat, +q: Nat, +s: Nat,
+  eq: {q == Nat.div(p, 32n) : Nat}, es: {s == Nat.mod(p, 32n) : Nat}) ->
+  {Nat.add(Nat.mul(q, 32n), s) == p : Nat}:
+  %Equal.sym(Nat, q, Nat.div(p, 32n), eq) : {Nat.add(Nat.mul(_, 32n), s) == p : Nat}
+  %Equal.sym(Nat, s, Nat.mod(p, 32n), es) :
+    {Nat.add(Nat.mul(Nat.div(p, 32n), 32n), _) == p : Nat}
+  MNat.div_mod_eq(p, 31n)
+
+def position_split(+p: U32) ->
+  {Nat.add(Nat.mul(U32.to_nat(index(p)), 32n), U32.to_nat(offset(p))) == U32.to_nat(p) : Nat}:
+  position_split_nat(U32.to_nat(p), U32.to_nat(index(p)), U32.to_nat(offset(p)),
+    index_nat(p), offset_nat(p))
+
+def position_add_nat(+p: U32, +n: U32,
+  h: MNat.lt(Nat.add(U32.to_nat(p), U32.to_nat(n)), Lemmas.pow2(32n))) ->
+  {U32.to_nat(U32.add(p, n)) == Nat.add(U32.to_nat(p), U32.to_nat(n)) : Nat}:
+  %add_word_nat(p, n) : {_ == Nat.add(U32.to_nat(p), U32.to_nat(n)) : Nat}
+  word_sum_nat(32n, Field.word(p), Field.word(n), U32.to_nat(p), U32.to_nat(n),
+    Field.word_nat(p), Field.word_nat(n), h)
+
+def position_step_split(+p: Nat, +n: Nat, +q: Nat, +s: Nat, +end: Nat,
+  ep: {Nat.add(Nat.mul(q, 32n), s) == p : Nat},
+  ee: {end == Nat.add(p, n) : Nat}) ->
+  {Nat.add(Nat.mul(q, 32n), Nat.add(s, n)) == end : Nat}:
+  Equal.trans(Nat, Nat.add(Nat.mul(q, 32n), Nat.add(s, n)), Nat.add(p, n), end,
+    Equal.trans(Nat, Nat.add(Nat.mul(q, 32n), Nat.add(s, n)),
+      Nat.add(Nat.add(Nat.mul(q, 32n), s), n), Nat.add(p, n),
+      Equal.sym(Nat, Nat.add(Nat.add(Nat.mul(q, 32n), s), n),
+        Nat.add(Nat.mul(q, 32n), Nat.add(s, n)), MNat.add_assoc(Nat.mul(q, 32n), s, n)),
+      Equal.cong(Nat, Nat, a => Nat.add(a, n), Nat.add(Nat.mul(q, 32n), s), p, ep)),
+    Equal.sym(Nat, end, Nat.add(p, n), ee))
+
+def next_noncross_nat(+p: Nat, +n: Nat, +q: Nat, +s: Nat, +end: Nat,
+  ep: {Nat.add(Nat.mul(q, 32n), s) == p : Nat},
+  ee: {end == Nat.add(p, n) : Nat}, +h: MNat.lt(Nat.add(s, n), 32n)) ->
+  {Nat.mod(end, 32n) == Nat.add(s, n) : Nat} & {Nat.div(end, 32n) == q : Nat}:
+  +e = position_step_split(p, n, q, s, end, ep, ee)
+  (Equal.sym(Nat, Nat.add(s, n), Nat.mod(end, 32n),
+    Lemmas.mod_unique(q, Nat.add(s, n), end, 32n, h, e)),
+   Equal.sym(Nat, q, Nat.div(end, 32n),
+    Lemmas.div_unique(32n, q, Nat.add(s, n), end, {==}, h, e)))
+
+def cross_remainder_bound(+s: Nat, +n: Nat, hs: MNat.le(s, 31n), hn: MNat.le(n, 32n)) ->
+  MNat.lt(Nat.sub(Nat.add(s, n), 32n), 32n):
+  MNat.lt_succ_of_le(Nat.sub(Nat.add(s, n), 32n), 31n,
+    MNat.sub_le_sub_right(Nat.add(s, n), 63n, MNat.add_le_add(s, n, 31n, 32n, hs, hn), 32n))
+
+def cross_split(+q: Nat, +t: Nat, h: MNat.le(32n, t)) ->
+  {Nat.add(Nat.mul(1n+q, 32n), Nat.sub(t, 32n)) == Nat.add(Nat.mul(q, 32n), t) : Nat}:
+  %Equal.sym(Nat, Nat.mul(1n+q, 32n), Nat.add(Nat.mul(q, 32n), 32n), MNat.succ_mul(q, 32n)) :
+    {Nat.add(_, Nat.sub(t, 32n)) == Nat.add(Nat.mul(q, 32n), t) : Nat}
+  %Equal.sym(Nat, Nat.add(Nat.add(Nat.mul(q, 32n), 32n), Nat.sub(t, 32n)),
+    Nat.add(Nat.mul(q, 32n), Nat.add(32n, Nat.sub(t, 32n))),
+    MNat.add_assoc(Nat.mul(q, 32n), 32n, Nat.sub(t, 32n))) :
+    {_ == Nat.add(Nat.mul(q, 32n), t) : Nat}
+  Equal.cong(Nat, Nat, a => Nat.add(Nat.mul(q, 32n), a),
+    Nat.add(32n, Nat.sub(t, 32n)), t, MNat.add_sub_of_le(32n, t, h))
+
+def next_cross_nat(+p: Nat, +n: Nat, +q: Nat, +s: Nat, +end: Nat,
+  ep: {Nat.add(Nat.mul(q, 32n), s) == p : Nat},
+  ee: {end == Nat.add(p, n) : Nat},
+  hs: MNat.le(s, 31n), hn: MNat.le(n, 32n), h: MNat.le(32n, Nat.add(s, n))) ->
+  {Nat.mod(end, 32n) == Nat.sub(Nat.add(s, n), 32n) : Nat} &
+  {Nat.div(end, 32n) == 1n+q : Nat}:
+  +hr = cross_remainder_bound(s, n, hs, hn)
+  +e = Equal.trans(Nat, Nat.add(Nat.mul(1n+q, 32n), Nat.sub(Nat.add(s, n), 32n)),
+    Nat.add(Nat.mul(q, 32n), Nat.add(s, n)), end,
+    cross_split(q, Nat.add(s, n), h), position_step_split(p, n, q, s, end, ep, ee))
+  (Equal.sym(Nat, Nat.sub(Nat.add(s, n), 32n), Nat.mod(end, 32n),
+    Lemmas.mod_unique(1n+q, Nat.sub(Nat.add(s, n), 32n), end, 32n, hr, e)),
+   Equal.sym(Nat, 1n+q, Nat.div(end, 32n),
+    Lemmas.div_unique(32n, 1n+q, Nat.sub(Nat.add(s, n), 32n), end, {==}, hr, e)))
+
+def position_step.of(+end: U32, +s: Nat, +q: Nat,
+  h: {Nat.mod(U32.to_nat(end), 32n) == s : Nat} & {Nat.div(U32.to_nat(end), 32n) == q : Nat}) ->
+  {U32.to_nat(offset(end)) == s : Nat} & {U32.to_nat(index(end)) == q : Nat}:
+  (es, eq) = h
+  (Equal.trans(Nat, U32.to_nat(offset(end)), Nat.mod(U32.to_nat(end), 32n), s, offset_nat(end), es),
+   Equal.trans(Nat, U32.to_nat(index(end)), Nat.div(U32.to_nat(end), 32n), q, index_nat(end), eq))
+
+def position_step_noncross(+p: U32, +n: U32, +end: U32,
+  ee: {U32.to_nat(end) == Nat.add(U32.to_nat(p), U32.to_nat(n)) : Nat},
+  h: MNat.lt(Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)), 32n)) ->
+  {U32.to_nat(offset(end)) == Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)) : Nat} &
+  {U32.to_nat(index(end)) == U32.to_nat(index(p)) : Nat}:
+  position_step.of(end, Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)), U32.to_nat(index(p)),
+    next_noncross_nat(U32.to_nat(p), U32.to_nat(n), U32.to_nat(index(p)),
+      U32.to_nat(offset(p)), U32.to_nat(end), position_split(p), ee, h))
+
+def position_step_cross(+p: U32, +n: U32, +end: U32,
+  ee: {U32.to_nat(end) == Nat.add(U32.to_nat(p), U32.to_nat(n)) : Nat},
+  hn: MNat.le(U32.to_nat(n), 32n),
+  h: MNat.le(32n, Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)))) ->
+  {U32.to_nat(offset(end)) == Nat.sub(Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)), 32n) : Nat} &
+  {U32.to_nat(index(end)) == 1n+U32.to_nat(index(p)) : Nat}:
+  position_step.of(end, Nat.sub(Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)), 32n),
+    1n+U32.to_nat(index(p)),
+    next_cross_nat(U32.to_nat(p), U32.to_nat(n), U32.to_nat(index(p)),
+      U32.to_nat(offset(p)), U32.to_nat(end), position_split(p), ee, offset_bound(p), hn, h))
+
+def next_noncross(+p: U32, +n: U32,
+  room: MNat.lt(Nat.add(U32.to_nat(p), U32.to_nat(n)), Lemmas.pow2(32n)),
+  h: MNat.lt(Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)), 32n)) ->
+  {U32.to_nat(offset(U32.add(p, n))) == Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)) : Nat} &
+  {U32.to_nat(index(U32.add(p, n))) == U32.to_nat(index(p)) : Nat}:
+  position_step_noncross(p, n, U32.add(p, n), position_add_nat(p, n, room), h)
+
+def next_cross(+p: U32, +n: U32,
+  room: MNat.lt(Nat.add(U32.to_nat(p), U32.to_nat(n)), Lemmas.pow2(32n)),
+  hn: MNat.le(U32.to_nat(n), 32n),
+  h: MNat.le(32n, Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)))) ->
+  {U32.to_nat(offset(U32.add(p, n))) == Nat.sub(Nat.add(U32.to_nat(offset(p)), U32.to_nat(n)), 32n) : Nat} &
+  {U32.to_nat(index(U32.add(p, n))) == 1n+U32.to_nat(index(p)) : Nat}:
+  position_step_cross(p, n, U32.add(p, n), position_add_nat(p, n, room), hn, h)

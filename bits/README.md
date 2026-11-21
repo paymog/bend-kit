@@ -60,6 +60,9 @@ Both return `None` when a length exceeds 16 or the lengths over-subscribe the co
 
 `LAWS.bend` states read-after-write for every field width from 0 to 32, every U32 value, and every prefix written in the same order. The read value is `v mod 2^n`. The total bit count plus 31 must stay below `2^32`, because writer capacity arithmetic uses that sum. The existing fixture proofs also fix each bit layout and decode the fixed DEFLATE literal/length code (RFC 1951 §3.2.6) for all 288 symbols. They write every generated code for lengths `[2, 1, 3, 3]` and the fixed DEFLATE lengths, then decode them in both orders. `check.bend` round-trips 20,000 random fields per order on the native `Array`. `bench/` times decode against zlib and `bitstream-io`.
 
-The universal laws remain open in this draft. The field, array, and position
-proofs check. Writer invariant preservation and the final law implementations
-still need proofs.
+The universal laws remain open in this draft. The array and position proofs
+cover growth observations and word-boundary transitions. Writer readback proofs
+now connect both field orders to the array model, including wrapped reads for
+fields that stay in one word. Reader finish and skip guards also compose.
+Capacity growth, writer invariant preservation, and prefix induction still need
+proofs before the two universal laws can be filled.
