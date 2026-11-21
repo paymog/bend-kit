@@ -101,7 +101,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`migrate`](migrate) | `bend-kit-migrate@0.4.0.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
 | [`archive`](archive) | `bend-kit-archive@0.5.1.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
-| [`zlib`](zlib) | `bend-kit-zlib@0.5.1.1/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
+| [`zlib`](zlib) | `bend-kit-zlib@0.5.2.0/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.1.0/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
 
 ### Network

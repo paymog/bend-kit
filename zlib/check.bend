@@ -1,6 +1,8 @@
 import Base
 import ./zlib.bend as Z
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import ./encode.bend as Encode
+import bend-kit-bits@0.3.0.0/bits.bend as Bits
 
 def show(m: Maybe<&1, Bytes.Bytes>) -> IO(Unit):
   match m:
@@ -152,11 +154,72 @@ def stream.test(+kind: U32, +want: String, +one: Bool, src: Bytes.Bytes) -> IO(U
     d : Z.Decoder <- stream.new(r)
     stream.test.with(one, len, want, StreamState{d, Bytes.Bytes{len, words}, Bytes.new(0)})
 
+def encoder.got(+s: String, r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
+  match r:
+    case Fail{(+code, why)}:
+      IO.die(Unit, code, why)
+    case Done{b}:
+      ok(String.eq(Bytes.to_string(b), s), "pure encoder, libz decoder")
+
+def encoder.case(+s: String) -> IO(Unit):
+  do IO<Unit>:
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(200000, Z.deflate(Bytes.from_string(s)))
+    encoder.got(s, r)
+
+def encoder.noise(n: Nat, +seed: U32, acc: String) -> String:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      encoder.noise(p, (seed * 1664525 + 1013904223 : U32), SCon{Chr{(97 + (U32.shrn(seed, 24n) .&. 15) : U32)}, acc})
+
+def encoder.lazy.tokens(tokens: List<&2, Encode.Token>) -> IO(Unit):
+  match tokens:
+    case Nil{}:
+      IO.die(Unit, 1, "lazy match missing")
+    case Con{Encode.Copy{+ls, le, lv, ds, de, dv}, rest}:
+      ok(U32.is_eq(ls, 260), "lazy matching")
+    case Con{Encode.Lit{s}, rest}:
+      IO.die(Unit, 1, "lazy match was emitted as literals")
+def encoder.lazy(st: Z.Es) -> IO(Unit):
+  Z.Es{z, tokens, i, n, more} = st
+  encoder.lazy.tokens(tokens)
+
+
+def encoder.lazy.input(b: Bytes.Bytes) -> IO(Unit):
+  Bytes.Bytes{+n, src} = b
+  encoder.lazy(Z.es.go(U32.to_nat(n), Z.Es{Z.Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, Nil{}, 0, n, True{}}))
+
+def encoder.tree.codes(m: Maybe<&2, List<&2, Bits.Encoding>>) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.die(Unit, 1, "limited Huffman tree is invalid")
+    case Some{codes}:
+      IO.print("limited Huffman tree")
+
+def encoder.tree(+ls: List<&2, U32>) -> IO(Unit):
+  do IO<Unit>:
+    ok(U32.is_le(Encode.maxlen(ls, 0), 15), "Huffman depth limit")
+    encoder.tree.codes(Bits.Huff.encode_lens(ls))
+
+def encoder.check() -> IO(Unit):
+  do IO<Unit>:
+    encoder.case("")
+    encoder.case(String.repeat("a", 600n))
+    encoder.case(String.repeat("abcde abcdf ghijkl mnopqr stuvwx yz. ", 2200n))
+    encoder.case(String.repeat("a", 32767n))
+    encoder.case(String.repeat("a", 32768n))
+    encoder.case(String.repeat("a", 32769n))
+    encoder.case(encoder.noise(70000n, 123456789, ""))
+    encoder.lazy.input(Bytes.from_string("Xabc!abcdef?Xabcdef"))
+    encoder.tree(Encode.tree.lengths(21n, [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946]))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Z.inflate(raw()))
     show(Z.inflate(Bytes.from_string("x")))
     show(Z.gunzip(Z.gzip(Bytes.from_string("pure round trip"))))
+    encoder.check()
     r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.zstd(1000, frames())
     got("hello zstd", r)
     e : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.zstd(5, frames())

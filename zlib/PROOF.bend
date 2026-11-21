@@ -59,6 +59,9 @@ def Laws.deflate_run():
 def Laws.deflate_repeats():
   {==}
 
+def Laws.deflate_dynamic():
+  {==}
+
 def Laws.gzip_pinned():
   {==}
 
