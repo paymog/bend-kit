@@ -3,12 +3,9 @@ import ./bits.bend as Bits
 import ./LAWS.bend as Laws
 import ./writer-proof.bend as W
 import ./array-proof.bend as A
-import ./position-proof.bend as Position
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as L
 import bend-mathlib@0.8.0.0/nat.bend as N
 import bend-mathlib@0.8.0.0/u32.bend as U
-import ./field-proof.bend as Field
 
 def image(s: W.State) -> A.Tree:
   W.State{t, depth, pos} = s
@@ -65,31 +62,6 @@ def prefix_nonempty_bridge(+n: U32, +v: U32, +tail: List<&2, Laws.F>, +msb: Bool
     {Laws.puts(tail, msb, _) == W.build(msb, W.puts(Con{Laws.F{n, v}, tail}, msb, W.new())) : Bits.Writer}
   W.puts_bridge(tail, msb, W.write(msb, W.new(), n, v))
 
-def div_small(+a: Nat, b: Nat, h: N.lt(a, b)) -> {Nat.div(a, b) == 0n : Nat}:
-  match b:
-    case 0n:
-      Empty.absurd({Nat.div(a, 0n) == 0n : Nat}, N.lt_zero(a)(h))
-    case 1n++p:
-      N.div_eq_zero_of_le(a, p, N.le_of_lt_succ(a, p, h))
-
-def zero_field(msb: Bool, +v: U32) -> {U32.to_nat(Bits.field(msb, 0, v)) == 0n : Nat}:
-  match msb:
-    case False{}:
-      Equal.trans(Nat, U32.to_nat(U32.and(v, Bits.mask(0))), Nat.mod(U32.to_nat(v), 1n), 0n,
-        Field.mask_mod(v, 0, {==}), N.mod_one(U32.to_nat(v)))
-    case True{}:
-      Equal.trans(Nat, U32.to_nat(U32.shrn(v, 32n)), Nat.div(U32.to_nat(v), L.pow2(32n)), 0n,
-        Field.shrn_nat(v, 32n), div_small(U32.to_nat(v), L.pow2(32n), L.u32_to_nat_lt(v)))
-
-def zero_written_field(+msb: Bool, +s: W.State, +v: U32) ->
-  {U32.to_nat(Bits.field(msb, 0, W.window(msb, image(W.write(msb, s, 0, v)), W.position(s)))) ==
-    Nat.mod(U32.to_nat(v), L.pow2(U32.to_nat(0))) : Nat}:
-  Equal.trans(Nat,
-    U32.to_nat(Bits.field(msb, 0, W.window(msb, image(W.write(msb, s, 0, v)), W.position(s)))),
-    0n, Nat.mod(U32.to_nat(v), 1n),
-    zero_field(msb, W.window(msb, image(W.write(msb, s, 0, v)), W.position(s))),
-    Equal.sym(Nat, Nat.mod(U32.to_nat(v), 1n), 0n, N.mod_one(U32.to_nat(v))))
-
 def initial_put_order(+msb: Bool, +n: U32, +v: U32) ->
   {Laws.put(msb, Bits.Writer.new(), n, v) == Laws.put(msb, W.build(msb, W.new()), n, v) : Bits.Writer}:
   Equal.trans(Bits.Writer, Laws.put(msb, Bits.Writer.new(), n, v),
@@ -136,3 +108,31 @@ def valid_eta(+msb: Bool, +s: W.State, h: W.valid(msb, s)) ->
   W.valid(msb, W.State{image(s), depth(s), W.position(s)}):
   %state_eta(s) : W.valid(msb, _)
   h
+
+def room_at_position(+bits: Nat, +p: U32, +n: U32, +limit: Nat,
+  e: {U32.to_nat(p) == bits : Nat},
+  h: N.lt(Nat.add(Nat.add(bits, U32.to_nat(n)), 31n), limit)) ->
+  N.lt(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), limit):
+  L.lt_rw(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n),
+    Nat.add(Nat.add(bits, U32.to_nat(n)), 31n), limit,
+    Equal.cong(Nat, Nat, q => Nat.add(Nat.add(q, U32.to_nat(n)), 31n), U32.to_nat(p), bits, e), h)
+
+def prefix_room_bound(+p: Nat, +n: Nat, +limit: Nat,
+  h: N.lt(Nat.add(Nat.add(p, n), 31n), limit)) ->
+  N.lt(Nat.add(p, 31n), limit):
+  N.lt_of_le_of_lt(Nat.add(p, 31n), Nat.add(Nat.add(p, n), 31n), limit,
+    N.add_le_add_right(p, Nat.add(p, n), 31n, N.le_add_right(p, n)), h)
+
+# Preserve the initial-position syntax at the large bound: https://github.com/bendlang/bend/issues/1071.
+def new_prefix_bound(+bits: Nat, +n: Nat, +limit: Nat,
+  room: N.lt(Nat.add(Nat.add(bits, n), 31n), limit)) ->
+  N.lt(Nat.add(U32.to_nat(W.position(W.new())), bits), limit):
+  N.lt_of_le_of_lt(bits, Nat.add(Nat.add(bits, n), 31n), limit,
+    N.le_trans(bits, Nat.add(bits, n), Nat.add(Nat.add(bits, n), 31n),
+      N.le_add_right(bits, n), N.le_add_right(Nat.add(bits, n), 31n)), room)
+
+def prefix_position(+fs: List<&2, Laws.F>, +msb: Bool, +n: U32,
+  room: N.lt(Nat.add(Nat.add(Laws.prefix_bits(fs), U32.to_nat(n)), 31n), L.pow2(32n))) ->
+  {U32.to_nat(W.position(W.puts(fs, msb, W.new()))) == Laws.prefix_bits(fs) : Nat}:
+  W.puts_position(fs, msb, W.new(),
+    new_prefix_bound(Laws.prefix_bits(fs), U32.to_nat(n), L.pow2(32n), room))

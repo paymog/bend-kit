@@ -3,15 +3,6 @@ import bend-kit-lemmas@0.1.5.1/lemmas.bend as L
 import bend-mathlib@0.8.0.0/nat.bend as N
 import ./field-proof.bend as Field
 import ./position-proof.bend as Position
-import ../lemmas/perfect.bend as P
-
-# Adapt order aliases without normalizing powers: https://github.com/bendlang/bend/issues/1071.
-def nat_lt(-a: Nat, -b: Nat, h: P.lt(a, b)) -> N.lt(a, b):
-  h
-
-def proof_lt(-a: Nat, -b: Nat, h: N.lt(a, b)) -> P.lt(a, b):
-  h
-
 def words(+d: Nat) -> Nat:
   L.pow2(d)
 
@@ -212,18 +203,6 @@ def index_at_capacity(+d: Nat, +p: U32, ep: {U32.to_nat(p) == bits(d) : Nat}) ->
       Equal.cong(Nat, Nat, x => Nat.div(x, 32n), U32.to_nat(p), bits(d), ep),
       N.mul_div_cancel(words(d), 31n)))
 
-def offset_at_capacity_nat(+d: Nat, +p: U32, ep: {U32.to_nat(p) == bits(d) : Nat}) ->
-  {U32.to_nat(Position.offset(p)) == 0n : Nat}:
-  Equal.trans(Nat, U32.to_nat(Position.offset(p)), Nat.mod(U32.to_nat(p), 32n), 0n,
-    Position.offset_nat(p),
-    Equal.trans(Nat, Nat.mod(U32.to_nat(p), 32n), Nat.mod(bits(d), 32n), 0n,
-      Equal.cong(Nat, Nat, x => Nat.mod(x, 32n), U32.to_nat(p), bits(d), ep),
-      N.mul_mod_left(words(d), 32n)))
-
-def offset_at_capacity(+d: Nat, +p: U32, ep: {U32.to_nat(p) == bits(d) : Nat}) ->
-  {Position.offset(p) == 0 : U32}:
-  L.u32_to_nat_inj(Position.offset(p), 0, offset_at_capacity_nat(d, p, ep))
-
 # Keep the split position opaque while cancelling capacity: https://github.com/bendlang/bend/issues/1071.
 def cross_index_nat(+c: Nat, +p: Nat, +n: Nat, +q: Nat, +s: Nat,
   ep: {Nat.add(Nat.mul(q, 32n), s) == p : Nat},
@@ -305,15 +284,6 @@ def cross_next_index_lt(+d: Nat, +p: U32, +n: U32, +hd: N.lt(d, 28n),
       N.le_trans(U32.to_nat(p), Nat.add(U32.to_nat(p), U32.to_nat(n)), bits(d),
         N.le_add_right(U32.to_nat(p), U32.to_nat(n)), room))) : N.lt(_, words(d))
   cross_index_lt(d, p, n, room, cross)
-
-def runtime_depth_bound(+full: Bool, +d: U32, +p: U32, +n: U32,
-  e: {full == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(U32.to_nat(p), U32.to_nat(n))) : Bool},
-  +hd: N.lt(U32.to_nat(d), 28n),
-  h: N.lt(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), L.pow2(32n))) ->
-  N.lt(U32.to_nat(Bool.pick(U32, full, (d + 1 : U32), d)), 28n):
-  %Equal.sym(Nat, U32.to_nat(Bool.pick(U32, full, (d + 1 : U32), d)), depth(full, U32.to_nat(d)),
-    runtime_depth(full, d, hd)) : N.lt(_, 28n)
-  depth_bound(full, U32.to_nat(d), U32.to_nat(p), U32.to_nat(n), e, hd, h)
 
 def runtime_covers(+full: Bool, +d: U32, +p: U32, +n: U32,
   e: {full == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(U32.to_nat(p), U32.to_nat(n))) : Bool},

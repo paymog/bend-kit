@@ -115,15 +115,15 @@ buffer and a checksum of every result word are outside the timer. The new right
 subtree contains zeroes. Each sample checks its checksum and exits on a mismatch.
 
 M4 Pro, macOS 25.6.0, arm64, Bend 2.0.40. Median of three samples,
-2026-11-20. Times are milliseconds per doubling.
+2026-11-21. Times are milliseconds per doubling.
 
 | old buffer | copy | retain subtree | checksum |
 |---|---:|---:|---:|
-| 256 KiB | 0.054542 | 0.046375 | 3440705536 |
-| 1 MiB | 0.103084 | 0.065667 | 877920256 |
+| 256 KiB | 0.057292 | 0.042458 | 3440705536 |
+| 1 MiB | 0.117916 | 0.082209 | 877920256 |
 
 Both methods returned the expected checksum in every sample. These short runs
 measure one growth operation, not whole-stream write throughput.
 The fixed-block suite (`python3 run.py 3`) also passed all five checksums:
-Bend Huffman 8.43 ms and fields 0.57 ms; C 2.98 ms; Rust Huffman 36.46 ms
-and fields 0.61 ms; Python 1.89 ms; Bun 3.13 ms.
+Bend Huffman 8.40 ms and fields 0.57 ms; C 3.02 ms; Rust Huffman 36.33 ms
+and fields 0.61 ms; Python 1.77 ms; Bun 3.15 ms.

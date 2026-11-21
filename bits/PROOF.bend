@@ -1,8 +1,12 @@
 import Base
-import ./bits.bend as Bits
 import ./LAWS.bend as Laws
-import ./writer-proof.bend as WriterProof
-import ./position-proof.bend as PositionProof
+import ./roundtrip-proof.bend as Roundtrip
+
+def Laws.lsb_read_after_write(fs, n, v, width, room):
+  Roundtrip.lawful_read_after_write(False{}, fs, n, v, width, room)
+
+def Laws.msb_read_after_write(fs, n, v, width, room):
+  Roundtrip.lawful_read_after_write(True{}, fs, n, v, width, room)
 
 def Laws.lsb_roundtrip():
   {==}
