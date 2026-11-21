@@ -1,6 +1,8 @@
 import Base
 import ./bits.bend as Bits
 import ./LAWS.bend as Laws
+import ./writer-proof.bend as WriterProof
+import ./position-proof.bend as PositionProof
 
 def Laws.lsb_roundtrip():
   {==}
