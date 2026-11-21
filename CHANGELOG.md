@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `bits` 0.2.0.0: measure dynamic Huffman table builds and use a nine-bit root with secondary tables for long codes. The `Huff` constructor now owns two arrays. Breaking.
+
 - `bits` 0.1.1.0: build canonical writer codes from lengths or symbol/length pairs, without a decode table. Write each code in either stream order and prove every small and fixed DEFLATE code decodes back.
 
 - `hash` 0.3.2.0: add SipHash-2-4 over bytes and byte strings. Share the round-count core with SipHash-1-3 and keep its outputs unchanged. Check the paper's reference vectors and compare the new benchmark row with libsodium.

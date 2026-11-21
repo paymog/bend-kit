@@ -5,8 +5,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
-RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-PLAIN = int(sys.argv[2]) if len(sys.argv) > 2 else 1_048_576
+BUILD = "--build" in sys.argv
+ARGS = [x for x in sys.argv[1:] if x != "--build"]
+RUNS = int(ARGS[0]) if ARGS else 3
+PLAIN = int(ARGS[1]) if len(ARGS) > 1 else 1_048_576
 OPS = ("huffman", "fields")
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1", "NODE_NO_WARNINGS": "1",
        "CARGO_TARGET_DIR": str(OUT / "target")}
@@ -104,6 +106,71 @@ def fields13(data):
     return [(v >> (13 * i)) & 8191 for i in range(total // 13)]
 
 
+def dynamic(plain):
+    """A complete max-15 literal tree and one unused distance code."""
+    lens = [8] * 255 + [9, 10, 11, 12, 13, 14, 15, 15]
+    counts = [lens.count(i) for i in range(16)]
+    code, next_code = 0, {}
+    for length in range(1, 16):
+        code = (code + counts[length - 1]) << 1
+        next_code[length] = code
+    codes = []
+    for length in lens:
+        codes.append((next_code[length], length))
+        next_code[length] += 1
+    bits = []
+
+    def put(v, n):
+        bits.extend((v >> i) & 1 for i in range(n))
+
+    put(1, 1)
+    put(2, 2)
+    put(len(lens) - 257, 5)
+    put(0, 5)
+    put(15, 4)
+    for symbol in [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]:
+        put(4 if symbol < 16 else 0, 3)
+    for length in lens + [1]:
+        put(int(f"{length:04b}"[::-1], 2), 4)
+    header = len(bits)
+    for symbol in list(plain) + [256]:
+        value, length = codes[symbol]
+        put(int(f"{value:0{length}b}"[::-1], 2), length)
+
+    def pack(xs):
+        return bytes(sum(bit << j for j, bit in enumerate(xs[i:i + 8]))
+                     for i in range(0, len(xs), 8))
+
+    return pack(bits), pack([0, 0, 0] + bits[header:])
+
+
+def build_bench():
+    OUT.mkdir(exist_ok=True)
+    subprocess.run(["bend", "build.bend", "-o", OUT / "build"], cwd=HERE, env=ENV, check=True)
+    subprocess.run(VARIANTS["C (zlib inflate)"][0], cwd=HERE, env=ENV, check=True)
+    print("| plain bytes | Bend build ms | Bend decode ms | build / decode | zlib inflate ms |")
+    print("|---:|---:|---:|---:|---:|")
+    for size in (1024, 4096, 8192, 16383):
+        plain = plain_bytes(size)
+        payload, short = dynamic(plain)
+        assert zlib.decompress(payload, -15) == plain
+        (OUT / "payload.bin").write_bytes(payload)
+        (OUT / "short.bin").write_bytes(short)
+        times = {"build": [], "decode": [], "huffman": []}
+        want = str(checksum(plain))
+        for _ in range(RUNS):
+            for binary in ("build", "c"):
+                r = subprocess.run([OUT / binary], cwd=HERE, env=ENV, capture_output=True, text=True, check=True)
+                for line in r.stdout.splitlines():
+                    if line.count("\t") != 2:
+                        continue
+                    op, ms, result = line.split("\t")
+                    assert result == want, (op, result, want)
+                    times[op].append(float(ms))
+        build, decode, inflate = (statistics.median(times[op]) for op in ("build", "decode", "huffman"))
+        print(f"| {size} | {build:.6f} | {decode:.6f} | {build / decode:.2f} | {inflate:.6f} |", flush=True)
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     plain = plain_bytes(PLAIN)
@@ -141,4 +208,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    build_bench() if BUILD else main()

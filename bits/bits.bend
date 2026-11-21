@@ -176,11 +176,9 @@ def Writer.finish(w: Writer) -> Bytes.Bytes:
   Writer{buf, dep, +pos} = w
   Bytes.Bytes{((pos + 7) >> 3n : U32), buf}
 
-# A canonical Huffman table: entry i of 2^max is (sym << 5) | len for the code that the
-# first max stream bits i start with, or 0 when no code does. msb is the stream's bit order.
-# ponytail: one level of 2^max entries; a two-level table if building it dominates short blocks.
+# A root of up to nine bits; longer codes use fixed-width secondary tables.
 type Huff is Type:
-  Huff{msb: Bool, max: U32, table: Array<U32>}
+  Huff{msb: Bool, max: U32, table: Array<U32>, sub: Array<U32>}
 
 # One symbol and the length of its code.
 type Code is Data:
@@ -253,19 +251,113 @@ def assign.one(zero: Bool, +msb: Bool, +max: U32, +sym: U32, +len: U32, st: Arra
       (n, t) = st
       assign.put(msb, max, sym, len, Array.get(U32, n, len), t)
 
-def assign(xs: List<&2, Code>, +msb: Bool, +max: U32, st: Array<U32> & Array<U32>) -> Array<U32>:
+
+def prefix(+msb: Bool, +root: U32, +len: U32, +code: U32) -> U32:
+  Bool.pick(U32, msb, U32.shrn(code, U32.to_nat((len - root : U32))), (rev(U32.to_nat(len), code, 0) .&. (U32.shln(1, U32.to_nat(root)) - 1) : U32))
+
+# Root length 31 marks a secondary-table offset; valid code lengths never exceed 16.
+def reserve.hit(empty: Bool, +i: U32, +width: U32, +used: U32, t: Array<U32>) -> Array<U32> & U32:
+  match empty:
+    case True{}:
+      (Array.set(U32, t, i, ((used << 5n) .|. 31 : U32)), (used + width : U32))
+    case False{}:
+      (t, used)
+
+def reserve.entry(+i: U32, +width: U32, used: U32, r: Array<U32> & U32) -> Array<U32> & U32:
+  (t, +e) = r
+  reserve.hit(U32.is_eq(e, 0), i, width, used, t)
+
+def reserve.long(long: Bool, +msb: Bool, +root: U32, +max: U32, +len: U32, +code: U32, t: Array<U32>, +used: U32) -> Array<U32> & U32:
+  match long:
+    case False{}:
+      (t, used)
+    case True{}:
+      +i = prefix(msb, root, len, code)
+      reserve.entry(i, U32.shln(1, U32.to_nat((max - root : U32))), used, Array.get(U32, t, i))
+
+def reserve.state(n: Array<U32>, r: Array<U32> & U32) -> Array<U32> & Array<U32> & U32:
+  (t, used) = r
+  (n, t, used)
+
+def reserve.one(+msb: Bool, +root: U32, +max: U32, +len: U32, t: Array<U32>, used: U32, r: Array<U32> & U32) -> Array<U32> & Array<U32> & U32:
+  (n, +code) = r
+  reserve.state(Array.set(U32, n, len, (code + 1 : U32)), reserve.long(U32.is_gt(len, root), msb, root, max, len, code, t, used))
+
+def reserve(xs: List<&2, Code>, +msb: Bool, +root: U32, +max: U32, st: Array<U32> & Array<U32> & U32) -> Array<U32> & U32:
   match xs:
     case Nil{}:
-      (n, t) = st
-      t
-    case Con{Code{+sym, +len}, t}:
-      assign(t, msb, max, assign.one(U32.is_eq(len, 0), msb, max, sym, len, st))
+      (n, t, used) = st
+      (t, used)
+    case Con{Code{sym, +len}, tail}:
+      (n, t, used) = st
+      reserve(tail, msb, root, max, reserve.one(msb, root, max, len, t, used, Array.get(U32, n, len)))
+
+def depth(k: Nat, +size: U32, +d: Nat) -> Nat:
+  match k:
+    case 0n:
+      d
+    case 1n+p:
+      depth(p, U32.shrn((size + 1 : U32), 1n), Bool.pick(Nat, U32.is_gt(size, 1), 1n+d, d))
+
+def assign.short(sub: Array<U32>, r: Array<U32> & Array<U32>) -> Array<U32> & Array<U32> & Array<U32>:
+  (n, t) = r
+  (n, t, sub)
+
+def assign.tail(+msb: Bool, +root: U32, +max: U32, +sym: U32, +len: U32, +code: U32, n: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Array<U32> & Array<U32> & Array<U32>:
+  (t, +e) = r
+  +tail = (len - root : U32)
+  +lo = (max - len : U32)
+  +start = Bool.pick(U32, msb, U32.shln((code .&. (U32.shln(1, U32.to_nat(tail)) - 1) : U32), U32.to_nat(lo)), U32.shrn(rev(U32.to_nat(len), code, 0), U32.to_nat(root)))
+  +step = Bool.pick(U32, msb, 1, U32.shln(1, U32.to_nat(tail)))
+  (Array.set(U32, n, len, (code + 1 : U32)), t, fill(U32.to_nat(U32.shln(1, U32.to_nat(lo))), sub, (U32.shrn(e, 5n) + start : U32), step, ((sym << 5n) .|. len : U32)))
+
+def assign.long(+msb: Bool, +root: U32, +max: U32, sym: U32, +len: U32, t: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Array<U32> & Array<U32> & Array<U32>:
+  (n, +code) = r
+  assign.tail(msb, root, max, sym, len, code, n, sub, Array.get(U32, t, prefix(msb, root, len, code)))
+
+def assign.split(long: Bool, +msb: Bool, +root: U32, +max: U32, +sym: U32, +len: U32, n: Array<U32>, t: Array<U32>, sub: Array<U32>) -> Array<U32> & Array<U32> & Array<U32>:
+  match long:
+    case False{}:
+      assign.short(sub, assign.one(U32.is_eq(len, 0), msb, root, sym, len, (n, t)))
+    case True{}:
+      assign.long(msb, root, max, sym, len, t, sub, Array.get(U32, n, len))
+
+def assign.two(xs: List<&2, Code>, +msb: Bool, +root: U32, +max: U32, st: Array<U32> & Array<U32> & Array<U32>) -> Array<U32> & Array<U32>:
+  match xs:
+    case Nil{}:
+      (n, t, sub) = st
+      (t, sub)
+    case Con{Code{+sym, +len}, tail}:
+      (n, t, sub) = st
+      assign.two(tail, msb, root, max, assign.split(U32.is_gt(len, root), msb, root, max, sym, len, n, t, sub))
+
+def build.done(msb: Bool, max: U32, r: Array<U32> & Array<U32>) -> Huff:
+  (t, sub) = r
+  Huff{msb, max, t, sub}
+
+def build.reserved(+msb: Bool, +max: U32, +root: U32, xs: List<&2, Code>, n: Array<U32>, r: Array<U32> & U32) -> Huff:
+  (t, +used) = r
+  build.done(msb, max, assign.two(xs, msb, root, max, (n, t, Array.new(U32, depth(16n, used, 0n), 0))))
+
+def build.cloned(+msb: Bool, +max: U32, +root: U32, +xs: List<&2, Code>, r: Array<U32> & Array<U32>) -> Huff:
+  (n, copy) = r
+  build.reserved(msb, max, root, xs, n, reserve(xs, msb, root, max, (copy, Array.new(U32, U32.to_nat(root), 0), 0)))
+
+def build.two(+msb: Bool, +max: U32, +xs: List<&2, Code>, n: Array<U32>) -> Huff:
+  build.cloned(msb, max, U32.min(max, 9), xs, Array.clone(U32, n))
+
+def build.choose(small: Bool, +msb: Bool, +max: U32, xs: List<&2, Code>, n: Array<U32>) -> Huff:
+  match small:
+    case True{}:
+      build.done(msb, max, assign.two(xs, msb, max, max, (n, Array.new(U32, U32.to_nat(max), 0), Array.new(U32, 0n, 0))))
+    case False{}:
+      build.two(msb, max, xs, n)
 
 def build.next(+msb: Bool, +max: U32, xs: List<&2, Code>, r: Array<U32> & Bool) -> Maybe<&1, Huff>:
   (n, ok) = r
   match ok:
     case True{}:
-      Some{Huff{msb, max, assign(xs, msb, max, (n, Array.new(U32, U32.to_nat(max), 0)))}}
+      Some{build.choose(U32.is_le(max, 9), msb, max, xs, n)}
     case False{}:
       None{}
 
@@ -352,19 +444,37 @@ def Writer.code(msb: Bool, w: Writer, e: Encoding) -> Writer:
 
 # Bits past the end may be garbage in w: a code's entry repeats over every suffix, so only
 # its own len bits pick it, and len <= left keeps them inside the stream.
-def decode.hit(+msb: Bool, +max: U32, +len: U32, +pos: U32, +left: U32, buf: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+def decode.hit(+msb: Bool, +max: U32, +len: U32, +pos: U32, +left: U32, buf: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
   (t, +e) = r
   +l = (e .&. 31 : U32)
   +ok = Bool.and(U32.is_ne(l, 0), U32.is_le(l, left))
-  (Huff{msb, max, t}, Reader{len, buf, Bool.pick(U32, ok, (pos + l : U32), pos)}, Bool.pick(Maybe<&2, U32>, ok, Some{U32.shrn(e, 5n)}, None{}))
+  (Huff{msb, max, t, sub}, Reader{len, buf, Bool.pick(U32, ok, (pos + l : U32), pos)}, Bool.pick(Maybe<&2, U32>, ok, Some{U32.shrn(e, 5n)}, None{}))
 
-def decode.look(+msb: Bool, +max: U32, +len: U32, +pos: U32, t: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+def decode.sub(long: Bool, +msb: Bool, +max: U32, +w: U32, +e: U32, sub: Array<U32>) -> Array<U32> & U32:
+  match long:
+    case False{}:
+      (sub, e)
+    case True{}:
+      +width = (max - 9 : U32)
+      +all = field(msb, max, w)
+      +i = Bool.pick(U32, msb, (all .&. (U32.shln(1, U32.to_nat(width)) - 1) : U32), U32.shrn(all, 9n))
+      Array.get(U32, sub, (U32.shrn(e, 5n) + i : U32))
+
+def decode.found(+msb: Bool, +max: U32, +len: U32, +pos: U32, buf: Array<U32>, t: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+  (sub, e) = r
+  decode.hit(msb, max, len, pos, ((len << 3n) - pos : U32), buf, sub, (t, e))
+
+def decode.root(+msb: Bool, +max: U32, +len: U32, +pos: U32, w: U32, buf: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+  (t, +e) = r
+  decode.found(msb, max, len, pos, buf, t, decode.sub(U32.is_eq((e .&. 31 : U32), 31), msb, max, w, e, sub))
+
+def decode.look(+msb: Bool, +max: U32, +len: U32, +pos: U32, t: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
   (buf, +w) = r
-  decode.hit(msb, max, len, pos, ((len << 3n) - pos : U32), buf, Array.get(U32, t, field(msb, max, w)))
+  decode.root(msb, max, len, pos, w, buf, sub, Array.get(U32, t, field(msb, U32.min(max, 9), w)))
 
 # One symbol, and the reader past its code. None, with the reader unchanged, when the next
 # bits start no code or the input ends inside one.
 def Huff.decode(h: Huff, r: Reader) -> Huff & Reader & Maybe<&2, U32>:
-  Huff{+msb, +max, t} = h
+  Huff{+msb, +max, t, sub} = h
   Reader{+len, buf, +pos} = r
-  decode.look(msb, max, len, pos, t, win(msb, buf, pos))
+  decode.look(msb, max, len, pos, t, sub, win(msb, buf, pos))

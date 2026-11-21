@@ -205,6 +205,25 @@ def enc.fixture(m: Maybe<&2, List<&2, Bits.Encoding>>) -> Bool:
     case _:
       False{}
 
+def rejected.pos(r: Bytes.Bytes & U32) -> Bool:
+  (b, pos) = r
+  U32.is_eq(pos, 0)
+
+def rejected.got(r: Bits.Huff & Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (h, rd, m) = r
+  match m:
+    case None{}:
+      rejected.pos(Bits.Reader.finish(rd))
+    case Some{s}:
+      False{}
+
+def rejected.table(m: Maybe<&1, Bits.Huff>, s: String) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{h}:
+      rejected.got(Bits.Huff.decode(h, Bits.Reader.new(Bytes.from_string(s))))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     expect("lsb roundtrip, 20000 fields", roundtrip(False{}, 20000n, 12345))
@@ -216,6 +235,12 @@ def main() -> IO(Unit):
     expect("writer fixed lsb", enc.run(False{}, Bits.codes(fixed.lens(), 0)))
     expect("writer fixed msb", enc.run(True{}, Bits.codes(fixed.lens(), 0)))
     expect("writer 16-bit codes", enc.run(False{}, Bits.codes(deep.lens(), 0)))
+    expect("secondary tables lsb", enc.run(False{}, Bits.codes([0, 9, 10, 10, 15, 16, 16], 0)))
+    expect("secondary tables msb", enc.run(True{}, Bits.codes([0, 9, 10, 10, 15, 16, 16], 0)))
+    expect("unused secondary lsb", rejected.table(Bits.Huff.from_lens(False{}, [10]), "\u{0}\u{2}"))
+    expect("unused secondary msb", rejected.table(Bits.Huff.from_lens(True{}, [10]), "\u{0}\u{40}"))
+    expect("truncated secondary lsb", rejected.table(Bits.Huff.from_lens(False{}, [10]), "\u{0}"))
+    expect("truncated secondary msb", rejected.table(Bits.Huff.from_lens(True{}, [10]), "\u{0}"))
     expect("writer sparse list order", enc.fixture(Bits.Huff.encode_codes([Bits.Code{66, 2}, Bits.Code{3, 0}, Bits.Code{9, 1}, Bits.Code{7, 2}])))
     expect("writer empty", enc.empty(Bits.Huff.encode_lens([])))
     expect("writer zero lengths", enc.empty(Bits.Huff.encode_lens([0, 0])))
