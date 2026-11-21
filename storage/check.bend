@@ -2,6 +2,7 @@ import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import bend-kit-files@0.4.0.0/files.bend as Files
 import ./storage.bend as S
+import ./http_check.bend as HttpCheck
 
 def ok(good: Bool, +name: String) -> IO(Unit):
   match good:
@@ -267,3 +268,4 @@ def main() -> IO(Unit):
     dir : String <- IO.try(String, Files.temp_dir())
     abc : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("abc")))
     scenario(dir, abc)
+    HttpCheck.run()
