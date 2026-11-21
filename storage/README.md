@@ -116,6 +116,8 @@ Import `bend-kit-storage@0.4.1.0/http.bend` as `Transport`. This module adds `be
 The client is:
 
 ```bend
+import Base
+import bend-kit-storage@0.4.1.0/storage.bend as S
 import bend-kit-storage@0.4.1.0/http.bend as Transport
 
 def pull(+root: S.Digest) -> S.Run(U32):
@@ -126,9 +128,9 @@ Initialize destination `b` first. Supply an HTTP(S) origin without a trailing sl
 
 The design follows [Git's dumb HTTP protocol](https://git-scm.com/docs/http-protocol#_dumb_protocol): fetch immutable objects by content address and walk their links from a known root. This is not the Git wire format. The local verified index is the visited set, so shared objects are fetched once. No remote inventory, pack negotiation, rsync delta stream, or separate closure endpoint is needed.
 
-Keep the source roots and their closure available for the transfer. Do not run collection against either store during a sync. The handler exposes every object under the configured store, not only one root. Put private stores behind access control; a digest is not an authorization token. The HTTP client's body limits and timeouts apply. Objects are buffered whole, as in local storage, and fetched one at a time.
+Keep the source roots and their closure available for the transfer. Do not run collection against either store during a sync. Use one writer per destination: the disk layer currently shares temporary object paths across writers. The handler exposes every object under the configured store, not only one root. Put private stores behind access control; a digest is not an authorization token. Each encoded object must fit the HTTP client's 16 MiB buffered response cap and 30 s step timeout. Larger objects fail the sync. Objects are buffered whole and fetched one at a time.
 
-`http_check.bend`, called by `check.bend`, runs the actual handler and client on an OS-assigned loopback port. It checks a partial store, repeated sync, shared objects, a missing descendant under an existing parent, a missing source object, and a tampered response that ingress refuses without writing it.
+`http_check.bend`, called by `check.bend`, runs the actual handler and client on an OS-assigned loopback port. It checks partial and repeated transfers, shared objects, repair of a missing descendant, reconstruction after repair, invalid methods and paths, missing source objects, corrupt local objects, closed-server failures, and a tampered response that ingress refuses without writing it.
 
 ## Laws
 
@@ -158,7 +160,7 @@ The proofs cover the pure core. They do not cover hashing, the disk, or the copy
 - **Native hashing.** `digest` calls OpenSSL. The proofs assume it computes SHA-256 of the octets it receives. `commit` repeats the shape of `objects` and `hash` in `IO`; the proofs cover `objects` and `hash`.
 - **Encoding.** `decode` is the inverse of `encode` on the objects `commit` writes, and `Digest.read` is the inverse of `Digest.hex`. `check.bend` tests both; no law states them.
 - **Filesystem.** A write goes to `dir/tmp` and then a rename, so a reader sees a whole object or none. Nothing calls `fsync`. After a crash an object file can be empty or short; a read of that object then fails, because its digest does not match. `Disk.checkout`, `sync`, and `Disk.collect` read only the objects their roots reach, so they do not notice a broken object that no root reaches, and `Disk.collect` deletes it. `Disk.load` reads every object.
-- **Concurrent writers.** Two writers can commit at once: objects never change, and a rename replaces a file with the same octets. `Disk.set_root` keeps the last rename. `Disk.collect` needs a frozen root set: no commit, sync, or root change may run during it, or it can delete an object that a new root needs.
+- **Concurrent writers.** Serialize writers to one store: object and root writes currently share temporary paths. `Disk.collect` also needs a frozen root set: no commit, sync, or root change may run during it, or it can delete an object that a new root needs.
 - **Trees on disk.** `snapshot` follows symbolic links and fails on other special files. A link cycle fails at the fuel limit.
 
 ## Limits

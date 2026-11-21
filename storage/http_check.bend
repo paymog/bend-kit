@@ -38,6 +38,24 @@ def matches(root: S.Digest, result: S.Digest & S.Store<S.Digest, S.Blob>) -> IO(
   (digest, objects) = result
   ok(Cmp.is_eq(S.Digest.cmp(digest, root)), "checkout reconstructs the requested root")
 
+def notfound(result: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+  match result:
+    case Fail{error}:
+      IO.die(Unit, 1, "HTTP rejection request failed")
+    case Done{Http.Res{status, headers, body}}:
+      ok(U32.is_eq(status, 404), "rejects an invalid object request")
+
+def rejected(+base: String, +root: S.Digest) -> IO(Unit):
+  do IO<Unit>:
+    traversal : Result<&1, &1, Http.Err, Http.Res> <- Http.get(base ++ "/objects/../roots/x")
+    notfound(traversal)
+    short : Result<&1, &1, Http.Err, Http.Res> <- Http.get(base ++ "/objects/" ++ String.drop(S.Digest.hex(root), 1n))
+    notfound(short)
+    outside : Result<&1, &1, Http.Err, Http.Res> <- Http.get(base ++ "/nope")
+    notfound(outside)
+    method : Result<&1, &1, Http.Err, Http.Res> <- Http.fetch("POST", base ++ "/objects/" ++ S.Digest.hex(root), Http.empty(), Http.from_string(""))
+    notfound(method)
+
 def happy(+base: String, +dir: String, +root: S.Digest) -> IO(Unit):
   do IO<Unit>:
     n : U32 <- IO.try(U32, Transport.sync(base, dir, root))
@@ -51,9 +69,16 @@ def happy(+base: String, +dir: String, +root: S.Digest) -> IO(Unit):
     IO.try(Unit, Files.remove(S.Disk.object(dir, leaf)))
     repaired : U32 <- IO.try(U32, Transport.sync(base, dir, root))
     ok(U32.is_eq(repaired, 1), "walks existing parents and repairs one missing shared descendant")
+    restored : S.Tree<S.Blob> <- IO.try(S.Tree<S.Blob>, S.Disk.checkout(dir, root))
+    restored_hash : S.Digest & S.Store<S.Digest, S.Blob> <- IO.try(S.Digest & S.Store<S.Digest, S.Blob>, S.commit(restored))
+    matches(root, restored_hash)
     +absent : S.Digest <- IO.try(S.Digest, S.digest(Http.from_string("not an object")))
     missing : Result<&1, &1, U32 & String, U32> <- Transport.sync(base, dir, absent)
     ok(failed(U32, missing, "storage: HTTP object status 404"), "missing source object fails the sync")
+    rejected(base, root)
+    IO.try(Unit, S.write.file(S.Disk.object(dir, leaf), Http.from_string("end\n")))
+    corrupt : Result<&1, &1, U32 & String, U32> <- Transport.sync(base, dir, root)
+    ok(failed(U32, corrupt, "storage: object " ++ S.Digest.hex(leaf) ++ " does not match its digest"), "refuses a corrupt local object")
 
 def exercise(bad: Bool, +base: String, +dir: String, +root: S.Digest) -> IO(Unit):
   match bad:
@@ -66,7 +91,7 @@ def exercise(bad: Bool, +base: String, +dir: String, +root: S.Digest) -> IO(Unit
         exists : Bool <- Files.exists(S.Disk.object(dir, root))
         ok(Bool.not(exists), "tampered object is not written")
 
-def running(+bad: Bool, +dir: String, +root: S.Digest, port: U32, result: Http.Server<Context> & Http.ServerControl) -> IO(Unit):
+def running(+bad: Bool, +dir: String, +root: S.Digest, +port: U32, result: Http.Server<Context> & Http.ServerControl) -> IO(Unit):
   (owned, control) = result
   do IO<Unit>:
     done : Chan(Http.ServerExit) <- IO.fork(Http.ServerExit, Http.server.run(~Context, ~handle, ~observe, owned))
@@ -74,6 +99,8 @@ def running(+bad: Bool, +dir: String, +root: S.Digest, port: U32, result: Http.S
     stopped : Bool <- Http.server.stop(control)
     exit : Http.ServerExit <- IO.join(Http.ServerExit, done)
     ok(stopped, "server drains and closes")
+    unavailable : Result<&1, &1, U32 & String, Http.Body> <- Transport.get("http://127.0.0.1:" ++ U32.show(port), root)
+    ok(failed(Http.Body, unavailable, "storage: HTTP object request failed"), "closed server fails the request")
 
 def started(bad: Bool, dir: String, root: S.Digest, port: U32, result: Unit & Result<&2, &1, Http.StartupError, Http.Server<Context>>) -> IO(Unit):
   (unit, startup) = result
