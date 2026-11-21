@@ -204,6 +204,7 @@ def scaled_offset(+a: Nat, +cap: Nat, +k: Nat, +r: Nat, h: P.lt(a, cap), hr: P.l
     %N.mul_succ(k, a) : P.le(_, Nat.mul(k, cap))
     N.mul_le_mul_left(1n+a, cap, k, N.succ_le_of_lt(a, cap, h))))
 
+# Keep power bounds folded: https://github.com/bendlang/bend/issues/1071.
 def pow_once(-d: Nat) -> {Nat.double(L.pow2(d)) == L.pow2(1n+d) : Nat}:
   {==}
 
@@ -238,6 +239,7 @@ def bound4(+a: Nat, h: P.lt(a, L.pow2(30n))) -> P.lt(Nat.mul(4n, a), L.pow2(32n)
 def offset4(+a: Nat, +r: Nat, h: P.lt(a, L.pow2(30n)), hr: P.lt(r, 4n)) -> P.lt(Nat.add(Nat.mul(4n, a), r), L.pow2(32n)):
   offset4_general(a, L.pow2(30n), L.pow2(32n), r, h, hr, pow_twice(30n))
 
+# Use explicit order adapters instead of normalization: https://github.com/bendlang/bend/issues/1071.
 def nat_lt(-a: Nat, -b: Nat, h: P.lt(a, b)) -> N.lt(a, b):
   h
 
@@ -296,18 +298,36 @@ def add7_bound(+n: Nat, h: P.lt(n, L.pow2(30n))) -> P.lt(Nat.add(n, 7n), L.pow2(
   +hd = double_sum_bound(Nat.add(n, 7n), L.pow2(30n), L.pow2(31n), pow_once(30n), proof_lt(Nat.add(n, 7n), Nat.add(L.pow2(30n), L.pow2(30n)), hs))
   widen(Nat.add(n, 7n), 31n, hd)
 
+# Split arithmetic transports to avoid checker expansion: https://github.com/bendlang/bend/issues/1071.
+def add7_exact(+n: U32, h: N.lt(Nat.add(U32.to_nat(n), 7n), L.pow2(32n))) -> {U32.to_nat(U32.add(n, 7)) == Nat.add(U32.to_nat(n), 7n) : Nat}:
+  L.u32_add_nat(n, 7, L.lt_rw(Nat.add(U32.to_nat(n), U32.to_nat(7)), Nat.add(U32.to_nat(n), 7n), L.pow2(32n), Equal.cong(Nat, Nat, k => Nat.add(U32.to_nat(n), k), U32.to_nat(7), 7n, {==}), h))
+
+def divide8_equal(+a: Nat, +b: Nat, e: {a == b : Nat}) -> {Nat.div(a, 8n) == Nat.div(b, 8n) : Nat}:
+  Equal.cong(Nat, Nat, a => Nat.div(a, 8n), a, b, e)
+
 def cells_nat(+n: U32, +h: P.lt(U32.to_nat(n), L.pow2(30n))) -> {U32.to_nat(A.cells(n)) == Nat.div(Nat.add(U32.to_nat(n), 7n), 8n) : Nat}:
-  Equal.trans(Nat, U32.to_nat(A.cells(n)), Nat.div(U32.to_nat(U32.add(n, 7)), 8n), Nat.div(Nat.add(U32.to_nat(n), 7n), 8n), shr3_nat(U32.add(n, 7)), Equal.cong(Nat, Nat, a => Nat.div(a, 8n), U32.to_nat(U32.add(n, 7)), Nat.add(U32.to_nat(n), 7n), L.u32_add_nat(n, 7, nat_lt(Nat.add(U32.to_nat(n), 7n), L.pow2(32n), add7_bound(U32.to_nat(n), h)))))
+  +hb = nat_lt(Nat.add(U32.to_nat(n), 7n), L.pow2(32n), add7_bound(U32.to_nat(n), h))
+  +ea = add7_exact(n, hb)
+  +ed = divide8_equal(U32.to_nat(U32.add(n, 7)), Nat.add(U32.to_nat(n), 7n), ea)
+  Equal.trans(Nat, U32.to_nat(A.cells(n)), Nat.div(U32.to_nat(U32.add(n, 7)), 8n), Nat.div(Nat.add(U32.to_nat(n), 7n), 8n), shr3_nat(U32.add(n, 7)), ed)
+
+# Keep literal conversion outside the bound: https://github.com/bendlang/bend/issues/1071.
+def add3_exact(+n: U32, h: N.lt(Nat.add(U32.to_nat(n), 3n), L.pow2(32n))) -> {U32.to_nat(U32.add(n, 3)) == Nat.add(U32.to_nat(n), 3n) : Nat}:
+  L.u32_add_nat(n, 3, L.lt_rw(Nat.add(U32.to_nat(n), U32.to_nat(3)), Nat.add(U32.to_nat(n), 3n), L.pow2(32n), Equal.cong(Nat, Nat, k => Nat.add(U32.to_nat(n), k), U32.to_nat(3), 3n, {==}), h))
 
 def words_nat(+n: U32, +h: P.lt(U32.to_nat(n), L.pow2(30n))) -> {U32.to_nat(Bytes.words(U32.shln(n, 2n))) == U32.to_nat(n) : Nat}:
   +v = U32.to_nat(n)
   +es = shl2_exact(n, bound4(v, h))
-  +ea = L.u32_add_nat(U32.shln(n, 2n), 3, L.lt_rw(Nat.add(U32.to_nat(U32.shln(n, 2n)), 3n), Nat.add(Nat.mul(4n, v), 3n), L.pow2(32n), Equal.cong(Nat, Nat, a => Nat.add(a, 3n), U32.to_nat(U32.shln(n, 2n)), Nat.mul(4n, v), es), nat_lt(Nat.add(Nat.mul(4n, v), 3n), L.pow2(32n), offset4(v, 3n, h, {==}))))
+  +ea = add3_exact(U32.shln(n, 2n), L.lt_rw(Nat.add(U32.to_nat(U32.shln(n, 2n)), 3n), Nat.add(Nat.mul(4n, v), 3n), L.pow2(32n), Equal.cong(Nat, Nat, a => Nat.add(a, 3n), U32.to_nat(U32.shln(n, 2n)), Nat.mul(4n, v), es), nat_lt(Nat.add(Nat.mul(4n, v), 3n), L.pow2(32n), offset4(v, 3n, h, {==}))))
   +e = Equal.trans(Nat, U32.to_nat(U32.add(U32.shln(n, 2n), 3)), Nat.add(U32.to_nat(U32.shln(n, 2n)), 3n), Nat.add(Nat.mul(4n, v), 3n), ea, Equal.cong(Nat, Nat, a => Nat.add(a, 3n), U32.to_nat(U32.shln(n, 2n)), Nat.mul(4n, v), es))
   Equal.trans(Nat, U32.to_nat(Bytes.words(U32.shln(n, 2n))), Nat.div(U32.to_nat(U32.add(U32.shln(n, 2n), 3)), 4n), v, shr2_nat(U32.add(U32.shln(n, 2n), 3)), Equal.trans(Nat, Nat.div(U32.to_nat(U32.add(U32.shln(n, 2n), 3)), 4n), Nat.div(Nat.add(Nat.mul(4n, v), 3n), 4n), v, Equal.cong(Nat, Nat, a => Nat.div(a, 4n), U32.to_nat(U32.add(U32.shln(n, 2n), 3)), Nat.add(Nat.mul(4n, v), 3n), e), quotient(Nat.add(Nat.mul(4n, v), 3n), v, 3n, 3n, {==}, {==})))
 
+# Transport the zero literal before its bound: https://github.com/bendlang/bend/issues/1071.
+def add_zero_sum(+i: U32) -> {Nat.add(U32.to_nat(i), U32.to_nat(0)) == U32.to_nat(i) : Nat}:
+  Equal.trans(Nat, Nat.add(U32.to_nat(i), U32.to_nat(0)), Nat.add(U32.to_nat(i), 0n), U32.to_nat(i), Equal.cong(Nat, Nat, k => Nat.add(U32.to_nat(i), k), U32.to_nat(0), 0n, {==}), N.add_zero(U32.to_nat(i)))
+
 def add_zero_nat(+i: U32) -> {U32.to_nat((i + 0 : U32)) == U32.to_nat(i) : Nat}:
-  Equal.trans(Nat, U32.to_nat((i + 0 : U32)), Nat.add(U32.to_nat(i), 0n), U32.to_nat(i), L.u32_add_nat(i, 0, L.lt_rw(Nat.add(U32.to_nat(i), 0n), U32.to_nat(i), L.pow2(32n), N.add_zero(U32.to_nat(i)), L.u32_to_nat_lt(i))), N.add_zero(U32.to_nat(i)))
+  Equal.trans(Nat, U32.to_nat((i + 0 : U32)), Nat.add(U32.to_nat(i), U32.to_nat(0)), U32.to_nat(i), L.u32_add_nat(i, 0, L.lt_rw(Nat.add(U32.to_nat(i), U32.to_nat(0)), U32.to_nat(i), L.pow2(32n), add_zero_sum(i), L.u32_to_nat_lt(i))), add_zero_sum(i))
 
 def unshift2(+n: U32, +h: P.lt(U32.to_nat(n), L.pow2(30n))) -> {U32.shrn(U32.shln(n, 2n), 2n) == n : U32}:
   +v = U32.to_nat(n)

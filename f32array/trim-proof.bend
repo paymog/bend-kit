@@ -143,8 +143,7 @@ def masked(+len: U32, +out: List<&2, A.Cell>) -> List<&2, A.Cell>:
 def masked_peek_if(same: Bool, +out: List<&2, A.Cell>, +len: U32, +i: U32, +hs: P.lt(U32.to_nat((len >> 3n : U32)), P.len(A.Cell, A.zero(), out)), +hi: P.lt(U32.to_nat(i), U32.to_nat(len)), e: {same == Nat.is_eq(U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32))) : Bool}) -> {C.peek(masked(len, out), i) == C.peek(out, i) : F32}:
   match same:
     case False{}:
-      %C.nth_upd_ne(A.Cell, A.zero(), out, U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32)), A.mask(P.nth(A.Cell, A.zero(), out, U32.to_nat((len >> 3n : U32))), (len .&. 7 : U32)), Equal.sym(Bool, False{}, Nat.is_eq(U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32))), e)) : {A.lane(P.nth(A.Cell, A.zero(), masked(len, out), U32.to_nat((i >> 3n : U32))), (i .&. 7 : U32)) == A.lane(_, (i .&. 7 : U32)) : F32}
-      {==}
+      Equal.sym(F32, C.peek(out, i), C.peek(masked(len, out), i), Equal.cong(A.Cell, F32, c => A.lane(c, (i .&. 7 : U32)), P.nth(A.Cell, A.zero(), out, U32.to_nat((i >> 3n : U32))), P.nth(A.Cell, A.zero(), masked(len, out), U32.to_nat((i >> 3n : U32))), C.nth_upd_ne(A.Cell, A.zero(), out, U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32)), A.mask(P.nth(A.Cell, A.zero(), out, U32.to_nat((len >> 3n : U32))), (len .&. 7 : U32)), Equal.sym(Bool, False{}, Nat.is_eq(U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32))), e))))
     case True{}:
       +eq = nat_eq(U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32)), Equal.sym(Bool, True{}, Nat.is_eq(U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32))), e))
       %Equal.sym(Nat, U32.to_nat((i >> 3n : U32)), U32.to_nat((len >> 3n : U32)), eq) : {A.lane(P.nth(A.Cell, A.zero(), masked(len, out), _), (i .&. 7 : U32)) == A.lane(P.nth(A.Cell, A.zero(), out, _), (i .&. 7 : U32)) : F32}
@@ -172,6 +171,7 @@ def trim_if_model(part: Bool, +len: U32, +d: Nat, +out: List<&2, A.Cell>, +hd: P
     case False{}:
       {==}
     case True{}:
+      +ht : P.lt(U32.to_nat((len >> 3n : U32)), Nat.pow(2n, d)) = ht
       %P.get_r(A.Cell, A.zero(), d, out, (len >> 3n : U32), hd, ht) : {A.to_list(A.F32Array{len, A.trim.of((len >> 3n : U32), (len .&. 7 : U32), _)}) == A.to_list(A.F32Array{len, P.build(A.Cell, A.zero(), d, out)}) : List<&2, F32>}
       %P.set_r(A.Cell, A.zero(), d, out, (len >> 3n : U32), A.mask(P.nth(A.Cell, A.zero(), out, U32.to_nat((len >> 3n : U32))), (len .&. 7 : U32)), hd, ht, hl) : {A.to_list(A.F32Array{len, _}) == A.to_list(A.F32Array{len, P.build(A.Cell, A.zero(), d, out)}) : List<&2, F32>}
       Equal.trans(List<&2, F32>, A.to_list(A.F32Array{len, P.build(A.Cell, A.zero(), d, masked(len, out))}), C.to_list(len, masked(len, out)), A.to_list(A.F32Array{len, P.build(A.Cell, A.zero(), d, out)}), B.to_list_model(len, d, masked(len, out), hd, hb1), Equal.trans(List<&2, F32>, C.to_list(len, masked(len, out)), C.to_list(len, out), A.to_list(A.F32Array{len, P.build(A.Cell, A.zero(), d, out)}), masked_list(out, len, N.lt_of_lt_of_le(U32.to_nat((len >> 3n : U32)), Nat.pow(2n, d), P.len(A.Cell, A.zero(), out), ht, hl), logical), Equal.sym(List<&2, F32>, A.to_list(A.F32Array{len, P.build(A.Cell, A.zero(), d, out)}), C.to_list(len, out), B.to_list_model(len, d, out, hd, hb2))))

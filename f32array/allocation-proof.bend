@@ -25,7 +25,7 @@ def replicate_len(-T: Data, +zero: T, +n: Nat) -> {P.len(T, zero, replicate(T, z
 def replicate_drop(-T: Data, +zero: T, +k: Nat, +n: Nat) -> {P.drop(T, zero, k, replicate(T, zero, n)) == replicate(T, zero, Nat.sub(n, k)) : List<&2, T>}:
   match k:
     case 0n:
-      %Equal.sym(Nat, n, Nat.sub(n, 0n), P.sub_zero(n)) : {P.drop(T, zero, 0n, replicate(T, zero, n)) == replicate(T, zero, _) : List<&2, T>}
+      %P.sub_zero(n) : {P.drop(T, zero, 0n, replicate(T, zero, n)) == replicate(T, zero, _) : List<&2, T>}
       {==}
     case 1n++p:
       match n:
@@ -108,6 +108,7 @@ def pow_lt(+a: Nat, +b: Nat, +h: P.lt(a, b)) -> P.lt(L.pow2(a), L.pow2(b)):
       P.one_le_pow(a)),
     pow_le(1n+a, b, N.succ_le_of_lt(a, b, h)))
 
+# Keep comparison conversions explicit: https://github.com/bendlang/bend/issues/1071.
 # Ordinary nonwrapping offsets, shared by the eight scalar writes of a cell.
 def offset_nat(+j: U32, +k: U32, +cap: Nat,
   +hk: P.lt(U32.to_nat(k), 8n),
@@ -118,7 +119,8 @@ def offset_nat(+j: U32, +k: U32, +cap: Nat,
     N.lt_trans(Nat.add(U32.to_nat(j), U32.to_nat(k)), cap, L.pow2(32n),
       N.lt_of_lt_of_le(Nat.add(U32.to_nat(j), U32.to_nat(k)),
         Nat.add(U32.to_nat(j), 8n), cap,
-        N.add_lt_add_left(U32.to_nat(k), 8n, U32.to_nat(j), hk), hj), hc))
+        N.add_lt_add_left(U32.to_nat(k), 8n, U32.to_nat(j), hk), hj),
+      Layout.nat_lt(cap, L.pow2(32n), hc)))
 
 def offset_bound(+d: Nat, +j: U32, +k: U32,
   +hd: P.lt(d, 32n), +hk: P.lt(U32.to_nat(k), 8n),
@@ -132,14 +134,19 @@ def offset_bound(+d: Nat, +j: U32, +k: U32,
     Nat.add(U32.to_nat(j), 8n), Nat.pow(2n, d),
     N.add_lt_add_left(U32.to_nat(k), 8n, U32.to_nat(j), hk), hj)
 
+# Convert the literal separately from its bound: https://github.com/bendlang/bend/issues/1071.
+def increment_exact(+i: U32, h: N.lt(Nat.add(U32.to_nat(i), 1n), L.pow2(32n))) ->
+  {U32.to_nat((i + 1 : U32)) == Nat.add(U32.to_nat(i), 1n) : Nat}:
+  L.u32_add_nat(i, 1, L.lt_rw(Nat.add(U32.to_nat(i), U32.to_nat(1)), Nat.add(U32.to_nat(i), 1n), L.pow2(32n),
+    Equal.cong(Nat, Nat, k => Nat.add(U32.to_nat(i), k), U32.to_nat(1), 1n, {==}), h))
+
 def increment_nat(+i: U32, +hi: P.lt(U32.to_nat(i), L.pow2(30n))) ->
   {U32.to_nat((i + 1 : U32)) == 1n+U32.to_nat(i) : Nat}:
   Equal.trans(Nat, U32.to_nat((i + 1 : U32)), Nat.add(U32.to_nat(i), 1n), 1n+U32.to_nat(i),
-    L.u32_add_nat(i, 1,
-      N.lt_of_lt_of_le(Nat.add(U32.to_nat(i), 1n), Nat.add(L.pow2(30n), 1n), L.pow2(32n),
-        N.add_lt_add_right(U32.to_nat(i), L.pow2(30n), 1n, hi),
-        %Equal.sym(Nat, Nat.add(L.pow2(30n), 1n), Nat.add(1n, L.pow2(30n)), N.add_comm(L.pow2(30n), 1n)) : P.le(_, L.pow2(32n))
-        N.succ_le_of_lt(L.pow2(30n), L.pow2(32n), pow_lt(30n, 32n, {==})))),
+    increment_exact(i,
+      N.lt_of_le_of_lt(Nat.add(U32.to_nat(i), 1n), Nat.add(U32.to_nat(i), 7n), L.pow2(32n),
+        N.add_le_add_left(1n, 7n, U32.to_nat(i), {==}),
+        Layout.nat_lt(Nat.add(U32.to_nat(i), 7n), L.pow2(32n), Layout.add7_bound(U32.to_nat(i), hi)))),
     N.add_comm(U32.to_nat(i), 1n))
 
 def decrement_nat(+i: U32, +hi: P.le(1n, U32.to_nat(i))) ->
@@ -170,19 +177,21 @@ def mul2(+n: Nat) -> {Nat.mul(n, 2n) == Nat.double(n) : Nat}:
   Equal.trans(Nat, Nat.mul(n, 2n), Nat.add(n, n), Nat.double(n), N.mul_two(n),
     Equal.sym(Nat, Nat.double(n), Nat.add(n, n), P.double_eq_add(n)))
 
+# Transport multiplication's literal before its bound: https://github.com/bendlang/bend/issues/1071.
+def double_exact(+cap: U32, h: N.lt(Nat.double(U32.to_nat(cap)), L.pow2(32n))) ->
+  {U32.to_nat((cap * 2 : U32)) == Nat.double(U32.to_nat(cap)) : Nat}:
+  +e = Equal.trans(Nat, Nat.mul(U32.to_nat(cap), U32.to_nat(2)), Nat.mul(U32.to_nat(cap), 2n), Nat.double(U32.to_nat(cap)),
+    Equal.cong(Nat, Nat, k => Nat.mul(U32.to_nat(cap), k), U32.to_nat(2), 2n, {==}), mul2(U32.to_nat(cap)))
+  Equal.trans(Nat, U32.to_nat((cap * 2 : U32)), Nat.mul(U32.to_nat(cap), U32.to_nat(2)), Nat.double(U32.to_nat(cap)),
+    L.u32_mul_nat(cap, 2, L.lt_rw(Nat.mul(U32.to_nat(cap), U32.to_nat(2)), Nat.double(U32.to_nat(cap)), L.pow2(32n), e, h)), e)
+
 def cap_double(+cap: U32, +d: Nat, +hd: P.lt(1n+d, 32n),
   +he: {U32.to_nat(cap) == L.pow2(d) : Nat}) ->
   {U32.to_nat((cap * 2 : U32)) == L.pow2(1n+d) : Nat}:
-  %mul2(L.pow2(d)) :
-    {U32.to_nat((cap * 2 : U32)) == _ : Nat}
-  %he :
-    {U32.to_nat((cap * 2 : U32)) == Nat.mul(_, 2n) : Nat}
-  L.u32_mul_nat(cap, 2,
-    %Equal.sym(Nat, U32.to_nat(cap), L.pow2(d), he) :
-      P.lt(Nat.mul(_, 2n), L.pow2(32n))
-    %Equal.sym(Nat, Nat.mul(L.pow2(d), 2n), Nat.double(L.pow2(d)), mul2(L.pow2(d))) :
-      P.lt(_, L.pow2(32n))
-    pow_lt(1n+d, 32n, hd))
+  +e = Equal.cong(Nat, Nat, Nat.double, U32.to_nat(cap), L.pow2(d), he)
+  Equal.trans(Nat, U32.to_nat((cap * 2 : U32)), Nat.double(U32.to_nat(cap)), L.pow2(1n+d),
+    double_exact(cap, L.lt_rw(Nat.double(U32.to_nat(cap)), L.pow2(1n+d), L.pow2(32n), e,
+      Layout.nat_lt(L.pow2(1n+d), L.pow2(32n), pow_lt(1n+d, 32n, hd)))), e)
 
 # Extra fuel is immaterial once the mathematical upper capacity covers w.
 def depth_search(+f: Nat, +more: Bool, +extra: Nat, +w: U32, +d: Nat, +cap: U32,
@@ -259,11 +268,20 @@ def search_covers(+f: Nat, +more: Bool, +w: Nat, +d: Nat,
               P.le(w, L.pow2(_))
             hw)
 
+# Keep initial fuel symbolic during conversion: https://github.com/bendlang/bend/issues/1071.
+def depth_initial(+f: Nat, +extra: Nat, +w: U32,
+  +hf: P.lt(f, 32n), +hw: P.le(U32.to_nat(w), L.pow2(f))) ->
+  {Bytes.depth.go(Nat.add(f, extra), U32.is_lt(1, w), w, 0n, 1) == search(f, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n) : Nat}:
+  Equal.trans(Nat, Bytes.depth.go(Nat.add(f, extra), U32.is_lt(1, w), w, 0n, 1),
+    search(f, U32.is_lt(1, w), U32.to_nat(w), 0n),
+    search(f, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n),
+    depth_search(f, U32.is_lt(1, w), extra, w, 0n, 1, {==}, L.u32_is_lt_nat(1, w), hf, hw),
+    Equal.cong(Bool, Nat, b => search(f, b, U32.to_nat(w), 0n),
+      U32.is_lt(1, w), Nat.is_lt(1n, U32.to_nat(w)), L.u32_is_lt_nat(1, w)))
+
 def depth_model(+w: U32, +hw: P.le(U32.to_nat(w), L.pow2(30n))) ->
   {Bytes.depth(w) == search(30n, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n) : Nat}:
-  %L.u32_is_lt_nat(1, w) :
-    {Bytes.depth(w) == search(30n, _, U32.to_nat(w), 0n) : Nat}
-  depth_search(30n, U32.is_lt(1, w), 2n, w, 0n, 1, {==}, L.u32_is_lt_nat(1, w), {==}, hw)
+  depth_initial(30n, 2n, w, {==}, hw)
 
 def depth_bound(+w: U32, +hw: P.le(U32.to_nat(w), L.pow2(30n))) ->
   P.lt(Bytes.depth(w), 32n):
@@ -271,11 +289,22 @@ def depth_bound(+w: U32, +hw: P.le(U32.to_nat(w), L.pow2(30n))) ->
   N.lt_of_le_of_lt(search(30n, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n), 30n, 32n,
     search_upper(30n, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n), {==})
 
+# Keep capacity transport symbolic: https://github.com/bendlang/bend/issues/1071.
+def covers_depth(+w: Nat, +d: Nat, +e: Nat, he: {d == e : Nat},
+  hw: P.le(w, L.pow2(e))) -> P.le(w, Nat.pow(2n, d)):
+  %pow_bridge(d) : P.le(w, _)
+  %Equal.sym(Nat, d, e, he) : P.le(w, L.pow2(_))
+  hw
+
+def search_initial_covers(+f: Nat, +w: Nat, hw: P.le(w, L.pow2(f))) ->
+  P.le(w, L.pow2(search(f, Nat.is_lt(1n, w), w, 0n))):
+  search_covers(f, Nat.is_lt(1n, w), w, 0n, {==}, hw)
+
 def depth_covers(+w: U32, +hw: P.le(U32.to_nat(w), L.pow2(30n))) ->
   P.le(U32.to_nat(w), Nat.pow(2n, Bytes.depth(w))):
-  %pow_bridge(Bytes.depth(w)) : P.le(U32.to_nat(w), _)
-  %Equal.sym(Nat, Bytes.depth(w), search(30n, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n), depth_model(w, hw)) : P.le(U32.to_nat(w), L.pow2(_))
-  search_covers(30n, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n, {==}, hw)
+  covers_depth(U32.to_nat(w), Bytes.depth(w),
+    search(30n, Nat.is_lt(1n, U32.to_nat(w)), U32.to_nat(w), 0n), depth_model(w, hw),
+    search_initial_covers(30n, U32.to_nat(w), hw))
 
 # The arithmetic reason rounding up to cells commutes with doubling capacity.
 def ceil_cmp(+c: Nat, +n: Nat) ->
@@ -372,6 +401,11 @@ def start_three(+n: Nat, +h: P.le(8n, n)) ->
     {search(28n, _, n, 2n) == search(27n, Nat.is_lt(8n, n), n, 3n) : Nat}
   {==}
 
+# Keep concrete fuel arithmetic outside capacity conversion: https://github.com/bendlang/bend/issues/1071.
+def search_initial_fuel(+f: Nat, +extra: Nat, +w: Nat, hw: P.le(w, L.pow2(f))) ->
+  {search(Nat.add(f, extra), Nat.is_lt(1n, w), w, 0n) == search(f, Nat.is_lt(1n, w), w, 0n) : Nat}:
+  search_fuel(f, Nat.is_lt(1n, w), extra, w, 0n, {==}, hw)
+
 def search_ratio(+n: Nat, +h: P.le(n, L.pow2(30n)), +h8: P.le(8n, n)) ->
   {3n+search(30n, Nat.is_lt(1n, Nat.div(Nat.add(n, 7n), 8n)), Nat.div(Nat.add(n, 7n), 8n), 0n) == search(30n, Nat.is_lt(1n, n), n, 0n) : Nat}:
   %Equal.sym(Nat, search(30n, Nat.is_lt(1n, n), n, 0n), search(27n, Nat.is_lt(8n, n), n, 3n), start_three(n, h8)) :
@@ -379,7 +413,7 @@ def search_ratio(+n: Nat, +h: P.le(n, L.pow2(30n)), +h8: P.le(8n, n)) ->
   %Equal.sym(Nat,
     search(30n, Nat.is_lt(1n, Nat.div(Nat.add(n, 7n), 8n)), Nat.div(Nat.add(n, 7n), 8n), 0n),
     search(27n, Nat.is_lt(1n, Nat.div(Nat.add(n, 7n), 8n)), Nat.div(Nat.add(n, 7n), 8n), 0n),
-    search_fuel(27n, Nat.is_lt(1n, Nat.div(Nat.add(n, 7n), 8n)), 3n, Nat.div(Nat.add(n, 7n), 8n), 0n, {==}, ceil_pow_bound(27n, n, h))) :
+    search_initial_fuel(27n, 3n, Nat.div(Nat.add(n, 7n), 8n), ceil_pow_bound(27n, n, h))) :
     {3n+_ == search(27n, Nat.is_lt(8n, n), n, 3n) : Nat}
   %Equal.sym(Bool, Nat.is_lt(1n, Nat.div(Nat.add(n, 7n), 8n)), Nat.is_lt(8n, n), ceil_pow_cmp(0n, n)) :
     {3n+search(27n, _, Nat.div(Nat.add(n, 7n), 8n), 0n) == search(27n, Nat.is_lt(8n, n), n, 3n) : Nat}
@@ -390,7 +424,7 @@ def depth_ratio(+n: U32, +c: U32,
   +hn: P.le(U32.to_nat(n), L.pow2(30n)),
   +h8: P.le(8n, U32.to_nat(n))) ->
   {3n+Bytes.depth(c) == Bytes.depth(n) : Nat}:
-  +hcb = N.le_trans(U32.to_nat(c), L.pow2(27n), L.pow2(30n),
+  +hcb = P.le_trans(U32.to_nat(c), L.pow2(27n), L.pow2(30n),
     %Equal.sym(Nat, U32.to_nat(c), Nat.div(Nat.add(U32.to_nat(n), 7n), 8n), hc) :
       P.le(_, L.pow2(27n))
     ceil_pow_bound(27n, U32.to_nat(n), hn),
@@ -411,19 +445,23 @@ def capacity_scale(+d: Nat) ->
     Equal.sym(Nat, Nat.mul(L.pow2(d), 8n), L.pow2(3n+d), pow8(d)),
     N.mul_comm(L.pow2(d), 8n))
 
+# Convert inequalities before substituting powers: https://github.com/bendlang/bend/issues/1071.
+def weaken_lt(+a: Nat, +b: Nat, h: P.lt(a, b)) -> P.le(a, b):
+  N.le_of_lt(a, b, h)
+
 def cell_count_bound(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n))) ->
   P.le(U32.to_nat(A.cells(len)), L.pow2(30n)):
-  N.le_trans(U32.to_nat(A.cells(len)), L.pow2(27n), L.pow2(30n),
+  P.le_trans(U32.to_nat(A.cells(len)), L.pow2(27n), L.pow2(30n),
     %Equal.sym(Nat, U32.to_nat(A.cells(len)), Nat.div(Nat.add(U32.to_nat(len), 7n), 8n), Layout.cells_nat(len, h)) :
       P.le(_, L.pow2(27n))
-    ceil_pow_bound(27n, U32.to_nat(len), N.le_of_lt(U32.to_nat(len), L.pow2(30n), h)),
+    ceil_pow_bound(27n, U32.to_nat(len), weaken_lt(U32.to_nat(len), L.pow2(30n), h)),
     pow_le(27n, 30n, {==}))
 
 def word_count_bound(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n))) ->
   P.le(U32.to_nat(Bytes.words((len << 2n : U32))), L.pow2(30n)):
   %Equal.sym(Nat, U32.to_nat(Bytes.words((len << 2n : U32))), U32.to_nat(len), Layout.words_nat(len, h)) :
     P.le(_, L.pow2(30n))
-  N.le_of_lt(U32.to_nat(len), L.pow2(30n), h)
+  weaken_lt(U32.to_nat(len), L.pow2(30n), h)
 
 def cell_depth_bound(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n))) ->
   P.lt(cell_depth(len), 32n):
@@ -458,7 +496,7 @@ def capacity_ratio(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n)),
   %Equal.sym(Nat, word_depth(len), Bytes.depth(len), word_depth_value(len, h)) :
     {Nat.pow(2n, _) == Nat.mul(8n, cell_capacity(len)) : Nat}
   %depth_ratio(len, A.cells(len), Layout.cells_nat(len, h),
-    N.le_of_lt(U32.to_nat(len), L.pow2(30n), h), h8) :
+    weaken_lt(U32.to_nat(len), L.pow2(30n), h), h8) :
     {Nat.pow(2n, _) == Nat.mul(8n, cell_capacity(len)) : Nat}
   capacity_scale(cell_depth(len))
 
