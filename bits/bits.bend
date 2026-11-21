@@ -1,4 +1,4 @@
-# Bit readers and writers over Bytes, LSB-first (DEFLATE) or MSB-first (JPEG), and canonical Huffman decode tables. Source: https://github.com/paymog/bend-kit/tree/main/bits
+# Bit readers and writers over Bytes, LSB-first (DEFLATE) or MSB-first (JPEG), and canonical Huffman codes and decode tables. Source: https://github.com/paymog/bend-kit/tree/main/bits
 import Base
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 
@@ -293,6 +293,62 @@ def codes(xs: List<&2, U32>, +i: U32) -> List<&2, Code>:
 # Symbol i has length lens[i], as DEFLATE sends them (RFC 1951 §3.2.2).
 def Huff.from_lens(+msb: Bool, +lens: List<&2, U32>) -> Maybe<&1, Huff>:
   Huff.from_codes(msb, codes(lens, 0))
+
+# A symbol's canonical value, with its first stream bit at bit len - 1.
+type Encoding is Data:
+  Encoding{sym: U32, len: U32, value: U32}
+
+def encode.put(+sym: U32, +len: U32, acc: List<&2, Encoding>, r: Array<U32> & U32) -> Array<U32> & List<&2, Encoding>:
+  (n, +value) = r
+  (Array.set(U32, n, len, (value + 1 : U32)), Con{Encoding{sym, len, value}, acc})
+
+def encode.one(zero: Bool, +sym: U32, +len: U32, st: Array<U32> & List<&2, Encoding>) -> Array<U32> & List<&2, Encoding>:
+  match zero:
+    case True{}:
+      st
+    case False{}:
+      (n, acc) = st
+      encode.put(sym, len, acc, Array.get(U32, n, len))
+
+def encode.go(xs: List<&2, Code>, st: Array<U32> & List<&2, Encoding>) -> List<&2, Encoding>:
+  match xs:
+    case Nil{}:
+      (n, acc) = st
+      List.reverse(&2, Encoding, acc)
+    case Con{Code{+sym, +len}, t}:
+      encode.go(t, encode.one(U32.is_eq(len, 0), sym, len, st))
+
+def encode.next(xs: List<&2, Code>, r: Array<U32> & Bool) -> Maybe<&2, List<&2, Encoding>>:
+  (n, ok) = r
+  match ok:
+    case True{}:
+      Some{encode.go(xs, (n, Nil{}))}
+    case False{}:
+      None{}
+
+def encode.short(ok: Bool, +xs: List<&2, Code>) -> Maybe<&2, List<&2, Encoding>>:
+  match ok:
+    case True{}:
+      encode.next(xs, next.go(17n, 1, 0, 1, True{}, Array.new(U32, 5n, 0), Array.get(U32, count(xs, Array.new(U32, 5n, 0)), 0)))
+    case False{}:
+      None{}
+
+# Input order, without zero lengths; validation and canonical assignment match Huff.from_codes.
+def Huff.encode_codes(+xs: List<&2, Code>) -> Maybe<&2, List<&2, Encoding>>:
+  encode.short(U32.is_le(lens.max(xs, 0), 16), xs)
+
+def Huff.encode_lens(lens: List<&2, U32>) -> Maybe<&2, List<&2, Encoding>>:
+  Huff.encode_codes(codes(lens, 0))
+
+# Huffman codes send their most significant bit first in either stream order.
+def Writer.code(msb: Bool, w: Writer, e: Encoding) -> Writer:
+  match msb:
+    case True{}:
+      Encoding{sym, +len, +value} = e
+      Writer.msb(w, len, value)
+    case False{}:
+      Encoding{sym, +len, +value} = e
+      Writer.lsb(w, len, rev(U32.to_nat(len), value, 0))
 
 # Bits past the end may be garbage in w: a code's entry repeats over every suffix, so only
 # its own len bits pick it, and len <= left keeps them inside the stream.

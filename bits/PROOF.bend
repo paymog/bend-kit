@@ -73,3 +73,15 @@ def Laws.huff_cut_short():
 
 def Laws.huff_fixed_deflate_all():
   {==}
+
+def Laws.huff_writer_small_lsb():
+  {==}
+
+def Laws.huff_writer_small_msb():
+  {==}
+
+def Laws.huff_writer_fixed_lsb():
+  {==}
+
+def Laws.huff_writer_fixed_msb():
+  {==}
