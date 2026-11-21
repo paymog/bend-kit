@@ -146,7 +146,18 @@ law get_past_len:
   {at(of([1.0, 2.5, neg2()]), 3) == None{} : Maybe<&2, F32>}
 
 law get_after_set:
-  {at(A.set(of([1.0, 2.5, neg2()]), 2, 0.5), 2) == Some{0.5} : Maybe<&2, F32>}
+  for a: A.F32Array
+  for +i: U32
+  for +v: F32
+  for h: {U32.is_lt(i, len(a)) == True{} : Bool}
+  {at(A.set(a, i, v), i) == Some{v} : Maybe<&2, F32>}
+
+law lane_after_put:
+  for c: A.Cell
+  for +k: U32
+  for +v: F32
+  for h: {U32.is_lt(k, 8) == True{} : Bool}
+  {A.lane(A.put(c, k, v), k) == v : F32}
 
 law set_keeps_others:
   {list(A.set(of([1.0, 2.5, neg2()]), 0, 0.5)) == [0.5, 2.5, neg2()] : List<&2, F32>}
@@ -226,7 +237,9 @@ law from_bytes_empty:
   {lists(A.from_bytes.le(Bytes.new(0))) == Some{[]} : Maybe<&2, List<&2, F32>>}
 
 law bytes_roundtrip_le:
-  {lists(A.from_bytes.le(A.to_bytes.le(of([1.0, 2.5, neg2(), 0.5, 3.0])))) == Some{[1.0, 2.5, neg2(), 0.5, 3.0]} : Maybe<&2, List<&2, F32>>}
+  for a: A.F32Array
+  for h: {U32.is_lt(len(a), U32.shln(1, 30n)) == True{} : Bool}
+  {lists(A.from_bytes.le(A.to_bytes.le(a))) == Some{list(a)} : Maybe<&2, List<&2, F32>>}
 
 law bytes_roundtrip_be:
   {lists(A.from_bytes.be(A.to_bytes.be(of([1.0, 2.5, neg2(), 0.5, 3.0])))) == Some{[1.0, 2.5, neg2(), 0.5, 3.0]} : Maybe<&2, List<&2, F32>>}

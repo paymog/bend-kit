@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f32array`: replace get-after-set, lane-after-put, and little-endian Bytes round-trip fixtures with universal structural claims and proofs. The Bytes claim requires length below 2^30 and includes NaNs. No runtime change.
+
 - `bits` 0.2.1.0: a write in the other bit order than the last write first pads to a byte boundary. Before, a switch inside a byte could set bits of the earlier field. Streams in one order do not change.
 
 - `f32array` 0.2.1.0: read exact F32 and BF16 tensors at 64-bit byte offsets without moving the file position. Preserve BF16 bits on native; the JS lane retains Bend's existing NaN canonicalization limit.

@@ -1,6 +1,8 @@
 import Base
 import ./f32array.bend as A
 import ./LAWS.bend as Laws
+import ./proofs.bend as P
+import ./roundtrip-proof.bend as Roundtrip
 
 def Laws.new_zeros():
   {==}
@@ -20,8 +22,11 @@ def Laws.get_in():
 def Laws.get_past_len():
   {==}
 
-def Laws.get_after_set():
-  {==}
+def Laws.get_after_set(a, i, v, h):
+  P.get_after_set(a, i, v, h)
+
+def Laws.lane_after_put(c, k, v, h):
+  P.lane_put(c, k, v, h)
 
 def Laws.set_keeps_others():
   {==}
@@ -98,8 +103,8 @@ def Laws.from_bytes_unaligned():
 def Laws.from_bytes_empty():
   {==}
 
-def Laws.bytes_roundtrip_le():
-  {==}
+def Laws.bytes_roundtrip_le(a, h):
+  Roundtrip.roundtrip(a, h)
 
 def Laws.bytes_roundtrip_be():
   {==}
