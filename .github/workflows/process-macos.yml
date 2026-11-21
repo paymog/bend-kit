@@ -1,0 +1,44 @@
+name: process on macOS arm64
+on:
+  pull_request:
+    paths:
+      - 'process/**'
+      - 'scripts/install-bend.sh'
+      - 'scripts/native-check.sh'
+      - '.github/workflows/process-macos.yml'
+permissions:
+  contents: read
+jobs:
+  process:
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      BEND_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Verify runner and PR head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          test "$(uname -sm)" = 'Darwin arm64'
+          actual=$(git rev-parse HEAD)
+          printf 'tested=%s expected=%s\n' "$actual" "$EXPECTED_HEAD_SHA"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install Bend
+        run: |
+          scripts/install-bend.sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+      - name: Check compiled JavaScript on Darwin libc
+        run: |
+          bend process/check.bend -o "$RUNNER_TEMP/process-check.js"
+          bun "$RUNNER_TEMP/process-check.js"
+      - name: Check native process effects
+        run: scripts/native-check.sh process
+      - name: Check ownership and selector behavior
+        run: process/ownership-check.sh
