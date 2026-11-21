@@ -8,7 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
-- `bits` 0.2.0.1: add universal packed-array and field proof foundations. Grow the writer by adding a zeroed subtree instead of copying the buffer.
+- `bits` 0.2.0.1: add universal packed-array and field proof foundations, writer readback composition, and word-boundary arithmetic. Grow the writer by adding a zeroed subtree instead of copying the buffer. The two universal writer laws remain open.
 
 - `bits` 0.2.0.0: measure dynamic Huffman table builds and use a nine-bit root with secondary tables for long codes. The `Huff` constructor now owns two arrays. Breaking.
 

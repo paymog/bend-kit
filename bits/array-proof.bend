@@ -623,3 +623,64 @@ def zero_after_grow(+depth: Nat, +t: Tree, +i: U32, sh: shape(depth, t), h: zero
     MNat.lt_trans(U32.to_nat(i), Lemmas.pow2(depth), Lemmas.pow2(1n+depth), hi, Field.pow2_lt(depth, 1n+depth, MNat.lt_succ_self(depth))),
     Equal.cong(U32, U32, x => U32.shl(x), size(t), size(zeros(depth)), en),
     zero_after_grow_root(depth, t, i, hd, hi, zero_after_normalize(depth, t, i, child_depth(depth, hd), hi, en, h)))
+
+# Small traversal steps avoid checker stack overflow: https://github.com/bendlang/bend/issues/1071
+def get_normalize(+depth: Nat, +t: Tree, +i: U32, +hd: MNat.lt(depth, 32n), +hi: MNat.lt(U32.to_nat(i), Lemmas.pow2(depth)), en: {size(t) == size(zeros(depth)) : U32}) -> {get(t, i) == get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))) : U32}:
+  %Equal.sym(U32, size(t), size(zeros(depth)), en) : {get.go(t, _, U32.and(i, U32.sub(_, 1)), U32.is_lt(U32.and(i, U32.sub(_, 1)), U32.shr(_))) == get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))) : U32}
+  %Equal.sym(U32, U32.and(i, U32.sub(size(zeros(depth)), 1)), i, in_range_mask(depth, i, hd, hi)) : {get.go(t, size(zeros(depth)), _, U32.is_lt(_, U32.shr(size(zeros(depth))))) == get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))) : U32}
+  {==}
+
+def get_grow_root(+depth: Nat, +t: Tree, +i: U32, +hd: MNat.lt(1n+depth, 32n), hi: MNat.lt(U32.to_nat(i), Lemmas.pow2(depth))) -> {get.go(grow(t, depth), size(zeros(1n+depth)), i, U32.is_lt(i, U32.shr(size(zeros(1n+depth))))) == get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))) : U32}:
+  +e = Equal.trans(Bool, U32.is_lt(i, U32.shr(size(zeros(1n+depth)))), U32.is_lt(i, size(zeros(depth))), True{},
+    Equal.cong(U32, Bool, x => U32.is_lt(i, x), U32.shr(size(zeros(1n+depth))), size(zeros(depth)), zeros_half(depth, hd)), below_size(depth, i, child_depth(depth, hd), hi))
+  %Equal.sym(Bool, U32.is_lt(i, U32.shr(size(zeros(1n+depth)))), True{}, e) : {get.go(grow(t, depth), size(zeros(1n+depth)), i, _) == get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))) : U32}
+  %Equal.sym(U32, U32.shr(size(zeros(1n+depth))), size(zeros(depth)), zeros_half(depth, hd)) : {get.go(t, _, i, U32.is_lt(i, U32.shr(_))) == get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))) : U32}
+  {==}
+
+def get_grow(+depth: Nat, +t: Tree, +i: U32, sh: shape(depth, t), +hd: MNat.lt(1n+depth, 32n), +hi: MNat.lt(U32.to_nat(i), Lemmas.pow2(depth))) -> {get(grow(t, depth), i) == get(t, i) : U32}:
+  +en = shape_size(depth, t, sh)
+  Equal.trans(U32, get(grow(t, depth), i), get.go(grow(t, depth), size(zeros(1n+depth)), i, U32.is_lt(i, U32.shr(size(zeros(1n+depth))))), get(t, i),
+    get_normalize(1n+depth, grow(t, depth), i, hd,
+      MNat.lt_trans(U32.to_nat(i), Lemmas.pow2(depth), Lemmas.pow2(1n+depth), hi, Field.pow2_lt(depth, 1n+depth, MNat.lt_succ_self(depth))),
+      Equal.cong(U32, U32, x => U32.shl(x), size(t), size(zeros(depth)), en)),
+    Equal.trans(U32, get.go(grow(t, depth), size(zeros(1n+depth)), i, U32.is_lt(i, U32.shr(size(zeros(1n+depth))))), get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))), get(t, i),
+      get_grow_root(depth, t, i, hd, hi),
+      Equal.sym(U32, get(t, i), get.go(t, size(zeros(depth)), i, U32.is_lt(i, U32.shr(size(zeros(depth))))), get_normalize(depth, t, i, child_depth(depth, hd), hi, en))))
+
+def u32_lt_self_false.at(+i: U32, z: Bool, e: {U32.is_lt(i, i) == z : Bool}) -> {z == False{} : Bool}:
+  match z:
+    case True{}:
+      Empty.absurd({True{} == False{} : Bool}, MNat.lt_irrefl(U32.to_nat(i))(u32_lt_bound(i, i, e)))
+    case False{}:
+      {==}
+
+def first_new_branch(+depth: Nat, +i: U32, +hd: MNat.lt(1n+depth, 32n), ei: {U32.to_nat(i) == Lemmas.pow2(depth) : Nat}) -> {U32.is_lt(i, U32.shr(size(zeros(1n+depth)))) == False{} : Bool}:
+  +e = Lemmas.u32_to_nat_inj(i, size(zeros(depth)),
+    Equal.trans(Nat, U32.to_nat(i), Lemmas.pow2(depth), U32.to_nat(size(zeros(depth))), ei,
+      Equal.sym(Nat, U32.to_nat(size(zeros(depth))), Lemmas.pow2(depth), zeros_size_nat(depth, child_depth(depth, hd)))))
+  %Equal.sym(U32, U32.shr(size(zeros(1n+depth))), size(zeros(depth)), zeros_half(depth, hd)) : {U32.is_lt(i, _) == False{} : Bool}
+  %Equal.sym(U32, i, size(zeros(depth)), e) : {U32.is_lt(_, size(zeros(depth))) == False{} : Bool}
+  u32_lt_self_false.at(size(zeros(depth)), U32.is_lt(size(zeros(depth)), size(zeros(depth))), {==})
+
+def first_new_bound(+depth: Nat, +i: U32, ei: {U32.to_nat(i) == Lemmas.pow2(depth) : Nat}) -> MNat.lt(U32.to_nat(i), Lemmas.pow2(1n+depth)):
+  %Equal.sym(Nat, U32.to_nat(i), Lemmas.pow2(depth), ei) : MNat.lt(_, Lemmas.pow2(1n+depth))
+  Field.pow2_lt(depth, 1n+depth, MNat.lt_succ_self(depth))
+
+def get_grow_new_root(+depth: Nat, +t: Tree, +i: U32, +hd: MNat.lt(1n+depth, 32n), ei: {U32.to_nat(i) == Lemmas.pow2(depth) : Nat}) -> {get.go(grow(t, depth), size(zeros(1n+depth)), i, U32.is_lt(i, U32.shr(size(zeros(1n+depth))))) == 0 : U32}:
+  %Equal.sym(Bool, U32.is_lt(i, U32.shr(size(zeros(1n+depth)))), False{}, first_new_branch(depth, i, hd, ei)) : {get.go(grow(t, depth), size(zeros(1n+depth)), i, _) == 0 : U32}
+  zeros_get_go(depth, U32.shr(size(zeros(1n+depth))), U32.sub(i, U32.shr(size(zeros(1n+depth)))), U32.is_lt(U32.sub(i, U32.shr(size(zeros(1n+depth)))), U32.shr(U32.shr(size(zeros(1n+depth))))))
+
+def get_grow_new(+depth: Nat, +t: Tree, +i: U32, sh: shape(depth, t), +hd: MNat.lt(1n+depth, 32n), +ei: {U32.to_nat(i) == Lemmas.pow2(depth) : Nat}) -> {get(grow(t, depth), i) == 0 : U32}:
+  Equal.trans(U32, get(grow(t, depth), i), get.go(grow(t, depth), size(zeros(1n+depth)), i, U32.is_lt(i, U32.shr(size(zeros(1n+depth))))), 0,
+    get_normalize(1n+depth, grow(t, depth), i, hd, first_new_bound(depth, i, ei),
+      Equal.cong(U32, U32, x => U32.shl(x), size(t), size(zeros(depth)), shape_size(depth, t, sh))),
+    get_grow_new_root(depth, t, i, hd, ei))
+
+def zero_after_grow_new_root(+depth: Nat, +t: Tree, +i: U32, +hd: MNat.lt(1n+depth, 32n), ei: {U32.to_nat(i) == Lemmas.pow2(depth) : Nat}) -> zero_after.go(1n+depth, grow(t, depth), size(zeros(1n+depth)), i, U32.is_lt(i, U32.shr(size(zeros(1n+depth))))):
+  %Equal.sym(Bool, U32.is_lt(i, U32.shr(size(zeros(1n+depth)))), False{}, first_new_branch(depth, i, hd, ei)) : zero_after.go(1n+depth, grow(t, depth), size(zeros(1n+depth)), i, _)
+  zeros_zero_after_go(depth, U32.shr(size(zeros(1n+depth))), U32.sub(i, U32.shr(size(zeros(1n+depth)))), U32.is_lt(U32.sub(i, U32.shr(size(zeros(1n+depth)))), U32.shr(U32.shr(size(zeros(1n+depth))))))
+
+def zero_after_grow_new(+depth: Nat, +t: Tree, +i: U32, sh: shape(depth, t), +hd: MNat.lt(1n+depth, 32n), +ei: {U32.to_nat(i) == Lemmas.pow2(depth) : Nat}) -> zero_after(1n+depth, grow(t, depth), i):
+  zero_after_denormalize(1n+depth, grow(t, depth), i, hd, first_new_bound(depth, i, ei),
+    Equal.cong(U32, U32, x => U32.shl(x), size(t), size(zeros(depth)), shape_size(depth, t, sh)),
+    zero_after_grow_new_root(depth, t, i, hd, ei))
