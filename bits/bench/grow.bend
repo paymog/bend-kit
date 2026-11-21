@@ -8,7 +8,7 @@ def copied(buf: Array<U32>, +depth: U32) -> Array<U32>:
     Array.new(U32, U32.to_nat((depth + 1 : U32)), 0), 0, 0))
 
 def buffer(w: Bits.Writer) -> Array<U32>:
-  Bits.Writer{buf, dep, pos} = w
+  Bits.Writer{buf, dep, pos, msb} = w
   buf
 
 def grown(keep: Bool, buf: Array<U32>, +depth: U32) -> Array<U32>:
@@ -16,7 +16,7 @@ def grown(keep: Bool, buf: Array<U32>, +depth: U32) -> Array<U32>:
     case False{}:
       copied(buf, depth)
     case True{}:
-      buffer(Bits.room(True{}, Bits.Writer{buf, depth, 0}))
+      buffer(Bits.room(True{}, Bits.Writer{buf, depth, 0, False{}}))
 
 def checksum(buf: Array<U32>) -> U32:
   match buf:

@@ -99,9 +99,9 @@ def read_after_skip(msb: Bool, n: U32, r: Bits.Reader & Bool) -> Maybe<&2, Nat>:
   read_nat(get.at(msb, rd, n))
 
 def read_after_write_at(+msb: Bool, +n: U32, +v: U32, w: Bits.Writer) -> Maybe<&2, Nat>:
-  Bits.Writer{buf, dep, +pos} = w
+  Bits.Writer{buf, dep, +pos, last} = w
   read_after_skip(msb, n, Bits.Reader.skip(
-    Bits.Reader.new(Bits.Writer.finish(put(msb, Bits.Writer{buf, dep, pos}, n, v))), pos))
+    Bits.Reader.new(Bits.Writer.finish(put(msb, Bits.Writer{buf, dep, pos, last}, n, v))), pos))
 
 def read_after_write(+msb: Bool, +fs: List<&2, F>, +n: U32, +v: U32) -> Maybe<&2, Nat>:
   read_after_write_at(msb, n, v, puts(fs, msb, Bits.Writer.new()))

@@ -12,9 +12,9 @@ import ./position-proof.bend as Position
 type State is Data:
   State{image: A.Tree, dep: U32, pos: U32}
 
-def build(s: State) -> Bits.Writer:
+def build(msb: Bool, s: State) -> Bits.Writer:
   State{image, dep, pos} = s
-  Bits.Writer{A.build(image), dep, pos}
+  Bits.Writer{A.build(image), dep, pos, msb}
 
 def new() -> State:
   State{A.Leaf{0}, 0, 0}
@@ -83,14 +83,14 @@ def puts(fs: List<&2, Laws.F>, +msb: Bool, s: State) -> State:
     case Con{Laws.F{n, v}, t}:
       puts(t, msb, write(msb, s, n, v))
 
-def room_bridge(+full: Bool, +s: State) -> {Bits.room(full, build(s)) == build(room(full, s)) : Bits.Writer}:
+def room_bridge(+msb: Bool, +full: Bool, +s: State) -> {Bits.room(full, build(msb, s)) == build(msb, room(full, s)) : Bits.Writer}:
   match full:
     case False{}:
       {==}
     case True{}:
       match s:
         case State{+t, +dep, +pos}:
-          %A.grow_bridge(t, U32.to_nat(dep)) : {Bits.Writer{_, (dep + 1 : U32), pos} == build(room(True{}, State{t, dep, pos})) : Bits.Writer}
+          %A.grow_bridge(t, U32.to_nat(dep)) : {Bits.Writer{_, (dep + 1 : U32), pos, msb} == build(msb, room(True{}, State{t, dep, pos})) : Bits.Writer}
           {==}
 
 def or_bridge(+some: Bool, +t: A.Tree, +k: U32, +x: U32) -> {Bits.or.if(some, A.build(t), k, x) == A.build(or_if(some, t, k, x)) : Array<U32>}:
@@ -109,34 +109,80 @@ def put_parts_bridge(+t: A.Tree, +k: U32, parts: U32 & U32) -> {Bits.write.put(k
   (x0, x1) = parts
   put_bridge(t, k, x0, x1)
 
-def write_at_bridge(+msb: Bool, +s: State, +n: U32, +v: U32) -> {Bits.write.at(msb, build(s), n, v) == build(write_at(msb, s, n, v)) : Bits.Writer}:
+def write_at_bridge(+msb: Bool, +s: State, +n: U32, +v: U32) -> {Bits.write.at(msb, build(msb, s), n, v) == build(msb, write_at(msb, s, n, v)) : Bits.Writer}:
   match s:
     case State{+t, +dep, +pos}:
-      %Equal.sym(Array<U32>, Bits.write.put((pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v), A.build(t)), A.build(put_parts(t, (pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v))), put_parts_bridge(t, (pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v))) : {Bits.Writer{_, dep, (pos + n : U32)} == build(write_at(msb, State{t, dep, pos}, n, v)) : Bits.Writer}
+      %Equal.sym(Array<U32>, Bits.write.put((pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v), A.build(t)), A.build(put_parts(t, (pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v))), put_parts_bridge(t, (pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v))) : {Bits.Writer{_, dep, (pos + n : U32), msb} == build(msb, write_at(msb, State{t, dep, pos}, n, v)) : Bits.Writer}
       {==}
 
-def write_bridge(+msb: Bool, +s: State, +n0: U32, +v: U32) -> {Bits.write(msb, build(s), n0, v) == build(write(msb, s, n0, v)) : Bits.Writer}:
+def xor_self(msb: Bool) -> {Bool.xor(msb, msb) == False{} : Bool}:
+  match msb:
+    case False{}:
+      {==}
+    case True{}:
+      {==}
+
+def write_bridge(+msb: Bool, +s: State, +n0: U32, +v: U32) -> {Bits.write(msb, build(msb, s), n0, v) == build(msb, write(msb, s, n0, v)) : Bits.Writer}:
   match s:
     case State{+t, +dep, +pos}:
       +n = U32.min(n0, 32)
       +full = U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((pos + n + 31) >> 5n : U32))
-      %Equal.sym(Bits.Writer, Bits.room(full, build(State{t, dep, pos})), build(room(full, State{t, dep, pos})), room_bridge(full, State{t, dep, pos})) : {Bits.write.at(msb, _, n, v) == build(write(msb, State{t, dep, pos}, n0, v)) : Bits.Writer}
+      %Equal.sym(Bool, Bool.xor(msb, msb), False{}, xor_self(msb)) : {Bits.write.at(msb, Bits.room(U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((Bool.pick(U32, _, ((pos + 7) .&. 4294967288 : U32), pos) + n + 31) >> 5n : U32)), Bits.Writer{A.build(t), dep, Bool.pick(U32, _, ((pos + 7) .&. 4294967288 : U32), pos), msb}), n, v) == build(msb, write(msb, State{t, dep, pos}, n0, v)) : Bits.Writer}
+      %Equal.sym(Bits.Writer, Bits.room(full, build(msb, State{t, dep, pos})), build(msb, room(full, State{t, dep, pos})), room_bridge(msb, full, State{t, dep, pos})) : {Bits.write.at(msb, _, n, v) == build(msb, write(msb, State{t, dep, pos}, n0, v)) : Bits.Writer}
       write_at_bridge(msb, room(full, State{t, dep, pos}), n, v)
 
-def put_order_bridge(+msb: Bool, +s: State, +n: U32, +v: U32) -> {Laws.put(msb, build(s), n, v) == build(write(msb, s, n, v)) : Bits.Writer}:
+def put_order_bridge(+msb: Bool, +s: State, +n: U32, +v: U32) -> {Laws.put(msb, build(msb, s), n, v) == build(msb, write(msb, s, n, v)) : Bits.Writer}:
   match msb:
     case False{}:
       write_bridge(False{}, s, n, v)
     case True{}:
       write_bridge(True{}, s, n, v)
 
-def puts_bridge(+fs: List<&2, Laws.F>, +msb: Bool, +s: State) -> {Laws.puts(fs, msb, build(s)) == build(puts(fs, msb, s)) : Bits.Writer}:
+def puts_bridge(+fs: List<&2, Laws.F>, +msb: Bool, +s: State) -> {Laws.puts(fs, msb, build(msb, s)) == build(msb, puts(fs, msb, s)) : Bits.Writer}:
   match fs:
     case Nil{}:
       {==}
     case Con{Laws.F{+n, +v}, +t}:
-      %Equal.sym(Bits.Writer, Laws.put(msb, build(s), n, v), build(write(msb, s, n, v)), put_order_bridge(msb, s, n, v)) : {Laws.puts(t, msb, _) == build(puts(Con{Laws.F{n, v}, t}, msb, s)) : Bits.Writer}
+      %Equal.sym(Bits.Writer, Laws.put(msb, build(msb, s), n, v), build(msb, write(msb, s, n, v)), put_order_bridge(msb, s, n, v)) : {Laws.puts(t, msb, _) == build(msb, puts(Con{Laws.F{n, v}, t}, msb, s)) : Bits.Writer}
       puts_bridge(t, msb, write(msb, s, n, v))
+
+def initial_room_order(full: Bool, +n: U32, +v: U32) ->
+  {Bits.write.at(True{}, Bits.room(full, Bits.Writer.new()), n, v) ==
+    Bits.write.at(True{}, Bits.room(full, build(True{}, new())), n, v) : Bits.Writer}:
+  match full:
+    case False{}:
+      {==}
+    case True{}:
+      {==}
+
+def initial_write_bridge(msb: Bool, +n: U32, +v: U32) ->
+  {Laws.put(msb, Bits.Writer.new(), n, v) == build(msb, write(msb, new(), n, v)) : Bits.Writer}:
+  match msb:
+    case False{}:
+      put_order_bridge(False{}, new(), n, v)
+    case True{}:
+      Equal.trans(Bits.Writer,
+        Laws.put(True{}, Bits.Writer.new(), n, v),
+        Laws.put(True{}, build(True{}, new()), n, v),
+        build(True{}, write(True{}, new(), n, v)),
+        initial_room_order(U32.is_lt(1, ((0 + U32.min(n, 32) + 31) >> 5n : U32)), U32.min(n, 32), v),
+        put_order_bridge(True{}, new(), n, v))
+
+def prefix_bridge(+fs: List<&2, Laws.F>, +msb: Bool) ->
+  {Bits.Writer.finish(Laws.puts(fs, msb, Bits.Writer.new())) ==
+    Bits.Writer.finish(build(msb, puts(fs, msb, new()))) : Bytes.Bytes}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{Laws.F{+n, +v}, +tail}:
+      %Equal.sym(Bits.Writer, Laws.put(msb, Bits.Writer.new(), n, v),
+        build(msb, write(msb, new(), n, v)), initial_write_bridge(msb, n, v)) :
+        {Bits.Writer.finish(Laws.puts(tail, msb, _)) ==
+          Bits.Writer.finish(build(msb, puts(Con{Laws.F{n, v}, tail}, msb, new()))) : Bytes.Bytes}
+      Equal.cong(Bits.Writer, Bytes.Bytes, Bits.Writer.finish,
+        Laws.puts(tail, msb, build(msb, write(msb, new(), n, v))),
+        build(msb, puts(tail, msb, write(msb, new(), n, v))),
+        puts_bridge(tail, msb, write(msb, new(), n, v)))
 
 def window(msb: Bool, +t: A.Tree, +p: U32) -> U32:
   match msb:
