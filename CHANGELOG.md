@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `bits` 0.3.0.0: use Nat bit positions through the Bytes length limit, including streams past 512 MiB. Reader skip counts, remaining counts, and returned positions are Nat. Preserve two-word field windows and prove read-after-write with room below 2^35. Breaking.
+
 - `f32array`: replace get-after-set, lane-after-put, and little-endian Bytes round-trip fixtures with universal structural claims and proofs. The Bytes claim requires length below 2^30 and includes NaNs. No runtime change.
 
 - `bits` 0.2.1.0: a write in the other bit order than the last write first pads to a byte boundary. Before, a switch inside a byte could set bits of the earlier field. Streams in one order do not change.

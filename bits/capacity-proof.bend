@@ -2,6 +2,7 @@ import Base
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as L
 import bend-mathlib@0.8.0.0/nat.bend as N
 import ./field-proof.bend as Field
+import ./bits.bend as Bits
 import ./position-proof.bend as Position
 def words(+d: Nat) -> Nat:
   L.pow2(d)
@@ -76,57 +77,38 @@ def comparison(+d: Nat, +p: Nat, +n: Nat) ->
   {Nat.is_lt(words(d), needed(p, n)) == Nat.is_lt(bits(d), Nat.add(p, n)) : Bool}:
   ceil_cmp(words(d), Nat.add(p, n))
 
-# Separate literal conversion from bounded addition: https://github.com/bendlang/bend/issues/1071.
-def add31_nat(+v: U32, h: N.lt(Nat.add(U32.to_nat(v), 31n), L.pow2(32n))) ->
-  {U32.to_nat((v + 31 : U32)) == Nat.add(U32.to_nat(v), 31n) : Nat}:
-  %Position.add_word_nat(v, 31) : {_ == Nat.add(U32.to_nat(v), 31n) : Nat}
-  Position.word_sum_nat(32n, Field.word(v), Field.word(31), U32.to_nat(v), 31n,
-    Field.word_nat(v), {==}, h)
-
-def end_bound(+p: Nat, +n: Nat, h: N.lt(Nat.add(Nat.add(p, n), 31n), L.pow2(32n))) ->
-  N.lt(Nat.add(p, n), L.pow2(32n)):
-  N.lt_of_le_of_lt(Nat.add(p, n), Nat.add(Nat.add(p, n), 31n), L.pow2(32n),
+def end_bound(+p: Nat, +n: Nat, h: N.lt(Nat.add(Nat.add(p, n), 31n), L.pow2(35n))) ->
+  N.lt(Nat.add(p, n), L.pow2(35n)):
+  N.lt_of_le_of_lt(Nat.add(p, n), Nat.add(Nat.add(p, n), 31n), L.pow2(35n),
     N.le_add_right(Nat.add(p, n), 31n), h)
 
-def sum31_nat(+p: U32, +n: U32,
-  +h: N.lt(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), L.pow2(32n))) ->
-  {U32.to_nat((p + n + 31 : U32)) == Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n) : Nat}:
-  +e = Position.position_add_nat(p, n, end_bound(U32.to_nat(p), U32.to_nat(n), h))
-  Equal.trans(Nat, U32.to_nat((p + n + 31 : U32)), Nat.add(U32.to_nat((p + n : U32)), 31n),
-    Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n),
-    add31_nat((p + n : U32),
-      (%Equal.sym(Nat, U32.to_nat((p + n : U32)), Nat.add(U32.to_nat(p), U32.to_nat(n)), e) :
-        N.lt(Nat.add(_, 31n), L.pow2(32n))
-       h)),
-    Equal.cong(Nat, Nat, x => Nat.add(x, 31n), U32.to_nat((p + n : U32)),
-      Nat.add(U32.to_nat(p), U32.to_nat(n)), e))
+def needed_nat.of(+p: Nat, +n: Nat,
+  h: N.lt(Nat.add(Nat.add(p, n), 31n), L.pow2(35n))) ->
+  {U32.to_nat(Bits.pos.words(Nat.add(p, n))) == needed(p, n) : Nat}:
+  Position.index_nat(Nat.add(Nat.add(p, n), 31n),
+    Position.index_room(Nat.add(Nat.add(p, n), 31n), h))
 
-def needed_nat(+p: U32, +n: U32,
-  h: N.lt(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), L.pow2(32n))) ->
-  {U32.to_nat(((p + n + 31) >> 5n : U32)) == needed(U32.to_nat(p), U32.to_nat(n)) : Nat}:
-  Equal.trans(Nat, U32.to_nat(((p + n + 31) >> 5n : U32)),
-    Nat.div(U32.to_nat((p + n + 31 : U32)), 32n), needed(U32.to_nat(p), U32.to_nat(n)),
-    Field.shrn_nat((p + n + 31 : U32), 5n),
-    Equal.cong(Nat, Nat, x => Nat.div(x, 32n), U32.to_nat((p + n + 31 : U32)),
-      Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), sum31_nat(p, n, h)))
+def needed_nat(+p: Nat, +n: U32,
+  h: N.lt(Nat.add(Nat.add(p, U32.to_nat(n)), 31n), L.pow2(35n))) ->
+  {U32.to_nat(Bits.pos.words(Nat.add(p, U32.to_nat(n)))) == needed(p, U32.to_nat(n)) : Nat}:
+  needed_nat.of(p, U32.to_nat(n), h)
 
-# Transport only opaque Nat capacities across the runtime comparison: https://github.com/bendlang/bend/issues/1071.
-def runtime_comparison(+d: U32, +p: U32, +n: U32, hd: N.lt(U32.to_nat(d), 32n),
-  h: N.lt(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), L.pow2(32n))) ->
-  {U32.is_lt(U32.shln(1, U32.to_nat(d)), ((p + n + 31) >> 5n : U32)) ==
-    Nat.is_lt(bits(U32.to_nat(d)), Nat.add(U32.to_nat(p), U32.to_nat(n))) : Bool}:
-  %Equal.sym(Bool, U32.is_lt(U32.shln(1, U32.to_nat(d)), ((p + n + 31) >> 5n : U32)),
-    Nat.is_lt(U32.to_nat(U32.shln(1, U32.to_nat(d))), U32.to_nat(((p + n + 31) >> 5n : U32))),
-    L.u32_is_lt_nat(U32.shln(1, U32.to_nat(d)), ((p + n + 31) >> 5n : U32))) :
-    {_ == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(U32.to_nat(p), U32.to_nat(n))) : Bool}
+def runtime_comparison(+d: U32, +p: Nat, +n: U32, hd: N.lt(U32.to_nat(d), 32n),
+  h: N.lt(Nat.add(Nat.add(p, U32.to_nat(n)), 31n), L.pow2(35n))) ->
+  {U32.is_lt(U32.shln(1, U32.to_nat(d)), Bits.pos.words(Nat.add(p, U32.to_nat(n)))) ==
+    Nat.is_lt(bits(U32.to_nat(d)), Nat.add(p, U32.to_nat(n))) : Bool}:
+  %Equal.sym(Bool, U32.is_lt(U32.shln(1, U32.to_nat(d)), Bits.pos.words(Nat.add(p, U32.to_nat(n)))),
+    Nat.is_lt(U32.to_nat(U32.shln(1, U32.to_nat(d))), U32.to_nat(Bits.pos.words(Nat.add(p, U32.to_nat(n))))),
+    L.u32_is_lt_nat(U32.shln(1, U32.to_nat(d)), Bits.pos.words(Nat.add(p, U32.to_nat(n))))) :
+    {_ == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(p, U32.to_nat(n))) : Bool}
   %Equal.sym(Nat, U32.to_nat(U32.shln(1, U32.to_nat(d))), words(U32.to_nat(d)),
     Field.shln_one_nat(U32.to_nat(d), hd)) :
-    {Nat.is_lt(_, U32.to_nat(((p + n + 31) >> 5n : U32))) ==
-      Nat.is_lt(bits(U32.to_nat(d)), Nat.add(U32.to_nat(p), U32.to_nat(n))) : Bool}
-  %Equal.sym(Nat, U32.to_nat(((p + n + 31) >> 5n : U32)), needed(U32.to_nat(p), U32.to_nat(n)),
+    {Nat.is_lt(_, U32.to_nat(Bits.pos.words(Nat.add(p, U32.to_nat(n))))) ==
+      Nat.is_lt(bits(U32.to_nat(d)), Nat.add(p, U32.to_nat(n))) : Bool}
+  %Equal.sym(Nat, U32.to_nat(Bits.pos.words(Nat.add(p, U32.to_nat(n)))), needed(p, U32.to_nat(n)),
     needed_nat(p, n, h)) :
-    {Nat.is_lt(words(U32.to_nat(d)), _) == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(U32.to_nat(p), U32.to_nat(n))) : Bool}
-  comparison(U32.to_nat(d), U32.to_nat(p), U32.to_nat(n))
+    {Nat.is_lt(words(U32.to_nat(d)), _) == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(p, U32.to_nat(n))) : Bool}
+  comparison(U32.to_nat(d), p, U32.to_nat(n))
 
 def one_doubling(+d: Nat, +p: Nat, +n: Nat, hp: N.le(p, bits(d)), hn: N.le(n, 32n)) ->
   N.le(Nat.add(p, n), bits(1n+d)):
@@ -146,14 +128,14 @@ def covers(full: Bool, +d: Nat, +p: Nat, +n: Nat,
 
 def growth_depth(+d: Nat, +p: Nat, +n: Nat,
   full: N.lt(bits(d), Nat.add(p, n)),
-  h: N.lt(Nat.add(Nat.add(p, n), 31n), L.pow2(32n))) -> N.lt(d, 27n):
-  pow_lt_reflect(5n+d, 32n,
-    (%bits_power(d) : N.lt(_, L.pow2(32n))
-     N.lt_trans(bits(d), Nat.add(p, n), L.pow2(32n), full, end_bound(p, n, h))))
+  h: N.lt(Nat.add(Nat.add(p, n), 31n), L.pow2(35n))) -> N.lt(d, 30n):
+  pow_lt_reflect(5n+d, 35n,
+    (%bits_power(d) : N.lt(_, L.pow2(35n))
+     N.lt_trans(bits(d), Nat.add(p, n), L.pow2(35n), full, end_bound(p, n, h))))
 
 def depth_bound(full: Bool, +d: Nat, +p: Nat, +n: Nat,
-  e: {full == Nat.is_lt(bits(d), Nat.add(p, n)) : Bool}, hd: N.lt(d, 28n),
-  h: N.lt(Nat.add(Nat.add(p, n), 31n), L.pow2(32n))) -> N.lt(depth(full, d), 28n):
+  e: {full == Nat.is_lt(bits(d), Nat.add(p, n)) : Bool}, hd: N.lt(d, 31n),
+  h: N.lt(Nat.add(Nat.add(p, n), 31n), L.pow2(35n))) -> N.lt(depth(full, d), 31n):
   match full:
     case False{}:
       hd
@@ -161,18 +143,18 @@ def depth_bound(full: Bool, +d: Nat, +p: Nat, +n: Nat,
       growth_depth(d, p, n, Equal.sym(Bool, True{}, Nat.is_lt(bits(d), Nat.add(p, n)), e), h)
 
 # Keep the increment bound separate from the concrete word: https://github.com/bendlang/bend/issues/1071.
-def increment_nat(+d: U32, hd: N.lt(U32.to_nat(d), 28n)) ->
+def increment_nat(+d: U32, hd: N.lt(U32.to_nat(d), 31n)) ->
   {U32.to_nat((d + 1 : U32)) == 1n+U32.to_nat(d) : Nat}:
   Equal.trans(Nat, U32.to_nat((d + 1 : U32)), Nat.add(U32.to_nat(d), 1n), 1n+U32.to_nat(d),
     (%Position.add_word_nat(d, 1) : {_ == Nat.add(U32.to_nat(d), 1n) : Nat}
      Position.word_sum_nat(32n, Field.word(d), Field.word(1), U32.to_nat(d), 1n,
        Field.word_nat(d), {==},
-       N.lt_trans(Nat.add(U32.to_nat(d), 1n), 29n, L.pow2(32n),
-         (%Equal.sym(Nat, Nat.add(U32.to_nat(d), 1n), 1n+U32.to_nat(d), N.add_comm(U32.to_nat(d), 1n)) : N.lt(_, 29n)
+       N.lt_trans(Nat.add(U32.to_nat(d), 1n), 32n, L.pow2(32n),
+         (%Equal.sym(Nat, Nat.add(U32.to_nat(d), 1n), 1n+U32.to_nat(d), N.add_comm(U32.to_nat(d), 1n)) : N.lt(_, 32n)
           hd), {==}))),
     N.add_comm(U32.to_nat(d), 1n))
 
-def runtime_depth(full: Bool, +d: U32, hd: N.lt(U32.to_nat(d), 28n)) ->
+def runtime_depth(full: Bool, +d: U32, hd: N.lt(U32.to_nat(d), 31n)) ->
   {U32.to_nat(Bool.pick(U32, full, (d + 1 : U32), d)) == depth(full, U32.to_nat(d)) : Nat}:
   match full:
     case False{}:
@@ -180,27 +162,34 @@ def runtime_depth(full: Bool, +d: U32, hd: N.lt(U32.to_nat(d), 28n)) ->
     case True{}:
       increment_nat(d, hd)
 
-def index_le(+d: Nat, +p: U32, hp: N.le(U32.to_nat(p), bits(d))) ->
+def position_bound(+d: Nat, +p: Nat, hd: N.lt(d, 31n), hp: N.le(p, bits(d))) ->
+  N.lt(p, L.pow2(37n)):
+  N.lt_of_le_of_lt(p, bits(d), L.pow2(37n), hp,
+    (%Equal.sym(Nat, bits(d), L.pow2(5n+d), bits_power(d)) : N.lt(_, L.pow2(37n))
+     Field.pow2_lt(5n+d, 37n,
+       N.lt_trans(5n+d, 36n, 37n, N.add_lt_add_left(d, 31n, 5n, hd), {==}))))
+
+def index_le(+d: Nat, +p: Nat, +hd: N.lt(d, 31n), +hp: N.le(p, bits(d))) ->
   N.le(U32.to_nat(Position.index(p)), words(d)):
-  %Equal.sym(Nat, U32.to_nat(Position.index(p)), Nat.div(U32.to_nat(p), 32n), Position.index_nat(p)) :
+  %Equal.sym(Nat, U32.to_nat(Position.index(p)), Nat.div(p, 32n), Position.index_nat(p, position_bound(d, p, hd, hp))) :
     N.le(_, words(d))
-  %N.mul_div_cancel(words(d), 31n) : N.le(Nat.div(U32.to_nat(p), 32n), _)
-  N.div_le_div(U32.to_nat(p), bits(d), 31n, hp)
+  %N.mul_div_cancel(words(d), 31n) : N.le(Nat.div(p, 32n), _)
+  N.div_le_div(p, bits(d), 31n, hp)
 
-def index_lt(+d: Nat, +p: U32, hp: N.lt(U32.to_nat(p), bits(d))) ->
+def index_lt(+d: Nat, +p: Nat, +hd: N.lt(d, 31n), +hp: N.lt(p, bits(d))) ->
   N.lt(U32.to_nat(Position.index(p)), words(d)):
-  %Equal.sym(Nat, U32.to_nat(Position.index(p)), Nat.div(U32.to_nat(p), 32n), Position.index_nat(p)) :
+  %Equal.sym(Nat, U32.to_nat(Position.index(p)), Nat.div(p, 32n), Position.index_nat(p, position_bound(d, p, hd, N.le_of_lt(p, bits(d), hp)))) :
     N.lt(_, words(d))
-  N.lt_of_mul_lt_mul_right(Nat.div(U32.to_nat(p), 32n), words(d), 32n,
-    N.lt_of_le_of_lt(Nat.mul(Nat.div(U32.to_nat(p), 32n), 32n), U32.to_nat(p), bits(d),
-      N.div_mul_le_self(U32.to_nat(p), 32n), hp))
+  N.lt_of_mul_lt_mul_right(Nat.div(p, 32n), words(d), 32n,
+    N.lt_of_le_of_lt(Nat.mul(Nat.div(p, 32n), 32n), p, bits(d),
+      N.div_mul_le_self(p, 32n), hp))
 
-def index_at_capacity(+d: Nat, +p: U32, ep: {U32.to_nat(p) == bits(d) : Nat}) ->
+def index_at_capacity(+d: Nat, +p: Nat, +hd: N.lt(d, 31n), +ep: {p == bits(d) : Nat}) ->
   {U32.to_nat(Position.index(p)) == words(d) : Nat}:
-  Equal.trans(Nat, U32.to_nat(Position.index(p)), Nat.div(U32.to_nat(p), 32n), words(d),
-    Position.index_nat(p),
-    Equal.trans(Nat, Nat.div(U32.to_nat(p), 32n), Nat.div(bits(d), 32n), words(d),
-      Equal.cong(Nat, Nat, x => Nat.div(x, 32n), U32.to_nat(p), bits(d), ep),
+  Equal.trans(Nat, U32.to_nat(Position.index(p)), Nat.div(p, 32n), words(d),
+    Position.index_nat(p, position_bound(d, p, hd, Position.le_left_rw(p, bits(d), bits(d), ep, N.le_refl(bits(d))))),
+    Equal.trans(Nat, Nat.div(p, 32n), Nat.div(bits(d), 32n), words(d),
+      Equal.cong(Nat, Nat, x => Nat.div(x, 32n), p, bits(d), ep),
       N.mul_div_cancel(words(d), 31n)))
 
 # Keep the split position opaque while cancelling capacity: https://github.com/bendlang/bend/issues/1071.
@@ -216,12 +205,13 @@ def cross_index_nat(+c: Nat, +p: Nat, +n: Nat, +q: Nat, +s: Nat,
         N.lt(Nat.add(Nat.mul(q, 32n), 32n), _)
        N.add_lt_add_left(32n, Nat.add(s, n), Nat.mul(q, 32n), cross)), room))
 
-def cross_index_lt(+d: Nat, +p: U32, +n: U32,
-  room: N.le(Nat.add(U32.to_nat(p), U32.to_nat(n)), bits(d)),
+def cross_index_lt(+d: Nat, +p: Nat, +n: U32, +hd: N.lt(d, 31n),
+  +room: N.le(Nat.add(p, U32.to_nat(n)), bits(d)),
   cross: N.lt(32n, Nat.add(U32.to_nat(Position.offset(p)), U32.to_nat(n)))) ->
   N.lt(1n+U32.to_nat(Position.index(p)), words(d)):
-  cross_index_nat(words(d), U32.to_nat(p), U32.to_nat(n),
-    U32.to_nat(Position.index(p)), U32.to_nat(Position.offset(p)), Position.position_split(p), room, cross)
+  cross_index_nat(words(d), p, U32.to_nat(n),
+    U32.to_nat(Position.index(p)), U32.to_nat(Position.offset(p)), Position.position_split(p, position_bound(d, p, hd,
+      N.le_trans(p, Nat.add(p, U32.to_nat(n)), bits(d), N.le_add_right(p, U32.to_nat(n)), room))), room, cross)
 
 # Keep the large limit opaque during commutation: https://github.com/bendlang/bend/issues/1071.
 def successor_bound(+i: Nat, +limit: Nat, h: N.lt(1n+i, limit)) -> N.lt(Nat.add(i, 1n), limit):
@@ -246,15 +236,15 @@ def successor_word_bound(+i: Nat, +d: Nat, +limit: Nat, hi: N.le(i, L.pow2(d)),
     hd)
 
 
-def next_power_bound(+d: Nat, hd: N.lt(d, 28n)) -> N.lt(L.pow2(1n+d), L.pow2(32n)):
+def next_power_bound(+d: Nat, hd: N.lt(d, 31n)) -> N.lt(L.pow2(1n+d), L.pow2(32n)):
   Field.pow2_lt(1n+d, 32n,
-    N.lt_of_le_of_lt(1n+d, 28n, 32n, N.succ_le_of_lt(d, 28n, hd), {==}))
+    N.lt_of_le_of_lt(1n+d, 31n, 32n, N.succ_le_of_lt(d, 31n, hd), {==}))
 
 
-def next_index_nat(+d: Nat, +p: U32, hd: N.lt(d, 28n), hp: N.le(U32.to_nat(p), bits(d))) ->
+def next_index_nat(+d: Nat, +p: Nat, +hd: N.lt(d, 31n), hp: N.le(p, bits(d))) ->
   {U32.to_nat((Position.index(p) + 1 : U32)) == 1n+U32.to_nat(Position.index(p)) : Nat}:
   successor_nat(Position.index(p),
-    successor_word_bound(U32.to_nat(Position.index(p)), d, L.pow2(32n), index_le(d, p, hp),
+    successor_word_bound(U32.to_nat(Position.index(p)), d, L.pow2(32n), index_le(d, p, hd, hp),
       next_power_bound(d, hd)))
 
 def adjacent_ne(+a: Nat) -> {Nat.is_eq(a, 1n+a) == False{} : Bool}:
@@ -264,7 +254,7 @@ def adjacent_ne(+a: Nat) -> {Nat.is_eq(a, 1n+a) == False{} : Bool}:
     case 1n+ +q:
       adjacent_ne(q)
 
-def next_index_ne(+d: Nat, +p: U32, hd: N.lt(d, 28n), hp: N.le(U32.to_nat(p), bits(d))) ->
+def next_index_ne(+d: Nat, +p: Nat, hd: N.lt(d, 31n), hp: N.le(p, bits(d))) ->
   {U32.is_eq(Position.index(p), (Position.index(p) + 1 : U32)) == False{} : Bool}:
   Equal.trans(Bool, U32.is_eq(Position.index(p), (Position.index(p) + 1 : U32)),
     Nat.is_eq(U32.to_nat(Position.index(p)), U32.to_nat((Position.index(p) + 1 : U32))), False{},
@@ -275,23 +265,23 @@ def next_index_ne(+d: Nat, +p: U32, hd: N.lt(d, 28n), hp: N.le(U32.to_nat(p), bi
         U32.to_nat((Position.index(p) + 1 : U32)), 1n+U32.to_nat(Position.index(p)), next_index_nat(d, p, hd, hp)),
       adjacent_ne(U32.to_nat(Position.index(p)))))
 
-def cross_next_index_lt(+d: Nat, +p: U32, +n: U32, +hd: N.lt(d, 28n),
-  +room: N.le(Nat.add(U32.to_nat(p), U32.to_nat(n)), bits(d)),
+def cross_next_index_lt(+d: Nat, +p: Nat, +n: U32, +hd: N.lt(d, 31n),
+  +room: N.le(Nat.add(p, U32.to_nat(n)), bits(d)),
   cross: N.lt(32n, Nat.add(U32.to_nat(Position.offset(p)), U32.to_nat(n)))) ->
   N.lt(U32.to_nat((Position.index(p) + 1 : U32)), words(d)):
   %Equal.sym(Nat, U32.to_nat((Position.index(p) + 1 : U32)), 1n+U32.to_nat(Position.index(p)),
     next_index_nat(d, p, hd,
-      N.le_trans(U32.to_nat(p), Nat.add(U32.to_nat(p), U32.to_nat(n)), bits(d),
-        N.le_add_right(U32.to_nat(p), U32.to_nat(n)), room))) : N.lt(_, words(d))
-  cross_index_lt(d, p, n, room, cross)
+      N.le_trans(p, Nat.add(p, U32.to_nat(n)), bits(d),
+        N.le_add_right(p, U32.to_nat(n)), room))) : N.lt(_, words(d))
+  cross_index_lt(d, p, n, hd, room, cross)
 
-def runtime_covers(+full: Bool, +d: U32, +p: U32, +n: U32,
-  e: {full == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(U32.to_nat(p), U32.to_nat(n))) : Bool},
-  hd: N.lt(U32.to_nat(d), 28n), hp: N.le(U32.to_nat(p), bits(U32.to_nat(d))),
+def runtime_covers(+full: Bool, +d: U32, +p: Nat, +n: U32,
+  e: {full == Nat.is_lt(bits(U32.to_nat(d)), Nat.add(p, U32.to_nat(n))) : Bool},
+  hd: N.lt(U32.to_nat(d), 31n), hp: N.le(p, bits(U32.to_nat(d))),
   hn: N.le(U32.to_nat(n), 32n)) ->
-  N.le(Nat.add(U32.to_nat(p), U32.to_nat(n)), bits(U32.to_nat(Bool.pick(U32, full, (d + 1 : U32), d)))):
-  Position.le_right_rw(Nat.add(U32.to_nat(p), U32.to_nat(n)),
+  N.le(Nat.add(p, U32.to_nat(n)), bits(U32.to_nat(Bool.pick(U32, full, (d + 1 : U32), d)))):
+  Position.le_right_rw(Nat.add(p, U32.to_nat(n)),
     bits(U32.to_nat(Bool.pick(U32, full, (d + 1 : U32), d))), bits(depth(full, U32.to_nat(d))),
     Equal.cong(Nat, Nat, x => bits(x), U32.to_nat(Bool.pick(U32, full, (d + 1 : U32), d)),
       depth(full, U32.to_nat(d)), runtime_depth(full, d, hd)),
-    covers(full, U32.to_nat(d), U32.to_nat(p), U32.to_nat(n), e, hp, hn))
+    covers(full, U32.to_nat(d), p, U32.to_nat(n), e, hp, hn))

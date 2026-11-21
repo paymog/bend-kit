@@ -10,14 +10,14 @@ import bend-mathlib@0.8.0.0/bool.bend as MBool
 import ./position-proof.bend as Position
 
 type State is Data:
-  State{image: A.Tree, dep: U32, pos: U32}
+  State{image: A.Tree, dep: U32, pos: Nat}
 
 def build(msb: Bool, s: State) -> Bits.Writer:
   State{image, dep, pos} = s
   Bits.Writer{A.build(image), dep, pos, msb}
 
 def new() -> State:
-  State{A.Leaf{0}, 0, 0}
+  State{A.Leaf{0}, 0, 0n}
 
 def room(full: Bool, s: State) -> State:
   match full:
@@ -69,12 +69,12 @@ def or_zero_after(+depth: Nat, some: Bool, +t: A.Tree, +k: U32, +x: U32,
 
 def write_at(+msb: Bool, s: State, +n: U32, v: U32) -> State:
   State{t, dep, +pos} = s
-  State{put_parts(t, (pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v)), dep, (pos + n : U32)}
+  State{put_parts(t, Bits.pos.index(pos), Bits.parts(msb, Bits.pos.offset(pos), n, v)), dep, Nat.add(pos, U32.to_nat(n))}
 
 def write(+msb: Bool, s: State, +n0: U32, +v: U32) -> State:
   State{t, +dep, +pos} = s
   +n = U32.min(n0, 32)
-  write_at(msb, room(U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((pos + n + 31) >> 5n : U32)), State{t, dep, pos}), n, v)
+  write_at(msb, room(U32.is_lt(U32.shln(1, U32.to_nat(dep)), Bits.pos.words(Nat.add(pos, U32.to_nat(n)))), State{t, dep, pos}), n, v)
 
 def puts(fs: List<&2, Laws.F>, +msb: Bool, s: State) -> State:
   match fs:
@@ -112,7 +112,7 @@ def put_parts_bridge(+t: A.Tree, +k: U32, parts: U32 & U32) -> {Bits.write.put(k
 def write_at_bridge(+msb: Bool, +s: State, +n: U32, +v: U32) -> {Bits.write.at(msb, build(msb, s), n, v) == build(msb, write_at(msb, s, n, v)) : Bits.Writer}:
   match s:
     case State{+t, +dep, +pos}:
-      %Equal.sym(Array<U32>, Bits.write.put((pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v), A.build(t)), A.build(put_parts(t, (pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v))), put_parts_bridge(t, (pos >> 5n : U32), Bits.parts(msb, (pos .&. 31 : U32), n, v))) : {Bits.Writer{_, dep, (pos + n : U32), msb} == build(msb, write_at(msb, State{t, dep, pos}, n, v)) : Bits.Writer}
+      %Equal.sym(Array<U32>, Bits.write.put(Bits.pos.index(pos), Bits.parts(msb, Bits.pos.offset(pos), n, v), A.build(t)), A.build(put_parts(t, Bits.pos.index(pos), Bits.parts(msb, Bits.pos.offset(pos), n, v))), put_parts_bridge(t, Bits.pos.index(pos), Bits.parts(msb, Bits.pos.offset(pos), n, v))) : {Bits.Writer{_, dep, Nat.add(pos, U32.to_nat(n)), msb} == build(msb, write_at(msb, State{t, dep, pos}, n, v)) : Bits.Writer}
       {==}
 
 def xor_self(msb: Bool) -> {Bool.xor(msb, msb) == False{} : Bool}:
@@ -126,8 +126,8 @@ def write_bridge(+msb: Bool, +s: State, +n0: U32, +v: U32) -> {Bits.write(msb, b
   match s:
     case State{+t, +dep, +pos}:
       +n = U32.min(n0, 32)
-      +full = U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((pos + n + 31) >> 5n : U32))
-      %Equal.sym(Bool, Bool.xor(msb, msb), False{}, xor_self(msb)) : {Bits.write.at(msb, Bits.room(U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((Bool.pick(U32, _, ((pos + 7) .&. 4294967288 : U32), pos) + n + 31) >> 5n : U32)), Bits.Writer{A.build(t), dep, Bool.pick(U32, _, ((pos + 7) .&. 4294967288 : U32), pos), msb}), n, v) == build(msb, write(msb, State{t, dep, pos}, n0, v)) : Bits.Writer}
+      +full = U32.is_lt(U32.shln(1, U32.to_nat(dep)), Bits.pos.words(Nat.add(pos, U32.to_nat(n))))
+      %Equal.sym(Bool, Bool.xor(msb, msb), False{}, xor_self(msb)) : {Bits.write.at(msb, Bits.room(U32.is_lt(U32.shln(1, U32.to_nat(dep)), Bits.pos.words(Nat.add(Bool.pick(Nat, _, Bits.pos.align(pos), pos), U32.to_nat(n)))), Bits.Writer{A.build(t), dep, Bool.pick(Nat, _, Bits.pos.align(pos), pos), msb}), n, v) == build(msb, write(msb, State{t, dep, pos}, n0, v)) : Bits.Writer}
       %Equal.sym(Bits.Writer, Bits.room(full, build(msb, State{t, dep, pos})), build(msb, room(full, State{t, dep, pos})), room_bridge(msb, full, State{t, dep, pos})) : {Bits.write.at(msb, _, n, v) == build(msb, write(msb, State{t, dep, pos}, n0, v)) : Bits.Writer}
       write_at_bridge(msb, room(full, State{t, dep, pos}), n, v)
 
@@ -165,7 +165,7 @@ def initial_write_bridge(msb: Bool, +n: U32, +v: U32) ->
         Laws.put(True{}, Bits.Writer.new(), n, v),
         Laws.put(True{}, build(True{}, new()), n, v),
         build(True{}, write(True{}, new(), n, v)),
-        initial_room_order(U32.is_lt(1, ((0 + U32.min(n, 32) + 31) >> 5n : U32)), U32.min(n, 32), v),
+        initial_room_order(U32.is_lt(1, Bits.pos.words(Nat.add(0n, U32.to_nat(U32.min(n, 32))))), U32.min(n, 32), v),
         put_order_bridge(True{}, new(), n, v))
 
 def prefix_bridge(+fs: List<&2, Laws.F>, +msb: Bool) ->
@@ -184,83 +184,64 @@ def prefix_bridge(+fs: List<&2, Laws.F>, +msb: Bool) ->
         build(msb, puts(tail, msb, write(msb, new(), n, v))),
         puts_bridge(tail, msb, write(msb, new(), n, v)))
 
-def window(msb: Bool, +t: A.Tree, +p: U32) -> U32:
+def window(msb: Bool, +t: A.Tree, +p: Nat) -> U32:
   match msb:
     case False{}:
-      +s = (p .&. 31 : U32)
-      (U32.shrn(A.get(t, (p >> 5n : U32)), U32.to_nat(s)) .|. U32.shln(A.get(t, ((p >> 5n) + 1 : U32)), U32.to_nat((32 - s : U32))) : U32)
+      +s = Bits.pos.offset(p)
+      (U32.shrn(A.get(t, Bits.pos.index(p)), U32.to_nat(s)) .|. U32.shln(A.get(t, (Bits.pos.index(p) + 1 : U32)), U32.to_nat((32 - s : U32))) : U32)
     case True{}:
-      +s = (p .&. 31 : U32)
-      (U32.shln(Bytes.bswap(A.get(t, (p >> 5n : U32))), U32.to_nat(s)) .|. U32.shrn(Bytes.bswap(A.get(t, ((p >> 5n) + 1 : U32))), U32.to_nat((32 - s : U32))) : U32)
+      +s = Bits.pos.offset(p)
+      (U32.shln(Bytes.bswap(A.get(t, Bits.pos.index(p))), U32.to_nat(s)) .|. U32.shrn(Bytes.bswap(A.get(t, (Bits.pos.index(p) + 1 : U32))), U32.to_nat((32 - s : U32))) : U32)
 
-def window_bridge(+msb: Bool, +t: A.Tree, +p: U32) -> {Bits.win(msb, A.build(t), p) == (A.build(t), window(msb, t, p)) : Array<U32> & U32}:
+def window_bridge(+msb: Bool, +t: A.Tree, +p: Nat) -> {Bits.win(msb, A.build(t), p) == (A.build(t), window(msb, t, p)) : Array<U32> & U32}:
   match msb:
     case False{}:
-      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), (p >> 5n : U32)), (A.build(t), A.get(t, (p >> 5n : U32))), A.get_bridge(t, (p >> 5n : U32))) : {Bits.win.lsb.at(p, _) == (A.build(t), window(False{}, t, p)) : Array<U32> & U32}
-      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), ((p >> 5n) + 1 : U32)), (A.build(t), A.get(t, ((p >> 5n) + 1 : U32))), A.get_bridge(t, ((p >> 5n) + 1 : U32))) : {Bits.win.lsb.join((p .&. 31 : U32), A.get(t, (p >> 5n : U32)), _) == (A.build(t), window(False{}, t, p)) : Array<U32> & U32}
+      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), Bits.pos.index(p)), (A.build(t), A.get(t, Bits.pos.index(p))), A.get_bridge(t, Bits.pos.index(p))) : {Bits.win.lsb.at(Bits.pos.index(p), Bits.pos.offset(p), _) == (A.build(t), window(False{}, t, p)) : Array<U32> & U32}
+      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), (Bits.pos.index(p) + 1 : U32)), (A.build(t), A.get(t, (Bits.pos.index(p) + 1 : U32))), A.get_bridge(t, (Bits.pos.index(p) + 1 : U32))) : {Bits.win.lsb.join(Bits.pos.offset(p), A.get(t, Bits.pos.index(p)), _) == (A.build(t), window(False{}, t, p)) : Array<U32> & U32}
       {==}
     case True{}:
-      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), (p >> 5n : U32)), (A.build(t), A.get(t, (p >> 5n : U32))), A.get_bridge(t, (p >> 5n : U32))) : {Bits.win.msb.at(p, _) == (A.build(t), window(True{}, t, p)) : Array<U32> & U32}
-      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), ((p >> 5n) + 1 : U32)), (A.build(t), A.get(t, ((p >> 5n) + 1 : U32))), A.get_bridge(t, ((p >> 5n) + 1 : U32))) : {Bits.win.msb.join((p .&. 31 : U32), A.get(t, (p >> 5n : U32)), _) == (A.build(t), window(True{}, t, p)) : Array<U32> & U32}
+      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), Bits.pos.index(p)), (A.build(t), A.get(t, Bits.pos.index(p))), A.get_bridge(t, Bits.pos.index(p))) : {Bits.win.msb.at(Bits.pos.index(p), Bits.pos.offset(p), _) == (A.build(t), window(True{}, t, p)) : Array<U32> & U32}
+      %Equal.sym(Array<U32> & U32, Array.get(U32, A.build(t), (Bits.pos.index(p) + 1 : U32)), (A.build(t), A.get(t, (Bits.pos.index(p) + 1 : U32))), A.get_bridge(t, (Bits.pos.index(p) + 1 : U32))) : {Bits.win.msb.join(Bits.pos.offset(p), A.get(t, Bits.pos.index(p)), _) == (A.build(t), window(True{}, t, p)) : Array<U32> & U32}
       {==}
 
-def add_zero_right(x: U32) -> {(x + 0 : U32) == x : U32}:
-  match x:
-    case U32{+w}:
-      Equal.cong(Word(32n), U32, a => U32{a}, Word.add(32n, w, Word.zero(32n)), w, Lemmas.adc_zero(32n, w, False{}))
-
-def add_zero_left(+x: U32) -> {(0 + x : U32) == x : U32}:
-  Equal.trans(U32, (0 + x : U32), (x + 0 : U32), x, U32.add_comm(0, x), add_zero_right(x))
-
-def word_sub_zero(n: Nat, w: Word(n)) -> {Word.sub(n, w, Word.zero(n)) == w : Word(n)}:
-  match n:
-    case 0n:
-      match w:
-        case WNil{}:
-          {==}
-    case 1n+p:
-      match w:
-        case WCon{False{}, +t}:
-          Equal.cong(Word(p), Word(1n+p), a => WCon{False{}, a}, Word.sub(p, t, Word.zero(p)), t, word_sub_zero(p, t))
-        case WCon{True{}, +t}:
-          Equal.cong(Word(p), Word(1n+p), a => WCon{True{}, a}, Word.sub(p, t, Word.zero(p)), t, word_sub_zero(p, t))
-
-def sub_zero_right(x: U32) -> {(x - 0 : U32) == x : U32}:
-  match x:
-    case U32{+w}:
-      Equal.cong(Word(32n), U32, a => U32{a}, Word.sub(32n, w, Word.zero(32n)), w, word_sub_zero(32n, w))
-
-
-def read_value_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: U32, +n: U32,
-  ok: {U32.is_le(n, U32.min(32, ((len << 3n) - pos : U32))) == True{} : Bool}) ->
-  {Laws.read_nat(Bits.read(msb, Bits.Reader{len, A.build(t), pos}, n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}:
-  %Equal.sym(Bool, U32.is_le(n, U32.min(32, ((len << 3n) - pos : U32))), True{}, ok) : {Laws.read_nat(Bits.read.if(_, msb, len, A.build(t), pos, n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
-  %Equal.sym(Array<U32> & U32, Bits.win(msb, A.build(t), pos), (A.build(t), window(msb, t, pos)), window_bridge(msb, t, pos)) : {Laws.read_nat(Bits.read.got(msb, len, pos, n, _)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
+def read_value_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: Nat, +n: U32,
+  pos_ok: MNat.le(pos, Nat.mul(U32.to_nat(len), 8n)),
+  ok: {Nat.is_le(U32.to_nat(n), Nat.min(32n, Nat.sub(Nat.mul(U32.to_nat(len), 8n), pos))) == True{} : Bool}) ->
+  {Laws.read_nat(Bits.read(msb, Bits.Reader.at(len, A.build(t), pos), n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}:
+  +total = Nat.mul(U32.to_nat(len), 8n)
+  +left = Nat.sub(total, pos)
+  %Equal.sym(Bool, Nat.is_le(U32.to_nat(n), Nat.min(32n, left)), True{}, ok) :
+    {Laws.read_nat(Bits.read.if(_, msb, A.build(t), total, left, n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
+  %Equal.sym(Nat, Nat.sub(total, left), pos, MNat.sub_sub_self(total, pos, pos_ok)) :
+    {Laws.read_nat(Bits.read.got(msb, total, left, n, Bits.win(msb, A.build(t), _))) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
+  %Equal.sym(Array<U32> & U32, Bits.win(msb, A.build(t), pos), (A.build(t), window(msb, t, pos)), window_bridge(msb, t, pos)) :
+    {Laws.read_nat(Bits.read.got(msb, total, left, n, _)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
   {==}
 
-def read_order_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: U32, +n: U32,
-  ok: {U32.is_le(n, U32.min(32, ((len << 3n) - pos : U32))) == True{} : Bool}) ->
-  {Laws.read_nat(Laws.get.at(msb, Bits.Reader{len, A.build(t), pos}, n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}:
+def read_order_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: Nat, +n: U32,
+  pos_ok: MNat.le(pos, Nat.mul(U32.to_nat(len), 8n)),
+  ok: {Nat.is_le(U32.to_nat(n), Nat.min(32n, Nat.sub(Nat.mul(U32.to_nat(len), 8n), pos))) == True{} : Bool}) ->
+  {Laws.read_nat(Laws.get.at(msb, Bits.Reader.at(len, A.build(t), pos), n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}:
   match msb:
     case False{}:
-      read_value_bridge(False{}, t, len, pos, n, ok)
+      read_value_bridge(False{}, t, len, pos, n, pos_ok, ok)
     case True{}:
-      read_value_bridge(True{}, t, len, pos, n, ok)
+      read_value_bridge(True{}, t, len, pos, n, pos_ok, ok)
 
-def skip_read_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: U32, +n: U32,
-  skip_ok: {U32.is_le(pos, (len << 3n : U32)) == True{} : Bool},
-  read_ok: {U32.is_le(n, U32.min(32, ((len << 3n) - pos : U32))) == True{} : Bool}) ->
-  {Laws.read_after_skip(msb, n, Bits.Reader.skip(Bits.Reader{len, A.build(t), 0}, pos)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}:
-  %Equal.sym(U32, ((len << 3n) - 0 : U32), (len << 3n : U32), sub_zero_right((len << 3n : U32))) : {Laws.read_after_skip(msb, n, (Bits.Reader{len, A.build(t), Bool.pick(U32, U32.is_le(pos, _), (0 + pos : U32), 0)}, U32.is_le(pos, _))) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
-  %Equal.sym(Bool, U32.is_le(pos, (len << 3n : U32)), True{}, skip_ok) : {Laws.read_after_skip(msb, n, (Bits.Reader{len, A.build(t), Bool.pick(U32, _, (0 + pos : U32), 0)}, _)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
-  %Equal.sym(U32, (0 + pos : U32), pos, add_zero_left(pos)) : {Laws.read_nat(Laws.get.at(msb, Bits.Reader{len, A.build(t), _}, n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
-  read_order_bridge(msb, t, len, pos, n, read_ok)
+def skip_read_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: Nat, +n: U32,
+  +skip_ok: {Nat.is_le(pos, Nat.mul(U32.to_nat(len), 8n)) == True{} : Bool},
+  read_ok: {Nat.is_le(U32.to_nat(n), Nat.min(32n, Nat.sub(Nat.mul(U32.to_nat(len), 8n), pos))) == True{} : Bool}) ->
+  {Laws.read_after_skip(msb, n, Bits.Reader.skip(Bits.Reader.new(Bytes.Bytes{len, A.build(t)}), pos)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}:
+  +total = Nat.mul(U32.to_nat(len), 8n)
+  %Equal.sym(Bool, Nat.is_le(pos, total), True{}, skip_ok) :
+    {Laws.read_after_skip(msb, n, (Bits.Reader{A.build(t), total, Bool.pick(Nat, _, Nat.sub(total, pos), total)}, _)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
+  read_order_bridge(msb, t, len, pos, n, skip_ok, read_ok)
 
-def position(s: State) -> U32:
+def position(s: State) -> Nat:
   State{image, dep, pos} = s
   pos
 
-def room_position(+full: Bool, +s: State) -> {position(room(full, s)) == position(s) : U32}:
+def room_position(+full: Bool, +s: State) -> {position(room(full, s)) == position(s) : Nat}:
   match full:
     case False{}:
       {==}
@@ -269,43 +250,24 @@ def room_position(+full: Bool, +s: State) -> {position(room(full, s)) == positio
         case State{t, dep, pos}:
           {==}
 
-def write_at_position(+msb: Bool, +s: State, +n: U32, +v: U32) -> {position(write_at(msb, s, n, v)) == (position(s) + n : U32) : U32}:
+def write_at_position(+msb: Bool, +s: State, +n: U32, +v: U32) -> {position(write_at(msb, s, n, v)) == Nat.add(position(s), U32.to_nat(n)) : Nat}:
   match s:
     case State{t, dep, pos}:
       {==}
 
-def write_room_position(+full: Bool, +msb: Bool, +s: State, +n: U32, +v: U32) -> {position(write_at(msb, room(full, s), n, v)) == (position(s) + n : U32) : U32}:
+def write_room_position(+full: Bool, +msb: Bool, +s: State, +n: U32, +v: U32) -> {position(write_at(msb, room(full, s), n, v)) == Nat.add(position(s), U32.to_nat(n)) : Nat}:
   match full s:
     case False{} State{t, dep, pos}:
       {==}
     case True{} State{t, dep, pos}:
       {==}
 
-def write_position(+msb: Bool, +s: State, +n0: U32, +v: U32) -> {position(write(msb, s, n0, v)) == (position(s) + U32.min(n0, 32) : U32) : U32}:
+def write_position_nat(+msb: Bool, +s: State, +n0: U32, +v: U32) -> {position(write(msb, s, n0, v)) == Nat.add(position(s), U32.to_nat(U32.min(n0, 32))) : Nat}:
   match s:
     case State{+t, +dep, +pos}:
       +n = U32.min(n0, 32)
-      +full = U32.is_lt(U32.shln(1, U32.to_nat(dep)), ((pos + n + 31) >> 5n : U32))
+      +full = U32.is_lt(U32.shln(1, U32.to_nat(dep)), Bits.pos.words(Nat.add(pos, U32.to_nat(n))))
       write_room_position(full, msb, State{t, dep, pos}, n, v)
-
-def write_position_nat(+msb: Bool, +s: State, +n: U32, +v: U32,
-  bound: MNat.lt(Nat.add(U32.to_nat(position(s)), U32.to_nat(U32.min(n, 32))), Lemmas.pow2(32n))) ->
-  {U32.to_nat(position(write(msb, s, n, v))) == Nat.add(U32.to_nat(position(s)), U32.to_nat(U32.min(n, 32))) : Nat}:
-  Equal.trans(Nat, U32.to_nat(position(write(msb, s, n, v))),
-    U32.to_nat((position(s) + U32.min(n, 32) : U32)),
-    Nat.add(U32.to_nat(position(s)), U32.to_nat(U32.min(n, 32))),
-    Equal.cong(U32, Nat, U32.to_nat, position(write(msb, s, n, v)),
-      (position(s) + U32.min(n, 32) : U32), write_position(msb, s, n, v)),
-    Lemmas.u32_add_nat(position(s), U32.min(n, 32), bound))
-
-def prefix_step_bound(+p: Nat, +n: Nat, +tail: Nat, +limit: Nat,
-  h: MNat.lt(Nat.add(p, Nat.add(n, tail)), limit)) ->
-  MNat.lt(Nat.add(p, n), limit):
-  MNat.lt_of_le_of_lt(Nat.add(p, n), Nat.add(Nat.add(p, n), tail), limit,
-    MNat.le_add_right(Nat.add(p, n), tail),
-    Lemmas.lt_rw(Nat.add(Nat.add(p, n), tail), Nat.add(p, Nat.add(n, tail)), limit,
-      MNat.add_assoc(p, n, tail), h))
-
 
 def capacity(depth: Nat) -> Nat:
   Nat.mul(Lemmas.pow2(depth), 32n)
@@ -317,19 +279,19 @@ def current_clean(msb: Bool, +offset: U32, word: U32) -> Type:
     case True{}:
       {U32.and(Bytes.bswap(word), Bits.mask((32 - offset : U32))) == 0 : U32}
 
-def active_clean(active: Bool, +msb: Bool, +t: A.Tree, +depth: U32, +pos: U32) -> Type:
+def active_clean(active: Bool, +msb: Bool, +t: A.Tree, +depth: U32, +pos: Nat) -> Type:
   match active:
     case False{}:
       Unit
     case True{}:
-      A.zero_after(U32.to_nat(depth), t, (pos >> 5n : U32)) &
-        current_clean(msb, (pos .&. 31 : U32), A.get(t, (pos >> 5n : U32)))
+      A.zero_after(U32.to_nat(depth), t, Bits.pos.index(pos)) &
+        current_clean(msb, Bits.pos.offset(pos), A.get(t, Bits.pos.index(pos)))
 
 def valid(+msb: Bool, s: State) -> Type:
   State{+t, +depth, +pos} = s
-  A.shape(U32.to_nat(depth), t) & (MNat.lt(U32.to_nat(depth), 28n) &
-    (MNat.le(U32.to_nat(pos), capacity(U32.to_nat(depth))) &
-    active_clean(Nat.is_lt(U32.to_nat(pos), capacity(U32.to_nat(depth))), msb, t, depth, pos)))
+  A.shape(U32.to_nat(depth), t) & (MNat.lt(U32.to_nat(depth), 31n) &
+    (MNat.le(pos, capacity(U32.to_nat(depth))) &
+    active_clean(Nat.is_lt(pos, capacity(U32.to_nat(depth))), msb, t, depth, pos)))
 
 def word_zero_and(+d: Nat, w: Word(d)) -> {Word.and(d, Word.zero(d), w) == Word.zero(d) : Word(d)}:
   match d:
@@ -364,13 +326,6 @@ def append_position(+old: Nat, +next: Nat, +width: Nat, +tail: Nat,
     Equal.cong(Nat, Nat, q => Nat.add(q, tail), next, Nat.add(old, width), e),
     MNat.add_assoc(old, width, tail))
 
-def advance_position_bound(+old: Nat, +next: Nat, +width: Nat, +tail: Nat, +limit: Nat,
-  e: {next == Nat.add(old, width) : Nat},
-  h: MNat.lt(Nat.add(old, Nat.add(width, tail)), limit)) ->
-  MNat.lt(Nat.add(next, tail), limit):
-  Lemmas.lt_rw(Nat.add(next, tail), Nat.add(old, Nat.add(width, tail)), limit,
-    append_position(old, next, width, tail, e), h)
-
 def finish_position_induction(+old: Nat, +next: Nat, +width: Nat, +tail: Nat, +final: Nat,
   step: {next == Nat.add(old, width) : Nat},
   result: {final == Nat.add(next, tail) : Nat}) ->
@@ -378,29 +333,18 @@ def finish_position_induction(+old: Nat, +next: Nat, +width: Nat, +tail: Nat, +f
   Equal.trans(Nat, final, Nat.add(next, tail), Nat.add(old, Nat.add(width, tail)),
     result, append_position(old, next, width, tail, step))
 
-def puts_position_bound(+fs: List<&2, Laws.F>, +msb: Bool, +s: State, +limit: Nat,
-  +limit_ok: MNat.le(limit, Lemmas.pow2(32n)),
-  +bound: MNat.lt(Nat.add(U32.to_nat(position(s)), Laws.prefix_bits(fs)), limit)) ->
-  {U32.to_nat(position(puts(fs, msb, s))) == Nat.add(U32.to_nat(position(s)), Laws.prefix_bits(fs)) : Nat}:
+def puts_position(+fs: List<&2, Laws.F>, +msb: Bool, +s: State) ->
+  {position(puts(fs, msb, s)) == Nat.add(position(s), Laws.prefix_bits(fs)) : Nat}:
   match fs:
     case Nil{}:
-      Equal.sym(Nat, Nat.add(U32.to_nat(position(s)), 0n), U32.to_nat(position(s)), MNat.add_zero(U32.to_nat(position(s))))
+      Equal.sym(Nat, Nat.add(position(s), 0n), position(s), MNat.add_zero(position(s)))
     case Con{Laws.F{+n, +v}, +tail}:
-      +p = U32.to_nat(position(s))
+      +p = position(s)
       +width = U32.to_nat(U32.min(n, 32))
       +next = write(msb, s, n, v)
-      +step = write_position_nat(msb, s, n, v,
-        MNat.lt_of_lt_of_le(Nat.add(p, width), limit, Lemmas.pow2(32n),
-          prefix_step_bound(p, width, Laws.prefix_bits(tail), limit, bound), limit_ok))
-      finish_position_induction(p, U32.to_nat(position(next)), width, Laws.prefix_bits(tail),
-        U32.to_nat(position(puts(tail, msb, next))), step,
-        puts_position_bound(tail, msb, next, limit, limit_ok,
-          advance_position_bound(p, U32.to_nat(position(next)), width, Laws.prefix_bits(tail), limit, step, bound)))
-
-def puts_position(+fs: List<&2, Laws.F>, +msb: Bool, +s: State,
-  bound: MNat.lt(Nat.add(U32.to_nat(position(s)), Laws.prefix_bits(fs)), Lemmas.pow2(32n))) ->
-  {U32.to_nat(position(puts(fs, msb, s))) == Nat.add(U32.to_nat(position(s)), Laws.prefix_bits(fs)) : Nat}:
-  puts_position_bound(fs, msb, s, Lemmas.pow2(32n), MNat.le_refl(Lemmas.pow2(32n)), bound)
+      finish_position_induction(p, position(next), width, Laws.prefix_bits(tail),
+        position(puts(tail, msb, next)), write_position_nat(msb, s, n, v),
+        puts_position(tail, msb, next))
 
 def skipped_or_zero(+x: U32, h: {U32.is_ne(x, 0) == False{} : Bool}) -> {x == 0 : U32}:
   Lemmas.u32_to_nat_inj(x, 0,
@@ -494,9 +438,9 @@ def join(msb: Bool, s: U32, lo: U32, hi: U32) -> U32:
     case True{}:
       Field.msb_join(s, lo, hi)
 
-def window_join(+msb: Bool, +t: A.Tree, +p: U32) ->
-  {window(msb, t, p) == join(msb, (p .&. 31 : U32),
-    A.get(t, (p >> 5n : U32)), A.get(t, ((p >> 5n) + 1 : U32))) : U32}:
+def window_join(+msb: Bool, +t: A.Tree, +p: Nat) ->
+  {window(msb, t, p) == join(msb, Bits.pos.offset(p),
+    A.get(t, Bits.pos.index(p)), A.get(t, (Bits.pos.index(p) + 1 : U32))) : U32}:
   match msb:
     case False{}:
       {==}
@@ -573,41 +517,41 @@ def scalar_roundtrip(+msb: Bool, +s: U32, +n: U32, +v: U32, +lo: U32,
     case True{}:
       Field.msb_roundtrip(s, n, v, lo, hs, hn, clean)
 
-def written_field(+depth: Nat, +t: A.Tree, +p: U32, +msb: Bool, +n: U32, +v: U32,
+def written_field(+depth: Nat, +t: A.Tree, +p: Nat, +msb: Bool, +n: U32, +v: U32,
   sh: A.shape(depth, t), +hd: MNat.lt(depth, 32n),
-  +hi: MNat.lt(U32.to_nat((p >> 5n : U32)), Lemmas.pow2(depth)),
-  +hj: MNat.lt(U32.to_nat(((p >> 5n) + 1 : U32)), Lemmas.pow2(depth)),
-  ne0: {U32.is_eq(((p >> 5n) + 1 : U32), (p >> 5n : U32)) == False{} : Bool},
-  ne1: {U32.is_eq((p >> 5n : U32), ((p >> 5n) + 1 : U32)) == False{} : Bool},
-  zero: {A.get(t, ((p >> 5n) + 1 : U32)) == 0 : U32},
-  hs: MNat.le(U32.to_nat((p .&. 31 : U32)), 31n),
+  +hi: MNat.lt(U32.to_nat(Bits.pos.index(p)), Lemmas.pow2(depth)),
+  +hj: MNat.lt(U32.to_nat((Bits.pos.index(p) + 1 : U32)), Lemmas.pow2(depth)),
+  ne0: {U32.is_eq((Bits.pos.index(p) + 1 : U32), Bits.pos.index(p)) == False{} : Bool},
+  ne1: {U32.is_eq(Bits.pos.index(p), (Bits.pos.index(p) + 1 : U32)) == False{} : Bool},
+  zero: {A.get(t, (Bits.pos.index(p) + 1 : U32)) == 0 : U32},
+  hs: MNat.le(U32.to_nat(Bits.pos.offset(p)), 31n),
   hn: MNat.le(U32.to_nat(n), 32n),
-  clean: current_clean(msb, (p .&. 31 : U32), A.get(t, (p >> 5n : U32)))) ->
+  clean: current_clean(msb, Bits.pos.offset(p), A.get(t, Bits.pos.index(p)))) ->
   {U32.to_nat(Bits.field(msb, n,
-    window(msb, put_parts(t, (p >> 5n : U32), Bits.parts(msb, (p .&. 31 : U32), n, v)), p))) ==
+    window(msb, put_parts(t, Bits.pos.index(p), Bits.parts(msb, Bits.pos.offset(p), n, v)), p))) ==
     Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n))) : Nat}:
-  +out = put_parts(t, (p >> 5n : U32), Bits.parts(msb, (p .&. 31 : U32), n, v))
+  +out = put_parts(t, Bits.pos.index(p), Bits.parts(msb, Bits.pos.offset(p), n, v))
   %Equal.sym(U32, window(msb, out, p),
-    join(msb, (p .&. 31 : U32), A.get(out, (p >> 5n : U32)), A.get(out, ((p >> 5n) + 1 : U32))),
+    join(msb, Bits.pos.offset(p), A.get(out, Bits.pos.index(p)), A.get(out, (Bits.pos.index(p) + 1 : U32))),
     window_join(msb, out, p)) :
     {U32.to_nat(Bits.field(msb, n, _)) == Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n))) : Nat}
   Equal.trans(Nat,
-    U32.to_nat(Bits.field(msb, n, join(msb, (p .&. 31 : U32),
-      A.get(out, (p >> 5n : U32)), A.get(out, ((p >> 5n) + 1 : U32))))),
-    U32.to_nat(scalar(msb, (p .&. 31 : U32), n, v, A.get(t, (p >> 5n : U32)))),
+    U32.to_nat(Bits.field(msb, n, join(msb, Bits.pos.offset(p),
+      A.get(out, Bits.pos.index(p)), A.get(out, (Bits.pos.index(p) + 1 : U32))))),
+    U32.to_nat(scalar(msb, Bits.pos.offset(p), n, v, A.get(t, Bits.pos.index(p)))),
     Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n))),
     Equal.cong(U32, Nat, U32.to_nat,
-      Bits.field(msb, n, join(msb, (p .&. 31 : U32),
-        A.get(out, (p >> 5n : U32)), A.get(out, ((p >> 5n) + 1 : U32)))),
-      scalar(msb, (p .&. 31 : U32), n, v, A.get(t, (p >> 5n : U32))),
-      put_parts_observation(depth, t, (p >> 5n : U32), Bits.parts(msb, (p .&. 31 : U32), n, v),
-        msb, (p .&. 31 : U32), n, A.shape_copy(depth, t, sh), hd, hi, hj, ne0, ne1, zero)),
-    scalar_roundtrip(msb, (p .&. 31 : U32), n, v, A.get(t, (p >> 5n : U32)), hs, hn, clean))
+      Bits.field(msb, n, join(msb, Bits.pos.offset(p),
+        A.get(out, Bits.pos.index(p)), A.get(out, (Bits.pos.index(p) + 1 : U32)))),
+      scalar(msb, Bits.pos.offset(p), n, v, A.get(t, Bits.pos.index(p))),
+      put_parts_observation(depth, t, Bits.pos.index(p), Bits.parts(msb, Bits.pos.offset(p), n, v),
+        msb, Bits.pos.offset(p), n, A.shape_copy(depth, t, sh), hd, hi, hj, ne0, ne1, zero)),
+    scalar_roundtrip(msb, Bits.pos.offset(p), n, v, A.get(t, Bits.pos.index(p)), hs, hn, clean))
 
-def finished_read_guarded(+msb: Bool, +t: A.Tree, +p: U32, +n: U32, +end: U32, +value: Nat,
+def finished_read_guarded(+msb: Bool, +t: A.Tree, +p: Nat, +n: U32, +end: Nat, +value: Nat,
   field: {U32.to_nat(Bits.field(msb, n, window(msb, t, p))) == value : Nat},
-  guards: {U32.is_le(p, Position.finish_bits(end)) == True{} : Bool} &
-    {U32.is_le(n, U32.min(32, (Position.finish_bits(end) - p : U32))) == True{} : Bool}) ->
+  guards: {Nat.is_le(p, Position.finish_bits(end)) == True{} : Bool} &
+    {Nat.is_le(U32.to_nat(n), Nat.min(32n, Nat.sub(Position.finish_bits(end), p))) == True{} : Bool}) ->
   {Laws.read_after_skip(msb, n,
     Bits.Reader.skip(Bits.Reader.new(Bytes.Bytes{Position.finish_bytes(end), A.build(t)}), p)) ==
     Some{value} : Maybe<&2, Nat>}:
@@ -620,9 +564,9 @@ def finished_read_guarded(+msb: Bool, +t: A.Tree, +p: U32, +n: U32, +end: U32, +
     Equal.cong(Nat, Maybe<&2, Nat>, q => Some{q},
       U32.to_nat(Bits.field(msb, n, window(msb, t, p))), value, field))
 
-def finished_read(+msb: Bool, +t: A.Tree, +p: U32, +n: U32, +end: U32, +value: Nat,
-  step: {U32.to_nat(end) == Nat.add(U32.to_nat(p), U32.to_nat(n)) : Nat},
-  room: MNat.lt(Nat.add(Nat.add(U32.to_nat(p), U32.to_nat(n)), 31n), Lemmas.pow2(32n)),
+def finished_read(+msb: Bool, +t: A.Tree, +p: Nat, +n: U32, +end: Nat, +value: Nat,
+  step: {end == Nat.add(p, U32.to_nat(n)) : Nat},
+  room: MNat.lt(Nat.add(Nat.add(p, U32.to_nat(n)), 31n), Lemmas.pow2(35n)),
   width: MNat.le(U32.to_nat(n), 32n),
   field: {U32.to_nat(Bits.field(msb, n, window(msb, t, p))) == value : Nat}) ->
   {Laws.read_after_skip(msb, n,
@@ -739,23 +683,23 @@ def noncross_roundtrip(+msb: Bool, +s: U32, +n: U32, +v: U32, +old: U32, +hi: U3
     case True{}:
       Field.msb_noncrossing_roundtrip(s, n, v, old, hi, hs, hn, h, clean)
 
-def written_noncross_field(+t: A.Tree, +p: U32, +msb: Bool, +n: U32, +v: U32,
-  hs: MNat.le(U32.to_nat((p .&. 31 : U32)), 32n),
+def written_noncross_field(+t: A.Tree, +p: Nat, +msb: Bool, +n: U32, +v: U32,
+  hs: MNat.le(U32.to_nat(Bits.pos.offset(p)), 32n),
   +hn: MNat.le(U32.to_nat(n), 32n),
-  +h: MNat.le(U32.to_nat(n), U32.to_nat((32 - (p .&. 31) : U32))),
-  clean: current_clean(msb, (p .&. 31 : U32), A.get(t, (p >> 5n : U32)))) ->
+  +h: MNat.le(U32.to_nat(n), U32.to_nat((32 - Bits.pos.offset(p) : U32))),
+  clean: current_clean(msb, Bits.pos.offset(p), A.get(t, Bits.pos.index(p)))) ->
   {U32.to_nat(Bits.field(msb, n,
-    window(msb, put_parts(t, (p >> 5n : U32), Bits.parts(msb, (p .&. 31 : U32), n, v)), p))) ==
+    window(msb, put_parts(t, Bits.pos.index(p), Bits.parts(msb, Bits.pos.offset(p), n, v)), p))) ==
     Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n))) : Nat}:
-  +out = put_parts(t, (p >> 5n : U32), Bits.parts(msb, (p .&. 31 : U32), n, v))
+  +out = put_parts(t, Bits.pos.index(p), Bits.parts(msb, Bits.pos.offset(p), n, v))
   %Equal.sym(U32, window(msb, out, p),
-    join(msb, (p .&. 31 : U32), A.get(out, (p >> 5n : U32)), A.get(out, ((p >> 5n) + 1 : U32))),
+    join(msb, Bits.pos.offset(p), A.get(out, Bits.pos.index(p)), A.get(out, (Bits.pos.index(p) + 1 : U32))),
     window_join(msb, out, p)) :
     {U32.to_nat(Bits.field(msb, n, _)) == Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n))) : Nat}
-  %Equal.sym(U32, A.get(out, (p >> 5n : U32)),
-    Field.written_lo(msb, (p .&. 31 : U32), n, v, A.get(t, (p >> 5n : U32))),
-    put_parts_noncross_read(t, (p >> 5n : U32), msb, (p .&. 31 : U32), n, v, hn, h)) :
-    {U32.to_nat(Bits.field(msb, n, join(msb, (p .&. 31 : U32), _, A.get(out, ((p >> 5n) + 1 : U32))))) ==
+  %Equal.sym(U32, A.get(out, Bits.pos.index(p)),
+    Field.written_lo(msb, Bits.pos.offset(p), n, v, A.get(t, Bits.pos.index(p))),
+    put_parts_noncross_read(t, Bits.pos.index(p), msb, Bits.pos.offset(p), n, v, hn, h)) :
+    {U32.to_nat(Bits.field(msb, n, join(msb, Bits.pos.offset(p), _, A.get(out, (Bits.pos.index(p) + 1 : U32))))) ==
       Nat.mod(U32.to_nat(v), Lemmas.pow2(U32.to_nat(n))) : Nat}
-  noncross_roundtrip(msb, (p .&. 31 : U32), n, v, A.get(t, (p >> 5n : U32)),
-    A.get(out, ((p >> 5n) + 1 : U32)), hs, hn, h, clean)
+  noncross_roundtrip(msb, Bits.pos.offset(p), n, v, A.get(t, Bits.pos.index(p)),
+    A.get(out, (Bits.pos.index(p) + 1 : U32)), hs, hn, h, clean)

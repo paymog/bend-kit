@@ -16,7 +16,7 @@ def grown(keep: Bool, buf: Array<U32>, +depth: U32) -> Array<U32>:
     case False{}:
       copied(buf, depth)
     case True{}:
-      buffer(Bits.room(True{}, Bits.Writer{buf, depth, 0, False{}}))
+      buffer(Bits.room(True{}, Bits.Writer{buf, depth, 0n, False{}}))
 
 def checksum(buf: Array<U32>) -> U32:
   match buf:
