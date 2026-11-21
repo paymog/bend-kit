@@ -108,32 +108,6 @@ def pow_lt(+a: Nat, +b: Nat, +h: P.lt(a, b)) -> P.lt(L.pow2(a), L.pow2(b)):
       P.one_le_pow(a)),
     pow_le(1n+a, b, N.succ_le_of_lt(a, b, h)))
 
-# Keep comparison conversions explicit: https://github.com/bendlang/bend/issues/1071.
-# Ordinary nonwrapping offsets, shared by the eight scalar writes of a cell.
-def offset_nat(+j: U32, +k: U32, +cap: Nat,
-  +hk: P.lt(U32.to_nat(k), 8n),
-  +hj: P.le(Nat.add(U32.to_nat(j), 8n), cap),
-  +hc: P.lt(cap, L.pow2(32n))) ->
-  {U32.to_nat((j + k : U32)) == Nat.add(U32.to_nat(j), U32.to_nat(k)) : Nat}:
-  L.u32_add_nat(j, k,
-    N.lt_trans(Nat.add(U32.to_nat(j), U32.to_nat(k)), cap, L.pow2(32n),
-      N.lt_of_lt_of_le(Nat.add(U32.to_nat(j), U32.to_nat(k)),
-        Nat.add(U32.to_nat(j), 8n), cap,
-        N.add_lt_add_left(U32.to_nat(k), 8n, U32.to_nat(j), hk), hj),
-      Layout.nat_lt(cap, L.pow2(32n), hc)))
-
-def offset_bound(+d: Nat, +j: U32, +k: U32,
-  +hd: P.lt(d, 32n), +hk: P.lt(U32.to_nat(k), 8n),
-  +hj: P.le(Nat.add(U32.to_nat(j), 8n), Nat.pow(2n, d))) ->
-  P.lt(U32.to_nat((j + k : U32)), Nat.pow(2n, d)):
-  %Equal.sym(Nat, U32.to_nat((j + k : U32)), Nat.add(U32.to_nat(j), U32.to_nat(k)),
-    offset_nat(j, k, Nat.pow(2n, d), hk, hj,
-    %pow_bridge(d) : P.lt(_, L.pow2(32n))
-    pow_lt(d, 32n, hd))) : P.lt(_, Nat.pow(2n, d))
-  N.lt_of_lt_of_le(Nat.add(U32.to_nat(j), U32.to_nat(k)),
-    Nat.add(U32.to_nat(j), 8n), Nat.pow(2n, d),
-    N.add_lt_add_left(U32.to_nat(k), 8n, U32.to_nat(j), hk), hj)
-
 # Convert the literal separately from its bound: https://github.com/bendlang/bend/issues/1071.
 def increment_exact(+i: U32, h: N.lt(Nat.add(U32.to_nat(i), 1n), L.pow2(32n))) ->
   {U32.to_nat((i + 1 : U32)) == Nat.add(U32.to_nat(i), 1n) : Nat}:
@@ -499,11 +473,6 @@ def capacity_ratio(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n)),
     weaken_lt(U32.to_nat(len), L.pow2(30n), h), h8) :
     {Nat.pow(2n, _) == Nat.mul(8n, cell_capacity(len)) : Nat}
   capacity_scale(cell_depth(len))
-
-def scalar_word_bound(+len: U32, +i: U32,
-  +h: P.lt(U32.to_nat(len), L.pow2(30n)), +hi: P.lt(U32.to_nat(i), U32.to_nat(len))) ->
-  P.lt(U32.to_nat(i), word_capacity(len)):
-  N.lt_of_lt_of_le(U32.to_nat(i), U32.to_nat(len), word_capacity(len), hi, words_cover(len, h))
 
 # The split equality is ordinary address arithmetic, independent of any array.
 def scalar_cell_bound_split(+len: U32, +i: U32, +q: Nat, +r: Nat,

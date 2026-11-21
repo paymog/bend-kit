@@ -96,46 +96,6 @@ def J(+i: U32, +n: U32) -> U32:
 def Z(+i: U32, +n: U32) -> Bool:
   U32.is_lt(J(i, n), U32.shr(n))
 
-def close_get(-T: Data, -b: Array<T>, +n: U32, +i: U32, +v: T, +q: {n == sz(T, b) : U32}, f: Facts(T, b, n, J(i, n), v, Z(i, n))) -> {Pair.snd(Array<T>, T, Array.get(T, Array.set(T, b, i, v), i)) == v : T}:
-  match f:
-    case Tuple{+c1, r1}:
-      match r1:
-        case Tuple{+c2, r2}:
-          match r2:
-            case Tuple{+c3, r3}:
-              match r3:
-                case Tuple{+c4, r4}:
-                  match r4:
-                    case Tuple{+c5, r5}:
-                      %c1 : {Pair.snd(Array<T>, T, Array.get.at(T, i, Array.size(T, Array.set.fin(T, Array.swap.at(T, i, v, _))))) == v : T}
-                      %q : {Pair.snd(Array<T>, T, Array.get.at(T, i, Array.size(T, Array.set.fin(T, Array.swap.go(T, b, _, J(i, _), v, Z(i, _)))))) == v : T}
-                      %c3 : {Pair.snd(Array<T>, T, Array.get.at(T, i, _)) == v : T}
-                      %Equal.trans(U32, n, sz(T, b), sz(T, NA(T, b, n, J(i, n), v, Z(i, n))), q, Equal.sym(U32, sz(T, NA(T, b, n, J(i, n), v, Z(i, n))), sz(T, b), c4)) : {Pair.snd(Array<T>, T, Array.get.go(T, NA(T, b, n, J(i, n), v, Z(i, n)), _, J(i, _), Z(i, _))) == v : T}
-                      c5
-
-def top_get(-T: Data, -a: Array<T>, +i: U32, +v: T, r: Copy(T, a)) -> {Pair.snd(Array<T>, T, Array.get(T, Array.set(T, a, i, v), i)) == v : T}:
-  match r:
-    case Tuple{b, r1}:
-      match r1:
-        case Tuple{+n, r2}:
-          match r2:
-            case Tuple{+p, r3}:
-              match r3:
-                case Tuple{+q, r4}:
-                  %p : {Pair.snd(Array<T>, T, Array.get(T, Array.set(T, _, i, v), i)) == v : T}
-                  close_get(T, b, n, i, v, q, facts(T, b, n, J(i, n), v, Z(i, n)))
-
-law get_after_set:
-  for -T: Data
-  for a: Array<T>
-  for +i: U32
-  for +v: T
-  {Pair.snd(Array<T>, T, Array.get(T, Array.set(T, a, i, v), i)) == v : T}
-
-def get_after_set(T, a, i, v):
-  top_get(T, a, i, v, copy(T, a))
-
-
 def Read(-T: Data, -r: Array<T> & T, -v: T) -> Type:
   {Pair.snd(Array<T>, T, r) == v : T} & {(Pair.fst(Array<T>, T, r), Pair.snd(Array<T>, T, r)) == r : Array<T> & T} & Unit
 

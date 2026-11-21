@@ -584,10 +584,3 @@ def trim_index_of(part: Bool, +len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n)),
 def trim_index(+len: U32, +h: P.lt(U32.to_nat(len), L.pow2(30n))) -> Trim.TrimIndex(U32.is_ne((len .&. 7 : U32), 0), len, Alloc.cell_depth(len)):
   trim_index_of(U32.is_ne((len .&. 7 : U32), 0), len, h, {==})
 
-def element_roundtrip(+len: U32, +src: Arr.Tree<A.Cell>, +words: List<&2, U32>, +out: List<&2, A.Cell>, +i: U32,
-  +h: P.lt(U32.to_nat(len), L.pow2(30n)), +hi: P.lt(U32.to_nat(i), U32.to_nat(len)),
-  +hw: P.le(U32.to_nat(len), P.len(U32, 0, words)), +hc: P.le(U32.to_nat(A.cells(len)), P.len(A.Cell, A.zero(), out))) -> {C.source_peek(src, i) == C.peek(C.decode(len, C.encode(len, src, words), out), i) : F32}:
-  C.roundtrip_at(len, src, words, out, i, U32.to_nat(i), U32.to_nat(i), U32.to_nat((i >> 3n : U32)), U32.to_nat((i .&. 7 : U32)),
-    N.lt_of_lt_of_le(U32.to_nat(i), U32.to_nat(len), P.len(U32, 0, words), hi, hw),
-    N.lt_of_lt_of_le(U32.to_nat((i >> 3n : U32)), U32.to_nat(A.cells(len)), P.len(A.Cell, A.zero(), out), scalar_count_bound(len, i, h, hi), hc),
-    encoder_location(len, i, h, hi), decoder_location(len, i, h, hi))

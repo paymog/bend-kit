@@ -389,19 +389,6 @@ def cell_length(+c: A.Cell, +w: List<&2, U32>, +j: U32) -> {P.len(U32, 0, cell(c
   %Equal.sym(List<&2, U32>, cell(c, w, j), apply(cell_trace(0, j), Arr.Leaf{c}, w), cell_apply(Arr.Leaf{c}, 0, w, j)) : {P.len(U32, 0, _) == P.len(U32, 0, w) : Nat}
   apply_length(cell_trace(0, j), Arr.Leaf{c}, w)
 
-def tail_length(+n: Nat, +c: A.Cell, +w: List<&2, U32>, +j: U32, +l: U32) -> {P.len(U32, 0, tail(n, c, w, j, l)) == P.len(U32, 0, w) : Nat}:
-  %Equal.sym(List<&2, U32>, tail(n, c, w, j, l), apply(tail_trace(n, 0, j, l), Arr.Leaf{c}, w), tail_apply(n, Arr.Leaf{c}, 0, w, j, l)) : {P.len(U32, 0, _) == P.len(U32, 0, w) : Nat}
-  apply_length(tail_trace(n, 0, j, l), Arr.Leaf{c}, w)
-
-def to_go_length(+n: Nat, +k: U32, +src: Arr.Tree<A.Cell>, +c: A.Cell, +w: List<&2, U32>, +i: U32) -> {P.len(U32, 0, to_go(n, k, src, c, w, i)) == P.len(U32, 0, w) : Nat}:
-  match n:
-    case 0n:
-      tail_length(U32.to_nat(k), c, w, (i << 3n : U32), 0)
-    case 1n++p:
-      Equal.trans(Nat, P.len(U32, 0, to_go(1n+p, k, src, c, w, i)), P.len(U32, 0, cell(c, w, (i << 3n : U32))), P.len(U32, 0, w),
-        to_go_length(p, k, src, Arr.read(A.Cell, src, (i + 1 : U32)), cell(c, w, (i << 3n : U32)), (i + 1 : U32)),
-        cell_length(c, w, (i << 3n : U32)))
-
 def from_go_length(+n: Nat, +w: List<&2, U32>, +c: A.Cell, +out: List<&2, A.Cell>, +i: U32) -> {P.len(A.Cell, A.zero(), from_go(n, w, c, out, i)) == P.len(A.Cell, A.zero(), out) : Nat}:
   match n:
     case 0n:

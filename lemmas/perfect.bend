@@ -715,29 +715,10 @@ def low_val(+d: Nat, +h: lt(d, 32n)) -> {Nat.sub(Nat.pow(2n, d), 1n) == Word.to_
   %Equal.sym(Nat, 1n+Nat.add(d, Nat.sub(31n, d)), Nat.add(d, 1n+Nat.sub(31n, d)), add_succ(d, Nat.sub(31n, d))) : {Nat.sub(Nat.pow(2n, d), 1n) == Word.to_nat(_, low(d, _)) : Nat}
   w_low(d, 1n+Nat.sub(31n, d))
 
-# The value of 1 shifted left d times is 2^d, for d < 32.
-law u32_shln_one:
-  for +d: Nat
-  for +h: lt(d, 32n)
-  {U32.to_nat(U32.shln(1, d)) == Nat.pow(2n, d) : Nat}
-
-def u32_shln_one(d, h):
-  %shln_p2(d) : {U32.to_nat(_) == Nat.pow(2n, d) : Nat}
-  Equal.sym(Nat, Nat.pow(2n, d), Word.to_nat(32n, p2w(d, 32n)), pw_val(d, h))
-
 def shr_shln_r(+e: Nat, +h: lt(1n+e, 32n)) -> {U32.shln(1, e) == U32.shr(U32.shln(1, 1n+e)) : U32}:
   %shln_p2(e) : {_ == U32.shr(U32.shln(1, 1n+e)) : U32}
   %shln_p2(1n+e) : {U32{p2w(e, 32n)} == U32.shr(_) : U32}
   Equal.cong(Word(32n), U32, w => U32{w}, p2w(e, 32n), Word.shr(32n, p2w(1n+e, 32n)), shr_p2(e, Nat.sub(30n, e), kof(30n, e, h)))
-
-# Halving 1 shifted left e+1 times gives 1 shifted left e times, for e+1 < 32.
-law u32_shr_shln_one:
-  for +e: Nat
-  for +h: lt(1n+e, 32n)
-  {U32.shr(U32.shln(1, 1n+e)) == U32.shln(1, e) : U32}
-
-def u32_shr_shln_one(e, h):
-  Equal.sym(U32, U32.shln(1, e), U32.shr(U32.shln(1, 1n+e)), shr_shln_r(e, h))
 
 def is_lt_r(x: U32, +e: Nat, +h: lt(e, 32n)) -> {Nat.is_lt(U32.to_nat(x), Nat.pow(2n, e)) == U32.is_lt(x, U32.shln(1, e)) : Bool}:
   match x:
@@ -747,49 +728,17 @@ def is_lt_r(x: U32, +e: Nat, +h: lt(e, 32n)) -> {Nat.is_lt(U32.to_nat(x), Nat.po
       %pw_val(e, h) : {Nat.is_lt(Word.to_nat(32n, w), Nat.pow(2n, e)) == Cmp.is_lt(Nat.cmp(Word.to_nat(32n, w), _)) : Bool}
       {==}
 
-# Comparing with 1 shifted left e times compares the value with 2^e, for e < 32.
-law u32_is_lt_shln_one:
-  for +x: U32
-  for +e: Nat
-  for +h: lt(e, 32n)
-  {U32.is_lt(x, U32.shln(1, e)) == Nat.is_lt(U32.to_nat(x), Nat.pow(2n, e)) : Bool}
-
-def u32_is_lt_shln_one(x, e, h):
-  Equal.sym(Bool, Nat.is_lt(U32.to_nat(x), Nat.pow(2n, e)), U32.is_lt(x, U32.shln(1, e)), is_lt_r(x, e, h))
-
 def sub_r(x: U32, +e: Nat, +h1: le(Nat.pow(2n, e), U32.to_nat(x)), +h2: lt(U32.to_nat(x), Nat.pow(2n, 1n+e))) -> {Nat.sub(U32.to_nat(x), Nat.pow(2n, e)) == U32.to_nat(U32.sub(x, U32.shln(1, e))) : Nat}:
   match x:
     case U32{+w}:
       %shln_p2(e) : {Nat.sub(Word.to_nat(32n, w), Nat.pow(2n, e)) == U32.to_nat(U32.sub(U32{w}, _)) : Nat}
       sub_set(e, 32n, w, h1, h2)
 
-# Subtracting 1 shifted left e times from a value in [2^e, 2^(e+1)) subtracts 2^e.
-law u32_sub_shln_one:
-  for +x: U32
-  for +e: Nat
-  for +h1: le(Nat.pow(2n, e), U32.to_nat(x))
-  for +h2: lt(U32.to_nat(x), Nat.pow(2n, 1n+e))
-  {U32.to_nat(U32.sub(x, U32.shln(1, e))) == Nat.sub(U32.to_nat(x), Nat.pow(2n, e)) : Nat}
-
-def u32_sub_shln_one(x, e, h1, h2):
-  Equal.sym(Nat, Nat.sub(U32.to_nat(x), Nat.pow(2n, e)), U32.to_nat(U32.sub(x, U32.shln(1, e))), sub_r(x, e, h1, h2))
-
 def mask_r(x: U32, +d: Nat, +h: lt(d, 32n), +ha: lt(U32.to_nat(x), Nat.pow(2n, d))) -> {x == U32.and(x, U32.sub(U32.shln(1, d), 1)) : U32}:
   match x:
     case U32{+w}:
       %shln_p2(d) : {U32{w} == U32.and(U32{w}, U32.sub(_, 1)) : U32}
       Equal.cong(Word(32n), U32, v => U32{v}, w, Word.and(32n, w, Word.sub(32n, p2w(d, 32n), p2w(0n, 32n))), wmask(32n, d, w, Word.sub(32n, p2w(d, 32n), p2w(0n, 32n)), Equal.sym(Nat, Nat.sub(Nat.pow(2n, d), 1n), Word.to_nat(32n, Word.sub(32n, p2w(d, 32n), p2w(0n, 32n))), low_val(d, h)), ha))
-
-# Masking with 1 shifted left d times, minus 1, keeps a value below 2^d, for d < 32.
-law u32_and_low_mask:
-  for +x: U32
-  for +d: Nat
-  for +h: lt(d, 32n)
-  for +ha: lt(U32.to_nat(x), Nat.pow(2n, d))
-  {U32.and(x, U32.sub(U32.shln(1, d), 1)) == x : U32}
-
-def u32_and_low_mask(x, d, h, ha):
-  Equal.sym(U32, x, U32.and(x, U32.sub(U32.shln(1, d), 1)), mask_r(x, d, h, ha))
 
 # Lists
 # -----
