@@ -2,8 +2,8 @@
 import Base
 import ./camber.bend as C
 import ./dispatch_check.bend as Check
-import bend-kit-http@0.39.1.0/http.bend as H
-import bend-kit-http@0.39.1.0/completion.bend as T
+import bend-kit-http@0.39.2.0/http.bend as H
+import bend-kit-http@0.39.2.0/completion.bend as T
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 type Case is Data:

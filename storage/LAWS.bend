@@ -1,6 +1,6 @@
 import Base
 import ./storage.bend as S
-import bend-kit-collections@0.1.5.0/LAWS.bend as Col
+import bend-kit-collections@0.1.6.0/LAWS.bend as Col
 
 # eq(d, x) for some root x.
 def member(~D: Data, ~eq: D -> D -> Bool, xs: List<&2, D>, +d: D) -> Bool:

@@ -1,6 +1,6 @@
 import Base
 import ../../../http/http.bend as Http
-import bend-kit-json@0.7.2.0/json.bend as Json
+import bend-kit-json@0.7.3.0/json.bend as Json
 import ./app.bend as App
 import ../contract.bend as Contract
 

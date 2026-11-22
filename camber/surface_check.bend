@@ -1,6 +1,6 @@
 import Base
 import ../http/http.bend as Http
-import bend-kit-json@0.7.2.0/json.bend as Json
+import bend-kit-json@0.7.3.0/json.bend as Json
 import ./surface_app.bend as Example
 
 def error_kind(error: Example.Err) -> String:

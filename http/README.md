@@ -87,8 +87,8 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.39.0.0/http.bend as Http
-import bend-kit-http@0.39.0.0/completion.bend as Completion
+import bend-kit-http@0.39.2.0/http.bend as Http
+import bend-kit-http@0.39.2.0/completion.bend as Completion
 
 def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
