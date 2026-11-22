@@ -1,6 +1,6 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
-import bend-mathlib@0.7.4.0/bool.bend as MBool
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/bool.bend as MBool
 import bend-kit-collections@0.1.5.0/hmap.bend as M
 import bend-kit-scheduler@0.4.3.0/queue.bend as Q
 import bend-kit-scheduler@0.4.3.0/queue_laws.bend as QL
@@ -643,7 +643,7 @@ def is_eq_of(+a: Nat, -b: Nat, e: {a == b : Nat}) -> {Nat.is_eq(a, b) == True{} 
   MNat.is_eq_refl(a)
 
 def ne_of(+a: Nat, +b: Nat, f: {Nat.is_eq(a, b) == False{} : Bool}) -> {a != b : Nat}:
-  e => MNat.internal_false_ne_true(Equal.trans(Bool, False{}, Nat.is_eq(a, b), True{}, Equal.sym(Bool, Nat.is_eq(a, b), False{}, f), is_eq_of(a, b, e)))
+  e => MBool.false_ne_true(Equal.trans(Bool, False{}, Nat.is_eq(a, b), True{}, Equal.sym(Bool, Nat.is_eq(a, b), False{}, f), is_eq_of(a, b, e)))
 
 def get_drop_same(~A: Data, +ds: R.Graves(A), +j: Nat, +i: Nat, e: {Nat.is_eq(j, i) == True{} : Bool}, wf: {Laws.dead.wf(~A, ds) == True{} : Bool}) ->
     {R.dead.get(~A, R.dead.drop(~A, ds, j), i) == None{} : Maybe<&2, R.Dead<A>>}:
@@ -803,14 +803,14 @@ def step_buried(~A: Data, +i: Nat, s: R.State<A>, op: R.Op<A>, g: inv(A, i, anyt
 def or_false_left(a: Bool, b: Bool, e: {Bool.or(a, b) == False{} : Bool}) -> {a == False{} : Bool}:
   match a:
     case True{}:
-      Empty.absurd({True{} == False{} : Bool}, MNat.internal_false_ne_true(Equal.sym(Bool, True{}, False{}, e)))
+      Empty.absurd({True{} == False{} : Bool}, MBool.false_ne_true(Equal.sym(Bool, True{}, False{}, e)))
     case False{}:
       {==}
 
 def or_false_right(a: Bool, b: Bool, e: {Bool.or(a, b) == False{} : Bool}) -> {b == False{} : Bool}:
   match a:
     case True{}:
-      Empty.absurd({b == False{} : Bool}, MNat.internal_false_ne_true(Equal.sym(Bool, True{}, False{}, e)))
+      Empty.absurd({b == False{} : Bool}, MBool.false_ne_true(Equal.sym(Bool, True{}, False{}, e)))
     case False{}:
       e
 

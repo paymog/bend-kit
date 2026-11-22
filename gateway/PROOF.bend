@@ -1,5 +1,5 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-kit-authz@0.1.0.0/authz.bend as Az
 import bend-kit-collections@0.1.5.0/omap.bend as OMap
 import bend-kit-collections@0.1.5.0/order.bend as Order
