@@ -2,8 +2,8 @@
 # reordering, and a stale copy. All three converge to the same state. The
 # dense GCounter runs replicas 0, 1, and 2; the KCounter runs sparse IDs.
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-cbor@0.3.0.0/cbor.bend as Cbor
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-cbor@0.3.0.1/cbor.bend as Cbor
 import ./crdt.bend as Crdt
 
 def A() -> Nat:

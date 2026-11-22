@@ -1,6 +1,6 @@
 # scheduler
 
-Pure deadline queues and recurrence planning. Import `bend-kit-scheduler@0.4.3.0/queue.bend` as `Queue` and `bend-kit-scheduler@0.4.3.0/recurrence.bend` as `Recurrence`.
+Pure deadline queues and recurrence planning. Import `bend-kit-scheduler@0.4.4.0/queue.bend` as `Queue` and `bend-kit-scheduler@0.4.4.0/recurrence.bend` as `Recurrence`.
 
 ## Queue transitions
 
@@ -36,7 +36,7 @@ For a positive period, next is the first anchored deadline strictly after comple
 
 The core never reads a clock. `now` and deadlines must share epoch, units, and clock domain. Use a monotonic clock for elapsed-time scheduling: wall clocks may jump. Decreasing supplied time still cannot select a ticket before its supplied deadline, but elapsed-time meaning requires nondecreasing input.
 
-Every `now` and deadline in `live.bend` is monotonic milliseconds from `Time.mono.ms()` in `bend-kit-time@0.3.0.0`; the benchmark times itself with `Time.mono.us()`. Pass the same `Time.mono.ms()` reading to this queue and to other pure cores, such as Hairpin's retry policy, so their times share one unit. OS monotonic-clock correctness and effect code are trusted, not proved. No exact punctuality, fairness, eventual execution, crash durability, or distributed-scheduler claim is made.
+Every `now` and deadline in `live.bend` is monotonic milliseconds from `Time.mono.ms()` in `bend-kit-time@0.3.0.1`; the benchmark times itself with `Time.mono.us()`. Pass the same `Time.mono.ms()` reading to this queue and to other pure cores, such as Hairpin's retry policy, so their times share one unit. OS monotonic-clock correctness and effect code are trusted, not proved. No exact punctuality, fairness, eventual execution, crash durability, or distributed-scheduler claim is made.
 
 The proof model is exact mathematical Nat, with no modular arithmetic. **Bend 2.0.36 native Nat is checked and limited to `2^48 - 1`.** Unrepresentable inputs/intermediate arithmetic terminate with an explicit `bend: a Nat past the largest immediate 2^48-1` error; they do not wrap into an earlier deadline. This is a fatal runtime overflow report, not a recoverable Maybe result. Keep all intermediate values representable. Milliseconds reach that limit after about 8900 years of uptime, microseconds after about 8.9 years. Select a smaller origin/unit for longer-lived clock domains. Resource exhaustion is not covered by arithmetic proofs.
 
@@ -44,7 +44,7 @@ The proof model is exact mathematical Nat, with no modular arithmetic. **Bend 2.
 
 `LAWS.bend` imports quantified queue and recurrence claims; `PROOF.bend` supplies constructive proofs. Queue claims use semantic predicates over every heap element and an ordered-heap predicate, rather than equality of internal heap shapes. Queue operations preserve that ordering predicate. Accurate cached heap sizes and element conservation rely on valid API construction and the pinned heap implementation; they are not additional quantified scheduler invariants. Nat comparison and arithmetic lemmas come from `bend-mathlib@0.8.0.0`. Payload equality is not needed for scheduling order; cancellation is by exact Nat ID.
 
-`scheduler.bend` imports `PROOF.bend`, so the laws and proofs publish with the package. A dependent package can cite a queue lemma in its own proofs: import `bend-kit-scheduler@0.4.3.0/queue_laws.bend` for the predicates and claims, and `bend-kit-scheduler@0.4.3.0/queue_proof.bend` for the lemmas, such as `merge_all.full`, `remove_all`, `remove_absent.heap`, `remove_absent.list`, and `select_selected_absent`. The lemmas hold for the `queue.bend` of the same version only.
+`scheduler.bend` imports `PROOF.bend`, so the laws and proofs publish with the package. A dependent package can cite a queue lemma in its own proofs: import `bend-kit-scheduler@0.4.4.0/queue_laws.bend` for the predicates and claims, and `bend-kit-scheduler@0.4.4.0/queue_proof.bend` for the lemmas, such as `merge_all.full`, `remove_all`, `remove_absent.heap`, `remove_absent.list`, and `select_selected_absent`. The lemmas hold for the `queue.bend` of the same version only.
 
 ```sh
 scripts/check.sh scheduler

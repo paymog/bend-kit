@@ -11,7 +11,7 @@ import ./layout-proof.bend as G
 import ../lemmas/array.bend as Arr
 import ../lemmas/perfect.bend as P
 import ../lemmas/lemmas.bend as L
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-mathlib@0.8.0.0/nat.bend as N
 
 def top_bit(n: Nat) -> Word(1n+n):

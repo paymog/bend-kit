@@ -1,6 +1,6 @@
 import Base
 import ./planner.bend as P
-import bend-kit-collections@0.1.5.0/LAWS.bend as Col
+import bend-kit-collections@0.1.6.0/LAWS.bend as Col
 
 # Every member of s has all its prerequisites in s.
 def closed(~K: Data, ~eq: K -> K -> Bool, xs: List<&2, K>, +g: List<&2, P.Node<K>>, +s: List<&2, K>) -> Bool:

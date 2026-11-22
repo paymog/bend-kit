@@ -3,8 +3,8 @@
 DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli.
 
 ```bend
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-zlib@0.5.2.0/zlib.bend as Zlib
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-zlib@0.5.3.0/zlib.bend as Zlib
 ```
 
 Every function takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes`, `bits` 0.3.0.0, and `hash` from the hub.

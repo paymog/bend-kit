@@ -4,7 +4,7 @@ import ../lemmas/perfect.bend as P
 import ../lemmas/array.bend as Arr
 import ./codec-model.bend as C
 import ./layout-proof.bend as Layout
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ../lemmas/lemmas.bend as L
 
 type Step is Data:

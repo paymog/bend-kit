@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `cache` 0.3.2.0, `commands` 0.5.1.0, `crdt` 0.2.1.1, `f32array` 0.2.1.1, `journal` 0.3.1.3, `migrate` 0.4.1.0, `notch` 0.4.0.1, `planner` 0.5.1.0, `protobuf` 0.2.2.0, `regex` 0.9.0.1, `scheduler` 0.4.4.0, and `zlib` 0.5.3.0: use the current published sibling types in the second byte proof wave.
+
 - `bits` 0.3.0.1, `cbor` 0.3.0.1, `csv` 0.3.0.1, `dns` 0.7.1.1, `files` 0.4.0.1, `hash` 0.3.2.2, `http2` 0.5.0.2, `multipart` 0.3.0.2, `process` 0.5.2.1, `property` 0.4.0.1, `tar` 0.3.0.1, `time` 0.3.0.1, and `websocket` 0.4.1.3: use the proof-bearing bytes 0.3.3.1 release.
 - `json` 0.7.3.0 and `stats` 0.1.8.0: use the f64 0.1.4.0 decimal fast paths.
 

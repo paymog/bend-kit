@@ -1,6 +1,6 @@
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-files@0.4.0.0/files.bend as Files
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-files@0.4.0.1/files.bend as Files
 import ./f32array.bend as A
 import ./io.bend as F
 

@@ -1,8 +1,8 @@
 # File reads for packed F32 arrays, kept outside the pure proof imports.
 import Base
 import ./f32array.bend as A
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-files@0.4.0.0/files.bend as Files
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-files@0.4.0.1/files.bend as Files
 
 # A file read in progress: more bytes to read, or the final result.
 type Read is Type:

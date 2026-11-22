@@ -1,5 +1,5 @@
 import Base
-import bend-kit-cbor@0.3.0.0/cbor.bend as Cbor
+import bend-kit-cbor@0.3.0.1/cbor.bend as Cbor
 import ./crdt.bend as Crdt
 
 # True when an increment failed, or when it kept s at most its result.

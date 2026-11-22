@@ -77,7 +77,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`bits`](bits) | `bend-kit-bits@0.3.0.1/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman codes and decode tables. |
 | [`encoding`](encoding) | `bend-kit-encoding@0.5.0.1/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
-| [`regex`](regex) | `bend-kit-regex@0.9.0.0/regex.bend` | Linear-time RE2 matching, with capture groups and `(?i)`. |
+| [`regex`](regex) | `bend-kit-regex@0.9.0.1/regex.bend` | Linear-time RE2 matching, with capture groups and `(?i)`. |
 | [`parse`](parse) | `bend-kit-parse@0.2.0.0/parse.bend` | Parser combinators over text. `parse/json.bend` is a JSON grammar on them, not the `json` package. |
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `{}` formatting, padding, and shortest `F32` text. |
 | [`text`](text) | `bend-kit-text@0.2.1.1/text.bend` | Myers diff with unified output, Levenshtein distance, and word wrap by display width. |
@@ -91,18 +91,18 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`f64`](f64) | `bend-kit-f64@0.1.4.0/f64.bend` | IEEE 754 binary64 arithmetic, square root, integer conversion, and shortest decimal text. Soft-float on two `U32` halves. |
-| [`f32array`](f32array) | `bend-kit-f32array@0.2.1.0/f32array.bend` | Packed `F32` arrays: get, set, slice, map, fold, zip, pairwise dot and sum, max, and little- or big-endian `Bytes` and files. |
+| [`f32array`](f32array) | `bend-kit-f32array@0.2.1.1/f32array.bend` | Packed `F32` arrays: get, set, slice, map, fold, zip, pairwise dot and sum, max, and little- or big-endian `Bytes` and files. |
 | [`bignum`](bignum) | `bend-kit-bignum@0.1.0.0/bigint.bend` | Exact integers, decimals, and rationals. Import `decimal.bend` or `rational.bend` for those types. |
 | [`stats`](stats) | `bend-kit-stats@0.1.8.0/stats.bend` | Mean, variance, standard deviation, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
 | [`json`](json) | `bend-kit-json@0.7.3.0/json.bend` | JSON values as RFC 8259, over `Bytes`. |
 | [`csv`](csv) | `bend-kit-csv@0.3.0.1/csv.bend` | RFC 4180 records over `Bytes`. |
 | [`cbor`](cbor) | `bend-kit-cbor@0.3.0.1/cbor.bend` | RFC 8949 encode and decode over `Bytes`. |
-| [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.1.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
-| [`migrate`](migrate) | `bend-kit-migrate@0.4.0.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
+| [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.2.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
+| [`migrate`](migrate) | `bend-kit-migrate@0.4.1.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.1/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
 | [`archive`](archive) | `bend-kit-archive@0.5.1.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
-| [`zlib`](zlib) | `bend-kit-zlib@0.5.2.0/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
-| [`crdt`](crdt) | `bend-kit-crdt@0.2.1.0/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
+| [`zlib`](zlib) | `bend-kit-zlib@0.5.3.0/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
+| [`crdt`](crdt) | `bend-kit-crdt@0.2.1.1/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
 
 ### Network
 
@@ -142,14 +142,14 @@ Each package README has the import, one example, and the limits that change the 
 | [`time`](time) | `bend-kit-time@0.3.0.1/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.1/random.bend` | Seeded xoshiro128**. Not for cryptography. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.2.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
-| [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.3.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
+| [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.4.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
 | [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
 | [`journal`](journal) | `bend-kit-journal@0.3.1.1/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
 | [`runner`](runner) | `bend-kit-runner@0.19.0.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
-| [`planner`](planner) | `bend-kit-planner@0.5.0.0/planner.bend` | Dependency plans with proved order, closure, completeness, true errors, minimal invalidation, and safe reuse, plus a parallel build runner over real commands. |
-| [`commands`](commands) | `bend-kit-commands@0.5.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
-| [`cache`](cache) | `bend-kit-cache@0.3.1.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
-| [`notch`](notch) | `bend-kit-notch@0.4.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
+| [`planner`](planner) | `bend-kit-planner@0.5.1.0/planner.bend` | Dependency plans with proved order, closure, completeness, true errors, minimal invalidation, and safe reuse, plus a parallel build runner over real commands. |
+| [`commands`](commands) | `bend-kit-commands@0.5.1.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
+| [`cache`](cache) | `bend-kit-cache@0.3.2.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
+| [`notch`](notch) | `bend-kit-notch@0.4.0.1/notch.bend` | Leveled logfmt or JSON-lines logging. |
 | [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
 | [`property`](property) | `bend-kit-property@0.4.0.1/property.bend` | Seeded generators, shrinking, and a property runner. |

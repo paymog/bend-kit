@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../planner.bend as P
-import bend-kit-collections@0.1.5.0/order.bend as Order
+import bend-kit-collections@0.1.6.0/order.bend as Order
 
 def id(+i: U32) -> String:
   "n" ++ U32.show(i)
