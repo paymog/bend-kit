@@ -4,7 +4,7 @@
 # The script checks that the marker command never ran.
 import Base
 import ./process.bend as Proc
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def ownership.yes(ok: Bool) -> IO(Unit):
   match ok:

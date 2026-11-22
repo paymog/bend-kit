@@ -1,6 +1,6 @@
 # Descriptive statistics over F64 lists, and U32 gcd, lcm, and integer square root. Source: https://github.com/paymog/bend-kit/tree/main/stats
 import Base
-import bend-kit-f64@0.1.3.0/f64.bend as F
+import bend-kit-f64@0.1.4.0/f64.bend as F
 
 def Stats.count(xs: List<&2, F.F64>) -> F.F64:
   F.F64.from_u32(U32.from_nat(List.length(&2, F.F64, xs)))

@@ -25,11 +25,11 @@ The group kill is not containment. A descendant that leaves the group with `sets
 The JS target needs `bun:ffi`, and `posix_spawn_file_actions_addchdir_np` from glibc 2.29 or later, or from macOS 10.15 or later. It was tested with Bun 1.4.2, the version CI pins, and with Bun 1.4.4.
 
 ```bend
-import bend-kit-process@0.5.2.0/process.bend as Proc
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-process@0.5.2.1/process.bend as Proc
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 ```
 
-`process.bend` imports `bend-kit-bytes@0.3.3.0`. Use this bytes version for `run` input and output.
+`process.bend` imports `bend-kit-bytes@0.3.3.1`. Use this bytes version for `run` input and output.
 
 `run(cmd, args, env, cwd, stdin)` takes the executable name or path, arguments, `KEY=VALUE` environment overrides, the child's working directory, and stdin as `Bytes`. It returns an `IO` result with the exit status, stdout, and stderr, or an error. It does not pass the command to a shell. Thus, `";"` in an argument is data.
 

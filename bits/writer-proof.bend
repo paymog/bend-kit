@@ -2,7 +2,7 @@ import Base
 import ./bits.bend as Bits
 import ./array-proof.bend as A
 import ./LAWS.bend as Laws
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ./field-proof.bend as Field

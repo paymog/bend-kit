@@ -1,6 +1,6 @@
 # POSIX paths plus directory and metadata effects. Source: https://github.com/paymog/bend-kit/tree/main/files
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # The path.* defs are pure and lexical: they never touch the disk.
 # The effects are thin OS calls; each failure is (errno, text).

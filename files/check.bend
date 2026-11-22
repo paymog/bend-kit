@@ -1,6 +1,6 @@
 import Base
 import ./files.bend as Fs
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def require(ok: Bool, message: String) -> IO(Unit):
   match ok:

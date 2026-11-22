@@ -74,7 +74,7 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`bytes`](bytes) | `bend-kit-bytes@0.3.3.1/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
-| [`bits`](bits) | `bend-kit-bits@0.3.0.0/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman codes and decode tables. |
+| [`bits`](bits) | `bend-kit-bits@0.3.0.1/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman codes and decode tables. |
 | [`encoding`](encoding) | `bend-kit-encoding@0.5.0.1/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
 | [`regex`](regex) | `bend-kit-regex@0.9.0.0/regex.bend` | Linear-time RE2 matching, with capture groups and `(?i)`. |
@@ -84,7 +84,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`template`](template) | `bend-kit-template@0.3.0.0/template.bend` | Mustache templates: variables, sections, inverted sections, comments, partials, and set delimiters, HTML-escaped by default. |
 | [`markdown`](markdown) | `bend-kit-markdown@0.3.10.0/markdown.bend` | CommonMark 0.31.2 to HTML, with opt-in GitHub extensions. All 652 spec examples pass. |
 | [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | `U8`, `U16`, `U64`, `I32`, and `I64`. `U64` and `I64` are slow. |
-| [`hash`](hash) | `bend-kit-hash@0.3.2.1/hash.bend` | FNV-1a, xxHash, SipHash-1-3 and SipHash-2-4, CRC-32, and Adler-32. Not cryptographic. |
+| [`hash`](hash) | `bend-kit-hash@0.3.2.2/hash.bend` | FNV-1a, xxHash, SipHash-1-3 and SipHash-2-4, CRC-32, and Adler-32. Not cryptographic. |
 
 ### Numbers and data
 
@@ -93,13 +93,13 @@ Each package README has the import, one example, and the limits that change the 
 | [`f64`](f64) | `bend-kit-f64@0.1.4.0/f64.bend` | IEEE 754 binary64 arithmetic, square root, integer conversion, and shortest decimal text. Soft-float on two `U32` halves. |
 | [`f32array`](f32array) | `bend-kit-f32array@0.2.1.0/f32array.bend` | Packed `F32` arrays: get, set, slice, map, fold, zip, pairwise dot and sum, max, and little- or big-endian `Bytes` and files. |
 | [`bignum`](bignum) | `bend-kit-bignum@0.1.0.0/bigint.bend` | Exact integers, decimals, and rationals. Import `decimal.bend` or `rational.bend` for those types. |
-| [`stats`](stats) | `bend-kit-stats@0.1.7.0/stats.bend` | Mean, variance, standard deviation, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
-| [`json`](json) | `bend-kit-json@0.7.2.1/json.bend` | JSON values as RFC 8259, over `Bytes`. |
-| [`csv`](csv) | `bend-kit-csv@0.3.0.0/csv.bend` | RFC 4180 records over `Bytes`. |
-| [`cbor`](cbor) | `bend-kit-cbor@0.3.0.0/cbor.bend` | RFC 8949 encode and decode over `Bytes`. |
+| [`stats`](stats) | `bend-kit-stats@0.1.8.0/stats.bend` | Mean, variance, standard deviation, quantiles, a histogram, and linear regression over `F64` lists, plus `U32` gcd, lcm, and integer square root. |
+| [`json`](json) | `bend-kit-json@0.7.3.0/json.bend` | JSON values as RFC 8259, over `Bytes`. |
+| [`csv`](csv) | `bend-kit-csv@0.3.0.1/csv.bend` | RFC 4180 records over `Bytes`. |
+| [`cbor`](cbor) | `bend-kit-cbor@0.3.0.1/cbor.bend` | RFC 8949 encode and decode over `Bytes`. |
 | [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.1.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
 | [`migrate`](migrate) | `bend-kit-migrate@0.4.0.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
-| [`tar`](tar) | `bend-kit-tar@0.3.0.0/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
+| [`tar`](tar) | `bend-kit-tar@0.3.0.1/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
 | [`archive`](archive) | `bend-kit-archive@0.5.1.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.5.2.0/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.1.0/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
@@ -110,14 +110,14 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`url`](url) | `bend-kit-url@0.4.1.0/url.bend` | RFC 3986 parse, resolve, and percent-encoding. |
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
-| [`dns`](dns) | `bend-kit-dns@0.7.1.0/dns.bend` | DNS codec and host lookup. |
+| [`dns`](dns) | `bend-kit-dns@0.7.1.1/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.8.0/wire.bend` | TCP, UDP, and TLS sockets. |
 | [`http`](http) | `bend-kit-http@0.39.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
-| [`http2`](http2) | `bend-kit-http2@0.5.0.1/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
+| [`http2`](http2) | `bend-kit-http2@0.5.0.2/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.14.1.1/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
-| [`websocket`](websocket) | `bend-kit-websocket@0.4.1.2/websocket.bend` | RFC 6455 client handshake and frames. |
-| [`multipart`](multipart) | `bend-kit-multipart@0.3.0.1/multipart.bend` | RFC 7578 form-data encode and decode. |
+| [`websocket`](websocket) | `bend-kit-websocket@0.4.1.3/websocket.bend` | RFC 6455 client handshake and frames. |
+| [`multipart`](multipart) | `bend-kit-multipart@0.3.0.2/multipart.bend` | RFC 7578 form-data encode and decode. |
 
 ### Identity
 
@@ -134,12 +134,12 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`files`](files) | `bend-kit-files@0.4.0.0/files.bend` | POSIX paths, directories, and packed file IO. |
+| [`files`](files) | `bend-kit-files@0.4.0.1/files.bend` | POSIX paths, directories, and packed file IO. |
 | [`storage`](storage) | `bend-kit-storage@0.5.0.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
 | [`stream`](stream) | `bend-kit-stream@0.4.0.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
-| [`process`](process) | `bend-kit-process@0.5.2.0/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
+| [`process`](process) | `bend-kit-process@0.5.2.1/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
-| [`time`](time) | `bend-kit-time@0.3.0.0/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
+| [`time`](time) | `bend-kit-time@0.3.0.1/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.1/random.bend` | Seeded xoshiro128**. Not for cryptography. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.2.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
 | [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.3.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
@@ -152,7 +152,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`notch`](notch) | `bend-kit-notch@0.4.0.0/notch.bend` | Leveled logfmt or JSON-lines logging. |
 | [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
-| [`property`](property) | `bend-kit-property@0.4.0.0/property.bend` | Seeded generators, shrinking, and a property runner. |
+| [`property`](property) | `bend-kit-property@0.4.0.1/property.bend` | Seeded generators, shrinking, and a property runner. |
 | [`lemmas`](lemmas) | `bend-kit-lemmas@0.1.5.1/lemmas.bend` | Proved laws that relate `Word` and `U32` arithmetic to `Nat`, on top of `bend-mathlib`. |
 
 ### Services

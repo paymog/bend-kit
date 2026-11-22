@@ -1,6 +1,6 @@
 # CBOR (RFC 8949) values encoded and decoded over Bytes. Source: https://github.com/paymog/bend-kit/tree/main/cbor
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # Raw words preserve CBOR integer and floating-point bit patterns.
 type W64 is Data:
