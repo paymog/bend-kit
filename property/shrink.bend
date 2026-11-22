@@ -7,7 +7,7 @@
 # Lists try [], then drop chunks of n/2, n/4, ..., 1 elements (about 2n candidates), then
 # simplify one element at a time, left to right, through the element's own shrinker.
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # (n - d), then (n - d/2), ..., while d > 0; stop tells whether d is 0.
 def u32.go(f: Nat, stop: Bool, +n: U32, +d: U32) -> List<&1, U32>:

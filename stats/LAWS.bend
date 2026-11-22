@@ -1,5 +1,5 @@
 import Base
-import bend-kit-f64@0.1.3.0/f64.bend as F
+import bend-kit-f64@0.1.4.0/f64.bend as F
 import ./stats.bend as S
 import bend-mathlib@0.8.0.0/nat.bend as N
 

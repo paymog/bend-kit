@@ -8,6 +8,9 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `bits` 0.3.0.1, `cbor` 0.3.0.1, `csv` 0.3.0.1, `dns` 0.7.1.1, `files` 0.4.0.1, `hash` 0.3.2.2, `http2` 0.5.0.2, `multipart` 0.3.0.2, `process` 0.5.2.1, `property` 0.4.0.1, `tar` 0.3.0.1, `time` 0.3.0.1, and `websocket` 0.4.1.3: use the proof-bearing bytes 0.3.3.1 release.
+- `json` 0.7.3.0 and `stats` 0.1.8.0: use the f64 0.1.4.0 decimal fast paths.
+
 - `camber` 0.16.0.3: use HTTP 0.39.1.0 types so published consumers can observe retained listener ports.
 
 - `camber` manual probes and benchmarks: bind port 0 and connect to the retained listener's reported port. Use public HTTP startup instead of harness-only startup adapters. Preserve historical evidence. Close finite HTTP probe listeners before joining held connections, and return their cleanup future.
