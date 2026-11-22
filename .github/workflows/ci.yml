@@ -79,6 +79,21 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           scripts/native-check.sh ${{ matrix.package }}
+      - name: Install cmark-gfm 0.29.0.gfm.14
+        if: matrix.package == 'markdown'
+        run: |
+          git clone --depth 1 --branch 0.29.0.gfm.14 https://github.com/github/cmark-gfm.git "$RUNNER_TEMP/cmark-gfm"
+          cmake -S "$RUNNER_TEMP/cmark-gfm" -B "$RUNNER_TEMP/cmark-gfm/build" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMARK_TESTS=OFF \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/cmark-gfm/install"
+          cmake --build "$RUNNER_TEMP/cmark-gfm/build" --parallel 2
+          cmake --install "$RUNNER_TEMP/cmark-gfm/build"
+          echo "$RUNNER_TEMP/cmark-gfm/install/bin" >> "$GITHUB_PATH"
+      - name: Check markdown GFM differential corpus
+        if: matrix.package == 'markdown'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          python3 markdown/conformance.py --gfm-diff
       - name: Install Bun
         if: matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         uses: oven-sh/setup-bun@v2

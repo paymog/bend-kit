@@ -52,4 +52,6 @@ python3 markdown/gen.py                  # rewrite entities.bend from Python's h
 
 The comparison normalizes only cmark-gfm's checkbox attribute order and XHTML closing slash to the official GFM spec's spelling. Two exact differences remain because this package follows CommonMark 0.31.2 and cmark-gfm follows 0.29: example 28 rejects an eight-digit decimal character reference; example 354 treats Unicode currency symbols as punctuation for emphasis. Both sides must match their recorded outputs for the check to accept these differences. No other mismatch is ignored. The former list-like table-row and `[www.x.org](/y)` reports do not reproduce with cmark-gfm 0.29.0.gfm.14; both remain in the corpus.
 
+For markdown changes, CI runs `--gfm-diff` with CI's pinned Bend and cmark-gfm 0.29.0.gfm.14 built from its release tag. The log reports the reference version and corpus totals. Other package jobs do not build the reference.
+
 `bench/README.md` compares `to_html` with cmark and libraries in Rust, JavaScript, and Python.
