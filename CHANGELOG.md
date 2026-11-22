@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `zlib` 0.6.0.0: isolate pure codec proofs from foreign effects. Breaking: import `native.bend` for native compression and streaming decoders.
+
 - `http` checks: emit local, mTLS, and HTTP/2 pool acceptance programs separately. Keep every case in both native and JS lanes.
 
 - `http` checks: read complete request bodies in the mTLS fixture before responding. Check a delayed chunked upload to prevent the server from closing TLS while the client still writes.
