@@ -60,6 +60,28 @@ An `Array.get` costs more than a 256-arm `match` in compiled Bend, so the tables
 
 Before `hash` 0.3.0.2, `crc32` built its 256-entry table on every call, with 2,048 bit steps. In the same run setup, `hash` 0.3.0.1 took 23.4 ms for `crc32_short` and 33.1 ms for `crc32`. The table is now a `match` on the index, so no call builds it.
 
+### Slicing-by-16 trial
+
+M4 Pro, macOS, Bend 2.0.40, 2026-11-21. Native builds use the same `bench.bend` input and timers as above. Each round starts a fresh process for each variant. Variant order reverses on every round. The first trial uses ten rounds in the order baseline / slicing-by-16 / short words, then the reverse. Each later trial uses twelve baseline / candidate pairs, alternating AB and BA. No Bend processes run concurrently. All runs retain `b99c61cb` and `cecee288`.
+
+| trial | variant | crc32 (ms) | crc32_short (ms) |
+|---|---|---:|---:|
+| 1 | 0.3.2.0 baseline, slicing-by-8 | 6.471 | 0.401 |
+| 1 | slicing-by-16, no short path | 4.330 | 0.478 |
+| 1 | slicing-by-8, words below 32 bytes | 6.456 | 0.372 |
+| 2 | 0.3.2.0 baseline | 6.411 | 0.412 |
+| 2 | slicing-by-16, words below 32 bytes (kept) | 4.248 | 0.372 |
+| 3 | 0.3.2.0 baseline | 6.416 | 0.412 |
+| 3 | slicing-by-16, short word loop without read-ahead | 4.209 | 0.376 |
+| 4 | 0.3.2.0 baseline | 6.394 | 0.396 |
+| 4 | slicing-by-16, unrolled short words | 4.376 | 0.465 |
+
+The kept variant wins all twelve long-input pairs and eleven of twelve short-input pairs in trial 2. Long-input times range from 4.082 to 4.824 ms, against 6.115 to 6.576 ms. Short-input times range from 0.351 to 0.401 ms, against 0.370 to 0.437 ms. The medians improve by 33.7% and 9.8%. The 0.3 ms short-input goal is not met.
+
+The short word loop without read-ahead does not show a clear gain over the existing word fold. Unrolling makes the short case slower. Neither is kept. The long path reads two 64-bit lanes per step and uses sixteen constant `match` tables. One lane, one word, and then bytes handle the tail. Inputs below 32 bytes use the existing word fold.
+
+Masked `Array.get` reads remain. These measurements do not depend on unchecked reads or a fix for bendlang/bend#1936. `check.bend` compares every length from 0 through 257 with a bitwise reference, with two byte patterns and non-zero padding beyond the logical input.
+
 ## The calls
 
 | language | calls |
@@ -77,7 +99,7 @@ SipHash-2-4 uses libsodium in C. The other standard libraries here do not expose
 
 ## Caveats
 
-- Adler-32 and FNV-1a take one byte per step, and a Bend step costs more than a C one. CRC-32 takes a 64-bit lane per step but still does eight table lookups, each a `match`. xxHash and SipHash take a word or a 64-bit lane per step, so Bend is within a small multiple there.
+- Adler-32 and FNV-1a take one byte per step, and a Bend step costs more than a C one. CRC-32 takes sixteen bytes per step and uses sixteen table lookups, each a `match`. xxHash and SipHash take a word or a 64-bit lane per step, so Bend is within a small multiple there.
 - 64-bit hashes run on two `U32` halves, as `Hash.W64`. A 64-bit multiply is four 16-bit products.
 - Python's `hash` and Rust's `DefaultHasher` fix the key at zero here. They are not APIs for a chosen key.
 - Bend times itself with `Time.mono`, a nanosecond clock.
