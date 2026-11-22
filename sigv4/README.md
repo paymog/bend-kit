@@ -3,12 +3,12 @@
 AWS Signature V4, and an S3 client over `hairpin`.
 
 ```bend
-import bend-kit-sigv4@0.12.0.1/sigv4.bend as Sig
-import bend-kit-hairpin@0.14.1.1/hairpin.bend as Hairpin
-import bend-kit-http@0.38.6.1/http.bend as Http
+import bend-kit-sigv4@0.13.0.0/sigv4.bend as Sig
+import bend-kit-hairpin@0.15.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.39.2.0/http.bend as Http
 ```
 
-`sigv4.bend` imports that `http`, `bend-kit-crypto@0.2.2.2`, `bend-kit-time@0.3.0.0`, and `bend-kit-collections@0.1.5.0`, whose `Order.string` sorts the canonical query. HMAC-SHA256 needs OpenSSL 3 (`BEND_LIBCRYPTO` on the crypto package).
+`sigv4.bend` imports that `http`, `bend-kit-crypto@0.2.2.2`, `bend-kit-time@0.3.0.1`, and `bend-kit-collections@0.1.6.0`, whose `Order.string` sorts the canonical query. HMAC-SHA256 needs OpenSSL 3 (`BEND_LIBCRYPTO` on the crypto package).
 
 `Credentials` holds the access key, secret, and session token. An empty token means a long-term key. `sign` returns the `Authorization` value. The date argument is `x-amz-date` form, `YYYYMMDDTHHMMSSZ`. `authorize` returns that header and the signed `x-amz-date`. `presign` builds a query-string signature with an expiry in seconds.
 

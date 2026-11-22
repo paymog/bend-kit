@@ -1,9 +1,9 @@
 # Published live-only acceptance consumer: same public users application and real transport/Store joins.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.16.0.3/camber.bend as C
-import bend-kit-http@0.39.1.0/http.bend as H
-import bend-kit-http@0.39.1.0/completion.bend as T
+import bend-kit-camber@0.16.1.0/camber.bend as C
+import bend-kit-http@0.39.2.0/http.bend as H
+import bend-kit-http@0.39.2.0/completion.bend as T
 
 def store.closed(result: C.OwnerClose<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
   match result:

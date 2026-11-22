@@ -1,13 +1,13 @@
 # OAuth 2.0 client credentials, refresh, and authorization code with PKCE over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/oauth2
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-hairpin@0.14.1.1/hairpin.bend as Hairpin
-import bend-kit-http@0.38.6.1/http.bend as Http
-import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-hairpin@0.15.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.39.2.0/http.bend as Http
+import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-json@0.7.2.0/json.bend as Json
-import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # RFC 6749 and RFC 7636. Text is a String of code points; form values go out as UTF-8.
 # token: the token endpoint URL. secret: "" for a public client, which sends client_id in the body;
