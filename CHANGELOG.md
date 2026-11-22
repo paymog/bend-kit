@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `gateway` 0.5.0.0 and `runner` 0.20.0.0: complete the byte proof re-pin waves. Use the current published cache, Camber, collection, encoding, file, Hairpin, HTTP, journal, scheduler, time, and webhook types. Remove the completed re-pin exceptions.
+
 - `jwt` 0.13.0.0, `llm` 0.15.0.0, `oauth2` 0.13.0.0, `sigv4` 0.13.0.0, and `webhooks` 0.13.0.0: share HTTP 0.39.2.0, Hairpin 0.15.0.0, and the proof-bearing byte type. Re-pin the Authz check and manual Camber consumers to Camber 0.16.1.0.
 
 - `camber` 0.16.1.0, `hairpin` 0.15.0.0, and `storage` 0.5.1.0: use HTTP 0.39.2.0 and the current published byte, JSON, encoding, file, collection, logger, and time types.

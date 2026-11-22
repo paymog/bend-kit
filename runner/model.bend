@@ -1,16 +1,16 @@
 # Pure runner state transitions, retry decisions, and journal codecs.
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-encoding@0.5.0.0/encoding.bend as Encoding
-import bend-kit-scheduler@0.4.3.0/queue.bend as Q
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.1/encoding.bend as Encoding
+import bend-kit-scheduler@0.4.4.0/queue.bend as Q
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-collections@0.1.5.0/heap.bend as H
-import bend-kit-collections@0.1.5.0/omap.bend as O
-import bend-kit-collections@0.1.5.0/hmap.bend as M
-import bend-kit-collections@0.1.5.0/LAWS.bend as CL
-import bend-kit-collections@0.1.5.0/PROOF.bend as CP
-import bend-kit-collections@0.1.5.0/order.bend as Order
+import bend-kit-collections@0.1.6.0/heap.bend as H
+import bend-kit-collections@0.1.6.0/omap.bend as O
+import bend-kit-collections@0.1.6.0/hmap.bend as M
+import bend-kit-collections@0.1.6.0/LAWS.bend as CL
+import bend-kit-collections@0.1.6.0/PROOF.bend as CP
+import bend-kit-collections@0.1.6.0/order.bend as Order
 
 # Why retry gave up on a ticket: its budget was spent, its deadline passed, its failure must not repeat,
 # or another try would repeat its failure.
