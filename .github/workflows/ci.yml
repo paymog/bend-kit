@@ -52,6 +52,8 @@ jobs:
             pkgs=$(cut -d/ -f1 <<<"$changed" | sort -u | grep -xFf <(scripts/packages.sh) || true)
             [ -z "$pkgs" ] || scripts/pins.sh "$base" $pkgs
           fi
+      - name: Check macOS DNS failure allowance
+        run: python3 scripts/macos-dns-check-test.py
 
   check:
     needs: changes
@@ -144,7 +146,21 @@ jobs:
           scripts/install-bend.sh
           echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
       - name: Check native ${{ matrix.package }} effects
+        if: matrix.package != 'dns'
         run: scripts/native-check.sh ${{ matrix.package }}
+      - name: Check native DNS effects
+        if: matrix.package == 'dns'
+        run: |
+          status=0
+          scripts/native-check.sh dns > "$RUNNER_TEMP/dns.log" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/dns.log"
+          if [ "$status" -eq 1 ] && cmp -s "$RUNNER_TEMP/dns.log" <(
+            printf '%s\n' '== native dns' 'ok zero-length RDATA then A' 'resolve.all AAAA gave []'
+          ); then
+            echo "::warning::macOS DNS public IPv6 lookup failed; tracked in https://github.com/paymog/bend-kit/issues/977"
+          else
+            exit "$status"
+          fi
       - name: Check process JavaScript and ownership
         if: matrix.package == 'process'
         run: |
