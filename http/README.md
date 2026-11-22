@@ -131,6 +131,8 @@ Deadlines do not cancel a handler. Affine erasure does not close an application 
 ## Acceptance checks
 
 Run `scripts/check.sh http` for types, proofs, and local socket checks.
+Run `scripts/native-check.sh http` to compile and run the native package acceptance program.
+CI also runs `python3 -B http/startup_check.py` for native and JS startup sockets with the pinned Bend and Bun.
 Run `sh http/mtls-check.sh` for native acceptance or append `js` for JavaScript.
 The TLS harness builds local, mTLS, and HTTP/2 pool checks as separate programs.
 It checks certificate isolation, redirects, uploads, idle reconnects, stream reuse, and cancellation.

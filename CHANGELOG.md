@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` checks: run native package acceptance and native/JS startup socket checks in CI. Keep the 20 GiB compiler memory ceiling.
+
 - `hairpin` and `webhooks` checks: compile CA request, CA stream, signature, and delivery cases in separate native programs to bound compiler memory. Keep every acceptance case.
 
 - `archive` 0.6.0.0 and `http` 0.40.0.0: use zlib 0.6.0.0. Import its native module for compression effects and streaming decoders.

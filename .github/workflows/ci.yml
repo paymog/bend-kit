@@ -78,6 +78,7 @@ jobs:
       - name: Native check ${{ matrix.package }}
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
+          if [ "${{ matrix.package }}" = http ]; then ulimit -v $((20 * 1024 * 1024)); fi
           scripts/native-check.sh ${{ matrix.package }}
       - name: Install cmark-gfm 0.29.0.gfm.14
         if: matrix.package == 'markdown'
@@ -95,10 +96,15 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           python3 markdown/conformance.py --gfm-diff
       - name: Install Bun
-        if: matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
+        if: matrix.package == 'http' || matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - name: Check HTTP startup sockets in native and JS
+        if: matrix.package == 'http'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          python3 -B http/startup_check.py
       - name: Check process JS backend
         if: matrix.package == 'process'
         run: |

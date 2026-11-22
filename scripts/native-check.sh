@@ -14,7 +14,7 @@ trap cleanup EXIT
 shopt -s nullglob
 for d in "$@"; do
   cs=("$d"/effs/*.c)
-  [ ${#cs[@]} -eq 0 ] && [ "$d" != webhooks ] && [ "$d" != commands ] && [ "$d" != f32array ] && [ "$d" != bits ] && continue
+  [ ${#cs[@]} -eq 0 ] && [ "$d" != http ] && [ "$d" != webhooks ] && [ "$d" != commands ] && [ "$d" != f32array ] && [ "$d" != bits ] && continue
   [ -f "$d/check.bend" ] || { echo "$d has C effects but no check.bend" >&2; exit 1; }
   echo "== native $d"
   out=$(mktemp -d)
