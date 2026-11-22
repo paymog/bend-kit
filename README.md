@@ -82,7 +82,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `{}` formatting, padding, and shortest `F32` text. |
 | [`text`](text) | `bend-kit-text@0.2.1.1/text.bend` | Myers diff with unified output, Levenshtein distance, and word wrap by display width. |
 | [`template`](template) | `bend-kit-template@0.2.0.0/template.bend` | Mustache templates: variables, sections, inverted sections, comments, partials, and set delimiters, HTML-escaped by default. |
-| [`markdown`](markdown) | `bend-kit-markdown@0.3.9.0/markdown.bend` | CommonMark 0.31.2 to HTML, with opt-in GitHub extensions. All 652 spec examples pass. |
+| [`markdown`](markdown) | `bend-kit-markdown@0.3.10.0/markdown.bend` | CommonMark 0.31.2 to HTML, with opt-in GitHub extensions. All 652 spec examples pass. |
 | [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | `U8`, `U16`, `U64`, `I32`, and `I64`. `U64` and `I64` are slow. |
 | [`hash`](hash) | `bend-kit-hash@0.3.2.1/hash.bend` | FNV-1a, xxHash, SipHash-1-3 and SipHash-2-4, CRC-32, and Adler-32. Not cryptographic. |
 
