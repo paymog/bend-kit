@@ -1,9 +1,9 @@
 import Base
 import bend-mathlib@0.8.0.0/nat.bend as MNat
-import bend-kit-scheduler@0.4.3.0/queue.bend as Q
-import bend-kit-scheduler@0.4.3.0/queue_laws.bend as QL
-import bend-kit-collections@0.1.5.0/heap.bend as H
-import bend-kit-collections@0.1.5.0/LAWS.bend as CL
+import bend-kit-scheduler@0.4.4.0/queue.bend as Q
+import bend-kit-scheduler@0.4.4.0/queue_laws.bend as QL
+import bend-kit-collections@0.1.6.0/heap.bend as H
+import bend-kit-collections@0.1.6.0/LAWS.bend as CL
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import ./model.bend as R

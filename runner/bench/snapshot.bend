@@ -1,8 +1,8 @@
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-collections@0.1.5.0/hmap.bend as M
-import bend-kit-scheduler@0.4.3.0/queue.bend as Q
-import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-collections@0.1.6.0/hmap.bend as M
+import bend-kit-scheduler@0.4.4.0/queue.bend as Q
+import bend-kit-time@0.3.0.1/time.bend as Time
 import ../model.bend as R
 
 def penc(x: U32) -> Bytes.Bytes:
