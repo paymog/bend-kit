@@ -203,6 +203,9 @@ scripts/packages.sh origin/main
 
 `check.sh` type-checks the entry file, then runs `PROOF.bend` and `check.bend`. CI checks each package a pull request changes. A change under `.github/` or `scripts/`, and each push to `main`, checks every package. A package with `effs/*.c`, and `webhooks`, also runs `scripts/native-check.sh`. `scripts/pins.sh` fails a pull request whose changed packages import a sibling at a version other than its `VERSION`, or by hash; `scripts/pins.allow` lists the exceptions. It also checks every package version in the root and package READMEs against its current `VERSION`, including prose without an import path. A README-only pull request runs the pin check too.
 
+Packages with `effs/*.c` run native checks on Linux x64 and macOS arm64. The macOS matrix uses the same changed-package list and starts no job when that list has no C effects. Both platforms use the Bun version set in `.github/workflows/ci.yml`.
+The macOS DNS check still runs, but its public IPv6 lookup failure is a warning until [the deterministic fixture work](https://github.com/paymog/bend-kit/issues/977) is complete.
+
 CI installs the Bend version pinned in `scripts/install-bend.sh`. To move to a new Bend, change `VER` and `SHA` in that script.
 
 On each push to `main`, a package that passes its checks is published as `bend-kit-<package>@<VERSION>` unless that version is already on the hub. If the hub has that version with different files, the job fails and `VERSION` must rise. Pull requests run `scripts/publish.sh --check` and publish nothing.

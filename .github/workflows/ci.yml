@@ -10,6 +10,7 @@ permissions:
 
 env:
   BEND_NO_TELEMETRY: "1"
+  BUN_VERSION: "1.4.2"
 
 jobs:
   changes:
@@ -17,6 +18,7 @@ jobs:
     outputs:
       packages: ${{ steps.list.outputs.packages }}
       http: ${{ steps.list.outputs.http }}
+      native: ${{ steps.list.outputs.native }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,6 +32,14 @@ jobs:
           fi
           echo "packages=$(jq -Rnc '[inputs | select(length > 0)]' <<<"$pkgs")" >> "$GITHUB_OUTPUT"
           echo "http=$(grep -qx http <<<"$pkgs" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          native=$(
+            shopt -s nullglob
+            for pkg in $pkgs; do
+              cs=("$pkg"/effs/*.c)
+              [ ${#cs[@]} -eq 0 ] || echo "$pkg"
+            done
+          )
+          echo "native=$(jq -Rnc '[inputs | select(length > 0)]' <<<"$native")" >> "$GITHUB_OUTPUT"
       - name: Check sibling pins
         if: github.event_name == 'pull_request'
         run: |
@@ -42,6 +52,8 @@ jobs:
             pkgs=$(cut -d/ -f1 <<<"$changed" | sort -u | grep -xFf <(scripts/packages.sh) || true)
             [ -z "$pkgs" ] || scripts/pins.sh "$base" $pkgs
           fi
+      - name: Check macOS DNS failure allowance
+        run: python3 scripts/macos-dns-check-test.py
 
   check:
     needs: changes
@@ -71,7 +83,7 @@ jobs:
         if: matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.2
+          bun-version: ${{ env.BUN_VERSION }}
       - name: Check process JS backend
         if: matrix.package == 'process'
         run: |
@@ -102,6 +114,59 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           jq -n '{key: env.BEND_KEY, login: env.BEND_LOGIN}' > ~/.bend/bender.json
           scripts/publish.sh ${{ matrix.package }}
+
+  native-macos:
+    needs: changes
+    if: needs.changes.outputs.native != '[]'
+    runs-on: macos-15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.native) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify runner and head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(uname -sm)" = 'Darwin arm64'
+          actual=$(git rev-parse HEAD)
+          printf 'tested=%s expected=%s\n' "$actual" "$EXPECTED_HEAD_SHA"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.package == 'process'
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Bend
+        run: |
+          scripts/install-bend.sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+      - name: Check native ${{ matrix.package }} effects
+        if: matrix.package != 'dns'
+        run: scripts/native-check.sh ${{ matrix.package }}
+      - name: Check native DNS effects
+        if: matrix.package == 'dns'
+        run: |
+          status=0
+          scripts/native-check.sh dns > "$RUNNER_TEMP/dns.log" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/dns.log"
+          if [ "$status" -eq 1 ] && cmp -s "$RUNNER_TEMP/dns.log" <(
+            printf '%s\n' '== native dns' 'ok zero-length RDATA then A' 'resolve.all AAAA gave []'
+          ); then
+            echo "::warning::macOS DNS public IPv6 lookup failed; tracked in https://github.com/paymog/bend-kit/issues/977"
+          else
+            exit "$status"
+          fi
+      - name: Check process JavaScript and ownership
+        if: matrix.package == 'process'
+        run: |
+          bend process/check.bend -o "$RUNNER_TEMP/process-check.js"
+          bun "$RUNNER_TEMP/process-check.js"
+          process/ownership-check.sh
 
   smoke:
     needs: changes
@@ -149,7 +214,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, check, smoke]
+    needs: [changes, check, native-macos, smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -162,6 +227,10 @@ jobs:
           case "${{ needs.check.result }}" in
             success|skipped) ;;
             *) echo "check is ${{ needs.check.result }}"; exit 1 ;;
+          esac
+          case "${{ needs.native-macos.result }}" in
+            success|skipped) ;;
+            *) echo "native-macos is ${{ needs.native-macos.result }}"; exit 1 ;;
           esac
           case "${{ needs.smoke.result }}" in
             success|skipped) ;;
