@@ -123,3 +123,34 @@ for (const [op, f] of [
   }
   console.log(`${op}\t${(performance.now() - t0).toFixed(3)}\t${checksum}`);
 }
+
+function packedSum(f: (a: number, b: number) => number): number {
+  let checksum = 0;
+  for (let i = 0; i < packed.length; i += 2) {
+    checksum = (checksum + f(packed[i], packed[i + 1])) >>> 0;
+  }
+  return checksum;
+}
+
+const warmed = [
+  ["warm_packed_identity", (a: number, _b: number) => a],
+  ["warm_packed_gcd", gcd],
+  ["warm_packed_lcm", lcm],
+  ["warm_packed_isqrt", isqrt],
+] as const;
+const warmupPasses = 3;
+const warmChecks = new Map<string, number>();
+for (let pass = 0; pass < warmupPasses; pass++) {
+  for (const [op, f] of warmed) {
+    const checksum = packedSum(f);
+    if (pass > 0 && checksum !== warmChecks.get(op)) throw new Error(`unstable warm-up: ${op}`);
+    warmChecks.set(op, checksum);
+  }
+}
+for (const [op, f] of warmed) {
+  const t0 = performance.now();
+  const checksum = packedSum(f);
+  const elapsed = performance.now() - t0;
+  if (checksum !== warmChecks.get(op)) throw new Error(`warm-up checksum mismatch: ${op}`);
+  console.log(`${op}\t${elapsed.toFixed(3)}\t${checksum}`);
+}
