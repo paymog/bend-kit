@@ -194,6 +194,12 @@ def main():
             if r.returncode:
                 sys.exit(f"{name} failed:\n{r.stderr or r.stdout}")
             runs.append({op: (float(ms), c) for op, ms, c in (l.split("\t") for l in r.stdout.splitlines() if l.count("\t") == 2)})
+            result = runs[-1]
+            missing = [op for op in runs[0] if op not in result or any(value is None for value in result[op])]
+            if not result or missing:
+                sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum for {missing or 'all operations'}: {result}")
+            if {op: value[1:] for op, value in result.items()} != {op: value[1:] for op, value in runs[0].items()}:
+                sys.exit(f"{name} repetition {len(runs)}: checksum mismatch: {result} != {runs[0]}")
         for op in runs[0]:
             if runs[0][op][1] != want[op]:
                 sys.exit(f"{name} {op}: checksum {runs[0][op][1]} != {want[op]}")

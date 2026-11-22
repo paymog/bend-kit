@@ -65,7 +65,7 @@ Octet buffers are `Bytes`: four octets in each `U32`. Use `String` for short tex
 
 A body over about 30 KB overflows `bend file.bend`. Build it with `bend file.bend -o app`.
 
-Each package README has the import, one example, and the limits that change the call. `bench/README.md` records timings. CI does not run benches.
+Each package README has the import, one example, and the limits that change the call. `bench/README.md` records timings. Benchmark runners reject missing results or checksum changes in any measured repetition. CI does not run benches.
 
 ## Packages
 

@@ -62,6 +62,11 @@ def main():
             if None in got:
                 sys.exit(f"{name} printed no result:\n{r.stdout}")
             runs.append(got)
+            result = runs[-1]
+            if any(value is None for value in result):
+                sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum: {result}")
+            if result[1:] != runs[0][1:]:
+                sys.exit(f"{name} repetition {len(runs)}: checksum mismatch: {result[1:]} != {runs[0][1:]}")
         times[name] = statistics.median(ms for ms, _, _ in runs)
         checks[name] = (runs[0][1], runs[0][2])
         print(f"ran {name}", file=sys.stderr)
