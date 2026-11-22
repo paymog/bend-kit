@@ -381,6 +381,48 @@ def concurrent(+dir: String) -> IO(Unit):
     held : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/held"))
     failures(held, dir)
 
+def terminated(r: U32 & (String & String)) -> IO(Unit):
+  (status, output) = r
+  ok(U32.is_ne(status, 0), "the temporary writer terminates before publication")
+
+def abandon(pair: String & File, +partial: Bool) -> IO(Unit):
+  (+tmp, f) = pair
+  do IO<Unit>:
+    File.close(f)
+    r : U32 & (String & String) <- run(U32 & (String & String),
+      Process.run("python3", ["-c",
+        "import os,signal,sys; f=os.open(sys.argv[1],os.O_WRONLY); os.write(f,sys.argv[2].encode()); os.kill(os.getpid(),signal.SIGKILL)",
+        tmp, Bool.pick(String, partial, "partial", "")], "", 1024, 5000))
+    terminated(r)
+    exists : Bool <- Files.exists(tmp)
+    ok(exists, "a terminated writer leaves its temporary file")
+    contents : Bytes.Bytes <- run(Bytes.Bytes, S.read(tmp))
+    ok(String.eq(Bytes.to_string(contents), Bool.pick(String, partial, "partial", "")),
+      "the abandoned temporary file has the expected interrupted contents")
+
+def maintenance(+dir: String) -> IO(Unit):
+  do IO<Unit>:
+    run(Unit, S.Disk.init(dir))
+    +t : S.Tree<S.Blob> <- file("retained")
+    +d : S.Digest <- run(S.Digest, S.Disk.commit(dir, t))
+    run(Unit, S.Disk.set_root(dir, "release", d))
+    created : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/object"))
+    abandon(created, False{})
+    partial : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/root"))
+    abandon(partial, True{})
+    removed : U32 <- run(U32, S.Disk.clean_tmp(dir))
+    ok(U32.is_eq(removed, 2), "exclusive maintenance removes fresh abandoned temporary files")
+    names : List<&2, String> <- run(List<&2, String>, Files.list_dir(dir ++ "/tmp"))
+    ok(List.is_empty(&2, String, names), "exclusive maintenance empties only the temporary directory")
+    root : S.Digest <- run(S.Digest, S.Disk.root(dir, "release"))
+    after : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.Disk.checkout(dir, d))
+    ok(same.digest(root, d) && same(after, t), "maintenance preserves named roots and their objects")
+    again : U32 <- run(U32, S.Disk.clean_tmp(dir))
+    ok(U32.is_eq(again, 0), "maintenance on an empty temporary directory removes nothing")
+    run(Unit, S.write(dir, "after", dir ++ "/roots/after", Bytes.from_string("published")))
+    published : Bytes.Bytes <- run(Bytes.Bytes, S.read(dir ++ "/roots/after"))
+    ok(String.eq(Bytes.to_string(published), "published"), "writers can resume after exclusive maintenance")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     pure()
@@ -396,4 +438,5 @@ def main() -> IO(Unit):
     abc : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("abc")))
     scenario(dir, abc)
     concurrent(dir ++ "/concurrent")
+    maintenance(dir ++ "/maintenance")
     HttpCheck.run()
