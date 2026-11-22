@@ -6527,6 +6527,17 @@ def server.started(~C: Data, ~O: Type, context: C, owner: O, +config: ServerConf
         opened : Chan(Admission.Command) & Chan(Admission.Counts) <- Admission.open.owner(Admission.Caps{connections, requests, buffered})
         server.opened(~C, ~O, owner, listener, context, config, opened)
 
+def server.bound(~C: Data, ~O: Type, context: C, owner: O, config: ServerConfig,
+  result: Result<&1, &1, U32 & String, Listener & U32>) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
+  ServerConfig{host, requested, body, headers, connections, requests, buffered, hm, bm, im, wm} = config
+  match result:
+    case Fail{error}:
+      server.started(~C, ~O, context, owner,
+        ServerConfig{host, requested, body, headers, connections, requests, buffered, hm, bm, im, wm}, Fail{error})
+    case Done{(listener, port)}:
+      server.started(~C, ~O, context, owner,
+        ServerConfig{host, port, body, headers, connections, requests, buffered, hm, bm, im, wm}, Done{listener})
+
 def server.start.valid(~C: Data, ~O: Type, valid: Bool, context: C, owner: O, +config: ServerConfig) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
   match valid:
     case False{}:
@@ -6534,13 +6545,19 @@ def server.start.valid(~C: Data, ~O: Type, valid: Bool, context: C, owner: O, +c
     case True{}:
       ServerConfig{host, port, body, headers, connections, requests, buffered, header_ms, body_ms, idle_ms, write_ms} = config
       do IO<O & Result<&2, &1, StartupError, Server<C>>>:
-        result : Result<&1, &1, U32 & String, Listener> <- TCP.listen(host, port)
-        server.started(~C, ~O, context, owner, config, result)
+        result : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen(host, port)
+        server.bound(~C, ~O, context, owner, config, result)
 
-# Done is the readiness signal: TCP.listen has installed an accepting socket.
+# Done is the readiness signal: Wire.listen has installed an accepting socket.
 # Both branches return the preopened application owner unchanged.
 def server.start(~C: Data, ~O: Type, context: C, owner: O, +config: ServerConfig) -> IO(O & Result<&2, &1, StartupError, Server<C>>):
   server.start.valid(~C, ~O, server.config.valid(config), context, owner, config)
+
+# Observe the actual bound port without releasing the listener.
+def server.port(~C: Data, server: Server<C>) -> Server<C> & U32:
+  Server{listener, context, config, inbox, drained} = server
+  ServerConfig{host, +port, body, headers, connections, requests, buffered, hm, bm, im, wm} = config
+  (Server{listener, context, ServerConfig{host, port, body, headers, connections, requests, buffered, hm, bm, im, wm}, inbox, drained}, port)
 
 
 # Copyable read-only observations remain usable while server.run owns the listener.

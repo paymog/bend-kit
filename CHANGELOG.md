@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` 0.39.1.0: start servers with the retained Wire listener and observe the actual bound port through `server.port`. Check port-0 startup and serving in native and JS lanes.
+
 - `template` 0.3.0.0: render sections directly onto the output suffix and stop context lookup at the first match. Evaluate costly branches lazily. Reduce 100 renders from 104.1 ms to 67.7 ms, below chevron's 91.2 ms. The internal `go` and `first` helper signatures change; documented entry points stay unchanged.
 
 - `markdown` 0.3.10.0: compare CommonMark and GFM cases with cmark-gfm. Fix email and URL boundaries, nested email links, task-marker whitespace, table/setext precedence, and redundant strong tags in GFM output.

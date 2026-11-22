@@ -2,6 +2,7 @@
 """Sequential native/JS real-socket startup and runtime-context acceptance."""
 import json
 import os
+import re
 from pathlib import Path
 import selectors
 import socket
@@ -62,8 +63,11 @@ def ready(process):
             if selector.select(0.1):
                 chunk = os.read(process.stdout.fileno(), 4096).decode()
                 seen += chunk
-                if 'READY\n' in seen:
-                    return seen
+                match = re.search(r'^READY ([0-9]+)\n', seen, re.MULTILINE)
+                if match:
+                    port = int(match.group(1))
+                    assert 0 < port <= 65535, seen
+                    return seen, port
                 assert chunk, seen
         raise AssertionError('no ready signal: ' + seen)
     finally:
@@ -100,16 +104,13 @@ def run_lane(lane, executable, folder):
         assert 'INVALID\n' in output and 'READY' not in output
         assert path.read_text() == 'invalid recovered\n'
     path = folder / (lane + '-boundary')
-    output = finish(start(executable + ['boundary', str(port), str(path)], env=env))
-    assert 'READY\n' in output and 'OWNER CLOSED\n' in output
+    output = finish(start(executable + ['boundary', '0', str(path)], env=env))
+    assert re.search(r'^READY [1-9][0-9]*\n', output, re.MULTILINE) and 'OWNER CLOSED\n' in output
     assert path.read_text() == 'representability boundary accepted\n'
-    with socket.socket() as reserved:
-        reserved.bind(('127.0.0.1', 0))
-        port = reserved.getsockname()[1]
     path = folder / (lane + '-success')
-    handle = start(executable + ['success', str(port), str(path)], env=env)
+    handle = start(executable + ['success', '0', str(path)], env=env)
     try:
-        prefix = ready(handle[0])
+        prefix, port = ready(handle[0])
         # Connection one: ordered pipeline, same runtime channel and token.
         with socket.create_connection(('127.0.0.1', port), timeout=5) as client:
             client.sendall(b'GET /one HTTP/1.1\r\nHost: localhost\r\n\r\nGET /two HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
@@ -131,9 +132,9 @@ def run_lane(lane, executable, folder):
             handle[0].kill()
             finish(handle)
     # Exercise the public continuous loop too; host termination is not graceful drain.
-    handle = start(executable + ['run', str(port), str(folder / (lane + '-run'))], env=env)
+    handle = start(executable + ['run', '0', str(folder / (lane + '-run'))], env=env)
     try:
-        prefix = ready(handle[0])
+        prefix, port = ready(handle[0])
         with socket.create_connection(('127.0.0.1', port), timeout=5) as client:
             client.sendall(b'GET /run HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
             with client.makefile('rb') as stream:
@@ -155,7 +156,7 @@ def main():
         native = folder / 'startup'
         js = folder / 'startup.js'
         finish(start(['bend', 'http/startup_check.bend', '-o', str(native)]))
-        run_lane('native', [str(native), '--threads', '1', '--gpu', 'off'], folder)
+        run_lane('native', [str(native), '+RTS', '--threads', '1', '--gpu', 'off', '-RTS'], folder)
         finish(start(['bend', 'http/startup_check.bend', '-o', str(js)]))
         run_lane('js', ['bun', str(js)], folder)
     (ROOT / 'http/startup_results.json').write_text(json.dumps(RECEIPTS, indent=2) + '\n')
