@@ -5,25 +5,30 @@ import concurrent.futures
 import http.client
 import json
 import shutil
-import socket
+import queue
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from run_dispatch import guarded
-from run_surface_live import connect
+from run_owner import ready_ports
+from run_live import Peer
 from run import STUDY, SEED, POLICIES, TITLE, cases, check
 
 
 def serve(executable, journal, mode, requests):
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
+    readiness = queue.Queue()
+
+    def output(line):
+        if line.startswith("READY "):
+            readiness.put(ready_ports(line)[0])
+
     observations = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(guarded, [executable, journal, mode, str(port)], 25)
-        peer = connect(port, future)
+        future = pool.submit(guarded, [executable, journal, mode, "0"], 25, on_line=output)
+        port = readiness.get(timeout=10)
+        peer = Peer(port)
         try:
             for case in requests:
                 inputs = case["inputs"]

@@ -1,10 +1,9 @@
 # Actual File ownership and explicit gates through published HTTP, native and JS.
 import Base
-import ./probe_server.bend as Probe
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.38.6.1/http.bend as H
-import bend-kit-http@0.38.6.1/completion.bend as T
+import bend-kit-http@0.39.1.0/http.bend as H
+import bend-kit-http@0.39.1.0/completion.bend as T
 import bend-kit-json@0.7.2.0/json.bend as J
 import bend-kit-bytes@0.3.3.0/bytes.bend as B
 
@@ -232,7 +231,10 @@ def control.started(server: C.Server<U32, File, Config, String>, +gate: Chan(Uni
         Chan.close(H.ServerControl, self)
         IO.die(Unit, 1, "control bind failed")
     case Done{transport}:
-      control.running(H.server.control(~Control, transport), server, gate, self)
+      (transport, port) = H.server.port(~Control, transport)
+      do IO<Unit>:
+        IO.print("PORT " ++ U32.show(port))
+        control.running(H.server.control(~Control, transport), server, gate, self)
 
 def application.observed(observed: C.Server<U32, File, Config, String> & H.ServerStats,
   stop: H.ServerControl, blocked: Maybe<&2, Chan(C.Counts)>, +gate: Chan(Unit), control_port: U32
@@ -241,7 +243,7 @@ def application.observed(observed: C.Server<U32, File, Config, String> & H.Serve
   do IO<Unit>:
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
     control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <-
-      Probe.transport(~Control, ~Unit, Control{stop, stats, gate, blocked, self}, Unit{}, C.server.config(control_port))
+      H.server.start(~Control, ~Unit, Control{stop, stats, gate, blocked, self}, Unit{}, C.server.config(control_port))
     control.started(server, gate, self, control_result)
 
 def application.controlled(controlled: C.Server<U32, File, Config, String> & H.ServerControl,
@@ -256,6 +258,20 @@ def application.waited(prepared: C.Server<U32, File, Config, String> & Maybe<&2,
   (server, blocked) = prepared
   application.controlled(C.server.control(~U32, ~File, ~Config, ~String, server), blocked, gate, control_port)
 
+def started.ready(server: C.Server<U32, File, Config, String>, mode: String, config: Config, control_port: U32) -> IO(Unit):
+  match mode:
+    case "small":
+      Config{gate} = config
+      do IO<Unit>:
+        exit : C.ServerExit<U32, File, Config, String> <- C.server.close(~U32, ~File, ~Config, ~String, server)
+        final(exit)
+        Chan.close(Unit, gate)
+    case _:
+      Config{+gate} = config
+      do IO<Unit>:
+        prepared : C.Server<U32, File, Config, String> & Maybe<&2, Chan(C.Counts)> <- waiting(String.eq(mode, "wait"), server)
+        application.waited(prepared, gate, control_port)
+
 def started(result: Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>>,
   +mode: String, config: Config, control_port: U32
 ) -> IO(Unit):
@@ -265,19 +281,11 @@ def started(result: Result<&2, &1, C.StartupError, C.Server<U32, File, Config, S
       do IO<Unit>:
         Chan.close(Unit, gate)
         IO.print("STARTUP FAILED")
-    case Done{server}:
-      match mode:
-        case "small":
-          Config{gate} = config
-          do IO<Unit>:
-            exit : C.ServerExit<U32, File, Config, String> <- C.server.close(~U32, ~File, ~Config, ~String, server)
-            final(exit)
-            Chan.close(Unit, gate)
-        case _:
-          Config{+gate} = config
-          do IO<Unit>:
-            prepared : C.Server<U32, File, Config, String> & Maybe<&2, Chan(C.Counts)> <- waiting(String.eq(mode, "wait"), server)
-            application.waited(prepared, gate, control_port)
+    case Done{C.Server{transport, owner}}:
+      (transport, port) = H.server.port(~C.ServingContext<U32, File, Config, String>, transport)
+      do IO<Unit>:
+        IO.print("PORT " ++ U32.show(port))
+        started.ready(C.Server{transport, owner}, mode, config, control_port)
 
 def config.adjust(+mode: String, configured: H.ServerConfig) -> H.ServerConfig:
   H.ServerConfig{host, p, body, headers, c, a, b, hm, bm, im, wm} = configured
@@ -292,7 +300,7 @@ def start(+mode: String, port: U32, path: String, control_port: U32) -> IO(Unit)
     gate : Chan(Unit) <- Chan.new(Unit, 1)
     +application_config : Config = Config{gate}
     result : Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>> <-
-      Probe.start(~U32, ~File, ~Config, ~Unit, ~String, ~before, ~after, ~run, ~mapper, ~destroy,
+      C.server.start(~U32, ~File, ~Config, ~Unit, ~String, ~before, ~after, ~run, ~mapper, ~destroy,
         registration(String.eq(mode, "registration"), application_config), config(mode, port), [file])
     started(result, mode, application_config, control_port)
 

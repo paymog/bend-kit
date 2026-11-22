@@ -7,8 +7,9 @@ import ../contract.bend as Contract
 import ../../interface_check.bend as Registry
 import ../../../http/http.bend as Http
 import ../../../http/context_probe.bend as Transport
-import ../../../json/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import ../../../concurrency/concurrency.bend as Conc
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 type Bundle is Type:
   Bundle{state: Contract.State, application: App.Application}
@@ -54,6 +55,16 @@ def close(mode: String, returned: List<Bundle>) -> IO(Unit):
     case _:
       IO.die(Unit, 1, "study worker did not return affine state")
 
+def bound(bound: Listener & U32, +jobs: Chan(Http.Req & Chan(Http.Res)), workers: List<Chan(Bundle)>, mode: String) -> IO(Unit):
+  (listener, port) = bound
+  do IO<Unit>:
+    IO.print("READY " ++ U32.show(port))
+    done : List<Chan(Unit)> <- Transport.accept(~Context, ~handle, 1n, Context{jobs}, 65536n, listener)
+    Transport.join(done)
+    Chan.close(Http.Req & Chan(Http.Res), jobs)
+    returned : List<Bundle> <- Conc.pool.join(Bundle, workers)
+    close(mode, returned)
+
 def start(path: String, +mode: String, port: U32) -> IO(Unit):
   do IO<Unit>:
     application : App.Application <- App.application()
@@ -61,18 +72,14 @@ def start(path: String, +mode: String, port: U32) -> IO(Unit):
     jobs0 : Chan(Http.Req & Chan(Http.Res)) <- Chan.new(Http.Req & Chan(Http.Res), 1)
     +jobs : Chan(Http.Req & Chan(Http.Res)) = jobs0
     workers : List<Chan(Bundle)> <- Conc.pool.start(~Bundle, ~Http.Req, ~Http.Res, ~work, [Bundle{Contract.State{journal, Nil{}}, application}], 64n, jobs)
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    done : List<Chan(Unit)> <- Transport.accept(~Context, ~handle, 1n, Context{jobs}, 65536n, listener)
-    Transport.join(done)
-    Chan.close(Http.Req & Chan(Http.Res), jobs)
-    returned : List<Bundle> <- Conc.pool.join(Bundle, workers)
-    close(mode, returned)
+    listener : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
+    bound(listener, jobs, workers, mode)
 
 def number(port: Maybe<&2, U32>, path: String, mode: String) -> IO(Unit):
   match port:
     case Some{+value}:
       do IO<Unit>:
-        Registry.require(U32.is_gt(value, 0) && U32.is_lt(value, 65536), "invalid fixture port")
+        Registry.require(U32.is_lt(value, 65536), "invalid fixture port")
         start(path, mode, value)
     case None{}:
       IO.die(Unit, 1, "invalid port")

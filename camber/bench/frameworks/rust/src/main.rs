@@ -98,7 +98,7 @@ async fn main() {
     let profile: u32 = args[2].parse().unwrap();
     let port: u16 = args[3].parse().unwrap();
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.unwrap();
-    println!("READY");
+    println!("READY {}", listener.local_addr().unwrap().port());
     if mode == "raw" {
         loop {
             let (socket, _) = listener.accept().await.unwrap();

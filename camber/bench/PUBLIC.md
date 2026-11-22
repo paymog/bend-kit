@@ -2,6 +2,8 @@
 
 This harness consumes published Camber0.6.0.0, HTTP0.30.0.0, Router0.2.0.0 and Json0.5.1.0. `public_main.bend` uses the public Camber application/dispatcher and `server.start`/`server.run`; it does not import an experimental dispatcher or implement another production transport. The raw control prepares the same registered routes through published Router and serves the same business callbacks through published HTTP, without the Camber dispatcher, application owner, response guard or notices. Both controls use identical explicit transport limits, payloads, synthetic authorization and CPU work. The separate loopback control listener releases measured work and requests stop; never expose it.
 
+Runnable public and framework benchmark servers bind port `0` and report the retained listener's actual port as `READY <port>`; the public Bend control listener reports `CONTROL_READY <port>`. Runners consume those live lines through `run_owner.ready_ports` before connecting, without bind-close reservations. Public release receipts rebind the reported ports after shutdown. Historical measurements and their original readiness logs remain unchanged.
+
 ## Frozen criteria
 
 [`public_criteria.json`](public_criteria.json) was written before any measurement of these consumers. It references, rather than replaces, all18 historical native/JS numeric budgets in [`../raw_budget.json`](../raw_budget.json). Existing experiments, frozen failures and artifacts are untouched. Native-default uses the native historical budgets. New paired overhead gates and historical absolute gates are reported separately; neither excuses failure of the other. Rates are the original per-workload rates, not rates selected after seeing Camber results.

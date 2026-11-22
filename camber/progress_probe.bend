@@ -93,15 +93,20 @@ def start(mode: String, iterations: Nat, +go: Chan(Unit), setup: Listener & Chan
     IO.join(Unit, deadline_done)
     IO.print("SERVER_DONE")
 
+def listening(bound: Listener & U32, mode: String, iterations: Nat, go: Chan(Unit)) -> IO(Unit):
+  (listener, port) = bound
+  do IO<Unit>:
+    IO.print("READY " ++ U32.show(port))
+    first : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
+    setup : Listener & Chan(Unit) <- accepted(first)
+    start(mode, iterations, go, setup)
+
 def serve(mode: String, iterations: Nat, port: U32) -> IO(Unit):
   do IO<Unit>:
     go0 : Chan(Unit) <- Chan.new(Unit, 1)
     +go : Chan(Unit) = go0
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    IO.print("READY")
-    first : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
-    setup : Listener & Chan(Unit) <- accepted(first)
-    start(mode, iterations, go, setup)
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
+    listening(bound, mode, iterations, go)
 
 def numbers(mode: String, count: Maybe<&2, Nat>, port: Maybe<&2, U32>) -> IO(Unit):
   match count port:

@@ -308,7 +308,7 @@ def numbers(port: Maybe<&2, U32>, workers: Maybe<&2, U32>, connections: Maybe<&2
   match port workers connections:
     case Some{+p} Some{+w} Some{+n}:
       do IO<Unit>:
-        Registry.require(U32.is_gt(p, 0) && U32.is_lt(p, 65536) && U32.is_gt(n, 0) && U32.is_le(n, 4), "invalid fixture port or connection count")
+        Registry.require(U32.is_lt(p, 65536) && U32.is_gt(n, 0) && U32.is_le(n, 4), "invalid fixture port or connection count")
         Registry.require((String.eq(store_mode, "r") || String.eq(store_mode, "w")) && (String.eq(audit_mode, "r") || String.eq(audit_mode, "w")), "invalid fixture file mode")
         Registry.require(U32.is_gt(w, 0) && U32.is_le(w, 2), "fixture requires one or two bundles")
         start(w, path, p, n, store_mode, audit_mode)

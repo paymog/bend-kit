@@ -16,17 +16,18 @@ from run_dispatch import ROOT, RSS_LIMIT_KIB, guarded
 from run_json_progress import workloads
 from run_live import Peer
 from run_risks import event_time, observe
+from run_owner import ready_ports
 
 HOST_TIMEOUT = 180
 
 
-def interact(port, body, count):
+def interact(body, count):
     def run(process, wait_for):
         partial = ordinary = None
         peers = []
         details = {}
         try:
-            wait_for("READY")
+            port, = ready_ports(wait_for("READY ")["text"])
             partial = socket.create_connection(("127.0.0.1", port), timeout=5)
             partial.sendall(b"GET /partial HTTP/1.1\r\n")
             wait_for("PARTIAL_READY")
@@ -151,11 +152,8 @@ def main():
                 results["lanes"][name] = lane
                 for workload, mode, count, body, trials in cases:
                     for trial in range(trials):
-                        with socket.socket() as reservation:
-                            reservation.bind(("127.0.0.1", 0))
-                            port = reservation.getsockname()[1]
-                        record = observe(command + [mode, str(count), str(port)], temp / "unused",
-                                         interact(port, body, count), timeout_seconds=HOST_TIMEOUT)
+                        record = observe(command + [mode, str(count), "0"], temp / "unused",
+                                         interact(body, count), timeout_seconds=HOST_TIMEOUT)
                         record.update(workload=workload, mode=mode, count=count, trial=trial,
                                       body_bytes=len(body), aggregate_body_bytes=count * len(body),
                                       body_sha256=hashlib.sha256(body).hexdigest())

@@ -41,7 +41,7 @@ function business(job, method, headers, body) {
   return response(200, '{"ok":true}', {'content-type': 'application/json', 'x-hook-count': String(count)});
 }
 if (mode === 'raw') {
-  http.createServer(async (request, reply) => {
+  const server = http.createServer(async (request, reply) => {
     let length = 0, chunks = [];
     for await (const chunk of request) {
       length += chunk.length;
@@ -51,7 +51,8 @@ if (mode === 'raw') {
     const result = business(select(request.url), request.method, request.headers, Buffer.concat(chunks, length));
     reply.writeHead(result.status, {...result.headers, 'content-length': Buffer.byteLength(result.body)});
     reply.end(request.method === 'HEAD' ? undefined : result.body);
-  }).listen(port, '127.0.0.1', () => console.log('READY'));
+  });
+  server.listen(port, '127.0.0.1', () => console.log('READY '+server.address().port));
 } else if (mode === 'framework') {
   const app = Fastify({logger: false, bodyLimit: limit, exposeHeadRoutes: false});
   app.removeAllContentTypeParsers();
@@ -66,5 +67,5 @@ if (mode === 'raw') {
   if (!profile) app.route({method: ['GET', 'HEAD', 'POST'], url: '/users/:id', handler: execute(['user'])});
   app.setNotFoundHandler(execute(['missing']));
   await app.listen({port, host: '127.0.0.1'});
-  console.log('READY');
+  console.log('READY '+app.server.address().port);
 } else throw Error('expected raw or framework');

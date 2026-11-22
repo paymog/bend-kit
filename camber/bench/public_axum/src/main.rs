@@ -53,7 +53,7 @@ async fn main() {
     for id in 0..profile {router=router.route(&format!("/route/{id}"),any(move |r|handle(Job::Route(id),r)));}
     router=router.fallback(||async {text(404,"not found")});
     let listener=tokio::net::TcpListener::bind(("127.0.0.1",port)).await.unwrap();
-    println!("CONSTRUCTION_MS {}\nREADY",start.elapsed().as_secs_f64()*1000.0);
+    println!("CONSTRUCTION_MS {}\nREADY {}",start.elapsed().as_secs_f64()*1000.0,listener.local_addr().unwrap().port());
     axum::serve(listener,router).with_graceful_shutdown(async {tokio::signal::ctrl_c().await.unwrap()}).await.unwrap();
     println!("JOINED");
 }

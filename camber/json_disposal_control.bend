@@ -1,6 +1,6 @@
 # Dense-array attribution control, not a general JSON decoder or production remedy.
 import Base
-import ../json/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ../http/http.bend as Http
 import ./json_progress_probe.bend as Progress

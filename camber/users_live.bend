@@ -1,11 +1,9 @@
 # Published live-only acceptance consumer: same public users application and real transport/Store joins.
 import Base
-import ./probe_server.bend as Probe
-import ./users_probe_server.bend as UsersProbe
 import ./users.bend as U
-import bend-kit-camber@0.16.0.2/camber.bend as C
-import bend-kit-http@0.38.6.1/http.bend as H
-import bend-kit-http@0.38.6.1/completion.bend as T
+import bend-kit-camber@0.16.0.3/camber.bend as C
+import bend-kit-http@0.39.1.0/http.bend as H
+import bend-kit-http@0.39.1.0/completion.bend as T
 
 def store.closed(result: C.OwnerClose<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
   match result:
@@ -82,13 +80,17 @@ def live.controlled(started: Unit & Result<&2, &1, H.StartupError, H.Server<Cont
         Chan.close(Unit, gate)
         Chan.close(Unit, arrived)
         IO.die(Unit, 1, "control startup failed")
-    case Done{transport}: live.running(H.server.control(~Control, transport), server, own, owner, gate, arrived)
+    case Done{transport}:
+      (transport, port) = H.server.port(~Control, transport)
+      do IO<Unit>:
+        IO.print("PORT " ++ U32.show(port))
+        live.running(H.server.control(~Control, transport), server, own, owner, gate, arrived)
 
 def live.prepared(controlled: C.Server<U.Action, U.State, U.Config, String> & H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +gate: Chan(Unit), arrived: Chan(Unit), port: U32) -> IO(Unit):
   (server, stop) = controlled
   do IO<Unit>:
     +own : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    started : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- Probe.transport(~Control, ~Unit, Control{stop, gate, own}, Unit{}, C.server.config(port))
+    started : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, gate, own}, Unit{}, C.server.config(port))
     live.controlled(started, server, own, owner, gate, arrived)
 
 def live.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit), port: U32) -> IO(Unit):
@@ -100,11 +102,15 @@ def live.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.Sta
         Chan.close(Unit, gate)
         Chan.close(Unit, arrived)
         IO.die(Unit, 1, "application startup failed")
-    case Done{server}: live.prepared(C.server.control(~U.Action, ~U.State, ~U.Config, ~String, server), owner, gate, arrived, port)
+    case Done{C.Server{transport, application}}:
+      (transport, bound_port) = H.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport)
+      do IO<Unit>:
+        IO.print("PORT " ++ U32.show(bound_port))
+        live.prepared(C.server.control(~U.Action, ~U.State, ~U.Config, ~String, C.Server{transport, application}), owner, gate, arrived, port)
 
 def start(app: Result<&2, &2, C.RegistrationError, C.Application<U.Action, U.Config, C.Policy<String>>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit), port: U32, control_port: U32) -> IO(Unit):
   do IO<Unit>:
-    started : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- UsersProbe.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
+    started : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- C.server.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
       ~U.before, ~U.after, ~U.run, ~U.mapper, ~U.destroy, app, C.server.config(port), [U.fresh(), U.fresh(), U.fresh(), U.fresh()])
     live.started(started, owner, gate, arrived, control_port)
 

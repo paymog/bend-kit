@@ -66,9 +66,9 @@ for index, (path, op) in enumerate(registrations):
 app.register_error_handler(404, lambda error: text(404, 'not found'))
 app.register_error_handler(413, lambda error: result(413))
 print('CONSTRUCTION_MS', (time.monotonic() - started) * 1000, flush=True)
-print('READY', flush=True)
 if __name__ == '__main__':
     server = create_server(app, host='127.0.0.1', port=int(os.environ['CAMBER_PORT']), threads=1, connection_limit=32, max_request_body_size=8388608, max_request_header_size=65536, channel_timeout=30)
+    print('READY', server.effective_port, flush=True)
     try:
         server.run()
     except KeyboardInterrupt:

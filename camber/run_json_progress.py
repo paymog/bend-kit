@@ -5,7 +5,6 @@ import errno
 import hashlib
 import json
 import platform
-import socket
 import statistics
 import tempfile
 from datetime import date
@@ -78,11 +77,8 @@ def main():
                 results["lanes"][lane_name] = lane
                 for name, mode, body, status in cases:
                     for trial in range(3):
-                        with socket.socket() as reservation:
-                            reservation.bind(("127.0.0.1", 0))
-                            port = reservation.getsockname()[1]
-                        record = observe(command + [mode, str(port)], temp / "unused",
-                                         interact(port, body, status, b"cpu" if status == 200 else b"rejected", "PARTIAL_READY", .001))
+                        record = observe(command + [mode, "0"], temp / "unused",
+                                         interact(body, status, b"cpu" if status == 200 else b"rejected", "PARTIAL_READY", .001))
                         record.update(workload=name, mode=mode, body_bytes=len(body), body_sha256=hashlib.sha256(body).hexdigest(), expected_status=status, trial=trial)
                         classify(record)
                         duration = next((event["text"].split()[1:] for event in record["events"] if event["text"].startswith("WORK_TIME\t")), None)

@@ -25,13 +25,19 @@ EXPECTED = {
 }
 
 
-def guarded(command, timeout):
+def guarded(command, timeout, on_line=None):
     peak_kib = 0
     start = time.monotonic()
-    with tempfile.TemporaryFile(mode="w+t") as out, tempfile.TemporaryFile(mode="w+t") as err:
+    pending = ""
+    with tempfile.NamedTemporaryFile(mode="w+t") as out, tempfile.TemporaryFile(mode="w+t") as err, open(out.name) as reader:
         process = subprocess.Popen(command, cwd=ROOT, env=ENV, stdout=out, stderr=err)
         try:
             while process.poll() is None:
+                if on_line is not None:
+                    lines = (pending + reader.read()).split("\n")
+                    pending = lines.pop()
+                    for line in lines:
+                        on_line(line)
                 rss = subprocess.run(["ps", "-o", "rss=", "-p", str(process.pid)], capture_output=True, text=True, timeout=5)
                 if rss.stdout.strip():
                     peak_kib = max(peak_kib, int(rss.stdout))
@@ -44,6 +50,9 @@ def guarded(command, timeout):
             if process.poll() is None:
                 process.kill()
             process.wait()
+        if on_line is not None:
+            for line in (pending + reader.read()).splitlines():
+                on_line(line)
         out.seek(0)
         err.seek(0)
         stdout, stderr = out.read(), err.read()
