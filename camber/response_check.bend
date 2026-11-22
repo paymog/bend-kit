@@ -2,7 +2,7 @@
 import Base
 import ./camber.bend as Example
 import ./dispatch_check.bend as Registry
-import bend-kit-http@0.38.6.1/http.bend as Http
+import bend-kit-http@0.39.1.0/http.bend as Http
 import bend-kit-json@0.7.2.0/json.bend as Json
 
 type Domain is Data:
