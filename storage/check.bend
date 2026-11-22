@@ -314,6 +314,69 @@ def scenario(+dir: String, +abc: S.Digest) -> IO(Unit):
     v1 : S.Digest <- run(S.Digest, S.Disk.commit(a, expected))
     committed(dir, a, abc, v1)
 
+def wrote(pair: File & Result<&1, &1, U32 & String, Unit>) -> IO(File):
+  (f, r) = pair
+  do IO<File>:
+    IO.try(Unit, IO.pure(Result<&1, &1, U32 & String, Unit>, r))
+    return f
+
+def interleave.ready(pa: String & File, pb: String & File, +path: String, +first: String, +head: String, +tail: String) -> IO(Unit):
+  (+ta, fa) = pa
+  (+tb, fb) = pb
+  do IO<Unit>:
+    ok(Bool.not(String.eq(ta, tb)), "writers of one name own different temporary files")
+    run(Unit, S.write.opened((ta, fa), path, Bytes.from_string(first)))
+    piece : File & Result<&1, &1, U32 & String, Unit> <- Files.write_bytes(fb, Bytes.from_string(head))
+    fb : File <- wrote(piece)
+    before : Bytes.Bytes <- run(Bytes.Bytes, S.read(path))
+    ok(String.eq(Bytes.to_string(before), first), "a partial second write cannot change the published file")
+    written : File & Result<&1, &1, U32 & String, Unit> <- Files.write_bytes(fb, Bytes.from_string(tail))
+    closed : Result<&1, &1, U32 & String, Unit> <- S.write.close(written)
+    run(Unit, S.write.publish(closed, tb, path))
+    after : Bytes.Bytes <- run(Bytes.Bytes, S.read(path))
+    ok(String.eq(Bytes.to_string(after), head ++ tail), "both writers publish without shared-temp ENOENT")
+
+def interleave(+dir: String, +name: String, path: String, first: String, head: String, tail: String) -> IO(Unit):
+  do IO<Unit>:
+    pa : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/" ++ name))
+    pb : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/" ++ name))
+    interleave.ready(pa, pb, path, first, head, tail)
+
+def failed.owned(pair: String & File, path: String, b: Bytes.Bytes, held: String) -> IO(Unit):
+  (+tmp, f) = pair
+  do IO<Unit>:
+    failed : Result<&1, &1, U32 & String, Unit> <- S.write.opened((tmp, f), path, b)
+    exists : Bool <- Files.exists(tmp)
+    owned : Bool <- Files.exists(held)
+    ok(expect.fail(Unit, failed, "") && Bool.not(exists) && owned, "failure removes only its owned temporary file")
+
+def failures(pair: String & File, +dir: String) -> IO(Unit):
+  (+held, fh) = pair
+  do IO<Unit>:
+    bad : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/held"))
+    failed.owned(bad, dir ++ "/objects/bad", Bytes.Bytes{5, [0 : U32*1n]}, held)
+    bad : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/held"))
+    failed.owned(bad, dir ++ "/absent/object", Bytes.from_string("end\n"), held)
+    run(Unit, S.write.opened((held, fh), dir ++ "/roots/held", Bytes.from_string("held")))
+    missing : Result<&1, &1, U32 & String, String & File> <- S.write.temp(dir ++ "/absent/temp")
+    ok(expect.fail(String & File, missing, ""), "temporary creation fails without touching another path")
+    nul : Result<&1, &1, U32 & String, String & File> <- S.write.temp(dir ++ "/tmp/nul\u{0}suffix")
+    ok(expect.fail(String & File, nul, ""), "temporary creation refuses NUL paths")
+    names : List<&2, String> <- run(List<&2, String>, Files.list_dir(dir ++ "/tmp"))
+    ok(List.is_empty(&2, String, names), "successful and failed writes leave no owned temporary files")
+
+def concurrent(+dir: String) -> IO(Unit):
+  do IO<Unit>:
+    run(Unit, S.Disk.init(dir))
+    +d : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("end\n")))
+    interleave(dir, S.Digest.hex(d), S.Disk.object(dir, d), "end\n", "en", "d\n")
+    interleave(dir, "root.release", dir ++ "/roots/release", S.Digest.hex(d),
+      "11111111111111111111111111111111", "11111111111111111111111111111111")
+    final : S.Digest <- run(S.Digest, S.Disk.root(dir, "release"))
+    ok(String.eq(S.Digest.hex(final), "1111111111111111111111111111111111111111111111111111111111111111"), "root updates use last-rename-wins order")
+    held : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/held"))
+    failures(held, dir)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     pure()
@@ -325,7 +388,8 @@ def main() -> IO(Unit):
       "a file over 4 GiB fails before its size is truncated")
     small : U32 <- run(U32, S.info.size(Files.Info{Files.Regular{}, (0, 3), (0, 0)}))
     ok(U32.is_eq(small, 3), "a small file keeps its size")
-    dir : String <- IO.try(String, Files.temp_dir())
+    +dir : String <- IO.try(String, Files.temp_dir())
     abc : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("abc")))
     scenario(dir, abc)
+    concurrent(dir ++ "/concurrent")
     HttpCheck.run()

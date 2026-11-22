@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.5.1.1: isolate object and root writes with exclusive temporary files. Keep publication atomic across writers and remove owned temporary files after errors.
+
 - `llm` 0.15.0.1 and `camber` 0.16.1.1: format JSON integers directly as packed decimal bytes. HTTP upload checks and benchmarks use the same byte formatter. Keep decimal headers, paths, and logs as text.
 
 - `gateway` 0.5.0.0 and `runner` 0.20.0.0: complete the byte proof re-pin waves. Use the current published cache, Camber, collection, encoding, file, Hairpin, HTTP, journal, scheduler, time, and webhook types. Remove the completed re-pin exceptions.

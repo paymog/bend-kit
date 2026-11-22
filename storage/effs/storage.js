@@ -43,3 +43,18 @@ function blob_hash_words(n, raw) {
 }
 
 io_eff(CID(Blob.hash.words), blob_hash_words);
+
+function write_temp(prefix) {
+  const bytes = io_bytes(prefix);
+  if (bytes.includes(0)) return io_fail(22);
+  const suffix = "." + require("crypto").randomUUID();
+  const path = Buffer.concat([Buffer.from(bytes), Buffer.from(suffix)]);
+  try {
+    const fd = require("fs").openSync(path, "wx", 0o600);
+    return io_done(io_tup(prefix + suffix, fd));
+  } catch (e) {
+    return io_fail(Math.abs(e?.errno ?? 5));
+  }
+}
+
+io_eff(CID(write.temp), write_temp);
