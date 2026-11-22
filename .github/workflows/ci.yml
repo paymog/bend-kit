@@ -84,7 +84,7 @@ jobs:
         run: |
           git clone --depth 1 --branch 0.29.0.gfm.14 https://github.com/github/cmark-gfm.git "$RUNNER_TEMP/cmark-gfm"
           cmake -S "$RUNNER_TEMP/cmark-gfm" -B "$RUNNER_TEMP/cmark-gfm/build" \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMARK_TESTS=OFF \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMARK_TESTS=OFF -DCMARK_SHARED=OFF \
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/cmark-gfm/install"
           cmake --build "$RUNNER_TEMP/cmark-gfm/build" --parallel 2
           cmake --install "$RUNNER_TEMP/cmark-gfm/build"
