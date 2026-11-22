@@ -136,3 +136,5 @@ CI also runs `python3 -B http/startup_check.py` for native and JS startup socket
 Run `sh http/mtls-check.sh` for native acceptance or append `js` for JavaScript.
 The TLS harness builds local, mTLS, and HTTP/2 pool checks as separate programs.
 It checks certificate isolation, redirects, uploads, idle reconnects, stream reuse, and cancellation.
+Run `sh http/ca-check.sh` for private CA acceptance or append `js` for JavaScript.
+CI runs both TLS harnesses in native and JS lanes on Linux and macOS arm64 when HTTP changes.

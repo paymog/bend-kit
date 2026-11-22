@@ -189,6 +189,40 @@ jobs:
           bun "$RUNNER_TEMP/process-check.js"
           process/ownership-check.sh
 
+  http-tls-macos:
+    needs: changes
+    if: needs.changes.outputs.http == 'true'
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify runner and head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(uname -sm)" = 'Darwin arm64'
+          actual=$(git rev-parse HEAD)
+          printf 'tested=%s expected=%s\n' "$actual" "$EXPECTED_HEAD_SHA"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Bend
+        run: |
+          scripts/install-bend.sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+      - name: Select OpenSSL
+        run: echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+      - name: Check HTTP CA and mTLS in native and JS
+        run: |
+          for s in http/ca-check.sh http/mtls-check.sh; do
+            echo "== $s native"; sh "$s"
+            echo "== $s js"; sh "$s" js
+          done
+
   smoke:
     needs: changes
     if: needs.changes.outputs.http == 'true'
@@ -235,7 +269,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, check, native-macos, smoke]
+    needs: [changes, check, native-macos, http-tls-macos, smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -252,6 +286,10 @@ jobs:
           case "${{ needs.native-macos.result }}" in
             success|skipped) ;;
             *) echo "native-macos is ${{ needs.native-macos.result }}"; exit 1 ;;
+          esac
+          case "${{ needs.http-tls-macos.result }}" in
+            success|skipped) ;;
+            *) echo "http-tls-macos is ${{ needs.http-tls-macos.result }}"; exit 1 ;;
           esac
           case "${{ needs.smoke.result }}" in
             success|skipped) ;;
