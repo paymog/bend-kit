@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `markdown` 0.3.10.0: compare CommonMark and GFM cases with cmark-gfm. Fix email and URL boundaries, nested email links, task-marker whitespace, table/setext precedence, and redundant strong tags in GFM output.
+
 - `process` 0.5.2.0: add `wait.deadline` with a reusable logical wait result after timeout, and `kill` for a general positive PID. Keep process-group selectors invalid. Test both wait paths, cached status, signal status, and unrelated children.
 
 - `hash` 0.3.2.1: hash long CRC-32 inputs in 16-byte steps and inputs below 32 bytes by words. Paired native runs reduce the 16 MB checksum from 6.41 ms to 4.25 ms. Keep all checksum values unchanged.

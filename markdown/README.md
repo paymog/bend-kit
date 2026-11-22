@@ -3,7 +3,7 @@
 CommonMark 0.31.2 to HTML in pure Bend, with opt-in GitHub Flavored Markdown extensions. All 652 spec examples pass.
 
 ```bend
-import bend-kit-markdown@0.3.9.0/markdown.bend as M
+import bend-kit-markdown@0.3.10.0/markdown.bend as M
 ```
 
 ```bend
@@ -30,10 +30,10 @@ The input is a `String` of code points. Decode octets with `encoding`'s `utf8.de
 - Tables. A paragraph line followed by a delimiter row such as `| --- | :-: |` with the same number of cells starts a table. The rows run to the paragraph's end. `:` sets each column's `align`. A row with fewer cells gets empty ones; extra cells drop. `\|` is a pipe inside a cell.
 - Task list items. A list item whose text starts with `[ ]`, `[x]`, or `[X]` and a space gets `<input disabled="" type="checkbox">`, with `checked=""` when it is ticked.
 - Strikethrough. One or two `~` on each side make `<del>`. The two runs must have the same length; three or more `~` stay text.
-- Extended autolinks. `www.`, `http://`, `https://`, and `ftp://` links, and email addresses, at the start of a line, after a space, or after `*`, `_`, `~`, or `(`, become links without `<>`. Trailing punctuation and an unbalanced `)` stay outside the link, as in cmark-gfm.
+- Extended autolinks. `www.` links start at a line start, after a space, or after `*`, `_`, `~`, or `(`. `http://`, `https://`, and `ftp://` links match in any ASCII case and do not start after an ASCII letter. URL autolinks do not start inside brackets. Email links use decoded text and can follow punctuation, as in `x:a@b.co`. Explicit `mailto:` and `xmpp:` prefixes stay inside the link. Trailing punctuation and an unbalanced `)` stay outside a link.
 - The tag filter. In raw HTML, `<` becomes `&lt;` before `title`, `textarea`, `style`, `xmp`, `iframe`, `noembed`, `noframes`, `script`, and `plaintext` tags.
 
-With both flags, safe mode still drops all raw HTML and empties unsafe URLs, autolinks included. An email autolink must start after a space or a delimiter, so `x:a@b.co` is not linked; cmark-gfm links it.
+With both flags, safe mode still drops all raw HTML and empties unsafe URLs, autolinks included. Extended autolinks become plain text inside an explicit link. GFM output omits a `<strong>` tag whose direct parent is already `<strong>`, as cmark-gfm does. CommonMark output keeps both tags.
 
 ## Spec tests
 
@@ -42,9 +42,14 @@ python3 markdown/conformance.py          # pass count per section, in a native b
 python3 markdown/conformance.py Links    # also print the failures in one section
 python3 markdown/conformance.py --safe   # to_html_safe against the cmark CLI without --unsafe
 python3 markdown/conformance.py --gfm    # the GFM spec's extension examples with gfm on
+python3 markdown/conformance.py --gfm-diff # CommonMark, GFM spec, and extension corpus against cmark-gfm
 python3 markdown/gen.py                  # rewrite entities.bend from Python's html.entities
 ```
 
 `conformance.py` downloads `spec.json` for 0.31.2 and checks all 652 examples byte for byte. With `--safe`, it compares `to_html_safe` with cmark 0.31.2 on the same 652 inputs; all match. With `--gfm`, it runs the 24 extension examples of the cmark-gfm 0.29.0.gfm.13 spec (tables, task lists, strikethrough, autolinks, and the tag filter); all pass. `LAWS.bend` holds 25 spec examples, 8 escaping laws, 1 alt text law, 7 safe-mode laws, and 8 GFM laws. Two laws hold for every string: the text escape `esc` leaves no `<`, `>`, or `"`, and each `&` it writes starts `&amp;`, `&lt;`, `&gt;`, or `&quot;`.
+
+`--gfm-diff` needs the `cmark-gfm` CLI (`brew install cmark-gfm` on macOS). It enables `table`, `strikethrough`, `autolink`, `tasklist`, and `tagfilter`, with `--unsafe` to match `Opts{False{}, True{}}`. It checks all 652 CommonMark inputs, the 24 official GFM extension inputs, and 224 generated cases for extension boundaries and interactions. An unexplained difference exits with status 1. Missing or extra renderer results also fail.
+
+The comparison normalizes only cmark-gfm's checkbox attribute order and XHTML closing slash to the official GFM spec's spelling. Two exact differences remain because this package follows CommonMark 0.31.2 and cmark-gfm follows 0.29: example 28 rejects an eight-digit decimal character reference; example 354 treats Unicode currency symbols as punctuation for emphasis. Both sides must match their recorded outputs for the check to accept these differences. No other mismatch is ignored. The former list-like table-row and `[www.x.org](/y)` reports do not reproduce with cmark-gfm 0.29.0.gfm.14; both remain in the corpus.
 
 `bench/README.md` compares `to_html` with cmark and libraries in Rust, JavaScript, and Python.
