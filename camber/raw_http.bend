@@ -1,7 +1,7 @@
 # Raw Http.serve benchmark handlers; no Camber registry, scopes, or resource owners.
 import Base
 import ../http/http.bend as Http
-import ../json/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import ../router/router.bend as Router
 import ./ownership.bend as Inputs
 

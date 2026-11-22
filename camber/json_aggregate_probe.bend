@@ -1,11 +1,13 @@
 # Observe bounded JSON batches beside ordinary HTTP and a real timed socket read.
 import Base
+import ./camber.bend as C
 import ./json_progress_probe.bend as JsonProgress
 import ./json_disposal_control.bend as JsonDisposal
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
 import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 type Context is Data:
   Context{mode: String, ready: Chan(Unit), go: Chan(Unit)}
@@ -31,7 +33,8 @@ def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
     IO.print("CPU_ARMED")
     armed : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, ready, Unit{})
     Registry.require(Result.is_done(&1, &1, Unit, Unit, armed), "ready queue closed")
-    IO.join(Unit, go)
+    # IO.join closes its channel; every worker shares this gate.
+    C.receive(Unit, go)
     IO.print("CPU_BEGIN")
     IO.sleep(1)
     started : Time.Duration <- Time.mono()
@@ -54,7 +57,7 @@ def wait_ready(count: Nat, +ready: Chan(Unit)) -> IO(Unit):
       IO.pure(Unit, Unit{})
     case 1n+rest:
       do IO<Unit>:
-        IO.join(Unit, ready)
+        C.receive(Unit, ready)
         wait_ready(rest, ready)
 
 def release(count: Nat, +go: Chan(Unit)) -> IO(Unit):
@@ -70,7 +73,8 @@ def release(count: Nat, +go: Chan(Unit)) -> IO(Unit):
 def start(mode: String, +count: Nat, +ready: Chan(Unit), +go: Chan(Unit), timer: Chan(Unit), setup: Listener & Chan(Unit)) -> IO(Unit):
   (listener, deadline_done) = setup
   do IO<Unit>:
-    requests : List<Chan(Unit)> <- Transport.accept(~Context, ~handler, Nat.add(count, 1n), Context{mode, ready, go}, 1048576n, listener)
+    requests : List<Chan(Unit)> <- Transport.accept.configured(~Context, ~handler, Nat.add(count, 1n), Context{mode, ready, go},
+      Http.ServerConfig{"127.0.0.1", 0, 1048576, 65536, 128, 128, 128, 180000, 180000, 180000, 180000}, listener)
     wait_ready(count, ready)
     IO.print("BATCH_ARMED")
     timer_ready : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, timer, Unit{})
@@ -79,7 +83,17 @@ def start(mode: String, +count: Nat, +ready: Chan(Unit), +go: Chan(Unit), timer:
     release(count, go)
     Transport.join(requests)
     IO.join(Unit, deadline_done)
+    Chan.close(Unit, ready)
+    Chan.close(Unit, go)
     IO.print("SERVER_DONE")
+
+def listening(bound: Listener & U32, mode: String, count: Nat, ready: Chan(Unit), go: Chan(Unit), +timer: Chan(Unit)) -> IO(Unit):
+  (listener, port) = bound
+  do IO<Unit>:
+    IO.print("READY " ++ U32.show(port))
+    first : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
+    setup : Listener & Chan(Unit) <- JsonProgress.accepted(first, timer)
+    start(mode, count, ready, go, timer, setup)
 
 def serve(mode: String, +count: U32, port: U32) -> IO(Unit):
   do IO<Unit>:
@@ -90,11 +104,8 @@ def serve(mode: String, +count: U32, port: U32) -> IO(Unit):
     +ready : Chan(Unit) = ready0
     +go : Chan(Unit) = go0
     +timer : Chan(Unit) = timer0
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    IO.print("READY")
-    first : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
-    setup : Listener & Chan(Unit) <- JsonProgress.accepted(first, timer)
-    start(mode, U32.to_nat(count), ready, go, timer, setup)
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
+    listening(bound, mode, U32.to_nat(count), ready, go, timer)
 
 def numbers(mode: String, count: Maybe<&2, U32>, port: Maybe<&2, U32>) -> IO(Unit):
   match count:

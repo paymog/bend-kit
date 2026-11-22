@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import platform
 import signal
-import socket
 import statistics
 import subprocess
 import tempfile
@@ -17,6 +16,7 @@ import threading
 import time
 
 from run_dispatch import ENV, ROOT, RSS_LIMIT_KIB, guarded
+from run_owner import ready_ports
 
 
 def workloads():
@@ -73,11 +73,8 @@ def cpu_seconds(value):
 
 class Server:
     def __init__(self, command, profile, ready, operation="serve"):
-        with socket.socket() as reservation:
-            reservation.bind(("127.0.0.1", 0))
-            self.port = reservation.getsockname()[1]
-        self.log = tempfile.TemporaryFile()
-        self.process = subprocess.Popen(command + [operation, str(profile), str(self.port)], env=ENV,
+        self.log = tempfile.NamedTemporaryFile()
+        self.process = subprocess.Popen(command + [operation, str(profile), "0"], env=ENV,
                                         stdout=self.log, stderr=self.log, start_new_session=True)
         self.started = time.perf_counter()
         self.peak_kib = 0
@@ -87,6 +84,14 @@ class Server:
         self.monitor = threading.Thread(target=self.watch, daemon=True)
         self.monitor.start()
         try:
+            with open(self.log.name, "rb") as reader:
+                text = ""
+                while not any(line.startswith("READY ") for line in text.split("\n")[:-1]):
+                    text += reader.read().decode(errors="replace")
+                    if self.process.poll() is not None or time.perf_counter() - self.started > 20:
+                        raise RuntimeError("server failed readiness: " + text)
+                    time.sleep(0.02)
+                self.port, = ready_ports(text)
             while True:
                 if self.process.poll() is not None or time.perf_counter() - self.started > 20:
                     self.log.seek(0)
@@ -221,7 +226,7 @@ def main():
                "bun": subprocess.check_output(["bun", "--version"], text=True).strip(),
                "duration_seconds": args.seconds, "trials": args.trials, "concurrency": args.concurrency,
                "body_limit_bytes": 8388608, "lanes": {}}
-    with tempfile.TemporaryDirectory(prefix="camber-raw-") as directory:
+    with tempfile.TemporaryDirectory(prefix="camber-raw-", dir=ROOT) as directory:
         temp = Path(directory).resolve()
         generated_start = time.perf_counter()
         source = "import Base\n\n" + "\n\n".join(
@@ -236,7 +241,7 @@ def main():
         for lane in ("native", "js"):
             executable = temp / ("baseline" if lane == "native" else "baseline.js")
             _, rss, build = guarded(["bend", str(entry), "-o", str(executable)], 180)
-            command = [str(executable), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(executable)]
+            command = [str(executable), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(executable)]
             data = {"build_seconds": build, "sampled_build_peak_rss_kib": rss, "artifact_bytes": executable.stat().st_size,
                     "command": command[1:] if lane == "native" else ["bun", "<generated.js>"], "workloads": {}, "servers": {}}
             results["lanes"][lane] = data

@@ -100,8 +100,8 @@ def load(oha, server, row, temp, duration, connections, workers=2, rate=None):
 
 def commands(temp):
     return {
-        "bend-raw": ([str(temp / "bend-paired"), "--threads", "1", "--gpu", "off"], "raw-serve"),
-        "bend-scoped": ([str(temp / "bend-paired"), "--threads", "1", "--gpu", "off"], "scoped-serve"),
+        "bend-raw": ([str(temp / "bend-paired"), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"], "raw-serve"),
+        "bend-scoped": ([str(temp / "bend-paired"), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"], "scoped-serve"),
         "rust-hyper": ([str(temp / "rust-target/release/camber-framework-control")], "raw"),
         "rust-axum": ([str(temp / "rust-target/release/camber-framework-control")], "framework"),
         "js-http": (["node", str(HERE / "server.js")], "raw"),
@@ -204,7 +204,7 @@ def main():
     if args.prepared:
         experiment(args.prepared.resolve(), args.oha.resolve(), args.output, args.duration, args.trials, args.connections, True)
     else:
-        with tempfile.TemporaryDirectory(prefix="camber-frameworks-") as directory:
+        with tempfile.TemporaryDirectory(prefix="camber-frameworks-", dir=ROOT) as directory:
             temp = Path(directory).resolve()
             build = prepare(temp)
             data = experiment(temp, args.oha.resolve(), args.output, args.duration, args.trials, args.connections, False)

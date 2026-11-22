@@ -1,13 +1,12 @@
 # Real entered policies, expected notice errors, live stats and retained File effects.
 import Base
-import ./probe_server.bend as Probe
 import ./camber.bend as C
 import ./notices.bend as N
 import ./serving_check.bend as Existing
 import ./input.bend as Input
 import bend-kit-json@0.7.2.0/json.bend as J
-import bend-kit-http@0.38.6.1/http.bend as H
-import bend-kit-http@0.38.6.1/completion.bend as T
+import bend-kit-http@0.39.1.0/http.bend as H
+import bend-kit-http@0.39.1.0/completion.bend as T
 import bend-kit-notch@0.4.0.0/notch.bend as Notch
 import bend-kit-time@0.3.0.0/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
@@ -223,7 +222,10 @@ def control.started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Contr
   (unit, started) = result
   match started:
     case Fail{error}: IO.die(Unit, 1, "control startup failed")
-    case Done{transport}: control.running(H.server.control(~Control, transport), server, self)
+    case Done{transport}:
+      do IO<Unit>:
+        transport : H.Server<Control> <- Existing.port(~Control, H.server.port(~Control, transport))
+        control.running(H.server.control(~Control, transport), server, self)
 
 def application.observed(observed: C.Server<U32, File, Config, String> & H.ServerStats, stop: H.ServerControl, config: Config, control_port: U32) -> IO(Unit):
   (server, +stats) = observed
@@ -231,7 +233,7 @@ def application.observed(observed: C.Server<U32, File, Config, String> & H.Serve
   do IO<Unit>:
     sent : Result<&1, &1, H.ServerStats, Unit> <- Chan.send(H.ServerStats, channel, stats)
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- Probe.transport(~Control, ~Unit, Control{stop, stats, gate, self}, Unit{}, C.server.config(control_port))
+    control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, stats, gate, self}, Unit{}, C.server.config(control_port))
     control.started(control_result, server, self)
     discarded : H.ServerStats <- C.receive(H.ServerStats, channel)
     Chan.close(H.ServerStats, channel)
@@ -244,7 +246,10 @@ def application.controlled(controlled: C.Server<U32, File, Config, String> & H.S
 def started(result: Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>>, config: Config, control_port: U32) -> IO(Unit):
   match result:
     case Fail{error}: IO.die(Unit, 1, "application startup failed")
-    case Done{server}: application.controlled(C.server.control(~U32, ~File, ~Config, ~String, server), config, control_port)
+    case Done{C.Server{transport, owner}}:
+      do IO<Unit>:
+        transport : H.Server<C.ServingContext<U32, File, Config, String>> <- Existing.port(~C.ServingContext<U32, File, Config, String>, H.server.port(~C.ServingContext<U32, File, Config, String>, transport))
+        application.controlled(C.server.control(~U32, ~File, ~Config, ~String, C.Server{transport, owner}), config, control_port)
 
 def ports(mode: String, port: Maybe<&2, U32>, path: String, control_port: Maybe<&2, U32>) -> IO(Unit):
   match port control_port:
@@ -254,7 +259,7 @@ def ports(mode: String, port: Maybe<&2, U32>, path: String, control_port: Maybe<
         +gate : Chan(Unit) <- Chan.new(Unit, 1)
         +stats : Chan(H.ServerStats) <- Chan.new(H.ServerStats, 1)
         +config : Config = Config{mode, gate, stats}
-        result : Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>> <- Probe.start(~U32, ~File, ~Config, ~String, ~String,
+        result : Result<&2, &1, C.StartupError, C.Server<U32, File, Config, String>> <- C.server.start(~U32, ~File, ~Config, ~String, ~String,
           ~before, ~after, ~(a => s => k => selected => req => run(a, s, k, selected, req)), ~mapper, ~Existing.destroy, application(config), C.server.config(p), [file])
         started(result, config, cp)
     case _ _: IO.die(Unit, 1, "invalid ports")

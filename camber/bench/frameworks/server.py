@@ -120,6 +120,13 @@ for path, job in registrations.items():
 if not PROFILE:
     app.add_api_route("/users/{id}", endpoint(("user", None)), methods=["GET", "HEAD", "POST"])
 app.add_api_route("/{rest:path}", endpoint(("missing", None)), methods=["GET", "HEAD", "POST"])
-uvicorn.run(raw if MODE == "raw" else app, host="127.0.0.1", port=PORT, workers=1,
-            loop="uvloop", http="httptools", lifespan="off", access_log=False, log_level="warning",
-            server_header=False, date_header=False)
+class Server(uvicorn.Server):
+    async def startup(self, sockets=None):
+        await super().startup(sockets=sockets)
+        if self.started:
+            print("READY", self.servers[0].sockets[0].getsockname()[1], flush=True)
+
+
+Server(uvicorn.Config(raw if MODE == "raw" else app, host="127.0.0.1", port=PORT, workers=1,
+                      loop="uvloop", http="httptools", lifespan="off", access_log=False, log_level="warning",
+                      server_header=False, date_header=False)).run()

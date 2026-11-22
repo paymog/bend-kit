@@ -10,6 +10,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 - `camber` 0.16.0.3: use HTTP 0.39.1.0 types so published consumers can observe retained listener ports.
 
+- `camber` manual probes and benchmarks: bind port 0 and connect to the retained listener's reported port. Use public HTTP startup instead of harness-only startup adapters. Preserve historical evidence. Close finite HTTP probe listeners before joining held connections, and return their cleanup future.
+
 - `http` 0.39.1.0: start servers with the retained Wire listener and observe the actual bound port through `server.port`. Check port-0 startup and serving in native and JS lanes.
 
 - `template` 0.3.0.0: render sections directly onto the output suffix and stop context lookup at the first match. Evaluate costly branches lazily. Reduce 100 renders from 104.1 ms to 67.7 ms, below chevron's 91.2 ms. The internal `go` and `first` helper signatures change; documented entry points stay unchanged.

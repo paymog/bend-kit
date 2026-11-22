@@ -12,12 +12,16 @@ import signal
 import socket
 import statistics
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(HERE.parent))
+from run_owner import ready_ports
 CRITERIA = json.loads((HERE / 'public_criteria.json').read_text())
 BUDGET = json.loads((ROOT / 'camber/raw_budget.json').read_text())
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
@@ -26,7 +30,7 @@ ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
 def sources():
     paths = [HERE / name for name in ('run_public.py', 'public_app.bend', 'public_main.bend', 'public_direct.bend', 'public_server.mjs', 'public_libevent.c', 'public_flask.py', 'public_package.json', 'public_requirements.txt', 'public_criteria.json')]
     paths += list((HERE / 'public_axum').rglob('*.rs')) + list((HERE / 'public_axum').glob('Cargo.*'))
-    paths += [ROOT / 'camber/raw_budget.json']
+    paths += [ROOT / 'camber/raw_budget.json', ROOT / 'camber/run_owner.py']
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
@@ -271,11 +275,6 @@ def command(guard,argv,timeout=300,env=None):
     return receipt
 
 
-def freeport():
-    with socket.socket() as peer:
-        peer.bind(('127.0.0.1',0));return peer.getsockname()[1]
-
-
 def rebound(port):
     try:
         with socket.socket() as peer:
@@ -287,10 +286,11 @@ def rebound(port):
 
 
 class Server:
-    def __init__(self,guard,argv,port,control=None,env=None,name=''):
+    def __init__(self,guard,argv,controlled=False,env=None,name=''):
         guard.check()
         if shutil.disk_usage(ROOT).free<10*1024**3: raise RuntimeError('disk headroom before server')
-        self.guard,self.port,self.control,self.name=guard,port,control,name
+        self.guard,self.controlled,self.name=guard,controlled,name
+        self.port=self.control=None
         self.start=time.monotonic();self.lines=[];self.forced=False
         self.argv=list(map(str,argv));self.reader=None
         self.process=subprocess.Popen(argv,cwd=ROOT,env=env or ENV,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,bufsize=1,start_new_session=True)
@@ -306,7 +306,10 @@ class Server:
         while time.monotonic()-self.start<30:
             self.guard.check()
             if self.process.poll() is not None: raise RuntimeError(str(self.lines))
-            if any(r['text']=='READY' for r in self.lines):
+            text='\n'.join(r['text'] for r in self.lines)
+            if any(line.startswith('READY ') for line in text.splitlines()) and (not self.controlled or any(line.startswith('CONTROL_READY ') for line in text.splitlines())):
+                self.port,=ready_ports(text)
+                if self.controlled: self.control,=ready_ports(text,prefix='CONTROL_READY')
                 try:
                     connection=await Peer.open(self.port);await connection.close()
                     return time.monotonic()-self.start
@@ -352,6 +355,13 @@ class Server:
             try: self.process.stdout.close();stdout_released=True
             except BaseException as caught:
                 self.guard.cleanup_errors.append('stdout close: '+repr(caught));error=error or repr(caught)
+        text='\n'.join(r['text'] for r in self.lines)
+        for attribute,prefix in [('port','READY')]+([('control','CONTROL_READY')] if self.controlled else []):
+            try:
+                port,=ready_ports(text,prefix=prefix)
+                setattr(self,attribute,port)
+            except (AssertionError,ValueError) as caught:
+                error=error or repr(caught)
         listeners=[]
         for port in (self.port,self.control):
             if port is None: continue
@@ -359,7 +369,7 @@ class Server:
             except BaseException as caught:
                 listeners.append({'port':port,'rebind_and_listener_release':False,'error':repr(caught)})
                 self.guard.cleanup_errors.append('listener observation: '+repr(caught));error=error or repr(caught)
-        released=release['root_reaped'] and release['observed_descendants_released'] and reader_released and stdout_released and all(r['rebind_and_listener_release'] for r in listeners)
+        released=release['root_reaped'] and release['observed_descendants_released'] and reader_released and stdout_released and self.port is not None and (not self.controlled or self.control is not None) and all(r['rebind_and_listener_release'] for r in listeners)
         receipt={'command':self.argv,'source_sha256':dict(self.guard.data['source_sha256']),
                  **release,'error':error,'logs':self.lines,'reader_released':reader_released,
                  'stdout_released':stdout_released,'listener_release':listeners,'released':released,
@@ -519,7 +529,7 @@ def prepare(guard,temp,data):
 
 def variants(temp):
     result={}
-    for lane,argv in [('native-single',[str(temp/'server'),'--threads','1','--gpu','off']),('native-default',[str(temp/'server'),'--gpu','off']),('js',['bun',str(temp/'server.js')])]:
+    for lane,argv in [('native-single',[str(temp/'server'),'+RTS','--threads','1','--gpu','off','-RTS']),('native-default',[str(temp/'server'),'+RTS','--gpu','off','-RTS']),('js',['bun',str(temp/'server.js')])]:
         for mode in ('raw','camber'): result[f'{mode}-{lane}']=(argv,mode,lane)
     result.update({'libevent':([str(temp/'libevent')],None,None),'axum':([str(temp/'rust/release/camber-public-axum')],None,None),
                    'flask':([str(temp/'venv/bin/python'),'-B',str(HERE/'public_flask.py')],None,None),
@@ -528,15 +538,15 @@ def variants(temp):
 
 
 def spawn(guard,temp,name,profile,headroom=False):
-    argv,mode,lane=variants(temp)[name];port=freeport();control=freeport() if mode else None;env=ENV
-    if mode: argv=argv+['camber-headroom' if headroom else mode,str(profile),str(port),str(control),str(128000000 if lane=='js' else 512000000)]
-    elif name=='flask': env=dict(ENV,CAMBER_PROFILE=str(profile),CAMBER_PORT=str(port))
-    else: argv=argv+[str(profile),str(port)]
-    return Server(guard,argv,port,control,env,name)
+    argv,mode,lane=variants(temp)[name];env=ENV
+    if mode: argv=argv+['camber-headroom' if headroom else mode,str(profile),'0','0',str(128000000 if lane=='js' else 512000000)]
+    elif name=='flask': env=dict(ENV,CAMBER_PROFILE=str(profile),CAMBER_PORT='0')
+    else: argv=argv+[str(profile),'0']
+    return Server(guard,argv,bool(mode),env,name)
 
 
 async def direct(guard,temp,lane,row,mode,count):
-    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'--gpu','off']+(['--threads','1'] if lane=='native-single' else [])
+    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'+RTS','--gpu','off']+(['--threads','1'] if lane=='native-single' else [])+['-RTS']
     receipt=command(guard,argv+[mode,str(row[1]),row[0],row[2],row[3],str(count)],180)
     line=next(line for line in receipt['output'].splitlines() if line.startswith('DIRECT\t'))
     _,seconds,nanos,checksum=line.split('\t');expected=(row[5]+len(row[6]))*count % 2**32
@@ -563,7 +573,7 @@ def freeze_live_budget(data,lane,row,repeats):
 
 
 async def direct_parity(guard,temp,lane,row,mode):
-    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'--gpu','off']+(['--threads','1'] if lane=='native-single' else [])
+    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'+RTS','--gpu','off']+(['--threads','1'] if lane=='native-single' else [])+['-RTS']
     body_path=temp/'direct-parity.bin'
     receipt=command(guard,argv+[f'parity-{mode}',str(row[1]),row[0],row[2],row[3],str(body_path)],180)
     lines=receipt['output'].splitlines();line=next(line for line in lines if line.startswith('PARITY\t'))

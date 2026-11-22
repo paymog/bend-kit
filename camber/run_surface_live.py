@@ -1,6 +1,7 @@
 """Exercise the existing affine scoped application through actual HTTP framing."""
 import concurrent.futures
 import json
+import queue
 import socket
 import struct
 import tempfile
@@ -10,6 +11,7 @@ from pathlib import Path
 from run_dispatch import ROOT, guarded
 from run_live import Peer
 from run_surface import ALL_EXIT, AUTH_ENTER, DECODE, DOCUMENT, GROUP_EXIT, HANDLED, POLICIES, ROOT_ENTER, ROOT_EXIT, SEED, cases
+from run_owner import ready_ports
 
 ERROR_BODIES = {"bad-document": "invalid document", "unauthorized": "", "forbidden": "forbidden",
                 "unsupported": "unsupported media type", "missing": "not found", "write": "store unavailable",
@@ -24,27 +26,28 @@ def expected_body(body, trace):
     return ERROR_BODIES[mapped[0]].encode()
 
 
-def connect(port, future):
+def ready_port(events, future):
     deadline = time.monotonic() + 5
     while True:
         try:
-            return Peer(port)
-        except ConnectionRefusedError:
+            line = events.get(timeout=.01)
+        except queue.Empty:
             if future.done():
                 future.result()
-                raise AssertionError("server exited before accepting")
+                raise AssertionError("server exited before readiness")
             if time.monotonic() >= deadline:
                 raise TimeoutError("scoped server did not bind")
-            time.sleep(.01)
+            continue
+        if line.startswith("READY "):
+            port, = ready_ports(line)
+            return port
 
 
 def serve(command, journal, mode, fault, mapper, requests):
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
+    events = queue.Queue()
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(guarded, command + [str(journal), mode, fault, mapper, str(port), "1"], 25)
-        peer = connect(port, future)
+        future = pool.submit(guarded, command + [str(journal), mode, fault, mapper, "0", "1"], 25, events.put)
+        peer = Peer(ready_port(events, future))
         try:
             for inputs, status, trace, policies, body in requests:
                 payload = inputs.get("input_body", DOCUMENT)
@@ -81,12 +84,10 @@ def wait_for_write(journal):
 
 def disconnect(command, journal):
     journal.write_bytes(b"")
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
+    events = queue.Queue()
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(guarded, command + [str(journal), "w", "", "normal", str(port), "1"], 25)
-        peer = connect(port, future)
+        future = pool.submit(guarded, command + [str(journal), "w", "", "normal", "0", "1"], 25, events.put)
+        peer = Peer(ready_port(events, future))
         try:
             peer.send("POST", "/documents", DOCUMENT.encode(), **{"x-delay-response": "yes"})
             wait_for_write(journal)
@@ -104,12 +105,11 @@ def disconnect(command, journal):
 
 def queued_requests(command, journal):
     journal.write_bytes(b"")
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
+    events = queue.Queue()
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(guarded, command + [str(journal), "w", "", "normal", str(port), "2"], 25)
-        first, second = connect(port, future), connect(port, future)
+        future = pool.submit(guarded, command + [str(journal), "w", "", "normal", "0", "2"], 25, events.put)
+        port = ready_port(events, future)
+        first, second = Peer(port), Peer(port)
         try:
             first.send("POST", "/documents", DOCUMENT.encode(), **{"x-delay-response": "yes"})
             wait_for_write(journal)
@@ -174,7 +174,7 @@ def main():
         for lane, suffix in (("native", ""), ("js", ".js")):
             executable = temp / ("scoped" + suffix)
             _, rss, seconds = guarded(["bend", str(ROOT / "camber/surface_live.bend"), "-o", str(executable)], 180)
-            command = [str(executable), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(executable)]
+            command = [str(executable), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(executable)]
             results[lane] = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss,
                              "scenarios": exercise(command, temp, lane)}
         (ROOT / "camber/router_surface_live_results.json").write_text(json.dumps(results, indent=2) + "\n")

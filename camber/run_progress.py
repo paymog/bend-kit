@@ -12,14 +12,15 @@ from datetime import date
 from run_dispatch import ROOT, guarded
 from run_live import Peer
 from run_risks import event_time, observe
+from run_owner import ready_ports
 
 
-def interact(port, body, status, response, first_ready, ordinary_delay):
+def interact(body, status, response, first_ready, ordinary_delay):
     def run(process, wait_for):
         partial = ordinary = cpu = None
         details = {}
         try:
-            wait_for("READY")
+            port, = ready_ports(wait_for("READY ")["text"])
             partial = socket.create_connection(("127.0.0.1", port), timeout=5)
             partial.sendall(b"GET /partial HTTP/1.1\r\n")
             armed = wait_for(first_ready)
@@ -109,8 +110,8 @@ def main():
         for backend, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("progress" + suffix)
             _, rss, seconds = guarded(["bend", ROOT / "camber/progress_probe.bend", "-o", binary], 180)
-            variants = (("native_single", [str(binary), "--threads", "1", "--gpu", "off"]),
-                        ("native_default_threads", [str(binary), "--gpu", "off"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
+            variants = (("native_single", [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"]),
+                        ("native_default_threads", [str(binary), "+RTS", "--gpu", "off", "-RTS"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
             for name, command in variants:
                 lane = {"runtime_arguments": command[1:] if backend == "native" else ["bun", "<compiled-js>"],
                         "build_seconds": seconds, "sampled_build_peak_rss_kib": rss, "cases": []}
@@ -118,11 +119,8 @@ def main():
                 for mode, count, trials in (("small", 10000, 1), ("yield", 0, 3),
                                              ("cpu", prior["lanes"][backend]["selected_iterations"], 3)):
                     for trial in range(trials):
-                        with socket.socket() as reservation:
-                            reservation.bind(("127.0.0.1", 0))
-                            port = reservation.getsockname()[1]
-                        record = observe(command + [mode, str(count), str(port)], temp / "unused",
-                                         interact(port, b"", 200, b"cpu", "DEADLINE_ARMED", .025))
+                        record = observe(command + [mode, str(count), "0"], temp / "unused",
+                                         interact(b"", 200, b"cpu", "DEADLINE_ARMED", .025))
                         record.update(mode=mode, iterations=count, trial=trial)
                         classify(record)
                         lane["cases"].append(record)

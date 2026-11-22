@@ -38,7 +38,7 @@ function send(reply, result, head=false) {
   reply.writeHead(result.status,{...result.headers,'content-length':result.body.length});
   reply.end(head?undefined:result.body);
 }
-let close;
+let close, boundPort;
 if(kind==='node-http') {
   const server=http.createServer(async(req,res)=>{
     let length=0;const chunks=[];
@@ -48,7 +48,7 @@ if(kind==='node-http') {
     send(res,execute(route,req.method,req.url.slice(7),Buffer.concat(chunks,length),req.headers,count),req.method==='HEAD');
   });
   server.maxConnections=32;server.headersTimeout=200;server.requestTimeout=30000;
-  await new Promise(resolve=>server.listen(port,'127.0.0.1',resolve));close=()=>server.close();
+  await new Promise(resolve=>server.listen(port,'127.0.0.1',resolve));boundPort=server.address().port;close=()=>server.close();
 } else if(kind==='fastify') {
   const {default:Fastify}=await import('fastify');const app=Fastify({logger:false,bodyLimit:limit,exposeHeadRoutes:false});
   app.removeAllContentTypeParsers();app.addContentTypeParser('*',{parseAs:'buffer'},(req,body,done)=>done(null,body));
@@ -58,7 +58,7 @@ if(kind==='node-http') {
     app.route({url:route[1],method:['GET','HEAD','POST'],onRequest:hooks,handler:async(req,reply)=>{const r=execute(route,req.method,req.params.id,req.body??Buffer.alloc(0),req.headers,req.hookCount??0);return reply.code(r.status).headers({...r.headers,'content-length':r.body.length}).send(r.body);}});
   }
   app.setNotFoundHandler((req,reply)=>{const r=missing();return reply.code(r.status).headers(r.headers).send(r.body);});
-  await app.listen({port,host:'127.0.0.1'});close=()=>app.close();
+  await app.listen({port,host:'127.0.0.1'});boundPort=app.server.address().port;close=()=>app.close();
 } else if(kind==='hono') {
   const {Hono}=await import('hono');const {serve}=await import('@hono/node-server');const app=new Hono({strict:true});
   for(const route of routes) {
@@ -67,14 +67,15 @@ if(kind==='node-http') {
     app.all(route[1],...hooks,async c=>{const body=Buffer.from(await c.req.arrayBuffer());if(body.length>limit)return new Response(null,{status:413});const r=execute(route,c.req.method,c.req.param('id'),body,Object.fromEntries(c.req.raw.headers),c.get('hooks')??0);return new Response(r.body,{status:r.status,headers:{...r.headers,'content-length':String(r.body.length)}});});
   }
   app.notFound(()=>{const r=missing();return new Response(r.body,{status:r.status,headers:r.headers});});
-  const server=serve({fetch:app.fetch,port,hostname:'127.0.0.1'});close=()=>server.close();
+  let server;
+  await new Promise(resolve=>{server=serve({fetch:app.fetch,port,hostname:'127.0.0.1'},info=>{boundPort=info.port;resolve();});});close=()=>server.close();
 } else if(kind==='elysia') {
   const {Elysia}=await import('elysia');let app=new Elysia({sucrose:{gcTime:0}});
   for(const route of routes) {
     const count=route[2].startsWith('hooks-')?Number(route[2].slice(6)):0;
     app=app.all(route[1],({request,params,body})=>{const r=execute(route,request.method,params?.id,Buffer.from(body??new ArrayBuffer(0)),Object.fromEntries(request.headers),count);return new Response(r.body,{status:r.status,headers:{...r.headers,'content-length':String(r.body.length)}});},{parse:async({request})=>request.arrayBuffer(),beforeHandle:Array.from({length:count},()=>({request})=>{if(!hook(Object.fromEntries(request.headers))){const r=rejected();return new Response(r.body,{status:r.status,headers:r.headers});}})});
   }
-  app=app.onError(({code})=>{if(code==='NOT_FOUND'){const r=missing();return new Response(r.body,{status:r.status,headers:r.headers});}}).listen({port,hostname:'127.0.0.1',maxRequestBodySize:limit});close=()=>app.stop();
+  app=app.onError(({code})=>{if(code==='NOT_FOUND'){const r=missing();return new Response(r.body,{status:r.status,headers:r.headers});}}).listen({port,hostname:'127.0.0.1',maxRequestBodySize:limit});boundPort=app.server.port;close=()=>app.stop();
 } else throw Error('unknown comparator');
-console.log('CONSTRUCTION_MS '+(performance.now()-begin));console.log('READY');
+console.log('CONSTRUCTION_MS '+(performance.now()-begin));console.log('READY '+boundPort);
 process.on('SIGTERM',async()=>{await close();console.log('JOINED');});

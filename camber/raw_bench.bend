@@ -156,19 +156,40 @@ def served(operation: IO(Http.Res)) -> IO(Http.Reply):
     response : Http.Res <- operation
     return Http.Reply{response, Completion.Unobserved{}}
 
+def listening.ready(~h: Http.Req -> IO(Http.Reply), bound: Http.Server<Unit> & U32) -> IO(Unit):
+  (server, port) = bound
+  do IO<Unit>:
+    IO.print("READY " ++ U32.show(port))
+    exited : Http.ServerExit <- Http.server.run(~Unit, ~(context => req => h(req)),
+      ~(context => status => outcome => Completion.ignore(status, outcome)), server)
+    Http.server.exited(exited)
+
+def listening(~h: Http.Req -> IO(Http.Reply), started: Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Unit):
+  (owner, result) = started
+  match result:
+    case Fail{error}:
+      Http.server.start.failed(error)
+    case Done{server}: listening.ready(~h, Http.server.port(~Unit, server))
+
+def listen(~h: Http.Req -> IO(Http.Reply), port: U32) -> IO(Unit):
+  do IO<Unit>:
+    started : Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>> <-
+      Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, Http.server.config.with("127.0.0.1", port, 8388608n))
+    listening(~h, started)
+
 def serve(
   ~r10: U32 -> Bool, ~r100: U32 -> Bool, ~r1000: U32 -> Bool,
   profile: String, port: U32
 ) -> IO(Unit):
   match profile:
     case "0":
-      Http.serve.on.with(~(req => served(basic(req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
+      listen(~(req => served(basic(req))), port)
     case "10":
-      Http.serve.on.with(~(req => served(Raw.routes(~r10, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
+      listen(~(req => served(Raw.routes(~r10, req))), port)
     case "100":
-      Http.serve.on.with(~(req => served(Raw.routes(~r100, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
+      listen(~(req => served(Raw.routes(~r100, req))), port)
     case "1000":
-      Http.serve.on.with(~(req => served(Raw.routes(~r1000, req))), ~Completion.ignore, "127.0.0.1", port, 8388608n)
+      listen(~(req => served(Raw.routes(~r1000, req))), port)
     case _:
       IO.die(Unit, 1, "invalid server profile")
 

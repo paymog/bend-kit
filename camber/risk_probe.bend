@@ -2,6 +2,7 @@
 import Base
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
+import bend-kit-wire@0.4.8.0/wire.bend as Wire
 
 def receive(-A: Type, channel: Chan(A)) -> IO(A):
   IO.join(A, channel)
@@ -147,17 +148,22 @@ def handler(context: Unit, request: Http.Req) -> IO(Http.Res):
     IO.print("HANDLER_ENTERED")
     return Http.Res{200, Http.empty(), Http.from_string("ok")}
 
-def idle(+path: String, port: U32) -> IO(Unit):
+def idle.listening(bound: Listener & U32, committed: File) -> IO(Unit):
+  (listener, port) = bound
   do IO<Unit>:
-    file : File <- IO.try(File, File.open(path, "w"))
-    committed : File <- write(file, "committed\n")
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    IO.print("READY")
+    IO.print("READY " ++ U32.show(port))
     connections : List<Chan(Unit)> <- Transport.accept(~Unit, ~handler, 1n, Unit{}, 1024n, listener)
     Transport.join(connections)
     File.close(committed)
     IO.print("OWNED_FILE_CLOSED")
     IO.print("SERVER_WORK_DONE")
+
+def idle(+path: String, port: U32) -> IO(Unit):
+  do IO<Unit>:
+    file : File <- IO.try(File, File.open(path, "w"))
+    committed : File <- write(file, "committed\n")
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
+    idle.listening(bound, committed)
 
 def external(path: String, n: Nat) -> IO(Unit):
   do IO<Unit>:

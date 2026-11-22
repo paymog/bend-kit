@@ -2,7 +2,7 @@
 import Base
 import ./progress_probe.bend as Progress
 import ./ownership.bend as Users
-import ../json/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
@@ -105,17 +105,22 @@ def start(mode: String, +go: Chan(Unit), timer: Chan(Unit), setup: Listener & Ch
     IO.join(Unit, deadline_done)
     IO.print("SERVER_DONE")
 
+def listening(bound: Listener & U32, mode: String, go: Chan(Unit), +timer: Chan(Unit)) -> IO(Unit):
+  (listener, port) = bound
+  do IO<Unit>:
+    IO.print("READY " ++ U32.show(port))
+    first : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
+    setup : Listener & Chan(Unit) <- accepted(first, timer)
+    start(mode, go, timer, setup)
+
 def serve(mode: String, port: U32) -> IO(Unit):
   do IO<Unit>:
     go0 : Chan(Unit) <- Chan.new(Unit, 1)
     timer0 : Chan(Unit) <- Chan.new(Unit, 1)
     +go : Chan(Unit) = go0
     +timer : Chan(Unit) = timer0
-    listener : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    IO.print("READY")
-    first : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
-    setup : Listener & Chan(Unit) <- accepted(first, timer)
-    start(mode, go, timer, setup)
+    bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
+    listening(bound, mode, go, timer)
 
 def numbers(mode: String, port: Maybe<&2, U32>) -> IO(Unit):
   match port:

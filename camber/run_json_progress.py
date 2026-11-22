@@ -5,7 +5,6 @@ import errno
 import hashlib
 import json
 import platform
-import socket
 import statistics
 import tempfile
 from datetime import date
@@ -70,19 +69,16 @@ def main():
         for backend, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("progress" + suffix)
             _, rss, seconds = guarded(["bend", ROOT / "camber/json_progress_probe.bend", "-o", binary], 180)
-            variants = (("native_single", [str(binary), "--threads", "1", "--gpu", "off"]),
-                        ("native_default_threads", [str(binary), "--gpu", "off"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
+            variants = (("native_single", [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"]),
+                        ("native_default_threads", [str(binary), "+RTS", "--gpu", "off", "-RTS"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
             for lane_name, command in variants:
                 lane = {"runtime_arguments": command[1:] if backend == "native" else ["bun", "<compiled-js>"],
                         "build_seconds": seconds, "sampled_build_peak_rss_kib": rss, "cases": []}
                 results["lanes"][lane_name] = lane
                 for name, mode, body, status in cases:
                     for trial in range(3):
-                        with socket.socket() as reservation:
-                            reservation.bind(("127.0.0.1", 0))
-                            port = reservation.getsockname()[1]
-                        record = observe(command + [mode, str(port)], temp / "unused",
-                                         interact(port, body, status, b"cpu" if status == 200 else b"rejected", "PARTIAL_READY", .001))
+                        record = observe(command + [mode, "0"], temp / "unused",
+                                         interact(body, status, b"cpu" if status == 200 else b"rejected", "PARTIAL_READY", .001))
                         record.update(workload=name, mode=mode, body_bytes=len(body), body_sha256=hashlib.sha256(body).hexdigest(), expected_status=status, trial=trial)
                         classify(record)
                         duration = next((event["text"].split()[1:] for event in record["events"] if event["text"].startswith("WORK_TIME\t")), None)

@@ -12,6 +12,7 @@ from contextlib import ExitStack
 from pathlib import Path
 
 from run_dispatch import ENV, ROOT, RSS_LIMIT_KIB, guarded
+from run_owner import ready_ports
 
 
 class Peer:
@@ -60,14 +61,11 @@ class Server:
         for slot in range(workers):
             Path(f"{prefix}-store-{slot}").write_bytes(b"")
             Path(f"{prefix}-audit-{slot}").write_bytes(b"seed\n" if audit_mode == "r" else b"")
-        with socket.socket() as reservation:
-            reservation.bind(("127.0.0.1", 0))
-            self.port = reservation.getsockname()[1]
         self.lines = []
         self.events = queue.Queue()
         self.errors = tempfile.TemporaryFile(mode="w+t")
         self.process = subprocess.Popen(
-            [*command, prefix, str(self.port), str(workers), str(connections), store_mode, audit_mode],
+            [*command, prefix, "0", str(workers), str(connections), store_mode, audit_mode],
             cwd=ROOT, env=ENV, stdout=subprocess.PIPE, stderr=self.errors, text=True,
         )
         self.reader = threading.Thread(target=self.read_output, daemon=True)
@@ -97,6 +95,9 @@ class Server:
         while True:
             line = self.events.get(timeout=max(0.01, deadline - time.monotonic()))
             assert line is not None and line != "HOST DEADLINE OR RSS LIMIT", self.lines
+            if expected == "READY" and line.startswith("READY "):
+                self.port, = ready_ports(line)
+                return
             if line == expected:
                 return
 

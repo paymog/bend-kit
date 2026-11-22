@@ -8,6 +8,8 @@
 #include <string.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 static struct event_base *base;
 static unsigned profile;
 static double mono(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec/1e9;}
@@ -66,10 +68,13 @@ int main(int argc,char **argv){
     if(evhttp_set_cb(http,*p,handle,NULL))return 4;
   }
   evhttp_set_gencb(http,handle,NULL);
-  if(evhttp_bind_socket(http,"127.0.0.1",(unsigned short)port))return 3;
+  struct evhttp_bound_socket *bound=evhttp_bind_socket_with_handle(http,"127.0.0.1",(unsigned short)port);
+  if(!bound)return 3;
+  struct sockaddr_in address;socklen_t address_len=sizeof(address);
+  if(getsockname(evhttp_bound_socket_get_fd(bound),(struct sockaddr*)&address,&address_len))return 3;
   struct event *sig=evsignal_new(base,SIGTERM,stop,NULL);
   event_add(sig,NULL);
-  printf("CONSTRUCTION_MS %.6f\nREADY\n",(mono()-start)*1000);fflush(stdout);
+  printf("CONSTRUCTION_MS %.6f\nREADY %u\n",(mono()-start)*1000,(unsigned)ntohs(address.sin_port));fflush(stdout);
   event_base_dispatch(base);
   event_free(sig);evhttp_free(http);event_base_free(base);
   puts("JOINED");return 0;

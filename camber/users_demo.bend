@@ -1,11 +1,9 @@
 # Runnable loopback users demo plus a separate loopback owner-stop listener; no supervisor claim.
 import Base
-import ./probe_server.bend as Probe
-import ./users_probe_server.bend as UsersProbe
 import ./users.bend as U
-import bend-kit-camber@0.16.0.2/camber.bend as C
-import bend-kit-http@0.38.6.1/http.bend as H
-import bend-kit-http@0.38.6.1/completion.bend as T
+import bend-kit-camber@0.16.0.3/camber.bend as C
+import bend-kit-http@0.39.1.0/http.bend as H
+import bend-kit-http@0.39.1.0/completion.bend as T
 
 def done(completion: T.Completion<C.ApplicationReport<String>>) -> IO(Unit):
   IO.pure(Unit, Unit{})
@@ -68,13 +66,16 @@ def control.started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Contr
         store.closed(closed)
         Chan.close(H.ServerControl, self)
         IO.die(Unit, 1, "owner control startup failed")
-    case Done{transport}: running(H.server.control(~Control, transport), server, owner, self)
+    case Done{transport}:
+      do IO<Unit>:
+        transport : H.Server<Control> <- U.port(~Control, H.server.port(~Control, transport))
+        running(H.server.control(~Control, transport), server, owner, self)
 
 def server.controlled(controlled: C.Server<U.Action, U.State, U.Config, String> & H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, control_port: U32) -> IO(Unit):
   (server, stop) = controlled
   do IO<Unit>:
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- Probe.transport(~Control, ~Unit, Control{stop, self}, Unit{}, C.server.config(control_port))
+    result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, self}, Unit{}, C.server.config(control_port))
     control.started(result, server, owner, self)
 
 def server.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, control_port: U32) -> IO(Unit):
@@ -84,13 +85,16 @@ def server.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.S
         closed : C.OwnerClose<U.Store, U32, U.Operation, String, U.User> <- C.close(U.Store, U32, U.Operation, String, U.User, owner)
         store.closed(closed)
         IO.die(Unit, 1, "users startup failed")
-    case Done{server}: server.controlled(C.server.control(~U.Action, ~U.State, ~U.Config, ~String, server), owner, control_port)
+    case Done{C.Server{transport, application}}:
+      do IO<Unit>:
+        transport : H.Server<C.ServingContext<U.Action, U.State, U.Config, String>> <- U.port(~C.ServingContext<U.Action, U.State, U.Config, String>, H.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport))
+        server.controlled(C.server.control(~U.Action, ~U.State, ~U.Config, ~String, C.Server{transport, application}), owner, control_port)
 
 def prepared(prepared: C.Owner<U.Store, U32, U.Operation, String, U.User> & C.Context<U.Store, U32, U.Operation, String, U.User>, port: U32, control_port: U32) -> IO(Unit):
   (owner, context) = prepared
   do IO<Unit>:
     config : U.Config = U.Config{context, U.Disabled{}, ""}
-    result : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- UsersProbe.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
+    result : Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>> <- C.server.start(~U.Action, ~U.State, ~U.Config, ~String, ~String,
       ~U.before, ~U.after, ~U.run, ~U.mapper, ~U.destroy, U.application(config, False{}), C.server.config(port), [U.fresh(), U.fresh(), U.fresh(), U.fresh()])
     server.started(result, owner, control_port)
 

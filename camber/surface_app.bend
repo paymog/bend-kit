@@ -1,7 +1,7 @@
 # Typed application example: no channels, workers, or resource-acquisition protocol.
 import Base
 import ../http/http.bend as Http
-import ../json/json.bend as Json
+import bend-kit-json@0.7.2.0/json.bend as Json
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 import ./ownership.bend as Users
 import ./interface_check.bend as Registry

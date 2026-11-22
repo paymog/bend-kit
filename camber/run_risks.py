@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from run_dispatch import ENV, ROOT, RSS_LIMIT_KIB, guarded
+from run_owner import ready_ports
 
 
 def observe(command, path, interaction=None, *, timeout_seconds=12):
@@ -95,9 +96,9 @@ def inspect_drop(path):
     return interact
 
 
-def idle_connection(port):
+def idle_connection():
     def interact(process, wait_for):
-        wait_for("READY")
+        port, = ready_ports(wait_for("READY ")["text"])
         with socket.create_connection(("127.0.0.1", port), timeout=3) as peer:
             closed = wait_for("LISTENER CLOSED")
             try:
@@ -132,7 +133,7 @@ def main():
         for lane, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("risk-probe" + suffix)
             _, rss, seconds = guarded(["bend", str(ROOT / "camber/risk_probe.bend"), "-o", str(binary)], 180)
-            command = [str(binary), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(binary)]
+            command = [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(binary)]
             data = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss, "cases": {}}
             calibrations = []
             data["cpu_calibration"] = calibrations
@@ -154,16 +155,12 @@ def main():
             data["selected_iterations"] = chosen
             for mode in ("yield_exit", "cpu_exit", "cooperative", "abandoned", "idle"):
                 path = temp / f"{lane}-{mode}"
-                port = 0
                 interaction = None
                 if mode == "abandoned":
                     interaction = inspect_drop(path)
                 if mode == "idle":
-                    with socket.socket() as reservation:
-                        reservation.bind(("127.0.0.1", 0))
-                        port = reservation.getsockname()[1]
-                    interaction = idle_connection(port)
-                record = observe(command + [mode, str(path), str(chosen), str(port)], path, interaction)
+                    interaction = idle_connection()
+                record = observe(command + [mode, str(path), str(chosen), "0"], path, interaction)
                 data["cases"][mode] = record
                 target.write_text(json.dumps(results, indent=2) + "\n")
                 if mode in ("yield_exit", "cpu_exit"):

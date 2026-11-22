@@ -18,12 +18,21 @@ def join(connections: List<Chan(Unit)>) -> IO(Unit):
       do IO<Unit>:
         IO.join(Unit, finished)
         join(rest)
-def accept.closed(~C: Data, server: Http.Server<C>, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
-  do IO<List<Chan(Unit)>>:
+def accept.drained(finished: List<Chan(Unit)>, +inbox: Chan(Admission.Command), drained: Chan(Admission.Counts)) -> IO(Unit):
+  do IO<Unit>:
     join(finished)
-    drained : Http.ServerCounts <- Http.server.close(~C, server)
+    requested : Bool <- Admission.quiesce(inbox)
+    Admission.close(inbox)
+    counts : Admission.Counts <- IO.join(Admission.Counts, drained)
+    return Unit{}
+
+def accept.closed(~C: Data, server: Http.Server<C>, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
+  Http.Server{listener, context, config, +inbox, drained} = server
+  do IO<List<Chan(Unit)>>:
+    Listener.close(listener)
     IO.print("LISTENER CLOSED")
-    return Nil{}
+    finished : Chan(Unit) <- IO.fork(Unit, accept.drained(finished, inbox, drained))
+    return [finished]
 
 type AcceptStep<-C: Data> is Type:
   AcceptListening{server: Http.Server<C>}
@@ -50,15 +59,23 @@ def accept.go(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), step: AcceptSte
           accept.go(~C, ~handler, AcceptListening{server}, fuel, done <> finished)
 
 def accept.opened(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat,
-  context: C, +max: Nat, listener: Listener,
+  context: C, config: Http.ServerConfig, listener: Listener,
   opened: Chan(Admission.Command) & Chan(Admission.Counts)) -> IO(List<Chan(Unit)>):
   (inbox, drained) = opened
-  accept.go(~C, ~handler, AcceptListening{Http.Server{listener, context,
-    Http.ServerConfig{"127.0.0.1", 0, U32.from_nat(max), 65536, 128, 128, 128, 5000, 30000, 30000, 30000}, inbox, drained}}, count, Nil{})
+  accept.go(~C, ~handler, AcceptListening{Http.Server{listener, context, config, inbox, drained}}, count, Nil{})
+
+def accept.configured(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat,
+  context: C, +config: Http.ServerConfig, listener: Listener) -> IO(List<Chan(Unit)>):
+  Http.ServerConfig{host, port, body, headers, connections, active, buffered, hm, bm, im, wm} = config
+  do IO<List<Chan(Unit)>>:
+    Http.limits.validate(U32.to_nat(body))
+    opened : Chan(Admission.Command) & Chan(Admission.Counts) <- Admission.open.owner(Admission.Caps{connections, active, buffered})
+    accept.opened(~C, ~handler, count, context, config, listener, opened)
 
 def accept(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat, context: C, +max: Nat, listener: Listener) -> IO(List<Chan(Unit)>):
   do IO<List<Chan(Unit)>>:
     Http.limits.validate(max)
     opened : Chan(Admission.Command) & Chan(Admission.Counts) <- Admission.open.owner(Admission.Caps{128, 128, 128})
-    accept.opened(~C, ~handler, count, context, max, listener, opened)
+    accept.opened(~C, ~handler, count, context,
+      Http.ServerConfig{"127.0.0.1", 0, U32.from_nat(max), 65536, 128, 128, 128, 5000, 30000, 30000, 30000}, listener, opened)
 
