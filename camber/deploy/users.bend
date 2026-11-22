@@ -3,9 +3,9 @@ import Base
 import ../users.bend as U
 import ../users_demo.bend as Demo
 import ./signals.bend as S
-import bend-kit-camber@0.16.0.3/camber.bend as C
-import bend-kit-http@0.39.1.0/http.bend as H
-import bend-kit-http@0.39.1.0/completion.bend as T
+import bend-kit-camber@0.16.1.0/camber.bend as C
+import bend-kit-http@0.39.2.0/http.bend as H
+import bend-kit-http@0.39.2.0/completion.bend as T
 
 # Acceptance-only non-yielding CPU fixture. No cancellation or proof claim.
 @unsafe

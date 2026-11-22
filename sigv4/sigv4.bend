@@ -1,14 +1,14 @@
 # AWS Signature V4 signing and S3 object storage over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/sigv4
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-hairpin@0.14.1.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.15.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.38.6.1/http.bend as Http
-import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-http@0.39.2.0/http.bend as Http
+import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-collections@0.1.5.0/order.bend as Order
+import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-collections@0.1.6.0/order.bend as Order
 
 # Text (path, query, header values) is a String of code points; non-ASCII is sent as UTF-8.
 # S3 decodes and re-encodes wire escapes once; other services encode an escaped wire path twice.

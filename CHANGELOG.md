@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `jwt` 0.13.0.0, `llm` 0.15.0.0, `oauth2` 0.13.0.0, `sigv4` 0.13.0.0, and `webhooks` 0.13.0.0: share HTTP 0.39.2.0, Hairpin 0.15.0.0, and the proof-bearing byte type. Re-pin the Authz check and manual Camber consumers to Camber 0.16.1.0.
+
 - `camber` 0.16.1.0, `hairpin` 0.15.0.0, and `storage` 0.5.1.0: use HTTP 0.39.2.0 and the current published byte, JSON, encoding, file, collection, logger, and time types.
 
 - `archive` 0.5.2.0, `http` 0.39.2.0, `postgres` 0.3.1.1, `redis` 0.3.1.1, and `stream` 0.4.1.0: use the current published byte, DNS, HTTP/2, decimal, compression, hash, file, and time types.

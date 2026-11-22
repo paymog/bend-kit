@@ -1,10 +1,10 @@
 import Base
 import ./public_app.bend as A
-import bend-kit-camber@0.16.0.3/camber.bend as C
-import bend-kit-http@0.39.1.0/http.bend as H
-import bend-kit-http@0.39.1.0/completion.bend as T
+import bend-kit-camber@0.16.1.0/camber.bend as C
+import bend-kit-http@0.39.2.0/http.bend as H
+import bend-kit-http@0.39.2.0/completion.bend as T
 import bend-kit-router@0.2.0.0/router.bend as R
-import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type RawTarget is Data:

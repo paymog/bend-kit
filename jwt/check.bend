@@ -1,7 +1,7 @@
 import Base
 import ./jwt.bend as Jwt
-import bend-kit-json@0.7.2.0/json.bend as Json
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # Signatures need libcrypto, so they run here: RFC 7515 A.1-A.3 verify, sign round trips, and rejections.
 # The RSA 2048 and P-256 PEM pairs are throwaway test keys.
