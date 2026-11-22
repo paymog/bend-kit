@@ -303,7 +303,7 @@ def written(events: List<&2, Stage>, actor: Users.Principal, value: Json.Val, re
     case Fail{error}:
       IO.pure(State & Result<&2, &1, Err, Http.Res>, (State{journal, events}, Fail{WriteFailed{}}))
     case Done{unit}:
-      IO.pure(State & Result<&2, &1, Err, Http.Res>, (State{journal, events}, Done{Users.json(201, Json.Obj{[(Json.utf8("owner"), Json.Num{Http.from_string(U32.show(id))}), (Json.utf8("doc"), value)]})}))
+      IO.pure(State & Result<&2, &1, Err, Http.Res>, (State{journal, events}, Done{Users.json(201, Json.Obj{[(Json.utf8("owner"), Json.Num{Bytes.u32.show(id)}), (Json.utf8("doc"), value)]})}))
 
 def handle.recorded(state: State, input: Document) -> IO(State & Result<&2, &1, Err, Http.Res>):
   State{journal, events} = state

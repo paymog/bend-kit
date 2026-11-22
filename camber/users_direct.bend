@@ -39,7 +39,7 @@ def response.hex(body: H.Body) -> String:
 def response(res: H.Res) -> IO(Unit):
   H.Res{+status, +headers, body} = res
   IO.print("RESPONSE " ++ H.to_string(J.encode.bytes(J.Obj{
-    [(J.utf8("status"), J.Num{J.utf8(U32.show(status))}),
+    [(J.utf8("status"), J.Num{B.u32.show(status)}),
      (J.utf8("allow"), J.Str{J.utf8(H.header(headers, "allow"))}),
      (J.utf8("location"), J.Str{J.utf8(H.header(headers, "location"))}),
      (J.utf8("www-authenticate"), J.Str{J.utf8(H.header(headers, "www-authenticate"))}),

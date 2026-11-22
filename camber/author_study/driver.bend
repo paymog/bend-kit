@@ -3,6 +3,7 @@ import ../../../http/http.bend as Http
 import bend-kit-json@0.7.3.0/json.bend as Json
 import ./app.bend as App
 import ../contract.bend as Contract
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def strings(xs: List<&2, String>) -> List<&1, Json.Val>:
   match xs:
@@ -38,7 +39,7 @@ def observe.mode(mode: String, journal: File, report: Json.Val) -> IO(Unit):
 def observed(mode: String, result: Contract.State & Http.Res) -> IO(Unit):
   (Contract.State{journal, trace}, Http.Res{+status, +headers, body}) = result
   report : Json.Val = Json.Obj{[
-    (Json.utf8("status"), Json.Num{Http.from_string(U32.show(status))}),
+    (Json.utf8("status"), Json.Num{Bytes.u32.show(status)}),
     (Json.utf8("body"), Json.Str{Json.utf8(Http.text(Http.Res{status, Http.empty(), body}))}),
     (Json.utf8("root"), Json.Str{Json.utf8(Http.header(headers, "x-root-policy"))}),
     (Json.utf8("protected"), Json.Str{Json.utf8(Http.header(headers, "x-protected-policy"))}),

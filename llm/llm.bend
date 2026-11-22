@@ -48,7 +48,7 @@ def kv(k: String, v: Json.Val) -> Bytes.Bytes & Json.Val:
   (Json.utf8(k), v)
 
 def num(+n: U32) -> Json.Val:
-  Json.Num{Bytes.from_string(U32.show(n))}
+  Json.Num{Bytes.u32.show(n)}
 
 def obj(kvs: List<&1, Bytes.Bytes & Json.Val>) -> Json.Val:
   Json.Obj{kvs}

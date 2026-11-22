@@ -4,6 +4,7 @@ import ../http/http.bend as Http
 import bend-kit-json@0.7.3.0/json.bend as Json
 import ../router/router.bend as Router
 import ./ownership.bend as Inputs
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def text(status: U32, body: String) -> Http.Res:
   Http.Res{status, Http.set(Http.empty(), "content-type", "text/plain; charset=utf-8"), Http.from_string(body)}
@@ -19,7 +20,7 @@ def get(+verb: String, response: Http.Res) -> Http.Res:
   method(String.eq(verb, "GET") || String.eq(verb, "HEAD"), "GET, HEAD", response)
 
 def id_response(id: U32) -> Http.Res:
-  Inputs.json(200, Json.Obj{[(Json.utf8("id"), Json.Num{Http.from_string(U32.show(id))})]})
+  Inputs.json(200, Json.Obj{[(Json.utf8("id"), Json.Num{Bytes.u32.show(id)})]})
 
 def id.method(valid: Bool, id: U32) -> Http.Res:
   match valid:

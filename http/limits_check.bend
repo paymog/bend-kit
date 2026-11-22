@@ -45,7 +45,7 @@ def upload.response(large: Bool, count: U32) -> Http.Res:
     case True{}:
       Http.Res{200, Http.empty(), Bytes.new(16777216)}
     case False{}:
-      Http.Res{200, Http.empty(), Http.from_string(U32.show(count))}
+      Http.Res{200, Http.empty(), Bytes.u32.show(count)}
 
 def upload.finish(state: Upload) -> IO(Http.Reply):
   Upload{count, discard, large} = state

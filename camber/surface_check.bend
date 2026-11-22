@@ -2,6 +2,7 @@ import Base
 import ../http/http.bend as Http
 import bend-kit-json@0.7.3.0/json.bend as Json
 import ./surface_app.bend as Example
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def error_kind(error: Example.Err) -> String:
   match error:
@@ -29,7 +30,7 @@ def error_kind(error: Example.Err) -> String:
 def event(value: Example.Stage) -> Json.Val:
   match value:
     case Example.Before{scope, ordinal}:
-      Json.Arr{[Json.Str{Json.utf8("before")}, Json.Num{Http.from_string(U32.show(scope))}, Json.Num{Http.from_string(U32.show(ordinal))}]}
+      Json.Arr{[Json.Str{Json.utf8("before")}, Json.Num{Bytes.u32.show(scope)}, Json.Num{Bytes.u32.show(ordinal)}]}
     case Example.Decode{}:
       Json.Str{Json.utf8("decode")}
     case Example.Handle{}:
@@ -73,7 +74,7 @@ def observe.mode(mode: String, journal: File, report: Json.Val) -> IO(Unit):
 def observed(mode: String, result: Example.State & Http.Res) -> IO(Unit):
   (Example.State{journal, trace}, Http.Res{+status, +headers, body}) = result
   report : Json.Val = Json.Obj{[
-    (Json.utf8("status"), Json.Num{Http.from_string(U32.show(status))}),
+    (Json.utf8("status"), Json.Num{Bytes.u32.show(status)}),
     (Json.utf8("body"), Json.Str{Json.utf8(Http.text(Http.Res{status, Http.empty(), body}))}),
     (Json.utf8("root"), Json.Str{Json.utf8(Http.header(headers, "x-root-policy"))}),
     (Json.utf8("users"), Json.Str{Json.utf8(Http.header(headers, "x-users-policy"))}),

@@ -10,6 +10,7 @@ import bend-kit-http@0.39.2.0/completion.bend as TransportCompletion
 import ./notices.bend as Notices
 import bend-kit-time@0.3.0.1/time.bend as Time
 import ./ledger.bend as Book
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 type ResponseError is Data:
   InvalidResponse{}
@@ -625,7 +626,7 @@ def problem.response(allow: String, response: Http.Res) -> Http.Res:
   Http.Res{status, problem.allow(U32.is_eq(status, 405), Http.set(headers, "content-type", "application/problem+json"), allow), body}
 
 def problem(+status: U32, title: String, allow: String) -> Http.Res:
-  problem.response(allow, json(~Json.Val, ~(x => x), status, Json.Obj{[(Json.utf8("type"), Json.Str{Json.utf8("about:blank")}), (Json.utf8("title"), Json.Str{Json.utf8(title)}), (Json.utf8("status"), Json.Num{Json.utf8(U32.show(status))})]}))
+  problem.response(allow, json(~Json.Val, ~(x => x), status, Json.Obj{[(Json.utf8("type"), Json.Str{Json.utf8("about:blank")}), (Json.utf8("title"), Json.Str{Json.utf8(title)}), (Json.utf8("status"), Json.Num{Bytes.u32.show(status)})]}))
 
 def default.error(~E: Data, error: Error<E>) -> Http.Res:
   match error:
