@@ -252,4 +252,42 @@ The original integer rows remain available: C/Rust/Bun/Node/Python/Bend gcd is 1
 
 All six languages retain the seven existing checksums above. Every identity pass gives `2699619501`; packed gcd, lcm, and isqrt give `18047959`, `3181042401`, and `1421540955`. No library code or package version changes in this benchmark update. The packed rows provide the stats 0.1.7.0 baseline for the direct Newton proof work.
 
-[Issue #777](https://github.com/paymog/bend-kit/issues/777) tracks warmed JavaScript comparisons and estimate spread. The cold JIT rows above remain part of this benchmark.
+## Warmed packed JavaScript comparison
+
+The harness retains every original end-to-end and cold packed row. After those clocks, Bun and Node run three untimed full-input passes for each of identity, gcd, checked lcm, and isqrt. They then time one full-input pass per function. Every warm-up checksum must remain stable and match the timed checksum. The small probe also warms its own 71-pair input and checks every warmed row.
+
+The warmed passes reuse the same `Uint32Array` and integer functions as the cold passes. `packedSum` provides the same shared callback dispatch site for warm-up and measurement. Each warm-up round visits all four functions in the same order as measurement. The clock includes array reads, callback dispatch, integer work, and checksum accumulation. Allocation and warm-up remain outside it. The array stays reachable through every pass; garbage collection can still interrupt a clock.
+
+These are warmed comparisons, not a claim that either JIT reaches a fixed optimization tier. The original cold passes use their original inline loop. The warmed helper has a separate call site, so JIT specialization and loop shape can differ as well as warm-up. Neither subtraction nor this comparison isolates arithmetic or the causal effect of warm-up alone. Native compilers can vectorize identity differently from kernels. The harness prints every per-run kernel-minus-identity estimate and its median for cold lanes and warmed JavaScript. Negative estimates remain signed and visible.
+
+### Calibration results
+
+Command: `python3 stats/bench/run.py 3`, from the repository root. M4 Pro, macOS 25.6.0 arm64, 2026-11-21. Bend 2.0.40 (native), Apple clang 21.0.0 (`-O2`), rustc 1.91.0 (`-C opt-level=3`), Bun 1.4.4, Node 24.0.1, Python 3.14.6. Three fresh processes per language; each JavaScript process includes its own warm-up. The monitor caps Bend at 20 GB RSS; no process reached that cap.
+
+Three-run medians in ms, on the same 2097207 pairs. Native and Python columns are the original packed lanes, not extra warmed runs.
+
+| packed pass | C | Rust | Bun cold | Bun warmed | Node cold | Node warmed | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| identity | 0.344 | 0.266 | 52.524 | 18.217 | 11.460 | 22.509 | 308.218 | 0.704 |
+| gcd | 122.179 | 121.839 | 814.415 | 797.142 | 487.313 | 484.627 | 409.997 | 116.602 |
+| checked lcm | 122.438 | 122.404 | 842.263 | 813.406 | 482.026 | 485.479 | 604.518 | 117.045 |
+| isqrt | 31.308 | 5.278 | 266.784 | 240.380 | 172.773 | 173.480 | 335.301 | 5.973 |
+
+Per-run subtraction estimates in ms, without clamping:
+
+| language | pass | run 1 | run 2 | run 3 | median |
+|---|---|---:|---:|---:|---:|
+| Bun | cold gcd | 758.156 | 763.456 | 761.891 | 761.891 |
+| Bun | warmed gcd | 775.023 | 781.666 | 778.734 | 778.734 |
+| Bun | cold checked lcm | 781.752 | 789.827 | 792.087 | 789.827 |
+| Bun | warmed checked lcm | 788.814 | 795.971 | 795.171 | 795.171 |
+| Bun | cold isqrt | 217.677 | 214.348 | 211.859 | 214.348 |
+| Bun | warmed isqrt | 225.009 | 222.236 | 221.972 | 222.236 |
+| Node | cold gcd | 474.833 | 475.853 | 477.461 | 475.853 |
+| Node | warmed gcd | 462.062 | 461.430 | 462.961 | 462.062 |
+| Node | cold checked lcm | 470.402 | 470.022 | 476.174 | 470.402 |
+| Node | warmed checked lcm | 464.748 | 462.997 | 462.786 | 462.997 |
+| Node | cold isqrt | 161.149 | 161.181 | 161.820 | 161.181 |
+| Node | warmed isqrt | 150.429 | 151.003 | 150.971 | 150.971 |
+
+Bun's direct packed loops become faster, but its subtraction estimates increase because identity falls more. Node's warmed identity becomes slower while its isqrt clock stays similar, so its isqrt subtraction estimate falls. This is evidence that loop dispatch and JIT specialization matter; it does not show an arithmetic speed change. No estimate in this batch was negative. All original, packed, warmed, and Bend ownership checksums agree, including the small probe. No library code, laws, imports, or package versions change.
