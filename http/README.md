@@ -3,11 +3,11 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.39.1.0/http.bend as Http
-import bend-kit-http@0.39.1.0/completion.bend as Completion
+import bend-kit-http@0.39.2.0/http.bend as Http
+import bend-kit-http@0.39.2.0/completion.bend as Completion
 ```
 
-`Http.Body` uses `bend-kit-bytes@0.3.3.0`. JSON values for `post.json` use `bend-kit-json@0.7.2.0`. DNS lookup uses `bend-kit-dns@0.7.1.0`. TLS uses `bend-kit-wire@0.4.8.0`.
+`Http.Body` uses `bend-kit-bytes@0.3.3.1`. JSON values for `post.json` use `bend-kit-json@0.7.3.0`. DNS lookup uses `bend-kit-dns@0.7.1.1`. TLS uses `bend-kit-wire@0.4.8.0`.
 
 HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if `libssl` is not on the default path. A body over about 30 KB overflows `bend file.bend`. Build with `bend file.bend -o app`.
 
@@ -15,7 +15,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.39.1.0/http.bend as Http
+import bend-kit-http@0.39.2.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -51,7 +51,7 @@ def main() -> IO(Unit):
 
 `Http.get(url)` is `fetch("GET", url, Http.empty(), Http.from_string(""))`. `Http.fetch(method, url, headers, body)` is the full call. `fetch.with` adds a per-step timeout in milliseconds. The default is 30 seconds. A redirect chain stops after 20 hops (`ErrRedirect`). `fetch.how` takes `ModeFollow`, `ModeManual`, or `ModeError`. `ETIMEDOUT` is 60 on macOS and 110 on Linux. Both become `ErrTimeout`.
 
-HTTPS fetches and response streams offer `h2,http/1.1` through ALPN. An HTTP/2 response uses the same `Res` type. Upload streams negotiate HTTP/1.1 only. HTTP/2 uses `bend-kit-http2@0.5.0.0`. For several addresses, the client tries them in DNS order until TCP connects, within the step timeout. Attempts are sequential.
+HTTPS fetches and response streams offer `h2,http/1.1` through ALPN. An HTTP/2 response uses the same `Res` type. Upload streams negotiate HTTP/1.1 only. HTTP/2 uses `bend-kit-http2@0.5.0.2`. For several addresses, the client tries them in DNS order until TCP connects, within the step timeout. Attempts are sequential.
 
 `fetch`, `pool.fetch`, `open`, `open.how`, `upload`, and `upload.how` read `http_proxy`, `https_proxy`, and `no_proxy`, or the uppercase names when the lowercase ones are absent. An HTTP proxy gets an absolute-form target. An HTTPS proxy gets `CONNECT` before TLS to the origin. Certificate and host checks still apply.
 

@@ -3,18 +3,18 @@ import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
-import bend-kit-http2@0.5.0.0/http2.bend as H2
-import bend-kit-http2@0.5.0.0/hpack.bend as Hpack
-import bend-kit-bytes@0.3.3.0/bytes.bend as HBytes
-import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-http2@0.5.0.2/http2.bend as H2
+import bend-kit-http2@0.5.0.2/hpack.bend as Hpack
+import bend-kit-bytes@0.3.3.1/bytes.bend as HBytes
+import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
-import bend-kit-json@0.7.2.0/json.bend as Json
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
-import bend-kit-dns@0.7.1.0/dns.bend as Dns
-import bend-kit-zlib@0.5.1.1/zlib.bend as Zlib
+import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
+import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-dns@0.7.1.1/dns.bend as Dns
+import bend-kit-zlib@0.5.3.0/zlib.bend as Zlib
 
 # HTTP/1.1 codec and client (RFC 9112) for http:// and https:// (OpenSSL 3 at run time).
 # parse: start-line → field lines → blank → body length (§6.3); chunked (§7.1).

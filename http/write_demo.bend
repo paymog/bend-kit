@@ -1,7 +1,7 @@
 import Base
 import ./http.bend as Http
 import ./completion.bend as Completion
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 type Download is Data:
   Download{path: String}

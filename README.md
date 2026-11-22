@@ -36,7 +36,7 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.39.0.0` imports its siblings by name: `wire@0.4.8.0`, `http2@0.5.0.0`, `bytes@0.3.3.0`, `time@0.3.0.0`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.0`, `json@0.7.2.0`, `dns@0.7.1.0`, and `zlib@0.5.1.1`. `Http.Body` is `bend-kit-bytes@0.3.3.0`.
+`http@0.39.2.0` imports its siblings by name: `wire@0.4.8.0`, `http2@0.5.0.2`, `bytes@0.3.3.1`, `time@0.3.0.1`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.1`, `json@0.7.3.0`, `dns@0.7.1.1`, and `zlib@0.5.3.0`. `Http.Body` is `bend-kit-bytes@0.3.3.1`.
 
 `hairpin@0.14.1.1`, `camber@0.16.0.2`, `jwt@0.12.0.1`, `llm@0.14.1.0`, `oauth2@0.12.0.1`, `sigv4@0.12.0.1`, and `webhooks@0.12.0.1` import `bend-kit-http@0.38.6.1`, and all but `camber` import `bend-kit-hairpin@0.14.1.1`. A program that uses these versions together carries one copy of each C effect.
 
@@ -100,7 +100,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.2.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
 | [`migrate`](migrate) | `bend-kit-migrate@0.4.1.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.1/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
-| [`archive`](archive) | `bend-kit-archive@0.5.1.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
+| [`archive`](archive) | `bend-kit-archive@0.5.2.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.5.3.0/zlib.bend` | DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.1.1/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
 
@@ -136,7 +136,7 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`files`](files) | `bend-kit-files@0.4.0.1/files.bend` | POSIX paths, directories, and packed file IO. |
 | [`storage`](storage) | `bend-kit-storage@0.5.0.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
-| [`stream`](stream) | `bend-kit-stream@0.4.0.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
+| [`stream`](stream) | `bend-kit-stream@0.4.1.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.2.1/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
 | [`time`](time) | `bend-kit-time@0.3.0.1/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
@@ -160,8 +160,8 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.1/sqlite.bend` | Prepared statements through libsqlite3. |
-| [`postgres`](postgres) | `bend-kit-postgres@0.3.1.0/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
-| [`redis`](redis) | `bend-kit-redis@0.3.1.0/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
+| [`postgres`](postgres) | `bend-kit-postgres@0.3.1.1/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
+| [`redis`](redis) | `bend-kit-redis@0.3.1.1/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
 | [`llm`](llm) | `bend-kit-llm@0.14.1.0/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
 
 ### Applications

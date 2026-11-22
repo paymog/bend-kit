@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `archive` 0.5.2.0, `http` 0.39.2.0, `postgres` 0.3.1.1, `redis` 0.3.1.1, and `stream` 0.4.1.0: use the current published byte, DNS, HTTP/2, decimal, compression, hash, file, and time types.
+
 - `cache` 0.3.2.0, `commands` 0.5.1.0, `crdt` 0.2.1.1, `f32array` 0.2.1.1, `journal` 0.3.1.3, `migrate` 0.4.1.0, `notch` 0.4.0.1, `planner` 0.5.1.0, `protobuf` 0.2.2.0, `regex` 0.9.0.1, `scheduler` 0.4.4.0, and `zlib` 0.5.3.0: use the current published sibling types in the second byte proof wave.
 - `protobuf` generator and benchmark fixtures: emit bytes 0.3.3.1 and f64 0.1.4.0 imports so generated codecs use the runtime's types.
 
