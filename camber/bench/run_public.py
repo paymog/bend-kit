@@ -529,7 +529,7 @@ def prepare(guard,temp,data):
 
 def variants(temp):
     result={}
-    for lane,argv in [('native-single',[str(temp/'server'),'--threads','1','--gpu','off']),('native-default',[str(temp/'server'),'--gpu','off']),('js',['bun',str(temp/'server.js')])]:
+    for lane,argv in [('native-single',[str(temp/'server'),'+RTS','--threads','1','--gpu','off','-RTS']),('native-default',[str(temp/'server'),'+RTS','--gpu','off','-RTS']),('js',['bun',str(temp/'server.js')])]:
         for mode in ('raw','camber'): result[f'{mode}-{lane}']=(argv,mode,lane)
     result.update({'libevent':([str(temp/'libevent')],None,None),'axum':([str(temp/'rust/release/camber-public-axum')],None,None),
                    'flask':([str(temp/'venv/bin/python'),'-B',str(HERE/'public_flask.py')],None,None),
@@ -546,7 +546,7 @@ def spawn(guard,temp,name,profile,headroom=False):
 
 
 async def direct(guard,temp,lane,row,mode,count):
-    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'--gpu','off']+(['--threads','1'] if lane=='native-single' else [])
+    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'+RTS','--gpu','off']+(['--threads','1'] if lane=='native-single' else [])+['-RTS']
     receipt=command(guard,argv+[mode,str(row[1]),row[0],row[2],row[3],str(count)],180)
     line=next(line for line in receipt['output'].splitlines() if line.startswith('DIRECT\t'))
     _,seconds,nanos,checksum=line.split('\t');expected=(row[5]+len(row[6]))*count % 2**32
@@ -573,7 +573,7 @@ def freeze_live_budget(data,lane,row,repeats):
 
 
 async def direct_parity(guard,temp,lane,row,mode):
-    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'--gpu','off']+(['--threads','1'] if lane=='native-single' else [])
+    argv=['bun',str(temp/'direct.js')] if lane=='js' else [str(temp/'direct'),'+RTS','--gpu','off']+(['--threads','1'] if lane=='native-single' else [])+['-RTS']
     body_path=temp/'direct-parity.bin'
     receipt=command(guard,argv+[f'parity-{mode}',str(row[1]),row[0],row[2],row[3],str(body_path)],180)
     lines=receipt['output'].splitlines();line=next(line for line in lines if line.startswith('PARITY\t'))

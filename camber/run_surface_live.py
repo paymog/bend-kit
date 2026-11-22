@@ -174,7 +174,7 @@ def main():
         for lane, suffix in (("native", ""), ("js", ".js")):
             executable = temp / ("scoped" + suffix)
             _, rss, seconds = guarded(["bend", str(ROOT / "camber/surface_live.bend"), "-o", str(executable)], 180)
-            command = [str(executable), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(executable)]
+            command = [str(executable), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(executable)]
             results[lane] = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss,
                              "scenarios": exercise(command, temp, lane)}
         (ROOT / "camber/router_surface_live_results.json").write_text(json.dumps(results, indent=2) + "\n")

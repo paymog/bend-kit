@@ -156,24 +156,26 @@ def served(operation: IO(Http.Res)) -> IO(Http.Reply):
     response : Http.Res <- operation
     return Http.Reply{response, Completion.Unobserved{}}
 
-def listening(~h: Http.Req -> IO(Http.Reply), result: Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Unit):
+def listening.ready(~h: Http.Req -> IO(Http.Reply), bound: Http.Server<Unit> & U32) -> IO(Unit):
+  (server, port) = bound
+  do IO<Unit>:
+    IO.print("READY " ++ U32.show(port))
+    exited : Http.ServerExit <- Http.server.run(~Unit, ~(context => req => h(req)),
+      ~(context => status => outcome => Completion.ignore(status, outcome)), server)
+    Http.server.exited(exited)
+
+def listening(~h: Http.Req -> IO(Http.Reply), started: Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Unit):
+  (owner, result) = started
   match result:
     case Fail{error}:
       Http.server.start.failed(error)
-    case Done{server}:
-      (server, port) = Http.server.port(~Unit, server)
-      do IO<Unit>:
-        IO.print("READY " ++ U32.show(port))
-        exited : Http.ServerExit <- Http.server.run(~Unit, ~(context => req => h(req)),
-          ~(context => status => outcome => Completion.ignore(status, outcome)), server)
-        Http.server.exited(exited)
+    case Done{server}: listening.ready(~h, Http.server.port(~Unit, server))
 
 def listen(~h: Http.Req -> IO(Http.Reply), port: U32) -> IO(Unit):
   do IO<Unit>:
     started : Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>> <-
       Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, Http.server.config.with("127.0.0.1", port, 8388608n))
-    (owner, result) = started
-    listening(~h, result)
+    listening(~h, started)
 
 def serve(
   ~r10: U32 -> Bool, ~r100: U32 -> Bool, ~r1000: U32 -> Bool,

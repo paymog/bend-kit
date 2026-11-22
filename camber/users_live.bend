@@ -81,9 +81,8 @@ def live.controlled(started: Unit & Result<&2, &1, H.StartupError, H.Server<Cont
         Chan.close(Unit, arrived)
         IO.die(Unit, 1, "control startup failed")
     case Done{transport}:
-      (transport, port) = H.server.port(~Control, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(port))
+        transport : H.Server<Control> <- U.port(~Control, H.server.port(~Control, transport))
         live.running(H.server.control(~Control, transport), server, own, owner, gate, arrived)
 
 def live.prepared(controlled: C.Server<U.Action, U.State, U.Config, String> & H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +gate: Chan(Unit), arrived: Chan(Unit), port: U32) -> IO(Unit):
@@ -103,9 +102,8 @@ def live.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.Sta
         Chan.close(Unit, arrived)
         IO.die(Unit, 1, "application startup failed")
     case Done{C.Server{transport, application}}:
-      (transport, bound_port) = H.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(bound_port))
+        transport : H.Server<C.ServingContext<U.Action, U.State, U.Config, String>> <- U.port(~C.ServingContext<U.Action, U.State, U.Config, String>, H.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport))
         live.prepared(C.server.control(~U.Action, ~U.State, ~U.Config, ~String, C.Server{transport, application}), owner, gate, arrived, port)
 
 def start(app: Result<&2, &2, C.RegistrationError, C.Application<U.Action, U.Config, C.Policy<String>>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit), port: U32, control_port: U32) -> IO(Unit):

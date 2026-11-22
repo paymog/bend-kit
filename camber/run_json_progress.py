@@ -69,8 +69,8 @@ def main():
         for backend, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("progress" + suffix)
             _, rss, seconds = guarded(["bend", ROOT / "camber/json_progress_probe.bend", "-o", binary], 180)
-            variants = (("native_single", [str(binary), "--threads", "1", "--gpu", "off"]),
-                        ("native_default_threads", [str(binary), "--gpu", "off"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
+            variants = (("native_single", [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"]),
+                        ("native_default_threads", [str(binary), "+RTS", "--gpu", "off", "-RTS"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
             for lane_name, command in variants:
                 lane = {"runtime_arguments": command[1:] if backend == "native" else ["bun", "<compiled-js>"],
                         "build_seconds": seconds, "sampled_build_peak_rss_kib": rss, "cases": []}

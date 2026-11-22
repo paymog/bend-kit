@@ -223,9 +223,8 @@ def control.started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Contr
   match started:
     case Fail{error}: IO.die(Unit, 1, "control startup failed")
     case Done{transport}:
-      (transport, port) = H.server.port(~Control, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(port))
+        transport : H.Server<Control> <- Existing.port(~Control, H.server.port(~Control, transport))
         control.running(H.server.control(~Control, transport), server, self)
 
 def application.observed(observed: C.Server<U32, File, Config, String> & H.ServerStats, stop: H.ServerControl, config: Config, control_port: U32) -> IO(Unit):
@@ -248,9 +247,8 @@ def started(result: Result<&2, &1, C.StartupError, C.Server<U32, File, Config, S
   match result:
     case Fail{error}: IO.die(Unit, 1, "application startup failed")
     case Done{C.Server{transport, owner}}:
-      (transport, port) = H.server.port(~C.ServingContext<U32, File, Config, String>, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(port))
+        transport : H.Server<C.ServingContext<U32, File, Config, String>> <- Existing.port(~C.ServingContext<U32, File, Config, String>, H.server.port(~C.ServingContext<U32, File, Config, String>, transport))
         application.controlled(C.server.control(~U32, ~File, ~Config, ~String, C.Server{transport, owner}), config, control_port)
 
 def ports(mode: String, port: Maybe<&2, U32>, path: String, control_port: Maybe<&2, U32>) -> IO(Unit):

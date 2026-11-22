@@ -7,6 +7,12 @@ import bend-kit-http@0.39.1.0/completion.bend as T
 import bend-kit-json@0.7.2.0/json.bend as J
 import bend-kit-bytes@0.3.3.0/bytes.bend as B
 
+def port(~K: Data, observed: H.Server<K> & U32) -> IO(H.Server<K>):
+  (server, bound_port) = observed
+  do IO<H.Server<K>>:
+    IO.print("PORT " ++ U32.show(bound_port))
+    return server
+
 type Config is Data:
   Config{release: Chan(Unit)}
 
@@ -231,9 +237,8 @@ def control.started(server: C.Server<U32, File, Config, String>, +gate: Chan(Uni
         Chan.close(H.ServerControl, self)
         IO.die(Unit, 1, "control bind failed")
     case Done{transport}:
-      (transport, port) = H.server.port(~Control, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(port))
+        transport : H.Server<Control> <- port(~Control, H.server.port(~Control, transport))
         control.running(H.server.control(~Control, transport), server, gate, self)
 
 def application.observed(observed: C.Server<U32, File, Config, String> & H.ServerStats,
@@ -282,9 +287,8 @@ def started(result: Result<&2, &1, C.StartupError, C.Server<U32, File, Config, S
         Chan.close(Unit, gate)
         IO.print("STARTUP FAILED")
     case Done{C.Server{transport, owner}}:
-      (transport, port) = H.server.port(~C.ServingContext<U32, File, Config, String>, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(port))
+        transport : H.Server<C.ServingContext<U32, File, Config, String>> <- port(~C.ServingContext<U32, File, Config, String>, H.server.port(~C.ServingContext<U32, File, Config, String>, transport))
         started.ready(C.Server{transport, owner}, mode, config, control_port)
 
 def config.adjust(+mode: String, configured: H.ServerConfig) -> H.ServerConfig:

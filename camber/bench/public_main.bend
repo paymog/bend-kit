@@ -82,12 +82,17 @@ def control(context: Control, req: H.Req) -> IO(H.Reply):
         finished : Bool <- H.server.stop(own_stop)
         return H.Reply{C.empty(200), T.Unobserved{}}
     case _: IO.pure(H.Reply, H.Reply{C.empty(404), T.Unobserved{}})
+def report.port(~K: Data, prefix: String, observed: H.Server<K> & U32) -> IO(H.Server<K>):
+  (server, port) = observed
+  do IO<H.Server<K>>:
+    IO.print(prefix ++ " " ++ U32.show(port))
+    return server
+
 def control.running(controlled: H.Server<Control> & H.ServerControl, +own: Chan(H.ServerControl)) -> IO(Unit):
   (returned, stop) = controlled
-  (returned, port) = H.server.port(~Control, returned)
   do IO<Unit>:
     sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, own, stop)
-    IO.print("CONTROL_READY " ++ U32.show(port))
+    returned : H.Server<Control> <- report.port(~Control, "CONTROL_READY", H.server.port(~Control, returned))
     exit : H.ServerExit <- H.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), returned)
     IO.print("CONTROL JOINED")
 def control.run(started: Unit & Result<&2, &1, H.StartupError, H.Server<Control>>, +own: Chan(H.ServerControl)) -> IO(Unit):
@@ -104,10 +109,9 @@ def controls(stop: H.ServerControl, +gate: Chan(Unit), port: U32) -> IO(Unit):
 def camber.running(controlled: C.Server<A.Action, U32, A.Config, U32> & H.ServerControl, gate: Chan(Unit), port: U32) -> IO(Unit):
   (returned, stop) = controlled
   C.Server{transport, owner} = returned
-  (transport, actual_port) = H.server.port(~C.ServingContext<A.Action, U32, A.Config, U32>, transport)
-  returned = C.Server{transport, owner}
   do IO<Unit>:
-    IO.print("READY " ++ U32.show(actual_port))
+    transport : H.Server<C.ServingContext<A.Action, U32, A.Config, U32>> <- report.port(~C.ServingContext<A.Action, U32, A.Config, U32>, "READY", H.server.port(~C.ServingContext<A.Action, U32, A.Config, U32>, transport))
+    returned : C.Server<A.Action, U32, A.Config, U32> = C.Server{transport, owner}
     control_future : Chan(Unit) <- IO.fork(Unit, controls(stop, gate, port))
     exit : C.ServerExit<A.Action, U32, A.Config, U32> <- C.server.run(~A.Action, ~U32, ~A.Config, ~U32, ~String, ~done, ~observed, ~A.notify, ~A.report, ~C.access.disabled(~A.Config), returned)
     closed(exit)
@@ -119,9 +123,8 @@ def camber.started(result: Result<&2, &1, C.StartupError, C.Server<A.Action, U32
     case Done{server}: camber.running(C.server.control(~A.Action, ~U32, ~A.Config, ~U32, server), gate, port)
 def raw.controlled(controlled: H.Server<Raw> & H.ServerControl, gate: Chan(Unit), port: U32) -> IO(Unit):
   (returned, stop) = controlled
-  (returned, actual_port) = H.server.port(~Raw, returned)
   do IO<Unit>:
-    IO.print("READY " ++ U32.show(actual_port))
+    returned : H.Server<Raw> <- report.port(~Raw, "READY", H.server.port(~Raw, returned))
     control_future : Chan(Unit) <- IO.fork(Unit, controls(stop, gate, port))
     exit : H.ServerExit <- H.server.run(~Raw, ~raw.reply, ~ignored, returned)
     control_done : Unit <- IO.join(Unit, control_future)

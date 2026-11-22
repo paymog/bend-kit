@@ -95,13 +95,13 @@ def main():
     results = {"platform": platform.platform(), "bend": subprocess.check_output(["bend", "version"], text=True).strip(),
                "bun": subprocess.check_output(["bun", "--version"], text=True).strip(), "warmup_iterations": 100,
                "live_duration_seconds": 1, "trials": 3, "concurrency": 2, "lanes": {}}
-    with tempfile.TemporaryDirectory(prefix="camber-lifecycle-") as directory:
+    with tempfile.TemporaryDirectory(prefix="camber-lifecycle-", dir=ROOT) as directory:
         temp = Path(directory).resolve()
         entry = generate(temp)
         for lane in ("native", "js"):
             executable = temp / ("paired" if lane == "native" else "paired.js")
             _, rss, seconds = guarded(["bend", str(entry), "-o", str(executable)], 180)
-            command = [str(executable), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(executable)]
+            command = [str(executable), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(executable)]
             data = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss, "artifact_bytes": executable.stat().st_size,
                     "workloads": {}, "servers": {}}
             results["lanes"][lane] = data

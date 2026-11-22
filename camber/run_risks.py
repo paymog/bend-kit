@@ -133,7 +133,7 @@ def main():
         for lane, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("risk-probe" + suffix)
             _, rss, seconds = guarded(["bend", str(ROOT / "camber/risk_probe.bend"), "-o", str(binary)], 180)
-            command = [str(binary), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(binary)]
+            command = [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(binary)]
             data = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss, "cases": {}}
             calibrations = []
             data["cpu_calibration"] = calibrations

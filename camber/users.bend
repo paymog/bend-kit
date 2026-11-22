@@ -8,6 +8,12 @@ import bend-kit-json@0.7.2.0/json.bend as J
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-bytes@0.3.3.0/bytes.bend as B
 
+def port(~K: Data, observed: H.Server<K> & U32) -> IO(H.Server<K>):
+  (server, bound_port) = observed
+  do IO<H.Server<K>>:
+    IO.print("PORT " ++ U32.show(bound_port))
+    return server
+
 type User is Data:
   User{id: U32, name: String, secret: String}
 type Operation is Data:

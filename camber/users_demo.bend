@@ -67,9 +67,8 @@ def control.started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Contr
         Chan.close(H.ServerControl, self)
         IO.die(Unit, 1, "owner control startup failed")
     case Done{transport}:
-      (transport, port) = H.server.port(~Control, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(port))
+        transport : H.Server<Control> <- U.port(~Control, H.server.port(~Control, transport))
         running(H.server.control(~Control, transport), server, owner, self)
 
 def server.controlled(controlled: C.Server<U.Action, U.State, U.Config, String> & H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, control_port: U32) -> IO(Unit):
@@ -87,9 +86,8 @@ def server.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.S
         store.closed(closed)
         IO.die(Unit, 1, "users startup failed")
     case Done{C.Server{transport, application}}:
-      (transport, port) = H.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport)
       do IO<Unit>:
-        IO.print("PORT " ++ U32.show(port))
+        transport : H.Server<C.ServingContext<U.Action, U.State, U.Config, String>> <- U.port(~C.ServingContext<U.Action, U.State, U.Config, String>, H.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport))
         server.controlled(C.server.control(~U.Action, ~U.State, ~U.Config, ~String, C.Server{transport, application}), owner, control_port)
 
 def prepared(prepared: C.Owner<U.Store, U32, U.Operation, String, U.User> & C.Context<U.Store, U32, U.Operation, String, U.User>, port: U32, control_port: U32) -> IO(Unit):

@@ -226,7 +226,7 @@ def main():
                "bun": subprocess.check_output(["bun", "--version"], text=True).strip(),
                "duration_seconds": args.seconds, "trials": args.trials, "concurrency": args.concurrency,
                "body_limit_bytes": 8388608, "lanes": {}}
-    with tempfile.TemporaryDirectory(prefix="camber-raw-") as directory:
+    with tempfile.TemporaryDirectory(prefix="camber-raw-", dir=ROOT) as directory:
         temp = Path(directory).resolve()
         generated_start = time.perf_counter()
         source = "import Base\n\n" + "\n\n".join(
@@ -241,7 +241,7 @@ def main():
         for lane in ("native", "js"):
             executable = temp / ("baseline" if lane == "native" else "baseline.js")
             _, rss, build = guarded(["bend", str(entry), "-o", str(executable)], 180)
-            command = [str(executable), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(executable)]
+            command = [str(executable), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(executable)]
             data = {"build_seconds": build, "sampled_build_peak_rss_kib": rss, "artifact_bytes": executable.stat().st_size,
                     "command": command[1:] if lane == "native" else ["bun", "<generated.js>"], "workloads": {}, "servers": {}}
             results["lanes"][lane] = data
