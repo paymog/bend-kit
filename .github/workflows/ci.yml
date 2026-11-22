@@ -36,7 +36,11 @@ jobs:
             shopt -s nullglob
             for pkg in $pkgs; do
               cs=("$pkg"/effs/*.c)
-              [ ${#cs[@]} -eq 0 ] || echo "$pkg"
+              if [ ${#cs[@]} -gt 0 ]; then
+                echo "$pkg"
+              else
+                case "$pkg" in commands|webhooks|f32array|bits) echo "$pkg" ;; esac
+              fi
             done
           )
           echo "native=$(jq -Rnc '[inputs | select(length > 0)]' <<<"$native")" >> "$GITHUB_OUTPUT"
@@ -54,6 +58,8 @@ jobs:
           fi
       - name: Check macOS DNS failure allowance
         run: python3 scripts/macos-dns-check-test.py
+      - name: Check macOS native package selection
+        run: python3 scripts/macos-native-selection-test.py
 
   check:
     needs: changes
@@ -166,7 +172,7 @@ jobs:
         run: |
           scripts/install-bend.sh
           echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
-      - name: Check native ${{ matrix.package }} effects
+      - name: Check native ${{ matrix.package }}
         if: matrix.package != 'dns'
         run: scripts/native-check.sh ${{ matrix.package }}
       - name: Check native DNS effects
