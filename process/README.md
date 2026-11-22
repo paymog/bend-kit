@@ -4,6 +4,10 @@ Run an executable with literal arguments and a child working directory. Stdin, s
 
 `wait` accepts PID values from `1` through `2147483647`. Zero and larger values return `EINVAL` before reaching the host wait operation; they cannot select a process group or an arbitrary child.
 
+`wait.deadline(pid, ms)` has the same result as `wait`, but fails with the host's `ETIMEDOUT` when the child is still running after `ms` milliseconds. Zero means no deadline. A timeout does not kill the child or consume its logical wait result: call `wait` or `wait.deadline` again. Bun may already have reaped the OS child and cached its status. Do not rely on this API to reserve the kernel PID. Both wait APIs consume a successful result once. Drain output before waiting to avoid pipe deadlock.
+
+`kill(pid, signal)` sends a signal to one positive PID, whether or not `spawn` created it. Signal zero probes existence and permission. PID zero and values above `2147483647` fail with `EINVAL`; process groups are never selected. The caller must account for PID reuse. A successful signal does not wait for termination or kill descendants.
+
 ## Bounded runs
 
 `run.bounded(cmd, args, env, cwd, stdin, ms, max_out)` is `run` for a child you do not trust to finish or to stay small. `run.bounded.raw` takes the same arguments with octet-string stdin.
@@ -21,7 +25,7 @@ The group kill is not containment. A descendant that leaves the group with `sets
 The JS target needs `bun:ffi`, and `posix_spawn_file_actions_addchdir_np` from glibc 2.29 or later, or from macOS 10.15 or later. It was tested with Bun 1.4.2, the version CI pins, and with Bun 1.4.4.
 
 ```bend
-import bend-kit-process@0.5.1.1/process.bend as Proc
+import bend-kit-process@0.5.2.0/process.bend as Proc
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 

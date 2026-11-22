@@ -344,6 +344,79 @@ def expect.signal() -> IO(Unit):
     event : U32 <- Proc.signal.poll()
     expect.yes(U32.is_eq(event, 15), "SIGTERM delivery")
 
+
+def expect.wait.error(expected: U32, value: Result<&1, &1, U32 & String, U32>) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(U32.is_eq(code, expected), "wait.deadline error")
+    case Done{_}:
+      IO.die(Unit, 1, "wait.deadline must fail")
+
+def expect.kill.error(expected: U32, value: Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match value:
+    case Fail{(code, _)}:
+      expect.yes(U32.is_eq(code, expected), "kill error")
+    case Done{_}:
+      IO.die(Unit, 1, "kill must fail")
+
+def expect.deadline.child(child: U32 & File & File & File) -> IO(Unit):
+  (+pid, input, output, errors) = child
+  do IO<Unit>:
+    File.close(input)
+    File.close(output)
+    File.close(errors)
+    +timeout : U32 <- Proc.etimedout()
+    first : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(pid, 10)
+    expect.wait.error(timeout, first)
+    again : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(pid, 10)
+    expect.wait.error(timeout, again)
+    IO.try(Unit, Proc.kill(pid, 0))
+    invalid : Result<&1, &1, U32 & String, Unit> <- Proc.kill(pid, 4294967295)
+    expect.kill.error(22, invalid)
+    IO.try(Unit, Proc.kill(pid, 9))
+    status : U32 <- IO.try(U32, Proc.wait.deadline(pid, 5000))
+    expect.yes(U32.is_eq(status, 137), "deadline wait returns signal status")
+    reaped : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(pid, 1)
+    expect.wait.error(10, reaped)
+
+def expect.deadline.exited(child: U32 & File & File & File) -> IO(Unit):
+  (+pid, input, output, errors) = child
+  do IO<Unit>:
+    File.close(input)
+    File.close(output)
+    File.close(errors)
+    IO.sleep(100)
+    status : U32 <- IO.try(U32, Proc.wait.deadline(pid, 0))
+    expect.yes(U32.is_eq(status, 23), "zero deadline waits for cached exit status")
+    reaped : Result<&1, &1, U32 & String, U32> <- Proc.wait(pid)
+    expect.wait.error(10, reaped)
+
+def expect.deadline() -> IO(Unit):
+  do IO<Unit>:
+    other : U32 & File & File & File <- IO.try(U32 & File & File & File,
+      Proc.spawn("/bin/sh", ["-c", "exit 17"], [], "."))
+    child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+      Proc.spawn("/bin/sleep", ["5"], [], "."))
+    zero : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(0, 1)
+    expect.wait.error(22, zero)
+    high : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(2147483648, 1)
+    expect.wait.error(22, high)
+    every : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(4294967295, 1)
+    expect.wait.error(22, every)
+    bad_zero : Result<&1, &1, U32 & String, Unit> <- Proc.kill(0, 0)
+    expect.kill.error(22, bad_zero)
+    bad_high : Result<&1, &1, U32 & String, Unit> <- Proc.kill(2147483648, 0)
+    expect.kill.error(22, bad_high)
+    bad_every : Result<&1, &1, U32 & String, Unit> <- Proc.kill(4294967295, 0)
+    expect.kill.error(22, bad_every)
+    own : U32 <- Proc.pid()
+    IO.try(Unit, Proc.kill(own, 0))
+    expect.deadline.child(child)
+    expect.wait.child(17, other)
+    exited : U32 & File & File & File <- IO.try(U32 & File & File & File,
+      Proc.spawn("/bin/sh", ["-c", "exit 23"], [], "."))
+    expect.deadline.exited(exited)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     echo : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
@@ -373,6 +446,7 @@ def main() -> IO(Unit):
     expect.cwd()
     expect.os()
     expect.wait.pids()
+    expect.deadline()
     +host_timeout : U32 <- Proc.etimedout()
     uname : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
       Proc.run("/usr/bin/uname", ["-s"], [], ".", Bytes.from_string("")))

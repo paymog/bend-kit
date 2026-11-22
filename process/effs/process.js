@@ -595,7 +595,7 @@ function etimedout() {
   return (typeof code === "number" ? code : (process.platform === "darwin" ? 60 : 110)) >>> 0;
 }
 
-function wait(pid, k) {
+function process_wait(pid, ms, k) {
   const n = Number(pid);
   if (!Number.isInteger(n) || n < 1 || n > 2147483647) {
     return io_fail(process_einval());
@@ -605,6 +605,7 @@ function wait(pid, k) {
     return io_fail(10);
   }
   const { lib, ptr } = process_libc();
+  const deadline = ms === 0 ? 0 : performance.now() + ms;
   const check = () => {
     if (proc.exitCode !== null) {
       process_procs.delete(Number(pid));
@@ -616,14 +617,40 @@ function wait(pid, k) {
       process_procs.delete(Number(pid));
       return io_done(process_exit_status(status[0]));
     }
-    if (r < 0) {
+    if (r < 0 && io_sys().errno() !== 4) {
       process_procs.delete(Number(pid));
       return io_fail(io_sys().errno());
     }
-    io_park_on(undefined, false, k, check, performance.now() + 5);
+    const now = performance.now();
+    if (deadline !== 0 && now >= deadline) {
+      return io_fail(etimedout());
+    }
+    io_park_on(undefined, false, k, check,
+      deadline === 0 ? now + 5 : Math.min(now + 5, deadline));
     return undefined;
   };
   return check();
+}
+
+function wait(pid, k) {
+  return process_wait(pid, 0, k);
+}
+
+function wait_deadline(pid, ms, k) {
+  return process_wait(pid, ms, k);
+}
+
+function kill(pid, signal) {
+  if (!Number.isInteger(pid) || pid < 1 || pid > 2147483647 ||
+      !Number.isInteger(signal) || signal < 0 || signal > 2147483647) {
+    return io_fail(process_einval());
+  }
+  try {
+    process.kill(pid, signal);
+    return io_done({$: CID(Unit)});
+  } catch (e) {
+    return io_fail(process_host_fail(e));
+  }
 }
 
 function read_stdin(max, k) {
@@ -734,6 +761,8 @@ io_eff(CID(run.raw), run_raw);
 io_eff(CID(run.bounded.raw), run_bounded_raw);
 io_eff(CID(spawn), spawn);
 io_eff(CID(wait), wait);
+io_eff(CID(wait.deadline), wait_deadline);
+io_eff(CID(kill), kill);
 io_eff(CID(etimedout), etimedout);
 io_eff(CID(read_stdin), read_stdin);
 io_eff(CID(exit.raw), exit_raw);
