@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `archive` 0.6.0.0 and `http` 0.40.0.0: use zlib 0.6.0.0. Import its native module for compression effects and streaming decoders.
+
 - `zlib` 0.6.0.0: isolate pure codec proofs from foreign effects. Breaking: import `native.bend` for native compression and streaming decoders.
 
 - `http` checks: emit local, mTLS, and HTTP/2 pool acceptance programs separately. Keep every case in both native and JS lanes.

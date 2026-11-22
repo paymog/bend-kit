@@ -36,7 +36,7 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.39.2.0` imports its siblings by name: `wire@0.4.8.0`, `http2@0.5.0.2`, `bytes@0.3.3.1`, `time@0.3.0.1`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.1`, `json@0.7.3.0`, `dns@0.7.1.1`, and `zlib@0.5.3.0`. `Http.Body` is `bend-kit-bytes@0.3.3.1`.
+`http@0.40.0.0` imports its siblings by name: `wire@0.4.8.0`, `http2@0.5.0.2`, `bytes@0.3.3.1`, `time@0.3.0.1`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.1`, `json@0.7.3.0`, `dns@0.7.1.1`, and `zlib@0.6.0.0`. `Http.Body` is `bend-kit-bytes@0.3.3.1`.
 
 `hairpin@0.15.0.0`, `camber@0.16.1.1`, `jwt@0.13.0.0`, `llm@0.15.0.1`, `oauth2@0.13.0.0`, `sigv4@0.13.0.0`, and `webhooks@0.13.0.0` use `bend-kit-http@0.39.2.0`. The `jwt`, `llm`, `oauth2`, `sigv4`, and `webhooks` packages use `bend-kit-hairpin@0.15.0.0`. These versions share their sibling types and C effects.
 
@@ -100,7 +100,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.2.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
 | [`migrate`](migrate) | `bend-kit-migrate@0.4.1.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.1/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
-| [`archive`](archive) | `bend-kit-archive@0.5.2.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
+| [`archive`](archive) | `bend-kit-archive@0.6.0.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.6.0.0/zlib.bend` | Pure DEFLATE, gzip, and zlib over `Bytes`; `native.bend` provides native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.1.1/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
 
@@ -112,7 +112,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
 | [`dns`](dns) | `bend-kit-dns@0.7.1.1/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.8.0/wire.bend` | TCP, UDP, and TLS sockets. |
-| [`http`](http) | `bend-kit-http@0.39.2.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
+| [`http`](http) | `bend-kit-http@0.40.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.5.0.2/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.15.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
