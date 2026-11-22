@@ -1,5 +1,5 @@
 import Base
-import bend-mathlib@0.7.4.0/nat.bend as MNat
+import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-kit-scheduler@0.4.3.0/queue.bend as Q
 import bend-kit-scheduler@0.4.3.0/queue_laws.bend as QL
 import bend-kit-collections@0.1.5.0/heap.bend as H
