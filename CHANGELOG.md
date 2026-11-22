@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hash` 0.3.2.1: hash long CRC-32 inputs in 16-byte steps and inputs below 32 bytes by words. Paired native runs reduce the 16 MB checksum from 6.41 ms to 4.25 ms. Keep all checksum values unchanged.
+
 - `storage` 0.5.0.0: hash packed file bytes once during Blob construction and reuse the canonical digest during commit. Blob constructors and decode now return Run. Keep Tree and Obj reusable. Breaking.
 
 - `runner`, `gateway`, and `authz`: use bend-mathlib 0.8.0.0 in their laws and proofs. Replace runner's internal Nat contradiction helper with the public Bool lemma. No runtime or published-file change.

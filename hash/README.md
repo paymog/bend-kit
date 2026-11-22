@@ -3,7 +3,7 @@
 Non-cryptographic hashes over `Bytes`: FNV-1a (32 and 64), xxHash (32 and 64), SipHash-1-3, SipHash-2-4, CRC-32, and Adler-32.
 
 ```bend
-import bend-kit-hash@0.3.2.0/hash.bend as Hash
+import bend-kit-hash@0.3.2.1/hash.bend as Hash
 import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
 ```
 
