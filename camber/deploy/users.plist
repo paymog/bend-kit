@@ -4,8 +4,10 @@
   <key>Label</key><string>org.bend-kit.camber.users</string>
   <key>ProgramArguments</key><array>
     <string>/opt/camber/users</string>
+    <string>+RTS</string>
     <string>--threads</string><string>1</string>
     <string>--gpu</string><string>off</string>
+    <string>-RTS</string>
     <string>19441</string><string>19442</string>
     <string>/var/lib/camber/journal</string>
   </array>

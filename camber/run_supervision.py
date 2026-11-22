@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test OS termination of a dedicated process, not embedded Bend cancellation."""
+import argparse
 import json
 import platform
 import signal
@@ -69,6 +70,9 @@ def interrupt(path, port):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=ROOT / "camber/supervision_risk_results.json")
+    args = parser.parse_args()
     Drain.disk_floor()
     prior = json.loads((ROOT / "camber/design_risk_results.json").read_text())
     historical = json.loads((ROOT / "camber/supervision_risk_results.json").read_text())
@@ -80,13 +84,13 @@ def main():
                "signal": "SIGKILL", "pre_signal_delay_ms": 100, "forced_teardown_budget_ms": 100,
                "historical_pre_stop_handle_evidence": historical,
                "inspected_runtime_source_revision": "7d8a3eb036042c6549461054d25a10f26d361c5c", "lanes": {}}
-    target = ROOT / "camber/supervision_risk_results.json"
+    target = args.output
     with tempfile.TemporaryDirectory(prefix="camber-supervision-") as directory:
         temp = Path(directory)
         for lane, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("probe" + suffix)
             _, rss, seconds = guarded(["bend", ROOT / "camber/risk_probe.bend", "-o", binary], 180)
-            command = [str(binary), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(binary)]
+            command = [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(binary)]
             data = {"build_seconds": seconds, "sampled_build_peak_rss_kib": rss,
                     "reused_cpu_iterations": prior["lanes"][lane]["selected_iterations"], "cases": {}}
             results["lanes"][lane] = data
@@ -107,7 +111,7 @@ def main():
                       f"socket_closed={record['idle_socket_closed_after_termination']}", flush=True)
             drain_binary = temp / ("public-drain" + suffix)
             Drain.Process(["bend", str(ROOT / "http/drain_check.bend"), "-o", str(drain_binary)]).finish()
-            drain_command = [str(drain_binary), "--threads", "1", "--gpu", "off"] if lane == "native" else ["bun", str(drain_binary)]
+            drain_command = [str(drain_binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else ["bun", str(drain_binary)]
             Drain.run_lane(lane, drain_command, temp)
             data["public_http_stop_drain"] = [row for row in Drain.RESULTS if row["lane"] == lane]
             results["public_http_commands"] = Drain.COMMANDS

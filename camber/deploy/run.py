@@ -725,7 +725,7 @@ def main():
                 assert results["javascript_signal_source"]["sha256"] == results["source_sha256"]["camber/deploy/signals.c"]
                 evidence.save()
             guard.command(["bend", HERE / "users.bend", "-o", binary], timeout=180)
-            command = [binary, "--threads", "1", "--gpu", "off"] if lane == "native" else [shutil.which("bun"), binary]
+            command = [binary, "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else [shutil.which("bun"), binary]
             for mode in (["cooperative", "cpu", "io", "tls-proof"] if args.case == "all" else [args.case]):
                 row = {"lane": lane, "mode": mode, "source_sha256": results["source_sha256"], "passed": False}
                 results["cases"].append(row) # Persist before bootstrap or any cleanup can fail.

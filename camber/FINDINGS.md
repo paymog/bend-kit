@@ -44,7 +44,7 @@ This is not an assumed pending runtime feature. Upstream [#1034](https://github.
 
 The [native scheduler](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L5970-L6010) evaluates a continuation synchronously before handling its next IO request; a Halt calls process `exit`. The [JS scheduler](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.ts#L6416-L6455) invokes continuations synchronously and returns from the whole IO runner on Halt. Pure work therefore can delay reaching the timer continuation. The runtime does not expose a server-owned cancellation/cleanup control through Base spawn or fork.
 
-Run `python3 -B camber/run_supervision.py`. It reuses the retained CPU iteration counts, runs a dedicated Bend child, and sends OS `SIGKILL` after a 100 ms host-side delay. [supervision_risk_results.json](supervision_risk_results.json) retains all four observations:
+Run `python3 -B camber/run_supervision.py --output /tmp/camber-supervision-current.json` to preserve the historical results. Native probes enclose runtime options in `+RTS` and `-RTS` before application arguments. The driver reuses the retained CPU iteration counts, runs a dedicated Bend child, and sends OS `SIGKILL` after a 100 ms host-side delay. [supervision_risk_results.json](supervision_risk_results.json) retains all four historical observations:
 
 | Lane | CPU signal to child reaping | Idle-socket signal to child reaping | Idle peer closes | Unrelated parent work |
 | --- | ---: | ---: | --- | --- |

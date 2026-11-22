@@ -24,7 +24,7 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/org.bend-kit.camber.users
 sudo launchctl print system/org.bend-kit.camber.users
 ```
 
-Native `ProgramArguments` execute `/opt/camber/users --threads 1 --gpu off 19441 19442 /var/lib/camber/journal`; JS executes `/opt/camber/bin/bun /opt/camber/users.js 19441 19442 /var/lib/camber/journal`. Neither lane passes credentials in argv. The final optional acceptance-mode argument is omitted in deployment; `cooperative`, `cpu`, `io`, and `tls-proof` are deliberate verification fixtures, not public routes. The blocking IO fixture retains a real TCP Socket while receiving from a private loopback peer; the CPU fixture intentionally does not yield.
+Native `ProgramArguments` execute `/opt/camber/users +RTS --threads 1 --gpu off -RTS 19441 19442 /var/lib/camber/journal`; JS executes `/opt/camber/bin/bun /opt/camber/users.js 19441 19442 /var/lib/camber/journal`. The runtime consumes only the options between `+RTS` and `-RTS`; application arguments follow `-RTS`. Neither lane passes credentials in argv. The final optional acceptance-mode argument is omitted in deployment; `cooperative`, `cpu`, `io`, and `tls-proof` are deliberate verification fixtures, not public routes. The blocking IO fixture retains a real TCP Socket while receiving from a private loopback peer; the CPU fixture intentionally does not yield.
 
 ## Stop and observe
 
@@ -66,11 +66,13 @@ Application tracing and access logging are disabled in ordinary deployment. Owne
 Run only with an exclusive local-runtime slot, at least 10 GiB free disk, and no other Bend programs. The runner monitors aggregate RSS across its own root **and actual launchd job roots and their descendants**, failing and killing above 20 GiB. Passing cases may not use safety kills or forced cleanup. It unregisters every owned job, closes all peers/listeners/kqueues, verifies all four ports refused, and removes only its private temporary directory. Builds, services and matrix cases are sequential.
 
 ```sh
-python3 camber/deploy/run.py --lane native --case cooperative --output camber/deploy/native-cooperative.json
-python3 camber/deploy/run.py --lane all --case all
+python3 camber/deploy/run.py --lane native --case cooperative --output /tmp/camber-native-cooperative.json
+python3 camber/deploy/run.py --lane all --case all --output /tmp/camber-deploy-current.json
 ```
 
 The JSON output is a cumulative `invocations` history: each retry appends, never overwrites earlier failed/adverse attempts. Command receipts persist before startup and after nonzero exits, timeouts and cleanup failures; cases persist before bootstrap. PID plus `lstart` identities follow the existing serving-runner pattern, including observed compiler descendants. Safety/timeout cleanup makes the invocation fail even when every process is subsequently reaped. Cleanup skips a prior guard failure but never the disk prerequisite; unavailable release/observation is recorded as failure, not zero survivors. A private temporary tree is preserved for recovery when owned jobs or observed descendants cannot be verified released.
+
+Use a separate output path for current checks to preserve the checked-in historical result files.
 
 Each invocation records runtime-consumed source/config SHA-256 (documentation and output JSON are not executable inputs), rendered configuration, platform PID/PPID, monotonic observations, exact response bytes, platform exit status and sampled aggregate RSS. For JS the runner copies exact `signals.c` adjacent to the generated program, makes it mode 0400 in its private tree and checks its hash before and after operation; this test uses the caller's ownership, not a claimed root-owned installation. Embedded TinyCC compilation occurs inside the observed platform job's guarded startup. The TLS row also retains the actual nginx platform job, stop/exit/reap and release evidence. Launchd snapshots use a closed lifecycle projection; inherited/operator environment, other services, arguments and internal diagnostics are omitted. Host-observed log timestamps are not internal work clocks. Production system-domain installation requires administrator provisioning; the local matrix uses the caller's GUI launchd domain and verifies parent PID 1.
 
