@@ -35,7 +35,8 @@ def gfm_cases():
 
 
 def differential_cases():
-    cases = json.load(urllib.request.urlopen(SPEC)) + gfm_cases()
+    commonmark, gfm = json.load(urllib.request.urlopen(SPEC)), gfm_cases()
+    cases = commonmark + gfm
     corpus = []
     for prefix in ("", "x:", "!", "/", "(", "*", "_", "~", "[", "é", "a", "X", "1"):
         for text in ("a@b.co", "www.x.org", "http://x.org", "https://x.org/a_(b)", "ftp://x.org", "HTTP://x.org", "Https://x.org", "FTP://x.org"):
@@ -54,6 +55,7 @@ def differential_cases():
         "mailto:a@b.co", "xmpp:a@b.co", "xmpp:a@b.co/resource",
         "&#97;b@c.co", r"a\.b_c@d.co", "*a@b.co*", "_a@b.co_",
         "[&#97;b@c.co](/y)", "a@b@c.co"))
+    print(f"Corpus: {len(commonmark)} CommonMark 0.31.2; {len(gfm)} GFM 0.29.0.gfm.13; {len(corpus)} generated", flush=True)
     return cases + [{"section": "GFM corpus", "example": f"corpus-{i}", "markdown": s}
                     for i, s in enumerate(corpus, 1)]
 
@@ -79,6 +81,7 @@ def main():
     cases = differential_cases() if diff else gfm_cases() if gfm else json.load(urllib.request.urlopen(SPEC))
     if diff or safe:
         command = ["cmark-gfm", "--unsafe", "-e", "table", "-e", "strikethrough", "-e", "autolink", "-e", "tasklist", "-e", "tagfilter"] if diff else ["cmark"]
+        print(subprocess.run([command[0], "--version"], capture_output=True, text=True, check=True).stdout.strip(), flush=True)
         for t in cases:
             t["spec_html"] = t.get("html")
             t["html"] = subprocess.run(command, input=t["markdown"].encode(), capture_output=True, check=True).stdout.decode()
