@@ -4,10 +4,11 @@ DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli.
 
 ```bend
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-zlib@0.5.3.0/zlib.bend as Zlib
+import bend-kit-zlib@0.6.0.0/zlib.bend as Zlib
+import bend-kit-zlib@0.6.0.0/native.bend as Native
 ```
 
-Every function takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes`, `bits` 0.3.0.0, and `hash` from the hub.
+The codec takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes` 0.3.3.1, `bits` 0.3.0.1, and `hash` 0.3.2.2 from the hub. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` use only this pure graph. `publish.bend` bundles both modules for the hub.
 
 ## Pure
 
@@ -17,11 +18,11 @@ The encoder uses lazy matching with a 32 KiB window and up to 32 hash-chain cand
 
 ## Native
 
-The native calls are `IO` and fail with `(errno, message)`:
+Import `native.bend` for native calls. They return `IO` and fail with `(errno, message)`:
 
 ```bend
 def gz(b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, Bytes.Bytes>):
-  Zlib.libz.gzip(b)
+  Native.libz.gzip(b)
 ```
 
 | def | does | library | override |

@@ -1,5 +1,6 @@
 import Base
 import ./zlib.bend as Z
+import ./native.bend as Native
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ./encode.bend as Encode
 import bend-kit-bits@0.3.0.1/bits.bend as Bits
@@ -46,7 +47,7 @@ def gz.back(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Result<&1, &1, U
     case Fail{e}:
       IO.pure(Result<&1, &1, U32 & String, Bytes.Bytes>, Fail{e})
     case Done{b}:
-      Z.libz.inflate(1000, b)
+      Native.libz.inflate(1000, b)
 
 def ok(ok: Bool, +s: String) -> IO(Unit):
   match ok:
@@ -84,12 +85,12 @@ def malformed(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
     case Done{p}:
       IO.die(Unit, 1, "raw decoder accepted trailing or cut input")
 
-def stream.new(r: Result<&1, &1, U32 & String, Z.Decoder>) -> IO(Z.Decoder):
+def stream.new(r: Result<&1, &1, U32 & String, Native.Decoder>) -> IO(Native.Decoder):
   match r:
     case Fail{(+code, why)}:
-      IO.die(Z.Decoder, 1, "stream open: " ++ U32.show(code) ++ " " ++ why)
+      IO.die(Native.Decoder, 1, "stream open: " ++ U32.show(code) ++ " " ++ why)
     case Done{d}:
-      IO.pure(Z.Decoder, d)
+      IO.pure(Native.Decoder, d)
 
 def stream.bytes(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Bytes.Bytes):
   match r:
@@ -99,7 +100,7 @@ def stream.bytes(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Bytes.Bytes
       IO.pure(Bytes.Bytes, b)
 
 type StreamState is Type:
-  StreamState{dec: Z.Decoder, src: Bytes.Bytes, out: Bytes.Bytes}
+  StreamState{dec: Native.Decoder, src: Bytes.Bytes, out: Bytes.Bytes}
 
 def stream.closed(+want: String, out: Bytes.Bytes, r: Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   match r:
@@ -111,19 +112,19 @@ def stream.closed(+want: String, out: Bytes.Bytes, r: Result<&1, &1, U32 & Strin
 def stream.done(+want: String, st: StreamState) -> IO(Unit):
   StreamState{d, src, out} = st
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, Unit> <- Z.dec.finish(d)
+    r : Result<&1, &1, U32 & String, Unit> <- Native.dec.finish(d)
     stream.closed(want, out, r)
 
-def stream.feed.got(src: Bytes.Bytes, out: Bytes.Bytes, fed: Z.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(StreamState):
+def stream.feed.got(src: Bytes.Bytes, out: Bytes.Bytes, fed: Native.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(StreamState):
   (d, r) = fed
   do IO<StreamState>:
     piece : Bytes.Bytes <- stream.bytes(r)
     return StreamState{d, src, Bytes.append(out, piece)}
 
-def stream.feed.pair(out: Bytes.Bytes, d: Z.Decoder, pair: Bytes.Bytes & Bytes.Bytes) -> IO(StreamState):
+def stream.feed.pair(out: Bytes.Bytes, d: Native.Decoder, pair: Bytes.Bytes & Bytes.Bytes) -> IO(StreamState):
   (src, chunk) = pair
   do IO<StreamState>:
-    fed : Z.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.dec.push(d, 1000, chunk)
+    fed : Native.Decoder & Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.dec.push(d, 1000, chunk)
     stream.feed.got(src, out, fed)
 
 def stream.step(+at: U32, +step: U32, st: StreamState) -> IO(StreamState):
@@ -150,8 +151,8 @@ def stream.test.with(one: Bool, +len: U32, +want: String, st: StreamState) -> IO
 def stream.test(+kind: U32, +want: String, +one: Bool, src: Bytes.Bytes) -> IO(Unit):
   Bytes.Bytes{+len, words} = src
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, Z.Decoder> <- Z.dec.new(kind)
-    d : Z.Decoder <- stream.new(r)
+    r : Result<&1, &1, U32 & String, Native.Decoder> <- Native.dec.new(kind)
+    d : Native.Decoder <- stream.new(r)
     stream.test.with(one, len, want, StreamState{d, Bytes.Bytes{len, words}, Bytes.new(0)})
 
 def encoder.got(+s: String, r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
@@ -163,7 +164,7 @@ def encoder.got(+s: String, r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(
 
 def encoder.case(+s: String) -> IO(Unit):
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(200000, Z.deflate(Bytes.from_string(s)))
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.inflate.raw(200000, Z.deflate(Bytes.from_string(s)))
     encoder.got(s, r)
 
 def encoder.noise(n: Nat, +seed: U32, acc: String) -> String:
@@ -220,20 +221,20 @@ def main() -> IO(Unit):
     show(Z.inflate(Bytes.from_string("x")))
     show(Z.gunzip(Z.gzip(Bytes.from_string("pure round trip"))))
     encoder.check()
-    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.zstd(1000, frames())
+    r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.zstd(1000, frames())
     got("hello zstd", r)
-    e : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.zstd(5, frames())
+    e : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.zstd(5, frames())
     big(e)
-    g : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate(1000, members())
+    g : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.inflate(1000, members())
     got("hello gzip", g)
-    c : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.gzip(Bytes.from_string("round trip"))
+    c : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.gzip(Bytes.from_string("round trip"))
     t : Result<&1, &1, U32 & String, Bytes.Bytes> <- gz.back(c)
     got("round trip", t)
-    p : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate(1000, Z.gzip(Bytes.from_string("pure gzip, libz gunzip")))
+    p : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.inflate(1000, Z.gzip(Bytes.from_string("pure gzip, libz gunzip")))
     got("pure gzip, libz gunzip", p)
-    b : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.brotli(1000, brotli())
+    b : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.brotli(1000, brotli())
     got("hello brotli", b)
-    m : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.brotli(5, brotli())
+    m : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.brotli(5, brotli())
     big(m)
     stream.test(0, "hello gzip", True{}, members())
     stream.test(0, "hello gzip", False{}, members())
@@ -242,13 +243,13 @@ def main() -> IO(Unit):
     stream.test(0, "hello raw", True{}, wrapped())
     stream.test(0, "hello raw", False{}, wrapped())
     stream.test(0, "A", True{}, raw.like_header())
-    one : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(1000, raw())
+    one : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.inflate.raw(1000, raw())
     got("hello raw", one)
-    twice : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(1000, Bytes.append(raw(), raw()))
+    twice : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.inflate.raw(1000, Bytes.append(raw(), raw()))
     malformed(twice)
-    cut : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(1000, Bytes.snd(Bytes.slice(raw(), 0, 10)))
+    cut : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.inflate.raw(1000, Bytes.snd(Bytes.slice(raw(), 0, 10)))
     malformed(cut)
-    bounded : Result<&1, &1, U32 & String, Bytes.Bytes> <- Z.libz.inflate.raw(5, raw())
+    bounded : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.libz.inflate.raw(5, raw())
     big(bounded)
     stream.test(0, "A", False{}, raw.like_header())
     stream.test(1, "hello brotli", True{}, brotli())
