@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` checks: emit local, mTLS, and HTTP/2 pool acceptance programs separately. Keep every case in both native and JS lanes.
+
 - `http` checks: read complete request bodies in the mTLS fixture before responding. Check a delayed chunked upload to prevent the server from closing TLS while the client still writes.
 
 - `storage` 0.5.1.1: isolate object and root writes with exclusive temporary files. Keep publication atomic across writers and remove owned temporary files after errors.

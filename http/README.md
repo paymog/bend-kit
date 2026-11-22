@@ -127,3 +127,10 @@ Rejected connections are closed without a read buffer. A parsed request that exc
 Deadlines do not cancel a handler. Affine erasure does not close an application file or socket. The `abort` and `dispose` callbacks do that, and they must return.
 
 `python3 -B http/drain_check.py`, `http/outcome_check.py`, `http/admission_check.py`, and `http/startup_check.py` are the socket checks for this contract. The laws do not cover the effects.
+
+## Acceptance checks
+
+Run `scripts/check.sh http` for types, proofs, and local socket checks.
+Run `sh http/mtls-check.sh` for native acceptance or append `js` for JavaScript.
+The TLS harness builds local, mTLS, and HTTP/2 pool checks as separate programs.
+It checks certificate isolation, redirects, uploads, idle reconnects, stream reuse, and cancellation.
