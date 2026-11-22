@@ -42,6 +42,7 @@ while [ ! -s "$dir/ports" ]; do
   sleep 0.1
 done
 read -r port _ h2port streamport <"$dir/ports"
+python3 mtls-server-check.py "$dir/ca.pem" "$dir/one.pem" "$dir/one.key" "$port"
 if [ "${1:-native}" = js ]; then
   SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port" "https://localhost:$h2port" "https://localhost:$streamport"
 else
