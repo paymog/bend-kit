@@ -403,9 +403,9 @@ def Index.admit(~D: Data, ~B: Data, ~cmp: D -> D -> Cmp, +s: Index(D, B), +claim
 
 # ---- SHA-256 content addressing on disk
 
-# Octets packed four to a U32, low byte first, as Bytes packs them. Words past len are 0.
+# File octets and the SHA-256 of their canonical file encoding.
 type Blob is Data:
-  Blob{len: U32, words: List<&2, U32>}
+  Blob{len: U32, words: List<&2, U32>, digest: Digest}
 
 # r is the array beside the word read at i - 1.
 def Blob.read(n: Nat, r: Array<U32> & U32, +i: U32, acc: List<&2, U32>) -> List<&2, U32>:
@@ -416,9 +416,9 @@ def Blob.read(n: Nat, r: Array<U32> & U32, +i: U32, acc: List<&2, U32>) -> List<
       (a, w) = r
       Blob.read(p, Array.get(U32, a, i), (i + 1 : U32), Con{w, acc})
 
-def Blob.of(b: Bytes.Bytes) -> Blob:
+def Blob.pack(d: Digest, b: Bytes.Bytes) -> Blob:
   Bytes.Bytes{+len, buf} = b
-  Blob{len, Blob.read(U32.to_nat(((len + 3) / 4 : U32)), Array.get(U32, buf, 0), 1, Nil{})}
+  Blob{len, Blob.read(U32.to_nat(((len + 3) / 4 : U32)), Array.get(U32, buf, 0), 1, Nil{}), d}
 
 def Blob.write(ws: List<&2, U32>, a: Array<U32>, +i: U32) -> Array<U32>:
   match ws:
@@ -428,7 +428,7 @@ def Blob.write(ws: List<&2, U32>, a: Array<U32>, +i: U32) -> Array<U32>:
       Blob.write(t, Array.set(U32, a, i, w), (i + 1 : U32))
 
 def Blob.bytes(x: Blob) -> Bytes.Bytes:
-  Blob{+len, ws} = x
+  Blob{+len, ws, d} = x
   Bytes.Bytes{len, Blob.write(ws, Bytes.alloc(len), 0)}
 
 # A zero last carry may lie past the array, where a write would wrap to word 0.
@@ -447,8 +447,6 @@ def Blob.write.shift(ws: List<&2, U32>, a: Array<U32>, +j: U32, +lo: Nat, +hi: N
     case Con{+w, t}:
       Blob.write.shift(t, Array.set(U32, a, j, (carry .|. U32.shln(w, lo) : U32)), (j + 1 : U32), lo, hi, U32.shrn(w, hi))
 
-def Blob.string(+s: String) -> Blob:
-  Blob.of(Bytes.from_string(s))
 
 # Loads and collections give up past this many levels. Each directory entry is one level.
 def limit() -> Nat:
@@ -558,66 +556,13 @@ def encode.file(+len: U32, ws: List<&2, U32>, h: Bytes.Bytes) -> Bytes.Bytes:
 def encode(o: Obj<Digest, Blob>) -> Bytes.Bytes:
   match o:
     case OFile{b}:
-      Blob{+len, ws} = b
+      Blob{+len, ws, d} = b
       encode.file(len, ws, Bytes.from_string("file " ++ U32.show(len) ++ "\n"))
     case OEnd{}:
       Bytes.from_string("end\n")
     case OItem{n, c, r}:
       Bytes.from_string("item " ++ Digest.hex(c) ++ " " ++ Digest.hex(r) ++ " " ++ n ++ "\n")
 
-def decode.when(ok: Bool, o: Obj<Digest, Blob>) -> Maybe<&2, Obj<Digest, Blob>>:
-  match ok:
-    case True{}:
-      Some{o}
-    case False{}:
-      None{}
-
-def decode.item.of(ok: Bool, n: String, c: Maybe<&2, Digest>, r: Maybe<&2, Digest>) -> Maybe<&2, Obj<Digest, Blob>>:
-  match ok c r:
-    case True{} Some{x} Some{y}:
-      Some{OItem{n, x, y}}
-    case _ _ _:
-      None{}
-
-# rest is "<child> <rest> <name>".
-def decode.item(+rest: String) -> Maybe<&2, Obj<Digest, Blob>>:
-  +n = String.drop(rest, 130n)
-  decode.item.of(Bool.and(name.ok(n),
-    Bool.and(String.eq(String.take(String.drop(rest, 64n), 1n), " "), String.eq(String.take(String.drop(rest, 129n), 1n), " "))),
-    n, Digest.read(String.take(rest, 64n)), Digest.read(String.take(String.drop(rest, 65n), 64n)))
-
-def decode.file(m: Maybe<&2, U32>, +digits: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
-  match m:
-    case None{}:
-      None{}
-    case Some{+n}:
-      Bytes.Bytes{+len, buf} = b
-      decode.when(Bool.and(String.eq(U32.show(n), digits), U32.is_eq((len - at : U32), n)),
-        OFile{Blob.of(Bytes.snd(Bytes.slice(Bytes.Bytes{len, buf}, at, n)))})
-
-def decode.head(+head: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
-  Bytes.Bytes{+len, buf} = b
-  +whole = U32.is_eq(len, at)
-  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, String.starts_with(head, "file "),
-    decode.file(U32.read(String.drop(head, 5n)), String.drop(head, 5n), at, Bytes.Bytes{len, buf}),
-  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, Bool.and(whole, String.eq(head, "end")), Some{OEnd{}},
-  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, Bool.and(whole, String.starts_with(head, "item ")), decode.item(String.drop(head, 5n)),
-    None{})))
-
-def decode.cut(+at: U32, r: Bytes.Bytes & Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
-  (b, head) = r
-  decode.head(Bytes.to_string(head), at, b)
-
-def decode.at(r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, Obj<Digest, Blob>>:
-  match r:
-    case (b, None{}):
-      None{}
-    case (b, Some{+i}):
-      decode.cut((i + 1 : U32), Bytes.slice(b, 0, i))
-
-# The object that encode wrote, or None for any other octets.
-def decode(b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
-  decode.at(Bytes.find(b, "\n"))
 
 # ---- IO that can fail
 
@@ -668,12 +613,102 @@ def digest(b: Bytes.Bytes) -> Run(Digest):
     r : U32 & Array<U32> <- Crypto.sha256.words(len, buf)
     return digest.of(r)
 
+def Blob.hash.words(len: U32, raw: Array<U32>) -> IO(Result<&1, &1, U32 & String, Array<U32> & (U32 & Array<U32>)>):
+  import "./effs/storage.c"
+  import "./effs/storage.js"
+
+def Blob.of.hashed(+len: U32, buffers: Array<U32> & (U32 & Array<U32>)) -> Blob:
+  (raw, hash) = buffers
+  Blob.pack(digest.of(hash), Bytes.Bytes{len, raw})
+
+# Hashes the packed input before it becomes a reusable word list.
+def Blob.of(b: Bytes.Bytes) -> Run(Blob):
+  Bytes.Bytes{+len, raw} = b
+  do Run<Blob>:
+    buffers : Array<U32> & (U32 & Array<U32>) <- Blob.hash.words(len, raw)
+    return Blob.of.hashed(len, buffers)
+
+def Blob.string(s: String) -> Run(Blob):
+  Blob.of(Bytes.from_string(s))
+
+def object.digest(o: Obj<Digest, Blob>) -> Run(Digest):
+  match o:
+    case OFile{Blob{len, ws, d}}:
+      Run.pure(Digest, d)
+    case OEnd{}:
+      digest(encode(OEnd{}))
+    case OItem{n, c, r}:
+      digest(encode(OItem{n, c, r}))
+
+def decode.when(ok: Bool, o: Obj<Digest, Blob>) -> Maybe<&2, Obj<Digest, Blob>>:
+  match ok:
+    case True{}:
+      Some{o}
+    case False{}:
+      None{}
+
+def decode.item.of(ok: Bool, n: String, c: Maybe<&2, Digest>, r: Maybe<&2, Digest>) -> Maybe<&2, Obj<Digest, Blob>>:
+  match ok c r:
+    case True{} Some{x} Some{y}:
+      Some{OItem{n, x, y}}
+    case _ _ _:
+      None{}
+
+# rest is "<child> <rest> <name>".
+def decode.item(+rest: String) -> Maybe<&2, Obj<Digest, Blob>>:
+  +n = String.drop(rest, 130n)
+  decode.item.of(Bool.and(name.ok(n),
+    Bool.and(String.eq(String.take(String.drop(rest, 64n), 1n), " "), String.eq(String.take(String.drop(rest, 129n), 1n), " "))),
+    n, Digest.read(String.take(rest, 64n)), Digest.read(String.take(String.drop(rest, 65n), 64n)))
+
+def decode.file(m: Maybe<&2, U32>, d: Digest, +digits: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
+  match m:
+    case None{}:
+      None{}
+    case Some{+n}:
+      Bytes.Bytes{+len, buf} = b
+      decode.when(Bool.and(String.eq(U32.show(n), digits), U32.is_eq((len - at : U32), n)),
+        OFile{Blob.pack(d, Bytes.snd(Bytes.slice(Bytes.Bytes{len, buf}, at, n)))})
+
+def decode.head(d: Digest, +head: String, +at: U32, b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
+  Bytes.Bytes{+len, buf} = b
+  +whole = U32.is_eq(len, at)
+  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, String.starts_with(head, "file "),
+    decode.file(U32.read(String.drop(head, 5n)), d, String.drop(head, 5n), at, Bytes.Bytes{len, buf}),
+  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, Bool.and(whole, String.eq(head, "end")), Some{OEnd{}},
+  Bool.pick(Maybe<&2, Obj<Digest, Blob>>, Bool.and(whole, String.starts_with(head, "item ")), decode.item(String.drop(head, 5n)),
+    None{})))
+
+def decode.cut(d: Digest, +at: U32, r: Bytes.Bytes & Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
+  (b, head) = r
+  decode.head(d, Bytes.to_string(head), at, b)
+
+def decode.at(d: Digest, r: Bytes.Bytes & Maybe<&2, U32>) -> Maybe<&2, Obj<Digest, Blob>>:
+  match r:
+    case (b, None{}):
+      None{}
+    case (b, Some{+i}):
+      decode.cut(d, (i + 1 : U32), Bytes.slice(b, 0, i))
+
+def decode.hashed(d: Digest, b: Bytes.Bytes) -> Maybe<&2, Obj<Digest, Blob>>:
+  decode.at(d, Bytes.find(b, "\n"))
+
+def decode.two(bb: Bytes.Bytes & Bytes.Bytes) -> Run(Maybe<&2, Obj<Digest, Blob>>):
+  (b, raw) = bb
+  do Run<Maybe<&2, Obj<Digest, Blob>>>:
+    d : Digest <- digest(raw)
+    return decode.hashed(d, b)
+
+# The object that encode wrote, or None for any other octets.
+def decode(b: Bytes.Bytes) -> Run(Maybe<&2, Obj<Digest, Blob>>):
+  decode.two(Bytes.clone(b))
+
 def commit.done(+d: Digest, o: Obj<Digest, Blob>, xs: Store<Digest, Blob>) -> Run(Digest & Store<Digest, Blob>):
   Run.pure(Digest & Store<Digest, Blob>, (d, Store.cat(Digest, Blob, xs, StCon{d, o, StNil{}})))
 
 def commit.node(+o: Obj<Digest, Blob>, xs: Store<Digest, Blob>) -> Run(Digest & Store<Digest, Blob>):
   do Run<Digest & Store<Digest, Blob>>:
-    d : Digest <- digest(encode(o))
+    d : Digest <- object.digest(o)
     commit.done(d, o, xs)
 
 def commit.item(+n: String, c: Digest & Store<Digest, Blob>, r: Digest & Store<Digest, Blob>) -> Run(Digest & Store<Digest, Blob>):
@@ -699,8 +734,8 @@ def commit(t: Tree<Blob>) -> Run(Digest & Store<Digest, Blob>):
 def receive.two(+s: Index(Digest, Blob), +claimed: Digest, bb: Bytes.Bytes & Bytes.Bytes) -> Run(Index(Digest, Blob)):
   (b1, b2) = bb
   do Run<Index(Digest, Blob)>:
-    computed : Digest <- digest(b1)
-    o : Obj<Digest, Blob> <- Run.some(Obj<Digest, Blob>, decode(b2), "object " ++ Digest.hex(claimed) ++ " does not decode")
+    +computed : Digest <- digest(b1)
+    o : Obj<Digest, Blob> <- Run.some(Obj<Digest, Blob>, decode.hashed(computed, b2), "object " ++ Digest.hex(claimed) ++ " does not decode")
     Run.some(Index(Digest, Blob), Index.admit(~Digest, ~Blob, ~Digest.cmp, s, claimed, computed, o), "object " ++ Digest.hex(claimed) ++ " does not match its digest")
 
 # Ingress: the store with the object that b encodes. Fails when b does not decode or its SHA-256 is not claimed.
@@ -1060,7 +1095,10 @@ def snap(fuel: Nat, +path: String, step: Step) -> Run(Tree<Blob>):
     case 1n+p Stat{}:
       Run.bind(Files.Info, Tree<Blob>, Files.stat(path), i => snap(p, path, Statted{i}))
     case 1n+p Statted{Files.Info{Files.Regular{}, s, t}}:
-      Run.bind(Bytes.Bytes, Tree<Blob>, read(path), b => Run.pure(Tree<Blob>, TFile{Blob.of(b)}))
+      do Run<Tree<Blob>>:
+        b : Bytes.Bytes <- read(path)
+        blob : Blob <- Blob.of(b)
+        return TFile{blob}
     case 1n+p Statted{Files.Info{Files.Directory{}, s, t}}:
       Run.bind(List<&2, String>, Tree<Blob>, Files.list_dir(path), ns => snap(p, path, Listing{ns}))
     case 1n+p Statted{Files.Info{Files.Other{}, s, t}}:

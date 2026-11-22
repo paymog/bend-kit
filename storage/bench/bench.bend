@@ -12,31 +12,50 @@ def fill(n: Nat, b: Bytes.Bytes, +j: U32, +seed: U32) -> Bytes.Bytes:
     case 1n+p:
       fill(p, Bytes.set(b, j, ((seed + j) .&. 255 : U32)), (j + 1 : U32), seed)
 
-def content(+d: U32, +f: U32) -> S.Blob:
-  S.Blob.of(fill(4096n, Bytes.new(4096), 0, (d * 31 + f * 7 : U32)))
+type Input is Type:
+  File{bytes: Bytes.Bytes}
+  End{}
+  Item{name: String, child: Input, rest: Input}
+
+def content(+d: U32, +f: U32) -> Bytes.Bytes:
+  fill(4096n, Bytes.new(4096), 0, (d * 31 + f * 7 : U32))
 
 def pad(+k: U32) -> String:
   Bool.pick(String, U32.is_lt(k, 10), "0", "") ++ U32.show(k)
 
-def files(n: Nat, +d: U32, +f: U32) -> S.Tree<S.Blob>:
+def files(n: Nat, +d: U32, +f: U32) -> Input:
   match n:
     case 0n:
-      S.TEnd{}
+      End{}
     case 1n+p:
-      S.TItem{"f" ++ pad(f), S.TFile{content(d, f)}, files(p, d, (f + 1 : U32))}
+      Item{"f" ++ pad(f), File{content(d, f)}, files(p, d, (f + 1 : U32))}
 
-def dirs(n: Nat, +d: U32, +k: Nat) -> S.Tree<S.Blob>:
+def dirs(n: Nat, +d: U32, +k: Nat) -> Input:
   match n:
     case 0n:
-      S.TEnd{}
+      End{}
     case 1n+p:
-      S.TItem{"d" ++ pad(d), files(k, d, 0), dirs(p, (d + 1 : U32), k)}
+      Item{"d" ++ pad(d), files(k, d, 0), dirs(p, (d + 1 : U32), k)}
+
+def prepare(t: Input) -> S.Run(S.Tree<S.Blob>):
+  match t:
+    case File{bytes}:
+      do S.Run<S.Tree<S.Blob>>:
+        blob : S.Blob <- S.Blob.of(bytes)
+        return S.TFile{blob}
+    case End{}:
+      S.Run.pure(S.Tree<S.Blob>, S.TEnd{})
+    case Item{n, c, r}:
+      do S.Run<S.Tree<S.Blob>>:
+        child : S.Tree<S.Blob> <- prepare(c)
+        rest : S.Tree<S.Blob> <- prepare(r)
+        return S.TItem{n, child, rest}
 
 # The octets in every file of the loaded tree.
 def total(t: S.Tree<S.Blob>) -> U32:
   match t:
     case S.TFile{b}:
-      S.Blob{+len, ws} = b
+      S.Blob{+len, ws, digest} = b
       len
     case S.TEnd{}:
       0
@@ -68,8 +87,9 @@ def main() -> IO(Unit):
   do IO<Unit>:
     args : List<&1, String> <- IO.args()
     +k : Nat = U32.to_nat(side(args))
-    t : S.Tree<S.Blob> = dirs(k, 0, k)
+    raw : Input = dirs(k, 0, k)
     t0 : Time.Duration <- Time.mono()
+    t : S.Tree<S.Blob> <- IO.try(S.Tree<S.Blob>, prepare(raw))
     r : S.Digest & S.Store<S.Digest, S.Blob> <- IO.try(S.Digest & S.Store<S.Digest, S.Blob>, S.commit(t))
     IO.print("chk\tcommit\t" ++ finish(r))
     t1 : Time.Duration <- Time.mono()

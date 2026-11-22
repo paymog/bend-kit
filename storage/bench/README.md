@@ -17,7 +17,7 @@ You need `bend`, `clang` with OpenSSL 3 from Homebrew (`brew install openssl@3`)
 
 The tree has K directories `d00`, `d01`, … at the top. Each directory holds K files `f00`, `f01`, … of 4096 octets. Octet `j` of file `(d, f)` is `(d * 31 + f * 7 + j) & 255`. Each program builds the tree before the timer starts.
 
-The timed region encodes every object in the format of [../README.md](../README.md#encoding), takes its SHA-256, puts it in a store keyed by the digest (the first object under a digest stays), and then walks the store from the root and counts the file octets. Each program prints the root digest in hex and that count. Bend keys its store by `S.Digest`, the 32 octets packed into eight `U32`s; the other programs key theirs by the hex string.
+The timed region converts the packed file inputs to reusable Blobs, hashes every canonical object, puts the objects in a store keyed by the digest, and loads the root back to count the file octets. Blob construction now hashes files, so it must stay inside the timer. The other programs build their file buffers before the timer and hash them inside it. Each program prints the root digest in hex and that count. Bend keys its store by `S.Digest`, the 32 octets packed into eight `U32`s; the other programs key theirs by the hex string.
 
 | language | digest | store |
 |---|---|---|
@@ -38,6 +38,35 @@ Versions: Bend 2.0.38, Apple clang 21.0.0 with OpenSSL 3.6.5, rustc 1.91.0 with 
 | commit and load | 5.1 (1.7x) | 9.1 (3.1x) | 3.9 (1.3x) | 6.6 (2.3x) | 2.9 (1.0x) | 34.3 (11.7x) |
 
 Every program prints root `29cc4de74d186c77f13fdfc2781365c186a6823091cdf974614aebe811a53202` and `4194304` octets.
+
+### Packed file digest cache
+
+Apple M4 Pro, macOS 26.7.2 arm64, 2026-11-21. Three runs at K = 32, median, in ms. Bend 2.0.40; the other versions are unchanged. Every program still prints the root and octet count above.
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| prepare, commit, and load | 4.9 | 8.9 | 3.7 | 5.7 | 2.6 | 30.5 |
+
+The unmodified `origin/main` baseline (`7a57643`, storage 0.4.1.0) took 28.0 ms with the old timer, which excluded Blob construction. For a like-for-like comparison, the baseline used the same prebuilt packed `Input` tree as the new harness. Its pure preparation mapped each file through the old `Blob.of`, inside the timer. The three baseline times were 35.81, 34.81, and 35.60 ms. The median fell from 35.60 to 30.5 ms, about 14%. The new timer includes file hashing and Blob construction; it does not hide this work before the clock.
+
+`split.bend` now also times SHA-256 on pre-encoded buffers and builds the same object-list shape with fixed digests. Three runs, median, in ms:
+
+| stage | storage 0.4.1.0 | storage 0.5.0.0 |
+|---|---:|---:|
+| Blob preparation, including file SHA-256 in 0.5.0.0 | outside old timer | 11.65 |
+| `S.commit` | 14.43 | 4.25 |
+| `S.Index.of` | 3.51 | 3.76 |
+| `S.Index.load` | 2.37 | 2.55 |
+| `S.encode` alone | 5.80 | 8.10 |
+| SHA-256 of pre-encoded objects | not measured | 3.45 |
+| object-list construction and `Store.cat`, fixed digests | not measured | 0.67 |
+
+The SHA-only checksum is `1634831564`. Both list paths produce 2,113 entries before index deduplication. Encoding produces 4,351,460 octets. These are independent timings, not additive parts of one run. SHA-only includes the native input conversion and eight-word digest conversion. List-only includes tree traversal and object allocation, not just `Store.cat`. The new encode-only measurement retains the objects for the later SHA-only measurement; the old one consumed its last reference.
+
+A Blob now caches the SHA-256 of `"file <len>\n"` and its octets. A native effect hashes the packed input and returns the same input buffer to build the reusable word list. It does not rebuild that list for hashing. `S.commit` reuses the digest. The remaining commit time hashes directory objects and builds their lists. A first prototype used `Bytes.clone` and `Bytes.append`; its comparable total was 38.0 ms. Reusing the source during a packed Bend copy took 37.3 ms. The native input-preserving effect reduced that total to 30.5 ms.
+
+`hash` has no SHA-256 implementation, so a pure cached constructor is not available. The existing OpenSSL effect consumes its input. Blob construction and `decode` therefore now return `Run`; the specialized effect retains the packed input instead of making a second Bend buffer. The generic laws and the `Data` kinds of `Tree` and `Obj` do not change.
+
 
 ## Reading it
 
