@@ -285,7 +285,7 @@ def deliveries() -> IO(Unit):
     b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
     deliveries.on(b)
 
-def main() -> IO(Unit):
+def signatures() -> IO(Unit):
   +done = "Done " ++ std.id()
   do IO<Unit>:
     # Standard Webhooks reference vector: sign writes the published signature, and verify accepts it.
@@ -357,4 +357,8 @@ def main() -> IO(Unit):
     expect.u("github without sha256=", "NoMatch", h4)
     h5 : Bytes.Bytes & Result<&1, &1, W.Err, Unit> <- W.github.verify(["It's a Secret to Everybody"], hs(), Bytes.from_string("Hello, World!"))
     expect.u("github missing header", "Missing x-hub-signature-256", h5)
+
+def main() -> IO(Unit):
+  do IO<Unit>:
+    signatures()
     deliveries()

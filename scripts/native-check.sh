@@ -20,12 +20,17 @@ for d in "$@"; do
   out=$(mktemp -d)
   (
     cd "$d"
-    bend check.bend -o "$out/check"
-    if [ "$d" = f32array ]; then
-      "$out/check" +RTS --threads 8
-    else
-      "$out/check"
-    fi
+    checks=(check)
+    # Separate emission units bound compilation: https://github.com/bendlang/bend/issues/2093
+    [ "$d" != webhooks ] || checks=(signature_check delivery_check)
+    for check in "${checks[@]}"; do
+      bend "$check.bend" -o "$out/$check"
+      if [ "$d" = f32array ]; then
+        "$out/$check" +RTS --threads 8
+      else
+        "$out/$check"
+      fi
+    done
     if [ "$d" = bits ]; then
       bend large-check.bend -o "$out/large-check"
       "$out/large-check" 0
