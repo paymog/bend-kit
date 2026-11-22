@@ -18,16 +18,21 @@ def join(connections: List<Chan(Unit)>) -> IO(Unit):
       do IO<Unit>:
         IO.join(Unit, finished)
         join(rest)
+def accept.drained(finished: List<Chan(Unit)>, +inbox: Chan(Admission.Command), drained: Chan(Admission.Counts)) -> IO(Unit):
+  do IO<Unit>:
+    join(finished)
+    requested : Bool <- Admission.quiesce(inbox)
+    Admission.close(inbox)
+    counts : Admission.Counts <- IO.join(Admission.Counts, drained)
+    return Unit{}
+
 def accept.closed(~C: Data, server: Http.Server<C>, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
   Http.Server{listener, context, config, +inbox, drained} = server
   do IO<List<Chan(Unit)>>:
     Listener.close(listener)
     IO.print("LISTENER CLOSED")
-    join(finished)
-    requested : Bool <- Admission.quiesce(inbox)
-    Admission.close(inbox)
-    counts : Admission.Counts <- IO.join(Admission.Counts, drained)
-    return Nil{}
+    finished : Chan(Unit) <- IO.fork(Unit, accept.drained(finished, inbox, drained))
+    return [finished]
 
 type AcceptStep<-C: Data> is Type:
   AcceptListening{server: Http.Server<C>}
