@@ -1,6 +1,6 @@
 import Base
 import ./redis.bend as R
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # The laws run in the checker. This runs the codec on the runtime at sizes the checker would not reach.
 

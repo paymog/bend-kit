@@ -3,7 +3,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../http.bend as Http
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def body.step(fuel: Nat, +n: U32, m: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Http.Stream & U32):
   match fuel:

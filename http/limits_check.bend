@@ -2,7 +2,7 @@
 import Base
 import ./http.bend as Http
 import ./completion.bend as Completion
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def config(port: U32) -> Http.ServerConfig:
   Http.ServerConfig{"127.0.0.1", port, 8, 128, 128, 128, 128, 600, 600, 800, 600}

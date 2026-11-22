@@ -3,7 +3,7 @@ import Base
 import ./http.bend as Http
 import ./completion.bend as Completion
 import ./admission_check.bend as Checks
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 type Payload is Data:
   Payload{path: String, stage: U32}
