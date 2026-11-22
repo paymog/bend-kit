@@ -3,8 +3,8 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.39.0.0/http.bend as Http
-import bend-kit-http@0.39.0.0/completion.bend as Completion
+import bend-kit-http@0.39.1.0/http.bend as Http
+import bend-kit-http@0.39.1.0/completion.bend as Completion
 ```
 
 `Http.Body` uses `bend-kit-bytes@0.3.3.0`. JSON values for `post.json` use `bend-kit-json@0.7.2.0`. DNS lookup uses `bend-kit-dns@0.7.1.0`. TLS uses `bend-kit-wire@0.4.8.0`.
@@ -15,7 +15,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.39.0.0/http.bend as Http
+import bend-kit-http@0.39.1.0/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -107,6 +107,8 @@ def main() -> IO(Unit):
 `server.config(host, port)` is the same caps as above, plus 128 connections, 128 active requests, and 128 buffered-input units. Every size and deadline is a positive `U32`. Zero is an error, not an unlimited setting. A deadline must fit in signed host milliseconds, at most 2147483647. The largest header or body cap that fits is 4294901756. Port 0 asks the OS for a port.
 
 `server.start` returns your affine owner beside `Done{server}` or a `StartupError`. `InvalidConfig` and `BindError` both return the owner, so you can close it. `Done` means the listener is accepting. Do not treat a failure as ready.
+
+Use port `0` to let the OS select a free port. `(server, port) = Http.server.port(~Context, server)` returns the actual port beside the same server. The listener stays open from startup through serving. Both native and JS startup use `Wire.listen`.
 
 `0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.8.0`.
 

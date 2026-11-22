@@ -53,21 +53,22 @@ def accepted(file: File, calls: Chan(Unit), result: Http.Server<Context> & Resul
     result : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
     second(file, calls, finished, result)
 
-def success(mode: String, file: File, calls: Chan(Unit), server: Http.Server<Context>) -> IO(Unit):
+def success(observed: Http.Server<Context> & U32, mode: String, file: File, calls: Chan(Unit)) -> IO(Unit):
+  (server, +port) = observed
   match mode:
     case "run":
       do IO<Unit>:
-        IO.print("READY")
+        IO.print("READY " ++ U32.show(port))
         result : Http.ServerExit <- Http.server.run(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         cleanup(file, "server drained\n")
     case "boundary":
       do IO<Unit>:
-        IO.print("READY")
+        IO.print("READY " ++ U32.show(port))
         drained : Http.ServerCounts <- Http.server.close(~Context, server)
         cleanup(file, "representability boundary accepted\n")
     case _:
       do IO<Unit>:
-        IO.print("READY")
+        IO.print("READY " ++ U32.show(port))
         first : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         accepted(file, calls, first)
 
@@ -85,7 +86,7 @@ def started(mode: String, +calls: Chan(Unit), result: File & Result<&2, &1, Http
             IO.print("BIND FAILED " ++ U32.show(code))
             cleanup(file, "bind recovered\n")
     case Done{server}:
-      success(mode, file, calls, server)
+      success(Http.server.port(~Context, server), mode, file, calls)
 
 def setting(+mode: String, name: String, value: U32) -> U32:
   Bool.pick(U32, String.eq(mode, name), 0, value)
