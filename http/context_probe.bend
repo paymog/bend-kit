@@ -19,10 +19,14 @@ def join(connections: List<Chan(Unit)>) -> IO(Unit):
         IO.join(Unit, finished)
         join(rest)
 def accept.closed(~C: Data, server: Http.Server<C>, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
+  Http.Server{listener, context, config, +inbox, drained} = server
   do IO<List<Chan(Unit)>>:
-    join(finished)
-    drained : Http.ServerCounts <- Http.server.close(~C, server)
+    Listener.close(listener)
     IO.print("LISTENER CLOSED")
+    join(finished)
+    requested : Bool <- Admission.quiesce(inbox)
+    Admission.close(inbox)
+    counts : Admission.Counts <- IO.join(Admission.Counts, drained)
     return Nil{}
 
 type AcceptStep<-C: Data> is Type:
