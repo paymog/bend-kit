@@ -1,9 +1,9 @@
 import Base
 import ./planner.bend as P
 import ./LAWS.bend as Laws
-import bend-kit-collections@0.1.5.0/omap.bend as OMap
-import bend-kit-collections@0.1.5.0/LAWS.bend as Col
-import bend-kit-collections@0.1.5.0/PROOF.bend as ColProof
+import bend-kit-collections@0.1.6.0/omap.bend as OMap
+import bend-kit-collections@0.1.6.0/LAWS.bend as Col
+import bend-kit-collections@0.1.6.0/PROOF.bend as ColProof
 
 # Bool
 # ----

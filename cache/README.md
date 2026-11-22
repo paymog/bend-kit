@@ -3,10 +3,10 @@
 Cache validity for keyed values: expiry, negative results, invalidation, eviction, and fetch completions that cannot bring back stale data. It decides what a cache may serve. It does not fetch, store to disk, or talk to the network: your code does the fetch, and the cache decides whether the result lands.
 
 ```bend
-import bend-kit-cache@0.3.1.0/cache.bend as C
+import bend-kit-cache@0.3.2.0/cache.bend as C
 ```
 
-It imports `bend-kit-collections@0.1.5.0` (`omap.bend` and `order.bend`). Keys are `String`, in `Order.string` order; values are any `Data` type `V`.
+It imports `bend-kit-collections@0.1.6.0` (`omap.bend` and `order.bend`). Keys are `String`, in `Order.string` order; values are any `Data` type `V`.
 
 ## Example
 
@@ -14,7 +14,7 @@ A configuration value changes upstream while a fetch of the old value is in flig
 
 ```bend
 import Base
-import bend-kit-cache@0.3.1.0/cache.bend as C
+import bend-kit-cache@0.3.2.0/cache.bend as C
 
 def show(r: Maybe<&2, C.Entry<String>>) -> String:
   match r:
@@ -105,11 +105,11 @@ The laws above cover one key. These cover the keyed `Cache`:
 | `new_keyed`, `apply_keyed` | `Cache.new` gives a cache whose slots form a search tree under `Order.string`, and every operation keeps it one. |
 | `apply_other_key` | `start`, `complete`, `invalidate`, or `evict` on one key leaves the slot of every other key as it was. |
 
-Their proofs cite `omap_put_searchtree`, `omap_get_put_other_key`, and the `Order.string` order laws from `bend-kit-collections@0.1.5.0`.
+Their proofs cite `omap_put_searchtree`, `omap_get_put_other_key`, and the `Order.string` order laws from `bend-kit-collections@0.1.6.0`.
 
 ## Trust boundary
 
-- **Clock.** The core takes the clock as a `Nat` argument in the caller's unit; `Policy` TTLs use the same unit. Pass a monotonic clock, such as `Time.mono.ms()` from `bend-kit-time@0.3.0.0`, as `check.bend` does. A wall clock that goes back can keep an entry fresh for too long.
+- **Clock.** The core takes the clock as a `Nat` argument in the caller's unit; `Policy` TTLs use the same unit. Pass a monotonic clock, such as `Time.mono.ms()` from `bend-kit-time@0.3.0.1`, as `check.bend` does. A wall clock that goes back can keep an entry fresh for too long.
 - **Upstream versions.** The cache orders fetches by when they started, not by the upstream `version`. It assumes upstream is linearizable: a fetch that starts later sees a version at least as new. A replica that lags can answer an older version to a newer fetch, and the cache stores it. `version` is reported, not compared.
 - **Invalidation.** The cache learns of an upstream change only when you call `invalidate`. Until then it serves the old value up to its TTL.
 - **One owner.** A `Cache` is a value. Keep it in one task and run fetches elsewhere, as `check.bend` does: the forked task only fetches, and the main task completes. Two copies of a cache that both take completions diverge.

@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../regex.bend as R
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def mix(+acc: U32, +x: U32) -> U32:
   (acc * 31 + x : U32)

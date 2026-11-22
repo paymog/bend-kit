@@ -3,9 +3,9 @@
 Pure proto3 messages over packed `Bytes`. The runtime checks bounds before each read. The `protoc` plugin generates typed Bend codecs from official descriptors.
 
 ```bend
-import bend-kit-protobuf@0.2.1.0/protobuf.bend as P
-import bend-kit-bytes@0.3.3.0/bytes.bend as B
-import bend-kit-f64@0.1.3.0/f64.bend as F
+import bend-kit-protobuf@0.2.2.0/protobuf.bend as P
+import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-f64@0.1.4.0/f64.bend as F
 ```
 
 Use those sibling versions when you pass bytes or doubles to the codec. A different hub version is a different type. `double` uses the published pure `F.F64`, not an `F32` or a host effect. Its two limbs hold the IEEE 754 bits. The codec preserves floating-point bits, including signed zero and NaN payloads.
@@ -49,7 +49,7 @@ PATH=/tmp/protobuf-venv/bin:$PATH protoc -I proto \
 
 The plugin reads a standard `CodeGeneratorRequest` from stdin and writes a `CodeGeneratorResponse` to stdout. It accepts proto3, including `optional`. It emits one `schema.bend` with all messages and enums in the request's import closure. Pass cooperating root files in one invocation. Separate invocations create separate Bend types for shared imports.
 
-By default, generated code imports `bend-kit-protobuf@0.2.1.0/protobuf.bend`. To regenerate the checked-in examples against the local runtime:
+By default, generated code imports `bend-kit-protobuf@0.2.2.0/protobuf.bend`. To regenerate the checked-in examples against the local runtime:
 
 ```sh
 PATH=/tmp/protobuf-venv/bin:$PATH protoc -I protobuf/examples \
@@ -66,7 +66,7 @@ Each message provides `.empty()`, `encode_<type>(value, max_size, depth)`, and `
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.0/bytes.bend as B
+import bend-kit-bytes@0.3.3.1/bytes.bend as B
 import ../protobuf.bend as P
 import ./schema.bend as S
 

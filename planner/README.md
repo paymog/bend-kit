@@ -3,10 +3,10 @@
 Dependency plans for builds and task graphs. `plan` gives the dependency closure of the requested targets in an order where every prerequisite comes first, or says which node is missing or which cycle blocks the plan. `invalidate` finds what an input change makes stale, and `exec` decides which nodes run, which are reused, and which are skipped. `build` runs real commands on top of them. `LAWS.bend` states these properties for every graph, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-planner@0.5.0.0/planner.bend as P
+import bend-kit-planner@0.5.1.0/planner.bend as P
 ```
 
-It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-hash@0.3.0.4`, `bend-kit-files@0.4.0.0`, `bend-kit-process@0.5.1.0`, and `bend-kit-collections@0.1.5.0`.
+It imports `bend-kit-bytes@0.3.3.1`, `bend-kit-hash@0.3.2.2`, `bend-kit-files@0.4.0.1`, `bend-kit-process@0.5.2.1`, and `bend-kit-collections@0.1.6.0`.
 
 ## Example
 
@@ -14,7 +14,7 @@ Build `app` from `lib`. A second build reuses both; a change to `lib.c` rebuilds
 
 ```bend
 import Base
-import bend-kit-planner@0.5.0.0/planner.bend as P
+import bend-kit-planner@0.5.1.0/planner.bend as P
 
 def tasks() -> List<&2, P.Task>:
   [P.Task{"app", ["lib"], ["cc", "-o", "app", "main.c", "lib.o"], ["main.c"]},

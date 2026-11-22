@@ -1,7 +1,7 @@
 # Pairwise F32Array reductions with read-only, zero-copy fork-join handles.
 import Base
 import ./f32array.bend as A
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def sum.join(l: Array<A.Cell> & F32, r: Array<A.Cell> & F32) -> Array<A.Cell> & F32:
   (a, x) = l

@@ -5,7 +5,7 @@ import ./codec-model.bend as C
 import ./codec-bridge.bend as B
 import ../lemmas/array.bend as Arr
 import ../lemmas/perfect.bend as P
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # Small allocations wrap unused decoder reads; prove their visible lanes directly.
 def leaf_roundtrip(c: A.Cell, +n: Nat, h: P.lt(n, 8n)) -> {Laws.lists(A.from_bytes.le(A.to_bytes.le(A.F32Array{U32.from_nat(n), ALeaf{c}}))) == Some{A.to_list(A.F32Array{U32.from_nat(n), ALeaf{c}})} : Maybe<&2, List<&2, F32>>}:
