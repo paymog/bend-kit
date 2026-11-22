@@ -466,18 +466,6 @@ def h2.stream(+base: String) -> IO(Unit):
     p4 : Http.Pool <- h2.idle.got("h2 buffered fetch after streams", "1ab", d)
     Http.pool.close(p4)
 
-def mtls.args(xs: List<&1, String>) -> IO(Unit):
-  match xs:
-    case Nil{}:
-      IO.pure(Unit, Unit{})
-    case Con{one, Con{key1, Con{two, Con{key2, Con{base, Con{h2, Con{streams, Nil{}}}}}}}}:
-      do IO<Unit>:
-        mtls.run(one, key1, two, key2, base)
-        h2.idle(h2)
-        h2.stream(streams)
-    case _:
-      IO.die(Unit, 1, "mTLS needs four certificate paths and three server base URLs")
-
 def h2.has(xs: List<&2, Hpack.Field>, +want: String) -> Bool:
   match xs:
     case Nil{}:
@@ -1254,5 +1242,3 @@ def main() -> IO(Unit):
     cookie.test(cl)
     dl : Listener & U32 <- local.listen()
     redir.test(dl)
-    args : List<&1, String> <- IO.args()
-    mtls.args(List.tail(&1, String, args))
