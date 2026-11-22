@@ -8,8 +8,10 @@ import ./bench.bend as B
 def ms(t1: Time.Duration, t0: Time.Duration) -> String:
   Time.Duration.show_ms(Time.Duration.sub(t1, t0))
 
-def small() -> S.Tree<S.Blob>:
-  S.TItem{"note", S.TFile{S.Blob.string("small root\n")}, S.TEnd{}}
+def small() -> S.Run(S.Tree<S.Blob>):
+  do S.Run<S.Tree<S.Blob>>:
+    b : S.Blob <- S.Blob.string("small root\n")
+    return S.TItem{"note", S.TFile{b}, S.TEnd{}}
 
 def octets(m: Maybe<&2, S.Tree<S.Blob>>) -> U32:
   B.loaded(m)
@@ -34,6 +36,8 @@ def main() -> IO(Unit):
     tmp : String <- IO.try(String, Files.temp_dir())
     +dir : String = tmp ++ "/store"
     IO.try(Unit, S.Disk.init(dir))
-    big : S.Digest <- IO.try(S.Digest, S.Disk.commit(dir, B.dirs(k, 0, k)))
-    root : S.Digest <- IO.try(S.Digest, S.Disk.commit(dir, small()))
+    tree : S.Tree<S.Blob> <- IO.try(S.Tree<S.Blob>, B.prepare(B.dirs(k, 0, k)))
+    big : S.Digest <- IO.try(S.Digest, S.Disk.commit(dir, tree))
+    note : S.Tree<S.Blob> <- IO.try(S.Tree<S.Blob>, small())
+    root : S.Digest <- IO.try(S.Digest, S.Disk.commit(dir, note))
     timed(dir, root)

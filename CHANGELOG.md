@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.5.0.0: hash packed file bytes once during Blob construction and reuse the canonical digest during commit. Blob constructors and decode now return Run. Keep Tree and Obj reusable. Breaking.
+
 - `runner`, `gateway`, and `authz`: use bend-mathlib 0.8.0.0 in their laws and proofs. Replace runner's internal Nat contradiction helper with the public Bool lemma. No runtime or published-file change.
 
 - `f64` 0.1.4.0: use certified cached-power intervals for decimal parsing and shortest printing. Keep exact big-integer fallbacks and Python-compatible text. Measure 159x faster printing and 30x faster parsing on the fixed corpus.

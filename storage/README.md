@@ -3,7 +3,7 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.4.1.0/storage.bend as S
+import bend-kit-storage@0.5.0.0/storage.bend as S
 ```
 
 It imports `bend-kit-bytes@0.3.3.0`, `bend-kit-files@0.4.0.0`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-collections@0.1.5.0`. SHA-256 comes from OpenSSL 3 through `crypto`; set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path.
@@ -14,7 +14,7 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.4.1.0/storage.bend as S
+import bend-kit-storage@0.5.0.0/storage.bend as S
 
 def ship(+root: S.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -54,6 +54,8 @@ A store is valid when every key equals the hash of its object. `put` adds an obj
 
 The disk layer fixes `D` to `Digest`, `B` to `Blob`, the octets of a file packed four to a `U32`, and `cmp` to `Digest.cmp`. A `Digest` holds the 32 octets of a SHA-256 packed into eight `U32`s. Files and roots on disk name a digest by its 64 lowercase hex characters: `Digest.hex(d)` writes them and `Digest.read(s)` reads them back.
 
+`Blob.of(bytes)` and `Blob.string(text)` return `Run(Blob)`. They hash the packed bytes before building the reusable word list. A Blob carries the SHA-256 of its canonical file encoding. `commit` reuses this digest without encoding the file or walking its word list. `Tree` and `Obj` stay `Data`. Construct Blobs through these functions, `snapshot`, or `decode`; a manually forged Blob can carry a digest that does not match its contents.
+
 ## Encoding
 
 `encode` writes one of three forms. Names are octet strings, one `Char` for each octet.
@@ -91,7 +93,10 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 
 | def | result |
 |---|---|
-| `encode(o)`, `decode(b)` | the canonical octets of `o`; `Maybe`: the object that `b` encodes |
+| `encode(o)` | the canonical octets of `o`, as a pure `Bytes` |
+| `decode(b)` | `Run(Maybe)`: the object that `b` encodes, with a verified cached file digest |
+| `Blob.of(b)`, `Blob.string(s)` | `Run(Blob)`: reusable file octets with their canonical SHA-256 |
+| `object.digest(o)` | `Run(Digest)`: the cached file digest, or SHA-256 of an end or item encoding |
 | `digest(b)` | the SHA-256 of `b` as a `Digest` |
 | `Digest.hex(d)`, `Digest.read(s)`, `Digest.cmp(a, b)` | 64 lowercase hex characters; `Maybe`: the digest that `s` names; a total order on digests, not hex order |
 | `commit(t)` | the root digest and `objects(t)`, with `H` = SHA-256 of `encode`; fails on an invalid name |
@@ -109,7 +114,7 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 
 ## HTTP synchronization
 
-Import `bend-kit-storage@0.4.1.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.39.0.0`; the pure storage core does not import HTTP.
+Import `bend-kit-storage@0.5.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.39.0.0`; the pure storage core does not import HTTP.
 
 `Transport.handle(dir, request)` is the server handler. It serves `GET /objects/<digest>` as `application/octet-stream`. Invalid paths and missing objects return 404; other disk failures return 500. Mount it with `Http.server.start(~String, ~Unit, dir, Unit{}, config)` and `Http.server.run(~String, ~Transport.handle, ~observe, server)`. The observer has type `String -> U32 -> Completion.Outcome -> IO(Unit)` and may call `Completion.ignore(status, outcome)`. The caller owns the listener, bind address, admission limits, shutdown, authentication, and TLS termination.
 
@@ -117,8 +122,8 @@ The client is:
 
 ```bend
 import Base
-import bend-kit-storage@0.4.1.0/storage.bend as S
-import bend-kit-storage@0.4.1.0/http.bend as Transport
+import bend-kit-storage@0.5.0.0/storage.bend as S
+import bend-kit-storage@0.5.0.0/http.bend as Transport
 
 def pull(+root: S.Digest) -> S.Run(U32):
   Transport.sync("https://artifacts.example", "b", root)
@@ -157,7 +162,7 @@ The laws take the facts they need as hypotheses: `eq` is sound (`eq(x, y)` gives
 The proofs cover the pure core. They do not cover hashing, the disk, or the copy between two stores.
 
 - **Collision resistance.** The proofs assume that the object hash is injective. SHA-256 is not injective; the assumption is that no one finds two objects with one digest.
-- **Native hashing.** `digest` calls OpenSSL. The proofs assume it computes SHA-256 of the octets it receives. `commit` repeats the shape of `objects` and `hash` in `IO`; the proofs cover `objects` and `hash`.
+- **Native hashing.** `digest` and Blob construction call OpenSSL. The proofs assume it computes SHA-256 of the octets it receives. `commit` reuses a file's cached digest and repeats the shape of `objects` and `hash` in `IO`; the proofs cover `objects` and `hash`. Ingress computes the digest from received bytes and never trusts a peer's cached digest.
 - **Encoding.** `decode` is the inverse of `encode` on the objects `commit` writes, and `Digest.read` is the inverse of `Digest.hex`. `check.bend` tests both; no law states them.
 - **Filesystem.** A write goes to `dir/tmp` and then a rename, so a reader sees a whole object or none. Nothing calls `fsync`. After a crash an object file can be empty or short; a read of that object then fails, because its digest does not match. `Disk.checkout`, `sync`, and `Disk.collect` read only the objects their roots reach, so they do not notice a broken object that no root reaches, and `Disk.collect` deletes it. `Disk.load` reads every object.
 - **Concurrent writers.** Serialize writers to one store: object and root writes currently share temporary paths. `Disk.collect` also needs a frozen root set: no commit, sync, or root change may run during it, or it can delete an object that a new root needs.
