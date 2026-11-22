@@ -53,6 +53,12 @@ def main():
                 sys.exit(f"{name} failed:\n{proc.stderr or proc.stdout}")
             lines = [l for l in proc.stdout.splitlines() if len(l.split("\t")) == 3]
             runs.append({op: (float(ms), c) for op, ms, c in (l.split("\t") for l in lines)})
+            result = runs[-1]
+            missing = [op for op in [op for op in OPS if name in OP_VARIANTS[op]] if op not in result or any(value is None for value in result[op])]
+            if not result or missing:
+                sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum for {missing or 'all operations'}: {result}")
+            if {op: value[1:] for op, value in result.items()} != {op: value[1:] for op, value in runs[0].items()}:
+                sys.exit(f"{name} repetition {len(runs)}: checksum mismatch: {result} != {runs[0]}")
         table[name] = {op: statistics.median(x[op][0] for x in runs) for op in runs[0]}
         checks[name] = {op: c for op, (_, c) in runs[0].items()}
         print(f"ran {name}", file=sys.stderr)

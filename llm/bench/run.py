@@ -79,6 +79,11 @@ def main():
                 sys.exit(f"{name} failed ({r.returncode}):\n{r.stdout}{r.stderr}")
             op, ms, c = r.stdout.strip().split("\t")
             runs.append((float(ms), c))
+            result = runs[-1]
+            if any(value is None for value in result):
+                sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum: {result}")
+            if result[1:] != runs[0][1:]:
+                sys.exit(f"{name} repetition {len(runs)}: checksum mismatch: {result[1:]} != {runs[0][1:]}")
         table[name] = statistics.median(t for t, _ in runs)
         checks[name] = runs[0][1]
         print(f"ran {name}", file=sys.stderr)

@@ -42,6 +42,11 @@ def main():
             if r.returncode != 0:
                 sys.exit(f"{name} failed:\n{r.stderr}")
             runs.append(parse(r.stdout))
+            result = runs[-1]
+            if any(op not in result[0] for op in OPS) or any(key not in result[1] for key in ("width", "pad", "padlen")):
+                sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum: {result}")
+            if result[1:] != runs[0][1:]:
+                sys.exit(f"{name} repetition {len(runs)}: checksum mismatch: {result[1:]} != {runs[0][1:]}")
         table[name] = {op: statistics.median(ms[op] for ms, _ in runs) for op in OPS}
         checks[name] = runs[0][1]
         print(f"ran {name}", file=sys.stderr)

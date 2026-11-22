@@ -103,6 +103,12 @@ def main():
                 sys.exit(f"{name} failed:\n{r.stderr or r.stdout}")
             lines = [l.split("\t") for l in r.stdout.splitlines() if len(l.split("\t")) == 3]
             runs.append({op: (ms, c) for op, ms, c in lines})
+            result = runs[-1]
+            missing = [op for op in ("read", "entries", "bytes") if op not in result or any(value is None for value in result[op])]
+            if not result or missing:
+                sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum for {missing or 'all operations'}: {result}")
+            if {op: value[1:] for op, value in result.items()} != {op: value[1:] for op, value in runs[0].items()}:
+                sys.exit(f"{name} repetition {len(runs)}: checksum mismatch: {result} != {runs[0]}")
         if "read" not in runs[0] or "failed" in runs[0]["read"][1]:
             sys.exit(f"{name} did not read the fixture: {runs[0]}")
         table[name] = statistics.median(float(x["read"][0]) for x in runs)

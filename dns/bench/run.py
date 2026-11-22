@@ -41,6 +41,12 @@ for name, (build, run) in VARIANTS.items():
     if build and subprocess.run(build, cwd=HERE, env=ENV).returncode != 0:
         sys.exit(f"build failed: {name}")
     runs = [parse(subprocess.run(run, cwd=HERE, env=ENV, capture_output=True, text=True, check=True).stdout) for _ in range(RUNS)]
+    for repetition, result in enumerate(runs, 1):
+        missing = [op for op in OPS if op not in result or any(value is None for value in result[op])]
+        if not result or missing:
+            sys.exit(f"{name} repetition {repetition}: missing timing or checksum for {missing or 'all operations'}: {result}")
+        if {op: value[1:] for op, value in result.items()} != {op: value[1:] for op, value in runs[0].items()}:
+            sys.exit(f"{name} repetition {repetition}: checksum mismatch: {result} != {runs[0]}")
     table[name] = {op: statistics.median(r[op][0] for r in runs) for op in OPS}
     checks[name] = {op: runs[0][op][1] for op in OPS}
 if len({tuple(c.values()) for c in checks.values()}) != 1:
