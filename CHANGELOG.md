@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` checks: require CA and mTLS acceptance in native and JS lanes on macOS arm64 for HTTP changes. Keep the pinned compiler and the Linux gates.
+
 - `http` and `wire` checks: generate CA certificates with critical signing key usage. Verify fixture chains, purposes, and server hostnames in strict X.509 mode, and use Python's default TLS verification for the delayed-upload regression.
 
 - `storage` 0.5.2.0: add exclusive `Disk.clean_tmp` maintenance to reclaim abandoned temporary files without changing objects or named roots.
