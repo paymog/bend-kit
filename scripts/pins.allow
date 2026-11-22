@@ -3,4 +3,4 @@
 0x4eed9d7ac6ece61523d747a9d804e4f0  # bytes: bend-kit-int@0.2.0.0 by hash, until bytes releases (#456)
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
 bend-kit-camber@0.16.1.0  # consumers wait for the decimal formatter release (#963)
-bend-kit-zlib@0.5.3.0  # archive and http wait for the native module release (#978)
+bend-kit-http@0.39.2.0  # consumers wait for the native compression migration release (#980)
