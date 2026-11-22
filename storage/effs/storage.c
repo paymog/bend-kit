@@ -72,3 +72,37 @@ static void __attribute__((constructor)) blob_hash_words_use(void) {
 }
 #endif
 #endif
+
+#ifdef CID(write.temp)
+#ifndef STORAGE_TEMP_EFF
+#define STORAGE_TEMP_EFF
+#include <fcntl.h>
+#include <unistd.h>
+
+static Term write_temp_run(Env e, Term* f, IoWork* w) {
+  u64 n;
+  char* prefix = io_cstr(e, f[0], &n);
+  if (!prefix || io_nul(prefix, n)) {
+    free(prefix);
+    return io_fail(e, EINVAL, NULL);
+  }
+  char* path = io_mem(realloc(prefix, n + 8));
+  memcpy(path + n, ".XXXXXX", 8);
+  int fd = mkstemp(path);
+  int code = fd < 0 ? errno : 0;
+  if (fd >= 0 && fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+    code = errno;
+    close(fd);
+    unlink(path);
+  }
+  Term out = code ? io_fail(e, code, NULL)
+    : io_done(e, io_tup(e, io_str(e, path, n + 7), io_hand(fd)));
+  free(path);
+  return out;
+}
+
+static void __attribute__((constructor)) write_temp_use(void) {
+  io_eff(CID(write.temp), write_temp_run);
+}
+#endif
+#endif

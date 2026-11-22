@@ -766,12 +766,40 @@ def write.file(+path: String, b: Bytes.Bytes) -> Run(Unit):
     r : File & Result<&1, &1, U32 & String, Unit> <- Run.lift(File & Result<&1, &1, U32 & String, Unit>, Files.write_bytes(f, b))
     write.close(r)
 
-# Writes b to path through dir/tmp and a rename, so a reader sees all of b or nothing.
-def write(+dir: String, +name: String, +path: String, b: Bytes.Bytes) -> Run(Unit):
-  +tmp = dir ++ "/tmp/" ++ name
+def write.temp(prefix: String) -> IO(Result<&1, &1, U32 & String, String & File>):
+  import "./effs/storage.c"
+  import "./effs/storage.js"
+
+def write.cleanup(+tmp: String, r: Result<&1, &1, U32 & String, Unit>) -> Run(Unit):
+  match r:
+    case Done{x}:
+      Run.pure(Unit, x)
+    case Fail{e}:
+      do IO<Result<&1, &1, U32 & String, Unit>>:
+        removed : Result<&1, &1, U32 & String, Unit> <- Files.remove(tmp)
+        return Fail{e}
+
+def write.publish(r: Result<&1, &1, U32 & String, Unit>, +tmp: String, path: String) -> Run(Unit):
+  match r:
+    case Fail{e}:
+      write.cleanup(tmp, Fail{e})
+    case Done{x}:
+      do IO<Result<&1, &1, U32 & String, Unit>>:
+        renamed : Result<&1, &1, U32 & String, Unit> <- Files.rename(tmp, path)
+        write.cleanup(tmp, renamed)
+
+def write.opened(pair: String & File, path: String, b: Bytes.Bytes) -> Run(Unit):
+  (+tmp, f) = pair
+  do IO<Result<&1, &1, U32 & String, Unit>>:
+    r : File & Result<&1, &1, U32 & String, Unit> <- Files.write_bytes(f, b)
+    closed : Result<&1, &1, U32 & String, Unit> <- write.close(r)
+    write.publish(closed, tmp, path)
+
+# Each write owns its exclusively created temporary file until publication or cleanup.
+def write(+dir: String, name: String, path: String, b: Bytes.Bytes) -> Run(Unit):
   do Run<Unit>:
-    write.file(tmp, b)
-    Files.rename(tmp, path)
+    pair : String & File <- write.temp(dir ++ "/tmp/" ++ name)
+    write.opened(pair, path, b)
 
 def read.chunk(r: File & Result<&1, &1, U32 & String, Bytes.Bytes>) -> Run(File & Bytes.Bytes):
   match r:
@@ -958,7 +986,7 @@ def Disk.probe(+dir: String, xs: Store<Digest, Blob>, +s: Index(Digest, Blob)) -
 def Disk.set_root(+dir: String, +name: String, +d: Digest) -> Run(Unit):
   do Run<Unit>:
     Run.check(name.ok(name), "invalid root " ++ name)
-    write(dir, "root." ++ name, dir ++ "/roots/" ++ name, Bytes.from_string(Digest.hex(d)))
+    write(dir, "root", dir ++ "/roots/" ++ name, Bytes.from_string(Digest.hex(d)))
 
 def Disk.root(+dir: String, +name: String) -> Run(Digest):
   do Run<Digest>:
