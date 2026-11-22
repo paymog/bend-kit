@@ -171,7 +171,7 @@ def store.work(store: Store, principal: U32, operation: Operation) -> IO(Store &
 # Deliberately explicit projection: the internal secret is discarded here.
 def public(user: User) -> J.Val:
   User{id, name, secret} = user
-  J.Obj{[(J.utf8("id"), J.Num{J.utf8(U32.show(id))}), (J.utf8("name"), J.Str{J.utf8(name)})]}
+  J.Obj{[(J.utf8("id"), J.Num{B.u32.show(id)}), (J.utf8("name"), J.Str{J.utf8(name)})]}
 
 def fresh() -> State:
   State{None{}, "", False{}, False{}}

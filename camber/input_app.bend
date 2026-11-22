@@ -5,6 +5,7 @@ import ./input.bend as Input
 import bend-kit-http@0.39.2.0/http.bend as H
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-json@0.7.3.0/json.bend as J
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 type Config is Data:
   Config{journal: String, depth: U32}
@@ -126,7 +127,7 @@ def tags(values: List<&2, String>) -> List<&1, J.Val>:
 def output(input: Domain) -> H.Res:
   match input:
     case Lookup{id, limit, values, empty_keys}:
-      C.json(~J.Val, ~(v => v), 200, J.Obj{[(J.utf8("id"), J.Num{J.utf8(U32.show(id))}), (J.utf8("limit"), J.Num{J.utf8(U32.show(limit))}), (J.utf8("tags"), J.Arr{tags(values)}), (J.utf8("empty_keys"), J.Arr{tags(empty_keys)})]})
+      C.json(~J.Val, ~(v => v), 200, J.Obj{[(J.utf8("id"), J.Num{Bytes.u32.show(id)}), (J.utf8("limit"), J.Num{Bytes.u32.show(limit)}), (J.utf8("tags"), J.Arr{tags(values)}), (J.utf8("empty_keys"), J.Arr{tags(empty_keys)})]})
     case Binary{body}: C.raw(200, body)
     case Plain{value}: C.text(200, value)
     case Document{value}: C.json(~J.Val, ~(v => v), 200, value)

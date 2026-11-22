@@ -15,4 +15,4 @@ def view(record: Contract.Record) -> Contract.Public:
 # Bytes.Bytes is Http.Body; importing http.bend here would pull its effects into the proofs.
 def encode(value: Contract.Public) -> Bytes.Bytes:
   Contract.Public{owner, title, published} = value
-  Json.encode.bytes(Json.Obj{[(Json.utf8("owner"), Json.Num{Json.utf8(U32.show(owner))}), (Json.utf8("title"), Json.Str{Json.utf8(title)}), (Json.utf8("published"), Json.Flag{published})]})
+  Json.encode.bytes(Json.Obj{[(Json.utf8("owner"), Json.Num{Bytes.u32.show(owner)}), (Json.utf8("title"), Json.Str{Json.utf8(title)}), (Json.utf8("published"), Json.Flag{published})]})

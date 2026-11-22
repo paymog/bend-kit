@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `llm` 0.15.0.1 and `camber` 0.16.1.1: format JSON integers directly as packed decimal bytes. HTTP upload checks and benchmarks use the same byte formatter. Keep decimal headers, paths, and logs as text.
+
 - `gateway` 0.5.0.0 and `runner` 0.20.0.0: complete the byte proof re-pin waves. Use the current published cache, Camber, collection, encoding, file, Hairpin, HTTP, journal, scheduler, time, and webhook types. Remove the completed re-pin exceptions.
 
 - `jwt` 0.13.0.0, `llm` 0.15.0.0, `oauth2` 0.13.0.0, `sigv4` 0.13.0.0, and `webhooks` 0.13.0.0: share HTTP 0.39.2.0, Hairpin 0.15.0.0, and the proof-bearing byte type. Re-pin the Authz check and manual Camber consumers to Camber 0.16.1.0.

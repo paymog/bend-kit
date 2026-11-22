@@ -17,7 +17,7 @@ def encode(value: Contract.Public) -> Bytes.Bytes:
   match value:
     case Contract.Public{owner, title, published}:
       Json.encode.bytes(Json.Obj{[
-        (Json.utf8("owner"), Json.Num{Json.utf8(U32.show(owner))}),
+        (Json.utf8("owner"), Json.Num{Bytes.u32.show(owner)}),
         (Json.utf8("title"), Json.Str{Json.utf8(title)}),
         (Json.utf8("published"), Json.Flag{published})
       ]})

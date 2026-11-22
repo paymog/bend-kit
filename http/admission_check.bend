@@ -53,7 +53,7 @@ def upload.piece(state: Upload, bytes: Http.Body) -> IO(Upload & Bool):
 
 def upload.finish(state: Upload) -> IO(Http.Reply):
   Upload{path, length} = state
-  IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Http.from_string(U32.show(length))}, Completion.Unobserved{}})
+  IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Bytes.u32.show(length)}, Completion.Unobserved{}})
 
 def upload.abort(state: Upload, reason: Http.StreamAbort) -> IO(Unit):
   Upload{path, length} = state
