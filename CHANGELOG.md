@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` and `wire` checks: generate CA certificates with critical signing key usage. Verify fixture chains, purposes, and server hostnames in strict X.509 mode, and use Python's default TLS verification for the delayed-upload regression.
+
 - `storage` 0.5.2.0: add exclusive `Disk.clean_tmp` maintenance to reclaim abandoned temporary files without changing objects or named roots.
 
 - `http` checks: run native package acceptance and native/JS startup socket checks in CI. Keep the 20 GiB compiler memory ceiling.

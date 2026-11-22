@@ -6,7 +6,6 @@ import sys
 ca, cert, key, port = sys.argv[1:]
 ctx = ssl.create_default_context(cafile=ca)
 ctx.load_cert_chain(cert, key)
-ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
 with socket.create_connection(('localhost', int(port)), timeout=5) as tcp:
     with ctx.wrap_socket(tcp, server_hostname='localhost') as conn:
         conn.sendall(b'GET /who HTTP/1.1\r\nHost: localhost\r\n'

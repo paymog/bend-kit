@@ -12,12 +12,15 @@ trap cleanup EXIT INT TERM
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=Bend private CA' \
   -addext 'basicConstraints=critical,CA:TRUE' \
+  -addext 'keyUsage=critical,keyCertSign,cRLSign' \
   -keyout "$dir/ca.key" -out "$dir/ca.pem" >/dev/null 2>&1
 openssl req -newkey rsa:2048 -nodes -subj '/CN=localhost' \
   -addext 'subjectAltName=DNS:localhost' -addext 'extendedKeyUsage=serverAuth' \
   -keyout "$dir/server.key" -out "$dir/server.csr" >/dev/null 2>&1
 openssl x509 -req -in "$dir/server.csr" -CA "$dir/ca.pem" -CAkey "$dir/ca.key" \
   -CAcreateserial -copy_extensions copy -days 1 -out "$dir/server.pem" >/dev/null 2>&1
+openssl verify -x509_strict -CAfile "$dir/ca.pem" -purpose sslserver \
+  -verify_hostname localhost "$dir/server.pem"
 
 cat >"$dir/server.py" <<'PY'
 import os, select, socket, ssl, sys, threading
