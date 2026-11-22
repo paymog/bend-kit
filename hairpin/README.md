@@ -3,13 +3,13 @@
 Hairpin is an HTTP client for Bend 2, built on `bend-kit-http`. One `Client` holds a base URL, default headers, a socket pool, a cookie jar, a client certificate, a redirect mode, a step timeout, a retry policy, and a circuit breaker. Each request uses all of them. The model is undici's `Agent` with ky's instance options.
 
 ```bend
-import bend-kit-hairpin@0.14.1.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.15.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.38.6.1/http.bend as Http
-import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-http@0.39.2.0/http.bend as Http
+import bend-kit-time@0.3.0.1/time.bend as Time
 ```
 
-Import `bend-kit-http@0.38.6.1` and `bend-kit-retry@0.3.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Http.Res` or `Retry.Budget`. `Time` supplies both `Time.mono.ms()` and the `Instant` values that Http uses.
+Import `bend-kit-http@0.39.2.0` and `bend-kit-retry@0.3.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Http.Res` or `Retry.Budget`. `Time` supplies both `Time.mono.ms()` and the `Instant` values that Http uses.
 
 Hairpinning, or NAT loopback, is traffic that goes out and bends back. A request does the same.
 

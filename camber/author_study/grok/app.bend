@@ -5,10 +5,10 @@ import ../../surface.bend as Surface
 import ../../interface_check.bend as Registry
 import ../../response.bend as Response
 import ../../../http/http.bend as Http
-import bend-kit-json@0.7.2.0/json.bend as Json
-import bend-kit-encoding@0.5.0.0/encoding.bend as Enc
+import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import ../../../router/router.bend as Router
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 type Hook is Data:
   RootAfter{}

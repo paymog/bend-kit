@@ -1,10 +1,10 @@
 import Base
 import ./storage.bend as S
 import ./LAWS.bend as Laws
-import bend-kit-collections@0.1.5.0/omap.bend as OMap
-import bend-kit-collections@0.1.5.0/LAWS.bend as Col
-import bend-kit-collections@0.1.5.0/PROOF.bend as ColProof
-import bend-kit-collections@0.1.5.0/order.bend as Order
+import bend-kit-collections@0.1.6.0/omap.bend as OMap
+import bend-kit-collections@0.1.6.0/LAWS.bend as Col
+import bend-kit-collections@0.1.6.0/PROOF.bend as ColProof
+import bend-kit-collections@0.1.6.0/order.bend as Order
 
 def true_ne_false(e: {True{} == False{} : Bool}) -> Empty:
   %e : Bool.pick(Type, _, Unit, Empty)

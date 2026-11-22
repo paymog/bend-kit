@@ -2,10 +2,10 @@
 import Base
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.39.1.0/http.bend as H
-import bend-kit-http@0.39.1.0/completion.bend as T
-import bend-kit-json@0.7.2.0/json.bend as J
-import bend-kit-bytes@0.3.3.0/bytes.bend as B
+import bend-kit-http@0.39.2.0/http.bend as H
+import bend-kit-http@0.39.2.0/completion.bend as T
+import bend-kit-json@0.7.3.0/json.bend as J
+import bend-kit-bytes@0.3.3.1/bytes.bend as B
 
 def port(~K: Data, observed: H.Server<K> & U32) -> IO(H.Server<K>):
   (server, bound_port) = observed

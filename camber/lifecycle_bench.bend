@@ -3,7 +3,7 @@ import Base
 import ./raw_bench.bend as Raw
 import ./lifecycle_http.bend as Scoped
 import ../http/http.bend as Http
-import bend-kit-time@0.3.0.0/time.bend as Time
+import bend-kit-time@0.3.0.1/time.bend as Time
 
 def loops(~dispatch: U32 -> Http.Req -> IO(Http.Res), n: Nat, +work: Raw.Job, +fields: Map<&2, List<&2, String>>, total: U32) -> IO(U32):
   match n:

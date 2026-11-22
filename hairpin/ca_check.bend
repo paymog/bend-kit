@@ -1,8 +1,8 @@
 import Base
 import ./hairpin.bend as Hairpin
-import bend-kit-http@0.38.6.1/http.bend as Http
+import bend-kit-http@0.39.2.0/http.bend as Http
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-bytes@0.3.3.0/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def die(+why: String) -> IO(Unit):
   IO.die(Unit, 1, why)
