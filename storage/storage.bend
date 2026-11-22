@@ -1057,6 +1057,21 @@ def Disk.collect(+dir: String, +retained: List<&2, Digest>) -> Run(U32):
     s : Index(Digest, Blob) <- Disk.fetch.all(dir, retained, Index.new(Digest, Blob))
     Disk.collect.of(dir, retained, s)
 
+def Disk.clean_tmp.go(+dir: String, names: List<&2, String>, +n: U32) -> Run(U32):
+  match names:
+    case Nil{}:
+      Run.pure(U32, n)
+    case Con{name, rest}:
+      do Run<U32>:
+        Files.remove(dir ++ "/tmp/" ++ name)
+        Disk.clean_tmp.go(dir, rest, (n + 1 : U32))
+
+# No writer may run during maintenance; the caller must hold the store exclusively.
+def Disk.clean_tmp(+dir: String) -> Run(U32):
+  do Run<U32>:
+    names : List<&2, String> <- Files.list_dir(dir ++ "/tmp")
+    Disk.clean_tmp.go(dir, names, 0)
+
 def sync.send(+dir: String, ys: Store<Digest, Blob>, +dst: Index(Digest, Blob), +n: U32) -> Run(U32):
   match ys:
     case StNil{}:

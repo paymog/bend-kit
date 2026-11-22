@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.5.2.0: add exclusive `Disk.clean_tmp` maintenance to reclaim abandoned temporary files without changing objects or named roots.
+
 - `http` checks: run native package acceptance and native/JS startup socket checks in CI. Keep the 20 GiB compiler memory ceiling.
 
 - `hairpin` and `webhooks` checks: compile CA request, CA stream, signature, and delivery cases in separate native programs to bound compiler memory. Keep every acceptance case.
