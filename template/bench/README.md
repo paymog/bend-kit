@@ -38,16 +38,18 @@ C is left out. It has no standard or very popular Mustache library.
 
 ## Results
 
-M4 Pro, macOS 26.6.2, 2026-11-13. Bend 2.0.38, rustc 1.91.0, Bun 1.4.4, Node 24.0.1, Python 3.14.6. Median of three runs. Times are in ms for 100 renders; `Nx` is the multiple of the fastest variant.
+M4 Pro, macOS 26.7.2, 2026-11-21. Bend 2.0.40, rustc 1.91.0, Bun 1.4.4, Node 24.0.1, Python 3.14.6. Median of five runs. Times are in ms for 100 renders; `Nx` is the multiple of the fastest variant.
 
 | op | Rust | Bun | Node | Python | Bend |
 |---|---:|---:|---:|---:|---:|
-| render | 4.2 (1.0x) | 10.9 (2.6x) | 11.0 (2.6x) | 96.7 (23.2x) | 104.9 (25.1x) |
+| render | 4.1 (1.0x) | 8.3 (2.0x) | 10.0 (2.4x) | 91.2 (22.1x) | 67.7 (16.4x) |
+
+The same five-run command before this change measured Bend at 104.1 ms and chevron at 92.7 ms. Lazy branches and context lookup alone measured 102.1 ms. Passing the output suffix through sections and list items removes whole-section copies and brings Bend to 67.7 ms: 35% less time than before and 26% less than chevron in the final run. All runs give checksum `2909106112` and summed length `1739100`.
 
 ## Caveats
 
 - `chevron.render` tokenizes the template on every call. The other libraries render a parsed template.
 - `mustache.js` escapes `/`, `` ` ``, and `=` as well. `bench.ts` sets `Mustache.escape` to the same five characters as the others.
-- Bend strings are lists, one cell per character. The output is built by `++` on those lists.
+- Bend strings are lists, one cell per character. Sections and list items render directly onto the following output. Text and variables still use `++`; partial indentation still needs a separate string. This change keeps the existing Unicode text API instead of adding Bytes conversions to each rendered fragment.
 - Bend times itself with `Time.mono`, a nanosecond clock.
 - One machine, one thread.

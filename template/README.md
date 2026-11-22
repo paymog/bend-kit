@@ -3,7 +3,7 @@
 Mustache templates: variables, sections, inverted sections, and comments. A variable is HTML-escaped unless you ask for raw output.
 
 ```bend
-import bend-kit-template@0.2.0.0/template.bend as T
+import bend-kit-template@0.3.0.0/template.bend as T
 ```
 
 ```bend

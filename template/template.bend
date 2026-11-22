@@ -1,6 +1,14 @@
 # Mustache templates: variables, sections, inverted sections, comments, partials, and set delimiters, with HTML escaping on by default.
 import Base
 
+# Bool.pick evaluates both branches; when evaluates only the chosen one.
+def when(-A: Type, c: Bool, t: Unit -> A, e: Unit -> A) -> A:
+  match c:
+    case True{}:
+      t(Unit{})
+    case False{}:
+      e(Unit{})
+
 # A context value. A section repeats over a VList, hides on VBool{False{}} or an empty VList, and pushes any other value.
 type Value is Data:
   VStr{s: String}
@@ -213,7 +221,7 @@ def drop_blank(s: String) -> String:
       SNil{}
     case SCon{Chr{y}, +t}:
       +c = {y : U32}
-      Bool.pick(String, blank(c), drop_blank(t), SCon{Chr{c}, t})
+      when(String, blank(c), u => drop_blank(t), u => SCon{Chr{c}, t})
 
 def drop_chr(+k: U32, s: String) -> String:
   match s:
@@ -221,7 +229,7 @@ def drop_chr(+k: U32, s: String) -> String:
       SNil{}
     case SCon{Chr{y}, +t}:
       +c = {y : U32}
-      Bool.pick(String, U32.is_eq(c, k), t, SCon{Chr{c}, t})
+      when(String, U32.is_eq(c, k), u => t, u => SCon{Chr{c}, t})
 
 def trim_head(s: String) -> String:
   drop_chr(10, drop_chr(13, drop_blank(s)))
@@ -252,7 +260,7 @@ def last_line.go(s: String, +acc: String) -> String:
       acc
     case SCon{Chr{y}, +t}:
       +c = {y : U32}
-      Bool.pick(String, U32.is_eq(c, 10), acc, last_line.go(t, SCon{Chr{c}, acc}))
+      when(String, U32.is_eq(c, 10), u => acc, u => last_line.go(t, SCon{Chr{c}, acc}))
 
 # The text after the last LF of s.
 def last_line(s: String) -> String:
@@ -287,7 +295,7 @@ def std.go(toks: List<&2, Tok>, +orig: String, first: Bool, +cur: String, out: L
   match toks:
     case Con{+tag, Con{TText{+next}, +rest}}:
       +sa = Bool.and(std.kind(tag), Bool.and(head_ok(String.reverse(orig), first), head_ok(next, List.is_empty(&2, Tok, rest))))
-      std.go(rest, next, False{}, Bool.pick(String, sa, trim_head(next), next), std.ind(tag, Bool.pick(String, sa, last_line(cur), "")) <> TText{Bool.pick(String, sa, trim_tail(cur), cur)} <> out)
+      std.go(rest, next, False{}, when(String, sa, u => trim_head(next), u => next), std.ind(tag, when(String, sa, u => last_line(cur), u => "")) <> TText{when(String, sa, u => trim_tail(cur), u => cur)} <> out)
     case _:
       List.reverse(&2, Tok, TText{cur} <> out)
 
@@ -300,7 +308,7 @@ def std(toks: List<&2, Tok>) -> List<&2, Tok>:
       Nil{}
 
 def path.of(+n: String) -> List<&2, String>:
-  Bool.pick(List<&2, String>, String.eq(n, "."), Nil{}, String.split(n, '.'))
+  when(List<&2, String>, String.eq(n, "."), u => Nil{}, u => String.split(n, '.'))
 
 def add(top: Frame, n: Node) -> Frame:
   match top:
@@ -403,12 +411,12 @@ def probe(v: Value, +k: String) -> Maybe<&2, Value>:
     case _:
       None{}
 
-def first(a: Maybe<&2, Value>, b: Maybe<&2, Value>) -> Maybe<&2, Value>:
+def first(a: Maybe<&2, Value>, b: Unit -> Maybe<&2, Value>) -> Maybe<&2, Value>:
   match a:
     case Some{v}:
       Some{v}
     case None{}:
-      b
+      b(Unit{})
 
 # The first value on the stack, innermost first, that is a map with key k.
 def resolve(stack: List<&2, Value>, +k: String) -> Maybe<&2, Value>:
@@ -416,7 +424,7 @@ def resolve(stack: List<&2, Value>, +k: String) -> Maybe<&2, Value>:
     case Nil{}:
       None{}
     case Con{v, rest}:
-      first(probe(v, k), resolve(rest, k))
+      first(probe(v, k), u => resolve(rest, k))
 
 def sub(mv: Maybe<&2, Value>, +k: String) -> Maybe<&2, Value>:
   match mv:
@@ -450,7 +458,7 @@ def lookup(path: List<&2, String>, +stack: List<&2, Value>) -> Maybe<&2, Value>:
 def show(raw: Bool, v: Maybe<&2, Value>) -> String:
   match v:
     case Some{VStr{+s}}:
-      Bool.pick(String, raw, s, escape(s))
+      when(String, raw, u => s, u => escape(s))
     case Some{VBool{b}}:
       Bool.pick(String, b, "true", "false")
     case _:
@@ -486,7 +494,7 @@ def sec.items(inv: Bool, +v: Maybe<&2, Value>) -> List<&2, Value>:
     case False{}:
       items.of(v)
     case True{}:
-      Bool.pick(List<&2, Value>, truthy(v), Nil{}, [VMap{Map.new(&2, Value)}])
+      when(List<&2, Value>, truthy(v), u => Nil{}, u => [VMap{Map.new(&2, Value)}])
 
 # Each LF in partial text is followed by the partial's indentation.
 def indent(ind: String, +s: String) -> String:
@@ -501,7 +509,7 @@ def undent(+ind: String, +s: String) -> String:
   +r = String.reverse(s)
   +rest = String.drop(r, String.length(ind))
   +cut = String.starts_with(r, String.reverse(ind)) && (String.is_empty(rest) || String.starts_with(rest, "\n"))
-  Bool.pick(String, cut, String.reverse(rest), s)
+  when(String, cut, u => String.reverse(rest), u => s)
 
 def part.got(r: Map<&2, List<&2, Node>> & List<&2, Node>) -> List<&2, Node>:
   (m, v) = r
@@ -512,29 +520,29 @@ def part(+ps: Map<&2, List<&2, Node>>, +n: String) -> List<&2, Node>:
   part.got(Map.get(List<&2, Node>, Nil{}, ps, n))
 
 # f bounds partial nesting. iter renders nodes once per item, each pushed on the stack; otherwise it renders nodes once.
-def go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool, +ps: Map<&2, List<&2, Node>>, +stack: List<&2, Value>, +ind: String) -> String:
+def go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool, +ps: Map<&2, List<&2, Node>>, +stack: List<&2, Value>, +ind: String, tail: String) -> String:
   match f nodes items iter:
     case +k +ns Con{it, +more} True{}:
-      go(k, ns, more, False{}, ps, it <> stack, ind) ++ go(k, ns, more, True{}, ps, stack, ind)
+      go(k, ns, more, False{}, ps, it <> stack, ind, go(k, ns, more, True{}, ps, stack, ind, tail))
     case k ns Nil{} True{}:
-      ""
+      tail
     case k Nil{} xs False{}:
-      ""
+      tail
     case +k Con{NText{s}, rest} +xs False{}:
-      indent(ind, s) ++ go(k, rest, xs, False{}, ps, stack, ind)
+      indent(ind, s) ++ go(k, rest, xs, False{}, ps, stack, ind, tail)
     case +k Con{NVar{p, raw}, rest} +xs False{}:
-      show(raw, lookup(p, stack)) ++ go(k, rest, xs, False{}, ps, stack, ind)
+      show(raw, lookup(p, stack)) ++ go(k, rest, xs, False{}, ps, stack, ind, tail)
     case +k Con{NSec{p, inv, body}, rest} +xs False{}:
-      go(k, body, sec.items(inv, lookup(p, stack)), True{}, ps, stack, ind) ++ go(k, rest, xs, False{}, ps, stack, ind)
+      go(k, body, sec.items(inv, lookup(p, stack)), True{}, ps, stack, ind, go(k, rest, xs, False{}, ps, stack, ind, tail))
     case 0n Con{NPart{n, pi}, rest} +xs False{}:
-      go(0n, rest, xs, False{}, ps, stack, ind)
+      go(0n, rest, xs, False{}, ps, stack, ind, tail)
     case 1n+g Con{NPart{n, pi}, rest} +xs False{}:
       +i2 = ind ++ pi
-      undent(i2, i2 ++ go(g, part(ps, n), Nil{}, False{}, ps, stack, i2)) ++ go(1n+g, rest, xs, False{}, ps, stack, ind)
+      undent(i2, i2 ++ go(g, part(ps, n), Nil{}, False{}, ps, stack, i2, "")) ++ go(1n+g, rest, xs, False{}, ps, stack, ind, tail)
 
 # The nodes rendered against ctx, with {{> name}} taken from partials. Partials nest at most 64 deep; a deeper one renders as nothing.
 def render_with(nodes: List<&2, Node>, ctx: Map<&2, Value>, partials: Map<&2, List<&2, Node>>) -> String:
-  go(64n, nodes, Nil{}, False{}, partials, [VMap{ctx}], "")
+  go(64n, nodes, Nil{}, False{}, partials, [VMap{ctx}], "", "")
 
 # The nodes rendered against ctx. A partial renders as nothing.
 def render(nodes: List<&2, Node>, ctx: Map<&2, Value>) -> String:
