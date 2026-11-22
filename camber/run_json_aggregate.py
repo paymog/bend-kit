@@ -128,6 +128,7 @@ def main():
                "bend": guarded(["bend", "version"], 20)[0].strip(),
                "bun": guarded(["bun", "--version"], 20)[0].strip(),
                "body_limit_bytes": 1048576, "configured_wire_read_timeout_ms": 200,
+               "configured_http_phase_timeout_ms": 180000,
                "ordinary_send_delay_ms": 1, "cpu_release_delay_ms": 50,
                "host_deadline_seconds": HOST_TIMEOUT, "rss_limit_kib": RSS_LIMIT_KIB,
                "scope": "Finite held batch using existing JSON parser, HTTP transport, and Wire timed read; not strict decoding or production admission.",
@@ -144,8 +145,8 @@ def main():
         for backend, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("aggregate" + suffix)
             _, rss, seconds = guarded(["bend", ROOT / "camber/json_aggregate_probe.bend", "-o", binary], 180)
-            variants = (("native_single", [str(binary), "--threads", "1", "--gpu", "off"]),
-                        ("native_default_threads", [str(binary), "--gpu", "off"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
+            variants = (("native_single", [str(binary), "+RTS", "--threads", "1", "--gpu", "off", "-RTS"]),
+                        ("native_default_threads", [str(binary), "+RTS", "--gpu", "off", "-RTS"])) if backend == "native" else (("javascript", ["bun", str(binary)]),)
             for name, command in variants:
                 lane = {"runtime_arguments": command[1:], "build_seconds": seconds,
                         "sampled_build_peak_rss_kib": rss, "cases": []}

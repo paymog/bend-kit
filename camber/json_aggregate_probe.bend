@@ -1,5 +1,6 @@
 # Observe bounded JSON batches beside ordinary HTTP and a real timed socket read.
 import Base
+import ./camber.bend as C
 import ./json_progress_probe.bend as JsonProgress
 import ./json_disposal_control.bend as JsonDisposal
 import ./interface_check.bend as Registry
@@ -32,7 +33,8 @@ def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
     IO.print("CPU_ARMED")
     armed : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, ready, Unit{})
     Registry.require(Result.is_done(&1, &1, Unit, Unit, armed), "ready queue closed")
-    IO.join(Unit, go)
+    # IO.join closes its channel; every worker shares this gate.
+    C.receive(Unit, go)
     IO.print("CPU_BEGIN")
     IO.sleep(1)
     started : Time.Duration <- Time.mono()
@@ -55,7 +57,7 @@ def wait_ready(count: Nat, +ready: Chan(Unit)) -> IO(Unit):
       IO.pure(Unit, Unit{})
     case 1n+rest:
       do IO<Unit>:
-        IO.join(Unit, ready)
+        C.receive(Unit, ready)
         wait_ready(rest, ready)
 
 def release(count: Nat, +go: Chan(Unit)) -> IO(Unit):
@@ -71,7 +73,8 @@ def release(count: Nat, +go: Chan(Unit)) -> IO(Unit):
 def start(mode: String, +count: Nat, +ready: Chan(Unit), +go: Chan(Unit), timer: Chan(Unit), setup: Listener & Chan(Unit)) -> IO(Unit):
   (listener, deadline_done) = setup
   do IO<Unit>:
-    requests : List<Chan(Unit)> <- Transport.accept(~Context, ~handler, Nat.add(count, 1n), Context{mode, ready, go}, 1048576n, listener)
+    requests : List<Chan(Unit)> <- Transport.accept.configured(~Context, ~handler, Nat.add(count, 1n), Context{mode, ready, go},
+      Http.ServerConfig{"127.0.0.1", 0, 1048576, 65536, 128, 128, 128, 180000, 180000, 180000, 180000}, listener)
     wait_ready(count, ready)
     IO.print("BATCH_ARMED")
     timer_ready : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, timer, Unit{})
@@ -80,6 +83,8 @@ def start(mode: String, +count: Nat, +ready: Chan(Unit), +go: Chan(Unit), timer:
     release(count, go)
     Transport.join(requests)
     IO.join(Unit, deadline_done)
+    Chan.close(Unit, ready)
+    Chan.close(Unit, go)
     IO.print("SERVER_DONE")
 
 def listening(bound: Listener & U32, mode: String, count: Nat, ready: Chan(Unit), go: Chan(Unit), +timer: Chan(Unit)) -> IO(Unit):
