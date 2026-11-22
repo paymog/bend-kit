@@ -12,6 +12,18 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
     def do_GET(self):
+        if self.headers.get('Transfer-Encoding', '').lower() == 'chunked':
+            while True:
+                size = int(self.rfile.readline().split(b';', 1)[0], 16)
+                if not size:
+                    for line in self.rfile:
+                        if line == b'\r\n':
+                            break
+                    break
+                self.rfile.read(size)
+                assert self.rfile.read(2) == b'\r\n'
+        else:
+            self.rfile.read(int(self.headers.get('Content-Length', '0')))
         port = self.server.server_port
         required, optional = ports[:2]
         if port == required and self.path == '/same':
