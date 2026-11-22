@@ -47,3 +47,23 @@ The checksum is `2245001216` for fold, `1004543192` for show and read, and `2240
 C and Rust finish the fold in under 0.0005 ms, so the table prints `0.000`. Bend takes 0.071 ms for the same 108 operations. Square root takes about 0.27 µs per value in Bend. A native `F64` in Base would remove the soft-float work.
 
 Bend's `show` takes about 130 µs per double and `read` about 43 µs. Both work in exact big integers of 16-bit limbs. `show` scales by a power of ten up to 10^324, and `read` divides by a power of five, so the cost grows with the distance of the exponent from zero. The other languages use table-driven fast paths, such as Ryu, Grisu, or Eisel-Lemire, and fall back to big integers only for hard cases.
+
+## Cached-power conversion
+
+M4 Pro, macOS, 2026-11-21. Bend 2.0.40, Apple clang 21.0.0 (`-O2`), rustc 1.91.0, Bun 1.4.4, Node 24.0.1, Python 3.14.6. Command: `python3 run.py`. Median of three runs on the same fixed input. The before build is origin/main `1ab2309`.
+
+| op | before Bend (ms) | cached powers Bend (ms) | speedup |
+|---|---:|---:|---:|
+| show | 185.238 | 1.164 | 159.1x |
+| read | 67.877 | 2.254 | 30.1x |
+
+The checksums remain `1004543192` for both operations. Against the older table above, printing is 111.7x faster and parsing is 18.8x faster. Both exceed the 10x target.
+
+| op | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| fold | 0.000 | 0.000 | 0.039 | 0.015 | 0.016 | 0.068 |
+| show | 0.499 | 0.181 | 0.167 | 0.197 | 0.686 | 1.164 |
+| read | 0.026 | 0.024 | 0.078 | 0.093 | 0.372 | 2.254 |
+| sqrt | 0.001 | 0.000 | 0.034 | 0.263 | 0.209 | 0.284 |
+
+The fast paths use 128-bit cached powers with conservative error bounds. Printing removes digits from the exact rounding interval, as in Ryu, after a Grisu-style cached-power scale. Parsing accepts a 64-by-128-bit product only when both error bounds round alike, as in Eisel-Lemire. An uncertain product, an uncertain boundary floor, or a parser significand longer than 19 digits uses the old exact path. The benchmark measures the full public functions, including parsing, text allocation, table lookup, and fallback selection.

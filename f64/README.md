@@ -3,7 +3,7 @@
 IEEE 754 binary64 arithmetic, square root, integer conversion, and decimal text. The value is two `U32` halves, high word first.
 
 ```bend
-import bend-kit-f64@0.1.3.0/f64.bend as F
+import bend-kit-f64@0.1.4.0/f64.bend as F
 ```
 
 ```bend
@@ -16,7 +16,15 @@ Base has no `F64`. This is a pure soft-float, so pure code can add two doubles. 
 
 `F64.hi` and `F64.lo` are the IEEE bits. `from_u32` is exact. Transcendental functions are not here.
 
-`F64.read` gives the nearest double to decimal text, ties to even. It accepts `[+-]digits[.digits][(e|E)[+-]digits]` with a digit on at least one side of the point, and `inf`, `infinity`, and `nan` in any case. It does not skip spaces. `F64.show` gives the shortest decimal that reads back to the same double, in Python's `repr` format: `1.0`, `0.1`, `1e+16`, `5e-324`, `-0.0`, `inf`, `nan`. The laws prove fixtures only. `python3 text_check.py [count] [seed]` checks, on random inputs, that `read` matches Python's `float`, that `show` matches `repr`, and that `read(show(x))` is `x`. 200000 inputs passed. Both use exact big-integer arithmetic, so a value near the ends of the range is slower than one near 1.
+`F64.read` gives the nearest double to decimal text, ties to even. It accepts `[+-]digits[.digits][(e|E)[+-]digits]` with a digit on at least one side of the point, and `inf`, `infinity`, and `nan` in any case. It does not skip spaces. `F64.show` gives the shortest decimal that reads back to the same double, in Python's `repr` format: `1.0`, `0.1`, `1e+16`, `5e-324`, `-0.0`, `inf`, `nan`. The laws prove fixtures only. `python3 text_check.py [count] [seed]` checks that `read` matches Python's `float`, that `show` matches `repr`, and that `read(show(x))` is `x`. It includes random inputs, exact halfway values, and adjacent values at binary and decimal boundaries.
+
+Text conversion first uses 128-bit cached powers of ten. Parsing takes up to 19 significant digits through a 64-by-128-bit product. Both ends of its error interval must round to the same double. Printing scales the value and its two rounding boundaries with the same table. It removes decimal digits while the interval still contains an integer, then rounds the nearest candidate to even. Uncertain bounds and longer inputs use the existing exact big-integer paths.
+
+The table stores `floor(10^k * 2^-e)` with its exactness flag. Dropping the low 64 product bits and bounding the table error puts the true product between `w * 2^64` and `(w + 2) * 2^64`. Printing accepts a floor only when both ends agree. Exact boundaries remain inclusive only for even significands. `python3 powers.py --check` verifies all 701 constants with exact rational arithmetic. `python3 powers.py` emits the table.
+
+References: [Grisu's cached powers and fallback](https://www.cs.tufts.edu/~nr/cs257/archive/florian-loitsch/printf.pdf), [Eisel-Lemire's decimal parsing](https://arxiv.org/abs/2101.11408), and [Ryu's interval digit removal](https://github.com/ulfjack/ryu). This implementation uses conservative intervals, not their full algorithms. See [bench/README.md](bench/README.md) for before-and-after measurements.
+
+On 2026-11-21, `python3 text_check.py 200000 7` matched Python on all inputs with Bend 2.0.38 and 2.0.40. The unchanged laws and `check.bend` passed on both versions.
 
 | def | returns |
 |---|---|

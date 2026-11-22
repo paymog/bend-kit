@@ -1,5 +1,6 @@
 # IEEE 754 binary64 arithmetic and square root. Source: https://github.com/paymog/bend-kit/tree/main/f64
 import Base
+import ./powers.bend as Pow
 
 # ponytail: two U32 halves, not Int.U64. Word(64n) is 64 bools and blows the C word limit. Replace these limbs with Base F64 when bendlang/bend#1120 lands.
 # A NaN operand becomes one quiet NaN. Payloads are not kept. Rounding is ties to even.
@@ -1521,8 +1522,57 @@ def Rd.neg.s(sign: U32, +d: List<&2, U32>, +s: List<&2, U32>, m: U32) -> F64:
 def Rd.neg(sign: U32, d: List<&2, U32>, +m: U32) -> F64:
   Rd.neg.s(sign, d, Big.times(U32.to_nat(m), 5, Con{1, Nil{}}), m)
 
-# eb is the decimal exponent plus 2^30. A value under 10^-324 reads as zero, and one at or over 10^310 as infinity.
-def Rd.value(+sign: U32, +d: List<&2, U32>, nd: U32, +eb: U32) -> F64:
+# Cached-power intervals follow Grisu and Eisel-Lemire; ambiguous intervals use exact integers.
+type Cached is Data:
+  Cached{w: W4, exact: Bool}
+
+def Fast.mul.lo(+x: W2, ah: U32, al: U32, exact: Bool, low: W4) -> Cached:
+  match x low:
+    case W2{xh, xl} W4{a, b, c, d}:
+      Cached{W4.add(mul.wide(xh, xl, ah, al), W4{0, 0, a, b}), Bool.and(exact, Bool.and(U32.is_zero(c), U32.is_zero(d)))}
+
+# The full 192-bit product lies between w * 2^64 and (w + 2) * 2^64.
+def Fast.mul(+x: W2, p: Pow.Power) -> Cached:
+  match x p:
+    case W2{xh, xl} Pow.Power{a, b, c, d, exp, exact}:
+      Fast.mul.lo(W2{xh, xl}, a, b, exact, mul.wide(xh, xl, c, d))
+
+def Fast.eq4(x: W4, y: W4) -> Bool:
+  match x y:
+    case W4{a, b, c, d} W4{e, f, g, h}:
+      Bool.and(Bool.and(U32.is_eq(a, e), U32.is_eq(b, f)), Bool.and(U32.is_eq(c, g), U32.is_eq(d, h)))
+
+def Fast.low(w: W4) -> W2:
+  match w:
+    case W4{a, b, c, d}:
+      W2{c, d}
+
+def Fast.read.same(same: Bool, value: F64) -> Maybe<&2, F64>:
+  match same:
+    case True{}:
+      Some{value}
+    case False{}:
+      None{}
+
+def Fast.read.round(+sign: U32, +exp: U32, c: Cached) -> Maybe<&2, F64>:
+  match c:
+    case Cached{+w, exact}:
+      +v = under(sign, exp, w, False{})
+      Fast.read.same(F64.is_eq(v, under(sign, exp, W4.add(w, W4{0, 0, 0, 2}), False{})), v)
+
+def Fast.read.power(sign: U32, d: List<&2, U32>, p: Pow.Power) -> Maybe<&2, F64>:
+  match p:
+    case Pow.Power{+a, +b, +c, +e, +exp, +exact}:
+      Fast.read.round(sign, (exp + 3251 : U32), Fast.mul(Fast.low(Big.w4(d)), Pow.Power{a, b, c, e, exp, exact}))
+
+def Fast.read(ok: Bool, sign: U32, d: List<&2, U32>, eb: U32) -> Maybe<&2, F64>:
+  match ok:
+    case False{}:
+      None{}
+    case True{}:
+      Fast.read.power(sign, d, Pow.get((eb - 1073741474 : U32)))
+
+def Rd.value.slow(+sign: U32, +d: List<&2, U32>, nd: U32, +eb: U32) -> F64:
   +t = (nd + eb : U32)
   Txt.if(F64, Bool.not(Big.any(d)), u => F64.zero.sign(sign),
     u => Txt.if(F64, U32.is_lt(t, 1073741500), u => F64.zero.sign(sign),
@@ -1530,6 +1580,17 @@ def Rd.value(+sign: U32, +d: List<&2, U32>, nd: U32, +eb: U32) -> F64:
         u => Txt.if(F64, U32.is_ge(eb, 1073741824),
           u => Rd.pos(sign, Big.times(U32.to_nat((eb - 1073741824 : U32)), 5, d), (eb - 1073741824 : U32)),
           u => Rd.neg(sign, d, (1073741824 - eb : U32))))))
+
+def Rd.value.pick(v: Maybe<&2, F64>, sign: U32, d: List<&2, U32>, nd: U32, eb: U32) -> F64:
+  match v:
+    case Some{x}:
+      x
+    case None{}:
+      Rd.value.slow(sign, d, nd, eb)
+
+# eb is the decimal exponent plus 2^30. A value under 10^-324 reads as zero, and one at or over 10^310 as infinity.
+def Rd.value(+sign: U32, +d: List<&2, U32>, +nd: U32, +eb: U32) -> F64:
+  Rd.value.pick(Fast.read(Bool.and(Bool.and(U32.is_gt(nd, 0), U32.is_le(nd, 19)), Bool.and(U32.is_ge(eb, 1073741474), U32.is_le(eb, 1073742174))), sign, d, eb), sign, d, nd, eb)
 
 def Rd.done.eb(neg: Bool, +n: U32, +frac: U32) -> U32:
   match neg:
@@ -1782,6 +1843,122 @@ def Sh.fin(+even: Bool, sk: St & U32) -> String:
   (st, +k) = sk
   Sh.show.if(Bool.or(U32.is_lt(k, 397), U32.is_ge(k, 417)), Sh.chars(Sh.gen(17n, even, Sh.digit(even, st))), k)
 
+type Floor is Data:
+  Floor{w: W4, exact: Bool}
+
+def Fast.floor.same(ok: Bool, w: W4, exact: Bool) -> Maybe<&2, Floor>:
+  match ok:
+    case True{}:
+      Some{Floor{w, exact}}
+    case False{}:
+      None{}
+
+def Fast.floor.ends(lo: W4 & Bool, hi: W4 & Bool, exact: Bool) -> Maybe<&2, Floor>:
+  (+w, lost) = lo
+  (v, more) = hi
+  Fast.floor.same(Fast.eq4(w, v), w, Bool.and(exact, Bool.not(lost)))
+
+def Fast.floor(+shift: U32, c: Cached) -> Maybe<&2, Floor>:
+  match c:
+    case Cached{+w, exact}:
+      Fast.floor.ends(W4.shr(w, shift), W4.shr(W4.add(w, W4{0, 0, 0, 2}), shift), exact)
+
+def Fast.div10.low(hi: U32, mid: U32, +n: U32) -> W2 & U32:
+  (W2{hi, ((mid << 16n) .|. (n / 10) : U32)}, (n % 10 : U32))
+
+def Fast.div10.mid(hi: U32, lo: U32, +n: U32) -> W2 & U32:
+  Fast.div10.low(hi, (n / 10 : U32), (((n % 10) << 16n) .|. (lo .&. 65535) : U32))
+
+def Fast.div10(w: W2) -> W2 & U32:
+  match w:
+    case W2{+hi, +lo}:
+      Fast.div10.mid((hi / 10 : U32), lo, (((hi % 10) << 16n) .|. (lo >> 16n) : U32))
+
+def Fast.inc(yes: Bool, w: W2) -> W2:
+  match yes:
+    case True{}:
+      W2.inc(w)
+    case False{}:
+      w
+
+def Fast.dec(yes: Bool, w: W2) -> W2:
+  match yes:
+    case True{}:
+      W2.sub(w, W2{0, 1})
+    case False{}:
+      w
+
+def Fast.odd(w: W2) -> Bool:
+  match w:
+    case W2{hi, lo}:
+      Bool.not(U32.is_zero((lo .&. 1 : U32)))
+
+def Fast.digits(fuel: Nat, qr: W2 & U32, +ds: List<&2, U32>) -> List<&2, U32>:
+  match fuel:
+    case 0n:
+      ds
+    case 1n+g:
+      (q, +d) = qr
+      +qq = {q : W2}
+      Txt.if(List<&2, U32>, W2.nz(qq), u => Fast.digits(g, Fast.div10(qq), Con{d, ds}), u => Con{d, ds})
+
+def Fast.format(w: W2, index: U32) -> String:
+  +ds = Fast.digits(20n, Fast.div10(w), Nil{})
+  +k = (U32.from_nat(List.length(&2, U32, ds)) + 750 - index : U32)
+  Sh.show.if(Bool.or(U32.is_lt(k, 397), U32.is_ge(k, 417)), Sh.chars(ds), k)
+
+def Fast.short(fuel: Nat, lower: W2 & U32, upper: W2 & U32, center: W2 & U32, +c: W2, +index: U32, +round: Bool, +tail: Bool) -> String:
+  match fuel:
+    case 0n:
+      Fast.format(Fast.inc(round, c), index)
+    case 1n+g:
+      (l, lr) = lower
+      (h, hr) = upper
+      (v, vr) = center
+      +ll = Fast.inc(Bool.not(U32.is_zero(lr)), l)
+      +hh = {h : W2}
+      +vv = {v : W2}
+      +digit = {vr : U32}
+      Txt.if(String, W2.ge(hh, ll),
+        u => Fast.short(g, Fast.div10(ll), Fast.div10(hh), Fast.div10(vv), vv, (index - 1 : U32),
+          Bool.or(U32.is_gt(digit, 5), Bool.and(U32.is_eq(digit, 5), Bool.or(tail, Fast.odd(vv)))),
+          Bool.or(tail, Bool.not(U32.is_zero(digit)))),
+        u => Fast.format(Fast.inc(round, c), index))
+
+def Fast.show.center(+even: Bool, index: U32, l: W4, lexact: Bool, h: W4, hexact: Bool, +half: Bool, +exact: Bool, shifted: W4 & Bool) -> String:
+  (c, lost) = shifted
+  +cc = Fast.low(c)
+  Fast.short(19n,
+    Fast.div10(Fast.inc(Bool.not(Bool.and(lexact, even)), Fast.low(l))),
+    Fast.div10(Fast.dec(Bool.and(hexact, Bool.not(even)), Fast.low(h))),
+    Fast.div10(cc), cc, index, Bool.and(half, Bool.or(Bool.not(exact), Fast.odd(cc))),
+    Bool.or(half, Bool.not(exact)))
+
+def Fast.show.floors(even: Bool, index: U32, lower: Floor, upper: Floor, center: Floor) -> String:
+  match lower upper center:
+    case Floor{l, lexact} Floor{h, hexact} Floor{+twice, exact}:
+      Fast.show.center(even, index, l, lexact, h, hexact, Fast.odd(Fast.low(twice)), exact, W4.shr(twice, 1))
+
+def Fast.show.power(+f: W2, +be: U32, +near: Bool, +even: Bool, +index: U32, p: Pow.Power) -> Maybe<&2, String>:
+  match p:
+    case Pow.Power{+a, +b, +c, +d, +exp, +exact}:
+      +power = {Pow.Power{a, b, c, d, exp, exact} : Pow.Power}
+      +m = W2.shl(f, 2)
+      +shift = (3061 - exp - be : U32)
+      do Maybe<&2, String>:
+        lower : Floor <- Fast.floor(shift, Fast.mul(W2.sub(m, W2{0, Bool.pick(U32, near, 1, 2)}), power))
+        upper : Floor <- Fast.floor(shift, Fast.mul(W2.inc(W2.inc(m)), power))
+        center : Floor <- Fast.floor((shift - 1 : U32), Fast.mul(m, power))
+        return Fast.show.floors(even, index, lower, upper, center)
+
+def Fast.show(+ex: U32, +mh: U32, +lo: U32) -> Maybe<&2, String>:
+  +f = {W2{(mh .|. (U32.min(ex, 1) << 20n) : U32), lo} : W2}
+  +be = U32.max(ex, 1)
+  +bits = (W2.msb(f) + 1 : U32)
+  +k = (((((be + bits + 24) * 78913) >> 18n) + 70) : U32)
+  +index = (768 - k : U32)
+  Fast.show.power(f, be, Bool.and(Bool.and(U32.is_zero(mh), U32.is_zero(lo)), U32.is_gt(ex, 1)), U32.is_zero((lo .&. 1 : U32)), index, Pow.get(index))
+
 # v = f * 2^(be - 1075). A power-of-two f above the least exponent has a nearer lower neighbour, so t = 1 there.
 def Sh.finite.go(+f: List<&2, U32>, +be: U32, +t: U32, +even: Bool) -> String:
   +a = (be - U32.min(be, 1075) : U32)
@@ -1795,6 +1972,13 @@ def Sh.finite(+ex: U32, +mh: U32, +lo: U32) -> String:
   +fh = (mh .|. (U32.min(ex, 1) << 20n) : U32)
   Sh.finite.go(Big.norm(Con{(lo .&. 65535 : U32), Con{(lo >> 16n : U32), Con{(fh .&. 65535 : U32), Con{(fh >> 16n : U32), Nil{}}}}}),
     U32.max(ex, 1), u01(Bool.and(Bool.and(U32.is_zero(mh), U32.is_zero(lo)), U32.is_gt(ex, 1))), U32.is_zero((lo .&. 1 : U32)))
+
+def Sh.finite.pick(fast: Maybe<&2, String>, ex: U32, mh: U32, lo: U32) -> String:
+  match fast:
+    case Some{s}:
+      s
+    case None{}:
+      Sh.finite(ex, mh, lo)
 
 def Sh.sign(neg: Bool, s: String) -> String:
   match neg:
@@ -1812,7 +1996,7 @@ def Sh.go(naninf: Bool, zero: Bool, +neg: Bool, +ex: U32, +mh: U32, +lo: U32) ->
         case True{}:
           Sh.sign(neg, "0.0")
         case False{}:
-          Sh.sign(neg, Sh.finite(ex, mh, lo))
+          Sh.sign(neg, Sh.finite.pick(Fast.show(ex, mh, lo), ex, mh, lo))
 
 # The shortest decimal that reads back to x, like Python's repr: "1.0", "0.1", "1e+16", "5e-324", "inf", "nan".
 def F64.show(x: F64) -> String:

@@ -8,7 +8,7 @@ included), random decimal strings, and exact halfway points between adjacent
 doubles. For each input it checks that read matches float(), that show
 matches repr(), and that read(show(x)) gives back x.
 """
-import os, random, struct, subprocess, sys
+import math, os, random, struct, subprocess, sys
 from decimal import Decimal, getcontext
 from pathlib import Path
 
@@ -52,6 +52,15 @@ def halfway():
 
 def inputs():
     out = ["0", "-0.0", "inf", "-Infinity", "NaN", "5e-324", "2.2250738585072014e-308", "1.7976931348623157e308", "1e309", "1e-400", "0.1", "9007199254740993"]
+    out += ["9999999999999999999", "18446744073709551615", "10000000000000000001",
+            "0000000000000000000000000000000000001e-22", "1e-350", "1e350",
+            "1.00000000000000011102230246251565404236316680908203125",
+            "1.00000000000000033306690738754696212708950042724609375"]
+    boundaries = [math.ldexp(1.0, e) for e in
+                  [-1074, -1073, -1023, -1022, -1021, -54, -53, -52, -1, 0, 1, 51, 52, 53, 54, 1022, 1023]]
+    boundaries += [float(f"1e{e}") for e in range(-320, 309, 8)]
+    for x in boundaries:
+        out += [repr(y) for y in [math.nextafter(x, 0.0), x, math.nextafter(x, math.inf)]]
     while len(out) < COUNT:
         r = rng.random()
         out.append(repr(finite_bits()) if r < 0.6 else decimal_text() if r < 0.95 else halfway())

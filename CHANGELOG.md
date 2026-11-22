@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f64` 0.1.4.0: use certified cached-power intervals for decimal parsing and shortest printing. Keep exact big-integer fallbacks and Python-compatible text. Measure 159x faster printing and 30x faster parsing on the fixed corpus.
+
 - `storage` 0.4.1.0: sync stores over HTTP(S) by walking immutable objects from a known root. Serve `GET /objects/<digest>` with HTTP 0.39.0.0. Check every fetched object through disk ingress. Test partial, repeated, repaired, missing, and tampered transfers on a port-0 loopback server.
 
 - `zlib`: compare decoded results as structural Bytes in all laws, including the canonical buffer layout. Remove the text conversion workaround. No runtime change.
