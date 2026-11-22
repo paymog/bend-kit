@@ -115,18 +115,21 @@ def client(+base: String, +ca: String) -> Hairpin.Client:
 def open(c: Hairpin.Client, +url: String) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream>):
   Hairpin.open.as(~judge.stream, c, Retry.Budget.new(1n, 0n, None{}), True{}, "identity", "GET", url, Http.empty(), Bytes.new(0))
 
-def run(+ca: String, +base: String) -> IO(Unit):
+def run.request(+ca: String, +base: String) -> IO(Unit):
   do IO<Unit>:
     got : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(client(base, ca), "go")
     res.ok("request with ca, through a redirect", got)
     bare : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(client(base, ""), "ok")
     res.fail("request: default store rejects private CA", bare)
+
+def run.stream(+ca: String, +base: String) -> IO(Unit):
+  do IO<Unit>:
     opened : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <- open(client(base, ca), "go")
     stream.ok("stream with ca, through a redirect", opened)
     plain : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <- open(client(base, ""), "ok")
     stream.fail("stream: default store rejects private CA", plain)
 
-def main.args(args: List<&1, String>) -> IO(Unit):
+def main.args(~run: @+ca: String -> @+base: String -> IO(Unit), args: List<&1, String>) -> IO(Unit):
   match args:
     case Con{ca, Con{base, Nil{}}}:
       run(ca, base)
@@ -136,4 +139,4 @@ def main.args(args: List<&1, String>) -> IO(Unit):
 def main() -> IO(Unit):
   do IO<Unit>:
     args : List<&1, String> <- IO.args()
-    main.args(List.tail(&1, String, args))
+    main.args(~run.request, List.tail(&1, String, args))

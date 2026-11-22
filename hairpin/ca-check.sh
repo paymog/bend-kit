@@ -50,11 +50,14 @@ s.serve_forever()
 PY
 
 cd "$here"
-if [ "${1:-native}" = js ]; then
-  bend ca_check.bend -o "$dir/ca_check.js"
-else
-  bend ca_check.bend -o "$dir/ca_check"
-fi
+# Separate emission units bound compilation: https://github.com/bendlang/bend/issues/2093
+for check in ca_check ca_stream_check; do
+  if [ "${1:-native}" = js ]; then
+    bend "$check.bend" -o "$dir/$check.js"
+  else
+    bend "$check.bend" -o "$dir/$check"
+  fi
+done
 python3 "$dir/server.py" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
 i=0
@@ -64,8 +67,10 @@ while [ ! -s "$dir/ports" ]; do
   sleep 0.1
 done
 read -r port <"$dir/ports"
-if [ "${1:-native}" = js ]; then
-  bun "$dir/ca_check.js" "$dir/ca.pem" "https://localhost:$port/"
-else
-  "$dir/ca_check" "$dir/ca.pem" "https://localhost:$port/"
-fi
+for check in ca_check ca_stream_check; do
+  if [ "${1:-native}" = js ]; then
+    bun "$dir/$check.js" "$dir/ca.pem" "https://localhost:$port/"
+  else
+    "$dir/$check" "$dir/ca.pem" "https://localhost:$port/"
+  fi
+done
