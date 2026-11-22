@@ -370,10 +370,14 @@ def concurrent(+dir: String) -> IO(Unit):
     run(Unit, S.Disk.init(dir))
     +d : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("end\n")))
     interleave(dir, S.Digest.hex(d), S.Disk.object(dir, d), "end\n", "en", "d\n")
-    interleave(dir, "root.release", dir ++ "/roots/release", S.Digest.hex(d),
+    interleave(dir, "root", dir ++ "/roots/release", S.Digest.hex(d),
       "11111111111111111111111111111111", "11111111111111111111111111111111")
     final : S.Digest <- run(S.Digest, S.Disk.root(dir, "release"))
     ok(String.eq(S.Digest.hex(final), "1111111111111111111111111111111111111111111111111111111111111111"), "root updates use last-rename-wins order")
+    +long : String = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    run(Unit, S.Disk.set_root(dir, long, d))
+    longest : S.Digest <- run(S.Digest, S.Disk.root(dir, long))
+    ok(same.digest(longest, d), "temporary suffixes do not limit valid root names")
     held : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/held"))
     failures(held, dir)
 

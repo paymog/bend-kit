@@ -986,7 +986,7 @@ def Disk.probe(+dir: String, xs: Store<Digest, Blob>, +s: Index(Digest, Blob)) -
 def Disk.set_root(+dir: String, +name: String, +d: Digest) -> Run(Unit):
   do Run<Unit>:
     Run.check(name.ok(name), "invalid root " ++ name)
-    write(dir, "root." ++ name, dir ++ "/roots/" ++ name, Bytes.from_string(Digest.hex(d)))
+    write(dir, "root", dir ++ "/roots/" ++ name, Bytes.from_string(Digest.hex(d)))
 
 def Disk.root(+dir: String, +name: String) -> Run(Digest):
   do Run<Digest>:
