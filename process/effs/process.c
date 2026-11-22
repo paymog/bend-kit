@@ -51,7 +51,7 @@ static char* process_octets(Env e, Term s, u64* len, bool* bad) {
 #endif
 
 #if defined(CID(run.raw)) || defined(CID(run.bounded.raw)) || defined(CID(spawn)) \
-  || defined(CID(wait))
+  || defined(CID(wait)) || defined(CID(wait.deadline)) || defined(CID(kill))
 #ifndef PROCESS_EXEC
 #define PROCESS_EXEC
 
@@ -908,6 +908,62 @@ Term wait_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) wait_use(void) {
   io_eff(CID(wait), wait_run);
+}
+
+#endif
+
+#ifdef CID(wait.deadline)
+
+static Term process_wait_deadline_more(Env e, IoWork* w) {
+  int st = 0;
+  pid_t result = waitpid((pid_t)w->hand, &st, WNOHANG);
+  if (result > 0) {
+    return io_done(e, (Term)process_exit_status(st));
+  }
+  if (result < 0 && errno != EINTR) {
+    return io_fail(e, errno, NULL);
+  }
+  u64 now = io_tick();
+  if (w->size && now >= w->size) {
+    return io_fail(e, ETIMEDOUT, NULL);
+  }
+  u64 next = now + 5000000ull;
+  if (w->size && next > w->size) {
+    next = w->size;
+  }
+  return io_wait_on(w, 0, 0, next, process_wait_deadline_more);
+}
+
+Term wait_deadline_run(Env e, Term* f, IoWork* w) {
+  u32 pid = (u32)f[0];
+  if (pid == 0 || pid > INT32_MAX) {
+    return io_fail(e, EINVAL, NULL);
+  }
+  w->hand = (intptr_t)(pid_t)pid;
+  w->size = (u32)f[1] ? io_tick() + (u64)(u32)f[1] * 1000000ull : 0;
+  return process_wait_deadline_more(e, w);
+}
+
+static void __attribute__((constructor)) wait_deadline_use(void) {
+  io_eff(CID(wait.deadline), wait_deadline_run);
+}
+
+#endif
+
+#ifdef CID(kill)
+
+Term kill_run(Env e, Term* f, IoWork* w) {
+  u32 pid = (u32)f[0];
+  u32 sig = (u32)f[1];
+  if (pid == 0 || pid > INT32_MAX || sig > INT32_MAX) {
+    return io_fail(e, EINVAL, NULL);
+  }
+  return kill((pid_t)pid, (int)sig) < 0
+    ? io_fail(e, errno, NULL) : io_done(e, term_pak(CID(Unit), 0));
+}
+
+static void __attribute__((constructor)) kill_use(void) {
+  io_eff(CID(kill), kill_run);
 }
 
 #endif

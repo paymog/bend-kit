@@ -39,6 +39,18 @@ def wait(pid: U32) -> IO(Result<&1, &1, U32 & String, U32>):
   import "./effs/process.c"
   import "./effs/process.js"
 
+# Wait up to ms milliseconds; 0 means no deadline. ETIMEDOUT keeps the
+# logical wait result available, not necessarily an unreaped OS child.
+def wait.deadline(pid: U32, ms: U32) -> IO(Result<&1, &1, U32 & String, U32>):
+  import "./effs/process.c"
+  import "./effs/process.js"
+
+# Signal one positive pid, not necessarily a spawned child; 0 probes access.
+# The caller must account for PID reuse. This never selects a process group.
+def kill(pid: U32, signal: U32) -> IO(Result<&1, &1, U32 & String, Unit>):
+  import "./effs/process.c"
+  import "./effs/process.js"
+
 # The host's ETIMEDOUT error code: 110 on Linux, 60 on macOS.
 def etimedout() -> IO(U32):
   import "./effs/process.c"
