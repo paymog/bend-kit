@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `dns` checks: run the deterministic packet and IPv6 loopback acceptance in JavaScript with pinned Bun on Linux x64 and macOS arm64. Keep both native lanes.
+
 - CI: pass selected sibling packages as an explicit argument array. Check empty, single, multiple, and full-repo pin selection, and pass workflow lint with ShellCheck enabled.
 
 - `wire` checks: require CA and mTLS acceptance in native and JavaScript lanes on macOS arm64 for Wire changes. Keep Linux gates and verify the exact PR head.

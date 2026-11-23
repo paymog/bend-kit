@@ -111,3 +111,16 @@ for result, expected in [("success", 0), ("skipped", 0), ("failure", 1), ("cance
     status = subprocess.run(["bash", "-c", script], env=dict(os.environ, result=result), capture_output=True)
     assert status.returncode == expected, (result, status.returncode)
 print("PASS macOS Wire TLS: selection, runner/head, pinned tools, four lanes, and required gate")
+
+for name in ["check", "native-macos"]:
+    job = workflow.split(f"\n  {name}:\n", 1)[1].split("\n\n", 1)[0]
+    bun = next(step for step in job.split("      - ") if "uses: oven-sh/setup-bun@v2" in step)
+    assert "matrix.package == 'dns'" in bun
+    assert "bun-version: ${{ env.BUN_VERSION }}" in job
+    dns = job.split("      - name: Check DNS JavaScript backend\n", 1)[1].split("      - ", 1)[0]
+    assert "if: matrix.package == 'dns'" in dns
+    assert 'bend dns/check.bend -o "$RUNNER_TEMP/dns-check.js"' in dns
+    assert 'bun "$RUNNER_TEMP/dns-check.js"' in dns
+    assert "continue-on-error" not in dns
+    assert "||" not in dns
+print("PASS DNS JavaScript: both package matrices, pinned Bun, compile and run without failure allowance")
