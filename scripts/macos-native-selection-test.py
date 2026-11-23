@@ -111,6 +111,12 @@ assert "bash http/local-smoke.sh" in job
 smoke = workflow.split("\n  smoke:\n", 1)[1].split("\n  gate:\n", 1)[0]
 assert "runs-on: ubuntu-latest" in smoke
 assert "bash local-smoke.sh" in smoke
+assert "bun-version: ${{ env.BUN_VERSION }}" in smoke
+local_smoke = (root / "http/local-smoke.sh").read_text()
+assert "for lane in native js; do" in local_smoke
+assert "runner=(bun)" in local_smoke
+for demo in ("demo", "stream_demo", "write_demo"):
+    assert f'bend {demo}.bend -o "$work/{demo}$suffix"' in local_smoke
 assert "continue-on-error: true" not in job
 http_gate = gate.split('case "${{ needs.http-macos.result }}" in', 1)[1].split("esac", 1)[0]
 for result, expected in [("success", 0), ("skipped", 0), ("failure", 1), ("cancelled", 1)]:

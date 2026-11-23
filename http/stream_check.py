@@ -1,4 +1,4 @@
-"""Exercise the native streaming demo with bounded and malformed requests."""
+"""Exercise the streaming demo with bounded and malformed requests."""
 
 import socket
 import subprocess
@@ -67,7 +67,7 @@ def run():
 
 
 if __name__ == "__main__":
-    server = subprocess.Popen([sys.argv[1]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    server = subprocess.Popen(sys.argv[1:], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         PORT = ready(server)
         run()

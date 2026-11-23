@@ -374,7 +374,7 @@ jobs:
         run: python3 -B scripts/rss-check.py scripts/native-check.sh http
       - name: Check HTTP startup sockets in native and JS
         run: python3 -B http/startup_check.py
-      - name: Check local HTTP serving and streaming
+      - name: Check local HTTP serving and streaming in native and JS
         run: bash http/local-smoke.sh
 
   http-tls-macos:
@@ -500,6 +500,9 @@ jobs:
         working-directory: http
     steps:
       - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
       - name: Install Bend
         run: ../scripts/install-bend.sh
       - name: Live fetch smoke
@@ -508,7 +511,7 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           bend smoke.bend | tee smoke.out
           ! grep -q '^fail ' smoke.out
-      - name: Local serving and streaming smokes
+      - name: Local serving and streaming smokes in native and JS
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           bash local-smoke.sh

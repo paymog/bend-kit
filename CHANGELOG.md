@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` local serving smokes: run shared serving, rejection, streamed request, and response writer assertions in native and JavaScript lanes on Linux and macOS arm64.
+
 - `hairpin` checks: hold all eight former listener ports open during native and JavaScript package acceptance on Linux and macOS arm64.
 
 - `camber` deployment: run the guarded eight-case launchd acceptance matrix on scheduled or manually dispatched macOS arm64 CI. Pin Bend and Bun, and upload fresh passing and adverse receipts.
