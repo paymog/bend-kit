@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hairpin` checks: require native and JavaScript package acceptance on macOS arm64 for Hairpin changes. Keep Linux and CA gates, verify the exact PR head, and enforce the 20 GiB native compiler memory ceiling.
+
 - `dns` checks: run the deterministic packet and IPv6 loopback acceptance in JavaScript with pinned Bun on Linux x64 and macOS arm64. Keep both native lanes.
 
 - CI: pass selected sibling packages as an explicit argument array. Check empty, single, multiple, and full-repo pin selection, and pass workflow lint with ShellCheck enabled.
