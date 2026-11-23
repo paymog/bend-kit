@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` checks: require native package acceptance and native/JS startup sockets on macOS arm64 for HTTP changes. Keep Linux coverage and the 20 GiB memory ceiling.
+
 - Re-pin tooling: add temporary exceptions for unchanged consumers when the current wave raises a package version. Check exception cleanup and preservation offline in CI.
 
 - `gateway` and `runner` examples and checks: complete the HTTP 0.40.0.0 re-pin waves. Use Camber 0.17.0.0, Hairpin 0.16.0.0, and Webhooks 0.14.0.0 where needed. Update the Time README's HTTP version and remove the completed pin exceptions.

@@ -50,3 +50,30 @@ gate = workflow.split("\n  gate:\n", 1)[1]
 assert "hairpin-ca-macos," in gate
 assert "needs.hairpin-ca-macos.result" in gate
 print("PASS macOS Hairpin CA: selection, both lanes, and required gate")
+
+http = next(line.strip() for line in workflow.splitlines() if 'echo "http=' in line)
+with tempfile.TemporaryDirectory() as tmp:
+    output = Path(tmp) / "output"
+    for changed, expected in [("http", True), ("bytes\nhttp\nhairpin", True), ("hairpin", False), ("", False)]:
+        output.write_text("")
+        subprocess.run(
+            ["bash", "-e", "-c", http], cwd=root,
+            env=dict(os.environ, pkgs=changed, GITHUB_OUTPUT=str(output)), check=True,
+        )
+        assert output.read_text() == f"http={str(expected).lower()}\n"
+job = workflow.split("\n  http-macos:\n", 1)[1].split("\n  http-tls-macos:\n", 1)[0]
+for required in [
+    "if: needs.changes.outputs.http == 'true'",
+    "runs-on: macos-15",
+    """test "$(uname -sm)" = 'Darwin arm64'""",
+    "test \"$actual\" = \"$EXPECTED_HEAD_SHA\"",
+    "bun-version: ${{ env.BUN_VERSION }}",
+    "scripts/install-bend.sh",
+    "python3 -B scripts/rss-check.py scripts/native-check.sh http",
+    "python3 -B http/startup_check.py",
+]:
+    assert required in job, required
+assert job.index("scripts/native-check.sh http") < job.index("python3 -B http/startup_check.py")
+assert "http-macos," in gate
+assert "needs.http-macos.result" in gate
+print("PASS macOS HTTP: selection, package acceptance, startup lanes, memory ceiling, and required gate")
