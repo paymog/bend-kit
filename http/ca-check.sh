@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 dir=$(mktemp -d)
 server=
 cleanup() {
@@ -128,6 +128,15 @@ if [ "${1:-native}" = js ]; then
 else
   bend ca_check.bend -o "$dir/ca_check"
 fi
+if [ "${WIRE_LOOPBACK_ONLY:-0}" = 1 ]; then
+  if [ "${1:-native}" = js ]; then
+    bend ../wire/loopback_check.bend -o "$dir/loopback.js"
+    python3 "$here/../wire/loopback-run.py" bun "$dir/loopback.js"
+  else
+    bend ../wire/loopback_check.bend -o "$dir/loopback"
+    python3 "$here/../wire/loopback-run.py" "$dir/loopback"
+  fi
+fi
 python3 "$dir/server.py" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
 i=0
@@ -138,9 +147,9 @@ while [ ! -s "$dir/ports" ]; do
 done
 read -r port proxy_port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  bun "$dir/ca_check.js" "$dir/ca.pem" "https://localhost:$port" "$port" "http://u:p@127.0.0.1:$proxy_port"
+  python3 "$here/../wire/loopback-run.py" bun "$dir/ca_check.js" "$dir/ca.pem" "https://localhost:$port" "$port" "http://u:p@127.0.0.1:$proxy_port"
 else
-  "$dir/ca_check" "$dir/ca.pem" "https://localhost:$port" "$port" "http://u:p@127.0.0.1:$proxy_port"
+  python3 "$here/../wire/loopback-run.py" "$dir/ca_check" "$dir/ca.pem" "https://localhost:$port" "$port" "http://u:p@127.0.0.1:$proxy_port"
 fi
 [ "$(wc -l <"$dir/ports.connects" | tr -d ' ')" = 3 ] || {
   echo "expected upload, pooled fetch, and response stream CONNECT tunnels" >&2
