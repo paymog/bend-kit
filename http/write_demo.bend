@@ -2,6 +2,7 @@ import Base
 import ./http.bend as Http
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import ./smoke_server.bend as Smoke
 
 type Download is Data:
   Download{path: String}
@@ -51,4 +52,7 @@ def dispose(state: Download) -> IO(Unit):
   IO.pure(Unit, Unit{})
 
 def main() -> IO(Unit):
-  Http.serve.write.on.with(~Download, ~start, ~body, ~dispose, ~Completion.ignore, "127.0.0.1", 18082, 1048576n)
+  do IO<Unit>:
+    server : Http.Server<Unit> <- Smoke.start(1048576n)
+    exited : Http.ServerExit <- Http.server.write.run(~Download, ~start, ~body, ~dispose, ~Completion.ignore, server)
+    Http.server.exited(exited)

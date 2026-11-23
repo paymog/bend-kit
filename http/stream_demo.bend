@@ -2,6 +2,7 @@ import Base
 import ./http.bend as Http
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import ./smoke_server.bend as Smoke
 
 type Count is Data:
   Count{path: String, len: U32, hash: U32}
@@ -34,4 +35,7 @@ def abort(state: Count, reason: Http.StreamAbort) -> IO(Unit):
   IO.pure(Unit, Unit{})
 
 def main() -> IO(Unit):
-  Http.serve.stream.on.with(~Count, ~start, ~piece, ~finish, ~abort, ~Completion.ignore, "127.0.0.1", 18081, 33554432n)
+  do IO<Unit>:
+    server : Http.Server<Unit> <- Smoke.start(33554432n)
+    exited : Http.ServerExit <- Http.server.stream.run(~Count, ~start, ~piece, ~finish, ~abort, ~Completion.ignore, server)
+    Http.server.exited(exited)

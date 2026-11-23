@@ -3,10 +3,9 @@
 import socket
 import subprocess
 import sys
-import time
+from smoke_ready import ready
 
 HOST = "127.0.0.1"
-PORT = 18082
 
 
 def connect():
@@ -90,16 +89,7 @@ def run():
 if __name__ == "__main__":
     server = subprocess.Popen([sys.argv[1]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
-        for _ in range(100):
-            try:
-                with connect():
-                    break
-            except OSError:
-                if server.poll() is not None:
-                    raise RuntimeError(server.communicate()[1].decode())
-                time.sleep(0.05)
-        else:
-            raise RuntimeError("server did not start")
+        PORT = ready(server)
         run()
         print("response writer smoke passed")
     finally:

@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` local serving smokes: bind live listeners on port 0 and report their bound ports to the serving, rejection, request stream, and response writer clients.
+
 - `hairpin` checks: bind every package listener on port 0 and pass its bound port to clients and cookie checks. Keep the scripted attempt assertions.
 
 - CI: require actionlint 1.7.12 with ShellCheck 0.11.0 when workflows change. Check lint selection, shell-warning detection, and required-gate failure handling.
