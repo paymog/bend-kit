@@ -1,5 +1,4 @@
 import Base
-import ../dns/dns.bend as Dns
 import ./wire.bend as Wire
 
 def ok(good: Bool, +name: String, +got: String) -> IO(Unit):
@@ -31,22 +30,14 @@ def alpn.connect(+host: String, cr: Result<&1, &1, U32 & String, Socket>) -> IO(
     case Done{sock}:
       alpn.run(host, sock)
 
-def alpn.ip(+host: String, ip: String) -> IO(Unit):
-  do IO<Unit>:
-    cr : Result<&1, &1, U32 & String, Socket> <- Wire.connect(ip, 443, 30000)
-    alpn.connect(host, cr)
-
-def alpn.got(+host: String, m: Maybe<&2, String>) -> IO(Unit):
-  match m:
+def alpn.port(port: Maybe<&2, U32>) -> IO(Unit):
+  match port:
+    case Some{p}:
+      do IO<Unit>:
+        cr : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", p, 5000)
+        alpn.connect("localhost", cr)
     case None{}:
-      IO.die(Unit, 1, "resolve " ++ host)
-    case Some{ip}:
-      alpn.ip(host, ip)
-
-def alpn.host(+host: String) -> IO(Unit):
-  do IO<Unit>:
-    m : Maybe<&2, String> <- Dns.resolve(host)
-    alpn.got(host, m)
+      IO.die(Unit, 1, "ALPN check needs a numeric port")
 
 def tcp.got(+family: String, m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   match m:
@@ -297,8 +288,12 @@ def mtls.args(args: List<&1, String>) -> IO(Unit):
   match args:
     case Con{cert, Con{key, Con{port, Nil{}}}}:
       mtls.run(cert, key, U32.read(port))
+    case Con{port, Nil{}}:
+      alpn.port(U32.read(port))
+    case Nil{}:
+      IO.pure(Unit, Unit{})
     case _:
-      alpn.host("nghttp2.org")
+      IO.die(Unit, 1, "check needs an ALPN port or a client certificate, key, and mTLS port")
 def main() -> IO(Unit):
   do IO<Unit>:
     tcp.check("IPv6", "::1")

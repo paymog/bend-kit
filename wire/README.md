@@ -88,6 +88,8 @@ Host effects are outside Bend's proof guarantees. `scripts/check.sh wire` permit
 
 `sh wire/ca-check.sh [native|js]` and `sh wire/mtls-check.sh [native|js]` require Python 3 and OpenSSL. Their TLS 1.2 servers bind `127.0.0.1:0` and pass the bound port to each client. The mTLS server requires a certificate signed by the test CA. `sh wire/mtls-check.sh linux` runs the JS check in Docker and installs Python 3 in the container.
 
+Required ALPN acceptance runs in `ca-check.sh` in native and JS on Linux and macOS. The loopback server advertises `h2,http/1.1`; both the private-CA and default-store ALPN calls must select `h2`. The default-store check uses `SSL_CERT_FILE` for the fixture CA. Servers that select `http/1.1` or no protocol must fail the same assertion. No public DNS or remote TLS service is used. Without arguments, `check.bend` runs only local TCP and UDP checks.
+
 ### Observed acceptance (2026-10-03, macOS arm64)
 
 `python3 -B wire/deadline_check.py` passed all eight scenarios in each compiled lane. Both peers received the exact 4099-byte binary success payload. Empty writes succeeded; oversize length, zero budget, and budget above INT32_MAX returned EINVAL with zero bytes. Real reset peers returned EPIPE with zero bytes in this run. Every returned socket was explicitly closed.
