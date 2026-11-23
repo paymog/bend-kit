@@ -1165,16 +1165,40 @@ static void __attribute__((constructor)) tls_recv_words_use(void) {
 
 #ifdef CID(tls.close)
 
-// ponytail: one non-blocking close_notify attempt; no wait for the peer's
-Term tls_close_run(Env e, Term* f, IoWork* w) {
-  int   fd  = (int)io_hand_v(f[0]);
-  void* ssl = wire_tls_of(fd);
-  if (ssl != NULL) {
-    wire_tls.shutdown(ssl);
-    wire_tls_drop(fd);
+// Drain unread TLS records so TCP close does not reset completed writes.
+static Term wire_tls_close_more(Env e, IoWork* w) {
+  int fd = (int)w->hand;
+  char buffer[4096];
+  while (!wire_late(w->size)) {
+    ssize_t n = recv(fd, buffer, sizeof(buffer), 0);
+    if (n > 0) {
+      continue;
+    }
+    if (n < 0 && errno == EINTR) {
+      continue;
+    }
+    if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      return io_wait_on(w, fd, POLLIN, w->size, wire_tls_close_more);
+    }
+    break;
   }
+  wire_tls_drop(fd);
   close(fd);
   return term_pak(CID(Unit), 0);
+}
+
+Term tls_close_run(Env e, Term* f, IoWork* w) {
+  int fd = (int)io_hand_v(f[0]);
+  void* ssl = wire_tls_of(fd);
+  if (ssl == NULL) {
+    close(fd);
+    return term_pak(CID(Unit), 0);
+  }
+  w->hand = fd;
+  w->size = wire_deadline(250);
+  wire_tls.shutdown(ssl);
+  shutdown(fd, SHUT_WR);
+  return wire_tls_close_more(e, w);
 }
 
 static void __attribute__((constructor)) tls_close_use(void) {

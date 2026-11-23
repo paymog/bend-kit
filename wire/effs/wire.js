@@ -380,7 +380,10 @@ function wire_tls() {
       s.SSL_CTX_set_verify(ctx, 1, null);
       s.SSL_CTX_ctrl(ctx, 123, 0x0303n, null);
       // A bare EOF is an error. close_notify is the only clean close.
-      globalThis.BEND_TLS = { s, ctx, ffi, by: new Map(), own: new Map() };
+      const shutdown = ffi.dlopen(process.platform === "darwin" ? "libSystem.dylib" : "libc.so.6", {
+        shutdown: { args: ["i32", "i32"], returns: "i32" },
+      }).symbols.shutdown;
+      globalThis.BEND_TLS = { s, ctx, ffi, shutdown, by: new Map(), own: new Map() };
       return globalThis.BEND_TLS;
     } catch {
       continue;
@@ -652,15 +655,40 @@ function wire_tls_recv(socket, max, ms, k, out) {
 }
 
 
-function tls_close(socket) {
+// Drain unread TLS records so TCP close does not reset completed writes.
+function tls_close(socket, k) {
+  const sys = io_sys();
   const t = wire_tls();
   const ssl = t && t.by.get(socket);
-  if (ssl) {
-    t.s.SSL_shutdown(ssl);
-    wire_tls_drop(t, socket);
+  if (!ssl) {
+    sys.close(socket);
+    return { $: CID(Unit) };
   }
-  io_sys().close(socket);
-  return { $: CID(Unit) };
+  const deadline = wire_deadline(250);
+  const buffer = new Uint8Array(4096);
+  t.s.SSL_shutdown(ssl);
+  t.shutdown(socket, 1); // SHUT_WR
+  const go = () => {
+    while (!wire_late(deadline)) {
+      const n = Number(sys.recv(socket, sys.ptr(buffer), buffer.length, 0));
+      if (n > 0) {
+        continue;
+      }
+      const code = n < 0 ? sys.errno() : 0;
+      if (code === 4) {
+        continue;
+      }
+      if (code === (sys.mac ? 35 : 11)) {
+        io_park_on(socket, false, k, go, deadline);
+        return undefined;
+      }
+      break;
+    }
+    wire_tls_drop(t, socket);
+    sys.close(socket);
+    return { $: CID(Unit) };
+  };
+  return go();
 }
 
 // Twin of connect in wire.c: a TCP connect with a deadline.
