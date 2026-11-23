@@ -9,8 +9,8 @@ def expect_denied(denied: Bool) -> IO(Unit):
 
 def denied(result: Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
   match result:
-    case Fail{(code, _)}:
-      expect_denied(U32.is_eq(code, 1))
+    case Fail{(+code, _)}:
+      expect_denied(Bool.or(U32.is_eq(code, 1), U32.is_eq(code, 13)))
     case Done{socket}:
       do IO<Unit>:
         Socket.close(socket)

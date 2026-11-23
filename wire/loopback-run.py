@@ -2,6 +2,7 @@
 """Restrict acceptance clients, not builds or RSS supervision."""
 import os
 import shutil
+import subprocess
 import sys
 
 command = sys.argv[1:]
@@ -14,10 +15,22 @@ if os.environ.get("WIRE_LOOPBACK_ONLY") == "1":
 (allow network-outbound (remote ip "localhost:*"))
 """, *command]
     elif sys.platform == "linux":
-        command = ["sudo", "systemd-run", "--scope", "--quiet",
-                   "-p", "IPAddressDeny=any", "-p", "IPAddressAllow=localhost",
-                   "--", "/usr/bin/env", *(f"{k}={v}" for k, v in os.environ.items()),
-                   *command]
+        rules = []
+        try:
+            for tool, reject in (("iptables", "icmp-admin-prohibited"),
+                                 ("ip6tables", "icmp6-adm-prohibited")):
+                rule = ["OUTPUT", "!", "-o", "lo", "-m", "owner",
+                        "--uid-owner", "0", "-j", "REJECT", "--reject-with", reject]
+                subprocess.run(["sudo", tool, "-w", "-I", *rule], check=True)
+                rules.append((tool, rule))
+            # Clients run as root; the runner, fixtures, and builds do not.
+            status = subprocess.run(["sudo", "/usr/bin/env",
+                                     *(f"{k}={v}" for k, v in os.environ.items()),
+                                     *command]).returncode
+        finally:
+            for tool, rule in reversed(rules):
+                subprocess.run(["sudo", tool, "-w", "-D", *rule], check=True)
+        raise SystemExit(status)
     else:
         raise SystemExit("Loopback isolation requires Linux or macOS")
 os.execvp(command[0], command)
