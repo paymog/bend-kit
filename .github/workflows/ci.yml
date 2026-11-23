@@ -19,6 +19,7 @@ jobs:
       packages: ${{ steps.list.outputs.packages }}
       http: ${{ steps.list.outputs.http }}
       hairpin: ${{ steps.list.outputs.hairpin }}
+      wire: ${{ steps.list.outputs.wire }}
       native: ${{ steps.list.outputs.native }}
     steps:
       - uses: actions/checkout@v7
@@ -34,6 +35,7 @@ jobs:
           echo "packages=$(jq -Rnc '[inputs | select(length > 0)]' <<<"$pkgs")" >> "$GITHUB_OUTPUT"
           echo "http=$(grep -qx http <<<"$pkgs" && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "hairpin=$(grep -qx hairpin <<<"$pkgs" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "wire=$(grep -qx wire <<<"$pkgs" && echo true || echo false)" >> "$GITHUB_OUTPUT"
           native=$(
             shopt -s nullglob
             for pkg in $pkgs; do
@@ -248,6 +250,40 @@ jobs:
             echo "== $s js"; sh "$s" js
           done
 
+  wire-tls-macos:
+    needs: changes
+    if: needs.changes.outputs.wire == 'true'
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify runner and head
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(uname -sm)" = 'Darwin arm64'
+          actual=$(git rev-parse HEAD)
+          printf 'tested=%s expected=%s\n' "$actual" "$EXPECTED_HEAD_SHA"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install Bend
+        run: |
+          scripts/install-bend.sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+      - name: Select OpenSSL
+        run: echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+      - name: Check Wire CA and mTLS in native and JS
+        run: |
+          for s in wire/ca-check.sh wire/mtls-check.sh; do
+            echo "== $s native"; sh "$s"
+            echo "== $s js"; sh "$s" js
+          done
+
   hairpin-ca-macos:
     needs: changes
     if: needs.changes.outputs.hairpin == 'true'
@@ -326,7 +362,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, check, native-macos, http-macos, http-tls-macos, hairpin-ca-macos, smoke]
+    needs: [changes, check, native-macos, http-macos, http-tls-macos, wire-tls-macos, hairpin-ca-macos, smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -351,6 +387,10 @@ jobs:
           case "${{ needs.http-tls-macos.result }}" in
             success|skipped) ;;
             *) echo "http-tls-macos is ${{ needs.http-tls-macos.result }}"; exit 1 ;;
+          esac
+          case "${{ needs.wire-tls-macos.result }}" in
+            success|skipped) ;;
+            *) echo "wire-tls-macos is ${{ needs.wire-tls-macos.result }}"; exit 1 ;;
           esac
           case "${{ needs.hairpin-ca-macos.result }}" in
             success|skipped) ;;

@@ -205,7 +205,7 @@ scripts/packages.sh origin/main
 
 Packages with `effs/*.c`, and `commands`, `webhooks`, `f32array`, and `bits`, run native checks on Linux x64 and macOS arm64. The macOS matrix uses the same changed-package list and starts no job when that list has none of these packages. Both platforms use the Bun version set in `.github/workflows/ci.yml`.
 The DNS acceptance check resolves a numeric IPv6 loopback fixture through the OS resolver. It needs no public DNS service.
-HTTP CA and mTLS acceptance, and Hairpin CA acceptance, run on Linux x64 and macOS arm64 in both native and JavaScript lanes. The macOS acceptance jobs run only when their package is in the changed-package list.
+HTTP and Wire CA and mTLS acceptance, and Hairpin CA acceptance, run on Linux x64 and macOS arm64 in both native and JavaScript lanes. The macOS acceptance jobs run only when their package is in the changed-package list.
 
 CI installs the Bend version pinned in `scripts/install-bend.sh`. To move to a new Bend, change `VER` and `SHA` in that script.
 
