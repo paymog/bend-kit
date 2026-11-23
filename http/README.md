@@ -3,11 +3,11 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.40.0.0/http.bend as Http
-import bend-kit-http@0.40.0.0/completion.bend as Completion
+import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.40.0.1/completion.bend as Completion
 ```
 
-`Http.Body` uses `bend-kit-bytes@0.3.3.1`. JSON values for `post.json` use `bend-kit-json@0.7.3.0`. DNS lookup uses `bend-kit-dns@0.7.1.1`. TLS uses `bend-kit-wire@0.4.8.0`.
+`Http.Body` uses `bend-kit-bytes@0.3.3.1`. JSON values for `post.json` use `bend-kit-json@0.7.3.0`. DNS lookup uses `bend-kit-dns@0.7.1.2`. TLS uses `bend-kit-wire@0.4.8.1`.
 
 HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if `libssl` is not on the default path. A body over about 30 KB overflows `bend file.bend`. Build with `bend file.bend -o app`.
 
@@ -15,7 +15,7 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.40.0.0/http.bend as Http
+import bend-kit-http@0.40.0.1/http.bend as Http
 
 def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
   match got:
@@ -87,8 +87,8 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.40.0.0/http.bend as Http
-import bend-kit-http@0.40.0.0/completion.bend as Completion
+import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.40.0.1/completion.bend as Completion
 
 def hello(req: Http.Req) -> IO(Http.Reply):
   Http.Req{method, path, headers, body} = req
@@ -110,7 +110,7 @@ def main() -> IO(Unit):
 
 Use port `0` to let the OS select a free port. `(server, port) = Http.server.port(~Context, server)` returns the actual port beside the same server. The listener stays open from startup through serving. Both native and JS startup use `Wire.listen`.
 
-`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.8.0`.
+`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.8.1`.
 
 `server.run` consumes the server and returns `ServerExit` after the listener is closed and the accepted work has returned. `server.close` does that close and returns the counts. It waits until handlers and cleanup callbacks return. It can wait forever. `server.stop` refuses new admission and returns `True` the first time. Stop is not drain. You still run or close the server. A callback that does not return is not cancelled. An external supervisor has to enforce a process deadline.
 

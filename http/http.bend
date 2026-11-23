@@ -2,7 +2,7 @@
 import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
-import bend-kit-wire@0.4.8.0/wire.bend as Wire
+import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-http2@0.5.0.2/http2.bend as H2
 import bend-kit-http2@0.5.0.2/hpack.bend as Hpack
 import bend-kit-bytes@0.3.3.1/bytes.bend as HBytes
@@ -13,7 +13,7 @@ import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-dns@0.7.1.1/dns.bend as Dns
+import bend-kit-dns@0.7.1.2/dns.bend as Dns
 import bend-kit-zlib@0.6.0.0/zlib.bend as Zlib
 import bend-kit-zlib@0.6.0.0/native.bend as ZNative
 
