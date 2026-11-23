@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hairpin` checks: bind every package listener on port 0 and pass its bound port to clients and cookie checks. Keep the scripted attempt assertions.
+
 - CI: require actionlint 1.7.12 with ShellCheck 0.11.0 when workflows change. Check lint selection, shell-warning detection, and required-gate failure handling.
 
 - `gateway` and `runner` examples and checks: complete the Wire 0.4.8.1 re-pin waves with HTTP 0.40.0.1, Camber 0.17.0.1, Hairpin 0.16.0.1, and Webhooks 0.14.0.1. Update the Time README's HTTP pin and remove the completed pin exceptions.

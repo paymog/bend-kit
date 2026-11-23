@@ -7,6 +7,7 @@ import bend-kit-http@0.40.0.1/completion.bend as Completion
 import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 def ok(b: Bool, +name: String) -> IO(Unit):
   match b:
@@ -115,10 +116,16 @@ def fine() -> U32:
 def missing() -> U32:
   7
 
-def server(+port: U32, ks: List<&2, U32>) -> IO(Chan(Unit)):
-  do IO<Chan(Unit)>:
-    l : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", port))
-    IO.fork(Unit, serve(ks, l))
+def server.bound(ks: List<&2, U32>, lp: Listener & U32) -> IO(U32 & Chan(Unit)):
+  (l, port) = lp
+  do IO<U32 & Chan(Unit)>:
+    ch : Chan(Unit) <- IO.fork(Unit, serve(ks, l))
+    return (port, ch)
+
+def server(ks: List<&2, U32>) -> IO(U32 & Chan(Unit)):
+  do IO<U32 & Chan(Unit)>:
+    lp : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    server.bound(ks, lp)
 
 def served.of(+name: String, m: Maybe<&1, Unit>) -> IO(Unit):
   match m:
@@ -189,18 +196,18 @@ def denied.in(+name: String, +want: U32, r: Hairpin.Client & Retry.Budget & Resu
 def at(+port: U32) -> Hairpin.Client:
   Hairpin.base(Hairpin.new(), "http://127.0.0.1:" ++ U32.show(port) ++ "/api/")
 
-def client(now: Time.Instant) -> Hairpin.Client:
-  c0 = at(47830)
+def client(port: U32, now: Time.Instant) -> Hairpin.Client:
+  c0 = at(port)
   c1 = Hairpin.header(Hairpin.header(c0, "Accept", "text/plain"), "X-A", "default")
   Hairpin.jar(Hairpin.retry(c1, 2), Http.jar.new(now))
 
 # A redirect that sets a cookie, a 503 retried to a 200, a POST tried once, and a 302 in manual mode.
-def basics() -> IO(Unit):
+def basics(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47830, [login(), echoed(), busy(), again(), post(), login()])
     now : Time.Instant <- Time.now()
     r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
-      Hairpin.request(client(now), "GET", "login", Http.set(Http.empty(), "X-A", "mine"), Bytes.new(0))
+      Hairpin.request(client(port, now), "GET", "login", Http.set(Http.empty(), "X-A", "mine"), Bytes.new(0))
     c1 : Hairpin.Client <- got("base, default and request headers, redirect, and jar", 200, "GET /api/echo text/plain mine sid=abc", r1)
     r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c1, "/api/flaky")
     c2 : Hairpin.Client <- got("503 then 200 on the retry, jar kept", 200, "retry sid=abc", r2)
@@ -212,10 +219,10 @@ def basics() -> IO(Unit):
     served("basics: 6 attempts", ch)
 
 # retry 2 is 3 attempts in all; a 404 is settled after one.
-def counts() -> IO(Unit):
+def counts(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47831, [busy(), busy(), busy(), missing()])
-    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.retry(at(47831), 2), "x")
+    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.retry(at(port), 2), "x")
     c1 : Hairpin.Client <- got("retry 2 on a 503 ends with the third 503", 503, "busy", r1)
     r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c1, "x")
     c2 : Hairpin.Client <- got("a 404 is settled: one attempt", 404, "missing", r2)
@@ -230,11 +237,11 @@ def took(t0: Nat, t1: Nat) -> IO(Unit):
 
 # Retry-After: 1 with a 1500 ms deadline: the second wait would reach the deadline, so 2 attempts of 6.
 # A 0 ms deadline admits no attempt at all.
-def deadlines() -> IO(Unit):
+def deadlines(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47832, [slow(), slow()])
     t0 : Nat <- Time.mono.ms()
-    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.deadline(Hairpin.retry(at(47832), 5), 1500), "x")
+    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.deadline(Hairpin.retry(at(port), 5), 1500), "x")
     t1 : Nat <- Time.mono.ms()
     c1 : Hairpin.Client <- got("the deadline stops the retries after 2 attempts", 503, "slow", r1)
     took(t0, t1)
@@ -245,10 +252,10 @@ def deadlines() -> IO(Unit):
 
 # Two 404s do not count. Two failures open the breaker; it denies until the 300 ms cooldown ends, then one
 # probe closes it again.
-def breaker() -> IO(Unit):
+def breaker(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47833, [missing(), missing(), busy(), busy(), fine(), fine()])
-    m0 : Hairpin.Client = Hairpin.circuit(at(47833), Retry.Circuit{2n, 10000n, 300n, 1n})
+    m0 : Hairpin.Client = Hairpin.circuit(at(port), Retry.Circuit{2n, 10000n, 300n, 1n})
     q1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(m0, "x")
     m1 : Hairpin.Client <- got("breaker: a 404 does not count", 404, "missing", q1)
     q2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(m1, "x")
@@ -281,12 +288,12 @@ def nested.call(x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.B
 
 # An outer layer makes 3 calls, each allowed 3 attempts by the client, on one budget of 4:
 # 3 attempts, then 1, then none. Without the shared budget it would be 9.
-def nested() -> IO(Unit):
+def nested(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47834, [busy(), busy(), busy(), busy()])
     now : Nat <- Time.mono.ms()
     b0 : Retry.Budget = Retry.Budget.new(4n, now, None{})
-    r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.request.in(Hairpin.retry(at(47834), 2), b0, "GET", "x", Http.empty(), Bytes.new(0))
+    r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.request.in(Hairpin.retry(at(port), 2), b0, "GET", "x", Http.empty(), Bytes.new(0))
     x1 : Hairpin.Client & Retry.Budget <- got.in("nested: the first call takes 3", 503, "busy", r1)
     r2 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- nested.call(x1)
     x2 : Hairpin.Client & Retry.Budget <- got.in("nested: the second call gets the 1 left", 503, "busy", r2)
@@ -305,12 +312,12 @@ def judge.all(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Http.Err,
       (Done{Http.Res{s, h, b}}, Bool.pick(Hairpin.Verdict, U32.is_eq(s, 200), Hairpin.VerdictOk{}, Hairpin.VerdictAgain{"0"}))
 
 # A caller's judge retries a 404, and a POST it calls idempotent repeats: 3 attempts.
-def judged() -> IO(Unit):
+def judged(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47835, [missing(), missing(), fine()])
     b0 : Retry.Budget = Retry.Budget.new(3n, 0n, None{})
     r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <-
-      Hairpin.request.as(~judge.all, Hairpin.retry(at(47835), 2), b0, True{}, "identity", "POST", "x", Http.empty(), Bytes.from_string("{}"))
+      Hairpin.request.as(~judge.all, Hairpin.retry(at(port), 2), b0, True{}, "identity", "POST", "x", Http.empty(), Bytes.from_string("{}"))
     x1 : Hairpin.Client & Retry.Budget <- got.in("request.as: the caller's judge retries an idempotent POST", 200, "fine", r1)
     Hairpin.close(nested.c(x1))
     served("judged: 3 attempts", ch)
@@ -367,12 +374,12 @@ def streamed(+name: String, +want: Nat, r: Hairpin.Client & Retry.Budget & Resul
         return next
 
 # Two refused streams close and the third opens, all on one budget of 4.
-def opened() -> IO(Unit):
+def opened(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47836, [busy(), busy(), fine()])
     b0 : Retry.Budget = Retry.Budget.new(4n, 0n, None{})
     r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <-
-      Hairpin.open.as(~judge.stream, Hairpin.retry(at(47836), 2), b0, True{}, "identity", "GET", "x", Http.empty(), Bytes.new(0))
+      Hairpin.open.as(~judge.stream, Hairpin.retry(at(port), 2), b0, True{}, "identity", "GET", "x", Http.empty(), Bytes.new(0))
     c1 : Hairpin.Client <- streamed("open.as: 503, 503, then a 200 stream", 1n, r1)
     Hairpin.close(c1)
     served("opened: 3 attempts", ch)
@@ -381,19 +388,19 @@ def jarred.first(r: Http.Jar & Http.Res) -> Http.Jar:
   (j, res) = r
   j
 
-def jarred.start(+now: Time.Instant) -> Http.Jar:
-  jarred.first(Http.jar.store(Http.jar.new(now), "http://127.0.0.1:47837/", Http.Res{200, Http.set(Http.empty(), "set-cookie", "pre=1"), Bytes.new(0)}))
+def jarred.start(+port: U32, +now: Time.Instant) -> Http.Jar:
+  jarred.first(Http.jar.store(Http.jar.new(now), "http://127.0.0.1:" ++ U32.show(port) ++ "/", Http.Res{200, Http.set(Http.empty(), "set-cookie", "pre=1"), Bytes.new(0)}))
 
-def jarred.sent(m: Maybe<&2, Http.Jar>) -> String:
+def jarred.sent(+port: U32, m: Maybe<&2, Http.Jar>) -> String:
   match m:
     case None{}:
       "no jar"
     case Some{j}:
-      Http.header(Http.jar.apply(j, "http://127.0.0.1:47837/", Http.empty()), "cookie")
+      Http.header(Http.jar.apply(j, "http://127.0.0.1:" ++ U32.show(port) ++ "/", Http.empty()), "cookie")
 
-def jarred.jar(x: Hairpin.Client & Maybe<&2, Http.Jar>) -> IO(Unit):
+def jarred.jar(port: U32, x: Hairpin.Client & Maybe<&2, Http.Jar>) -> IO(Unit):
   (c, m) = x
-  +sent = jarred.sent(m)
+  +sent = jarred.sent(port, m)
   do IO<Unit>:
     ok(String.eq(sent, "pre=1; sid=abc"), "open.as: the jar comes back with the server's Set-Cookie (" ++ sent ++ ")")
     Hairpin.close(c)
@@ -405,7 +412,7 @@ def jarred.read(x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>
     Http.stream.close(st)
     ok(String.eq(seen, "GET /api/echo   pre=1; sid=abc"), "open.as: the jar's cookie and the first hop's Set-Cookie reach the second hop (" ++ seen ++ ")")
 
-def jarred(r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream>) -> IO(Unit):
+def jarred(+port: U32, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream>) -> IO(Unit):
   (c, b, m) = r
   match m:
     case Fail{e}:
@@ -414,25 +421,33 @@ def jarred(r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.S
       do IO<Unit>:
         y : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
         jarred.read(y)
-        jarred.jar(Hairpin.jar.of(c))
+        jarred.jar(port, Hairpin.jar.of(c))
 
 # A stream through open.as sends the client's jar cookie and stores the redirect's Set-Cookie.
-def jarred.test() -> IO(Unit):
+def jarred.test(bound: U32 & Chan(Unit)) -> IO(Unit):
+  (+port, ch) = bound
   do IO<Unit>:
-    ch : Chan(Unit) <- server(47837, [login(), echoed()])
     now : Time.Instant <- Time.now()
     r : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <-
-      Hairpin.open.as(~judge.stream, Hairpin.jar(at(47837), jarred.start(now)), Retry.Budget.new(1n, 0n, None{}), True{}, "identity", "GET", "login", Http.empty(), Bytes.new(0))
-    jarred(r)
+      Hairpin.open.as(~judge.stream, Hairpin.jar(at(port), jarred.start(port, now)), Retry.Budget.new(1n, 0n, None{}), True{}, "identity", "GET", "login", Http.empty(), Bytes.new(0))
+    jarred(port, r)
     served("jarred: 2 attempts", ch)
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    basics()
-    counts()
-    deadlines()
-    breaker()
-    nested()
-    judged()
-    opened()
-    jarred.test()
+    a : U32 & Chan(Unit) <- server([login(), echoed(), busy(), again(), post(), login()])
+    basics(a)
+    b : U32 & Chan(Unit) <- server([busy(), busy(), busy(), missing()])
+    counts(b)
+    c : U32 & Chan(Unit) <- server([slow(), slow()])
+    deadlines(c)
+    d : U32 & Chan(Unit) <- server([missing(), missing(), busy(), busy(), fine(), fine()])
+    breaker(d)
+    e : U32 & Chan(Unit) <- server([busy(), busy(), busy(), busy()])
+    nested(e)
+    f : U32 & Chan(Unit) <- server([missing(), missing(), fine()])
+    judged(f)
+    g : U32 & Chan(Unit) <- server([busy(), busy(), fine()])
+    opened(g)
+    h : U32 & Chan(Unit) <- server([login(), echoed()])
+    jarred.test(h)
