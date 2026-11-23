@@ -4,22 +4,33 @@ import ./risk_probe.bend as Risk
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
+import bend-kit-time@0.3.0.1/time.bend as Time
+import ./prerequisites.bend as Probe
 
 type Context is Data:
   Context{mode: String, iterations: Nat, go: Chan(Unit)}
+
+def completed(value: String, started: Time.Duration) -> IO(Unit):
+  do IO<Unit>:
+    finished : Time.Duration <- Time.mono()
+    Probe.elapsed("WORK_TIME", Time.Duration.sub(finished, started))
+    IO.print("CPU_END " ++ value)
 
 def work(mode: String, iterations: Nat) -> IO(Unit):
   match mode:
     case "yield":
       do IO<Unit>:
         IO.print("CPU_BEGIN")
+        started : Time.Duration <- Time.mono()
         IO.sleep(500)
-        IO.print("CPU_END yield")
+        completed("yield", started)
     case _:
       do IO<Unit>:
         IO.print("CPU_BEGIN")
+        IO.sleep(1)
+        started : Time.Duration <- Time.mono()
         seed : U32 <- IO.try(U32, IO.random_u32())
-        IO.print("CPU_END " ++ U32.show(Risk.spin(iterations, seed)))
+        completed(U32.show(Risk.spin(iterations, seed)), started)
 
 def run_work(context: Context) -> IO(Http.Res):
   Context{mode, iterations, go} = context
