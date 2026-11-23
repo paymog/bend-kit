@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 dir=$(mktemp -d)
 server=
 cleanup() {
@@ -63,7 +63,7 @@ while [ ! -s "$dir/ports" ]; do
 done
 read -r port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$dir/client.pem" "$dir/client.key" "$port"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/loopback-run.py" bun "$dir/check.js" "$dir/client.pem" "$dir/client.key" "$port"
 else
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$dir/client.pem" "$dir/client.key" "$port"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/loopback-run.py" "$dir/check" "$dir/client.pem" "$dir/client.key" "$port"
 fi

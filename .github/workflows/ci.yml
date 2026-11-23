@@ -233,6 +233,7 @@ jobs:
       - name: CA and mTLS checks ${{ matrix.package }}
         if: hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         run: |
+          if [ "${{ matrix.package }}" = wire ]; then export WIRE_LOOPBACK_ONLY=1; fi
           export PATH="$HOME/.bend/bin:$PATH"
           for s in ${{ matrix.package }}/ca-check.sh ${{ matrix.package }}/mtls-check.sh; do
             [ -f "$s" ] || continue
@@ -429,6 +430,8 @@ jobs:
       - name: Select OpenSSL
         run: echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
       - name: Check Wire CA and mTLS in native and JS
+        env:
+          WIRE_LOOPBACK_ONLY: '1'
         run: |
           for s in wire/ca-check.sh wire/mtls-check.sh; do
             echo "== $s native"; sh "$s"

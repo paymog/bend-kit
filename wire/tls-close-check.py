@@ -22,6 +22,7 @@ def main():
         binary = tmp / ("close.js" if target == "js" else "close")
         subprocess.run(("bend", "tls_close_check.bend", "-o", str(binary)), cwd=ROOT, check=True)
         command = ("bun", str(binary)) if target == "js" else (str(binary),)
+        command = (sys.executable, str(ROOT / "loopback-run.py"), *command)
         context = fixtures["certificates"](tmp)
         assert context.num_tickets > 0
         environment = dict(os.environ, SSL_CERT_FILE=str(tmp / "ca.pem"))
