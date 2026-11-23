@@ -16,6 +16,8 @@ This package imports `bend-kit-wire@0.4.8.0` and `bend-kit-bytes@0.3.3.1`.
 
 Proofs cover concrete fixtures for `query`, `answer`, nameserver parsing, hosts-file parsing, and literal addresses. They do not prove all resolver behavior or cover `effs/dns.c` and `effs/dns.js`.
 
+`check.bend` checks packet parsing and resolves `0:0:0:0:0:0:0:1` through `resolve.all.os`. It requires the OS resolver to return `::1`. This bypasses the literal fast path and needs no public DNS service or IPv6 route.
+
 | def | returns |
 |---|---|
 | `hosts.all(+name: String, text: String) -> List<&2, String>` | All matching addresses from hosts-file text, in file order. Pass a lowercase name. |
