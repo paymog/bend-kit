@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `jwt` 0.14.0.1, `llm` 0.16.0.1, `oauth2` 0.14.0.1, `sigv4` 0.14.0.1, and `webhooks` 0.14.0.1: share HTTP 0.40.0.1 and Hairpin 0.16.0.1. Re-pin Authz checks and manual Camber consumers to Camber 0.17.0.1.
+
 - `camber` 0.17.0.1, `hairpin` 0.16.0.1, and `storage` 0.6.0.1: use HTTP 0.40.0.1 and Wire 0.4.8.1's bounded TLS close drain.
 
 - `http` 0.40.0.1, `postgres` 0.3.1.2, and `redis` 0.3.1.2: share DNS 0.7.1.2 and Wire 0.4.8.1's bounded TLS close drain.

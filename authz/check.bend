@@ -1,8 +1,8 @@
 # One Camber route guarded by an authz policy: allow, deny overrides, missing context, and restriction.
 import Base
 import ./authz.bend as Az
-import bend-kit-camber@0.17.0.0/camber.bend as C
-import bend-kit-http@0.40.0.0/http.bend as H
+import bend-kit-camber@0.17.0.1/camber.bend as C
+import bend-kit-http@0.40.0.1/http.bend as H
 import bend-kit-bytes@0.3.3.1/bytes.bend as B
 
 # The protected effects that ran, oldest first.
