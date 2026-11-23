@@ -1,4 +1,4 @@
-"""Check native server response framing, suppression, and connection reuse."""
+"""Check server response framing, suppression, and connection reuse."""
 
 import socket
 import subprocess
@@ -87,7 +87,7 @@ def run():
 
 
 if __name__ == "__main__":
-    server = subprocess.Popen([sys.argv[1]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    server = subprocess.Popen(sys.argv[1:], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         PORT = ready(server)
         run()
