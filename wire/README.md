@@ -90,6 +90,8 @@ Host effects are outside Bend's proof guarantees. `scripts/check.sh wire` permit
 
 Required ALPN acceptance runs in `ca-check.sh` in native and JS on Linux and macOS. The loopback server advertises `h2,http/1.1`; both the private-CA and default-store ALPN calls must select `h2`. The default-store check uses `SSL_CERT_FILE` for the fixture CA. Servers that select `http/1.1` or no protocol must fail the same assertion. No public DNS or remote TLS service is used. Without arguments, `check.bend` runs only local TCP and UDP checks.
 
+Required TLS jobs set `WIRE_LOOPBACK_ONLY=1`. Each compiled native and JS client runs under a macOS network sandbox or temporary Linux IPv4/IPv6 firewall rules that reject non-loopback destinations from the root client. A compiled probe must receive EPERM, EACCES, or EHOSTUNREACH from a numeric public-IP connection in both lanes; a timeout or connection refusal does not pass. Builds, fixture servers, and process-tree RSS supervision stay outside the client restriction. Linux requires passwordless sudo and iptables; each client restores its firewall rules before returning.
+
 ### Observed acceptance (2026-10-03, macOS arm64)
 
 `python3 -B wire/deadline_check.py` passed all eight scenarios in each compiled lane. Both peers received the exact 4099-byte binary success payload. Empty writes succeeded; oversize length, zero budget, and budget above INT32_MAX returned EINVAL with zero bytes. Real reset peers returned EPIPE with zero bytes in this run. Every returned socket was explicitly closed.

@@ -30,6 +30,15 @@ else
   bend ca_check.bend -o "$dir/ca_check"
   bend check.bend -o "$dir/check"
 fi
+if [ "${WIRE_LOOPBACK_ONLY:-0}" = 1 ]; then
+  if [ "${1:-native}" = js ]; then
+    bend loopback_check.bend -o "$dir/loopback.js"
+    python3 "$here/loopback-run.py" bun "$dir/loopback.js"
+  else
+    bend loopback_check.bend -o "$dir/loopback"
+    python3 "$here/loopback-run.py" "$dir/loopback"
+  fi
+fi
 python3 "$here/tls-server.py" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
 i=0
@@ -40,9 +49,9 @@ while [ ! -s "$dir/ports" ]; do
 done
 read -r port <"$dir/ports"
 if [ "${1:-native}" = js ]; then
-  bun "$dir/ca_check.js" "$dir/ca.pem" "$port"
+  python3 "$here/loopback-run.py" bun "$dir/ca_check.js" "$dir/ca.pem" "$port"
 else
-  "$dir/ca_check" "$dir/ca.pem" "$port"
+  python3 "$here/loopback-run.py" "$dir/ca_check" "$dir/ca.pem" "$port"
 fi
 
 for protocols in h2,http/1.1 http/1.1 ''; do
@@ -61,9 +70,9 @@ for protocols in h2,http/1.1 http/1.1 ''; do
   read -r port <"$dir/ports"
   status=0
   if [ "${1:-native}" = js ]; then
-    SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js" "$port" >"$dir/alpn.log" 2>&1 || status=$?
+    SSL_CERT_FILE="$dir/ca.pem" python3 "$here/loopback-run.py" bun "$dir/check.js" "$port" >"$dir/alpn.log" 2>&1 || status=$?
   else
-    SSL_CERT_FILE="$dir/ca.pem" "$dir/check" "$port" >"$dir/alpn.log" 2>&1 || status=$?
+    SSL_CERT_FILE="$dir/ca.pem" python3 "$here/loopback-run.py" "$dir/check" "$port" >"$dir/alpn.log" 2>&1 || status=$?
   fi
   cat "$dir/alpn.log"
   if [ "$protocols" = h2,http/1.1 ]; then
