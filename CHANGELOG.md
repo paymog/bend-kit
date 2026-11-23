@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `jwt` 0.14.0.0, `llm` 0.16.0.0, `oauth2` 0.14.0.0, `sigv4` 0.14.0.0, and `webhooks` 0.14.0.0: share HTTP 0.40.0.0 and Hairpin 0.16.0.0. Re-pin Authz checks and manual Camber consumers to Camber 0.17.0.0.
+
 - `camber` 0.17.0.0, `hairpin` 0.16.0.0, and `storage` 0.6.0.0: use HTTP 0.40.0.0 and its native compression module.
 
 - `dns` checks: resolve an IPv6 loopback fixture through the OS instead of a public hostname. Require the exact address and remove the macOS failure allowance.

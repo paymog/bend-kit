@@ -3,9 +3,9 @@
 OAuth 2.0 client credentials, refresh, and authorization code with PKCE, over `hairpin`. RFC 6749 and RFC 7636.
 
 ```bend
-import bend-kit-oauth2@0.13.0.0/oauth2.bend as OAuth
-import bend-kit-hairpin@0.15.0.0/hairpin.bend as Hairpin
-import bend-kit-http@0.39.2.0/http.bend as Http
+import bend-kit-oauth2@0.14.0.0/oauth2.bend as OAuth
+import bend-kit-hairpin@0.16.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.40.0.0/http.bend as Http
 ```
 
 Import that `http` version. `oauth2.bend` does, and another version has a different `Http.Res`. It also imports `bend-kit-crypto@0.2.2.2` and `bend-kit-time@0.3.0.1`, plus the named url, json, encoding, and bytes packages in the entry file.
