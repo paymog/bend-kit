@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `camber` deployment: derive fresh receipt versions from consumer imports and check import changes without starting services. Update current host instructions and preserve historical evidence.
+
 - `hairpin` checks: require native and JavaScript package acceptance on macOS arm64 for Hairpin changes. Keep Linux and CA gates, verify the exact PR head, and enforce the 20 GiB native compiler memory ceiling.
 
 - `dns` checks: run the deterministic packet and IPv6 loopback acceptance in JavaScript with pinned Bun on Linux x64 and macOS arm64. Keep both native lanes.

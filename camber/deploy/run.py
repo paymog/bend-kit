@@ -676,6 +676,28 @@ def tls_proof(guard, job, directory, row):
         assert "controlled_stop_failure" not in proxy.record and refused(TLS)
 
 
+def published_versions(source=None):
+    pending = [source or HERE / "users.bend"]
+    visited = set()
+    versions = {}
+    while pending:
+        path = pending.pop().resolve()
+        if path in visited:
+            continue
+        visited.add(path)
+        for target in re.findall(r"^import\s+(\S+)", path.read_text(), re.MULTILINE):
+            if target.startswith("."):
+                pending.append(path.parent / target)
+            else:
+                package = re.fullmatch(r"bend-kit-([a-z0-9-]+)@(\d+\.\d+\.\d+\.\d+)/.+", target)
+                if package:
+                    name, version = package.groups()
+                    if name in versions and versions[name] != version:
+                        raise ValueError(f"conflicting consumer imports for {name}: {versions[name]} and {version}")
+                    versions[name] = version
+    return dict(sorted(versions.items()))
+
+
 def source_hashes():
     paths = sorted(HERE.glob("*")) + [HERE.parent / "users.bend", HERE.parent / "users_demo.bend"]
     return {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -693,7 +715,7 @@ def main():
                "boundary": "launchd-owned dedicated complete-users processes; observed kernel exit and platform reap",
                "grace_seconds": GRACE, "teardown_seconds": TEARDOWN, "cases": [], "commands": [],
                "platform_jobs": [], "guard_failures": [],
-               "published": {"camber": "0.6.0.0", "http": "0.30.0.0", "wire": "0.4.5.0"}}
+               "published": published_versions()}
     evidence = Evidence(args.output, results)
     guard = None
     directory = None
