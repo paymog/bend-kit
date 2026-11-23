@@ -5,3 +5,4 @@
 bend-kit-camber@0.16.1.0  # consumers wait for the decimal formatter release (#963)
 bend-kit-http@0.39.2.0  # consumers wait for the native compression migration release (#980)
 bend-kit-hairpin@0.15.0.0  # consumers wait for the HTTP compression re-pin wave (#980)
+bend-kit-webhooks@0.13.0.0  # Runner waits for the HTTP compression re-pin wave (#980)
