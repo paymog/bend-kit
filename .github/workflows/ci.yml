@@ -328,9 +328,17 @@ jobs:
           echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
       - name: Select OpenSSL
         run: echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+      - name: Check native Hairpin package
+        run: |
+          python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"
+          "$RUNNER_TEMP/hairpin-check"
+      - name: Check JavaScript Hairpin package
+        run: |
+          bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"
+          bun "$RUNNER_TEMP/hairpin-check.js"
       - name: Check Hairpin CA in native and JS
         run: |
-          sh hairpin/ca-check.sh
+          python3 -B scripts/rss-check.py sh hairpin/ca-check.sh
           sh hairpin/ca-check.sh js
 
   smoke:

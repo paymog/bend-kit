@@ -51,6 +51,25 @@ assert "hairpin-ca-macos," in gate
 assert "needs.hairpin-ca-macos.result" in gate
 print("PASS macOS Hairpin CA: selection, both lanes, and required gate")
 
+for required in [
+    "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+    "persist-credentials: false",
+    'test "$actual" = "$EXPECTED_HEAD_SHA"',
+    "bun-version: ${{ env.BUN_VERSION }}",
+    'python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"',
+    '"$RUNNER_TEMP/hairpin-check"\n',
+    'bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"',
+    'bun "$RUNNER_TEMP/hairpin-check.js"',
+]:
+    assert required in job, required
+assert job.index('bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"') < job.index('bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"')
+hairpin_gate = gate.split('case "${{ needs.hairpin-ca-macos.result }}" in', 1)[1].split("esac", 1)[0]
+for result, expected in [("success", 0), ("skipped", 0), ("failure", 1), ("cancelled", 1)]:
+    script = 'case "$result" in' + hairpin_gate.replace("${{ needs.hairpin-ca-macos.result }}", "$result") + "esac"
+    status = subprocess.run(["bash", "-c", script], env=dict(os.environ, result=result), capture_output=True)
+    assert status.returncode == expected, (result, status.returncode)
+print("PASS macOS Hairpin package: both lanes, runner/head, memory ceiling, and required gate")
+
 http = next(line.strip() for line in workflow.splitlines() if 'echo "http=' in line)
 with tempfile.TemporaryDirectory() as tmp:
     output = Path(tmp) / "output"
