@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory() as tmp:
     for changed, expected in [("hairpin", True), ("bytes\nhairpin\nhttp", True), ("http", False), ("", False)]:
         output.write_text("")
         subprocess.run(
-            ["bash", "-e", "-c", hairpin], cwd=root,
+            ["bash", "-e", "-c", hairpin + ' >> "$GITHUB_OUTPUT"'], cwd=root,
             env=dict(os.environ, pkgs=changed, GITHUB_OUTPUT=str(output)), check=True,
         )
         assert output.read_text() == f"hairpin={str(expected).lower()}\n"
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory() as tmp:
     for changed, expected in [("http", True), ("bytes\nhttp\nhairpin", True), ("hairpin", False), ("", False)]:
         output.write_text("")
         subprocess.run(
-            ["bash", "-e", "-c", http], cwd=root,
+            ["bash", "-e", "-c", http + ' >> "$GITHUB_OUTPUT"'], cwd=root,
             env=dict(os.environ, pkgs=changed, GITHUB_OUTPUT=str(output)), check=True,
         )
         assert output.read_text() == f"http={str(expected).lower()}\n"
@@ -84,7 +84,7 @@ with tempfile.TemporaryDirectory() as tmp:
     for changed, expected in [("wire", True), ("bytes\nwire\nhttp", True), ("http", False), ("wireframe", False), ("", False)]:
         output.write_text("")
         subprocess.run(
-            ["bash", "-e", "-c", wire], cwd=root,
+            ["bash", "-e", "-c", wire + ' >> "$GITHUB_OUTPUT"'], cwd=root,
             env=dict(os.environ, pkgs=changed, GITHUB_OUTPUT=str(output)), check=True,
         )
         assert output.read_text() == f"wire={str(expected).lower()}\n"
