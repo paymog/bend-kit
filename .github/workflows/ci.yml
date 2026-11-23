@@ -225,13 +225,15 @@ jobs:
           bun "$RUNNER_TEMP/dns-check.js"
       - name: Check Hairpin with former ports occupied in native and JS
         if: matrix.package == 'hairpin'
+        env:
+          WIRE_LOOPBACK_ONLY: '1'
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           python3 -B hairpin/occupied-run-test.py
           python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"
-          python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"
+          python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py "$RUNNER_TEMP/hairpin-check"
           bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"
-          python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"
+          python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py bun "$RUNNER_TEMP/hairpin-check.js"
       - name: Check process JS backend
         if: matrix.package == 'process'
         run: |
@@ -242,7 +244,7 @@ jobs:
       - name: CA and mTLS checks ${{ matrix.package }}
         if: hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         run: |
-          case "${{ matrix.package }}" in wire|http) export WIRE_LOOPBACK_ONLY=1 ;; esac
+          case "${{ matrix.package }}" in wire|http|hairpin) export WIRE_LOOPBACK_ONLY=1 ;; esac
           export PATH="$HOME/.bend/bin:$PATH"
           for s in ${{ matrix.package }}/ca-check.sh ${{ matrix.package }}/mtls-check.sh; do
             [ -f "$s" ] || continue
@@ -454,6 +456,8 @@ jobs:
     if: needs.changes.outputs.hairpin == 'true'
     runs-on: macos-15
     timeout-minutes: 25
+    env:
+      WIRE_LOOPBACK_ONLY: '1'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -479,11 +483,11 @@ jobs:
       - name: Check native Hairpin package
         run: |
           python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"
-          python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"
+          python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py "$RUNNER_TEMP/hairpin-check"
       - name: Check JavaScript Hairpin package
         run: |
           bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"
-          python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"
+          python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py bun "$RUNNER_TEMP/hairpin-check.js"
       - name: Check Hairpin CA in native and JS
         run: |
           python3 -B scripts/rss-check.py sh hairpin/ca-check.sh
