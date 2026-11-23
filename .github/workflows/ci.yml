@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 7 * * 1'
 
 permissions:
   contents: read
@@ -13,7 +16,62 @@ env:
   BUN_VERSION: "1.4.2"
 
 jobs:
+  launchd-acceptance:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: macos-15
+    timeout-minutes: 20
+    concurrency:
+      group: camber-launchd-acceptance
+      cancel-in-progress: false
+    env:
+      BUN_VERSION: "1.4.4"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install supported Bend
+        run: |
+          mkdir -p "$RUNNER_TEMP/launchd-bend"
+          cd "$RUNNER_TEMP/launchd-bend"
+          curl --proto '=https' --tlsv1.2 -fsSL -o bend.tar.gz \
+            https://github.com/bendlang/bend/releases/download/v2.0.40/bend-2.0.40-darwin-arm64.tar.gz
+          echo 'b2be003b041eb6cfc65326be18f79eb2e0bae2189be79a18c507e661b4b6900b  bend.tar.gz' | shasum -a 256 -c -
+          tar -xzf bend.tar.gz
+          echo "$RUNNER_TEMP/launchd-bend/bend/bin" >> "$GITHUB_PATH"
+      - name: Install TLS proxy
+        run: |
+          brew install nginx
+          echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+      - name: Check supported host and exclusive runtime slot
+        run: |
+          test "$(uname -sm)" = 'Darwin arm64'
+          launchctl print "gui/$(id -u)" > /dev/null
+          if pgrep -l -x 'bend|bend2'; then
+            echo 'Another Bend process owns the runtime slot' >&2
+            exit 1
+          fi
+          python3 -c 'import shutil; assert shutil.disk_usage(".").free >= 10 * 1024**3, "less than 10 GiB free disk"'
+          bend version
+          test "$(bun --version)" = '1.4.4'
+      - name: Run sequential native and JavaScript launchd matrix
+        run: |
+          mkdir -p "$RUNNER_TEMP/launchd-receipts"
+          python3 -B camber/deploy/run.py --lane all --case all \
+            --output "$RUNNER_TEMP/launchd-receipts/current.json"
+      - name: Upload cumulative passing and adverse receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: launchd-receipts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/launchd-receipts/
+          if-no-files-found: error
+          retention-days: 30
+
   changes:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.list.outputs.packages }}
@@ -446,7 +504,7 @@ jobs:
   gate:
     name: gate
     needs: [changes, workflow-lint, check, native-macos, stream-live, http-macos, http-tls-macos, wire-tls-macos, hairpin-ca-macos, smoke]
-    if: always()
+    if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     steps:
       - name: Fail if a required job failed

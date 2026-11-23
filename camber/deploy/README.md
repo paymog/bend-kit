@@ -76,6 +76,22 @@ The JSON output is a cumulative `invocations` history: each retry appends, never
 
 Use a separate output path for current checks to preserve the checked-in historical result files.
 
+### Automated supported-host acceptance
+
+The `ci` workflow runs `launchd-acceptance` each Monday at 07:23 UTC and on manual dispatch, never on pull requests or pushes. It uses an exclusive GitHub-hosted `macos-15` arm64 runner with a logged-in user's `gui/UID` launchd bootstrap domain. It checks that domain before it builds. This tests user-domain deployment, not a root-owned system LaunchDaemon installation.
+
+The job pins Bend 2.0.40 by release checksum and Bun 1.4.4. Homebrew supplies nginx and OpenSSL; receipts retain the actual nginx version. It requires 10 GiB free disk and no existing Bend process. The existing runner enforces the aggregate 20 GiB RSS ceiling across builds, launchd roots and descendants. Both lanes and all eight cases run sequentially.
+
+```sh
+gh workflow run ci.yml --ref <branch>
+gh run list --workflow ci.yml --branch <branch> --event workflow_dispatch
+gh run watch <run-id> --exit-status
+gh run download <run-id> --name launchd-receipts-<run-id>-<attempt>
+```
+
+Each attempt uploads `current.json` from a fresh runner-temporary directory for 30 days, even when the matrix fails. The JSON keeps cumulative adverse and passing invocations, runtime versions, source hashes, process identities, job release and port observations. Missing receipts fail artifact upload. Historical JSON and hash tables remain unchanged. Package CI still checks receipt metadata offline; dispatch this job when current launchd or signal-bridge operation needs evidence.
+
+
 Fresh receipts derive `published` from hub imports in `deploy/users.bend` and its relative Bend imports. This lists direct consumer dependencies, not transitive hub dependencies such as Wire. Conflicting versions of the same package fail before deployment. The receipt records the actual Bend and Bun commands separately. Run `python3 camber/deploy/metadata_check.py` to check import changes and fresh receipt metadata without building or starting a service.
 
 Each invocation records runtime-consumed source/config SHA-256 (documentation and output JSON are not executable inputs), rendered configuration, platform PID/PPID, monotonic observations, exact response bytes, platform exit status and sampled aggregate RSS. For JS the runner copies exact `signals.c` adjacent to the generated program, makes it mode 0400 in its private tree and checks its hash before and after operation; this test uses the caller's ownership, not a claimed root-owned installation. Embedded TinyCC compilation occurs inside the observed platform job's guarded startup. The TLS row also retains the actual nginx platform job, stop/exit/reap and release evidence. Launchd snapshots use a closed lifecycle projection; inherited/operator environment, other services, arguments and internal diagnostics are omitted. Host-observed log timestamps are not internal work clocks. Production system-domain installation requires administrator provisioning; the local matrix uses the caller's GUI launchd domain and verifies parent PID 1.
