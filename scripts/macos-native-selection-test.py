@@ -56,10 +56,11 @@ for required in [
     "persist-credentials: false",
     'test "$actual" = "$EXPECTED_HEAD_SHA"',
     "bun-version: ${{ env.BUN_VERSION }}",
+    "WIRE_LOOPBACK_ONLY: '1'",
     'python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"',
-    'python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"\n',
+    'python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py "$RUNNER_TEMP/hairpin-check"\n',
     'bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"',
-    'python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"',
+    'python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py bun "$RUNNER_TEMP/hairpin-check.js"',
 ]:
     assert required in job, required
 assert job.index('bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"') < job.index('bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"')
@@ -73,9 +74,11 @@ print("PASS macOS Hairpin package: both lanes, runner/head, memory ceiling, and 
 linux = workflow.split("\n  check:\n", 1)[1].split("\n  stream-", 1)[0]
 for required in [
     "if: matrix.package == 'hairpin'",
+    "WIRE_LOOPBACK_ONLY: '1'",
+    'case "${{ matrix.package }}" in wire|http|hairpin) export WIRE_LOOPBACK_ONLY=1 ;; esac',
     'python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"',
-    'python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"',
-    'python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"',
+    'python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py "$RUNNER_TEMP/hairpin-check"',
+    'python3 -B hairpin/occupied-run.py python3 -B wire/loopback-run.py bun "$RUNNER_TEMP/hairpin-check.js"',
 ]:
     assert required in linux, required
 print("PASS Hairpin occupied-port acceptance: Linux and macOS, native and JS")
