@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hairpin` and `stream` checks: generate CA certificates with critical signing key usage. Verify TLS fixture chains, server purpose, and localhost hostnames in strict X.509 mode.
+
 - `http` checks: require native package acceptance and native/JS startup sockets on macOS arm64 for HTTP changes. Keep Linux coverage and the 20 GiB memory ceiling.
 
 - Re-pin tooling: add temporary exceptions for unchanged consumers when the current wave raises a package version. Check exception cleanup and preservation offline in CI.

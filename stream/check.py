@@ -22,12 +22,16 @@ def certificates(tmp):
                        stderr=subprocess.PIPE, cwd=tmp)
     openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
             "-subj", "/CN=Stream local CA", "-addext", "basicConstraints=critical,CA:TRUE",
+            "-addext", "keyUsage=critical,keyCertSign,cRLSign",
             "-keyout", "ca.key", "-out", "ca.pem")
     openssl("req", "-newkey", "rsa:2048", "-nodes", "-subj", "/CN=localhost",
             "-keyout", "server.key", "-out", "server.csr")
-    (tmp / "extensions").write_text("subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\n")
+    (tmp / "extensions").write_text("subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\n"
+                                    "authorityKeyIdentifier=keyid,issuer\n")
     openssl("x509", "-req", "-in", "server.csr", "-CA", "ca.pem", "-CAkey", "ca.key",
             "-CAcreateserial", "-days", "1", "-extfile", "extensions", "-out", "server.pem")
+    openssl("verify", "-x509_strict", "-CAfile", "ca.pem", "-purpose", "sslserver",
+            "-verify_hostname", "localhost", "server.pem")
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(tmp / "server.pem", tmp / "server.key")
     return context
