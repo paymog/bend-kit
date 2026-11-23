@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `camber` 0.17.0.1, `hairpin` 0.16.0.1, and `storage` 0.6.0.1: use HTTP 0.40.0.1 and Wire 0.4.8.1's bounded TLS close drain.
+
 - `http` 0.40.0.1, `postgres` 0.3.1.2, and `redis` 0.3.1.2: share DNS 0.7.1.2 and Wire 0.4.8.1's bounded TLS close drain.
 
 - `dns` 0.7.1.2 and `websocket` 0.4.1.4: use Wire 0.4.8.1 and its bounded TLS close drain.

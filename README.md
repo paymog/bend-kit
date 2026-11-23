@@ -38,7 +38,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 `http@0.40.0.1` imports its siblings by name: `wire@0.4.8.1`, `http2@0.5.0.2`, `bytes@0.3.3.1`, `time@0.3.0.1`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.1`, `json@0.7.3.0`, `dns@0.7.1.2`, and `zlib@0.6.0.0`. `Http.Body` is `bend-kit-bytes@0.3.3.1`.
 
-`hairpin@0.16.0.0`, `camber@0.17.0.0`, `jwt@0.14.0.0`, `llm@0.16.0.0`, `oauth2@0.14.0.0`, `sigv4@0.14.0.0`, and `webhooks@0.14.0.0` use `bend-kit-http@0.40.0.0`. The `jwt`, `llm`, `oauth2`, `sigv4`, and `webhooks` packages use `bend-kit-hairpin@0.16.0.0`. These versions share their sibling types and C effects.
+`hairpin@0.16.0.1` and `camber@0.17.0.1` use `bend-kit-http@0.40.0.1`. The waiting `jwt@0.14.0.0`, `llm@0.16.0.0`, `oauth2@0.14.0.0`, `sigv4@0.14.0.0`, and `webhooks@0.14.0.0` packages still use `bend-kit-http@0.40.0.0` and `bend-kit-hairpin@0.16.0.0`. Import each package's pinned sibling versions to share its types and C effects.
 
 ## Native libraries
 
@@ -114,7 +114,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`wire`](wire) | `bend-kit-wire@0.4.8.1/wire.bend` | TCP, UDP, and TLS sockets. |
 | [`http`](http) | `bend-kit-http@0.40.0.1/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.5.0.2/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
-| [`hairpin`](hairpin) | `bend-kit-hairpin@0.16.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
+| [`hairpin`](hairpin) | `bend-kit-hairpin@0.16.0.1/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
 | [`websocket`](websocket) | `bend-kit-websocket@0.4.1.4/websocket.bend` | RFC 6455 client handshake and frames. |
 | [`multipart`](multipart) | `bend-kit-multipart@0.3.0.2/multipart.bend` | RFC 7578 form-data encode and decode. |
@@ -135,7 +135,7 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`files`](files) | `bend-kit-files@0.4.0.1/files.bend` | POSIX paths, directories, and packed file IO. |
-| [`storage`](storage) | `bend-kit-storage@0.6.0.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
+| [`storage`](storage) | `bend-kit-storage@0.6.0.1/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
 | [`stream`](stream) | `bend-kit-stream@0.4.1.1/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.2.1/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
@@ -168,7 +168,7 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`camber`](camber) | `bend-kit-camber@0.17.0.0/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
+| [`camber`](camber) | `bend-kit-camber@0.17.0.1/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
 | [`gateway`](gateway) | `bend-kit-gateway@0.5.0.0/gateway.bend` | A guarded read-through gateway: authorize, admit, serve from cache, and fetch on a miss, with proofs that every path gives its unit back. `app.bend` is the Camber app. |
 
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). For CLI arguments, use [shake](https://github.com/Emerging-Patterns/shake).

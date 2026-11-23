@@ -2,7 +2,7 @@
 import Base
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
-import bend-kit-wire@0.4.8.0/wire.bend as Wire
+import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-time@0.3.0.1/time.bend as Time
 import ./prerequisites.bend as Probe
 

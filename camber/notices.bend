@@ -2,7 +2,7 @@
 import Base
 import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-http@0.40.0.0/completion.bend as Transport
+import bend-kit-http@0.40.0.1/completion.bend as Transport
 import bend-kit-notch@0.4.0.1/notch.bend as Notch
 
 type Outcome is Data:
