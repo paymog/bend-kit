@@ -50,6 +50,7 @@ jobs:
           base="origin/${{ github.base_ref }}"
           changed=$(git diff --name-only "$base"...HEAD)
           bash scripts/pins-check.sh
+          python3 scripts/repin-check.py
           if grep -qE '(^|/)README\.md$|^scripts/(pins|packages)\.sh$|^scripts/pins\.allow$' <<<"$changed"; then
             scripts/pins.sh "$base"
           else

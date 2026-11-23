@@ -153,7 +153,7 @@ def sub(path, old, new):
 
 
 def apply(moves, ver, pkgs):
-    before = dict(ver)
+    after = dict(ver)
     for p, new, edits in moves:
         readme = ROOT / p / "README.md"
         for f, e in edits.items():
@@ -163,10 +163,11 @@ def apply(moves, ver, pkgs):
                     sub(readme, rf"bend-kit-{q}@{re.escape(old)}(?![0-9])", f"bend-kit-{q}@{v}")
         if new:
             (ROOT / p / "VERSION").write_text(new + "\n")
+            after[p] = new
             sub(ROOT / "README.md", rf"bend-kit-{p}@{re.escape(ver[p])}/", f"bend-kit-{p}@{new}/")
             if readme.exists():
                 sub(readme, rf"bend-kit-{p}@{re.escape(ver[p])}(?![0-9])", f"bend-kit-{p}@{new}")
-    allow(before, pkgs)
+    allow(after, pkgs)
 
 
 def allow(before, pkgs):
