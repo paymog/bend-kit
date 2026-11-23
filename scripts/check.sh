@@ -7,6 +7,7 @@ source scripts/verdict.sh
 [ $# -eq 0 ] && set -- $(scripts/packages.sh)
 for d in "$@"; do
   echo "== $d"
+  [ "$d" != camber ] || python3 camber/deploy/metadata_check.py
   (
     cd "$d"
     verdict "$d.bend" ""
