@@ -1,12 +1,12 @@
 # stream
 
 Bounded, byte-exact transfers using the packed `U32 & Array<U32>` effects from
-`bend-kit-files@0.4.0.1` and `bend-kit-wire@0.4.8.0`. No per-byte String/list
+`bend-kit-files@0.4.0.1` and `bend-kit-wire@0.4.8.1`. No per-byte String/list
 conversion, whole-input buffering, reader/writer hierarchy, or new host effect.
 
 ```bend
 import Base
-import bend-kit-stream@0.4.1.0/stream.bend as Stream
+import bend-kit-stream@0.4.1.1/stream.bend as Stream
 
 # Handles are already open; the caller owns their lifetime.
 def copy(source: File, destination: File) -> IO(File & File & Stream.Outcome):
@@ -67,8 +67,10 @@ are runtime trust/verification obligations, not consequences of these proofs.
 `../scripts/check.sh stream` checks the entry file, pure proofs, and package
 check program. `python3 check.py` exercises compiled binary file/TCP/TLS
 transfers, partial writes, returned handles, and failure boundaries.
-`python3 check.py --target js` runs the same cases through Bun. Both lanes
-have passed. The manual five-language benchmark and native cap-fuel RSS
-measurement are in [bench/README.md](bench/README.md).
+`python3 check.py --target js` runs the same cases through Bun. CI requires both
+live lanes on Linux and macOS arm64 when Stream changes. Each lane runs
+sequentially under a 20 GiB process-tree RSS ceiling, with pinned Bend and Bun.
+The manual five-language benchmark and native cap-fuel RSS measurement are in
+[bench/README.md](bench/README.md).
 See [SPEC.md](SPEC.md) for the precise effect assumptions. `LAWS.bend` and
 `PROOF.bend` cover pure validation/read decisions only, not foreign IO.
