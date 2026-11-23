@@ -17,9 +17,9 @@ if os.environ.get("WIRE_LOOPBACK_ONLY") == "1":
     elif sys.platform == "linux":
         rules = []
         try:
-            for tool, reject in (("iptables", "icmp-admin-prohibited"),
-                                 ("ip6tables", "icmp6-adm-prohibited")):
-                rule = ["OUTPUT", "!", "-o", "lo", "-m", "owner",
+            for tool, address, reject in (("iptables", "127.0.0.0/8", "icmp-host-prohibited"),
+                                          ("ip6tables", "::1/128", "icmp6-adm-prohibited")):
+                rule = ["OUTPUT", "!", "-d", address, "-m", "owner",
                         "--uid-owner", "0", "-j", "REJECT", "--reject-with", reject]
                 subprocess.run(["sudo", tool, "-w", "-I", *rule], check=True)
                 rules.append((tool, rule))
