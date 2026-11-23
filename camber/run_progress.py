@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Observe response progress and real Wire timeout delivery beside CPU work."""
+import argparse
 import concurrent.futures
 import json
 import platform
@@ -8,10 +9,11 @@ import statistics
 import tempfile
 import time
 from datetime import date
+from pathlib import Path
 
 from run_dispatch import ROOT, guarded
 from run_live import Peer
-from run_risks import event_time, observe
+from run_risks import event_time, observe, work_seconds
 from run_owner import ready_ports
 
 
@@ -88,14 +90,19 @@ def classify(record):
     armed = event_time(record, "DEADLINE_ARMED")
     closed = event_time(record, "DEADLINE_CLOSED")
     handled = event_time(record, "ORDINARY_HANDLED")
-    record.update(cpu_work_seconds=end - begin if end is not None and begin is not None else None,
+    record.update(cpu_work_seconds=work_seconds(record),
+                  host_cpu_marker_interval_seconds=end - begin if end is not None and begin is not None else None,
                   ordinary_handler_before_cpu_end=handled < end if handled is not None and end is not None else None,
                   observed_read_arm_to_close_seconds=closed - armed if closed is not None and armed is not None else None,
                   raw_read_failed=event_time(record, "DEADLINE_READ_FAILED") is not None)
 
 
 def main():
-    prior = json.loads((ROOT / "camber/design_risk_results.json").read_text())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=Path("/tmp/camber-progress-current.json"))
+    parser.add_argument("--calibration", type=Path, default=ROOT / "camber/design_risk_results.json")
+    args = parser.parse_args()
+    prior = json.loads(args.calibration.read_text())
     results = {"date": date.today().isoformat(), "platform": platform.platform(),
                "bend": guarded(["bend", "version"], 20)[0].strip(),
                "bun": guarded(["bun", "--version"], 20)[0].strip(),
@@ -103,9 +110,8 @@ def main():
                "cpu_release_delay_ms": 50, "host_deadline_seconds": 12,
                "scope": "Finite HTTP transport plus a separate real Wire timed read; not absolute HTTP phase deadlines or a production server",
                "lanes": {}}
-    target = ROOT / "camber/progress_results.json"
+    target = args.output
     with tempfile.TemporaryDirectory(prefix="camber-progress-") as directory:
-        from pathlib import Path
         temp = Path(directory)
         for backend, suffix in (("native", ""), ("javascript", ".js")):
             binary = temp / ("progress" + suffix)
@@ -128,6 +134,10 @@ def main():
                         assert record["returncode"] == 0 and "interaction_error" not in record, record
                         assert record["recovery_response_exact"], record
                         assert record["raw_read_failed"] and record["partial_peer_outcome"] == "eof", record
+                        if mode == "cpu":
+                            assert record["cpu_work_seconds"] >= .3, record
+                            assert record["ordinary_sent_after_cpu_seen_seconds"] < record["cpu_work_seconds"], record
+                            assert record["host_cpu_marker_interval_seconds"] >= .9 * record["cpu_work_seconds"], record
                         print(f"{name}/{mode}/{trial}: ordinary={record['ordinary_latency_seconds'] * 1000:.3f} ms; "
                               f"read-close={record['observed_read_arm_to_close_seconds'] * 1000:.3f} ms; "
                               f"CPU={record['cpu_work_seconds'] * 1000:.3f} ms", flush=True)

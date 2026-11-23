@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Observe lifecycle risks without treating current failures as desired behavior."""
+import argparse
 import json
 import platform
 import queue
@@ -9,6 +10,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from datetime import date
 from pathlib import Path
 
 from run_dispatch import ENV, ROOT, RSS_LIMIT_KIB, guarded
@@ -83,6 +85,12 @@ def event_time(result, prefix):
     return next((event["seconds"] for event in result["events"] if event["text"].startswith(prefix)), None)
 
 
+def work_seconds(record):
+    values = next(event["text"].split()[1:] for event in record["events"]
+                  if event["text"].startswith("WORK_TIME\t"))
+    return int(values[0]) + int(values[1]) / 1e9
+
+
 def inspect_drop(path):
     def interact(process, wait_for):
         wait_for("INSPECT_OPEN_FILES")
@@ -122,12 +130,15 @@ def idle_connection():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=Path("/tmp/camber-design-risks-current.json"))
+    args = parser.parse_args()
     if shutil.which("lsof") is None:
         raise RuntimeError("lsof is required to observe actual File-descriptor ownership")
-    results = {"date": "2026-10-02", "platform": platform.platform(), "timer_delay_ms": 100, "forced_timer_budget_ms": 100,
+    results = {"date": date.today().isoformat(), "platform": platform.platform(), "timer_delay_ms": 100, "forced_timer_budget_ms": 100,
                "forced_operation": "IO.die(Unit, 1, ...)", "host_deadline_seconds": 12, "rss_limit_kib": RSS_LIMIT_KIB, "lanes": {}}
     results["bend"] = guarded(["bend", "version"], 20)[0].strip()
-    target = ROOT / "camber/design_risk_results.json"
+    target = args.output
     with tempfile.TemporaryDirectory(prefix="camber-design-risks-") as directory:
         temp = Path(directory).resolve()
         for lane, suffix in (("native", ""), ("javascript", ".js")):
@@ -145,8 +156,8 @@ def main():
                 calibrations.append({"iterations": count, **record})
                 target.write_text(json.dumps(results, indent=2) + "\n")
                 assert record["returncode"] == 0, record
-                duration = event_time(record, "WORK_END") - event_time(record, "WORK_BEGIN")
-                calibrations[-1]["observed_work_seconds"] = duration
+                duration = work_seconds(record)
+                calibrations[-1]["internal_work_seconds"] = duration
                 chosen = count
                 if duration >= .3:
                     break

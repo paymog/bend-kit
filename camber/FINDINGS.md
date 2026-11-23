@@ -48,6 +48,29 @@ Run `python3 -B camber/run_supervision.py --output /tmp/camber-supervision-curre
 
 Current probes pause 1 ms after `WORK_BEGIN`, before the random seed and pure CPU loop. This follows the JSON progress probe's pre-work flush checkpoint. Bend 2.0.40 buffers non-TTY JavaScript stdout until a wait, error, exit, or 64 KiB. Without the checkpoint, the parent receives both CPU markers after the loop and sends its signal too late. The checkpoint does not yield inside the CPU loop or change the retained iteration count. Host marker arrival does not measure CPU duration.
 
+#### CPU marker visibility audit
+
+The remaining affected marker was `progress_probe.bend`'s non-yielding `CPU_BEGIN`. It now pauses 1 ms before the seed and loop, as the supervision and launchd probes do. The pause is outside the workload. Both native and JavaScript output can remain buffered before the runtime waits.
+
+| Probe marker | Visibility boundary in both lanes | Duration source |
+| --- | --- | --- |
+| `risk_probe.bend`: CPU `WORK_BEGIN` | 1 ms pre-work sleep | Internal `Time.mono`, after the sleep and before the seed, through the evaluated result |
+| `risk_probe.bend`: yielding `WORK_BEGIN` | Existing 5-second work sleep | No CPU duration claim |
+| `progress_probe.bend`: CPU `CPU_BEGIN` | 1 ms pre-work sleep | Internal `Time.mono`, after the sleep and before the seed, through result formatting |
+| `progress_probe.bend`: yielding `CPU_BEGIN` | Existing 500 ms work sleep | Internal `Time.mono` around the yielding control |
+| `json_progress_probe.bend`: `CPU_BEGIN` | Existing 1 ms pre-work sleep | Existing internal `Time.mono` |
+| `json_aggregate_probe.bend`: each `CPU_BEGIN` | Existing 1 ms pre-work sleep | Existing per-workload internal `Time.mono` |
+| `json_attribution_probe.bend`: `BATCH_BEGIN` | Existing 100 ms pre-work sleep | Existing per-stage internal clocks |
+| `deploy/users.bend`: `CPU ADMITTED` | Existing 1 ms pre-work sleep | No CPU duration claim; the workload does not terminate |
+
+The `CPU_ARMED`, `BATCH_ARMED`, and `LOAD_ARMED` markers precede release gates or existing waits. `READY` precedes socket acceptance. None needs a new CPU checkpoint. The public benchmark's serial arithmetic has no stdout CPU-start marker; its effect-based overlap observations do not use buffered marker arrival as CPU duration.
+
+Use `python3 -B camber/run_risks.py --output /tmp/camber-risks-current.json` and `python3 -B camber/run_progress.py --calibration /tmp/camber-risks-current.json --output /tmp/camber-progress-current.json`. Both drivers default to fresh `/tmp` receipts. Risk calibration now uses internal monotonic time for its 300 ms floor. Progress reports that duration separately from `host_cpu_marker_interval_seconds`. The historical receipts and tables below remain unchanged; their stdout-derived duration and iteration calibration must not be treated as current internal-clock measurements. The added checkpoint does not make short workloads overlap an ordinary request sent 25 ms later.
+
+Two fresh Bend 2.0.40/Bun 1.4.4 runs are retained outside the repository at `/tmp/camber-1012-{risks,progress}-{1,2}.json`. Both internal-clock calibrations selected the historical 512 million native and 128 million JavaScript iterations. Native calibration measured 507/510 ms; JavaScript measured 814/809 ms. All 42 progress cases passed exact responses, recovery, timeout delivery, EOF, and natural-exit checks. All 18 CPU trials admitted the ordinary request before the measured work interval elapsed; ordinary handlers ran after CPU completion. Internal CPU duration was 508–516 ms native and 808–812 ms JavaScript. These results preserve the non-yielding scheduling finding without using stdout arrival to measure CPU duration.
+
+Both fresh risk matrices also preserved forced-exit, journal, cooperative ownership, unrelated-work, and idle-socket checks. Unlike the historical descriptor observations, neither current lane retained an open descriptor after affine-result disposal. That difference needs a separate historical-findings review; the retained old receipt is not changed here.
+
 | Lane | CPU signal to child reaping | Idle-socket signal to child reaping | Idle peer closes | Unrelated parent work |
 | --- | ---: | ---: | --- | --- |
 | Native | 1.309 ms | 1.333 ms | yes | completes |

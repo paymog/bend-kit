@@ -3,6 +3,8 @@ import Base
 import ../http/http.bend as Http
 import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.0/wire.bend as Wire
+import bend-kit-time@0.3.0.1/time.bend as Time
+import ./prerequisites.bend as Probe
 
 def receive(-A: Type, channel: Chan(A)) -> IO(A):
   IO.join(A, channel)
@@ -25,12 +27,19 @@ def spin(n: Nat, acc: U32) -> U32:
     case 1n+p:
       spin(p, (acc * 1664525 + 1013904223 : U32))
 
+def cpu_done(value: U32, started: Time.Duration) -> IO(Unit):
+  do IO<Unit>:
+    finished : Time.Duration <- Time.mono()
+    Probe.elapsed("WORK_TIME", Time.Duration.sub(finished, started))
+    IO.print("WORK_END " ++ U32.show(value))
+
 def cpu(n: Nat) -> IO(Unit):
   do IO<Unit>:
     IO.print("WORK_BEGIN")
     IO.sleep(1)
+    started : Time.Duration <- Time.mono()
     seed : U32 <- IO.try(U32, IO.random_u32())
-    IO.print("WORK_END " ++ U32.show(spin(n, seed)))
+    cpu_done(spin(n, seed), started)
 
 def unrelated(path: String) -> IO(Unit):
   do IO<Unit>:
