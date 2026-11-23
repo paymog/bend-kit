@@ -22,10 +22,26 @@ jobs:
       wire: ${{ steps.list.outputs.wire }}
       stream: ${{ steps.list.outputs.stream }}
       native: ${{ steps.list.outputs.native }}
+      workflows: ${{ steps.workflows.outputs.changed }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - id: workflows
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            changed=$(git diff --name-only "origin/$BASE_REF"...HEAD)
+            if grep -qE '^\.github/workflows/.*\.ya?ml$|^scripts/workflow-lint-test\.py$' <<<"$changed"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - id: list
         run: |
           if [ "${{ github.event_name }}" = pull_request ]; then
@@ -73,6 +89,25 @@ jobs:
         run: python3 -B scripts/ci-pin-selection-test.py
       - name: Check process-tree RSS guard
         run: python3 -B scripts/rss-check-test.py
+
+  workflow-lint:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install actionlint and ShellCheck
+        run: |
+          mkdir -p "$RUNNER_TEMP/workflow-lint"
+          cd "$RUNNER_TEMP/workflow-lint"
+          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz | tar -xz actionlint
+          curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz | tar -xJ --strip-components=1 shellcheck-v0.11.0/shellcheck
+          echo "$RUNNER_TEMP/workflow-lint" >> "$GITHUB_PATH"
+      - name: Check workflows with ShellCheck
+        run: actionlint -shellcheck "$(command -v shellcheck)"
+      - name: Check workflow lint selection and failure handling
+        run: python3 -B scripts/workflow-lint-test.py
 
   check:
     needs: changes
@@ -410,7 +445,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, check, native-macos, stream-live, http-macos, http-tls-macos, wire-tls-macos, hairpin-ca-macos, smoke]
+    needs: [changes, workflow-lint, check, native-macos, stream-live, http-macos, http-tls-macos, wire-tls-macos, hairpin-ca-macos, smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -419,6 +454,10 @@ jobs:
           case "${{ needs.changes.result }}" in
             success) ;;
             *) echo "changes is ${{ needs.changes.result }}"; exit 1 ;;
+          esac
+          case "${{ needs.workflow-lint.result }}" in
+            success|skipped) ;;
+            *) echo "workflow-lint is ${{ needs.workflow-lint.result }}"; exit 1 ;;
           esac
           case "${{ needs.check.result }}" in
             success|skipped) ;;
