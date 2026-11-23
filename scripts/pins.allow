@@ -4,3 +4,4 @@
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
 bend-kit-camber@0.16.1.0  # consumers wait for the decimal formatter release (#963)
 bend-kit-http@0.39.2.0  # consumers wait for the native compression migration release (#980)
+bend-kit-hairpin@0.15.0.0  # consumers wait for the HTTP compression re-pin wave (#980)
