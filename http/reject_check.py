@@ -6,7 +6,7 @@ import threading
 import time
 
 HOST = "127.0.0.1"
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 18080
+PORT = int(sys.argv[1])
 OVER = int(sys.argv[2]) if len(sys.argv) > 2 else 17825792
 OVERSIZED_HEAD = f"POST / HTTP/1.1\r\nHost: x\r\nContent-Length: {OVER}\r\n\r\n".encode()
 TAIL = b"x" * (2 * 1024 * 1024)
