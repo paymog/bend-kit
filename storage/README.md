@@ -3,7 +3,7 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.5.2.0/storage.bend as S
+import bend-kit-storage@0.6.0.0/storage.bend as S
 ```
 
 It imports `bend-kit-bytes@0.3.3.1`, `bend-kit-files@0.4.0.1`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-collections@0.1.6.0`. SHA-256 comes from OpenSSL 3 through `crypto`; set `BEND_LIBCRYPTO` when `libcrypto.3` is not on the default path.
@@ -14,7 +14,7 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.5.2.0/storage.bend as S
+import bend-kit-storage@0.6.0.0/storage.bend as S
 
 def ship(+root: S.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -115,7 +115,7 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 
 ## HTTP synchronization
 
-Import `bend-kit-storage@0.5.2.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.39.2.0`; the pure storage core does not import HTTP.
+Import `bend-kit-storage@0.6.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.40.0.0`; the pure storage core does not import HTTP.
 
 `Transport.handle(dir, request)` is the server handler. It serves `GET /objects/<digest>` as `application/octet-stream`. Invalid paths and missing objects return 404; other disk failures return 500. Mount it with `Http.server.start(~String, ~Unit, dir, Unit{}, config)` and `Http.server.run(~String, ~Transport.handle, ~observe, server)`. The observer has type `String -> U32 -> Completion.Outcome -> IO(Unit)` and may call `Completion.ignore(status, outcome)`. The caller owns the listener, bind address, admission limits, shutdown, authentication, and TLS termination.
 
@@ -123,8 +123,8 @@ The client is:
 
 ```bend
 import Base
-import bend-kit-storage@0.5.2.0/storage.bend as S
-import bend-kit-storage@0.5.2.0/http.bend as Transport
+import bend-kit-storage@0.6.0.0/storage.bend as S
+import bend-kit-storage@0.6.0.0/http.bend as Transport
 
 def pull(+root: S.Digest) -> S.Run(U32):
   Transport.sync("https://artifacts.example", "b", root)

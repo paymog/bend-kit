@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `camber` 0.17.0.0, `hairpin` 0.16.0.0, and `storage` 0.6.0.0: use HTTP 0.40.0.0 and its native compression module.
+
 - `dns` checks: resolve an IPv6 loopback fixture through the OS instead of a public hostname. Require the exact address and remove the macOS failure allowance.
 
 - `http` checks: require CA and mTLS acceptance in native and JS lanes on macOS arm64 for HTTP changes. Keep the pinned compiler and the Linux gates.
