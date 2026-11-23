@@ -1,7 +1,7 @@
 import Base
 import ./storage.bend as S
-import bend-kit-http@0.40.0.0/http.bend as Http
-import bend-kit-http@0.40.0.0/completion.bend as Completion
+import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.40.0.1/completion.bend as Completion
 import bend-kit-files@0.4.0.1/files.bend as Files
 
 # Git's dumb HTTP object walk: immutable objects are fetched by digest from a known root.

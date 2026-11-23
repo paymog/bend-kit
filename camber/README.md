@@ -3,13 +3,13 @@
 `camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.39.1.0. Package version: `0.16.0.3`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.3.0.0.
 
 ```bend
-import bend-kit-camber@0.17.0.0/camber.bend as Camber
-import bend-kit-camber@0.17.0.0/input.bend as Input
-import bend-kit-camber@0.17.0.0/notices.bend as Notices
-import bend-kit-http@0.40.0.0/http.bend as Http
+import bend-kit-camber@0.17.0.1/camber.bend as Camber
+import bend-kit-camber@0.17.0.1/input.bend as Input
+import bend-kit-camber@0.17.0.1/notices.bend as Notices
+import bend-kit-http@0.40.0.1/http.bend as Http
 ```
 
-`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. `Http` values here are `bend-kit-http@0.40.0.0`, `bend-kit-router@0.2.0.0`, and `bend-kit-json@0.7.3.0`.
+`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. `Http` values here are `bend-kit-http@0.40.0.1`, `bend-kit-router@0.2.0.0`, and `bend-kit-json@0.7.3.0`.
 
 
 ## API
@@ -169,7 +169,7 @@ The command inbox has `room` buffered slots (zero uses rendezvous). Resource exh
 
 The lifecycle receive loop uses `@unsafe` because its termination depends on an external orderly-close command, not structurally shrinking input. The post-close drain is structurally bounded by the inbox's slot count. Base channel/file effects also lie outside mathematical proofs. `ledger.bend` has no host imports. Its universal laws prove fresh-return rejection, full-pool rejection, exact lend/return counts, capacity bounds, and resource conservation. The bounds assume a valid pool and a matching aggregate grant, as maintained from `open` by the proved transitions. These proofs do not attest host IO or lifecycle safety.
 
-Import `bend-kit-camber@0.17.0.0/ledger.bend` for `Ledger`, `open`, `lend`, `give`, `counts`, and `refuse`. The old ledger exports in `camber.bend` are removed. Actor inspection still returns `Camber.Counts`; pure ledger inspection returns the separate `Ledger.Counts` projection. The owner maps that projection at its message boundary.
+Import `bend-kit-camber@0.17.0.1/ledger.bend` for `Ledger`, `open`, `lend`, `give`, `counts`, and `refuse`. The old ledger exports in `camber.bend` are removed. Actor inspection still returns `Camber.Counts`; pure ledger inspection returns the separate `Ledger.Counts` projection. The owner maps that projection at its message boundary.
 
 `check.bend` remains the native/JS owner consumer with real two-File bundles, held principals, expected failures, exhaustion, counts, disposed caller replies, partial startup cleanup and Busy→same-owner retry. `python3 camber/run_serving.py --checks` runs the affected package gate and both actual compiled owner/serving lanes sequentially, with aggregate descendant RSS/disk guards and explicit listener release. [OWNER_EVIDENCE.md](OWNER_EVIDENCE.md) preserves the original owner receipts rather than rewriting historical measurements.
 
