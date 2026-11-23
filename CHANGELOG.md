@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- CI: pass selected sibling packages as an explicit argument array. Check empty, single, multiple, and full-repo pin selection, and pass workflow lint with ShellCheck enabled.
+
 - `wire` checks: require CA and mTLS acceptance in native and JavaScript lanes on macOS arm64 for Wire changes. Keep Linux gates and verify the exact PR head.
 
 - `hairpin` and `stream` checks: generate CA certificates with critical signing key usage. Verify TLS fixture chains, server purpose, and localhost hostnames in strict X.509 mode.

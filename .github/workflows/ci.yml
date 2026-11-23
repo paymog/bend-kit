@@ -32,10 +32,12 @@ jobs:
           else
             pkgs=$(scripts/packages.sh)
           fi
-          echo "packages=$(jq -Rnc '[inputs | select(length > 0)]' <<<"$pkgs")" >> "$GITHUB_OUTPUT"
-          echo "http=$(grep -qx http <<<"$pkgs" && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "hairpin=$(grep -qx hairpin <<<"$pkgs" && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "wire=$(grep -qx wire <<<"$pkgs" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          {
+            echo "packages=$(jq -Rnc '[inputs | select(length > 0)]' <<<"$pkgs")"
+            echo "http=$(grep -qx http <<<"$pkgs" && echo true || echo false)"
+            echo "hairpin=$(grep -qx hairpin <<<"$pkgs" && echo true || echo false)"
+            echo "wire=$(grep -qx wire <<<"$pkgs" && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
           native=$(
             shopt -s nullglob
             for pkg in $pkgs; do
@@ -58,11 +60,15 @@ jobs:
           if grep -qE '(^|/)README\.md$|^scripts/(pins|packages)\.sh$|^scripts/pins\.allow$' <<<"$changed"; then
             scripts/pins.sh "$base"
           else
-            pkgs=$(cut -d/ -f1 <<<"$changed" | sort -u | grep -xFf <(scripts/packages.sh) || true)
-            [ -z "$pkgs" ] || scripts/pins.sh "$base" $pkgs
+            mapfile -t pkgs < <(cut -d/ -f1 <<<"$changed" | sort -u | grep -xFf <(scripts/packages.sh) || true)
+            if [ "${#pkgs[@]}" -gt 0 ]; then
+              scripts/pins.sh "$base" "${pkgs[@]}"
+            fi
           fi
       - name: Check macOS native package selection
         run: python3 scripts/macos-native-selection-test.py
+      - name: Check CI pin selection
+        run: python3 -B scripts/ci-pin-selection-test.py
       - name: Check process-tree RSS guard
         run: python3 -B scripts/rss-check-test.py
 
