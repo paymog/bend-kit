@@ -97,6 +97,18 @@ assert "http-macos," in gate
 assert "needs.http-macos.result" in gate
 print("PASS macOS HTTP: selection, package acceptance, startup lanes, memory ceiling, and required gate")
 
+assert "bash http/local-smoke.sh" in job
+smoke = workflow.split("\n  smoke:\n", 1)[1].split("\n  gate:\n", 1)[0]
+assert "runs-on: ubuntu-latest" in smoke
+assert "bash local-smoke.sh" in smoke
+assert "continue-on-error: true" not in job
+http_gate = gate.split('case "${{ needs.http-macos.result }}" in', 1)[1].split("esac", 1)[0]
+for result, expected in [("success", 0), ("skipped", 0), ("failure", 1), ("cancelled", 1)]:
+    script = 'case "$result" in' + http_gate.replace("${{ needs.http-macos.result }}", "$result") + "esac"
+    status = subprocess.run(["bash", "-c", script], env=dict(os.environ, result=result), capture_output=True)
+    assert status.returncode == expected, (result, status.returncode)
+print("PASS macOS HTTP local smokes: shared Linux runner and required failure gate")
+
 wire = next(line.strip() for line in workflow.splitlines() if 'echo "wire=' in line)
 with tempfile.TemporaryDirectory() as tmp:
     output = Path(tmp) / "output"

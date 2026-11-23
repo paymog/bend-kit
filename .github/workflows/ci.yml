@@ -232,6 +232,8 @@ jobs:
         run: python3 -B scripts/rss-check.py scripts/native-check.sh http
       - name: Check HTTP startup sockets in native and JS
         run: python3 -B http/startup_check.py
+      - name: Check local HTTP serving and streaming
+        run: bash http/local-smoke.sh
 
   http-tls-macos:
     needs: changes
@@ -362,28 +364,10 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           bend smoke.bend | tee smoke.out
           ! grep -q '^fail ' smoke.out
-      - name: Serve smoke
+      - name: Local serving and streaming smokes
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
-          bend demo.bend -o demo
-          ./demo > demo.log 2>&1 &
-          curl -s --retry 20 --retry-connrefused --retry-delay 1 -o /dev/null http://127.0.0.1:18080/
-          test "$(curl -s --data-binary @../README.md http://127.0.0.1:18080/hi)" = /hi
-          test "$(curl --http1.1 -sv -o /dev/null -o /dev/null http://127.0.0.1:18080/one http://127.0.0.1:18080/two 2>&1 | grep -cE 'Re-?using existing (http: )?connection')" = 1
-          test "$(printf 'GET /old HTTP/1.0\r\n\r\n' | nc -q 3 127.0.0.1 18080 | tail -c 4)" = /old
-          curl -s -o /dev/null -w '%{http_code}' -H 'Transfer-Encoding: gzip' -d x http://127.0.0.1:18080/ | grep -qx 400
-          curl -s -o /dev/null -w '%{http_code}' -H "X-A: $(head -c 70000 /dev/zero | tr '\0' a)" http://127.0.0.1:18080/ | grep -qx 431
-          python3 reject_check.py
-      - name: Streamed request smoke
-        run: |
-          export PATH="$HOME/.bend/bin:$PATH"
-          bend stream_demo.bend -o stream_demo
-          python3 stream_check.py ./stream_demo
-      - name: Response writer smoke
-        run: |
-          export PATH="$HOME/.bend/bin:$PATH"
-          bend write_demo.bend -o write_demo
-          python3 write_check.py ./write_demo
+          bash local-smoke.sh
 
   gate:
     name: gate
