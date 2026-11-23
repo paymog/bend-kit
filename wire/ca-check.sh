@@ -42,3 +42,5 @@ if [ "${1:-native}" = js ]; then
 else
   "$dir/ca_check" "$dir/ca.pem" "$port"
 fi
+
+python3 -B "$here/../scripts/rss-check.py" python3 -B "$here/tls-close-check.py" "${1:-native}"

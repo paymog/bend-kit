@@ -3,12 +3,14 @@
 Byte-exact TCP, UDP, and TLS. Calls consume a socket or listener and return it beside the result. `connect` returns a new socket inside the `Result`. `tls.close` consumes the socket and does not return it.
 
 ```bend
-import bend-kit-wire@0.4.8.0/wire.bend as Wire
+import bend-kit-wire@0.4.8.1/wire.bend as Wire
 ```
 
 `connect(host, port, ms)` opens TCP. `recv` and `send` move a byte `String`. The `.words` forms move packed `Array<U32>` buffers, four octets per word, and do not build a list cell per byte. `recv_from` and `send_to` are UDP. `ms` is a deadline in milliseconds. `0` means no deadline, except where a def says otherwise. `accept.deadline` rejects `0`. A miss is the host `ETIMEDOUT`: 60 on macOS, 110 on Linux.
 
 `tls.connect` checks the certificate chain and the host name. `tls.connect.cert` adds a PEM client chain and key. `tls.connect.ca` trusts the PEM certificates in one file for that handshake, instead of the default verify paths. Verification stays on. `tls.connect.alpn` returns the selected protocol. `tls.connect.alpn.ca` does both. Set `BEND_LIBSSL` when OpenSSL 3 `libssl` is not on the default path. Proofs do not cover `effs/wire.c` and `effs/wire.js`.
+
+`tls.close` attempts `close_notify`, shuts down TCP writes, and discards pending inbound records until EOF or one absolute 250 ms deadline. It then frees the TLS session and closes the socket. Both native and JS use this best-effort drain to avoid a TCP reset from unread TLS session tickets. It does not wait indefinitely for an unresponsive peer. Run `python3 -B wire/tls-close-check.py` and `python3 -B wire/tls-close-check.py js` to check exact sends, peer EOF, a stalled peer, and continuous inbound data.
 
 `http`, `dns`, `stream`, `websocket`, `redis`, and `postgres` import this package. `Socket` and `Listener` come from Base, not from this package.
 

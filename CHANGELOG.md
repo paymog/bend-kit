@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `wire` 0.4.8.1: half-close TLS writes and drain pending inbound records for at most 250 ms before closing. Preserve sent bytes on Linux when TLS 1.3 session tickets remain unread. Check exact sends and bounded closure in native and JS.
+
 - `camber` deployment: derive fresh receipt versions from consumer imports and check import changes without starting services. Update current host instructions and preserve historical evidence.
 
 - `hairpin` checks: require native and JavaScript package acceptance on macOS arm64 for Hairpin changes. Keep Linux and CA gates, verify the exact PR head, and enforce the 20 GiB native compiler memory ceiling.
