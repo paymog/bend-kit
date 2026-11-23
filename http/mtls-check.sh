@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 dir=$(mktemp -d)
 server=
 cleanup() {
@@ -51,13 +51,13 @@ done
 read -r port _ h2port streamport <"$dir/ports"
 python3 mtls-server-check.py "$dir/ca.pem" "$dir/one.pem" "$dir/one.key" "$port"
 if [ "${1:-native}" = js ]; then
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/check.js"
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/mtls_check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port"
-  SSL_CERT_FILE="$dir/ca.pem" bun "$dir/h2_pool_check.js" "https://localhost:$h2port" "https://localhost:$streamport"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" bun "$dir/check.js"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" bun "$dir/mtls_check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" bun "$dir/h2_pool_check.js" "https://localhost:$h2port" "https://localhost:$streamport"
 else
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/check"
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/mtls_check" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port"
-  SSL_CERT_FILE="$dir/ca.pem" "$dir/h2_pool_check" "https://localhost:$h2port" "https://localhost:$streamport"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" "$dir/check"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" "$dir/mtls_check" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port"
+  SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" "$dir/h2_pool_check" "https://localhost:$h2port" "https://localhost:$streamport"
 fi
 [ "$(wc -l <"$dir/ports.streams" | tr -d ' ')" = 1 ] || {
   echo "expected all HTTP/2 streams on one connection" >&2
