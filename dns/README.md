@@ -18,6 +18,8 @@ Proofs cover concrete fixtures for `query`, `answer`, nameserver parsing, hosts-
 
 `check.bend` checks packet parsing and resolves `0:0:0:0:0:0:0:1` through `resolve.all.os`. It requires the OS resolver to return `::1`. This bypasses the literal fast path and needs no public DNS service or IPv6 route.
 
+CI compiles and runs this acceptance program as native code and JavaScript on Linux x64 and macOS arm64. Both lanes use the pinned Bend compiler. The JavaScript lane uses the workflow's pinned Bun.
+
 | def | returns |
 |---|---|
 | `hosts.all(+name: String, text: String) -> List<&2, String>` | All matching addresses from hosts-file text, in file order. Pass a lowercase name. |

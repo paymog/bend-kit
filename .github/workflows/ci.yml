@@ -113,7 +113,7 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           python3 markdown/conformance.py --gfm-diff
       - name: Install Bun
-        if: matrix.package == 'http' || matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
+        if: matrix.package == 'dns' || matrix.package == 'http' || matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -122,6 +122,12 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           python3 -B http/startup_check.py
+      - name: Check DNS JavaScript backend
+        if: matrix.package == 'dns'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          bend dns/check.bend -o "$RUNNER_TEMP/dns-check.js"
+          bun "$RUNNER_TEMP/dns-check.js"
       - name: Check process JS backend
         if: matrix.package == 'process'
         run: |
@@ -176,7 +182,7 @@ jobs:
           printf 'tested=%s expected=%s\n' "$actual" "$EXPECTED_HEAD_SHA"
           test "$actual" = "$EXPECTED_HEAD_SHA"
       - uses: oven-sh/setup-bun@v2
-        if: matrix.package == 'process'
+        if: matrix.package == 'dns' || matrix.package == 'process'
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Install Bend
@@ -185,6 +191,11 @@ jobs:
           echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
       - name: Check native ${{ matrix.package }}
         run: scripts/native-check.sh ${{ matrix.package }}
+      - name: Check DNS JavaScript backend
+        if: matrix.package == 'dns'
+        run: |
+          bend dns/check.bend -o "$RUNNER_TEMP/dns-check.js"
+          bun "$RUNNER_TEMP/dns-check.js"
       - name: Check process JavaScript and ownership
         if: matrix.package == 'process'
         run: |
