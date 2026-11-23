@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hairpin` checks: hold all eight former listener ports open during native and JavaScript package acceptance on Linux and macOS arm64.
+
 - `camber` deployment: run the guarded eight-case launchd acceptance matrix on scheduled or manually dispatched macOS arm64 CI. Pin Bend and Bun, and upload fresh passing and adverse receipts.
 
 - `http` local serving smokes: bind live listeners on port 0 and report their bound ports to the serving, rejection, request stream, and response writer clients.

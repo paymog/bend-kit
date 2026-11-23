@@ -57,9 +57,9 @@ for required in [
     'test "$actual" = "$EXPECTED_HEAD_SHA"',
     "bun-version: ${{ env.BUN_VERSION }}",
     'python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"',
-    '"$RUNNER_TEMP/hairpin-check"\n',
+    'python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"\n',
     'bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"',
-    'bun "$RUNNER_TEMP/hairpin-check.js"',
+    'python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"',
 ]:
     assert required in job, required
 assert job.index('bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"') < job.index('bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"')
@@ -69,6 +69,16 @@ for result, expected in [("success", 0), ("skipped", 0), ("failure", 1), ("cance
     status = subprocess.run(["bash", "-c", script], env=dict(os.environ, result=result), capture_output=True)
     assert status.returncode == expected, (result, status.returncode)
 print("PASS macOS Hairpin package: both lanes, runner/head, memory ceiling, and required gate")
+
+linux = workflow.split("\n  check:\n", 1)[1].split("\n  stream-", 1)[0]
+for required in [
+    "if: matrix.package == 'hairpin'",
+    'python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"',
+    'python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"',
+    'python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"',
+]:
+    assert required in linux, required
+print("PASS Hairpin occupied-port acceptance: Linux and macOS, native and JS")
 
 http = next(line.strip() for line in workflow.splitlines() if 'echo "http=' in line)
 with tempfile.TemporaryDirectory() as tmp:

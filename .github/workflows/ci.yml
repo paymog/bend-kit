@@ -223,6 +223,15 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           bend dns/check.bend -o "$RUNNER_TEMP/dns-check.js"
           bun "$RUNNER_TEMP/dns-check.js"
+      - name: Check Hairpin with former ports occupied in native and JS
+        if: matrix.package == 'hairpin'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          python3 -B hairpin/occupied-run-test.py
+          python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"
+          python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"
+          bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"
+          python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"
       - name: Check process JS backend
         if: matrix.package == 'process'
         run: |
@@ -468,11 +477,11 @@ jobs:
       - name: Check native Hairpin package
         run: |
           python3 -B scripts/rss-check.py bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check"
-          "$RUNNER_TEMP/hairpin-check"
+          python3 -B hairpin/occupied-run.py "$RUNNER_TEMP/hairpin-check"
       - name: Check JavaScript Hairpin package
         run: |
           bend hairpin/check.bend -o "$RUNNER_TEMP/hairpin-check.js"
-          bun "$RUNNER_TEMP/hairpin-check.js"
+          python3 -B hairpin/occupied-run.py bun "$RUNNER_TEMP/hairpin-check.js"
       - name: Check Hairpin CA in native and JS
         run: |
           python3 -B scripts/rss-check.py sh hairpin/ca-check.sh
