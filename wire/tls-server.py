@@ -7,6 +7,8 @@ cert, key, ports_path = sys.argv[1:4]
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.minimum_version = ctx.maximum_version = ssl.TLSVersion.TLSv1_2
 ctx.load_cert_chain(cert, key)
+protocols = os.environ.get('WIRE_TEST_ALPN', 'h2,http/1.1')
+ctx.set_alpn_protocols(protocols.split(',') if protocols else [])
 if len(sys.argv) > 4:
     ctx.load_verify_locations(sys.argv[4])
     ctx.verify_mode = ssl.CERT_REQUIRED

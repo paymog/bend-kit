@@ -39,15 +39,22 @@ def expect.ok(+name: String, m: Socket & Result<&1, &1, U32 & String, Unit>) -> 
         IO.print("ok " ++ name)
         Wire.tls.close(s)
 
+def expect.protocol(same: Bool, +name: String, proto: String) -> IO(Unit):
+  match same:
+    case True{}:
+      IO.print("ok " ++ name)
+    case False{}:
+      die(name, "expected h2, got " ++ proto)
+
 def expect.alpn(+name: String, m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   match m:
     case (s, Fail{(+code, why)}):
       do IO<Unit>:
         Socket.close(s)
         die(name, U32.show(code) ++ " " ++ why)
-    case (s, Done{proto}):
+    case (s, Done{+proto}):
       do IO<Unit>:
-        IO.print("ok " ++ name)
+        expect.protocol(String.eq(proto, "h2"), name, proto)
         Wire.tls.close(s)
 
 def connected(+name: String, r: Result<&1, &1, U32 & String, Socket>) -> IO(Socket):
@@ -69,7 +76,7 @@ def step.alpn(+port: U32, +ca: String) -> IO(Unit):
     r : Result<&1, &1, U32 & String, Socket> <- Wire.connect("127.0.0.1", port, 5000)
     s : Socket <- connected("connect", r)
     m : Socket & Result<&1, &1, U32 & String, String> <-
-      Wire.tls.connect.alpn.ca(s, "localhost", 5000, "http/1.1", ca)
+      Wire.tls.connect.alpn.ca(s, "localhost", 5000, "h2,http/1.1", ca)
     expect.alpn("private CA with ALPN", m)
 
 def step.default(+port: U32) -> IO(Unit):
