@@ -46,6 +46,8 @@ The [native scheduler](https://github.com/bendlang/bend/blob/v2.0.34/bend2/comp.
 
 Run `python3 -B camber/run_supervision.py --output /tmp/camber-supervision-current.json` to preserve the historical results. Native probes enclose runtime options in `+RTS` and `-RTS` before application arguments. The driver reuses the retained CPU iteration counts, runs a dedicated Bend child, and sends OS `SIGKILL` after a 100 ms host-side delay. [supervision_risk_results.json](supervision_risk_results.json) retains all four historical observations:
 
+Current probes pause 1 ms after `WORK_BEGIN`, before the random seed and pure CPU loop. This follows the JSON progress probe's pre-work flush checkpoint. Bend 2.0.40 buffers non-TTY JavaScript stdout until a wait, error, exit, or 64 KiB. Without the checkpoint, the parent receives both CPU markers after the loop and sends its signal too late. The checkpoint does not yield inside the CPU loop or change the retained iteration count. Host marker arrival does not measure CPU duration.
+
 | Lane | CPU signal to child reaping | Idle-socket signal to child reaping | Idle peer closes | Unrelated parent work |
 | --- | ---: | ---: | --- | --- |
 | Native | 1.309 ms | 1.333 ms | yes | completes |
