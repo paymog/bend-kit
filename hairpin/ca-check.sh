@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 dir=$(mktemp -d)
 server=
 cleanup() {
@@ -61,6 +61,15 @@ for check in ca_check ca_stream_check; do
     bend "$check.bend" -o "$dir/$check"
   fi
 done
+if [ "${WIRE_LOOPBACK_ONLY:-0}" = 1 ]; then
+  if [ "${1:-native}" = js ]; then
+    bend ../wire/loopback_check.bend -o "$dir/loopback.js"
+    python3 "$here/../wire/loopback-run.py" bun "$dir/loopback.js"
+  else
+    bend ../wire/loopback_check.bend -o "$dir/loopback"
+    python3 "$here/../wire/loopback-run.py" "$dir/loopback"
+  fi
+fi
 python3 "$dir/server.py" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
 i=0
@@ -72,8 +81,8 @@ done
 read -r port <"$dir/ports"
 for check in ca_check ca_stream_check; do
   if [ "${1:-native}" = js ]; then
-    bun "$dir/$check.js" "$dir/ca.pem" "https://localhost:$port/"
+    python3 "$here/../wire/loopback-run.py" bun "$dir/$check.js" "$dir/ca.pem" "https://localhost:$port/"
   else
-    "$dir/$check" "$dir/ca.pem" "https://localhost:$port/"
+    python3 "$here/../wire/loopback-run.py" "$dir/$check" "$dir/ca.pem" "https://localhost:$port/"
   fi
 done
