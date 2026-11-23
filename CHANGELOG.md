@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `gateway` and `runner` examples and checks: complete the Wire 0.4.8.1 re-pin waves with HTTP 0.40.0.1, Camber 0.17.0.1, Hairpin 0.16.0.1, and Webhooks 0.14.0.1. Update the Time README's HTTP pin and remove the completed pin exceptions.
+
 - `jwt` 0.14.0.1, `llm` 0.16.0.1, `oauth2` 0.14.0.1, `sigv4` 0.14.0.1, and `webhooks` 0.14.0.1: share HTTP 0.40.0.1 and Hairpin 0.16.0.1. Re-pin Authz checks and manual Camber consumers to Camber 0.17.0.1.
 
 - `camber` 0.17.0.1, `hairpin` 0.16.0.1, and `storage` 0.6.0.1: use HTTP 0.40.0.1 and Wire 0.4.8.1's bounded TLS close drain.

@@ -2,8 +2,3 @@
 # Remove a line when the issue named on it lands.
 0x4eed9d7ac6ece61523d747a9d804e4f0  # bytes: bend-kit-int@0.2.0.0 by hash, until bytes releases (#456)
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
-bend-kit-wire@0.4.8.0  # re-pin remaining consumers after Wire publishes (#1038)
-bend-kit-http@0.40.0.0  # importers re-pin to bend-kit-http@0.40.0.1 in a later wave (#1038)
-bend-kit-camber@0.17.0.0  # importers re-pin to bend-kit-camber@0.17.0.1 in a later wave (#1038)
-bend-kit-hairpin@0.16.0.0  # importers re-pin to bend-kit-hairpin@0.16.0.1 in a later wave (#1038)
-bend-kit-webhooks@0.14.0.0  # importers re-pin to bend-kit-webhooks@0.14.0.1 in a later wave (#1038)
