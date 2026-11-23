@@ -14,9 +14,17 @@ selection = workflow.split("      - id: workflows\n", 1)[1].split("      - id:",
 selection = textwrap.dedent(selection.split("        run: |\n", 1)[1])
 gate = workflow.split("  gate:\n", 1)[1]
 assert "workflow-lint" in gate.split("    if:", 1)[0]
-assert "    if: always()" in gate
+assert "    if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')" in gate
 assert "if: needs.changes.outputs.workflows == 'true'" in workflow
 assert "workflows: ${{ steps.workflows.outputs.changed }}" in workflow
+acceptance = workflow.split("  launchd-acceptance:\n", 1)[1].split("  changes:\n", 1)[0]
+assert "if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'" in acceptance
+assert "runs-on: macos-15" in acceptance
+assert "--lane all --case all" in acceptance
+assert "if: always()" in acceptance
+assert "actions/upload-artifact@" in acceptance
+assert 'if-no-files-found: error' in acceptance
+assert "    if: github.event_name == 'push' || github.event_name == 'pull_request'" in workflow.split("  changes:\n", 1)[1]
 shellcheck = shutil.which("shellcheck")
 assert shellcheck, "ShellCheck must be installed"
 with tempfile.TemporaryDirectory() as tmp:

@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `camber` deployment: run the guarded eight-case launchd acceptance matrix on scheduled or manually dispatched macOS arm64 CI. Pin Bend and Bun, and upload fresh passing and adverse receipts.
+
 - `http` local serving smokes: bind live listeners on port 0 and report their bound ports to the serving, rejection, request stream, and response writer clients.
 
 - `hairpin` checks: bind every package listener on port 0 and pass its bound port to clients and cookie checks. Keep the scripted attempt assertions.
