@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `wire` checks: require CA and mTLS acceptance in native and JavaScript lanes on macOS arm64 for Wire changes. Keep Linux gates and verify the exact PR head.
+
 - `hairpin` and `stream` checks: generate CA certificates with critical signing key usage. Verify TLS fixture chains, server purpose, and localhost hostnames in strict X.509 mode.
 
 - `http` checks: require native package acceptance and native/JS startup sockets on macOS arm64 for HTTP changes. Keep Linux coverage and the 20 GiB memory ceiling.
