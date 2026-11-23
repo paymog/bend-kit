@@ -28,6 +28,7 @@ def spin(n: Nat, acc: U32) -> U32:
 def cpu(n: Nat) -> IO(Unit):
   do IO<Unit>:
     IO.print("WORK_BEGIN")
+    IO.sleep(1)
     seed : U32 <- IO.try(U32, IO.random_u32())
     IO.print("WORK_END " ++ U32.show(spin(n, seed)))
 
