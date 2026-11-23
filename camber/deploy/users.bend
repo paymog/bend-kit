@@ -40,6 +40,7 @@ def work(mode: String, io_port: U32) -> IO(Unit):
     case "cpu":
       do IO<Unit>:
         IO.print("CPU ADMITTED")
+        IO.sleep(1)
         # As in risk_probe.bend: effect-provided input prevents pre-IO pure evaluation.
         seed : U32 <- IO.try(U32, IO.random_u32())
         value : U32 = spin(seed)
