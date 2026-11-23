@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `dns` 0.7.1.2 and `websocket` 0.4.1.4: use Wire 0.4.8.1 and its bounded TLS close drain.
+
 - `wire` 0.4.8.1: half-close TLS writes and drain pending inbound records for at most 250 ms before closing. Preserve sent bytes on Linux when TLS 1.3 session tickets remain unread. Check exact sends and bounded closure in native and JS.
 
 - `stream` 0.4.1.1: use Wire 0.4.8.1's bounded TLS close drain. Require live binary file, TCP, and verified-TLS acceptance in native and JavaScript lanes on Linux and macOS arm64. Keep strict assertions and enforce the 20 GiB process-tree memory ceiling.
