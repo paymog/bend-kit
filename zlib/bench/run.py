@@ -95,6 +95,55 @@ def mbps(n: int, ms: float) -> float:
     return (n / 1_000_000) / (ms / 1000.0) if ms else float("inf")
 
 
+def first_header_bits(gz: bytes) -> int:
+    """Count the first block header, including its code-length runs."""
+    data, pos = gz[10:-8], 0
+
+    def read(n):
+        nonlocal pos
+        value = sum(((data[(pos + i) // 8] >> ((pos + i) % 8)) & 1) << i for i in range(n))
+        pos += n
+        return value
+
+    read(1)
+    kind = read(2)
+    if kind == 1:
+        return pos
+    if kind != 2:
+        raise ValueError(f"expected a Huffman block, got {kind}")
+    nl, nd, nc = read(5) + 257, read(5) + 1, read(4) + 4
+    order = (16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15)
+    lens = [0] * 19
+    for s in order[:nc]:
+        lens[s] = read(3)
+    codes, code = {}, 0
+    for width in range(1, 8):
+        for s, length in enumerate(lens):
+            if length == width:
+                codes[width, code] = s
+                code += 1
+        code <<= 1
+    lengths = []
+    while len(lengths) < nl + nd:
+        code = 0
+        for width in range(1, 8):
+            code = (code << 1) | read(1)
+            s = codes.get((width, code))
+            if s is not None:
+                break
+        else:
+            raise ValueError("invalid code-length symbol")
+        if s < 16:
+            lengths.append(s)
+        elif s == 16:
+            lengths.extend([lengths[-1]] * (read(2) + 3))
+        else:
+            lengths.extend([0] * (read(3 if s == 17 else 7) + (3 if s == 17 else 11)))
+    if len(lengths) != nl + nd:
+        raise ValueError("code-length run exceeds the header")
+    return pos
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     plain = plain_bytes(PLAIN)
@@ -142,6 +191,8 @@ def main():
         if ungz != plain:
             sys.exit(f"gzip -d of out/{f} does not match the plain text")
         print(f"gzip -d out/{f} ok, crc32 {zlib.crc32(ungz)}", file=sys.stderr)
+        if f == "bend.gz":
+            print(f"first Bend block header: {first_header_bits((OUT / f).read_bytes())} bits", file=sys.stderr)
 
     names = list(table)
     print("| variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |")

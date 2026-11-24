@@ -1009,19 +1009,19 @@ def block.fixed(xs: List<&2, Encode.Token>, w: Bits.Writer) -> Bits.Writer:
       w = Bits.Writer.lsb(bw.code(w, fx.lit(ls)), le, lv)
       block.fixed(t, Bits.Writer.lsb(Bits.Writer.lsb(w, 5, Bits.rev(5n, ds, 0)), de, dv))
 
-def block.dynamic(tables: Maybe<&1, Encode.Tables>, xs: List<&2, Encode.Token>, w: Bits.Writer, +last: U32, ll: List<&2, U32>, dl: List<&2, U32>) -> Bits.Writer:
+def block.dynamic(tables: Maybe<&1, Encode.Tables>, xs: List<&2, Encode.Token>, w: Bits.Writer, +last: U32) -> Bits.Writer:
   match tables:
     case None{}:
       block.fixed(xs, Bits.Writer.lsb(w, 3, (2 + last : U32)))
     case Some{t}:
-      Encode.dynamic(xs, w, last, ll, dl, t)
+      Encode.dynamic(xs, w, last, t)
 
 def block.plan(plan: Encode.Plan, xs: List<&2, Encode.Token>, w: Bits.Writer, +last: U32) -> Bits.Writer:
   match plan:
     case Encode.Fixed{}:
       block.fixed(xs, Bits.Writer.lsb(w, 3, (2 + last : U32)))
     case Encode.Dynamic{+ll, +dl}:
-      block.dynamic(Encode.tables(ll, dl), xs, w, last, ll, dl)
+      block.dynamic(Encode.tables(ll, dl), xs, w, last)
 
 def block.emit(small: Bool, +xs: List<&2, Encode.Token>, w: Bits.Writer, +last: U32) -> Bits.Writer:
   match small:
