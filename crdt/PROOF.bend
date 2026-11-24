@@ -585,6 +585,176 @@ def Laws.from_cbor_negative():
 def Laws.from_cbor_not_array():
   {==}
 
+def pn_make_grows(
+  a: Maybe<&2, List<&2, U32>>, b: Maybe<&2, List<&2, U32>>,
+  +p: List<&2, U32>, +n: List<&2, U32>,
+  hp: {Laws.grows(p, a) == True{} : Bool}, hn: {Laws.grows(n, b) == True{} : Bool}
+) -> {Laws.pn.grows(Crdt.PN{p, n}, Crdt.PNCounter.make(a, b)) == True{} : Bool}:
+  match a b:
+    case None{} _:
+      {==}
+    case Some{x} None{}:
+      {==}
+    case Some{+x} Some{+y}:
+      MBool.and_eq_true(Crdt.GCounter.le(p, x), Crdt.GCounter.le(n, y), hp, hn)
+
+def Laws.pn_inc_grows(s, i):
+  match s:
+    case Crdt.PN{+p, +n}:
+      +i = i
+      pn_make_grows(Crdt.GCounter.inc(p, i), Some{n}, p, n, Laws.inc_grows(p, i), Laws.le_refl(n))
+
+def Laws.pn_dec_grows(s, i):
+  match s:
+    case Crdt.PN{+p, +n}:
+      +i = i
+      pn_make_grows(Some{p}, Crdt.GCounter.inc(n, i), p, n, Laws.le_refl(p), Laws.inc_grows(n, i))
+
+def pn_make_valid(
+  a: Maybe<&2, List<&2, U32>>, b: Maybe<&2, List<&2, U32>>,
+  hp: {Laws.ok_valid(a) == True{} : Bool}, hn: {Laws.ok_valid(b) == True{} : Bool}
+) -> {Laws.pn.ok_valid(Crdt.PNCounter.make(a, b)) == True{} : Bool}:
+  match a b:
+    case None{} _:
+      {==}
+    case Some{x} None{}:
+      {==}
+    case Some{+x} Some{+y}:
+      MBool.and_eq_true(Crdt.GCounter.valid(x), Crdt.GCounter.valid(y), hp, hn)
+
+def Laws.pn_inc_valid(s, i, h):
+  match s:
+    case Crdt.PN{+p, +n}:
+      +h = h
+      +i = i
+      pn_make_valid(Crdt.GCounter.inc(p, i), Some{n},
+        Laws.inc_valid(p, i, MBool.eq_true_of_and_left(Crdt.GCounter.valid(p), Crdt.GCounter.valid(n), h)),
+        MBool.eq_true_of_and_right(Crdt.GCounter.valid(p), Crdt.GCounter.valid(n), h))
+
+def Laws.pn_dec_valid(s, i, h):
+  match s:
+    case Crdt.PN{+p, +n}:
+      +h = h
+      +i = i
+      pn_make_valid(Some{p}, Crdt.GCounter.inc(n, i),
+        MBool.eq_true_of_and_left(Crdt.GCounter.valid(p), Crdt.GCounter.valid(n), h),
+        Laws.inc_valid(n, i, MBool.eq_true_of_and_right(Crdt.GCounter.valid(p), Crdt.GCounter.valid(n), h)))
+
+def Laws.pn_merge_valid(a, b, ha, hb):
+  match a b:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn}:
+      +ha = ha
+      +hb = hb
+      MBool.and_eq_true(Crdt.GCounter.valid(Crdt.GCounter.merge(ap, bp)),
+        Crdt.GCounter.valid(Crdt.GCounter.merge(an, bn)),
+        Laws.merge_valid(ap, bp,
+          MBool.eq_true_of_and_left(Crdt.GCounter.valid(ap), Crdt.GCounter.valid(an), ha),
+          MBool.eq_true_of_and_left(Crdt.GCounter.valid(bp), Crdt.GCounter.valid(bn), hb)),
+        Laws.merge_valid(an, bn,
+          MBool.eq_true_of_and_right(Crdt.GCounter.valid(ap), Crdt.GCounter.valid(an), ha),
+          MBool.eq_true_of_and_right(Crdt.GCounter.valid(bp), Crdt.GCounter.valid(bn), hb)))
+
+def pn_make_none_r(a: Maybe<&2, List<&2, U32>>) ->
+  {Laws.pn.ok_valid(Crdt.PNCounter.make(a, None{})) == True{} : Bool}:
+  match a:
+    case None{}:
+      {==}
+    case Some{x}:
+      {==}
+
+def pn_from_right_valid(n: Cbor.Val, +a: Maybe<&2, List<&2, U32>>, +cap: U32,
+  ha: {Laws.ok_valid(a) == True{} : Bool}) ->
+  {Laws.pn.ok_valid(Crdt.PNCounter.make(a, Crdt.GCounter.from_cbor(n, cap))) == True{} : Bool}:
+  match n:
+    case Cbor.Arr{ys}:
+      +b = Crdt.GCounter.from_cbor.items(ys)
+      pn_make_valid(a, Crdt.GCounter.from_cbor.check(b, cap), ha, check_valid(b, cap))
+    case Cbor.UInt{w}:
+      pn_make_none_r(a)
+    case Cbor.NInt{w}:
+      pn_make_none_r(a)
+    case Cbor.BStr{b}:
+      pn_make_none_r(a)
+    case Cbor.TStr{b}:
+      pn_make_none_r(a)
+    case Cbor.Obj{kvs}:
+      pn_make_none_r(a)
+    case Cbor.Tag{k, v}:
+      pn_make_none_r(a)
+    case Cbor.Sim{x}:
+      pn_make_none_r(a)
+    case Cbor.Flt{x}:
+      pn_make_none_r(a)
+
+def pn_from_halves_valid(p: Cbor.Val, n: Cbor.Val, +cap: U32) ->
+  {Laws.pn.ok_valid(Crdt.PNCounter.make(Crdt.GCounter.from_cbor(p, cap),
+    Crdt.GCounter.from_cbor(n, cap))) == True{} : Bool}:
+  match p:
+    case Cbor.Arr{xs}:
+      +a = Crdt.GCounter.from_cbor.items(xs)
+      pn_from_right_valid(n, Crdt.GCounter.from_cbor.check(a, cap), cap, check_valid(a, cap))
+    case Cbor.UInt{w}:
+      {==}
+    case Cbor.NInt{w}:
+      {==}
+    case Cbor.BStr{b}:
+      {==}
+    case Cbor.TStr{b}:
+      {==}
+    case Cbor.Obj{kvs}:
+      {==}
+    case Cbor.Tag{k, v}:
+      {==}
+    case Cbor.Sim{x}:
+      {==}
+    case Cbor.Flt{x}:
+      {==}
+
+def Laws.pn_from_cbor_valid(v, cap):
+  match v:
+    case Cbor.Arr{Con{p, Con{n, Nil{}}}}:
+      pn_from_halves_valid(p, n, cap)
+    case Cbor.Arr{Nil{}}:
+      {==}
+    case Cbor.Arr{Con{p, Nil{}}}:
+      {==}
+    case Cbor.Arr{Con{p, Con{n, Con{x, xs}}}}:
+      {==}
+    case Cbor.UInt{w}:
+      {==}
+    case Cbor.NInt{w}:
+      {==}
+    case Cbor.BStr{b}:
+      {==}
+    case Cbor.TStr{b}:
+      {==}
+    case Cbor.Obj{kvs}:
+      {==}
+    case Cbor.Tag{k, v}:
+      {==}
+    case Cbor.Sim{x}:
+      {==}
+    case Cbor.Flt{x}:
+      {==}
+
+def Laws.pn_cbor_roundtrip(p, n, cap, hv, hp, hn):
+  +p = p
+  +n = n
+  +cap = cap
+  +hv = hv
+  %Equal.sym(Maybe<&2, List<&2, U32>>,
+    Crdt.GCounter.from_cbor(Crdt.GCounter.to_cbor(p), cap), Some{p},
+    Laws.cbor_roundtrip(p, cap,
+      MBool.eq_true_of_and_left(Crdt.GCounter.valid(p), Crdt.GCounter.valid(n), hv), hp)) :
+    {Crdt.PNCounter.make(_, Crdt.GCounter.from_cbor(Crdt.GCounter.to_cbor(n), cap))
+     == Some{Crdt.PN{p, n}} : Maybe<&2, Crdt.PNCounter>}
+  %Equal.sym(Maybe<&2, List<&2, U32>>,
+    Crdt.GCounter.from_cbor(Crdt.GCounter.to_cbor(n), cap), Some{n},
+    Laws.cbor_roundtrip(n, cap,
+      MBool.eq_true_of_and_right(Crdt.GCounter.valid(p), Crdt.GCounter.valid(n), hv), hn)) :
+    {Crdt.PNCounter.make(Some{p}, _) == Some{Crdt.PN{p, n}} : Maybe<&2, Crdt.PNCounter>}
+  {==}
+
 def pn_eq(
   -ap: List<&2, U32>, -an: List<&2, U32>, -bp: List<&2, U32>, -bn: List<&2, U32>,
   hp: {ap == bp : List<&2, U32>}, hn: {an == bn : List<&2, U32>}
