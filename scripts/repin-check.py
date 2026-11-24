@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Check re-pin wave planning and exceptions without contacting the hub."""
 import importlib.util
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -144,5 +146,38 @@ with TemporaryDirectory() as tmp:
         assert first == ([("middle", expected, {
             "middle/middle.bend": {("dep", "0.1.0.0"): "0.2.0.0"},
         })], set()), (pending, first)
+
+with TemporaryDirectory() as tmp:
+    root = Path(tmp)
+    repin.ROOT = root
+    repin.hub_hash = lambda *args: (_ for _ in ()).throw(AssertionError("hub access"))
+    (root / "scripts").mkdir()
+    (root / "scripts/pins.allow").write_text("")
+    versions = {"http": "0.40.0.0", "hairpin": "0.15.0.0",
+                "camber": "0.16.0.0", "jwt": "0.13.0.0", "time": "0.3.0.0"}
+    for p, v in versions.items():
+        (root / p).mkdir()
+        (root / p / "VERSION").write_text(v + "\n")
+        (root / p / f"{p}.bend").write_text("" if p in ("http", "time") else
+            "import bend-kit-http@0.39.2.0/http.bend\n")
+    prose = ("## Same type\n\n"
+             "`hairpin@0.15.0.0`, `camber@0.16.0.0`, and `jwt@0.13.0.0` "
+             "use `bend-kit-http@0.39.2.0`.\n")
+    (root / "README.md").write_text(prose + "bend-kit-hairpin@0.15.0.0/hairpin.bend\n")
+    (root / "time/README.md").write_text("Used by `http@0.39.2.0`.\n")
+    output = StringIO()
+    with redirect_stdout(output):
+        repin.apply([(p, v, {f"{p}/{p}.bend": {("http", "0.39.2.0"): "0.40.0.0"}})
+                     for p, v in (("hairpin", "0.16.0.0"), ("camber", "0.17.0.0"))],
+                    versions, list(versions))
+    report = output.getvalue()
+    assert "README.md:3: review dependency guidance manually:" in report, report
+    assert "hairpin@0.16.0.0 imports: http@0.40.0.0" in report, report
+    assert "camber@0.17.0.0 imports: http@0.40.0.0" in report, report
+    assert "jwt@0.13.0.0 imports: http@0.39.2.0" in report, report
+    assert "time/README.md:1: review dependency guidance manually:" in report, report
+    assert "README.md:4:" not in report, report
+    assert (root / "README.md").read_text().startswith(prose), "do not guess prose replacements"
+    assert "bend-kit-http@0.39.2.0" in (root / "scripts/pins.allow").read_text()
 
 print("Re-pin wave checks pass")

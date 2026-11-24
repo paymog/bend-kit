@@ -186,6 +186,29 @@ def apply(moves, ver, pkgs):
             if readme.exists():
                 sub(readme, rf"bend-kit-{p}@{re.escape(ver[p])}(?![0-9])", f"bend-kit-{p}@{new}")
     allow(after, pkgs)
+    guidance(after, pkgs, {p for p, _, _ in moves}
+             | {q for _, _, edits in moves for e in edits.values() for q, _ in e})
+
+
+def guidance(ver, pkgs, changed):
+    """Flag prose for manual review, even when pins.allow permits its old pins."""
+    paths = [ROOT / "README.md"] + [ROOT / p / "README.md" for p in pkgs]
+    for path in paths:
+        if not path.exists():
+            continue
+        for n, line in enumerate(path.read_text().splitlines(), 1):
+            refs = [(p.removeprefix("bend-kit-"), v) for p, v in re.findall(
+                r"\b((?:bend-kit-)?[a-z0-9-]+)@([0-9]+(?:\.[0-9]+)*)(?![0-9./])", line)]
+            refs = [(p, v) for p, v in refs if p in ver]
+            stale = any(v != ver[p] for p, v in refs)
+            names = {p for p, _ in refs}
+            if not stale and not (path == ROOT / "README.md" and names & changed):
+                continue
+            print(f"{path.relative_to(ROOT)}:{n}: review dependency guidance manually: {line.strip()}")
+            for p in sorted(names):
+                entry = ROOT / p / f"{p}.bend"
+                pins = sorted(set(IMPORT.findall(entry.read_text()))) if entry.exists() else []
+                print(f"  {p}@{ver[p]} imports: " + ", ".join(f"{q}@{v}" for q, v in pins))
 
 
 def allow(before, pkgs):

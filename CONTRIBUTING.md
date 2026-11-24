@@ -20,6 +20,8 @@ scripts/check.sh bytes http   # the packages you changed
 
 A package whose public types come from a sibling imports that sibling from the hub, not by relative path. Package-local `LAWS.bend` and `check.bend` import the local file. A change to the sibling reaches the importer only after the sibling is published and the import version is raised. Publish dependencies first.
 
+`scripts/repin.py --apply` updates the next dependency wave. It then lists README prose that needs manual review, with current entry-file pins. Split the root Same type guidance between migrated consumers and consumers waiting for a publish. Old prose is reported even when `scripts/pins.allow` permits its version. Run `python3 scripts/repin-check.py` for the offline regression check.
+
 macOS or Linux, including WSL. Windows is not supported. CI installs the Bend version pinned in `scripts/install-bend.sh`.
 
 Language rules that have bitten this repo, including affine use, quantities, and termination, are in [AGENTS.md](AGENTS.md).
