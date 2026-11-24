@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `crdt` 0.2.2.1: prove PN-Counter state-order reflexivity, transitivity, valid-state antisymmetry, and merge monotonicity. Distinguish state order from signed-value order in the package README.
+
 - `crdt` 0.2.2.0: add exact PN-Counter reads with unbounded totals and signed `Nat` magnitudes. Keep the checked U32 read unchanged.
 
 - `runner` proofs: prove that a successful revive replaces any retry entry with zero failures and its new start deadline. Prove the same retry-map update after journal replay under the codec round-trip hypothesis.

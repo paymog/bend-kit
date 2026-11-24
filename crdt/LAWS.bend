@@ -300,6 +300,34 @@ law pn_merge_least:
   for hb: {Crdt.PNCounter.le(b, c) == True{} : Bool}
   {Crdt.PNCounter.le(Crdt.PNCounter.merge(a, b), c) == True{} : Bool}
 
+law pn_le_refl:
+  for a: Crdt.PNCounter
+  {Crdt.PNCounter.le(a, a) == True{} : Bool}
+
+law pn_le_trans:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  for c: Crdt.PNCounter
+  for hab: {Crdt.PNCounter.le(a, b) == True{} : Bool}
+  for hbc: {Crdt.PNCounter.le(b, c) == True{} : Bool}
+  {Crdt.PNCounter.le(a, c) == True{} : Bool}
+
+law pn_le_antisymm:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  for va: {Crdt.PNCounter.valid(a) == True{} : Bool}
+  for vb: {Crdt.PNCounter.valid(b) == True{} : Bool}
+  for hab: {Crdt.PNCounter.le(a, b) == True{} : Bool}
+  for hba: {Crdt.PNCounter.le(b, a) == True{} : Bool}
+  {a == b : Crdt.PNCounter}
+
+law pn_merge_mono:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  for c: Crdt.PNCounter
+  for hab: {Crdt.PNCounter.le(a, b) == True{} : Bool}
+  {Crdt.PNCounter.le(Crdt.PNCounter.merge(a, c), Crdt.PNCounter.merge(b, c)) == True{} : Bool}
+
 law pn_converge:
   for xs: List<&2, Crdt.PNCounter>
   for ys: List<&2, Crdt.PNCounter>

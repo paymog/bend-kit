@@ -3,7 +3,7 @@
 Replicated data types with proved merges, as in Shapiro et al., "A comprehensive study of Convergent and Commutative Replicated Data Types" (2011). `GCounter` is a grow-only counter keyed by small dense indices. `KCounter` is a grow-only counter keyed by sparse IDs of any `Data` type. `PNCounter` adds decrements with a pair of dense G-Counters. Replicas exchange whole states in any order, and every replica that has seen the same states holds the same counter.
 
 ```bend
-import bend-kit-crdt@0.2.2.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.2.1/crdt.bend as Crdt
 ```
 
 It imports `bend-kit-cbor@0.3.0.1` and `bend-kit-bytes@0.3.3.1` for the wire form.
@@ -18,7 +18,7 @@ Replica 0 receives the state of replica 1 twice.
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.2.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.2.1/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -88,7 +88,7 @@ Replica 7 counts 2 events. Replica 4000000000 counts 1 event and merges the stat
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.2.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.2.1/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -157,6 +157,10 @@ The order facts are `refl` (`cmp(x, x) == EQ`), `eq` (`cmp(x, y) == EQ` gives `x
 Decode rejects missing or extra halves, malformed CBOR, non-array halves, negative or wide components, trailing zeros, and either half above the replica cap.
 
 `pn_merge_comm`, `pn_merge_assoc`, and `pn_merge_idem` prove the merge identities for every state. `pn_merge_upper_l`, `pn_merge_upper_r`, and `pn_merge_least` prove the least upper bound in the product order. `pn_converge` proves convergence when both histories cover the same states in each half; this includes reordered and repeated PN states. Each proof reuses the G-Counter laws. The wire rejection laws and `check.bend` cover invalid states. The runtime check exchanges newer, stale, and repeated states across CBOR and crosses zero in both directions.
+
+`pn_le_refl` and `pn_le_trans` prove that state order is reflexive and transitive for all PN states. `pn_le_antisymm` proves antisymmetry for valid states. `pn_merge_mono` proves that `le(a, b)` implies `le(merge(a, c), merge(b, c))` without a validity assumption.
+
+State order compares both growing halves, not their displayed signed values. For example, `PN{[], []}` is at most `PN{[], [1]}`, although their signed values are 0 and -1. Raw states form only a preorder: `PN{[], []}` and `PN{[0], []}` are at most each other but are not equal. Valid states form a partial order.
 
 `pn_inc_grows` and `pn_dec_grows` prove update inflation for every state. `pn_inc_valid`, `pn_dec_valid`, and `pn_merge_valid` prove validity preservation. `pn_from_cbor_valid` proves that validated decoding returns only valid states. `pn_cbor_roundtrip` proves that every valid state round-trips when both halves satisfy the replica cap.
 
