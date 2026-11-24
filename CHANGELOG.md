@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `zlib` 0.7.0.0: reuse the deferred lazy match instead of searching its hash chain twice. Add the match length and distance to the internal encoder state.
+
 - `zlib` 0.6.1.0: trim dynamic Huffman alphabets, encode code-length runs with symbols 16–18, and choose blocks with the full header bit cost.
 
 - `bits` 0.4.0.0: track the last successful read order and align field and Huffman reads on an order switch. Preview aligned bits without moving the reader. Preserve position and order on failed reads. Add the order field to the `Reader` constructor.
