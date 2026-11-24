@@ -571,6 +571,71 @@ def state.size(x: R.Runner<String> & Model.State<String>) -> R.Runner<String> & 
 def far() -> Nat:
   Nat.mul(4000n, 1000000000n)
 
+def compaction.replaced(x: R.Swap) -> IO(Unit):
+  match x:
+    case R.Moved{j}:
+      J.close(j)
+    case _:
+      IO.die(Unit, 1, "bad failed-reopen fixture: the snapshot did not replace the journal")
+
+def compaction.error(+code: U32, +message: String, x: R.Ran(String)) -> IO(R.Runner<String>):
+  match x:
+    case (r, Fail{(c, m)}):
+      do IO<R.Runner<String>>:
+        same(U32.show(c) ++ " " ++ m, U32.show(code) ++ " " ++ message, "failed compaction returns the original reopen error")
+        return r
+    case (r, Done{u}):
+      IO.die(R.Runner<String>, 1, "bad failed-reopen fixture: compaction succeeded")
+
+def compaction.reopen.failed(x: R.Out(J.Journal & Unit), r: R.Runner<String>) -> IO(R.Runner<String>):
+  match x:
+    case Fail{(+code, +message)}:
+      R.Runner{R.Log{j, path, +limit, +base}, s, p, c, ib, fs} = r
+      do IO<R.Runner<String>>:
+        y : R.Log & R.Out(Unit) <- R.compact.moved(R.swap.reopened(Fail{(code, message)}), j, 4096, path, limit, base)
+        compaction.error(code, message, R.compact.done(String, y, s, p, c, ib, fs))
+    case Done{(j, u)}:
+      do IO<R.Runner<String>>:
+        J.close(j)
+        R.close(String, r)
+        IO.die(R.Runner<String>, 1, "bad failed-reopen fixture: the zero file limit allowed a snapshot")
+
+def compaction.refused(x: R.Runner<String> & R.Out(Nat)) -> IO(R.Runner<String>):
+  match x:
+    case (r, Fail{(c, m)}):
+      do IO<R.Runner<String>>:
+        same(U32.show(c) ++ " " ++ m, "5 journal: an append failed; reopen the journal", "the replaced old journal refuses an append")
+        return r
+    case (r, Done{i}):
+      IO.die(R.Runner<String>, 1, "bad compaction: the replaced old journal accepted an append")
+
+def compaction.stranded.state(x: R.Runner<String> & Model.State<String>, +path: String) -> IO(Unit):
+  (r, +s) = x
+  do IO<Unit>:
+    moved : R.Swap <- R.swap(path, 1048576, Model.encode.snap(~String, ~penc, s))
+    compaction.replaced(moved)
+    failed : R.Out(J.Journal & Unit) <- J.open(~Unit, ~(a => b => a), path, 1048576, 0, Unit{})
+    r1 : R.Runner<String> <- compaction.reopen.failed(failed, r)
+    r2 : R.Runner<String> <- held(state.hex(R.state(String, r1)), hex(s), "failed compaction keeps the live state")
+    appended : R.Runner<String> & R.Out(Nat) <- R.enqueue(~String, ~penc, r2, far(), "refused")
+    r3 : R.Runner<String> <- compaction.refused(appended)
+    closed(hex(s), "a refused append does not change the live state", state.hex(R.state(String, r3)))
+    r4 : R.Runner<String> <- opened(path, 100n)
+    r5 : R.Runner<String> <- held(state.hex(R.state(String, r4)), hex(s), "reopen recovers every acknowledged job from the renamed snapshot")
+    r6 : R.Runner<String> <- enq(r5, far(), "after reopen")
+    want : String <- closed.hex(state.hex(R.state(String, r6)))
+    r7 : R.Runner<String> <- opened(path, 100n)
+    closed(want, "appends resume durably after reopening the snapshot", state.hex(R.state(String, r7)))
+
+# A zero read limit fails only the check's reopen, after a real snapshot rename.
+def compaction.stranded(+dir: String) -> IO(Unit):
+  +path = dir ++ "/stranded.journal"
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 100n)
+    r1 : R.Runner<String> <- enq(r0, far(), "acknowledged a")
+    r2 : R.Runner<String> <- enq(r1, far(), "acknowledged b")
+    compaction.stranded.state(R.state(String, r2), path)
+
 # Three jobs drain, a fourth waits; compaction keeps only the live state, and reopen replays it, then the records after it.
 # max fits the longest op record: an Enqueue, 12 octets and the payload, or a Break of "local" with three failures, 60 octets.
 # The snapshot of one waiting job does not fit it.
@@ -989,6 +1054,7 @@ def all(+dir: String) -> IO(Unit):
     asks.due(dir)
     compaction(dir)
     compaction.auto(dir)
+    compaction.stranded(dir)
     crash.snapshot(dir)
     crash.compacted(dir)
     Example.run(dir ++ "/hooks.journal")
