@@ -496,8 +496,40 @@ def refused.drop(+limited: Bool) -> IO(Unit):
     b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
     refused.drop.on(limited, b)
 
+def codec.reply(r: Result<&1, &1, Llm.Err, Llm.Reply>) -> Bool:
+  match r:
+    case Done{Llm.Reply{id, model, +text, stop, input, output}}:
+      String.eq(text, "Hi")
+    case Fail{e}:
+      False{}
+
+def codec.event(e: Llm.Ev) -> Bool:
+  match e:
+    case Llm.EText{+s}:
+      String.eq(s, "Hi")
+    case other:
+      False{}
+
+def codec.error(r: Result<&1, &1, Llm.Err, Llm.Reply>) -> Bool:
+  match r:
+    case Fail{Llm.ErrReply{+s}}:
+      String.eq(s, "<html>")
+    case other:
+      False{}
+
+def codecs() -> IO(Unit):
+  do IO<Unit>:
+    pool.ok(codec.reply(Llm.reply(Llm.Anthropic{}, Bytes.from_string("{\"content\":[{\"type\":\"text\",\"text\":\"Hi\"}]}"))), "Anthropic runtime reply codec")
+    pool.ok(codec.reply(Llm.reply(Llm.OpenAI{}, Bytes.from_string("{\"choices\":[{\"message\":{\"content\":\"Hi\"}}]}"))), "OpenAI runtime reply codec")
+    pool.ok(codec.event(Llm.ev(Llm.Anthropic{}, Sse.Message{"content_block_delta", Bytes.from_string("{\"delta\":{\"text\":\"Hi\"}}"), ""})), "Anthropic runtime event codec")
+    pool.ok(codec.event(Llm.ev(Llm.OpenAI{}, Sse.Message{"message", Bytes.from_string("{\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}"), ""})), "OpenAI runtime event codec")
+    pool.ok(codec.error(Llm.reply(Llm.OpenAI{}, Bytes.from_string("<html>"))), "runtime codec error conversion")
+    pool.ok(String.eq(Bytes.to_string(Json.encode.bytes(Llm.body(Llm.OpenAI{}, Llm.Req{"m", "s", [Llm.Msg{Llm.User{}, "hi"}, Llm.Msg{Llm.Assistant{}, "yo"}], 9}, True{}))),
+      "{\"model\":\"m\",\"max_completion_tokens\":9,\"messages\":[{\"role\":\"system\",\"content\":\"s\"},{\"role\":\"user\",\"content\":\"hi\"},{\"role\":\"assistant\",\"content\":\"yo\"}],\"stream\":true}"), "runtime request codec")
+
 def main() -> IO(Unit):
   do IO<Unit>:
+    codecs()
     verdict("20000 events in 7-byte reads", chunks(many(20000), 7), 20000, 88890)
     verdict("20000 events in 65536-byte reads", chunks(many(20000), 65536), 20000, 88890)
     verdict("1 MiB data line in 65536-byte reads", chunks(big(1048576), 65536), 1, 1048576)
