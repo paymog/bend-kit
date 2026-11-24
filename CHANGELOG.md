@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.8.2.0: coordinate writers and exclusive maintenance with nonblocking process-owned filesystem locks. Release locks on completion, errors, and process termination.
+
 - `runner` checks: cover a failed journal reopen after snapshot replacement. Keep the original error, refuse appends to the old journal, and recover acknowledged jobs from the snapshot.
 
 - `storage` 0.8.1.0: sync object and root contents before atomic rename, then sync both directories. Validate root closures before publication. Check injected failures at each persistence boundary in native and Bun lanes.

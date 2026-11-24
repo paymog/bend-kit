@@ -4,6 +4,7 @@ import bend-kit-files@0.4.0.1/files.bend as Files
 import ./storage.bend as S
 import ./pure.bend as P
 import ./http_check.bend as HttpCheck
+import ../process/process.bend as Proc
 
 def ok(good: Bool, +name: String) -> IO(Unit):
   match good:
@@ -480,6 +481,80 @@ def durability(+dir: String) -> IO(Unit):
     exists : Bool <- Files.exists(dir ++ "/roots/corrupt")
     ok(Bool.not(exists), "a corrupt closure cannot publish a root")
 
+def coordination.writer(r: Result<&1, &1, U32 & String, P.Digest>, exclusive: Bool) -> IO(Unit):
+  match r exclusive:
+    case Fail{e} True{}:
+      ok(True{}, "exclusive maintenance rejects new cooperating writers")
+    case Done{d} False{}:
+      ok(True{}, "shared writer locks admit other writers")
+    case _ _:
+      ok(False{}, "writer admission matches the held lock")
+
+def coordination.ready(pair: File & Result<&1, &1, U32 & String, String>) -> IO(File):
+  (output, result) = pair
+  do IO<File>:
+    text : String <- IO.try(String, IO.pure(Result<&1, &1, U32 & String, String>, result))
+    ok(String.eq(text, "ready\n"), "a separate process holds the store lock")
+    return output
+
+def coordination.opened(child: U32 & File & File & File, +dir: String, +d: P.Digest, +mode: U32) -> IO(Unit):
+  (+pid, input, output, errors) = child
+  do IO<Unit>:
+    ready : File & Result<&1, &1, U32 & String, String> <- File.read(output, 6)
+    output : File <- coordination.ready(ready)
+    clean : Result<&1, &1, U32 & String, U32> <- S.Disk.clean_tmp(dir)
+    collect : Result<&1, &1, U32 & String, U32> <- S.Disk.collect(dir, [])
+    ok(expect.fail(U32, clean, "storage: store coordination") && expect.fail(U32, collect, "storage: store coordination"), "live holders reject cleanup and collection")
+    root : P.Digest <- run(P.Digest, S.Disk.root(dir, "release"))
+    tree : P.Tree<P.Blob> <- run(P.Tree<P.Blob>, S.Disk.checkout(dir, d))
+    ok(same.digest(root, d) && same(tree, P.TEnd{}), "rejected maintenance preserves objects and named roots")
+    pending : Bool <- Files.exists(dir ++ "/tmp/pending")
+    ok(pending, "rejected maintenance preserves live temporary files")
+    attempt : Result<&1, &1, U32 & String, P.Digest> <- S.Disk.commit(dir, P.TEnd{})
+    coordination.writer(attempt, U32.is_eq(mode, 2))
+    run(Unit, Proc.kill(pid, 9))
+    status : U32 <- run(U32, Proc.wait(pid))
+    File.close(input)
+    File.close(output)
+    File.close(errors)
+    ok(U32.is_eq(status, 137), "the lock holder terminates without explicit unlock")
+    resumed : P.Digest <- run(P.Digest, S.Disk.commit(dir, P.TEnd{}))
+    removed : U32 <- run(U32, S.Disk.clean_tmp(dir))
+    ok(same.digest(resumed, d) && U32.is_eq(removed, 1), "termination releases the lock for writers and maintenance")
+
+def coordination.held(+dir: String, +d: P.Digest, +mode: U32) -> IO(Unit):
+  do IO<Unit>:
+    child : U32 & File & File & File <- run(U32 & File & File & File, Proc.spawn("/usr/bin/python3", ["-c",
+      "import fcntl,os,sys; f=os.open(sys.argv[1],os.O_RDONLY); fcntl.flock(f,int(sys.argv[2])); print('ready',flush=True); sys.stdin.read()",
+      dir, U32.show(mode)], [], "."))
+    coordination.opened(child, dir, d, mode)
+
+def coordination.probed(r: U32 & (String & String)) -> IO(Unit):
+  (code, text) = r
+  ok(U32.is_eq(code, 0), "a Bend-owned scope excludes a separate maintenance process")
+
+def coordination.probe(+dir: String) -> S.Run(Unit):
+  do S.Run<Unit>:
+    r : U32 & (String & String) <- Process.run("/usr/bin/python3", ["-c",
+      "import fcntl,os,sys; f=os.open(sys.argv[1],os.O_RDONLY)\ntry: fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)\nexcept BlockingIOError: sys.exit(0)\nsys.exit(1)",
+      dir], "", 1024, 5000)
+    S.Run.lift(Unit, coordination.probed(r))
+
+def coordination(+dir: String) -> IO(Unit):
+  do IO<Unit>:
+    run(Unit, S.Disk.init(dir))
+    +d : P.Digest <- run(P.Digest, S.Disk.commit(dir, P.TEnd{}))
+    run(Unit, S.Disk.set_root(dir, "release", d))
+    raw(dir ++ "/tmp/pending", "live")
+    coordination.held(dir, d, 1)
+    raw(dir ++ "/tmp/pending", "live")
+    coordination.held(dir, d, 2)
+    run(Unit, S.Disk.coordinated(Unit, dir, False{}, u => coordination.probe(dir)))
+    failed : Result<&1, &1, U32 & String, Unit> <- S.Disk.coordinated(Unit, dir, True{}, u => S.Run.fail(Unit, (5, "expected")))
+    ok(expect.fail(Unit, failed, "expected"), "an action failure retains its error")
+    removed : U32 <- run(U32, S.Disk.clean_tmp(dir))
+    ok(U32.is_eq(removed, 0), "an action failure releases its exclusive lock")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     pure()
@@ -496,5 +571,6 @@ def main() -> IO(Unit):
     scenario(dir, abc)
     concurrent(dir ++ "/concurrent")
     maintenance(dir ++ "/maintenance")
+    coordination(dir ++ "/coordination")
     durability(dir ++ "/durability")
     HttpCheck.run()

@@ -29,6 +29,21 @@ def Run.bind(-A: Type, -B: Type, m: Run(A), f: A -> Run(B)) -> Run(B):
 def Run.lift(-A: Type, m: IO(A)) -> Run(A):
   IO.bind(A, Result<&1, &1, U32 & String, A>, m, x => Run.pure(A, x))
 
+def Disk.lock(dir: String, exclusive: U32) -> IO(Result<&1, &1, U32 & String, File>):
+  import "./effs/coordination.c"
+  import "./effs/coordination.js"
+
+def Disk.lock.finish(-A: Type, lock: File, result: Result<&1, &1, U32 & String, A>) -> Run(A):
+  do IO<Result<&1, &1, U32 & String, A>>:
+    File.close(lock)
+    return result
+
+def Disk.coordinated(-A: Type, dir: String, exclusive: Bool, action: Unit -> Run(A)) -> Run(A):
+  do Run<A>:
+    lock : File <- Disk.lock(dir, Bool.pick(U32, exclusive, 2, 1))
+    result : Result<&1, &1, U32 & String, A> <- Run.lift(Result<&1, &1, U32 & String, A>, action(Unit{}))
+    Disk.lock.finish(A, lock, result)
+
 def Run.check(ok: Bool, +why: String) -> Run(Unit):
   match ok:
     case True{}:
@@ -274,7 +289,7 @@ def Disk.receive.two(+dir: String, +s: P.Index(P.Digest, P.Blob), +claimed: P.Di
     return t
 
 def Disk.receive(+dir: String, +s: P.Index(P.Digest, P.Blob), +claimed: P.Digest, b: Bytes.Bytes) -> Run(P.Index(P.Digest, P.Blob)):
-  Disk.receive.two(dir, s, claimed, Bytes.clone(b))
+  Disk.coordinated(P.Index(P.Digest, P.Blob), dir, False{}, u => Disk.receive.two(dir, s, claimed, Bytes.clone(b)))
 
 # The object in file objects/n, checked against the digest that n names.
 def Disk.load.one(+dir: String, +n: String, m: Maybe<&2, P.Digest>, +s: P.Index(P.Digest, P.Blob)) -> Run(P.Index(P.Digest, P.Blob)):
@@ -388,13 +403,13 @@ def Disk.fence(+dir: String, xs: P.Store<P.Digest, P.Blob>) -> Run(Unit):
         Disk.fence(dir, rest)
 
 def Disk.set_root(+dir: String, +name: String, +d: P.Digest) -> Run(Unit):
-  do Run<Unit>:
+  Disk.coordinated(Unit, dir, False{}, u => do Run<Unit>:
     Run.check(P.name.ok(name), "invalid root " ++ name)
     +s : P.Index(P.Digest, P.Blob) <- Disk.fetch(dir, d)
     objects : P.Store<P.Digest, P.Blob> <- Run.some(P.Store<P.Digest, P.Blob>, P.Index.closure(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), s, d), "root has missing objects")
     Disk.fence(dir, objects)
     write.durable("", dir ++ "/objects", 0)
-    write(dir, "root", dir ++ "/roots/" ++ name, Bytes.from_string(P.Digest.hex(d)))
+    write(dir, "root", dir ++ "/roots/" ++ name, Bytes.from_string(P.Digest.hex(d))))
 
 def Disk.root(+dir: String, +name: String) -> Run(P.Digest):
   do Run<P.Digest>:
@@ -444,11 +459,10 @@ def Disk.collect.of(+dir: String, +retained: List<&2, P.Digest>, +s: P.Index(P.D
 
 # Deletes every object that no retained root reaches and answers how many it deleted. Fails, and
 # deletes nothing, when a retained root does not load. It reads only the objects the roots reach.
-# No writer may run during the collection.
 def Disk.collect(+dir: String, +retained: List<&2, P.Digest>) -> Run(U32):
-  do Run<U32>:
+  Disk.coordinated(U32, dir, True{}, u => do Run<U32>:
     s : P.Index(P.Digest, P.Blob) <- Disk.fetch.all(dir, retained, P.Index.new(P.Digest, P.Blob))
-    Disk.collect.of(dir, retained, s)
+    Disk.collect.of(dir, retained, s))
 
 def Disk.clean_tmp.go(+dir: String, names: List<&2, String>, +n: U32) -> Run(U32):
   match names:
@@ -459,11 +473,11 @@ def Disk.clean_tmp.go(+dir: String, names: List<&2, String>, +n: U32) -> Run(U32
         Files.remove(dir ++ "/tmp/" ++ name)
         Disk.clean_tmp.go(dir, rest, (n + 1 : U32))
 
-# No writer may run during maintenance; the caller must hold the store exclusively.
+# Rejects maintenance while a cooperating writer or maintenance holder is active.
 def Disk.clean_tmp(+dir: String) -> Run(U32):
-  do Run<U32>:
+  Disk.coordinated(U32, dir, True{}, u => do Run<U32>:
     names : List<&2, String> <- Files.list_dir(dir ++ "/tmp")
-    Disk.clean_tmp.go(dir, names, 0)
+    Disk.clean_tmp.go(dir, names, 0))
 
 def sync.send(+dir: String, ys: P.Store<P.Digest, P.Blob>, +dst: P.Index(P.Digest, P.Blob), +n: U32) -> Run(U32):
   match ys:
@@ -493,9 +507,10 @@ def sync.from(+dst: String, +root: P.Digest, +a: P.Index(P.Digest, P.Blob)) -> R
 # Sends dst every object it needs to load root as src does, through ingress. Answers how many it sent.
 # It reads the objects root reaches in src, and only those of them that dst holds.
 def sync(+src: String, +dst: String, +root: P.Digest) -> Run(U32):
-  do Run<U32>:
-    a : P.Index(P.Digest, P.Blob) <- Disk.fetch(src, root)
-    sync.from(dst, root, a)
+  Disk.coordinated(U32, src, False{}, u =>
+    Disk.coordinated(U32, dst, False{}, v => do Run<U32>:
+      a : P.Index(P.Digest, P.Blob) <- Disk.fetch(src, root)
+      sync.from(dst, root, a)))
 
 # The tree under root at dir. Fails when an object is missing or tampered, or the tree is too deep.
 # It reads only the objects root reaches.
@@ -512,9 +527,9 @@ def Disk.commit.save(+dir: String, r: P.Digest & P.Store<P.Digest, P.Blob>) -> R
 
 # Commits t to the store at dir and answers its root digest.
 def Disk.commit(+dir: String, t: P.Tree<P.Blob>) -> Run(P.Digest):
-  do Run<P.Digest>:
+  Disk.coordinated(P.Digest, dir, False{}, u => do Run<P.Digest>:
     r : P.Digest & P.Store<P.Digest, P.Blob> <- commit(t)
-    Disk.commit.save(dir, r)
+    Disk.commit.save(dir, r))
 
 # ---- Artifact trees: a directory on disk as a Tree.
 

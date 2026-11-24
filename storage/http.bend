@@ -303,7 +303,7 @@ def complete(root: P.Digest, result: P.Index(P.Digest, Unit) & U32) -> S.Run(U32
 
 # base is an HTTP(S) origin without a trailing slash; root is supplied by the caller.
 def sync(+base: String, +dir: String, +root: P.Digest) -> S.Run(U32):
-  do S.Run<U32>:
+  S.Disk.coordinated(U32, dir, False{}, u => do S.Run<U32>:
     pair : Http.Pool & Result<&1, &1, U32 & String, P.Index(P.Digest, Unit) & U32> <- S.Run.lift(Http.Pool & Result<&1, &1, U32 & String, P.Index(P.Digest, Unit) & U32>, walk(Nat.mul(6n, P.limit()), base, dir, Want{root}, P.Index.new(P.Digest, Unit), 0)(Http.pool.new()))
     result : P.Index(P.Digest, Unit) & U32 <- Run.close(P.Index(P.Digest, Unit) & U32, pair)
-    complete(root, result)
+    complete(root, result))
