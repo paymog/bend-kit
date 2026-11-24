@@ -25,7 +25,7 @@ def sum.range(d: Nat, +n: U32, +i: U32, a: Array<A.Cell>, +cutoff: U32) -> Array
 def sum.split(split: Bool, +d: Nat, +n: U32, +i: U32, a: Array<A.Cell>, +cutoff: U32) -> Array<A.Cell> & F32:
   match split:
     case False{}:
-      A.sum.range(Nat.sub(1n+d, 4n), n, i, a)
+      A.sum.range(Nat.sub(1n+d, 5n), n, i, a)
     case True{}:
       +h = (n >> 1n : U32)
       sum.fork(d, h, i, Array.fork(A.Cell, a), cutoff)
@@ -69,7 +69,7 @@ def dot.range(d: Nat, +n: U32, +i: U32, a: Array<A.Cell>, b: Array<A.Cell>, +cut
 def dot.split(split: Bool, +d: Nat, +n: U32, +i: U32, a: Array<A.Cell>, b: Array<A.Cell>, +cutoff: U32) -> Array<A.Cell> & Array<A.Cell> & F32:
   match split:
     case False{}:
-      A.dot.range(Nat.sub(1n+d, 4n), n, i, a, b)
+      A.dot.range(Nat.sub(1n+d, 5n), n, i, a, b)
     case True{}:
       +h = (n >> 1n : U32)
       dot.fork(d, h, i, Array.fork(A.Cell, a), Array.fork(A.Cell, b), cutoff)

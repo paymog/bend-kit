@@ -341,6 +341,18 @@ def sum.block(n: Nat, r: Array<Cell> & Cell, +i: U32, acc: F32) -> Array<Cell> &
       +j = (i + 1 : U32)
       sum.block(p, Array.get(Cell, a, j), j, (acc + sum.cell(c) : F32))
 
+def sum.leaf.right(+i: U32, r: Array<Cell> & F32) -> Array<Cell> & F32:
+  (a, x) = r
+  sum.merge(sum.block(16n, Array.get(Cell, a, i), i, 0.0), x)
+
+# Two original leaves keep the addition order without a recursive combine.
+def sum.leaf(n: U32, +i: U32, a: Array<Cell>) -> Array<Cell> & F32:
+  match n:
+    case 32:
+      sum.leaf.right((i + 16 : U32), sum.block(16n, Array.get(Cell, a, i), i, 0.0))
+    case _:
+      sum.block(U32.to_nat(n), Array.get(Cell, a, i), i, 0.0)
+
 def sum.right(next: Array<Cell> -> Array<Cell> & F32, r: Array<Cell> & F32) -> Array<Cell> & F32:
   (a, x) = r
   sum.merge(next(a), x)
@@ -348,7 +360,7 @@ def sum.right(next: Array<Cell> -> Array<Cell> & F32, r: Array<Cell> & F32) -> A
 def sum.range(d: Nat, +n: U32, +i: U32, a: Array<Cell>) -> Array<Cell> & F32:
   match d:
     case 0n:
-      sum.block(U32.to_nat(n), Array.get(Cell, a, i), i, 0.0)
+      sum.leaf(n, i, a)
     case 1n+ +p:
       +h = (n >> 1n : U32)
       sum.right(a => sum.range(p, h, (i + h : U32), a), sum.range(p, h, i, a))
@@ -360,7 +372,7 @@ def sum.fin(+len: U32, r: Array<Cell> & F32) -> F32Array & F32:
 # ponytail: at most 16 cell totals run sequentially; use finer leaves if their measured rounding error matters.
 def sum(a: F32Array) -> F32Array & F32:
   F32Array{+len, buf} = a
-  sum.fin(len, sum.range(Nat.sub(Bytes.depth(cells(len)), 4n), (1 << Bytes.depth(cells(len)) : U32), 0, buf))
+  sum.fin(len, sum.range(Nat.sub(Bytes.depth(cells(len)), 5n), (1 << Bytes.depth(cells(len)) : U32), 0, buf))
 
 # Four running maxima over n whole cells, then the first k lanes of the next cell.
 def max.go(n: Nat, +k: U32, r: Array<Cell> & Cell, +i: U32, m0: F32, m1: F32, m2: F32, m3: F32) -> Array<Cell> & F32:
@@ -413,6 +425,17 @@ def dot.block(n: Nat, r: Array<Cell> & Cell, s: Array<Cell> & Cell, +i: U32, acc
       +j = (i + 1 : U32)
       dot.block(p, Array.get(Cell, a, j), Array.get(Cell, b, j), j, (acc + dot.cell(x, y) : F32))
 
+def dot.leaf.right(+i: U32, r: Array<Cell> & Array<Cell> & F32) -> Array<Cell> & Array<Cell> & F32:
+  (a, b, x) = r
+  dot.merge(dot.block(16n, Array.get(Cell, a, i), Array.get(Cell, b, i), i, 0.0), x)
+
+def dot.leaf(n: U32, +i: U32, a: Array<Cell>, b: Array<Cell>) -> Array<Cell> & Array<Cell> & F32:
+  match n:
+    case 32:
+      dot.leaf.right((i + 16 : U32), dot.block(16n, Array.get(Cell, a, i), Array.get(Cell, b, i), i, 0.0))
+    case _:
+      dot.block(U32.to_nat(n), Array.get(Cell, a, i), Array.get(Cell, b, i), i, 0.0)
+
 def dot.right(next: Array<Cell> -> Array<Cell> -> Array<Cell> & Array<Cell> & F32, r: Array<Cell> & Array<Cell> & F32) -> Array<Cell> & Array<Cell> & F32:
   (a, b, x) = r
   dot.merge(next(a, b), x)
@@ -420,7 +443,7 @@ def dot.right(next: Array<Cell> -> Array<Cell> -> Array<Cell> & Array<Cell> & F3
 def dot.range(d: Nat, +n: U32, +i: U32, a: Array<Cell>, b: Array<Cell>) -> Array<Cell> & Array<Cell> & F32:
   match d:
     case 0n:
-      dot.block(U32.to_nat(n), Array.get(Cell, a, i), Array.get(Cell, b, i), i, 0.0)
+      dot.leaf(n, i, a, b)
     case 1n+ +p:
       +h = (n >> 1n : U32)
       dot.right(a => b => dot.range(p, h, (i + h : U32), a, b), dot.range(p, h, i, a, b))
@@ -432,7 +455,7 @@ def dot.fin(+la: U32, +lb: U32, r: Array<Cell> & Array<Cell> & F32) -> F32Array 
 def dot.if(same: Bool, +la: U32, xa: Array<Cell>, +lb: U32, ya: Array<Cell>) -> F32Array & F32Array & Maybe<&2, F32>:
   match same:
     case True{}:
-      dot.fin(la, lb, dot.range(Nat.sub(Bytes.depth(cells(la)), 4n), (1 << Bytes.depth(cells(la)) : U32), 0, xa, ya))
+      dot.fin(la, lb, dot.range(Nat.sub(Bytes.depth(cells(la)), 5n), (1 << Bytes.depth(cells(la)) : U32), 0, xa, ya))
     case False{}:
       (F32Array{la, xa}, F32Array{lb, ya}, None{})
 
