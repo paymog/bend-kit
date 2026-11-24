@@ -43,6 +43,18 @@ def match_status(good: Bool, s: Socket) -> IO(Socket):
         closed: Unit <- Wire.tls.close(s)
         IO.die(Socket, 1, "public h2 status not 200")
 
+def replied(r: H.Reply, s: Socket,
+    k: Socket -> H.Client -> List<&1, H.ClientEvent> -> IO(Unit)) -> IO(Unit):
+  match r:
+    case H.Failed{H.Error{code, connection, stream}}:
+      do IO<Unit>:
+        closed: Unit <- Wire.tls.close(s)
+        IO.die(Unit, 1, "public h2 protocol: " ++ U32.show(code))
+    case H.Advanced{c, writes, events}:
+      do IO<Unit>:
+        next: Socket <- send(writes, s)
+        k(next, c, events)
+
 def response(events: List<&1, H.ClientEvent>, s: Socket, c: H.Client,
     k: Socket -> H.Client -> IO(Unit)) -> IO(Unit):
   match events:
@@ -52,6 +64,9 @@ def response(events: List<&1, H.ClientEvent>, s: Socket, c: H.Client,
       do IO<Unit>:
         checked: Socket <- match_status(status(headers), s)
         response(rest, checked, c, k)
+    case Con{H.Chunk{id, bytes, capacity}, rest}:
+      replied(H.client.release_capacity(c, id, capacity), s, next => client => events =>
+        response(rest, next, client, k))
     case Con{H.Reset{id, code}, rest}:
       do IO<Unit>:
         closed: Unit <- Wire.tls.close(s)
@@ -68,18 +83,6 @@ def response(events: List<&1, H.ClientEvent>, s: Socket, c: H.Client,
         IO.print("ok public h2 response status 200")
     case Con{event, rest}:
       response(rest, s, c, k)
-
-def replied(r: H.Reply, s: Socket,
-    k: Socket -> H.Client -> List<&1, H.ClientEvent> -> IO(Unit)) -> IO(Unit):
-  match r:
-    case H.Failed{H.Error{code, connection, stream}}:
-      do IO<Unit>:
-        closed: Unit <- Wire.tls.close(s)
-        IO.die(Unit, 1, "public h2 protocol: " ++ U32.show(code))
-    case H.Advanced{c, writes, events}:
-      do IO<Unit>:
-        next: Socket <- send(writes, s)
-        k(next, c, events)
 
 def received(r: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>,
     c: H.Client, k: Socket -> H.Reply -> IO(Unit)) -> IO(Unit):

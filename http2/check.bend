@@ -87,4 +87,5 @@ def main() -> IO(Unit):
     fixture: Unit <- client.fixture.frame(H.encode(16384, H.Frame{1, 5, 1, Bytes.set(Bytes.new(1), 0, 136)}))
     incremental: Unit <- ensure(Events.incremental(), "incremental interleaved headers, DATA, and trailers")
     canceled: Unit <- ensure(Events.cancellation(), "cancellation preserves HPACK, credit, and another stream")
+    capacity: Unit <- ensure(Events.capacity(), "consumption-driven padded credit, completion, reset, and cancellation")
     Live.run()
