@@ -265,3 +265,53 @@ large-stream support and validation.
 The full five-language suite (`python3 run.py 5`) passed every checksum:
 Bend Huffman 9.26 ms and fields 0.58 ms; C 3.03 ms; Rust Huffman 36.87 ms
 and fields 0.62 ms; Python 1.88 ms; Bun 3.13 ms.
+
+## Sparse max-16 tables
+
+```sh
+python3 sparse.py 3
+```
+
+This measures the existing uniform secondary width, without changing the decoder.
+The sparse fixture has lengths `[16, 16]`. The mixed fixture has 32 length-10
+codes, 16 length-12 codes, and two length-16 codes. Both sets are incomplete.
+Each input cycles through every symbol for 4096 symbols. Python assigns canonical
+codes and packs the stream independently, in both stream orders.
+The runner checks every decode checksum and each table's actual `Array.size`.
+
+Each process runs ten samples per fixture and order. A build sample constructs
+1000 tables, reads root entry zero from each, and checks the sum against 31000.
+This forces construction and includes table destruction. The reported build time
+is the batch time divided by 1000. Input conversion and decode-table construction
+are outside the decode timer. Decode folds symbols into the wrapping checksum.
+As in the fixed benchmark loop, it also makes one final unused decode probe.
+The checksum and sample output are outside both timers.
+
+M4 Pro, macOS 26.7.2, arm64, 2026-11-24. Bend 2.0.40.
+Each cell is the median of 30 samples from three native processes.
+Times are milliseconds.
+
+| fixture | root entries | allocated secondary entries | build ms | decode 4096 ms | checksum |
+|---|---:|---:|---:|---:|---:|
+| sparse LSB | 512 | 128 | 0.000126 | 0.066583 | 628164608 |
+| sparse MSB | 512 | 128 | 0.000136 | 0.073271 | 628164608 |
+| mixed LSB | 512 | 4096 | 0.002261 | 0.072312 | 3343667776 |
+| mixed MSB | 512 | 4096 | 0.002167 | 0.080500 | 3343667776 |
+
+The sparse fixture occupies one root prefix. Its only secondary table needs
+all seven remaining bits. Per-prefix widths cannot save entries there.
+The mixed fixture occupies 19 prefixes: 16 need one bit, two need three bits,
+and one needs seven bits. The current layout reserves 2432 entries and rounds
+its array up to 4096 entries. Per-prefix widths would reserve 176 entries and
+round up to 256. With the unchanged root, that is 768 rather than 4608 entries.
+These are logical entry counts, not resident-byte measurements.
+The compact counts exclude any new width metadata.
+
+Keep the current layout. The mixed case exposes substantial potential memory
+savings, but its current build costs only about 2.2 microseconds. The sparse case
+has no width savings. Neither synthetic fixture establishes a caller memory
+limit or a decode-speed benefit that warrants new width metadata and lookup work.
+The compact counts are a sizing model, not measured compact-layout timings.
+Revisit the layout when a real mixed-depth workload needs less table memory,
+and compare build and decode times before selecting it. Both stream orders,
+incomplete-code rejection, and truncation behavior remain unchanged.
