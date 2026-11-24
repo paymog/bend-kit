@@ -43,6 +43,7 @@ python3 markdown/conformance.py Links    # also print the failures in one sectio
 python3 markdown/conformance.py --safe   # to_html_safe against the cmark CLI without --unsafe
 python3 markdown/conformance.py --gfm    # the GFM spec's extension examples with gfm on
 python3 markdown/conformance.py --gfm-diff # CommonMark, GFM spec, and extension corpus against cmark-gfm
+python3 -B markdown/conformance-test.py   # check failure paths with controlled renderer output
 python3 markdown/gen.py                  # rewrite entities.bend from Python's html.entities
 ```
 
@@ -53,5 +54,7 @@ python3 markdown/gen.py                  # rewrite entities.bend from Python's h
 The comparison normalizes only cmark-gfm's checkbox attribute order and XHTML closing slash to the official GFM spec's spelling. Two exact differences remain because this package follows CommonMark 0.31.2 and cmark-gfm follows 0.29: example 28 rejects an eight-digit decimal character reference; example 354 treats Unicode currency symbols as punctuation for emphasis. Both sides must match their recorded outputs for the check to accept these differences. No other mismatch is ignored. The former list-like table-row and `[www.x.org](/y)` reports do not reproduce with cmark-gfm 0.29.0.gfm.14; both remain in the corpus.
 
 For markdown changes, CI runs `--gfm-diff` with CI's pinned Bend and cmark-gfm 0.29.0.gfm.14 built from its release tag. The log reports the reference version and corpus totals. Other package jobs do not build the reference.
+
+The small checker checks need no downloads, Bend compiler, or reference build. They cover output mismatches, missing and extra results, exact version exceptions, and checkbox normalization.
 
 `bench/README.md` compares `to_html` with cmark and libraries in Rust, JavaScript, and Python.
