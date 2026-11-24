@@ -192,6 +192,9 @@ jobs:
           export PATH="$HOME/.bend/bin:$PATH"
           if [ "${{ matrix.package }}" = http ]; then ulimit -v $((20 * 1024 * 1024)); fi
           scripts/native-check.sh ${{ matrix.package }}
+      - name: Check markdown differential checker failure paths
+        if: matrix.package == 'markdown'
+        run: python3 -B markdown/conformance-test.py
       - name: Install cmark-gfm 0.29.0.gfm.14
         if: matrix.package == 'markdown'
         run: |
