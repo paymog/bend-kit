@@ -40,6 +40,45 @@ def run(want):
     return h
 
 
+def range_handle(cmd, limit):
+    db.execute("BEGIN IMMEDIATE")
+    assert db.execute("SELECT payload, kind, result, at FROM commands_seen WHERE id = ?", (cmd,)).fetchone() is None
+    rows = []
+    cursor = db.execute("SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k", (b"pick_", b"pick`"))
+    for row in cursor:
+        if len(rows) == limit:
+            cursor.close()
+            db.execute("ROLLBACK")
+            return 18
+        rows.append(row)
+    h = 0
+    for k, v in rows:
+        for b in k + b"=" + v + b";":
+            h = (h * 31 + b) & 0xFFFFFFFF
+    db.execute("INSERT INTO commands_seen (id, payload, kind, result, at) VALUES (?, ?, 1, ?, 200)", (cmd, str(limit).encode(), str(h).encode()))
+    db.execute("COMMIT")
+    return h
+
+
+def ranges(count, label):
+    for table in ("commands_rows", "commands_seen", "commands_outbox"):
+        db.execute(f"DELETE FROM {table}")
+    db.execute("INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<7) SELECT CAST('pick_'||i AS BLOB), CAST(i+1 AS BLOB) FROM n")
+    db.execute(f"INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<{count-1}) SELECT CAST('z_'||i AS BLOB), CAST('100' AS BLOB) FROM n")
+    for overflow in (False, True):
+        h = 0
+        t0 = time.perf_counter()
+        for i in range(n):
+            r = range_handle("overflow" if overflow else f"range_{i}", 7 if overflow else 8)
+            assert not overflow or r == 18
+            h = (h * 31 + r) & 0xFFFFFFFF
+        elapsed = (time.perf_counter() - t0) * 1e3
+        print(f"{'overflow' if overflow else 'range'}_{label}\t{elapsed:.3f}\t{h}")
+    assert db.execute("SELECT count(*) FROM commands_seen").fetchone()[0] == n
+    assert db.execute("SELECT count(*) FROM commands_outbox").fetchone()[0] == 0
+    assert range_handle("overflow", 8) != 18
+
+
 t0 = time.perf_counter()
 run(1)
 t1 = time.perf_counter()
@@ -48,4 +87,6 @@ t0 = time.perf_counter()
 h = run(2)
 t1 = time.perf_counter()
 print(f"replay\t{(t1 - t0) * 1e3:.3f}\t{h}")
+ranges(100, "small")
+ranges(100000, "large")
 db.close()

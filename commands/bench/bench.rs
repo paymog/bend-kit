@@ -137,6 +137,75 @@ impl Conn {
     }
 }
 
+fn range_handle(c: &Conn, id: &str, limit: usize) -> u32 {
+    c.run(c.begin);
+    c.text(c.find, 1, id);
+    ok(c.db, unsafe { sqlite3_step(c.find) }, DONE);
+    ok(c.db, unsafe { sqlite3_reset(c.find) }, OK);
+    let scan = prepare(c.db, c"SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k");
+    c.blob(scan, 1, b"pick_");
+    c.blob(scan, 2, b"pick`");
+    let mut rows = [[0u8; 32]; 8];
+    let mut lengths = [0usize; 8];
+    let mut count = 0;
+    loop {
+        let rc = unsafe { sqlite3_step(scan) };
+        if rc != ROW { ok(c.db, rc, DONE); break; }
+        if count == limit {
+            ok(c.db, unsafe { sqlite3_finalize(scan) }, OK);
+            exec(c.db, c"ROLLBACK");
+            return 18;
+        }
+        let (k, v) = (col(scan, 0), col(scan, 1));
+        let len = k.len() + v.len() + 2;
+        assert!(len <= rows[count].len());
+        rows[count][..k.len()].copy_from_slice(k);
+        rows[count][k.len()] = b'=';
+        rows[count][k.len()+1..len-1].copy_from_slice(v);
+        rows[count][len-1] = b';';
+        lengths[count] = len;
+        count += 1;
+    }
+    ok(c.db, unsafe { sqlite3_finalize(scan) }, OK);
+    let mut h = 0u32;
+    for i in 0..count {
+        for b in &rows[i][..lengths[i]] { h = h.wrapping_mul(31).wrapping_add(*b as u32); }
+    }
+    c.text(c.keep, 1, id);
+    c.blob(c.keep, 2, limit.to_string().as_bytes());
+    ok(c.db, unsafe { sqlite3_bind_int64(c.keep, 3, 1) }, OK);
+    c.blob(c.keep, 4, h.to_string().as_bytes());
+    ok(c.db, unsafe { sqlite3_bind_int64(c.keep, 5, 200) }, OK);
+    c.run(c.keep);
+    c.run(c.commit);
+    h
+}
+
+fn ranges(c: &Conn, n: u32, count: u32, label: &str) {
+    exec(c.db, c"DELETE FROM commands_rows");
+    exec(c.db, c"DELETE FROM commands_seen");
+    exec(c.db, c"DELETE FROM commands_outbox");
+    exec(c.db, c"INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<7) SELECT CAST('pick_'||i AS BLOB), CAST(i+1 AS BLOB) FROM n");
+    exec(c.db, &CString::new(format!("INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<{}) SELECT CAST('z_'||i AS BLOB), CAST('100' AS BLOB) FROM n", count-1)).unwrap());
+    for overflow in [false, true] {
+        let mut h = 0u32;
+        let start = Instant::now();
+        for i in 0..n {
+            let id = if overflow { String::new() } else { format!("range_{i}") };
+            let r = range_handle(c, if overflow { "overflow" } else { &id }, if overflow { 7 } else { 8 });
+            assert!(!overflow || r == 18);
+            h = h.wrapping_mul(31).wrapping_add(r);
+        }
+        println!("{}_{label}\t{:.3}\t{h}", if overflow { "overflow" } else { "range" }, start.elapsed().as_secs_f64()*1e3);
+    }
+    let check = prepare(c.db, c"SELECT CAST((SELECT count(*) FROM commands_seen) AS BLOB), CAST((SELECT count(*) FROM commands_outbox) AS BLOB)");
+    ok(c.db, unsafe { sqlite3_step(check) }, ROW);
+    assert_eq!(num(col(check, 0)), n);
+    assert_eq!(num(col(check, 1)), 0);
+    ok(c.db, unsafe { sqlite3_finalize(check) }, OK);
+    assert_ne!(range_handle(c, "overflow", 8), 18);
+}
+
 fn main() {
     let path = CString::new(std::env::args().nth(1).unwrap_or("out/rs.db".into())).unwrap();
     let n: u32 = std::env::args().nth(2).map_or(10000, |s| s.parse().expect("command count"));
@@ -172,6 +241,8 @@ fn main() {
     let t0 = Instant::now();
     let h = c.pass(n, 2);
     println!("replay\t{:.3}\t{}", t0.elapsed().as_secs_f64() * 1e3, h);
+    ranges(&c, n, 100, "small");
+    ranges(&c, n, 100000, "large");
 
     for st in [c.begin, c.commit, c.find, c.read, c.save, c.keep, c.emit] {
         unsafe { sqlite3_finalize(st) };

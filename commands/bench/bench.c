@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <assert.h>
 
 static sqlite3* db;
 static sqlite3_stmt *begin_, *commit_, *find, *readst, *save, *keep, *emit;
@@ -110,6 +111,78 @@ static uint32_t pass(uint32_t n, int want) {
   return h;
 }
 
+static uint32_t range_handle(const char* id, int limit) {
+  run(begin_);
+  text(find, 1, id);
+  ok(sqlite3_step(find), SQLITE_DONE);
+  ok(sqlite3_reset(find), SQLITE_OK);
+  sqlite3_stmt* scan = prepare("SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k");
+  blob(scan, 1, "pick_");
+  blob(scan, 2, "pick`");
+  char rows[8][32];
+  int count = 0, rc;
+  while ((rc = sqlite3_step(scan)) == SQLITE_ROW) {
+    if (count == limit) {
+      ok(sqlite3_finalize(scan), SQLITE_OK);
+      exec("ROLLBACK");
+      return 18;
+    }
+    int nk = sqlite3_column_bytes(scan, 0), nv = sqlite3_column_bytes(scan, 1);
+    assert(nk + nv + 3 <= (int)sizeof rows[0]);
+    memcpy(rows[count], sqlite3_column_blob(scan, 0), nk);
+    rows[count][nk] = '=';
+    memcpy(rows[count] + nk + 1, sqlite3_column_blob(scan, 1), nv);
+    rows[count][nk + nv + 1] = ';';
+    rows[count][nk + nv + 2] = 0;
+    count++;
+  }
+  ok(rc, SQLITE_DONE);
+  ok(sqlite3_finalize(scan), SQLITE_OK);
+  uint32_t h = 0;
+  for (int i = 0; i < count; i++)
+    for (const unsigned char* p = (const unsigned char*)rows[i]; *p; p++) h = h * 31 + *p;
+  char result[16], payload[16];
+  snprintf(result, sizeof result, "%u", h);
+  snprintf(payload, sizeof payload, "%d", limit);
+  text(keep, 1, id);
+  blob(keep, 2, payload);
+  ok(sqlite3_bind_int64(keep, 3, 1), SQLITE_OK);
+  blob(keep, 4, result);
+  ok(sqlite3_bind_int64(keep, 5, 200), SQLITE_OK);
+  run(keep);
+  run(commit_);
+  return h;
+}
+
+static void ranges(uint32_t n, int count, const char* label) {
+  exec("DELETE FROM commands_rows");
+  exec("DELETE FROM commands_seen");
+  exec("DELETE FROM commands_outbox");
+  exec("INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<7) SELECT CAST('pick_'||i AS BLOB), CAST(i+1 AS BLOB) FROM n");
+  char sql[256];
+  snprintf(sql, sizeof sql, "INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<%d) SELECT CAST('z_'||i AS BLOB), CAST('100' AS BLOB) FROM n", count - 1);
+  exec(sql);
+  for (int overflow = 0; overflow <= 1; overflow++) {
+    struct timespec t0, t1;
+    uint32_t h = 0;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    for (uint32_t i = 0; i < n; i++) {
+      char id[32];
+      if (!overflow) snprintf(id, sizeof id, "range_%u", i);
+      uint32_t r = range_handle(overflow ? "overflow" : id, overflow ? 7 : 8);
+      assert(!overflow || r == 18);
+      h = h * 31 + r;
+    }
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    printf("%s_%s\t%.3f\t%u\n", overflow ? "overflow" : "range", label, ms(t0, t1), h);
+  }
+  sqlite3_stmt* check = prepare("SELECT (SELECT count(*) FROM commands_seen), (SELECT count(*) FROM commands_outbox)");
+  ok(sqlite3_step(check), SQLITE_ROW);
+  assert(sqlite3_column_int64(check, 0) == n && sqlite3_column_int64(check, 1) == 0);
+  ok(sqlite3_finalize(check), SQLITE_OK);
+  assert(range_handle("overflow", 8) != 18);
+}
+
 int main(int argc, char** argv) {
   const char*     path = argc > 1 ? argv[1] : "out/c.db";
   uint32_t        n    = argc > 2 ? (uint32_t)strtoul(argv[2], NULL, 10) : 10000;
@@ -141,6 +214,8 @@ int main(int argc, char** argv) {
   uint32_t h = pass(n, 2);
   clock_gettime(CLOCK_MONOTONIC, &t1);
   printf("replay\t%.3f\t%u\n", ms(t0, t1), h);
+  ranges(n, 100, "small");
+  ranges(n, 100000, "large");
 
   sqlite3_stmt* all[] = {begin_, commit_, find, readst, save, keep, emit};
   for (size_t i = 0; i < sizeof all / sizeof *all; i += 1) sqlite3_finalize(all[i]);
