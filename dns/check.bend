@@ -1,5 +1,6 @@
 import Base
 import ./dns.bend as Dns
+import ./pure.bend as Pure
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def ok(hit: Bool, +name: String, +got: String) -> IO(Unit):
@@ -31,7 +32,7 @@ def answer.is(m: Maybe<&2, String>, +want: String) -> Bool:
 
 # A zero-length skipped RDATA region must leave at the next record's name.
 def region.check() -> IO(Unit):
-  ok(answer.is(Dns.answer(1, Bytes.from_string(
+  ok(answer.is(Pure.answer(1, Bytes.from_string(
     "\u{0}\u{1}\u{81}\u{80}\u{0}\u{0}\u{0}\u{2}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{5}\u{0}\u{1}\u{0}\u{0}\u{0}\u{0}\u{0}\u{0}\u{c0}\u{0}\u{0}\u{1}\u{0}\u{1}\u{0}\u{0}\u{0}\u{0}\u{0}\u{4}\u{1}\u{2}\u{3}\u{4}")), "1.2.3.4"),
     "zero-length RDATA then A", "wrong address")
 

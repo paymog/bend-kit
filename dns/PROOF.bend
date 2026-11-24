@@ -1,5 +1,5 @@
 import Base
-import ./dns.bend as Dns
+import ./pure.bend as Dns
 import ./LAWS.bend as Laws
 
 def Laws.query_wire():

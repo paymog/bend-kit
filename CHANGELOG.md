@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `dns` 0.8.0.0: move the pure codec and host lookup model to `pure.bend`. Keep resolver IO in `dns.bend`. Isolate existing laws and proofs from foreign effects and migrate local callers.
+
 - `storage` 0.8.2.0: coordinate writers and exclusive maintenance with nonblocking process-owned filesystem locks. Release locks on completion, errors, and process termination.
 
 - `runner` checks: cover a failed journal reopen after snapshot replacement. Keep the original error, refuse appends to the old journal, and recover acknowledged jobs from the snapshot.
