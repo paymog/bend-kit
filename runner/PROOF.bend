@@ -1113,6 +1113,8 @@ def loop.step.bound(~A: Data, e: R.LoopEvent, s: R.Loop<A>, bound: loop.bound(A,
       loop.claim.bound(~A, o, c, h, s, fs, now, bound)
     case R.Finish{+i} R.Loop{Res.Pool{+o, +c, +h}, s, fs}:
       loop.finish.bound(~A, Q.take.list(A, fs, i), o, c, h, s, i, bound)
+    case R.CancelFlight{i} R.Loop{p, s, fs}:
+      bound
 
 def Laws.loop_capacity(A, es, s, bound):
   match es:
@@ -1144,6 +1146,8 @@ def loop.step.cap(~A: Data, e: R.LoopEvent, s: R.Loop<A>) ->
       loop.claim.cap(~A, o, c, h, s, fs, now)
     case R.Finish{+i} R.Loop{Res.Pool{+o, +c, +h}, s, fs}:
       loop.finish.cap(~A, Q.take.list(A, fs, i), o, c, h, s, i)
+    case R.CancelFlight{i} R.Loop{p, s, fs}:
+      {==}
 
 def Laws.loop_capacity_stable(A, es, s):
   match es:
@@ -1198,19 +1202,19 @@ def Laws.loop_finish_once(A, i, s):
         loop.finished.absent(~A, Q.take.list(A, fs, i), o, c, h, s, i, take_absent(A, fs, i)))
 
 def loop.sync(-A: Data, +s: R.Loop<A>) -> Data:
-  {R.loop.flights(A, s) == Q.running(A, R.queue(A, R.loop.state(A, s))) : List<&2, Q.Ticket<A>>}
+  Laws.flights.cover(A, R.loop.flights(A, s), Q.running(A, R.queue(A, R.loop.state(A, s))))
 
-def loop.claim.sync.pick(-A: Data, k: R.Pick<A>, s: R.State<A>, fs: List<&2, Q.Ticket<A>>, now: Nat) -> Data:
+def loop.claim.sync.pick(~A: Data, k: R.Pick<A>, s: R.State<A>, fs: List<&2, Q.Ticket<A>>, now: Nat) -> Data:
   match k:
     case R.Idle{p}:
-      {fs == Q.running(A, R.queue(A, s)) : List<&2, Q.Ticket<A>>}
+      Laws.flights.cover(A, fs, Q.running(A, R.queue(A, s)))
     case R.Picked{p, t, g}:
-      {Con{t, fs} == Q.running(A, R.queue(A, R.step(~A, s, R.Select{now}))) : List<&2, Q.Ticket<A>>}
+      Laws.flights.cover(A, Con{t, fs}, Q.running(A, R.queue(A, R.step(~A, s, R.Select{now}))))
 
 def loop.claim.sync.took(~A: Data, r: Res.Reserve, +t: Q.Ticket<A>, +s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat,
-    same: {fs == Q.running(A, R.queue(A, s)) : List<&2, Q.Ticket<A>>},
-    selected: {Con{t, fs} == Q.running(A, R.queue(A, R.step(~A, s, R.Select{now}))) : List<&2, Q.Ticket<A>>}) ->
-    loop.claim.sync.pick(A, R.pick.took(A, r, t), s, fs, now):
+    same: Laws.flights.cover(A, fs, Q.running(A, R.queue(A, s))),
+    selected: Laws.flights.cover(A, Con{t, fs}, Q.running(A, R.queue(A, R.step(~A, s, R.Select{now}))))) ->
+    loop.claim.sync.pick(~A, R.pick.took(A, r, t), s, fs, now):
   match r:
     case Res.Took{p, g}:
       selected
@@ -1219,33 +1223,107 @@ def loop.claim.sync.took(~A: Data, r: Res.Reserve, +t: Q.Ticket<A>, +s: R.State<
 
 def loop.selected.sync(~A: Data, +n: Nat, +size: Nat, +t: Q.Ticket<A>, +l: H.Heap<Q.Ticket<A>>, +r: H.Heap<Q.Ticket<A>>, +old: List<&2, Q.Ticket<A>>,
     +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +fs: List<&2, Q.Ticket<A>>, +now: Nat,
-    same: {fs == old : List<&2, Q.Ticket<A>>}, due: {Nat.is_le(Q.deadline(A, t), now) == True{} : Bool}) ->
-    {Con{t, fs} == Q.running(A, R.queue(A, R.step(~A, R.State{Q.State{n, H.HNode{size, t, l, r}, old}, ts, ds, bs}, R.Select{now}))) : List<&2, Q.Ticket<A>>}:
+    same: Laws.flights.cover(A, fs, old), due: {Nat.is_le(Q.deadline(A, t), now) == True{} : Bool}) ->
+    Laws.flights.cover(A, Con{t, fs}, Q.running(A, R.queue(A, R.step(~A, R.State{Q.State{n, H.HNode{size, t, l, r}, old}, ts, ds, bs}, R.Select{now})))):
   %Equal.sym(Bool, Nat.is_le(Q.deadline(A, t), now), True{}, due) :
-    {Con{t, fs} == Q.running(A, R.queue(A, R.step.selected(A, Q.select.due(~A, _, n, H.HNode{size, t, l, r}, old, t, l, r), ts, ds, bs))) : List<&2, Q.Ticket<A>>}
-  %Equal.sym(List<&2, Q.Ticket<A>>, fs, old, same) : {Con{t, _} == Con{t, old} : List<&2, Q.Ticket<A>>}
-  {==}
+    Laws.flights.cover(A, Con{t, fs}, Q.running(A, R.queue(A, R.step.selected(A, Q.select.due(~A, _, n, H.HNode{size, t, l, r}, old, t, l, r), ts, ds, bs))))
+  Laws.Keep{QL.Both{{==}, same}}
 
 def loop.claim.sync.evidence(~A: Data, +p: Res.Pool, s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat,
-    +same: {fs == Q.running(A, R.queue(A, s)) : List<&2, Q.Ticket<A>>}) ->
-    loop.claim.sync.pick(A, R.pick(~A, p, s, now), s, fs, now):
+    +same: Laws.flights.cover(A, fs, Q.running(A, R.queue(A, s)))) ->
+    loop.claim.sync.pick(~A, R.pick(~A, p, s, now), s, fs, now):
   match s:
     case R.State{Q.State{n, H.HLeaf{}, old}, ts, ds, bs}:
       same
     case R.State{Q.State{+n, H.HNode{+size, +t, +l, +r}, +old}, +ts, +ds, +bs}:
-      split(b => loop.claim.sync.pick(A, R.pick.sel(A, Q.select.due(~A, b, n, H.HNode{size, t, l, r}, old, t, l, r), p),
+      split(b => loop.claim.sync.pick(~A, R.pick.sel(A, Q.select.due(~A, b, n, H.HNode{size, t, l, r}, old, t, l, r), p),
         R.State{Q.State{n, H.HNode{size, t, l, r}, old}, ts, ds, bs}, fs, now), Nat.is_le(Q.deadline(A, t), now),
         due => loop.claim.sync.took(~A, Res.reserve(p, 1n), t, R.State{Q.State{n, H.HNode{size, t, l, r}, old}, ts, ds, bs}, fs, now, same,
           loop.selected.sync(~A, n, size, t, l, r, old, ts, ds, bs, fs, now, same, due)),
         due => same)
 
 def loop.claim.synced(~A: Data, k: R.Pick<A>, s: R.State<A>, fs: List<&2, Q.Ticket<A>>, now: Nat,
-    same: loop.claim.sync.pick(A, k, s, fs, now)) -> loop.sync(A, R.loop.claim(~A, k, s, fs, now)):
+    same: loop.claim.sync.pick(~A, k, s, fs, now)) -> loop.sync(A, R.loop.claim(~A, k, s, fs, now)):
   match k:
     case R.Idle{p}:
       same
     case R.Picked{p, t, g}:
       same
+
+
+def cover.nil(-A: Data, fs: List<&2, Q.Ticket<A>>) -> Laws.flights.cover(A, fs, Nil{}):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{t, rest}:
+      Unit{}
+
+def cover.skip(-A: Data, t: Q.Ticket<A>, fs: List<&2, Q.Ticket<A>>, rs: List<&2, Q.Ticket<A>>, e: Laws.flights.cover(A, fs, rs)) ->
+    Laws.flights.cover(A, Con{t, fs}, rs):
+  match rs:
+    case Nil{}:
+      Unit{}
+    case Con{r, rest}:
+      Laws.Skip{e}
+
+def cover.right.keep(-A: Data, b: Bool, +t: Q.Ticket<A>, +fs: List<&2, Q.Ticket<A>>, +rs: List<&2, Q.Ticket<A>>, e: Laws.flights.cover(A, fs, rs)) ->
+    Laws.flights.cover(A, Con{t, fs}, Q.remove.list.keep(A, b, t, rs)):
+  match b:
+    case True{}:
+      cover.skip(A, t, fs, rs, e)
+    case False{}:
+      Laws.Keep{QL.Both{{==}, e}}
+
+def cover.right(-A: Data, +fs: List<&2, Q.Ticket<A>>, +rs: List<&2, Q.Ticket<A>>, +i: Nat, e: Laws.flights.cover(A, fs, rs)) ->
+    Laws.flights.cover(A, fs, Q.remove.list(A, rs, i)):
+  match fs rs:
+    case Nil{} Nil{}:
+      Unit{}
+    case Nil{} Con{r, rest}:
+      match e:
+    case Con{t, rest} Nil{}:
+      Unit{}
+    case Con{+t, +fs} Con{+r, +rs}:
+      match e:
+        case Laws.Skip{tail}:
+          cover.skip(A, t, fs, Q.remove.list(A, Con{r, rs}, i), cover.right(A, fs, Con{r, rs}, i, tail))
+        case Laws.Keep{QL.Both{eq, tail}}:
+          %Equal.sym(Q.Ticket<A>, t, r, eq) : Laws.flights.cover(A, Con{_, fs}, Q.remove.list(A, Con{r, rs}, i))
+          cover.right.keep(A, Nat.is_eq(Q.id(A, r), i), r, fs, Q.remove.list(A, rs, i), cover.right(A, fs, rs, i, tail))
+
+def cover.both.skip(-A: Data, b: Bool, t: Q.Ticket<A>, +fs: List<&2, Q.Ticket<A>>, +rs: List<&2, Q.Ticket<A>>, e: Laws.flights.cover(A, fs, rs)) ->
+    Laws.flights.cover(A, Q.remove.list.keep(A, b, t, fs), rs):
+  match b:
+    case True{}:
+      e
+    case False{}:
+      cover.skip(A, t, fs, rs, e)
+
+def cover.both.keep(-A: Data, b: Bool, +t: Q.Ticket<A>, +fs: List<&2, Q.Ticket<A>>, +rs: List<&2, Q.Ticket<A>>, e: Laws.flights.cover(A, fs, rs)) ->
+    Laws.flights.cover(A, Q.remove.list.keep(A, b, t, fs), Q.remove.list.keep(A, b, t, rs)):
+  match b:
+    case True{}:
+      e
+    case False{}:
+      Laws.Keep{QL.Both{{==}, e}}
+
+def cover.both(-A: Data, +fs: List<&2, Q.Ticket<A>>, +rs: List<&2, Q.Ticket<A>>, +i: Nat, e: Laws.flights.cover(A, fs, rs)) ->
+    Laws.flights.cover(A, Q.remove.list(A, fs, i), Q.remove.list(A, rs, i)):
+  match fs rs:
+    case Nil{} Nil{}:
+      Unit{}
+    case Nil{} Con{r, rest}:
+      match e:
+    case Con{t, rest} Nil{}:
+      cover.nil(A, Q.remove.list(A, Con{t, rest}, i))
+    case Con{+t, +fs} Con{+r, +rs}:
+      match e:
+        case Laws.Skip{tail}:
+          cover.both.skip(A, Nat.is_eq(Q.id(A, t), i), t, Q.remove.list(A, fs, i), Q.remove.list(A, Con{r, rs}, i),
+            cover.both(A, fs, Con{r, rs}, i, tail))
+        case Laws.Keep{QL.Both{eq, tail}}:
+          %Equal.sym(Q.Ticket<A>, t, r, eq) : Laws.flights.cover(A, Q.remove.list(A, Con{_, fs}, i), Q.remove.list(A, Con{r, rs}, i))
+          cover.both.keep(A, Nat.is_eq(Q.id(A, r), i), r, Q.remove.list(A, fs, i), Q.remove.list(A, rs, i), cover.both(A, fs, rs, i, tail))
 
 def loop.take.unchanged(-A: Data, tk: Q.Taken<A>, old: List<&2, Q.Ticket<A>>) -> Data:
   match tk:
@@ -1272,17 +1350,31 @@ def loop.take.original(-A: Data, +xs: List<&2, Q.Ticket<A>>, +i: Nat) -> loop.ta
     case Con{+t, +rest}:
       loop.take.keep.unchanged(A, Nat.is_eq(Q.id(A, t), i), t, rest, Q.take.list(A, rest, i), loop.take.original(A, rest, i))
 
+def taken.rest(-A: Data, tk: Q.Taken<A>) -> List<&2, Q.Ticket<A>>:
+  Q.Taken{fs, m} = tk
+  fs
+
+def loop.take.none(-A: Data, +fs: List<&2, Q.Ticket<A>>, +original: List<&2, Q.Ticket<A>>, +i: Nat,
+    eq: {Q.Taken{fs, None{}} == Q.take.list(A, original, i) : Q.Taken<A>}) ->
+    {fs == original : List<&2, Q.Ticket<A>>}:
+  %Equal.sym(Q.Taken<A>, Q.Taken{fs, None{}}, Q.take.list(A, original, i), eq) : loop.take.unchanged(A, _, original)
+  loop.take.original(A, original, i)
+
 def loop.finish.synced(~A: Data, tk: Q.Taken<A>, p: Res.Pool, +n: Nat, +heap: H.Heap<Q.Ticket<A>>, +old: List<&2, Q.Ticket<A>>,
-    +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +i: Nat,
-    eq: {tk == Q.take.list(A, old, i) : Q.Taken<A>}) ->
+    +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +i: Nat, +original: List<&2, Q.Ticket<A>>,
+    same: Laws.flights.cover(A, original, old), +eq: {tk == Q.take.list(A, original, i) : Q.Taken<A>}) ->
     loop.sync(A, R.loop.finished(~A, tk, p, R.State{Q.State{n, heap, old}, ts, ds, bs}, i)):
   match tk p:
-    case Q.Taken{fs, None{}} Res.Pool{o, c, h}:
-      %Equal.sym(Q.Taken<A>, Q.Taken{fs, None{}}, Q.take.list(A, old, i), eq) : loop.take.unchanged(A, _, old)
-      loop.take.original(A, old, i)
-    case Q.Taken{fs, Some{t}} Res.Pool{o, c, h}:
-      %eq : {fs == Q.running(A, R.queue(A, R.step.completed(A, Q.complete.taken(A, _, n, heap), R.tries.drop(ts, i), ds, bs))) : List<&2, Q.Ticket<A>>}
-      {==}
+    case Q.Taken{+fs, None{}} Res.Pool{o, c, h}:
+      %Equal.sym(List<&2, Q.Ticket<A>>, fs, original, loop.take.none(A, fs, original, i, eq)) : Laws.flights.cover(A, _, old)
+      same
+    case Q.Taken{+fs, Some{+t}} Res.Pool{o, c, h}:
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, old, i), Q.Taken{Q.remove.list(A, old, i), Q.find.list(A, old, i)}, QL.take_equivalent(A, old, i)) :
+        Laws.flights.cover(A, fs, Q.running(A, R.queue(A, R.step.completed(A, Q.complete.taken(A, _, n, heap), R.tries.drop(ts, i), ds, bs))))
+      %Equal.sym(Q.Taken<A>, Q.Taken{fs, Some{t}}, Q.take.list(A, original, i), eq) : Laws.flights.cover(A, taken.rest(A, _), Q.remove.list(A, old, i))
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, original, i), Q.Taken{Q.remove.list(A, original, i), Q.find.list(A, original, i)}, QL.take_equivalent(A, original, i)) :
+        Laws.flights.cover(A, taken.rest(A, _), Q.remove.list(A, old, i))
+      cover.both(A, original, old, i, same)
 
 def loop.step.sync(~A: Data, +e: R.LoopEvent, s: R.Loop<A>, same: loop.sync(A, s)) -> loop.sync(A, R.loop.step(~A, e, s)):
   match e s:
@@ -1290,8 +1382,9 @@ def loop.step.sync(~A: Data, +e: R.LoopEvent, s: R.Loop<A>, same: loop.sync(A, s
       loop.claim.synced(~A, R.pick(~A, p, R.State{Q.State{n, heap, old}, ts, ds, bs}, now), R.State{Q.State{n, heap, old}, ts, ds, bs}, fs, now,
         loop.claim.sync.evidence(~A, p, R.State{Q.State{n, heap, old}, ts, ds, bs}, fs, now, same))
     case R.Finish{+i} R.Loop{+p, R.State{Q.State{+n, +heap, +old}, +ts, +ds, +bs}, +fs}:
-      %Equal.sym(List<&2, Q.Ticket<A>>, fs, old, same) : loop.sync(A, R.loop.finished(~A, Q.take.list(A, _, i), p, R.State{Q.State{n, heap, old}, ts, ds, bs}, i))
-      loop.finish.synced(~A, Q.take.list(A, old, i), p, n, heap, old, ts, ds, bs, i, {==})
+      loop.finish.synced(~A, Q.take.list(A, fs, i), p, n, heap, old, ts, ds, bs, i, fs, same, {==})
+    case R.CancelFlight{+i} R.Loop{p, R.State{Q.State{n, heap, +old}, ts, ds, bs}, +fs}:
+      cover.right(A, fs, old, i, same)
 
 def Laws.loop_flights(A, es, s, same):
   match es:
@@ -1300,3 +1393,9 @@ def Laws.loop_flights(A, es, s, same):
     case Con{+e, rest}:
       +s = s
       Laws.loop_flights(~A, rest, R.loop.step(~A, e, s), loop.step.sync(~A, e, s, same))
+
+def Laws.loop_cancel_retains(A, i, p, s, fs):
+  {==}
+
+def Laws.loop_cancel_finish_releases(A, i, o, c, h, s, fs, t, found):
+  Laws.loop_finish_releases(~A, i, o, c, h, R.step(~A, s, R.Cancel{i}), fs, t, found)

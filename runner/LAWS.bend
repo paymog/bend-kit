@@ -347,7 +347,7 @@ law pick_release:
   for now: Nat
   {pick.round(A, R.pick(~A, Res.Pool{o, c, h}, s, now)) == Res.Pool{o, c, h} : Res.Pool}
 
-# The pool bound holds after every prefix, for arbitrary claim and finish orders.
+# The pool bound holds after every prefix, for arbitrary claim, cancel, and finish orders.
 law loop_capacity:
   for ~A: Data
   for es: List<&2, R.LoopEvent>
@@ -361,13 +361,36 @@ law loop_capacity_stable:
   for s: R.Loop<A>
   {Res.capacity(R.loop.pool(A, R.loop.fold(~A, es, s))) == Res.capacity(R.loop.pool(A, s)) : Nat}
 
-# The model covers claims and finishes; cancellation can leave a live flight outside the queue.
+type Choice<-A: Data, -B: Data> is Data:
+  Skip{proof: A}
+  Keep{proof: B}
+
+def flights.cover(-A: Data, fs: List<&2, Q.Ticket<A>>, rs: List<&2, Q.Ticket<A>>) -> Data:
+  match fs rs:
+    case Nil{} Nil{}:
+      Unit
+    case Nil{} Con{r, rest}:
+      Empty
+    case Con{t, fs} Nil{}:
+      Unit
+    case Con{+t, +fs} Con{+r, +rs}:
+      Choice<flights.cover(A, fs, Con{r, rs}), QL.Both<{t == r : Q.Ticket<A>}, flights.cover(A, fs, rs)>>
+
+# The running queue is a subsequence of flights; cancellation leaves the flight live.
 law loop_flights:
   for ~A: Data
   for es: List<&2, R.LoopEvent>
   for s: R.Loop<A>
-  for same: {R.loop.flights(A, s) == Q.running(A, R.queue(A, R.loop.state(A, s))) : List<&2, Q.Ticket<A>>}
-  {R.loop.flights(A, R.loop.fold(~A, es, s)) == Q.running(A, R.queue(A, R.loop.state(A, R.loop.fold(~A, es, s)))) : List<&2, Q.Ticket<A>>}
+  for same: flights.cover(A, R.loop.flights(A, s), Q.running(A, R.queue(A, R.loop.state(A, s))))
+  flights.cover(A, R.loop.flights(A, R.loop.fold(~A, es, s)), Q.running(A, R.queue(A, R.loop.state(A, R.loop.fold(~A, es, s)))))
+
+law loop_cancel_retains:
+  for ~A: Data
+  for i: Nat
+  for p: Res.Pool
+  for s: R.State<A>
+  for fs: List<&2, Q.Ticket<A>>
+  {R.loop.step(~A, R.CancelFlight{i}, R.Loop{p, s, fs}) == R.Loop{p, R.step(~A, s, R.Cancel{i}), fs} : R.Loop<A>}
 
 # A matching finish gives back one unit; a repeated finish gives back none.
 law loop_finish_releases:
@@ -474,3 +497,15 @@ law transient_abandon:
   for +r: Nat
   for e: {Retry.plan(Retry.Transient{a}, p, b, n, now, r) == Retry.PlanStop{} : Retry.Plan}
   {R.after(A, Retry.Transient{a}, p, b, id, n, now, r) == R.Abandon{id, R.gave(b), now} : R.Op<A>}
+
+law loop_cancel_finish_releases:
+  for ~A: Data
+  for +i: Nat
+  for o: Nat
+  for c: Nat
+  for h: Nat
+  for s: R.State<A>
+  for fs: List<&2, Q.Ticket<A>>
+  for t: Q.Ticket<A>
+  for found: {Q.find.list(A, fs, i) == Some{t} : Maybe<&2, Q.Ticket<A>>}
+  {R.loop.pool(A, R.loop.step(~A, R.Finish{i}, R.loop.step(~A, R.CancelFlight{i}, R.Loop{Res.Pool{o, c, 1n+h}, s, fs}))) == Res.Pool{o, c, h} : Res.Pool}
