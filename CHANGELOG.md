@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `jwt` 0.14.0.2: isolate encoding, parsing, claim checks, and JWKS key selection in `pure.bend`. Check all existing laws without foreign effects. Preserve the runtime API.
+
 - `redis` 0.3.1.3: isolate the RESP3 codec and incremental reader in `pure.bend`. Check all existing laws without foreign effects. Preserve the public Redis API.
 
 - `websocket` 0.4.1.5: isolate handshake validation, the frame codec, and message assembly in `pure.bend`. Check all existing laws without foreign effects. Preserve the public WebSocket API.
