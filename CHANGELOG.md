@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `crdt` 0.2.2.0: add exact PN-Counter reads with unbounded totals and signed `Nat` magnitudes. Keep the checked U32 read unchanged.
+
 - `runner` proofs: prove that a successful revive replaces any retry entry with zero failures and its new start deadline. Prove the same retry-map update after journal replay under the codec round-trip hypothesis.
 
 - `runner` 0.20.1.0: prove pool accounting for arbitrary claims, live cancellations, and finish orders. Keep cancelled flights reserved until their one-shot finish.

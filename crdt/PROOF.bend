@@ -1605,3 +1605,44 @@ def Laws.k_from_cbor_bad_id():
 
 def Laws.k_from_cbor_not_map():
   {==}
+
+# Cancel one unit from each half until only one sign remains.
+def signed_sum(p: Nat, n: Nat) -> Bool & Nat:
+  match p n:
+    case 0n 0n:
+      (False{}, 0n)
+    case 0n 1n+q:
+      (True{}, 1n+q)
+    case 1n+p 0n:
+      (False{}, 1n+p)
+    case 1n+p 1n+q:
+      signed_sum(p, q)
+
+def exact_diff_step(negative: Bool, p: Nat, n: Nat) ->
+  {Crdt.PNCounter.value_exact.diff(negative, 1n+p, 1n+n) ==
+   Crdt.PNCounter.value_exact.diff(negative, p, n) : Bool & Nat}:
+  match negative:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def exact_diff_spec(+p: Nat, +n: Nat) ->
+  {Crdt.PNCounter.value_exact.diff(Nat.is_lt(p, n), p, n) == signed_sum(p, n) : Bool & Nat}:
+  match p n:
+    case 0n 0n:
+      {==}
+    case 0n 1n+q:
+      {==}
+    case 1n+p 0n:
+      {==}
+    case 1n+p 1n+q:
+      Equal.trans(Bool & Nat,
+        Crdt.PNCounter.value_exact.diff(Nat.is_lt(p, q), 1n+p, 1n+q),
+        Crdt.PNCounter.value_exact.diff(Nat.is_lt(p, q), p, q), signed_sum(p, q),
+        exact_diff_step(Nat.is_lt(p, q), p, q), exact_diff_spec(p, q))
+
+def pn_exact_sum(+p: List<&2, U32>, +n: List<&2, U32>) ->
+  {Crdt.PNCounter.value_exact(Crdt.PN{p, n}) ==
+   signed_sum(Crdt.GCounter.value_exact(p), Crdt.GCounter.value_exact(n)) : Bool & Nat}:
+  exact_diff_spec(Crdt.GCounter.value_exact(p), Crdt.GCounter.value_exact(n))

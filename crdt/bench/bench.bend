@@ -140,6 +140,19 @@ def pnchecksum(xs: List<&2, Crdt.PNCounter>, +acc: U32) -> U32:
     case Con{s, t}:
       pnchecksum(t, (acc + pnvalue(Crdt.PNCounter.value(s)) : U32))
 
+def exact.magnitude(value: Bool & Nat) -> U32:
+  (negative, n) = value
+  Bool.pick(U32, negative, 0, U32.from_nat(n))
+
+def exact.reads(n: Nat, +s: Crdt.PNCounter, acc: U32) -> U32:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      value = exact.magnitude(Crdt.PNCounter.value_exact(s))
+      next = Maybe.default(&2, Crdt.PNCounter, Crdt.PNCounter.inc(s, 1n), Crdt.PNCounter.new())
+      exact.reads(p, next, (acc + value : U32))
+
 def lg(args: List<&1, String>) -> Nat:
   match args:
     case program <> n <> Nil{}:
@@ -170,3 +183,9 @@ def main() -> IO(Unit):
     t5 : Time.Duration <- Time.mono()
     IO.print("chk\tgossip-pn\t" ++ U32.show(pnv))
     IO.print("ms\tgossip-pn\t" ++ Time.Duration.show_ms(Time.Duration.sub(t5, t4)))
+    +exactstart : Crdt.PNCounter = Crdt.PN{[4294967295, 1], [4294967295, 1]}
+    t6 : Time.Duration <- Time.mono()
+    +ev : U32 = exact.reads(n, exactstart, 0)
+    t7 : Time.Duration <- Time.mono()
+    IO.print("chk\tread-pn-exact\t" ++ U32.show(ev))
+    IO.print("ms\tread-pn-exact\t" ++ Time.Duration.show_ms(Time.Duration.sub(t7, t6)))

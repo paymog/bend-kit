@@ -293,6 +293,13 @@ def pn.recv(m: Maybe<&2, Crdt.PNCounter>, d: Maybe<&2, Crdt.PNCounter>) -> Maybe
 def pn.rejects(hex: String, cap: U32, name: String) -> IO(Unit):
   ok(String.eq(pn.show(pn.decode(Bytes.from_hex(hex), cap)), "none"), name)
 
+def pn.exact.result(value: Bool & Nat, negative: Bool, magnitude: Nat, name: String) -> IO(Unit):
+  (sign, n) = value
+  ok(Bool.and(Bool.not(Bool.xor(sign, negative)), Nat.is_eq(n, magnitude)), name)
+
+def pn.exact(s: Crdt.PNCounter, negative: Bool, magnitude: Nat, name: String) -> IO(Unit):
+  pn.exact.result(Crdt.PNCounter.value_exact(s), negative, magnitude, name)
+
 def pn.check() -> IO(Unit):
   do IO<Unit>:
     +a : Crdt.PNCounter = Crdt.PN{[1], []}
@@ -314,6 +321,14 @@ def pn.check() -> IO(Unit):
     ok(String.eq(pn.show(Crdt.PNCounter.dec(Crdt.PN{[], [4294967295]}, 0n)), "none"), "PN decrement overflow")
     ok(String.eq(pn.show(Some{Crdt.PN{[4294967295, 1], []}}), "overflow"), "PN positive total overflow")
     ok(String.eq(pn.show(Some{Crdt.PN{[], [4294967295, 1]}}), "overflow"), "PN negative total overflow")
+    pn.exact(Crdt.PN{[], []}, False{}, 0n, "PN exact empty zero")
+    pn.exact(Crdt.PN{[3], [1]}, False{}, 2n, "PN exact small positive")
+    pn.exact(Crdt.PN{[1], [3]}, True{}, 2n, "PN exact small negative")
+    pn.exact(Crdt.PN{[4294967295, 1], [4294967295, 1]}, False{}, 0n, "PN exact large equal totals")
+    pn.exact(Crdt.PN{[4294967295, 3], [4294967295, 1]}, False{}, 2n, "PN exact large positive totals")
+    pn.exact(Crdt.PN{[4294967295, 1], [4294967295, 3]}, True{}, 2n, "PN exact large negative totals")
+    pn.exact(Crdt.PN{[4294967295, 1], []}, False{}, (4294967295n + 1n : Nat), "PN exact wide positive")
+    pn.exact(Crdt.PN{[], [4294967295, 1]}, True{}, (4294967295n + 1n : Nat), "PN exact wide negative")
     pn.rejects("82810080", 8, "PN rejects a positive trailing zero")
     pn.rejects("82808100", 8, "PN rejects a negative trailing zero")
     pn.rejects("82808120", 8, "PN rejects a negative component")
