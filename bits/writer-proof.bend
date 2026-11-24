@@ -211,7 +211,7 @@ def read_value_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: Nat, +n: U32,
   +total = Nat.mul(U32.to_nat(len), 8n)
   +left = Nat.sub(total, pos)
   %Equal.sym(Bool, Nat.is_le(U32.to_nat(n), Nat.min(32n, left)), True{}, ok) :
-    {Laws.read_nat(Bits.read.if(_, msb, A.build(t), total, left, n)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
+    {Laws.read_nat(Bits.read.if(_, msb, A.build(t), total, left, n, left, None{})) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
   %Equal.sym(Nat, Nat.sub(total, left), pos, MNat.sub_sub_self(total, pos, pos_ok)) :
     {Laws.read_nat(Bits.read.got(msb, total, left, n, Bits.win(msb, A.build(t), _))) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
   %Equal.sym(Array<U32> & U32, Bits.win(msb, A.build(t), pos), (A.build(t), window(msb, t, pos)), window_bridge(msb, t, pos)) :
@@ -234,7 +234,7 @@ def skip_read_bridge(+msb: Bool, +t: A.Tree, +len: U32, +pos: Nat, +n: U32,
   {Laws.read_after_skip(msb, n, Bits.Reader.skip(Bits.Reader.new(Bytes.Bytes{len, A.build(t)}), pos)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}:
   +total = Nat.mul(U32.to_nat(len), 8n)
   %Equal.sym(Bool, Nat.is_le(pos, total), True{}, skip_ok) :
-    {Laws.read_after_skip(msb, n, (Bits.Reader{A.build(t), total, Bool.pick(Nat, _, Nat.sub(total, pos), total)}, _)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
+    {Laws.read_after_skip(msb, n, (Bits.Reader{A.build(t), total, Bool.pick(Nat, _, Nat.sub(total, pos), total), None{}}, _)) == Some{U32.to_nat(Bits.field(msb, n, window(msb, t, pos)))} : Maybe<&2, Nat>}
   read_order_bridge(msb, t, len, pos, n, skip_ok, read_ok)
 
 def position(s: State) -> Nat:
