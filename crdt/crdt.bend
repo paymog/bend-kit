@@ -93,6 +93,14 @@ def GCounter.value.go(s: List<&2, U32>, acc: Maybe<&2, U32>) -> Maybe<&2, U32>:
 def GCounter.value(s: List<&2, U32>) -> Maybe<&2, U32>:
   GCounter.value.go(s, Some{0})
 
+# The unbounded sum of all replica counts.
+def GCounter.value_exact(s: List<&2, U32>) -> Nat:
+  match s:
+    case Nil{}:
+      0n
+    case Con{c, t}:
+      (U32.to_nat(c) + GCounter.value_exact(t) : Nat)
+
 # True when a is at most b in every entry.
 def GCounter.le(a: List<&2, U32>, b: List<&2, U32>) -> Bool:
   match a b:
@@ -254,6 +262,20 @@ def PNCounter.value.totals(p: Maybe<&2, U32>, n: Maybe<&2, U32>) -> Maybe<&1, Bo
 def PNCounter.value(s: PNCounter) -> Maybe<&1, Bool & U32>:
   PN{p, n} = s
   PNCounter.value.totals(GCounter.value(p), GCounter.value(n))
+
+def PNCounter.value_exact.diff(negative: Bool, p: Nat, n: Nat) -> Bool & Nat:
+  match negative:
+    case True{}:
+      (True{}, (n - p : Nat))
+    case False{}:
+      (False{}, (p - n : Nat))
+
+# The exact sign and unbounded magnitude; zero is never negative.
+def PNCounter.value_exact(s: PNCounter) -> Bool & Nat:
+  PN{p, n} = s
+  +a = GCounter.value_exact(p)
+  +b = GCounter.value_exact(n)
+  PNCounter.value_exact.diff(Nat.is_lt(a, b), a, b)
 
 def PNCounter.to_cbor(s: PNCounter) -> Cbor.Val:
   PN{p, n} = s

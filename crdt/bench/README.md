@@ -21,6 +21,8 @@ The program runs this twice. `gossip` gives replica r the ID r. `gossip-sparse` 
 
 `gossip-pn` uses dense IDs. Each replica increments twice and decrements once per round, then merges its successor's state. It runs 524,288 increments, 262,144 decrements, and 262,144 merges. Both halves grow. Its net value and checksum match `gossip`.
 
+`read-pn-exact` starts both PN halves at 4294967296, split across two replica entries. It reads the exact signed value, adds its magnitude to a U32 checksum, and increments replica 1. It repeats R times. The timer excludes setup and includes the reads and updates. Bend uses `PNCounter.value_exact`; Rust uses `PNCounter::read`. The checksum is 134209536.
+
 | language | op | increment | merge |
 |---|---|---|---|
 | Bend | `gossip` | `Crdt.GCounter.inc(s, r)` | `Crdt.GCounter.merge(s, t)` |
@@ -29,24 +31,25 @@ The program runs this twice. `gossip` gives replica r the ID r. `gossip-sparse` 
 
 ## Results
 
-macOS arm64, 2026-11-20. Three runs (`python3 run.py 3`), median, in ms.
+macOS arm64, 2026-11-23. Three runs (`python3 run.py 3`), median, in ms.
 
 Versions: Bend 2.0.40, rustc 1.91.0, crdts 7.3.2.
 
 | op | Rust | Bend |
 |---|---:|---:|
-| gossip | 78.3 | 55.3 |
-| gossip-sparse | 78.0 | 74.4 |
-| gossip-pn | 160.5 | 175.5 |
+| gossip | 83.1 | 56.4 |
+| gossip-sparse | 82.5 | 74.7 |
+| gossip-pn | 170.4 | 179.0 |
+| read-pn-exact | 0.3 | 1.1 |
 
-Both programs print the checksum 4192624 for each op.
+Both programs print the checksum 4192624 for each gossip op and 134209536 for the exact read op.
 
 ## Reading it
 
 - `crdts::GCounter` keeps a `BTreeMap` from actor to count and reads the total as a `BigUint`, so the actor values do not change its cost. Bend's `GCounter` keeps a list of `U32` counts, one for each replica index. The Bend state is smaller, and a merge walks two lists in step.
 - `KCounter` keeps a sorted list of `(id, count)` entries. A merge walks both lists in step and calls `cmp` once for each step. It supports far-apart IDs without dense padding: a dense list for these IDs would hold 3,750,000,008 entries.
 - Rust clones the neighbor state, because `merge` takes it by value. Bend shares it.
-- `PNCounter` merges two dense G-Counters. Rust keeps two G-Counters backed by maps and reads their difference as a `BigInt`. Bend reads a checked signed magnitude.
+- `PNCounter` merges two dense G-Counters. Rust keeps two G-Counters backed by maps and reads their difference as a `BigInt`. Bend offers a checked U32 signed magnitude and an exact `Nat` signed magnitude.
 
 ## Not compared
 
