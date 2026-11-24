@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.7.0.1: retain HTTP failure causes and host error details. Include the claimed object digest in request, stream, and non-200 status errors without changing `S.Run`.
+
 - `storage` 0.7.0.0: stream HTTP objects into owned temporary files. Validate SHA-256 and canonical encoding before atomic publication. Keep only links in the sync index. Check 17 MiB transfers, truncation, tampering, and cleanup in Bun and native lanes.
 
 - `storage` 0.6.1.0: reuse one owned HTTP pool across a sync. Close it on success and failure. Check connection reuse and closure on loopback.
