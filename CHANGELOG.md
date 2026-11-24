@@ -30,6 +30,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 - `storage` 0.6.1.0: reuse one owned HTTP pool across a sync. Close it on success and failure. Check connection reuse and closure on loopback.
 
+- `journal` 0.4.0.0: move framing, recovery, and the list model to `pure.bend`. Keep file operations in `journal.bend` so proof imports do not reach foreign effects.
+
 - `zlib` 0.7.0.0: reuse the deferred lazy match instead of searching its hash chain twice. Add the match length and distance to the internal encoder state.
 
 - `zlib` 0.6.1.0: trim dynamic Huffman alphabets, encode code-length runs with symbols 16–18, and choose blocks with the full header bit cost.

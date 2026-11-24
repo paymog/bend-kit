@@ -3,6 +3,7 @@ import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-hash@0.3.2.2/hash.bend as Hash
 import bend-kit-files@0.4.0.1/files.bend as Files
 import ./journal.bend as J
+import ./pure.bend as Pure
 
 def ok(good: Bool, +name: String) -> IO(Unit):
   match good:
@@ -21,29 +22,29 @@ def codes(s: String) -> List<&2, U32>:
 def push(acc: List<&2, String>, p: Bytes.Bytes) -> List<&2, String>:
   Con{Bytes.to_string(p), acc}
 
-def tail(t: J.Tail) -> String:
+def tail(t: Pure.Tail) -> String:
   match t:
-    case J.Clean{}:
+    case Pure.Clean{}:
       "clean"
-    case J.Torn{}:
+    case Pure.Torn{}:
       "torn"
-    case J.Corrupt{why}:
+    case Pure.Corrupt{why}:
       "corrupt:" ++ why
 
-def render(r: J.Replay<List<&2, String>, J.Cur>) -> String:
-  J.Replay{acc, t, rest} = r
-  J.Cur{b, +pos} = rest
+def render(r: Pure.Replay<List<&2, String>, Pure.Cur>) -> String:
+  Pure.Replay{acc, t, rest} = r
+  Pure.Cur{b, +pos} = rest
   String.join(List.reverse(&2, String, acc), ",") ++ "|" ++ tail(t) ++ "|" ++ U32.show(pos)
 
 def run(+max: U32, b: Bytes.Bytes) -> String:
-  render(J.replay.bytes(~List<&2, String>, ~push, max, b, Nil{}))
+  render(Pure.replay.bytes(~List<&2, String>, ~push, max, b, Nil{}))
 
 def log(xs: List<&2, String>) -> Bytes.Bytes:
   match xs:
     case Nil{}:
       Bytes.new(0)
     case Con{s, t}:
-      Bytes.append(J.frame(Bytes.from_string(s)), log(t))
+      Bytes.append(Pure.frame(Bytes.from_string(s)), log(t))
 
 # Frames of 17, 14 and 18 octets: they end at 17, 31 and 49.
 def sample() -> Bytes.Bytes:
@@ -70,15 +71,15 @@ def cuts(n: Nat, +k: U32, +bad: U32) -> U32:
 
 def field(r: Bytes.Bytes & Maybe<&2, U32>) -> U32:
   (b, m) = r
-  J.cur.field(m)
+  Pure.cur.field(m)
 
 def abc() -> Bytes.Bytes:
-  J.frame(Bytes.from_string("abc"))
+  Pure.frame(Bytes.from_string("abc"))
 
 def pure() -> IO(Unit):
   do IO<Unit>:
-    ok(U32.is_eq(J.list.crc(codes("123456789")), 3421780262) && U32.is_eq(Hash.crc32.str("123456789"), 3421780262), "model CRC-32 and Hash.crc32 agree on the check value")
-    ok(U32.is_eq(J.list.crc(Nil{}), 0) && U32.is_eq(J.list.crc([256, 511]), J.list.crc([0, 255])), "model CRC-32 preserves empty input and octet masking")
+    ok(U32.is_eq(Pure.list.crc(codes("123456789")), 3421780262) && U32.is_eq(Hash.crc32.str("123456789"), 3421780262), "model CRC-32 and Hash.crc32 agree on the check value")
+    ok(U32.is_eq(Pure.list.crc(Nil{}), 0) && U32.is_eq(Pure.list.crc([256, 511]), Pure.list.crc([0, 255])), "model CRC-32 preserves empty input and octet masking")
     ok(U32.is_eq(field(Bytes.get.u32le(abc(), 0)), 3) && U32.is_eq(field(Bytes.get.u32le(abc(), 4)), U32.not(3)) && U32.is_eq(field(Bytes.get.u32le(abc(), 8)), Hash.crc32.str("abc")) && String.eq(Bytes.to_string(Bytes.snd(Bytes.slice(abc(), 12, 3))), "abc"), "a frame is len, not len, crc32, payload")
     ok(U32.is_eq(cuts(50n, 0, 0), 0), "every cut of a 3-record log recovers exactly its committed prefix")
     ok(String.eq(run(64, Bytes.snd(Bytes.slice(Bytes.set(sample(), 29, 0), 0, 40))), "alpha|corrupt:checksum mismatch|17"), "a damaged payload is corrupt, even before a torn tail")
@@ -233,7 +234,7 @@ def durable(+dir: String) -> IO(Unit):
     seed(a)
     b : String & U32 <- visit(path, "")
     seen(b, "prove laws", 79, "reopen replays every acknowledged append")
-    raw(path, "a", String.take(Bytes.to_string(J.frame(Bytes.from_string("add lost"))), 7n))
+    raw(path, "a", String.take(Bytes.to_string(Pure.frame(Bytes.from_string("add lost"))), 7n))
     c : String & U32 <- visit(path, "add ship it")
     seen(c, "prove laws", 79, "a torn append is cut off at open")
     d : String & U32 <- visit(path, "")

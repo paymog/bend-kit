@@ -1,6 +1,6 @@
 import Base
 import bend-mathlib@0.8.0.0/nat.bend as MNat
-import ./journal.bend as J
+import ./pure.bend as J
 
 # The laws hold over the list model: J.list.log writes frames, J.list.recover and
 # J.list.replay read them. n is the frame budget; enough of it means one per record.

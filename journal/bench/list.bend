@@ -1,7 +1,7 @@
 # List-model CRC benchmark; build the input before the timer starts.
 import Base
 import ../../time/time.bend as Time
-import ../journal.bend as J
+import ../pure.bend as J
 
 def input(n: Nat, +i: U32) -> List<&2, U32>:
   match n:
