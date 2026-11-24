@@ -3,7 +3,7 @@
 Compact JWS tokens. HS256, HS384, HS512, RS256, and ES256. Claim checks, and JWKS lookup over `hairpin`.
 
 ```bend
-import bend-kit-jwt@0.14.0.1/jwt.bend as Jwt
+import bend-kit-jwt@0.14.0.2/jwt.bend as Jwt
 import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
 import bend-kit-http@0.40.0.1/http.bend as Http
 ```
@@ -17,3 +17,5 @@ A header, claims object, or JWK that repeats a member name at any depth is rejec
 `verify.jwks` fetches or reuses a JWKS document through the `Hairpin.Client` and returns that client beside the result. `jwks.parse` reads a JWKS body you already have.
 
 `check.bend` verifies the RFC 7515 A.1 HS256 vector at time `1300819000`.
+
+`pure.bend` holds the shared encoding, parsing, claim checks, and JWKS key selection. The existing laws import this module so the proof gate has no foreign effects. `jwt.bend` preserves the runtime API and maps its public types at the boundary.
