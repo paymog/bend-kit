@@ -2,10 +2,10 @@
 # Install the pinned Bend for CI (linux-x64 or darwin-arm64). Optional prefix, else ~/.bend.
 # Bump VER and both checksums together.
 set -euo pipefail
-VER=2.0.38
+VER=2.0.40
 case "$(uname -sm)" in
-  "Linux x86_64") platform=linux-x64; SHA=f19d088b079c9e1a8834ecd153b7d58c11a5f8f9ab1bdb78dbc96a6bf49aaa81; verify=(sha256sum -c) ;;
-  "Darwin arm64") platform=darwin-arm64; SHA=9d5331d01e82dac40dd012953e78221f533f7df7ad7e16b07f1f7bd0dcd088dd; verify=(shasum -a 256 -c) ;;
+  "Linux x86_64") platform=linux-x64; SHA=c9ff8d67bd903fb6ad9a26b43d8a62c01021de82a44d55ce4a3dcd4732113d6b; verify=(sha256sum -c) ;;
+  "Darwin arm64") platform=darwin-arm64; SHA=b2be003b041eb6cfc65326be18f79eb2e0bae2189be79a18c507e661b4b6900b; verify=(shasum -a 256 -c) ;;
   *) echo "unsupported Bend CI platform: $(uname -sm)" >&2; exit 1 ;;
 esac
 dest=${1:-$HOME/.bend}
