@@ -2,6 +2,27 @@
 
 This times the hot path of a content-addressed store: commit an artifact tree (encode every object and take its SHA-256), put the objects in a store, and load the root back. It compares `storage` with the obvious loop over a standard SHA-256 and a standard map in C, Rust, Python, and JavaScript.
 
+## HTTP connection reuse
+
+`http.bend` runs the port-0 loopback checks and times the first sync. The fixed closure has two directory entries that share one 14-byte file, plus the end object. The destination already has the file, so three GETs fetch the two entries and the end. The timer includes local ingress checks and object writes, but not fixture setup or server startup.
+
+From `storage/bench/`:
+
+```sh
+bend http.bend -o out/http
+for run in 1 2 3; do out/http; done
+```
+
+Apple M4 Pro, macOS arm64, Bend 2.0.40, 2026-11-24. Three native runs:
+
+| client | GETs | connections | elapsed ms | median ms |
+|---|---:|---:|---|---:|
+| before, `origin/main` at `1b7aaae` | 3 | 3 | 5.952, 4.608, 4.205 | 4.608 |
+| pooled walk | 3 | 1 | 4.917, 4.367, 3.941 | 4.367 |
+
+For the baseline, use the transport from `1b7aaae` with the same check harness. Change only the expected first connection events from `orrrc` to `orcorcorc`: `o` is an accepted connection, `r` is a request, and `c` is EOF at the server. Both versions pass the missing-object and tampered-object closure checks. This small local sample proves reuse; its timing does not predict WAN throughput.
+
+
 ## Run
 
 Run these commands from `storage/bench/`.
