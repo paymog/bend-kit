@@ -366,6 +366,136 @@ def refused.pool() -> IO(Unit):
     b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
     refused.pool.on(b)
 
+def refused.drop.idle(+name: String, pm: Http.Pool & Maybe<&1, Http.Conn>) -> IO(Unit):
+  (p, m) = pm
+  match m:
+    case None{}:
+      do IO<Unit>:
+        Http.pool.close(p)
+        pool.ok(True{}, name ++ ": no idle connection")
+    case Some{k}:
+      do IO<Unit>:
+        Http.conn.close(k)
+        Http.pool.close(p)
+        pool.ok(False{}, name ++ ": no idle connection")
+
+def refused.drop.left(+name: String, +port: U32, c: Llm.Client) -> IO(Unit):
+  Llm.Client{api, b, h, ms, n, Hairpin.Client{o, p, j, br}} = c
+  refused.drop.idle(name, Http.pool.take(p, Http.pool.key("http", "127.0.0.1", port)))
+
+def refused.drop.result(+limited: Bool, +port: U32, x: Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream>) -> IO(Unit):
+  (c, r) = x
+  match r:
+    case Fail{Llm.ErrApi{+status, +body}}:
+      +name = Bool.pick(String, limited, "piece-limited refusal", "cut-off refusal")
+      +good = Bool.pick(Bool, limited,
+        Bool.and(Nat.is_lt(0n, String.length(body)), Nat.is_le(String.length(body), 4194304n)),
+        String.eq(body, "partial"))
+      do IO<Unit>:
+        pool.ok(Bool.and(U32.is_eq(status, 529), good), name ++ ": original status and partial body")
+        refused.drop.left(name, port, c)
+    case Fail{e}:
+      do IO<Unit>:
+        Llm.close(c)
+        IO.die(Unit, 1, "fail an incomplete refusal did not return ErrApi")
+    case Done{s}:
+      do IO<Unit>:
+        d : Llm.Client <- Llm.stream.close(c, s)
+        Llm.close(d)
+        IO.die(Unit, 1, "fail an incomplete refusal opened a stream")
+
+def refused.drop.reset(+code: U32) -> Bool:
+  Bool.or(U32.is_eq(code, 32), Bool.or(U32.is_eq(code, 54), U32.is_eq(code, 104)))
+
+def refused.drop.eof(got: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  (s, r) = got
+  match r:
+    case Done{body}:
+      do IO<Unit>:
+        Socket.close(s)
+        pool.ok(String.eq(body, ""), "piece-limited refusal: peer closed the socket")
+    case Fail{(code, why)}:
+      do IO<Unit>:
+        Socket.close(s)
+        pool.ok(refused.drop.reset(code), "piece-limited refusal: peer reset the socket, not a timeout")
+
+def refused.drop.sent(limited: Bool, sent: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
+  match limited:
+    case False{}:
+      (s, r) = sent
+      do IO<Unit>:
+        u : Unit <- IO.try(Unit, IO.pure(Result<&1, &1, U32 & String, Unit>, r))
+        Socket.close(s)
+    case True{}:
+      (s, r) = sent
+      match r:
+        case Fail{(code, why)}:
+          do IO<Unit>:
+            Socket.close(s)
+            pool.ok(refused.drop.reset(code), "piece-limited refusal: peer closed during send")
+        case Done{u}:
+          do IO<Unit>:
+            got : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(s, 4096, 3000)
+            refused.drop.eof(got)
+
+def refused.drop.send(+limited: Bool, s: Socket, body: Bytes.Bytes) -> IO(Unit):
+  Bytes.Bytes{len, words} = body
+  do IO<Unit>:
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <- Wire.send.words(s, len, words)
+    refused.drop.sent(limited, sent)
+
+def refused.drop.reply(+limited: Bool, s: Socket) -> IO(Unit):
+  # Each read is at most 65536 bytes, so this body cannot finish in 64 pieces.
+  body = Bool.pick(Bytes.Bytes, limited,
+    Bytes.Bytes{4325376, Array.new(U32, 21n, 2021161080)}, Bytes.from_string("partial"))
+  head = "HTTP/1.1 529 Overloaded\r\nContent-Length: " ++
+    Bool.pick(String, limited, "4325376", "100") ++ "\r\n\r\n"
+  refused.drop.send(limited, s, Bytes.append(Bytes.from_string(head), body))
+
+def refused.drop.request(f: Nat, +limited: Bool, +acc: String, got: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
+  match f:
+    case 0n:
+      IO.die(Unit, 1, "fail refusal server did not receive the request")
+    case 1n+g:
+      (s, r) = got
+      match r:
+        case Fail{e}:
+          IO.die(Unit, 1, "fail refusal server could not read the request")
+        case Done{piece}:
+          +req = acc ++ piece
+          Bool.pick(Socket -> IO(Unit), String.ends_with(req, "\r\n\r\ntrue"),
+            (s => refused.drop.reply(limited, s)),
+            (s => IO.bind(Socket & Result<&1, &1, U32 & String, String>, Unit,
+              Wire.recv(s, 4096, 3000), next => refused.drop.request(g, limited, req, next))))(s)
+
+def refused.drop.accepted(+limited: Bool, a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+  (l, r) = a
+  do IO<Unit>:
+    Listener.close(l)
+    s : Socket <- IO.try(Socket, IO.pure(Result<&1, &1, U32 & String, Socket>, r))
+    got : Socket & Result<&1, &1, U32 & String, String> <- Wire.recv(s, 4096, 3000)
+    refused.drop.request(8n, limited, "", got)
+
+def refused.drop.serve(+limited: Bool, l: Listener) -> IO(Unit):
+  do IO<Unit>:
+    a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
+    refused.drop.accepted(limited, a)
+
+def refused.drop.on(+limited: Bool, b: Listener & U32) -> IO(Unit):
+  (l, +port) = b
+  do IO<Unit>:
+    ch : Chan(Unit) <- IO.fork(Unit, refused.drop.serve(limited, l))
+    x : Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream> <-
+      Llm.stream.raw(Llm.timeout(Llm.retry(Llm.base(Llm.anthropic("k"), url(port)), 0), 3000), Json.Flag{True{}})
+    refused.drop.result(limited, port, x)
+    m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
+    served("1", m)
+
+def refused.drop(+limited: Bool) -> IO(Unit):
+  do IO<Unit>:
+    b : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    refused.drop.on(limited, b)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     verdict("20000 events in 7-byte reads", chunks(many(20000), 7), 20000, 88890)
@@ -375,3 +505,5 @@ def main() -> IO(Unit):
     overloaded.stream()
     pooled.stream()
     refused.pool()
+    refused.drop(False{})
+    refused.drop(True{})
