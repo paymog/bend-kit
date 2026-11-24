@@ -1,8 +1,8 @@
 # HTTP/2 client, frame codec, and HPACK
 
 ```bend
-import bend-kit-http2@0.5.0.2/http2.bend as H2
-import bend-kit-http2@0.5.0.2/hpack.bend as Hpack
+import bend-kit-http2@0.6.0.0/http2.bend as H2
+import bend-kit-http2@0.6.0.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 ```
 
@@ -22,19 +22,23 @@ Call `Hpack.set_limit(max, state)` when the peer changes the encoder's table-siz
 
 `client.start()` returns a `Client` and the client preface with a SETTINGS frame. That frame disables server push. Send those bytes first. `client.request(client, fields, body)` allocates an odd stream ID. It returns `Advanced{client, writes, events}` or `Failed{error}`. Supply `:method`, `:scheme`, `:authority`, and `:path` as HPACK fields. Send `writes` in order. Keep the returned `client` for the next call.
 
-Pass each packed byte chunk to `client.receive(client, chunk)`. It buffers incomplete frames and header blocks, but never accumulates a response body. It returns SETTINGS ACKs, PING replies, WINDOW_UPDATE credit, and resumed request DATA in `writes`. Send all writes in order, including those returned with response events.
+Pass each packed byte chunk to `client.receive(client, chunk)`. It buffers incomplete frames and header blocks, but never accumulates a response body. It returns SETTINGS ACKs, PING replies, and resumed request DATA in `writes`. Send all writes in order, including those returned with response events.
 
 Events follow wire order and carry the response stream ID:
 
 - `Informational{id, headers}` carries each interim 1xx header block.
 - `Headers{id, headers}` carries the final response headers as soon as END_HEADERS arrives. It does not wait for END_STREAM.
-- `Chunk{id, bytes}` transfers one DATA frame's content, without padding. Empty DATA still emits an empty chunk. The client does not retain or re-emit these bytes.
+- `Chunk{id, bytes, capacity}` transfers one DATA frame's content, without padding. `capacity` counts the full flow-controlled payload, including the pad-length octet and padding. Empty DATA still emits an empty chunk. The client retains only the outstanding count, not the bytes.
 - `Trailers{id, headers}` carries the trailing header block, separate from final headers.
 - `Complete{id}` follows the final chunk or header event when END_STREAM arrives. HEADERS with END_STREAM emits `Headers` then `Complete`. Trailers emit `Trailers` then `Complete`.
 
-This separation follows [Rust h2's response head, DATA stream, and trailers](https://docs.rs/h2/latest/h2/struct.RecvStream.html). Each event has an ID because one receive can advance several streams. Buffered callers must collect their own headers and chunks until `Complete`. Flow-control credit is returned when DATA enters the event list, not when the caller consumes it. Bound socket reads and event queues to apply backpressure.
+This separation follows [Rust h2's response head, DATA stream, and trailers](https://docs.rs/h2/latest/h2/struct.RecvStream.html). Each event has an ID because one receive can advance several streams. Buffered callers must collect their own headers and chunks until `Complete`.
 
-`client.cancel(client, id)` cancels an active stream. It emits one RST_STREAM with CANCEL code `8`, removes that stream and its queued upload, and keeps other streams and connection state. Send the returned write before you return the session to a pool. Cancellation emits no response event. Unknown or already-completed IDs return `Failed` with STREAM_CLOSED. In-flight DATA on a closed stream is discarded but returns connection credit. In-flight header blocks still update HPACK, including a continuation that was pending at cancellation.
+After you consume or discard a chunk, call `client.release_capacity(client, id, capacity)`. This follows [Rust h2's release_capacity model](https://docs.rs/h2/latest/h2/struct.FlowControl.html#method.release_capacity). You may release part of the capacity or combine consumed chunks from the same stream. Never release capacity for bytes still queued for a consumer. Include padding in the total release, even for a padding-only frame. Keep the returned client and send its writes before the next socket read.
+
+Receiving DATA does not emit WINDOW_UPDATE. Outstanding counts reduce both receive windows. Release emits connection credit and, while the stream is active, stream credit. After `Complete`, outstanding capacity remains releasable but emits connection credit only. A zero release emits nothing. Releasing more than the stream's outstanding capacity returns a stream-scoped PROTOCOL_ERROR, so duplicate releases cannot inflate a window. Bound socket reads and event queues as well.
+
+`client.cancel(client, id)` cancels an active stream. It emits RST_STREAM with CANCEL code `8`, removes that stream and its queued upload, and returns all outstanding connection credit. It does not return stream credit or revive the stream. Cancellation invalidates the capacity of its queued chunks: discard them without another release. Peer RST_STREAM and streams rejected by GOAWAY follow the same credit rule. Send all returned writes before you return the session to a pool. Cancellation emits no response event. Unknown or already-completed IDs return `Failed` with STREAM_CLOSED. In-flight DATA on a closed stream is discarded and returns connection credit immediately. In-flight header blocks still update HPACK, including a continuation that was pending at cancellation.
 
 `Reset`, `Shutdown`, and `Pong` report peer RST_STREAM, GOAWAY, and PING ACK. `client.ping.request(client, payload)` sends an eight-octet PING. Request DATA pauses when either flow-control window is empty. It resumes when the peer increases that window. GOAWAY prevents new requests but lets earlier streams finish.
 

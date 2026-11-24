@@ -321,8 +321,11 @@ type Control is Data:
     send_window: U32, recv_window: U32, first: Bool, ack: Bool,
     continuation: Maybe<&2, U32>, goaway: Maybe<&2, U32>}
 
+type ReceiveCredit is Data:
+  ReceiveCredit{id: U32, count: U32}
+
 type Input is Type:
-  Input{frames: Bytes.Bytes, discard: Bytes.Bytes}
+  Input{frames: Bytes.Bytes, discard: Bytes.Bytes, pending: List<&2, ReceiveCredit>}
 
 type Client is Type:
   Client{input: Input, streams: List<&1, Stream>,
@@ -331,7 +334,7 @@ type Client is Type:
 type ClientEvent is Type:
   Informational{id: U32, headers: List<&2, Hpack.Field>}
   Headers{id: U32, headers: List<&2, Hpack.Field>}
-  Chunk{id: U32, bytes: Bytes.Bytes}
+  Chunk{id: U32, bytes: Bytes.Bytes, capacity: U32}
   Trailers{id: U32, headers: List<&2, Hpack.Field>}
   Complete{id: U32}
   Reset{id: U32, code: U32}
@@ -343,7 +346,7 @@ type Reply is Type:
   Failed{error: Error}
 
 def client.start() -> Client & Bytes.Bytes:
-  (Client{Input{Bytes.new(0), Bytes.new(0)}, Nil{}, Hpack.new(4096), Hpack.new(4096),
+  (Client{Input{Bytes.new(0), Bytes.new(0), Nil{}}, Nil{}, Hpack.new(4096), Hpack.new(4096),
     Control{1, 0, 16384, 65535, None{}, 65535, 65535, True{}, True{}, None{}, None{}}},
     Bytes.append(Bytes.from_string("PRI * HTTP/2.0\u{d}\u{a}\u{d}\u{a}SM\u{d}\u{a}\u{d}\u{a}"),
       Bytes.set.u16be(Bytes.set(Bytes.set(Bytes.new(15), 2, 6), 3, 4), 9, 2)))
@@ -831,14 +834,91 @@ def client.window.stream.handle(+value: U32, s: Stream, tail: List<&1, Stream>,
     Stream{id, send_window, recv_window, local_end, remote_end, head, partial, outgoing},
     tail, input, encoder, decoder, control)
 
+def client.credit.get(xs: List<&2, ReceiveCredit>, +target: U32) -> U32:
+  match xs:
+    case Nil{}:
+      0
+    case Con{ReceiveCredit{+id, count}, rest}:
+      (Bool.pick(U32, U32.is_eq(id, target), count, 0) +
+        client.credit.get(rest, target) : U32)
+
+def client.credit.set.keep(keep: Bool, id: U32, count: U32,
+    rest: List<&2, ReceiveCredit>) -> List<&2, ReceiveCredit>:
+  match keep:
+    case True{}:
+      Con{ReceiveCredit{id, count}, rest}
+    case False{}:
+      rest
+
+def client.credit.set(xs: List<&2, ReceiveCredit>, +target: U32, +amount: U32) -> List<&2, ReceiveCredit>:
+  match xs:
+    case Nil{}:
+      client.credit.set.keep(U32.is_ne(amount, 0), target, amount, Nil{})
+    case Con{ReceiveCredit{+id, count}, rest}:
+      client.credit.set.keep(U32.is_ne(id, target), id, count,
+        client.credit.set(rest, target, amount))
+
+def client.credit.total(xs: List<&2, ReceiveCredit>) -> U32:
+  match xs:
+    case Nil{}:
+      0
+    case Con{ReceiveCredit{id, count}, rest}:
+      (count + client.credit.total(rest) : U32)
+
+def client.credit.packet(+id: U32, count: U32, c: Client) -> Reply:
+  client.write(client.frame(encode(16384,
+    Frame{8, 0, id, Bytes.set.u32be(Bytes.new(4), 0, count)})), c)
+
+def client.credit.found(m: Maybe<&1, Stream>, tail: List<&1, Stream>, +id: U32,
+    +count: U32, input: Input, encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
+  match m:
+    case None{}:
+      client.credit.packet(0, count, Client{input, tail, encoder, decoder, control})
+    case Some{s}:
+      client.after(client.credit.packet(0, count,
+        Client{input, Con{s, tail}, encoder, decoder, control}), next => writes => events =>
+          client.after(client.credit.packet(id, count, next), done => extra => more =>
+            Advanced{done, List.append(&1, Bytes.Bytes, writes, extra), Nil{}}))
+
+def client.credit.release(count: U32, +id: U32, c: Client) -> Reply:
+  match count:
+    case 0:
+      client.ok(c)
+    case +amount:
+      Client{input, streams, encoder, decoder, control} = c
+      client.streams.go(streams, False{}, None{}, id, m => tail =>
+        client.credit.found(m, tail, id, amount, input, encoder, decoder, control))
+
+def client.credit.release_all(c: Client, +id: U32) -> Reply:
+  Client{Input{frames, discard, +pending}, streams, encoder, decoder, control} = c
+  client.credit.release(client.credit.get(pending, id), id,
+    Client{Input{frames, discard, client.credit.set(pending, id, 0)},
+      streams, encoder, decoder, control})
+
+def client.credit.checked(valid: Bool, c: Client, +id: U32, +amount: U32) -> Reply:
+  match valid:
+    case False{}:
+      client.fail(1, False{}, id)
+    case True{}:
+      Client{Input{frames, discard, +pending}, streams, encoder, decoder, control} = c
+      client.credit.release(amount, id,
+        Client{Input{frames, discard, client.credit.set(pending, id,
+          (client.credit.get(pending, id) - amount : U32))}, streams, encoder, decoder, control})
+
+def client.release_capacity(c: Client, +id: U32, +amount: U32) -> Reply:
+  Client{Input{frames, discard, +pending}, streams, encoder, decoder, control} = c
+  client.credit.checked(U32.is_le(amount, client.credit.get(pending, id)),
+    Client{Input{frames, discard, pending}, streams, encoder, decoder, control}, id, amount)
+
 def client.rst.stream(s: Stream, tail: List<&1, Stream>, +code: U32, input: Input,
     encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
   Stream{+id, send_window, recv_window, local_end, remote_end, head, partial, outgoing} = s
   Control{next, +active, frame_max, initial, max_streams, connection, recv,
     first, ack, continuation, goaway} = control
-  Advanced{Client{input, tail, encoder, decoder,
+  client.after(client.credit.release_all(Client{input, tail, encoder, decoder,
     Control{next, (active - 1 : U32), frame_max, initial, max_streams,
-      connection, recv, first, ack, continuation, goaway}}, Nil{}, [Reset{id, code}]}
+      connection, recv, first, ack, continuation, goaway}}, id),
+    next => writes => events => Advanced{next, writes, [Reset{id, code}]})
 
 def client.cancel.partial.select(selected: Bool, partial: Bytes.Bytes, discard: Bytes.Bytes) -> Bytes.Bytes:
   match selected:
@@ -858,15 +938,17 @@ def client.cancel.partial(continuation: Maybe<&2, U32>, id: U32,
 def client.cancel.stream(s: Stream, tail: List<&1, Stream>, input: Input,
     encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
   Stream{+id, send_window, recv_window, local_end, remote_end, head, partial, outgoing} = s
-  Input{frames, discard} = input
+  Input{frames, discard, pending} = input
   Control{next, +active, frame_max, initial, max_streams, connection, recv,
     first, ack, +continuation, goaway} = control
-  client.write(client.frame(encode(16384,
+  client.after(client.write(client.frame(encode(16384,
     Frame{3, 0, id, Bytes.set.u32be(Bytes.new(4), 0, 8)})),
-    Client{Input{frames, client.cancel.partial(continuation, id, partial, discard)},
+    Client{Input{frames, client.cancel.partial(continuation, id, partial, discard), pending},
       tail, encoder, decoder,
       Control{next, (active - 1 : U32), frame_max, initial, max_streams, connection, recv,
-        first, ack, continuation, goaway}})
+        first, ack, continuation, goaway}}), next => writes => events =>
+          client.after(client.credit.release_all(next, id), done => extra => more =>
+            Advanced{done, List.append(&1, Bytes.Bytes, writes, extra), Nil{}}))
 
 def client.cancel(c: Client, id: U32) -> Reply:
   Client{input, streams, encoder, decoder, control} = c
@@ -902,15 +984,27 @@ def client.goaway.allowed(previous: Maybe<&2, U32>, last: U32) -> Bool:
     case Some{older}:
       U32.is_le(last, older)
 
+def client.goaway.credits(xs: List<&1, ClientEvent>, c: Client) -> Reply:
+  match xs:
+    case Nil{}:
+      client.ok(c)
+    case Con{Reset{+id, code}, rest}:
+      client.after(client.credit.release_all(c, id), next => writes => events =>
+        client.after(client.goaway.credits(rest, next), done => extra => more =>
+          Advanced{done, List.append(&1, Bytes.Bytes, writes, extra), Con{Reset{id, code}, more}}))
+    case Con{event, rest}:
+      client.after(client.goaway.credits(rest, c), done => writes => more =>
+        Advanced{done, writes, Con{event, more}})
+
 def client.goaway.finish(g: Gone, +last: U32, code: U32, input: Input,
     encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
   Gone{remaining, count, events} = g
   Control{next, active, frame_max, initial, max_streams, connection, recv,
     first, ack, continuation, previous} = control
-  Advanced{Client{input, remaining, encoder, decoder,
+  client.after(client.goaway.credits(events, Client{input, remaining, encoder, decoder,
     Control{next, count, frame_max, initial, max_streams, connection, recv,
-      first, ack, continuation, Some{last}}}, Nil{},
-    Con{Shutdown{last, code}, events}}
+      first, ack, continuation, Some{last}}}), next => writes => more =>
+        Advanced{next, writes, Con{Shutdown{last, code}, more}})
 
 def client.goaway.valid(valid: Bool, +last: U32, code: U32, c: Client) -> Reply:
   match valid:
@@ -1120,26 +1214,7 @@ def client.headers.open(end_headers: Bool, +end_stream: Bool, fragment: Bytes.By
     Stream{id, send_window, recv_window, local_end, remote_end, head,
       partial, outgoing}, tail, input, encoder, decoder, control)
 
-def client.data.updates.end(end_stream: Bool, +count: U32, id: U32,
-    connection: Bytes.Bytes) -> Maybe<&1, List<&1, Bytes.Bytes>>:
-  match end_stream:
-    case True{}:
-      Some{[connection]}
-    case False{}:
-      Maybe.map(&1, Bytes.Bytes, List<&1, Bytes.Bytes>,
-        stream => [connection, stream],
-        client.frame(encode(16384, Frame{8, 0, id, Bytes.set.u32be(Bytes.new(4), 0, count)})))
-
-def client.data.updates(+len: U32, end_stream: Bool, +id: U32) -> Maybe<&1, List<&1, Bytes.Bytes>>:
-  match len:
-    case 0:
-      Some{Nil{}}
-    case +count:
-      Maybe.bind(&1, Bytes.Bytes, List<&1, Bytes.Bytes>,
-        client.frame(encode(16384, Frame{8, 0, 0, Bytes.set.u32be(Bytes.new(4), 0, count)})), connection =>
-          client.data.updates.end(end_stream, count, id, connection))
-
-def client.data.content(end_stream: Bool, content: Bytes.Bytes, writes: List<&1, Bytes.Bytes>,
+def client.data.content(end_stream: Bool, content: Bytes.Bytes, capacity: U32,
     s: Stream, tail: List<&1, Stream>, input: Input,
     encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
   match end_stream:
@@ -1149,23 +1224,14 @@ def client.data.content(end_stream: Bool, content: Bytes.Bytes, writes: List<&1,
       Advanced{Client{input,
         Con{Stream{id, send_window, recv_window, local_end, False{}, head,
           partial, outgoing}, tail},
-        encoder, decoder, control}, writes, [Chunk{id, content}]}
+        encoder, decoder, control}, Nil{}, [Chunk{id, content, capacity}]}
     case True{}:
       Stream{+id, send_window, recv_window, local_end, remote_end, head,
         partial, outgoing} = s
       client.after(client.complete(Stream{id, send_window, recv_window, local_end, True{}, head,
         partial, outgoing}, tail, input, encoder, decoder, control),
         next => extra => events =>
-          Advanced{next, List.append(&1, Bytes.Bytes, writes, extra), Con{Chunk{id, content}, events}})
-
-def client.data.content.updated(m: Maybe<&1, List<&1, Bytes.Bytes>>, end_stream: Bool,
-    content: Bytes.Bytes, s: Stream, tail: List<&1, Stream>, input: Input,
-    encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
-  match m:
-    case None{}:
-      client.fail(1, True{}, 0)
-    case Some{writes}:
-      client.data.content(end_stream, content, writes, s, tail, input, encoder, decoder, control)
+          Advanced{next, extra, Con{Chunk{id, content, capacity}, events}})
 
 def client.data.stream.state(open: Bool, available: Bool, +id: U32, +len: U32,
     +end_stream: Bool, content: Bytes.Bytes, s: Stream, tail: List<&1, Stream>,
@@ -1178,18 +1244,22 @@ def client.data.stream.state(open: Bool, available: Bool, +id: U32, +len: U32,
         case False{}:
           client.fail(3, False{}, id)
         case True{}:
-          client.data.content.updated(client.data.updates(len, end_stream, id),
-            end_stream, content, s, tail, input, encoder, decoder, control)
+          Input{frames, discard, +pending} = input
+          client.data.content(end_stream, content, len, s, tail,
+            Input{frames, discard, client.credit.set(pending, id,
+              (client.credit.get(pending, id) + len : U32))}, encoder, decoder, control)
 
 def client.data.stream(+len: U32, end_stream: Bool, content: Bytes.Bytes,
     s: Stream, tail: List<&1, Stream>, input: Input,
     encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
   Stream{+id, send_window, +recv_window, local_end, +remote_end, +head,
     partial, outgoing} = s
-  client.data.stream.state(Bool.and(head, Bool.not(remote_end)), U32.is_le(len, recv_window),
+  Input{frames, discard, +pending} = input
+  client.data.stream.state(Bool.and(head, Bool.not(remote_end)),
+    U32.is_le(len, (recv_window - client.credit.get(pending, id) : U32)),
     id, len, end_stream, content,
     Stream{id, send_window, recv_window, local_end, remote_end, head,
-      partial, outgoing}, tail, input, encoder, decoder, control)
+      partial, outgoing}, tail, Input{frames, discard, pending}, encoder, decoder, control)
 
 def client.continuation.expected(m: Maybe<&2, U32>, +kind: U32, id: U32) -> Bool:
   match m:
@@ -1215,33 +1285,26 @@ def client.closed.decoded(m: Maybe<&1, Hpack.State & List<&2, Hpack.Field>>,
 def client.closed.headers(end_headers: Bool, +id: U32, fragment: Bytes.Bytes, c: Client) -> Reply:
   match end_headers:
     case False{}:
-      Client{Input{input, discard}, streams, encoder, decoder,
+      Client{Input{input, discard, pending}, streams, encoder, decoder,
         Control{next, active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}} = c
-      client.ok(Client{Input{input, client.fragments.join(discard, fragment)}, streams, encoder, decoder,
+      client.ok(Client{Input{input, client.fragments.join(discard, fragment), pending}, streams, encoder, decoder,
         Control{next, active, frame_max, initial, max_streams, connection, recv,
           first, ack, Some{id}, goaway}})
     case True{}:
-      Client{Input{input, discard}, streams, encoder, decoder,
+      Client{Input{input, discard, pending}, streams, encoder, decoder,
         Control{next, active, frame_max, initial, max_streams, connection, recv,
           first, ack, continuation, goaway}} = c
       client.closed.decoded(Hpack.decode(client.fragments.join(discard, fragment), decoder),
-        Input{input, Bytes.new(0)}, streams, encoder,
+        Input{input, Bytes.new(0), pending}, streams, encoder,
         Control{next, active, frame_max, initial, max_streams, connection, recv,
           first, ack, None{}, goaway})
-
-def client.closed.credit(m: Maybe<&1, List<&1, Bytes.Bytes>>, c: Client) -> Reply:
-  match m:
-    case None{}:
-      client.fail(1, True{}, 0)
-    case Some{writes}:
-      Advanced{c, writes, Nil{}}
 
 def client.closed.frame(kind: U32, +flags: U32, +id: U32, payload: Bytes.Bytes, c: Client) -> Reply:
   match kind:
     case 0:
       Bytes.Bytes{len, buf} = payload
-      client.closed.credit(client.data.updates(len, True{}, id), c)
+      client.credit.release(len, 0, c)
     case 1:
       client.closed.headers(has(flags, 4), id, client.fragment(1, flags, payload), c)
     case 9:
@@ -1304,10 +1367,13 @@ def client.route.valid(valid: Bool, kind: U32, flags: U32, +id: U32,
 def client.route(+kind: U32, flags: U32, id: U32, payload: Bytes.Bytes, c: Client) -> Reply:
   Bytes.Bytes{+len, buf} = payload
   Client{input, streams, encoder, decoder, +control} = c
+  Input{frames, discard, +pending} = input
   Control{next, active, frame_max, initial, max_streams, connection, +recv,
     first, ack, continuation, goaway} = control
-  client.route.valid(Bool.or(U32.is_ne(kind, 0), U32.is_le(len, recv)),
-    kind, flags, id, Bytes.Bytes{len, buf}, Client{input, streams, encoder, decoder, control})
+  client.route.valid(Bool.or(U32.is_ne(kind, 0),
+    U32.is_le(len, (recv - client.credit.total(pending) : U32))),
+    kind, flags, id, Bytes.Bytes{len, buf},
+    Client{Input{frames, discard, pending}, streams, encoder, decoder, control})
 
 def client.route.window(id: U32, flags: U32, payload: Bytes.Bytes, c: Client) -> Reply:
   match id:
@@ -1357,12 +1423,12 @@ def client.apply(f: Frame, c: Client) -> Reply:
     payload, Client{input, streams, encoder, decoder, control})
 
 def client.receive.advance(c: Client,
-    k: Decode -> Bytes.Bytes -> List<&1, Stream> -> Hpack.State -> Hpack.State -> Control -> Reply) -> Reply:
+    k: Decode -> Bytes.Bytes -> List<&2, ReceiveCredit> -> List<&1, Stream> -> Hpack.State -> Hpack.State -> Control -> Reply) -> Reply:
   Client{input, streams, encoder, decoder, control} = c
-  Input{frames, discard} = input
-  k(parse(16384, frames), discard, streams, encoder, decoder, control)
+  Input{frames, discard, pending} = input
+  k(parse(16384, frames), discard, pending, streams, encoder, decoder, control)
 
-def client.receive.go(n: Nat, d: Decode, discard: Bytes.Bytes, streams: List<&1, Stream>,
+def client.receive.go(n: Nat, d: Decode, discard: Bytes.Bytes, pending: List<&2, ReceiveCredit>, streams: List<&1, Stream>,
     encoder: Hpack.State, decoder: Hpack.State, control: Control,
     rev_writes: List<&1, Bytes.Bytes>, rev_events: List<&1, ClientEvent>) -> Reply:
   match n:
@@ -1371,24 +1437,24 @@ def client.receive.go(n: Nat, d: Decode, discard: Bytes.Bytes, streams: List<&1,
     case 1n+p:
       match d:
         case Need{input}:
-          Advanced{Client{Input{input, discard}, streams, encoder, decoder, control},
+          Advanced{Client{Input{input, discard, pending}, streams, encoder, decoder, control},
             List.reverse(&1, Bytes.Bytes, rev_writes), List.reverse(&1, ClientEvent, rev_events)}
         case Bad{error}:
           Failed{error}
         case Got{frame, rest}:
-          client.after(client.apply(frame, Client{Input{rest, discard}, streams, encoder, decoder, control}),
+          client.after(client.apply(frame, Client{Input{rest, discard, pending}, streams, encoder, decoder, control}),
             next => writes => events =>
-              client.receive.advance(next, more => discarded => streams2 => enc => dec => ctl =>
-                client.receive.go(p, more, discarded, streams2, enc, dec, ctl,
+              client.receive.advance(next, more => discarded => pending2 => streams2 => enc => dec => ctl =>
+                client.receive.go(p, more, discarded, pending2, streams2, enc, dec, ctl,
                   List.append(&1, Bytes.Bytes, List.reverse(&1, Bytes.Bytes, writes), rev_writes),
                   List.append(&1, ClientEvent, List.reverse(&1, ClientEvent, events), rev_events))))
 
-def client.receive.buffer(b: Bytes.Bytes, discard: Bytes.Bytes, streams: List<&1, Stream>,
+def client.receive.buffer(b: Bytes.Bytes, discard: Bytes.Bytes, pending: List<&2, ReceiveCredit>, streams: List<&1, Stream>,
     encoder: Hpack.State, decoder: Hpack.State, control: Control) -> Reply:
   Bytes.Bytes{+len, buf} = b
-  client.receive.go(1n+U32.to_nat(len), parse(16384, Bytes.Bytes{len, buf}), discard,
+  client.receive.go(1n+U32.to_nat(len), parse(16384, Bytes.Bytes{len, buf}), discard, pending,
     streams, encoder, decoder, control, Nil{}, Nil{})
 
 def client.receive(c: Client, chunk: Bytes.Bytes) -> Reply:
-  Client{Input{input, discard}, streams, encoder, decoder, control} = c
-  client.receive.buffer(Bytes.append(input, chunk), discard, streams, encoder, decoder, control)
+  Client{Input{input, discard, pending}, streams, encoder, decoder, control} = c
+  client.receive.buffer(Bytes.append(input, chunk), discard, pending, streams, encoder, decoder, control)
