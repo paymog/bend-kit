@@ -291,3 +291,55 @@ Per-run subtraction estimates in ms, without clamping:
 | Node | warmed isqrt | 150.429 | 151.003 | 150.971 | 150.971 |
 
 Bun's direct packed loops become faster, but its subtraction estimates increase because identity falls more. Node's warmed identity becomes slower while its isqrt clock stays similar, so its isqrt subtraction estimate falls. This is evidence that loop dispatch and JIT specialization matter; it does not show an arithmetic speed change. No estimate in this batch was negative. All original, packed, warmed, and Bend ownership checksums agree, including the small probe. No library code, laws, imports, or package versions change.
+
+## Controlled JavaScript dispatch and warm-up
+
+The original rows above remain available. The harness now also launches four fresh processes per JavaScript runtime per run: `shared_cold`, `shared_warm`, `direct_cold`, and `direct_warm`. Each process builds the same packed input but skips all original timed rows and their warm-up. To run one mode alone, use `bun stats/bench/bench.ts 2097152 shared_cold` or replace `bun` with `node --no-warnings`. The first argument is the random-pair count; use `16` for the small probe.
+
+Both shared modes measure `packedSum` and its single callback call site. That site belongs to all four operations, not one operation per process. Both direct modes measure four separate loops: identity reads the word directly, and each other loop calls its named integer function directly. The outer driver selects a direct loop once per pass; it does not dispatch a callback per pair. The integer functions and packed inputs are unchanged.
+
+Cold modes run one measured round with no earlier packed pass. Warm modes run three discarded rounds, then one measured round. Every round visits identity, gcd, lcm, and isqrt in that order. Each pass covers the whole input. Warm-up and measurement use the same loop and call sites within each path. Earlier operations can train shared code, including gcd inside lcm, in both cold and warm processes. Thus "cold" means no explicit packed warm-up, not an untrained runtime for every operation.
+
+The four modes run in the order listed above, once per outer run. Each uses a new process and its own allocation. Allocation and warm-up are outside the reported clocks. Each measured clock includes loop traversal, calls, and checksum accumulation. The allocation remains reachable across all passes. Garbage collection and process-to-process noise can still affect a clock. Every warm-up checksum must equal its measured checksum. The harness checks every controlled row against the original packed row, for both the small and full input.
+
+### Results
+
+Command: `python3 stats/bench/run.py 3`, from the repository root. M4 Pro, macOS 26.7.2 (Darwin 25.6.0), arm64, 2026-11-24. Bend 2.0.40, Apple clang 21.0.0 (`-O2`), rustc 1.91.0 (`-C opt-level=3`), Bun 1.4.4, Node 24.0.1, Python 3.14.6. The monitor caps Bend at 20 GB RSS; no process reached the cap.
+
+Three-run medians in ms, over the same 2097207 pairs:
+
+| runtime | op | shared cold | shared warm | direct cold | direct warm |
+|---|---|---:|---:|---:|---:|
+| Bun | identity | 10.693 | 18.362 | 10.710 | 2.121 |
+| Bun | gcd | 818.044 | 802.625 | 817.706 | 802.779 |
+| Bun | checked lcm | 816.316 | 816.847 | 726.114 | 724.639 |
+| Bun | isqrt | 246.133 | 243.237 | 186.989 | 172.334 |
+| Node | identity | 10.476 | 22.367 | 10.558 | 10.463 |
+| Node | gcd | 503.462 | 490.836 | 473.876 | 474.078 |
+| Node | checked lcm | 496.345 | 491.259 | 487.486 | 484.743 |
+| Node | isqrt | 179.296 | 176.070 | 176.233 | 172.577 |
+
+Signed warm-minus-cold deltas in ms. Each delta pairs the two fresh processes from the same outer run. The last column is the median of those deltas, not the difference of the displayed medians.
+
+| runtime | path and op | run 1 | run 2 | run 3 | median |
+|---|---|---:|---:|---:|---:|
+| Bun | shared identity | +7.669 | +14.455 | +6.268 | +7.669 |
+| Bun | shared gcd | -9.144 | -15.424 | +4.945 | -9.144 |
+| Bun | shared checked lcm | +4.747 | +0.531 | +11.373 | +4.747 |
+| Bun | shared isqrt | -2.896 | -3.598 | -1.047 | -2.896 |
+| Bun | direct identity | -9.482 | -8.560 | -1.449 | -8.560 |
+| Bun | direct gcd | -13.777 | -14.927 | -22.060 | -14.927 |
+| Bun | direct checked lcm | -1.584 | -3.948 | -1.475 | -1.584 |
+| Bun | direct isqrt | -17.027 | -9.232 | -14.655 | -14.655 |
+| Node | shared identity | +12.639 | +11.725 | +11.626 | +11.725 |
+| Node | shared gcd | -14.121 | -14.645 | -12.626 | -14.121 |
+| Node | shared checked lcm | -2.064 | -5.321 | -5.086 | -5.086 |
+| Node | shared isqrt | -3.226 | +0.030 | -4.781 | -3.226 |
+| Node | direct identity | -0.385 | +0.141 | -0.095 | -0.095 |
+| Node | direct gcd | -2.383 | -1.238 | +1.674 | -1.238 |
+| Node | direct checked lcm | -2.743 | -3.761 | -1.697 | -2.743 |
+| Node | direct isqrt | -2.967 | -4.828 | -3.571 | -3.571 |
+
+With the loop and callback site held fixed, shared identity becomes slower after the stated warm-up in both runtimes. Bun direct identity instead becomes faster. Bun's warmed direct lcm and isqrt are also faster than its warmed shared path. These path comparisons include loop shape and call-site specialization; they do not identify a particular JIT tier or isolate callback instruction cost. The warm-minus-cold comparison changes only the explicit warm-up schedule within each path, but still includes independent-process noise. A fixed process order does not control thermal or scheduling drift.
+
+The harness also prints signed per-run kernel-minus-identity estimates for all four controlled modes. Those estimates remain traversal-and-dispatch subtraction estimates, not isolated arithmetic clocks. Negative values are not clamped. All six original language lanes, controlled modes, old warmed rows, and Bend ownership rows pass the small and full checksum checks. Controlled identity, gcd, lcm, and isqrt retain checksums `2699619501`, `18047959`, `3181042401`, and `1421540955`. No library code, laws, imports, or package versions change.

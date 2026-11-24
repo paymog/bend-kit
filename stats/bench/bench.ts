@@ -48,6 +48,7 @@ function histogram(v: Float64Array): number {
   return counts.reduce((sum, n, i) => sum + (i + 1) * n, 0);
 }
 
+const control = process.argv[3];
 const v = new Float64Array(10000);
 let x = 44;
 for (let i = 0; i < v.length; i++) {
@@ -55,7 +56,7 @@ for (let i = 0; i < v.length; i++) {
   v[i] = x >>> 12;
 }
 
-for (const [op, f] of [["mean", mean], ["variance", variance], ["median", median], ["histogram", histogram]] as const) {
+if (!control) for (const [op, f] of [["mean", mean], ["variance", variance], ["median", median], ["histogram", histogram]] as const) {
   const t0 = performance.now();
   const r = f(v);
   console.log(`${op}\t${(performance.now() - t0).toFixed(3)}\t${mix(r)}`);
@@ -98,7 +99,7 @@ for (let i = 0; i < n; i++) {
   x = xs(a);
   pairs.push([a, x]);
 }
-for (const [op, f] of [["gcd", gcd], ["lcm", lcm], ["isqrt", isqrt]] as const) {
+if (!control) for (const [op, f] of [["gcd", gcd], ["lcm", lcm], ["isqrt", isqrt]] as const) {
   const t0 = performance.now();
   let checksum = 0;
   for (const [a, b] of pairs) checksum = (checksum + f(a, b)) >>> 0;
@@ -110,7 +111,7 @@ for (let i = 0; i < pairs.length; i++) {
   packed[2 * i] = pairs[i][0];
   packed[2 * i + 1] = pairs[i][1];
 }
-for (const [op, f] of [
+if (!control) for (const [op, f] of [
   ["packed_identity", (a: number, _b: number) => a],
   ["packed_gcd", gcd],
   ["packed_lcm", lcm],
@@ -130,6 +131,55 @@ function packedSum(f: (a: number, b: number) => number): number {
     checksum = (checksum + f(packed[i], packed[i + 1])) >>> 0;
   }
   return checksum;
+}
+
+function directIdentity(): number {
+  let checksum = 0;
+  for (let i = 0; i < packed.length; i += 2) checksum = (checksum + packed[i]) >>> 0;
+  return checksum;
+}
+
+function directGcd(): number {
+  let checksum = 0;
+  for (let i = 0; i < packed.length; i += 2) checksum = (checksum + gcd(packed[i], packed[i + 1])) >>> 0;
+  return checksum;
+}
+
+function directLcm(): number {
+  let checksum = 0;
+  for (let i = 0; i < packed.length; i += 2) checksum = (checksum + lcm(packed[i], packed[i + 1])) >>> 0;
+  return checksum;
+}
+
+function directIsqrt(): number {
+  let checksum = 0;
+  for (let i = 0; i < packed.length; i += 2) checksum = (checksum + isqrt(packed[i], packed[i + 1])) >>> 0;
+  return checksum;
+}
+
+if (control) {
+  if (!["shared_cold", "shared_warm", "direct_cold", "direct_warm"].includes(control)) {
+    throw new Error(`unknown control: ${control}`);
+  }
+  const operations = [
+    ["identity", (a: number, _b: number) => a, directIdentity],
+    ["gcd", gcd, directGcd],
+    ["lcm", lcm, directLcm],
+    ["isqrt", isqrt, directIsqrt],
+  ] as const;
+  const warmChecks = new Map<string, number>();
+  const passes = control.endsWith("_warm") ? 3 : 0;
+  for (let pass = 0; pass <= passes; pass++) {
+    for (const [op, f, direct] of operations) {
+      const t0 = performance.now();
+      const checksum = control.startsWith("shared_") ? packedSum(f) : direct();
+      const elapsed = performance.now() - t0;
+      if (pass > 0 && checksum !== warmChecks.get(op)) throw new Error(`unstable control: ${op}`);
+      warmChecks.set(op, checksum);
+      if (pass === passes) console.log(`${control}_${op}\t${elapsed.toFixed(3)}\t${checksum}`);
+    }
+  }
+  process.exit(0);
 }
 
 const warmed = [
