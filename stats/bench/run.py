@@ -9,6 +9,8 @@ RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 OPS = ["mean", "variance", "median", "histogram", "gcd", "lcm", "isqrt"]
 PACKED = ["packed_identity", "packed_gcd", "packed_lcm", "packed_isqrt"]
 WARM_PACKED = [f"warm_{op}" for op in PACKED]
+CONTROLS = ["shared_cold", "shared_warm", "direct_cold", "direct_warm"]
+CONTROL_OPS = [f"{mode}_{op}" for mode in CONTROLS for op in ["identity", "gcd", "lcm", "isqrt"]]
 BEND_LIST = ["identity_shared", "gcd_shared", "lcm_shared", "isqrt_shared", "identity_release"]
 OPS += PACKED
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
@@ -43,12 +45,14 @@ def parse(text):
 def check_rows(name, result):
     expected = OPS + (BEND_LIST if name == "Bend" else [])
     if name in ("Bun", "Node"):
-        expected += WARM_PACKED
+        expected += WARM_PACKED + CONTROL_OPS
     if set(result) != set(expected):
         sys.exit(f"missing or extra rows: {name}: {set(result) ^ set(expected)}")
     aliases = {f"packed_{op}": op for op in ["gcd", "lcm", "isqrt"]}
     if name in ("Bun", "Node"):
         aliases.update({f"warm_{op}": op for op in PACKED})
+        aliases.update({f"{mode}_{op}": f"packed_{op}"
+                        for mode in CONTROLS for op in ["identity", "gcd", "lcm", "isqrt"]})
     if name == "Bend":
         aliases.update({f"{op}_shared": op for op in ["gcd", "lcm", "isqrt"]})
         aliases.update(identity_shared="packed_identity", identity_release="packed_identity")
@@ -57,9 +61,27 @@ def check_rows(name, result):
             sys.exit(f"diagnostic checksum mismatch: {name}: {op} != {reference}")
 
 
+def execute(name, run, count):
+    r = subprocess.run([*run, str(count)], cwd=HERE, env=ENV, capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"{name} failed:\n{r.stdout}\n{r.stderr}")
+    result = parse(r.stdout)
+    if name in ("Bun", "Node"):
+        for mode in CONTROLS:
+            r = subprocess.run([*run, str(count), mode], cwd=HERE, env=ENV, capture_output=True, text=True)
+            if r.returncode != 0:
+                sys.exit(f"{name} {mode} failed:\n{r.stdout}\n{r.stderr}")
+            control = parse(r.stdout)
+            expected = {f"{mode}_{op}" for op in ["identity", "gcd", "lcm", "isqrt"]}
+            if set(control) != expected:
+                sys.exit(f"missing or extra control rows: {name}: {mode}")
+            result.update(control)
+    return result
+
+
 def main():
     OUT.mkdir(exist_ok=True)
-    table, checks, estimates, deltas = {}, {}, {}, {}
+    table, checks, estimates, deltas, all_runs = {}, {}, {}, {}, {}
     small_checks = None
     for name, (build, run) in VARIANTS.items():
         if build:
@@ -70,23 +92,17 @@ def main():
         for _ in range(RUNS):
             # A small first run checks the edge cases before the timed input.
             if not runs:
-                probe = subprocess.run([*run, "16"], cwd=HERE, env=ENV, capture_output=True, text=True)
-                if probe.returncode != 0:
-                    sys.exit(f"{name} small input failed:\n{probe.stdout}\n{probe.stderr}")
-                small = parse(probe.stdout)
+                small = execute(name, run, 16)
                 check_rows(name, small)
                 current = {op: small[op][1] for op in OPS}
                 if small_checks is None:
                     small_checks = current
                 elif current != small_checks:
                     sys.exit(f"small input checksum mismatch: {name}: {current} != {small_checks}")
-            r = subprocess.run(run, cwd=HERE, env=ENV, capture_output=True, text=True)
-            if r.returncode != 0:
-                sys.exit(f"{name} failed:\n{r.stdout}\n{r.stderr}")
-            runs.append(parse(r.stdout))
+            runs.append(execute(name, run, 2097152))
         measured = OPS + (BEND_LIST if name == "Bend" else [])
         if name in ("Bun", "Node"):
-            measured += WARM_PACKED
+            measured += WARM_PACKED + CONTROL_OPS
         for result in runs:
             check_rows(name, result)
         table[name] = {op: statistics.median(x[op][0] for x in runs) for op in measured}
@@ -102,6 +118,7 @@ def main():
             if any(result[op][1] != checks[name][op] for op in measured):
                 sys.exit(f"unstable checksums: {name}")
         print(f"ran {name}", file=sys.stderr)
+        all_runs[name] = runs
 
     for op in OPS:
         seen = {n: c[op] for n, c in checks.items()}
@@ -143,6 +160,28 @@ def main():
         for op, values in deltas[name].items():
             print(f"| {name} | {op} | " + " | ".join(f"{v:,.3f}" for v in values)
                   + f" | {statistics.median(values):,.3f} |")
+    print("\nControlled fresh-process JavaScript loops (ms):")
+    print("| language | mode | op | median |")
+    print("|---|---|---|---:|")
+    for name in ("Bun", "Node"):
+        for mode in CONTROLS:
+            for op in ["identity", "gcd", "lcm", "isqrt"]:
+                print(f"| {name} | {mode} | {op} | {table[name][f'{mode}_{op}']:.3f} |")
+    print("\nControlled signed deltas (ms; warm minus cold, or kernel minus matching identity):")
+    print("| language | comparison | " + " | ".join(f"run {i + 1}" for i in range(RUNS)) + " | median |")
+    print("|---|---|" + "---:|" * (RUNS + 1))
+    for name in ("Bun", "Node"):
+        comparisons = [
+            (f"{path} warm-cold {op}", f"{path}_warm_{op}", f"{path}_cold_{op}")
+            for path in ("shared", "direct") for op in ["identity", "gcd", "lcm", "isqrt"]
+        ] + [
+            (f"{mode} {op}-identity", f"{mode}_{op}", f"{mode}_identity")
+            for mode in CONTROLS for op in ["gcd", "lcm", "isqrt"]
+        ]
+        for label, left, right in comparisons:
+            values = [result[left][0] - result[right][0] for result in all_runs[name]]
+            print(f"| {name} | {label} | " + " | ".join(f"{v:+.3f}" for v in values)
+                  + f" | {statistics.median(values):+.3f} |")
 
 
 main()
