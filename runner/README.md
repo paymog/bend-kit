@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.20.1.1/runner.bend as R
+import bend-kit-runner@0.20.1.2/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.3`, `bend-kit-scheduler@0.4.4.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.1`, `bend-kit-collections@0.1.6.0`, `bend-kit-files@0.4.0.1`, `bend-kit-encoding@0.5.0.1`, and `bend-kit-bytes@0.3.3.1`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.4.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.20.1.1/runner.bend as R
+import bend-kit-runner@0.20.1.2/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.20.1.1/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.20.1.2/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `Breakers()` is a `collections.HMap<String, Retry.State>`. The breaker proofs use its checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings.
 
@@ -130,9 +130,25 @@ The dead tickets are a `collections` hash trie keyed by ticket id, so `Cancel` a
 
 The record is a u32le tag (1 to 6, 8, 9, 11, or 12), then u64le fields, then the payload for `Enqueue`. An `Abandon` is 28 octets: its id, its why (0 spent, 1 late, 2 unsafe, 3 failed), and its `at`. A `Purge` is tag 11 and `before`; a `PurgeAll` is tag 12. A `Break` is tag 13, then the target as a u32le octet length and UTF-8 octets, then the breaker state: a u32 kind, 0 closed with a u32 count and each failure time as a u64, 1 open with its `until`, or 2 half-open with its probes in flight. An ASCII target uses one octet per char. A ticket's budget is the policy's attempts less its failures, and its deadline is the policy deadline after its first due time. `Select` is journaled so that the replayed queue equals the live one, running list included. A dead ticket is neither pending nor running, so `drain` does not wait for it.
 
-Version 0.19.0.0 changes the journal format. It rejects old tag 10 breaker records and tag 7 snapshots; it does not migrate them. Back up an old journal before upgrade. Drain pending and running tickets with the old runner and handle any dead tickets before starting a new journal, or convert the journal offline with its old payload codec. Preserve breaker states if cooldowns must survive the upgrade. Do not reopen the old path with the new runner.
+Version 0.19.0.0 changes the journal format. Runtime decoding rejects old tag 10 breaker records and tag 7 snapshots. Use the offline converter below, or drain pending and running tickets with the old runner and handle any dead tickets before starting a new journal. Do not reopen the old path with the new runner.
 
 The breakers are part of the durable state, so a reopen restores each target's breaker, and an open breaker keeps its `until`. A `Break` is appended before the attempt that the change admits starts. A half-open breaker's probes died with the old process, so `open` counts none in flight. A closed breaker with failures in its window adds one `Break` for each failure.
+
+### Offline migration
+
+`migrate.py` converts legacy tag 10 breaker records and tag 7 snapshots to tags 13 and 14. It keeps every transition, ticket, retry count, dead-ticket reason, and breaker state. It does not requeue running tickets or reset half-open probes. The new runner does that during its normal crash recovery.
+
+1. Stop every writer and worker for the old journal. Keep them stopped until cutover finishes. Back up the journal and keep the old runner and its payload codec.
+2. Supply a trusted Python file with `decode(data: bytes)` for the old payload format and `encode(value) -> bytes` for the new payload format. Both functions must preserve the payload value and raise an exception on invalid input. The converter calls them for every enqueue and every pending, running, and dead snapshot ticket. It does not guess a codec. If the payload format stays the same, the codec must still decode and encode it explicitly.
+3. Run `python3 runner/migrate.py old.journal new.journal --codec /path/to/payload_codec.py --max-record 1048576`. Set the record cap to fit both journals' largest records, including snapshots. Python 3.9 or later is required. Codec files execute as Python code; do not use an untrusted file.
+4. Check the new journal with your application's new payload decoder before starting workers. Compare its replayed state with the old journal before crash recovery. The regression check does this with `journal.open` and `model.replay.step`, not `runner.open`. Keep the old journal and backup until cutover is verified.
+5. Configure the new runner to use `new.journal`. Keep the original path unchanged. Do not run both runners. On the first open, normal recovery requeues running tickets and resets half-open probes.
+
+The converter opens the source read-only. The destination must not exist; files, symlinks, and the source path are refused. It checks every frame's length complement and CRC-32 and writes fresh framing. It rejects torn or corrupt input instead of silently dropping a suffix. Recover a torn journal with the old runner before conversion, then take a fresh backup.
+
+Output goes to a private temporary file beside the destination. The tool fsyncs that file, links it to the new path without overwriting an existing path, then fsyncs the directory. Before publication, an error or interruption leaves no destination. A hard interruption can leave a `new.journal.migrate-*` temporary file; remove it only after the converter has stopped, then retry with a fresh destination. After publication, the destination is complete even if cleanup or directory sync reports an error. Inspect that destination; never overwrite it on retry.
+
+Run `python3 runner/migrate-test.py` for conversion, CRC, codec, interruption, and pre-recovery Bend replay checks. `scripts/check.sh runner` includes this check. The converter is an offline repository tool; the runtime decoder remains single-format.
 
 ### Compaction
 

@@ -8,6 +8,7 @@ source scripts/verdict.sh
 for d in "$@"; do
   echo "== $d"
   [ "$d" != camber ] || python3 camber/deploy/metadata_check.py
+  [ "$d" != runner ] || python3 runner/migrate-test.py
   (
     cd "$d"
     verdict "$d.bend" ""
