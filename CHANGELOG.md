@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `commands` benchmark: time eight-row bounded reads and overflow rollbacks against small and large unrelated tables in Bend, C, Rust, Bun, and Python. Check ordered row hashes and failed-command retries.
+
 - `http2` 0.6.0.0: add consumption-driven receive credit with partial releases, padded chunk capacity, and connection-only credit after completion or cancellation. Migrate the live consumer.
 
 - `runner` 0.20.1.2: add an offline legacy-journal converter with caller-supplied payload codecs. Preserve the source, validate CRC framing, and publish the new path only after conversion finishes.

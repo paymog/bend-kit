@@ -53,6 +53,48 @@ function pass(want: number): number {
   return h;
 }
 
+function rangeHandle(id: string, limit: number): number {
+  begin.run();
+  if (find.get(id)) throw new Error("range command already recorded");
+  const scan = db.prepare<{ k: Uint8Array; v: Uint8Array }, [Buffer, Buffer]>("SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k");
+  const rows: { k: Uint8Array; v: Uint8Array }[] = [];
+  for (const row of scan.iterate(Buffer.from("pick_"), Buffer.from("pick`"))) {
+    if (rows.length === limit) {
+      scan.finalize();
+      db.run("ROLLBACK");
+      return 18;
+    }
+    rows.push(row);
+  }
+  scan.finalize();
+  let h = 0;
+  for (const { k, v } of rows) {
+    for (const b of Buffer.concat([k, Buffer.from("="), v, Buffer.from(";")])) h = (Math.imul(h, 31) + b) >>> 0;
+  }
+  keep.run(id, Buffer.from(String(limit)), 1, Buffer.from(String(h)), 200);
+  commit.run();
+  return h;
+}
+
+function ranges(count: number, label: string) {
+  for (const table of ["commands_rows", "commands_seen", "commands_outbox"]) db.run(`DELETE FROM ${table}`);
+  db.run("INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<7) SELECT CAST('pick_'||i AS BLOB), CAST(i+1 AS BLOB) FROM n");
+  db.run(`INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<${count-1}) SELECT CAST('z_'||i AS BLOB), CAST('100' AS BLOB) FROM n`);
+  for (const overflow of [false, true]) {
+    let h = 0;
+    const start = performance.now();
+    for (let i = 0; i < n; i++) {
+      const r = rangeHandle(overflow ? "overflow" : `range_${i}`, overflow ? 7 : 8);
+      if (overflow && r !== 18) throw new Error("overflow reached decide");
+      h = (Math.imul(h, 31) + r) >>> 0;
+    }
+    console.log(`${overflow ? "overflow" : "range"}_${label}\t${(performance.now()-start).toFixed(3)}\t${h}`);
+  }
+  if (db.query<{ n: number }, []>("SELECT count(*) AS n FROM commands_seen").get()!.n !== n ||
+      db.query<{ n: number }, []>("SELECT count(*) AS n FROM commands_outbox").get()!.n !== 0) throw new Error("overflow committed");
+  if (rangeHandle("overflow", 8) === 18) throw new Error("range retry failed");
+}
+
 let t0 = performance.now();
 pass(1);
 let t1 = performance.now();
@@ -61,4 +103,6 @@ t0 = performance.now();
 const h = pass(2);
 t1 = performance.now();
 console.log(`replay\t${(t1 - t0).toFixed(3)}\t${h}`);
+ranges(100, "small");
+ranges(100000, "large");
 db.close();

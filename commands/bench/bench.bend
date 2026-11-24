@@ -77,6 +77,98 @@ def args(xs: List<String>) -> String & U32:
     case _:
       ("out/bend.db", 10000)
 
+def range.keys(p: Bytes.Bytes) -> C.Read:
+  C.Range{Bytes.from_string("pick_"), Bytes.from_string("pick`"), num(p)}
+
+def range.text(rs: List<C.Row>) -> String:
+  match rs:
+    case Nil{}:
+      ""
+    case Con{C.Row{k, Some{v}}, rest}:
+      Bytes.to_string(k) ++ "=" ++ Bytes.to_string(v) ++ ";" ++ range.text(rest)
+    case _:
+      "missing"
+
+def range.hash(s: String, +h: U32) -> U32:
+  match s:
+    case SNil{}:
+      h
+    case SCon{Chr{c}, rest}:
+      range.hash(rest, (h * 31 + c : U32))
+
+def range.decide(rs: List<C.Row>, p: Bytes.Bytes) -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>:
+  M.Accept{[], Bytes.u32.show(range.hash(range.text(rs), 0)), []}
+
+def range.reply(r: Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>) -> IO(U32):
+  match r:
+    case Fail{(code, msg)}:
+      match code:
+        case 18:
+          IO.pure(U32, 18)
+        case _:
+          IO.die(U32, 1, msg)
+    case Done{x}:
+      IO.die(U32, 1, "overflow reached decide or committed")
+
+def range.run(n: Nat, +st: C.Store, +overflow: Bool, +i: U32, +h: U32) -> IO(U32):
+  match n:
+    case 0n:
+      IO.pure(U32, h)
+    case 1n+p:
+      match overflow:
+        case True{}:
+          do IO<U32>:
+            r : Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>> <- C.handle(~range.keys, ~range.decide, st, "overflow", Bytes.from_string("7"), 200)
+            v : U32 <- range.reply(r)
+            range.run(p, st, True{}, (i + 1 : U32), (h * 31 + v : U32))
+        case False{}:
+          do IO<U32>:
+            r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~range.keys, ~range.decide, st, "range_" ++ U32.show(i), Bytes.from_string("8"), 200))
+            v : U32 <- result(True{}, r)
+            range.run(p, st, False{}, (i + 1 : U32), (h * 31 + v : U32))
+
+def range.seed(st: C.Store, count: U32) -> IO(Unit):
+  C.Store{+db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  do IO<Unit>:
+    IO.try(Unit, C.sql(db, "DELETE FROM commands_rows"))
+    IO.try(Unit, C.sql(db, "DELETE FROM commands_seen"))
+    IO.try(Unit, C.sql(db, "DELETE FROM commands_outbox"))
+    IO.try(Unit, C.sql(db, "INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<7) SELECT CAST('pick_'||i AS BLOB), CAST(i+1 AS BLOB) FROM n"))
+    IO.try(Unit, C.sql(db, "INSERT INTO commands_rows WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM n WHERE i<" ++ U32.show((count - 1 : U32)) ++ ") SELECT CAST('z_'||i AS BLOB), CAST('100' AS BLOB) FROM n"))
+
+def range.ok(b: Bool) -> IO(Unit):
+  match b:
+    case True{}:
+      IO.pure(Unit, Unit{})
+    case False{}:
+      IO.die(Unit, 1, "overflow committed a record or an effect")
+
+def range.check(st: C.Store, +n: U32) -> IO(Unit):
+  C.Store{+db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  do IO<Unit>:
+    +q : U32 <- IO.try(U32, S.stmt.prepare(db, "SELECT (SELECT count(*) FROM commands_seen), (SELECT count(*) FROM commands_outbox)"))
+    row : Bool <- IO.try(Bool, S.stmt.step(q))
+    records : U32 <- IO.try(U32, S.stmt.column.int(q, 0))
+    effects : U32 <- IO.try(U32, S.stmt.column.int(q, 1))
+    range.ok(U32.is_eq(records, n) && U32.is_eq(effects, 0))
+    IO.try(Unit, S.stmt.finalize(q))
+
+def range.bench(+st: C.Store, +n: U32, count: U32, +label: String) -> IO(Unit):
+  do IO<Unit>:
+    range.seed(st, count)
+    t0 : Time.Duration <- Time.mono()
+    h : U32 <- range.run(U32.to_nat(n), st, False{}, 0, 0)
+    t1 : Time.Duration <- Time.mono()
+    lap("range_" ++ label, t0, t1, h)
+    t2 : Time.Duration <- Time.mono()
+    h2 : U32 <- range.run(U32.to_nat(n), st, True{}, 0, 0)
+    t3 : Time.Duration <- Time.mono()
+    lap("overflow_" ++ label, t2, t3, h2)
+    range.check(st, n)
+    r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~range.keys, ~range.decide, st, "overflow", Bytes.from_string("8"), 200))
+    v : U32 <- result(True{}, r)
+    return Unit{}
+
 def bench(+st: C.Store, +n: U32) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
@@ -88,6 +180,8 @@ def bench(+st: C.Store, +n: U32) -> IO(Unit):
     +h : U32 <- run(U32.to_nat(n), False{}, st, 0, 1, 0)
     t3 : Time.Duration <- Time.mono()
     lap("replay", t2, t3, h)
+    range.bench(st, n, 100, "small")
+    range.bench(st, n, 100000, "large")
     IO.try(Unit, C.close(st))
 
 def version() -> IO(Unit):

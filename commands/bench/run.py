@@ -8,7 +8,7 @@ OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 N = sys.argv[2] if len(sys.argv) > 2 else "10000"
 FILE = len(sys.argv) > 3 and sys.argv[3] == "file"
-OPS = ("fresh", "replay")
+OPS = ("fresh", "replay", "range_small", "overflow_small", "range_large", "overflow_large")
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 DB = OUT / "bench.db" if FILE else ":memory:"
 
@@ -59,6 +59,15 @@ def main():
 
     if len(set(checks.values())) != 1:
         sys.exit(f"checksum mismatch: {checks}")
+    row_hash = 0
+    for byte in b"".join(f"pick_{i}={i+1};".encode() for i in range(8)):
+        row_hash = (row_hash * 31 + byte) & 0xFFFFFFFF
+    for op in OPS[2:]:
+        expected = 0
+        for _ in range(int(N)):
+            expected = (expected * 31 + (18 if op.startswith("overflow") else row_hash)) & 0xFFFFFFFF
+        if int(next(iter(checks.values()))[OPS.index(op)]) != expected:
+            sys.exit(f"{op}: expected checksum {expected}, got {checks}")
     for op, c in zip(OPS, next(iter(checks.values()))):
         print(f"{op} checksum {c}", file=sys.stderr)
 
@@ -72,6 +81,10 @@ def main():
             f"| {name} | {libs[name]} | {f:,.1f} | {n / (f / 1000):,.0f} | {f / best['fresh']:.1f}x"
             f" | {r:,.1f} | {n / (r / 1000):,.0f} | {r / best['replay']:.1f}x |"
         )
+    print("\n| variant | range small ms | overflow small ms | range large ms | overflow large ms |")
+    print("|---|---:|---:|---:|---:|")
+    for name, t in table.items():
+        print(f"| {name} | " + " | ".join(f"{t[op]:.3f}" for op in OPS[2:]) + " |")
 
 
 if __name__ == "__main__":
