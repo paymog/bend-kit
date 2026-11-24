@@ -389,6 +389,7 @@ type Loop<-A: Data> is Data:
 type LoopEvent is Data:
   Claim{now: Nat}
   Finish{id: Nat}
+  CancelFlight{id: Nat}
 
 def loop.pool(-A: Data, s: Loop<A>) -> Res.Pool:
   Loop{p, s, fs} = s
@@ -429,6 +430,8 @@ def loop.step(~A: Data, e: LoopEvent, s: Loop<A>) -> Loop<A>:
       loop.claim(~A, pick(~A, p, s, now), s, fs, now)
     case Finish{+i} Loop{p, s, fs}:
       loop.finished(~A, Q.take.list(A, fs, i), p, s, i)
+    case CancelFlight{+i} Loop{p, s, fs}:
+      Loop{p, step(~A, s, Cancel{i}), fs}
 
 def loop.fold(~A: Data, es: List<&2, LoopEvent>, s: Loop<A>) -> Loop<A>:
   match es:

@@ -145,7 +145,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.4.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
 | [`resources`](resources) | `bend-kit-resources@0.1.0.0/resources.bend` | Bounded capacity pools with affine reservations: reserve, release, split, and combine. |
 | [`journal`](journal) | `bend-kit-journal@0.3.1.3/journal.bend` | An append-only journal: checksummed frames, fsync'd appends, and proven crash recovery of the committed prefix. |
-| [`runner`](runner) | `bend-kit-runner@0.20.0.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
+| [`runner`](runner) | `bend-kit-runner@0.20.1.0/runner.bend` | A durable job runner: a journaled queue, a bounded pool, retry with dead tickets, a breaker per target, and an inbox for other fibers, with proven replay and journal compaction. |
 | [`planner`](planner) | `bend-kit-planner@0.5.1.0/planner.bend` | Dependency plans with proved order, closure, completeness, true errors, minimal invalidation, and safe reuse, plus a parallel build runner over real commands. |
 | [`commands`](commands) | `bend-kit-commands@0.5.1.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.3.2.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
