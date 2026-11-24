@@ -5,8 +5,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
-BUILD = "--build" in sys.argv
-ARGS = [x for x in sys.argv[1:] if x != "--build"]
+PROFILE = "--profile" in sys.argv
+BUILD = "--build" in sys.argv or PROFILE
+ARGS = [x for x in sys.argv[1:] if x not in ("--build", "--profile")] if __name__ == "__main__" else []
 RUNS = int(ARGS[0]) if ARGS else 3
 PLAIN = int(ARGS[1]) if len(ARGS) > 1 else 1_048_576
 OPS = ("huffman", "fields")
@@ -146,17 +147,21 @@ def dynamic(plain):
 
 def build_bench():
     OUT.mkdir(exist_ok=True)
-    subprocess.run(["bend", "build.bend", "-o", OUT / "build"], cwd=HERE, env=ENV, check=True)
+    source = "profile.bend" if PROFILE else "build.bend"
+    subprocess.run(["bend", source, "-o", OUT / "build"], cwd=HERE, env=ENV, check=True)
     subprocess.run(VARIANTS["C (zlib inflate)"][0], cwd=HERE, env=ENV, check=True)
     print("| plain bytes | Bend build ms | Bend decode ms | build / decode | zlib inflate ms |")
     print("|---:|---:|---:|---:|---:|")
+    stages = ("clock", "codes", "maximum", "count", "next", "reserve", "assign", "batch1000")
+    if PROFILE:
+        print("Stage times (ms) follow each block row in the same order:", ", ".join(stages))
     for size in (1024, 4096, 8192, 16383):
         plain = plain_bytes(size)
         payload, short = dynamic(plain)
         assert zlib.decompress(payload, -15) == plain
         (OUT / "payload.bin").write_bytes(payload)
         (OUT / "short.bin").write_bytes(short)
-        times = {"build": [], "decode": [], "huffman": []}
+        times = {op: [] for op in ("build", "decode", "huffman") + (stages if PROFILE else ())}
         want = str(checksum(plain))
         for _ in range(RUNS):
             for binary in ("build", "c"):
@@ -165,10 +170,12 @@ def build_bench():
                     if line.count("\t") != 2:
                         continue
                     op, ms, result = line.split("\t")
-                    assert result == want, (op, result, want)
+                    assert result == ("8000" if op == "batch1000" else want), (op, result, want)
                     times[op].append(float(ms))
         build, decode, inflate = (statistics.median(times[op]) for op in ("build", "decode", "huffman"))
         print(f"| {size} | {build:.6f} | {decode:.6f} | {build / decode:.2f} | {inflate:.6f} |", flush=True)
+        if PROFILE:
+            print("stages", size, *(f"{statistics.median(times[op]):.6f}" for op in stages), flush=True)
 
 
 def main():
