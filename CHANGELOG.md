@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.20.1.1: prove that every successfully decoded snapshot has a well-formed breaker trie and that recovery preserves it. Document the decoder and recovery invariants.
+
 - `crdt` 0.2.2.1: prove PN-Counter state-order reflexivity, transitivity, valid-state antisymmetry, and merge monotonicity. Distinguish state order from signed-value order in the package README.
 
 - `crdt` 0.2.2.0: add exact PN-Counter reads with unbounded totals and signed `Nat` magnitudes. Keep the checked U32 read unchanged.

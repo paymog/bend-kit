@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.20.1.0/runner.bend as R
+import bend-kit-runner@0.20.1.1/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.3`, `bend-kit-scheduler@0.4.4.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.1`, `bend-kit-collections@0.1.6.0`, `bend-kit-files@0.4.0.1`, `bend-kit-encoding@0.5.0.1`, and `bend-kit-bytes@0.3.3.1`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.4.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.20.1.0/runner.bend as R
+import bend-kit-runner@0.20.1.1/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.20.1.0/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.20.1.1/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `Breakers()` is a `collections.HMap<String, Retry.State>`. The breaker proofs use its checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings.
 
@@ -176,6 +176,8 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 | `rejected_abandon` | A `Rejected` attempt (a client error) gives `Abandon{id, WhyFailed, now}`, so the ticket is dead after one attempt. |
 | `rejected_spares_breaker`, `rejected_keeps_closed` | A `Rejected` attempt moves the target's breaker as a success does, so a run of client errors never opens it. |
 | `transient_abandon` | When `retry.plan` stops a `Transient` failure, the record is `Abandon{id, gave(b), now}`: `WhySpent` when no attempt is left, else `WhyLate`. |
+
+`PROOF.bend` also proves decoder and recovery invariants without new laws. `read.brks` preserves a well-formed breaker accumulator through every successful read. `snapshot.breaker.wf` proves that any bytes which `decode.rec` accepts as a snapshot contain a well-formed breaker trie. It makes no payload round-trip assumption. `calm.breaker.wf` preserves this invariant when recovery resets half-open probes. `snapshot.recovered.breaker.wf` combines both claims, so the recovered state meets `replay_breaker`'s initial-state hypothesis.
 
 `journal`'s `replay` and `roundtrip` laws give the other half of `replay_prefix`: `open` folds exactly the committed records, in order. `scheduler`'s laws give the queue's own behavior, such as `requeue_token`.
 
