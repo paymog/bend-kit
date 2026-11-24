@@ -10,7 +10,7 @@ root = Path(__file__).resolve().parents[1]
 workflow = (root / ".github/workflows/ci.yml").read_text()
 selection = workflow.split("          native=$(\n", 1)[1].split("          )\n", 1)[0]
 script = "native=$(\n" + textwrap.dedent(selection) + '\n)\nprintf "%s" "$native"\n'
-packages = ["commands", "webhooks", "f32array", "bits"]
+packages = ["commands", "webhooks", "f32array", "bits", "hash"]
 cases = [(package, [package]) for package in packages]
 cases += [
     (" ".join(packages), packages),
@@ -24,7 +24,7 @@ for changed, expected in cases:
         env=dict(os.environ, pkgs=changed), capture_output=True, text=True, check=True,
     )
     assert result.stdout.splitlines() == expected, (changed, result.stdout, expected)
-print("PASS macOS native selection: eight changed-package cases")
+print(f"PASS macOS native selection: {len(cases)} changed-package cases")
 
 hairpin = next(line.strip() for line in workflow.splitlines() if 'echo "hairpin=' in line)
 with tempfile.TemporaryDirectory() as tmp:

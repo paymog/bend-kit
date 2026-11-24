@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hash` checks: compare all 64 SipHash-2-4 reference vectors in Bun and native CI. Check byte-string parity and nonzero bytes past each logical length. Keep the six existing laws and the separate benchmark.
+
 - `commands` benchmark: time eight-row bounded reads and overflow rollbacks against small and large unrelated tables in Bend, C, Rust, Bun, and Python. Check ordered row hashes and failed-command retries.
 
 - `http2` 0.6.0.0: add consumption-driven receive credit with partial releases, padded chunk capacity, and connection-only credit after completion or cancellation. Migrate the live consumer.
