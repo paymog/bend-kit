@@ -1,7 +1,7 @@
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-mathlib@0.8.0.0/nat.bend as MNat
-import ./websocket.bend as WS
+import ./pure.bend as WS
 
 def of(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)

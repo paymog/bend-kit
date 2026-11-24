@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `websocket` 0.4.1.5: isolate handshake validation, the frame codec, and message assembly in `pure.bend`. Check all existing laws without foreign effects. Preserve the public WebSocket API.
+
 - `stream` 0.5.0.0: move pure read decisions and chunk validation to `pure.bend`. Keep file and socket effects in `stream.bend`. Preserve all laws and transfer behavior.
 
 - `dns` 0.8.0.0: move the pure codec and host lookup model to `pure.bend`. Keep resolver IO in `dns.bend`. Isolate existing laws and proofs from foreign effects and migrate local callers.
