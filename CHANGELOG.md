@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- CI: use Bend 2.0.40 so new hub packages include their README. A change to a published README needs a new package version.
+
 - `http` local serving smokes: run shared serving, rejection, streamed request, and response writer assertions in native and JavaScript lanes on Linux and macOS arm64.
 
 - `hairpin` checks: hold all eight former listener ports open during native and JavaScript package acceptance on Linux and macOS arm64.
