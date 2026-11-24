@@ -104,10 +104,31 @@ def verified(+path: String, +d: S.Digest) -> S.Run(S.Obj<S.Digest, Unit>):
     pair : U32 & String <- inspect(path, S.Digest.hex(d))
     verified.pair(d, pair)
 
+def error(e: Http.Err) -> String:
+  match e:
+    case Http.ErrUrl{}:
+      "invalid URL"
+    case Http.ErrDns{}:
+      "DNS lookup failed"
+    case Http.ErrConnect{code, why}:
+      "connection failed (" ++ U32.show(code) ++ "): " ++ why
+    case Http.ErrTls{code, why}:
+      "TLS failed (" ++ U32.show(code) ++ "): " ++ why
+    case Http.ErrRead{code, why}:
+      "read failed (" ++ U32.show(code) ++ "): " ++ why
+    case Http.ErrWrite{code, why}:
+      "write failed (" ++ U32.show(code) ++ "): " ++ why
+    case Http.ErrTimeout{}:
+      "timeout"
+    case Http.ErrRedirect{}:
+      "redirect failed"
+    case Http.ErrBad{}:
+      "malformed or unsupported response, or response limit exceeded"
+
 def copy.result(result: Result<&1, &1, Http.Err, Maybe<&1, Http.Body>>) -> Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>:
   match result:
     case Fail{e}:
-      Fail{(5, "storage: HTTP object stream failed")}
+      Fail{(5, "storage: HTTP object stream failed: " ++ error(e))}
     case Done{piece}:
       Done{piece}
 
@@ -196,17 +217,26 @@ def download.received(+dir: String, pair: Http.Pool & Result<&1, &1, Http.Err, H
   (pool, result) = pair
   match result:
     case Fail{e}:
-      IO.pure(Http.Pool & Result<&1, &1, U32 & String, String>, (pool, Fail{(5, "storage: HTTP object request failed")}))
+      IO.pure(Http.Pool & Result<&1, &1, U32 & String, String>, (pool, Fail{(5, "storage: HTTP object request failed: " ++ error(e))}))
     case Done{st}:
       do IO<Http.Pool & Result<&1, &1, U32 & String, String>>:
         opened : Result<&1, &1, U32 & String, String & File> <- S.write.temp(dir ++ "/tmp/http")
         pair : Http.Stream & Result<&1, &1, U32 & String, String> <- download.opened(st, opened)
         download.idle(pool, pair)
 
-def download(base: String, dir: String, d: S.Digest) -> Run(String):
+def download.context(+d: S.Digest, pair: Http.Pool & Result<&1, &1, U32 & String, String>) -> Http.Pool & Result<&1, &1, U32 & String, String>:
+  (pool, result) = pair
+  match result:
+    case Fail{(code, message)}:
+      (pool, Fail{(code, "storage: object " ++ S.Digest.hex(d) ++ ": " ++ message)})
+    case Done{path}:
+      (pool, Done{path})
+
+def download(base: String, dir: String, +d: S.Digest) -> Run(String):
   pool => do IO<Http.Pool & Result<&1, &1, U32 & String, String>>:
     pair : Http.Pool & Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <- Http.pool.open.raw.how(pool, Http.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/objects/" ++ S.Digest.hex(d), Http.set(Http.empty(), "accept-encoding", "identity"), Http.from_string(""), 30000)
-    download.received(dir, Http.pool.stream.only(pair))
+    received : Http.Pool & Result<&1, &1, U32 & String, String> <- download.received(dir, Http.pool.stream.only(pair))
+    return download.context(d, received)
 
 def publish(+tmp: String, path: String, d: S.Digest) -> S.Run(S.Obj<S.Digest, Unit>):
   do S.Run<S.Obj<S.Digest, Unit>>:

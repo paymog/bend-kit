@@ -76,6 +76,19 @@ def failed(-A: Type, result: Result<&1, &1, U32 & String, A>, want: String) -> B
     case Fail{(code, message)}:
       String.starts_with(message, want)
 
+def errors() -> IO(Unit):
+  do IO<Unit>:
+    ok(String.eq(Transport.error(Http.ErrUrl{}), "invalid URL"), "URL error")
+    ok(String.eq(Transport.error(Http.ErrDns{}), "DNS lookup failed"), "DNS error")
+    ok(String.eq(Transport.error(Http.ErrConnect{61, "refused"}), "connection failed (61): refused"), "connection error details")
+    ok(String.eq(Transport.error(Http.ErrTls{7, "certificate"}), "TLS failed (7): certificate"), "TLS error details")
+    ok(String.eq(Transport.error(Http.ErrRead{54, "reset"}), "read failed (54): reset"), "read error details")
+    ok(String.eq(Transport.error(Http.ErrWrite{32, "pipe"}), "write failed (32): pipe"), "write error details")
+    ok(String.eq(Transport.error(Http.ErrTimeout{}), "timeout"), "timeout error")
+    ok(String.eq(Transport.error(Http.ErrRedirect{}), "redirect failed"), "redirect error")
+    ok(String.eq(Transport.error(Http.ErrBad{}), "malformed or unsupported response, or response limit exceeded"), "bad response error")
+    ok(failed(Maybe<&1, Http.Body>, Transport.copy.result(Fail{Http.ErrRead{54, "reset"}}), "storage: HTTP object stream failed: read failed (54): reset"), "stream keeps the HTTP cause")
+
 def matches(root: S.Digest, result: S.Digest & S.Store<S.Digest, S.Blob>) -> IO(Unit):
   (digest, objects) = result
   ok(Cmp.is_eq(S.Digest.cmp(digest, root)), "checkout reconstructs the requested root")
@@ -122,7 +135,7 @@ def happy(+base: String, +dir: String, +root: S.Digest, +events: Chan(Char)) -> 
     matches(root, restored_hash)
     +absent : S.Digest <- IO.try(S.Digest, S.digest(Http.from_string("not an object")))
     missing : Result<&1, &1, U32 & String, U32> <- Transport.sync(base, dir, absent)
-    ok(failed(U32, missing, "storage: HTTP object status 404"), "missing source object fails the sync")
+    ok(failed(U32, missing, "storage: object " ++ S.Digest.hex(absent) ++ ": storage: HTTP object status 404"), "missing source object identifies its digest and status")
     events.check("orc", events)
     exists : Bool <- Files.exists(S.Disk.object(dir, absent))
     ok(Bool.not(exists), "missing object is not written")
@@ -154,7 +167,7 @@ def running(+bad: Bool, +dir: String, +root: S.Digest, +port: U32, +events: Chan
     ok(stopped, "server drains and closes")
     IO.try(Unit, S.Disk.init(dir ++ "/closed"))
     unavailable : Result<&1, &1, U32 & String, U32> <- Transport.sync("http://127.0.0.1:" ++ U32.show(port), dir ++ "/closed", root)
-    ok(failed(U32, unavailable, "storage: HTTP object request failed"), "closed server fails the request")
+    ok(failed(U32, unavailable, "storage: object " ++ S.Digest.hex(root) ++ ": storage: HTTP object request failed: connection failed ("), "closed server identifies its digest and connection cause")
     Chan.close(Char, events)
 
 def started(bad: Bool, dir: String, root: S.Digest, port: U32, events: Chan(Char), result: Unit & Result<&2, &1, Http.StartupError, Http.Server<Context>>) -> IO(Unit):
@@ -179,6 +192,7 @@ def serve(bad: Bool, src: String, dir: String, root: S.Digest) -> IO(Unit):
 
 def run() -> IO(Unit):
   do IO<Unit>:
+    errors()
     +dir : String <- IO.try(String, Files.temp_dir())
     IO.try(Unit, S.Disk.init(dir ++ "/src"))
     IO.try(Unit, S.Disk.init(dir ++ "/dst"))
