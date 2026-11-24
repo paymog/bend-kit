@@ -2,6 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../template.bend as T
+import bend-kit-bytes@0.3.3.1/bytes.bend as B
 
 def N() -> Nat:
   200n
@@ -42,13 +43,17 @@ def fnv(s: String, h: U32) -> U32:
     case SCon{Chr{c}, t}:
       fnv(t, (U32.xor(h, c) * 16777619 : U32))
 
+def output_length(b: B.Bytes) -> Nat:
+  B.Bytes{len, buf} = b
+  U32.to_nat(len)
+
 # Sums the output lengths, so every render is used.
 def run(r: Nat, +nodes: List<&2, T.Node>, +c: Map<&2, T.Value>, acc: Nat) -> Nat:
   match r:
     case 0n:
       acc
     case 1n+p:
-      run(p, nodes, c, Nat.add(acc, String.length(T.render(nodes, c))))
+      run(p, nodes, c, Nat.add(acc, output_length(T.render_bytes(nodes, c))))
 
 def nodes(r: Result<&2, &2, String, List<&2, T.Node>>) -> List<&2, T.Node>:
   match r:
@@ -61,7 +66,7 @@ def main() -> IO(Unit):
   do IO<Unit>:
     +ns : List<&2, T.Node> = nodes(T.parse(SRC()))
     +c : Map<&2, T.Value> = ctx()
-    IO.print("chk\trender\t" ++ U32.show(fnv(T.render(ns, c), 2166136261)))
+    IO.print("chk\trender\t" ++ U32.show(fnv(B.to_string(T.render_bytes(ns, c)), 2166136261)))
     t0 : Time.Duration <- Time.mono()
     len : Nat = run(R(), ns, c, 0n)
     t1 : Time.Duration <- Time.mono()

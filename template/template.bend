@@ -1,5 +1,7 @@
 # Mustache templates: variables, sections, inverted sections, comments, partials, and set delimiters, with HTML escaping on by default.
 import Base
+import bend-kit-encoding@0.5.0.1/encoding.bend as Encoding
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # Bool.pick evaluates both branches; when evaluates only the chosen one.
 def when(-A: Type, c: Bool, t: Unit -> A, e: Unit -> A) -> A:
@@ -558,3 +560,95 @@ def render_text.of(r: Result<&2, &2, String, List<&2, Node>>, ctx: Map<&2, Value
 # parse, then render.
 def render_text(+src: String, ctx: Map<&2, Value>) -> Result<&2, &2, String, String>:
   render_text.of(parse(src), ctx)
+
+def packed.reserve(+s: String, o: Encoding.Out, +factor: U32) -> Encoding.Out:
+  Encoding.Out{buf, +n, w} = o
+  Encoding.Out{Bytes.grow(n, buf, (n + Bytes.count(s, 0) * factor : U32)), n, w}
+
+def packed.text(+s: String, o: Encoding.Out) -> Encoding.Out:
+  Encoding.utf8.encode.go(s, packed.reserve(s, o, 4))
+
+def packed.escaped(s: String, o: Encoding.Out) -> Encoding.Out:
+  match s:
+    case SNil{}:
+      o
+    case SCon{Chr{+c}, t}:
+      packed.escaped(t, Encoding.utf8.encode.go(escape.pick(U32.is_eq(c, 38), U32.is_eq(c, 60), U32.is_eq(c, 62), U32.is_eq(c, 34), U32.is_eq(c, 39), Chr{c}, ""), o))
+
+def packed.string(raw: Bool, +s: String, o: Encoding.Out) -> Encoding.Out:
+  match raw:
+    case True{}:
+      packed.text(s, o)
+    case False{}:
+      packed.escaped(s, packed.reserve(s, o, 6))
+
+def packed.value(raw: Bool, v: Maybe<&2, Value>, o: Encoding.Out) -> Encoding.Out:
+  match v:
+    case Some{VStr{+s}}:
+      packed.string(raw, s, o)
+    case Some{VBool{b}}:
+      packed.text(Bool.pick(String, b, "true", "false"), o)
+    case _:
+      o
+
+def packed.resume.at(+n: U32, +r: U32, p: Array<U32> & U32) -> Encoding.Out:
+  (buf, w) = p
+  Encoding.Out{Array.set(U32, buf, (n >> 2n : U32), 0), n, U32.shln(w, U32.to_nat(((4 - r) * 8 : U32)))}
+
+def packed.resume.if(full: Bool, +n: U32, buf: Array<U32>) -> Encoding.Out:
+  match full:
+    case True{}:
+      Encoding.Out{buf, n, 0}
+    case False{}:
+      packed.resume.at(n, (n .&. 3 : U32), Array.get(U32, buf, (n >> 2n : U32)))
+
+def packed.resume(b: Bytes.Bytes) -> Encoding.Out:
+  Bytes.Bytes{+n, buf} = b
+  packed.resume.if(U32.is_eq((n .&. 3 : U32), 0), n, buf)
+
+def packed.trim.got(r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes:
+  (old, trimmed) = r
+  trimmed
+
+def packed.trim.pick(cut: Bool, b: Bytes.Bytes, +n: U32, +i: U32) -> Bytes.Bytes:
+  match cut:
+    case False{}:
+      b
+    case True{}:
+      packed.trim.got(Bytes.slice(b, 0, (n - i : U32)))
+
+def packed.trim.suffix(+ind: String, +n: U32, r: Bytes.Bytes & Bool) -> Bytes.Bytes:
+  (b, suffix) = r
+  packed.trim.pick(suffix, b, n, Bytes.count(ind, 0))
+
+def packed.trim(+ind: String, b: Bytes.Bytes) -> Bytes.Bytes:
+  Bytes.Bytes{+n, buf} = b
+  packed.trim.suffix(ind, n, Bytes.ends_with(Bytes.Bytes{n, buf}, when(String, U32.is_eq(n, Bytes.count(ind, 0)), u => ind, u => "\n" ++ ind)))
+
+def packed.go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool, +ps: Map<&2, List<&2, Node>>, +stack: List<&2, Value>, +ind: String, out: Encoding.Out) -> Encoding.Out:
+  match f nodes items iter:
+    case +k +ns Con{it, +more} True{}:
+      packed.go(k, ns, more, True{}, ps, stack, ind, packed.go(k, ns, more, False{}, ps, it <> stack, ind, out))
+    case k ns Nil{} True{}:
+      out
+    case k Nil{} xs False{}:
+      out
+    case +k Con{NText{s}, rest} +xs False{}:
+      packed.go(k, rest, xs, False{}, ps, stack, ind, packed.text(indent(ind, s), out))
+    case +k Con{NVar{p, raw}, rest} +xs False{}:
+      packed.go(k, rest, xs, False{}, ps, stack, ind, packed.value(raw, lookup(p, stack), out))
+    case +k Con{NSec{p, inv, body}, rest} +xs False{}:
+      packed.go(k, rest, xs, False{}, ps, stack, ind, packed.go(k, body, sec.items(inv, lookup(p, stack)), True{}, ps, stack, ind, out))
+    case 0n Con{NPart{n, pi}, rest} +xs False{}:
+      packed.go(0n, rest, xs, False{}, ps, stack, ind, out)
+    case 1n+g Con{NPart{n, pi}, rest} +xs False{}:
+      +i2 = ind ++ pi
+      packed.go(1n+g, rest, xs, False{}, ps, stack, ind, packed.resume(Bytes.append(Encoding.done(out), packed.trim(i2, Encoding.done(packed.go(g, part(ps, n), Nil{}, False{}, ps, stack, i2, packed.text(i2, Encoding.Out{Bytes.alloc(0), 0, 0})))))))
+
+# Render UTF-8 directly into packed bytes, with the same partial rules as render_with.
+def render_bytes_with(nodes: List<&2, Node>, ctx: Map<&2, Value>, partials: Map<&2, List<&2, Node>>) -> Bytes.Bytes:
+  Encoding.done(packed.go(64n, nodes, Nil{}, False{}, partials, [VMap{ctx}], "", Encoding.Out{Bytes.alloc(0), 0, 0}))
+
+# Render UTF-8 directly into packed bytes without partials.
+def render_bytes(nodes: List<&2, Node>, ctx: Map<&2, Value>) -> Bytes.Bytes:
+  render_bytes_with(nodes, ctx, Map.new(&2, List<&2, Node>))
