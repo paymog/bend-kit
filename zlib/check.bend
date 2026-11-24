@@ -183,13 +183,19 @@ def encoder.lazy.tokens(tokens: List<&2, Encode.Token>) -> IO(Unit):
     case Con{Encode.Lit{s}, rest}:
       IO.die(Unit, 1, "lazy match was emitted as literals")
 def encoder.lazy(st: Z.Es) -> IO(Unit):
-  Z.Es{z, tokens, i, n, more} = st
+  Z.Es{z, tokens, i, n, more, len, dist} = st
   encoder.lazy.tokens(tokens)
 
 
+def encoder.lazy.pending(st: Z.Es) -> IO(Unit):
+  Z.Es{z, tokens, +i, +n, more, +len, +dist} = st
+  do IO<Unit>:
+    ok(Bool.and(U32.is_eq(i, 13), Bool.and(U32.is_eq(len, 6), U32.is_eq(dist, 8))), "deferred lazy match")
+    encoder.lazy(Z.es.go(U32.to_nat(n), Z.Es{z, tokens, i, n, more, len, dist}))
+
 def encoder.lazy.input(b: Bytes.Bytes) -> IO(Unit):
   Bytes.Bytes{+n, src} = b
-  encoder.lazy(Z.es.go(U32.to_nat(n), Z.Es{Z.Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, Nil{}, 0, n, True{}}))
+  encoder.lazy.pending(Z.es.go(11n, Z.Es{Z.Lz{src, Array.new(U32, 15n, 0), Array.new(U32, 15n, 0)}, Nil{}, 0, n, True{}, 0, 0}))
 
 def encoder.tree.codes(m: Maybe<&2, List<&2, Bits.Encoding>>) -> IO(Unit):
   match m:

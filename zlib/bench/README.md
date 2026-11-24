@@ -35,20 +35,28 @@ Bend reads the files with `File.read_bytes` so the bytes are not UTF-8 decoded. 
 
 ## Results
 
-M4 Pro, macOS arm64, 2026-11-24. Median of three runs. Times are in ms.
+M4 Pro, macOS arm64, 2026-11-24. Median of five runs on Bend 2.0.40.
 
 | variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |
 |---:|---:|---:|---:|---:|---:|---:|
-| Bun | 7.1 | 591 | 40.2 | 104 | 1,063,003 | 3.95x |
-| Node | 6.3 | 668 | 75.4 | 56 | 1,045,511 | 4.01x |
-| Python | 2.9 | 1,441 | 117.2 | 36 | 1,050,286 | 3.99x |
-| Bend | 96.3 | 44 | 474.7 | 9 | 1,083,353 | 3.87x |
-| Bend (libz) | 3.9 | 1,069 | 118.7 | 35 | 1,050,286 | 3.99x |
+| Bun | 6.8 | 619 | 40.2 | 104 | 1,063,003 | 3.95x |
+| Node | 6.2 | 673 | 75.6 | 55 | 1,045,511 | 4.01x |
+| Python | 2.9 | 1,453 | 117.6 | 36 | 1,050,286 | 3.99x |
+| Bend | 95.0 | 44 | 457.8 | 9 | 1,083,353 | 3.87x |
+| Bend (libz) | 3.9 | 1,073 | 118.2 | 35 | 1,050,286 | 3.99x |
 
 The pure encoder uses lazy matching and dynamic Huffman trees in 32 KiB blocks. It keeps fixed codes when they cost fewer bits. Dynamic headers trim trailing unused lengths and encode runs with symbols 16–18. `run.py` decodes the first output header and reports its exact bit count, including the block prefix, alphabet lengths, run symbols, and extra bits.
 
-The first block header costs **446 bits**, down from **1,338 bits**. Output falls from **1,097,622** to **1,083,353 bytes** (14,269 bytes, 1.3%). The ratio rises from **3.82x** to **3.87x**. Output is 3.1% larger than libz level 6. The previous Bend 2.0.40 run took 466.9 ms; this run takes 474.7 ms. These are separate measurements, not an isolated speed comparison.
+The first block header costs **446 bits**. Output is **1,083,353 bytes**, 3.1% larger than libz level 6.
 
-The 64 KiB smoke run passes. Pure Bend emits 19,032 bytes in 7.6 ms, versus Python's 18,870 bytes in 1.6 ms. Both full-run checksums are 2339964736, and system `gzip -d` accepts `out/bend.gz` and `out/native.gz`.
+### Lazy-match comparison
+
+The before and after runs use the same compiler, corpus, and command: `python3 run.py 5`. Before: commit `16c351e`, Bend 2.0.40, **475.1 ms**. After: Bend 2.0.40, **457.8 ms**, **3.6% less time**. `cmp out/before.gz out/bend.gz` passes: output is byte-for-byte unchanged.
+
+A native `sample` profile (`sample <pid> 2 1 -file out/before.sample`) shows tokenization in `zlib_blocks_go`, including its inlined match searches, and 170 samples in `es_emit`. Sorted-tree insertion appears in only three samples. This is a sampling profile of the whole benchmark, not isolated stage timing. The small tree alphabet does not justify a new tree data structure in this change.
+
+When lazy lookahead wins, the encoder now carries its length and distance into the next step. That step inserts the position into its hash chain but does not search the same candidates again. It still performs the next lazy comparison, so token choice does not change.
+
+The 64 KiB smoke run passes. Pure Bend emits 19,032 bytes in 7.7 ms. Both full-run checksums are 2339964736, and system `gzip -d` accepts `out/bend.gz` and `out/native.gz`.
 
 Versions: Bend 2.0.40, Bun 1.4.4, Node 24.0.1, Python 3.14.6. Python `gzip.compress(..., compresslevel=6)` and Bend's native wrapper both use libz level 6.

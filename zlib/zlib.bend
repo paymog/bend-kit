@@ -908,12 +908,12 @@ def ch.go(fuel: Nat, st: Ch) -> Ch:
           Ch{z, i, c, max, blen, bdist, False{}}
 
 type Es is Type:
-  Es{z: Lz, tokens: List<&2, Encode.Token>, i: U32, n: U32, more: Bool}
+  Es{z: Lz, tokens: List<&2, Encode.Token>, i: U32, n: U32, more: Bool, len: U32, dist: U32}
 
 def es.lit.of(r: Lz & U32, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> Es:
   (z, c) = r
   +j = (i + 1 : U32)
-  Es{z, Con{Encode.Lit{c}, tokens}, j, n, U32.is_lt(j, n)}
+  Es{z, Con{Encode.Lit{c}, tokens}, j, n, U32.is_lt(j, n), 0, 0}
 
 def es.lit(z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> Es:
   es.lit.of(lz.at(z, i), tokens, i, n)
@@ -943,13 +943,24 @@ def es.emit(hit: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, 
     case True{}:
       +j = (i + blen : U32)
       token = es.copy(blen, bdist, cx.go(len.base(), len.extra(), blen, 0, Cx{0, 3, 0}), cx.go(dist.base(), dist.extra(), bdist, 0, Cx{0, 1, 0}))
-      Es{ins.go(bits((blen - 1 : U32)), z, (i + 1 : U32), n), Con{token, tokens}, j, n, U32.is_lt(j, n)}
+      Es{ins.go(bits((blen - 1 : U32)), z, (i + 1 : U32), n), Con{token, tokens}, j, n, U32.is_lt(j, n), 0, 0}
     case False{}:
       es.lit(z, tokens, i, n)
 
+def es.remember(st: Es, len: U32, dist: U32) -> Es:
+  Es{z, tokens, i, n, more, oldlen, olddist} = st
+  Es{z, tokens, i, n, more, len, dist}
+
+def es.lazy.emit(keep: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, blen: U32, bdist: U32, next: U32, dist: U32) -> Es:
+  match keep:
+    case True{}:
+      es.emit(True{}, z, tokens, i, n, blen, bdist)
+    case False{}:
+      es.remember(es.lit(z, tokens, i, n), next, dist)
+
 def es.lazy.pick(st: Ch, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
   Ch{z, j, c, max, +next, d, go} = st
-  es.emit(U32.is_le(next, blen), z, tokens, i, n, blen, bdist)
+  es.lazy.emit(U32.is_le(next, blen), z, tokens, i, n, blen, bdist, next, d)
 
 def es.lazy.chain(r: Array<U32> & U32, src: Array<U32>, prev: Array<U32>, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +blen: U32, +bdist: U32) -> Es:
   (head, +c) = r
@@ -980,24 +991,32 @@ def es.chain(r: Lz & U32, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> E
   +max = Bool.pick(U32, U32.is_lt(room, 258), room, 258)
   es.pick(ch.go(32n, Ch{z, i, c, max, 0, 0, ch.ok(i, c, max, 0)}), tokens, n)
 
-def es.find(short: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32) -> Es:
+# A deferred match was searched before this position joined its hash chain.
+def es.cached(hit: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, len: U32, dist: U32) -> Es:
+  match hit:
+    case True{}:
+      es.pick(Ch{lz.drop(lz.insert(z, i)), i, 0, 0, len, dist, False{}}, tokens, n)
+    case False{}:
+      es.chain(lz.insert(z, i), tokens, i, n)
+
+def es.find(short: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, +len: U32, dist: U32) -> Es:
   match short:
     case True{}:
       es.lit(z, tokens, i, n)
     case False{}:
-      es.chain(lz.insert(z, i), tokens, i, n)
+      es.cached(U32.is_le(3, len), z, tokens, i, n, len, dist)
 
 def es.go(fuel: Nat, st: Es) -> Es:
   match fuel:
     case 0n:
       st
     case 1n+f:
-      Es{z, tokens, +i, +n, more} = st
+      Es{z, tokens, +i, +n, more, len, dist} = st
       match more:
         case True{}:
-          es.go(f, es.find(U32.is_lt((n - i : U32), 3), z, tokens, i, n))
+          es.go(f, es.find(U32.is_lt((n - i : U32), 3), z, tokens, i, n, len, dist))
         case False{}:
-          Es{z, tokens, i, n, False{}}
+          Es{z, tokens, i, n, False{}, len, dist}
 
 def block.fixed(xs: List<&2, Encode.Token>, w: Bits.Writer) -> Bits.Writer:
   match xs:
@@ -1034,7 +1053,7 @@ type Blocks is Type:
   Blocks{z: Lz, w: Bits.Writer, i: U32, n: U32, more: Bool}
 
 def block.out(st: Es, w: Bits.Writer, +start: U32, +n: U32) -> Blocks:
-  Es{z, tokens, +i, end, more} = st
+  Es{z, tokens, +i, end, more, len, dist} = st
   +last = U32.is_eq(i, n)
   Blocks{z, block.emit(U32.is_le((i - start : U32), 128), List.reverse(&2, Encode.Token, tokens), w, Bool.pick(U32, last, 1, 0)), i, n, Bool.not(last)}
 
@@ -1051,7 +1070,7 @@ def blocks.go(fuel: Nat, st: Blocks) -> Bits.Writer:
         case True{}:
           +size = Bool.pick(U32, U32.is_lt((n - i : U32), 32768), (n - i : U32), 32768)
           +end = (i + size : U32)
-          blocks.go(p, block.out(es.go(bits(size), Es{z, Nil{}, i, end, U32.is_lt(i, end)}), w, i, n))
+          blocks.go(p, block.out(es.go(bits(size), Es{z, Nil{}, i, end, U32.is_lt(i, end), 0, 0}), w, i, n))
 
 def deflate.into(w: Bits.Writer, b: Bytes.Bytes) -> Bits.Writer:
   Bytes.Bytes{+n, src} = b

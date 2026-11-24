@@ -4,8 +4,8 @@ DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli.
 
 ```bend
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-zlib@0.6.1.0/zlib.bend as Zlib
-import bend-kit-zlib@0.6.1.0/native.bend as Native
+import bend-kit-zlib@0.7.0.0/zlib.bend as Zlib
+import bend-kit-zlib@0.7.0.0/native.bend as Native
 ```
 
 The codec takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes` 0.3.3.1, `bits` 0.3.0.1, and `hash` 0.3.2.2 from the hub. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` use only this pure graph. `publish.bend` bundles both modules for the hub.
@@ -17,6 +17,8 @@ The codec takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes` 0.3.3.1, `b
 The encoder uses lazy matching with a 32 KiB window and up to 32 hash-chain candidates. It splits the input into 32 KiB blocks and picks fixed or dynamic Huffman codes by their encoded bit cost. Trees have at most 15 bits per code. `gunzip` decodes every gzip member and joins the outputs, as `gzip -d` does. It rejects bytes after a member that do not start another member.
 
 Dynamic headers trim unused trailing lengths and encode repeated lengths with RFC 1951 symbols 16–18. Their code-length alphabet uses at most seven bits per code. Block selection includes every header bit.
+
+When lazy lookahead finds a longer match, the next encoder step reuses that match. It still inserts the position and compares the following match. This removes a repeated chain search without changing the output.
 
 ## Native
 
