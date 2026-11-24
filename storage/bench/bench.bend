@@ -3,6 +3,7 @@ import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ../../time/time.bend as Time
 import ../storage.bend as S
+import ../pure.bend as P
 
 # Octet j of file (d, f) is (d * 31 + f * 7 + j) & 255.
 def fill(n: Nat, b: Bytes.Bytes, +j: U32, +seed: U32) -> Bytes.Bytes:
@@ -37,32 +38,32 @@ def dirs(n: Nat, +d: U32, +k: Nat) -> Input:
     case 1n+p:
       Item{"d" ++ pad(d), files(k, d, 0), dirs(p, (d + 1 : U32), k)}
 
-def prepare(t: Input) -> S.Run(S.Tree<S.Blob>):
+def prepare(t: Input) -> S.Run(P.Tree<P.Blob>):
   match t:
     case File{bytes}:
-      do S.Run<S.Tree<S.Blob>>:
-        blob : S.Blob <- S.Blob.of(bytes)
-        return S.TFile{blob}
+      do S.Run<P.Tree<P.Blob>>:
+        blob : P.Blob <- S.Blob.of(bytes)
+        return P.TFile{blob}
     case End{}:
-      S.Run.pure(S.Tree<S.Blob>, S.TEnd{})
+      S.Run.pure(P.Tree<P.Blob>, P.TEnd{})
     case Item{n, c, r}:
-      do S.Run<S.Tree<S.Blob>>:
-        child : S.Tree<S.Blob> <- prepare(c)
-        rest : S.Tree<S.Blob> <- prepare(r)
-        return S.TItem{n, child, rest}
+      do S.Run<P.Tree<P.Blob>>:
+        child : P.Tree<P.Blob> <- prepare(c)
+        rest : P.Tree<P.Blob> <- prepare(r)
+        return P.TItem{n, child, rest}
 
 # The octets in every file of the loaded tree.
-def total(t: S.Tree<S.Blob>) -> U32:
+def total(t: P.Tree<P.Blob>) -> U32:
   match t:
-    case S.TFile{b}:
-      S.Blob{+len, ws, digest} = b
+    case P.TFile{b}:
+      P.Blob{+len, ws, digest} = b
       len
-    case S.TEnd{}:
+    case P.TEnd{}:
       0
-    case S.TItem{n, c, r}:
+    case P.TItem{n, c, r}:
       (total(c) + total(r) : U32)
 
-def loaded(m: Maybe<&2, S.Tree<S.Blob>>) -> U32:
+def loaded(m: Maybe<&2, P.Tree<P.Blob>>) -> U32:
   match m:
     case None{}:
       0
@@ -70,10 +71,10 @@ def loaded(m: Maybe<&2, S.Tree<S.Blob>>) -> U32:
       total(t)
 
 # Indexes the committed objects, then loads the root back from the index.
-def finish(r: S.Digest & S.Store<S.Digest, S.Blob>) -> String:
+def finish(r: P.Digest & P.Store<P.Digest, P.Blob>) -> String:
   (+root, objs) = r
-  +s = S.Index.of(~S.Digest, ~S.Blob, ~S.Digest.cmp, objs)
-  S.Digest.hex(root) ++ "\t" ++ U32.show(loaded(S.Index.load(~S.Digest, ~S.Blob, ~S.Digest.cmp, S.limit(), s, root)))
+  +s = P.Index.of(~P.Digest, ~P.Blob, ~P.Digest.cmp, objs)
+  P.Digest.hex(root) ++ "\t" ++ U32.show(loaded(P.Index.load(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), s, root)))
 
 def side(args: List<&1, String>) -> U32:
   match args:
@@ -89,8 +90,8 @@ def main() -> IO(Unit):
     +k : Nat = U32.to_nat(side(args))
     raw : Input = dirs(k, 0, k)
     t0 : Time.Duration <- Time.mono()
-    t : S.Tree<S.Blob> <- IO.try(S.Tree<S.Blob>, prepare(raw))
-    r : S.Digest & S.Store<S.Digest, S.Blob> <- IO.try(S.Digest & S.Store<S.Digest, S.Blob>, S.commit(t))
+    t : P.Tree<P.Blob> <- IO.try(P.Tree<P.Blob>, prepare(raw))
+    r : P.Digest & P.Store<P.Digest, P.Blob> <- IO.try(P.Digest & P.Store<P.Digest, P.Blob>, S.commit(t))
     IO.print("chk\tcommit\t" ++ finish(r))
     t1 : Time.Duration <- Time.mono()
     IO.print("ms\tcommit\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))

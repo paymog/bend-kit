@@ -2,6 +2,7 @@ import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-files@0.4.0.1/files.bend as Files
 import ./storage.bend as S
+import ./pure.bend as P
 import ./http_check.bend as HttpCheck
 
 def ok(good: Bool, +name: String) -> IO(Unit):
@@ -22,52 +23,52 @@ def words.eq(a: List<&2, U32>, b: List<&2, U32>) -> Bool:
     case Con{x, xs} Nil{}:
       False{}
 
-def blob.eq(a: S.Blob, b: S.Blob) -> Bool:
-  S.Blob{+la, wa, da} = a
-  S.Blob{+lb, wb, db} = b
-  Bool.and(U32.is_eq(la, lb), Bool.and(words.eq(wa, wb), Cmp.is_eq(S.Digest.cmp(da, db))))
+def blob.eq(a: P.Blob, b: P.Blob) -> Bool:
+  P.Blob{+la, wa, da} = a
+  P.Blob{+lb, wb, db} = b
+  Bool.and(U32.is_eq(la, lb), Bool.and(words.eq(wa, wb), Cmp.is_eq(P.Digest.cmp(da, db))))
 
-def same(a: S.Tree<S.Blob>, b: S.Tree<S.Blob>) -> Bool:
+def same(a: P.Tree<P.Blob>, b: P.Tree<P.Blob>) -> Bool:
   match a b:
-    case S.TFile{x} S.TFile{y}:
+    case P.TFile{x} P.TFile{y}:
       blob.eq(x, y)
-    case S.TEnd{} S.TEnd{}:
+    case P.TEnd{} P.TEnd{}:
       True{}
-    case S.TItem{n, c, r} S.TItem{m, d, t}:
+    case P.TItem{n, c, r} P.TItem{m, d, t}:
       Bool.and(String.eq(n, m), Bool.and(same(c, d), same(r, t)))
     case _ _:
       False{}
 
-def file(s: String) -> IO(S.Tree<S.Blob>):
-  do IO<S.Tree<S.Blob>>:
-    b : S.Blob <- IO.try(S.Blob, S.Blob.string(s))
-    return S.TFile{b}
+def file(s: String) -> IO(P.Tree<P.Blob>):
+  do IO<P.Tree<P.Blob>>:
+    b : P.Blob <- IO.try(P.Blob, S.Blob.string(s))
+    return P.TFile{b}
 
-def item(+n: String, c: S.Tree<S.Blob>, r: S.Tree<S.Blob>) -> S.Tree<S.Blob>:
-  S.TItem{n, c, r}
+def item(+n: String, c: P.Tree<P.Blob>, r: P.Tree<P.Blob>) -> P.Tree<P.Blob>:
+  P.TItem{n, c, r}
 
 # A build output: bin/app, an empty cache directory, lib/libcore.a, and share/doc/README.
 # Each listing is in name order, as list_dir gives it.
-def build(app: String) -> IO(S.Tree<S.Blob>):
-  do IO<S.Tree<S.Blob>>:
-    a : S.Tree<S.Blob> <- file(app)
-    b : S.Tree<S.Blob> <- file("archive\u{0}with\u{0}nul octets")
-    c : S.Tree<S.Blob> <- file("read me\n")
-    return item("bin", item("app", a, S.TEnd{}),
-      item("cache", S.TEnd{},
-      item("lib", item("libcore.a", b, S.TEnd{}),
-      item("share", item("doc", item("README", c, S.TEnd{}), S.TEnd{}),
-      S.TEnd{}))))
+def build(app: String) -> IO(P.Tree<P.Blob>):
+  do IO<P.Tree<P.Blob>>:
+    a : P.Tree<P.Blob> <- file(app)
+    b : P.Tree<P.Blob> <- file("archive\u{0}with\u{0}nul octets")
+    c : P.Tree<P.Blob> <- file("read me\n")
+    return item("bin", item("app", a, P.TEnd{}),
+      item("cache", P.TEnd{},
+      item("lib", item("libcore.a", b, P.TEnd{}),
+      item("share", item("doc", item("README", c, P.TEnd{}), P.TEnd{}),
+      P.TEnd{}))))
 
-def docs() -> IO(S.Tree<S.Blob>):
-  do IO<S.Tree<S.Blob>>:
-    t : S.Tree<S.Blob> <- file("read me\n")
-    return item("share", item("doc", item("README", t, S.TEnd{}), S.TEnd{}), S.TEnd{})
+def docs() -> IO(P.Tree<P.Blob>):
+  do IO<P.Tree<P.Blob>>:
+    t : P.Tree<P.Blob> <- file("read me\n")
+    return item("share", item("doc", item("README", t, P.TEnd{}), P.TEnd{}), P.TEnd{})
 
 def decodes(b: Bytes.Bytes) -> IO(Bool):
   do IO<Bool>:
-    m : Maybe<&2, S.Obj<S.Digest, S.Blob>> <- IO.try(Maybe<&2, S.Obj<S.Digest, S.Blob>>, S.decode(b))
-    return Maybe.is_some(&2, S.Obj<S.Digest, S.Blob>, m)
+    m : Maybe<&2, P.Obj<P.Digest, P.Blob>> <- IO.try(Maybe<&2, P.Obj<P.Digest, P.Blob>>, S.decode(b))
+    return Maybe.is_some(&2, P.Obj<P.Digest, P.Blob>, m)
 
 def hexa() -> String:
   "48332fe667bc51ac4a51ba0efe734441c90def55c60a26d7db275ecbbcf42f15"
@@ -75,29 +76,29 @@ def hexa() -> String:
 def item.bytes(+n: String) -> Bytes.Bytes:
   Bytes.from_string("item " ++ hexa() ++ " " ++ hexa() ++ " " ++ n ++ "\n")
 
-def hex.back(m: Maybe<&2, S.Digest>) -> String:
+def hex.back(m: Maybe<&2, P.Digest>) -> String:
   match m:
     case Some{d}:
-      S.Digest.hex(d)
+      P.Digest.hex(d)
     case None{}:
       ""
 
-def same.digest(a: S.Digest, b: S.Digest) -> Bool:
-  Cmp.is_eq(S.Digest.cmp(a, b))
+def same.digest(a: P.Digest, b: P.Digest) -> Bool:
+  Cmp.is_eq(P.Digest.cmp(a, b))
 
-def file.back(+b: S.Blob, m: Maybe<&2, S.Obj<S.Digest, S.Blob>>) -> Bool:
+def file.back(+b: P.Blob, m: Maybe<&2, P.Obj<P.Digest, P.Blob>>) -> Bool:
   match m:
-    case Some{S.OFile{x}}:
+    case Some{P.OFile{x}}:
       blob.eq(x, b)
     case _:
       False{}
 
 def file.roundtrip(s: String) -> IO(Bool):
   do IO<Bool>:
-    +b : S.Blob <- IO.try(S.Blob, S.Blob.string(s))
-    m : Maybe<&2, S.Obj<S.Digest, S.Blob>> <- IO.try(Maybe<&2, S.Obj<S.Digest, S.Blob>>, S.decode(S.encode(S.OFile{b})))
-    d : S.Digest <- IO.try(S.Digest, S.digest(S.encode(S.OFile{b})))
-    cached : S.Digest <- IO.try(S.Digest, S.object.digest(S.OFile{b}))
+    +b : P.Blob <- IO.try(P.Blob, S.Blob.string(s))
+    m : Maybe<&2, P.Obj<P.Digest, P.Blob>> <- IO.try(Maybe<&2, P.Obj<P.Digest, P.Blob>>, S.decode(P.encode(P.OFile{b})))
+    d : P.Digest <- IO.try(P.Digest, S.digest(P.encode(P.OFile{b})))
+    cached : P.Digest <- IO.try(P.Digest, S.object.digest(P.OFile{b}))
     return Bool.and(file.back(b, m), same.digest(d, cached))
 
 def roundtrips(ss: List<&2, String>) -> IO(Bool):
@@ -134,13 +135,13 @@ def pure() -> IO(Unit):
     ok(short, "file objects decode and cached digests equal SHA-256 of encode")
     headers : Bool <- roundtrips([octets(10n, 0), octets(100n, 0), octets(1000n, 0), octets(4097n, 0)])
     ok(headers, "file hashes and decoding agree for every header length modulo 4")
-    good : Bool <- decoded.all([S.encode(S.OEnd{}), item.bytes("a b")], True{})
+    good : Bool <- decoded.all([P.encode(P.OEnd{}), item.bytes("a b")], True{})
     ok(good, "end and item objects decode")
     names : Bool <- decoded.all([item.bytes(".."), item.bytes("a/b"), item.bytes(""), item.bytes(".")], False{})
     ok(names, "decode refuses names that would leave a restored directory")
     bad : Bool <- decoded.all([Bytes.from_string("item abc " ++ hexa() ++ " x\n"), Bytes.from_string("end\nx"), Bytes.from_string("file 01\nx"), Bytes.from_string("file 2\nx")], False{})
     ok(bad, "decode refuses bad digests, trailing octets, and wrong lengths")
-    ok(String.eq(hex.back(S.Digest.read(hexa())), hexa()) && Bool.not(Maybe.is_some(&2, S.Digest, S.Digest.read("48332FE667BC51AC4A51BA0EFE734441C90DEF55C60A26D7DB275ECBBCF42F15"))) && Bool.not(Maybe.is_some(&2, S.Digest, S.Digest.read("48332fe6"))), "a digest reads back from its hex, and only 64 lowercase hex characters read")
+    ok(String.eq(hex.back(P.Digest.read(hexa())), hexa()) && Bool.not(Maybe.is_some(&2, P.Digest, P.Digest.read("48332FE667BC51AC4A51BA0EFE734441C90DEF55C60A26D7DB275ECBBCF42F15"))) && Bool.not(Maybe.is_some(&2, P.Digest, P.Digest.read("48332fe6"))), "a digest reads back from its hex, and only 64 lowercase hex characters read")
 
 def expect.fail(-A: Type, r: Result<&1, &1, U32 & String, A>, +want: String) -> Bool:
   match r:
@@ -160,72 +161,72 @@ def count(+dir: String) -> IO(U32):
     ns : List<&2, String> <- IO.try(List<&2, String>, Files.list_dir(dir ++ "/objects"))
     return U32.from_nat(List.length(&2, String, ns))
 
-def valid.objects(xs: S.Store<S.Digest, S.Blob>) -> IO(Bool):
+def valid.objects(xs: P.Store<P.Digest, P.Blob>) -> IO(Bool):
   match xs:
-    case S.StNil{}:
+    case P.StNil{}:
       IO.pure(Bool, True{})
-    case S.StCon{d, o, r}:
+    case P.StCon{d, o, r}:
       do IO<Bool>:
-        actual : S.Digest <- IO.try(S.Digest, S.digest(S.encode(o)))
+        actual : P.Digest <- IO.try(P.Digest, S.digest(P.encode(o)))
         rest : Bool <- valid.objects(r)
         return Bool.and(same.digest(d, actual), rest)
 
-def digest.checked(r: S.Digest & S.Store<S.Digest, S.Blob>) -> IO(S.Digest):
+def digest.checked(r: P.Digest & P.Store<P.Digest, P.Blob>) -> IO(P.Digest):
   (d, objects) = r
-  do IO<S.Digest>:
+  do IO<P.Digest>:
     valid : Bool <- valid.objects(objects)
     ok(valid, "every committed object key equals SHA-256 of its encoding")
     return d
 
-def digest.of(t: S.Tree<S.Blob>) -> IO(S.Digest):
-  do IO<S.Digest>:
-    r : S.Digest & S.Store<S.Digest, S.Blob> <- run(S.Digest & S.Store<S.Digest, S.Blob>, S.commit(t))
+def digest.of(t: P.Tree<P.Blob>) -> IO(P.Digest):
+  do IO<P.Digest>:
+    r : P.Digest & P.Store<P.Digest, P.Blob> <- run(P.Digest & P.Store<P.Digest, P.Blob>, S.commit(t))
     digest.checked(r)
 
 def raw(+path: String, +s: String) -> IO(Unit):
   run(Unit, S.write.file(path, Bytes.from_string(s)))
 
-def resend.of(+dir: String, +s: S.Index(S.Digest, S.Blob), +d: S.Digest, m: Maybe<&2, S.Obj<S.Digest, S.Blob>>) -> IO(Bool):
+def resend.of(+dir: String, +s: P.Index(P.Digest, P.Blob), +d: P.Digest, m: Maybe<&2, P.Obj<P.Digest, P.Blob>>) -> IO(Bool):
   match m:
     case None{}:
       IO.pure(Bool, False{})
     case Some{o}:
       do IO<Bool>:
-        u : S.Index(S.Digest, S.Blob) <- run(S.Index(S.Digest, S.Blob), S.Disk.receive(dir, s, d, S.encode(o)))
-        return U32.is_eq(S.Index.size(S.Digest, S.Blob, u), S.Index.size(S.Digest, S.Blob, s))
+        u : P.Index(P.Digest, P.Blob) <- run(P.Index(P.Digest, P.Blob), S.Disk.receive(dir, s, d, P.encode(o)))
+        return U32.is_eq(P.Index.size(P.Digest, P.Blob, u), P.Index.size(P.Digest, P.Blob, s))
 
 # Sends the object under d to the store at dir a second time.
-def resend(+dir: String, +s: S.Index(S.Digest, S.Blob), +d: S.Digest) -> IO(Bool):
-  resend.of(dir, s, d, S.Index.get(~S.Digest, ~S.Blob, ~S.Digest.cmp, s, d))
+def resend(+dir: String, +s: P.Index(P.Digest, P.Blob), +d: P.Digest) -> IO(Bool):
+  resend.of(dir, s, d, P.Index.get(~P.Digest, ~P.Blob, ~P.Digest.cmp, s, d))
 
-def loads.same(x: Maybe<&2, S.Tree<S.Blob>>, y: Maybe<&2, S.Tree<S.Blob>>) -> Bool:
+def loads.same(x: Maybe<&2, P.Tree<P.Blob>>, y: Maybe<&2, P.Tree<P.Blob>>) -> Bool:
   match x y:
     case Some{a} Some{b}:
       same(a, b)
     case _ _:
       False{}
 
-def load.in(+s: S.Index(S.Digest, S.Blob), +d: S.Digest) -> Maybe<&2, S.Tree<S.Blob>>:
-  S.Index.load(~S.Digest, ~S.Blob, ~S.Digest.cmp, S.limit(), s, d)
+def load.in(+s: P.Index(P.Digest, P.Blob), +d: P.Digest) -> Maybe<&2, P.Tree<P.Blob>>:
+  P.Index.load(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), s, d)
 
 # A valid digest that names no object of the build.
-def junk() -> S.Digest:
-  S.Digest{[1, 2, 3, 4, 5, 6, 7, 8]}
+def junk() -> P.Digest:
+  P.Digest{[1, 2, 3, 4, 5, 6, 7, 8]}
 
-def fetched.same(+v1: S.Digest, +f: S.Index(S.Digest, S.Blob), +full: S.Index(S.Digest, S.Blob)) -> IO(Unit):
+def fetched.same(+v1: P.Digest, +f: P.Index(P.Digest, P.Blob), +full: P.Index(P.Digest, P.Blob)) -> IO(Unit):
   do IO<Unit>:
-    ok(U32.is_eq(S.Index.size(S.Digest, S.Blob, f), 12) && U32.is_eq(S.Index.size(S.Digest, S.Blob, full), 15), "a fetch of v1 reads its 12 objects of the 15 in the store")
+    ok(U32.is_eq(P.Index.size(P.Digest, P.Blob, f), 12) && U32.is_eq(P.Index.size(P.Digest, P.Blob, full), 15), "a fetch of v1 reads its 12 objects of the 15 in the store")
     ok(loads.same(load.in(f, v1), load.in(full, v1)), "the fetched index loads v1 as the full index does")
 
 # a holds 15 objects; v1 reaches 12 of them.
-def fetched(+a: String, +v1: S.Digest) -> IO(Unit):
+def fetched(+a: String, +v1: P.Digest) -> IO(Unit):
   do IO<Unit>:
-    f : S.Index(S.Digest, S.Blob) <- run(S.Index(S.Digest, S.Blob), S.Disk.fetch(a, v1))
-    full : S.Index(S.Digest, S.Blob) <- run(S.Index(S.Digest, S.Blob), S.Disk.load(a))
+    f : P.Index(P.Digest, P.Blob) <- run(P.Index(P.Digest, P.Blob), S.Disk.fetch(a, v1))
+    full : P.Index(P.Digest, P.Blob) <- run(P.Index(P.Digest, P.Blob), S.Disk.load(a))
     fetched.same(v1, f, full)
 
 # v2 changes bin/app; collection keeps only v2.
-def collect(+a: String, +v1: S.Digest, +abc: S.Digest, +v2: S.Digest) -> IO(Unit):
+def collect(+a: String, +v1: P.Digest, +abc: P.Digest, +v2: P.Digest) -> IO(Unit):
   do IO<Unit>:
     run(Unit, S.Disk.set_root(a, "v2", v2))
     na2 : U32 <- count(a)
@@ -237,81 +238,81 @@ def collect(+a: String, +v1: S.Digest, +abc: S.Digest, +v2: S.Digest) -> IO(Unit
     ok(expect.fail(U32, refused, "storage: a retained root does not load") && U32.is_eq(na3, 16), "collection with a root that does not load deletes nothing")
     dropped : U32 <- run(U32, S.Disk.collect(a, [v2]))
     ok(U32.is_eq(dropped, 4), "collection deletes the three objects only v1 reaches and a broken object it does not read")
-    t3 : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.Disk.checkout(a, v2))
-    expected : S.Tree<S.Blob> <- build("v2 binary")
+    t3 : P.Tree<P.Blob> <- run(P.Tree<P.Blob>, S.Disk.checkout(a, v2))
+    expected : P.Tree<P.Blob> <- build("v2 binary")
     ok(same(t3, expected), "the retained root survives collection")
-    gone : Result<&1, &1, U32 & String, S.Tree<S.Blob>> <- tries(S.Tree<S.Blob>, S.Disk.checkout(a, v1))
-    ok(expect.fail(S.Tree<S.Blob>, gone, "storage: root " ++ S.Digest.hex(v1) ++ " does not load"), "the collected root no longer loads")
-    roots : List<&2, S.Digest> <- run(List<&2, S.Digest>, S.Disk.roots(a))
-    ok(Nat.is_eq(List.length(&2, S.Digest, roots), 2n), "roots lists both named roots")
+    gone : Result<&1, &1, U32 & String, P.Tree<P.Blob>> <- tries(P.Tree<P.Blob>, S.Disk.checkout(a, v1))
+    ok(expect.fail(P.Tree<P.Blob>, gone, "storage: root " ++ P.Digest.hex(v1) ++ " does not load"), "the collected root no longer loads")
+    roots : List<&2, P.Digest> <- run(List<&2, P.Digest>, S.Disk.roots(a))
+    ok(Nat.is_eq(List.length(&2, P.Digest, roots), 2n), "roots lists both named roots")
 
 # A third store gets everything, then loses one object to tampering and then to deletion.
-def damage(+a: String, +c: String, +v1: S.Digest) -> IO(Unit):
+def damage(+a: String, +c: String, +v1: P.Digest) -> IO(Unit):
   do IO<Unit>:
     sent : U32 <- run(U32, S.sync(a, c, v1))
     ok(U32.is_eq(sent, 12), "a sync into an empty store sends every object")
     raw(S.Disk.object(c, v1), "end\n")
-    tampered : Result<&1, &1, U32 & String, S.Tree<S.Blob>> <- tries(S.Tree<S.Blob>, S.Disk.checkout(c, v1))
-    ok(expect.fail(S.Tree<S.Blob>, tampered, "storage: object " ++ S.Digest.hex(v1) ++ " does not match its digest"), "a tampered object fails the load")
+    tampered : Result<&1, &1, U32 & String, P.Tree<P.Blob>> <- tries(P.Tree<P.Blob>, S.Disk.checkout(c, v1))
+    ok(expect.fail(P.Tree<P.Blob>, tampered, "storage: object " ++ P.Digest.hex(v1) ++ " does not match its digest"), "a tampered object fails the load")
     run(Unit, Files.remove(S.Disk.object(c, v1)))
-    missing : Result<&1, &1, U32 & String, S.Tree<S.Blob>> <- tries(S.Tree<S.Blob>, S.Disk.checkout(c, v1))
-    ok(expect.fail(S.Tree<S.Blob>, missing, "storage: root " ++ S.Digest.hex(v1) ++ " does not load"), "a missing object fails the checkout")
+    missing : Result<&1, &1, U32 & String, P.Tree<P.Blob>> <- tries(P.Tree<P.Blob>, S.Disk.checkout(c, v1))
+    ok(expect.fail(P.Tree<P.Blob>, missing, "storage: root " ++ P.Digest.hex(v1) ++ " does not load"), "a missing object fails the checkout")
 
-def restored(+dir: String, +tb: S.Tree<S.Blob>) -> IO(Unit):
+def restored(+dir: String, +tb: P.Tree<P.Blob>) -> IO(Unit):
   do IO<Unit>:
-    +expected : S.Tree<S.Blob> <- build("v1 binary")
+    +expected : P.Tree<P.Blob> <- build("v1 binary")
     ok(same(tb, expected), "the destination reconstructs the root")
     run(Unit, S.restore(tb, dir ++ "/out"))
-    t2 : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.snapshot(dir ++ "/out"))
+    t2 : P.Tree<P.Blob> <- run(P.Tree<P.Blob>, S.snapshot(dir ++ "/out"))
     ok(same(t2, expected), "a restored checkout matches the original directory")
 
 # b already holds share/doc/README, which v1 also contains.
-def transfer(+dir: String, +a: String, +b: String, +v1: S.Digest, +abc: S.Digest) -> IO(Unit):
+def transfer(+dir: String, +a: String, +b: String, +v1: P.Digest, +abc: P.Digest) -> IO(Unit):
   do IO<Unit>:
-    t : S.Tree<S.Blob> <- docs()
-    seeded : S.Digest <- run(S.Digest, S.Disk.commit(b, t))
+    t : P.Tree<P.Blob> <- docs()
+    seeded : P.Digest <- run(P.Digest, S.Disk.commit(b, t))
     nb : U32 <- count(b)
     sent : U32 <- run(U32, S.sync(a, b, v1))
     ok(U32.is_eq(sent, 7) && U32.is_eq(nb, 5), "sync sends only the 7 objects the destination lacks")
     nb2 : U32 <- count(b)
     ok(U32.is_eq(nb2, 12), "the destination holds its own objects and the sent ones")
-    sb : S.Index(S.Digest, S.Blob) <- run(S.Index(S.Digest, S.Blob), S.Disk.load(b))
+    sb : P.Index(P.Digest, P.Blob) <- run(P.Index(P.Digest, P.Blob), S.Disk.load(b))
     twice : Bool <- resend(b, sb, v1)
     ok(twice, "receiving an object the store holds leaves the store unchanged")
     raw(S.Disk.object(b, junk()), "not an object")
     again : U32 <- run(U32, S.sync(a, b, v1))
     ok(U32.is_eq(again, 0), "a second sync sends nothing and does not read objects outside the closure")
-    tb : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.Disk.checkout(b, v1))
+    tb : P.Tree<P.Blob> <- run(P.Tree<P.Blob>, S.Disk.checkout(b, v1))
     restored(dir, tb)
-    dup : Result<&1, &1, U32 & String, S.Index(S.Digest, S.Blob)> <- tries(S.Index(S.Digest, S.Blob), S.Disk.receive(b, S.Index.new(S.Digest, S.Blob), abc, Bytes.from_string("end\n")))
-    ok(expect.fail(S.Index(S.Digest, S.Blob), dup, "storage: object " ++ S.Digest.hex(abc) ++ " does not match its digest"), "ingress refuses an object whose digest is not the claimed one")
+    dup : Result<&1, &1, U32 & String, P.Index(P.Digest, P.Blob)> <- tries(P.Index(P.Digest, P.Blob), S.Disk.receive(b, P.Index.new(P.Digest, P.Blob), abc, Bytes.from_string("end\n")))
+    ok(expect.fail(P.Index(P.Digest, P.Blob), dup, "storage: object " ++ P.Digest.hex(abc) ++ " does not match its digest"), "ingress refuses an object whose digest is not the claimed one")
 
-def committed(+dir: String, +a: String, +abc: S.Digest, +v1: S.Digest) -> IO(Unit):
+def committed(+dir: String, +a: String, +abc: P.Digest, +v1: P.Digest) -> IO(Unit):
   do IO<Unit>:
     run(Unit, S.Disk.set_root(a, "v1", v1))
     na : U32 <- count(a)
     ok(U32.is_eq(na, 12), "a commit stores each distinct object once: six listings share one end object")
-    t1 : S.Tree<S.Blob> <- build("v1 binary")
-    d1 : S.Digest <- digest.of(t1)
+    t1 : P.Tree<P.Blob> <- build("v1 binary")
+    d1 : P.Digest <- digest.of(t1)
     ok(same.digest(v1, d1), "the root digest depends only on content")
     transfer(dir, a, dir ++ "/b", v1, abc)
     damage(a, dir ++ "/c", v1)
-    t2 : S.Tree<S.Blob> <- build("v2 binary")
-    v2 : S.Digest <- run(S.Digest, S.Disk.commit(a, t2))
+    t2 : P.Tree<P.Blob> <- build("v2 binary")
+    v2 : P.Digest <- run(P.Digest, S.Disk.commit(a, t2))
     collect(a, v1, abc, v2)
 
-def scenario(+dir: String, +abc: S.Digest) -> IO(Unit):
+def scenario(+dir: String, +abc: P.Digest) -> IO(Unit):
   +a = dir ++ "/a"
   do IO<Unit>:
-    ok(String.eq(S.Digest.hex(abc), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), "digest is SHA-256")
-    +expected : S.Tree<S.Blob> <- build("v1 binary")
+    ok(String.eq(P.Digest.hex(abc), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), "digest is SHA-256")
+    +expected : P.Tree<P.Blob> <- build("v1 binary")
     run(Unit, S.restore(expected, dir ++ "/build"))
-    t1 : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.snapshot(dir ++ "/build"))
+    t1 : P.Tree<P.Blob> <- run(P.Tree<P.Blob>, S.snapshot(dir ++ "/build"))
     ok(same(t1, expected), "snapshot reads back the artifact directory that restore wrote")
     run(Unit, S.Disk.init(a))
     run(Unit, S.Disk.init(dir ++ "/b"))
     run(Unit, S.Disk.init(dir ++ "/c"))
-    v1 : S.Digest <- run(S.Digest, S.Disk.commit(a, expected))
+    v1 : P.Digest <- run(P.Digest, S.Disk.commit(a, expected))
     committed(dir, a, abc, v1)
 
 def wrote(pair: File & Result<&1, &1, U32 & String, Unit>) -> IO(File):
@@ -368,15 +369,15 @@ def failures(pair: String & File, +dir: String) -> IO(Unit):
 def concurrent(+dir: String) -> IO(Unit):
   do IO<Unit>:
     run(Unit, S.Disk.init(dir))
-    +d : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("end\n")))
-    interleave(dir, S.Digest.hex(d), S.Disk.object(dir, d), "end\n", "en", "d\n")
-    interleave(dir, "root", dir ++ "/roots/release", S.Digest.hex(d),
+    +d : P.Digest <- run(P.Digest, S.digest(Bytes.from_string("end\n")))
+    interleave(dir, P.Digest.hex(d), S.Disk.object(dir, d), "end\n", "en", "d\n")
+    interleave(dir, "root", dir ++ "/roots/release", P.Digest.hex(d),
       "11111111111111111111111111111111", "11111111111111111111111111111111")
-    final : S.Digest <- run(S.Digest, S.Disk.root(dir, "release"))
-    ok(String.eq(S.Digest.hex(final), "1111111111111111111111111111111111111111111111111111111111111111"), "root updates use last-rename-wins order")
+    final : P.Digest <- run(P.Digest, S.Disk.root(dir, "release"))
+    ok(String.eq(P.Digest.hex(final), "1111111111111111111111111111111111111111111111111111111111111111"), "root updates use last-rename-wins order")
     +long : String = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     run(Unit, S.Disk.set_root(dir, long, d))
-    longest : S.Digest <- run(S.Digest, S.Disk.root(dir, long))
+    longest : P.Digest <- run(P.Digest, S.Disk.root(dir, long))
     ok(same.digest(longest, d), "temporary suffixes do not limit valid root names")
     held : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/held"))
     failures(held, dir)
@@ -403,8 +404,8 @@ def abandon(pair: String & File, +partial: Bool) -> IO(Unit):
 def maintenance(+dir: String) -> IO(Unit):
   do IO<Unit>:
     run(Unit, S.Disk.init(dir))
-    +t : S.Tree<S.Blob> <- file("retained")
-    +d : S.Digest <- run(S.Digest, S.Disk.commit(dir, t))
+    +t : P.Tree<P.Blob> <- file("retained")
+    +d : P.Digest <- run(P.Digest, S.Disk.commit(dir, t))
     run(Unit, S.Disk.set_root(dir, "release", d))
     created : String & File <- run(String & File, S.write.temp(dir ++ "/tmp/object"))
     abandon(created, False{})
@@ -414,8 +415,8 @@ def maintenance(+dir: String) -> IO(Unit):
     ok(U32.is_eq(removed, 2), "exclusive maintenance removes fresh abandoned temporary files")
     names : List<&2, String> <- run(List<&2, String>, Files.list_dir(dir ++ "/tmp"))
     ok(List.is_empty(&2, String, names), "exclusive maintenance empties only the temporary directory")
-    root : S.Digest <- run(S.Digest, S.Disk.root(dir, "release"))
-    after : S.Tree<S.Blob> <- run(S.Tree<S.Blob>, S.Disk.checkout(dir, d))
+    root : P.Digest <- run(P.Digest, S.Disk.root(dir, "release"))
+    after : P.Tree<P.Blob> <- run(P.Tree<P.Blob>, S.Disk.checkout(dir, d))
     ok(same.digest(root, d) && same(after, t), "maintenance preserves named roots and their objects")
     again : U32 <- run(U32, S.Disk.clean_tmp(dir))
     ok(U32.is_eq(again, 0), "maintenance on an empty temporary directory removes nothing")
@@ -435,7 +436,7 @@ def main() -> IO(Unit):
     small : U32 <- run(U32, S.info.size(Files.Info{Files.Regular{}, (0, 3), (0, 0)}))
     ok(U32.is_eq(small, 3), "a small file keeps its size")
     +dir : String <- IO.try(String, Files.temp_dir())
-    abc : S.Digest <- run(S.Digest, S.digest(Bytes.from_string("abc")))
+    abc : P.Digest <- run(P.Digest, S.digest(Bytes.from_string("abc")))
     scenario(dir, abc)
     concurrent(dir ++ "/concurrent")
     maintenance(dir ++ "/maintenance")

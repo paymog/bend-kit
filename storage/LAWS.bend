@@ -1,5 +1,5 @@
 import Base
-import ./storage.bend as S
+import ./pure.bend as S
 import bend-kit-collections@0.1.6.0/LAWS.bend as Col
 
 # eq(d, x) for some root x.
