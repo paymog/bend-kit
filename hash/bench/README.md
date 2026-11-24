@@ -82,6 +82,57 @@ The short word loop without read-ahead does not show a clear gain over the exist
 
 Masked `Array.get` reads remain. These measurements do not depend on unchecked reads or a fix for bendlang/bend#1936. `check.bend` compares every length from 0 through 257 with a bitwise reference, with two byte patterns and non-zero padding beyond the logical input.
 
+### Short-call overhead trials
+
+M4 Pro, macOS, Bend 2.0.40, 2026-11-24. The baseline is `hash` 0.3.2.2 at commit `bcf3678`. Build each variant with `bend hash/bench/bench.bend -o hash/bench/out/<variant>` from the repo root. Each trial runs twelve baseline / candidate pairs in fresh processes. Order alternates AB and BA. Each process runs the unchanged benchmark above, including the other hashes. Only one process runs at a time. All 48 runs retain CRC checksums `b99c61cb` and `cecee288`.
+
+Two candidates target the short path without changing the long path:
+
+- **Aligned tail:** keep `wfrom` and `crc.word`, but skip `bytewise.rest` when `len & 3` is zero. Return the buffer and accumulated CRC directly before `crc.fin`. Other lengths keep the existing byte tail.
+- **Fused short loop:** replace the generic word fold with a CRC-specific loop. Carry the next word and read ahead as before. At zero words, call `bytewise.last` and `crc.fin` inside the loop, rather than return through `bytewise.rest` and finalize outside the fold.
+
+Times are medians in ms. Wins count pairs in which the candidate is faster.
+
+| trial | variant | crc32 | crc32_short | long wins | short wins |
+|---|---|---:|---:|---:|---:|
+| aligned tail | baseline | 4.278688 | 0.372479 | — | — |
+| aligned tail | candidate | 4.290667 | 0.373208 | 6/12 | 3/12 |
+| fused short loop | baseline | 4.241979 | 0.358854 | — | — |
+| fused short loop | candidate | 4.214000 | 0.365437 | 7/12 | 6/12 |
+
+The individual paired times follow. Odd pairs run baseline first; even pairs run candidate first.
+
+| trial | pair | baseline long | candidate long | baseline short | candidate short |
+|---|---:|---:|---:|---:|---:|
+| aligned tail | 1 | 4.982583 | 4.426042 | 0.396000 | 0.357750 |
+| aligned tail | 2 | 4.260834 | 4.368167 | 0.355042 | 0.368833 |
+| aligned tail | 3 | 4.183000 | 4.363875 | 0.361042 | 0.375625 |
+| aligned tail | 4 | 5.073125 | 4.201542 | 0.355208 | 0.367000 |
+| aligned tail | 5 | 4.185375 | 4.285375 | 0.424083 | 0.434292 |
+| aligned tail | 6 | 4.386291 | 4.295959 | 0.410500 | 0.357583 |
+| aligned tail | 7 | 4.373083 | 4.241708 | 0.382000 | 0.365542 |
+| aligned tail | 8 | 4.088500 | 4.312625 | 0.341750 | 0.383333 |
+| aligned tail | 9 | 4.296541 | 4.159459 | 0.367458 | 0.382916 |
+| aligned tail | 10 | 4.213834 | 4.407459 | 0.329125 | 0.370791 |
+| aligned tail | 11 | 4.104583 | 4.223334 | 0.390792 | 0.403958 |
+| aligned tail | 12 | 4.345041 | 4.217209 | 0.377500 | 0.378250 |
+| fused short loop | 1 | 4.602917 | 4.462167 | 0.368042 | 0.365958 |
+| fused short loop | 2 | 4.260709 | 4.389459 | 0.387375 | 0.337292 |
+| fused short loop | 3 | 4.238833 | 4.160000 | 0.352916 | 0.346666 |
+| fused short loop | 4 | 4.182666 | 4.169084 | 0.355333 | 0.370375 |
+| fused short loop | 5 | 4.231833 | 4.253292 | 0.350791 | 0.364917 |
+| fused short loop | 6 | 4.196417 | 4.210833 | 0.357750 | 0.355625 |
+| fused short loop | 7 | 4.245125 | 4.175750 | 0.364042 | 0.398041 |
+| fused short loop | 8 | 4.291542 | 4.206042 | 0.359958 | 0.379458 |
+| fused short loop | 9 | 4.182750 | 4.217167 | 0.413625 | 0.385708 |
+| fused short loop | 10 | 4.377875 | 4.156583 | 0.372959 | 0.344666 |
+| fused short loop | 11 | 4.339417 | 4.283209 | 0.333708 | 0.364500 |
+| fused short loop | 12 | 4.194375 | 4.229375 | 0.353750 | 0.385083 |
+
+Neither candidate gives a reliable short-input gain or reaches 0.3 ms. Both are discarded. The generated C already uses scalar CRC state and constant table reads; the word loop allocates no per-word objects. Skipping the empty tail and folding finalization into the loop do not establish a remaining call-overhead bottleneck.
+
+The production implementation stays unchanged. `scripts/check.sh hash` and `scripts/native-check.sh hash` pass after discarding the candidates. They include CRC laws and the reference checks for lengths 0 through 257, two byte patterns, and dirty padding. These results close this experiment without claiming the 0.3 ms target.
+
 ## The calls
 
 | language | calls |
