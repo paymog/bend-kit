@@ -38,7 +38,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 `http@0.40.0.1` imports its siblings by name: `wire@0.4.8.1`, `http2@0.5.0.2`, `bytes@0.3.3.1`, `time@0.3.0.1`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.1`, `json@0.7.3.0`, `dns@0.7.1.2`, and `zlib@0.6.0.0`. `Http.Body` is `bend-kit-bytes@0.3.3.1`.
 
-`hairpin@0.16.0.1`, `camber@0.17.0.1`, `jwt@0.14.0.2`, `llm@0.16.0.1`, `oauth2@0.14.0.1`, `sigv4@0.14.0.1`, and `webhooks@0.14.0.1` use `bend-kit-http@0.40.0.1`. The `jwt`, `llm`, `oauth2`, `sigv4`, and `webhooks` packages use `bend-kit-hairpin@0.16.0.1`. These versions share their sibling types and C effects.
+`hairpin@0.16.0.1`, `camber@0.17.0.1`, `jwt@0.14.0.2`, `llm@0.16.0.2`, `oauth2@0.14.0.1`, `sigv4@0.14.0.1`, and `webhooks@0.14.0.1` use `bend-kit-http@0.40.0.1`. The `jwt`, `llm`, `oauth2`, `sigv4`, and `webhooks` packages use `bend-kit-hairpin@0.16.0.1`. These versions share their sibling types and C effects.
 
 ## Native libraries
 
@@ -162,7 +162,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.1/sqlite.bend` | Prepared statements through libsqlite3. |
 | [`postgres`](postgres) | `bend-kit-postgres@0.3.1.2/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
 | [`redis`](redis) | `bend-kit-redis@0.3.1.3/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
-| [`llm`](llm) | `bend-kit-llm@0.16.0.1/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
+| [`llm`](llm) | `bend-kit-llm@0.16.0.2/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
 
 ### Applications
 

@@ -7,6 +7,7 @@ import bend-kit-http@0.40.0.1/http.bend as Http
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
+import ./pure.bend as Pure
 
 # Anthropic: POST {base}/v1/messages. OpenAI: POST {base}/chat/completions, which many other providers serve too.
 type Api is Data:
@@ -39,176 +40,170 @@ type Err is Data:
 type Client is Type:
   Client{api: Api, base: String, headers: Map<&2, List<&2, String>>, ms: U32, retries: U32, http: Hairpin.Client}
 
-# ---- JSON
+def api.to.pure(v: Api) -> Pure.Api:
+  match v:
+    case Anthropic{}:
+      Pure.Anthropic{}
+    case OpenAI{}:
+      Pure.OpenAI{}
 
-def str(s: String) -> Json.Val:
-  Json.Str{Json.utf8(s)}
-
-def kv(k: String, v: Json.Val) -> Bytes.Bytes & Json.Val:
-  (Json.utf8(k), v)
-
-def num(+n: U32) -> Json.Val:
-  Json.Num{Bytes.u32.show(n)}
-
-def obj(kvs: List<&1, Bytes.Bytes & Json.Val>) -> Json.Val:
-  Json.Obj{kvs}
-
-def when(on: Bool, x: Bytes.Bytes & Json.Val, xs: List<&1, Bytes.Bytes & Json.Val>) -> List<&1, Bytes.Bytes & Json.Val>:
-  match on:
-    case True{}:
-      Con{x, xs}
-    case False{}:
-      xs
-
-def role(r: Role) -> String:
-  match r:
+def role.to.pure(v: Role) -> Pure.Role:
+  match v:
     case User{}:
-      "user"
+      Pure.User{}
     case Assistant{}:
-      "assistant"
+      Pure.Assistant{}
 
-def msg(+r: String, t: String) -> Json.Val:
-  obj([kv("role", str(r)), kv("content", str(t))])
+def msg.to.pure(v: Msg) -> Pure.Msg:
+  Msg{r, t} = v
+  Pure.Msg{role.to.pure(r), t}
 
-def msgs(xs: List<&2, Msg>) -> List<&1, Json.Val>:
+def msgs.to.pure(xs: List<&2, Msg>) -> List<&2, Pure.Msg>:
   match xs:
     case Nil{}:
       Nil{}
-    case Con{Msg{r, t}, rest}:
-      Con{msg(role(r), t), msgs(rest)}
+    case Con{h, t}:
+      Con{msg.to.pure(h), msgs.to.pure(t)}
+
+def req.to.pure(v: Req) -> Pure.Req:
+  Req{m, s, xs, n} = v
+  Pure.Req{m, s, msgs.to.pure(xs), n}
+
+def reply.from.pure(v: Pure.Reply) -> Reply:
+  Pure.Reply{i, m, t, s, n, o} = v
+  Reply{i, m, t, s, n, o}
+
+def err.from.pure(v: Pure.Err) -> Err:
+  match v:
+    case Pure.ErrApi{s, b}:
+      ErrApi{s, b}
+    case Pure.ErrReply{b}:
+      ErrReply{b}
+
+def reply.result.from.pure(v: Result<&1, &1, Pure.Err, Pure.Reply>) -> Result<&1, &1, Err, Reply>:
+  match v:
+    case Fail{e}:
+      Fail{err.from.pure(e)}
+    case Done{r}:
+      Done{reply.from.pure(r)}
+
+
+# ---- JSON
+
+def str(s: String) -> Json.Val:
+  Pure.str(s)
+
+def kv(k: String, v: Json.Val) -> Bytes.Bytes & Json.Val:
+  Pure.kv(k, v)
+
+def num(+n: U32) -> Json.Val:
+  Pure.num(n)
+
+def obj(kvs: List<&1, Bytes.Bytes & Json.Val>) -> Json.Val:
+  Pure.obj(kvs)
+
+def when(on: Bool, x: Bytes.Bytes & Json.Val, xs: List<&1, Bytes.Bytes & Json.Val>) -> List<&1, Bytes.Bytes & Json.Val>:
+  Pure.when(on, x, xs)
+
+def role(r: Role) -> String:
+  Pure.role(role.to.pure(r))
+
+def msg(+r: String, t: String) -> Json.Val:
+  Pure.msg(r, t)
+
+def msgs(xs: List<&2, Msg>) -> List<&1, Json.Val>:
+  Pure.msgs(msgs.to.pure(xs))
 
 def sys(on: Bool, s: String, xs: List<&1, Json.Val>) -> List<&1, Json.Val>:
-  match on:
-    case True{}:
-      Con{msg("system", s), xs}
-    case False{}:
-      xs
+  Pure.sys(on, s, xs)
 
 # The request body for api. stream asks for SSE.
 def body(api: Api, req: Req, stream: Bool) -> Json.Val:
-  match api:
-    case Anthropic{}:
-      Req{model, +system, ms, max} = req
-      obj(Con{kv("model", str(model)), Con{kv("max_tokens", num(max)),
-        when(Bool.not(String.is_empty(system)), kv("system", str(system)),
-          Con{kv("messages", Json.Arr{msgs(ms)}), when(stream, kv("stream", Json.Flag{True{}}), Nil{})})}})
-    case OpenAI{}:
-      Req{model, +system, ms, max} = req
-      obj(Con{kv("model", str(model)), Con{kv("max_completion_tokens", num(max)),
-        Con{kv("messages", Json.Arr{sys(Bool.not(String.is_empty(system)), system, msgs(ms))}),
-          when(stream, kv("stream", Json.Flag{True{}}), Nil{})}}})
+  Pure.body(api.to.pure(api), req.to.pure(req), stream)
 
 # A JSON leaf: its path, as "content.0.text", and its text.
 type Leaf is Data:
   Leaf{p: String, v: String}
 
-def path(+p: String, +k: String) -> String:
-  Bool.pick(String, String.is_empty(p), k, p ++ "." ++ k)
-
-def push.arr(xs: List<&1, Json.Val>, +p: String, +i: U32, t: List<&1, String & Json.Val>) -> List<&1, String & Json.Val>:
+def leaves.to.pure(xs: List<&2, Leaf>) -> List<&2, Pure.Leaf>:
   match xs:
     case Nil{}:
-      t
-    case Con{x, rest}:
-      Con{(path(p, U32.show(i)), x), push.arr(rest, p, (i + 1 : U32), t)}
+      Nil{}
+    case Con{Leaf{p, v}, t}:
+      Con{Pure.Leaf{p, v}, leaves.to.pure(t)}
+
+def leaves.from.pure(xs: List<&2, Pure.Leaf>) -> List<&2, Leaf>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{Pure.Leaf{p, v}, t}:
+      Con{Leaf{p, v}, leaves.from.pure(t)}
+
+def doc.to.pure(v: Maybe<&2, List<&2, Leaf>>) -> Maybe<&2, List<&2, Pure.Leaf>>:
+  match v:
+    case None{}:
+      None{}
+    case Some{xs}:
+      Some{leaves.to.pure(xs)}
+
+def doc.from.pure(v: Maybe<&2, List<&2, Pure.Leaf>>) -> Maybe<&2, List<&2, Leaf>>:
+  match v:
+    case None{}:
+      None{}
+    case Some{xs}:
+      Some{leaves.from.pure(xs)}
+
+def path(+p: String, +k: String) -> String:
+  Pure.path(p, k)
+
+def push.arr(xs: List<&1, Json.Val>, +p: String, +i: U32, t: List<&1, String & Json.Val>) -> List<&1, String & Json.Val>:
+  Pure.push.arr(xs, p, i, t)
 
 def push.obj(kvs: List<&1, Bytes.Bytes & Json.Val>, +p: String, t: List<&1, String & Json.Val>) -> List<&1, String & Json.Val>:
-  match kvs:
-    case Nil{}:
-      t
-    case Con{(k, x), rest}:
-      Con{(path(p, Enc.utf8.decode(k)), x), push.obj(rest, p, t)}
+  Pure.push.obj(kvs, p, t)
 
 # The leaves under the stack's values, last first. f: at least the values left.
 def flat(f: Nat, stack: List<&1, String & Json.Val>, acc: List<&2, Leaf>) -> List<&2, Leaf>:
-  match f:
-    case 0n:
-      acc
-    case 1n+g:
-      match stack:
-        case Nil{}:
-          acc
-        case Con{(p, v), t}:
-          match v:
-            case Json.Null{}:
-              flat(g, t, acc)
-            case Json.Flag{on}:
-              flat(g, t, Con{Leaf{p, Bool.pick(String, on, "true", "false")}, acc})
-            case Json.Num{s}:
-              flat(g, t, Con{Leaf{p, Bytes.to_string(s)}, acc})
-            case Json.Str{s}:
-              flat(g, t, Con{Leaf{p, Enc.utf8.decode(s)}, acc})
-            case Json.Arr{xs}:
-              flat(g, push.arr(xs, p, 0, t), acc)
-            case Json.Obj{kvs}:
-              flat(g, push.obj(kvs, p, t), acc)
+  leaves.from.pure(Pure.flat(f, stack, leaves.to.pure(acc)))
 
 def doc.of(+n: U32, m: Maybe<&1, Json.Val>) -> Maybe<&2, List<&2, Leaf>>:
-  match m:
-    case None{}:
-      None{}
-    case Some{v}:
-      Some{List.reverse(&2, Leaf, flat(Nat.add(U32.to_nat(n), 1n), [("", v)], Nil{}))}
+  doc.from.pure(Pure.doc.of(n, m))
 
 # Every non-null leaf of a JSON text in document order, keyed by its path, as ("content.0.text", "Hi").
 # Strings are decoded; numbers keep their text. None when b is not JSON. Each value takes a byte, so n + 1 steps suffice.
 def doc(b: Bytes.Bytes) -> Maybe<&2, List<&2, Leaf>>:
-  Bytes.Bytes{+n, buf} = b
-  doc.of(n, Json.parse.bytes(Bytes.Bytes{n, buf}))
+  doc.from.pure(Pure.doc(b))
 
 # The first value at path k, or "".
 def look(d: List<&2, Leaf>, +k: String) -> String:
-  match d:
-    case Nil{}:
-      ""
-    case Con{Leaf{p, v}, t}:
-      Bool.pick(String, String.eq(p, k), v, look(t, k))
+  Pure.look(leaves.to.pure(d), k)
 
 def count(s: String) -> U32:
-  Maybe.default(&2, U32, Json.u32.num(s), 0)
+  Pure.count(s)
 
 def dots(s: String, +n: U32) -> U32:
-  match s:
-    case SNil{}:
-      n
-    case SCon{Chr{+c}, t}:
-      dots(t, Bool.pick(U32, U32.is_eq(c, 46), (n + 1 : U32), n))
+  Pure.dots(s, n)
 
 # Is p the text of a content block, "content.<i>.text"?
 def block(+p: String) -> Bool:
-  Bool.and(Bool.and(String.starts_with(p, "content."), String.ends_with(p, ".text")), U32.is_eq(dots(p, 0), 2))
+  Pure.block(p)
 
 # The text blocks of an Anthropic message, joined.
 def blocks(d: List<&2, Leaf>) -> String:
-  match d:
-    case Nil{}:
-      ""
-    case Con{Leaf{+p, v}, t}:
-      Bool.pick(String, block(p), v, "") ++ blocks(t)
+  Pure.blocks(leaves.to.pure(d))
 
 def reply.of(api: Api, +d: List<&2, Leaf>) -> Reply:
-  match api:
-    case Anthropic{}:
-      Reply{look(d, "id"), look(d, "model"), blocks(d), look(d, "stop_reason"),
-        count(look(d, "usage.input_tokens")), count(look(d, "usage.output_tokens"))}
-    case OpenAI{}:
-      Reply{look(d, "id"), look(d, "model"), look(d, "choices.0.message.content"), look(d, "choices.0.finish_reason"),
-        count(look(d, "usage.prompt_tokens")), count(look(d, "usage.completion_tokens"))}
+  reply.from.pure(Pure.reply.of(api.to.pure(api), leaves.to.pure(d)))
 
 def reply.got(api: Api, b: Bytes.Bytes, m: Maybe<&2, List<&2, Leaf>>) -> Result<&1, &1, Err, Reply>:
-  match m:
-    case None{}:
-      Fail{ErrReply{Enc.utf8.decode(b)}}
-    case Some{d}:
-      Done{reply.of(api, d)}
+  reply.result.from.pure(Pure.reply.got(api.to.pure(api), b, doc.to.pure(m)))
 
 def reply.copy(api: Api, r: Bytes.Bytes & Bytes.Bytes) -> Result<&1, &1, Err, Reply>:
-  (b, c) = r
-  reply.got(api, b, doc(c))
+  reply.result.from.pure(Pure.reply.copy(api.to.pure(api), r))
 
 # A 2xx response body as a Reply.
 def reply(api: Api, b: Bytes.Bytes) -> Result<&1, &1, Err, Reply>:
-  reply.copy(api, Bytes.slice(b, 0, 4294967295))
+  reply.result.from.pure(Pure.reply(api.to.pure(api), b))
 
 # ---- stream events
 
@@ -219,42 +214,41 @@ type Ev is Data:
   EFail{e: Err}
   ESkip{}
 
+def ev.from.pure(v: Pure.Ev) -> Ev:
+  match v:
+    case Pure.EText{s}:
+      EText{s}
+    case Pure.EEnd{}:
+      EEnd{}
+    case Pure.EFail{e}:
+      EFail{err.from.pure(e)}
+    case Pure.ESkip{}:
+      ESkip{}
+
 def ev.text(+s: String) -> Ev:
-  Bool.pick(Ev, String.is_empty(s), ESkip{}, EText{s})
+  ev.from.pure(Pure.ev.text(s))
 
 def ev.doc(m: Maybe<&2, List<&2, Leaf>>) -> List<&2, Leaf>:
-  Maybe.default(&2, List<&2, Leaf>, m, Nil{})
+  leaves.from.pure(Pure.ev.doc(doc.to.pure(m)))
 
 def ev.anthropic(+name: String, data: Bytes.Bytes) -> Ev:
-  +d = ev.doc(doc(data))
-  Bool.pick(Ev, String.eq(name, "content_block_delta"), ev.text(look(d, "delta.text")),
-    Bool.pick(Ev, String.eq(name, "message_stop"), EEnd{},
-      Bool.pick(Ev, String.eq(name, "error"), EFail{ErrApi{200, look(d, "error.message")}}, ESkip{})))
+  ev.from.pure(Pure.ev.anthropic(name, data))
 
 def ev.openai(+s: String) -> Ev:
-  +d = ev.doc(doc(Bytes.from_string(s)))
-  +why = look(d, "error.message")
-  Bool.pick(Ev, String.eq(s, "[DONE]"), EEnd{},
-    Bool.pick(Ev, String.is_empty(why), ev.text(look(d, "choices.0.delta.content")), EFail{ErrApi{200, why}}))
+  ev.from.pure(Pure.ev.openai(s))
 
 # What one SSE event of api means.
 def ev(api: Api, e: Sse.Message) -> Ev:
-  match api:
-    case Anthropic{}:
-      Sse.Message{name, data, id} = e
-      ev.anthropic(name, data)
-    case OpenAI{}:
-      Sse.Message{name, data, id} = e
-      ev.openai(Bytes.to_string(data))
+  ev.from.pure(Pure.ev(api.to.pure(api), e))
 
 # ---- requests
 
 def ok(+s: U32) -> Bool:
-  Bool.and(U32.is_le(200, s), U32.is_lt(s, 300))
+  Pure.ok(s)
 
 # Statuses a later try may clear: 408, 409, 429, and 5xx, which holds Anthropic's 529.
 def again.status(+s: U32) -> Bool:
-  Bool.or(Bool.or(U32.is_eq(s, 408), U32.is_eq(s, 409)), Bool.or(U32.is_eq(s, 429), U32.is_le(500, s)))
+  Pure.again.status(s)
 
 # A refused connect or a timeout may clear.
 def again.err(+e: Http.Err) -> Maybe<&2, String>:
