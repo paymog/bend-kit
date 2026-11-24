@@ -5,7 +5,7 @@ Bit readers and writers over `Bytes`, in either bit order, and canonical Huffman
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-bits@0.3.0.1/bits.bend as Bits
+import bend-kit-bits@0.4.0.0/bits.bend as Bits
 
 # BFINAL, the first bit of a DEFLATE block header.
 def head(r: Bits.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -23,8 +23,8 @@ def main() -> Maybe<&2, U32>:
 | def | does |
 |---|---|
 | `Reader.new(b)` | Starts at bit 0 of `b`. |
-| `Reader.lsb(r, n)`, `Reader.msb(r, n)` | The next `n` bits (0 to 32) as a number. `None`, with the reader unchanged, when `n > 32` or fewer than `n` bits are left. |
-| `Reader.peek.lsb(r, n)`, `Reader.peek.msb(r, n)` | The next `n` bits (cut to 32) without moving. Bits past the end read as 0. |
+| `Reader.lsb(r, n)`, `Reader.msb(r, n)` | Aligns on an order switch, then reads the next `n` bits (0 to 32). `None` leaves the reader unchanged when `n > 32` or fewer than `n` bits remain after alignment. |
+| `Reader.peek.lsb(r, n)`, `Reader.peek.msb(r, n)` | Previews the next read, including switch alignment, without changing position or order. Width is cut to 32. Bits past the end read as 0. |
 | `Reader.skip(r, n)` | Moves `n` bits on. `False`, with the reader unchanged, when fewer are left. |
 | `Reader.align(r)` | Moves to the next byte boundary. |
 | `Reader.left(r)` | The bits left. |
@@ -32,13 +32,19 @@ def main() -> Maybe<&2, U32>:
 
 Bit positions, `Reader.skip` counts, and `Reader.left` counts are `Nat`. Field widths and values remain `U32`.
 
+The `Reader` constructor has a fourth field: `last: Maybe<&2, Bool>`.
+`None{}` means no successful read yet. `Some{False{}}` means LSB-first.
+`Some{True{}}` means MSB-first. `Reader.new` and `Reader.at` start with no order.
+Successful zero-width reads set the order, as zero-width writes do.
+`skip`, `align`, and `left` keep the last order.
+
 LSB-first, the first bit of a field is its least significant. MSB-first, it is its most significant. JPEG byte stuffing (`0xFF 0x00`) is the caller's job: remove it before the reader sees the bytes.
 
 ## Writer
 
 `Writer.new()`, then `Writer.lsb(w, n, v)` or `Writer.msb(w, n, v)` appends the low `n` bits of `v`. `n` is cut to 32. `Writer.align(w)` pads with 0 bits to a byte boundary. `Writer.finish(w)` returns the `Bytes`, with 0 bits in the rest of the last byte. JPEG pads with 1 bits, so write them before `finish`. The buffer doubles when it fills, so writing is O(total).
 
-The two orders put a stream bit at different places in its byte, so one byte cannot hold fields of both orders. A write in the other order than the last write first pads with 0 bits to a byte boundary, as `Writer.align` does. A reader of such a stream must call `Reader.align` at the same switch.
+The two orders put a stream bit at different places in its byte, so one byte cannot hold fields of both orders. A write in the other order than the last write first pads with 0 bits to a byte boundary, as `Writer.align` does. A read in the other order skips that padding without a manual `Reader.align` call.
 
 Growth keeps the old buffer as the left subtree and adds a zeroed right subtree.
 
@@ -46,7 +52,7 @@ Growth keeps the old buffer as the left subtree and adds a zeroed right subtree.
 
 `Huff.from_lens(msb, lens)` builds a table where symbol `i` has code length `lens[i]`, as DEFLATE sends them. `Huff.from_codes(msb, codes)` takes `Code{sym, len}` values. Codes go shortest first, ties in list order, so JPEG's BITS and HUFFVAL map to it directly. Length 0 means no code. `msb` is the stream's bit order.
 
-Both return `None` when a length exceeds 16 or the lengths over-subscribe the code space. An incomplete set is allowed. `Huff.decode(h, r)` reads one symbol and returns `(h, r, Some{sym})`. It returns `None`, with the reader unchanged, when the next bits start no code or the input ends inside one.
+Both return `None` when a length exceeds 16 or the lengths over-subscribe the code space. An incomplete set is allowed. `Huff.decode(h, r)` reads one symbol and returns `(h, r, Some{sym})`. It uses the table's order and aligns on an order switch, like a field read. It returns `None`, with the reader's position and order unchanged, when the next bits start no code or the input ends inside one.
 
 `Huff.encode_lens(lens)` and `Huff.encode_codes(codes)` return `Some{encodings}` with the same validation and canonical assignment as the decoder. Each `Encoding{sym, len, value}` holds the canonical value, with its first stream bit at bit `len - 1`. Results keep input order and omit zero-length symbols. Empty input returns `Some{Nil{}}`. These builders use only the length counts, not a decode table.
 

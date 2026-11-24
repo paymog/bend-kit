@@ -315,3 +315,21 @@ The compact counts are a sizing model, not measured compact-layout timings.
 Revisit the layout when a real mixed-depth workload needs less table memory,
 and compare build and decode times before selecting it. Both stream orders,
 incomplete-code rejection, and truncation behavior remain unchanged.
+
+## Reader order tracking
+
+macOS arm64, Bend 2.0.40, 2026-11-24. `python3 run.py 3` used the same
+1 MiB fixed block above. All five variants passed their checksum checks.
+Times are medians of three runs, in milliseconds.
+
+| variant | Huffman ms | fields ms |
+|---|---:|---:|
+| Bend | 12.32 | 0.58 |
+| C (zlib inflate) | 2.97 | - |
+| Rust (bitstream-io) | 36.50 | 0.64 |
+| Python (zlib) | 1.90 | - |
+| Bun (node:zlib) | 3.13 | - |
+
+The reader now keeps the last successful field or Huffman read order.
+It computes byte alignment only on an order switch. This run checks the
+homogeneous-order hot paths; it is not a controlled before/after comparison.

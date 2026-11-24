@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `bits` 0.4.0.0: track the last successful read order and align field and Huffman reads on an order switch. Preview aligned bits without moving the reader. Preserve position and order on failed reads. Add the order field to the `Reader` constructor.
+
 - `f32array` 0.2.2.0: read F32 and BF16 tensors into an existing destination range. Retain both handles on errors, reject invalid ranges before writes, and document partial IO writes. Check NumPy fixtures and measure load time and peak memory against allocation plus copy.
 
 - `f32array` 0.2.1.2: combine the lowest pair of 16-cell reduction blocks directly. Preserve the addition order, pure proof imports, and writable returned arrays. Measure sum and dot times and float64 errors on positive, cancellation, and mixed-scale inputs.

@@ -229,6 +229,84 @@ def mixed() -> Bool:
   w = Bits.Writer.lsb(Bits.Writer.msb(Bits.Writer.lsb(Bits.Writer.new(), 1, 1), 7, 0), 3, 5)
   String.eq(Bytes.to_string(Bits.Writer.finish(w)), "\u{1}\u{0}\u{5}")
 
+def mixed.last(ok: Bool, r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, c) = r
+  Bool.and(ok, same(c, 5))
+
+def mixed.second(+msb: Bool, a: Maybe<&2, U32>, r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, b) = r
+  mixed.last(Bool.and(same(a, 1), same(b, 0)), get(msb, rd, 3))
+
+def mixed.first(+msb: Bool, n: U32, r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, a) = r
+  mixed.second(msb, a, get(Bool.not(msb), rd, n))
+
+def mixed.read(+msb: Bool, +n: U32) -> Bool:
+  w = put(msb, put(Bool.not(msb), put(msb, Bits.Writer.new(), 1, 1), n, 0), 3, 5)
+  mixed.first(msb, n, get(msb, Bits.Reader.new(Bits.Writer.finish(w)), 1))
+
+def read.is(want: U32, r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, value) = r
+  same(value, want)
+
+def mixed.failed(r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, value) = r
+  match value:
+    case None{}:
+      read.is(2, Bits.Reader.lsb(rd, 3))
+    case Some{v}:
+      False{}
+
+def mixed.reject.first(n: U32, r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, value) = r
+  mixed.failed(Bits.Reader.msb(rd, n))
+
+def mixed.reject(n: U32) -> Bool:
+  rd = Bits.Reader.new(Bytes.from_string("\u{5}\u{0}"))
+  mixed.reject.first(n, Bits.Reader.lsb(rd, 1))
+
+def mixed.peeked(r: Bits.Reader & U32) -> Bool:
+  (rd, value) = r
+  Bool.and(U32.is_eq(value, 6), read.is(2, Bits.Reader.lsb(rd, 3)))
+
+def mixed.peek.first(r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, value) = r
+  mixed.peeked(Bits.Reader.peek.msb(rd, 3))
+
+def mixed.peek() -> Bool:
+  mixed.peek.first(Bits.Reader.lsb(Bits.Reader.new(Bytes.from_string("\u{5}\u{C0}")), 1))
+
+def mixed.decoded(r: Bits.Huff & Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (h, rd, value) = r
+  Bool.and(same(value, 1), read.is(5, Bits.Reader.lsb(rd, 3)))
+
+def mixed.decode.first(h: Bits.Huff, r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, value) = r
+  mixed.decoded(Bits.Huff.decode(h, rd))
+
+def mixed.decode.table(m: Maybe<&1, Bits.Huff>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{h}:
+      w = Bits.Writer.lsb(Bits.Writer.msb(Bits.Writer.lsb(Bits.Writer.new(), 1, 1), 1, 1), 3, 5)
+      mixed.decode.first(h, Bits.Reader.lsb(Bits.Reader.new(Bits.Writer.finish(w)), 1))
+
+def mixed.decode.failed(r: Bits.Huff & Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (h, rd, value) = r
+  mixed.failed((rd, value))
+
+def mixed.decode.reject.first(h: Bits.Huff, r: Bits.Reader & Maybe<&2, U32>) -> Bool:
+  (rd, value) = r
+  mixed.decode.failed(Bits.Huff.decode(h, rd))
+
+def mixed.decode.reject(m: Maybe<&1, Bits.Huff>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{h}:
+      mixed.decode.reject.first(h, Bits.Reader.lsb(Bits.Reader.new(Bytes.from_string("\u{5}\u{80}")), 1))
+
 def main() -> IO(Unit):
   do IO<Unit>:
     expect("lsb roundtrip, 20000 fields", roundtrip(False{}, 20000n, 12345))
@@ -253,4 +331,13 @@ def main() -> IO(Unit):
     expect("writer over-subscribed", enc.rejected(Bits.Huff.encode_lens([1, 1, 1])))
     expect("writer too long", enc.rejected(Bits.Huff.encode_lens([17])))
     expect("order switch starts a new byte", mixed())
+    expect("mixed lsb reads align", mixed.read(False{}, 7))
+    expect("mixed msb reads align", mixed.read(True{}, 7))
+    expect("zero-width msb switch aligns", mixed.read(False{}, 0))
+    expect("zero-width lsb switch aligns", mixed.read(True{}, 0))
+    expect("failed order switch keeps position and order", mixed.reject(9))
+    expect("invalid width keeps position and order", mixed.reject(33))
+    expect("mixed peek aligns without moving", mixed.peek())
+    expect("mixed Huffman reads align", mixed.decode.table(Bits.Huff.from_lens(True{}, [1, 1])))
+    expect("failed Huffman switch keeps position and order", mixed.decode.reject(Bits.Huff.from_lens(True{}, [1])))
 

@@ -57,45 +57,60 @@ def win(msb: Bool, a: Array<U32>, +p: Nat) -> Array<U32> & U32:
 def field(+msb: Bool, +n: U32, +w: U32) -> U32:
   Bool.pick(U32, msb, U32.shrn(w, U32.to_nat((32 - n : U32))), (w .&. mask(n) : U32))
 
-# A reader keeps its total and remaining bit counts as Nat.
+# A reader keeps its total and remaining bit counts, and the order of its last read.
 type Reader is Type:
-  Reader{buf: Array<U32>, total: Nat, left: Nat}
+  Reader{buf: Array<U32>, total: Nat, left: Nat, last: Maybe<&2, Bool>}
 
 def Reader.at(len: U32, buf: Array<U32>, +pos: Nat) -> Reader:
   +total = Nat.mul(U32.to_nat(len), 8n)
-  Reader{buf, total, Nat.sub(total, pos)}
+  Reader{buf, total, Nat.sub(total, pos), None{}}
 
 def Reader.new(b: Bytes.Bytes) -> Reader:
   Bytes.Bytes{len, buf} = b
   +total = Nat.mul(U32.to_nat(len), 8n)
-  Reader{buf, total, total}
+  Reader{buf, total, total, None{}}
 
 # The buffer back, and the bit position.
 def Reader.finish(r: Reader) -> Bytes.Bytes & Nat:
-  Reader{buf, +total, left} = r
+  Reader{buf, +total, left, last} = r
   (Bytes.Bytes{U32.from_nat(Nat.div(total, 8n)), buf}, Nat.sub(total, left))
 
 def Reader.left(r: Reader) -> Reader & Nat:
-  Reader{buf, total, +left} = r
-  (Reader{buf, total, left}, left)
+  Reader{buf, total, +left, last} = r
+  (Reader{buf, total, left, last}, left)
 
-def read.got(msb: Bool, total: Nat, +left: Nat, +n: U32, r: Array<U32> & U32) -> Reader & Maybe<&2, U32>:
+def read.left.switch(switch: Bool, +left: Nat) -> Nat:
+  match switch:
+    case False{}:
+      left
+    case True{}:
+      Nat.mul(Nat.div(left, 8n), 8n)
+
+def read.left(last: Maybe<&2, Bool>, +msb: Bool, +left: Nat) -> Nat:
+  match last:
+    case None{}:
+      left
+    case Some{order}:
+      read.left.switch(Bool.xor(msb, order), left)
+
+def read.got(+msb: Bool, total: Nat, +left: Nat, +n: U32, r: Array<U32> & U32) -> Reader & Maybe<&2, U32>:
   (a, w) = r
-  (Reader{a, total, Nat.sub(left, U32.to_nat(n))}, Some{field(msb, n, w)})
+  (Reader{a, total, Nat.sub(left, U32.to_nat(n)), Some{msb}}, Some{field(msb, n, w)})
 
-def read.if(ok: Bool, +msb: Bool, buf: Array<U32>, +total: Nat, +left: Nat, +n: U32) -> Reader & Maybe<&2, U32>:
+def read.if(ok: Bool, +msb: Bool, buf: Array<U32>, +total: Nat, +left: Nat, +n: U32, original: Nat, last: Maybe<&2, Bool>) -> Reader & Maybe<&2, U32>:
   match ok:
     case True{}:
       read.got(msb, total, left, n, win(msb, buf, Nat.sub(total, left)))
     case False{}:
-      (Reader{buf, total, left}, None{})
+      (Reader{buf, total, original, last}, None{})
 
 def read(+msb: Bool, r: Reader, +n: U32) -> Reader & Maybe<&2, U32>:
-  Reader{buf, total, +left} = r
-  read.if(Nat.is_le(U32.to_nat(n), Nat.min(32n, left)), msb, buf, total, left, n)
+  Reader{buf, total, +left, +last} = r
+  +aligned = read.left(last, msb, left)
+  read.if(Nat.is_le(U32.to_nat(n), Nat.min(32n, aligned)), msb, buf, total, aligned, n, left, last)
 
-# The next n bits (0 to 32) as a number, and the reader past them. None, with the reader
-# unchanged, when n > 32 or fewer than n bits are left.
+# The next n bits (0 to 32), aligned on an order switch. None leaves the reader
+# unchanged when n > 32 or fewer than n bits remain after alignment.
 def Reader.lsb(r: Reader, +n: U32) -> Reader & Maybe<&2, U32>:
   read(False{}, r, n)
 
@@ -103,15 +118,16 @@ def Reader.msb(r: Reader, +n: U32) -> Reader & Maybe<&2, U32>:
   read(True{}, r, n)
 
 # Bits past the end read as 0: the low avail bits stay LSB-first, the high ones MSB-first.
-def peek.got(+msb: Bool, total: Nat, left: Nat, +n: U32, +avail: U32, r: Array<U32> & U32) -> Reader & U32:
+def peek.got(+msb: Bool, total: Nat, left: Nat, last: Maybe<&2, Bool>, +n: U32, +avail: U32, r: Array<U32> & U32) -> Reader & U32:
   (a, w) = r
   +v = field(msb, n, w)
-  (Reader{a, total, left}, Bool.pick(U32, msb, (v .&. U32.shln(4294967295, U32.to_nat((n - avail : U32))) : U32), (v .&. mask(avail) : U32)))
+  (Reader{a, total, left, last}, Bool.pick(U32, msb, (v .&. U32.shln(4294967295, U32.to_nat((n - avail : U32))) : U32), (v .&. mask(avail) : U32)))
 
 def peek(+msb: Bool, r: Reader, +n0: U32) -> Reader & U32:
-  Reader{buf, +total, +left} = r
+  Reader{buf, +total, +left, +last} = r
+  +aligned = read.left(last, msb, left)
   +n = U32.min(n0, 32)
-  peek.got(msb, total, left, n, U32.from_nat(Nat.min(U32.to_nat(n), left)), win(msb, buf, Nat.sub(total, left)))
+  peek.got(msb, total, left, last, n, U32.from_nat(Nat.min(U32.to_nat(n), aligned)), win(msb, buf, Nat.sub(total, aligned)))
 
 # The next n bits (at most 32) without moving. Bits past the end read as 0.
 def Reader.peek.lsb(r: Reader, +n: U32) -> Reader & U32:
@@ -122,14 +138,14 @@ def Reader.peek.msb(r: Reader, +n: U32) -> Reader & U32:
 
 # Moves n bits on. False, with the reader unchanged, when fewer than n are left.
 def Reader.skip(r: Reader, +n: Nat) -> Reader & Bool:
-  Reader{buf, total, +left} = r
+  Reader{buf, total, +left, last} = r
   +ok = Nat.is_le(n, left)
-  (Reader{buf, total, Bool.pick(Nat, ok, Nat.sub(left, n), left)}, ok)
+  (Reader{buf, total, Bool.pick(Nat, ok, Nat.sub(left, n), left), last}, ok)
 
 # Moves to the next byte boundary, as a DEFLATE stored block or a JPEG marker needs.
 def Reader.align(r: Reader) -> Reader:
-  Reader{buf, total, +left} = r
-  Reader{buf, total, Nat.mul(Nat.div(left, 8n), 8n)}
+  Reader{buf, total, +left, last} = r
+  Reader{buf, total, Nat.mul(Nat.div(left, 8n), 8n), last}
 
 # A writer's buf has 2^dep words, all 0 past bit pos; msb is the order of the last write.
 type Writer is Type:
@@ -469,11 +485,11 @@ def Writer.code(msb: Bool, w: Writer, e: Encoding) -> Writer:
 
 # Bits past the end may be garbage in w: a code's entry repeats over every suffix, so only
 # its own len bits pick it, and len <= left keeps them inside the stream.
-def decode.hit(+msb: Bool, +max: U32, +total: Nat, +left: Nat, buf: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+def decode.hit(+msb: Bool, +max: U32, +total: Nat, +left: Nat, +original: Nat, +last: Maybe<&2, Bool>, buf: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
   (t, +e) = r
   +l = (e .&. 31 : U32)
   +ok = Bool.and(U32.is_ne(l, 0), Nat.is_le(U32.to_nat(l), left))
-  (Huff{msb, max, t, sub}, Reader{buf, total, Bool.pick(Nat, ok, Nat.sub(left, U32.to_nat(l)), left)}, Bool.pick(Maybe<&2, U32>, ok, Some{U32.shrn(e, 5n)}, None{}))
+  (Huff{msb, max, t, sub}, Reader{buf, total, Bool.pick(Nat, ok, Nat.sub(left, U32.to_nat(l)), original), Bool.pick(Maybe<&2, Bool>, ok, Some{msb}, last)}, Bool.pick(Maybe<&2, U32>, ok, Some{U32.shrn(e, 5n)}, None{}))
 
 def decode.sub(long: Bool, +msb: Bool, +max: U32, +w: U32, +e: U32, sub: Array<U32>) -> Array<U32> & U32:
   match long:
@@ -485,21 +501,22 @@ def decode.sub(long: Bool, +msb: Bool, +max: U32, +w: U32, +e: U32, sub: Array<U
       +i = Bool.pick(U32, msb, (all .&. (U32.shln(1, U32.to_nat(width)) - 1) : U32), U32.shrn(all, 9n))
       Array.get(U32, sub, (U32.shrn(e, 5n) + i : U32))
 
-def decode.found(+msb: Bool, +max: U32, +total: Nat, +left: Nat, buf: Array<U32>, t: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+def decode.found(+msb: Bool, +max: U32, +total: Nat, +left: Nat, original: Nat, last: Maybe<&2, Bool>, buf: Array<U32>, t: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
   (sub, e) = r
-  decode.hit(msb, max, total, left, buf, sub, (t, e))
+  decode.hit(msb, max, total, left, original, last, buf, sub, (t, e))
 
-def decode.root(+msb: Bool, +max: U32, +total: Nat, +left: Nat, w: U32, buf: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+def decode.root(+msb: Bool, +max: U32, +total: Nat, +left: Nat, original: Nat, last: Maybe<&2, Bool>, w: U32, buf: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
   (t, +e) = r
-  decode.found(msb, max, total, left, buf, t, decode.sub(U32.is_eq((e .&. 31 : U32), 31), msb, max, w, e, sub))
+  decode.found(msb, max, total, left, original, last, buf, t, decode.sub(U32.is_eq((e .&. 31 : U32), 31), msb, max, w, e, sub))
 
-def decode.look(+msb: Bool, +max: U32, +total: Nat, +left: Nat, t: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
+def decode.look(+msb: Bool, +max: U32, +total: Nat, +left: Nat, original: Nat, last: Maybe<&2, Bool>, t: Array<U32>, sub: Array<U32>, r: Array<U32> & U32) -> Huff & Reader & Maybe<&2, U32>:
   (buf, +w) = r
-  decode.root(msb, max, total, left, w, buf, sub, Array.get(U32, t, field(msb, U32.min(max, 9), w)))
+  decode.root(msb, max, total, left, original, last, w, buf, sub, Array.get(U32, t, field(msb, U32.min(max, 9), w)))
 
 # One symbol, and the reader past its code. None, with the reader unchanged, when the next
 # bits start no code or the input ends inside one.
 def Huff.decode(h: Huff, r: Reader) -> Huff & Reader & Maybe<&2, U32>:
   Huff{+msb, +max, t, sub} = h
-  Reader{buf, +total, +left} = r
-  decode.look(msb, max, total, left, t, sub, win(msb, buf, Nat.sub(total, left)))
+  Reader{buf, +total, +left, +last} = r
+  +aligned = read.left(last, msb, left)
+  decode.look(msb, max, total, aligned, left, last, t, sub, win(msb, buf, Nat.sub(total, aligned)))
