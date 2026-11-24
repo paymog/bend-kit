@@ -87,12 +87,81 @@ def partial.done(state: F.Tensor) -> Bool:
 def partial() -> Bool:
   partial.done(F.tensor.take(F.tensor.take(F.tensor.take(F.tensor.take(F.Tensor{A.new(2), 0, 0, 0}, 2, 128), 2, 63), 2, 1), 2, 128))
 
+def status(r: Result<&1, &1, U32 & String, Unit>, +code: U32) -> Bool:
+  match r:
+    case Fail{(errno, text)}:
+      U32.is_eq(errno, code)
+    case Done{unit}:
+      U32.is_eq(code, 0)
+
+def into.copy(pair: A.F32Array & A.F32Array, file: File, expected: List<&2, U32>) -> IO(File & A.F32Array):
+  (array, copy) = pair
+  do IO<File & A.F32Array>:
+    expect(bits(A.to_list(copy), 1088421888 <> expected))
+    return (file, array)
+
+def into.checked(pair: File & A.F32Array & Result<&1, &1, U32 & String, Unit>, code: U32, expected: List<&2, U32>) -> IO(File & A.F32Array):
+  (file, array, r) = pair
+  do IO<File & A.F32Array>:
+    expect(status(r, code))
+    into.copy(A.slice(A.set(array, 0, 7.0), 0, 4294967295), file, expected)
+
+def into.cursor(kept: File & A.F32Array) -> IO(Unit):
+  (file, array) = kept
+  do IO<Unit>:
+    got : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Files.read.words(file, 3)
+    cursor(got)
+
+def into(~reader: File -> U32 -> U32 -> U32 -> A.F32Array -> U32 -> IO(File & A.F32Array & Result<&1, &1, U32 & String, Unit>), hi: U32, lo: U32, n: U32, start: U32, code: U32, expected: List<&2, U32>) -> IO(Unit):
+  do IO<Unit>:
+    file : File <- IO.try(File, File.open("tensor-fixture.bin", "r"))
+    pair : File & A.F32Array & Result<&1, &1, U32 & String, Unit> <- reader(file, hi, lo, n, A.map(~(x => 9.0), A.new(5)), start)
+    kept : File & A.F32Array <- into.checked(pair, code, expected)
+    into.cursor(kept)
+
+def assembly.close(kept: File & A.F32Array) -> IO(Unit):
+  (file, array) = kept
+  File.close(file)
+
+def assembly.next(kept: File & A.F32Array) -> IO(Unit):
+  (file, array) = kept
+  do IO<Unit>:
+    pair : File & A.F32Array & Result<&1, &1, U32 & String, Unit> <- F.read.bf16.at.into(file, 1, 104, 2, array, 5)
+    kept : File & A.F32Array <- into.checked(pair, 0, [1065353216, 3221225472, 1091567616, 1091567616, 1065353216, 3221225472, 1091567616])
+    assembly.close(kept)
+
+def assembly() -> IO(Unit):
+  do IO<Unit>:
+    file : File <- IO.try(File, File.open("tensor-fixture.bin", "r"))
+    pair : File & A.F32Array & Result<&1, &1, U32 & String, Unit> <- F.read.le.at.into(file, 0, 11, 2, A.map(~(x => 9.0), A.new(8)), 1)
+    kept : File & A.F32Array <- into.checked(pair, 0, [1065353216, 3221225472, 1091567616, 1091567616, 1091567616, 1091567616, 1091567616])
+    assembly.next(kept)
+
+def ranges() -> IO(Unit):
+  do IO<Unit>:
+    assembly()
+    into(~F.read.le.at.into, 0, 4294967293, 2, 2, 0, [1091567616, 0, 2147483648, 1091567616])
+    into(~F.read.bf16.at.into, 1, 105, 2, 2, 0, [1091567616, 4128768, 29360128, 1091567616])
+    into(~F.read.le.at.into, 1, 122, 2, 2, 5, [1091567616, 1056964736, 1091567616, 1091567616])
+    into(~F.read.bf16.at.into, 1, 124, 2, 2, 5, [1091567616, 1056964608, 1091567616, 1091567616])
+    into(~F.read.le.at.into, 1, 126, 1, 2, 5, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.bf16.at.into, 1, 126, 1, 2, 5, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.le.at.into, 0, 3, 0, 5, 0, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.le.at.into, 0, 3, 0, 6, 22, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.bf16.at.into, 0, 3, 2, 4, 22, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.le.at.into, 0, 3, 1, 4294967295, 22, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.le.at.into, 2147483648, 0, 0, 2, 22, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.bf16.at.into, 2147483647, 4294967295, 1, 2, 22, [1091567616, 1091567616, 1091567616, 1091567616])
+    into(~F.read.le.at.into, 0, 3, 1073741824, 0, 22, [1091567616, 1091567616, 1091567616, 1091567616])
+
 def native(enabled: Bool) -> IO(Unit):
   match enabled:
     case True{}:
       do IO<Unit>:
         read(~F.read.le.at, 0, 3, 13, patterns())
         read(~F.read.bf16.at, 0, 100, 13, patterns())
+        into(~F.read.le.at.into, 0, 35, 2, 2, 0, [1091567616, 2143354880, 4286775296, 1091567616])
+        into(~F.read.bf16.at.into, 0, 116, 2, 2, 0, [1091567616, 2143354880, 4286775296, 1091567616])
         IO.print("ok native NaN sign and payload")
     case False{}:
       IO.pure(Unit, Unit{})
@@ -101,6 +170,7 @@ def main() -> IO(Unit):
   do IO<Unit>:
     args : List<String> <- IO.args()
     native(List.is_empty(&1, String, List.tail(&1, String, args)))
+    ranges()
     read(~F.read.le.at, 0, 3, 8, [0, 2147483648, 1065353216, 3221225472, 65536, 8323072, 2139095040, 4286578688])
     read(~F.read.bf16.at, 0, 100, 8, [0, 2147483648, 1065353216, 3221225472, 65536, 8323072, 2139095040, 4286578688])
     read(~F.read.le.at, 0, 4294967293, 8, [0, 2147483648, 1065353216, 3221225472, 65536, 8323072, 2139095040, 4286578688])

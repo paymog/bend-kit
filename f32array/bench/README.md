@@ -112,6 +112,19 @@ Cancellation still loses the unit terms inside each cell. The optimization does 
 
 The driver also checks N = 0, 1, 7, 8, 9, 127, 128, and 129 for each family. It checks pure/parallel result bits at cell cutoffs 16, 256, 4,096, 65,536, and 1,048,576, with one and eight workers.
 
+## Destination-range loads
+
+Run `python3 f32array/bench/load.py` from the repo root. It builds `load.bend`, writes NumPy float32 ones, and checks each checksum. It compares `.read.le.at.into` with `.read.le.at` followed by an element copy into the same destination range. Both retain a destination with two untouched boundary lanes. The timer includes the read, any copy, checksum reduction, and checksum output. The destination is allocated before the timer. File data is warm.
+
+M4 Pro, macOS, 2026-11-24, Bend 2.0.40, one worker. Median of three separate processes. `/usr/bin/time -l` measures peak resident memory for each process; this is not an allocator byte counter.
+
+| elements | into ms | allocate + copy ms | into peak RSS bytes | allocate + copy peak RSS bytes |
+|---:|---:|---:|---:|---:|
+| 8 | 0.115209 | 0.082167 | 1,982,464 | 1,982,464 |
+| 1,048,576 | 5.424375 | 8.422959 | 12,533,760 | 17,809,408 |
+
+At 2^20 elements, destination reads save 36% of measured load time and 5,275,648 bytes of peak RSS. The allocated path creates one extra 4 MiB logical F32 buffer, plus its runtime metadata. Both paths still allocate bounded packed-byte read chunks. Tiny loads are dominated by fixed IO and timing costs. This comparison measures the Bend API paths, not raw filesystem throughput.
+
 ## Caveats
 
 - Bend times itself with `Time.mono`, a nanosecond clock. It prints each checksum before the second clock read, so the work is forced inside the timer.
