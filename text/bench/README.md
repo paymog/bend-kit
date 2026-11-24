@@ -80,3 +80,48 @@ Every program prints the checksums 654 for `diff`, 174397 for `distance`, and 26
 - Bend times itself with `Time.mono`, a nanosecond clock. It reads a scale from argv, so the work cannot run before the clock starts.
 - Bend reads the stop time after it prints the checksum. The measured time includes the checksum output.
 - One machine, one size, one thread.
+
+## Packed-input line diff
+
+Run `python3 packed.py` from this directory. It builds one native executable,
+checks five-line inputs, then runs five pairs on the same 10,000-line workload.
+Odd pairs run String then packed; even pairs run packed then String.
+Every full-size run checks checksum **654**.
+
+M4 Pro, macOS arm64, 2026-11-24, Bend **2.0.40**, one thread.
+Times are milliseconds. RSS is the process peak from `/usr/bin/time -l`, in MiB.
+
+| pair | String diff | packed diff | conversion | full materialization | String RSS | packed RSS |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 8.727625 | 4.834625 | 1.427166 | 4.848667 | 9.500000 | 9.703125 |
+| 2 | 8.988708 | 4.785792 | 1.322875 | 4.916375 | 9.500000 | 9.718750 |
+| 3 | 9.007458 | 4.931958 | 1.490333 | 4.672458 | 9.500000 | 9.703125 |
+| 4 | 8.957333 | 4.699667 | 1.350084 | 4.915375 | 9.515625 | 9.703125 |
+| 5 | 8.945084 | 4.761125 | 1.337709 | 4.797750 | 9.515625 | 9.703125 |
+| median | **8.957333** | **4.785792** | **1.350084** | **4.848667** | **9.500000** | **9.703125** |
+
+The packed timer starts with two existing Bytes buffers. Conversion from
+String finishes before that timer starts. The materialization timer copies
+every range on both sides to octet Strings, then joins them. Most callers
+should materialize only selected lines. All timers include their checksum
+output, as the existing benchmark does. RSS includes input generation,
+conversion, diff, and materialization; it does not isolate diff allocations.
+The packed path avoids per-character String cells during its scan. The
+collision fallback still builds exact octet lists.
+
+The packed median is about 47% below the paired String median. It does not
+reach the proposed sub-4-ms target. Converting String inputs and materializing
+every output line removes this benefit. This result does not meet or replace
+the String API benchmark acceptance in issue #820.
+
+The existing complete package benchmark also ran with `python3 run.py 5`.
+Median milliseconds:
+
+| op | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|
+| diff | 0.5 | 26.5 | 19.5 | 28.3 | 8.6 |
+| distance | 3.2 | 5.0 | 5.0 | 57.2 | 15.8 |
+| wrap | 3.9 | — | — | 12.0 | 13.3 |
+| wrap_utf | 4.4 | — | — | 14.5 | 20.6 |
+
+All existing checksums match: 654, 174397, and 2632:177792 for both wrap cases.
