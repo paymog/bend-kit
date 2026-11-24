@@ -6,7 +6,7 @@ conversion, whole-input buffering, reader/writer hierarchy, or new host effect.
 
 ```bend
 import Base
-import bend-kit-stream@0.4.1.1/stream.bend as Stream
+import bend-kit-stream@0.5.0.0/stream.bend as Stream
 
 # Handles are already open; the caller owns their lifetime.
 def copy(source: File, destination: File) -> IO(File & File & Stream.Outcome):
@@ -74,3 +74,7 @@ The manual five-language benchmark and native cap-fuel RSS measurement are in
 [bench/README.md](bench/README.md).
 See [SPEC.md](SPEC.md) for the precise effect assumptions. `LAWS.bend` and
 `PROOF.bend` cover pure validation/read decisions only, not foreign IO.
+
+`pure.bend` contains `ReadAction`, `chunk.valid`, `request`, and `read.action`.
+Import it instead of `stream.bend` for pure control decisions. The runtime uses
+the same definitions. The proof import graph contains no file or socket effects.
