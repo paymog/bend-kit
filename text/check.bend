@@ -1,5 +1,6 @@
 import Base
 import ./text.bend as T
+import ./byte_check.bend as ByteCheck
 
 def show(es: List<&2, T.Edit<Char>>) -> String:
   match es:
@@ -117,6 +118,7 @@ def wrap.diff(k: Nat, +n: U32, q: String & U32) -> U32:
 
 def main() -> IO(Unit):
   do IO<Unit>:
+    ByteCheck.run()
     IO.print(show(T.diff_chars("ABCABBA", "CBABAC")))
     IO.print(T.unified("old.txt", "new.txt", T.diff_lines("a\nb\nc\nd", "a\nB\nc\nd\ne\n"), 3))
     IO.print("FNV-1a collision lines: " ++ T.unified("a", "b", T.diff_lines("x\naan1wu\ny\n", "x\naa0tfa\ny\n"), 0))

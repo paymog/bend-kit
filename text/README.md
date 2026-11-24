@@ -3,10 +3,10 @@
 Myers diff with unified output, Levenshtein distance, and word wrap by display width. Pure Bend.
 
 ```bend
-import bend-kit-text@0.2.1.1/text.bend as Text
+import bend-kit-text@0.2.2.0/text.bend as Text
 ```
 
-`text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend` and `bend-kit-tty@0.1.0.1/text.bend`.
+`text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend`, `bend-kit-tty@0.1.0.1/text.bend`, and `bend-kit-bytes@0.3.3.1/bytes.bend`.
 
 ```bend
 def main() -> IO(Unit):
@@ -28,6 +28,61 @@ An `Edit<A>` is `Same{old, new}`, `Del{old}`, or `Ins{new}`. `Same` holds both i
 
 `unified(old_name, new_name, es, ctx)` prints `diff -U<ctx>` text for a line script: the `---` and `+++` headers, then each hunk with `ctx` lines of context. Two changes share a hunk when at most `2 * ctx` unchanged lines separate them. A line without `"\n"` gets `\ No newline at end of file` after it. It returns `""` when nothing changed. The headers have no timestamps. Pass a script whose lines end with `"\n"` except the last, as `diff_lines` makes.
 
+### Packed input and byte ranges
+
+`diff_bytes(old, new)` consumes two `Bytes.Bytes` buffers and returns
+`Bytes.Bytes & Bytes.Bytes & List<&2, Edit<ByteRange>>`. The first two values
+are the unchanged owned old and new buffers. `ByteRange{offset, length, key}`
+uses zero-based byte offsets and byte lengths. Its key is 32-bit FNV-1a over
+the line's octets. `Same{old, new}` keeps a range into each respective buffer.
+`Del` refers to the old buffer, and `Ins` refers to the new buffer.
+Keep each buffer until you finish reading its ranges.
+
+The scan reads packed bytes by index. It creates one range and hash per line,
+not one String cell per character. Myers compares the hashes, then the byte
+ranges verify every match. A hash collision falls back to exact octet-list
+comparison and a new Myers run. Only this fallback allocates per-byte lists.
+The result is a shortest line script, with deletes before inserts.
+The String API and its laws do not change.
+
+Empty input has no lines. LF (byte 10) ends a line and stays in its range.
+Repeated LFs produce separate lines. A final LF does not add an empty line.
+CR is an ordinary byte, so CRLF stays intact. A missing final LF changes that
+line. UTF-8 is not decoded or normalized. Invalid UTF-8, NUL, and all other
+octets are preserved. Convert Unicode text to UTF-8 before calling this API;
+`Bytes.from_string` in this example treats each character as one octet.
+
+This complete caller materializes only the first old line:
+
+```bend
+import Base
+import bend-kit-text@0.2.2.0/text.bend as Text
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+
+def print_part(r: Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
+  (old, part) = r
+  IO.print(Bytes.to_string(part))
+
+def print_first(rs: List<&2, Text.ByteRange>, old: Bytes.Bytes) -> IO(Unit):
+  match rs:
+    case Nil{}:
+      IO.pure(Unit, Unit{})
+    case Con{Text.ByteRange{offset, length, _}, _}:
+      print_part(Bytes.slice(old, offset, length))
+
+def show_old(r: Bytes.Bytes & Bytes.Bytes & List<&2, Text.Edit<Text.ByteRange>>) -> IO(Unit):
+  (old, new, edits) = r
+  print_first(Text.before(Text.ByteRange, edits), old)
+
+def main() -> IO(Unit):
+  show_old(Text.diff_bytes(Bytes.from_string("a\nb\n"), Bytes.from_string("a\nB\n")))
+```
+
+The benchmark reports conversion, packed diff, and optional full
+materialization separately. The packed result does not satisfy the separate
+String benchmark target in issue #820.
+
+
 ## Distance
 
 `distance(a, b)` is the Levenshtein distance by code point: the fewest inserts, deletes, and substitutions that turn `a` into `b`. `edit_distance(~A, ~eq, a, b)` does the same for any list. It takes O(len(a) × len(b)) time and O(len(b)) space. A command line can rank its "did you mean" suggestions by it.
@@ -47,6 +102,7 @@ Display width comes from `tty`: East Asian Wide and Fullwidth clusters take 2 co
 | `fnv(s: String)` | The 32-bit FNV-1a hash of `s`, as `U32`. |
 | `diff_lines(a: String, b: String)` | The line script, as `List<&2, Edit<String>>`. |
 | `diff_chars(a: String, b: String)` | The code point script, as `List<&2, Edit<Char>>`. |
+| `diff_bytes(a: Bytes.Bytes, b: Bytes.Bytes)` | Both owned buffers and a line script of `ByteRange` values. |
 | `before(A, es)`, `after(A, es)` | The old or new list of a script. |
 | `unified(old_name, new_name, es, ctx: U32)` | Unified diff text. |
 | `lines(s: String)` | The lines of `s`, each with its `"\n"`. |

@@ -2,6 +2,7 @@
 import Base
 import bend-kit-unicode@0.1.0.0/unicode.bend as Unicode
 import bend-kit-tty@0.1.0.1/text.bend as Tty
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # ---- edit scripts
 
@@ -436,6 +437,162 @@ def diff_lines(a: String, b: String) -> List<&2, Edit<String>>:
 
 def diff_chars(a: String, b: String) -> List<&2, Edit<Char>>:
   diff(~Char, ~Char.is_eq, String.to_list(a), String.to_list(b))
+
+# ---- packed-input line diff
+
+type ByteRange is Data:
+  ByteRange{offset: U32, length: U32, key: U32}
+
+def byte_range.key(r: ByteRange) -> U32:
+  match r:
+    case ByteRange{_, _, k}:
+      k
+
+def byte_lines.finish(last: Bool, +start: U32, +end: U32, h: U32, out: List<&2, ByteRange>) -> List<&2, ByteRange>:
+  match last:
+    case True{}:
+      List.reverse(&2, ByteRange, ByteRange{start, (end - start : U32), h} <> out)
+    case False{}:
+      List.reverse(&2, ByteRange, out)
+
+def byte_lines.step(nl: Bool, +start: U32, +end: U32, +h: U32, out: List<&2, ByteRange>) -> U32 & U32 & List<&2, ByteRange>:
+  match nl:
+    case True{}:
+      (end, 2166136261, ByteRange{start, (end - start : U32), h} <> out)
+    case False{}:
+      (start, h, out)
+
+
+def byte_lines.go(f: Nat, r: Array<U32> & U32, +i: U32, st: U32 & U32 & List<&2, ByteRange>) -> Array<U32> & List<&2, ByteRange>:
+  match f:
+    case 0n:
+      (a, _) = r
+      (+start, h, out) = st
+      (a, byte_lines.finish(U32.is_lt(start, i), start, i, h, out))
+    case 1n+p:
+      (a, +v) = r
+      (start, h, out) = st
+      byte_lines.go(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), byte_lines.step(U32.is_eq(v, 10), start, (i + 1 : U32), (U32.xor(h, v) * 16777619 : U32), out))
+
+def byte_lines.wrap(+n: U32, r: Array<U32> & List<&2, ByteRange>) -> Bytes.Bytes & List<&2, ByteRange>:
+  (a, rs) = r
+  (Bytes.Bytes{n, a}, rs)
+
+# Ranges include LF; CR and all other octets are ordinary bytes.
+def byte_lines(b: Bytes.Bytes) -> Bytes.Bytes & List<&2, ByteRange>:
+  Bytes.Bytes{+n, a} = b
+  byte_lines.wrap(n, byte_lines.go(U32.to_nat(n), Bytes.peek(a, 0), 0, (0, 2166136261, Nil{})))
+
+def byte_equal.b(a: Array<U32>, x: U32, r: Array<U32> & U32) -> Array<U32> & Array<U32> & Bool:
+  (b, y) = r
+  (a, b, U32.is_eq(x, y))
+
+def byte_equal.a(r: Array<U32> & U32, b: Array<U32>, j: U32) -> Array<U32> & Array<U32> & Bool:
+  (a, x) = r
+  byte_equal.b(a, x, Bytes.peek(b, j))
+
+def byte_equal.go(f: Nat, r: Array<U32> & Array<U32> & Bool, +i: U32, +j: U32, +ok: Bool) -> Array<U32> & Array<U32> & Bool:
+  match f:
+    case 0n:
+      (a, b, _) = r
+      (a, b, ok)
+    case 1n+p:
+      (a, b, eq) = r
+      byte_equal.go(p, byte_equal.a(Bytes.peek(a, (i + 1 : U32)), b, (j + 1 : U32)), (i + 1 : U32), (j + 1 : U32), Bool.and(ok, eq))
+
+def byte_equal.size(eq: Bool, a: Array<U32>, b: Array<U32>, +i: U32, +j: U32, n: U32) -> Array<U32> & Array<U32> & Bool:
+  match eq:
+    case True{}:
+      byte_equal.go(U32.to_nat(n), byte_equal.a(Bytes.peek(a, i), b, j), i, j, True{})
+    case False{}:
+      (a, b, False{})
+
+def byte_paired(es: List<&2, Edit<ByteRange>>, r: Array<U32> & Array<U32> & Bool, +ok: Bool) -> Array<U32> & Array<U32> & Bool:
+  match es:
+    case Nil{}:
+      (a, b, eq) = r
+      (a, b, Bool.and(ok, eq))
+    case Con{Same{ByteRange{i, +n, _}, ByteRange{j, m, _}}, t}:
+      (a, b, eq) = r
+      byte_paired(t, byte_equal.size(U32.is_eq(n, m), a, b, i, j, n), Bool.and(ok, eq))
+    case Con{_, t}:
+      byte_paired(t, r, ok)
+
+def byte_values.go(f: Nat, r: Array<U32> & U32, +i: U32, out: List<&2, U32>) -> Array<U32> & List<&2, U32>:
+  match f:
+    case 0n:
+      (a, _) = r
+      (a, List.reverse(&2, U32, out))
+    case 1n+p:
+      (a, v) = r
+      byte_values.go(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), v <> out)
+
+def byte_values.push(first: Bool, vs: List<&2, U32>, out: List<&2, List<&2, U32>>) -> List<&2, List<&2, U32>>:
+  match first:
+    case True{}:
+      out
+    case False{}:
+      vs <> out
+
+def byte_values(rs: List<&2, ByteRange>, r: Array<U32> & List<&2, U32>, out: List<&2, List<&2, U32>>, +first: Bool) -> Array<U32> & List<&2, List<&2, U32>>:
+  match rs:
+    case Nil{}:
+      (a, vs) = r
+      (a, List.reverse(&2, List<&2, U32>, byte_values.push(first, vs, out)))
+    case Con{ByteRange{+i, n, _}, t}:
+      (a, vs) = r
+      byte_values(t, byte_values.go(U32.to_nat(n), Bytes.peek(a, i), i, Nil{}), byte_values.push(first, vs, out), False{})
+
+def byte_values.eq(a: List<&2, U32>, b: List<&2, U32>) -> Bool:
+  match a b:
+    case Nil{} Nil{}:
+      True{}
+    case Con{x, xs} Con{y, ys}:
+      Bool.and(U32.is_eq(x, y), byte_values.eq(xs, ys))
+    case _ _:
+      False{}
+
+def byte_diff.fallback.b(a: Array<U32>, av: List<&2, List<&2, U32>>, r: Array<U32> & List<&2, List<&2, U32>>, old: List<&2, ByteRange>, new: List<&2, ByteRange>) -> Array<U32> & Array<U32> & List<&2, Edit<ByteRange>>:
+  (b, bv) = r
+  (a, b, walk(ByteRange, moves(~List<&2, U32>, ~byte_values.eq, av, bv), old, new))
+
+def byte_diff.fallback.a(r: Array<U32> & List<&2, List<&2, U32>>, b: Array<U32>, old: List<&2, ByteRange>, +new: List<&2, ByteRange>) -> Array<U32> & Array<U32> & List<&2, Edit<ByteRange>>:
+  (a, av) = r
+  byte_diff.fallback.b(a, av, byte_values(new, (b, Nil{}), Nil{}, True{}), old, new)
+
+# A collision uses exact octet lists only on the fallback path.
+def byte_diff.pick(ok: Bool, es: List<&2, Edit<ByteRange>>, a: Array<U32>, b: Array<U32>, +old: List<&2, ByteRange>, +new: List<&2, ByteRange>) -> Array<U32> & Array<U32> & List<&2, Edit<ByteRange>>:
+  match ok:
+    case True{}:
+      (a, b, es)
+    case False{}:
+      byte_diff.fallback.a(byte_values(old, (a, Nil{}), Nil{}, True{}), b, old, new)
+
+def byte_diff.checked(r: Array<U32> & Array<U32> & Bool, es: List<&2, Edit<ByteRange>>, old: List<&2, ByteRange>, new: List<&2, ByteRange>) -> Array<U32> & Array<U32> & List<&2, Edit<ByteRange>>:
+  (a, b, ok) = r
+  byte_diff.pick(ok, es, a, b, old, new)
+
+def byte_diff.wrap(an: U32, bn: U32, r: Array<U32> & Array<U32> & List<&2, Edit<ByteRange>>) -> Bytes.Bytes & Bytes.Bytes & List<&2, Edit<ByteRange>>:
+  (a, b, es) = r
+  (Bytes.Bytes{an, a}, Bytes.Bytes{bn, b}, es)
+
+def byte_diff.arrays(a: Bytes.Bytes, b: Bytes.Bytes, +old: List<&2, ByteRange>, +new: List<&2, ByteRange>) -> Bytes.Bytes & Bytes.Bytes & List<&2, Edit<ByteRange>>:
+  Bytes.Bytes{an, aa} = a
+  Bytes.Bytes{bn, ba} = b
+  +es = walk(ByteRange, moves(~U32, ~U32.is_eq, keys(~ByteRange, ~byte_range.key, old), keys(~ByteRange, ~byte_range.key, new)), old, new)
+  byte_diff.wrap(an, bn, byte_diff.checked(byte_paired(es, (aa, ba, True{}), True{}), es, old, new))
+
+def byte_diff.new(a: Bytes.Bytes, old: List<&2, ByteRange>, r: Bytes.Bytes & List<&2, ByteRange>) -> Bytes.Bytes & Bytes.Bytes & List<&2, Edit<ByteRange>>:
+  (b, new) = r
+  byte_diff.arrays(a, b, old, new)
+
+def byte_diff.old(r: Bytes.Bytes & List<&2, ByteRange>, b: Bytes.Bytes) -> Bytes.Bytes & Bytes.Bytes & List<&2, Edit<ByteRange>>:
+  (a, old) = r
+  byte_diff.new(a, old, byte_lines(b))
+
+# Returns both owned buffers and a shortest line script whose ranges refer to them.
+def diff_bytes(a: Bytes.Bytes, b: Bytes.Bytes) -> Bytes.Bytes & Bytes.Bytes & List<&2, Edit<ByteRange>>:
+  byte_diff.old(byte_lines(a), b)
 
 # ---- unified output
 

@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `text` 0.2.2.0: add pure packed-input line diff with owned buffers and byte-range edits. Verify hash matches and fall back to exact octet comparison on collisions. Keep the String API unchanged.
+
 - `template` 0.3.1.0: add UTF-8 packed output with `render_bytes` and `render_bytes_with`. Keep the text API and pure proofs. Check both output paths against the Mustache spec and non-ASCII fixtures.
 
 - `storage` 0.8.0.0: move the pure model, digest ordering, and encoding helpers to `pure.bend`. Keep hashing and disk IO in `storage.bend`. Isolate all existing laws and proofs from foreign effects and migrate local callers.
