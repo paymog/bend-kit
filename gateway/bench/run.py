@@ -6,15 +6,18 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+LG = sys.argv[2] if len(sys.argv) > 2 else "10"
+if RUNS < 1 or not LG.isdecimal() or not 0 <= int(LG) <= 10:
+    sys.exit("usage: run.py [runs >= 1] [0 <= log2(rounds) <= 10]")
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
-# name -> (build argv or None, run argv). Every program runs 2^10 rounds.
+# name -> (build argv or None, run argv). Every program takes log2(rounds).
 VARIANTS = {
-    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "gateway-bench", "10"]),
-    "Bun": (None, ["bun", "bench.ts", "10"]),
-    "Node": (None, ["node", "--no-warnings", "--experimental-strip-types", "bench.ts", "10"]),
-    "Python": (None, [sys.executable, "bench.py", "10"]),
-    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "10"]),
+    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "gateway-bench", LG]),
+    "Bun": (None, ["bun", "bench.ts", LG]),
+    "Node": (None, ["node", "--no-warnings", "--experimental-strip-types", "bench.ts", LG]),
+    "Python": (None, [sys.executable, "bench.py", LG]),
+    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", LG]),
 }
 
 

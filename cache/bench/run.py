@@ -6,15 +6,18 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+LG = sys.argv[2] if len(sys.argv) > 2 else "12"
+if RUNS < 1 or not LG.isdecimal() or not 0 <= int(LG) <= 12:
+    sys.exit("usage: run.py [runs >= 1] [0 <= log2(rounds) <= 12]")
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1", "PYTHONPATH": str(OUT / "py")}
 
-# name -> (build argv or None, run argv). Every program runs 2^12 rounds.
+# name -> (build argv or None, run argv). Every program takes log2(rounds).
 VARIANTS = {
-    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "cache-bench", "12"]),
-    "Bun": (["sh", "-c", "npm install -s --prefix out/js lru-cache@11.5.3 && cp bench.ts out/js/"], ["bun", OUT / "js" / "bench.ts", "12"]),
-    "Node": (None, ["node", "--no-warnings", "--experimental-strip-types", OUT / "js" / "bench.ts", "12"]),
-    "Python": ([sys.executable, "-m", "pip", "install", "-q", "--target", OUT / "py", "cachetools==7.2.1"], [sys.executable, "bench.py", "12"]),
-    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "12"]),
+    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "cache-bench", LG]),
+    "Bun": (["sh", "-c", "npm install -s --prefix out/js lru-cache@11.5.3 && cp bench.ts out/js/"], ["bun", OUT / "js" / "bench.ts", LG]),
+    "Node": (None, ["node", "--no-warnings", "--experimental-strip-types", OUT / "js" / "bench.ts", LG]),
+    "Python": ([sys.executable, "-m", "pip", "install", "-q", "--target", OUT / "py", "cachetools==7.2.1"], [sys.executable, "bench.py", LG]),
+    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", LG]),
 }
 
 

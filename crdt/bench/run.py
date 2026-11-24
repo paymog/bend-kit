@@ -6,12 +6,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+LG = sys.argv[2] if len(sys.argv) > 2 else "14"
+if RUNS < 1 or not LG.isdecimal() or not 0 <= int(LG) <= 14:
+    sys.exit("usage: run.py [runs >= 1] [0 <= log2(rounds) <= 14]")
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
-# name -> (build argv, run argv). Every program runs 2^14 rounds of each op.
+# name -> (build argv, run argv). Every program takes log2(rounds) of each op.
 VARIANTS = {
-    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "crdt-bench", "14"]),
-    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "14"]),
+    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "crdt-bench", LG]),
+    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", LG]),
 }
 OPS = ["gossip", "gossip-sparse", "gossip-pn", "read-pn-exact"]
 

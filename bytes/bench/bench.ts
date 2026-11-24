@@ -1,5 +1,8 @@
 const L = process.argv[2] !== undefined ? parseInt(process.argv[2], 10) : 28;
 const N = 1 << L;
+const reads = Number(process.argv[3] ?? 1 << 24);
+const b1 = Number(process.argv[4] ?? 1000000);
+const b2 = Number(process.argv[5] ?? 4000000);
 
 function fillBuf(n: number): { b: Uint8Array; cs: number } {
   const b = new Uint8Array(n);
@@ -55,7 +58,7 @@ let x = 1 >>> 0;
 let acc = 0 >>> 0;
 const shift = 32 - L;
 t0 = performance.now();
-for (let i = 0; i < 1 << 24; i++) {
+for (let i = 0; i < reads; i++) {
   x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
   const idx = x >>> shift;
   acc = (acc + b[idx]) >>> 0;
@@ -67,7 +70,7 @@ t0 = performance.now();
 const eq = buf.equals(c);
 console.log(`equal\t${performance.now() - t0}\t${eq ? 1 : 0}`);
 
-for (const size of [1000000, 4000000]) {
+for (const size of [b1, b2]) {
   t0 = performance.now();
   let built = new Uint8Array(1);
   for (let i = 0; i < size; i++) {

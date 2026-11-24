@@ -14,8 +14,8 @@ def build(n: Nat, +i: U32, acc: String) -> String:
     case 1n+p:
       build(p, (i - 1 : U32), SCon{Chr{b8((i * 31 + 7 : U32))}, acc})
 
-def fill() -> String:
-  build(67108860n, 67108859, "\r\n\r\n")
+def fill(+n: U32) -> String:
+  build(U32.to_nat((n - 4 : U32)), (n - 5 : U32), "\r\n\r\n")
 
 def nth(n: Nat, s: String) -> U32:
   match n:
@@ -101,36 +101,48 @@ def op.equal(+s: String, +s2: String) -> IO(Unit):
     t0 : Time.Duration <- Time.mono()
     lap("equal", t0, Bool.pick(U32, String.eq(s, s2), 1, 0))
 
-def op.concat(+s: String) -> IO(Unit):
+def op.concat(+n: U32, +s: String) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    lap("concat", t0, ends(joinr(collect(1024n, 0, Nil{}), SNil{})))
-    op.equal(s, fill())
+    lap("concat", t0, ends(joinr(collect(U32.to_nat((n / 65536 : U32)), 0, Nil{}), SNil{})))
+    op.equal(s, fill(n))
 
-def op.slice(+s: String) -> IO(Unit):
+def op.slice(+n: U32, +s: String) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    lap("slice", t0, ends(take(33554432n, String.drop(s, 16777217n))))
-    op.concat(s)
+    lap("slice", t0, ends(take(U32.to_nat((n / 2 : U32)), String.drop(s, U32.to_nat((n / 4 + 1 : U32))))))
+    op.concat(n, s)
 
-def op.find(+s: String) -> IO(Unit):
+def op.find(+n: U32, +s: String) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
     lap("find", t0, find(s, 0, 4294967295, 0))
-    op.slice(s)
+    op.slice(n, s)
 
-def op.sum(+s: String) -> IO(Unit):
+def op.sum(+n: U32, +s: String) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
     lap("sum", t0, sum(s, 0))
-    op.find(s)
+    op.find(n, s)
 
-def op.fill.done(t0: Time.Duration, +s: String) -> IO(Unit):
+def op.fill.done(+n: U32, t0: Time.Duration, +s: String) -> IO(Unit):
   do IO<Unit>:
     lap("fill", t0, (nth(12345n, s) + last(s, 0) : U32))
-    op.sum(s)
+    op.sum(n, s)
+
+def size(args: List<&1, String>) -> U32:
+  match args:
+    case program <> l <> Nil{}:
+      U32.shln(1, U32.to_nat(Maybe.default(&2, U32, U32.read(l), 26)))
+    case _:
+      67108864
+
+def start(+n: U32) -> IO(Unit):
+  do IO<Unit>:
+    t0 : Time.Duration <- Time.mono()
+    op.fill.done(n, t0, fill(n))
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.fill.done(t0, fill())
+    args : List<&1, String> <- IO.args()
+    start(size(args))

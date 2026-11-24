@@ -6,19 +6,21 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-N = "16384"
-N2 = "10000000"
+N = sys.argv[2] if len(sys.argv) > 2 else "16384"
+N2 = sys.argv[3] if len(sys.argv) > 3 else "10000000"
+if RUNS < 1 or not N.isdecimal() or not N2.isdecimal() or not 1 <= int(N) <= 4294967295 or not 1 <= int(N2) <= 4294967295:
+    sys.exit("usage: run.py [runs >= 1] [1 <= N <= 4294967295] [1 <= N2 <= 4294967295]")
 OPS = ["lcg", "rem", "i32", "u16", "u8"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
-# name -> (build argv or None, run argv). Bend has N built in.
+# name -> (build argv or None, run argv).
 VARIANTS = {
     "C": (["cc", "-O2", "-o", OUT / "c", "bench.c"], [OUT / "c", N, N2]),
     "Rust": (["rustc", "-C", "opt-level=3", "-o", OUT / "rs", "bench.rs"], [OUT / "rs", N, N2]),
     "Bun": (None, ["bun", "bench.ts", N, N2]),
     "Node": (None, ["node", "--no-warnings", "bench.ts", N, N2]),
     "Python": (None, ["python3", "bench.py", N, N2]),
-    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend"]),
+    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", N, N2]),
 }
 
 

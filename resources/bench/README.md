@@ -9,7 +9,10 @@ Run these commands from `resources/bench/`.
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
+python3 run.py 1 2  # 1 run at 4 rounds; check every supported op
 ```
+
+The second argument sets log2(rounds). It defaults to 14. Small runs use the same operations and checksum checks as the default run.
 
 You need `bend`, `cc`, `cargo`, `bun`, `node`, `npm`, and `python3`. The recorded results used Bend 2.0.38. `run.py` installs `async-sema@3.1.1` into `out/js`, and Cargo fetches `tokio`. Binaries go to `out/`, which git ignores. The script exits non-zero if a build or install fails, or if two programs disagree on the checksum.
 

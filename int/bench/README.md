@@ -9,13 +9,14 @@ Run these commands from `int/bench/`.
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
+python3 run.py 1 17 1003  # small checksum check for all five ops
 ```
 
 You need `bend`, `cc`, `rustc`, `bun`, `node`, and `python3`. Binaries go to `out/`, which git ignores. The run takes about 30 seconds. It exits non-zero if a build fails, or if two programs disagree on a checksum.
 
 ## The ops
 
-The `U64` ops use N = 16384. The 32-bit and narrower ops use N2 = 10^7. The baselines take N and N2 as their first two arguments. `bench.bend` has both built in.
+The `U64` ops use N = 16384. The 32-bit and narrower ops use N2 = 10^7. `run.py [runs] [N] [N2]` passes both counts to every program. Each count must be between 1 and 4294967295. The defaults do not change when you omit the counts. Use a non-power-of-two N2 so that `u16` and `u8` do not return to their seed.
 
 | op | work | checksum |
 |---|---|---|

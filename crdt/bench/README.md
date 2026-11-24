@@ -9,7 +9,10 @@ Run these commands from `crdt/bench/`.
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
+python3 run.py 1 2  # 1 run at 4 rounds; check every supported op
 ```
+
+The second argument sets log2(rounds). It defaults to 14. Small runs use the same operations and checksum checks as the default run.
 
 You need `bend`, `cargo`, and `python3`. Cargo fetches `crdts` 7.3.2. Binaries go to `out/`, which git ignores. The script exits non-zero if a build fails, or if the programs disagree on the checksum.
 
