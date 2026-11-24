@@ -14,6 +14,7 @@ import ./model.bend as R
 import ./LAWS.bend as Laws
 import bend-kit-collections@0.1.6.0/order.bend as Order
 import bend-kit-collections@0.1.6.0/omap.bend as O
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def split(-P: Bool -> Type, b: Bool, yes: {b == True{} : Bool} -> P(True{}), no: {b == False{} : Bool} -> P(False{})) -> P(b):
   match b:
@@ -1418,3 +1419,299 @@ def Laws.loop_cancel_retains(A, i, p, s, fs):
 
 def Laws.loop_cancel_finish_releases(A, i, o, c, h, s, fs, t, found):
   Laws.loop_finish_releases(~A, i, o, c, h, R.step(~A, s, R.Cancel{i}), fs, t, found)
+
+# ---- decoded breaker tries
+
+
+def read.next(-T: Data, -U: Data, -P: Maybe<&1, R.Rd & U> -> Data, none: P(None{}),
+    m: Maybe<&1, R.Rd & T>, -f: T -> R.Dec(U), good: @x: T -> @r: R.Rd -> P(f(x)(r))) ->
+    P(R.Dec.next(T, U, m, f)):
+  match m:
+    case None{}:
+      none
+    case Some{(r, x)}:
+      good(x)(r)
+
+def decoded.breakers(bs: R.Breakers()) -> Data:
+  {Laws.breaker.wf(bs) == True{} : Bool}
+
+def decoded.state(-A: Data, s: R.State<A>) -> Data:
+  decoded.breakers(R.breakers(A, s))
+
+def decoded.rec(-A: Data, r: R.Rec<A>) -> Data:
+  match r:
+    case R.Snap{s}:
+      decoded.state(A, s)
+    case R.Do{op}:
+      Unit
+
+
+def read.compose(-T: Data, -U: Data, -V: Data, -P: Maybe<&1, R.Rd & V> -> Data, none: P(None{}),
+    m: Maybe<&1, R.Rd & T>, -f: T -> R.Dec(U), -g: U -> R.Dec(V),
+    good: @x: T -> @r: R.Rd -> P(R.Dec.next(U, V, f(x)(r), g))) ->
+    P(R.Dec.next(U, V, R.Dec.next(T, U, m, f), g)):
+  match m:
+    case None{}:
+      none
+    case Some{(r, x)}:
+      good(x)(r)
+
+def read.brks(-T: Data, -P: Maybe<&1, R.Rd & T> -> Data, +none: P(None{}),
+    +fuel: Nat, more: Bool, +acc: R.Breakers(), wf: decoded.breakers(acc), -end: R.Breakers() -> R.Dec(T),
+    good: @bs: R.Breakers() -> decoded.breakers(bs) -> @r: R.Rd -> P(end(bs)(r)), r: R.Rd) ->
+    P(R.Dec.next(R.Breakers(), T, R.rd.brks(fuel, more, acc)(r), end)):
+  match fuel more:
+    case 0n b:
+      none
+    case 1n+f False{}:
+      good(acc)(wf)(r)
+    case 1n+f True{}:
+      read.compose(String, R.Breakers(), T, P, none, R.rd.key()(r),
+        k => R.Dec.bind(Retry.State, R.Breakers(), R.rd.brk(f), b =>
+          R.Dec.bind(Bool, R.Breakers(), R.rd.flag(), m =>
+            R.rd.brks(f, m, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, acc, k, b)))), end,
+        +k => r => read.compose(Retry.State, R.Breakers(), T, P, none, R.rd.brk(f)(r),
+          b => R.Dec.bind(Bool, R.Breakers(), R.rd.flag(), m =>
+            R.rd.brks(f, m, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, acc, k, b))), end,
+          +b => r => read.compose(Bool, R.Breakers(), T, P, none, R.rd.flag()(r),
+            m => R.rd.brks(f, m, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, acc, k, b)), end,
+            m => r => read.brks(T, P, none, f, m, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, acc, k, b),
+              CL.hmap_put_wf(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.refl, ~breaker.sound, acc, wf, k, b), end, good, r))))
+
+
+def read.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    -P: Maybe<&1, R.Rd & R.State<A>> -> Data, +none: P(None{}),
+    some: @s: R.State<A> -> decoded.state(A, s) -> @r: R.Rd -> P(Some{(r, s)}), +fuel: Nat, r: R.Rd) ->
+    P(R.rd.state(~A, ~pdec, fuel)(r)):
+  read.next(Nat, R.State<A>, P, none, R.rd.u64()(r),
+    n => (do R.Dec<R.State<A>>:
+      +hf : Bool <- R.rd.flag()
+      +h : H.Heap<Q.Ticket<A>> <- R.rd.heap(~A, ~pdec, fuel, hf)
+      +rf : Bool <- R.rd.flag()
+      +run : List<&2, Q.Ticket<A>> <- R.rd.run(~A, ~pdec, fuel, rf)
+      +tf : Bool <- R.rd.flag()
+      +ts : O.OMap<Nat, R.Try> <- R.rd.tries(fuel, tf)
+      +dk : U32 <- R.rd.u32()
+      +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+      +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+      +bf : Bool <- R.rd.flag()
+      bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+      return R.State{Q.State{n, h, run}, ts, ds, bs}),
+    +n => r => read.next(Bool, R.State<A>, P, none, R.rd.flag()(r),
+      hf => (do R.Dec<R.State<A>>:
+        +h : H.Heap<Q.Ticket<A>> <- R.rd.heap(~A, ~pdec, fuel, hf)
+        +rf : Bool <- R.rd.flag()
+        +run : List<&2, Q.Ticket<A>> <- R.rd.run(~A, ~pdec, fuel, rf)
+        +tf : Bool <- R.rd.flag()
+        +ts : O.OMap<Nat, R.Try> <- R.rd.tries(fuel, tf)
+        +dk : U32 <- R.rd.u32()
+        +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+        +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+        +bf : Bool <- R.rd.flag()
+        bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+        return R.State{Q.State{n, h, run}, ts, ds, bs}),
+      +hf => r => read.next(H.Heap<Q.Ticket<A>>, R.State<A>, P, none, R.rd.heap(~A, ~pdec, fuel, hf)(r),
+        h => (do R.Dec<R.State<A>>:
+          +rf : Bool <- R.rd.flag()
+          +run : List<&2, Q.Ticket<A>> <- R.rd.run(~A, ~pdec, fuel, rf)
+          +tf : Bool <- R.rd.flag()
+          +ts : O.OMap<Nat, R.Try> <- R.rd.tries(fuel, tf)
+          +dk : U32 <- R.rd.u32()
+          +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+          +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+          +bf : Bool <- R.rd.flag()
+          bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+          return R.State{Q.State{n, h, run}, ts, ds, bs}),
+        +h => r => read.next(Bool, R.State<A>, P, none, R.rd.flag()(r),
+          rf => (do R.Dec<R.State<A>>:
+            +run : List<&2, Q.Ticket<A>> <- R.rd.run(~A, ~pdec, fuel, rf)
+            +tf : Bool <- R.rd.flag()
+            +ts : O.OMap<Nat, R.Try> <- R.rd.tries(fuel, tf)
+            +dk : U32 <- R.rd.u32()
+            +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+            +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+            +bf : Bool <- R.rd.flag()
+            bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+            return R.State{Q.State{n, h, run}, ts, ds, bs}),
+          +rf => r => read.next(List<&2, Q.Ticket<A>>, R.State<A>, P, none, R.rd.run(~A, ~pdec, fuel, rf)(r),
+            run => (do R.Dec<R.State<A>>:
+              +tf : Bool <- R.rd.flag()
+              +ts : O.OMap<Nat, R.Try> <- R.rd.tries(fuel, tf)
+              +dk : U32 <- R.rd.u32()
+              +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+              +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+              +bf : Bool <- R.rd.flag()
+              bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+              return R.State{Q.State{n, h, run}, ts, ds, bs}),
+            +run => r => read.next(Bool, R.State<A>, P, none, R.rd.flag()(r),
+              tf => (do R.Dec<R.State<A>>:
+                +ts : O.OMap<Nat, R.Try> <- R.rd.tries(fuel, tf)
+                +dk : U32 <- R.rd.u32()
+                +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+                +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+                +bf : Bool <- R.rd.flag()
+                bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+                return R.State{Q.State{n, h, run}, ts, ds, bs}),
+              +tf => r => read.next(O.OMap<Nat, R.Try>, R.State<A>, P, none, R.rd.tries(fuel, tf)(r),
+                ts => (do R.Dec<R.State<A>>:
+                  +dk : U32 <- R.rd.u32()
+                  +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+                  +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+                  +bf : Bool <- R.rd.flag()
+                  bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+                  return R.State{Q.State{n, h, run}, ts, ds, bs}),
+                +ts => r => read.next(U32, R.State<A>, P, none, R.rd.u32()(r),
+                  dk => (do R.Dec<R.State<A>>:
+                    +dt : R.Graves(A) <- R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))
+                    +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+                    +bf : Bool <- R.rd.flag()
+                    bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+                    return R.State{Q.State{n, h, run}, ts, ds, bs}),
+                  +dk => r => read.next(R.Graves(A), R.State<A>, P, none, R.rd.graves(~A, ~pdec, fuel, U32.is_eq(dk, 0), U32.is_eq(dk, 1), U32.is_eq(dk, 2))(r),
+                    dt => (do R.Dec<R.State<A>>:
+                      +ds : R.Graves(A) <- R.rd.wf(A, R.rd.valid(~A, dt), dt)
+                      +bf : Bool <- R.rd.flag()
+                      bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+                      return R.State{Q.State{n, h, run}, ts, ds, bs}),
+                    +dt => r => read.next(R.Graves(A), R.State<A>, P, none, R.rd.wf(A, R.rd.valid(~A, dt), dt)(r),
+                      ds => (do R.Dec<R.State<A>>:
+                        +bf : Bool <- R.rd.flag()
+                        bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+                        return R.State{Q.State{n, h, run}, ts, ds, bs}),
+                      +ds => r => read.next(Bool, R.State<A>, P, none, R.rd.flag()(r),
+                        bf => (do R.Dec<R.State<A>>:
+                          bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
+                          return R.State{Q.State{n, h, run}, ts, ds, bs}),
+                        +bf => r => read.brks(R.State<A>, P, none, fuel, bf, M.HMap.new(String, Retry.State), {==},
+                          bs => R.Dec.pure(R.State<A>, R.State{Q.State{n, h, run}, ts, ds, bs}),
+                          bs => wf => r => some(R.State{Q.State{n, h, run}, ts, ds, bs})(wf)(r), r))))))))))))
+
+def decoded.maybe(-T: Data, P: T -> Data, m: Maybe<&2, T>) -> Data:
+  match m:
+    case None{}:
+      Unit
+    case Some{x}:
+      P(x)
+
+def read.done.keep(~A: Data, keep: Bool, +s: R.State<A>, wf: decoded.state(A, s)) ->
+    decoded.maybe(R.Rec<A>, r => decoded.rec(A, r),
+      R.decode.snapped(A, Bool.pick(Maybe<&2, R.State<A>>, keep, Some{s}, None{}))):
+  match keep:
+    case True{}:
+      wf
+    case False{}:
+      Unit{}
+
+def read.done.some(~A: Data, +len: U32, +s: R.State<A>, wf: decoded.state(A, s), r: R.Rd) ->
+    decoded.maybe(R.Rec<A>, x => decoded.rec(A, x),
+      R.decode.snapped(A, R.rd.done(R.State<A>, len, Some{(r, s)}))):
+  match r:
+    case R.Rd{b, +at}:
+      read.done.keep(~A, U32.is_eq(at, len), s, wf)
+
+def decode.snap.valid(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes) ->
+    decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.snapped(A, R.decode.snap(~A, ~pdec, b))):
+  match b:
+    case Bytes.Bytes{+len, buf}:
+      read.state(~A, ~pdec,
+        m => decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.snapped(A, R.rd.done(R.State<A>, len, m))),
+        Unit{}, +s => wf => r => read.done.some(~A, len, s, wf, r),
+        U32.to_nat((len / 4 + 1 : U32)), R.Rd{Bytes.Bytes{len, buf}, 4})
+
+def decode.did.valid(~A: Data, m: Maybe<&2, R.Op<A>>) ->
+    decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.did(A, m)):
+  match m:
+    case None{}:
+      Unit{}
+    case Some{op}:
+      Unit{}
+
+def decode.rec.if.valid(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, snap: Bool, b: Bytes.Bytes) ->
+    decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.rec.if(~A, ~pdec, snap, b)):
+  match snap:
+    case True{}:
+      decode.snap.valid(~A, ~pdec, b)
+    case False{}:
+      decode.did.valid(~A, R.decode(~A, ~pdec, b))
+
+def decode.rec.tag.valid(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, pair: Bytes.Bytes & U32) ->
+    decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.rec.tag(~A, ~pdec, pair)):
+  match pair:
+    case (b, +tag):
+      decode.rec.if.valid(~A, ~pdec, U32.is_eq(tag, 14), b)
+
+def decode.rec.valid(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes) ->
+    decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.rec(~A, ~pdec, b)):
+  decode.rec.tag.valid(~A, ~pdec, R.get.u32(Bytes.get.u32le(b, 0)))
+
+def snapshot.breaker.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    {Laws.breaker.wf(R.breakers(A, s)) == True{} : Bool}:
+  %e : decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), _)
+  decode.rec.valid(~A, ~pdec, b)
+
+def calm.absent(es: List<&2, M.Entry<String, Retry.State>>, +k: String) ->
+    {CL.hmap_absent(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(es), k) ==
+     CL.hmap_absent(~String, ~Retry.State, ~R.brk.eq, es, k) : Bool}:
+  match es:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+j, b}, +rest}:
+      %calm.absent(rest, k) : {Bool.not(R.brk.eq(k, j)) && CL.hmap_absent(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(rest), k) == Bool.not(R.brk.eq(k, j)) && _ : Bool}
+      {==}
+
+def calm.distinct(es: List<&2, M.Entry<String, Retry.State>>) ->
+    {CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(es)) ==
+     CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, es) : Bool}:
+  match es:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+j, b}, +rest}:
+      %calm.absent(rest, j) : {CL.hmap_absent(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(rest), j) && CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(rest)) == _ && CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, rest) : Bool}
+      %calm.distinct(rest) : {CL.hmap_absent(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(rest), j) && CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(rest)) == CL.hmap_absent(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(rest), j) && _ : Bool}
+      {==}
+
+def calm.hashed(es: List<&2, M.Entry<String, Retry.State>>, +h: U32) ->
+    {CL.hmap_hashed(~String, ~Retry.State, ~R.brk.hash, R.calm.entries(es), h) ==
+     CL.hmap_hashed(~String, ~Retry.State, ~R.brk.hash, es, h) : Bool}:
+  match es:
+    case Nil{}:
+      {==}
+    case Con{M.Entry{+j, b}, +rest}:
+      %calm.hashed(rest, h) : {U32.is_eq(h, R.brk.hash(j)) && CL.hmap_hashed(~String, ~Retry.State, ~R.brk.hash, R.calm.entries(rest), h) == U32.is_eq(h, R.brk.hash(j)) && _ : Bool}
+      {==}
+
+def calm.map.wf(+n: Nat, bs: R.Breakers()) ->
+    {CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, n, R.calm.map(bs)) ==
+     CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, n, bs) : Bool}:
+  match n bs:
+    case 0n M.HNil{}:
+      {==}
+    case 0n M.HLeaf{h, es}:
+      calm.distinct(es)
+    case 0n M.HBranch{lo, hi}:
+      {==}
+    case 1n+p M.HNil{}:
+      {==}
+    case 1n+p M.HLeaf{+h, +es}:
+      %calm.hashed(es, h) : {CL.hmap_hashed(~String, ~Retry.State, ~R.brk.hash, R.calm.entries(es), h) && CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(es)) == _ && CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, es) : Bool}
+      %calm.distinct(es) : {CL.hmap_hashed(~String, ~Retry.State, ~R.brk.hash, R.calm.entries(es), h) && CL.hmap_distinct(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(es)) == CL.hmap_hashed(~String, ~Retry.State, ~R.brk.hash, R.calm.entries(es), h) && _ : Bool}
+      {==}
+    case 1n+p M.HBranch{+lo, +hi}:
+      %calm.map.wf(p, lo) : {CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(lo)) && CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(hi)) == _ && CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, hi) : Bool}
+      %calm.map.wf(p, hi) : {CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(lo)) && CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(hi)) == CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(lo)) && _ : Bool}
+      {==}
+
+def calm.breaker.wf(~A: Data, +s: R.State<A>, wf: decoded.state(A, s)) ->
+    {Laws.breaker.wf(R.breakers(A, R.calm(A, s))) == True{} : Bool}:
+  match s:
+    case R.State{q, ts, ds, +bs}:
+      %Equal.sym(Bool, Laws.breaker.wf(R.calm.map(bs)), Laws.breaker.wf(bs), calm.map.wf(32n, bs)) :
+        { _ == True{} : Bool}
+      wf
+
+
+def snapshot.recovered.breaker.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    {Laws.breaker.wf(R.breakers(A, R.calm(A, s))) == True{} : Bool}:
+  calm.breaker.wf(~A, s, snapshot.breaker.wf(~A, ~pdec, b, s, e))
