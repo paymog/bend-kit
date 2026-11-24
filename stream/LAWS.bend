@@ -1,5 +1,5 @@
 import Base
-import ./stream.bend as Stream
+import ./pure.bend as Stream
 
 # Pure control decisions only. These claims do not prove host IO behavior.
 law chunk_zero:

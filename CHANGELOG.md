@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `stream` 0.5.0.0: move pure read decisions and chunk validation to `pure.bend`. Keep file and socket effects in `stream.bend`. Preserve all laws and transfer behavior.
+
 - `dns` 0.8.0.0: move the pure codec and host lookup model to `pure.bend`. Keep resolver IO in `dns.bend`. Isolate existing laws and proofs from foreign effects and migrate local callers.
 
 - Re-pin waves flag root dependency guidance and stale package README prose for manual review. Show current entry-file pins to distinguish migrated consumers from consumers waiting for a publish.
