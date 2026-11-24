@@ -424,6 +424,62 @@ def maintenance(+dir: String) -> IO(Unit):
     published : Bytes.Bytes <- run(Bytes.Bytes, S.read(dir ++ "/roots/after"))
     ok(String.eq(Bytes.to_string(published), "published"), "writers can resume after exclusive maintenance")
 
+def durability.fault(+dir: String, +path: String, +stage: U32) -> IO(Unit):
+  do IO<Unit>:
+    run(Unit, S.write(dir, "old", path, Bytes.from_string("old")))
+    run(Unit, S.write.file(dir ++ "/tmp/injected", Bytes.from_string("new")))
+    result : Result<&1, &1, U32 & String, Unit> <- S.write.durable(dir ++ "/tmp/injected", path, stage)
+    ok(expect.fail(Unit, result, ""), "each publication boundary reports an injected failure")
+    bytes : Bytes.Bytes <- run(Bytes.Bytes, S.read(path))
+    ok(String.eq(Bytes.to_string(bytes), Bool.pick(String, U32.is_lt(stage, 4), "old", "new")),
+      "a failed publication exposes only the complete old or new file")
+    +pending : Bool <- Files.exists(dir ++ "/tmp/injected")
+    ok(Bool.pick(Bool, U32.is_lt(stage, 4), pending, Bool.not(pending)),
+      "the rename boundary determines temporary-file ownership")
+    cleaned : Result<&1, &1, U32 & String, Unit> <- S.write.cleanup(dir ++ "/tmp/injected", Fail{(5, "injected")})
+    ok(expect.fail(Unit, cleaned, "injected"), "cleanup keeps the publication failure")
+
+def durability.steps(n: Nat, +dir: String, +stage: U32) -> IO(Unit):
+  match n:
+    case 0n:
+      IO.pure(Unit, Unit{})
+    case 1n+p:
+      do IO<Unit>:
+        durability.fault(dir, dir ++ "/objects/fault", stage)
+        durability.fault(dir, dir ++ "/roots/fault", stage)
+        durability.steps(p, dir, (stage + 1 : U32))
+
+def durability(+dir: String) -> IO(Unit):
+  do IO<Unit>:
+    run(Unit, S.Disk.init(dir))
+    durability.steps(6n, dir, 1)
+    +end : P.Digest <- run(P.Digest, S.digest(Bytes.from_string("end\n")))
+    run(Unit, S.write.file(dir ++ "/tmp/interrupted", Bytes.from_string("end\n")))
+    interrupted : Result<&1, &1, U32 & String, Unit> <- S.write.durable(dir ++ "/tmp/interrupted", S.Disk.object(dir, end), 4)
+    ok(expect.fail(Unit, interrupted, ""), "an interrupted object publication can leave a renamed object")
+    run(Unit, S.Disk.set_root(dir, "recovered", end))
+    recovered : P.Digest <- run(P.Digest, S.Disk.root(dir, "recovered"))
+    ok(same.digest(recovered, end), "root publication fences an object left after rename")
+    +t : P.Tree<P.Blob> <- file("durable")
+    +child : P.Digest <- run(P.Digest, S.Disk.commit(dir, t))
+    +d : P.Digest <- run(P.Digest, S.Disk.commit(dir, P.TItem{"file", t, P.TEnd{}}))
+    run(Unit, S.Disk.set_root(dir, "release", d))
+    +missing : P.Digest <- run(P.Digest, S.digest(Bytes.from_string("missing")))
+    failed : Result<&1, &1, U32 & String, Unit> <- S.Disk.set_root(dir, "release", missing)
+    ok(expect.fail(Unit, failed, ""), "a missing closure cannot replace a durable root")
+    root : P.Digest <- run(P.Digest, S.Disk.root(dir, "release"))
+    ok(same.digest(root, d), "a refused root leaves the prior root unchanged")
+    run(Unit, Files.remove(S.Disk.object(dir, child)))
+    failed : Result<&1, &1, U32 & String, Unit> <- S.Disk.set_root(dir, "absent", d)
+    ok(expect.fail(Unit, failed, ""), "root publication refuses an incomplete object closure")
+    exists : Bool <- Files.exists(dir ++ "/roots/absent")
+    ok(Bool.not(exists), "a failed closure check does not publish a root")
+    run(Unit, S.write.file(S.Disk.object(dir, child), Bytes.from_string("corrupt")))
+    corrupt : Result<&1, &1, U32 & String, Unit> <- S.Disk.set_root(dir, "corrupt", d)
+    ok(expect.fail(Unit, corrupt, ""), "root publication refuses a corrupt descendant")
+    exists : Bool <- Files.exists(dir ++ "/roots/corrupt")
+    ok(Bool.not(exists), "a corrupt closure cannot publish a root")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     pure()
@@ -440,4 +496,5 @@ def main() -> IO(Unit):
     scenario(dir, abc)
     concurrent(dir ++ "/concurrent")
     maintenance(dir ++ "/maintenance")
+    durability(dir ++ "/durability")
     HttpCheck.run()
