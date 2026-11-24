@@ -1,5 +1,6 @@
 import Base
 import ./storage.bend as S
+import ./pure.bend as P
 import bend-kit-http@0.40.0.1/http.bend as Http
 import bend-kit-http@0.40.0.1/completion.bend as Completion
 import bend-kit-files@0.4.0.1/files.bend as Files
@@ -16,7 +17,7 @@ def served(result: Result<&1, &1, U32 & String, Http.Body>) -> IO(Http.Reply):
     case Fail{(code, message)}:
       IO.pure(Http.Reply, response(Bool.pick(U32, U32.is_eq(code, 2), 404, 500), Http.from_string("object unavailable\n")))
 
-def object(+dir: String, digest: Maybe<&2, S.Digest>) -> IO(Http.Reply):
+def object(+dir: String, digest: Maybe<&2, P.Digest>) -> IO(Http.Reply):
   match digest:
     case None{}:
       IO.pure(Http.Reply, response(404, Http.from_string("not found\n")))
@@ -30,7 +31,7 @@ def route(valid: Bool, dir: String, path: String) -> IO(Http.Reply):
     case False{}:
       IO.pure(Http.Reply, response(404, Http.from_string("not found\n")))
     case True{}:
-      object(dir, S.Digest.read(String.drop(path, 9n)))
+      object(dir, P.Digest.read(String.drop(path, 9n)))
 
 # Mount on a read-only store; freeze collection while the server serves its roots.
 def handle(dir: String, request: Http.Req) -> IO(Http.Reply):
@@ -70,38 +71,38 @@ def inspect(path: String, digest: String) -> IO(Result<&1, &1, U32 & String, U32
   import "./effs/http.c"
   import "./effs/http.js"
 
-def metadata.file(valid: Bool) -> Maybe<&2, S.Obj<S.Digest, Unit>>:
+def metadata.file(valid: Bool) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
   match valid:
     case True{}:
-      Some{S.OFile{Unit{}}}
+      Some{P.OFile{Unit{}}}
     case False{}:
       None{}
 
-def metadata.node(node: Maybe<&2, S.Obj<S.Digest, S.Blob>>) -> Maybe<&2, S.Obj<S.Digest, Unit>>:
+def metadata.node(node: Maybe<&2, P.Obj<P.Digest, P.Blob>>) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
   match node:
-    case Some{S.OEnd{}}:
-      Some{S.OEnd{}}
-    case Some{S.OItem{n, c, r}}:
-      Some{S.OItem{n, c, r}}
+    case Some{P.OEnd{}}:
+      Some{P.OEnd{}}
+    case Some{P.OItem{n, c, r}}:
+      Some{P.OItem{n, c, r}}
     case _:
       None{}
 
-def metadata.of(file: Bool, +size: U32, +head: String, +d: S.Digest) -> Maybe<&2, S.Obj<S.Digest, Unit>>:
+def metadata.of(file: Bool, +size: U32, +head: String, +d: P.Digest) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
   match file:
     case True{}:
       +digits = String.drop(head, 5n)
       +length = U32.from_nat(String.length(head ++ "\n"))
       metadata.file(Bool.and(U32.is_le(length, size), String.eq(digits, U32.show((size - length : U32)))))
     case False{}:
-      metadata.node(S.decode.hashed(d, Http.from_string(head ++ "\n")))
+      metadata.node(P.decode.hashed(d, Http.from_string(head ++ "\n")))
 
-def verified.pair(+d: S.Digest, pair: U32 & String) -> S.Run(S.Obj<S.Digest, Unit>):
+def verified.pair(+d: P.Digest, pair: U32 & String) -> S.Run(P.Obj<P.Digest, Unit>):
   (+size, +head) = pair
-  S.Run.some(S.Obj<S.Digest, Unit>, metadata.of(String.starts_with(head, "file "), size, head, d), "object " ++ S.Digest.hex(d) ++ " does not decode")
+  S.Run.some(P.Obj<P.Digest, Unit>, metadata.of(String.starts_with(head, "file "), size, head, d), "object " ++ P.Digest.hex(d) ++ " does not decode")
 
-def verified(+path: String, +d: S.Digest) -> S.Run(S.Obj<S.Digest, Unit>):
-  do S.Run<S.Obj<S.Digest, Unit>>:
-    pair : U32 & String <- inspect(path, S.Digest.hex(d))
+def verified(+path: String, +d: P.Digest) -> S.Run(P.Obj<P.Digest, Unit>):
+  do S.Run<P.Obj<P.Digest, Unit>>:
+    pair : U32 & String <- inspect(path, P.Digest.hex(d))
     verified.pair(d, pair)
 
 def error(e: Http.Err) -> String:
@@ -224,85 +225,85 @@ def download.received(+dir: String, pair: Http.Pool & Result<&1, &1, Http.Err, H
         pair : Http.Stream & Result<&1, &1, U32 & String, String> <- download.opened(st, opened)
         download.idle(pool, pair)
 
-def download.context(+d: S.Digest, pair: Http.Pool & Result<&1, &1, U32 & String, String>) -> Http.Pool & Result<&1, &1, U32 & String, String>:
+def download.context(+d: P.Digest, pair: Http.Pool & Result<&1, &1, U32 & String, String>) -> Http.Pool & Result<&1, &1, U32 & String, String>:
   (pool, result) = pair
   match result:
     case Fail{(code, message)}:
-      (pool, Fail{(code, "storage: object " ++ S.Digest.hex(d) ++ ": " ++ message)})
+      (pool, Fail{(code, "storage: object " ++ P.Digest.hex(d) ++ ": " ++ message)})
     case Done{path}:
       (pool, Done{path})
 
-def download(base: String, dir: String, +d: S.Digest) -> Run(String):
+def download(base: String, dir: String, +d: P.Digest) -> Run(String):
   pool => do IO<Http.Pool & Result<&1, &1, U32 & String, String>>:
-    pair : Http.Pool & Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <- Http.pool.open.raw.how(pool, Http.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/objects/" ++ S.Digest.hex(d), Http.set(Http.empty(), "accept-encoding", "identity"), Http.from_string(""), 30000)
+    pair : Http.Pool & Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <- Http.pool.open.raw.how(pool, Http.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/objects/" ++ P.Digest.hex(d), Http.set(Http.empty(), "accept-encoding", "identity"), Http.from_string(""), 30000)
     received : Http.Pool & Result<&1, &1, U32 & String, String> <- download.received(dir, Http.pool.stream.only(pair))
     return download.context(d, received)
 
-def publish(+tmp: String, path: String, d: S.Digest) -> S.Run(S.Obj<S.Digest, Unit>):
-  do S.Run<S.Obj<S.Digest, Unit>>:
-    node : S.Obj<S.Digest, Unit> <- verified(tmp, d)
+def publish(+tmp: String, path: String, d: P.Digest) -> S.Run(P.Obj<P.Digest, Unit>):
+  do S.Run<P.Obj<P.Digest, Unit>>:
+    node : P.Obj<P.Digest, Unit> <- verified(tmp, d)
     Files.rename(tmp, path)
     return node
 
-def publish.cleaned(+tmp: String, result: Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>) -> S.Run(S.Obj<S.Digest, Unit>):
+def publish.cleaned(+tmp: String, result: Result<&1, &1, U32 & String, P.Obj<P.Digest, Unit>>) -> S.Run(P.Obj<P.Digest, Unit>):
   match result:
     case Done{node}:
-      S.Run.pure(S.Obj<S.Digest, Unit>, node)
+      S.Run.pure(P.Obj<P.Digest, Unit>, node)
     case Fail{e}:
-      do IO<Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>>:
+      do IO<Result<&1, &1, U32 & String, P.Obj<P.Digest, Unit>>>:
         removed : Result<&1, &1, U32 & String, Unit> <- Files.remove(tmp)
         return Fail{e}
 
-def receive(+dir: String, +d: S.Digest, +tmp: String) -> S.Run(S.Obj<S.Digest, Unit>):
-  do IO<Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>>:
-    result : Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>> <- publish(tmp, S.Disk.object(dir, d), d)
+def receive(+dir: String, +d: P.Digest, +tmp: String) -> S.Run(P.Obj<P.Digest, Unit>):
+  do IO<Result<&1, &1, U32 & String, P.Obj<P.Digest, Unit>>>:
+    result : Result<&1, &1, U32 & String, P.Obj<P.Digest, Unit>> <- publish(tmp, S.Disk.object(dir, d), d)
     publish.cleaned(tmp, result)
 
 type Step is Type:
-  Want{digest: S.Digest}
-  Pending{digest: S.Digest, result: S.Index(S.Digest, Unit) & U32}
-  Missing{digest: S.Digest, seen: Bool}
-  Local{digest: S.Digest, there: Bool}
-  Children{object: S.Obj<S.Digest, Unit>}
+  Want{digest: P.Digest}
+  Pending{digest: P.Digest, result: P.Index(P.Digest, Unit) & U32}
+  Missing{digest: P.Digest, seen: Bool}
+  Local{digest: P.Digest, there: Bool}
+  Children{object: P.Obj<P.Digest, Unit>}
 
 # The index holds only links and the visited set, never file payloads.
-def walk(fuel: Nat, +base: String, +dir: String, step: Step, +index: S.Index(S.Digest, Unit), +sent: U32) -> Run(S.Index(S.Digest, Unit) & U32):
+def walk(fuel: Nat, +base: String, +dir: String, step: Step, +index: P.Index(P.Digest, Unit), +sent: U32) -> Run(P.Index(P.Digest, Unit) & U32):
   match fuel step:
     case 0n _:
-      Run.lift(S.Index(S.Digest, Unit) & U32, S.Run.fail(S.Index(S.Digest, Unit) & U32, (36, "storage: HTTP tree is too deep")))
+      Run.lift(P.Index(P.Digest, Unit) & U32, S.Run.fail(P.Index(P.Digest, Unit) & U32, (36, "storage: HTTP tree is too deep")))
     case 1n+p Want{+d}:
-      walk(p, base, dir, Missing{d, S.Index.has(~S.Digest, ~Unit, ~S.Digest.cmp, index, d)}, index, sent)
+      walk(p, base, dir, Missing{d, P.Index.has(~P.Digest, ~Unit, ~P.Digest.cmp, index, d)}, index, sent)
     case 1n+p Missing{d, True{}}:
-      Run.pure(S.Index(S.Digest, Unit) & U32, (index, sent))
+      Run.pure(P.Index(P.Digest, Unit) & U32, (index, sent))
     case 1n+p Missing{+d, False{}}:
-      Run.bind(Bool, S.Index(S.Digest, Unit) & U32, Run.lift(Bool, S.Run.lift(Bool, Files.exists(S.Disk.object(dir, d)))), e => walk(p, base, dir, Local{d, e}, index, sent))
+      Run.bind(Bool, P.Index(P.Digest, Unit) & U32, Run.lift(Bool, S.Run.lift(Bool, Files.exists(S.Disk.object(dir, d)))), e => walk(p, base, dir, Local{d, e}, index, sent))
     case 1n+p Local{+d, True{}}:
-      do Run<S.Index(S.Digest, Unit) & U32>:
-        +node : S.Obj<S.Digest, Unit> <- Run.lift(S.Obj<S.Digest, Unit>, verified(S.Disk.object(dir, d), d))
-        walk(p, base, dir, Children{node}, S.Index.put(~S.Digest, ~Unit, ~S.Digest.cmp, index, d, node), sent)
+      do Run<P.Index(P.Digest, Unit) & U32>:
+        +node : P.Obj<P.Digest, Unit> <- Run.lift(P.Obj<P.Digest, Unit>, verified(S.Disk.object(dir, d), d))
+        walk(p, base, dir, Children{node}, P.Index.put(~P.Digest, ~Unit, ~P.Digest.cmp, index, d, node), sent)
     case 1n+p Local{+d, False{}}:
-      do Run<S.Index(S.Digest, Unit) & U32>:
+      do Run<P.Index(P.Digest, Unit) & U32>:
         tmp : String <- download(base, dir, d)
-        +node : S.Obj<S.Digest, Unit> <- Run.lift(S.Obj<S.Digest, Unit>, receive(dir, d, tmp))
-        walk(p, base, dir, Children{node}, S.Index.put(~S.Digest, ~Unit, ~S.Digest.cmp, index, d, node), (sent + 1 : U32))
-    case 1n+(+p) Children{S.OItem{name, c, r}}:
-      do Run<S.Index(S.Digest, Unit) & U32>:
-        first : S.Index(S.Digest, Unit) & U32 <- walk(p, base, dir, Want{c}, index, sent)
-        walk(p, base, dir, Pending{r, first}, S.Index.new(S.Digest, Unit), 0)
+        +node : P.Obj<P.Digest, Unit> <- Run.lift(P.Obj<P.Digest, Unit>, receive(dir, d, tmp))
+        walk(p, base, dir, Children{node}, P.Index.put(~P.Digest, ~Unit, ~P.Digest.cmp, index, d, node), (sent + 1 : U32))
+    case 1n+(+p) Children{P.OItem{name, c, r}}:
+      do Run<P.Index(P.Digest, Unit) & U32>:
+        first : P.Index(P.Digest, Unit) & U32 <- walk(p, base, dir, Want{c}, index, sent)
+        walk(p, base, dir, Pending{r, first}, P.Index.new(P.Digest, Unit), 0)
     case 1n+p Pending{r, (next, n)}:
       walk(p, base, dir, Want{r}, next, n)
     case 1n+p Children{_}:
-      Run.pure(S.Index(S.Digest, Unit) & U32, (index, sent))
+      Run.pure(P.Index(P.Digest, Unit) & U32, (index, sent))
 
-def complete(root: S.Digest, result: S.Index(S.Digest, Unit) & U32) -> S.Run(U32):
+def complete(root: P.Digest, result: P.Index(P.Digest, Unit) & U32) -> S.Run(U32):
   (index, sent) = result
   do S.Run<U32>:
-    tree : S.Tree<Unit> <- S.Run.some(S.Tree<Unit>, S.Index.load(~S.Digest, ~Unit, ~S.Digest.cmp, S.limit(), index, root), "HTTP root does not load")
+    tree : P.Tree<Unit> <- S.Run.some(P.Tree<Unit>, P.Index.load(~P.Digest, ~Unit, ~P.Digest.cmp, P.limit(), index, root), "HTTP root does not load")
     return sent
 
 # base is an HTTP(S) origin without a trailing slash; root is supplied by the caller.
-def sync(+base: String, +dir: String, +root: S.Digest) -> S.Run(U32):
+def sync(+base: String, +dir: String, +root: P.Digest) -> S.Run(U32):
   do S.Run<U32>:
-    pair : Http.Pool & Result<&1, &1, U32 & String, S.Index(S.Digest, Unit) & U32> <- S.Run.lift(Http.Pool & Result<&1, &1, U32 & String, S.Index(S.Digest, Unit) & U32>, walk(Nat.mul(6n, S.limit()), base, dir, Want{root}, S.Index.new(S.Digest, Unit), 0)(Http.pool.new()))
-    result : S.Index(S.Digest, Unit) & U32 <- Run.close(S.Index(S.Digest, Unit) & U32, pair)
+    pair : Http.Pool & Result<&1, &1, U32 & String, P.Index(P.Digest, Unit) & U32> <- S.Run.lift(Http.Pool & Result<&1, &1, U32 & String, P.Index(P.Digest, Unit) & U32>, walk(Nat.mul(6n, P.limit()), base, dir, Want{root}, P.Index.new(P.Digest, Unit), 0)(Http.pool.new()))
+    result : P.Index(P.Digest, Unit) & U32 <- Run.close(P.Index(P.Digest, Unit) & U32, pair)
     complete(root, result)

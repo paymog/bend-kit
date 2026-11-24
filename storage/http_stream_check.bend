@@ -1,13 +1,14 @@
 import Base
 import ./storage.bend as S
+import ./pure.bend as P
 import ./http.bend as Transport
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 # SHA-256 of "file 17825792\n" followed by 17 MiB of zero octets.
-def root() -> S.Digest:
-  Maybe.default(&2, S.Digest, S.Digest.read("89c9109ce931e20ac63a1729d6f6a9db03dee9401161eb8a3fbd35c4a09a9528"), S.Digest{Nil{}})
+def root() -> P.Digest:
+  Maybe.default(&2, P.Digest, P.Digest.read("89c9109ce931e20ac63a1729d6f6a9db03dee9401161eb8a3fbd35c4a09a9528"), P.Digest{Nil{}})
 
 def ok(good: Bool, name: String) -> IO(Unit):
   match good:
@@ -86,14 +87,14 @@ def exercise(+mode: U32, +dir: String, pair: Listener & U32) -> IO(Unit):
     temps : List<&2, String> <- IO.try(List<&2, String>, Files.list_dir(dir ++ "/tmp"))
     ok(Nat.is_eq(List.length(&2, String, temps), 0n), "temporary files are removed")
 
-def reconstructed(pair: S.Digest & S.Store<S.Digest, S.Blob>) -> IO(Unit):
+def reconstructed(pair: P.Digest & P.Store<P.Digest, P.Blob>) -> IO(Unit):
   (digest, objects) = pair
-  ok(Cmp.is_eq(S.Digest.cmp(digest, root())), "17 MiB checkout reconstructs the requested root")
+  ok(Cmp.is_eq(P.Digest.cmp(digest, root())), "17 MiB checkout reconstructs the requested root")
 
 def reconstruct(dir: String) -> IO(Unit):
   do IO<Unit>:
-    tree : S.Tree<S.Blob> <- IO.try(S.Tree<S.Blob>, S.Disk.checkout(dir, root()))
-    pair : S.Digest & S.Store<S.Digest, S.Blob> <- IO.try(S.Digest & S.Store<S.Digest, S.Blob>, S.commit(tree))
+    tree : P.Tree<P.Blob> <- IO.try(P.Tree<P.Blob>, S.Disk.checkout(dir, root()))
+    pair : P.Digest & P.Store<P.Digest, P.Blob> <- IO.try(P.Digest & P.Store<P.Digest, P.Blob>, S.commit(tree))
     reconstructed(pair)
 
 def one(mode: U32, +dir: String) -> IO(Unit):
@@ -102,7 +103,7 @@ def one(mode: U32, +dir: String) -> IO(Unit):
     pair : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
     exercise(mode, dir, pair)
 
-def refused(result: Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>) -> Bool:
+def refused(result: Result<&1, &1, U32 & String, P.Obj<P.Digest, Unit>>) -> Bool:
   match result:
     case Fail{e}:
       True{}
@@ -111,9 +112,9 @@ def refused(result: Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>) -> Bool
 
 def invalid(+dir: String, +raw: String) -> IO(Unit):
   do IO<Unit>:
-    +digest : S.Digest <- IO.try(S.Digest, S.digest(Bytes.from_string(raw)))
+    +digest : P.Digest <- IO.try(P.Digest, S.digest(Bytes.from_string(raw)))
     IO.try(Unit, S.write.file(dir ++ "/tmp/invalid", Bytes.from_string(raw)))
-    result : Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>> <- Transport.receive(dir, digest, dir ++ "/tmp/invalid")
+    result : Result<&1, &1, U32 & String, P.Obj<P.Digest, Unit>> <- Transport.receive(dir, digest, dir ++ "/tmp/invalid")
     ok(refused(result), "matching hash does not admit a bad encoding")
     exists : Bool <- Files.exists(S.Disk.object(dir, digest))
     ok(Bool.not(exists), "bad encoding is not published")
