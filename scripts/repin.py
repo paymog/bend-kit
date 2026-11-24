@@ -9,7 +9,8 @@ siblings raised. A VERSION that already holds an unpublished raise keeps it
 unless the wave needs a raise at a higher place. Files that import their own
 package from the hub wait until the package's other files are re-pinned and
 published.
-Files under an evidence/ folder keep their pins.
+Files under an evidence/ folder keep their pins. The protobuf generator and
+benchmark import templates take part in the same waves as Bend sources.
 
 Usage: scripts/repin.py [--apply]. --apply re-pins the first wave: imports,
 package READMEs, root README import rows, VERSION, and scripts/pins.allow.
@@ -28,6 +29,22 @@ ROOT = Path(__file__).resolve().parent.parent
 HUB = os.environ.get("BEND_HUB", "https://hub.bend-lang.com")
 IMPORT = re.compile(r"^\s*import\s+bend-kit-([a-z0-9-]+)@([0-9.]+)/", re.M)
 TARGET = re.compile(r"^\s*import\s+(bend-kit-[a-z0-9-]+@[0-9.]+|0x[0-9a-f]+)/", re.M)
+TEMPLATES = ("protobuf/generator.py", "protobuf/bench/run.py")
+
+
+def source_files(pkg):
+    return sorted(
+        [f for f in (ROOT / pkg).rglob("*.bend") if "evidence" not in f.parts]
+        + [ROOT / f for f in TEMPLATES if f.startswith(pkg + "/") and (ROOT / f).is_file()]
+    )
+
+
+def source_text(path):
+    text = path.read_text()
+    if path.suffix == ".py":
+        return "\n".join("import " + t + "/" for t in re.findall(
+            r"\b(bend-kit-[a-z0-9-]+@[0-9.]+|0x[0-9a-f]+)/", text))
+    return text
 
 _hashes = {}
 
@@ -75,8 +92,8 @@ def bump(ver, place):
 def load():
     pkgs = subprocess.run([ROOT / "scripts/packages.sh"], capture_output=True, text=True, check=True).stdout.split()
     ver = {p: (ROOT / p / "VERSION").read_text().strip() for p in pkgs}
-    files = {p: sorted(str(f.relative_to(ROOT)) for f in (ROOT / p).rglob("*.bend") if "evidence" not in f.parts) for p in pkgs}
-    pins = {f: {(q, v) for q, v in IMPORT.findall((ROOT / f).read_text()) if q in ver} for fs in files.values() for f in fs}
+    files = {p: [str(f.relative_to(ROOT)) for f in source_files(p)] for p in pkgs}
+    pins = {f: {(q, v) for q, v in IMPORT.findall(source_text(ROOT / f)) if q in ver} for fs in files.values() for f in fs}
     return pkgs, ver, files, pins
 
 
@@ -158,7 +175,8 @@ def apply(moves, ver, pkgs):
         readme = ROOT / p / "README.md"
         for f, e in edits.items():
             for (q, old), v in e.items():
-                sub(ROOT / f, rf"(?m)^(\s*import\s+bend-kit-{q}@){re.escape(old)}/", rf"\g<1>{v}/")
+                prefix = r"\b" if (ROOT / f).suffix == ".py" else r"^\s*import\s+"
+                sub(ROOT / f, rf"(?m)({prefix}bend-kit-{q}@){re.escape(old)}/", rf"\g<1>{v}/")
                 if readme.exists():
                     sub(readme, rf"bend-kit-{q}@{re.escape(old)}(?![0-9])", f"bend-kit-{q}@{v}")
         if new:
@@ -173,8 +191,8 @@ def apply(moves, ver, pkgs):
 def allow(before, pkgs):
     """Keep pins.allow lines that an import uses; add one for each import of a version that is not the sibling's VERSION."""
     users = {}
-    for f in (f for p in pkgs for f in (ROOT / p).rglob("*.bend") if "evidence" not in f.parts):
-        for t in TARGET.findall(f.read_text()):
+    for f in (f for p in pkgs for f in source_files(p)):
+        for t in TARGET.findall(source_text(f)):
             users.setdefault(t, []).append(f.relative_to(ROOT))
     path = ROOT / "scripts/pins.allow"
     lines = path.read_text().splitlines()
