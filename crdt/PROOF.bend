@@ -812,6 +812,55 @@ def Laws.pn_merge_least(a, b, c, ha, hb):
           MBool.eq_true_of_and_right(Crdt.GCounter.le(ap, cp), Crdt.GCounter.le(an, cn), ha),
           MBool.eq_true_of_and_right(Crdt.GCounter.le(bp, cp), Crdt.GCounter.le(bn, cn), hb)))
 
+def Laws.pn_le_refl(a):
+  match a:
+    case Crdt.PN{+p, +n}:
+      MBool.and_eq_true(Crdt.GCounter.le(p, p), Crdt.GCounter.le(n, n),
+        Laws.le_refl(p), Laws.le_refl(n))
+
+def Laws.pn_le_trans(a, b, c, hab, hbc):
+  match a b c:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn} Crdt.PN{+cp, +cn}:
+      +hab = hab
+      +hbc = hbc
+      MBool.and_eq_true(Crdt.GCounter.le(ap, cp), Crdt.GCounter.le(an, cn),
+        Laws.le_trans(ap, bp, cp,
+          MBool.eq_true_of_and_left(Crdt.GCounter.le(ap, bp), Crdt.GCounter.le(an, bn), hab),
+          MBool.eq_true_of_and_left(Crdt.GCounter.le(bp, cp), Crdt.GCounter.le(bn, cn), hbc)),
+        Laws.le_trans(an, bn, cn,
+          MBool.eq_true_of_and_right(Crdt.GCounter.le(ap, bp), Crdt.GCounter.le(an, bn), hab),
+          MBool.eq_true_of_and_right(Crdt.GCounter.le(bp, cp), Crdt.GCounter.le(bn, cn), hbc)))
+
+def Laws.pn_le_antisymm(a, b, va, vb, hab, hba):
+  match a b:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn}:
+      +va = va
+      +vb = vb
+      +hab = hab
+      +hba = hba
+      pn_eq(ap, an, bp, bn,
+        Laws.le_antisymm(ap, bp,
+          MBool.eq_true_of_and_left(Crdt.GCounter.valid(ap), Crdt.GCounter.valid(an), va),
+          MBool.eq_true_of_and_left(Crdt.GCounter.valid(bp), Crdt.GCounter.valid(bn), vb),
+          MBool.eq_true_of_and_left(Crdt.GCounter.le(ap, bp), Crdt.GCounter.le(an, bn), hab),
+          MBool.eq_true_of_and_left(Crdt.GCounter.le(bp, ap), Crdt.GCounter.le(bn, an), hba)),
+        Laws.le_antisymm(an, bn,
+          MBool.eq_true_of_and_right(Crdt.GCounter.valid(ap), Crdt.GCounter.valid(an), va),
+          MBool.eq_true_of_and_right(Crdt.GCounter.valid(bp), Crdt.GCounter.valid(bn), vb),
+          MBool.eq_true_of_and_right(Crdt.GCounter.le(ap, bp), Crdt.GCounter.le(an, bn), hab),
+          MBool.eq_true_of_and_right(Crdt.GCounter.le(bp, ap), Crdt.GCounter.le(bn, an), hba)))
+
+def Laws.pn_merge_mono(a, b, c, hab):
+  match a b c:
+    case Crdt.PN{+ap, +an} Crdt.PN{+bp, +bn} Crdt.PN{+cp, +cn}:
+      +hab = hab
+      MBool.and_eq_true(Crdt.GCounter.le(Crdt.GCounter.merge(ap, cp), Crdt.GCounter.merge(bp, cp)),
+        Crdt.GCounter.le(Crdt.GCounter.merge(an, cn), Crdt.GCounter.merge(bn, cn)),
+        Laws.merge_mono(ap, bp, cp,
+          MBool.eq_true_of_and_left(Crdt.GCounter.le(ap, bp), Crdt.GCounter.le(an, bn), hab)),
+        Laws.merge_mono(an, bn, cn,
+          MBool.eq_true_of_and_right(Crdt.GCounter.le(ap, bp), Crdt.GCounter.le(an, bn), hab)))
+
 def pn_all_parts(+xs: List<&2, Crdt.PNCounter>) ->
   {Crdt.PNCounter.merge_all(xs) == Crdt.PN{
     Crdt.GCounter.merge_all(Laws.pn.parts(xs, False{})),
