@@ -3,6 +3,7 @@ import ./storage.bend as S
 import bend-kit-http@0.40.0.1/http.bend as Http
 import bend-kit-http@0.40.0.1/completion.bend as Completion
 import bend-kit-files@0.4.0.1/files.bend as Files
+import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 # Git's dumb HTTP object walk: immutable objects are fetched by digest from a known root.
 def response(status: U32, body: Http.Body) -> Http.Reply:
@@ -36,14 +37,6 @@ def handle(dir: String, request: Http.Req) -> IO(Http.Reply):
   Http.Req{+method, +path, headers, body} = request
   route(String.eq(method, "GET") && String.starts_with(path, "/objects/"), dir, path)
 
-def fetched(result: Result<&1, &1, Http.Err, Http.Res>) -> S.Run(Http.Body):
-  match result:
-    case Fail{error}:
-      S.Run.fail(Http.Body, (5, "storage: HTTP object request failed"))
-    case Done{Http.Res{+status, headers, body}}:
-      do S.Run<Http.Body>:
-        S.Run.check(U32.is_eq(status, 200), "HTTP object status " ++ U32.show(status))
-        return body
 
 def Run(-A: Type) -> Type:
   Http.Pool -> IO(Http.Pool & Result<&1, &1, U32 & String, A>)
@@ -73,66 +66,213 @@ def Run.close(-A: Type, pair: Http.Pool & Result<&1, &1, U32 & String, A>) -> S.
     Http.pool.close(pool)
     return result
 
-def get.received(pair: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool & Result<&1, &1, U32 & String, Http.Body>):
+def inspect(path: String, digest: String) -> IO(Result<&1, &1, U32 & String, U32 & String>):
+  import "./effs/http.c"
+  import "./effs/http.js"
+
+def metadata.file(valid: Bool) -> Maybe<&2, S.Obj<S.Digest, Unit>>:
+  match valid:
+    case True{}:
+      Some{S.OFile{Unit{}}}
+    case False{}:
+      None{}
+
+def metadata.node(node: Maybe<&2, S.Obj<S.Digest, S.Blob>>) -> Maybe<&2, S.Obj<S.Digest, Unit>>:
+  match node:
+    case Some{S.OEnd{}}:
+      Some{S.OEnd{}}
+    case Some{S.OItem{n, c, r}}:
+      Some{S.OItem{n, c, r}}
+    case _:
+      None{}
+
+def metadata.of(file: Bool, +size: U32, +head: String, +d: S.Digest) -> Maybe<&2, S.Obj<S.Digest, Unit>>:
+  match file:
+    case True{}:
+      +digits = String.drop(head, 5n)
+      +length = U32.from_nat(String.length(head ++ "\n"))
+      metadata.file(Bool.and(U32.is_le(length, size), String.eq(digits, U32.show((size - length : U32)))))
+    case False{}:
+      metadata.node(S.decode.hashed(d, Http.from_string(head ++ "\n")))
+
+def verified.pair(+d: S.Digest, pair: U32 & String) -> S.Run(S.Obj<S.Digest, Unit>):
+  (+size, +head) = pair
+  S.Run.some(S.Obj<S.Digest, Unit>, metadata.of(String.starts_with(head, "file "), size, head, d), "object " ++ S.Digest.hex(d) ++ " does not decode")
+
+def verified(+path: String, +d: S.Digest) -> S.Run(S.Obj<S.Digest, Unit>):
+  do S.Run<S.Obj<S.Digest, Unit>>:
+    pair : U32 & String <- inspect(path, S.Digest.hex(d))
+    verified.pair(d, pair)
+
+def copy.result(result: Result<&1, &1, Http.Err, Maybe<&1, Http.Body>>) -> Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>:
+  match result:
+    case Fail{e}:
+      Fail{(5, "storage: HTTP object stream failed")}
+    case Done{piece}:
+      Done{piece}
+
+def copy.read(f: File, pair: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Http.Body>>) -> Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>):
+  (next, result) = pair
+  (next, (f, copy.result(result)))
+
+def copy.next(st: Http.Stream, pair: File & Result<&1, &1, U32 & String, Unit>) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>)):
+  (f, result) = pair
+  match result:
+    case Fail{e}:
+      IO.pure(Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>), (st, (f, Fail{e})))
+    case Done{u}:
+      do IO<Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>)>:
+        pair : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Http.Body>> <- Http.stream.read(st)
+        return copy.read(f, pair)
+
+def copy.write(over: Bool, f: File, body: Http.Body) -> IO(File & Result<&1, &1, U32 & String, Unit>):
+  match over:
+    case True{}:
+      IO.pure(File & Result<&1, &1, U32 & String, Unit>, (f, Fail{(27, "storage: encoded object exceeds 4294967295 octets")}))
+    case False{}:
+      Files.write_bytes(f, body)
+
+def copy(fuel: Nat, pair: Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>), +total: U32) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)):
+  match fuel pair:
+    case 0n Tuple{st, Tuple{f, result}}:
+      IO.pure(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>), (st, (f, Fail{(27, "storage: HTTP stream read limit")})))
+    case 1n+p Tuple{st, Tuple{f, Fail{e}}}:
+      IO.pure(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>), (st, (f, Fail{e})))
+    case 1n+p Tuple{st, Tuple{f, Done{None{}}}}:
+      IO.pure(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>), (st, (f, Done{Unit{}})))
+    case 1n+p Tuple{st, Tuple{f, Done{Some{body}}}}:
+      Bytes.Bytes{+len, buf} = body
+      do IO<Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)>:
+        written : File & Result<&1, &1, U32 & String, Unit> <- copy.write(U32.is_gt(len, (4294967295 - total : U32)), f, Bytes.Bytes{len, buf})
+        next : Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>) <- copy.next(st, written)
+        copy(p, next, (total + len : U32))
+
+def status.result(good: Bool, message: String) -> Result<&1, &1, U32 & String, Unit>:
+  match good:
+    case True{}:
+      Done{Unit{}}
+    case False{}:
+      Fail{(22, "storage: " ++ message)}
+
+def download.status(+status: U32, st: Http.Stream, f: File) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)):
+  do IO<Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)>:
+    first : Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>) <- copy.next(st, (f, status.result(U32.is_eq(status, 200), "HTTP object status " ++ U32.show(status))))
+    copy(1n+U32.to_nat(4294967295), first, 0)
+
+def download.path(tmp: String, result: Result<&1, &1, U32 & String, Unit>) -> Result<&1, &1, U32 & String, String>:
+  match result:
+    case Fail{e}:
+      Fail{e}
+    case Done{u}:
+      Done{tmp}
+
+def download.closed(+tmp: String, pair: Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)) -> IO(Http.Stream & Result<&1, &1, U32 & String, String>):
+  (next, written) = pair
+  do IO<Http.Stream & Result<&1, &1, U32 & String, String>>:
+    closed : Result<&1, &1, U32 & String, Unit> <- S.write.close(written)
+    cleaned : Result<&1, &1, U32 & String, Unit> <- S.write.cleanup(tmp, closed)
+    return (next, download.path(tmp, cleaned))
+
+def download.response(+tmp: String, f: File, pair: Http.Stream & Http.Res) -> IO(Http.Stream & Result<&1, &1, U32 & String, String>):
+  (stream, Http.Res{status, headers, body}) = pair
+  do IO<Http.Stream & Result<&1, &1, U32 & String, String>>:
+    written : Http.Stream & (File & Result<&1, &1, U32 & String, Unit>) <- download.status(status, stream, f)
+    download.closed(tmp, written)
+
+def download.opened(st: Http.Stream, opened: Result<&1, &1, U32 & String, String & File>) -> IO(Http.Stream & Result<&1, &1, U32 & String, String>):
+  match opened:
+    case Fail{e}:
+      IO.pure(Http.Stream & Result<&1, &1, U32 & String, String>, (st, Fail{e}))
+    case Done{(+tmp, f)}:
+      download.response(tmp, f, Http.stream.res(st))
+
+def download.idle(pool: Http.Pool, pair: Http.Stream & Result<&1, &1, U32 & String, String>) -> IO(Http.Pool & Result<&1, &1, U32 & String, String>):
+  (next, result) = pair
+  do IO<Http.Pool & Result<&1, &1, U32 & String, String>>:
+    idle : Http.Pool <- Http.pool.stream.close(pool, next)
+    return (idle, result)
+
+def download.received(+dir: String, pair: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool & Result<&1, &1, U32 & String, String>):
   (pool, result) = pair
-  Run.lift(Http.Body, fetched(result))(pool)
+  match result:
+    case Fail{e}:
+      IO.pure(Http.Pool & Result<&1, &1, U32 & String, String>, (pool, Fail{(5, "storage: HTTP object request failed")}))
+    case Done{st}:
+      do IO<Http.Pool & Result<&1, &1, U32 & String, String>>:
+        opened : Result<&1, &1, U32 & String, String & File> <- S.write.temp(dir ++ "/tmp/http")
+        pair : Http.Stream & Result<&1, &1, U32 & String, String> <- download.opened(st, opened)
+        download.idle(pool, pair)
 
-def get.pooled(base: String, d: S.Digest) -> Run(Http.Body):
-  pool => do IO<Http.Pool & Result<&1, &1, U32 & String, Http.Body>>:
-    pair : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <- Http.pool.fetch(pool, "GET", base ++ "/objects/" ++ S.Digest.hex(d), Http.empty(), Http.from_string(""))
-    get.received(pair)
+def download(base: String, dir: String, d: S.Digest) -> Run(String):
+  pool => do IO<Http.Pool & Result<&1, &1, U32 & String, String>>:
+    pair : Http.Pool & Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <- Http.pool.open.raw.how(pool, Http.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/objects/" ++ S.Digest.hex(d), Http.set(Http.empty(), "accept-encoding", "identity"), Http.from_string(""), 30000)
+    download.received(dir, Http.pool.stream.only(pair))
 
-def get(base: String, d: S.Digest) -> S.Run(Http.Body):
-  do IO<Result<&1, &1, U32 & String, Http.Body>>:
-    pair : Http.Pool & Result<&1, &1, U32 & String, Http.Body> <- get.pooled(base, d)(Http.pool.new())
-    Run.close(Http.Body, pair)
+def publish(+tmp: String, path: String, d: S.Digest) -> S.Run(S.Obj<S.Digest, Unit>):
+  do S.Run<S.Obj<S.Digest, Unit>>:
+    node : S.Obj<S.Digest, Unit> <- verified(tmp, d)
+    Files.rename(tmp, path)
+    return node
+
+def publish.cleaned(+tmp: String, result: Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>) -> S.Run(S.Obj<S.Digest, Unit>):
+  match result:
+    case Done{node}:
+      S.Run.pure(S.Obj<S.Digest, Unit>, node)
+    case Fail{e}:
+      do IO<Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>>:
+        removed : Result<&1, &1, U32 & String, Unit> <- Files.remove(tmp)
+        return Fail{e}
+
+def receive(+dir: String, +d: S.Digest, +tmp: String) -> S.Run(S.Obj<S.Digest, Unit>):
+  do IO<Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>>>:
+    result : Result<&1, &1, U32 & String, S.Obj<S.Digest, Unit>> <- publish(tmp, S.Disk.object(dir, d), d)
+    publish.cleaned(tmp, result)
 
 type Step is Type:
   Want{digest: S.Digest}
-  Pending{digest: S.Digest, result: S.Index(S.Digest, S.Blob) & U32}
+  Pending{digest: S.Digest, result: S.Index(S.Digest, Unit) & U32}
   Missing{digest: S.Digest, seen: Bool}
   Local{digest: S.Digest, there: Bool}
-  Children{object: Maybe<&2, S.Obj<S.Digest, S.Blob>>}
+  Children{object: S.Obj<S.Digest, Unit>}
 
-# The index is also the visited set; every local or remote object passes ingress once.
-def walk(fuel: Nat, +base: String, +dir: String, step: Step, +index: S.Index(S.Digest, S.Blob), +sent: U32) -> Run(S.Index(S.Digest, S.Blob) & U32):
+# The index holds only links and the visited set, never file payloads.
+def walk(fuel: Nat, +base: String, +dir: String, step: Step, +index: S.Index(S.Digest, Unit), +sent: U32) -> Run(S.Index(S.Digest, Unit) & U32):
   match fuel step:
     case 0n _:
-      Run.lift(S.Index(S.Digest, S.Blob) & U32, S.Run.fail(S.Index(S.Digest, S.Blob) & U32, (36, "storage: HTTP tree is too deep")))
+      Run.lift(S.Index(S.Digest, Unit) & U32, S.Run.fail(S.Index(S.Digest, Unit) & U32, (36, "storage: HTTP tree is too deep")))
     case 1n+p Want{+d}:
-      walk(p, base, dir, Missing{d, S.Index.has(~S.Digest, ~S.Blob, ~S.Digest.cmp, index, d)}, index, sent)
+      walk(p, base, dir, Missing{d, S.Index.has(~S.Digest, ~Unit, ~S.Digest.cmp, index, d)}, index, sent)
     case 1n+p Missing{d, True{}}:
-      Run.pure(S.Index(S.Digest, S.Blob) & U32, (index, sent))
+      Run.pure(S.Index(S.Digest, Unit) & U32, (index, sent))
     case 1n+p Missing{+d, False{}}:
-      Run.bind(Bool, S.Index(S.Digest, S.Blob) & U32, Run.lift(Bool, S.Run.lift(Bool, Files.exists(S.Disk.object(dir, d)))), e => walk(p, base, dir, Local{d, e}, index, sent))
+      Run.bind(Bool, S.Index(S.Digest, Unit) & U32, Run.lift(Bool, S.Run.lift(Bool, Files.exists(S.Disk.object(dir, d)))), e => walk(p, base, dir, Local{d, e}, index, sent))
     case 1n+p Local{+d, True{}}:
-      do Run<S.Index(S.Digest, S.Blob) & U32>:
-        body : Http.Body <- Run.lift(Http.Body, S.read(S.Disk.object(dir, d)))
-        +next : S.Index(S.Digest, S.Blob) <- Run.lift(S.Index(S.Digest, S.Blob), S.receive(index, d, body))
-        walk(p, base, dir, Children{S.Index.get(~S.Digest, ~S.Blob, ~S.Digest.cmp, next, d)}, next, sent)
+      do Run<S.Index(S.Digest, Unit) & U32>:
+        +node : S.Obj<S.Digest, Unit> <- Run.lift(S.Obj<S.Digest, Unit>, verified(S.Disk.object(dir, d), d))
+        walk(p, base, dir, Children{node}, S.Index.put(~S.Digest, ~Unit, ~S.Digest.cmp, index, d, node), sent)
     case 1n+p Local{+d, False{}}:
-      do Run<S.Index(S.Digest, S.Blob) & U32>:
-        body : Http.Body <- get.pooled(base, d)
-        +next : S.Index(S.Digest, S.Blob) <- Run.lift(S.Index(S.Digest, S.Blob), S.Disk.receive(dir, index, d, body))
-        walk(p, base, dir, Children{S.Index.get(~S.Digest, ~S.Blob, ~S.Digest.cmp, next, d)}, next, (sent + 1 : U32))
-    case 1n+(+p) Children{Some{S.OItem{name, c, r}}}:
-      do Run<S.Index(S.Digest, S.Blob) & U32>:
-        first : S.Index(S.Digest, S.Blob) & U32 <- walk(p, base, dir, Want{c}, index, sent)
-        walk(p, base, dir, Pending{r, first}, S.Index.new(S.Digest, S.Blob), 0)
+      do Run<S.Index(S.Digest, Unit) & U32>:
+        tmp : String <- download(base, dir, d)
+        +node : S.Obj<S.Digest, Unit> <- Run.lift(S.Obj<S.Digest, Unit>, receive(dir, d, tmp))
+        walk(p, base, dir, Children{node}, S.Index.put(~S.Digest, ~Unit, ~S.Digest.cmp, index, d, node), (sent + 1 : U32))
+    case 1n+(+p) Children{S.OItem{name, c, r}}:
+      do Run<S.Index(S.Digest, Unit) & U32>:
+        first : S.Index(S.Digest, Unit) & U32 <- walk(p, base, dir, Want{c}, index, sent)
+        walk(p, base, dir, Pending{r, first}, S.Index.new(S.Digest, Unit), 0)
     case 1n+p Pending{r, (next, n)}:
       walk(p, base, dir, Want{r}, next, n)
     case 1n+p Children{_}:
-      Run.pure(S.Index(S.Digest, S.Blob) & U32, (index, sent))
+      Run.pure(S.Index(S.Digest, Unit) & U32, (index, sent))
 
-def complete(root: S.Digest, result: S.Index(S.Digest, S.Blob) & U32) -> S.Run(U32):
-  (+index, sent) = result
+def complete(root: S.Digest, result: S.Index(S.Digest, Unit) & U32) -> S.Run(U32):
+  (index, sent) = result
   do S.Run<U32>:
-    tree : S.Tree<S.Blob> <- S.Run.some(S.Tree<S.Blob>, S.Index.load(~S.Digest, ~S.Blob, ~S.Digest.cmp, S.limit(), index, root), "HTTP root does not load")
+    tree : S.Tree<Unit> <- S.Run.some(S.Tree<Unit>, S.Index.load(~S.Digest, ~Unit, ~S.Digest.cmp, S.limit(), index, root), "HTTP root does not load")
     return sent
 
 # base is an HTTP(S) origin without a trailing slash; root is supplied by the caller.
 def sync(+base: String, +dir: String, +root: S.Digest) -> S.Run(U32):
   do S.Run<U32>:
-    pair : Http.Pool & Result<&1, &1, U32 & String, S.Index(S.Digest, S.Blob) & U32> <- S.Run.lift(Http.Pool & Result<&1, &1, U32 & String, S.Index(S.Digest, S.Blob) & U32>, walk(Nat.mul(6n, S.limit()), base, dir, Want{root}, S.Index.new(S.Digest, S.Blob), 0)(Http.pool.new()))
-    result : S.Index(S.Digest, S.Blob) & U32 <- Run.close(S.Index(S.Digest, S.Blob) & U32, pair)
+    pair : Http.Pool & Result<&1, &1, U32 & String, S.Index(S.Digest, Unit) & U32> <- S.Run.lift(Http.Pool & Result<&1, &1, U32 & String, S.Index(S.Digest, Unit) & U32>, walk(Nat.mul(6n, S.limit()), base, dir, Want{root}, S.Index.new(S.Digest, Unit), 0)(Http.pool.new()))
+    result : S.Index(S.Digest, Unit) & U32 <- Run.close(S.Index(S.Digest, Unit) & U32, pair)
     complete(root, result)

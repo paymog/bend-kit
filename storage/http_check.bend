@@ -7,6 +7,7 @@ import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-http@0.40.0.1/admission.bend as Admission
 import bend-kit-time@0.3.0.1/time.bend as Time
+import ./http_stream_check.bend as StreamCheck
 
 type Context is Data:
   Context{dir: String, tamper: Bool, events: Chan(Char)}
@@ -151,8 +152,9 @@ def running(+bad: Bool, +dir: String, +root: S.Digest, +port: U32, +events: Chan
     stopped : Bool <- Http.server.stop(control)
     exit : Http.ServerExit <- IO.join(Http.ServerExit, done)
     ok(stopped, "server drains and closes")
-    unavailable : Result<&1, &1, U32 & String, Http.Body> <- Transport.get("http://127.0.0.1:" ++ U32.show(port), root)
-    ok(failed(Http.Body, unavailable, "storage: HTTP object request failed"), "closed server fails the request")
+    IO.try(Unit, S.Disk.init(dir ++ "/closed"))
+    unavailable : Result<&1, &1, U32 & String, U32> <- Transport.sync("http://127.0.0.1:" ++ U32.show(port), dir ++ "/closed", root)
+    ok(failed(U32, unavailable, "storage: HTTP object request failed"), "closed server fails the request")
     Chan.close(Char, events)
 
 def started(bad: Bool, dir: String, root: S.Digest, port: U32, events: Chan(Char), result: Unit & Result<&2, &1, Http.StartupError, Http.Server<Context>>) -> IO(Unit):
@@ -186,3 +188,4 @@ def run() -> IO(Unit):
     +root : S.Digest <- IO.try(S.Digest, S.Disk.commit(dir ++ "/src", S.TItem{"a", S.TFile{blob}, S.TItem{"b", S.TFile{blob}, S.TEnd{}}}))
     serve(False{}, dir ++ "/src", dir ++ "/dst", root)
     serve(True{}, dir ++ "/src", dir ++ "/bad", root)
+    StreamCheck.run()

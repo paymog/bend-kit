@@ -22,6 +22,21 @@ Apple M4 Pro, macOS arm64, Bend 2.0.40, 2026-11-24. Three native runs:
 
 For the baseline, use the transport from `1b7aaae` with the same check harness. Change only the expected first connection events from `orrrc` to `orcorcorc`: `o` is an accepted connection, `r` is a request, and `c` is EOF at the server. Both versions pass the missing-object and tampered-object closure checks. This small local sample proves reuse; its timing does not predict WAN throughput.
 
+## HTTP streaming memory
+
+`stream.bend` transfers one 17 MiB file from a port-0 loopback origin. Both ends use 64 KiB pieces. It verifies the published digest and checks temporary-file cleanup. It does not run `Disk.checkout`, which loads the whole payload.
+
+From the repo root:
+
+```sh
+mkdir -p storage/bench/out
+bend storage/bench/stream.bend -o storage/bench/out/stream
+/usr/bin/time -l storage/bench/out/stream
+```
+
+Apple M4 Pro, macOS arm64, Bend 2.0.40, 2026-11-24: 0.19 s elapsed and 6,356,992 bytes maximum resident set size. The process includes the streaming origin and client. The encoded response is 17,825,806 bytes. Its root is `89c9109ce931e20ac63a1729d6f6a9db03dee9401161eb8a3fbd35c4a09a9528`. This single measurement is not a throughput comparison. The fixed network and verifier buffers bound payload memory; the visited index still grows with object count.
+
+
 
 ## Run
 
