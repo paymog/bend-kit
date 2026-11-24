@@ -155,6 +155,8 @@ Decode rejects missing or extra halves, malformed CBOR, non-array halves, negati
 
 `pn_merge_comm`, `pn_merge_assoc`, and `pn_merge_idem` prove the merge identities for every state. `pn_merge_upper_l`, `pn_merge_upper_r`, and `pn_merge_least` prove the least upper bound in the product order. `pn_converge` proves convergence when both histories cover the same states in each half; this includes reordered and repeated PN states. Each proof reuses the G-Counter laws. The wire rejection laws and `check.bend` cover invalid states. The runtime check exchanges newer, stale, and repeated states across CBOR and crosses zero in both directions.
 
+`pn_inc_grows` and `pn_dec_grows` prove update inflation for every state. `pn_inc_valid`, `pn_dec_valid`, and `pn_merge_valid` prove validity preservation. `pn_from_cbor_valid` proves that validated decoding returns only valid states. `pn_cbor_roundtrip` proves that every valid state round-trips when both halves satisfy the replica cap.
+
 ## Trust boundary
 
 The proofs cover the pure functions. They do not cover the network or storage. Convergence holds under these conditions:

@@ -208,6 +208,64 @@ def pn.covers(+xs: List<&2, Crdt.PNCounter>, +ys: List<&2, Crdt.PNCounter>) -> B
   Bool.and(covers(pn.parts(xs, False{}), pn.parts(ys, False{})),
     covers(pn.parts(xs, True{}), pn.parts(ys, True{})))
 
+def pn.grows(s: Crdt.PNCounter, m: Maybe<&2, Crdt.PNCounter>) -> Bool:
+  match m:
+    case None{}:
+      True{}
+    case Some{t}:
+      Crdt.PNCounter.le(s, t)
+
+def pn.ok_valid(m: Maybe<&2, Crdt.PNCounter>) -> Bool:
+  match m:
+    case None{}:
+      True{}
+    case Some{s}:
+      Crdt.PNCounter.valid(s)
+
+law pn_inc_grows:
+  for s: Crdt.PNCounter
+  for i: Nat
+  {pn.grows(s, Crdt.PNCounter.inc(s, i)) == True{} : Bool}
+
+law pn_dec_grows:
+  for s: Crdt.PNCounter
+  for i: Nat
+  {pn.grows(s, Crdt.PNCounter.dec(s, i)) == True{} : Bool}
+
+law pn_inc_valid:
+  for s: Crdt.PNCounter
+  for i: Nat
+  for h: {Crdt.PNCounter.valid(s) == True{} : Bool}
+  {pn.ok_valid(Crdt.PNCounter.inc(s, i)) == True{} : Bool}
+
+law pn_dec_valid:
+  for s: Crdt.PNCounter
+  for i: Nat
+  for h: {Crdt.PNCounter.valid(s) == True{} : Bool}
+  {pn.ok_valid(Crdt.PNCounter.dec(s, i)) == True{} : Bool}
+
+law pn_merge_valid:
+  for a: Crdt.PNCounter
+  for b: Crdt.PNCounter
+  for ha: {Crdt.PNCounter.valid(a) == True{} : Bool}
+  for hb: {Crdt.PNCounter.valid(b) == True{} : Bool}
+  {Crdt.PNCounter.valid(Crdt.PNCounter.merge(a, b)) == True{} : Bool}
+
+law pn_from_cbor_valid:
+  for v: Cbor.Val
+  for cap: U32
+  {pn.ok_valid(Crdt.PNCounter.from_cbor(v, cap)) == True{} : Bool}
+
+law pn_cbor_roundtrip:
+  for p: List<&2, U32>
+  for n: List<&2, U32>
+  for cap: U32
+  for hv: {Crdt.PNCounter.valid(Crdt.PN{p, n}) == True{} : Bool}
+  for hp: {U32.is_le(Crdt.GCounter.size(p), cap) == True{} : Bool}
+  for hn: {U32.is_le(Crdt.GCounter.size(n), cap) == True{} : Bool}
+  {Crdt.PNCounter.from_cbor(Crdt.PNCounter.to_cbor(Crdt.PN{p, n}), cap)
+   == Some{Crdt.PN{p, n}} : Maybe<&2, Crdt.PNCounter>}
+
 law pn_merge_comm:
   for a: Crdt.PNCounter
   for b: Crdt.PNCounter
