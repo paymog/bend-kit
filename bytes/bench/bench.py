@@ -3,6 +3,9 @@ import time
 
 L = int(sys.argv[1]) if len(sys.argv) > 1 else 28
 N = 1 << L
+READS = int(sys.argv[2]) if len(sys.argv) > 2 else 1 << 24
+B1 = int(sys.argv[3]) if len(sys.argv) > 3 else 1000000
+B2 = int(sys.argv[4]) if len(sys.argv) > 4 else 4000000
 
 
 def fill_buf(n: int) -> tuple[bytearray, int]:
@@ -52,7 +55,7 @@ print(f"concat\t{(time.perf_counter() - t0) * 1000:.6f}\t{cs}")
 x, acc = 1, 0
 shift = 32 - L
 t0 = time.perf_counter()
-for _ in range(1 << 24):
+for _ in range(READS):
     x = (x * 1664525 + 1013904223) & 0xFFFFFFFF
     idx = x >> shift
     acc = (acc + b[idx]) & 0xFFFFFFFF
@@ -63,7 +66,7 @@ t0 = time.perf_counter()
 eq = b == c
 print(f"equal\t{(time.perf_counter() - t0) * 1000:.6f}\t{1 if eq else 0}")
 
-for size in (1000000, 4000000):
+for size in (B1, B2):
     t0 = time.perf_counter()
     built = bytearray()
     for i in range(size):

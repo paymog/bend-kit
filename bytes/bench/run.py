@@ -5,20 +5,27 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
-RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-OPS = ["fill", "sum", "find", "slice", "concat", "random", "equal", "build_1000000", "build_4000000"]
+ARGS = [arg for arg in sys.argv[1:] if arg != "--small"]
+RUNS = int(ARGS[0]) if ARGS else 3
+SMALL = "--small" in sys.argv
+LG = "16" if SMALL else "28"
+B1, B2 = (256, 1024) if SMALL else (1000000, 4000000)
+SIZES = [LG, "256" if SMALL else "16777216", str(B1), str(B2)]
+if RUNS < 1:
+    sys.exit("runs must be positive")
+OPS = ["fill", "sum", "find", "slice", "concat", "random", "equal", f"build_{B1}", f"build_{B2}"]
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
 # name -> (build argv or None, run argv, scale). scale multiplies ms: string.bend runs at 64 MiB, the rest at 256 MiB.
 VARIANTS = {
-    "C": (["clang", "-O2", "-o", OUT / "c", "bench.c"], [OUT / "c", "28"], 1),
-    "Rust": (["rustc", "-C", "opt-level=3", "-C", "target-cpu=native", "-o", OUT / "rs", "bench.rs"], [OUT / "rs", "28"], 1),
-    "Go": (["go", "build", "-o", OUT / "go", "bench.go"], [OUT / "go", "28"], 1),
-    "Bun": (None, ["bun", "bench.ts", "28"], 1),
-    "Node": (None, ["node", "bench.ts", "28"], 1),
-    "Python": (None, ["python3", "bench.py", "28"], 1),
-    "Bend Array": (["bend", "packed.bend", "-o", OUT / "packed"], [OUT / "packed"], 1),
-    "Bend String": (["bend", "string.bend", "-o", OUT / "string"], [OUT / "string"], 4),
+    "C": (["clang", "-O2", "-o", OUT / "c", "bench.c"], [OUT / "c", *SIZES], 1),
+    "Rust": (["rustc", "-C", "opt-level=3", "-C", "target-cpu=native", "-o", OUT / "rs", "bench.rs"], [OUT / "rs", *SIZES], 1),
+    "Go": (["go", "build", "-o", OUT / "go", "bench.go"], [OUT / "go", *SIZES], 1),
+    "Bun": (None, ["bun", "bench.ts", *SIZES], 1),
+    "Node": (None, ["node", "bench.ts", *SIZES], 1),
+    "Python": (None, ["python3", "bench.py", *SIZES], 1),
+    "Bend Array": (["bend", "packed.bend", "-o", OUT / "packed"], [OUT / "packed", *SIZES], 1),
+    "Bend String": (["bend", "string.bend", "-o", OUT / "string"], [OUT / "string", "16" if SMALL else "26"], 1 if SMALL else 4),
 }
 
 
@@ -36,6 +43,9 @@ def parse(text):
         else:
             got[p[0]] = (float(p[1]), p[2])
     # Bend's byte-API sum is what a Bytes.get caller pays; report it as `sum`.
+    for extra, reference in (("sum_bytewise", "sum"), ("sum_again", "sum"), ("find_swar", "find")):
+        if extra in got and got[extra][1] != got.get(reference, (None, None))[1]:
+            sys.exit(f"checksum mismatch in {extra}: {got[extra]} != {got.get(reference)}")
     if "sum_bytewise" in got:
         got["sum"] = got["sum_bytewise"]
     return got
@@ -54,7 +64,10 @@ def main():
                 sys.exit(f"{name} failed:\n{r.stderr}")
             runs.append(parse(r.stdout))
             result = runs[-1]
-            missing = [op for op in runs[0] if op not in result or any(value is None for value in result[op])]
+            expected = OPS if name != "Bend String" else OPS[:5] + ["equal"]
+            if name == "Bend Array":
+                expected = expected + ["sum_bytewise", "sum_again", "find_swar"]
+            missing = [op for op in expected if op not in result or any(value is None for value in result[op])]
             if not result or missing:
                 sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum for {missing or 'all operations'}: {result}")
             if {op: value[1:] for op, value in result.items()} != {op: value[1:] for op, value in runs[0].items()}:
@@ -66,7 +79,7 @@ def main():
 
     ref = next(iter(checks.values()))
     for name, c in checks.items():
-        bad = [op for op in OPS if c.get(op) != ref.get(op)]
+        bad = [op for op in (OPS[:5] + ["equal"] if name == "Bend String" else OPS) if c.get(op) != ref.get(op)]
         if bad:
             sys.exit(f"checksum mismatch in {name}: {bad}")
 
@@ -77,8 +90,8 @@ def main():
     for op in OPS:
         cells = [f"{table[n][op]:,.1f} ({table[n][op] / best[op]:.1f}x)" if op in table[n] else "n/a" for n in names]
         print(f"| {op} | " + " | ".join(cells) + " |")
-    growth = [f"{table[n]['build_4000000'] / table[n]['build_1000000']:.1f}x" if "build_1000000" in table[n] else "n/a" for n in names]
-    print("| build (4M / 1M) | " + " | ".join(growth) + " |")
+    growth = [f"{table[n][f'build_{B2}'] / table[n][f'build_{B1}']:.1f}x" if f"build_{B1}" in table[n] else "n/a" for n in names]
+    print(("| build (1024 / 256) | " if SMALL else "| build (4M / 1M) | ") + " | ".join(growth) + " |")
     geo = []
     for n in names:
         rs = [table[n][op] / best[op] for op in OPS if op in table[n]]

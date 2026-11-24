@@ -7,7 +7,10 @@ This times the hot path of the gateway: a guarded cache hit. Each request is aut
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
+python3 run.py 1 2  # 1 run at 4 rounds; check every supported op
 ```
+
+The second argument sets log2(rounds). It defaults to 10. Small runs use the same operations and checksum checks as the default run.
 
 You need `bend` (2.0.36, the CI pin), `cargo`, `bun`, `node`, and `python3`. Nothing is installed: every baseline uses only its standard library. Binaries go to `out/`, which git ignores. `run.py` exits non-zero if a build fails, or if two programs disagree on the checksum.
 

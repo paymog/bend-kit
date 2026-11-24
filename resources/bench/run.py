@@ -6,16 +6,19 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+LG = sys.argv[2] if len(sys.argv) > 2 else "14"
+if RUNS < 1 or not LG.isdecimal() or not 0 <= int(LG) <= 14:
+    sys.exit("usage: run.py [runs >= 1] [0 <= log2(rounds) <= 14]")
 ENV = {**os.environ, "BEND_NO_TELEMETRY": "1"}
 
-# name -> (build argv or None, run argv). Every program runs 2^14 rounds.
+# name -> (build argv or None, run argv). Every program takes log2(rounds).
 VARIANTS = {
-    "C": (["cc", "-O3", "-o", OUT / "c", "bench.c"], [OUT / "c", "14"]),
-    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "resources-bench", "14"]),
-    "Bun": (["sh", "-c", "npm install -s --prefix out/js async-sema@3.1.1 && cp bench.ts out/js/"], ["bun", OUT / "js" / "bench.ts", "14"]),
-    "Node": (None, ["node", "--no-warnings", "--experimental-strip-types", OUT / "js" / "bench.ts", "14"]),
-    "Python": (None, ["python3", "bench.py", "14"]),
-    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "14"]),
+    "C": (["cc", "-O3", "-o", OUT / "c", "bench.c"], [OUT / "c", LG]),
+    "Rust": (["cargo", "build", "-q", "--release", "--manifest-path", "rust/Cargo.toml", "--target-dir", OUT / "rust"], [OUT / "rust" / "release" / "resources-bench", LG]),
+    "Bun": (["sh", "-c", "npm install -s --prefix out/js async-sema@3.1.1 && cp bench.ts out/js/"], ["bun", OUT / "js" / "bench.ts", LG]),
+    "Node": (None, ["node", "--no-warnings", "--experimental-strip-types", OUT / "js" / "bench.ts", LG]),
+    "Python": (None, ["python3", "bench.py", LG]),
+    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", LG]),
 }
 
 

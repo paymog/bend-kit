@@ -7,7 +7,10 @@ This times the hot path of a keyed cache: store a fetched value for a key, then 
 ```sh
 python3 run.py      # 3 runs per variant, median
 python3 run.py 5    # 5 runs
+python3 run.py 1 2  # 1 run at 4 rounds; check every supported op
 ```
+
+The second argument sets log2(rounds). It defaults to 12. Small runs use the same operations and checksum checks as the default run.
 
 You need `bend` (2.0.36, the CI pin), `cargo`, `bun`, `node`, `npm`, and `python3`. `run.py` installs `lru-cache@11.5.3` into `out/js` and `cachetools==7.2.1` into `out/py`, and cargo fetches `moka`. Binaries go to `out/`, which git ignores. It exits non-zero if a build or install fails, or if two programs disagree on the checksum.
 

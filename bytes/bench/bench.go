@@ -28,23 +28,27 @@ func main() {
 		}
 	}
 	n := 1 << L
+	reads, b1, b2 := 1<<24, 1000000, 4000000
+	if len(os.Args) > 2 { reads, _ = strconv.Atoi(os.Args[2]) }
+	if len(os.Args) > 3 { b1, _ = strconv.Atoi(os.Args[3]) }
+	if len(os.Args) > 4 { b2, _ = strconv.Atoi(os.Args[4]) }
 
 	t0 := time.Now()
 	b := make([]byte, n)
 	cs := fillBuf(b)
-	fmt.Printf("fill\t%.6f\t%d\n", float64(time.Since(t0).Microseconds())/1000.0, cs)
+	fmt.Printf("fill\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, cs)
 
 	t0 = time.Now()
 	var sum uint32
 	for _, v := range b {
 		sum += uint32(v)
 	}
-	fmt.Printf("sum\t%.6f\t%d\n", float64(time.Since(t0).Microseconds())/1000.0, sum)
+	fmt.Printf("sum\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, sum)
 
 	needle := []byte{13, 10, 13, 10}
 	t0 = time.Now()
 	findIdx := bytes.Index(b, needle)
-	fmt.Printf("find\t%.6f\t%d\n", float64(time.Since(t0).Microseconds())/1000.0, findIdx)
+	fmt.Printf("find\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, findIdx)
 
 	sliceStart := n/4 + 1
 	sliceLen := n / 2
@@ -52,7 +56,7 @@ func main() {
 	s := make([]byte, sliceLen)
 	copy(s, b[sliceStart:sliceStart+sliceLen])
 	cs = uint32(s[0]) + uint32(s[sliceLen-1])
-	fmt.Printf("slice\t%.6f\t%d\n", float64(time.Since(t0).Microseconds())/1000.0, cs)
+	fmt.Printf("slice\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, cs)
 
 	t0 = time.Now()
 	var out []byte
@@ -69,31 +73,31 @@ func main() {
 		os.Exit(1)
 	}
 	cs = uint32(out[0]) + uint32(out[len(out)-1])
-	fmt.Printf("concat\t%.6f\t%d\n", float64(time.Since(t0).Microseconds())/1000.0, cs)
+	fmt.Printf("concat\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, cs)
 
 	x, acc := uint32(1), uint32(0)
 	shift := 32 - L
 	t0 = time.Now()
-	for i := 0; i < 1<<24; i++ {
+	for i := 0; i < reads; i++ {
 		x = x*1664525 + 1013904223
 		idx := x >> shift
 		acc += uint32(b[idx])
 	}
-	fmt.Printf("random\t%.6f\t%d\n", float64(time.Since(t0).Microseconds())/1000.0, acc)
+	fmt.Printf("random\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, acc)
 
 	c := make([]byte, n)
 	copy(c, b)
 	t0 = time.Now()
 	eq := bytes.Equal(b, c)
-	fmt.Printf("equal\t%.6f\t%d\n", float64(time.Since(t0).Microseconds())/1000.0, boolToU32(eq))
-	for _, size := range []int{1000000, 4000000} {
+	fmt.Printf("equal\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, boolToU32(eq))
+	for _, size := range []int{b1, b2} {
 		t0 = time.Now()
 		var built []byte
 		for i := range size {
 			built = append(built, byte(i&255))
 		}
 		cs = uint32(size) + uint32(built[size-1])
-		fmt.Printf("build_%d\t%.6f\t%d\n", size, float64(time.Since(t0).Microseconds())/1000.0, cs)
+		fmt.Printf("build_%d\t%.6f\t%d\n", size, time.Since(t0).Seconds()*1000.0, cs)
 	}
 }
 

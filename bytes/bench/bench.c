@@ -45,6 +45,9 @@ int main(int argc, char **argv) {
 	if (argc > 1)
 		L = atoi(argv[1]);
 	size_t n = (size_t)1 << L;
+	uint32_t reads = argc > 2 ? strtoul(argv[2], NULL, 10) : 1u << 24;
+	size_t b1 = argc > 3 ? strtoul(argv[3], NULL, 10) : 1000000;
+	size_t b2 = argc > 4 ? strtoul(argv[4], NULL, 10) : 4000000;
 
 	double t0, t1;
 	uint32_t cs;
@@ -109,7 +112,7 @@ int main(int argc, char **argv) {
 	uint32_t x = 1, acc = 0;
 	unsigned shift = 32 - (unsigned)L;
 	t0 = now_ms();
-	for (uint32_t i = 0; i < (1u << 24); i++) {
+	for (uint32_t i = 0; i < reads; i++) {
 		x = x * 1664525u + 1013904223u;
 		uint32_t idx = x >> shift;
 		acc += b[idx];
@@ -124,7 +127,7 @@ int main(int argc, char **argv) {
 	t1 = now_ms();
 	printf("equal\t%.6f\t%u\n", t1 - t0, eq ? 1u : 0u);
 
-	if (build(1000000) || build(4000000))
+	if (build(b1) || build(b2))
 		return 1;
 
 	free(c);

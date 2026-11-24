@@ -3,14 +3,6 @@ import Base
 import ../../time/time.bend as Time
 import ../int.bend as Int
 
-def N() -> Nat:
-  16384n
-
-# The 32-bit and narrower ops run 10^7 steps. A power of two would return the
-# full-period U8 and U16 LCGs to their seed.
-def N2() -> Nat:
-  10000000n
-
 def num(s: String) -> Int.U64:
   Maybe.default(&2, Int.U64, Int.U64.read(s), Int.U64.MIN())
 
@@ -89,39 +81,53 @@ def one(t: Time.Duration) -> U32:
     case Time.Duration{s, n}:
       (n / 1000000000 + 1 : U32)
 
-def op.i32(+t: Time.Duration) -> IO(Unit):
-  lap.s("i32", t, Int.I32.show(i32(N2(), Int.I32.from_u32(one(t)), Int.I32.from_u32(0))))
+def op.i32(n: Nat, +t: Time.Duration) -> IO(Unit):
+  lap.s("i32", t, Int.I32.show(i32(n, Int.I32.from_u32(one(t)), Int.I32.from_u32(0))))
 
-def op.u16(+t: Time.Duration) -> IO(Unit):
-  lap.s("u16", t, Int.U16.show(u16(N2(), Int.U16.from_u32(one(t)))))
+def op.u16(n: Nat, +t: Time.Duration) -> IO(Unit):
+  lap.s("u16", t, Int.U16.show(u16(n, Int.U16.from_u32(one(t)))))
 
-def op.u8(+t: Time.Duration) -> IO(Unit):
-  lap.s("u8", t, Int.U8.show(u8(N2(), Int.U8.from_u32(one(t)))))
+def op.u8(n: Nat, +t: Time.Duration) -> IO(Unit):
+  lap.s("u8", t, Int.U8.show(u8(n, Int.U8.from_u32(one(t)))))
 
-def op.small() -> IO(Unit):
+def op.small(+n: Nat) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    op.i32(t0)
+    op.i32(n, t0)
     t1 : Time.Duration <- Time.mono()
-    op.u16(t1)
+    op.u16(n, t1)
     t2 : Time.Duration <- Time.mono()
-    op.u8(t2)
+    op.u8(n, t2)
 
-def op.rem(l: List<Int.U64>) -> IO(Unit):
+def op.rem(n2: Nat, l: List<Int.U64>) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
     lap("rem", t0, rem(l, Int.U64.from_u32(1000003), Int.U64.MIN()))
-    op.small()
+    op.small(n2)
 
-def run.lcg(f: Unit -> Int.U64) -> IO(Unit):
+def run.lcg(n: Nat, n2: Nat, f: Unit -> Int.U64) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
     lap("lcg", t0, f(Unit{}))
-    op.rem(gen(N(), 1, []))
+    op.rem(n2, gen(n, 1, []))
 
 # A closure holds a and c, so the clock's I64 does not push the C backend past 247 live words (bendlang/bend#1069).
-def run(+a: Int.U64, +c: Int.U64) -> IO(Unit):
-  run.lcg(u => lcg(N(), a, c, Int.U64.from_u32(1)))
+def run(+n: Nat, n2: Nat, +a: Int.U64, +c: Int.U64) -> IO(Unit):
+  run.lcg(n, n2, u => lcg(n, a, c, Int.U64.from_u32(1)))
+
+def counts(args: List<&1, String>) -> Nat & Nat:
+  match args:
+    case program <> n <> n2 <> Nil{}:
+      (U32.to_nat(Maybe.default(&2, U32, U32.read(n), 16384)),
+       U32.to_nat(Maybe.default(&2, U32, U32.read(n2), 10000000)))
+    case _:
+      (16384n, 10000000n)
+
+def start(ns: Nat & Nat) -> IO(Unit):
+  (n, n2) = ns
+  run(n, n2, num("6364136223846793005"), num("1442695040888963407"))
 
 def main() -> IO(Unit):
-  run(num("6364136223846793005"), num("1442695040888963407"))
+  do IO<Unit>:
+    args : List<&1, String> <- IO.args()
+    start(counts(args))

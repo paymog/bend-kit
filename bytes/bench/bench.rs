@@ -29,6 +29,9 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(28);
     let n = 1usize << l;
+    let reads: u32 = std::env::args().nth(2).map_or(1 << 24, |s| s.parse().unwrap());
+    let b1: usize = std::env::args().nth(3).map_or(1000000, |s| s.parse().unwrap());
+    let b2: usize = std::env::args().nth(4).map_or(4000000, |s| s.parse().unwrap());
 
     let t0 = Instant::now();
     let mut b = vec![0u8; n];
@@ -79,7 +82,7 @@ fn main() {
     let mut acc: u32 = 0;
     let shift = 32 - l;
     let t0 = Instant::now();
-    for _ in 0..(1u32 << 24) {
+    for _ in 0..reads {
         x = x.wrapping_mul(1664525).wrapping_add(1013904223);
         let idx = (x >> shift) as usize;
         acc = acc.wrapping_add(b[idx] as u32);
@@ -95,6 +98,6 @@ fn main() {
     println!("equal\t{ms:.6}\t{}", if eq { 1u32 } else { 0 });
 
     black_box(b);
-    build(1000000);
-    build(4000000);
+    build(b1);
+    build(b2);
 }

@@ -10,13 +10,18 @@ This runs byte-buffer operations in two Bend layouts and five other languages.
 ```sh
 python3 run.py      # 3 runs per variant, median; Python and Bend String run once
 python3 run.py 5    # 5 runs
+python3 run.py 1 --small  # check every supported op with small inputs
 ```
 
 You need `bend`, `clang`, `rustc`, `go`, `bun`, `node`, and `python3`. Binaries go to `out/`, which git ignores. The run takes about a minute. It exits non-zero if any build fails, or if the variants that run at 256 MiB disagree on a checksum.
 
+`--small` uses a 64 KiB buffer in every language, 256 random reads, and build sizes of 256 and 1024 bytes. It does not scale the String times. It checks the String checksums against the other languages for all six operations that String supports. The default inputs and table format stay unchanged.
+
+The baseline programs and `packed.bend` accept `log2(N) reads build1 build2`. `string.bend` accepts only `log2(N)`. The runner passes these arguments before each operation starts its timer. Small runs check checksums, not performance.
+
 ## The ops
 
-Every program times each op in-process and prints its checksum. Except for `build`, the buffer is N = 2^28 bytes (256 MiB). `bench.*` takes log2(N) as its first argument. The Bend files have N built in: 2^28 in `packed.bend`, and 2^26 in `string.bend`, since 256 MiB as a list takes more than 4 GiB. `run.py` multiplies the `String` times by 4. Checksum math is u32 and wraps.
+Every program times each op in-process and prints its checksum. Except for `build`, the buffer is N = 2^28 bytes (256 MiB). `bench.*` takes log2(N) as its first argument. The default is 2^28 in `packed.bend` and 2^26 in `string.bend`, since 256 MiB as a list takes more than 4 GiB. `run.py` multiplies the default `String` times by 4. All programs accept their buffer size at runtime. Checksum math is u32 and wraps.
 
 | op | work | checksum |
 |---|---|---|
