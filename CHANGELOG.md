@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- Pin checks and re-pin waves include the protobuf generator and benchmark import templates. Keep evidence files unchanged and align the generator's default runtime with the current version.
+
 - `text` 0.2.2.0: add pure packed-input line diff with owned buffers and byte-range edits. Verify hash matches and fall back to exact octet comparison on collisions. Keep the String API unchanged.
 
 - `template` 0.3.1.0: add UTF-8 packed output with `render_bytes` and `render_bytes_with`. Keep the text API and pure proofs. Check both output paths against the Mustache spec and non-ASCII fixtures.

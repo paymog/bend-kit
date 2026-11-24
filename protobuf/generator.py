@@ -6,7 +6,7 @@ import re
 from google.protobuf.compiler import plugin_pb2
 from google.protobuf.descriptor_pb2 import FieldDescriptorProto as D
 
-RUNTIME = "bend-kit-protobuf@0.2.0.0/protobuf.bend"
+RUNTIME = "bend-kit-protobuf@0.2.2.0/protobuf.bend"
 KINDS = {1: "double", 2: "float", 3: "int64", 4: "uint64", 5: "int32", 6: "fixed64", 7: "fixed32", 8: "bool", 9: "string", 12: "bytes", 13: "uint32", 15: "sfixed32", 16: "sfixed64", 17: "sint32", 18: "sint64", 14: "enum"}
 TYPES = {1: "F.F64", 2: "F32", 3: "P.Word64", 4: "P.Word64", 5: "U32", 6: "P.Word64", 7: "U32", 8: "Bool", 9: "String", 12: "B.Bytes", 13: "U32", 15: "U32", 16: "P.Word64", 17: "U32", 18: "P.Word64"}
 WIRE = {1: "Fixed64", 2: "Fixed32", 3: "Varint", 4: "Varint", 5: "Varint", 6: "Fixed64", 7: "Fixed32", 8: "Varint", 9: "Blob", 11: "Blob", 12: "Blob", 13: "Varint", 14: "Varint", 15: "Fixed32", 16: "Fixed64", 17: "Varint", 18: "Varint"}
