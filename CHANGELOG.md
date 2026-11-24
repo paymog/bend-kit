@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f32array` 0.2.1.2: combine the lowest pair of 16-cell reduction blocks directly. Preserve the addition order, pure proof imports, and writable returned arrays. Measure sum and dot times and float64 errors on positive, cancellation, and mixed-scale inputs.
+
 - `hash` checks: compare all 64 SipHash-2-4 reference vectors in Bun and native CI. Check byte-string parity and nonzero bytes past each logical length. Keep the six existing laws and the separate benchmark.
 
 - `commands` benchmark: time eight-row bounded reads and overflow rollbacks against small and large unrelated tables in Bend, C, Rust, Bun, and Python. Check ordered row hashes and failed-command retries.

@@ -88,7 +88,31 @@ The 16-cell sequential leaf avoids one recursive call per cell. An initial full 
 
 Fork-join does not clone the array. A pure structural `ANode` split was considered. In Bend 2.0.38's emitted C, `blk_half` allocates and copies each half; rebuilding `ANode` allocates and copies again. Sharing read-only handles with `Array.fork` and joining them after both calls avoids these copies. These unsafe Base operations stay in `parallel.bend`, outside the proof graph.
 
+## Pure reduction overhead
+
+M4 Pro, macOS, 2026-11-24, Bend 2.0.40. Run `python3 reduce.py 5` before and after the change. Each value below is the median of five runs. The pure path uses one worker. Both versions use the same 16-cell serial leaves and the same addition order.
+
+| input | N | before sum / dot ms | after sum / dot ms | before and after sum / dot absolute error |
+|---|---:|---:|---:|---:|
+| positive | 49,152 | 0.0677 / 0.0725 | 0.0698 / 0.0559 | 7 / 7 |
+| positive | 4,194,304 | 1.0845 / 1.8848 | 0.7110 / 1.3404 | 7 / 7 |
+| positive | 16,777,216 | 4.2593 / 7.6791 | 2.6954 / 5.1215 | 7 / 7 |
+| cancellation | 49,152 | 0.0739 / 0.0675 | 0.0809 / 0.0566 | 24,576 / 24,576 |
+| cancellation | 4,194,304 | 1.0865 / 1.9107 | 0.7057 / 1.3385 | 2,097,152 / 2,097,152 |
+| mixed-scale | 49,152 | 0.0761 / 0.0687 | 0.0629 / 0.0612 | 0.00390625 / 0 |
+| mixed-scale | 4,194,304 | 1.0986 / 1.9245 | 0.7154 / 1.3548 | 0.25 / 0 |
+
+The lowest recursive combine now calls its two 16-cell blocks directly. This removes half the recursive combine nodes and their closures. It does not extend a serial running sum or change a product. At N = 4,194,304, the pure positive sum and dot improve by 34% and 29%. The eight-worker 4,096-cell cutoff improves from 0.4333 / 0.4620 ms to 0.3459 / 0.3407 ms.
+
+Other measured changes did not help. Reading the last cell in the loop's base case and expanding cell products into a scalar expression took 1.6020 / 3.5707 ms on the positive N = 4,194,304 input. Direct scalar expressions without that loop change took 1.0902 / 1.9303 ms. Eight lane accumulators confined to each 16-cell leaf took 1.1997 / 2.0345 ms and raised the positive absolute error from 7 to 15. These variants were removed.
+
+The cancellation input repeats `[100000000, 1, -100000000, 1]`; its second dot input is all ones. The mixed-scale input repeats `[10000, 0.125, -10000, 0.25, 0.001, 8, -0.001, -4]`. Its second dot input repeats `[0.5, 2, 0.5, 4, 2, -0.5, 2, 0.25]`. Python first rounds each input to float32, then computes references with float64 `math.fsum`. These products are exact power-of-two scalings, so no product rounding enters the reference.
+
+Cancellation still loses the unit terms inside each cell. The optimization does not fix that accuracy limit. The positive family alone must not be used to claim a general error bound.
+
+The driver also checks N = 0, 1, 7, 8, 9, 127, 128, and 129 for each family. It checks pure/parallel result bits at cell cutoffs 16, 256, 4,096, 65,536, and 1,048,576, with one and eight workers.
+
 ## Caveats
 
 - Bend times itself with `Time.mono`, a nanosecond clock. It prints each checksum before the second clock read, so the work is forced inside the timer.
-- These are micro-benchmarks on one machine. The main comparison uses one size; the reduction sweep uses six sizes and one adversarial input family.
+- These are micro-benchmarks on one machine. The main comparison uses one size; the reduction sweep adds cancellation and mixed-scale inputs to the positive family.

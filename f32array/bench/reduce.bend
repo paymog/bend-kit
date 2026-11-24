@@ -7,6 +7,25 @@ import ../parallel.bend as P
 def ones(x: F32) -> F32:
   1.0
 
+def fill(n: Nat, a: Array<A.Cell>, +i: U32, +c: A.Cell) -> Array<A.Cell>:
+  match n:
+    case 0n:
+      a
+    case 1n+p:
+      fill(p, Array.set(A.Cell, a, i, c), (i + 1 : U32), c)
+
+def repeated(+n: U32, +c: A.Cell) -> A.F32Array:
+  A.F32Array{n, A.trim(fill(U32.to_nat(A.cells(n)), A.alloc(n), 0, c), n)}
+
+def input(family: U32, +n: U32) -> A.F32Array & A.F32Array:
+  match family:
+    case 1:
+      (repeated(n, A.Cell{100000000.0, 1.0, F32.neg(100000000.0), 1.0, 100000000.0, 1.0, F32.neg(100000000.0), 1.0}), A.map(~ones, A.new(n)))
+    case 2:
+      (repeated(n, A.Cell{10000.0, 0.125, F32.neg(10000.0), 0.25, 0.001, 8.0, F32.neg(0.001), F32.neg(4.0)}), repeated(n, A.Cell{0.5, 2.0, 0.5, 4.0, 2.0, F32.neg(0.5), 2.0, 0.25}))
+    case _:
+      (A.set(A.map(~ones, A.new(n)), 0, 100000000.0), A.map(~ones, A.new(n)))
+
 def legacy.sum(n: Nat, r: Array<A.Cell> & A.Cell, +i: U32, s0: F32, s1: F32, s2: F32, s3: F32) -> Array<A.Cell> & F32:
   match n:
     case 0n:
@@ -75,6 +94,10 @@ def run(+n: U32, +mode: U32, +cutoff: U32, a: A.F32Array, b: A.F32Array) -> IO(U
     t0 : Time.Duration <- Time.mono()
     sum.done(t0, mode, cutoff, b, sum(mode, a, cutoff))
 
+def prepared(+n: U32, +mode: U32, +cutoff: U32, ab: A.F32Array & A.F32Array) -> IO(Unit):
+  (a, b) = ab
+  run(n, mode, cutoff, a, b)
+
 def number(m: Maybe<&2, U32>) -> U32:
   match m:
     case Some{n}:
@@ -84,13 +107,13 @@ def number(m: Maybe<&2, U32>) -> U32:
 
 def args(xs: List<&1, String>) -> IO(Unit):
   match xs:
-    case _ <> ns <> ms <> cs <> Nil{}:
+    case _ <> ns <> ms <> cs <> fs <> Nil{}:
       +n = number(U32.read(ns))
       +mode = number(U32.read(ms))
       +cutoff = number(U32.read(cs))
-      run(n, mode, cutoff, A.set(A.map(~ones, A.new(n)), 0, 100000000.0), A.map(~ones, A.new(n)))
+      prepared(n, mode, cutoff, input(number(U32.read(fs)), n))
     case _:
-      IO.die(Unit, 1, "usage: reduce N MODE CELL_CUTOFF (MODE 0=old, 1=pairwise, 2=fork-join)")
+      IO.die(Unit, 1, "usage: reduce N MODE CELL_CUTOFF FAMILY (MODE 0=old, 1=pairwise, 2=fork-join; FAMILY 0=positive, 1=cancellation, 2=mixed)")
 
 def main() -> IO(Unit):
   do IO<Unit>:
