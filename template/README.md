@@ -3,7 +3,7 @@
 Mustache templates: variables, sections, inverted sections, and comments. A variable is HTML-escaped unless you ask for raw output.
 
 ```bend
-import bend-kit-template@0.3.0.0/template.bend as T
+import bend-kit-template@0.3.1.0/template.bend as T
 ```
 
 ```bend
@@ -52,9 +52,13 @@ Escaping replaces `&`, `<`, `>`, `"`, and `'` with `&amp;`, `&lt;`, `&gt;`, `&qu
 | `render(nodes: List<&2, Node>, ctx: Map<&2, Value>)` | `String` | `render_with` and no partials. |
 | `render_text(src: String, ctx: Map<&2, Value>)` | `Result<&2, &2, String, String>` | `parse`, then `render`. |
 | `escape(s: String)` | `String` | The HTML escape that `{{name}}` uses. |
+| `render_bytes(nodes: List<&2, Node>, ctx: Map<&2, Value>)` | `Bytes.Bytes` | Render UTF-8 without building a complete output string. |
+| `render_bytes_with(nodes: List<&2, Node>, ctx: Map<&2, Value>, partials: Map<&2, List<&2, Node>>)` | `Bytes.Bytes` | Packed UTF-8 with the same partial rules as `render_with`. |
 
 Lambdas and dynamic partial names (`{{>*name}}`) are not supported.
 
-`python3 template/conformance.py` runs the Mustache spec v1.4.2 interpolation, sections, inverted, comments, delimiters, and partials files in a native build. It skips the tests whose data is not a map. All 130 other tests pass. `LAWS.bend` holds escaping laws and a sample of those cases. Two of its laws hold for every string: `escape` output has no `<`, `>`, `"`, or `'`, and each `&` in it starts `&amp;`, `&lt;`, `&gt;`, `&quot;`, or `&#39;`.
+The packed API uses `bend-kit-bytes@0.3.3.1` and `bend-kit-encoding@0.5.0.1`. Text inputs remain Unicode strings. The output holds UTF-8 octets, not one byte per code point. Use `Encoding.utf8.decode` only when a caller needs text. The text API and its pure proofs remain unchanged.
 
-`bench/README.md` compares `render` with Rust, JavaScript, and Python libraries.
+`python3 template/conformance.py` checks both output paths against all 130 applicable Mustache spec v1.4.2 cases and two Unicode fixtures. It covers interpolation, sections, inverted sections, comments, delimiters, and partials. It skips tests whose data is not a map. `LAWS.bend` holds escaping laws and a sample of those cases. Two of its laws hold for every string: `escape` output has no `<`, `>`, `"`, or `'`, and each `&` in it starts `&amp;`, `&lt;`, `&gt;`, `&quot;`, or `&#39;`.
+
+`bench/README.md` compares `render_bytes` with Rust, JavaScript, and Python libraries.

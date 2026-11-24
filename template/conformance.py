@@ -55,6 +55,10 @@ def parts(ps):
 
 HEAD = """import Base
 import ../template.bend as T
+import bend-kit-encoding@0.5.0.1/encoding.bend as E
+
+def same(+text: String, +packed: String) -> String:
+  T.when(String, String.eq(text, packed), u => text, u => "PACKED MISMATCH " ++ packed)
 
 def nodes(r: Result<&2, &2, String, List<&2, T.Node>>) -> List<&2, T.Node>:
   match r:
@@ -63,12 +67,12 @@ def nodes(r: Result<&2, &2, String, List<&2, T.Node>>) -> List<&2, T.Node>:
     case Done{n}:
       n
 
-def out(r: Result<&2, &2, String, List<&2, T.Node>>, ctx: Map<&2, T.Value>, ps: Map<&2, List<&2, T.Node>>) -> String:
+def out(r: Result<&2, &2, String, List<&2, T.Node>>, +ctx: Map<&2, T.Value>, +ps: Map<&2, List<&2, T.Node>>) -> String:
   match r:
     case Fail{m}:
       "FAIL " ++ m
-    case Done{n}:
-      T.render_with(n, ctx, ps)
+    case Done{+n}:
+      same(T.render_with(n, ctx, ps), E.utf8.decode(T.render_bytes_with(n, ctx, ps)))
 
 """
 
@@ -80,12 +84,28 @@ def main():
         for t in json.load(urllib.request.urlopen(SPEC.format(f)))["tests"]:
             if not skip(t):
                 cases.append((f, t))
+    cases.append(("unicode", {
+        "name": "UTF-8 variables and indented partials",
+        "template": "{{v}}\n  {{>p}}\n{{{v}}}",
+        "data": {"v": "é猫😀 & <"},
+        "partials": {"p": "猫\n{{v}}\n😀\n"},
+        "expected": "é猫😀 &amp; &lt;\n  猫\n  é猫😀 &amp; &lt;\n  😀\né猫😀 & <",
+    }))
+    cases.append(("unicode", {
+        "name": "UTF-8 empty partial and trailing whitespace",
+        "template": "é\n  {{>empty}}\n😀{{>p}}猫",
+        "data": {},
+        "partials": {"empty": "", "p": "é\n"},
+        "expected": "é\n😀é\n猫",
+    }))
     body = "".join(f"def c{i}() -> String:\n  out(T.parse({lit(t['template'])}), {obj(t['data'])}, {parts(t.get('partials', {}))})\n\n" for i, (_, t) in enumerate(cases))
     main = "def main() -> IO(Unit):\n  do IO<Unit>:\n" + "".join(f"    IO.print(c{i}() ++ {lit(END)})\n" for i in range(len(cases)))
     (OUT / "conformance.bend").write_text(HEAD + body + main)
     env = {**os.environ, "BEND_NO_TELEMETRY": "1"}
     subprocess.run(["bend", "conformance.bend", "-o", "conformance"], cwd=OUT, env=env, check=True)
     got = subprocess.run([OUT / "conformance"], capture_output=True, check=True).stdout.decode().split(END + "\n")
+    if len(got) != len(cases) + 1:
+        sys.exit(f"incomplete output: {len(got) - 1}/{len(cases)} cases")
     fails = 0
     for (f, t), g in zip(cases, got):
         if g != t["expected"]:
