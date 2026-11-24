@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.8.1.0: sync object and root contents before atomic rename, then sync both directories. Validate root closures before publication. Check injected failures at each persistence boundary in native and Bun lanes.
+
 - Pin checks and re-pin waves include the protobuf generator and benchmark import templates. Keep evidence files unchanged and align the generator's default runtime with the current version.
 
 - `text` 0.2.2.0: add pure packed-input line diff with owned buffers and byte-range edits. Verify hash matches and fall back to exact octet comparison on collisions. Keep the String API unchanged.

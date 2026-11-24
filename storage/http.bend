@@ -242,7 +242,7 @@ def download(base: String, dir: String, +d: P.Digest) -> Run(String):
 def publish(+tmp: String, path: String, d: P.Digest) -> S.Run(P.Obj<P.Digest, Unit>):
   do S.Run<P.Obj<P.Digest, Unit>>:
     node : P.Obj<P.Digest, Unit> <- verified(tmp, d)
-    Files.rename(tmp, path)
+    S.write.durable(tmp, path, 0)
     return node
 
 def publish.cleaned(+tmp: String, result: Result<&1, &1, U32 & String, P.Obj<P.Digest, Unit>>) -> S.Run(P.Obj<P.Digest, Unit>):

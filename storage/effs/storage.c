@@ -106,3 +106,98 @@ static void __attribute__((constructor)) write_temp_use(void) {
 }
 #endif
 #endif
+
+#if defined(CID(write.durable)) || defined(CID(write.sync))
+#ifndef STORAGE_DURABLE_EFF
+#define STORAGE_DURABLE_EFF
+#include <fcntl.h>
+#include <unistd.h>
+
+static int storage_sync(const char* path, bool directory) {
+  int fd = open(path, O_RDONLY | O_CLOEXEC | (directory ? O_DIRECTORY : 0));
+  if (fd < 0) return errno;
+  int rc;
+  do { rc = fsync(fd); } while (rc < 0 && errno == EINTR);
+  int code = rc < 0 ? errno : 0;
+  if (close(fd) < 0 && !code) code = errno;
+  return code;
+}
+
+static void storage_parent(char* path) {
+  char* slash = strrchr(path, '/');
+  if (!slash) strcpy(path, ".");
+  else if (slash == path) path[1] = 0;
+  else *slash = 0;
+}
+
+static void write_durable_call(IoWork* w) {
+  char* tmp = w->data;
+  char* path = w->text;
+  if (!tmp[0]) {
+    for (;;) {
+      w->code = storage_sync(path, true);
+      if (w->code || !strcmp(path, "/") || !strcmp(path, ".")) return;
+      storage_parent(path);
+    }
+  }
+  if (w->word == 1) { w->code = EIO; return; }
+  w->code = storage_sync(tmp, false);
+  if (w->code) return;
+  if (w->word == 2 || w->word == 3) { w->code = EIO; return; }
+  if (rename(tmp, path) < 0) { w->code = errno; return; }
+  if (w->word == 4 || w->word == 5) { w->code = EIO; return; }
+  storage_parent(path);
+  w->code = storage_sync(path, true);
+  if (w->code) return;
+  storage_parent(tmp);
+  w->code = storage_sync(tmp, true);
+  if (!w->code && w->word == 6) w->code = EIO;
+}
+
+static Term write_durable_pack(Env e, IoWork* w) {
+  free(w->data);
+  free(w->text);
+  return w->code ? io_fail(e, w->code, NULL) : io_done(e, term_pak(CID(Unit), 0));
+}
+
+static Term write_durable_run(Env e, Term* f, IoWork* w) {
+  u64 tn, pn;
+  w->data = io_cstr(e, f[0], &tn);
+  w->text = io_cstr(e, f[1], &pn);
+  if (!w->data || !w->text || io_nul(w->data, tn) || io_nul(w->text, pn) || !pn) {
+    free(w->data);
+    free(w->text);
+    return io_fail(e, EINVAL, NULL);
+  }
+  w->word = (u32)f[2];
+  return io_work(w, write_durable_call, write_durable_pack);
+}
+
+#ifdef CID(write.durable)
+static void __attribute__((constructor)) write_durable_use(void) {
+  io_eff(CID(write.durable), write_durable_run);
+}
+#endif
+
+#ifdef CID(write.sync)
+static void write_sync_call(IoWork* w) {
+  w->code = storage_sync(w->data, false);
+}
+
+static Term write_sync_run(Env e, Term* f, IoWork* w) {
+  u64 n;
+  w->data = io_cstr(e, f[0], &n);
+  w->text = NULL;
+  if (!w->data || io_nul(w->data, n)) {
+    free(w->data);
+    return io_fail(e, EINVAL, NULL);
+  }
+  return io_work(w, write_sync_call, write_durable_pack);
+}
+
+static void __attribute__((constructor)) write_sync_use(void) {
+  io_eff(CID(write.sync), write_sync_run);
+}
+#endif
+#endif
+#endif

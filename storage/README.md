@@ -3,8 +3,8 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.8.0.0/storage.bend as S
-import bend-kit-storage@0.8.0.0/pure.bend as P
+import bend-kit-storage@0.8.1.0/storage.bend as S
+import bend-kit-storage@0.8.1.0/pure.bend as P
 ```
 
 `pure.bend` owns the model, digest types and ordering, and encoding and decoding helpers. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` import only this module. `storage.bend` owns hashing and disk IO. Import both modules for disk operations; pure types and constructors use `P`, and effects use `S`.
@@ -17,8 +17,8 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.8.0.0/storage.bend as S
-import bend-kit-storage@0.8.0.0/pure.bend as P
+import bend-kit-storage@0.8.1.0/storage.bend as S
+import bend-kit-storage@0.8.1.0/pure.bend as P
 
 def ship(+root: P.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -119,7 +119,7 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 
 ## HTTP synchronization
 
-Import `bend-kit-storage@0.8.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.40.0.1`; the pure storage core does not import HTTP.
+Import `bend-kit-storage@0.8.1.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.40.0.1`; the pure storage core does not import HTTP.
 
 `Transport.handle(dir, request)` is the server handler. It serves `GET /objects/<digest>` as `application/octet-stream`. Invalid paths and missing objects return 404; other disk failures return 500. Mount it with `Http.server.start(~String, ~Unit, dir, Unit{}, config)` and `Http.server.run(~String, ~Transport.handle, ~observe, server)`. The observer has type `String -> U32 -> Completion.Outcome -> IO(Unit)` and may call `Completion.ignore(status, outcome)`. The caller owns the listener, bind address, admission limits, shutdown, authentication, and TLS termination.
 
@@ -127,9 +127,9 @@ The client is:
 
 ```bend
 import Base
-import bend-kit-storage@0.8.0.0/storage.bend as S
-import bend-kit-storage@0.8.0.0/pure.bend as P
-import bend-kit-storage@0.8.0.0/http.bend as Transport
+import bend-kit-storage@0.8.1.0/storage.bend as S
+import bend-kit-storage@0.8.1.0/pure.bend as P
+import bend-kit-storage@0.8.1.0/http.bend as Transport
 
 def pull(+root: P.Digest) -> S.Run(U32):
   Transport.sync("https://artifacts.example", "b", root)
@@ -176,7 +176,8 @@ The proofs cover the pure core. They do not cover hashing, the disk, or the copy
 - **Collision resistance.** The proofs assume that the object hash is injective. SHA-256 is not injective; the assumption is that no one finds two objects with one digest.
 - **Native hashing.** `digest` and Blob construction call OpenSSL. The proofs assume it computes SHA-256 of the octets it receives. `commit` reuses a file's cached digest and repeats the shape of `objects` and `hash` in `IO`; the proofs cover `objects` and `hash`. Ingress computes the digest from received bytes and never trusts a peer's cached digest.
 - **Encoding.** `decode` is the inverse of `encode` on the objects `commit` writes, and `Digest.read` is the inverse of `Digest.hex`. `check.bend` tests both; no law states them.
-- **Filesystem.** A write goes to `dir/tmp` and then a rename, so a reader sees a whole object or none. Nothing calls `fsync`. After a crash an object file can be empty or short; a read of that object then fails, because its digest does not match. `Disk.checkout`, `sync`, and `Disk.collect` read only the objects their roots reach, so they do not notice a broken object that no root reaches, and `Disk.collect` deletes it. `Disk.load` reads every object.
+- **Filesystem.** Completed object and root writes sync file contents, atomically rename from `dir/tmp`, then sync the destination and temporary directories. HTTP ingress uses the same order. `Disk.init` syncs the store directories and their ancestors. `Disk.set_root` first verifies the complete object closure, syncs every referenced object file, and syncs the objects directory. It refuses missing or corrupt objects. This also fences objects left by an interrupted publication or an older store version. Stop collection and external changes during root publication. The contract requires a local filesystem with atomic same-filesystem rename and working file and directory `fsync`, on one mounted filesystem. Unsupported sync operations return an error, not success.
+- **Crash model.** After a completed call, a process crash or OS crash cannot lose its published contents or name, provided the filesystem and device honor successful `fsync`. An interrupted call can leave the old file, the complete new file, or an owned temporary file. An error after rename can leave the new file visible; do not interpret failure as rollback. A later successful root update fences earlier renamed object entries before it publishes the root. Power loss is covered only when the device persists data on `fsync`; volatile device caches, macOS power-loss guarantees that require `F_FULLFSYNC`, broken filesystems, disk corruption, and hostile external writers are outside this contract. Collection deletions and restored working trees have no crash-durability guarantee. Fault-injection checks cover errors before and after file sync, rename, and directory sync; they do not simulate physical power failure.
 - **Concurrent writers.** Object and root writes each use an exclusively created temporary file. Readers see complete published files. Concurrent updates of one root use last-rename-wins order; there is no compare-and-swap or transaction across roots. A failed write removes only its own temporary file. A process crash can leave temporary files behind. `Disk.collect` needs a frozen root set: no commit, sync, or root change may run during it, or it can delete an object that a new root needs.
 - **Exclusive maintenance.** Stop and join every commit, sync, and root writer before calling `Disk.clean_tmp`, and prevent new writers until it returns. The caller owns this exclusion, as with `Disk.collect`; the store does not acquire a lock or detect live writers. Never run maintenance beside a live writer. Every file directly under `dir/tmp` is disposable under this precondition, regardless of its age. Maintenance does not recurse or touch `dir/objects` or `dir/roots`. An IO error stops the operation; earlier deletions remain. Do not replace `dir/tmp` with a symbolic link.
 - **Trees on disk.** `snapshot` follows symbolic links and fails on other special files. A link cycle fails at the fuel limit.

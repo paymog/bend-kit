@@ -135,7 +135,7 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`files`](files) | `bend-kit-files@0.4.0.1/files.bend` | POSIX paths, directories, and packed file IO. |
-| [`storage`](storage) | `bend-kit-storage@0.8.0.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
+| [`storage`](storage) | `bend-kit-storage@0.8.1.0/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
 | [`stream`](stream) | `bend-kit-stream@0.4.1.1/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.2.1/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |

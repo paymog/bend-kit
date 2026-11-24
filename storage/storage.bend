@@ -131,11 +131,18 @@ def receive(+s: P.Index(P.Digest, P.Blob), +claimed: P.Digest, b: Bytes.Bytes) -
 def Disk.object(+dir: String, +d: P.Digest) -> String:
   dir ++ "/objects/" ++ P.Digest.hex(d)
 
+def write.durable(tmp: String, path: String, fault: U32) -> IO(Result<&1, &1, U32 & String, Unit>):
+  import "./effs/storage.c"
+  import "./effs/storage.js"
+
 def Disk.init(+dir: String) -> Run(Unit):
   do Run<Unit>:
     Files.mkdir_all(dir ++ "/objects")
     Files.mkdir_all(dir ++ "/roots")
     Files.mkdir_all(dir ++ "/tmp")
+    write.durable("", dir ++ "/objects", 0)
+    write.durable("", dir ++ "/roots", 0)
+    write.durable("", dir ++ "/tmp", 0)
 
 def write.close(r: File & Result<&1, &1, U32 & String, Unit>) -> Run(Unit):
   match r:
@@ -169,7 +176,7 @@ def write.publish(r: Result<&1, &1, U32 & String, Unit>, +tmp: String, path: Str
       write.cleanup(tmp, Fail{e})
     case Done{x}:
       do IO<Result<&1, &1, U32 & String, Unit>>:
-        renamed : Result<&1, &1, U32 & String, Unit> <- Files.rename(tmp, path)
+        renamed : Result<&1, &1, U32 & String, Unit> <- write.durable(tmp, path, 0)
         write.cleanup(tmp, renamed)
 
 def write.opened(pair: String & File, path: String, b: Bytes.Bytes) -> Run(Unit):
@@ -367,9 +374,26 @@ def Disk.probe(+dir: String, xs: P.Store<P.Digest, P.Blob>, +s: P.Index(P.Digest
         u : P.Index(P.Digest, P.Blob) <- Disk.probe.one(e, dir, d, s)
         Disk.probe(dir, r, u)
 
+def write.sync(path: String) -> IO(Result<&1, &1, U32 & String, Unit>):
+  import "./effs/storage.c"
+  import "./effs/storage.js"
+
+def Disk.fence(+dir: String, xs: P.Store<P.Digest, P.Blob>) -> Run(Unit):
+  match xs:
+    case P.StNil{}:
+      Run.pure(Unit, Unit{})
+    case P.StCon{d, o, rest}:
+      do Run<Unit>:
+        write.sync(Disk.object(dir, d))
+        Disk.fence(dir, rest)
+
 def Disk.set_root(+dir: String, +name: String, +d: P.Digest) -> Run(Unit):
   do Run<Unit>:
     Run.check(P.name.ok(name), "invalid root " ++ name)
+    +s : P.Index(P.Digest, P.Blob) <- Disk.fetch(dir, d)
+    objects : P.Store<P.Digest, P.Blob> <- Run.some(P.Store<P.Digest, P.Blob>, P.Index.closure(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), s, d), "root has missing objects")
+    Disk.fence(dir, objects)
+    write.durable("", dir ++ "/objects", 0)
     write(dir, "root", dir ++ "/roots/" ++ name, Bytes.from_string(P.Digest.hex(d)))
 
 def Disk.root(+dir: String, +name: String) -> Run(P.Digest):
