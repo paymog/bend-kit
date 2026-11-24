@@ -13,6 +13,7 @@ import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import ./model.bend as R
 import ./LAWS.bend as Laws
 import bend-kit-collections@0.1.6.0/order.bend as Order
+import bend-kit-collections@0.1.6.0/omap.bend as O
 
 def split(-P: Bool -> Type, b: Bool, yes: {b == True{} : Bool} -> P(True{}), no: {b == False{} : Bool} -> P(False{})) -> P(b):
   match b:
@@ -1004,6 +1005,24 @@ def Laws.revive_noop(A, s, i, d, alive):
       %Equal.sym(Maybe<&2, R.Dead<A>>, R.dead.get(~A, ds, i), None{}, alive) :
         {R.step.revived(~A, _, i, n, h, r, ts, ds, bs, d) == R.State{Q.State{n, h, r}, ts, ds, bs} : R.State<A>}
       {==}
+
+def Laws.revive_budget(A, s, i, d, dead, found):
+  match s dead:
+    case R.State{Q.State{n, h, r}, ts, +ds, bs} R.Dead{Q.Ticket{k, old, x}, w, at}:
+      %Equal.sym(Maybe<&2, R.Dead<A>>, R.dead.get(~A, ds, i), Some{R.Dead{Q.Ticket{k, old, x}, w, at}}, found) :
+        {R.tries(A, R.step.revived(~A, _, i, n, h, r, ts, ds, bs, d)) == O.OMap.put(~Nat, ~R.Try, ~Nat.cmp, ts, i, R.Try{0n, d}) : R.Tries()}
+      {==}
+
+def Laws.replay_revive_budget(A, X, enc, dec, round, s, i, d, dead, found):
+  %Equal.sym(Maybe<&2, R.State<A>>,
+    Laws.replayed(~A, ~X, ~enc, ~dec, [R.Revive{i, d}], s),
+    Some{R.step(~A, s, R.Revive{i, d})},
+    replay.go(~A, ~X, ~enc, ~dec, ~round, [R.Revive{i, d}], s)) :
+    {Laws.budget.recovered(A, _) == Some{O.OMap.put(~Nat, ~R.Try, ~Nat.cmp, R.tries(A, s), i, R.Try{0n, d})} : Maybe<&2, R.Tries()>}
+  Equal.cong(R.Tries(), Maybe<&2, R.Tries()>, ts => Some{ts},
+    R.tries(A, R.step(~A, s, R.Revive{i, d})),
+    O.OMap.put(~Nat, ~R.Try, ~Nat.cmp, R.tries(A, s), i, R.Try{0n, d}),
+    Laws.revive_budget(~A, s, i, d, dead, found))
 
 def Laws.dead_wf(A, s, wf, op):
   step_wf(~A, s, op, wf)
