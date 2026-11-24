@@ -3,11 +3,8 @@ import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-dns@0.7.1.2/dns.bend as Dns
+import ./pure.bend as Pure
 
-# A RESP3 value (RESP2 replies decode into the same type). Text fields hold the raw
-# bytes of the line. Dict (a RESP3 map) and Attr keep their pairs flat, key then value, as
-# on the wire and in hiredis. Attr holds the attribute pairs, then the reply they annotate, last.
-# Int is a signed 64-bit integer as two's-complement words.
 type Val is Type:
   Simple{text: Bytes.Bytes}
   Error{text: Bytes.Bytes}
@@ -25,285 +22,12 @@ type Val is Type:
   Attr{items: List<&1, Val>}
   Push{items: List<&1, Val>}
 
-# Aggregate kinds, in the order of their type bytes below.
-def kind.tag(+kind: U32) -> String:
-  match kind:
-    case 0:
-      "*"
-    case 1:
-      "%"
-    case 2:
-      "~"
-    case 3:
-      "|"
-    case _:
-      ">"
-
-def kind.val(+kind: U32, xs: List<&1, Val>) -> Val:
-  match kind:
-    case 0:
-      Arr{xs}
-    case 1:
-      Dict{xs}
-    case 2:
-      Set{xs}
-    case 3:
-      Attr{xs}
-    case _:
-      Push{xs}
-
-# ---- integers
-
-def i64.neg(+hi: U32, +lo: U32) -> U32 & U32:
-  (((hi .^. 4294967295) + Bool.pick(U32, U32.is_eq(lo, 0), 1, 0) : U32), ((lo .^. 4294967295) + 1 : U32))
-
-# The 64-bit (hi, lo) divided by 10, and the remainder, over 16-bit limbs.
-def u64.div10(+hi: U32, +lo: U32) -> U32 & U32 & U32:
-  +a = (hi >> 16n : U32)
-  +x = (((a % 10) << 16n) .|. (hi .&. 65535) : U32)
-  +y = (((x % 10) << 16n) .|. (lo >> 16n) : U32)
-  +z = (((y % 10) << 16n) .|. (lo .&. 65535) : U32)
-  ((((a / 10) << 16n) .|. (x / 10) : U32), (((y / 10) << 16n) .|. (z / 10) : U32), (z % 10 : U32))
-
-def digit.put(z: Bool, +r: U32, acc: String) -> String:
-  match z:
-    case True{}:
-      acc
-    case False{}:
-      SCon{Chr{(48 + r : U32)}, acc}
-
-# z is set once the value left to print is zero; 20 digits hold any u64.
-def u64.show.go(f: Nat, q: U32 & U32 & U32, acc: String, +z: Bool) -> String:
-  match f:
-    case 0n:
-      acc
-    case 1n+p:
-      # A + on a later tuple binder fails to check (https://github.com/bendlang/bend/issues/1077).
-      (hi0, lo0, r) = q
-      +hi = hi0
-      +lo = lo0
-      u64.show.go(p, u64.div10(hi, lo), digit.put(z, r, acc), Bool.or(z, U32.is_eq((hi .|. lo : U32), 0)))
-
-def u64.show(+hi: U32, +lo: U32) -> String:
-  u64.show.go(20n, u64.div10(hi, lo), SNil{}, False{})
-
-def i64.show.of(r: U32 & U32, neg: Bool) -> String:
-  (+hi, +lo) = r
-  match neg:
-    case True{}:
-      "-" ++ u64.show(hi, lo)
-    case False{}:
-      u64.show(hi, lo)
-
-def i64.show(+hi: U32, +lo: U32) -> String:
-  +neg = U32.is_le(2147483648, hi)
-  i64.show.of(Bool.pick(U32 & U32, neg, i64.neg(hi, lo), (hi, lo)), neg)
-
-# ---- encoder
-
-# The output so far, whether every value had a RESP form, and the count of values written.
 type E is Type:
   E{o: Bytes.Bytes, ok: Bool, n: U32}
 
-def fresh() -> E:
-  E{Bytes.new(0), True{}, 0}
-
-def text(+s: String) -> Bytes.Bytes:
-  Bytes.from_string(s)
-
-def none(m: Maybe<&2, U32>) -> Bool:
-  match m:
-    case None{}:
-      True{}
-    case Some{x}:
-      False{}
-
-def clean.lf(+cr: Bool, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Bool:
-  (b, m) = r
-  (b, Bool.and(cr, none(m)))
-
-def clean.cr(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Bool:
-  (b, m) = r
-  clean.lf(none(m), Bytes.find(b, "\n"))
-
-# A line has no CR and no LF.
-def clean(t: Bytes.Bytes) -> Bytes.Bytes & Bool:
-  clean.cr(Bytes.find(t, "\r"))
-
-def put(st: E, +head: String, body: Bytes.Bytes, +good: Bool) -> E:
-  E{o, +ok, +n} = st
-  E{Bytes.append(Bytes.append(Bytes.append(o, text(head)), body), text("\r\n")), Bool.and(ok, good), (n + 1 : U32)}
-
-def line(st: E, +tag: String, r: Bytes.Bytes & Bool) -> E:
-  (t, +good) = r
-  put(st, tag, t, good)
-
-def blob(st: E, +tag: String, b: Bytes.Bytes) -> E:
-  Bytes.Bytes{+len, buf} = b
-  put(st, tag ++ U32.show(len) ++ "\r\n", Bytes.Bytes{len, buf}, True{})
-
-def verbatim.of(st: E, +tl: U32, r: Bytes.Bytes & U32, t: Bytes.Bytes) -> E:
-  (f, +fl) = r
-  put(st, "=" ++ U32.show((tl + 4 : U32)) ++ "\r\n", Bytes.append(Bytes.append(f, text(":")), t), U32.is_eq(fl, 3))
-
-def verbatim(st: E, f: Bytes.Bytes, t: Bytes.Bytes) -> E:
-  Bytes.Bytes{+tl, tb} = t
-  verbatim.of(st, tl, Bytes.length(f), Bytes.Bytes{tl, tb})
-
-# Maps count pairs and need an even count; Attr needs its pairs and one reply.
-def agg.count(+kind: U32, +n: U32) -> U32:
-  Bool.pick(U32, U32.is_eq(kind, 1), (n >> 1n : U32), Bool.pick(U32, U32.is_eq(kind, 3), (n >> 1n : U32), n))
-
-def agg.ok(+kind: U32, +n: U32) -> Bool:
-  +odd = U32.is_eq((n .&. 1 : U32), 1)
-  Bool.pick(Bool, U32.is_eq(kind, 1), Bool.not(odd), Bool.pick(Bool, U32.is_eq(kind, 3), odd, True{}))
-
-def agg(st: E, +kind: U32, sub: E) -> E:
-  E{o, +ok, +n} = st
-  E{body, +good, +k} = sub
-  +head = kind.tag(kind) ++ U32.show(agg.count(kind, k)) ++ "\r\n"
-  E{Bytes.append(Bytes.append(o, text(head)), body), Bool.and(ok, Bool.and(good, agg.ok(kind, k))), (n + 1 : U32)}
-
-def boolean(v: Bool) -> String:
-  match v:
-    case True{}:
-      "t"
-    case False{}:
-      "f"
-
-def enc(xs: List<&1, Val>, st: E) -> E:
-  match xs:
-    case Nil{}:
-      st
-    case Con{Simple{t}, rest}:
-      enc(rest, line(st, "+", clean(t)))
-    case Con{Error{t}, rest}:
-      enc(rest, line(st, "-", clean(t)))
-    case Con{Int{+hi, +lo}, rest}:
-      enc(rest, put(st, ":" ++ i64.show(hi, lo), Bytes.new(0), True{}))
-    case Con{Bulk{d}, rest}:
-      enc(rest, blob(st, "$", d))
-    case Con{Arr{items}, rest}:
-      enc(rest, agg(st, 0, enc(items, fresh())))
-    case Con{Null{}, rest}:
-      enc(rest, put(st, "_", Bytes.new(0), True{}))
-    case Con{Boolean{v}, rest}:
-      enc(rest, put(st, "#" ++ boolean(v), Bytes.new(0), True{}))
-    case Con{Double{t}, rest}:
-      enc(rest, line(st, ",", clean(t)))
-    case Con{BigNum{t}, rest}:
-      enc(rest, line(st, "(", clean(t)))
-    case Con{BulkError{t}, rest}:
-      enc(rest, blob(st, "!", t))
-    case Con{Verbatim{f, t}, rest}:
-      enc(rest, verbatim(st, f, t))
-    case Con{Dict{items}, rest}:
-      enc(rest, agg(st, 1, enc(items, fresh())))
-    case Con{Set{items}, rest}:
-      enc(rest, agg(st, 2, enc(items, fresh())))
-    case Con{Attr{items}, rest}:
-      enc(rest, agg(st, 3, enc(items, fresh())))
-    case Con{Push{items}, rest}:
-      enc(rest, agg(st, 4, enc(items, fresh())))
-
-def encode.done(st: E) -> Maybe<&1, Bytes.Bytes>:
-  E{o, ok, n} = st
-  match ok:
-    case True{}:
-      Some{o}
-    case False{}:
-      None{}
-
-# None when a line value holds CR or LF, a Dict has an odd item count, an Attr an even
-# one, or a Verbatim format is not 3 bytes.
-def encode(v: Val) -> Maybe<&1, Bytes.Bytes>:
-  encode.done(enc([v], fresh()))
-
-def bulks(xs: List<&1, Bytes.Bytes>) -> List<&1, Val>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      Con{Bulk{h}, bulks(t)}
-
-def encode.command.done(st: E) -> Bytes.Bytes:
-  E{o, ok, n} = st
-  o
-
-# A command as a RESP array of bulk strings, the form every server accepts.
-def encode.command(args: List<&1, Bytes.Bytes>) -> Bytes.Bytes:
-  encode.command.done(enc([Arr{bulks(args)}], fresh()))
-
-# Byte-string arguments (one Char per octet) as Bytes.
-def args(xs: List<&2, String>) -> List<&1, Bytes.Bytes>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      Con{Bytes.from_string(h), args(t)}
-
-# ---- decoder
-
-# A decimal line: sign, magnitude words, and whether it has 1 to 19 digits.
 type Num is Data:
   Num{neg: Bool, hi: U32, lo: U32, ok: Bool}
 
-# n digits from i: (hi, lo) = (hi, lo) * 10 + d over 16-bit limbs. 19 digits stay below 2^64.
-def num.go(n: Nat, r: Array<U32> & U32, +i: U32, +hi: U32, +lo: U32, +ok: Bool) -> Array<U32> & U32 & U32 & Bool:
-  match n:
-    case 0n:
-      (a, c) = r
-      (a, hi, lo, ok)
-    case 1n+p:
-      (a, +c) = r
-      +d = (c - 48 : U32)
-      +p0 = ((lo .&. 65535) * 10 + d : U32)
-      +p1 = ((lo >> 16n) * 10 + (p0 >> 16n) : U32)
-      num.go(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), (hi * 10 + (p1 >> 16n) : U32), ((p1 << 16n) .|. (p0 .&. 65535) : U32), Bool.and(ok, U32.is_lt(d, 10)))
-
-def num.fin(+neg: Bool, +len: U32, r: Array<U32> & U32 & U32 & Bool) -> Bytes.Bytes & Num:
-  (a, hi, lo, ok) = r
-  (Bytes.Bytes{len, a}, Num{neg, hi, lo, ok})
-
-def num.digits(+neg: Bool, a: Array<U32>, +len: U32, +s: U32, +e: U32) -> Bytes.Bytes & Num:
-  +k = (e - s : U32)
-  num.fin(neg, len, num.go(U32.to_nat(k), Bytes.peek(a, s), s, 0, 0, Bool.and(U32.is_lt(0, k), U32.is_le(k, 19))))
-
-def num.sign(+len: U32, +s: U32, +e: U32, r: Array<U32> & U32) -> Bytes.Bytes & Num:
-  (a, +c) = r
-  +neg = Bool.and(U32.is_eq(c, 45), U32.is_lt(s, e))
-  num.digits(neg, a, len, Bool.pick(U32, neg, (s + 1 : U32), s), e)
-
-# Bytes s until e, which are before len.
-def num(b: Bytes.Bytes, +s: U32, +e: U32) -> Bytes.Bytes & Num:
-  Bytes.Bytes{+len, buf} = b
-  num.sign(len, s, e, Bytes.peek(buf, s))
-
-def int.mk(r: U32 & U32) -> Val:
-  (hi, lo) = r
-  Int{hi, lo}
-
-def int.val(good: Bool, +neg: Bool, +hi: U32, +lo: U32) -> Maybe<&1, Val>:
-  match good:
-    case True{}:
-      Some{int.mk(Bool.pick(U32 & U32, neg, i64.neg(hi, lo), (hi, lo)))}
-    case False{}:
-      None{}
-
-# RESP integers are signed 64-bit: the magnitude may reach 2^63 only when negative.
-def int.of(n: Num) -> Maybe<&1, Val>:
-  Num{+neg, +hi, +lo, ok} = n
-  +fits = Bool.or(U32.is_lt(hi, 2147483648), Bool.and(neg, Bool.and(U32.is_eq(hi, 2147483648), U32.is_eq(lo, 0))))
-  int.val(Bool.and(ok, fits), neg, hi, lo)
-
-# A length or count below 2^31; -1 (RESP2 null) is 4294967295 and anything else is 4294967294.
-def len.of(n: Num) -> U32:
-  Num{+neg, +hi, +lo, +ok} = n
-  +nil = Bool.and(ok, Bool.and(neg, Bool.and(U32.is_eq(hi, 0), U32.is_eq(lo, 1))))
-  +good = Bool.and(ok, Bool.and(Bool.not(neg), Bool.and(U32.is_eq(hi, 0), U32.is_lt(lo, 2147483648))))
-  Bool.pick(U32, good, lo, Bool.pick(U32, nil, 4294967295, 4294967294))
-
-# An open aggregate: its kind, the items still due, and the items so far, reversed.
 type Frame is Type:
   Frame{kind: U32, left: U32, xs: List<&1, Val>}
 
@@ -314,374 +38,561 @@ type St is Type:
   SMore{}
   SBad{}
 
-# One reply and the index after it; More when the bytes end first; Bad when they cannot start a reply.
 type Step is Type:
   Reply{v: Val, next: U32}
   More{}
   Bad{}
 
-def byte.of(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & U32:
-  (b, m) = r
-  match m:
-    case Some{c}:
-      (b, c)
-    case None{}:
-      (b, 256)
-
-# Byte i, or 256 past the end.
-def byte(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & U32:
-  byte.of(Bytes.get(b, i))
-
-def known(+t: U32) -> Bool:
-  match t:
-    case 43:
-      True{}
-    case 45:
-      True{}
-    case 58:
-      True{}
-    case 36:
-      True{}
-    case 42:
-      True{}
-    case 95:
-      True{}
-    case 35:
-      True{}
-    case 44:
-      True{}
-    case 40:
-      True{}
-    case 33:
-      True{}
-    case 61:
-      True{}
-    case 37:
-      True{}
-    case 126:
-      True{}
-    case 124:
-      True{}
-    case 62:
-      True{}
-    case _:
-      False{}
-
-def null.st(ok: Bool, +next: U32, stack: List<&1, Frame>) -> St:
-  match ok:
-    case True{}:
-      SDone{Null{}, next, stack}
-    case False{}:
-      SBad{}
-
-def line.val(+k: U32, t: Bytes.Bytes) -> Val:
-  match k:
-    case 0:
-      Simple{t}
-    case 1:
-      Error{t}
-    case 2:
-      Double{t}
-    case _:
-      BigNum{t}
-
-def line.st(+k: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
-  (b, t) = r
-  (b, SDone{line.val(k, t), next, stack})
-
-def int.done(m: Maybe<&1, Val>, +next: U32, stack: List<&1, Frame>) -> St:
-  match m:
-    case Some{v}:
-      SDone{v, next, stack}
-    case None{}:
-      SBad{}
-
-def int.st(+next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Num) -> Bytes.Bytes & St:
-  (b, n) = r
-  (b, int.done(int.of(n), next, stack))
-
-def boolean.done(ok: Bool, +v: Bool, +next: U32, stack: List<&1, Frame>) -> St:
-  match ok:
-    case True{}:
-      SDone{Boolean{v}, next, stack}
-    case False{}:
-      SBad{}
-
-def boolean.st(+next: U32, stack: List<&1, Frame>, +one: Bool, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
-  (b, +c) = r
-  (b, boolean.done(Bool.and(one, Bool.or(U32.is_eq(c, 116), U32.is_eq(c, 102))), U32.is_eq(c, 116), next, stack))
-
-def blob.mk(+kind: U32, d: Bytes.Bytes) -> Val:
-  match kind:
-    case 0:
-      Bulk{d}
-    case _:
-      BulkError{d}
-
-def blob.done(+kind: U32, +after: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
-  (b, d) = r
-  (b, SDone{blob.mk(kind, d), after, stack})
-
-def verb.text(f: Bytes.Bytes, +after: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
-  (b, t) = r
-  (b, SDone{Verbatim{f, t}, after, stack})
-
-def verb.fmt(+n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
-  (b, f) = r
-  verb.text(f, (next + n + 2 : U32), stack, Bytes.slice(b, (next + 4 : U32), (n - 4 : U32)))
-
-def verb.ok(ok: Bool, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
-  match ok:
-    case True{}:
-      verb.fmt(n, next, stack, Bytes.slice(b, next, 3))
-    case False{}:
-      (b, SBad{})
-
-def verb.colon(+n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
-  (b, +c) = r
-  verb.ok(U32.is_eq(c, 58), n, next, stack, b)
-
-# A verbatim string is a 3-byte format, a colon, then the text.
-def verb.len(ok: Bool, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
-  match ok:
-    case True{}:
-      verb.colon(n, next, stack, byte(b, (next + 3 : U32)))
-    case False{}:
-      (b, SBad{})
-
-def blob.val(+kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
-  match kind:
-    case 2:
-      verb.len(U32.is_le(4, n), n, next, stack, b)
-    case _:
-      blob.done(kind, (next + n + 2 : U32), stack, Bytes.slice(b, next, n))
-
-def blob.crlf(+kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bool) -> Bytes.Bytes & St:
-  (b, ok) = r
-  match ok:
-    case True{}:
-      blob.val(kind, n, next, stack, b)
-    case False{}:
-      (b, SBad{})
-
-def crlf.at(b: Bytes.Bytes, +j: U32) -> Bytes.Bytes & Bool:
-  Bytes.Bytes{+len, buf} = b
-  Bytes.at.fin(len, Bytes.at(buf, "\r\n", j))
-
-def blob.fit(ok: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
-  match ok:
-    case True{}:
-      blob.crlf(kind, n, next, stack, crlf.at(b, (next + n : U32)))
-    case False{}:
-      (b, SMore{})
-
-def blob.room(+kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
-  (b, +len) = r
-  blob.fit(Bytes.fits(len, next, (n + 2 : U32)), kind, n, next, stack, b)
-
-def blob.bad(bad: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
-  match bad:
-    case True{}:
-      (b, SBad{})
-    case False{}:
-      blob.room(kind, n, next, stack, Bytes.length(b))
-
-# $-1 is RESP2's null bulk string; ! and = have no null form.
-def blob.nil(nil: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
-  match nil:
-    case True{}:
-      (b, null.st(U32.is_eq(kind, 0), next, stack))
-    case False{}:
-      blob.bad(U32.is_eq(n, 4294967294), kind, n, next, stack, b)
-
-# kind 0 is $, 1 is !, 2 is =.
-def blob.st(+kind: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Num) -> Bytes.Bytes & St:
-  (b, n) = r
-  +k = len.of(n)
-  blob.nil(U32.is_eq(k, 4294967295), kind, k, next, stack, b)
-
-def agg.open(empty: Bool, +kind: U32, +left: U32, +next: U32, stack: List<&1, Frame>) -> St:
-  match empty:
-    case True{}:
-      SDone{kind.val(kind, Nil{}), next, stack}
-    case False{}:
-      SHead{next, Con{Frame{kind, left, Nil{}}, stack}}
-
-# A map of n pairs has 2n items; an attribute adds the reply after its pairs.
-def agg.left(+kind: U32, +n: U32) -> U32:
-  Bool.pick(U32, U32.is_eq(kind, 1), (n * 2 : U32), Bool.pick(U32, U32.is_eq(kind, 3), (n * 2 + 1 : U32), n))
-
-def agg.bad(bad: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>) -> St:
-  match bad:
-    case True{}:
-      SBad{}
-    case False{}:
-      +left = agg.left(kind, n)
-      agg.open(U32.is_eq(left, 0), kind, left, next, stack)
-
-# *-1 is RESP2's null array.
-def agg.nil(nil: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>) -> St:
-  match nil:
-    case True{}:
-      null.st(U32.is_eq(kind, 0), next, stack)
-    case False{}:
-      agg.bad(U32.is_eq(n, 4294967294), kind, n, next, stack)
-
-def agg.st(+kind: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Num) -> Bytes.Bytes & St:
-  (b, n) = r
-  +k = len.of(n)
-  (b, agg.nil(U32.is_eq(k, 4294967295), kind, k, next, stack))
-
-# The type byte t, then the line from s until the CRLF at e.
-def item(+t: U32, +s: U32, +e: U32, b: Bytes.Bytes, stack: List<&1, Frame>) -> Bytes.Bytes & St:
-  match t:
-    case 43:
-      line.st(0, (e + 2 : U32), stack, Bytes.slice(b, s, (e - s : U32)))
-    case 45:
-      line.st(1, (e + 2 : U32), stack, Bytes.slice(b, s, (e - s : U32)))
-    case 44:
-      line.st(2, (e + 2 : U32), stack, Bytes.slice(b, s, (e - s : U32)))
-    case 40:
-      line.st(3, (e + 2 : U32), stack, Bytes.slice(b, s, (e - s : U32)))
-    case 58:
-      int.st((e + 2 : U32), stack, num(b, s, e))
-    case 95:
-      (b, null.st(U32.is_eq(s, e), (e + 2 : U32), stack))
-    case 35:
-      boolean.st((e + 2 : U32), stack, U32.is_eq(e, (s + 1 : U32)), byte(b, s))
-    case 36:
-      blob.st(0, (e + 2 : U32), stack, num(b, s, e))
-    case 33:
-      blob.st(1, (e + 2 : U32), stack, num(b, s, e))
-    case 61:
-      blob.st(2, (e + 2 : U32), stack, num(b, s, e))
-    case 42:
-      agg.st(0, (e + 2 : U32), stack, num(b, s, e))
-    case 37:
-      agg.st(1, (e + 2 : U32), stack, num(b, s, e))
-    case 126:
-      agg.st(2, (e + 2 : U32), stack, num(b, s, e))
-    case 124:
-      agg.st(3, (e + 2 : U32), stack, num(b, s, e))
-    case _:
-      agg.st(4, (e + 2 : U32), stack, num(b, s, e))
-
-def head.eol(+t: U32, +i: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & St:
-  (b, m) = r
-  match m:
-    case Some{+e}:
-      item(t, (i + 1 : U32), e, b, stack)
-    case None{}:
-      (b, SMore{})
-
-def head.end(end: Bool) -> St:
-  match end:
-    case True{}:
-      SMore{}
-    case False{}:
-      SBad{}
-
-def head.known(ok: Bool, +t: U32, +i: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
-  match ok:
-    case True{}:
-      head.eol(t, i, stack, Bytes.find.from(b, "\r\n", (i + 1 : U32)))
-    case False{}:
-      (b, head.end(U32.is_eq(t, 256)))
-
-def head(+i: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
-  (b, +t) = r
-  head.known(known(t), t, i, stack, b)
-
-def done.last(last: Bool, +kind: U32, +left: U32, xs: List<&1, Val>, +i: U32, rest: List<&1, Frame>) -> St:
-  match last:
-    case True{}:
-      SDone{kind.val(kind, List.reverse(&1, Val, xs)), i, rest}
-    case False{}:
-      SHead{i, Con{Frame{kind, (left - 1 : U32), xs}, rest}}
-
-def done(stack: List<&1, Frame>, v: Val, +i: U32) -> St:
-  match stack:
-    case Nil{}:
-      SOk{v, i}
-    case Con{fr, rest}:
-      Frame{+kind, +left, xs} = fr
-      done.last(U32.is_eq(left, 1), kind, left, Con{v, xs}, i, rest)
-
-def run(fuel: Nat, r: Bytes.Bytes & St) -> Bytes.Bytes & Step:
-  match fuel:
-    case 0n:
-      (b, st) = r
-      (b, Bad{})
-    case 1n+f:
-      (b, st) = r
-      match st:
-        case SOk{v, +i}:
-          (b, Reply{v, i})
-        case SMore{}:
-          (b, More{})
-        case SBad{}:
-          (b, Bad{})
-        case SHead{+i, stack}:
-          run(f, head(i, stack, byte(b, i)))
-        case SDone{v, +i, stack}:
-          run(f, (b, done(stack, v, i)))
-
-# One reply starting at byte i of b. Every item takes at least 3 bytes and each step
-# reads an item or closes one, so 2 * (len - i) + 2 steps are enough.
-def decode(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Step:
-  Bytes.Bytes{+len, buf} = b
-  run(Nat.add(Nat.mul(U32.to_nat((len - i : U32)), 2n), 2n), (Bytes.Bytes{len, buf}, SHead{i, Nil{}}))
-
-# ---- incremental reader
-
-# Bytes read from the server, and the index of the first byte not yet decoded.
 type Reader is Type:
   Reader{buf: Bytes.Bytes, pos: U32}
-
-def reader() -> Reader:
-  Reader{Bytes.new(0), 0}
-
-def feed.at(zero: Bool, buf: Bytes.Bytes, +pos: U32, chunk: Bytes.Bytes) -> Reader:
-  match zero:
-    case True{}:
-      Reader{Bytes.append(buf, chunk), 0}
-    case False{}:
-      Reader{Bytes.append(Bytes.snd(Bytes.slice(buf, pos, 4294967295)), chunk), 0}
-
-# Drops the decoded bytes, then adds chunk.
-# ponytail: a reply split over k reads is decoded from its start k times; keep state per item if huge arrays arrive slowly.
-def feed(r: Reader, chunk: Bytes.Bytes) -> Reader:
-  Reader{buf, +pos} = r
-  feed.at(U32.is_zero(pos), buf, pos, chunk)
 
 type Next is Type:
   Got{v: Val}
   Want{}
   Broken{}
 
-def next.of(+pos: U32, r: Bytes.Bytes & Step) -> Reader & Next:
-  (b, s) = r
-  match s:
-    case Reply{v, +i}:
-      (Reader{b, i}, Got{v})
-    case More{}:
-      (Reader{b, pos}, Want{})
-    case Bad{}:
-      (Reader{b, pos}, Broken{})
+def val.to.list(xs: List<&1, Val>) -> List<&1, Pure.Val>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{Simple{text}, rest}:
+      Con{Pure.Simple{text}, val.to.list(rest)}
+    case Con{Error{text}, rest}:
+      Con{Pure.Error{text}, val.to.list(rest)}
+    case Con{Int{hi, lo}, rest}:
+      Con{Pure.Int{hi, lo}, val.to.list(rest)}
+    case Con{Bulk{data}, rest}:
+      Con{Pure.Bulk{data}, val.to.list(rest)}
+    case Con{Arr{items}, rest}:
+      Con{Pure.Arr{val.to.list(items)}, val.to.list(rest)}
+    case Con{Null{}, rest}:
+      Con{Pure.Null{}, val.to.list(rest)}
+    case Con{Boolean{value}, rest}:
+      Con{Pure.Boolean{value}, val.to.list(rest)}
+    case Con{Double{text}, rest}:
+      Con{Pure.Double{text}, val.to.list(rest)}
+    case Con{BigNum{text}, rest}:
+      Con{Pure.BigNum{text}, val.to.list(rest)}
+    case Con{BulkError{text}, rest}:
+      Con{Pure.BulkError{text}, val.to.list(rest)}
+    case Con{Verbatim{format, text}, rest}:
+      Con{Pure.Verbatim{format, text}, val.to.list(rest)}
+    case Con{Dict{items}, rest}:
+      Con{Pure.Dict{val.to.list(items)}, val.to.list(rest)}
+    case Con{Set{items}, rest}:
+      Con{Pure.Set{val.to.list(items)}, val.to.list(rest)}
+    case Con{Attr{items}, rest}:
+      Con{Pure.Attr{val.to.list(items)}, val.to.list(rest)}
+    case Con{Push{items}, rest}:
+      Con{Pure.Push{val.to.list(items)}, val.to.list(rest)}
 
-# The next whole reply, Want when it has not all arrived, or Broken for bytes that are not RESP.
+
+def val.to(v: Val) -> Pure.Val:
+  match v:
+    case Simple{text}:
+      Pure.Simple{text}
+    case Error{text}:
+      Pure.Error{text}
+    case Int{hi, lo}:
+      Pure.Int{hi, lo}
+    case Bulk{data}:
+      Pure.Bulk{data}
+    case Arr{items}:
+      Pure.Arr{val.to.list(items)}
+    case Null{}:
+      Pure.Null{}
+    case Boolean{value}:
+      Pure.Boolean{value}
+    case Double{text}:
+      Pure.Double{text}
+    case BigNum{text}:
+      Pure.BigNum{text}
+    case BulkError{text}:
+      Pure.BulkError{text}
+    case Verbatim{format, text}:
+      Pure.Verbatim{format, text}
+    case Dict{items}:
+      Pure.Dict{val.to.list(items)}
+    case Set{items}:
+      Pure.Set{val.to.list(items)}
+    case Attr{items}:
+      Pure.Attr{val.to.list(items)}
+    case Push{items}:
+      Pure.Push{val.to.list(items)}
+
+def frame.to(v: Frame) -> Pure.Frame:
+  match v:
+    case Frame{kind, left, xs}:
+      Pure.Frame{kind, left, val.to.list(xs)}
+
+def frame.to.list(r: List<&1, Frame>) -> List<&1, Pure.Frame>:
+  List.map(~Frame, ~Pure.Frame, ~(x => frame.to(x)), r)
+
+def val.from.list(xs: List<&1, Pure.Val>) -> List<&1, Val>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{Pure.Simple{text}, rest}:
+      Con{Simple{text}, val.from.list(rest)}
+    case Con{Pure.Error{text}, rest}:
+      Con{Error{text}, val.from.list(rest)}
+    case Con{Pure.Int{hi, lo}, rest}:
+      Con{Int{hi, lo}, val.from.list(rest)}
+    case Con{Pure.Bulk{data}, rest}:
+      Con{Bulk{data}, val.from.list(rest)}
+    case Con{Pure.Arr{items}, rest}:
+      Con{Arr{val.from.list(items)}, val.from.list(rest)}
+    case Con{Pure.Null{}, rest}:
+      Con{Null{}, val.from.list(rest)}
+    case Con{Pure.Boolean{value}, rest}:
+      Con{Boolean{value}, val.from.list(rest)}
+    case Con{Pure.Double{text}, rest}:
+      Con{Double{text}, val.from.list(rest)}
+    case Con{Pure.BigNum{text}, rest}:
+      Con{BigNum{text}, val.from.list(rest)}
+    case Con{Pure.BulkError{text}, rest}:
+      Con{BulkError{text}, val.from.list(rest)}
+    case Con{Pure.Verbatim{format, text}, rest}:
+      Con{Verbatim{format, text}, val.from.list(rest)}
+    case Con{Pure.Dict{items}, rest}:
+      Con{Dict{val.from.list(items)}, val.from.list(rest)}
+    case Con{Pure.Set{items}, rest}:
+      Con{Set{val.from.list(items)}, val.from.list(rest)}
+    case Con{Pure.Attr{items}, rest}:
+      Con{Attr{val.from.list(items)}, val.from.list(rest)}
+    case Con{Pure.Push{items}, rest}:
+      Con{Push{val.from.list(items)}, val.from.list(rest)}
+
+
+def val.from(v: Pure.Val) -> Val:
+  match v:
+    case Pure.Simple{text}:
+      Simple{text}
+    case Pure.Error{text}:
+      Error{text}
+    case Pure.Int{hi, lo}:
+      Int{hi, lo}
+    case Pure.Bulk{data}:
+      Bulk{data}
+    case Pure.Arr{items}:
+      Arr{val.from.list(items)}
+    case Pure.Null{}:
+      Null{}
+    case Pure.Boolean{value}:
+      Boolean{value}
+    case Pure.Double{text}:
+      Double{text}
+    case Pure.BigNum{text}:
+      BigNum{text}
+    case Pure.BulkError{text}:
+      BulkError{text}
+    case Pure.Verbatim{format, text}:
+      Verbatim{format, text}
+    case Pure.Dict{items}:
+      Dict{val.from.list(items)}
+    case Pure.Set{items}:
+      Set{val.from.list(items)}
+    case Pure.Attr{items}:
+      Attr{val.from.list(items)}
+    case Pure.Push{items}:
+      Push{val.from.list(items)}
+
+def frame.from(v: Pure.Frame) -> Frame:
+  match v:
+    case Pure.Frame{kind, left, xs}:
+      Frame{kind, left, val.from.list(xs)}
+
+def frame.from.list(r: List<&1, Pure.Frame>) -> List<&1, Frame>:
+  List.map(~Pure.Frame, ~Frame, ~(x => frame.from(x)), r)
+
+def num.from(v: Pure.Num) -> Num:
+  match v:
+    case Pure.Num{neg, hi, lo, ok}:
+      Num{neg, hi, lo, ok}
+
+def num.from.bytes(r: Bytes.Bytes & Pure.Num) -> Bytes.Bytes & Num:
+  (x0, x1) = r
+  (x0, num.from(x1))
+
+def val.from.maybe(r: Maybe<&1, Pure.Val>) -> Maybe<&1, Val>:
+  Maybe.map(&1, Pure.Val, Val, x => val.from(x), r)
+
+def st.from(v: Pure.St) -> St:
+  match v:
+    case Pure.SHead{i, stack}:
+      SHead{i, frame.from.list(stack)}
+    case Pure.SDone{v, i, stack}:
+      SDone{val.from(v), i, frame.from.list(stack)}
+    case Pure.SOk{v, i}:
+      SOk{val.from(v), i}
+    case Pure.SMore{}:
+      SMore{}
+    case Pure.SBad{}:
+      SBad{}
+
+def st.from.bytes(r: Bytes.Bytes & Pure.St) -> Bytes.Bytes & St:
+  (x0, x1) = r
+  (x0, st.from(x1))
+
+def val.to.maybe(r: Maybe<&1, Val>) -> Maybe<&1, Pure.Val>:
+  Maybe.map(&1, Val, Pure.Val, x => val.to(x), r)
+
+def num.to(v: Num) -> Pure.Num:
+  match v:
+    case Num{neg, hi, lo, ok}:
+      Pure.Num{neg, hi, lo, ok}
+
+def num.to.bytes(r: Bytes.Bytes & Num) -> Bytes.Bytes & Pure.Num:
+  (x0, x1) = r
+  (x0, num.to(x1))
+
+def st.to(v: St) -> Pure.St:
+  match v:
+    case SHead{i, stack}:
+      Pure.SHead{i, frame.to.list(stack)}
+    case SDone{v, i, stack}:
+      Pure.SDone{val.to(v), i, frame.to.list(stack)}
+    case SOk{v, i}:
+      Pure.SOk{val.to(v), i}
+    case SMore{}:
+      Pure.SMore{}
+    case SBad{}:
+      Pure.SBad{}
+
+def st.to.bytes(r: Bytes.Bytes & St) -> Bytes.Bytes & Pure.St:
+  (x0, x1) = r
+  (x0, st.to(x1))
+
+def step.from(v: Pure.Step) -> Step:
+  match v:
+    case Pure.Reply{v, next}:
+      Reply{val.from(v), next}
+    case Pure.More{}:
+      More{}
+    case Pure.Bad{}:
+      Bad{}
+
+def step.from.bytes(r: Bytes.Bytes & Pure.Step) -> Bytes.Bytes & Step:
+  (x0, x1) = r
+  (x0, step.from(x1))
+
+def step.to(v: Step) -> Pure.Step:
+  match v:
+    case Reply{v, next}:
+      Pure.Reply{val.to(v), next}
+    case More{}:
+      Pure.More{}
+    case Bad{}:
+      Pure.Bad{}
+
+def step.to.bytes(r: Bytes.Bytes & Step) -> Bytes.Bytes & Pure.Step:
+  (x0, x1) = r
+  (x0, step.to(x1))
+
+def reader.from(v: Pure.Reader) -> Reader:
+  match v:
+    case Pure.Reader{buf, pos}:
+      Reader{buf, pos}
+
+def next.from(v: Pure.Next) -> Next:
+  match v:
+    case Pure.Got{v}:
+      Got{val.from(v)}
+    case Pure.Want{}:
+      Want{}
+    case Pure.Broken{}:
+      Broken{}
+
+def next.from.reader(r: Pure.Reader & Pure.Next) -> Reader & Next:
+  (x0, x1) = r
+  (reader.from(x0), next.from(x1))
+
+def pending.from.reader(r: Pure.Reader & U32) -> Reader & U32:
+  (x0, x1) = r
+  (reader.from(x0), x1)
+
+def e.to(v: E) -> Pure.E:
+  match v:
+    case E{o, ok, n}:
+      Pure.E{o, ok, n}
+
+def reader.to(v: Reader) -> Pure.Reader:
+  match v:
+    case Reader{buf, pos}:
+      Pure.Reader{buf, pos}
+
+def next.to(v: Next) -> Pure.Next:
+  match v:
+    case Got{v}:
+      Pure.Got{val.to(v)}
+    case Want{}:
+      Pure.Want{}
+    case Broken{}:
+      Pure.Broken{}
+
+def e.from(v: Pure.E) -> E:
+  match v:
+    case Pure.E{o, ok, n}:
+      E{o, ok, n}
+
+def kind.tag(+kind: U32) -> String:
+  Pure.kind.tag(kind)
+
+def kind.val(+kind: U32, xs: List<&1, Val>) -> Val:
+  val.from(Pure.kind.val(kind, val.to.list(xs)))
+
+def i64.neg(+hi: U32, +lo: U32) -> U32 & U32:
+  Pure.i64.neg(hi, lo)
+
+def u64.div10(+hi: U32, +lo: U32) -> U32 & U32 & U32:
+  Pure.u64.div10(hi, lo)
+
+def digit.put(z: Bool, +r: U32, acc: String) -> String:
+  Pure.digit.put(z, r, acc)
+
+def u64.show.go(f: Nat, q: U32 & U32 & U32, acc: String, +z: Bool) -> String:
+  Pure.u64.show.go(f, q, acc, z)
+
+def u64.show(+hi: U32, +lo: U32) -> String:
+  Pure.u64.show(hi, lo)
+
+def i64.show.of(r: U32 & U32, neg: Bool) -> String:
+  Pure.i64.show.of(r, neg)
+
+def i64.show(+hi: U32, +lo: U32) -> String:
+  Pure.i64.show(hi, lo)
+
+def fresh() -> E:
+  e.from(Pure.fresh())
+
+def text(+s: String) -> Bytes.Bytes:
+  Pure.text(s)
+
+def none(m: Maybe<&2, U32>) -> Bool:
+  Pure.none(m)
+
+def clean.lf(+cr: Bool, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Bool:
+  Pure.clean.lf(cr, r)
+
+def clean.cr(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & Bool:
+  Pure.clean.cr(r)
+
+def clean(t: Bytes.Bytes) -> Bytes.Bytes & Bool:
+  Pure.clean(t)
+
+def put(st: E, +head: String, body: Bytes.Bytes, +good: Bool) -> E:
+  e.from(Pure.put(e.to(st), head, body, good))
+
+def line(st: E, +tag: String, r: Bytes.Bytes & Bool) -> E:
+  e.from(Pure.line(e.to(st), tag, r))
+
+def blob(st: E, +tag: String, b: Bytes.Bytes) -> E:
+  e.from(Pure.blob(e.to(st), tag, b))
+
+def verbatim.of(st: E, +tl: U32, r: Bytes.Bytes & U32, t: Bytes.Bytes) -> E:
+  e.from(Pure.verbatim.of(e.to(st), tl, r, t))
+
+def verbatim(st: E, f: Bytes.Bytes, t: Bytes.Bytes) -> E:
+  e.from(Pure.verbatim(e.to(st), f, t))
+
+def agg.count(+kind: U32, +n: U32) -> U32:
+  Pure.agg.count(kind, n)
+
+def agg.ok(+kind: U32, +n: U32) -> Bool:
+  Pure.agg.ok(kind, n)
+
+def agg(st: E, +kind: U32, sub: E) -> E:
+  e.from(Pure.agg(e.to(st), kind, e.to(sub)))
+
+def boolean(v: Bool) -> String:
+  Pure.boolean(v)
+
+def enc(xs: List<&1, Val>, st: E) -> E:
+  e.from(Pure.enc(val.to.list(xs), e.to(st)))
+
+def encode.done(st: E) -> Maybe<&1, Bytes.Bytes>:
+  Pure.encode.done(e.to(st))
+
+def encode(v: Val) -> Maybe<&1, Bytes.Bytes>:
+  Pure.encode(val.to(v))
+
+def bulks(xs: List<&1, Bytes.Bytes>) -> List<&1, Val>:
+  val.from.list(Pure.bulks(xs))
+
+def encode.command.done(st: E) -> Bytes.Bytes:
+  Pure.encode.command.done(e.to(st))
+
+def encode.command(args: List<&1, Bytes.Bytes>) -> Bytes.Bytes:
+  Pure.encode.command(args)
+
+def args(xs: List<&2, String>) -> List<&1, Bytes.Bytes>:
+  Pure.args(xs)
+
+def num.go(n: Nat, r: Array<U32> & U32, +i: U32, +hi: U32, +lo: U32, +ok: Bool) -> Array<U32> & U32 & U32 & Bool:
+  Pure.num.go(n, r, i, hi, lo, ok)
+
+def num.fin(+neg: Bool, +len: U32, r: Array<U32> & U32 & U32 & Bool) -> Bytes.Bytes & Num:
+  num.from.bytes(Pure.num.fin(neg, len, r))
+
+def num.digits(+neg: Bool, a: Array<U32>, +len: U32, +s: U32, +e: U32) -> Bytes.Bytes & Num:
+  num.from.bytes(Pure.num.digits(neg, a, len, s, e))
+
+def num.sign(+len: U32, +s: U32, +e: U32, r: Array<U32> & U32) -> Bytes.Bytes & Num:
+  num.from.bytes(Pure.num.sign(len, s, e, r))
+
+def num(b: Bytes.Bytes, +s: U32, +e: U32) -> Bytes.Bytes & Num:
+  num.from.bytes(Pure.num(b, s, e))
+
+def int.mk(r: U32 & U32) -> Val:
+  val.from(Pure.int.mk(r))
+
+def int.val(good: Bool, +neg: Bool, +hi: U32, +lo: U32) -> Maybe<&1, Val>:
+  val.from.maybe(Pure.int.val(good, neg, hi, lo))
+
+def int.of(n: Num) -> Maybe<&1, Val>:
+  val.from.maybe(Pure.int.of(num.to(n)))
+
+def len.of(n: Num) -> U32:
+  Pure.len.of(num.to(n))
+
+def byte.of(r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & U32:
+  Pure.byte.of(r)
+
+def byte(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & U32:
+  Pure.byte(b, i)
+
+def known(+t: U32) -> Bool:
+  Pure.known(t)
+
+def null.st(ok: Bool, +next: U32, stack: List<&1, Frame>) -> St:
+  st.from(Pure.null.st(ok, next, frame.to.list(stack)))
+
+def line.val(+k: U32, t: Bytes.Bytes) -> Val:
+  val.from(Pure.line.val(k, t))
+
+def line.st(+k: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.line.st(k, next, frame.to.list(stack), r))
+
+def int.done(m: Maybe<&1, Val>, +next: U32, stack: List<&1, Frame>) -> St:
+  st.from(Pure.int.done(val.to.maybe(m), next, frame.to.list(stack)))
+
+def int.st(+next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Num) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.int.st(next, frame.to.list(stack), num.to.bytes(r)))
+
+def boolean.done(ok: Bool, +v: Bool, +next: U32, stack: List<&1, Frame>) -> St:
+  st.from(Pure.boolean.done(ok, v, next, frame.to.list(stack)))
+
+def boolean.st(+next: U32, stack: List<&1, Frame>, +one: Bool, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.boolean.st(next, frame.to.list(stack), one, r))
+
+def blob.mk(+kind: U32, d: Bytes.Bytes) -> Val:
+  val.from(Pure.blob.mk(kind, d))
+
+def blob.done(+kind: U32, +after: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.done(kind, after, frame.to.list(stack), r))
+
+def verb.text(f: Bytes.Bytes, +after: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.verb.text(f, after, frame.to.list(stack), r))
+
+def verb.fmt(+n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.verb.fmt(n, next, frame.to.list(stack), r))
+
+def verb.ok(ok: Bool, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.verb.ok(ok, n, next, frame.to.list(stack), b))
+
+def verb.colon(+n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.verb.colon(n, next, frame.to.list(stack), r))
+
+def verb.len(ok: Bool, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.verb.len(ok, n, next, frame.to.list(stack), b))
+
+def blob.val(+kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.val(kind, n, next, frame.to.list(stack), b))
+
+def blob.crlf(+kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Bool) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.crlf(kind, n, next, frame.to.list(stack), r))
+
+def crlf.at(b: Bytes.Bytes, +j: U32) -> Bytes.Bytes & Bool:
+  Pure.crlf.at(b, j)
+
+def blob.fit(ok: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.fit(ok, kind, n, next, frame.to.list(stack), b))
+
+def blob.room(+kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.room(kind, n, next, frame.to.list(stack), r))
+
+def blob.bad(bad: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.bad(bad, kind, n, next, frame.to.list(stack), b))
+
+def blob.nil(nil: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.nil(nil, kind, n, next, frame.to.list(stack), b))
+
+def blob.st(+kind: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Num) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.blob.st(kind, next, frame.to.list(stack), num.to.bytes(r)))
+
+def agg.open(empty: Bool, +kind: U32, +left: U32, +next: U32, stack: List<&1, Frame>) -> St:
+  st.from(Pure.agg.open(empty, kind, left, next, frame.to.list(stack)))
+
+def agg.left(+kind: U32, +n: U32) -> U32:
+  Pure.agg.left(kind, n)
+
+def agg.bad(bad: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>) -> St:
+  st.from(Pure.agg.bad(bad, kind, n, next, frame.to.list(stack)))
+
+def agg.nil(nil: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>) -> St:
+  st.from(Pure.agg.nil(nil, kind, n, next, frame.to.list(stack)))
+
+def agg.st(+kind: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Num) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.agg.st(kind, next, frame.to.list(stack), num.to.bytes(r)))
+
+def item(+t: U32, +s: U32, +e: U32, b: Bytes.Bytes, stack: List<&1, Frame>) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.item(t, s, e, b, frame.to.list(stack)))
+
+def head.eol(+t: U32, +i: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.head.eol(t, i, frame.to.list(stack), r))
+
+def head.end(end: Bool) -> St:
+  st.from(Pure.head.end(end))
+
+def head.known(ok: Bool, +t: U32, +i: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.head.known(ok, t, i, frame.to.list(stack), b))
+
+def head(+i: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
+  st.from.bytes(Pure.head(i, frame.to.list(stack), r))
+
+def done.last(last: Bool, +kind: U32, +left: U32, xs: List<&1, Val>, +i: U32, rest: List<&1, Frame>) -> St:
+  st.from(Pure.done.last(last, kind, left, val.to.list(xs), i, frame.to.list(rest)))
+
+def done(stack: List<&1, Frame>, v: Val, +i: U32) -> St:
+  st.from(Pure.done(frame.to.list(stack), val.to(v), i))
+
+def run(fuel: Nat, r: Bytes.Bytes & St) -> Bytes.Bytes & Step:
+  step.from.bytes(Pure.run(fuel, st.to.bytes(r)))
+
+def decode(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Step:
+  step.from.bytes(Pure.decode(b, i))
+
+def reader() -> Reader:
+  reader.from(Pure.reader())
+
+def feed.at(zero: Bool, buf: Bytes.Bytes, +pos: U32, chunk: Bytes.Bytes) -> Reader:
+  reader.from(Pure.feed.at(zero, buf, pos, chunk))
+
+def feed(r: Reader, chunk: Bytes.Bytes) -> Reader:
+  reader.from(Pure.feed(reader.to(r), chunk))
+
+def next.of(+pos: U32, r: Bytes.Bytes & Step) -> Reader & Next:
+  next.from.reader(Pure.next.of(pos, step.to.bytes(r)))
+
 def next(r: Reader) -> Reader & Next:
-  Reader{buf, +pos} = r
-  next.of(pos, decode(buf, pos))
+  next.from.reader(Pure.next(reader.to(r)))
 
 def pending.of(+pos: U32, r: Bytes.Bytes & U32) -> Reader & U32:
-  (b, +len) = r
-  (Reader{b, pos}, (len - pos : U32))
+  pending.from.reader(Pure.pending.of(pos, r))
 
-# The count of bytes read but not yet decoded.
 def pending(r: Reader) -> Reader & U32:
-  Reader{buf, +pos} = r
-  pending.of(pos, Bytes.length(buf))
+  pending.from.reader(Pure.pending(reader.to(r)))
+
 
 # ---- connections
 

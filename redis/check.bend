@@ -68,15 +68,34 @@ def same(a: Bytes.Bytes, m: Maybe<&1, R.Val>) -> Bool:
     case Some{v}:
       same.enc(a, R.encode(v))
 
+def fixtures(xs: List<&2, String>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+s, rest}:
+      Bool.and(same(Bytes.from_string(s), chunks(Bytes.from_string(s), 1)), fixtures(rest))
+
+def resp3() -> Bool:
+  fixtures([
+    "+OK\r\n", "-ERR wrong type\r\n",
+    ":0\r\n", ":-1\r\n", ":9223372036854775807\r\n", ":-9223372036854775808\r\n",
+    "$4\r\na\r\nb\r\n", "$0\r\n\r\n", "*2\r\n*0\r\n_\r\n",
+    "_\r\n", "#t\r\n", "#f\r\n", ",-1.5e-3\r\n", "(3492890328409238509324850943850943825024385\r\n",
+    "!3\r\nERR\r\n", "=8\r\ntxt:a\r\nb\r\n",
+    "%1\r\n+k\r\n:1\r\n", "%0\r\n", "~2\r\n+a\r\n+b\r\n",
+    "|1\r\n+k\r\n:1\r\n*1\r\n$1\r\nv\r\n", ">2\r\n+message\r\n+hi\r\n"
+  ])
+
 def verdict(+name: String, ok: Bool) -> IO(Unit):
   match ok:
     case True{}:
       IO.print("ok " ++ name)
     case False{}:
-      IO.print("fail " ++ name)
+      IO.die(Unit, 1, "fail " ++ name)
 
 def main() -> IO(Unit):
   do IO<Unit>:
+    verdict("RESP3 public codec in 1-byte reads", resp3())
     verdict("500 items in 7-byte reads", same(arr(500), chunks(arr(500), 7)))
     verdict("20000 items in 65536-byte reads", same(arr(20000), chunks(arr(20000), 65536)))
     verdict("1 MiB bulk in 65536-byte reads", same(bulk(1048576), chunks(bulk(1048576), 65536)))
