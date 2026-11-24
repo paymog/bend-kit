@@ -5,7 +5,7 @@ import bend-mathlib@0.8.0.0/bool.bend as MBool
 import bend-mathlib@0.8.0.0/list.bend as MList
 import ../lemmas/lemmas.bend as Lemmas
 import ./LAWS.bend as Laws
-import ./websocket.bend as WS
+import ./pure.bend as WS
 
 def Laws.accept_input():
   {==}

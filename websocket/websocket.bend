@@ -3,6 +3,105 @@ import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import ./pure.bend as Pure
+
+type Split is Type:
+  Found{head: String, rest: Bytes.Bytes}
+  Short{acc: Bytes.Bytes}
+  Long{}
+
+type Frame<-P: Type> is Type:
+  Frame{fin: Bool, op: U32, payload: P}
+
+type Decode<-P: Type, -S: Type> is Type:
+  Need{input: S}
+  Got{frame: Frame<P>, rest: S}
+  Bad{code: U32, why: String}
+
+type Header is Data:
+  HNeed{}
+  HBad{code: U32, why: String}
+  HOk{fin: Bool, op: U32, m: Bool, key: U32, hs: U32, len: U32}
+
+type Partial is Type:
+  Idle{}
+  Open{op: U32, data: Bytes.Bytes}
+
+type Msg is Type:
+  Message{op: U32, data: Bytes.Bytes}
+  Control{op: U32, data: Bytes.Bytes}
+  More{}
+
+def frame.to(-P: Type, f: Frame<P>) -> Pure.Frame<P>:
+  Frame{fin, op, payload} = f
+  Pure.Frame{fin, op, payload}
+
+def decode.from(-P: Type, -S: Type, d: Pure.Decode<P, S>) -> Decode<P, S>:
+  match d:
+    case Pure.Need{input}:
+      Need{input}
+    case Pure.Got{Pure.Frame{fin, op, payload}, rest}:
+      Got{Frame{fin, op, payload}, rest}
+    case Pure.Bad{code, why}:
+      Bad{code, why}
+
+def header.to(h: Header) -> Pure.Header:
+  match h:
+    case HNeed{}:
+      Pure.HNeed{}
+    case HBad{code, why}:
+      Pure.HBad{code, why}
+    case HOk{fin, op, m, key, hs, len}:
+      Pure.HOk{fin, op, m, key, hs, len}
+
+def header.from(h: Pure.Header) -> Header:
+  match h:
+    case Pure.HNeed{}:
+      HNeed{}
+    case Pure.HBad{code, why}:
+      HBad{code, why}
+    case Pure.HOk{fin, op, m, key, hs, len}:
+      HOk{fin, op, m, key, hs, len}
+
+def split.from(s: Pure.Split) -> Split:
+  match s:
+    case Pure.Found{head, rest}:
+      Found{head, rest}
+    case Pure.Short{acc}:
+      Short{acc}
+    case Pure.Long{}:
+      Long{}
+
+def partial.to(p: Partial) -> Pure.Partial:
+  match p:
+    case Idle{}:
+      Pure.Idle{}
+    case Open{op, data}:
+      Pure.Open{op, data}
+
+def partial.from(p: Pure.Partial) -> Partial:
+  match p:
+    case Pure.Idle{}:
+      Idle{}
+    case Pure.Open{op, data}:
+      Open{op, data}
+
+def msg.from(m: Pure.Msg) -> Msg:
+  match m:
+    case Pure.Message{op, data}:
+      Message{op, data}
+    case Pure.Control{op, data}:
+      Control{op, data}
+    case Pure.More{}:
+      More{}
+
+def message.from(r: Result<&1, &1, U32 & String, Pure.Partial & Pure.Msg>) -> Result<&1, &1, U32 & String, Partial & Msg>:
+  match r:
+    case Fail{e}:
+      Fail{e}
+    case Done{(p, m)}:
+      Done{(partial.from(p), msg.from(m))}
+
 
 # Errors are (code, why). A code of 1000 or more is the RFC 6455 §7.4 close code the
 # peer broke (1002 protocol, 1006 closed early, 1007 bad UTF-8, 1009 too big, 1011 budget);
@@ -12,22 +111,18 @@ import bend-kit-wire@0.4.8.1/wire.bend as Wire
 # Opening handshake (§4.1, §4.2.2).
 
 def guid() -> String:
-  "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+  Pure.guid()
 
 # The octets SHA-1 hashes for Sec-WebSocket-Accept: the key, then the GUID.
 def accept.input(key: String) -> Bytes.Bytes:
-  Bytes.from_string(key ++ guid())
+  Pure.accept.input(key)
 
 # Sec-WebSocket-Accept from the SHA-1 digest of accept.input(key).
 def accept.of(digest: Bytes.Bytes) -> String:
-  Bytes.to_base64(digest)
+  Pure.accept.of(digest)
 
 def accept.fin(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Result<&1, &1, U32 & String, String>:
-  match r:
-    case Fail{e}:
-      Fail{e}
-    case Done{(len, buf)}:
-      Done{accept.of(Bytes.Bytes{len, buf})}
+  Pure.accept.fin(r)
 
 def accept.words(b: Bytes.Bytes) -> IO(Result<&1, &1, U32 & String, U32 & Array<U32>>):
   Bytes.Bytes{len, buf} = b
@@ -41,14 +136,10 @@ def accept(key: String) -> IO(Result<&1, &1, U32 & String, String>):
 
 # Sec-WebSocket-Key from a 16-octet nonce.
 def key.of(nonce: Bytes.Bytes) -> String:
-  Bytes.to_base64(nonce)
+  Pure.key.of(nonce)
 
 def key.fin(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Result<&1, &1, U32 & String, String>:
-  match r:
-    case Fail{e}:
-      Fail{e}
-    case Done{(len, buf)}:
-      Done{key.of(Bytes.Bytes{len, buf})}
+  Pure.key.fin(r)
 
 # A fresh key from 16 octets of the OS secure random source.
 def key() -> IO(Result<&1, &1, U32 & String, String>):
@@ -57,706 +148,357 @@ def key() -> IO(Result<&1, &1, U32 & String, String>):
     return key.fin(r)
 
 def first(m: Maybe<&1, U32 & String>, n: Maybe<&1, U32 & String>) -> Maybe<&1, U32 & String>:
-  match m:
-    case Some{e}:
-      Some{e}
-    case None{}:
-      n
+  Pure.first(m, n)
 
 def reject(bad: Bool, +code: U32, +why: String) -> Maybe<&1, U32 & String>:
-  match bad:
-    case True{}:
-      Some{(code, why)}
-    case False{}:
-      None{}
+  Pure.reject(bad, code, why)
 
 def verdict(-A: Type, m: Maybe<&1, U32 & String>, v: A) -> Result<&1, &1, U32 & String, A>:
-  match m:
-    case Some{e}:
-      Fail{e}
-    case None{}:
-      Done{v}
+  Pure.verdict(A, m, v)
 
 # Every char is visible ASCII (0x21-0x7E): no space, CR, LF, or other control.
 def visible(s: String) -> Bool:
-  match s:
-    case SNil{}:
-      True{}
-    case SCon{Chr{+c}, t}:
-      Bool.and(Bool.and(U32.is_ge(c, 33), U32.is_le(c, 126)), visible(t))
+  Pure.visible(s)
 
 # The GET that asks to upgrade. host is the Host header (with :port when not the default);
 # path is the origin-form target ("/" and on, percent-encoded). A char outside visible
 # ASCII could split the head and inject headers, so it fails with EINVAL (22).
 def request(+host: String, +path: String, +key: String) -> Result<&1, &1, U32 & String, Bytes.Bytes>:
-  verdict(Bytes.Bytes,
-    first(reject(Bool.or(String.is_empty(host), Bool.not(visible(host))), 22, "host is not visible ASCII"),
-    first(reject(Bool.or(Bool.not(String.starts_with(path, "/")), Bool.not(visible(path))), 22, "path is not an origin-form target"),
-      reject(Bool.or(String.is_empty(key), Bool.not(visible(key))), 22, "key is not visible ASCII"))),
-    Bytes.from_string("GET " ++ path ++ " HTTP/1.1\r\nHost: " ++ host
-      ++ "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " ++ key
-      ++ "\r\nSec-WebSocket-Version: 13\r\n\r\n"))
+  Pure.request(host, path, key)
 
 def fields.line(parts: List<&2, String>, +name: String, +later: List<&2, String>) -> List<&2, String>:
-  match parts:
-    case Nil{}:
-      later
-    case Con{k, v}:
-      Bool.pick(List<&2, String>, String.eq(String.to_lower(k), name),
-        Con{String.trim(String.join(v, ":")), later}, later)
+  Pure.fields.line(parts, name, later)
 
 def fields.go(ls: List<&2, String>, +name: String) -> List<&2, String>:
-  match ls:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      fields.line(String.split(String.trim_end(h), ':'), name, fields.go(t, name))
+  Pure.fields.go(ls, name)
 
 def after.first(ls: List<&2, String>) -> List<&2, String>:
-  match ls:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      t
+  Pure.after.first(ls)
 
 # The header lines of an HTTP head: every line after the start line.
 def headers(head: String) -> List<&2, String>:
-  after.first(String.split(head, '\n'))
+  Pure.headers(head)
 
 # The trimmed values of every header line named name (lowercase), in order.
 def fields(head: String, +name: String) -> List<&2, String>:
-  fields.go(headers(head), name)
+  Pure.fields(head, name)
 
 def only(xs: List<&2, String>) -> Maybe<&2, String>:
-  match xs:
-    case Con{v, Nil{}}:
-      Some{v}
-    case _:
-      None{}
+  Pure.only(xs)
 
 # The value of the header named name when exactly one line has it.
 def field(head: String, +name: String) -> Maybe<&2, String>:
-  only(fields(head, name))
+  Pure.field(head, name)
 
 # A header line is name ":" value, with a non-empty name that holds no space or tab
 # (RFC 9112 §5.1). That rules out obsolete line folding and bare text.
 def line.parts(parts: List<&2, String>) -> Bool:
-  match parts:
-    case Con{+k, Con{v, rest}}:
-      Bool.and(Bool.not(String.is_empty(k)), Bool.not(Bool.or(String.contains(k, " "), String.contains(k, "\t"))))
-    case _:
-      False{}
+  Pure.line.parts(parts)
 
 def lines.ok(ls: List<&2, String>) -> Bool:
-  match ls:
-    case Nil{}:
-      True{}
-    case Con{h, t}:
-      Bool.and(line.parts(String.split(String.trim_end(h), ':')), lines.ok(t))
+  Pure.lines.ok(ls)
 
 def status.parts(parts: List<&2, String>) -> Bool:
-  match parts:
-    case Con{v, Con{code, rest}}:
-      Bool.and(String.eq(v, "HTTP/1.1"), String.eq(code, "101"))
-    case _:
-      False{}
+  Pure.status.parts(parts)
 
 # The first line is exactly "HTTP/1.1 101" and a reason, with nothing before it.
 def status(ls: List<&2, String>) -> Bool:
-  match ls:
-    case Nil{}:
-      False{}
-    case Con{l, t}:
-      status.parts(String.split(String.trim_end(l), ' '))
+  Pure.status(ls)
 
 def token(xs: List<&2, String>, +want: String) -> Bool:
-  match xs:
-    case Nil{}:
-      False{}
-    case Con{h, t}:
-      Bool.or(String.eq(String.trim(h), want), token(t, want))
+  Pure.token(xs, want)
 
 def value.is(m: Maybe<&2, String>, +want: String) -> Bool:
-  match m:
-    case None{}:
-      False{}
-    case Some{v}:
-      String.eq(v, want)
+  Pure.value.is(m, want)
 
 def value.lower(m: Maybe<&2, String>) -> Maybe<&2, String>:
-  match m:
-    case None{}:
-      None{}
-    case Some{v}:
-      Some{String.to_lower(v)}
+  Pure.value.lower(m)
 
 # Connection is a list header: its lines join into one comma list (RFC 9110 §5.3).
 def tokens(xs: List<&2, String>, +want: String) -> Bool:
-  match xs:
-    case Nil{}:
-      False{}
-    case Con{v, t}:
-      Bool.or(token(String.split(String.to_lower(v), ','), want), tokens(t, want))
+  Pure.tokens(xs, want)
 
 def none(xs: List<&2, String>) -> Bool:
-  match xs:
-    case Nil{}:
-      True{}
-    case Con{h, t}:
-      False{}
+  Pure.none(xs)
 
 # Does a server's head (up to its blank line) accept the upgrade? want is accept(key).
 # Upgrade and Sec-WebSocket-Accept must each come once. No extension or subprotocol
 # was asked for, so the server may name none (§4.1).
 def check(+head: String, +want: String) -> Result<&1, &1, U32 & String, Unit>:
-  verdict(Unit,
-    first(reject(Bool.not(status(String.split(head, '\n'))), 1002, "status line is not HTTP/1.1 101"),
-    first(reject(Bool.not(lines.ok(headers(head))), 1002, "malformed header line"),
-    first(reject(Bool.not(value.is(value.lower(field(head, "upgrade")), "websocket")), 1002, "Upgrade is not one websocket"),
-    first(reject(Bool.not(tokens(fields(head, "connection"), "upgrade")), 1002, "Connection lacks Upgrade"),
-    first(reject(Bool.not(value.is(field(head, "sec-websocket-accept"), want)), 1002, "Sec-WebSocket-Accept is not one match for the key"),
-    first(reject(Bool.not(none(fields(head, "sec-websocket-extensions"))), 1002, "unrequested extension"),
-      reject(Bool.not(none(fields(head, "sec-websocket-protocol"))), 1002, "unrequested subprotocol"))))))),
-    Unit{})
+  Pure.check(head, want)
 
 def with_slice(-R: Type, r: Bytes.Bytes & Bytes.Bytes, k: Bytes.Bytes -> Bytes.Bytes -> R) -> R:
-  (b, part) = r
-  k(b, part)
+  Pure.with_slice(R, r, k)
 
 # An HTTP head cut at its blank line, with the bytes after it.
-type Split is Type:
-  Found{head: String, rest: Bytes.Bytes}
-  Short{acc: Bytes.Bytes}
-  Long{}
-
 def split.long(long: Bool, b: Bytes.Bytes) -> Split:
-  match long:
-    case True{}:
-      Long{}
-    case False{}:
-      Short{b}
+  split.from(Pure.split.long(long, b))
 
 def split.short(b: Bytes.Bytes) -> Split:
-  Bytes.Bytes{+n, buf} = b
-  split.long(U32.is_gt(n, 16384), Bytes.Bytes{n, buf})
+  split.from(Pure.split.short(b))
 
 def split.found(r: Bytes.Bytes & Maybe<&2, U32>) -> Split:
-  (b, m) = r
-  match m:
-    case Some{+i}:
-      with_slice(Split, Bytes.slice(b, 0, i), b => head =>
-        with_slice(Split, Bytes.slice(b, (i + 4 : U32), 4294967295), unused => rest =>
-          Found{Bytes.to_string(head), rest}))
-    case None{}:
-      split.short(b)
+  split.from(Pure.split.found(r))
 
 # Found once b holds "\r\n\r\n"; Long when 16 KiB came without it.
 def split(b: Bytes.Bytes) -> Split:
-  split.found(Bytes.find(b, "\r\n\r\n"))
+  split.from(Pure.split(b))
 
 # Frames (§5.2).
 
 # The payload P is Bytes at run time and a List of octets in the proofs.
-type Frame<-P: Type> is Type:
-  Frame{fin: Bool, op: U32, payload: P}
-
 # Need: the input does not hold a whole frame yet, and comes back intact.
 # Got: one frame, and the octets after it. Bad: the input breaks §5.2 whatever comes next.
-type Decode<-P: Type, -S: Type> is Type:
-  Need{input: S}
-  Got{frame: Frame<P>, rest: S}
-  Bad{code: U32, why: String}
-
 def mask.go(n: Nat, r: Array<U32> & U32, +i: U32, +key: U32) -> Array<U32>:
-  match n:
-    case 0n:
-      (a, w) = r
-      a
-    case 1n+p:
-      (a, +w) = r
-      +j = (i + 1 : U32)
-      mask.go(p, Array.get(U32, Array.set(U32, a, i, (w .^. key : U32)), j), j, key)
+  Pure.mask.go(n, r, i, key)
 
 def mask.trim.word(+k: U32, +m: U32, r: Array<U32> & U32) -> Array<U32>:
-  (a, +w) = r
-  Array.set(U32, a, k, (w .&. m : U32))
+  Pure.mask.trim.word(k, m, r)
 
 def mask.trim.if(whole: Bool, +k: U32, +m: U32, a: Array<U32>) -> Array<U32>:
-  match whole:
-    case True{}:
-      a
-    case False{}:
-      mask.trim.word(k, m, Array.get(U32, a, k))
+  Pure.mask.trim.if(whole, k, m, a)
 
 # Bytes at or past len stay 0, as Bytes requires.
 def mask.trim(+len: U32, a: Array<U32>) -> Array<U32>:
-  +r = (len .&. 3 : U32)
-  mask.trim.if(U32.is_eq(r, 0), (len >> 2n : U32), (U32.shln(1, U32.to_nat((r * 8 : U32))) - 1 : U32), a)
+  Pure.mask.trim(len, a)
 
 # The payload XOR the mask key (§5.3), a word at a time. key's byte k (low first) is mask octet k.
 # Masking twice gives the payload back.
 def mask(+key: U32, b: Bytes.Bytes) -> Bytes.Bytes:
-  Bytes.Bytes{+len, buf} = b
-  Bytes.Bytes{len, mask.trim(len, mask.go(U32.to_nat(Bytes.words(len)), Array.get(U32, buf, 0), 0, key))}
+  Pure.mask(key, b)
 
 def known(+op: U32) -> Bool:
-  match op:
-    case 0:
-      True{}
-    case 1:
-      True{}
-    case 2:
-      True{}
-    case 8:
-      True{}
-    case 9:
-      True{}
-    case 10:
-      True{}
-    case _:
-      False{}
+  Pure.known(op)
 
 # The §5.2 and §5.5 rules on a frame header. No extension is in use, so RSV must be 0.
 # big: the payload is over 125 octets.
 def rules.big(+fin: Bool, +rsv: U32, +op: U32, big: Bool) -> Maybe<&1, U32 & String>:
-  first(reject(U32.is_ne(rsv, 0), 1002, "reserved bits set"),
-  first(reject(Bool.not(known(op)), 1002, "unknown opcode"),
-  first(reject(Bool.and(U32.is_ge(op, 8), Bool.not(fin)), 1002, "fragmented control frame"),
-    reject(Bool.and(U32.is_ge(op, 8), big), 1002, "control frame over 125 bytes"))))
+  Pure.rules.big(fin, rsv, op, big)
 
 def rules(+fin: Bool, +rsv: U32, +op: U32, +len: U32) -> Maybe<&1, U32 & String>:
-  rules.big(fin, rsv, op, U32.is_gt(len, 125))
+  Pure.rules(fin, rsv, op, len)
 
 def encode.ext(+ext: U32, +len: U32, b: Bytes.Bytes) -> Bytes.Bytes:
-  match ext:
-    case 0:
-      b
-    case 2:
-      Bytes.set.u16be(b, 2, len)
-    case _:
-      Bytes.set.u32be(b, 6, len)
+  Pure.encode.ext(ext, len, b)
 
 def encode.mkey(+keylen: U32, +at: U32, +key: U32, b: Bytes.Bytes) -> Bytes.Bytes:
-  match keylen:
-    case 0:
-      b
-    case _:
-      Bytes.set.u32le(b, at, key)
+  Pure.encode.mkey(keylen, at, key, b)
 
 def encode.copy(+len: U32, src: Array<U32>, +hs: U32, b: Bytes.Bytes) -> Bytes.Bytes:
-  Bytes.Bytes{+n, dst} = b
-  Bytes.Bytes{n, Bytes.dst(Bytes.copy(len, src, dst, 0, hs))}
+  Pure.encode.copy(len, src, hs, b)
 
 # Payload lengths use the shortest form (§5.2): 7 bits, then 16, then 64.
 def encode.frame(+b0: U32, +mbit: U32, +keylen: U32, +key: U32, p: Bytes.Bytes) -> Bytes.Bytes:
-  Bytes.Bytes{+len, src} = p
-  +ext = Bool.pick(U32, U32.is_le(len, 125), 0, Bool.pick(U32, U32.is_le(len, 65535), 2, 8))
-  +l7 = Bool.pick(U32, U32.is_le(len, 125), len, Bool.pick(U32, U32.is_le(len, 65535), 126, 127))
-  +hs = (2 + ext + keylen : U32)
-  encode.copy(len, src, hs, encode.mkey(keylen, (2 + ext : U32), key, encode.ext(ext, len,
-    Bytes.set(Bytes.set(Bytes.new((hs + len : U32)), 0, b0), 1, (mbit .|. l7 : U32)))))
+  Pure.encode.frame(b0, mbit, keylen, key, p)
 
 def encode.key(key: Maybe<&2, U32>, +b0: U32, p: Bytes.Bytes) -> Bytes.Bytes:
-  match key:
-    case Some{+k}:
-      encode.frame(b0, 128, 4, k, mask(k, p))
-    case None{}:
-      encode.frame(b0, 0, 0, 0, p)
+  Pure.encode.key(key, b0, p)
 
 def encode.checked(err: Maybe<&1, U32 & String>, +fin: Bool, +op: U32, key: Maybe<&2, U32>, p: Bytes.Bytes) -> Result<&1, &1, U32 & String, Bytes.Bytes>:
-  match err:
-    case Some{e}:
-      Fail{e}
-    case None{}:
-      Done{encode.key(key, (Bool.pick(U32, fin, 128, 0) .|. op : U32), p)}
+  Pure.encode.checked(err, fin, op, key, p)
 
 # A frame's octets. A client passes Some{mask key} and the payload goes masked;
 # None sends it clear, as a server does. Fails on a frame that breaks rules.
 def encode(f: Frame<Bytes.Bytes>, key: Maybe<&2, U32>) -> Result<&1, &1, U32 & String, Bytes.Bytes>:
-  Frame{+fin, +op, payload} = f
-  Bytes.Bytes{+len, buf} = payload
-  encode.checked(rules(fin, 0, op, len), fin, op, key, Bytes.Bytes{len, buf})
+  Pure.encode(frame.to(Bytes.Bytes, f), key)
 
 # A frame header, read from a list of the first octets of the input.
 # Ok: hs header octets, then len payload octets, masked with key when m.
-type Header is Data:
-  HNeed{}
-  HBad{code: U32, why: String}
-  HOk{fin: Bool, op: U32, m: Bool, key: U32, hs: U32, len: U32}
-
 def header.verdict(err: Maybe<&1, U32 & String>, +fin: Bool, +op: U32, +m: Bool, +key: U32, +hs: U32, +len: U32) -> Header:
-  match err:
-    case Some{(code, why)}:
-      HBad{code, why}
-    case None{}:
-      HOk{fin, op, m, key, hs, len}
+  header.from(Pure.header.verdict(err, fin, op, m, key, hs, len))
 
 # A 64-bit length with a high word is over any U32 max, and is a control frame over 125.
 def header.err(+masked: Bool, +b0: U32, +m: Bool, +hi: U32, +len: U32) -> Maybe<&1, U32 & String>:
-  first(rules(U32.is_ne((b0 .&. 128 : U32), 0), ((b0 >> 4n) .&. 7 : U32), (b0 .&. 15 : U32), Bool.pick(U32, U32.is_eq(hi, 0), len, 4294967295)),
-  first(reject(Bool.xor(m, masked), 1002, "mask bit does not match the peer's role"),
-    reject(U32.is_ne(hi, 0), 1009, "frame over the size limit")))
+  Pure.header.err(masked, b0, m, hi, len)
 
 def header.check(+masked: Bool, +b0: U32, +m: Bool, +key: U32, +hs: U32, +hi: U32, +len: U32) -> Header:
-  header.verdict(header.err(masked, b0, m, hi, len), U32.is_ne((b0 .&. 128 : U32), 0), (b0 .&. 15 : U32), m, key, hs, len)
+  header.from(Pure.header.check(masked, b0, m, key, hs, hi, len))
 
 # Four octets, most significant first. Multiply and add, not shift and or: the proofs reason about them over Nat.
 def be32(+a: U32, +b: U32, +c: U32, +d: U32) -> U32:
-  (((a * 256 + b) * 256 + c) * 256 + d : U32)
+  Pure.be32(a, b, c, d)
 
 # The mask key (§5.3) follows the length; its first octet is the key's low byte.
 def header.key(m: Bool, t: List<&2, U32>, +masked: Bool, +b0: U32, +hs: U32, +hi: U32, +len: U32) -> Header:
-  match m:
-    case True{}:
-      match t:
-        case Con{+k0, Con{+k1, Con{+k2, Con{+k3, r}}}}:
-          header.check(masked, b0, True{}, be32(k3, k2, k1, k0), (hs + 4 : U32), hi, len)
-        case _:
-          HNeed{}
-    case False{}:
-      header.check(masked, b0, False{}, 0, hs, hi, len)
+  header.from(Pure.header.key(m, t, masked, b0, hs, hi, len))
 
 def header.ext16(t: List<&2, U32>, +masked: Bool, +b0: U32, +m: Bool) -> Header:
-  match t:
-    case Con{+x, Con{+y, r}}:
-      header.key(m, r, masked, b0, 4, 0, (x * 256 + y : U32))
-    case _:
-      HNeed{}
+  header.from(Pure.header.ext16(t, masked, b0, m))
 
 def header.ext64(t: List<&2, U32>, +masked: Bool, +b0: U32, +m: Bool) -> Header:
-  match t:
-    case Con{+a, Con{+b, Con{+c, Con{+d, Con{+e, Con{+f, Con{+g, Con{+h, r}}}}}}}}:
-      header.key(m, r, masked, b0, 10, be32(a, b, c, d), be32(e, f, g, h))
-    case _:
-      HNeed{}
+  header.from(Pure.header.ext64(t, masked, b0, m))
 
 # short: no extended length (l7 < 126); mid: 2 octets of it (l7 == 126); else 8.
 def header.ext(short: Bool, mid: Bool, t: List<&2, U32>, +masked: Bool, +b0: U32, +m: Bool, +l7: U32) -> Header:
-  match short:
-    case True{}:
-      header.key(m, t, masked, b0, 2, 0, l7)
-    case False{}:
-      match mid:
-        case True{}:
-          header.ext16(t, masked, b0, m)
-        case False{}:
-          header.ext64(t, masked, b0, m)
+  header.from(Pure.header.ext(short, mid, t, masked, b0, m, l7))
 
 def header.b1(m: Bool, t: List<&2, U32>, +masked: Bool, +b0: U32, +b1: U32) -> Header:
-  match m:
-    case True{}:
-      +l7 = (b1 - 128 : U32)
-      header.ext(U32.is_lt(l7, 126), U32.is_eq(l7, 126), t, masked, b0, True{}, l7)
-    case False{}:
-      header.ext(U32.is_lt(b1, 126), U32.is_eq(b1, 126), t, masked, b0, False{}, b1)
+  header.from(Pure.header.b1(m, t, masked, b0, b1))
 
 # The header at the front of p, from octets below 256. It reads at most 14 octets, and is
 # HNeed until all of them are in p. It is checked as soon as it is whole, before its payload.
 def header(p: List<&2, U32>, +masked: Bool) -> Header:
-  match p:
-    case Con{+b0, Con{+b1, t}}:
-      header.b1(U32.is_le(128, b1), t, masked, b0, b1)
-    case _:
-      HNeed{}
+  header.from(Pure.header(p, masked))
 
 # The decoder, over any input S with four operations, giving payloads P:
 # prefix gives at least the first 14 octets as a list; fits tells if hs + len octets are in;
 # cut splits into the payload [hs, hs + len) and the input from hs + len on; unmask XORs a mask key.
 def unmask.when(~P: Type, ~unmask: @+key:U32 -> P -> P, m: Bool, +key: U32, p: P) -> P:
-  match m:
-    case True{}:
-      unmask(key, p)
-    case False{}:
-      p
+  Pure.unmask.when(~P, ~unmask, m, key, p)
 
 def next.got(~P: Type, ~S: Type, ~unmask: @+key:U32 -> P -> P, +fin: Bool, +op: U32, +m: Bool, +key: U32, r: P & S) -> Decode<P, S>:
-  (payload, rest) = r
-  Got{Frame{fin, op, unmask.when(~P, ~unmask, m, key, payload)}, rest}
+  decode.from(P, S, Pure.next.got(~P, ~S, ~unmask, fin, op, m, key, r))
 
 def next.fits(~P: Type, ~S: Type, ~cut: S -> @+hs:U32 -> @+len:U32 -> P & S, ~unmask: @+key:U32 -> P -> P, +fin: Bool, +op: U32, +m: Bool, +key: U32, +hs: U32, +len: U32, r: S & Bool) -> Decode<P, S>:
-  (b, ok) = r
-  match ok:
-    case True{}:
-      next.got(~P, ~S, ~unmask, fin, op, m, key, cut(b, hs, len))
-    case False{}:
-      Need{b}
+  decode.from(P, S, Pure.next.fits(~P, ~S, ~cut, ~unmask, fin, op, m, key, hs, len, r))
 
 # over: the payload is longer than max.
 def next.size(~P: Type, ~S: Type, ~fits: S -> @+hs:U32 -> @+len:U32 -> S & Bool, ~cut: S -> @+hs:U32 -> @+len:U32 -> P & S, ~unmask: @+key:U32 -> P -> P, over: Bool, +fin: Bool, +op: U32, +m: Bool, +key: U32, +hs: U32, +len: U32, b: S) -> Decode<P, S>:
-  match over:
-    case True{}:
-      Bad{1009, "frame over the size limit"}
-    case False{}:
-      next.fits(~P, ~S, ~cut, ~unmask, fin, op, m, key, hs, len, fits(b, hs, len))
+  decode.from(P, S, Pure.next.size(~P, ~S, ~fits, ~cut, ~unmask, over, fin, op, m, key, hs, len, b))
 
 def next.head(~P: Type, ~S: Type, ~fits: S -> @+hs:U32 -> @+len:U32 -> S & Bool, ~cut: S -> @+hs:U32 -> @+len:U32 -> P & S, ~unmask: @+key:U32 -> P -> P, +max: U32, h: Header, b: S) -> Decode<P, S>:
-  match h:
-    case HNeed{}:
-      Need{b}
-    case HBad{code, why}:
-      Bad{code, why}
-    case HOk{+fin, +op, +m, +key, +hs, +len}:
-      next.size(~P, ~S, ~fits, ~cut, ~unmask, U32.is_lt(max, len), fin, op, m, key, hs, len, b)
+  decode.from(P, S, Pure.next.head(~P, ~S, ~fits, ~cut, ~unmask, max, header.to(h), b))
 
 def next.start(~P: Type, ~S: Type, ~fits: S -> @+hs:U32 -> @+len:U32 -> S & Bool, ~cut: S -> @+hs:U32 -> @+len:U32 -> P & S, ~unmask: @+key:U32 -> P -> P, +masked: Bool, +max: U32, r: S & List<&2, U32>) -> Decode<P, S>:
-  (b, p) = r
-  next.head(~P, ~S, ~fits, ~cut, ~unmask, max, header(p, masked), b)
+  decode.from(P, S, Pure.next.start(~P, ~S, ~fits, ~cut, ~unmask, masked, max, r))
 
 # One frame from the front of b, unmasked. masked: this peer's frames must be masked
 # (true on a server, false on a client). max caps the payload length (1009 over it).
 def next(~P: Type, ~S: Type, ~prefix: S -> S & List<&2, U32>, ~fits: S -> @+hs:U32 -> @+len:U32 -> S & Bool, ~cut: S -> @+hs:U32 -> @+len:U32 -> P & S, ~unmask: @+key:U32 -> P -> P, +masked: Bool, +max: U32, b: S) -> Decode<P, S>:
-  next.start(~P, ~S, ~fits, ~cut, ~unmask, masked, max, prefix(b))
+  decode.from(P, S, Pure.next(~P, ~S, ~prefix, ~fits, ~cut, ~unmask, masked, max, b))
 
 # The Bytes operations. The input is a cursor: the octets in [pos, end) are not decoded
 # yet. A frame moves pos past its octets; the octets stay in place, and only its payload is copied.
 
 def bytes.prefix.con(+v: U32, r: Bytes.Bytes & List<&2, U32>) -> Bytes.Bytes & List<&2, U32>:
-  (b, t) = r
-  (b, Con{v, t})
+  Pure.bytes.prefix.con(v, r)
 
 def bytes.prefix.go(n: Nat, r: Bytes.Bytes & Maybe<&2, U32>, +i: U32) -> Bytes.Bytes & List<&2, U32>:
-  match n:
-    case 0n:
-      (b, x) = r
-      (b, Nil{})
-    case 1n+p:
-      (b, x) = r
-      match x:
-        case None{}:
-          (b, Nil{})
-        case Some{+v}:
-          bytes.prefix.con(v, bytes.prefix.go(p, Bytes.get(b, (i + 1 : U32)), (i + 1 : U32)))
+  Pure.bytes.prefix.go(n, r, i)
 
 def bytes.prefix.back(+pos: U32, +start: U32, +end: U32, r: Bytes.Bytes & List<&2, U32>) -> Bytes.Cursor & List<&2, U32>:
-  (b, t) = r
-  (Bytes.Cursor{b, pos, start, end}, t)
+  Pure.bytes.prefix.back(pos, start, end, r)
 
 def bytes.prefix(c: Bytes.Cursor) -> Bytes.Cursor & List<&2, U32>:
-  Bytes.Cursor{b, +pos, +start, +end} = c
-  bytes.prefix.back(pos, start, end, bytes.prefix.go(U32.to_nat(U32.min(14, (end - pos : U32))), Bytes.get(b, pos), pos))
+  Pure.bytes.prefix(c)
 
 # hs + len octets fit in end - pos exactly when this holds (Bytes law fits_exact); see law cut_exact.
 def bytes.fits(c: Bytes.Cursor, +hs: U32, +len: U32) -> Bytes.Cursor & Bool:
-  Bytes.Cursor{b, +pos, +start, +end} = c
-  (Bytes.Cursor{b, pos, start, end}, Bytes.fits((end - pos : U32), hs, len))
+  Pure.bytes.fits(c, hs, len)
 
 def bytes.cut.rest(+pos: U32, +start: U32, +end: U32, r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes & Bytes.Cursor:
-  (b, payload) = r
-  (payload, Bytes.Cursor{b, pos, start, end})
+  Pure.bytes.cut.rest(pos, start, end, r)
 
 def bytes.cut(c: Bytes.Cursor, +hs: U32, +len: U32) -> Bytes.Bytes & Bytes.Cursor:
-  Bytes.Cursor{b, +pos, +start, +end} = c
-  +at = (pos + hs : U32)
-  bytes.cut.rest((at + len : U32), start, end, Bytes.slice(b, at, len))
+  Pure.bytes.cut(c, hs, len)
 
 def bytes.unmask(+key: U32, b: Bytes.Bytes) -> Bytes.Bytes:
-  mask(key, b)
+  Pure.bytes.unmask(key, b)
 
 # The decoder over Bytes, as recv runs it.
 def parse(+masked: Bool, +max: U32, c: Bytes.Cursor) -> Decode<Bytes.Bytes, Bytes.Cursor>:
-  next(~Bytes.Bytes, ~Bytes.Cursor, ~bytes.prefix, ~bytes.fits, ~bytes.cut, ~bytes.unmask, masked, max, c)
+  decode.from(Bytes.Bytes, Bytes.Cursor, Pure.parse(masked, max, c))
 
 def push.when(whole: Bool, b: Bytes.Bytes, +pos: U32, +end: U32, read: Bytes.Bytes) -> Bytes.Cursor:
-  match whole:
-    case True{}:
-      Bytes.Cursor.new(Bytes.append(b, read))
-    case False{}:
-      Bytes.Cursor.new(Bytes.append(Bytes.snd(Bytes.slice(b, pos, (end - pos : U32))), read))
+  Pure.push.when(whole, b, pos, end, read)
 
 # The input with a read after it. Decoded octets are dropped first, so each octet is
 # copied once for the frame it ends up in; when there are none, the read goes into the same buffer.
 def push(c: Bytes.Cursor, read: Bytes.Bytes) -> Bytes.Cursor:
-  Bytes.Cursor{Bytes.Bytes{+n, buf}, +pos, start, +end} = c
-  push.when(Bool.and(U32.is_eq(pos, 0), U32.is_eq(end, n)), Bytes.Bytes{n, buf}, pos, end, read)
+  Pure.push(c, read)
 
 # The list operations: the model that PROOF.bend proves the decoder on.
 
 def list.prefix(xs: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
-  +ys = xs
-  (ys, ys)
+  Pure.list.prefix(xs)
 
 def list.fits(xs: List<&2, U32>, +hs: U32, +len: U32) -> List<&2, U32> & Bool:
-  +ys = xs
-  (ys, Nat.is_le(Nat.add(U32.to_nat(hs), U32.to_nat(len)), List.length(&2, U32, ys)))
+  Pure.list.fits(xs, hs, len)
 
 def list.cut(xs: List<&2, U32>, +hs: U32, +len: U32) -> List<&2, U32> & List<&2, U32>:
-  +ys = xs
-  (List.take(&2, U32, List.drop(&2, U32, ys, U32.to_nat(hs)), U32.to_nat(len)),
-    List.drop(&2, U32, ys, Nat.add(U32.to_nat(hs), U32.to_nat(len))))
+  Pure.list.cut(xs, hs, len)
 
 # Octet i goes XOR key octet i mod 4 (§5.3): a, b, c, d are the key's octets, low first, and turn one place per octet.
 def list.unmask.go(xs: List<&2, U32>, +a: U32, +b: U32, +c: U32, +d: U32) -> List<&2, U32>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{+x, t}:
-      Con{(x .^. a : U32), list.unmask.go(t, b, c, d, a)}
+  Pure.list.unmask.go(xs, a, b, c, d)
 
 def list.unmask(+key: U32, xs: List<&2, U32>) -> List<&2, U32>:
-  list.unmask.go(xs, (key % 256 : U32), ((key / 256) % 256 : U32), (((key / 256) / 256) % 256 : U32), (((key / 256) / 256) / 256 : U32))
+  Pure.list.unmask(key, xs)
 
 def list.next(+masked: Bool, +max: U32, xs: List<&2, U32>) -> Decode<List<&2, U32>, List<&2, U32>>:
-  next(~List<&2, U32>, ~List<&2, U32>, ~list.prefix, ~list.fits, ~list.cut, ~list.unmask, masked, max, xs)
+  decode.from(List<&2, U32>, List<&2, U32>, Pure.list.next(masked, max, xs))
 
 # UTF-8 (RFC 3629) validity. The state packs need | lo << 8 | hi << 16: continuation
 # bytes still needed and the range the next one must fall in. need 255 is a failure.
 def st(+need: U32, +lo: U32, +hi: U32) -> U32:
-  (need .|. (lo << 8n) .|. (hi << 16n) : U32)
+  Pure.st(need, lo, hi)
 
 def utf8.lead(+b: U32) -> U32:
-  Bool.pick(U32, U32.is_lt(b, 128), st(0, 128, 191),
-  Bool.pick(U32, U32.is_lt(b, 194), 255,
-  Bool.pick(U32, U32.is_lt(b, 224), st(1, 128, 191),
-  Bool.pick(U32, U32.is_eq(b, 224), st(2, 160, 191),
-  Bool.pick(U32, U32.is_eq(b, 237), st(2, 128, 159),
-  Bool.pick(U32, U32.is_lt(b, 240), st(2, 128, 191),
-  Bool.pick(U32, U32.is_eq(b, 240), st(3, 144, 191),
-  Bool.pick(U32, U32.is_lt(b, 244), st(3, 128, 191),
-  Bool.pick(U32, U32.is_eq(b, 244), st(3, 128, 143), 255)))))))))
+  Pure.utf8.lead(b)
 
 def utf8.next(+s: U32, +b: U32) -> U32:
-  +need = (s .&. 255 : U32)
-  Bool.pick(U32, U32.is_eq(need, 255), 255,
-  Bool.pick(U32, U32.is_eq(need, 0), utf8.lead(b),
-    Bool.pick(U32, Bool.and(U32.is_le(((s >> 8n) .&. 255 : U32), b), U32.is_le(b, (s >> 16n : U32))),
-      st((need - 1 : U32), 128, 191), 255)))
+  Pure.utf8.next(s, b)
 
 def utf8.go(n: Nat, r: Array<U32> & U32, +i: U32, +s: U32) -> Array<U32> & Bool:
-  match n:
-    case 0n:
-      (a, v) = r
-      (a, U32.is_eq((s .&. 255 : U32), 0))
-    case 1n+p:
-      (a, +b) = r
-      +j = (i + 1 : U32)
-      utf8.go(p, Bytes.peek(a, j), j, utf8.next(s, b))
+  Pure.utf8.go(n, r, i, s)
 
 def utf8.fin(+len: U32, r: Array<U32> & Bool) -> Bytes.Bytes & Bool:
-  (a, ok) = r
-  (Bytes.Bytes{len, a}, ok)
+  Pure.utf8.fin(len, r)
 
 # b back, and whether it is well-formed UTF-8.
 def utf8.valid(b: Bytes.Bytes) -> Bytes.Bytes & Bool:
-  Bytes.Bytes{+len, buf} = b
-  utf8.fin(len, utf8.go(U32.to_nat(len), Bytes.peek(buf, 0), 0, st(0, 128, 191)))
+  Pure.utf8.valid(b)
 
 # Messages (§5.4): fragments join into one message; control frames may come between them.
 
-type Partial is Type:
-  Idle{}
-  Open{op: U32, data: Bytes.Bytes}
-
-type Msg is Type:
-  Message{op: U32, data: Bytes.Bytes}
-  Control{op: U32, data: Bytes.Bytes}
-  More{}
-
 def done.text(ok: Bytes.Bytes & Bool) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  (d, v) = ok
-  match v:
-    case True{}:
-      Done{(Idle{}, Message{1, d})}
-    case False{}:
-      Fail{(1007, "text message is not UTF-8")}
+  message.from(Pure.done.text(ok))
 
 def finish(+op: U32, d: Bytes.Bytes) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  match op:
-    case 1:
-      done.text(utf8.valid(d))
-    case +o:
-      Done{(Idle{}, Message{o, d})}
+  message.from(Pure.finish(op, d))
 
 def feed.more(fin: Bool, +op: U32, d: Bytes.Bytes) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  match fin:
-    case True{}:
-      finish(op, d)
-    case False{}:
-      Done{(Open{op, d}, More{})}
+  message.from(Pure.feed.more(fin, op, d))
 
 def feed.size(over: Bool, +fin: Bool, +op: U32, d: Bytes.Bytes) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  match over:
-    case True{}:
-      Fail{(1009, "message over the size limit")}
-    case False{}:
-      feed.more(fin, op, d)
+  message.from(Pure.feed.size(over, fin, op, d))
 
 def feed.join(+fin: Bool, +op: U32, d: Bytes.Bytes, +max: U32) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  Bytes.Bytes{+n, buf} = d
-  feed.size(U32.is_gt(n, max), fin, op, Bytes.Bytes{n, buf})
+  message.from(Pure.feed.join(fin, op, d, max))
 
 def feed.data(p: Partial, +fin: Bool, +op: U32, d: Bytes.Bytes, +max: U32) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  match p:
-    case Idle{}:
-      match op:
-        case 0:
-          Fail{(1002, "continuation frame without a message")}
-        case +o:
-          feed.more(fin, o, d)
-    case Open{+o, acc}:
-      match op:
-        case 0:
-          feed.join(fin, o, Bytes.append(acc, d), max)
-        case _:
-          Fail{(1002, "data frame inside a fragmented message")}
+  message.from(Pure.feed.data(partial.to(p), fin, op, d, max))
 
 def feed.kind(ctl: Bool, p: Partial, +fin: Bool, +op: U32, d: Bytes.Bytes, +max: U32) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  match ctl:
-    case True{}:
-      Done{(p, Control{op, d})}
-    case False{}:
-      feed.data(p, fin, op, d, max)
+  message.from(Pure.feed.kind(ctl, partial.to(p), fin, op, d, max))
 
 # One parsed frame into the message being built. A whole text message must be UTF-8
 # (1007); max caps a message's total size (1009). Keep max at or below 2^31.
 def feed(p: Partial, f: Frame<Bytes.Bytes>, +max: U32) -> Result<&1, &1, U32 & String, Partial & Msg>:
-  Frame{+fin, +op, d} = f
-  feed.kind(U32.is_ge(op, 8), p, fin, op, d, max)
+  message.from(Pure.feed(partial.to(p), frame.to(Bytes.Bytes, f), max))
 
 # Close payloads (§5.5.1, §7.4).
 
 # code (big-endian) then a UTF-8 reason.
 def close.payload(+code: U32, reason: Bytes.Bytes) -> Bytes.Bytes:
-  Bytes.append(Bytes.set.u16be(Bytes.new(2), 0, code), reason)
+  Pure.close.payload(code, reason)
 
 # Codes a peer may send: §7.4.1, the IANA registry through 1014, and 3000-4999.
 def close.code.ok(+c: U32) -> Bool:
-  Bool.or(Bool.and(U32.is_ge(c, 1000), U32.is_le(c, 1003)),
-    Bool.or(Bool.and(U32.is_ge(c, 1007), U32.is_le(c, 1014)),
-      Bool.and(U32.is_ge(c, 3000), U32.is_le(c, 4999))))
+  Pure.close.code.ok(c)
 
 def close.utf8(+c: U32, r: Bytes.Bytes & Bool) -> Result<&1, &1, U32 & String, U32 & Bytes.Bytes>:
-  (b, ok) = r
-  match ok:
-    case True{}:
-      Done{(c, b)}
-    case False{}:
-      Fail{(1007, "close reason is not UTF-8")}
+  Pure.close.utf8(c, r)
 
 def close.reason(ok: Bool, +c: U32, b: Bytes.Bytes) -> Result<&1, &1, U32 & String, U32 & Bytes.Bytes>:
-  match ok:
-    case False{}:
-      Fail{(1002, "invalid close code")}
-    case True{}:
-      Bytes.Bytes{+n, buf} = b
-      with_slice(Result<&1, &1, U32 & String, U32 & Bytes.Bytes>, Bytes.slice(Bytes.Bytes{n, buf}, 2, (n - 2 : U32)),
-        unused => r => close.utf8(c, utf8.valid(r)))
+  Pure.close.reason(ok, c, b)
 
 def close.code(r: Bytes.Bytes & Maybe<&2, U32>) -> Result<&1, &1, U32 & String, U32 & Bytes.Bytes>:
-  (b, m) = r
-  match m:
-    case Some{+c}:
-      close.reason(close.code.ok(c), c, b)
-    case None{}:
-      Fail{(1002, "close payload of one byte")}
+  Pure.close.code(r)
 
 # The code and reason of a close frame. An empty payload is 1005 (no status).
 def close.parse(p: Bytes.Bytes) -> Result<&1, &1, U32 & String, U32 & Bytes.Bytes>:
-  Bytes.Bytes{+n, buf} = p
-  match n:
-    case 0:
-      Done{(1005, Bytes.Bytes{0, buf})}
-    case +m:
-      close.code(Bytes.get.u16be(Bytes.Bytes{m, buf}, 0))
+  Pure.close.parse(p)
 
 # Connections over Wire.
 
