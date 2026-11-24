@@ -28,7 +28,7 @@ Every library builds the query from the name as text and the type, with recursio
 - Rust: `rs/main.rs` with [hickory-proto](https://crates.io/crates/hickory-proto) 0.26.3. `Message::new` plus `add_query` and `to_vec` build; `Message::from_vec` parses. `Ipv4Addr`'s `Display` makes the dotted text.
 - Bun and Node: `bench.mjs` with [dns-packet](https://www.npmjs.com/package/dns-packet) 5.6.1. `encode` builds; `decode` parses and returns the address as dotted text.
 - Python: `bench.py` with [dnspython](https://www.dnspython.org/) 2.8.0. `make_query` plus `to_wire` build; `from_wire` parses, and the A rdata's `address` is the dotted text.
-- Bend: `bench.bend` calls `Dns.query` and `Dns.answer` from `../dns.bend`. Both use `Bytes`. Each parse round builds its message with `Bytes.from_string` and writes the id with `Bytes.set.u16be`, because `Dns.answer` consumes its buffer.
+- Bend: `bench.bend` calls `Dns.query` and `Dns.answer` from `../pure.bend`. Both use `Bytes`. Each parse round builds its message with `Bytes.from_string` and writes the id with `Bytes.set.u16be`, because `Dns.answer` consumes its buffer.
 
 ## Results
 

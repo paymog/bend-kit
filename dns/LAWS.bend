@@ -1,6 +1,6 @@
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import ./dns.bend as Dns
+import ./pure.bend as Dns
 
 def bytes(xs: List<&2, U32>) -> String:
   match xs:
