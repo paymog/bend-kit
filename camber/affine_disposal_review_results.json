@@ -1,0 +1,123 @@
+{
+  "date": "2026-11-24T19:57:32.753431+00:00",
+  "platform": "macOS-26.7.2-arm64-arm-64bit-Mach-O",
+  "bend": "bend 2.0.40",
+  "bun": "1.4.4",
+  "probe_sha256": "f4848fa713f70e6c6005daa52299cca0833e2b7e2275b9fe3a9d6ea681b5591f",
+  "interpretation": "Failed send returns File; delivery explicitly calls File.close before inspection. This is not an automatic-erasure test.",
+  "lanes": {
+    "native": {
+      "build_command": [
+        "bend",
+        "/Users/paymahn/code/bend-kit/.worktrees/docs/camber-affine-disposal/camber/risk_probe.bend",
+        "-o",
+        "/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-disposal-review-ata_2kaq/probe"
+      ],
+      "build_stdout": "",
+      "build_peak_rss_kib": 3077872,
+      "build_seconds": 13.654168332985137,
+      "run_command": [
+        "/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-disposal-review-ata_2kaq/probe",
+        "+RTS",
+        "--threads",
+        "1",
+        "--gpu",
+        "off",
+        "-RTS",
+        "abandoned",
+        "/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-disposal-review-ata_2kaq/native-abandoned",
+        "0",
+        "0"
+      ],
+      "returncode": 0,
+      "wall_seconds": 1.7337765420088544,
+      "sampled_peak_rss_kib": 1824,
+      "events": [
+        {
+          "seconds": 0.20539691700832918,
+          "text": "AFFINE_RESULT_CLOSED"
+        },
+        {
+          "seconds": 0.20544191700173542,
+          "text": "INSPECT_OPEN_FILES"
+        },
+        {
+          "seconds": 1.7163612500298768,
+          "text": "SERVER_WORK_DONE"
+        }
+      ],
+      "stderr": "",
+      "journal": "committed\n",
+      "unrelated_journal": null,
+      "pid": 57643,
+      "alive_before_lsof": true,
+      "alive_after_lsof": true,
+      "lsof_command": [
+        "lsof",
+        "-a",
+        "-p",
+        "57643",
+        "-Fn"
+      ],
+      "lsof_returncode": 0,
+      "lsof_stdout": "p57643\nfcwd\nn/Users/paymahn/code/bend-kit/.worktrees/docs/camber-affine-disposal\nftxt\nn/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-disposal-review-ata_2kaq/probe\nftxt\nn/usr/lib/dyld\nf0\nn/dev/null\nf1\nn->0xc77567dcdbd1cc1f\nf2\nn/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/tmpehu5n2z0\nf3\nn->0xe83b731147cab58c\nf4\nn->0x7c34f1e8489b43c2\n",
+      "lsof_stderr": "",
+      "file_descriptor_remains_open_after_drop": false,
+      "descriptor_evidence": []
+    },
+    "javascript": {
+      "build_command": [
+        "bend",
+        "/Users/paymahn/code/bend-kit/.worktrees/docs/camber-affine-disposal/camber/risk_probe.bend",
+        "-o",
+        "/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-disposal-review-ata_2kaq/probe.js"
+      ],
+      "build_stdout": "",
+      "build_peak_rss_kib": 2710944,
+      "build_seconds": 2.656156082986854,
+      "run_command": [
+        "bun",
+        "/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-disposal-review-ata_2kaq/probe.js",
+        "abandoned",
+        "/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/camber-disposal-review-ata_2kaq/javascript-abandoned",
+        "0",
+        "0"
+      ],
+      "returncode": 0,
+      "wall_seconds": 1.6078242500079796,
+      "sampled_peak_rss_kib": 28704,
+      "events": [
+        {
+          "seconds": 0.07884200004627928,
+          "text": "AFFINE_RESULT_CLOSED"
+        },
+        {
+          "seconds": 0.07903054100461304,
+          "text": "INSPECT_OPEN_FILES"
+        },
+        {
+          "seconds": 1.583919083001092,
+          "text": "SERVER_WORK_DONE"
+        }
+      ],
+      "stderr": "",
+      "journal": "committed\n",
+      "unrelated_journal": null,
+      "pid": 57926,
+      "alive_before_lsof": true,
+      "alive_after_lsof": true,
+      "lsof_command": [
+        "lsof",
+        "-a",
+        "-p",
+        "57926",
+        "-Fn"
+      ],
+      "lsof_returncode": 0,
+      "lsof_stdout": "p57926\nfcwd\nn/Users/paymahn/code/bend-kit/.worktrees/docs/camber-affine-disposal\nftxt\nn/Users/paymahn/.bun/bin/bun\nftxt\nn/Library/Preferences/Logging/.plist-cache.1jNqJpaw\nftxt\nn/usr/lib/dyld\nf0\nn/dev/null\nf1\nn->0xc77567dcdbd1cc1f\nf2\nn/private/var/folders/2b/1gkdb80j6pq4m61pm1nsdmhh0000gp/T/tmptyytyp4r\nf3\nncount=0, state=0x10\n",
+      "lsof_stderr": "",
+      "file_descriptor_remains_open_after_drop": false,
+      "descriptor_evidence": []
+    }
+  }
+}
