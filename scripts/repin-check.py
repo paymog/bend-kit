@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Check re-pin wave exceptions without contacting the hub."""
+"""Check re-pin wave planning and exceptions without contacting the hub."""
 import importlib.util
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("repin", Path(__file__).with_name("repin.py"))
 repin = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(repin)
+
+patch("urllib.request.urlopen", side_effect=AssertionError("unexpected hub request")).start()
 
 with TemporaryDirectory() as tmp:
     root = Path(tmp)
@@ -96,5 +99,50 @@ with TemporaryDirectory() as tmp:
     repin.apply(moves, versions, pkgs)
     assert "bend-kit-protobuf@0.2.0.0/" in generator.read_text()
     assert "bend-kit-protobuf@0.1.0.0" not in exceptions.read_text()
+
+with TemporaryDirectory() as tmp:
+    root = Path(tmp)
+    repin.ROOT = root
+    (root / "scripts").mkdir()
+    packages = root / "scripts/packages.sh"
+    packages.write_text("#!/bin/sh\nprintf 'consumer\\nmiddle\\ndep\\n'\n")
+    packages.chmod(0o755)
+    for pkg, version, source in (
+        ("dep", "0.2.0.0", ""),
+        ("middle", "0.1.0.0", "import bend-kit-dep@0.1.0.0/dep.bend\n"),
+        ("consumer", "0.1.0.0", "import bend-kit-middle@0.1.0.0/middle.bend\n"),
+    ):
+        (root / pkg).mkdir()
+        (root / pkg / "VERSION").write_text(version + "\n")
+        (root / pkg / f"{pkg}.bend").write_text(source)
+    pkgs, versions, files, pins = repin.load()
+    published = {("dep", "0.2.0.0"), ("middle", "0.1.0.0"), ("consumer", "0.1.0.0")}
+    repin.hub_hash = lambda p, v: "published" if (p, v) in published else None
+    repin.newest = lambda p: "0.1.0.0" if p in ("middle", "consumer") else None
+    repin.hub_files = lambda p, v: {f"{p}/{p}.bend"}
+    plan = list(repin.waves(pkgs, versions, files, pins))
+    assert plan == [
+        ([("middle", "0.2.0.0", {
+            "middle/middle.bend": {("dep", "0.1.0.0"): "0.2.0.0"},
+        })], set()),
+        ([("consumer", "0.2.0.0", {
+            "consumer/consumer.bend": {("middle", "0.1.0.0"): "0.2.0.0"},
+        })], set()),
+    ], plan
+    assert versions["middle"] == "0.1.0.0", "waves mutated the input versions"
+    assert pins["middle/middle.bend"] == {("dep", "0.1.0.0")}, "waves mutated the input pins"
+
+    published.remove(("dep", "0.2.0.0"))
+    first = next(repin.waves(pkgs, versions, files, pins))
+    assert first == ([], {("dep", "0.2.0.0")}), first
+    published.add(("dep", "0.2.0.0"))
+
+    for pending, expected in (("0.1.1.0", "0.2.0.0"), ("0.2.0.0", None)):
+        (root / "middle/VERSION").write_text(pending + "\n")
+        pkgs, versions, files, pins = repin.load()
+        first = next(repin.waves(pkgs, versions, files, pins))
+        assert first == ([("middle", expected, {
+            "middle/middle.bend": {("dep", "0.1.0.0"): "0.2.0.0"},
+        })], set()), (pending, first)
 
 print("Re-pin wave checks pass")
