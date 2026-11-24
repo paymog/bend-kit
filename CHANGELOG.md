@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f32array` 0.2.2.0: read F32 and BF16 tensors into an existing destination range. Retain both handles on errors, reject invalid ranges before writes, and document partial IO writes. Check NumPy fixtures and measure load time and peak memory against allocation plus copy.
+
 - `f32array` 0.2.1.2: combine the lowest pair of 16-cell reduction blocks directly. Preserve the addition order, pure proof imports, and writable returned arrays. Measure sum and dot times and float64 errors on positive, cancellation, and mixed-scale inputs.
 
 - `hash` checks: compare all 64 SipHash-2-4 reference vectors in Bun and native CI. Check byte-string parity and nonzero bytes past each logical length. Keep the six existing laws and the separate benchmark.

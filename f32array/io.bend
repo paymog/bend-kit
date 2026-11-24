@@ -107,20 +107,23 @@ def tensor.bytes(n: Nat, pair: Array<U32> & U32, +at: U32, state: Tensor, +width
 
 type AtRead is Type:
   AtMore{file: File, hi: U32, lo: U32, left: U32, state: Tensor}
-  AtStop{file: File, result: Result<&1, &1, U32 & String, A.F32Array>}
+  AtStop{file: File, array: A.F32Array, result: Result<&1, &1, U32 & String, Unit>}
+
+def read.at.stop(file: File, state: Tensor, result: Result<&1, &1, U32 & String, Unit>) -> AtRead:
+  Tensor{array, bits, used, index} = state
+  AtStop{file, array, result}
 
 def read.at.next(done: Bool, file: File, hi: U32, lo: U32, left: U32, state: Tensor) -> AtRead:
   match done:
     case True{}:
-      Tensor{array, bits, used, index} = state
-      AtStop{file, Done{array}}
+      read.at.stop(file, state, Done{Unit{}})
     case False{}:
       AtMore{file, hi, lo, left, state}
 
 def read.at.bytes(empty: Bool, file: File, +hi: U32, +lo: U32, +left: U32, state: Tensor, +got: U32, words: Array<U32>, +width: U32) -> AtRead:
   match empty:
     case True{}:
-      AtStop{file, Fail{(5, "f32array: unexpected end of tensor")}}
+      read.at.stop(file, state, Fail{(5, "f32array: unexpected end of tensor")})
     case False{}:
       +next = (lo + got : U32)
       +carry = Bool.pick(U32, U32.is_lt(next, lo), 1, 0)
@@ -131,42 +134,74 @@ def read.at.step(pair: File & Result<&1, &1, U32 & String, U32 & Array<U32>>, hi
   (file, result) = pair
   match result:
     case Fail{e}:
-      AtStop{file, Fail{e}}
+      read.at.stop(file, state, Fail{e})
     case Done{(+got, words)}:
       read.at.bytes(U32.is_eq(got, 0), file, hi, lo, left, state, got, words, width)
 
-def read.at.loop(n: Nat, state: AtRead, +width: U32) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
+def read.at.loop(n: Nat, state: AtRead, +width: U32) -> IO(File & A.F32Array & Result<&1, &1, U32 & String, Unit>):
   match n:
     case 0n:
       match state:
-        case AtMore{file, hi, lo, left, tensor}:
-          IO.pure(File & Result<&1, &1, U32 & String, A.F32Array>, (file, Fail{(5, "f32array: incomplete tensor")}))
-        case AtStop{file, result}:
-          IO.pure(File & Result<&1, &1, U32 & String, A.F32Array>, (file, result))
+        case AtMore{file, hi, lo, left, Tensor{array, bits, used, index}}:
+          IO.pure(File & A.F32Array & Result<&1, &1, U32 & String, Unit>, (file, array, Fail{(5, "f32array: incomplete tensor")}))
+        case AtStop{file, array, result}:
+          IO.pure(File & A.F32Array & Result<&1, &1, U32 & String, Unit>, (file, array, result))
     case 1n+p:
       match state:
         case AtMore{file, +hi, +lo, +left, tensor}:
-          do IO<File & Result<&1, &1, U32 & String, A.F32Array>>:
+          do IO<File & A.F32Array & Result<&1, &1, U32 & String, Unit>>:
             pair : File & Result<&1, &1, U32 & String, U32 & Array<U32>> <- Files.read.words.at(file, hi, lo, U32.min(left, 1048576))
             read.at.loop(p, read.at.step(pair, hi, lo, left, tensor, width), width)
-        case AtStop{file, result}:
-          IO.pure(File & Result<&1, &1, U32 & String, A.F32Array>, (file, result))
+        case AtStop{file, array, result}:
+          IO.pure(File & A.F32Array & Result<&1, &1, U32 & String, Unit>, (file, array, result))
 
-def read.at.start(valid: Bool, file: File, +hi: U32, +lo: U32, +n: U32, +width: U32) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
+def read.at.valid(+hi: U32, +lo: U32, +n: U32, +width: U32) -> Bool:
+  +bytes = (n * width : U32)
+  +carry = Bool.pick(U32, U32.is_lt((lo + bytes : U32), lo), 1, 0)
+  Bool.and(U32.is_le(n, (4294967292 / width : U32)),
+    Bool.and(U32.is_lt(hi, 2147483648), U32.is_lt((hi + carry : U32), 2147483648)))
+
+def read.at.into.start(valid: Bool, file: File, hi: U32, lo: U32, +n: U32, +width: U32, array: A.F32Array, start: U32) -> IO(File & A.F32Array & Result<&1, &1, U32 & String, Unit>):
+  match valid:
+    case False{}:
+      IO.pure(File & A.F32Array & Result<&1, &1, U32 & String, Unit>, (file, array, Fail{(22, "f32array: source or destination range is invalid")}))
+    case True{}:
+      +bytes = (n * width : U32)
+      read.at.loop(1n+U32.to_nat(bytes),
+        read.at.next(U32.is_eq(n, 0), file, hi, lo, bytes, Tensor{array, 0, 0, start}), width)
+
+def read.at.into.with(file: File, +hi: U32, +lo: U32, +n: U32, +width: U32, array: A.F32Array, +start: U32) -> IO(File & A.F32Array & Result<&1, &1, U32 & String, Unit>):
+  A.F32Array{+len, buf} = array
+  read.at.into.start(Bool.and(read.at.valid(hi, lo, n, width),
+    Bool.and(U32.is_le(start, len), U32.is_le(n, (len - U32.min(start, len) : U32)))),
+    file, hi, lo, n, width, A.F32Array{len, buf}, start)
+
+# Both handles return on error; complete elements read before an IO error stay written.
+def read.le.at.into(file: File, hi: U32, lo: U32, n: U32, array: A.F32Array, start: U32) -> IO(File & A.F32Array & Result<&1, &1, U32 & String, Unit>):
+  read.at.into.with(file, hi, lo, n, 4, array, start)
+
+def read.bf16.at.into(file: File, hi: U32, lo: U32, n: U32, array: A.F32Array, start: U32) -> IO(File & A.F32Array & Result<&1, &1, U32 & String, Unit>):
+  read.at.into.with(file, hi, lo, n, 2, array, start)
+
+def read.at.result(pair: File & A.F32Array & Result<&1, &1, U32 & String, Unit>) -> File & Result<&1, &1, U32 & String, A.F32Array>:
+  (file, array, result) = pair
+  match result:
+    case Fail{e}:
+      (file, Fail{e})
+    case Done{unit}:
+      (file, Done{array})
+
+def read.at.start(valid: Bool, file: File, hi: U32, lo: U32, +n: U32, width: U32) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
   match valid:
     case False{}:
       IO.pure(File & Result<&1, &1, U32 & String, A.F32Array>, (file, Fail{(22, "f32array: tensor size or offset is out of range")}))
     case True{}:
-      +bytes = (n * width : U32)
-      read.at.loop(1n+U32.to_nat(bytes),
-        read.at.next(U32.is_eq(n, 0), file, hi, lo, bytes, Tensor{A.new(n), 0, 0, 0}), width)
+      do IO<File & Result<&1, &1, U32 & String, A.F32Array>>:
+        pair : File & A.F32Array & Result<&1, &1, U32 & String, Unit> <- read.at.into.start(True{}, file, hi, lo, n, width, A.new(n), 0)
+        return read.at.result(pair)
 
 def read.at.with(file: File, +hi: U32, +lo: U32, +n: U32, +width: U32) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
-  +bytes = (n * width : U32)
-  +carry = Bool.pick(U32, U32.is_lt((lo + bytes : U32), lo), 1, 0)
-  read.at.start(Bool.and(U32.is_le(n, (4294967292 / width : U32)),
-    Bool.and(U32.is_lt(hi, 2147483648), U32.is_lt((hi + carry : U32), 2147483648))),
-    file, hi, lo, n, width)
+  read.at.start(read.at.valid(hi, lo, n, width), file, hi, lo, n, width)
 
 # Exactly n elements at hi * 2^32 + lo bytes; the file position does not move.
 def read.le.at(file: File, hi: U32, lo: U32, n: U32) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
