@@ -26,6 +26,30 @@ def main() -> IO(Unit):
 
 Import `bend-kit-bytes@0.3.3.1/roundtrip-proof.bend` to reuse `raw(n)`, which proves `u32.read(u32.show(n)) == Some{n}` directly. The runtime entry does not import the proof modules.
 
+### Independent decimal proof check
+
+Use Bend 2.0.40, pinned by `scripts/install-bend.sh`, and Lean 4.34.0.
+Install [elan](https://github.com/leanprover/elan) and put its `bin` directory
+on `PATH`. From the repository root, run:
+
+```sh
+elan toolchain install leanprover/lean4:v4.34.0 && \
+  lean +leanprover/lean4:v4.34.0 --version && \
+  ELAN_TOOLCHAIN=leanprover/lean4:v4.34.0 bend bytes/array-proof.bend --verdict && \
+  ELAN_TOOLCHAIN=leanprover/lean4:v4.34.0 bend bytes/roundtrip-proof.bend --verdict && \
+  ELAN_TOOLCHAIN=leanprover/lean4:v4.34.0 bend lemmas/lemmas.bend --verdict
+```
+
+Run one Bend process at a time. Start with the smaller array proof above.
+Stop any proof process that exceeds 20 GB RSS.
+
+All three commands printed `ALL PROOFS CHECK` with exit status zero on
+macOS arm64, using Bend 2.0.40 and Lean 4.34.0. With `--verdict`, that result
+requires both Bend's checker and the independent BendTT kernel to pass.
+The round-trip check includes its imported decimal, array, packed, ASCII,
+codec, and shared arithmetic proofs. The separate lemmas command checks the
+shared library entry too. The runtime codec and proof claims are unchanged.
+
 
 ## Positional reads and writes
 
