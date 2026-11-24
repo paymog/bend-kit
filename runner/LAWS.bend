@@ -6,6 +6,7 @@ import bend-kit-collections@0.1.6.0/heap.bend as H
 import bend-kit-collections@0.1.6.0/LAWS.bend as CL
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
+import bend-kit-collections@0.1.6.0/omap.bend as O
 import ./model.bend as R
 
 # ---- replay
@@ -278,6 +279,36 @@ law revive_noop:
   for d: Nat
   for alive: {R.dead.get(~A, R.dead(A, s), i) == None{} : Maybe<&2, R.Dead<A>>}
   {R.step(~A, s, R.Revive{i, d}) == s : R.State<A>}
+
+# A successful revive replaces any earlier retry entry with zero failures and the new start deadline.
+law revive_budget:
+  for ~A: Data
+  for +s: R.State<A>
+  for +i: Nat
+  for +d: Nat
+  for dead: R.Dead<A>
+  for found: {R.dead.get(~A, R.dead(A, s), i) == Some{dead} : Maybe<&2, R.Dead<A>>}
+  {R.tries(A, R.step(~A, s, R.Revive{i, d})) == O.OMap.put(~Nat, ~R.Try, ~Nat.cmp, R.tries(A, s), i, R.Try{0n, d}) : R.Tries()}
+
+def budget.recovered(-A: Data, m: Maybe<&2, R.State<A>>) -> Maybe<&2, R.Tries()>:
+  match m:
+    case None{}:
+      None{}
+    case Some{s}:
+      Some{R.tries(A, s)}
+
+law replay_revive_budget:
+  for ~A: Data
+  for ~X: Type
+  for ~enc: R.Op<A> -> X
+  for ~dec: X -> Maybe<&2, R.Op<A>>
+  for ~round: @op: R.Op<A> -> {dec(enc(op)) == Some{op} : Maybe<&2, R.Op<A>>}
+  for +s: R.State<A>
+  for +i: Nat
+  for +d: Nat
+  for dead: R.Dead<A>
+  for found: {R.dead.get(~A, R.dead(A, s), i) == Some{dead} : Maybe<&2, R.Dead<A>>}
+  {budget.recovered(A, replayed(~A, ~X, ~enc, ~dec, [R.Revive{i, d}], s)) == Some{O.OMap.put(~Nat, ~R.Try, ~Nat.cmp, R.tries(A, s), i, R.Try{0n, d})} : Maybe<&2, R.Tries()>}
 
 
 # Every op keeps the dead-ticket trie well formed.

@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` proofs: prove that a successful revive replaces any retry entry with zero failures and its new start deadline. Prove the same retry-map update after journal replay under the codec round-trip hypothesis.
+
 - `runner` 0.20.1.0: prove pool accounting for arbitrary claims, live cancellations, and finish orders. Keep cancelled flights reserved until their one-shot finish.
 
 - CI: use Bend 2.0.40 so new hub packages include their README. A change to a published README needs a new package version.
