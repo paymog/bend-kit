@@ -157,3 +157,111 @@ These separate five-run medians do not replace the paired comparison above.
 | Rust (bitstream-io) | 37.19 | 0.63 |
 | Python (zlib) | 1.87 | - |
 | Bun (node:zlib) | 3.30 | - |
+
+## Controlled Huffman profile
+
+M4 Pro, macOS 26.7.2 (25G332), arm64, 2026-11-24. Bend 2.0.40,
+Apple clang 21.0.0. All builds use the same compiler and machine.
+Only benchmark files changed. The decoder and its validation did not change.
+
+### Canonical setup
+
+```sh
+python3 run.py --build 3
+python3 run.py --profile 3
+```
+
+The first command uses the normal timer boundaries. Each Bend cell is the
+median of 300 samples, as in the earlier dynamic-table run.
+
+| plain bytes | build ms | decode ms | build / decode | zlib inflate ms |
+|---:|---:|---:|---:|---:|
+| 1024 | 0.040646 | 0.041084 | 0.99 | 0.013000 |
+| 4096 | 0.041229 | 0.069937 | 0.59 | 0.016000 |
+| 8192 | 0.041271 | 0.106563 | 0.39 | 0.022000 |
+| 16383 | 0.041542 | 0.176563 | 0.24 | 0.038000 |
+
+The second command splits the same max-15 setup into stages in `profile.bend`.
+It calls the existing setup helpers. `codes` converts lengths to symbol records.
+`maximum` finds the longest code. `count` builds the length histogram.
+`next` computes canonical starts and checks for over-subscription.
+`reserve` clones the starts, reserves long-code prefixes, and allocates both tables.
+`assign` fills both tables. Each stage is followed by a monotonic clock read.
+`clock` times two consecutive clock reads, without setup work between them.
+Each cell below is the median of 300 raw samples, in milliseconds.
+
+| plain bytes | clock | codes | maximum | count | next | reserve | assign |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1024 | 0.033500 | 0.036312 | 0.034083 | 0.033771 | 0.032938 | 0.034105 | 0.035229 |
+| 4096 | 0.033459 | 0.036812 | 0.033146 | 0.034229 | 0.033271 | 0.034125 | 0.034188 |
+| 8192 | 0.032522 | 0.036334 | 0.034250 | 0.034146 | 0.033166 | 0.034313 | 0.034812 |
+| 16383 | 0.033292 | 0.036499 | 0.034375 | 0.034250 | 0.033500 | 0.034334 | 0.034500 |
+
+The clock boundary costs about 33 microseconds. Most stages cannot be ranked
+reliably with these boundaries. Even the largest excess, length conversion,
+is only about 3 microseconds. Do not add these medians or treat a difference
+below the clock baseline as negative work. Instrumented total build medians
+are 0.210250–0.212375 ms because they include six clock boundaries.
+
+The profile also times 1000 complete builds inside one pure loop. It reads
+root entry zero from each result and checks the sum against 8000.
+This forces each build and includes destruction of its arrays.
+Each cell below is the median of 30 batches: ten batches per process,
+three processes per input size. The fixture is identical at every size.
+
+| associated plain bytes | 1000 builds ms | ms per build |
+|---:|---:|---:|
+| 1024 | 7.228375 | 0.007228 |
+| 4096 | 7.265021 | 0.007265 |
+| 8192 | 7.264333 | 0.007264 |
+| 16383 | 7.266021 | 0.007266 |
+
+The earlier 0.041 ms build measurement is mostly clock-boundary overhead.
+It is not evidence that canonical setup consumes 0.041 ms of CPU work.
+Every profiled decode still checks the original payload checksum.
+
+### Fixed-tree comparison
+
+`compare.py` runs prebuilt binaries 21 times each. It rotates their order
+between rounds and checks both original checksums on every run.
+It generates the same 1 MiB fixed block used above.
+
+```sh
+python3 compare.py out/single-decode out/two-decode out/bend
+```
+
+The source snapshots are `1e909ec` (last single-level release), `0bff13e`
+(two-level release with a U32 cursor), and `dc65cc4` (current Nat counts).
+Export `bits/` and `time/` from each historical revision to a temporary
+directory outside the repo. In historical `bits.bend` and `bench/bench.bend`,
+change only the byte import to `bend-kit-bytes@0.3.3.1`.
+Build each `bench/bench.bend` with Bend 2.0.40 and place its binary at the
+path shown above. Build current `bench.bend` as `out/bend`.
+The benchmark source is otherwise identical. The historical timer source
+differs only in its byte import; the clock implementation is unchanged.
+All binaries run from this benchmark directory and read its `out/payload.bin`.
+
+| implementation | Huffman ms | fields ms |
+|---|---:|---:|
+| single-level, U32 cursor | 9.570958 | 0.577708 |
+| two-level, U32 cursor | 8.463792 | 0.582708 |
+| two-level, Nat total/remaining counts | 9.254500 | 0.581583 |
+
+The two-level release is 11.57% faster than the single-level release here.
+The current decoder is 3.31% faster than the single-level release.
+The 5.55 ms historical result is not a valid baseline for this toolchain.
+Nat counts add 9.34% to the two-level result, while fields change by -0.19%.
+The decode path subtracts remaining bits from total bits before each window
+lookup. This comparison includes that arithmetic, the remaining-count update,
+and all intervening source changes; it does not isolate subtraction alone.
+Both window implementations read two array words.
+
+No runtime optimization was selected. The table change does not regress the
+fixed-tree benchmark under a controlled comparison. Setup needs a lower-overhead
+stage measurement before another rewrite is justified. The Nat-count cost is
+measurable, but these results do not establish a faster replacement that retains
+large-stream support and validation.
+
+The full five-language suite (`python3 run.py 5`) passed every checksum:
+Bend Huffman 9.26 ms and fields 0.58 ms; C 3.03 ms; Rust Huffman 36.87 ms
+and fields 0.62 ms; Python 1.88 ms; Bun 3.13 ms.
