@@ -203,8 +203,48 @@ def encoder.tree(+ls: List<&2, U32>) -> IO(Unit):
     ok(U32.is_le(Encode.maxlen(ls, 0), 15), "Huffman depth limit")
     encoder.tree.codes(Bits.Huff.encode_lens(ls))
 
+def encoder.runs.same(xs: List<&2, Encode.Run>, ys: List<&2, Encode.Run>) -> Bool:
+  match xs:
+    case Nil{}:
+      match ys:
+        case Nil{}:
+          True{}
+        case Con{h, t}:
+          False{}
+    case Con{Encode.Run{+s, +b, +v}, t}:
+      match ys:
+        case Nil{}:
+          False{}
+        case Con{Encode.Run{x, y, z}, rest}:
+          Bool.and(Bool.and(U32.is_eq(s, x), Bool.and(U32.is_eq(b, y), U32.is_eq(v, z))), encoder.runs.same(t, rest))
+
+def encoder.header.position(w: Bits.Writer, want: U32) -> IO(Unit):
+  Bits.Writer{buf, dep, pos, msb} = w
+  ok(U32.is_eq(U32.from_nat(pos), want), "dynamic header bit cost")
+
+def encoder.header.codes(m: Maybe<&1, Array<U32>>, +h: Encode.Header) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.die(Unit, 1, "invalid code-length alphabet")
+    case Some{a}:
+      encoder.header.position(Encode.header.write(h, Bits.Writer.new(), a, 1), Encode.header.cost(h))
+
+def encoder.header(+h: Encode.Header) -> IO(Unit):
+  Encode.Header{+nl, +nd, +cl, order, rs} = h
+  do IO<Unit>:
+    ok(Bool.and(U32.is_eq(nl, 257), U32.is_eq(nd, 2)), "trim dynamic code lengths")
+    ok(U32.is_le(Encode.maxlen(cl, 0), 7), "code-length alphabet depth")
+    encoder.header.codes(Encode.codes(Bits.Huff.encode_lens(cl)), h)
+
+def encoder.runs() -> IO(Unit):
+  do IO<Unit>:
+    ok(encoder.runs.same(Encode.runs(Z.rep(139n, 0, Z.rep(8n, 5, Z.rep(10n, 0, Z.rep(3n, 0, Nil{})))), 0, 0, Nil{}), [Encode.Run{18, 7, 127}, Encode.Run{0, 0, 0}, Encode.Run{5, 0, 0}, Encode.Run{16, 2, 3}, Encode.Run{5, 0, 0}, Encode.Run{18, 7, 2}]), "length run boundaries")
+    ok(encoder.runs.same(Encode.runs([0, 0, 1, 1, 1, 2, 0, 0, 0], 0, 0, Nil{}), [Encode.Run{0, 0, 0}, Encode.Run{0, 0, 0}, Encode.Run{1, 0, 0}, Encode.Run{1, 0, 0}, Encode.Run{1, 0, 0}, Encode.Run{2, 0, 0}, Encode.Run{17, 3, 0}]), "short length runs")
+    encoder.header(Encode.header.make(Z.rep(256n, 0, [1]), [1, 1, 0, 0]))
+
 def encoder.check() -> IO(Unit):
   do IO<Unit>:
+    encoder.runs()
     encoder.case("")
     encoder.case(String.repeat("a", 600n))
     encoder.case(String.repeat("abcde abcdf ghijkl mnopqr stuvwx yz. ", 2200n))

@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `zlib` 0.6.1.0: trim dynamic Huffman alphabets, encode code-length runs with symbols 16–18, and choose blocks with the full header bit cost.
+
 - `bits` 0.4.0.0: track the last successful read order and align field and Huffman reads on an order switch. Preview aligned bits without moving the reader. Preserve position and order on failed reads. Add the order field to the `Reader` constructor.
 
 - `f32array` 0.2.2.0: read F32 and BF16 tensors into an existing destination range. Retain both handles on errors, reject invalid ranges before writes, and document partial IO writes. Check NumPy fixtures and measure load time and peak memory against allocation plus copy.

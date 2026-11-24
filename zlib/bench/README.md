@@ -35,20 +35,20 @@ Bend reads the files with `File.read_bytes` so the bytes are not UTF-8 decoded. 
 
 ## Results
 
-M4 Pro, macOS arm64, 2026-11-21. Median of three runs. Times are in ms.
+M4 Pro, macOS arm64, 2026-11-24. Median of three runs. Times are in ms.
 
 | variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |
 |---:|---:|---:|---:|---:|---:|---:|
-| Bun | 6.9 | 610 | 40.5 | 104 | 1,063,003 | 3.95x |
-| Node | 6.1 | 692 | 76.4 | 55 | 1,045,511 | 4.01x |
-| Python | 2.8 | 1,513 | 118.5 | 35 | 1,050,286 | 3.99x |
-| Bend | 94.8 | 44 | 466.9 | 9 | 1,097,622 | 3.82x |
-| Bend (libz) | 3.8 | 1,112 | 119.2 | 35 | 1,050,286 | 3.99x |
+| Bun | 7.1 | 591 | 40.2 | 104 | 1,063,003 | 3.95x |
+| Node | 6.3 | 668 | 75.4 | 56 | 1,045,511 | 4.01x |
+| Python | 2.9 | 1,441 | 117.2 | 36 | 1,050,286 | 3.99x |
+| Bend | 96.3 | 44 | 474.7 | 9 | 1,083,353 | 3.87x |
+| Bend (libz) | 3.9 | 1,069 | 118.7 | 35 | 1,050,286 | 3.99x |
 
-The pure encoder now uses lazy matching and dynamic Huffman trees in 32 KiB blocks. It keeps fixed codes when they cost fewer bits. The gzip output is 22.8% smaller than the previous fixed/greedy output of 1,422,023 bytes. It is 4.5% larger than libz level 6. `Bend (libz)` and Python call libz at level 6, so their outputs are the same size.
+The pure encoder uses lazy matching and dynamic Huffman trees in 32 KiB blocks. It keeps fixed codes when they cost fewer bits. Dynamic headers trim trailing unused lengths and encode runs with symbols 16–18. `run.py` decodes the first output header and reports its exact bit count, including the block prefix, alphabet lengths, run symbols, and extra bits.
 
-The ratio improves from 2.95x to 3.82x. The pure encoder takes 466.9 ms, versus 118.5 ms for Python and 119.2 ms for libz level 6. The previous pure encoder took 131.1 ms on Bend 2.0.38; that historical time is not a same-compiler comparison. Dynamic headers currently send all 286 literal/length and 30 distance lengths without run-length encoding.
+The first block header costs **446 bits**, down from **1,338 bits**. Output falls from **1,097,622** to **1,083,353 bytes** (14,269 bytes, 1.3%). The ratio rises from **3.82x** to **3.87x**. Output is 3.1% larger than libz level 6. The previous Bend 2.0.40 run took 466.9 ms; this run takes 474.7 ms. These are separate measurements, not an isolated speed comparison.
 
-The 64 KiB smoke run also passes. Pure Bend emits 19,254 bytes in 7.8 ms, versus Python's 18,870 bytes in 1.7 ms. Both full-run checksums are 2339964736, and system `gzip -d` accepts `out/bend.gz` and `out/native.gz`.
+The 64 KiB smoke run passes. Pure Bend emits 19,032 bytes in 7.6 ms, versus Python's 18,870 bytes in 1.6 ms. Both full-run checksums are 2339964736, and system `gzip -d` accepts `out/bend.gz` and `out/native.gz`.
 
 Versions: Bend 2.0.40, Bun 1.4.4, Node 24.0.1, Python 3.14.6. Python `gzip.compress(..., compresslevel=6)` and Bend's native wrapper both use libz level 6.
