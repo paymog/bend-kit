@@ -9,6 +9,7 @@ import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-collections@0.1.6.0/heap.bend as H
 import bend-kit-files@0.4.0.1/files.bend as Files
+import ./inspect.bend as Inspect
 
 
 # ---- the runner
@@ -801,3 +802,7 @@ def open(~A: Data, ~penc: A -> Bytes.Bytes, ~pdec: Bytes.Bytes -> Maybe<&2, A>, 
 def state(-A: Data, r: Runner<A>) -> Runner<A> & Model.State<A>:
   Runner{j, +s, p, c, ib, fs} = r
   (Runner{j, s, p, c, ib, fs}, s)
+
+# Reads without mutation or crash recovery. A torn suffix retains its committed prefix.
+def inspect(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, path: String, max: U32, limit: U32) -> IO(Out(Inspect.Inspection<A>)):
+  Inspect.file(~A, ~pdec, path, max, limit)
