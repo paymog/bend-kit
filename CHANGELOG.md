@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `llm` proofs: add parameterized chunk-list and octet-feed composition, split-CRLF state preservation, and persistent event IDs. Keep runtime behavior and the published version unchanged.
+
 - `jwt`: prove claim-time and leeway boundaries for every `U32` timestamp. Compare sums in `Nat` to cover wrapped subtraction. Keep runtime behavior and the published version unchanged.
 
 - `redis` 0.5.0.0: retain RESP parser phases and aggregate frames across chunked reads. The public `Reader` now wraps the pure reader state.

@@ -1,5 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
+import ./sse.bend as Sse
 
 def Laws.sse_whole():
   {==}
@@ -29,6 +30,35 @@ def Laws.sse_names():
   {==}
 
 def Laws.sse_id():
+  {==}
+
+def Laws.sse_feed_compose(xs, ys, r):
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{h, t}:
+      (rd, acc) = r
+      Laws.sse_feed_compose(t, ys, Laws.drain(64n, Sse.next(Sse.feed(rd, Laws.b(h))), acc))
+
+def Laws.sse_octet_compose(a, b, r):
+  match a:
+    case SNil{}:
+      {==}
+    case SCon{c, t}:
+      (rd, acc) = r
+      Laws.sse_octet_compose(t, b, Laws.drain(64n, Sse.next(Sse.feed(rd, Laws.b(SCon{c, SNil{}}))), acc))
+
+def Laws.sse_crlf_state(st):
+  {==}
+
+def Laws.sse_id_persists(empty, name, data, id, retry):
+  match empty:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def Laws.sse_message_id(name, data, id, retry):
   {==}
 
 def Laws.reply_anthropic():

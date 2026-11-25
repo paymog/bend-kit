@@ -131,6 +131,64 @@ law sse_names:
 law sse_id:
   {sse(["id: 1\ndata: a\n\nid: 2" ++ SCon{Chr{0}, "\ndata: b\n\n"}]) == ["message|a|1", "message|b|1"] : List<&2, String>}
 
+# Batch composition keeps the complete reader, including a pending CR and the last event ID.
+law sse_feed_compose:
+  for xs: List<&2, String>
+  for ys: List<&2, String>
+  for r: Sse.Reader & List<&1, Sse.Message>
+  {feed(List.append(&2, String, xs, ys), r) == feed(ys, feed(xs, r)) : Sse.Reader & List<&1, Sse.Message>}
+
+# Feed the real parser one octet at a time, with the same drain budget as feed.
+def feed_octets(chunk: String, r: Sse.Reader & List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
+  match chunk:
+    case SNil{}:
+      r
+    case SCon{c, t}:
+      (rd, acc) = r
+      feed_octets(t, drain(64n, Sse.next(Sse.feed(rd, b(SCon{c, SNil{}}))), acc))
+
+law sse_octet_compose:
+  for a: String
+  for b: String
+  for r: Sse.Reader & List<&1, Sse.Message>
+  {feed_octets(a ++ b, r) == feed_octets(b, feed_octets(a, r)) : Sse.Reader & List<&1, Sse.Message>}
+
+def after_lf(r: Sse.Reader & Sse.Next) -> Sse.Reader:
+  (rd, n) = r
+  Sse.feed(rd, b(""))
+
+# The LF after a chunk-ending CR consumes no field and preserves arbitrary event state.
+law sse_crlf_state:
+  for st: Sse.St
+  {after_lf(Sse.next(Sse.Reader{b("\n"), 0, 0, True{}, st})) == Sse.Reader{b(""), 0, 0, False{}, st} : Sse.Reader}
+
+def dispatch_id(r: Sse.St & Maybe<&1, Sse.Message>) -> String:
+  (Sse.St{name, data, id, retry}, message) = r
+  id
+
+law sse_id_persists:
+  for empty: Bool
+  for name: String
+  for data: Bytes.Bytes
+  for id: String
+  for retry: Maybe<&2, U32>
+  {dispatch_id(Sse.dispatch.of(empty, name, data, id, retry)) == id : String}
+
+def message_id(r: Sse.St & Maybe<&1, Sse.Message>) -> Maybe<&2, String>:
+  (st, message) = r
+  match message:
+    case None{}:
+      None{}
+    case Some{Sse.Message{name, data, id}}:
+      Some{id}
+
+law sse_message_id:
+  for name: String
+  for data: Bytes.Bytes
+  for id: String
+  for retry: Maybe<&2, U32>
+  {message_id(Sse.dispatch.of(False{}, name, data, id, retry)) == Some{id} : Maybe<&2, String>}
+
 # ---- replies
 
 def anthropic.body() -> String:
