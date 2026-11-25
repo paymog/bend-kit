@@ -5,8 +5,8 @@ This times the mean, sample variance, median, and a 100-bin histogram of 10000 d
 ## Run
 
 ```sh
-python3 run.py      # 3 runs, median
-python3 run.py 5    # 5 runs
+python3 run.py      # 4 runs, median; one complete process-order cycle
+python3 run.py 8    # 8 runs; two complete cycles
 ```
 
 You need `bend`, `cc`, `rustc`, `bun`, `node`, and `python3`. Binaries go to `out/`, which git ignores. Each invocation builds each native program once. It checks a small integer input before the full input. It exits non-zero if a build fails, if checksums change between runs, or if two programs disagree on a checksum.
@@ -343,3 +343,62 @@ Signed warm-minus-cold deltas in ms. Each delta pairs the two fresh processes fr
 With the loop and callback site held fixed, shared identity becomes slower after the stated warm-up in both runtimes. Bun direct identity instead becomes faster. Bun's warmed direct lcm and isqrt are also faster than its warmed shared path. These path comparisons include loop shape and call-site specialization; they do not identify a particular JIT tier or isolate callback instruction cost. The warm-minus-cold comparison changes only the explicit warm-up schedule within each path, but still includes independent-process noise. A fixed process order does not control thermal or scheduling drift.
 
 The harness also prints signed per-run kernel-minus-identity estimates for all four controlled modes. Those estimates remain traversal-and-dispatch subtraction estimates, not isolated arithmetic clocks. Negative values are not clamped. All six original language lanes, controlled modes, old warmed rows, and Bend ownership rows pass the small and full checksum checks. Controlled identity, gcd, lcm, and isqrt retain checksums `2699619501`, `18047959`, `3181042401`, and `1421540955`. No library code, laws, imports, or package versions change.
+
+## Counterbalanced JavaScript process order
+
+The fixed-order results above remain the baseline. The harness now uses a four-run Williams design for the controlled processes. Each mode occupies each position once per cycle. Each mode also immediately precedes every other mode once within the four runs. The same schedule applies to Bun and Node. The harness prints each runtime's mode order to stderr. It repeats the cycle for additional runs; use a multiple of four for complete balance. A shorter final cycle is incomplete.
+
+| run in cycle | first | second | third | fourth |
+|---|---|---|---|---|
+| 1 | shared cold | shared warm | direct warm | direct cold |
+| 2 | shared warm | direct cold | shared cold | direct warm |
+| 3 | direct cold | direct warm | shared warm | shared cold |
+| 4 | direct warm | shared cold | direct cold | shared warm |
+
+Only the order of the four full-input controlled processes changes. The original rows, small probe, packed inputs, integer functions, three-pass warm-up schedule, and checksum gates stay the same. Each mode still runs in a fresh process. The small probe uses the original order before the full runs. The original JavaScript rows still run before the four modes in each run. This schedule balances position and immediate predecessor within the controlled group, not every source of thermal, scheduling, garbage collection, or cross-run drift. It does not identify a fixed JIT tier or isolate an arithmetic clock.
+
+Run `python3 stats/bench/order_check.py` from the repository root to check the schedule and subprocess order.
+
+### Counterbalanced results
+
+Command: `python3 stats/bench/run.py 4`, from the repository root, 2026-11-25. M4 Pro, macOS 26.7.2 (Darwin 25.6.0), arm64. Bend 2.0.40, Apple clang 21.0.0 (`-O2`), rustc 1.91.0 (`-C opt-level=3`), Bun 1.4.4, Node 24.0.1, Python 3.14.6. A monitor checked Bend RSS once per second and would stop a process above 20 GB; none reached the cap.
+
+Each runtime used runs 1–4 of the order table above, with 2097207 pairs per process. All six language lanes passed the existing small and full checksum gates. All warm-up, controlled-mode, and ownership checks passed. Controlled identity, gcd, checked lcm, and isqrt retain checksums `2699619501`, `18047959`, `3181042401`, and `1421540955`.
+
+Four-run medians in ms:
+
+| runtime | op | shared cold | shared warm | direct cold | direct warm |
+|---|---|---:|---:|---:|---:|
+| Bun | identity | 10.011 | 18.148 | 8.828 | 2.105 |
+| Bun | gcd | 804.990 | 794.947 | 800.542 | 793.045 |
+| Bun | checked lcm | 814.186 | 809.716 | 719.732 | 716.942 |
+| Bun | isqrt | 242.174 | 241.770 | 183.851 | 171.065 |
+| Node | identity | 9.957 | 22.483 | 10.123 | 10.075 |
+| Node | gcd | 498.350 | 485.207 | 468.079 | 468.260 |
+| Node | checked lcm | 486.161 | 485.172 | 480.738 | 478.735 |
+| Node | isqrt | 174.024 | 173.611 | 174.262 | 169.959 |
+
+Signed warm-minus-cold deltas in ms. Each delta pairs processes from the same outer run. Medians summarize the per-run deltas, not the difference of mode medians. The fixed column repeats the three-run median from the fixed-order baseline above.
+
+| runtime | path and op | run 1 | run 2 | run 3 | run 4 | balanced median | fixed median |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Bun | shared identity | +8.771 | +3.847 | +8.293 | +7.972 | +8.133 | +7.669 |
+| Bun | shared gcd | -2.464 | -18.042 | -13.037 | -2.043 | -7.750 | -9.144 |
+| Bun | shared checked lcm | -1.851 | -9.674 | -2.719 | +0.145 | -2.285 | +4.747 |
+| Bun | shared isqrt | -0.889 | -0.574 | +1.415 | -0.514 | -0.544 | -2.896 |
+| Bun | direct identity | -12.116 | -1.257 | -12.809 | -1.330 | -6.723 | -8.560 |
+| Bun | direct gcd | -5.794 | -8.905 | -6.792 | -6.278 | -6.535 | -14.927 |
+| Bun | direct checked lcm | -4.261 | -0.754 | -4.827 | -3.060 | -3.661 | -1.584 |
+| Bun | direct isqrt | -14.005 | -10.513 | -14.124 | -11.503 | -12.754 | -14.655 |
+| Node | shared identity | +12.393 | +12.187 | +12.368 | +13.049 | +12.381 | +11.725 |
+| Node | shared gcd | -9.149 | -17.161 | -13.150 | -10.705 | -11.928 | -14.121 |
+| Node | shared checked lcm | -1.984 | -0.950 | +1.586 | -2.179 | -1.467 | -5.086 |
+| Node | shared isqrt | -0.377 | -0.244 | -3.337 | +0.562 | -0.310 | -3.226 |
+| Node | direct identity | +0.295 | -0.207 | +0.045 | +0.180 | +0.112 | -0.095 |
+| Node | direct gcd | -1.263 | +0.928 | -0.566 | +2.103 | +0.181 | -1.238 |
+| Node | direct checked lcm | -2.611 | -1.395 | +1.718 | -4.197 | -2.003 | -2.743 |
+| Node | direct isqrt | -5.852 | -5.940 | -1.440 | -4.494 | -5.173 | -3.571 |
+
+Shared identity remains slower after warm-up in both runtimes. Bun direct identity and direct isqrt remain faster. Bun shared gcd still varies: the balanced deltas range from -18.042 to -2.043 ms, versus -15.424 to +4.945 ms in the fixed-order sample. Bun shared lcm changes median sign. Node direct identity and gcd also change median sign, but their per-run deltas still cross zero.
+
+Thus the earlier numerical deltas are not stable constants. The broad identity-path result survives this order cycle, while small effects remain noisy. The fixed baseline and balanced cycle were collected on different dates, not interleaved, and each schedule has only one sample block. These observations cannot attribute the difference to process order alone or prove that order has no effect. Repeated balanced and fixed blocks would be needed to separate schedule effects from between-block drift. The clocks still include traversal, dispatch, checksum work, and runtime behavior; neither this comparison nor kernel-minus-identity subtraction isolates arithmetic or a fixed JIT tier.
