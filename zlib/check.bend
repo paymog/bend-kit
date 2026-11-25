@@ -3,7 +3,7 @@ import ./zlib.bend as Z
 import ./native.bend as Native
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ./encode.bend as Encode
-import bend-kit-bits@0.3.0.1/bits.bend as Bits
+import bend-kit-bits@0.4.0.0/bits.bend as Bits
 
 def show(m: Maybe<&1, Bytes.Bytes>) -> IO(Unit):
   match m:
