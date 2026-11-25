@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `archive` 0.7.0.1 and `http` 0.44.0.1: adopt zlib 0.7.0.2 symbol arithmetic before the HTTP consumer release waves. Remove the old zlib pin exception.
+
 - `runner` 0.21.0.1: prove that reserved pool units equal live flights after every event prefix. Preserve initial id uniqueness through claims, cancellation, completion, and retry, and derive the live-attempt capacity bound. Publish the documented accounting assumptions; runtime behavior is unchanged.
 
 - `runner`: use `bend-kit-webhooks@0.14.0.2` in the webhook example and remove the old pin exception. Keep the published package unchanged.

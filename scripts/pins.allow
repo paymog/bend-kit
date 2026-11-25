@@ -5,4 +5,3 @@
 bend-kit-time@0.3.0.1  # consumers: adopt pure clock isolation after time publishes (#1163)
 bend-kit-notch@0.4.0.1  # camber: adopt the Time consumer release after notch publishes (#1163)
 bend-kit-http@0.40.0.1  # consumers: adopt the pure model import layout after HTTP publishes (#1166)
-bend-kit-zlib@0.7.0.1  # archive, http: adopt symbol arithmetic after zlib publishes (#1208)

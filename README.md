@@ -38,9 +38,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 This section comes from entry-file imports and package versions. Run `scripts/repin.py --guidance` to update it without hub access.
 
-`http@0.44.0.0` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.8.0.0`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.2`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.1`.
-
-Time's `pure.bend` and `time.bend` define different `Instant` and `Duration` types at the same version. Use `Http.clock.now` and `Http.clock.mono` for HTTP model arguments.
+`http@0.44.0.1` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.8.0.0`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.2`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.2`.
 
 | Dependency pin | Consumers |
 |---|---|
@@ -107,7 +105,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`protobuf`](protobuf) | `bend-kit-protobuf@0.2.2.0/protobuf.bend` | Pure bounded proto3 messages over `Bytes`, with typed `protoc` code generation. |
 | [`migrate`](migrate) | `bend-kit-migrate@0.4.1.0/migrate.bend` | Versioned subscription records over `Bytes`: validated JSON decode, proved migrations that keep their billing meaning, and a proved encode/decode round trip. |
 | [`tar`](tar) | `bend-kit-tar@0.3.0.1/tar.bend` | POSIX ustar and PAX archives over `Bytes`. |
-| [`archive`](archive) | `bend-kit-archive@0.7.0.0/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
+| [`archive`](archive) | `bend-kit-archive@0.7.0.1/archive.bend` | ZIP read: stored and DEFLATE entries, checked against CRC-32. |
 | [`zlib`](zlib) | `bend-kit-zlib@0.7.0.2/zlib.bend` | Pure DEFLATE, gzip, and zlib over `Bytes`; `native.bend` provides native gzip, zstd, and brotli. |
 | [`crdt`](crdt) | `bend-kit-crdt@0.2.3.1/crdt.bend` | Grow-only counters with dense or sparse IDs, and a positive-negative counter. Proved merge and convergence laws. CBOR wire forms. |
 
