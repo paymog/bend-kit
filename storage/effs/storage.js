@@ -59,6 +59,34 @@ function write_temp(prefix) {
 
 io_eff(CID(write.temp), write_temp);
 
+let storageSync;
+function storage_sync(path, directory, failFullsync = false) {
+  const fs = require("fs");
+  const fd = fs.openSync(path, fs.constants.O_RDONLY | (directory ? fs.constants.O_DIRECTORY : 0));
+  let error;
+  try {
+    fs.fsyncSync(fd);
+    if (failFullsync) throw {errno: 5};
+    if (process.platform === "darwin") {
+      if (!storageSync) {
+        storageSync = require("bun:ffi").dlopen("libSystem.B.dylib", {
+          fcntl: {args: ["i32", "i32", "i32"], returns: "i32"},
+        });
+      }
+      let rc, code;
+      do {
+        rc = storageSync.symbols.fcntl(fd, 51, 0); // F_FULLFSYNC
+        code = rc < 0 ? io_sys().errno() : 0;
+      } while (code === 4);
+      if (code) throw {errno: code};
+    }
+  } catch (e) {
+    error = e;
+  }
+  try { fs.closeSync(fd); } catch (e) { error ??= e; }
+  if (error) throw error;
+}
+
 function write_durable(tmp, path, fault) {
   const fs = require("fs");
   const parent = require("path").posix.dirname;
@@ -67,26 +95,22 @@ function write_durable(tmp, path, fault) {
   if (tb.includes(0) || pb.includes(0) || !pb.length) return io_fail(22);
   // Paths carry octets, not UTF-8 text.
   const up = p => Buffer.from(parent(p.toString("latin1")), "latin1");
-  const sync = (p, directory) => {
-    const fd = fs.openSync(p, fs.constants.O_RDONLY | (directory ? fs.constants.O_DIRECTORY : 0));
-    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-  };
   try {
     if (!tb.length) {
       for (;;) {
-        sync(pb, true);
+        storage_sync(pb, true);
         const next = up(pb);
         if (next.equals(pb)) break;
         pb = next;
       }
     } else {
       if (fault === 1) return io_fail(5);
-      sync(tb, false);
+      storage_sync(tb, false, fault === 7);
       if (fault === 2 || fault === 3) return io_fail(5);
       fs.renameSync(tb, pb);
       if (fault === 4 || fault === 5) return io_fail(5);
-      sync(up(pb), true);
-      sync(up(tb), true);
+      storage_sync(up(pb), true);
+      storage_sync(up(tb), true);
       if (fault === 6) return io_fail(5);
     }
     return io_done({$: CID(Unit)});
@@ -98,12 +122,10 @@ function write_durable(tmp, path, fault) {
 io_eff(CID(write.durable), write_durable);
 
 function write_sync(path) {
-  const fs = require("fs");
   const bytes = Buffer.from(io_bytes(path));
   if (bytes.includes(0)) return io_fail(22);
   try {
-    const fd = fs.openSync(bytes, "r");
-    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    storage_sync(bytes, false);
     return io_done({$: CID(Unit)});
   } catch (e) {
     return io_fail(Math.abs(e?.errno ?? 5));

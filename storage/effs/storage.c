@@ -113,12 +113,19 @@ static void __attribute__((constructor)) write_temp_use(void) {
 #include <fcntl.h>
 #include <unistd.h>
 
-static int storage_sync(const char* path, bool directory) {
+static int storage_sync(const char* path, bool directory, bool fail_fullsync) {
   int fd = open(path, O_RDONLY | O_CLOEXEC | (directory ? O_DIRECTORY : 0));
   if (fd < 0) return errno;
   int rc;
   do { rc = fsync(fd); } while (rc < 0 && errno == EINTR);
   int code = rc < 0 ? errno : 0;
+  if (!code && fail_fullsync) code = EIO;
+#ifdef __APPLE__
+  if (!code) {
+    do { rc = fcntl(fd, F_FULLFSYNC); } while (rc < 0 && errno == EINTR);
+    if (rc < 0) code = errno;
+  }
+#endif
   if (close(fd) < 0 && !code) code = errno;
   return code;
 }
@@ -135,22 +142,22 @@ static void write_durable_call(IoWork* w) {
   char* path = w->text;
   if (!tmp[0]) {
     for (;;) {
-      w->code = storage_sync(path, true);
+      w->code = storage_sync(path, true, false);
       if (w->code || !strcmp(path, "/") || !strcmp(path, ".")) return;
       storage_parent(path);
     }
   }
   if (w->word == 1) { w->code = EIO; return; }
-  w->code = storage_sync(tmp, false);
+  w->code = storage_sync(tmp, false, w->word == 7);
   if (w->code) return;
   if (w->word == 2 || w->word == 3) { w->code = EIO; return; }
   if (rename(tmp, path) < 0) { w->code = errno; return; }
   if (w->word == 4 || w->word == 5) { w->code = EIO; return; }
   storage_parent(path);
-  w->code = storage_sync(path, true);
+  w->code = storage_sync(path, true, false);
   if (w->code) return;
   storage_parent(tmp);
-  w->code = storage_sync(tmp, true);
+  w->code = storage_sync(tmp, true, false);
   if (!w->code && w->word == 6) w->code = EIO;
 }
 
@@ -181,7 +188,7 @@ static void __attribute__((constructor)) write_durable_use(void) {
 
 #ifdef CID(write.sync)
 static void write_sync_call(IoWork* w) {
-  w->code = storage_sync(w->data, false);
+  w->code = storage_sync(w->data, false, false);
 }
 
 static Term write_sync_run(Env e, Term* f, IoWork* w) {
