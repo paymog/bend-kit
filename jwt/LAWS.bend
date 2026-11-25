@@ -3,6 +3,67 @@ import ./pure.bend as Jwt
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
+law late_time:
+  for +now: U32
+  for +t: U32
+  for +lw: U32
+  {Jwt.late(now, lw, Some{t}) == Nat.is_le(Nat.add(U32.to_nat(t), U32.to_nat(lw)), U32.to_nat(now)) : Bool}
+
+law early_time:
+  for +now: U32
+  for +t: U32
+  for +lw: U32
+  {Jwt.early(now, lw, Some{t}) == Nat.is_lt(Nat.add(U32.to_nat(now), U32.to_nat(lw)), U32.to_nat(t)) : Bool}
+
+law late_exact:
+  for +t: U32
+  {Jwt.late(t, 0, Some{t}) == True{} : Bool}
+
+law early_exact:
+  for +t: U32
+  for +lw: U32
+  {Jwt.early(t, lw, Some{t}) == False{} : Bool}
+
+law late_leeway_at:
+  for +now: U32
+  for +t: U32
+  for +lw: U32
+  for h: {Nat.add(U32.to_nat(t), U32.to_nat(lw)) == U32.to_nat(now) : Nat}
+  {Jwt.late(now, lw, Some{t}) == True{} : Bool}
+
+law early_leeway_at:
+  for +now: U32
+  for +t: U32
+  for +lw: U32
+  for h: {Nat.add(U32.to_nat(now), U32.to_nat(lw)) == U32.to_nat(t) : Nat}
+  {Jwt.early(now, lw, Some{t}) == False{} : Bool}
+
+law late_leeway_sides:
+  for +now: U32
+  for +t: U32
+  for +lw: U32
+  for side: Bool
+  for h: {Nat.is_le(Nat.add(U32.to_nat(t), U32.to_nat(lw)), U32.to_nat(now)) == side : Bool}
+  {Jwt.late(now, lw, Some{t}) == side : Bool}
+
+law early_leeway_sides:
+  for +now: U32
+  for +t: U32
+  for +lw: U32
+  for side: Bool
+  for h: {Nat.is_lt(Nat.add(U32.to_nat(now), U32.to_nat(lw)), U32.to_nat(t)) == side : Bool}
+  {Jwt.early(now, lw, Some{t}) == side : Bool}
+
+law late_absent:
+  for now: U32
+  for lw: U32
+  {Jwt.late(now, lw, None{}) == False{} : Bool}
+
+law early_absent:
+  for now: U32
+  for lw: U32
+  {Jwt.early(now, lw, None{}) == False{} : Bool}
+
 # Pure halves: base64url, NumericDate, header and claim checks, and JWKS key choice.
 # check.bend verifies the RFC 7515 signatures and signs round trips, which need libcrypto.
 
