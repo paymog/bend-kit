@@ -3,7 +3,7 @@
 AWS Signature V4, and an S3 client over `hairpin`.
 
 ```bend
-import bend-kit-sigv4@0.14.0.1/sigv4.bend as Sig
+import bend-kit-sigv4@0.14.0.2/sigv4.bend as Sig
 import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
 import bend-kit-http@0.40.0.1/http.bend as Http
 ```
@@ -15,3 +15,5 @@ import bend-kit-http@0.40.0.1/http.bend as Http
 S3 path encoding is not the encoding used for other services. `new`, `put`, `get`, and `list` are the S3 client. `from_env` reads the usual AWS environment variables. `put` and `get` return the `Client` beside the result. `retry(c, n)` gives an idempotent request up to n more attempts through Hairpin's retry policy. `ErrNet` holds a `Hairpin.Err`.
 
 `check.bend` signs the AWS suite vectors. `smoke.bend` talks to a live bucket when the environment is set.
+
+`pure.bend` builds canonical requests, signing strings, authorization headers, and presign queries without cryptographic or network effects. `LAWS.bend` imports this module. Run `bend sigv4/PROOF.bend --verdict` from the repository root to check every claim with the pure proof gate. The runtime API delegates to the same definitions.
