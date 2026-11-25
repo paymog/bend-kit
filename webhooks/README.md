@@ -4,9 +4,11 @@ Standard Webhooks signing and delivery, with verify-only support for Stripe and 
 
 `webhooks.bend` imports `bend-kit-http@0.40.0.1`, `bend-kit-hairpin@0.16.0.1`, `bend-kit-retry@0.3.0.0`, and `bend-kit-crypto@0.2.2.2`. HMAC uses that crypto package, so OpenSSL 3 must load (`BEND_LIBCRYPTO`).
 
+`pure.bend` contains header parsing, timestamp checks, and signature framing. It imports `bend-kit-time@0.3.0.2/pure.bend`. The laws use this module without HTTP, clock, or cryptographic effects. Runtime entry points keep their existing types.
+
 
 ```bend
-import bend-kit-webhooks@0.14.0.1/webhooks.bend as Webhooks
+import bend-kit-webhooks@0.14.0.2/webhooks.bend as Webhooks
 import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 

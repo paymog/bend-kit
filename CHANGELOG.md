@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `webhooks` 0.14.0.2: isolate header parsing, timestamp checks, and signature framing in `pure.bend`. Check all existing laws without foreign effects. Preserve the runtime API.
+
 - `oauth2` 0.14.0.2: isolate forms, token codecs, expiry checks, authorization URLs, and callback state proofs in `pure.bend`. Preserve the runtime API and all law claims.
 
 - `http` 0.41.0.0: move the pure HTTP model, codecs, framing, redirects, retries, and cookies to `pure.bend`. Keep serving and client IO in `http.bend`. Check every existing law without foreign effects.
