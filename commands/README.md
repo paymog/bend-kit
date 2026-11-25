@@ -3,7 +3,7 @@
 Retry-safe commands. Each command has an id and a payload. The first delivery of an id reads the rows that the command names, runs your `decide`, and commits the rows it writes, a record of the outcome, and the outbox effects in one SQLite transaction. A retry of the id with the same payload writes nothing and replays the recorded outcome. A retry with a different payload is a conflict.
 
 ```bend
-import bend-kit-commands@0.5.1.0/commands.bend as C
+import bend-kit-commands@0.6.0.0/commands.bend as C
 ```
 
 It imports `bend-kit-sqlite@0.1.0.1` and `bend-kit-bytes@0.3.3.1`. The store's database and statement handles are that sqlite version's `U32` ids. Payloads, row keys and values, results, and effects are that bytes version's `Bytes.Bytes`.
@@ -31,8 +31,8 @@ A running total in one row, key `total`. Each payload is an amount in decimal, t
 ```bend
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-commands@0.5.1.0/commands.bend as C
-import bend-kit-commands@0.5.1.0/model.bend as M
+import bend-kit-commands@0.6.0.0/commands.bend as C
+import bend-kit-commands@0.6.0.0/model.bend as M
 
 def num(b: Bytes.Bytes) -> U32:
   Maybe.default(&2, U32, Bytes.u32.read(b), 0)
@@ -70,6 +70,8 @@ def main() -> IO(Unit):
 `~keys: Bytes -> Read` takes the payload and describes the rows to read. `Keys{keys}` gets one `Row{key, value}` for each exact key, in input order; `value` is `None` when no row holds the key. `Range{lower, upper, max_rows}` reads existing keys in the half-open byte range `[lower, upper)`, in ascending BLOB key order, with one indexed `SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k`. Both bounds are bytes. For example, `Range{Bytes.from_string("customer/42/"), Bytes.from_string("customer/420"), 100}` reads that customer's prefix.
 
 The range must contain at most `max_rows` rows. The reader checks one extra row without decoding its value. If the range is larger, `handle` fails with `SQLITE_TOOBIG` (18), rolls back, and records nothing. It never gives `decide` a truncated state. A zero bound accepts only an empty range. Equal or reversed bounds read no rows. Choose a bound that fits your command's memory budget; each selected value is read whole.
+
+The store prepares the range statement once in `open` and resets it after every read, including a failed read. `close` finalizes it. `Store` has a `range` statement field between `read` and `save`.
 
 `~decide: List<Row> -> Bytes -> Decision<List<Row>, Bytes, Bytes>` takes the selected rows and the payload, where `Bytes` is `Bytes.Bytes`. It answers `Accept{rows, result, effects}` or `Refuse{result}`. Each written row with `Some{v}` puts `v` at its key, and each with `None` deletes the key; a later row for a key wins. `decide` may write keys it did not read. It is pure, so it cannot run an effect: put the effect in the outbox.
 

@@ -6,7 +6,7 @@ import ./ledger.bend as L
 
 # Writes inside a transaction, then dies before COMMIT.
 def crash(st: C.Store) -> IO(Unit):
-  C.Store{db, +begin, commit, rollback, find, read, +save, +del, +keep, emit} = st
+  C.Store{db, +begin, commit, rollback, find, read, range, +save, +del, +keep, emit} = st
   do IO<Unit>:
     IO.try(Unit, C.exec(begin))
     IO.try(Unit, C.rows.put([C.Row{Bytes.from_string("a"), Some{Bytes.from_string("999")}}], save, del))

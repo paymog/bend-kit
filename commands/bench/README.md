@@ -53,7 +53,7 @@ Each fresh command has id `range_i`, payload `8`, and timestamp 200. The lower b
 SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k
 ```
 
-Both bounds are BLOBs. The reader retains at most `max_rows` rows and steps once more to detect overflow. Bend, C, Rust, and Bun prepare and finalize the query for each command. Python uses `sqlite3.execute` and its statement cache. No SQL `LIMIT` hides the extra row. After a complete read, the decision accepts without changing rows or emitting effects. It hashes the ASCII text `pick_0=1;pick_1=2;...;pick_7=8;` with `h = h*31 + byte` in wrapping u32. The command records that hash and commits. Each pass hashes the N results with the same recurrence.
+Both bounds are BLOBs. The reader retains at most `max_rows` rows and steps once more to detect overflow. C, Rust, and Bun prepare and finalize the query for each command. Bend reuses the store's prepared range statement and resets it after every read. Python uses `sqlite3.execute` and its statement cache. No SQL `LIMIT` hides the extra row. After a complete read, the decision accepts without changing rows or emitting effects. It hashes the ASCII text `pick_0=1;pick_1=2;...;pick_7=8;` with `h = h*31 + byte` in wrapping u32. The command records that hash and commits. Each pass hashes the N results with the same recurrence.
 
 The overflow pass uses id `overflow` and payload `7` on every attempt. The eighth row must cause a rollback before the decision or record write. Its checksum hashes N error codes (18). Every variant checks that only N successful records exist and that the outbox is empty. After timing, the same `overflow` id with payload `8` must be fresh, not replayed or conflicting. This also checks that failure left no command record or open transaction. A returned decision on the failure path fails the benchmark.
 
@@ -102,3 +102,60 @@ Versions: Bend 2.0.40, Apple clang 21.0.0, rustc 1.91.0, Bun 1.4.4, Python 3.14.
 The 1,000-fold increase in unrelated rows changes Bend's successful range time from 158.345 to 158.942 ms. The fixed selection does not scale with the whole table in this measurement. Bend takes about 3.8 times C's successful range time and 4.4 times its overflow time on the large table. These are complete command transactions, not isolated SQLite scan times. The overflow pass includes no record write or commit.
 
 A duplicate costs Bend one indexed lookup, a payload compare, and a `COMMIT`, as in the other variants: `handle` reads rows only when the id has no record. For a new command, `handle` copies the payload, because it goes to `keys` and to `step`, and `step` copies the payload and the result, because each goes both to its consumer and to the record. `rows.get` copies each key, because it goes to the lookup and to the row that `decide` sees. The keyed rows took the in-memory fresh pass from 89.1 ms (one state row read by `k = 0`) to 104.2 ms.
+
+### Native range profile and statement reuse
+
+Apple arm64, Darwin 25.6.0, 2026-11-25. Bend 2.0.40, Apple clang 21.0.0, rustc 1.91.0, Bun 1.4.4, Python 3.14.6. Both measurements use `python3 run.py 3 10000` on the same machine and compiler. Each had a small first run, `python3 run.py 1 5`.
+
+| variant | phase | range small ms | overflow small ms | range large ms | overflow large ms |
+|---|---|---:|---:|---:|---:|
+| C | before | 42.113 | 23.836 | 41.535 | 24.474 |
+| C | after | 40.292 | 23.390 | 41.639 | 24.491 |
+| Rust | before | 41.676 | 24.300 | 42.368 | 24.908 |
+| Rust | after | 40.777 | 23.880 | 41.622 | 24.183 |
+| Bun | before | 79.043 | 37.013 | 74.127 | 34.992 |
+| Bun | after | 77.205 | 35.861 | 75.827 | 34.955 |
+| Python | before | 116.257 | 44.753 | 119.639 | 45.720 |
+| Python | after | 115.170 | 43.356 | 117.508 | 45.135 |
+| Bend | before | 159.455 | 108.531 | 158.534 | 108.875 |
+| Bend | after | 135.359 | 87.818 | 137.172 | 89.097 |
+
+All six checksums agree across all five languages in both runs: fresh **5023800**, replay **1224217884**, both ranges **4216059904**, and both overflows **1895051776**. `run.py` also checks the range hashes against its independent calculation. Each range pass checks that overflow returns code 18 before a decision, leaves no record or effect, and permits a fresh retry with bound eight.
+
+The only runtime change is statement reuse. The store prepares the range query in `open`, binds both bounds on every read, resets it after success or failure, and finalizes it in `close`. The row reader, overflow check, decision, and transaction boundaries are unchanged. This removes repeated SQL string conversion, parsing, statement registration, and finalization. Bend's successful ranges improve by 15.1% (small) and 13.5% (large). Overflow improves by 19.1% and 18.2%. C, Rust, and Bun still prepare each query, so their timings compare full implementations, not identical statement-cache policies.
+
+#### Sampling method
+
+`profile.bend` runs only one path against 100,000 unrelated rows. It uses the same range loop and decision as `bench.bend`. Its post-run checks count records and effects, retry the overflow id with bound eight, and close the store.
+
+```sh
+bend profile.bend -o out/profile
+out/profile range 5
+out/profile overflow 5
+out/profile range 1000000 > out/range-profile-run.txt &
+pid=$!
+sample "$pid" 5 1 -file out/range.sample.txt
+wait "$pid"
+out/profile overflow 1000000 > out/overflow-profile-run.txt &
+pid=$!
+sample "$pid" 5 1 -file out/overflow.sample.txt
+wait "$pid"
+```
+
+The baseline sample has 3,965 main-thread observations for success and 3,980 for overflow. Samples are inclusive stack observations, not exact per-operation timers. The baseline success sample started about five seconds after launch; the overflow sample started at launch and includes the short untimed seed. The native profile uses 57 MB at the success sample point.
+
+| baseline stack | success samples | overflow samples | interpretation |
+|---|---:|---:|---|
+| `work_loop` | 2,475 (62.4%) | 2,671 (67.1%) | Bend evaluation, continuation dispatch, and data handling |
+| `WL_FID_Clo_apply` | 1,565 (39.5%) | 1,807 (45.4%) | Closure dispatch; included in `work_loop` |
+| `stmt_prepare_run` | 401 (10.1%) | 592 (14.9%) | SQL conversion, preparation, and registration |
+| `stmt_finalize_run` | 23 (0.6%) | 57 (1.4%) | Statement release |
+| `stmt_column_blob_run` | 75 (1.9%) | 86 (2.2%) | Column validation and packed row-byte materialization |
+| `stmt_step_run` | 720 (18.2%) | 364 (9.1%) | All SQLite steps: transaction, lookup, scan, and successful record write |
+| `stmt_reset_run` | 50 (1.3%) | 55 (1.4%) | Reset of reused statements |
+
+After statement reuse, the success sample has 3,974 observations and the overflow sample has 3,968. Neither sample contains `stmt_prepare_run` or `stmt_finalize_run`. `work_loop` accounts for 2,786 (70.1%) and 3,155 (79.5%) observations. Its closure-dispatch subset accounts for 1,720 (43.3%) and 2,152 (54.2%). Native column materialization stays small at 75 (1.9%) and 90 (2.3%). Both optimized samples start at launch, so the brief seed is included. These are proportions of different runs, not absolute time savings.
+
+Row materialization is not the dominant native effect. Success reads 16 BLOB columns; overflow reads 14 and steps the eighth row without decoding it. Each read still crosses an effect boundary and the `Run` continuation chain, so the column effect percentage alone is not the total cost of reading rows. Transaction handling includes `BEGIN IMMEDIATE`, lookup, and either record insertion plus `COMMIT`, or cleanup plus `ROLLBACK`. These appear together under `stmt_step_run`; the sampler does not separate statement ids. Overflow has no decision, record write, or commit, yet closure dispatch remains the largest named cost.
+
+The remaining large-table gap is about 3.3 times C for success and 3.6 times C for overflow. Removing transaction steps would weaken atomicity or retry behavior. Returning SQLite-owned row memory would break ownership when the statement advances. Fusing effects or changing continuation dispatch needs separate evidence and a wider interface change. This change does neither.
