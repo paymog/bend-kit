@@ -1941,3 +1941,532 @@ def snapshot.recovered.dead.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: 
     e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
     {Laws.dead.wf(~A, R.dead(A, R.calm(A, s))) == True{} : Bool}:
   calm.dead.wf(~A, s, snapshot.dead.wf(~A, ~pdec, b, s, e))
+
+# ---- flight accounting
+
+def flights.distinct(-A: Data, fs: List<&2, Q.Ticket<A>>) -> Data:
+  match fs:
+    case Nil{}:
+      Unit
+    case Con{+t, +rest}:
+      QL.Both<QL.absent.list(A, rest, Q.id(A, t)), flights.distinct(A, rest)>
+
+def taken.count(-A: Data, tk: Q.Taken<A>) -> Nat:
+  match tk:
+    case Q.Taken{fs, None{}}:
+      List.length(&2, Q.Ticket<A>, fs)
+    case Q.Taken{fs, Some{t}}:
+      1n+List.length(&2, Q.Ticket<A>, fs)
+
+def flights.absent.id(-A: Data, +rest: List<&2, Q.Ticket<A>>, +j: Nat, +i: Nat,
+    same: {Nat.is_eq(j, i) == True{} : Bool}, absent: QL.absent.list(A, rest, j)) ->
+    QL.absent.list(A, rest, i):
+  %MNat.eq_of_is_eq(j, i, same) : QL.absent.list(A, rest, _)
+  absent
+
+def taken.count.keep(-A: Data, b: Bool, +t: Q.Ticket<A>, +rest: List<&2, Q.Ticket<A>>, +i: Nat,
+    tk: Q.Taken<A>, count: {taken.count(A, tk) == List.length(&2, Q.Ticket<A>, rest) : Nat},
+    eq: {tk == Q.take.list(A, rest, i) : Q.Taken<A>},
+    absent: QL.absent.list(A, rest, Q.id(A, t)), same: {Nat.is_eq(Q.id(A, t), i) == b : Bool}) ->
+    {taken.count(A, Q.take.keep(A, b, t, tk)) == 1n+List.length(&2, Q.Ticket<A>, rest) : Nat}:
+  match b:
+    case True{}:
+      %Equal.sym(Q.Taken<A>, tk, Q.take.list(A, rest, i), eq) :
+        {taken.count(A, Q.take.keep(A, True{}, t, _)) == 1n+List.length(&2, Q.Ticket<A>, rest) : Nat}
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, rest, i), Q.Taken{rest, None{}},
+        loop.take.idle(A, rest, i, flights.absent.id(A, rest, Q.id(A, t), i, same, absent))) :
+        {taken.count(A, Q.take.keep(A, True{}, t, _)) == 1n+List.length(&2, Q.Ticket<A>, rest) : Nat}
+      {==}
+    case False{}:
+      match tk:
+        case Q.Taken{fs, None{}}:
+          Equal.cong(Nat, Nat, n => 1n+n, List.length(&2, Q.Ticket<A>, fs), List.length(&2, Q.Ticket<A>, rest), count)
+        case Q.Taken{fs, Some{f}}:
+          Equal.cong(Nat, Nat, n => 1n+n, 1n+List.length(&2, Q.Ticket<A>, fs), List.length(&2, Q.Ticket<A>, rest), count)
+
+def flights.take.count(-A: Data, +fs: List<&2, Q.Ticket<A>>, +i: Nat, distinct: flights.distinct(A, fs)) ->
+    {taken.count(A, Q.take.list(A, fs, i)) == List.length(&2, Q.Ticket<A>, fs) : Nat}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{+t, +rest}:
+      QL.Both{absent, tail} = distinct
+      taken.count.keep(A, Nat.is_eq(Q.id(A, t), i), t, rest, i, Q.take.list(A, rest, i),
+        flights.take.count(A, rest, i, tail), {==}, absent, {==})
+
+def loop.accounted(-A: Data, +s: R.Loop<A>) -> Data:
+  {Res.reserved(R.loop.pool(A, s)) == List.length(&2, Q.Ticket<A>, R.loop.flights(A, s)) : Nat}
+
+def loop.claim.accounted(~A: Data, +o: Nat, +c: Nat, +h: Nat, +s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat,
+    +same: {h == List.length(&2, Q.Ticket<A>, fs) : Nat}) ->
+    loop.accounted(A, R.loop.claim(~A, R.pick(~A, Res.Pool{o, c, h}, s, now), s, fs, now)):
+  pick_cases(~A, k => loop.accounted(A, R.loop.claim(~A, k, s, fs, now)), Res.Pool{o, c, h}, s, now, same,
+    t => split(b => loop.accounted(A, R.loop.claim(~A, R.pick.took(A, Res.reserve.go(b, o, c, h, 1n), t), s, fs, now)),
+      Nat.is_le(Nat.add(h, 1n), c),
+      f => Equal.trans(Nat, Nat.add(h, 1n), 1n+h, 1n+List.length(&2, Q.Ticket<A>, fs),
+        MNat.add_comm(h, 1n), Equal.cong(Nat, Nat, n => 1n+n, h, List.length(&2, Q.Ticket<A>, fs), same)),
+      f => same))
+
+def loop.release.one(+o: Nat, +c: Nat, +h: Nat) ->
+    {R.loop.release(Res.release(Res.Pool{o, c, 1n+h}, Res.Grant{o, 1n})) == Res.Pool{o, c, h} : Res.Pool}:
+  %MNat.add_comm(h, 1n) : {R.loop.release(Res.release(Res.Pool{o, c, _}, Res.Grant{o, 1n})) == Res.Pool{o, c, h} : Res.Pool}
+  took.release.go(o, c, h)
+
+def loop.finish.accounted(~A: Data, tk: Q.Taken<A>, +o: Nat, +c: Nat, +h: Nat, s: R.State<A>, i: Nat,
+    same: {h == taken.count(A, tk) : Nat}) ->
+    loop.accounted(A, R.loop.finished(~A, tk, Res.Pool{o, c, h}, s, i)):
+  match tk:
+    case Q.Taken{fs, None{}}:
+      same
+    case Q.Taken{+fs, Some{t}}:
+      %Equal.sym(Nat, h, 1n+List.length(&2, Q.Ticket<A>, fs), same) :
+        {Res.reserved(R.loop.release(Res.release(Res.Pool{o, c, _}, Res.Grant{o, 1n}))) == List.length(&2, Q.Ticket<A>, fs) : Nat}
+      Equal.cong(Res.Pool, Nat, Res.reserved,
+        R.loop.release(Res.release(Res.Pool{o, c, 1n+List.length(&2, Q.Ticket<A>, fs)}, Res.Grant{o, 1n})),
+        Res.Pool{o, c, List.length(&2, Q.Ticket<A>, fs)}, loop.release.one(o, c, List.length(&2, Q.Ticket<A>, fs)))
+
+def loop.retry.accounted(~A: Data, tk: Q.Taken<A>, +o: Nat, +c: Nat, +h: Nat, s: R.State<A>, i: Nat, d: Nat,
+    same: {h == taken.count(A, tk) : Nat}) ->
+    loop.accounted(A, R.loop.retried(~A, tk, Res.Pool{o, c, h}, s, i, d)):
+  match tk:
+    case Q.Taken{fs, None{}}:
+      same
+    case Q.Taken{+fs, Some{t}}:
+      %Equal.sym(Nat, h, 1n+List.length(&2, Q.Ticket<A>, fs), same) :
+        {Res.reserved(R.loop.release(Res.release(Res.Pool{o, c, _}, Res.Grant{o, 1n}))) == List.length(&2, Q.Ticket<A>, fs) : Nat}
+      Equal.cong(Res.Pool, Nat, Res.reserved,
+        R.loop.release(Res.release(Res.Pool{o, c, 1n+List.length(&2, Q.Ticket<A>, fs)}, Res.Grant{o, 1n})),
+        Res.Pool{o, c, List.length(&2, Q.Ticket<A>, fs)}, loop.release.one(o, c, List.length(&2, Q.Ticket<A>, fs)))
+
+def loop.step.accounted(~A: Data, e: R.LoopEvent, +s: R.Loop<A>,
+    same: loop.accounted(A, s), distinct: flights.distinct(A, R.loop.flights(A, s))) ->
+    loop.accounted(A, R.loop.step(~A, e, s)):
+  match e s:
+    case R.Claim{+now} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.claim.accounted(~A, o, c, h, s, fs, now, same)
+    case R.Finish{+i} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.finish.accounted(~A, Q.take.list(A, fs, i), o, c, h, s, i,
+        Equal.trans(Nat, h, List.length(&2, Q.Ticket<A>, fs), taken.count(A, Q.take.list(A, fs, i)),
+          same, Equal.sym(Nat, taken.count(A, Q.take.list(A, fs, i)), List.length(&2, Q.Ticket<A>, fs), flights.take.count(A, fs, i, distinct))))
+    case R.CancelFlight{i} R.Loop{p, s, fs}:
+      same
+    case R.RetrySettle{+i, d} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.retry.accounted(~A, Q.take.list(A, fs, i), o, c, h, s, i, d,
+        Equal.trans(Nat, h, List.length(&2, Q.Ticket<A>, fs), taken.count(A, Q.take.list(A, fs, i)),
+          same, Equal.sym(Nat, taken.count(A, Q.take.list(A, fs, i)), List.length(&2, Q.Ticket<A>, fs), flights.take.count(A, fs, i, distinct))))
+
+def heap.cross(-A: Data, +a: H.Heap<Q.Ticket<A>>, +b: H.Heap<Q.Ticket<A>>) -> Data:
+  QL.all.heap(A, t => QL.absent.heap(A, b, Q.id(A, t)), a)
+
+def heap.unique(-A: Data, h: H.Heap<Q.Ticket<A>>) -> Data:
+  match h:
+    case H.HLeaf{}:
+      Unit
+    case H.HNode{n, +t, +l, +r}:
+      QL.Both<QL.absent.heap(A, l, Q.id(A, t)), QL.Both<QL.absent.heap(A, r, Q.id(A, t)),
+        QL.Both<heap.unique(A, l), QL.Both<heap.unique(A, r), heap.cross(A, l, r)>>>>
+
+def heap.cross.node(-A: Data, +a: H.Heap<Q.Ticket<A>>, +t: Q.Ticket<A>, +n: Nat,
+    +l: H.Heap<Q.Ticket<A>>, +r: H.Heap<Q.Ticket<A>>,
+    absent: QL.absent.heap(A, a, Q.id(A, t)), left: heap.cross(A, a, l), right: heap.cross(A, a, r)) ->
+    heap.cross(A, a, H.HNode{n, t, l, r}):
+  match a:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{size, +x, +al, +ar}:
+      QL.Both{ne, QL.Both{el, er}} = absent
+      QL.Both{xl, QL.Both{all, arl}} = left
+      QL.Both{xr, QL.Both{alr, arr}} = right
+      QL.Both{QL.Both{Equal.trans(Bool, Nat.is_eq(Q.id(A, t), Q.id(A, x)), Nat.is_eq(Q.id(A, x), Q.id(A, t)), False{}, MNat.is_eq_comm(Q.id(A, t), Q.id(A, x)), ne), QL.Both{xl, xr}},
+        QL.Both{heap.cross.node(A, al, t, n, l, r, el, all, alr), heap.cross.node(A, ar, t, n, l, r, er, arl, arr)}}
+
+
+def heap.cross.leaf(-A: Data, a: H.Heap<Q.Ticket<A>>) -> heap.cross(A, a, H.HLeaf{}):
+  match a:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, t, l, r}:
+      QL.Both{Unit{}, QL.Both{heap.cross.leaf(A, l), heap.cross.leaf(A, r)}}
+
+def heap.cross.sym(-A: Data, a: H.Heap<Q.Ticket<A>>, +b: H.Heap<Q.Ticket<A>>, e: heap.cross(A, a, b)) ->
+    heap.cross(A, b, a):
+  match a:
+    case H.HLeaf{}:
+      heap.cross.leaf(A, b)
+    case H.HNode{+n, +t, +l, +r}:
+      QL.Both{root, QL.Both{left, right}} = e
+      heap.cross.node(A, b, t, n, l, r, root, heap.cross.sym(A, l, b, left), heap.cross.sym(A, r, b, right))
+
+def heap.merge.unique(~A: Data, +fuel: Nat, +a: H.Heap<Q.Ticket<A>>, +b: H.Heap<Q.Ticket<A>>,
+    +ua: heap.unique(A, a), +ub: heap.unique(A, b), +ab: heap.cross(A, a, b), +ba: heap.cross(A, b, a)) ->
+    heap.unique(A, H.Heap.merge.go(~Q.Ticket<A>, ~(x => y => Q.le(A, x, y)), fuel, a, b)):
+  match fuel:
+    case 0n:
+      ua
+    case 1n+f:
+      match a b:
+        case H.HLeaf{} H.HLeaf{}:
+          Unit{}
+        case H.HLeaf{} H.HNode{n, t, l, r}:
+          ub
+        case H.HNode{n, t, l, r} H.HLeaf{}:
+          ua
+        case H.HNode{+na, +x, +al, +ar} H.HNode{+nb, +y, +bl, +br}:
+          QL.Both{+xal, QL.Both{+xar, QL.Both{+ual, QL.Both{+uar, +alar}}}} = ua
+          QL.Both{+ybl, QL.Both{+ybr, QL.Both{+ubl, QL.Both{+ubr, +blbr}}}} = ub
+          QL.Both{+xb, QL.Both{+alb, +arb}} = ab
+          QL.Both{+ya, QL.Both{+bla, +bra}} = ba
+          +aa = {H.HNode{na, x, al, ar} : H.Heap<Q.Ticket<A>>}
+          +bb = {H.HNode{nb, y, bl, br} : H.Heap<Q.Ticket<A>>}
+          split(c => heap.unique(A, H.HNode{Nat.add(na, nb), Bool.pick(Q.Ticket<A>, c, x, y),
+            H.Heap.merge.go(~Q.Ticket<A>, ~(p => q => Q.le(A, p, q)), f,
+              Bool.pick(H.Heap<Q.Ticket<A>>, c, ar, br), Bool.pick(H.Heap<Q.Ticket<A>>, c, bb, aa)),
+            Bool.pick(H.Heap<Q.Ticket<A>>, c, al, bl)}), Q.le(A, x, y),
+            e => QL.Both{QP.merge_all(~A, QL.absent.ticket(A, Q.id(A, x)), f, ar, bb, xar, xb),
+              QL.Both{xal, QL.Both{heap.merge.unique(~A, f, ar, bb, uar, ub, arb, heap.cross.sym(A, ar, bb, arb)),
+                QL.Both{ual, QP.merge_all(~A, t => QL.absent.heap(A, al, Q.id(A, t)), f, ar, bb,
+                  heap.cross.sym(A, al, ar, alar), heap.cross.sym(A, al, bb, alb))}}}},
+            e => QL.Both{QP.merge_all(~A, QL.absent.ticket(A, Q.id(A, y)), f, br, aa, ybr, ya),
+              QL.Both{ybl, QL.Both{heap.merge.unique(~A, f, br, aa, ubr, ua, bra, heap.cross.sym(A, br, aa, bra)),
+                QL.Both{ubl, QP.merge_all(~A, t => QL.absent.heap(A, bl, Q.id(A, t)), f, br, aa,
+                  heap.cross.sym(A, bl, br, blbr), heap.cross.sym(A, bl, aa, bla))}}}})
+
+def heap.merge.unique.full(~A: Data, +a: H.Heap<Q.Ticket<A>>, +b: H.Heap<Q.Ticket<A>>,
+    ua: heap.unique(A, a), ub: heap.unique(A, b), +ab: heap.cross(A, a, b)) ->
+    heap.unique(A, H.Heap.merge(~Q.Ticket<A>, ~(x => y => Q.le(A, x, y)), a, b)):
+  heap.merge.unique(~A, Nat.add(H.Heap.size(Q.Ticket<A>, a), H.Heap.size(Q.Ticket<A>, b)), a, b, ua, ub, ab, heap.cross.sym(A, a, b, ab))
+
+def heap.cross.remove.right(~A: Data, a: H.Heap<Q.Ticket<A>>, +b: H.Heap<Q.Ticket<A>>, +i: Nat, e: heap.cross(A, a, b)) ->
+    heap.cross(A, a, Q.remove.heap(~A, b, i)):
+  match a:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, +t, l, r}:
+      QL.Both{root, QL.Both{left, right}} = e
+      QL.Both{QP.remove_all(~A, QL.absent.ticket(A, Q.id(A, t)), b, i, root),
+        QL.Both{heap.cross.remove.right(~A, l, b, i, left), heap.cross.remove.right(~A, r, b, i, right)}}
+
+def heap.remove.unique(~A: Data, +h: H.Heap<Q.Ticket<A>>, +i: Nat, u: heap.unique(A, h)) ->
+    heap.unique(A, Q.remove.heap(~A, h, i)):
+  match h:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, +t, +l, +r}:
+      QL.Both{el, QL.Both{er, QL.Both{ul, QL.Both{ur, lr}}}} = u
+      +l2 = Q.remove.heap(~A, l, i)
+      +r2 = Q.remove.heap(~A, r, i)
+      +ul2 = heap.remove.unique(~A, l, i, ul)
+      +ur2 = heap.remove.unique(~A, r, i, ur)
+      +lr2 = QP.remove_all(~A, t => QL.absent.heap(A, r2, Q.id(A, t)), l, i,
+        heap.cross.remove.right(~A, l, r, i, lr))
+      split(b => heap.unique(A, Q.remove.heap.keep(~A, b, t, l2, r2)), Nat.is_eq(Q.id(A, t), i),
+        e => heap.merge.unique.full(~A, l2, r2, ul2, ur2, lr2),
+        e => QL.Both{QP.remove_all(~A, QL.absent.ticket(A, Q.id(A, t)), l, i, el),
+          QL.Both{QP.remove_all(~A, QL.absent.ticket(A, Q.id(A, t)), r, i, er),
+            QL.Both{ul2, QL.Both{ur2, lr2}}}})
+
+def heap.push.unique(~A: Data, +t: Q.Ticket<A>, +h: H.Heap<Q.Ticket<A>>,
+    u: heap.unique(A, h), absent: QL.absent.heap(A, h, Q.id(A, t))) ->
+    heap.unique(A, H.Heap.push(~Q.Ticket<A>, ~(x => y => Q.le(A, x, y)), t, h)):
+  heap.merge.unique.full(~A, H.HNode{1n, t, H.HLeaf{}, H.HLeaf{}}, h,
+    QL.Both{Unit{}, QL.Both{Unit{}, QL.Both{Unit{}, QL.Both{Unit{}, Unit{}}}}}, u,
+    QL.Both{absent, QL.Both{Unit{}, Unit{}}})
+
+def flights.apart(-A: Data, fs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>) -> Data:
+  match fs:
+    case Nil{}:
+      Unit
+    case Con{+t, rest}:
+      QL.Both<QL.absent.heap(A, h, Q.id(A, t)), flights.apart(A, rest, h)>
+
+def flights.apart.root(-A: Data, fs: List<&2, Q.Ticket<A>>, +n: Nat, +t: Q.Ticket<A>, +l: H.Heap<Q.Ticket<A>>, +r: H.Heap<Q.Ticket<A>>,
+    e: flights.apart(A, fs, H.HNode{n, t, l, r})) -> QL.absent.list(A, fs, Q.id(A, t)):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+x, rest}:
+      QL.Both{QL.Both{ne, QL.Both{left, right}}, tail} = e
+      QL.Both{Equal.trans(Bool, Nat.is_eq(Q.id(A, x), Q.id(A, t)), Nat.is_eq(Q.id(A, t), Q.id(A, x)), False{}, MNat.is_eq_comm(Q.id(A, x), Q.id(A, t)), ne),
+        flights.apart.root(A, rest, n, t, l, r, tail)}
+
+def flights.apart.pop(~A: Data, fs: List<&2, Q.Ticket<A>>, +n: Nat, +t: Q.Ticket<A>, +l: H.Heap<Q.Ticket<A>>, +r: H.Heap<Q.Ticket<A>>,
+    e: flights.apart(A, fs, H.HNode{n, t, l, r})) ->
+    flights.apart(A, fs, H.Heap.merge(~Q.Ticket<A>, ~(x => y => Q.le(A, x, y)), l, r)):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+x, rest}:
+      QL.Both{QL.Both{ne, QL.Both{left, right}}, tail} = e
+      QL.Both{QP.merge_all.full(~A, QL.absent.ticket(A, Q.id(A, x)), l, r, left, right),
+        flights.apart.pop(~A, rest, n, t, l, r, tail)}
+
+def flights.apart.cancel(~A: Data, fs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>, +i: Nat,
+    e: flights.apart(A, fs, h)) -> flights.apart(A, fs, Q.remove.heap(~A, h, i)):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, rest}:
+      QL.Both{root, tail} = e
+      QL.Both{QP.remove_all(~A, QL.absent.ticket(A, Q.id(A, t)), h, i, root), flights.apart.cancel(~A, rest, h, i, tail)}
+
+def flights.remove.distinct(-A: Data, +fs: List<&2, Q.Ticket<A>>, +i: Nat, e: flights.distinct(A, fs)) ->
+    flights.distinct(A, Q.remove.list(A, fs, i)):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      QL.Both{+ne, tail} = e
+      +tail2 = flights.remove.distinct(A, rest, i, tail)
+      split(b => flights.distinct(A, Q.remove.list.keep(A, b, t, Q.remove.list(A, rest, i))), Nat.is_eq(Q.id(A, t), i),
+        e => tail2, e => QL.Both{remove_keeps.list(A, rest, i, Q.id(A, t), ne), tail2})
+
+def flights.remove.apart(-A: Data, +fs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>, +i: Nat, e: flights.apart(A, fs, h)) ->
+    flights.apart(A, Q.remove.list(A, fs, i), h):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      QL.Both{+root, tail} = e
+      +tail2 = flights.remove.apart(A, rest, h, i, tail)
+      split(b => flights.apart(A, Q.remove.list.keep(A, b, t, Q.remove.list(A, rest, i)), h), Nat.is_eq(Q.id(A, t), i),
+        e => tail2, e => QL.Both{root, tail2})
+
+def found.heap(-A: Data, +h: H.Heap<Q.Ticket<A>>, +i: Nat, m: Maybe<&2, Q.Ticket<A>>) -> Data:
+  match m:
+    case None{}:
+      Unit
+    case Some{t}:
+      QL.absent.heap(A, h, i)
+
+def flights.find.heap(-A: Data, +fs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>, +i: Nat, e: flights.apart(A, fs, h)) ->
+    found.heap(A, h, i, Q.find.list(A, fs, i)):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      QL.Both{root, tail} = e
+      split(b => found.heap(A, h, i, Q.find.list.choose(A, b, t, Q.find.list(A, rest, i))), Nat.is_eq(Q.id(A, t), i),
+        eq => (
+          %MNat.eq_of_is_eq(Q.id(A, t), i, eq) : QL.absent.heap(A, h, _)
+          root),
+        eq => flights.find.heap(A, rest, h, i, tail))
+
+def taken.ids(-A: Data, tk: Q.Taken<A>, +i: Nat) -> Data:
+  match tk:
+    case Q.Taken{fs, None{}}:
+      Unit
+    case Q.Taken{fs, Some{t}}:
+      {Q.id(A, t) == i : Nat}
+
+def taken.ids.keep(-A: Data, b: Bool, +t: Q.Ticket<A>, tk: Q.Taken<A>, +i: Nat,
+    same: {Nat.is_eq(Q.id(A, t), i) == b : Bool}, tail: taken.ids(A, tk, i)) ->
+    taken.ids(A, Q.take.keep(A, b, t, tk), i):
+  match b tk:
+    case True{} Q.Taken{fs, m}:
+      MNat.eq_of_is_eq(Q.id(A, t), i, same)
+    case False{} Q.Taken{fs, None{}}:
+      tail
+    case False{} Q.Taken{fs, Some{f}}:
+      tail
+
+def flights.take.ids(-A: Data, +fs: List<&2, Q.Ticket<A>>, +i: Nat) ->
+    taken.ids(A, Q.take.list(A, fs, i), i):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      taken.ids.keep(A, Nat.is_eq(Q.id(A, t), i), t, Q.take.list(A, rest, i), i, {==}, flights.take.ids(A, rest, i))
+
+def flights.apart.push(~A: Data, fs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>, +i: Nat, +d: Nat, +x: A,
+    e: flights.apart(A, fs, h), absent: QL.absent.list(A, fs, i)) ->
+    flights.apart(A, fs, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, h)):
+  match fs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, rest}:
+      QL.Both{root, tail} = e
+      QL.Both{ne, more} = absent
+      QL.Both{QP.merge_all.full(~A, QL.absent.ticket(A, Q.id(A, t)),
+        H.HNode{1n, Q.Ticket{i, d, x}, H.HLeaf{}, H.HLeaf{}}, h,
+        QL.Both{Equal.trans(Bool, Nat.is_eq(i, Q.id(A, t)), Nat.is_eq(Q.id(A, t), i), False{}, MNat.is_eq_comm(i, Q.id(A, t)), ne),
+          QL.Both{Unit{}, Unit{}}}, root),
+        flights.apart.push(~A, rest, h, i, d, x, tail, more)}
+
+def loop.ids(-A: Data, +s: R.Loop<A>) -> Data:
+  QL.Both<flights.distinct(A, R.loop.flights(A, s)),
+    QL.Both<heap.unique(A, Q.pending(A, R.queue(A, R.loop.state(A, s)))),
+      flights.apart(A, R.loop.flights(A, s), Q.pending(A, R.queue(A, R.loop.state(A, s))))>>
+
+def loop.selected.ids(~A: Data, +p: Res.Pool, +n: Nat, +size: Nat, +t: Q.Ticket<A>, +l: H.Heap<Q.Ticket<A>>, +r: H.Heap<Q.Ticket<A>>,
+    +rs: List<&2, Q.Ticket<A>>, +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +fs: List<&2, Q.Ticket<A>>, +now: Nat,
+    distinct: flights.distinct(A, fs), unique: heap.unique(A, H.HNode{size, t, l, r}),
+    +apart: flights.apart(A, fs, H.HNode{size, t, l, r}), due: {Nat.is_le(Q.deadline(A, t), now) == True{} : Bool}) ->
+    loop.ids(A, R.Loop{p, R.step(~A, R.State{Q.State{n, H.HNode{size, t, l, r}, rs}, ts, ds, bs}, R.Select{now}), Con{t, fs}}):
+  QL.Both{el, QL.Both{er, QL.Both{ul, QL.Both{ur, lr}}}} = unique
+  %Equal.sym(Bool, Nat.is_le(Q.deadline(A, t), now), True{}, due) :
+    loop.ids(A, R.Loop{p, R.step.selected(A, Q.select.due(~A, _, n, H.HNode{size, t, l, r}, rs, t, l, r), ts, ds, bs), Con{t, fs}})
+  QL.Both{QL.Both{flights.apart.root(A, fs, size, t, l, r, apart), distinct},
+    QL.Both{heap.merge.unique.full(~A, l, r, ul, ur, lr),
+      QL.Both{QP.merge_all.full(~A, QL.absent.ticket(A, Q.id(A, t)), l, r, el, er), flights.apart.pop(~A, fs, size, t, l, r, apart)}}}
+
+def loop.claim.ids(~A: Data, +o: Nat, +c: Nat, +held: Nat, s: R.State<A>, +fs: List<&2, Q.Ticket<A>>, +now: Nat,
+    +ids: loop.ids(A, R.Loop{Res.Pool{o, c, held}, s, fs})) ->
+    loop.ids(A, R.loop.step(~A, R.Claim{now}, R.Loop{Res.Pool{o, c, held}, s, fs})):
+  match s:
+    case R.State{Q.State{n, H.HLeaf{}, rs}, ts, ds, bs}:
+      ids
+    case R.State{Q.State{+n, H.HNode{+size, +t, +l, +r}, +rs}, +ts, +ds, +bs}:
+      QL.Both{+distinct, QL.Both{+unique, +apart}} = ids
+      +s = {R.State{Q.State{n, H.HNode{size, t, l, r}, rs}, ts, ds, bs} : R.State<A>}
+      split(b => loop.ids(A, R.loop.claim(~A,
+        R.pick.sel(A, Q.select.due(~A, b, n, H.HNode{size, t, l, r}, rs, t, l, r), Res.Pool{o, c, held}), s, fs, now)),
+        Nat.is_le(Q.deadline(A, t), now),
+        due => split(b => loop.ids(A, R.loop.claim(~A, R.pick.took(A, Res.reserve.go(b, o, c, held, 1n), t), s, fs, now)),
+          Nat.is_le(Nat.add(held, 1n), c),
+          yes => loop.selected.ids(~A, Res.Pool{o, c, Nat.add(held, 1n)}, n, size, t, l, r, rs, ts, ds, bs, fs, now, distinct, unique, apart, due),
+          no => ids),
+        later => ids)
+
+def loop.taken.ids(-A: Data, tk: Q.Taken<A>, +h: H.Heap<Q.Ticket<A>>, +i: Nat) -> Data:
+  match tk:
+    case Q.Taken{+fs, +m}:
+      QL.Both<flights.distinct(A, fs), QL.Both<flights.apart(A, fs, h),
+        QL.Both<found.heap(A, h, i, m), QL.absent.list(A, fs, i)>>>
+
+def loop.take.ids(-A: Data, +fs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>, +i: Nat,
+    distinct: flights.distinct(A, fs), apart: flights.apart(A, fs, h)) ->
+    loop.taken.ids(A, Q.take.list(A, fs, i), h, i):
+  %Equal.sym(Q.Taken<A>, Q.take.list(A, fs, i), Q.Taken{Q.remove.list(A, fs, i), Q.find.list(A, fs, i)}, QL.take_equivalent(A, fs, i)) :
+    loop.taken.ids(A, _, h, i)
+  +apart = apart
+  QL.Both{flights.remove.distinct(A, fs, i, distinct),
+    QL.Both{flights.remove.apart(A, fs, h, i, apart), QL.Both{flights.find.heap(A, fs, h, i, apart), QP.remove_absent.list(A, fs, i)}}}
+
+def loop.finished.ids(~A: Data, tk: Q.Taken<A>, +p: Res.Pool, +n: Nat, +h: H.Heap<Q.Ticket<A>>, +rs: List<&2, Q.Ticket<A>>,
+    +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +i: Nat,
+    unique: heap.unique(A, h), taken: loop.taken.ids(A, tk, h, i)) ->
+    loop.ids(A, R.loop.finished(~A, tk, p, R.State{Q.State{n, h, rs}, ts, ds, bs}, i)):
+  match tk p:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, held}:
+      QL.Both{distinct, QL.Both{apart, other}} = taken
+      QL.Both{distinct, QL.Both{unique, apart}}
+    case Q.Taken{fs, Some{t}} Res.Pool{o, c, held}:
+      QL.Both{distinct, QL.Both{apart, other}} = taken
+      %Equal.sym(Q.State<A> & Maybe<&2, Q.Ticket<A>>, Q.complete(A, i, Q.State{n, h, rs}),
+        QL.complete.reference(A, i, Q.State{n, h, rs}), QL.complete_equivalent(A, i, Q.State{n, h, rs})) :
+        loop.ids(A, R.Loop{R.loop.release(Res.release(Res.Pool{o, c, held}, Res.Grant{o, 1n})),
+          R.step.completed(A, _, R.tries.drop(ts, i), ds, bs), fs})
+      QL.Both{distinct, QL.Both{unique, apart}}
+
+def loop.retry.queue.ids(~A: Data, tk: Q.Taken<A>, +n: Nat, +h: H.Heap<Q.Ticket<A>>, +fs: List<&2, Q.Ticket<A>>,
+    +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +i: Nat, +d: Nat,
+    unique: heap.unique(A, h), apart: flights.apart(A, fs, h), absent: QL.absent.list(A, fs, i),
+    eh: QL.absent.heap(A, h, i), matching: taken.ids(A, tk, i)) ->
+    QL.Both<heap.unique(A, Q.pending(A, R.queue(A, R.step.requeued(A, Q.requeue.completed(~A, Q.complete.taken(A, tk, n, h), d), ts, ds, bs)))),
+      flights.apart(A, fs, Q.pending(A, R.queue(A, R.step.requeued(A, Q.requeue.completed(~A, Q.complete.taken(A, tk, n, h), d), ts, ds, bs))))>:
+  match tk:
+    case Q.Taken{rs, None{}}:
+      QL.Both{unique, apart}
+    case Q.Taken{rs, Some{Q.Ticket{+j, old, +x}}}:
+      %Equal.sym(Nat, j, i, matching) :
+        QL.Both<heap.unique(A, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{_, d, x}, h)),
+          flights.apart(A, fs, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{_, d, x}, h))>
+      QL.Both{heap.push.unique(~A, Q.Ticket{i, d, x}, h, unique, eh), flights.apart.push(~A, fs, h, i, d, x, apart, absent)}
+
+def loop.retried.ids(~A: Data, tk: Q.Taken<A>, +p: Res.Pool, +n: Nat, +h: H.Heap<Q.Ticket<A>>, +rs: List<&2, Q.Ticket<A>>,
+    +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +i: Nat, +d: Nat,
+    unique: heap.unique(A, h), taken: loop.taken.ids(A, tk, h, i)) ->
+    loop.ids(A, R.loop.retried(~A, tk, p, R.State{Q.State{n, h, rs}, ts, ds, bs}, i, d)):
+  match tk p:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, held}:
+      QL.Both{distinct, QL.Both{apart, other}} = taken
+      QL.Both{distinct, QL.Both{unique, apart}}
+    case Q.Taken{+fs, Some{t}} Res.Pool{o, c, held}:
+      QL.Both{distinct, QL.Both{apart, QL.Both{eh, absent}}} = taken
+      QL.Both{distinct, loop.retry.queue.ids(~A, Q.take.list(A, rs, i), n, h, fs, R.tries.bump(ts, i), ds, bs, i, d,
+        unique, apart, absent, eh, flights.take.ids(A, rs, i))}
+
+def loop.step.ids(~A: Data, e: R.LoopEvent, +s: R.Loop<A>, ids: loop.ids(A, s)) ->
+    loop.ids(A, R.loop.step(~A, e, s)):
+  match e s:
+    case R.Claim{+now} R.Loop{Res.Pool{+o, +c, +held}, +s, +fs}:
+      loop.claim.ids(~A, o, c, held, s, fs, now, ids)
+    case R.Finish{+i} R.Loop{+p, R.State{Q.State{+n, +h, +rs}, +ts, +ds, +bs}, +fs}:
+      QL.Both{distinct, QL.Both{unique, apart}} = ids
+      loop.finished.ids(~A, Q.take.list(A, fs, i), p, n, h, rs, ts, ds, bs, i, unique, loop.take.ids(A, fs, h, i, distinct, apart))
+    case R.CancelFlight{+i} R.Loop{p, R.State{Q.State{n, +h, rs}, ts, ds, bs}, +fs}:
+      QL.Both{distinct, QL.Both{unique, apart}} = ids
+      QL.Both{distinct, QL.Both{heap.remove.unique(~A, h, i, unique), flights.apart.cancel(~A, fs, h, i, apart)}}
+    case R.RetrySettle{+i, +d} R.Loop{+p, R.State{Q.State{+n, +h, +rs}, +ts, +ds, +bs}, +fs}:
+      QL.Both{distinct, QL.Both{unique, apart}} = ids
+      loop.retried.ids(~A, Q.take.list(A, fs, i), p, n, h, rs, ts, ds, bs, i, d, unique, loop.take.ids(A, fs, h, i, distinct, apart))
+
+def loop.ids.fold(~A: Data, es: List<&2, R.LoopEvent>, +s: R.Loop<A>, ids: loop.ids(A, s)) ->
+    loop.ids(A, R.loop.fold(~A, es, s)):
+  match es:
+    case Nil{}:
+      ids
+    case Con{+e, rest}:
+      loop.ids.fold(~A, rest, R.loop.step(~A, e, s), loop.step.ids(~A, e, s, ids))
+
+def loop.ids.distinct(-A: Data, +s: R.Loop<A>, ids: loop.ids(A, s)) ->
+    flights.distinct(A, R.loop.flights(A, s)):
+  QL.Both{distinct, other} = ids
+  distinct
+
+def loop.reserved_flights(~A: Data, es: List<&2, R.LoopEvent>, +s: R.Loop<A>,
+    same: loop.accounted(A, s), +ids: loop.ids(A, s)) ->
+    {Res.reserved(R.loop.pool(A, R.loop.fold(~A, es, s))) ==
+      List.length(&2, Q.Ticket<A>, R.loop.flights(A, R.loop.fold(~A, es, s))) : Nat}:
+  match es:
+    case Nil{}:
+      same
+    case Con{+e, rest}:
+      loop.reserved_flights(~A, rest, R.loop.step(~A, e, s),
+        loop.step.accounted(~A, e, s, same, loop.ids.distinct(A, s, ids)), loop.step.ids(~A, e, s, ids))
+
+def loop.reserved_prefix(~A: Data, es: List<&2, R.LoopEvent>, k: Nat, +s: R.Loop<A>,
+    same: loop.accounted(A, s), ids: loop.ids(A, s)) ->
+    loop.accounted(A, R.loop.fold(~A, List.take(&2, R.LoopEvent, es, k), s)):
+  loop.reserved_flights(~A, List.take(&2, R.LoopEvent, es, k), s, same, ids)
+
+def loop.live_capacity(~A: Data, +es: List<&2, R.LoopEvent>, +s: R.Loop<A>,
+    same: loop.accounted(A, s), ids: loop.ids(A, s), bound: loop.bound(A, s)) ->
+    MNat.le(List.length(&2, Q.Ticket<A>, R.loop.flights(A, R.loop.fold(~A, es, s))),
+      Res.capacity(R.loop.pool(A, R.loop.fold(~A, es, s)))):
+  %loop.reserved_flights(~A, es, s, same, ids) :
+    MNat.le(_, Res.capacity(R.loop.pool(A, R.loop.fold(~A, es, s))))
+  Laws.loop_capacity(~A, es, s, bound)
+
+def loop.ids.empty(~A: Data, p: Res.Pool) -> loop.ids(A, R.Loop{p, R.new(A), Nil{}}):
+  QL.Both{Unit{}, QL.Both{Unit{}, Unit{}}}
+
+def loop.accounted.empty(~A: Data, o: Nat, c: Nat) ->
+    loop.accounted(A, R.Loop{Res.Pool{o, c, 0n}, R.new(A), Nil{}}):
+  {==}
+
+def loop.fixture() -> R.Loop<Unit>:
+  R.Loop{Res.Pool{7n, 1n, 0n},
+    R.State{Q.State{2n, H.Heap.push(~Q.Ticket<Unit>, ~(a => b => Q.le(Unit, a, b)),
+      Q.Ticket{1n, 0n, Unit{}}, H.HNode{1n, Q.Ticket{0n, 0n, Unit{}}, H.HLeaf{}, H.HLeaf{}}), Nil{}},
+      R.tries(Unit, R.new(Unit)), R.dead(Unit, R.new(Unit)), R.breakers(Unit, R.new(Unit))}, Nil{}}
+
+def loop.fixture.ids() -> loop.ids(Unit, loop.fixture()):
+  QL.Both{Unit{}, QL.Both{heap.push.unique(~Unit, Q.Ticket{1n, 0n, Unit{}},
+    H.HNode{1n, Q.Ticket{0n, 0n, Unit{}}, H.HLeaf{}, H.HLeaf{}},
+    QL.Both{Unit{}, QL.Both{Unit{}, QL.Both{Unit{}, QL.Both{Unit{}, Unit{}}}}},
+    QL.Both{{==}, QL.Both{Unit{}, Unit{}}}), Unit{}}}
+
+def loop.fixture.events() -> List<&2, R.LoopEvent>:
+  [R.Claim{0n}, R.Claim{0n}, R.CancelFlight{0n}, R.RetrySettle{0n, 4n}, R.Finish{0n},
+    R.Claim{0n}, R.RetrySettle{1n, 4n}, R.RetrySettle{1n, 4n}, R.Finish{1n},
+    R.Claim{3n}, R.Claim{4n}, R.Finish{1n}, R.RetrySettle{1n, 4n}, R.Finish{1n}]
+
+def loop.fixture.accounted() ->
+    loop.accounted(Unit, R.loop.fold(~Unit, loop.fixture.events(), loop.fixture())):
+  loop.reserved_flights(~Unit, loop.fixture.events(), loop.fixture(), {==}, loop.fixture.ids())
+
+def loop.fixture.empty() ->
+    QL.Both<{Res.reserved(R.loop.pool(Unit, R.loop.fold(~Unit, loop.fixture.events(), loop.fixture()))) == 0n : Nat},
+      {R.loop.flights(Unit, R.loop.fold(~Unit, loop.fixture.events(), loop.fixture())) == Nil{} : List<&2, Q.Ticket<Unit>>}>:
+  QL.Both{{==}, {==}}

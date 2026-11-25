@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.21.0.1: prove that reserved pool units equal live flights after every event prefix. Preserve initial id uniqueness through claims, cancellation, completion, and retry, and derive the live-attempt capacity bound. Publish the documented accounting assumptions; runtime behavior is unchanged.
+
 - `runner`: use `bend-kit-webhooks@0.14.0.2` in the webhook example and remove the old pin exception. Keep the published package unchanged.
 
 - `sigv4` 0.14.0.3: isolate pure S3 XML parsing and prove namespace, nesting, entity, comment, CDATA, malformed response, error, and list fixtures. Keep public runtime response types and signing checks.
