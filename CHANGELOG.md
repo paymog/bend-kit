@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `zlib` 0.7.0.2: replace per-match length and distance list scans with bounded symbol arithmetic. Preserve compressed bytes and match choices.
+
 - `archive` 0.7.0.0 and `http` 0.43.0.0: adopt zlib 0.7.0.1 run-length headers, deferred lazy-match reuse, and reader order tracking. Remove the old zlib pin exception.
 
 - `zlib` 0.7.0.1: adopt `bits` 0.4.0.0 reader order tracking and remove the old dependency pin exception.
