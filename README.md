@@ -80,7 +80,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`regex`](regex) | `bend-kit-regex@0.9.0.1/regex.bend` | Linear-time RE2 matching, with capture groups and `(?i)`. |
 | [`parse`](parse) | `bend-kit-parse@0.2.0.0/parse.bend` | Parser combinators over text. `parse/json.bend` is a JSON grammar on them, not the `json` package. |
 | [`fmt`](fmt) | `bend-kit-fmt@0.1.0.0/fmt.bend` | A string builder, `{}` formatting, padding, and shortest `F32` text. |
-| [`text`](text) | `bend-kit-text@0.2.2.0/text.bend` | Myers diff with unified output, Levenshtein distance, and word wrap by display width. |
+| [`text`](text) | `bend-kit-text@0.2.2.1/text.bend` | Myers diff with unified output, Levenshtein distance, and word wrap by display width. |
 | [`template`](template) | `bend-kit-template@0.3.1.0/template.bend` | Mustache templates: variables, sections, inverted sections, comments, partials, and set delimiters, HTML-escaped by default. |
 | [`markdown`](markdown) | `bend-kit-markdown@0.3.10.0/markdown.bend` | CommonMark 0.31.2 to HTML, with opt-in GitHub extensions. All 652 spec examples pass. |
 | [`int`](int) | `bend-kit-int@0.2.0.0/int.bend` | `U8`, `U16`, `U64`, `I32`, and `I64`. `U64` and `I64` are slow. |
