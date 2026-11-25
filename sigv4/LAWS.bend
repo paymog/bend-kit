@@ -1,5 +1,6 @@
 import Base
 import ./pure.bend as Sigv4
+import ./xml.bend as Xml
 
 # AWS SigV4 test suite (aws-sig-v4-test-suite, as mirrored in mongodb/libmongocrypt kms-message):
 # region us-east-1, service "service", date 20150830T123600Z. Each vector pins the canonical request
@@ -155,3 +156,90 @@ law encode_value:
 
 law header_dup_trim:
   {Sigv4.canonical("s3", "GET", "/", "", [("X-B", " 1  2 "), ("host", "h"), ("x-b", "3")], "UNSIGNED-PAYLOAD") == "GET\n/\n\nhost:h\nx-b:1 2,3\n\nhost;x-b\nUNSIGNED-PAYLOAD" : String}
+
+law xml_namespace:
+  {Xml.xml("<s:R xmlns:s=\"urn:s3\"><s:Key>a</s:Key></s:R>") == Some{[Xml.Leaf{"R", "Key", "a"}, Xml.Leaf{"", "R", ""}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_nested:
+  {Xml.xml("<R><A><B>b</B></A><A>a</A></R>") == Some{[Xml.Leaf{"A", "B", "b"}, Xml.Leaf{"R", "A", ""}, Xml.Leaf{"R", "A", "a"}, Xml.Leaf{"", "R", ""}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_attributes_self_close:
+  {Xml.xml("<R a='>' b=\"/\"><K/><K /></R>") == Some{[Xml.Leaf{"R", "K", ""}, Xml.Leaf{"R", "K", ""}, Xml.Leaf{"", "R", ""}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_named_entities:
+  {Xml.xml("<K>&lt;&gt;&amp;&quot;&apos;</K>") == Some{[Xml.Leaf{"", "K", "<>&\"'"}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_entities:
+  {Xml.xml("<K>&#65;&#x42;&#xE9;</K>") == Some{[Xml.Leaf{"", "K", "ABé"}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_comment:
+  {Xml.xml("<K>a<!-- <bad>&unknown; -->b</K>") == Some{[Xml.Leaf{"", "K", "ab"}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_cdata:
+  {Xml.xml("<K>a<![CDATA[<&x;]q]]r]]]>b</K>") == Some{[Xml.Leaf{"", "K", "a<&x;]q]]r]b"}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_instruction:
+  {Xml.xml("<?xml version=\"1.0\"?><K>x</K>") == Some{[Xml.Leaf{"", "K", "x"}]} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_mismatched:
+  {Xml.xml("<R><K>x</R></K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_unclosed:
+  {Xml.xml("<R><K>x</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_extra_close:
+  {Xml.xml("<K>x</K></K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_unknown_entity:
+  {Xml.xml("<K>&unknown;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_bad_numeric_entity:
+  {Xml.xml("<K>&#xQ;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_unfinished_entity:
+  {Xml.xml("<K>&amp") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_unfinished_comment:
+  {Xml.xml("<K><!-- x") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_unfinished_cdata:
+  {Xml.xml("<K><![CDATA[x") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_unfinished_attribute:
+  {Xml.xml("<K a=\"x") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_unfinished_instruction:
+  {Xml.xml("<?xml") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_s3_error:
+  {Xml.fault(Xml.xml("<s:Error><s:Code>NoSuchKey</s:Code><s:Message>A &amp; B</s:Message><Detail><Code>ignored</Code></Detail></s:Error>")) == ("NoSuchKey", "A & B") : String & String}
+
+law xml_s3_error_missing_fields:
+  {Xml.fault(Xml.xml("<Error><Code>Denied</Code></Error>")) == ("Denied", "") : String & String}
+
+law xml_s3_error_malformed:
+  {Xml.fault(Xml.xml("<Error><Code>Denied</Code>")) == ("", "") : String & String}
+
+type XmlObject is Data:
+  XmlObject{key: String, size: Nat, etag: String, modified: String}
+
+def xml_object(key: String, size: Nat, etag: String, modified: String) -> XmlObject:
+  XmlObject{key, size, etag, modified}
+
+law xml_s3_list:
+  {Xml.page(~XmlObject, ~xml_object, Xml.xml("<s:ListBucketResult><s:Contents><s:Key>a&amp;b</s:Key><s:Size>12</s:Size><s:ETag>&quot;e&quot;</s:ETag><s:LastModified>date</s:LastModified></s:Contents><s:Contents><s:Key>c</s:Key><s:Size>0</s:Size></s:Contents><s:CommonPrefixes><s:Prefix>d/</s:Prefix></s:CommonPrefixes><s:CommonPrefixes><s:Prefix>e/</s:Prefix></s:CommonPrefixes><s:IsTruncated>true</s:IsTruncated><s:NextContinuationToken>t&amp;+</s:NextContinuationToken></s:ListBucketResult>")) == Some{Xml.Page{[XmlObject{"a&b", 12n, "\"e\"", "date"}, XmlObject{"c", 0n, "", ""}], ["d/", "e/"], Some{"t&+"}}} : Maybe<&2, Xml.Page<XmlObject>>}
+
+law xml_s3_list_empty:
+  {Xml.page(~XmlObject, ~xml_object, Xml.xml("<ListBucketResult/>")) == Some{Xml.Page{Nil{}, Nil{}, None{}}} : Maybe<&2, Xml.Page<XmlObject>>}
+
+law xml_s3_list_complete:
+  {Xml.page(~XmlObject, ~xml_object, Xml.xml("<ListBucketResult><IsTruncated>false</IsTruncated><NextContinuationToken>unused</NextContinuationToken></ListBucketResult>")) == Some{Xml.Page{Nil{}, Nil{}, None{}}} : Maybe<&2, Xml.Page<XmlObject>>}
+
+law xml_s3_list_missing_token:
+  {Xml.page(~XmlObject, ~xml_object, Xml.xml("<ListBucketResult><IsTruncated>true</IsTruncated></ListBucketResult>")) == Some{Xml.Page{Nil{}, Nil{}, None{}}} : Maybe<&2, Xml.Page<XmlObject>>}
+
+law xml_s3_list_wrong_root:
+  {Xml.page(~XmlObject, ~xml_object, Xml.xml("<Error/>")) == None{} : Maybe<&2, Xml.Page<XmlObject>>}
+
+law xml_s3_list_malformed:
+  {Xml.page(~XmlObject, ~xml_object, Xml.xml("<ListBucketResult>")) == None{} : Maybe<&2, Xml.Page<XmlObject>>}

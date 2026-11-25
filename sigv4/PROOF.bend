@@ -144,3 +144,84 @@ def Laws.encode_value():
 
 def Laws.header_dup_trim():
   {==}
+
+def Laws.xml_namespace():
+  {==}
+
+def Laws.xml_nested():
+  {==}
+
+def Laws.xml_attributes_self_close():
+  {==}
+
+def Laws.xml_named_entities():
+  {==}
+
+def Laws.xml_numeric_entities():
+  {==}
+
+def Laws.xml_comment():
+  {==}
+
+def Laws.xml_cdata():
+  {==}
+
+def Laws.xml_instruction():
+  {==}
+
+def Laws.xml_mismatched():
+  {==}
+
+def Laws.xml_unclosed():
+  {==}
+
+def Laws.xml_extra_close():
+  {==}
+
+def Laws.xml_unknown_entity():
+  {==}
+
+def Laws.xml_bad_numeric_entity():
+  {==}
+
+def Laws.xml_unfinished_entity():
+  {==}
+
+def Laws.xml_unfinished_comment():
+  {==}
+
+def Laws.xml_unfinished_cdata():
+  {==}
+
+def Laws.xml_unfinished_attribute():
+  {==}
+
+def Laws.xml_unfinished_instruction():
+  {==}
+
+def Laws.xml_s3_error():
+  {==}
+
+def Laws.xml_s3_error_missing_fields():
+  {==}
+
+def Laws.xml_s3_error_malformed():
+  {==}
+
+def Laws.xml_s3_list():
+  {==}
+
+def Laws.xml_s3_list_empty():
+  {==}
+
+def Laws.xml_s3_list_complete():
+  {==}
+
+def Laws.xml_s3_list_missing_token():
+  {==}
+
+def Laws.xml_s3_list_wrong_root():
+  {==}
+
+def Laws.xml_s3_list_malformed():
+  {==}
