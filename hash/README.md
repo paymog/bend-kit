@@ -34,3 +34,30 @@ def seeded() -> Hash.W64:
 ```
 
 The `int` package represents `U64` as a bit list. This representation is too slow for hashing. Equal keys for the `collections` type `HMap` must have equal hashes. These functions do not replace `crypto` digests.
+
+## Runtime checks
+
+`scripts/check.sh hash` and `scripts/native-check.sh hash` check all 64 short
+SipHash-2-4 reference vectors. They also check lengths 255, 256, 257, 511, 512,
+and 513 with key `00..0f` and message bytes `i modulo 256`. Each case checks
+the byte-string form, packed `Bytes`, and `Bytes` with nonzero storage past
+the logical length. Benchmarks stay separate from CI.
+
+The wrap-boundary digests come from libsodium 1.0.22. Run this command on
+macOS with Homebrew libsodium to reproduce them:
+
+```sh
+python3 - <<'PY'
+import ctypes
+s = ctypes.CDLL('/opt/homebrew/lib/libsodium.dylib')
+s.sodium_version_string.restype = ctypes.c_char_p
+print('libsodium', s.sodium_version_string().decode())
+for n in (255, 256, 257, 511, 512, 513):
+    out = ctypes.create_string_buffer(8)
+    msg = bytes(i % 256 for i in range(n))
+    assert s.crypto_shorthash_siphash24(
+        out, msg, ctypes.c_ulonglong(n), bytes(range(16))) == 0
+    digest = int.from_bytes(out.raw, 'little')
+    print(n, f'{digest:016x}', digest >> 32, digest & 0xffffffff)
+PY
+```

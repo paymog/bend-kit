@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `hash` checks: cover SipHash-2-4 length-byte wraps at 255, 256, 257, 511, 512, and 513 bytes against libsodium 1.0.22 in Bun and native checks.
+
 - `commands` 0.6.0.0: profile bounded range transactions and reuse the range statement. Reset it after success or overflow. Add the range handle to `Store`.
 
 - `http` 0.42.0.0: adopt HTTP/2 consumption-driven receive credit. Release buffered chunks after acceptance and streamed chunks on the next read. Return discarded credit once when a session goes back to the pool.
