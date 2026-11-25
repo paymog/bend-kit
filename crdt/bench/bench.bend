@@ -153,6 +153,15 @@ def exact.reads(n: Nat, +s: Crdt.PNCounter, acc: U32) -> U32:
       next = Maybe.default(&2, Crdt.PNCounter, Crdt.PNCounter.inc(s, 1n), Crdt.PNCounter.new())
       exact.reads(p, next, (acc + value : U32))
 
+def kexact.reads(n: Nat, +s: Crdt.KCounter<U32>, acc: U32) -> U32:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      value = U32.from_nat(Crdt.KCounter.value_exact(U32, s))
+      next = kinc.or(Crdt.KCounter.inc(~U32, ~U32.cmp, s, 4000000000))
+      kexact.reads(p, next, (acc + value : U32))
+
 def lg(args: List<&1, String>) -> Nat:
   match args:
     case program <> n <> Nil{}:
@@ -189,3 +198,9 @@ def main() -> IO(Unit):
     t7 : Time.Duration <- Time.mono()
     IO.print("chk\tread-pn-exact\t" ++ U32.show(ev))
     IO.print("ms\tread-pn-exact\t" ++ Time.Duration.show_ms(Time.Duration.sub(t7, t6)))
+    +kexactstart : Crdt.KCounter<U32> = Crdt.KCon{7, 4294967295, Crdt.KCon{4000000000, 1, Crdt.KNil{}}}
+    t8 : Time.Duration <- Time.mono()
+    +kev : U32 = kexact.reads(n, kexactstart, 0)
+    t9 : Time.Duration <- Time.mono()
+    IO.print("chk\tread-keyed-exact\t" ++ U32.show(kev))
+    IO.print("ms\tread-keyed-exact\t" ++ Time.Duration.show_ms(Time.Duration.sub(t9, t8)))

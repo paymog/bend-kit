@@ -236,6 +236,15 @@ def ksparse() -> IO(Unit):
     +a0 : Maybe<&2, Crdt.KCounter<U32>> = kbumps(3n, zero, KA())
     +b0 : Maybe<&2, Crdt.KCounter<U32>> = kbumps(2n, zero, KB())
     +c0 : Maybe<&2, Crdt.KCounter<U32>> = kbumps(1n, zero, KC())
+    ok(Nat.is_eq(Crdt.KCounter.value_exact(U32, Crdt.KNil{}), 0n), "keyed exact empty")
+    ok(Nat.is_eq(Crdt.KCounter.value_exact(U32, Crdt.KCon{7, 3, Crdt.KCon{4000000000, 2, Crdt.KNil{}}}), 5n),
+      "keyed exact ordinary counts")
+    +wide : Crdt.KCounter<U32> = Crdt.KCon{7, 4294967295, Crdt.KCon{1000000, 4294967295, Crdt.KCon{4000000000, 3, Crdt.KNil{}}}}
+    ok(Nat.is_eq(Crdt.KCounter.value_exact(U32, wide), (4294967295n + 4294967295n + 3n : Nat)),
+      "keyed exact total beyond U32 across sparse IDs")
+    ok(String.eq(kshow.value(Some{wide}), "overflow"), "keyed checked total still rejects overflow")
+    ok(Nat.is_eq(Crdt.KCounter.value_exact(String, Crdt.KCon{"replica", 9, Crdt.KNil{}}), 9n),
+      "keyed exact supports nonnumeric IDs")
     kexpect(a0, "{7: 3}", "3", "replica 7 after 3 events")
     kexpect(b0, "{1000000: 2}", "2", "replica 1000000 after 2 events")
     kexpect(c0, "{4000000000: 1}", "1", "replica 4000000000 after 1 event")

@@ -26,6 +26,8 @@ The program runs this twice. `gossip` gives replica r the ID r. `gossip-sparse` 
 
 `read-pn-exact` starts both PN halves at 4294967296, split across two replica entries. It reads the exact signed value, adds its magnitude to a U32 checksum, and increments replica 1. It repeats R times. The timer excludes setup and includes the reads and updates. Bend uses `PNCounter.value_exact`; Rust uses `PNCounter::read`. The checksum is 134209536.
 
+`read-keyed-exact` starts a keyed counter at 4294967296 with counts 4294967295 and 1 under IDs 7 and 4000000000. Each round reads the unbounded total and increments the second ID. The timer excludes setup and includes reads and updates. Bend uses `KCounter.value_exact`; Rust uses `crdts::GCounter::read`. Both add the low 32 bits of each total to a wrapping U32 checksum. The default checksum is 134209536.
+
 | language | op | increment | merge |
 |---|---|---|---|
 | Bend | `gossip` | `Crdt.GCounter.inc(s, r)` | `Crdt.GCounter.merge(s, t)` |
@@ -34,18 +36,19 @@ The program runs this twice. `gossip` gives replica r the ID r. `gossip-sparse` 
 
 ## Results
 
-macOS arm64, 2026-11-23. Three runs (`python3 run.py 3`), median, in ms.
+macOS arm64, 2026-11-24. Three runs (`python3 run.py 3`), median, in ms.
 
 Versions: Bend 2.0.40, rustc 1.91.0, crdts 7.3.2.
 
 | op | Rust | Bend |
 |---|---:|---:|
-| gossip | 83.1 | 56.4 |
-| gossip-sparse | 82.5 | 74.7 |
-| gossip-pn | 170.4 | 179.0 |
+| gossip | 79.7 | 55.1 |
+| gossip-sparse | 79.1 | 73.7 |
+| gossip-pn | 165.0 | 175.6 |
 | read-pn-exact | 0.3 | 1.1 |
+| read-keyed-exact | 0.1 | 0.2 |
 
-Both programs print the checksum 4192624 for each gossip op and 134209536 for the exact read op.
+Both programs print the checksum 4192624 for each gossip op and 134209536 for each exact read op.
 
 ## Reading it
 

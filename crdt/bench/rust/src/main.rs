@@ -66,6 +66,23 @@ fn read_pn_exact(rounds: u64) {
     println!("read-pn-exact\t{ms:.3}\t{chk}");
 }
 
+fn read_keyed_exact(rounds: u64) {
+    let mut s = GCounter::<u32>::new();
+    let op = s.inc_many(7, u32::MAX as u64);
+    s.apply(op);
+    let op = s.inc(4_000_000_000);
+    s.apply(op);
+    let t0 = Instant::now();
+    let mut chk = 0u32;
+    for _ in 0..rounds {
+        chk = chk.wrapping_add(s.read().to_u64().unwrap() as u32);
+        let op = s.inc(4_000_000_000);
+        s.apply(op);
+    }
+    let ms = t0.elapsed().as_secs_f64() * 1e3;
+    println!("read-keyed-exact\t{ms:.3}\t{chk}");
+}
+
 fn main() {
     let lg: u32 = std::env::args().nth(1).map_or(14, |a| a.parse().unwrap());
     let rounds = 1u64 << lg;
@@ -73,4 +90,5 @@ fn main() {
     gossip("gossip-sparse", rounds, |r| r as u32 * 250_000_000 + 7);
     gossip_pn(rounds);
     read_pn_exact(rounds);
+    read_keyed_exact(rounds);
 }
