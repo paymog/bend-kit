@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `jwt`: prove claim-time and leeway boundaries for every `U32` timestamp. Compare sums in `Nat` to cover wrapped subtraction. Keep runtime behavior and the published version unchanged.
+
 - `redis` 0.5.0.0: retain RESP parser phases and aggregate frames across chunked reads. The public `Reader` now wraps the pure reader state.
 
 - `stream` 0.5.0.1: prove general chunk intervals, bounded non-probe requests, and EOF/probe/forward decisions. Select probes with the same zero flag used by the proofs.
