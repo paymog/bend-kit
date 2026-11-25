@@ -1,5 +1,6 @@
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ./smoke_server.bend as Smoke
@@ -35,15 +36,15 @@ def body(st: Download, w: Http.Writer, receipt: Completion.Receipt) -> IO(Http.W
     written : Http.Writer <- body.large(String.eq(path, "/large"), w)
     return (written, receipt)
 
-def start(req: Http.Req) -> IO(Http.WriteHead<Download>):
-  Http.Req{method, +path, headers, body} = req
+def start(req: Pure.Req) -> IO(Http.WriteHead<Download>):
+  Pure.Req{method, +path, headers, body} = req
   +status = Bool.pick(U32, String.eq(path, "/none"), 204,
     Bool.pick(U32, String.eq(path, "/not-modified"), 304,
       Bool.pick(U32, String.eq(path, "/interim"), 103, 200)))
   +length = Bool.pick(Maybe<&2, U32>, String.eq(path, "/known"), Some{11},
     Bool.pick(Maybe<&2, U32>, String.eq(path, "/short"), Some{12},
       Bool.pick(Maybe<&2, U32>, String.eq(path, "/over"), Some{2}, None{})))
-  +rh = Http.set(Http.set(Http.empty(), "Content-Length", "99"), "Transfer-Encoding", "gzip")
+  +rh = Pure.set(Pure.set(Pure.empty(), "Content-Length", "99"), "Transfer-Encoding", "gzip")
   IO.pure(Http.WriteHead<Download>, Http.WriteHead{status, rh, length, Download{path}, Completion.Unobserved{}})
 
 # Download owns only managed values; skipped writes have no external handle.
@@ -54,5 +55,5 @@ def dispose(state: Download) -> IO(Unit):
 def main() -> IO(Unit):
   do IO<Unit>:
     server : Http.Server<Unit> <- Smoke.start(1048576n)
-    exited : Http.ServerExit <- Http.server.write.run(~Download, ~start, ~body, ~dispose, ~Completion.ignore, server)
+    exited : Pure.ServerExit <- Http.server.write.run(~Download, ~start, ~body, ~dispose, ~Completion.ignore, server)
     Http.server.exited(exited)

@@ -2,6 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../http.bend as Http
+import ../pure.bend as Pure
 
 def iters() -> Nat:
   20000n
@@ -23,31 +24,31 @@ def list_len(xs: List<&2, String>, n: U32) -> U32:
     case Con{_, t}:
       list_len(t, (n + 1 : U32))
 
-def score.got(g: Http.Got) -> U32:
+def score.got(g: Pure.Got) -> U32:
   match g:
-    case Http.GotReq{req}:
-      Http.Req{method, path, headers, body} = req
+    case Pure.GotReq{req}:
+      Pure.Req{method, path, headers, body} = req
       (len(method, 0) + len(path, 0) + 1 : U32)
-    case Http.GotHead{req}:
+    case Pure.GotHead{req}:
       2
-    case Http.GotMore{}:
+    case Pure.GotMore{}:
       3
-    case Http.GotBad{}:
+    case Pure.GotBad{}:
       0
 
-def score.maybe(m: Maybe<&1, Http.Req>) -> U32:
+def score.maybe(m: Maybe<&1, Pure.Req>) -> U32:
   match m:
     case None{}:
       0
     case Some{req}:
-      Http.Req{method, path, headers, body} = req
+      Pure.Req{method, path, headers, body} = req
       len(method, 0)
 
-def score.fields(fs: Http.Fields) -> U32:
+def score.fields(fs: Pure.Fields) -> U32:
   match fs:
-    case Http.FieldsBad{}:
+    case Pure.FieldsBad{}:
       0
-    case Http.FieldsOk{m}:
+    case Pure.FieldsOk{m}:
       1
 
 def score.headers(m: Maybe<&2, Map<&2, List<&2, String>>>) -> U32:
@@ -58,7 +59,7 @@ def score.headers(m: Maybe<&2, Map<&2, List<&2, String>>>) -> U32:
       1
 
 def head_parts(+raw: String) -> String & String:
-  Http.split_at_blank(raw)
+  Pure.split_at_blank(raw)
 
 def header_lines(+head: String) -> List<&2, String>:
   String.lines(head)
@@ -76,7 +77,7 @@ def loop.full(n: Nat, +raw: String, acc: U32) -> U32:
     case 0n:
       acc
     case 1n+p:
-      loop.full(p, raw, (acc + score.maybe(Http.parse(raw)) : U32))
+      loop.full(p, raw, (acc + score.maybe(Pure.parse(raw)) : U32))
 
 def loop.split.score(acc: U32, hb: String & String) -> U32:
   (+head, +rest) = hb
@@ -91,7 +92,7 @@ def loop.split(n: Nat, +raw: String, acc: U32) -> U32:
 
 def loop.whole.score(acc: U32, hb: String & String) -> U32:
   (+head, +rest) = hb
-  (acc + Bool.to_u32(Http.blank_end(head)) + len(rest, 0) : U32)
+  (acc + Bool.to_u32(Pure.blank_end(head)) + len(rest, 0) : U32)
 
 def loop.whole(n: Nat, +raw: String, acc: U32) -> U32:
   match n:
@@ -120,7 +121,7 @@ def loop.start.score(acc: U32, mpv: String & String & String) -> U32:
 
 def loop.start.lr(acc: U32, lr: String & List<&2, String>) -> U32:
   (+line, xs) = lr
-  loop.start.score(acc, Http.start_line(line))
+  loop.start.score(acc, Pure.start_line(line))
 
 def loop.start.h(acc: U32, +head: String) -> U32:
   loop.start.lr(acc, first_rest(header_lines(head)))
@@ -138,14 +139,14 @@ def loop.start(n: Nat, +raw: String, acc: U32) -> U32:
 
 def loop.field_ops.kv(acc: U32, kv: String & String) -> U32:
   (k, v) = kv
-  (acc + len(k, 0) + len(Http.trim(v), 0) : U32)
+  (acc + len(k, 0) + len(Pure.trim(v), 0) : U32)
 
 def loop.field_ops.go(xs: List<&2, String>, acc: U32) -> U32:
   match xs:
     case Nil{}:
       acc
     case Con{line, rest}:
-      loop.field_ops.go(rest, loop.field_ops.kv(acc, Http.split_colon(Http.drop_cr(line))))
+      loop.field_ops.go(rest, loop.field_ops.kv(acc, Pure.split_colon(Pure.drop_cr(line))))
 
 def loop.field_ops.lr(acc: U32, lr: String & List<&2, String>) -> U32:
   (+line, xs) = lr
@@ -167,10 +168,10 @@ def loop.field_ops(n: Nat, +raw: String, acc: U32) -> U32:
 
 def loop.map_build.lr(acc: U32, lr: String & String) -> U32:
   (line, headers) = lr
-  (acc + score.headers(Http.parse.headers.raw(headers)) : U32)
+  (acc + score.headers(Pure.parse.headers.raw(headers)) : U32)
 
 def loop.map_build.h(acc: U32, +head: String) -> U32:
-  loop.map_build.lr(acc, Http.parse.first(head, SNil{}))
+  loop.map_build.lr(acc, Pure.parse.first(head, SNil{}))
 
 def loop.map_build.score_hb(acc: U32, hb: String & String) -> U32:
   (+head, +rest) = hb
@@ -188,9 +189,9 @@ def loop.head_got(n: Nat, +raw: String, acc: U32) -> U32:
     case 0n:
       acc
     case 1n+p:
-      loop.head_got(p, raw, (acc + score.got(Http.parse.got(raw)) : U32))
+      loop.head_got(p, raw, (acc + score.got(Pure.parse.got(raw)) : U32))
 
-def loop.body_len.tick(acc: U32, b: Http.Hold) -> U32:
+def loop.body_len.tick(acc: U32, b: Pure.Hold) -> U32:
   (acc + 1 : U32)
 
 def loop.body_len.fs(acc: U32, fs: Maybe<&2, Map<&2, List<&2, String>>>, +rest: String) -> U32:
@@ -198,14 +199,14 @@ def loop.body_len.fs(acc: U32, fs: Maybe<&2, Map<&2, List<&2, String>>>, +rest: 
     case None{}:
       acc
     case Some{+h}:
-      loop.body_len.tick(acc, Http.parse.body(h, rest))
+      loop.body_len.tick(acc, Pure.parse.body(h, rest))
 
 def loop.body_len.lr(acc: U32, +rest: String, lr: String & String) -> U32:
   (line, headers) = lr
-  loop.body_len.fs(acc, Http.parse.headers.raw(headers), rest)
+  loop.body_len.fs(acc, Pure.parse.headers.raw(headers), rest)
 
 def loop.body_len.h(acc: U32, +head: String, +rest: String) -> U32:
-  loop.body_len.lr(acc, rest, Http.parse.first(head, SNil{}))
+  loop.body_len.lr(acc, rest, Pure.parse.first(head, SNil{}))
 
 def loop.body_len.score_hb(acc: U32, hb: String & String) -> U32:
   (+head, +rest) = hb

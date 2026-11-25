@@ -2,6 +2,7 @@ import Base
 import ../contract.bend as Contract
 import ./domain.bend as Domain
 import ../../../http/http.bend as Http
+import ../../../http/pure.bend as Pure
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import ../../../router/router.bend as Router
@@ -67,13 +68,13 @@ def policy.public(config: Config) -> Surface.Policy<Hook>:
   Config{root, protected, publish, public} = config
   public
 
-def plain(status: U32, body: String) -> Http.Res:
-  Http.Res{status, Http.empty(), Http.from_string(body)}
+def plain(status: U32, body: String) -> Pure.Res:
+  Pure.Res{status, Pure.empty(), Pure.from_string(body)}
 
-def mapped(error: Err, state: Contract.State) -> Contract.State & Result<&2, &1, Err, Http.Res>:
+def mapped(error: Err, state: Contract.State) -> Contract.State & Result<&2, &1, Err, Pure.Res>:
   match error:
     case Unauthorized{}:
-      (note(state, "map/unauthorized"), Done{Http.Res{401, Http.set(Http.empty(), "www-authenticate", "Bearer"), Http.from_string("")}})
+      (note(state, "map/unauthorized"), Done{Pure.Res{401, Pure.set(Pure.empty(), "www-authenticate", "Bearer"), Pure.from_string("")}})
     case BadInput{}:
       (note(state, "map/input"), Done{plain(400, "invalid input")})
     case Unsupported{}:
@@ -85,29 +86,29 @@ def mapped(error: Err, state: Contract.State) -> Contract.State & Result<&2, &1,
     case BadTarget{}:
       (state, Done{plain(400, "invalid target")})
     case NoMethod{allow}:
-      (state, Done{Http.Res{405, Http.set(Http.empty(), "allow", allow), Http.from_string("")}})
+      (state, Done{Pure.Res{405, Pure.set(Pure.empty(), "allow", allow), Pure.from_string("")}})
     case InvalidResponse{}:
       (state, Done{plain(500, "invalid response")})
 
-def mapper(state: Contract.State, app: Application, error: Err) -> IO(Contract.State & Result<&2, &1, Err, Http.Res>):
-  IO.pure(Contract.State & Result<&2, &1, Err, Http.Res>, mapped(error, state))
+def mapper(state: Contract.State, app: Application, error: Err) -> IO(Contract.State & Result<&2, &1, Err, Pure.Res>):
+  IO.pure(Contract.State & Result<&2, &1, Err, Pure.Res>, mapped(error, state))
 
-def validate.checked(valid: Bool, response: Http.Res) -> Result<&2, &1, Err, Http.Res>:
+def validate.checked(valid: Bool, response: Pure.Res) -> Result<&2, &1, Err, Pure.Res>:
   match valid:
     case True{}:
       Done{response}
     case False{}:
       Fail{InvalidResponse{}}
 
-def validate(response: Http.Res) -> Result<&2, &1, Err, Http.Res>:
-  Http.Res{+status, +headers, body} = response
-  validate.checked(Response.valid(status, headers), Http.Res{status, headers, body})
+def validate(response: Pure.Res) -> Result<&2, &1, Err, Pure.Res>:
+  Pure.Res{+status, +headers, body} = response
+  validate.checked(Response.valid(status, headers), Pure.Res{status, headers, body})
 
-def after.mark(event: String, header: String, state: Contract.State, response: Http.Res) -> IO(Contract.State & Result<&2, &1, Err, Http.Res>):
-  Http.Res{status, headers, body} = response
-  IO.pure(Contract.State & Result<&2, &1, Err, Http.Res>, (note(state, event), Done{Http.Res{status, Http.set(headers, header, "yes"), body}}))
+def after.mark(event: String, header: String, state: Contract.State, response: Pure.Res) -> IO(Contract.State & Result<&2, &1, Err, Pure.Res>):
+  Pure.Res{status, headers, body} = response
+  IO.pure(Contract.State & Result<&2, &1, Err, Pure.Res>, (note(state, event), Done{Pure.Res{status, Pure.set(headers, header, "yes"), body}}))
 
-def after(hook: Hook, state: Contract.State, app: Application, response: Http.Res) -> IO(Contract.State & Result<&2, &1, Err, Http.Res>):
+def after(hook: Hook, state: Contract.State, app: Application, response: Pure.Res) -> IO(Contract.State & Result<&2, &1, Err, Pure.Res>):
   match hook:
     case RootAfter{}:
       after.mark("root-after", "x-root-policy", state, response)
@@ -130,7 +131,7 @@ def authenticated(state: Contract.State, principal: Maybe<&2, Users.Principal>) 
 
 def authenticate(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit) -> IO(Contract.State & Surface.Step<Err, Users.Principal>):
   Registry.Metadata{method, target, headers} = meta
-  authenticated(note(state, "auth"), Users.auth(Http.header(headers, "authorization")))
+  authenticated(note(state, "auth"), Users.auth(Pure.header(headers, "authorization")))
 
 def publish_enter(state: Contract.State, app: Application, meta: Registry.Metadata, actor: Users.Principal) -> IO(Contract.State & Surface.Step<Err, Users.Principal>):
   IO.pure(Contract.State & Surface.Step<Err, Users.Principal>, (state, Surface.Continue{actor}))
@@ -186,12 +187,12 @@ def field(name: String, value: Json.Val, slots: Slots) -> Slots:
     case _:
       Slots{None{}, None{}, None{}, False{}}
 
-def fields(kvs: List<&1, Http.Body & Json.Val>, slots: Slots) -> Slots:
+def fields(kvs: List<&1, Pure.Body & Json.Val>, slots: Slots) -> Slots:
   match kvs:
     case Nil{}:
       slots
     case (key, value) <> rest:
-      fields(rest, field(Http.to_string(key), value, slots))
+      fields(rest, field(Pure.to_string(key), value, slots))
 
 def input.record(slots: Slots, actor: Users.Principal) -> Result<&2, &1, Err, Contract.Record>:
   match slots:
@@ -208,16 +209,16 @@ def input(parsed: Maybe<&1, Json.Val>, actor: Users.Principal) -> Result<&2, &1,
     case _:
       Fail{BadInput{}}
 
-def decode.media(supported: Bool, state: Contract.State, actor: Users.Principal, body: Http.Body) -> IO(Contract.State & Result<&2, &1, Err, Contract.Record>):
+def decode.media(supported: Bool, state: Contract.State, actor: Users.Principal, body: Pure.Body) -> IO(Contract.State & Result<&2, &1, Err, Contract.Record>):
   match supported:
     case False{}:
       IO.pure(Contract.State & Result<&2, &1, Err, Contract.Record>, (state, Fail{Unsupported{}}))
     case True{}:
       IO.pure(Contract.State & Result<&2, &1, Err, Contract.Record>, (state, input(Json.parse.bytes(body), actor)))
 
-def decode(state: Contract.State, app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Http.Body) -> IO(Contract.State & Result<&2, &1, Err, Contract.Record>):
+def decode(state: Contract.State, app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Pure.Body) -> IO(Contract.State & Result<&2, &1, Err, Contract.Record>):
   Registry.Metadata{method, target, headers} = meta
-  decode.media(String.eq(Http.header(headers, "content-type"), "application/json"), note(state, "decode"), actor, body)
+  decode.media(String.eq(Pure.header(headers, "content-type"), "application/json"), note(state, "decode"), actor, body)
 
 # A byte string (one Char per octet) as octets, then a newline.
 def octets(s: String) -> List<&2, U32>:
@@ -227,50 +228,50 @@ def octets(s: String) -> List<&2, U32>:
     case SCon{Chr{c}, t}:
       c <> octets(t)
 
-def written(events: List<&2, String>, output: Contract.Public, result: File & Result<&1, &1, U32 & String, Unit>) -> Contract.State & Result<&2, &1, Err, Http.Res>:
+def written(events: List<&2, String>, output: Contract.Public, result: File & Result<&1, &1, U32 & String, Unit>) -> Contract.State & Result<&2, &1, Err, Pure.Res>:
   (journal, outcome) = result
   match outcome:
     case Fail{error}:
       (Contract.State{journal, events}, Fail{WriteFailed{}})
     case Done{unit}:
-      (Contract.State{journal, events}, Done{Http.Res{201, Http.empty(), Domain.encode(output)}})
+      (Contract.State{journal, events}, Done{Pure.Res{201, Pure.empty(), Domain.encode(output)}})
 
-def handle.recorded(state: Contract.State, input: Contract.Record) -> IO(Contract.State & Result<&2, &1, Err, Http.Res>):
+def handle.recorded(state: Contract.State, input: Contract.Record) -> IO(Contract.State & Result<&2, &1, Err, Pure.Res>):
   Contract.State{journal, events} = state
   +output = Domain.view(Domain.publish(input))
-  do IO<Contract.State & Result<&2, &1, Err, Http.Res>>:
-    result : File & Result<&1, &1, U32 & String, Unit> <- File.write_bytes(journal, octets(Http.to_string(Domain.encode(output))))
+  do IO<Contract.State & Result<&2, &1, Err, Pure.Res>>:
+    result : File & Result<&1, &1, U32 & String, Unit> <- File.write_bytes(journal, octets(Pure.to_string(Domain.encode(output))))
     return written(events, output, result)
 
-def handle(state: Contract.State, app: Application, input: Contract.Record) -> IO(Contract.State & Result<&2, &1, Err, Http.Res>):
+def handle(state: Contract.State, app: Application, input: Contract.Record) -> IO(Contract.State & Result<&2, &1, Err, Pure.Res>):
   handle.recorded(note(state, "handle"), input)
 
-def publish_endpoint(state: Contract.State, app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def publish_endpoint(state: Contract.State, app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   Surface.endpoint(~Contract.State, ~Application, ~Err, ~Users.Principal, ~Contract.Record, ~decode, ~handle, ~mapper, ~validate, state, app, meta, actor, body)
 
-def publish_route.go(state: Contract.State, +app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def publish_route.go(state: Contract.State, +app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   Surface.scope(~Contract.State, ~Application, ~Err, ~Users.Principal, ~Users.Principal, ~Hook, ~publish_enter, ~publish_endpoint, ~after, ~mapper, ~validate, policy.publish(settings(app)), state, app, meta, actor, body)
 
-def publish_route(state: Contract.State, app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def publish_route(state: Contract.State, app: Application, meta: Registry.Metadata, actor: Users.Principal, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   publish_route.go(state, app, meta, actor, body)
 
-def protected_group.go(state: Contract.State, +app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def protected_group.go(state: Contract.State, +app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   Surface.scope(~Contract.State, ~Application, ~Err, ~Unit, ~Users.Principal, ~Hook, ~authenticate, ~publish_route, ~after, ~mapper, ~validate, policy.protected(settings(app)), state, app, meta, context, body)
 
-def protected_group(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def protected_group(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   protected_group.go(state, app, meta, context, body)
 
-def public_endpoint(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def public_endpoint(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   IO.pure(Contract.State & Surface.Flow, (note(state, "public-handle"), Surface.Flow{plain(200, "public"), False{}, False{}}))
 
-def public_group.go(state: Contract.State, +app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def public_group.go(state: Contract.State, +app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   Surface.scope(~Contract.State, ~Application, ~Err, ~Unit, ~Unit, ~Hook, ~public_before, ~public_endpoint, ~after, ~mapper, ~validate, policy.public(settings(app)), state, app, meta, context, body)
 
-def public_group(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def public_group(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   public_group.go(state, app, meta, context, body)
 
 # Misses and generated responses stay in the root scope only.
-def chosen(choice: Router.Choice<Action>, state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def chosen(choice: Router.Choice<Action>, state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   match choice:
     case Router.NotFound{}:
       Surface.failed(~Contract.State, ~Application, ~Err, ~mapper, ~validate, state, app, Missing{}, False{})
@@ -281,29 +282,29 @@ def chosen(choice: Router.Choice<Action>, state: Contract.State, app: Applicatio
     case Router.MethodMissing{groups, allow}:
       Surface.failed(~Contract.State, ~Application, ~Err, ~mapper, ~validate, state, app, NoMethod{allow}, False{})
     case Router.Options{groups, allow}:
-      IO.pure(Contract.State & Surface.Flow, (state, Surface.Flow{Http.Res{204, Http.set(Http.empty(), "allow", allow), Http.from_string("")}, False{}, False{}}))
+      IO.pure(Contract.State & Surface.Flow, (state, Surface.Flow{Pure.Res{204, Pure.set(Pure.empty(), "allow", allow), Pure.from_string("")}, False{}, False{}}))
 
-def root.resolved(result: Result<&2, &2, Router.Error, Router.Resolved<Action>>, state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def root.resolved(result: Result<&2, &2, Router.Error, Router.Resolved<Action>>, state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   match result:
     case Fail{error}:
       Surface.failed(~Contract.State, ~Application, ~Err, ~mapper, ~validate, state, app, BadTarget{}, False{})
     case Done{Router.Resolved{target, choice}}:
       chosen(choice, state, app, Registry.with_target(target, meta), context, body)
 
-def root_inside.go(state: Contract.State, +app: Application, +meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def root_inside.go(state: Contract.State, +app: Application, +meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   Registry.Plan{table, config} = app
   Registry.Metadata{method, target, headers} = meta
   root.resolved(Router.resolve(~Action, table, method, target), state, app, meta, context, body)
 
-def root_inside(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Http.Body) -> IO(Contract.State & Surface.Flow):
+def root_inside(state: Contract.State, app: Application, meta: Registry.Metadata, context: Unit, body: Pure.Body) -> IO(Contract.State & Surface.Flow):
   root_inside.go(state, app, meta, context, body)
 
-def dispatch.go(state: Contract.State, +app: Application, req: Http.Req) -> IO(Contract.State & Http.Res):
-  Http.Req{method, target, headers, body} = req
-  do IO<Contract.State & Http.Res>:
+def dispatch.go(state: Contract.State, +app: Application, req: Pure.Req) -> IO(Contract.State & Pure.Res):
+  Pure.Req{method, target, headers, body} = req
+  do IO<Contract.State & Pure.Res>:
     result : Contract.State & Surface.Flow <- Surface.scope(~Contract.State, ~Application, ~Err, ~Unit, ~Unit, ~Hook, ~root_before, ~root_inside, ~after, ~mapper, ~validate, policy.root(settings(app)), state, app, Registry.Metadata{method, target, headers}, Unit{}, body)
     checked : Contract.State & Surface.Flow <- Surface.finish(~Contract.State, ~Application, ~Err, ~mapper, ~validate, app, result)
     return Surface.response(~Contract.State, checked)
 
-def dispatch(state: Contract.State, app: Application, req: Http.Req) -> IO(Contract.State & Http.Res):
+def dispatch(state: Contract.State, app: Application, req: Pure.Req) -> IO(Contract.State & Pure.Res):
   dispatch.go(state, app, req)

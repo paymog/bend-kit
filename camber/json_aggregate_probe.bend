@@ -5,6 +5,7 @@ import ./json_progress_probe.bend as JsonProgress
 import ./json_disposal_control.bend as JsonDisposal
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
@@ -12,10 +13,10 @@ import bend-kit-wire@0.4.8.1/wire.bend as Wire
 type Context is Data:
   Context{mode: String, ready: Chan(Unit), go: Chan(Unit)}
 
-def work(mode: String, body: Http.Body, started: Time.Duration) -> IO(Http.Res):
+def work(mode: String, body: Pure.Body, started: Time.Duration) -> IO(Pure.Res):
   match mode:
     case "yield":
-      do IO<Http.Res>:
+      do IO<Pure.Res>:
         IO.sleep(500)
         JsonProgress.result(True{}, started)
     case "json-dispose":
@@ -23,13 +24,13 @@ def work(mode: String, body: Http.Body, started: Time.Duration) -> IO(Http.Res):
     case _:
       JsonProgress.work("json", body, started)
 
-def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
+def run_work(context: Context, body: Pure.Body) -> IO(Pure.Res):
   Context{mode, ready, go} = context
-  do IO<Http.Res>:
-    bodies0 : Chan(Http.Body) <- Chan.new(Http.Body, 1)
-    +bodies : Chan(Http.Body) = bodies0
-    queued : Result<&1, &1, Http.Body, Unit> <- Chan.send(Http.Body, bodies, body)
-    Registry.require(Result.is_done(&1, &1, Http.Body, Unit, queued), "body queue closed")
+  do IO<Pure.Res>:
+    bodies0 : Chan(Pure.Body) <- Chan.new(Pure.Body, 1)
+    +bodies : Chan(Pure.Body) = bodies0
+    queued : Result<&1, &1, Pure.Body, Unit> <- Chan.send(Pure.Body, bodies, body)
+    Registry.require(Result.is_done(&1, &1, Pure.Body, Unit, queued), "body queue closed")
     IO.print("CPU_ARMED")
     armed : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, ready, Unit{})
     Registry.require(Result.is_done(&1, &1, Unit, Unit, armed), "ready queue closed")
@@ -38,18 +39,18 @@ def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
     IO.print("CPU_BEGIN")
     IO.sleep(1)
     started : Time.Duration <- Time.mono()
-    received : Http.Body <- IO.join(Http.Body, bodies)
+    received : Pure.Body <- IO.join(Pure.Body, bodies)
     work(mode, received, started)
 
-def handler(context: Context, request: Http.Req) -> IO(Http.Res):
-  Http.Req{method, path, headers, body} = request
+def handler(context: Context, request: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, path, headers, body} = request
   match path:
     case "/cpu":
       run_work(context, body)
     case _:
-      do IO<Http.Res>:
+      do IO<Pure.Res>:
         IO.print("ORDINARY_HANDLED")
-        return Http.Res{200, Http.empty(), Http.from_string("ok")}
+        return Pure.Res{200, Pure.empty(), Pure.from_string("ok")}
 
 def wait_ready(count: Nat, +ready: Chan(Unit)) -> IO(Unit):
   match count:
@@ -74,7 +75,7 @@ def start(mode: String, +count: Nat, +ready: Chan(Unit), +go: Chan(Unit), timer:
   (listener, deadline_done) = setup
   do IO<Unit>:
     requests : List<Chan(Unit)> <- Transport.accept.configured(~Context, ~handler, Nat.add(count, 1n), Context{mode, ready, go},
-      Http.ServerConfig{"127.0.0.1", 0, 1048576, 65536, 128, 128, 128, 180000, 180000, 180000, 180000}, listener)
+      Pure.ServerConfig{"127.0.0.1", 0, 1048576, 65536, 128, 128, 128, 180000, 180000, 180000, 180000}, listener)
     wait_ready(count, ready)
     IO.print("BATCH_ARMED")
     timer_ready : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, timer, Unit{})

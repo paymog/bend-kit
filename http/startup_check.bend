@@ -1,6 +1,7 @@
 # Real-socket startup/context consumer; run with startup_check.py in both lanes.
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import ./completion.bend as Completion
 
 type Context is Data:
@@ -13,12 +14,12 @@ def require(ok: Bool) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, "startup check failed")
 
-def handle(context: Context, request: Http.Req) -> IO(Http.Reply):
+def handle(context: Context, request: Pure.Req) -> IO(Http.Reply):
   Context{token, calls} = context
   do IO<Http.Reply>:
     sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, calls, Unit{})
     require(Result.is_done(&1, &1, Unit, Unit, sent))
-    return Http.Reply{Http.Res{200, Http.empty(), Http.from_string(token)}, Completion.Unobserved{}}
+    return Http.Reply{Pure.Res{200, Pure.empty(), Pure.from_string(token)}, Completion.Unobserved{}}
 
 def cleanup.written(written: File & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (returned, result) = written
@@ -38,7 +39,7 @@ def second(file: File, +calls: Chan(Unit), first: Chan(Unit), result: Http.Serve
     finished : Chan(Unit) <- IO.pass(Chan(Unit), got)
     IO.join(Unit, first)
     IO.join(Unit, finished)
-    drained : Http.ServerCounts <- Http.server.close(~Context, server)
+    drained : Pure.ServerCounts <- Http.server.close(~Context, server)
     IO.join(Unit, calls)
     IO.join(Unit, calls)
     IO.join(Unit, calls)
@@ -59,12 +60,12 @@ def success(observed: Http.Server<Context> & U32, mode: String, file: File, call
     case "run":
       do IO<Unit>:
         IO.print("READY " ++ U32.show(port))
-        result : Http.ServerExit <- Http.server.run(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
+        result : Pure.ServerExit <- Http.server.run(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         cleanup(file, "server drained\n")
     case "boundary":
       do IO<Unit>:
         IO.print("READY " ++ U32.show(port))
-        drained : Http.ServerCounts <- Http.server.close(~Context, server)
+        drained : Pure.ServerCounts <- Http.server.close(~Context, server)
         cleanup(file, "representability boundary accepted\n")
     case _:
       do IO<Unit>:
@@ -72,16 +73,16 @@ def success(observed: Http.Server<Context> & U32, mode: String, file: File, call
         first : Http.Server<Context> & Result<&1, &1, U32 & String, Chan(Unit)> <- Http.server.accept(~Context, ~handle, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         accepted(file, calls, first)
 
-def started(mode: String, +calls: Chan(Unit), result: File & Result<&2, &1, Http.StartupError, Http.Server<Context>>) -> IO(Unit):
+def started(mode: String, +calls: Chan(Unit), result: File & Result<&2, &1, Pure.StartupError, Http.Server<Context>>) -> IO(Unit):
   (file, startup) = result
   match startup:
     case Fail{error}:
       match error:
-        case Http.InvalidConfig{}:
+        case Pure.InvalidConfig{}:
           do IO<Unit>:
             IO.print("INVALID")
             cleanup(file, "invalid recovered\n")
-        case Http.BindError{code, message}:
+        case Pure.BindError{code, message}:
           do IO<Unit>:
             IO.print("BIND FAILED " ++ U32.show(code))
             cleanup(file, "bind recovered\n")
@@ -92,14 +93,14 @@ def setting(+mode: String, name: String, value: U32) -> U32:
   Bool.pick(U32, String.eq(mode, name), 0, value)
 
 def size(+mode: String, +name: String, value: U32) -> U32:
-  Bool.pick(U32, String.eq(mode, "boundary"), Http.limits.representable(),
-    Bool.pick(U32, String.eq(mode, name ++ "_over"), (Http.limits.representable() + 1 : U32), setting(mode, name, value)))
+  Bool.pick(U32, String.eq(mode, "boundary"), Pure.limits.representable(),
+    Bool.pick(U32, String.eq(mode, name ++ "_over"), (Pure.limits.representable() + 1 : U32), setting(mode, name, value)))
 
 def deadline(+mode: String, +name: String, value: U32) -> U32:
   Bool.pick(U32, String.eq(mode, "huge_" ++ name), 2147483648, setting(mode, name, value))
 
-def config(+mode: String, port: U32) -> Http.ServerConfig:
-  Http.ServerConfig{"127.0.0.1", Bool.pick(U32, String.eq(mode, "port"), 65536, port),
+def config(+mode: String, port: U32) -> Pure.ServerConfig:
+  Pure.ServerConfig{"127.0.0.1", Bool.pick(U32, String.eq(mode, "port"), 65536, port),
     size(mode, "body", 16777216), size(mode, "headers", 65536),
     setting(mode, "connections", 128), setting(mode, "requests", 128), setting(mode, "buffered", 128),
     deadline(mode, "header_ms", 5000), deadline(mode, "body_ms", 30000),
@@ -112,7 +113,7 @@ def run(+mode: String, port: U32, path: String) -> IO(Unit):
     calls0 : Chan(Unit) <- Chan.new(Unit, 4)
     +calls : Chan(Unit) = calls0
     IO.print("CONTEXT CREATED")
-    result : File & Result<&2, &1, Http.StartupError, Http.Server<Context>> <- Http.server.start(~Context, ~File, Context{token, calls}, file, config(mode, port))
+    result : File & Result<&2, &1, Pure.StartupError, Http.Server<Context>> <- Http.server.start(~Context, ~File, Context{token, calls}, file, config(mode, port))
     started(mode, calls, result)
 
 def port(mode: String, path: String, number: Maybe<&2, U32>) -> IO(Unit):

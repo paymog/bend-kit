@@ -1,6 +1,7 @@
 import Base
 import ./ownership.bend as App
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../concurrency/concurrency.bend as Conc
 
 def require(ok: Bool, message: String) -> IO(Unit):
@@ -10,32 +11,32 @@ def require(ok: Bool, message: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, message)
 
-def request(method: String, path: String, token: String, body: String) -> Http.Req:
-  Http.Req{method, path, Http.set(Http.set(Http.empty(), "authorization", token), "content-type", "application/json"), Http.from_string(body)}
+def request(method: String, path: String, token: String, body: String) -> Pure.Req:
+  Pure.Req{method, path, Pure.set(Pure.set(Pure.empty(), "authorization", token), "content-type", "application/json"), Pure.from_string(body)}
 
-def response(res: Http.Res, status: U32, text: String) -> IO(Unit):
-  Http.Res{got, headers, body} = res
+def response(res: Pure.Res, status: U32, text: String) -> IO(Unit):
+  Pure.Res{got, headers, body} = res
   do IO<Unit>:
     require(U32.is_eq(got, status), "unexpected HTTP status")
-    require(String.eq(Http.to_string(body), text), "unexpected response body or exposed private field")
+    require(String.eq(Pure.to_string(body), text), "unexpected response body or exposed private field")
 
-def checked(result: App.Store & Http.Res, status: U32, text: String) -> IO(App.Store):
+def checked(result: App.Store & Pure.Res, status: U32, text: String) -> IO(App.Store):
   (store, res) = result
   do IO<App.Store>:
     response(res, status, text)
     return store
 
-def exercise(store: App.Store, req: Http.Req, status: U32, text: String) -> IO(App.Store):
+def exercise(store: App.Store, req: Pure.Req, status: U32, text: String) -> IO(App.Store):
   do IO<App.Store>:
-    result : App.Store & Http.Res <- App.dispatch(store, req)
+    result : App.Store & Pure.Res <- App.dispatch(store, req)
     checked(result, status, text)
 
-def created(result: App.Store & Http.Res) -> IO(App.Store):
+def created(result: App.Store & Pure.Res) -> IO(App.Store):
   (store, res) = result
-  Http.Res{status, +headers, body} = res
+  Pure.Res{status, +headers, body} = res
   do IO<App.Store>:
-    require(String.eq(Http.header(headers, "location"), "/users/9"), "creation Location is wrong")
-    response(Http.Res{status, headers, body}, 201, "{\"id\":9,\"name\":\"Cara\"}")
+    require(String.eq(Pure.header(headers, "location"), "/users/9"), "creation Location is wrong")
+    response(Pure.Res{status, headers, body}, 201, "{\"id\":9,\"name\":\"Cara\"}")
     return store
 
 def sequential(path: String) -> IO(Unit):
@@ -54,7 +55,7 @@ def sequential(path: String) -> IO(Unit):
     bad_json : App.Store <- exercise(s10, request("POST", "/users", "Bearer alice", "not JSON"), 400, "{\"error\":\"invalid input\"}")
     missing : App.Store <- exercise(bad_json, request("POST", "/users", "Bearer alice", "{}"), 400, "{\"error\":\"invalid input\"}")
     wrong_type : App.Store <- exercise(missing, request("POST", "/users", "Bearer alice", "{\"name\":42}"), 400, "{\"error\":\"invalid input\"}")
-    result : App.Store & Http.Res <- App.dispatch(wrong_type, request("POST", "/users", "Bearer alice", "{\"name\":\"Cara\"}"))
+    result : App.Store & Pure.Res <- App.dispatch(wrong_type, request("POST", "/users", "Bearer alice", "{\"name\":\"Cara\"}"))
     s11 : App.Store <- created(result)
     s12 : App.Store <- exercise(s11, request("GET", "/users/9", "Bearer alice", ""), 200, "{\"id\":9,\"name\":\"Cara\"}")
     App.close(s12)
@@ -97,9 +98,9 @@ def receive(-A: Type, channel: Chan(A)) -> IO(A):
     got : Maybe<&1, A> <- Chan.recv(A, channel)
     receive.value(A, got)
 
-def barrier(req: Http.Req) -> Bool & Http.Req:
-  Http.Req{method, path, +headers, body} = req
-  (String.eq(Http.header(headers, "x-barrier"), "yes"), Http.Req{method, path, headers, body})
+def barrier(req: Pure.Req) -> Bool & Pure.Req:
+  Pure.Req{method, path, +headers, body} = req
+  (String.eq(Pure.header(headers, "x-barrier"), "yes"), Pure.Req{method, path, headers, body})
 
 def wait(block: Bool, release: Chan(Unit)) -> IO(Unit):
   match block:
@@ -108,21 +109,21 @@ def wait(block: Bool, release: Chan(Unit)) -> IO(Unit):
     case True{}:
       receive(Unit, release)
 
-def work.result(slot: U32, events: Chan(OwnerEvent), release: Chan(Unit), result: App.Store & Http.Res) -> Worker & Http.Res:
+def work.result(slot: U32, events: Chan(OwnerEvent), release: Chan(Unit), result: App.Store & Pure.Res) -> Worker & Pure.Res:
   (store, res) = result
   (Worker{slot, store, events, release}, res)
 
-def work.ready(slot: U32, store: App.Store, +events: Chan(OwnerEvent), +release: Chan(Unit), ready: Bool & Http.Req) -> IO(Worker & Http.Res):
+def work.ready(slot: U32, store: App.Store, +events: Chan(OwnerEvent), +release: Chan(Unit), ready: Bool & Pure.Req) -> IO(Worker & Pure.Res):
   (block, req) = ready
   +slot = slot
-  do IO<Worker & Http.Res>:
+  do IO<Worker & Pure.Res>:
     send(events, Enter{slot})
     wait(block, release)
-    result : App.Store & Http.Res <- App.dispatch(store, req)
+    result : App.Store & Pure.Res <- App.dispatch(store, req)
     send(events, Depart{slot})
     return work.result(slot, events, release, result)
 
-def work(worker: Worker, req: Http.Req) -> IO(Worker & Http.Res):
+def work(worker: Worker, req: Pure.Req) -> IO(Worker & Pure.Res):
   Worker{slot, store, events, release} = worker
   work.ready(slot, store, events, release, barrier(req))
 
@@ -168,16 +169,16 @@ def shutdown(workers: List<Worker>) -> IO(Unit):
         send(events, Closed{slot})
         shutdown(rest)
 
-def blocked(req: Http.Req) -> Http.Req:
-  Http.Req{method, path, headers, body} = req
-  Http.Req{method, path, Http.set(headers, "x-barrier", "yes"), body}
+def blocked(req: Pure.Req) -> Pure.Req:
+  Pure.Req{method, path, headers, body} = req
+  Pure.Req{method, path, Pure.set(headers, "x-barrier", "yes"), body}
 
-def queue(+q: Chan(Http.Req & Chan(Http.Res)), req: Http.Req) -> IO(Chan(Http.Res)):
-  do IO<Chan(Http.Res)>:
-    reply : Chan(Http.Res) <- Chan.new(Http.Res, 1)
-    +reply : Chan(Http.Res) = reply
-    sent : Result<&1, &1, Http.Req & Chan(Http.Res), Unit> <- Chan.send(Http.Req & Chan(Http.Res), q, (req, reply))
-    require(Result.is_done(&1, &1, Http.Req & Chan(Http.Res), Unit, sent), "job queue rejected admitted request")
+def queue(+q: Chan(Pure.Req & Chan(Pure.Res)), req: Pure.Req) -> IO(Chan(Pure.Res)):
+  do IO<Chan(Pure.Res)>:
+    reply : Chan(Pure.Res) <- Chan.new(Pure.Res, 1)
+    +reply : Chan(Pure.Res) = reply
+    sent : Result<&1, &1, Pure.Req & Chan(Pure.Res), Unit> <- Chan.send(Pure.Req & Chan(Pure.Res), q, (req, reply))
+    require(Result.is_done(&1, &1, Pure.Req & Chan(Pure.Res), Unit, sent), "job queue rejected admitted request")
     return reply
 
 def concurrent(+path: String) -> IO(Unit):
@@ -188,11 +189,11 @@ def concurrent(+path: String) -> IO(Unit):
     +events : Chan(OwnerEvent) = events0
     release0 : Chan(Unit) <- Chan.new(Unit, 2)
     +release : Chan(Unit) = release0
-    jobs0 : Chan(Http.Req & Chan(Http.Res)) <- Chan.new(Http.Req & Chan(Http.Res), 2)
-    +jobs : Chan(Http.Req & Chan(Http.Res)) = jobs0
-    workers : List<Chan(Worker)> <- Conc.pool.start(~Worker, ~Http.Req, ~Http.Res, ~work, [Worker{0, left, events, release}, Worker{1, right, events, release}], 16n, jobs)
-    a : Chan(Http.Res) <- queue(jobs, blocked(request("GET", "/users/me", "Bearer alice", "")))
-    b : Chan(Http.Res) <- queue(jobs, blocked(request("GET", "/users/me", "Bearer bob", "")))
+    jobs0 : Chan(Pure.Req & Chan(Pure.Res)) <- Chan.new(Pure.Req & Chan(Pure.Res), 2)
+    +jobs : Chan(Pure.Req & Chan(Pure.Res)) = jobs0
+    workers : List<Chan(Worker)> <- Conc.pool.start(~Worker, ~Pure.Req, ~Pure.Res, ~work, [Worker{0, left, events, release}, Worker{1, right, events, release}], 16n, jobs)
+    a : Chan(Pure.Res) <- queue(jobs, blocked(request("GET", "/users/me", "Bearer alice", "")))
+    b : Chan(Pure.Res) <- queue(jobs, blocked(request("GET", "/users/me", "Bearer bob", "")))
     active0 : Counts <- observe(2n, events, Counts{0, 0, 0})
     +active : Counts = active0
     count.check(active, 2, 0)
@@ -200,24 +201,24 @@ def concurrent(+path: String) -> IO(Unit):
     go_a : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     go_b : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     require(Result.is_done(&1, &1, Unit, Unit, go_a) && Result.is_done(&1, &1, Unit, Unit, go_b), "failed to release concurrent requests")
-    res_a : Http.Res <- IO.join(Http.Res, a)
-    res_b : Http.Res <- IO.join(Http.Res, b)
+    res_a : Pure.Res <- IO.join(Pure.Res, a)
+    res_b : Pure.Res <- IO.join(Pure.Res, b)
     response(res_a, 200, "{\"id\":7,\"name\":\"Alice\"}")
     response(res_b, 200, "{\"id\":8,\"name\":\"Bob\"}")
     idle0 : Counts <- observe(2n, events, active)
     +idle : Counts = idle0
     count.check(idle, 0, 0)
-    c : Chan(Http.Res) <- queue(jobs, blocked(request("GET", "/users/999", "Bearer alice", "")))
-    d : Chan(Http.Res) <- queue(jobs, blocked(request("GET", "/users/me", "Bearer bob", "")))
-    Chan.close(Http.Req & Chan(Http.Res), jobs)
+    c : Chan(Pure.Res) <- queue(jobs, blocked(request("GET", "/users/999", "Bearer alice", "")))
+    d : Chan(Pure.Res) <- queue(jobs, blocked(request("GET", "/users/me", "Bearer bob", "")))
+    Chan.close(Pure.Req & Chan(Pure.Res), jobs)
     active_again0 : Counts <- observe(2n, events, idle)
     +active_again : Counts = active_again0
     count.check(active_again, 2, 0)
     go_c : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     go_d : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     require(Result.is_done(&1, &1, Unit, Unit, go_c) && Result.is_done(&1, &1, Unit, Unit, go_d), "failed to release second concurrent batch")
-    res_c : Http.Res <- IO.join(Http.Res, c)
-    res_d : Http.Res <- IO.join(Http.Res, d)
+    res_c : Pure.Res <- IO.join(Pure.Res, c)
+    res_d : Pure.Res <- IO.join(Pure.Res, d)
     response(res_c, 404, "{\"error\":\"not found\"}")
     response(res_d, 200, "{\"id\":8,\"name\":\"Bob\"}")
     idle_again0 : Counts <- observe(2n, events, active_again)

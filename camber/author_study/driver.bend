@@ -1,5 +1,6 @@
 import Base
 import ../../../http/http.bend as Http
+import ../../../http/pure.bend as Pure
 import bend-kit-json@0.7.3.0/json.bend as Json
 import ./app.bend as App
 import ../contract.bend as Contract
@@ -15,7 +16,7 @@ def strings(xs: List<&2, String>) -> List<&1, Json.Val>:
 def emit(journal: File, report: Json.Val, readback: String) -> IO(Unit):
   do IO<Unit>:
     File.close(journal)
-    IO.print(Http.text(Http.Res{200, Http.empty(), Json.encode.bytes(Json.Obj{[(Json.utf8("response"), report), (Json.utf8("readback"), Json.Str{Json.utf8(readback)})]})}))
+    IO.print(Pure.text(Pure.Res{200, Pure.empty(), Json.encode.bytes(Json.Obj{[(Json.utf8("response"), report), (Json.utf8("readback"), Json.Str{Json.utf8(readback)})]})}))
 
 def readback(report: Json.Val, result: File & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   (journal, outcome) = result
@@ -36,17 +37,17 @@ def observe.mode(mode: String, journal: File, report: Json.Val) -> IO(Unit):
     case _:
       emit(journal, report, "")
 
-def observed(mode: String, result: Contract.State & Http.Res) -> IO(Unit):
-  (Contract.State{journal, trace}, Http.Res{+status, +headers, body}) = result
+def observed(mode: String, result: Contract.State & Pure.Res) -> IO(Unit):
+  (Contract.State{journal, trace}, Pure.Res{+status, +headers, body}) = result
   report : Json.Val = Json.Obj{[
     (Json.utf8("status"), Json.Num{Bytes.u32.show(status)}),
-    (Json.utf8("body"), Json.Str{Json.utf8(Http.text(Http.Res{status, Http.empty(), body}))}),
-    (Json.utf8("root"), Json.Str{Json.utf8(Http.header(headers, "x-root-policy"))}),
-    (Json.utf8("protected"), Json.Str{Json.utf8(Http.header(headers, "x-protected-policy"))}),
-    (Json.utf8("publish"), Json.Str{Json.utf8(Http.header(headers, "x-publish-policy"))}),
-    (Json.utf8("public"), Json.Str{Json.utf8(Http.header(headers, "x-public-policy"))}),
-    (Json.utf8("authenticate"), Json.Str{Json.utf8(Http.header(headers, "www-authenticate"))}),
-    (Json.utf8("allow"), Json.Str{Json.utf8(Http.header(headers, "allow"))}),
+    (Json.utf8("body"), Json.Str{Json.utf8(Pure.text(Pure.Res{status, Pure.empty(), body}))}),
+    (Json.utf8("root"), Json.Str{Json.utf8(Pure.header(headers, "x-root-policy"))}),
+    (Json.utf8("protected"), Json.Str{Json.utf8(Pure.header(headers, "x-protected-policy"))}),
+    (Json.utf8("publish"), Json.Str{Json.utf8(Pure.header(headers, "x-publish-policy"))}),
+    (Json.utf8("public"), Json.Str{Json.utf8(Pure.header(headers, "x-public-policy"))}),
+    (Json.utf8("authenticate"), Json.Str{Json.utf8(Pure.header(headers, "www-authenticate"))}),
+    (Json.utf8("allow"), Json.Str{Json.utf8(Pure.header(headers, "allow"))}),
     (Json.utf8("trace"), Json.Arr{strings(List.reverse(&2, String, trace))})]}
   observe.mode(mode, journal, report)
 
@@ -54,7 +55,7 @@ def run(path: String, +mode: String, method: String, target: String, token: Stri
   do IO<Unit>:
     application : App.Application <- App.application()
     journal : File <- IO.try(File, File.open(path, mode))
-    result : Contract.State & Http.Res <- App.dispatch(Contract.State{journal, Nil{}}, application, Http.Req{method, target, Http.set(Http.set(Http.empty(), "authorization", token), "content-type", media), Json.utf8(body)})
+    result : Contract.State & Pure.Res <- App.dispatch(Contract.State{journal, Nil{}}, application, Pure.Req{method, target, Pure.set(Pure.set(Pure.empty(), "authorization", token), "content-type", media), Json.utf8(body)})
     observed(mode, result)
 
 def args(xs: List<&1, String>) -> IO(Unit):

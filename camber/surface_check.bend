@@ -1,5 +1,6 @@
 import Base
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import bend-kit-json@0.7.3.0/json.bend as Json
 import ./surface_app.bend as Example
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
@@ -50,7 +51,7 @@ def events(xs: List<&2, Example.Stage>) -> List<&1, Json.Val>:
 def emit(journal: File, report: Json.Val, readback: String) -> IO(Unit):
   do IO<Unit>:
     File.close(journal)
-    IO.print(Http.text(Http.Res{200, Http.empty(), Json.encode.bytes(Json.Obj{[(Json.utf8("response"), report), (Json.utf8("readback"), Json.Str{Json.utf8(readback)})]})}))
+    IO.print(Pure.text(Pure.Res{200, Pure.empty(), Json.encode.bytes(Json.Obj{[(Json.utf8("response"), report), (Json.utf8("readback"), Json.Str{Json.utf8(readback)})]})}))
 
 def readback(report: Json.Val, result: File & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   (journal, outcome) = result
@@ -71,18 +72,18 @@ def observe.mode(mode: String, journal: File, report: Json.Val) -> IO(Unit):
     case _:
       emit(journal, report, "")
 
-def observed(mode: String, result: Example.State & Http.Res) -> IO(Unit):
-  (Example.State{journal, trace}, Http.Res{+status, +headers, body}) = result
+def observed(mode: String, result: Example.State & Pure.Res) -> IO(Unit):
+  (Example.State{journal, trace}, Pure.Res{+status, +headers, body}) = result
   report : Json.Val = Json.Obj{[
     (Json.utf8("status"), Json.Num{Bytes.u32.show(status)}),
-    (Json.utf8("body"), Json.Str{Json.utf8(Http.text(Http.Res{status, Http.empty(), body}))}),
-    (Json.utf8("root"), Json.Str{Json.utf8(Http.header(headers, "x-root-policy"))}),
-    (Json.utf8("users"), Json.Str{Json.utf8(Http.header(headers, "x-users-policy"))}),
-    (Json.utf8("document"), Json.Str{Json.utf8(Http.header(headers, "x-document-policy"))}),
-    (Json.utf8("public"), Json.Str{Json.utf8(Http.header(headers, "x-public-policy"))}),
-    (Json.utf8("ping"), Json.Str{Json.utf8(Http.header(headers, "x-ping-policy"))}),
-    (Json.utf8("authenticate"), Json.Str{Json.utf8(Http.header(headers, "www-authenticate"))}),
-    (Json.utf8("allow"), Json.Str{Json.utf8(Http.header(headers, "allow"))}),
+    (Json.utf8("body"), Json.Str{Json.utf8(Pure.text(Pure.Res{status, Pure.empty(), body}))}),
+    (Json.utf8("root"), Json.Str{Json.utf8(Pure.header(headers, "x-root-policy"))}),
+    (Json.utf8("users"), Json.Str{Json.utf8(Pure.header(headers, "x-users-policy"))}),
+    (Json.utf8("document"), Json.Str{Json.utf8(Pure.header(headers, "x-document-policy"))}),
+    (Json.utf8("public"), Json.Str{Json.utf8(Pure.header(headers, "x-public-policy"))}),
+    (Json.utf8("ping"), Json.Str{Json.utf8(Pure.header(headers, "x-ping-policy"))}),
+    (Json.utf8("authenticate"), Json.Str{Json.utf8(Pure.header(headers, "www-authenticate"))}),
+    (Json.utf8("allow"), Json.Str{Json.utf8(Pure.header(headers, "allow"))}),
     (Json.utf8("trace"), Json.Arr{events(List.reverse(&2, Example.Stage, trace))})]}
   observe.mode(mode, journal, report)
 
@@ -99,7 +100,7 @@ def run(path: String, +mode: String, fault: String, mapper: String, method: Stri
   do IO<Unit>:
     application : Example.Application <- Example.application(fault, mapper_mode(mapper))
     journal : File <- IO.try(File, File.open(path, mode))
-    result : Example.State & Http.Res <- Example.dispatch(Example.State{journal, Nil{}}, application, Http.Req{method, target, Http.set(Http.set(Http.set(Http.empty(), "authorization", token), "content-type", media), "x-group-control", control), Json.utf8(body)})
+    result : Example.State & Pure.Res <- Example.dispatch(Example.State{journal, Nil{}}, application, Pure.Req{method, target, Pure.set(Pure.set(Pure.set(Pure.empty(), "authorization", token), "content-type", media), "x-group-control", control), Json.utf8(body)})
     observed(mode, result)
 
 def args(xs: List<&1, String>) -> IO(Unit):

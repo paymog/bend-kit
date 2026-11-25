@@ -2,6 +2,7 @@
 import Base
 import ./risk_probe.bend as Risk
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-time@0.3.0.1/time.bend as Time
@@ -32,23 +33,23 @@ def work(mode: String, iterations: Nat) -> IO(Unit):
         seed : U32 <- IO.try(U32, IO.random_u32())
         completed(U32.show(Risk.spin(iterations, seed)), started)
 
-def run_work(context: Context) -> IO(Http.Res):
+def run_work(context: Context) -> IO(Pure.Res):
   Context{mode, iterations, go} = context
-  do IO<Http.Res>:
+  do IO<Pure.Res>:
     IO.print("CPU_ARMED")
     IO.join(Unit, go)
     work(mode, iterations)
-    return Http.Res{200, Http.empty(), Http.from_string("cpu")}
+    return Pure.Res{200, Pure.empty(), Pure.from_string("cpu")}
 
-def handler(context: Context, request: Http.Req) -> IO(Http.Res):
-  Http.Req{method, path, headers, body} = request
+def handler(context: Context, request: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, path, headers, body} = request
   match path:
     case "/cpu":
       run_work(context)
     case _:
-      do IO<Http.Res>:
+      do IO<Pure.Res>:
         IO.print("ORDINARY_HANDLED")
-        return Http.Res{200, Http.empty(), Http.from_string("ok")}
+        return Pure.Res{200, Pure.empty(), Pure.from_string("ok")}
 
 def read_done(result: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) -> IO(Unit):
   (socket, outcome) = result

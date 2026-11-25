@@ -1,6 +1,7 @@
 # Executable application-composition experiment, not Camber's public API or router.
 import Base
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import ../router/router.bend as Router
@@ -29,15 +30,15 @@ type Path is Data:
   UserId{id: String}
   Missing{}
 
-def json(status: U32, value: Json.Val) -> Http.Res:
-  Http.Res{status, Http.set(Http.empty(), "content-type", "application/json"), Json.encode.bytes(value)}
+def json(status: U32, value: Json.Val) -> Pure.Res:
+  Pure.Res{status, Pure.set(Pure.empty(), "content-type", "application/json"), Json.encode.bytes(value)}
 
-def error(e: Err) -> Http.Res:
+def error(e: Err) -> Pure.Res:
   match e:
     case BadInput{}:
       json(400, Json.Obj{[(Json.utf8("error"), Json.Str{Json.utf8("invalid input")})]})
     case Unauthorized{}:
-      Http.Res{401, Http.set(Http.empty(), "www-authenticate", "Bearer"), Http.from_string("")}
+      Pure.Res{401, Pure.set(Pure.empty(), "www-authenticate", "Bearer"), Pure.from_string("")}
     case NotFound{}:
       json(404, Json.Obj{[(Json.utf8("error"), Json.Str{Json.utf8("not found")})]})
     case Unsupported{}:
@@ -49,15 +50,15 @@ def public(user: User) -> Json.Val:
   User{id, name, secret} = user
   Json.Obj{[(Json.utf8("id"), Json.Num{Bytes.u32.show(id)}), (Json.utf8("name"), Json.Str{Json.utf8(name)})]}
 
-def respond.success(status: U32, user: User) -> Http.Res:
+def respond.success(status: U32, user: User) -> Pure.Res:
   match status:
     case 201:
       User{+id, name, secret} = user
-      Http.Res{201, Http.set(Http.set(Http.empty(), "content-type", "application/json"), "location", "/users/" ++ U32.show(id)), Json.encode.bytes(public(User{id, name, secret}))}
+      Pure.Res{201, Pure.set(Pure.set(Pure.empty(), "content-type", "application/json"), "location", "/users/" ++ U32.show(id)), Json.encode.bytes(public(User{id, name, secret}))}
     case _:
       json(status, public(user))
 
-def respond(status: U32, result: Result<&2, &2, Err, User>) -> Http.Res:
+def respond(status: U32, result: Result<&2, &2, Err, User>) -> Pure.Res:
   match result:
     case Fail{e}:
       error(e)
@@ -152,22 +153,22 @@ def name.parsed(v: Maybe<&1, Json.Val>) -> Maybe<&2, String>:
     case Some{value}:
       name.object(value)
 
-def name(body: Http.Body) -> Maybe<&2, String>:
+def name(body: Pure.Body) -> Maybe<&2, String>:
   name.parsed(Json.parse.bytes(body))
 
-def endpoint.respond(status: U32, result: Store & Result<&2, &2, Err, User>) -> IO(Store & Http.Res):
+def endpoint.respond(status: U32, result: Store & Result<&2, &2, Err, User>) -> IO(Store & Pure.Res):
   (store, outcome) = result
-  IO.pure(Store & Http.Res, (store, respond(status, outcome)))
+  IO.pure(Store & Pure.Res, (store, respond(status, outcome)))
 
 def endpoint.decoded(
   ~I: Data, ~handler: Store -> Principal -> I -> IO(Store & Result<&2, &2, Err, User>),
   store: Store, principal: Principal, input: Maybe<&2, I>, status: U32
-) -> IO(Store & Http.Res):
+) -> IO(Store & Pure.Res):
   match input:
     case None{}:
-      IO.pure(Store & Http.Res, (store, error(BadInput{})))
+      IO.pure(Store & Pure.Res, (store, error(BadInput{})))
     case Some{value}:
-      do IO<Store & Http.Res>:
+      do IO<Store & Pure.Res>:
         result : Store & Result<&2, &2, Err, User> <- handler(store, principal, value)
         endpoint.respond(status, result)
 
@@ -210,50 +211,50 @@ def select(+path: String) -> Path:
     case _:
       select.id(Router.route("GET", "GET", "/users/:id", path), path)
 
-def creation(media: String, store: Store, principal: Principal, body: Http.Body) -> IO(Store & Http.Res):
+def creation(media: String, store: Store, principal: Principal, body: Pure.Body) -> IO(Store & Pure.Res):
   match media:
     case "application/json":
       endpoint.decoded(~String, ~create, store, principal, name(body), 201)
     case _:
-      IO.pure(Store & Http.Res, (store, error(Unsupported{})))
+      IO.pure(Store & Pure.Res, (store, error(Unsupported{})))
 
-def me(principal: Principal, store: Store) -> IO(Store & Http.Res):
+def me(principal: Principal, store: Store) -> IO(Store & Pure.Res):
   Principal{+uid} = principal
   endpoint.decoded(~U32, ~lookup, store, Principal{uid}, Some{uid}, 200)
 
-def route(path: Path, store: Store, principal: Principal, method: String, headers: Map<&2, List<&2, String>>, body: Http.Body) -> IO(Store & Http.Res):
+def route(path: Path, store: Store, principal: Principal, method: String, headers: Map<&2, List<&2, String>>, body: Pure.Body) -> IO(Store & Pure.Res):
   match path method:
     case Me{} "GET":
       me(principal, store)
     case UserId{value} "GET":
       endpoint.decoded(~U32, ~lookup, store, principal, id(value), 200)
     case Users{} "POST":
-      creation(Http.header(headers, "content-type"), store, principal, body)
+      creation(Pure.header(headers, "content-type"), store, principal, body)
     case _ _:
-      IO.pure(Store & Http.Res, (store, Http.Res{405, Http.set(Http.empty(), "allow", "GET, HEAD, OPTIONS"), Http.from_string("")}))
+      IO.pure(Store & Pure.Res, (store, Pure.Res{405, Pure.set(Pure.empty(), "allow", "GET, HEAD, OPTIONS"), Pure.from_string("")}))
 
-def authenticated(authenticated: Maybe<&2, Principal>, path: Path, store: Store, method: String, headers: Map<&2, List<&2, String>>, body: Http.Body) -> IO(Store & Http.Res):
+def authenticated(authenticated: Maybe<&2, Principal>, path: Path, store: Store, method: String, headers: Map<&2, List<&2, String>>, body: Pure.Body) -> IO(Store & Pure.Res):
   match authenticated:
     case None{}:
-      IO.pure(Store & Http.Res, (store, error(Unauthorized{})))
+      IO.pure(Store & Pure.Res, (store, error(Unauthorized{})))
     case Some{principal}:
       route(path, store, principal, method, headers, body)
 
-def dispatch.path(path: Path, store: Store, method: String, +headers: Map<&2, List<&2, String>>, body: Http.Body) -> IO(Store & Http.Res):
+def dispatch.path(path: Path, store: Store, method: String, +headers: Map<&2, List<&2, String>>, body: Pure.Body) -> IO(Store & Pure.Res):
   match path:
     case Health{}:
-      IO.pure(Store & Http.Res, (store, json(200, Json.Obj{[(Json.utf8("ok"), Json.Flag{True{}})]})))
+      IO.pure(Store & Pure.Res, (store, json(200, Json.Obj{[(Json.utf8("ok"), Json.Flag{True{}})]})))
     case Missing{}:
-      IO.pure(Store & Http.Res, (store, error(NotFound{})))
+      IO.pure(Store & Pure.Res, (store, error(NotFound{})))
     case Me{}:
-      authenticated(auth(Http.header(headers, "authorization")), Me{}, store, method, headers, body)
+      authenticated(auth(Pure.header(headers, "authorization")), Me{}, store, method, headers, body)
     case Users{}:
-      authenticated(auth(Http.header(headers, "authorization")), Users{}, store, method, headers, body)
+      authenticated(auth(Pure.header(headers, "authorization")), Users{}, store, method, headers, body)
     case UserId{value}:
-      authenticated(auth(Http.header(headers, "authorization")), UserId{value}, store, method, headers, body)
+      authenticated(auth(Pure.header(headers, "authorization")), UserId{value}, store, method, headers, body)
 
-def dispatch(store: Store, req: Http.Req) -> IO(Store & Http.Res):
-  Http.Req{method, target, headers, body} = req
+def dispatch(store: Store, req: Pure.Req) -> IO(Store & Pure.Res):
+  Pure.Req{method, target, headers, body} = req
   dispatch.path(select(target), store, method, headers, body)
 
 def open(path: String, mode: String) -> IO(Store):

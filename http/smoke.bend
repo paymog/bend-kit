@@ -1,5 +1,6 @@
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-http2@0.5.0.2/http2.bend as H2
 
@@ -14,47 +15,47 @@ def ok_page.go(url: String, ok: Bool) -> IO(Unit):
     case False{}:
       line("fail", url)
 
-def ok_page(url: String, m: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+def ok_page(url: String, m: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match m:
     case Fail{e}:
       line("fail", url)
     case Done{res}:
-      Http.Res{+status, headers, body} = res
+      Pure.Res{+status, headers, body} = res
       ok_page.go(url, U32.is_eq(status, 200))
 
-def ok_tls(url: String, m: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+def ok_tls(url: String, m: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match m:
     case Fail{e}:
       match e:
-        case Http.ErrTls{code, why}:
+        case Pure.ErrTls{code, why}:
           line("ok", url)
-        case Http.ErrUrl{}:
+        case Pure.ErrUrl{}:
           line("fail", url)
-        case Http.ErrDns{}:
+        case Pure.ErrDns{}:
           line("fail", url)
-        case Http.ErrConnect{code, why}:
+        case Pure.ErrConnect{code, why}:
           line("fail", url)
-        case Http.ErrRead{code, why}:
+        case Pure.ErrRead{code, why}:
           line("fail", url)
-        case Http.ErrWrite{code, why}:
+        case Pure.ErrWrite{code, why}:
           line("fail", url)
-        case Http.ErrTimeout{}:
+        case Pure.ErrTimeout{}:
           line("fail", url)
-        case Http.ErrRedirect{}:
+        case Pure.ErrRedirect{}:
           line("fail", url)
-        case Http.ErrBad{}:
+        case Pure.ErrBad{}:
           line("fail", url)
     case Done{res}:
       line("fail", url)
 
 def page(+url: String) -> IO(Unit):
   do IO<Unit>:
-    m : Result<&1, &1, Http.Err, Http.Res> <- Http.fetch.with("GET", url, Http.empty(), Bytes.new(0), 15000)
+    m : Result<&1, &1, Pure.Err, Pure.Res> <- Http.fetch.with("GET", url, Pure.empty(), Bytes.new(0), 15000)
     ok_page(url, m)
 
 def tls(+url: String) -> IO(Unit):
   do IO<Unit>:
-    m : Result<&1, &1, Http.Err, Http.Res> <- Http.fetch.with("GET", url, Http.empty(), Bytes.new(0), 15000)
+    m : Result<&1, &1, Pure.Err, Pure.Res> <- Http.fetch.with("GET", url, Pure.empty(), Bytes.new(0), 15000)
     ok_tls(url, m)
 
 def h2.status(ok: Bool, p: Http.Pool) -> IO(Http.Pool):
@@ -66,22 +67,22 @@ def h2.status(ok: Bool, p: Http.Pool) -> IO(Http.Pool):
         Http.pool.close(p)
         IO.die(Http.Pool, 1, "HTTP/2 response mapping was wrong")
 
-def h2.checked(pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Http.Pool):
+def h2.checked(pr: Http.Pool & Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Http.Pool):
   (p, r) = pr
   match r:
     case Fail{e}:
       do IO<Http.Pool>:
         Http.pool.close(p)
         IO.die(Http.Pool, 1, "HTTP/2 fetch failed")
-    case Done{Http.Res{+status, headers, body}}:
+    case Done{Pure.Res{+status, headers, body}}:
       h2.status(Bool.and(U32.is_eq(status, 200),
-        Bool.and(String.eq(Http.header(headers, "content-type"), "text/html; charset=utf-8"),
+        Bool.and(String.eq(Pure.header(headers, "content-type"), "text/html; charset=utf-8"),
           String.eq(Bytes.to_string(body), "hello"))), p)
 
 def h2.fetch(p: Http.Pool) -> IO(Http.Pool):
   do IO<Http.Pool>:
-    pr : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch(p, "GET", "https://http2.testserver.host/base64/aGVsbG8=", Http.empty(), Bytes.new(0))
+    pr : Http.Pool & Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.pool.fetch(p, "GET", "https://http2.testserver.host/base64/aGVsbG8=", Pure.empty(), Bytes.new(0))
     h2.checked(pr)
 
 def h2.status.check(ok: Bool) -> IO(Unit):

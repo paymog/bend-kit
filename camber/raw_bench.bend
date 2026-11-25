@@ -2,6 +2,7 @@
 import Base
 import ./raw_http.bend as Raw
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/completion.bend as Completion
 import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
@@ -56,12 +57,12 @@ def job(label: String) -> Maybe<&2, Job>:
     case _:
       None{}
 
-def payload(input: Payload) -> Http.Body:
+def payload(input: Payload) -> Pure.Body:
   match input:
     case Empty{}:
-      Http.from_string("")
+      Pure.from_string("")
     case Json1k{}:
-      Http.from_string("{\"name\":\"Cara\"}" ++ String.repeat(" ", 1009n))
+      Pure.from_string("{\"name\":\"Cara\"}" ++ String.repeat(" ", 1009n))
     case Binary{+length}:
       Bytes.Bytes{length, Array.new(U32, Bytes.depth(Bytes.words(length)), 4278222975)}
 
@@ -82,15 +83,15 @@ def size(input: Payload) -> U32:
       length
 
 def headers(+input: Payload) -> Map<&2, List<&2, String>>:
-  Http.set(Http.set(Http.set(Http.set(Http.set(Http.empty(), "host", "localhost"), "connection", "keep-alive"), "authorization", "Bearer alice"), "content-type", media(input)), "content-length", U32.show(size(input)))
+  Pure.set(Pure.set(Pure.set(Pure.set(Pure.set(Pure.empty(), "host", "localhost"), "connection", "keep-alive"), "authorization", "Bearer alice"), "content-type", media(input)), "content-length", U32.show(size(input)))
 
-def basic(req: Http.Req) -> IO(Http.Res):
+def basic(req: Pure.Req) -> IO(Pure.Res):
   Raw.basic(req)
 
 def dispatch(
   ~r10: U32 -> Bool, ~r100: U32 -> Bool, ~r1000: U32 -> Bool,
-  profile: U32, req: Http.Req
-) -> IO(Http.Res):
+  profile: U32, req: Pure.Req
+) -> IO(Pure.Res):
   match profile:
     case 0:
       Raw.basic(req)
@@ -101,15 +102,15 @@ def dispatch(
     case 1000:
       Raw.routes(~r1000, req)
     case _:
-      IO.die(Http.Res, 1, "invalid profile")
+      IO.die(Pure.Res, 1, "invalid profile")
 
-def response.length(status: U32, result: Http.Body & U32) -> U32:
+def response.length(status: U32, result: Pure.Body & U32) -> U32:
   (body, length) = result
   (status + length : U32)
 
-def response(result: Http.Res) -> U32:
-  Http.Res{status, headers, body} = result
-  response.length(status, Http.length(body))
+def response(result: Pure.Res) -> U32:
+  Pure.Res{status, headers, body} = result
+  response.length(status, Pure.length(body))
 
 def loops(
   ~r10: U32 -> Bool, ~r100: U32 -> Bool, ~r1000: U32 -> Bool,
@@ -121,7 +122,7 @@ def loops(
     case 1n+p:
       Job{profile, verb, target, input} = work
       do IO<U32>:
-        result : Http.Res <- dispatch(~r10, ~r100, ~r1000, profile, Http.Req{verb, target, fields, payload(input)})
+        result : Pure.Res <- dispatch(~r10, ~r100, ~r1000, profile, Pure.Req{verb, target, fields, payload(input)})
         loops(~r10, ~r100, ~r1000, p, work, fields, (total + response(result) : U32))
 
 def report(label: String, elapsed: Time.Duration, total: U32) -> IO(Unit):
@@ -151,30 +152,30 @@ def direct.job(
       timed(~r10, ~r100, ~r1000, label, U32.to_nat(n), value, headers(input))
 
 # Serving adds no request-local payload to the direct-dispatch benchmark.
-def served(operation: IO(Http.Res)) -> IO(Http.Reply):
+def served(operation: IO(Pure.Res)) -> IO(Http.Reply):
   do IO<Http.Reply>:
-    response : Http.Res <- operation
+    response : Pure.Res <- operation
     return Http.Reply{response, Completion.Unobserved{}}
 
-def listening.ready(~h: Http.Req -> IO(Http.Reply), bound: Http.Server<Unit> & U32) -> IO(Unit):
+def listening.ready(~h: Pure.Req -> IO(Http.Reply), bound: Http.Server<Unit> & U32) -> IO(Unit):
   (server, port) = bound
   do IO<Unit>:
     IO.print("READY " ++ U32.show(port))
-    exited : Http.ServerExit <- Http.server.run(~Unit, ~(context => req => h(req)),
+    exited : Pure.ServerExit <- Http.server.run(~Unit, ~(context => req => h(req)),
       ~(context => status => outcome => Completion.ignore(status, outcome)), server)
     Http.server.exited(exited)
 
-def listening(~h: Http.Req -> IO(Http.Reply), started: Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Unit):
+def listening(~h: Pure.Req -> IO(Http.Reply), started: Unit & Result<&2, &1, Pure.StartupError, Http.Server<Unit>>) -> IO(Unit):
   (owner, result) = started
   match result:
     case Fail{error}:
       Http.server.start.failed(error)
     case Done{server}: listening.ready(~h, Http.server.port(~Unit, server))
 
-def listen(~h: Http.Req -> IO(Http.Reply), port: U32) -> IO(Unit):
+def listen(~h: Pure.Req -> IO(Http.Reply), port: U32) -> IO(Unit):
   do IO<Unit>:
-    started : Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>> <-
-      Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, Http.server.config.with("127.0.0.1", port, 8388608n))
+    started : Unit & Result<&2, &1, Pure.StartupError, Http.Server<Unit>> <-
+      Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, Pure.server.config.with("127.0.0.1", port, 8388608n))
     listening(~h, started)
 
 def serve(

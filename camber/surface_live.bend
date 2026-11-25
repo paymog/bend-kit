@@ -6,6 +6,7 @@ import ./author_app.bend as Author
 import ./surface_check.bend as Check
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-json@0.7.3.0/json.bend as Json
 import ../concurrency/concurrency.bend as Conc
@@ -15,47 +16,47 @@ type Bundle is Type:
   Bundle{state: Example.State, application: Example.Application}
 
 type Context is Data:
-  Context{jobs: Chan(Http.Req & Chan(Http.Res))}
+  Context{jobs: Chan(Pure.Req & Chan(Pure.Res))}
 
-def packed(application: Example.Application, result: Example.State & Http.Res) -> IO(Bundle & Http.Res):
+def packed(application: Example.Application, result: Example.State & Pure.Res) -> IO(Bundle & Pure.Res):
   (Example.State{journal, events}, response) = result
-  do IO<Bundle & Http.Res>:
-    IO.print("TRACE " ++ Http.text(Http.Res{200, Http.empty(), Json.encode.bytes(Json.Arr{Check.events(List.reverse(&2, Example.Stage, events))})}))
+  do IO<Bundle & Pure.Res>:
+    IO.print("TRACE " ++ Pure.text(Pure.Res{200, Pure.empty(), Json.encode.bytes(Json.Arr{Check.events(List.reverse(&2, Example.Stage, events))})}))
     return (Bundle{Example.State{journal, Nil{}}, application}, response)
 
-def delayed(held: Bool, result: Bundle & Http.Res) -> IO(Bundle & Http.Res):
+def delayed(held: Bool, result: Bundle & Pure.Res) -> IO(Bundle & Pure.Res):
   match held:
     case False{}:
-      IO.pure(Bundle & Http.Res, result)
+      IO.pure(Bundle & Pure.Res, result)
     case True{}:
-      do IO<Bundle & Http.Res>:
+      do IO<Bundle & Pure.Res>:
         IO.print("RESPONSE HELD")
         IO.sleep(200)
         return result
 
-def work(bundle: Bundle, request: Http.Req) -> IO(Bundle & Http.Res):
+def work(bundle: Bundle, request: Pure.Req) -> IO(Bundle & Pure.Res):
   Bundle{state, +application} = bundle
-  Http.Req{method, target, +headers, body} = request
-  do IO<Bundle & Http.Res>:
-    result : Example.State & Http.Res <- Author.dispatch(state, application, Http.Req{method, target, headers, body})
-    packed_result : Bundle & Http.Res <- packed(application, result)
-    delayed(String.eq(Http.header(headers, "x-delay-response"), "yes"), packed_result)
+  Pure.Req{method, target, +headers, body} = request
+  do IO<Bundle & Pure.Res>:
+    result : Example.State & Pure.Res <- Author.dispatch(state, application, Pure.Req{method, target, headers, body})
+    packed_result : Bundle & Pure.Res <- packed(application, result)
+    delayed(String.eq(Pure.header(headers, "x-delay-response"), "yes"), packed_result)
 
-def receive(value: Maybe<&1, Http.Res>) -> IO(Http.Res):
+def receive(value: Maybe<&1, Pure.Res>) -> IO(Pure.Res):
   match value:
     case None{}:
-      IO.die(Http.Res, 1, "scoped reply closed early")
+      IO.die(Pure.Res, 1, "scoped reply closed early")
     case Some{response}:
-      IO.pure(Http.Res, response)
+      IO.pure(Pure.Res, response)
 
-def handle(context: Context, request: Http.Req) -> IO(Http.Res):
+def handle(context: Context, request: Pure.Req) -> IO(Pure.Res):
   Context{jobs} = context
-  do IO<Http.Res>:
-    reply0 : Chan(Http.Res) <- Chan.new(Http.Res, 1)
-    +reply : Chan(Http.Res) = reply0
-    sent : Result<&1, &1, Http.Req & Chan(Http.Res), Unit> <- Chan.send(Http.Req & Chan(Http.Res), jobs, (request, reply))
-    Registry.require(Result.is_done(&1, &1, Http.Req & Chan(Http.Res), Unit, sent), "scoped worker queue closed early")
-    response : Maybe<&1, Http.Res> <- Chan.recv(Http.Res, reply)
+  do IO<Pure.Res>:
+    reply0 : Chan(Pure.Res) <- Chan.new(Pure.Res, 1)
+    +reply : Chan(Pure.Res) = reply0
+    sent : Result<&1, &1, Pure.Req & Chan(Pure.Res), Unit> <- Chan.send(Pure.Req & Chan(Pure.Res), jobs, (request, reply))
+    Registry.require(Result.is_done(&1, &1, Pure.Req & Chan(Pure.Res), Unit, sent), "scoped worker queue closed early")
+    response : Maybe<&1, Pure.Res> <- Chan.recv(Pure.Res, reply)
     receive(response)
 
 def close(mode: String, returned: List<Bundle>) -> IO(Unit):
@@ -67,13 +68,13 @@ def close(mode: String, returned: List<Bundle>) -> IO(Unit):
     case _:
       IO.die(Unit, 1, "scoped worker did not return its affine state")
 
-def listening(bound: Listener & U32, +jobs: Chan(Http.Req & Chan(Http.Res)), workers: List<Chan(Bundle)>, mode: String, connections: U32) -> IO(Unit):
+def listening(bound: Listener & U32, +jobs: Chan(Pure.Req & Chan(Pure.Res)), workers: List<Chan(Bundle)>, mode: String, connections: U32) -> IO(Unit):
   (listener, port) = bound
   do IO<Unit>:
     IO.print("READY " ++ U32.show(port))
     done : List<Chan(Unit)> <- Transport.accept(~Context, ~handle, U32.to_nat(connections), Context{jobs}, 8388608n, listener)
     Transport.join(done)
-    Chan.close(Http.Req & Chan(Http.Res), jobs)
+    Chan.close(Pure.Req & Chan(Pure.Res), jobs)
     returned : List<Bundle> <- Conc.pool.join(Bundle, workers)
     close(mode, returned)
 
@@ -81,9 +82,9 @@ def start(path: String, +mode: String, fault: String, mapper: String, port: U32,
   do IO<Unit>:
     +application : Example.Application <- Example.application(fault, Check.mapper_mode(mapper))
     journal : File <- IO.try(File, File.open(path, mode))
-    jobs0 : Chan(Http.Req & Chan(Http.Res)) <- Chan.new(Http.Req & Chan(Http.Res), 1)
-    +jobs : Chan(Http.Req & Chan(Http.Res)) = jobs0
-    workers : List<Chan(Bundle)> <- Conc.pool.start(~Bundle, ~Http.Req, ~Http.Res, ~work, [Bundle{Example.State{journal, Nil{}}, application}], 64n, jobs)
+    jobs0 : Chan(Pure.Req & Chan(Pure.Res)) <- Chan.new(Pure.Req & Chan(Pure.Res), 1)
+    +jobs : Chan(Pure.Req & Chan(Pure.Res)) = jobs0
+    workers : List<Chan(Bundle)> <- Conc.pool.start(~Bundle, ~Pure.Req, ~Pure.Res, ~work, [Bundle{Example.State{journal, Nil{}}, application}], 64n, jobs)
     bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
     listening(bound, jobs, workers, mode, connections)
 

@@ -1,12 +1,13 @@
 # Finite fixture acceptance using the production transport and admission owner.
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 
-def accept.reply(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), context: C, request: Http.Req) -> IO(Http.Reply):
+def accept.reply(~C: Data, ~handler: C -> Pure.Req -> IO(Pure.Res), context: C, request: Pure.Req) -> IO(Http.Reply):
   do IO<Http.Reply>:
-    response : Http.Res <- handler(context, request)
+    response : Pure.Res <- handler(context, request)
     return Http.Reply{response, Completion.Unobserved{}}
 
 
@@ -39,7 +40,7 @@ type AcceptStep<-C: Data> is Type:
   AcceptReceived{result: Http.Server<C> & Result<&1, &1, U32 & String, Chan(Unit)>}
 
 @unsafe
-def accept.go(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), step: AcceptStep<C>,
+def accept.go(~C: Data, ~handler: C -> Pure.Req -> IO(Pure.Res), step: AcceptStep<C>,
   fuel: Nat, finished: List<Chan(Unit)>) -> IO(List<Chan(Unit)>):
   match step:
     case AcceptListening{server}:
@@ -58,24 +59,24 @@ def accept.go(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), step: AcceptSte
         case Done{done}:
           accept.go(~C, ~handler, AcceptListening{server}, fuel, done <> finished)
 
-def accept.opened(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat,
-  context: C, config: Http.ServerConfig, listener: Listener,
+def accept.opened(~C: Data, ~handler: C -> Pure.Req -> IO(Pure.Res), count: Nat,
+  context: C, config: Pure.ServerConfig, listener: Listener,
   opened: Chan(Admission.Command) & Chan(Admission.Counts)) -> IO(List<Chan(Unit)>):
   (inbox, drained) = opened
   accept.go(~C, ~handler, AcceptListening{Http.Server{listener, context, config, inbox, drained}}, count, Nil{})
 
-def accept.configured(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat,
-  context: C, +config: Http.ServerConfig, listener: Listener) -> IO(List<Chan(Unit)>):
-  Http.ServerConfig{host, port, body, headers, connections, active, buffered, hm, bm, im, wm} = config
+def accept.configured(~C: Data, ~handler: C -> Pure.Req -> IO(Pure.Res), count: Nat,
+  context: C, +config: Pure.ServerConfig, listener: Listener) -> IO(List<Chan(Unit)>):
+  Pure.ServerConfig{host, port, body, headers, connections, active, buffered, hm, bm, im, wm} = config
   do IO<List<Chan(Unit)>>:
     Http.limits.validate(U32.to_nat(body))
     opened : Chan(Admission.Command) & Chan(Admission.Counts) <- Admission.open.owner(Admission.Caps{connections, active, buffered})
     accept.opened(~C, ~handler, count, context, config, listener, opened)
 
-def accept(~C: Data, ~handler: C -> Http.Req -> IO(Http.Res), count: Nat, context: C, +max: Nat, listener: Listener) -> IO(List<Chan(Unit)>):
+def accept(~C: Data, ~handler: C -> Pure.Req -> IO(Pure.Res), count: Nat, context: C, +max: Nat, listener: Listener) -> IO(List<Chan(Unit)>):
   do IO<List<Chan(Unit)>>:
     Http.limits.validate(max)
     opened : Chan(Admission.Command) & Chan(Admission.Counts) <- Admission.open.owner(Admission.Caps{128, 128, 128})
     accept.opened(~C, ~handler, count, context,
-      Http.ServerConfig{"127.0.0.1", 0, U32.from_nat(max), 65536, 128, 128, 128, 5000, 30000, 30000, 30000}, listener, opened)
+      Pure.ServerConfig{"127.0.0.1", 0, U32.from_nat(max), 65536, 128, 128, 128, 5000, 30000, 30000, 30000}, listener, opened)
 

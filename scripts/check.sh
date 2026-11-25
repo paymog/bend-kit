@@ -12,7 +12,13 @@ for d in "$@"; do
   (
     cd "$d"
     verdict "$d.bend" ""
-    [ ! -f PROOF.bend ] || verdict PROOF.bend '^LAWS[.]'
+    if [ -f PROOF.bend ]; then
+      if [ "$d" = http ]; then
+        bend PROOF.bend --check-only
+      else
+        verdict PROOF.bend '^LAWS[.]'
+      fi
+    fi
     [ ! -f check.bend ] || bend check.bend
   )
 done
