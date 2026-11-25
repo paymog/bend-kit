@@ -4,6 +4,7 @@ import ./ownership.bend as Users
 import ./interface_check.bend as Interface
 import ../router/router.bend as Router
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../time/time.bend as Time
 
 type Workload is Data:
@@ -19,30 +20,30 @@ def decoded(value: Maybe<&2, String>) -> U32:
     case Some{text}:
       U32.from_nat(String.length(text))
 
-def response.length(store: Users.Store, status: U32, result: Http.Body & U32) -> Users.Store & U32:
+def response.length(store: Users.Store, status: U32, result: Pure.Body & U32) -> Users.Store & U32:
   (body, length) = result
   (store, (status + length : U32))
 
-def response(result: Users.Store & Http.Res) -> Users.Store & U32:
+def response(result: Users.Store & Pure.Res) -> Users.Store & U32:
   (store, res) = result
-  Http.Res{status, headers, body} = res
-  response.length(store, status, Http.length(body))
+  Pure.Res{status, headers, body} = res
+  response.length(store, status, Pure.length(body))
 
 def sample(job: Workload, store: Users.Store) -> IO(Users.Store & U32):
   match job:
     case Dispatch{method, path}:
       do IO<Users.Store & U32>:
-        result : Users.Store & Http.Res <- Users.dispatch(store, Interface.req(method, path, ""))
+        result : Users.Store & Pure.Res <- Users.dispatch(store, Interface.req(method, path, ""))
         return response(result)
     case Decode{payload}:
-      IO.pure(Users.Store & U32, (store, decoded(Users.name(Http.from_string(payload)))))
+      IO.pure(Users.Store & U32, (store, decoded(Users.name(Pure.from_string(payload)))))
     case Echo{payload}:
       do IO<Users.Store & U32>:
-        result : Users.Store & Http.Res <- Interface.run(Interface.Echo{}, Interface.Config{"bench"}, store, Interface.Metadata{"POST", "/echo", Http.set(Http.set(Http.empty(), "authorization", "Bearer alice"), "content-type", "application/json")}, Map.new(&2, String), Http.from_string(payload))
+        result : Users.Store & Pure.Res <- Interface.run(Interface.Echo{}, Interface.Config{"bench"}, store, Interface.Metadata{"POST", "/echo", Pure.set(Pure.set(Pure.empty(), "authorization", "Bearer alice"), "content-type", "application/json")}, Map.new(&2, String), Pure.from_string(payload))
         return response(result)
     case Registry{plan, payload}:
       do IO<Users.Store & U32>:
-        result : Users.Store & Http.Res <- Interface.invoke(~Users.Store, ~Interface.Action, ~Interface.Config, ~Interface.run, plan, store, Interface.req("POST", "/echo", payload))
+        result : Users.Store & Pure.Res <- Interface.invoke(~Users.Store, ~Interface.Action, ~Interface.Config, ~Interface.run, plan, store, Interface.req("POST", "/echo", payload))
         return response(result)
 
 def add(result: Users.Store & U32, hash: U32) -> Users.Store & U32:

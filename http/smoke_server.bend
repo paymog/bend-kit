@@ -1,5 +1,6 @@
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 
 def ready(server: Http.Server<Unit> & U32) -> IO(Http.Server<Unit>):
   (listening, port) = server
@@ -7,7 +8,7 @@ def ready(server: Http.Server<Unit> & U32) -> IO(Http.Server<Unit>):
     IO.print("READY " ++ U32.show(port))
     return listening
 
-def started(result: Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Http.Server<Unit>):
+def started(result: Unit & Result<&2, &1, Pure.StartupError, Http.Server<Unit>>) -> IO(Http.Server<Unit>):
   (owner, got) = result
   match got:
     case Fail{error}:
@@ -19,6 +20,6 @@ def started(result: Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>>)
 
 def start(max: Nat) -> IO(Http.Server<Unit>):
   do IO<Http.Server<Unit>>:
-    result : Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>> <-
-      Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, Http.server.config.with("127.0.0.1", 0, max))
+    result : Unit & Result<&2, &1, Pure.StartupError, Http.Server<Unit>> <-
+      Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, Pure.server.config.with("127.0.0.1", 0, max))
     started(result)

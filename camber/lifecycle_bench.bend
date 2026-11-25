@@ -3,19 +3,20 @@ import Base
 import ./raw_bench.bend as Raw
 import ./lifecycle_http.bend as Scoped
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import bend-kit-time@0.3.0.1/time.bend as Time
 
-def loops(~dispatch: U32 -> Http.Req -> IO(Http.Res), n: Nat, +work: Raw.Job, +fields: Map<&2, List<&2, String>>, total: U32) -> IO(U32):
+def loops(~dispatch: U32 -> Pure.Req -> IO(Pure.Res), n: Nat, +work: Raw.Job, +fields: Map<&2, List<&2, String>>, total: U32) -> IO(U32):
   match n:
     case 0n:
       IO.pure(U32, total)
     case 1n+p:
       Raw.Job{profile, verb, target, input} = work
       do IO<U32>:
-        response : Http.Res <- dispatch(profile, Http.Req{verb, target, fields, Raw.payload(input)})
+        response : Pure.Res <- dispatch(profile, Pure.Req{verb, target, fields, Raw.payload(input)})
         loops(~dispatch, p, work, fields, (total + Raw.response(response) : U32))
 
-def timed(~dispatch: U32 -> Http.Req -> IO(Http.Res), +label: String, n: U32, +work: Raw.Job, +fields: Map<&2, List<&2, String>>) -> IO(Unit):
+def timed(~dispatch: U32 -> Pure.Req -> IO(Pure.Res), +label: String, n: U32, +work: Raw.Job, +fields: Map<&2, List<&2, String>>) -> IO(Unit):
   do IO<Unit>:
     warm : U32 <- loops(~dispatch, 100n, work, fields, 0)
     start : Time.Duration <- Time.mono()
@@ -23,7 +24,7 @@ def timed(~dispatch: U32 -> Http.Req -> IO(Http.Res), +label: String, n: U32, +w
     finish : Time.Duration <- Time.mono()
     Raw.report(label, Time.Duration.sub(finish, start), total)
 
-def direct(~dispatch: U32 -> Http.Req -> IO(Http.Res), label: String, n: U32, work: Maybe<&2, Raw.Job>) -> IO(Unit):
+def direct(~dispatch: U32 -> Pure.Req -> IO(Pure.Res), label: String, n: U32, work: Maybe<&2, Raw.Job>) -> IO(Unit):
   match work:
     case None{}:
       IO.die(Unit, 1, "invalid workload")
@@ -31,7 +32,7 @@ def direct(~dispatch: U32 -> Http.Req -> IO(Http.Res), label: String, n: U32, wo
       Raw.Job{profile, verb, target, input} = job
       timed(~dispatch, label, n, job, Raw.headers(input))
 
-def serve(~dispatch: U32 -> Http.Req -> IO(Http.Res), profile: String, port: U32) -> IO(Unit):
+def serve(~dispatch: U32 -> Pure.Req -> IO(Pure.Res), profile: String, port: U32) -> IO(Unit):
   match profile:
     case "0":
       Raw.listen(~(req => Raw.served(dispatch(0, req))), port)
@@ -44,7 +45,7 @@ def serve(~dispatch: U32 -> Http.Req -> IO(Http.Res), profile: String, port: U32
     case _:
       IO.die(Unit, 1, "invalid profile")
 
-def execute(~business: U32 -> Http.Req -> IO(Http.Res), number: Maybe<&2, U32>, operation: String, +label: String) -> IO(Unit):
+def execute(~business: U32 -> Pure.Req -> IO(Pure.Res), number: Maybe<&2, U32>, operation: String, +label: String) -> IO(Unit):
   match number:
     case None{}:
       IO.die(Unit, 1, "invalid count or port")
@@ -61,7 +62,7 @@ def execute(~business: U32 -> Http.Req -> IO(Http.Res), number: Maybe<&2, U32>, 
         case _:
           IO.die(Unit, 1, "invalid operation")
 
-def args(~business: U32 -> Http.Req -> IO(Http.Res), xs: List<&1, String>) -> IO(Unit):
+def args(~business: U32 -> Pure.Req -> IO(Pure.Res), xs: List<&1, String>) -> IO(Unit):
   match xs:
     case program <> operation <> label <> number <> Nil{}:
       execute(~business, U32.read(number), operation, label)

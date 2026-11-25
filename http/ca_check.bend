@@ -1,5 +1,6 @@
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def die(+why: String) -> IO(Unit):
@@ -23,13 +24,13 @@ def body.shown(+name: String, +want: String, +got: String, ok: Bool) -> IO(Unit)
     case True{}:
       body.eq(name, String.eq(got, want))
 
-def body.ok(+name: String, +want: String, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+def body.ok(+name: String, +want: String, r: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match r:
     case Fail{e}:
       die(name ++ " failed")
     case Done{res}:
-      Http.Res{+status, headers, body} = res
-      body.shown(name, want, Http.to_string(body), U32.is_eq(status, 200))
+      Pure.Res{+status, headers, body} = res
+      body.shown(name, want, Pure.to_string(body), U32.is_eq(status, 200))
 
 def tls.code(+name: String, +code: U32, same: Bool) -> IO(Unit):
   match same:
@@ -38,18 +39,18 @@ def tls.code(+name: String, +code: U32, same: Bool) -> IO(Unit):
     case False{}:
       die(name ++ " code " ++ U32.show(code))
 
-def tls.fail(+name: String, +want: U32, r: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+def tls.fail(+name: String, +want: U32, r: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match r:
     case Done{res}:
       die(name ++ " succeeded")
     case Fail{e}:
       match e:
-        case Http.ErrTls{+code, why}:
+        case Pure.ErrTls{+code, why}:
           tls.code(name, code, code.is(code, want))
         case other:
           die(name ++ " was not a TLS error")
 
-def pool.ok(+name: String, +want: String, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+def pool.ok(+name: String, +want: String, pr: Http.Pool & Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   (p, r) = pr
   do IO<Unit>:
     body.ok(name, want, r)
@@ -57,7 +58,7 @@ def pool.ok(+name: String, +want: String, pr: Http.Pool & Result<&1, &1, Http.Er
 
 type Read is Type:
   Reading{st: Http.Stream, body: Bytes.Bytes}
-  Read{got: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>, body: Bytes.Bytes}
+  Read{got: Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>>, body: Bytes.Bytes}
 
 def stream.read(fuel: Nat, step: Read) -> IO(Http.Stream & Bytes.Bytes):
   match fuel:
@@ -67,7 +68,7 @@ def stream.read(fuel: Nat, step: Read) -> IO(Http.Stream & Bytes.Bytes):
       match step:
         case Reading{st, body}:
           do IO<Http.Stream & Bytes.Bytes>:
-            got : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
+            got : Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
             stream.read(p, Read{got, body})
         case Read{got, body}:
           (st, r) = got
@@ -83,9 +84,9 @@ def stream.body(+name: String, +want: String, r: Http.Stream & Bytes.Bytes) -> I
   (st, body) = r
   do IO<Unit>:
     Http.stream.close(st)
-    body.eq(name, String.eq(Http.to_string(body), want))
+    body.eq(name, String.eq(Pure.to_string(body), want))
 
-def stream.ok(+name: String, +want: String, x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
+def stream.ok(+name: String, +want: String, x: Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream>) -> IO(Unit):
   (jar, r) = x
   match r:
     case Fail{e}:
@@ -95,7 +96,7 @@ def stream.ok(+name: String, +want: String, x: Maybe<&2, Http.Jar> & Result<&1, 
         got : Http.Stream & Bytes.Bytes <- stream.read(40n, Reading{st, Bytes.new(0)})
         stream.body(name, want, got)
 
-def stream.fail(+name: String, +want: U32, x: Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
+def stream.fail(+name: String, +want: U32, x: Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream>) -> IO(Unit):
   (jar, r) = x
   match r:
     case Done{st}:
@@ -104,59 +105,59 @@ def stream.fail(+name: String, +want: U32, x: Maybe<&2, Http.Jar> & Result<&1, &
         die(name ++ " succeeded")
     case Fail{e}:
       match e:
-        case Http.ErrTls{+code, why}:
+        case Pure.ErrTls{+code, why}:
           tls.code(name, code, code.is(code, want))
         case other:
           die(name ++ " was not a TLS error")
 
-def upload.sent(r: Http.Up & Result<&2, &2, Http.Err, Unit>) -> IO(Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>):
+def upload.sent(r: Pure.Up & Result<&2, &2, Pure.Err, Unit>) -> IO(Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream>):
   (up, w) = r
-  do IO<Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream>>:
-    st : Result<&1, &1, Http.Err, Http.Stream> <- Http.upload.finish(up)
+  do IO<Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream>>:
+    st : Result<&1, &1, Pure.Err, Http.Stream> <- Http.upload.finish(up)
     return (None{}, st)
 
-def upload.ok(r: Result<&1, &1, Http.Err, Http.Up>) -> IO(Unit):
+def upload.ok(r: Result<&1, &1, Pure.Err, Pure.Up>) -> IO(Unit):
   match r:
     case Fail{e}:
       die("upload.how ca failed")
     case Done{up}:
       do IO<Unit>:
-        w : Http.Up & Result<&2, &2, Http.Err, Unit> <- Http.upload.write(up, Http.from_string("hi"))
-        x : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <- upload.sent(w)
+        w : Pure.Up & Result<&2, &2, Pure.Err, Unit> <- Http.upload.write(up, Pure.from_string("hi"))
+        x : Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream> <- upload.sent(w)
         stream.ok("upload.how ca", "ok", x)
 
-def upload.fail(r: Result<&1, &1, Http.Err, Http.Up>) -> IO(Unit):
+def upload.fail(r: Result<&1, &1, Pure.Err, Pure.Up>) -> IO(Unit):
   match r:
     case Done{up}:
       do IO<Unit>:
-        x : Result<&1, &1, Http.Err, Http.Stream> <- Http.upload.finish(up)
+        x : Result<&1, &1, Pure.Err, Http.Stream> <- Http.upload.finish(up)
         die("upload.how default store accepted private CA")
     case Fail{e}:
       stream.fail("upload.how default store rejects private CA", 100, (None{}, Fail{e}))
 
-def upload.written(r: Http.Up & Result<&2, &2, Http.Err, Unit>) -> IO(Http.Up):
+def upload.written(r: Pure.Up & Result<&2, &2, Pure.Err, Unit>) -> IO(Pure.Up):
   match r:
     case (up, Done{Unit{}}):
-      IO.pure(Http.Up, up)
+      IO.pure(Pure.Up, up)
     case (up, Fail{e}):
-      IO.die(Http.Up, 1, "CONNECT upload write failed")
+      IO.die(Pure.Up, 1, "CONNECT upload write failed")
 
-def upload.tunnel(r: Result<&1, &1, Http.Err, Http.Up>) -> IO(Unit):
+def upload.tunnel(r: Result<&1, &1, Pure.Err, Pure.Up>) -> IO(Unit):
   match r:
     case Fail{e}:
       die("CONNECT upload open failed")
     case Done{up}:
       do IO<Unit>:
-        first : Http.Up & Result<&2, &2, Http.Err, Unit> <-
-          Http.upload.write(up, Http.from_string("first\r\n"))
-        next : Http.Up <- upload.written(first)
-        second : Http.Up & Result<&2, &2, Http.Err, Unit> <-
-          Http.upload.write(next, Http.from_string("second last"))
-        last : Http.Up <- upload.written(second)
-        finished : Result<&1, &1, Http.Err, Http.Stream> <- Http.upload.finish(last)
+        first : Pure.Up & Result<&2, &2, Pure.Err, Unit> <-
+          Http.upload.write(up, Pure.from_string("first\r\n"))
+        next : Pure.Up <- upload.written(first)
+        second : Pure.Up & Result<&2, &2, Pure.Err, Unit> <-
+          Http.upload.write(next, Pure.from_string("second last"))
+        last : Pure.Up <- upload.written(second)
+        finished : Result<&1, &1, Pure.Err, Http.Stream> <- Http.upload.finish(last)
         stream.ok("CONNECT TLS upload body at origin", "tunnel upload verified", (None{}, finished))
 
-def stream.tunnel(r: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Unit):
+def stream.tunnel(r: Http.Pool & Result<&1, &1, Pure.Err, Http.Stream>) -> IO(Unit):
   (p, response) = r
   do IO<Unit>:
     stream.ok("CONNECT TLS response stream", "tunnel streamed response complete", (None{}, response))
@@ -164,46 +165,46 @@ def stream.tunnel(r: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Un
 
 def run(+ca: String, +base: String, +port: U32, +proxy: String) -> IO(Unit):
   do IO<Unit>:
-    ok : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.ca("GET", base ++ "/ok", Http.empty(), Http.from_string(""), ca)
+    ok : Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.fetch.ca("GET", base ++ "/ok", Pure.empty(), Pure.from_string(""), ca)
     body.ok("fetch.ca", "ok", ok)
-    gone : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.ca("GET", base ++ "/go", Http.empty(), Http.from_string(""), ca)
+    gone : Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.fetch.ca("GET", base ++ "/go", Pure.empty(), Pure.from_string(""), ca)
     body.ok("fetch.ca redirect", "ok", gone)
-    bare : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch("GET", base ++ "/ok", Http.empty(), Http.from_string(""))
+    bare : Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.fetch("GET", base ++ "/ok", Pure.empty(), Pure.from_string(""))
     tls.fail("default store rejects private CA", 100, bare)
-    missing : Result<&1, &1, Http.Err, Http.Res> <-
-      Http.fetch.ca("GET", base ++ "/ok", Http.empty(), Http.from_string(""), "/nonexistent/bend-kit-ca.pem")
+    missing : Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.fetch.ca("GET", base ++ "/ok", Pure.empty(), Pure.from_string(""), "/nonexistent/bend-kit-ca.pem")
     tls.fail("missing CA file", 22, missing)
-    pooled : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.fetch.ca(Http.pool.new(), "GET", base ++ "/ok", Http.empty(), Http.from_string(""), ca)
+    pooled : Http.Pool & Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.pool.fetch.ca(Http.pool.new(), "GET", base ++ "/ok", Pure.empty(), Pure.from_string(""), ca)
     pool.ok("pool.fetch.ca", "ok", pooled)
-    opened : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.how(Http.ModeFollow{}, None{}, ca, None{}, "GET", base ++ "/go", Http.empty(), Http.from_string(""), 30000)
+    opened : Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream> <-
+      Http.open.how(Pure.ModeFollow{}, None{}, ca, None{}, "GET", base ++ "/go", Pure.empty(), Pure.from_string(""), 30000)
     stream.ok("open.how ca redirect", "ok", opened)
-    plain : Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.open.how(Http.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/ok", Http.empty(), Http.from_string(""), 30000)
+    plain : Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream> <-
+      Http.open.how(Pure.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/ok", Pure.empty(), Pure.from_string(""), 30000)
     stream.fail("open.how default store rejects private CA", 100, plain)
-    uploaded : Result<&1, &1, Http.Err, Http.Up> <-
-      Http.upload.how(None{}, ca, "POST", base ++ "/ok", Http.empty(), 30000)
+    uploaded : Result<&1, &1, Pure.Err, Pure.Up> <-
+      Http.upload.how(None{}, ca, "POST", base ++ "/ok", Pure.empty(), 30000)
     upload.ok(uploaded)
-    refused : Result<&1, &1, Http.Err, Http.Up> <-
-      Http.upload.how(None{}, "", "POST", base ++ "/ok", Http.empty(), 30000)
+    refused : Result<&1, &1, Pure.Err, Pure.Up> <-
+      Http.upload.how(None{}, "", "POST", base ++ "/ok", Pure.empty(), 30000)
     upload.fail(refused)
-    tunneled : Result<&1, &1, Http.Err, Http.Up> <-
-      Http.up.origin.choice("POST", 5000, Http.empty(), "localhost:" ++ U32.show(port),
-        "https", "localhost", port, "/tunnel", None{}, ca, Http.proxy.from.url(proxy))
+    tunneled : Result<&1, &1, Pure.Err, Pure.Up> <-
+      Http.up.origin.choice("POST", 5000, Pure.empty(), "localhost:" ++ U32.show(port),
+        "https", "localhost", port, "/tunnel", None{}, ca, Pure.proxy.from.url(proxy))
     upload.tunnel(tunneled)
-    fetched : Http.Pool & Result<&1, &1, Http.Err, Http.Res> <-
-      Http.pool.origin.choice(Http.pool.new(), "GET", 5000, Http.empty(), Bytes.new(0),
+    fetched : Http.Pool & Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.pool.origin.choice(Http.pool.new(), "GET", 5000, Pure.empty(), Bytes.new(0),
         "localhost:" ++ U32.show(port), "https", "localhost", port, "/tunnel-pool",
-        None{}, ca, Http.proxy.from.url(proxy))
+        None{}, ca, Pure.proxy.from.url(proxy))
     pool.ok("CONNECT TLS pooled fetch", "tunnel pooled response complete", fetched)
-    streaming : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <-
-      Http.stream.origin.choice(Http.pool.new(), "GET", 5000, Http.empty(), Bytes.new(0),
+    streaming : Http.Pool & Result<&1, &1, Pure.Err, Http.Stream> <-
+      Http.stream.origin.choice(Http.pool.new(), "GET", 5000, Pure.empty(), Bytes.new(0),
         "localhost:" ++ U32.show(port), "https", "localhost", port, "/tunnel-stream",
-        None{}, ca, Http.proxy.from.url(proxy))
+        None{}, ca, Pure.proxy.from.url(proxy))
     stream.tunnel(streaming)
 
 def main.port(ca: String, base: String, proxy: String, port: Maybe<&2, U32>) -> IO(Unit):

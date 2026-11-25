@@ -1,5 +1,5 @@
 import Base
-import ./http.bend as Http
+import ./pure.bend as Http
 import ./LAWS.bend as Laws
 
 def Laws.body_after_blank(b):

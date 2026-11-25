@@ -3,9 +3,10 @@
 import Base
 import ../../time/time.bend as Time
 import ../http.bend as Http
+import ../pure.bend as Pure
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
-def body.step(fuel: Nat, +n: U32, m: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Http.Stream & U32):
+def body.step(fuel: Nat, +n: U32, m: Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Http.Stream & U32):
   match fuel:
     case 0n:
       (st, r) = m
@@ -22,12 +23,12 @@ def body.step(fuel: Nat, +n: U32, m: Http.Stream & Result<&1, &1, Http.Err, Mayb
             case Some{b}:
               Bytes.Bytes{+len, buf} = b
               do IO<Http.Stream & U32>:
-                next : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
+                next : Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
                 body.step(f, (n + len : U32), next)
 
 def body.all(st: Http.Stream) -> IO(Http.Stream & U32):
   do IO<Http.Stream & U32>:
-    m : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
+    m : Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
     body.step(64n, 0, m)
 
 def fresh.end(+acc: U32, x: Http.Stream & U32) -> IO(U32):
@@ -36,7 +37,7 @@ def fresh.end(+acc: U32, x: Http.Stream & U32) -> IO(U32):
     Http.stream.close(st)
     return (acc + n : U32)
 
-def fresh.got(+acc: U32, r: Result<&1, &1, Http.Err, Http.Stream>) -> IO(U32):
+def fresh.got(+acc: U32, r: Result<&1, &1, Pure.Err, Http.Stream>) -> IO(U32):
   match r:
     case Fail{e}:
       IO.pure(U32, acc)
@@ -51,7 +52,7 @@ def fresh.loop(n: Nat, +url: String, +acc: U32) -> IO(U32):
       IO.pure(U32, acc)
     case 1n+k:
       do IO<U32>:
-        r : Result<&1, &1, Http.Err, Http.Stream> <- Http.open("GET", url, Http.empty(), Bytes.new(0))
+        r : Result<&1, &1, Pure.Err, Http.Stream> <- Http.open("GET", url, Pure.empty(), Bytes.new(0))
         got : U32 <- fresh.got(acc, r)
         fresh.loop(k, url, got)
 
@@ -61,7 +62,7 @@ def pooled.end(p: Http.Pool, +acc: U32, x: Http.Stream & U32) -> IO(Http.Pool & 
     q : Http.Pool <- Http.pool.stream.close(p, st)
     return (q, (acc + n : U32))
 
-def pooled.got(+acc: U32, pr: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool & U32):
+def pooled.got(+acc: U32, pr: Http.Pool & Result<&1, &1, Pure.Err, Http.Stream>) -> IO(Http.Pool & U32):
   (p, r) = pr
   match r:
     case Fail{e}:
@@ -78,7 +79,7 @@ def pooled.loop(n: Nat, +url: String, x: Http.Pool & U32) -> IO(Http.Pool & U32)
     case 1n+k:
       (p, +acc) = x
       do IO<Http.Pool & U32>:
-        pr : Http.Pool & Result<&1, &1, Http.Err, Http.Stream> <- Http.pool.open(p, "GET", url, Http.empty(), Bytes.new(0))
+        pr : Http.Pool & Result<&1, &1, Pure.Err, Http.Stream> <- Http.pool.open(p, "GET", url, Pure.empty(), Bytes.new(0))
         y : Http.Pool & U32 <- pooled.got(acc, pr)
         pooled.loop(k, url, y)
 

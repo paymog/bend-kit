@@ -1,6 +1,7 @@
 # Real owner completion and copied controls; drain_check.py drives both host lanes.
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import ./completion.bend as Completion
 import ./admission_check.bend as Checks
 import ../camber/lifecycle_http.bend as Lifecycle
@@ -105,26 +106,26 @@ def business.wait(wait: Bool) -> IO(Unit):
     case True{}: gate.wait(".work")
     case False{}: IO.pure(Unit, Unit{})
 
-def response.body(large: Bool) -> Http.Body:
+def response.body(large: Bool) -> Pure.Body:
   match large:
     case True{}: Bytes.new(16777216)
-    case False{}: Http.from_string("ok")
+    case False{}: Pure.from_string("ok")
 
-def business(profile: U32, req: Http.Req) -> IO(Http.Res):
-  Http.Req{method, +path, headers, body} = req
-  do IO<Http.Res>:
+def business(profile: U32, req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, +path, headers, body} = req
+  do IO<Pure.Res>:
     Checks.journal("business " ++ path)
     +journal : String <- IO.try(String, IO.get_env("ADMISSION_JOURNAL"))
     file : File <- IO.try(File, File.open(journal ++ ".application", "a"))
     business.wait(String.eq(path, "/work"))
     written : File & Result<&1, &1, U32 & String, Unit> <- File.write(file, path ++ "\n")
     business.closed(written)
-    return Http.Res{200, Http.empty(), response.body(String.eq(path, "/write"))}
+    return Pure.Res{200, Pure.empty(), response.body(String.eq(path, "/write"))}
 
-def whole(context: Unit, req: Http.Req) -> IO(Http.Reply):
-  Http.Req{+method, +path, +headers, body} = req
+def whole(context: Unit, req: Pure.Req) -> IO(Http.Reply):
+  Pure.Req{+method, +path, +headers, body} = req
   do IO<Http.Reply>:
-    response : Http.Res <- business(0, Http.Req{method, path, headers, body})
+    response : Pure.Res <- business(0, Pure.Req{method, path, headers, body})
     return Http.reply.complete(~String, ~callback.done, path, response)
 
 def observed(context: Unit, status: U32, outcome: Completion.Outcome) -> IO(Unit):
@@ -132,14 +133,14 @@ def observed(context: Unit, status: U32, outcome: Completion.Outcome) -> IO(Unit
 
 type MonitorStep is Type:
   MonitorReading{}
-  MonitorReceived{counts: Maybe<&2, Http.ServerCounts>}
+  MonitorReceived{counts: Maybe<&2, Pure.ServerCounts>}
 
 @unsafe
 def monitor.loop(+stats: Http.ServerStats, step: MonitorStep) -> IO(Unit):
   match step:
     case MonitorReading{}:
       do IO<Unit>:
-        counts : Maybe<&2, Http.ServerCounts> <- Http.server.stats(stats)
+        counts : Maybe<&2, Pure.ServerCounts> <- Http.server.stats(stats)
         monitor.loop(stats, MonitorReceived{counts})
     case MonitorReceived{counts}:
       match counts:
@@ -163,20 +164,20 @@ def stop(+control: Http.ServerControl) -> IO(Unit):
     IO.print("STOP REQUESTED")
 
 def owner.finished(file: File, +stats: Http.ServerStats, +control: Http.ServerControl,
-  result: Http.ServerExit) -> IO(Unit):
+  result: Pure.ServerExit) -> IO(Unit):
   match result:
-    case Http.ServerAcceptFailed{code, message, counts}:
+    case Pure.ServerAcceptFailed{code, message, counts}:
       do IO<Unit>:
         File.close(file)
         IO.die(Unit, 1, "unexpected accept failure " ++ U32.show(code) ++ " " ++ message)
-    case Http.ServerStopped{+counts}:
-      Http.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br} = counts
+    case Pure.ServerStopped{+counts}:
+      Pure.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br} = counts
       do IO<Unit>:
         require(U32.is_zero(c) && U32.is_zero(a) && U32.is_zero(b))
         IO.print("OWNER COMPLETION " ++ Checks.counts.show(counts))
         late : Bool <- Http.server.stop(control)
         require(Bool.not(late))
-        after : Maybe<&2, Http.ServerCounts> <- Http.server.stats(stats)
+        after : Maybe<&2, Pure.ServerCounts> <- Http.server.stats(stats)
         Checks.stats.closed(after)
         File.close(file)
         IO.print("OWNER HANDLE CLOSED")
@@ -184,8 +185,8 @@ def owner.finished(file: File, +stats: Http.ServerStats, +control: Http.ServerCo
 type Upload is Type:
   Upload{path: String, file: File, total: U32}
 
-def upload.start(req: Http.Req) -> IO(Upload):
-  Http.Req{method, +path, headers, body} = req
+def upload.start(req: Pure.Req) -> IO(Upload):
+  Pure.Req{method, +path, headers, body} = req
   do IO<Upload>:
     Checks.journal("business " ++ path)
     journal : String <- IO.try(String, IO.get_env("ADMISSION_JOURNAL"))
@@ -194,7 +195,7 @@ def upload.start(req: Http.Req) -> IO(Upload):
     business.wait(String.eq(path, "/work"))
     return Upload{path, file, 0}
 
-def upload.piece(state: Upload, body: Http.Body) -> IO(Upload & Bool):
+def upload.piece(state: Upload, body: Pure.Body) -> IO(Upload & Bool):
   Upload{path, file, total} = state
   Bytes.Bytes{len, words} = body
   IO.pure(Upload & Bool, (Upload{path, file, (total + len : U32)}, False{}))
@@ -206,20 +207,20 @@ def upload.finish(state: Upload) -> IO(Http.Reply):
     business.closed(written)
     Checks.journal("upload-complete " ++ path ++ " " ++ U32.show(total))
     Checks.journal("application-closed " ++ path)
-    return Http.reply.complete(~String, ~callback.done, path, Http.Res{200, Http.empty(), Http.from_string("ok")})
+    return Http.reply.complete(~String, ~callback.done, path, Pure.Res{200, Pure.empty(), Pure.from_string("ok")})
 
-def upload.operation.show(operation: Http.InputOperation) -> String:
+def upload.operation.show(operation: Pure.InputOperation) -> String:
   match operation:
-    case Http.ReadInput{}: "read"
-    case Http.SendContinue{}: "continue"
+    case Pure.ReadInput{}: "read"
+    case Pure.SendContinue{}: "continue"
 
-def upload.abort.show(reason: Http.StreamAbort) -> String:
+def upload.abort.show(reason: Pure.StreamAbort) -> String:
   match reason:
-    case Http.StreamClosed{}: "closed"
-    case Http.StreamFailed{status}: "status " ++ U32.show(status)
-    case Http.StreamInputFailed{operation, code, message}: upload.operation.show(operation) ++ " " ++ U32.show(code)
+    case Pure.StreamClosed{}: "closed"
+    case Pure.StreamFailed{status}: "status " ++ U32.show(status)
+    case Pure.StreamInputFailed{operation, code, message}: upload.operation.show(operation) ++ " " ++ U32.show(code)
 
-def upload.abort(state: Upload, reason: Http.StreamAbort) -> IO(Unit):
+def upload.abort(state: Upload, reason: Pure.StreamAbort) -> IO(Unit):
   Upload{+path, file, total} = state
   do IO<Unit>:
     File.close(file)
@@ -241,8 +242,8 @@ def download.head.wait(wait: Bool) -> IO(Unit):
     case False{}: IO.pure(Unit, Unit{})
     case True{}: gate.wait(".head")
 
-def download.start(req: Http.Req) -> IO(Http.WriteHead<Download>):
-  Http.Req{method, +path, headers, body} = req
+def download.start(req: Pure.Req) -> IO(Http.WriteHead<Download>):
+  Pure.Req{method, +path, headers, body} = req
   do IO<Http.WriteHead<Download>>:
     Checks.journal("business " ++ path)
     journal : String <- IO.try(String, IO.get_env("ADMISSION_JOURNAL"))
@@ -251,7 +252,7 @@ def download.start(req: Http.Req) -> IO(Http.WriteHead<Download>):
     business.wait(String.eq(path, "/work"))
     download.head.wait(String.eq(path, "/head") || String.eq(path, "/no-body") ||
       String.eq(path, "/not-modified") || String.eq(path, "/header-reset"))
-    return Http.WriteHead{download.status(path), Http.empty(), None{}, Download{path, file}, Completion.receipt(~String, ~callback.done, path)}
+    return Http.WriteHead{download.status(path), Pure.empty(), None{}, Download{path, file}, Completion.receipt(~String, ~callback.done, path)}
 
 def download.write(state: Download, writer: Http.Writer, receipt: Completion.Receipt) -> IO(Http.Writer & Completion.Receipt):
   Download{+path, file} = state
@@ -272,7 +273,7 @@ def download.dispose(state: Download) -> IO(Unit):
     Checks.journal("application-closed " ++ path)
     gate.wait(".cleanup")
 
-def serve(mode: String, server: Http.Server<Unit>) -> IO(Http.ServerExit):
+def serve(mode: String, server: Http.Server<Unit>) -> IO(Pure.ServerExit):
   match mode:
     case "stream": Http.server.stream.run(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~(status => outcome => observed(Unit{}, status, outcome)), server)
     case "writer": Http.server.write.run(~Download, ~download.start, ~download.write, ~download.dispose, ~(status => outcome => observed(Unit{}, status, outcome)), server)
@@ -286,8 +287,8 @@ def controlled(file: File, +stats: Http.ServerStats, pair: Http.Server<Unit> & H
     stopper : Chan(Unit) <- IO.fork(Unit, stop(control))
     IO.print("READY")
     mode : String <- IO.try(String, IO.get_env("DRAIN_MODE"))
-    finished : Chan(Http.ServerExit) <- IO.fork(Http.ServerExit, serve(mode, server))
-    result : Http.ServerExit <- IO.join(Http.ServerExit, finished)
+    finished : Chan(Pure.ServerExit) <- IO.fork(Pure.ServerExit, serve(mode, server))
+    result : Pure.ServerExit <- IO.join(Pure.ServerExit, finished)
     IO.join(Unit, stopper)
     IO.join(Unit, monitor_done)
     owner.finished(file, stats, control, result)
@@ -296,7 +297,7 @@ def observing(file: File, pair: Http.Server<Unit> & Http.ServerStats) -> IO(Unit
   (server, +stats) = pair
   controlled(file, stats, Http.server.control(~Unit, server))
 
-def started(result: File & Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Unit):
+def started(result: File & Result<&2, &1, Pure.StartupError, Http.Server<Unit>>) -> IO(Unit):
   (file, got) = result
   match got:
     case Fail{error}:
@@ -309,9 +310,9 @@ def run(mode: String, port: U32) -> IO(Unit):
   do IO<Unit>:
     path : String <- IO.try(String, IO.get_env("ADMISSION_JOURNAL"))
     file : File <- IO.try(File, File.open(path ++ ".owner", "w"))
-    result : File & Result<&2, &1, Http.StartupError, Http.Server<Unit>> <-
+    result : File & Result<&2, &1, Pure.StartupError, Http.Server<Unit>> <-
       Http.server.start(~Unit, ~File, Unit{}, file,
-        Http.ServerConfig{"127.0.0.1", port, 1048576, 65536, 16, 4, 16, 2000, 2000, 30000, 1000})
+        Pure.ServerConfig{"127.0.0.1", port, 1048576, 65536, 16, 4, 16, 2000, 2000, 30000, 1000})
     started(result)
 
 def number.read(mode: String, number: Maybe<&2, U32>) -> IO(Unit):

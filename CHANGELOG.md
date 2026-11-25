@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` 0.41.0.0: move the pure HTTP model, codecs, framing, redirects, retries, and cookies to `pure.bend`. Keep serving and client IO in `http.bend`. Check every existing law without foreign effects.
+
 - `time` 0.3.0.2: isolate duration, calendar, formatting, and timezone proofs from foreign clocks in `pure.bend`. Preserve the runtime API and all law claims.
 
 - `sigv4` 0.14.0.2: isolate canonical requests, signing strings, authorization headers, and presign queries in `pure.bend`. Check all existing laws without foreign effects. Preserve the runtime API.

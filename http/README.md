@@ -3,53 +3,57 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/completion.bend as Completion
+import bend-kit-http@0.41.0.0/http.bend as Http
+import bend-kit-http@0.41.0.0/pure.bend as Pure
+import bend-kit-http@0.41.0.0/completion.bend as Completion
 ```
 
-`Http.Body` uses `bend-kit-bytes@0.3.3.1`. JSON values for `post.json` use `bend-kit-json@0.7.3.0`. DNS lookup uses `bend-kit-dns@0.7.1.2`. TLS uses `bend-kit-wire@0.4.8.1`.
+`Pure.Body` uses `bend-kit-bytes@0.3.3.1`. JSON values for `post.json` use `bend-kit-json@0.7.3.0`. DNS lookup uses `bend-kit-dns@0.7.1.2`. TLS uses `bend-kit-wire@0.4.8.1`.
 
 HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if `libssl` is not on the default path. A body over about 30 KB overflows `bend file.bend`. Build with `bend file.bend -o app`.
+
+`pure.bend` owns the request and response types, codecs, framing, redirect policy, retries, and cookies. `http.bend` owns client and server IO. Import both for runtime use. Pure clock arguments use `bend-kit-time@0.3.0.2/pure.bend`. `Http.clock.now` and `Http.clock.mono` return those clock types.
 
 ## Fetch
 
 ```bend
 import Base
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.41.0.0/http.bend as Http
+import bend-kit-http@0.41.0.0/pure.bend as Pure
 
-def show(got: Result<&1, &1, Http.Err, Http.Res>) -> IO(Unit):
+def show(got: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match got:
     case Done{res}:
-      Http.Res{status, headers, body} = res
-      IO.print(U32.show(status) ++ " " ++ Http.header(headers, "content-type"))
+      Pure.Res{status, headers, body} = res
+      IO.print(U32.show(status) ++ " " ++ Pure.header(headers, "content-type"))
     case Fail{err}:
       match err:
-        case Http.ErrUrl{}:
+        case Pure.ErrUrl{}:
           IO.print("bad url")
-        case Http.ErrDns{}:
+        case Pure.ErrDns{}:
           IO.print("dns")
-        case Http.ErrConnect{code, why}:
+        case Pure.ErrConnect{code, why}:
           IO.print("connect " ++ U32.show(code) ++ " " ++ why)
-        case Http.ErrTls{code, why}:
+        case Pure.ErrTls{code, why}:
           IO.print("tls " ++ U32.show(code) ++ " " ++ why)
-        case Http.ErrRead{code, why}:
+        case Pure.ErrRead{code, why}:
           IO.print("read " ++ U32.show(code) ++ " " ++ why)
-        case Http.ErrWrite{code, why}:
+        case Pure.ErrWrite{code, why}:
           IO.print("write " ++ U32.show(code) ++ " " ++ why)
-        case Http.ErrTimeout{}:
+        case Pure.ErrTimeout{}:
           IO.print("timeout")
-        case Http.ErrRedirect{}:
+        case Pure.ErrRedirect{}:
           IO.print("redirect")
-        case Http.ErrBad{}:
+        case Pure.ErrBad{}:
           IO.print("bad response")
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    got : Result<&1, &1, Http.Err, Http.Res> <- Http.get("https://example.com/")
+    got : Result<&1, &1, Pure.Err, Pure.Res> <- Http.get("https://example.com/")
     show(got)
 ```
 
-`Http.get(url)` is `fetch("GET", url, Http.empty(), Http.from_string(""))`. `Http.fetch(method, url, headers, body)` is the full call. `fetch.with` adds a per-step timeout in milliseconds. The default is 30 seconds. A redirect chain stops after 20 hops (`ErrRedirect`). `fetch.how` takes `ModeFollow`, `ModeManual`, or `ModeError`. `ETIMEDOUT` is 60 on macOS and 110 on Linux. Both become `ErrTimeout`.
+`Http.get(url)` is `fetch("GET", url, Pure.empty(), Pure.from_string(""))`. `Http.fetch(method, url, headers, body)` is the full call. `fetch.with` adds a per-step timeout in milliseconds. The default is 30 seconds. A redirect chain stops after 20 hops (`ErrRedirect`). `fetch.how` takes `ModeFollow`, `ModeManual`, or `ModeError`. `ETIMEDOUT` is 60 on macOS and 110 on Linux. Both become `ErrTimeout`.
 
 HTTPS fetches and response streams offer `h2,http/1.1` through ALPN. An HTTP/2 response uses the same `Res` type. Upload streams negotiate HTTP/1.1 only. HTTP/2 uses `bend-kit-http2@0.5.0.2`. For several addresses, the client tries them in DNS order until TCP connects, within the step timeout. Attempts are sequential.
 
@@ -87,12 +91,13 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/completion.bend as Completion
+import bend-kit-http@0.41.0.0/http.bend as Http
+import bend-kit-http@0.41.0.0/pure.bend as Pure
+import bend-kit-http@0.41.0.0/completion.bend as Completion
 
-def hello(req: Http.Req) -> IO(Http.Reply):
-  Http.Req{method, path, headers, body} = req
-  IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Http.from_string(path)}, Completion.Unobserved{}})
+def hello(req: Pure.Req) -> IO(Http.Reply):
+  Pure.Req{method, path, headers, body} = req
+  IO.pure(Http.Reply, Http.Reply{Pure.Res{200, Pure.empty(), Pure.from_string(path)}, Completion.Unobserved{}})
 
 def main() -> IO(Unit):
   Http.serve.on(~hello, ~Completion.ignore, "127.0.0.1", 18080)
@@ -131,6 +136,7 @@ Deadlines do not cancel a handler. Affine erasure does not close an application 
 ## Acceptance checks
 
 Run `scripts/check.sh http` for types, proofs, and local socket checks.
+`bend http/PROOF.bend --check-only` must report `ALL PROOFS CHECK`. This entry imports no foreign or unsafe code. The runtime check still reports its foreign effects.
 Run `scripts/native-check.sh http` to compile and run the native package acceptance program.
 CI also runs `python3 -B http/startup_check.py` for native and JS startup sockets with the pinned Bend and Bun.
 Run `bash http/local-smoke.sh` for native and JavaScript serving, keep-alive, rejection, streamed request, and response writer checks.

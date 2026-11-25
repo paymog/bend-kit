@@ -3,6 +3,7 @@ import Base
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ./json_progress_probe.bend as Progress
 import bend-kit-time@0.3.0.1/time.bend as Time
 
@@ -23,12 +24,12 @@ def document(value: Json.Val) -> Bool:
     case _:
       False{}
 
-def parsed(value: Maybe<&1, Json.Val>, started: Time.Duration) -> IO(Http.Res):
+def parsed(value: Maybe<&1, Json.Val>, started: Time.Duration) -> IO(Pure.Res):
   match value:
     case None{}:
       Progress.result(False{}, started)
     case Some{value}:
       Progress.result(document(value), started)
 
-def work(body: Http.Body, started: Time.Duration) -> IO(Http.Res):
+def work(body: Pure.Body, started: Time.Duration) -> IO(Pure.Res):
   parsed(Json.parse.bytes(body), started)

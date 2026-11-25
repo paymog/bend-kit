@@ -1,6 +1,7 @@
 # Real production admission paths; admission_check.py drives native/JS sockets.
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
@@ -31,42 +32,42 @@ def begin(+path: String) -> IO(Unit):
     wait(String.starts_with(path, "/hold"))
     journal("return " ++ path)
 
-def whole(context: Unit, request: Http.Req) -> IO(Http.Reply):
-  Http.Req{method, +path, headers, body} = request
+def whole(context: Unit, request: Pure.Req) -> IO(Http.Reply):
+  Pure.Req{method, +path, headers, body} = request
   do IO<Http.Reply>:
     begin(path)
-    return Http.Reply{Http.Res{200, Http.empty(), body}, Completion.Unobserved{}}
+    return Http.Reply{Pure.Res{200, Pure.empty(), body}, Completion.Unobserved{}}
 
 type Upload is Type:
   Upload{path: String, length: U32}
 
-def upload.start(request: Http.Req) -> IO(Upload):
-  Http.Req{method, +path, headers, body} = request
+def upload.start(request: Pure.Req) -> IO(Upload):
+  Pure.Req{method, +path, headers, body} = request
   do IO<Upload>:
     begin(path)
     return Upload{path, 0}
 
-def upload.piece(state: Upload, bytes: Http.Body) -> IO(Upload & Bool):
+def upload.piece(state: Upload, bytes: Pure.Body) -> IO(Upload & Bool):
   Upload{path, length} = state
   Bytes.Bytes{size, words} = bytes
   IO.pure(Upload & Bool, (Upload{path, (length + size : U32)}, False{}))
 
 def upload.finish(state: Upload) -> IO(Http.Reply):
   Upload{path, length} = state
-  IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Bytes.u32.show(length)}, Completion.Unobserved{}})
+  IO.pure(Http.Reply, Http.Reply{Pure.Res{200, Pure.empty(), Bytes.u32.show(length)}, Completion.Unobserved{}})
 
-def upload.abort(state: Upload, reason: Http.StreamAbort) -> IO(Unit):
+def upload.abort(state: Upload, reason: Pure.StreamAbort) -> IO(Unit):
   Upload{path, length} = state
   IO.pure(Unit, Unit{})
 
 type Download is Type:
-  Download{path: String, body: Http.Body}
+  Download{path: String, body: Pure.Body}
 
-def download.start(request: Http.Req) -> IO(Http.WriteHead<Download>):
-  Http.Req{method, +path, headers, body} = request
+def download.start(request: Pure.Req) -> IO(Http.WriteHead<Download>):
+  Pure.Req{method, +path, headers, body} = request
   do IO<Http.WriteHead<Download>>:
     begin(path)
-    return Http.WriteHead{200, Http.empty(), None{}, Download{path, body}, Completion.Unobserved{}}
+    return Http.WriteHead{200, Pure.empty(), None{}, Download{path, body}, Completion.Unobserved{}}
 
 def download.observed(+path: String, writer: Http.Writer) -> IO(Http.Writer):
   Http.Writer{socket, mode, until, outcome} = writer
@@ -87,7 +88,7 @@ def download.after(failed: Bool, +path: String, writer: Http.Writer) -> IO(Http.
     case True{}:
       do IO<Http.Writer>:
         IO.sleep(80)
-        next : Http.Writer <- Http.writer.write(writer, Http.from_string("after-disconnect"))
+        next : Http.Writer <- Http.writer.write(writer, Pure.from_string("after-disconnect"))
         download.observed(path, next)
 
 def download.write(state: Download, writer: Http.Writer, receipt: Completion.Receipt) -> IO(Http.Writer & Completion.Receipt):
@@ -101,15 +102,15 @@ def download.dispose(state: Download) -> IO(Unit):
   Download{path, body} = state
   IO.pure(Unit, Unit{})
 
-def counts.show(counts: Http.ServerCounts) -> String:
-  Http.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br} = counts
+def counts.show(counts: Pure.ServerCounts) -> String:
+  Pure.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br} = counts
   "COUNTS " ++ U32.show(c) ++ "," ++ U32.show(a) ++ "," ++ U32.show(b) ++ "," ++
     U32.show(ch) ++ "," ++ U32.show(ah) ++ "," ++ U32.show(bh) ++ "," ++
     Nat.show(cr) ++ "," ++ Nat.show(ar) ++ "," ++ Nat.show(br)
 
 type Observation is Data:
   Observe{}
-  Observed{counts: Maybe<&2, Http.ServerCounts>}
+  Observed{counts: Maybe<&2, Pure.ServerCounts>}
 
 @unsafe
 def monitor(fuel: Nat, +observer: Http.ServerStats, step: Observation) -> IO(Unit):
@@ -120,7 +121,7 @@ def monitor(fuel: Nat, +observer: Http.ServerStats, step: Observation) -> IO(Uni
       match step:
         case Observe{}:
           do IO<Unit>:
-            counts : Maybe<&2, Http.ServerCounts> <- Http.server.stats(observer)
+            counts : Maybe<&2, Pure.ServerCounts> <- Http.server.stats(observer)
             monitor(1n+p, observer, Observed{counts})
         case Observed{counts}:
           match counts:
@@ -132,7 +133,7 @@ def monitor(fuel: Nat, +observer: Http.ServerStats, step: Observation) -> IO(Uni
                 IO.sleep(25)
                 monitor(p, observer, Observe{})
 
-def stats.closed(observation: Maybe<&2, Http.ServerCounts>) -> IO(Unit):
+def stats.closed(observation: Maybe<&2, Pure.ServerCounts>) -> IO(Unit):
   match observation:
     case None{}:
       IO.print("POST CLOSED")
@@ -145,13 +146,13 @@ def stats.after.close(fuel: Nat, +observer: Http.ServerStats) -> IO(Unit):
       IO.pure(Unit, Unit{})
     case 1n+p:
       do IO<Unit>:
-        observation : Maybe<&2, Http.ServerCounts> <- Http.server.stats(observer)
+        observation : Maybe<&2, Pure.ServerCounts> <- Http.server.stats(observer)
         stats.closed(observation)
         stats.after.close(p, observer)
 
 
-def config(+profile: String, port: U32) -> Http.ServerConfig:
-  Http.ServerConfig{"127.0.0.1", port, 131072, 1024,
+def config(+profile: String, port: U32) -> Pure.ServerConfig:
+  Pure.ServerConfig{"127.0.0.1", port, 131072, 1024,
     Bool.pick(U32, String.eq(profile, "connections"), 2, 16),
     Bool.pick(U32, String.eq(profile, "active"), 2, 16),
     Bool.pick(U32, String.eq(profile, "buffered"), 2, 16),
@@ -161,27 +162,27 @@ def serve(mode: String, server: Http.Server<Unit>, +observer: Http.ServerStats, 
   match mode:
     case "whole":
       do IO<Unit>:
-        result : Http.ServerExit <- Http.server.run(~Unit, ~whole, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
+        result : Pure.ServerExit <- Http.server.run(~Unit, ~whole, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         return Unit{}
     case "stream":
       do IO<Unit>:
-        result : Http.ServerExit <- Http.server.stream.run(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~Completion.ignore, server)
+        result : Pure.ServerExit <- Http.server.stream.run(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~Completion.ignore, server)
         return Unit{}
     case "writer":
       do IO<Unit>:
-        result : Http.ServerExit <- Http.server.write.run(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, server)
+        result : Pure.ServerExit <- Http.server.write.run(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, server)
         return Unit{}
     case "stats-close":
       do IO<Unit>:
         second : Chan(Unit) <- IO.fork(Unit, monitor(128n, observer, Observe{}))
-        drained : Http.ServerCounts <- Http.server.close(~Unit, server)
+        drained : Pure.ServerCounts <- Http.server.close(~Unit, server)
         stats.after.close(128n, observer)
         IO.join(Unit, first)
         IO.join(Unit, second)
         IO.print("OBSERVERS JOINED")
     case _:
       do IO<Unit>:
-        drained : Http.ServerCounts <- Http.server.close(~Unit, server)
+        drained : Pure.ServerCounts <- Http.server.close(~Unit, server)
         return Unit{}
 
 def observed.ready(mode: String, pair: Http.Server<Unit> & Http.ServerStats) -> IO(Unit):
@@ -194,14 +195,14 @@ def observed.ready(mode: String, pair: Http.Server<Unit> & Http.ServerStats) -> 
 def observed(mode: String, server: Http.Server<Unit>) -> IO(Unit):
   observed.ready(mode, Http.server.observer(~Unit, server))
 
-def started(mode: String, result: Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>>) -> IO(Unit):
+def started(mode: String, result: Unit & Result<&2, &1, Pure.StartupError, Http.Server<Unit>>) -> IO(Unit):
   (owner, got) = result
   match got:
     case Fail{error}:
       match error:
-        case Http.InvalidConfig{}:
+        case Pure.InvalidConfig{}:
           IO.die(Unit, 1, "invalid admission fixture configuration")
-        case Http.BindError{code, message}:
+        case Pure.BindError{code, message}:
           IO.die(Unit, code, message)
     case Done{server}:
       observed(mode, server)
@@ -212,7 +213,7 @@ def run(mode: String, profile: String, port: Maybe<&2, U32>) -> IO(Unit):
       IO.die(Unit, 1, "invalid port")
     case Some{number}:
       do IO<Unit>:
-        result : Unit & Result<&2, &1, Http.StartupError, Http.Server<Unit>> <- Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, config(profile, number))
+        result : Unit & Result<&2, &1, Pure.StartupError, Http.Server<Unit>> <- Http.server.start(~Unit, ~Unit, Unit{}, Unit{}, config(profile, number))
         started(mode, result)
 
 def args(values: List<&1, String>) -> IO(Unit):

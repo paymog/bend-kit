@@ -1,6 +1,7 @@
 # Observe runtime boundaries, not Camber's public lifecycle or a cancellation implementation.
 import Base
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-time@0.3.0.1/time.bend as Time
@@ -153,10 +154,10 @@ def abandoned(+path: String) -> IO(Unit):
     IO.sleep(1500)
     IO.print("SERVER_WORK_DONE")
 
-def handler(context: Unit, request: Http.Req) -> IO(Http.Res):
-  do IO<Http.Res>:
+def handler(context: Unit, request: Pure.Req) -> IO(Pure.Res):
+  do IO<Pure.Res>:
     IO.print("HANDLER_ENTERED")
-    return Http.Res{200, Http.empty(), Http.from_string("ok")}
+    return Pure.Res{200, Pure.empty(), Pure.from_string("ok")}
 
 def idle.listening(bound: Listener & U32, committed: File) -> IO(Unit):
   (listener, port) = bound

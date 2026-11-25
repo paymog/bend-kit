@@ -2,25 +2,26 @@
 import Base
 import ./live_check.bend as Live
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/completion.bend as Completion
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
-def written(result: Socket & Result<&1, &1, U32 & String, Unit>) -> IO((Socket & Http.Turn) & Completion.Outcome):
+def written(result: Socket & Result<&1, &1, U32 & String, Unit>) -> IO((Socket & Pure.Turn) & Completion.Outcome):
   (socket, outcome) = result
   match outcome:
     case Fail{error}:
-      do IO<(Socket & Http.Turn) & Completion.Outcome>:
+      do IO<(Socket & Pure.Turn) & Completion.Outcome>:
         IO.print("WRITE_FAILED")
-        return Http.talk.after(Http.limits(65536n), False{}, Http.from_string(""), (socket, Fail{error}))
+        return Http.talk.after(Pure.limits(65536n), False{}, Pure.from_string(""), (socket, Fail{error}))
     case Done{unit}:
-      do IO<(Socket & Http.Turn) & Completion.Outcome>:
+      do IO<(Socket & Pure.Turn) & Completion.Outcome>:
         IO.print("WRITE_SUCCEEDED")
-        return Http.talk.after(Http.limits(65536n), False{}, Http.from_string(""), (socket, Done{unit}))
+        return Http.talk.after(Pure.limits(65536n), False{}, Pure.from_string(""), (socket, Done{unit}))
 
-def finish.turn(result: Socket & Http.Turn) -> IO(Unit):
+def finish.turn(result: Socket & Pure.Turn) -> IO(Unit):
   (socket, turn) = result
   match turn:
-    case Http.TurnClose{}:
+    case Pure.TurnClose{}:
       do IO<Unit>:
         IO.print("PUBLIC_TURN_CLOSE")
         Socket.close(socket)
@@ -35,7 +36,7 @@ def finish.outcome(outcome: Completion.Outcome) -> IO(Unit):
     case Completion.WriteFailed{code, message}: IO.print("PUBLIC_WRITE_FAILED")
     case Completion.IncompleteResponse{}: IO.die(Unit, 1, "unexpected incomplete response")
 
-def finish(result: (Socket & Http.Turn) & Completion.Outcome) -> IO(Unit):
+def finish(result: (Socket & Pure.Turn) & Completion.Outcome) -> IO(Unit):
   (connection, outcome) = result
   do IO<Unit>:
     finish.outcome(outcome)
@@ -61,8 +62,8 @@ def write(port: U32) -> IO(Unit):
     socket : Socket <- accepted(connection)
     IO.print("WRITE_ARMED")
     IO.sleep(200)
-    sent : Socket & Result<&1, &1, U32 & String, Unit> <- Http.io.send.bytes(False{}, socket, Http.reply.bytes(Http.Res{200, Http.empty(), Http.from_string("ok")}, False{}, True{}))
-    next : (Socket & Http.Turn) & Completion.Outcome <- written(sent)
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <- Http.io.send.bytes(False{}, socket, Pure.reply.bytes(Pure.Res{200, Pure.empty(), Pure.from_string("ok")}, False{}, True{}))
+    next : (Socket & Pure.Turn) & Completion.Outcome <- written(sent)
     finish(next)
 
 def run(mode: String, path: String, port: Maybe<&2, U32>, count: Maybe<&2, U32>) -> IO(Unit):

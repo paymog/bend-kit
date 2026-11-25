@@ -4,6 +4,7 @@ import Base
 import ./ownership.bend as Users
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import ../concurrency/concurrency.bend as Conc
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
@@ -12,7 +13,7 @@ type Counts is Data:
   Counts{busy: U32, mask: U32, completed: U32, rejected: U32}
 
 type Message is Type:
-  Submit{request: Http.Req, reply: Chan(Http.Res)}
+  Submit{request: Pure.Req, reply: Chan(Pure.Res)}
   Enter{slot: U32}
   Depart{slot: U32}
   Inspect{reply: Chan(Counts)}
@@ -64,54 +65,54 @@ def audit(method: String, file: File) -> IO(File & Bool):
         result : File & Result<&1, &1, U32 & String, U32> <- File.size(file)
         return audit.result(U32, result)
 
-def packed(slot: U32, audit: File, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), result: Users.Store & Http.Res) -> Bundle & Http.Res:
+def packed(slot: U32, audit: File, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), result: Users.Store & Pure.Res) -> Bundle & Pure.Res:
   (store, response) = result
   (Bundle{slot, store, audit, plan, owner, release}, response)
 
-def before.ready(ok: Bool, slot: U32, store: Users.Store, audit: File, +plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), request: Http.Req) -> IO(Bundle & Http.Res):
+def before.ready(ok: Bool, slot: U32, store: Users.Store, audit: File, +plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), request: Pure.Req) -> IO(Bundle & Pure.Res):
   match ok:
     case False{}:
-      IO.pure(Bundle & Http.Res, (Bundle{slot, store, audit, plan, owner, release}, Users.error(Users.StoreFailed{})))
+      IO.pure(Bundle & Pure.Res, (Bundle{slot, store, audit, plan, owner, release}, Users.error(Users.StoreFailed{})))
     case True{}:
-      do IO<Bundle & Http.Res>:
-        result : Users.Store & Http.Res <- Registry.invoke(~Users.Store, ~Registry.Action, ~Registry.Config, ~Registry.run, plan, store, request)
+      do IO<Bundle & Pure.Res>:
+        result : Users.Store & Pure.Res <- Registry.invoke(~Users.Store, ~Registry.Action, ~Registry.Config, ~Registry.run, plan, store, request)
         return packed(slot, audit, plan, owner, release, result)
 
-def before.checked(slot: U32, store: Users.Store, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), request: Http.Req, checked: File & Bool) -> IO(Bundle & Http.Res):
+def before.checked(slot: U32, store: Users.Store, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), request: Pure.Req, checked: File & Bool) -> IO(Bundle & Pure.Res):
   (file, ok) = checked
   before.ready(ok, slot, store, file, plan, owner, release, request)
 
-def before(bundle: Bundle, request: Http.Req) -> IO(Bundle & Http.Res):
+def before(bundle: Bundle, request: Pure.Req) -> IO(Bundle & Pure.Res):
   Bundle{slot, store, audit_file, plan, owner, release} = bundle
-  Http.Req{+method, path, headers, body} = request
-  do IO<Bundle & Http.Res>:
+  Pure.Req{+method, path, headers, body} = request
+  do IO<Bundle & Pure.Res>:
     checked : File & Bool <- audit(method, audit_file)
-    before.checked(slot, store, plan, owner, release, Http.Req{method, path, headers, body}, checked)
+    before.checked(slot, store, plan, owner, release, Pure.Req{method, path, headers, body}, checked)
 
-def after.ready(ok: Bool, bundle: Bundle, response: Http.Res) -> Bundle & Http.Res:
+def after.ready(ok: Bool, bundle: Bundle, response: Pure.Res) -> Bundle & Pure.Res:
   match ok:
     case False{}:
       (bundle, Users.error(Users.StoreFailed{}))
     case True{}:
       (bundle, response)
 
-def after.checked(slot: U32, store: Users.Store, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), response: Http.Res, checked: File & Bool) -> Bundle & Http.Res:
+def after.checked(slot: U32, store: Users.Store, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), response: Pure.Res, checked: File & Bool) -> Bundle & Pure.Res:
   (file, ok) = checked
   after.ready(ok, Bundle{slot, store, file, plan, owner, release}, response)
 
-def after.invoked(slot: U32, file: File, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), result: Users.Store & Http.Res) -> IO(Bundle & Http.Res):
+def after.invoked(slot: U32, file: File, plan: Registry.Plan<Registry.Action, Registry.Config>, owner: Chan(Message), release: Chan(Unit), result: Users.Store & Pure.Res) -> IO(Bundle & Pure.Res):
   (store, response) = result
-  do IO<Bundle & Http.Res>:
+  do IO<Bundle & Pure.Res>:
     checked : File & Bool <- audit("GET", file)
     return after.checked(slot, store, plan, owner, release, response, checked)
 
-def after(bundle: Bundle, request: Http.Req) -> IO(Bundle & Http.Res):
+def after(bundle: Bundle, request: Pure.Req) -> IO(Bundle & Pure.Res):
   Bundle{slot, store, audit_file, +plan, owner, release} = bundle
-  do IO<Bundle & Http.Res>:
-    result : Users.Store & Http.Res <- Registry.invoke(~Users.Store, ~Registry.Action, ~Registry.Config, ~Registry.run, plan, store, request)
+  do IO<Bundle & Pure.Res>:
+    result : Users.Store & Pure.Res <- Registry.invoke(~Users.Store, ~Registry.Action, ~Registry.Config, ~Registry.run, plan, store, request)
     after.invoked(slot, audit_file, plan, owner, release, result)
 
-def execute(store_first: Bool, bundle: Bundle, request: Http.Req) -> IO(Bundle & Http.Res):
+def execute(store_first: Bool, bundle: Bundle, request: Pure.Req) -> IO(Bundle & Pure.Res):
   match store_first:
     case False{}:
       before(bundle, request)
@@ -125,29 +126,29 @@ def wait(held: Bool, release: Chan(Unit)) -> IO(Unit):
     case True{}:
       receive(Unit, release)
 
-def work(bundle: Bundle, request: Http.Req) -> IO(Bundle & Http.Res):
+def work(bundle: Bundle, request: Pure.Req) -> IO(Bundle & Pure.Res):
   Bundle{+slot, store, file, plan, +owner, +release} = bundle
-  Http.Req{+method, path, +headers, body} = request
-  do IO<Bundle & Http.Res>:
+  Pure.Req{+method, path, +headers, body} = request
+  do IO<Bundle & Pure.Res>:
     send(owner, Enter{slot})
-    wait(String.eq(Http.header(headers, "x-hold"), "yes"), release)
-    result : Bundle & Http.Res <- execute(String.eq(method, "GET") && String.eq(Http.header(headers, "x-order"), "store-first"), Bundle{slot, store, file, plan, owner, release}, Http.Req{method, path, headers, body})
+    wait(String.eq(Pure.header(headers, "x-hold"), "yes"), release)
+    result : Bundle & Pure.Res <- execute(String.eq(method, "GET") && String.eq(Pure.header(headers, "x-order"), "store-first"), Bundle{slot, store, file, plan, owner, release}, Pure.Req{method, path, headers, body})
     send(owner, Depart{slot})
     return result
 
-def admit(full: Bool, jobs: Chan(Http.Req & Chan(Http.Res)), counts: Counts, request: Http.Req, reply: Chan(Http.Res)) -> IO(Counts):
+def admit(full: Bool, jobs: Chan(Pure.Req & Chan(Pure.Res)), counts: Counts, request: Pure.Req, reply: Chan(Pure.Res)) -> IO(Counts):
   match full:
     case True{}:
       Counts{busy, mask, completed, rejected} = counts
       do IO<Counts>:
-        sent : Result<&1, &1, Http.Res, Unit> <- Chan.send(Http.Res, reply, Http.Res{503, Http.empty(), Http.from_string("")})
-        Registry.require(Result.is_done(&1, &1, Http.Res, Unit, sent), "overload reply channel closed early")
+        sent : Result<&1, &1, Pure.Res, Unit> <- Chan.send(Pure.Res, reply, Pure.Res{503, Pure.empty(), Pure.from_string("")})
+        Registry.require(Result.is_done(&1, &1, Pure.Res, Unit, sent), "overload reply channel closed early")
         return Counts{busy, mask, completed, (rejected + 1 : U32)}
     case False{}:
       Counts{busy, mask, completed, rejected} = counts
       do IO<Counts>:
-        sent : Result<&1, &1, Http.Req & Chan(Http.Res), Unit> <- Chan.send(Http.Req & Chan(Http.Res), jobs, (request, reply))
-        Registry.require(Result.is_done(&1, &1, Http.Req & Chan(Http.Res), Unit, sent), "job queue closed before admitted work")
+        sent : Result<&1, &1, Pure.Req & Chan(Pure.Res), Unit> <- Chan.send(Pure.Req & Chan(Pure.Res), jobs, (request, reply))
+        Registry.require(Result.is_done(&1, &1, Pure.Req & Chan(Pure.Res), Unit, sent), "job queue closed before admitted work")
         return Counts{(busy + 1 : U32), mask, completed, rejected}
 
 def transition(counts: Counts, message: Message) -> IO(Counts):
@@ -168,18 +169,18 @@ def transition(counts: Counts, message: Message) -> IO(Counts):
     case _:
       IO.die(Counts, 1, "invalid ownership transition")
 
-def admission(limit: U32, jobs: Chan(Http.Req & Chan(Http.Res)), counts: Counts, request: Http.Req, reply: Chan(Http.Res)) -> IO(Counts):
+def admission(limit: U32, jobs: Chan(Pure.Req & Chan(Pure.Res)), counts: Counts, request: Pure.Req, reply: Chan(Pure.Res)) -> IO(Counts):
   Counts{+busy, mask, completed, rejected} = counts
   admit(U32.is_ge(busy, limit), jobs, Counts{busy, mask, completed, rejected}, request, reply)
 
-def owner.stop(counts: Counts, jobs: Chan(Http.Req & Chan(Http.Res))) -> IO(Counts):
+def owner.stop(counts: Counts, jobs: Chan(Pure.Req & Chan(Pure.Res))) -> IO(Counts):
   Counts{+busy, +mask, completed, rejected} = counts
   do IO<Counts>:
     Registry.require(U32.is_eq(busy, 0) && U32.is_eq(mask, 0), "shutdown reached occupied bundles")
-    Chan.close(Http.Req & Chan(Http.Res), jobs)
+    Chan.close(Pure.Req & Chan(Pure.Res), jobs)
     return Counts{busy, mask, completed, rejected}
 
-def owner(fuel: Nat, +limit: U32, +messages: Chan(Message), +jobs: Chan(Http.Req & Chan(Http.Res)), step: OwnerStep) -> IO(Counts):
+def owner(fuel: Nat, +limit: U32, +messages: Chan(Message), +jobs: Chan(Pure.Req & Chan(Pure.Res)), step: OwnerStep) -> IO(Counts):
   match fuel:
     case 0n:
       IO.die(Counts, 1, "owner fixture ran out of fuel")
@@ -215,29 +216,29 @@ def counts.text(limit: U32, counts: Counts) -> String:
   Counts{busy, mask, completed, rejected} = counts
   "{\"limit\":" ++ U32.show(limit) ++ ",\"busy\":" ++ U32.show(busy) ++ ",\"mask\":" ++ U32.show(mask) ++ ",\"completed\":" ++ U32.show(completed) ++ ",\"rejected\":" ++ U32.show(rejected) ++ "}"
 
-def handle(context: Context, request: Http.Req) -> IO(Http.Res):
+def handle(context: Context, request: Pure.Req) -> IO(Pure.Res):
   Context{+messages, +release, limit} = context
-  Http.Req{method, path, headers, body} = request
+  Pure.Req{method, path, headers, body} = request
   match path:
     case "/_capacity":
-      do IO<Http.Res>:
+      do IO<Pure.Res>:
         reply0 : Chan(Counts) <- Chan.new(Counts, 1)
         +reply : Chan(Counts) = reply0
         send(messages, Inspect{reply})
         counts : Counts <- IO.join(Counts, reply)
-        return Http.Res{200, Http.empty(), Http.from_string(counts.text(limit, counts))}
+        return Pure.Res{200, Pure.empty(), Pure.from_string(counts.text(limit, counts))}
     case "/_release":
-      do IO<Http.Res>:
+      do IO<Pure.Res>:
         a : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
         b : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
         Registry.require(Result.is_done(&1, &1, Unit, Unit, a) && Result.is_done(&1, &1, Unit, Unit, b), "release barrier closed early")
-        return Http.Res{204, Http.empty(), Http.from_string("")}
+        return Pure.Res{204, Pure.empty(), Pure.from_string("")}
     case _:
-      do IO<Http.Res>:
-        reply0 : Chan(Http.Res) <- Chan.new(Http.Res, 1)
-        +reply : Chan(Http.Res) = reply0
-        send(messages, Submit{Http.Req{method, path, headers, body}, reply})
-        IO.join(Http.Res, reply)
+      do IO<Pure.Res>:
+        reply0 : Chan(Pure.Res) <- Chan.new(Pure.Res, 1)
+        +reply : Chan(Pure.Res) = reply0
+        send(messages, Submit{Pure.Req{method, path, headers, body}, reply})
+        IO.join(Pure.Res, reply)
 
 def bundles(count: Nat, +slot: U32, +path: String, +store_mode: String, +audit_mode: String, +messages: Chan(Message), +release: Chan(Unit)) -> IO(List<Bundle>):
   match count:
@@ -287,10 +288,10 @@ def start(+limit: U32, path: String, port: U32, connections: U32, store_mode: St
     +messages : Chan(Message) = messages0
     release0 : Chan(Unit) <- Chan.new(Unit, 2)
     +release : Chan(Unit) = release0
-    jobs0 : Chan(Http.Req & Chan(Http.Res)) <- Chan.new(Http.Req & Chan(Http.Res), limit)
-    +jobs : Chan(Http.Req & Chan(Http.Res)) = jobs0
+    jobs0 : Chan(Pure.Req & Chan(Pure.Res)) <- Chan.new(Pure.Req & Chan(Pure.Res), limit)
+    +jobs : Chan(Pure.Req & Chan(Pure.Res)) = jobs0
     states : List<Bundle> <- bundles(U32.to_nat(limit), 0, path, store_mode, audit_mode, messages, release)
-    workers : List<Chan(Bundle)> <- Conc.pool.start(~Bundle, ~Http.Req, ~Http.Res, ~work, states, 256n, jobs)
+    workers : List<Chan(Bundle)> <- Conc.pool.start(~Bundle, ~Pure.Req, ~Pure.Res, ~work, states, 256n, jobs)
     finished : Chan(Counts) <- IO.fork(Counts, owner(128n, limit, messages, jobs, Waiting{Counts{0, 0, 0, 0}}))
     bound : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", port))
     connections_done : List<Chan(Unit)> <- listening(bound, Context{messages, release, limit}, connections)

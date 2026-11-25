@@ -4,6 +4,7 @@ import ./progress_probe.bend as Progress
 import ./ownership.bend as Users
 import bend-kit-json@0.7.3.0/json.bend as Json
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-time@0.3.0.1/time.bend as Time
@@ -12,49 +13,49 @@ import ./prerequisites.bend as Probe
 type Context is Data:
   Context{mode: String, go: Chan(Unit)}
 
-def complete(response: Http.Res, started: Time.Duration) -> IO(Http.Res):
-  do IO<Http.Res>:
+def complete(response: Pure.Res, started: Time.Duration) -> IO(Pure.Res):
+  do IO<Pure.Res>:
     finished : Time.Duration <- Time.mono()
     Probe.elapsed("WORK_TIME", Time.Duration.sub(finished, started))
     IO.print("CPU_END")
     return response
 
-def result(valid: Bool, started: Time.Duration) -> IO(Http.Res):
+def result(valid: Bool, started: Time.Duration) -> IO(Pure.Res):
   match valid:
     case True{}:
-      complete(Http.Res{200, Http.empty(), Http.from_string("cpu")}, started)
+      complete(Pure.Res{200, Pure.empty(), Pure.from_string("cpu")}, started)
     case False{}:
-      complete(Http.Res{400, Http.empty(), Http.from_string("rejected")}, started)
+      complete(Pure.Res{400, Pure.empty(), Pure.from_string("rejected")}, started)
 
-def named(value: Maybe<&2, String>, started: Time.Duration) -> IO(Http.Res):
+def named(value: Maybe<&2, String>, started: Time.Duration) -> IO(Pure.Res):
   match value:
     case None{}:
       result(False{}, started)
     case Some{name}:
       result(True{}, started)
 
-def parsed(value: Maybe<&1, Json.Val>, started: Time.Duration) -> IO(Http.Res):
+def parsed(value: Maybe<&1, Json.Val>, started: Time.Duration) -> IO(Pure.Res):
   match value:
     case None{}:
       result(False{}, started)
     case Some{document}:
       result(True{}, started)
 
-def work(mode: String, body: Http.Body, started: Time.Duration) -> IO(Http.Res):
+def work(mode: String, body: Pure.Body, started: Time.Duration) -> IO(Pure.Res):
   match mode:
     case "name":
       named(Users.name(body), started)
     case "json":
       parsed(Json.parse.bytes(body), started)
     case _:
-      IO.die(Http.Res, 1, "invalid JSON progress mode")
+      IO.die(Pure.Res, 1, "invalid JSON progress mode")
 
-def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
+def run_work(context: Context, body: Pure.Body) -> IO(Pure.Res):
   Context{mode, go} = context
-  do IO<Http.Res>:
-    bodies0 : Chan(Http.Body) <- Chan.new(Http.Body, 1)
-    +bodies : Chan(Http.Body) = bodies0
-    queued : Result<&1, &1, Http.Body, Unit> <- Chan.send(Http.Body, bodies, body)
+  do IO<Pure.Res>:
+    bodies0 : Chan(Pure.Body) <- Chan.new(Pure.Body, 1)
+    +bodies : Chan(Pure.Body) = bodies0
+    queued : Result<&1, &1, Pure.Body, Unit> <- Chan.send(Pure.Body, bodies, body)
     IO.print("CPU_ARMED")
     IO.join(Unit, go)
     # Receive the affine body after the marker; decoder work must not run while building the earlier IO action.
@@ -62,18 +63,18 @@ def run_work(context: Context, body: Http.Body) -> IO(Http.Res):
     # Native stdout flushes when the loop waits; this pre-work pause makes the marker visible before parsing.
     IO.sleep(1)
     started : Time.Duration <- Time.mono()
-    received : Http.Body <- IO.join(Http.Body, bodies)
+    received : Pure.Body <- IO.join(Pure.Body, bodies)
     work(mode, received, started)
 
-def handler(context: Context, request: Http.Req) -> IO(Http.Res):
-  Http.Req{method, path, headers, body} = request
+def handler(context: Context, request: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, path, headers, body} = request
   match path:
     case "/cpu":
       run_work(context, body)
     case _:
-      do IO<Http.Res>:
+      do IO<Pure.Res>:
         IO.print("ORDINARY_HANDLED")
-        return Http.Res{200, Http.empty(), Http.from_string("ok")}
+        return Pure.Res{200, Pure.empty(), Pure.from_string("ok")}
 
 def partial_ready(result: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>, go: Chan(Unit)) -> IO(Unit):
   do IO<Unit>:

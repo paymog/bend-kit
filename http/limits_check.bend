@@ -1,23 +1,24 @@
 # Production whole/stream/writer socket acceptance; run limits_check.py.
 import Base
 import ./http.bend as Http
+import ./pure.bend as Pure
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
-def config(port: U32) -> Http.ServerConfig:
-  Http.ServerConfig{"127.0.0.1", port, 8, 128, 128, 128, 128, 600, 600, 800, 600}
+def config(port: U32) -> Pure.ServerConfig:
+  Pure.ServerConfig{"127.0.0.1", port, 8, 128, 128, 128, 128, 600, 600, 800, 600}
 
-def whole(context: String, req: Http.Req) -> IO(Http.Reply):
-  Http.Req{method, +path, headers, body} = req
+def whole(context: String, req: Pure.Req) -> IO(Http.Reply):
+  Pure.Req{method, +path, headers, body} = req
   match path:
     case "/large":
-      IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.empty(), Bytes.new(16777216)}, Completion.Unobserved{}})
+      IO.pure(Http.Reply, Http.Reply{Pure.Res{200, Pure.empty(), Bytes.new(16777216)}, Completion.Unobserved{}})
     case "/cpu":
       do IO<Http.Reply>:
         IO.sleep(1000)
-        return Http.Reply{Http.Res{200, Http.empty(), body}, Completion.Unobserved{}}
+        return Http.Reply{Pure.Res{200, Pure.empty(), body}, Completion.Unobserved{}}
     case _:
-      IO.pure(Http.Reply, Http.Reply{Http.Res{200, Http.set(Http.empty(), "x-context", context), body}, Completion.Unobserved{}})
+      IO.pure(Http.Reply, Http.Reply{Pure.Res{200, Pure.set(Pure.empty(), "x-context", context), body}, Completion.Unobserved{}})
 
 type Upload is Data:
   Upload{count: U32, discard: Bool, large: Bool}
@@ -31,8 +32,8 @@ def upload.wait(slow: Bool, state: Upload) -> IO(Upload):
     case False{}:
       IO.pure(Upload, state)
 
-def upload.start(req: Http.Req) -> IO(Upload):
-  Http.Req{method, +path, headers, body} = req
+def upload.start(req: Pure.Req) -> IO(Upload):
+  Pure.Req{method, +path, headers, body} = req
   upload.wait(String.eq(path, "/slow-start"), Upload{0, String.eq(path, "/discard"), String.eq(path, "/large")})
 
 def upload.piece(state: Upload, b: Bytes.Bytes) -> IO(Upload & Bool):
@@ -40,18 +41,18 @@ def upload.piece(state: Upload, b: Bytes.Bytes) -> IO(Upload & Bool):
   Bytes.Bytes{len, words} = b
   IO.pure(Upload & Bool, (Upload{(count + len : U32), discard, large}, discard))
 
-def upload.response(large: Bool, count: U32) -> Http.Res:
+def upload.response(large: Bool, count: U32) -> Pure.Res:
   match large:
     case True{}:
-      Http.Res{200, Http.empty(), Bytes.new(16777216)}
+      Pure.Res{200, Pure.empty(), Bytes.new(16777216)}
     case False{}:
-      Http.Res{200, Http.empty(), Bytes.u32.show(count)}
+      Pure.Res{200, Pure.empty(), Bytes.u32.show(count)}
 
 def upload.finish(state: Upload) -> IO(Http.Reply):
   Upload{count, discard, large} = state
   IO.pure(Http.Reply, Http.Reply{upload.response(large, count), Completion.Unobserved{}})
 
-def upload.abort(state: Upload, reason: Http.StreamAbort) -> IO(Unit):
+def upload.abort(state: Upload, reason: Pure.StreamAbort) -> IO(Unit):
   Upload{count, discard, large} = state
   IO.pure(Unit, Unit{})
 
@@ -67,11 +68,11 @@ type Download is Type:
 
 def download.head(+progress: Bool, data: Bytes.Bytes) -> Http.WriteHead<Download>:
   Bytes.Bytes{+len, words} = data
-  Http.WriteHead{200, Http.empty(), Some{Bool.pick(U32, progress, 8, len)},
+  Http.WriteHead{200, Pure.empty(), Some{Bool.pick(U32, progress, 8, len)},
     Download{Bytes.Bytes{len, words}, progress}, Completion.Unobserved{}}
 
-def download.start(req: Http.Req) -> IO(Http.WriteHead<Download>):
-  Http.Req{method, +path, headers, body} = req
+def download.start(req: Pure.Req) -> IO(Http.WriteHead<Download>):
+  Pure.Req{method, +path, headers, body} = req
   IO.pure(Http.WriteHead<Download>, download.head(String.eq(path, "/progress"),
     download.large(String.eq(path, "/large"), body)))
 
@@ -91,7 +92,7 @@ def download.progress(n: Nat, w: Http.Writer) -> IO(Http.Writer):
       download.observed(w)
     case 1n+p:
       do IO<Http.Writer>:
-        sent : Http.Writer <- Http.writer.write(w, Http.from_string("x"))
+        sent : Http.Writer <- Http.writer.write(w, Pure.from_string("x"))
         IO.sleep(150)
         download.progress(p, sent)
 
@@ -114,7 +115,7 @@ def download.dispose(state: Download) -> IO(Unit):
   Download{body, progress} = state
   IO.pure(Unit, Unit{})
 
-def whole.started(result: Unit & Result<&2, &1, Http.StartupError, Http.Server<String>>) -> IO(Unit):
+def whole.started(result: Unit & Result<&2, &1, Pure.StartupError, Http.Server<String>>) -> IO(Unit):
   (owner, got) = result
   match got:
     case Fail{error}:
@@ -122,10 +123,10 @@ def whole.started(result: Unit & Result<&2, &1, Http.StartupError, Http.Server<S
     case Done{server}:
       do IO<Unit>:
         IO.print("READY")
-        stopped : Http.ServerExit <- Http.server.run(~String, ~whole, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
+        stopped : Pure.ServerExit <- Http.server.run(~String, ~whole, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         return Unit{}
 
-def checked(result: Result<&2, &2, Http.StartupError, Unit>) -> IO(Unit):
+def checked(result: Result<&2, &2, Pure.StartupError, Unit>) -> IO(Unit):
   match result:
     case Fail{error}:
       IO.die(Unit, 1, "startup failed")
@@ -137,15 +138,15 @@ def run(mode: String, port: U32) -> IO(Unit):
     case "whole":
       do IO<Unit>:
         context : String <- IO.try(String, IO.get_env("LIMITS_CONTEXT"))
-        started : Unit & Result<&2, &1, Http.StartupError, Http.Server<String>> <- Http.server.start(~String, ~Unit, context, Unit{}, config(port))
+        started : Unit & Result<&2, &1, Pure.StartupError, Http.Server<String>> <- Http.server.start(~String, ~Unit, context, Unit{}, config(port))
         whole.started(started)
     case "stream":
       do IO<Unit>:
-        result : Result<&2, &2, Http.StartupError, Unit> <- Http.serve.stream.config(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~Completion.ignore, config(port))
+        result : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.stream.config(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~Completion.ignore, config(port))
         checked(result)
     case "writer":
       do IO<Unit>:
-        result : Result<&2, &2, Http.StartupError, Unit> <- Http.serve.write.config(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, config(port))
+        result : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.write.config(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, config(port))
         checked(result)
     case _:
       IO.die(Unit, 1, "invalid mode")

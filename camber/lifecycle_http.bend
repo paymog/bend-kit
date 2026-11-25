@@ -4,31 +4,32 @@ import ./raw_http.bend as Raw
 import ./surface.bend as Surface
 import ./interface_check.bend as Registry
 import ../http/http.bend as Http
+import ../http/pure.bend as Pure
 import ../http/completion.bend as Completion
 
 type Input is Type:
-  Request{request: Http.Req, hooks: U32}
+  Request{request: Pure.Req, hooks: U32}
 
-def validate.checked(valid: Bool, response: Http.Res) -> Result<&2, &1, U32, Http.Res>:
+def validate.checked(valid: Bool, response: Pure.Res) -> Result<&2, &1, U32, Pure.Res>:
   match valid:
     case True{}:
       Done{response}
     case False{}:
       Fail{500}
 
-def validate(response: Http.Res) -> Result<&2, &1, U32, Http.Res>:
-  Http.Res{+status, headers, body} = response
-  validate.checked(U32.is_ge(status, 200) && U32.is_le(status, 599), Http.Res{status, headers, body})
+def validate(response: Pure.Res) -> Result<&2, &1, U32, Pure.Res>:
+  Pure.Res{+status, headers, body} = response
+  validate.checked(U32.is_ge(status, 200) && U32.is_le(status, 599), Pure.Res{status, headers, body})
 
-def mapper(state: Unit, profile: U32, error: U32) -> IO(Unit & Result<&2, &1, U32, Http.Res>):
+def mapper(state: Unit, profile: U32, error: U32) -> IO(Unit & Result<&2, &1, U32, Pure.Res>):
   match error:
     case 401:
-      IO.pure(Unit & Result<&2, &1, U32, Http.Res>, (state, Done{Http.Res{401, Http.set(Http.empty(), "www-authenticate", "Bearer"), Http.from_string("")}}))
+      IO.pure(Unit & Result<&2, &1, U32, Pure.Res>, (state, Done{Pure.Res{401, Pure.set(Pure.empty(), "www-authenticate", "Bearer"), Pure.from_string("")}}))
     case _:
-      IO.pure(Unit & Result<&2, &1, U32, Http.Res>, (state, Done{Http.Res{500, Http.empty(), Http.from_string("")}}))
+      IO.pure(Unit & Result<&2, &1, U32, Pure.Res>, (state, Done{Pure.Res{500, Pure.empty(), Pure.from_string("")}}))
 
-def unchanged(hook: Unit, state: Unit, profile: U32, response: Http.Res) -> IO(Unit & Result<&2, &1, U32, Http.Res>):
-  IO.pure(Unit & Result<&2, &1, U32, Http.Res>, (state, Done{response}))
+def unchanged(hook: Unit, state: Unit, profile: U32, response: Pure.Res) -> IO(Unit & Result<&2, &1, U32, Pure.Res>):
+  IO.pure(Unit & Result<&2, &1, U32, Pure.Res>, (state, Done{response}))
 
 def accepted(state: Unit, result: Maybe<&2, U32>) -> Unit & Surface.Step<U32, U32>:
   match result:
@@ -55,7 +56,7 @@ def five(state: Unit, profile: U32, meta: Registry.Metadata, count: U32) -> IO(U
 def enter.allowed(valid: Bool, count: U32, state: Unit, profile: U32, meta: Registry.Metadata, total: U32) -> IO(Unit & Surface.Step<U32, U32>):
   match valid:
     case False{}:
-      IO.pure(Unit & Surface.Step<U32, U32>, (state, Surface.Early{Http.Res{405, Http.set(Http.empty(), "allow", "GET, HEAD"), Http.from_string("")}}))
+      IO.pure(Unit & Surface.Step<U32, U32>, (state, Surface.Early{Pure.Res{405, Pure.set(Pure.empty(), "allow", "GET, HEAD"), Pure.from_string("")}}))
     case True{}:
       match count:
         case 1:
@@ -85,62 +86,62 @@ def enter.go(state: Unit, +profile: U32, meta: Registry.Metadata, total: U32) ->
 def enter(state: Unit, profile: U32, meta: Registry.Metadata, total: U32) -> IO(Unit & Surface.Step<U32, U32>):
   enter.go(state, profile, meta, total)
 
-def decode(state: Unit, profile: U32, meta: Registry.Metadata, count: U32, body: Http.Body) -> IO(Unit & Result<&2, &1, U32, Input>):
+def decode(state: Unit, profile: U32, meta: Registry.Metadata, count: U32, body: Pure.Body) -> IO(Unit & Result<&2, &1, U32, Input>):
   Registry.Metadata{method, target, headers} = meta
-  IO.pure(Unit & Result<&2, &1, U32, Input>, (state, Done{Request{Http.Req{method, target, headers, body}, count}}))
+  IO.pure(Unit & Result<&2, &1, U32, Input>, (state, Done{Request{Pure.Req{method, target, headers, body}, count}}))
 
-def handle.basic(~business: U32 -> Http.Req -> IO(Http.Res), state: Unit, profile: U32, count: U32, request: Http.Req) -> IO(Unit & Result<&2, &1, U32, Http.Res>):
-  Http.Req{method, +target, headers, body} = request
+def handle.basic(~business: U32 -> Pure.Req -> IO(Pure.Res), state: Unit, profile: U32, count: U32, request: Pure.Req) -> IO(Unit & Result<&2, &1, U32, Pure.Res>):
+  Pure.Req{method, +target, headers, body} = request
   match target:
     case "/hooks/1":
-      do IO<Unit & Result<&2, &1, U32, Http.Res>>:
-        response : Http.Res <- Raw.hooks(0n, headers, Some{count})
+      do IO<Unit & Result<&2, &1, U32, Pure.Res>>:
+        response : Pure.Res <- Raw.hooks(0n, headers, Some{count})
         return (state, Done{response})
     case "/hooks/5":
-      do IO<Unit & Result<&2, &1, U32, Http.Res>>:
-        response : Http.Res <- Raw.hooks(0n, headers, Some{count})
+      do IO<Unit & Result<&2, &1, U32, Pure.Res>>:
+        response : Pure.Res <- Raw.hooks(0n, headers, Some{count})
         return (state, Done{response})
     case _:
-      do IO<Unit & Result<&2, &1, U32, Http.Res>>:
-        response : Http.Res <- business(profile, Http.Req{method, target, headers, body})
+      do IO<Unit & Result<&2, &1, U32, Pure.Res>>:
+        response : Pure.Res <- business(profile, Pure.Req{method, target, headers, body})
         return (state, Done{response})
 
-def handle(~business: U32 -> Http.Req -> IO(Http.Res), state: Unit, +profile: U32, input: Input) -> IO(Unit & Result<&2, &1, U32, Http.Res>):
+def handle(~business: U32 -> Pure.Req -> IO(Pure.Res), state: Unit, +profile: U32, input: Input) -> IO(Unit & Result<&2, &1, U32, Pure.Res>):
   match profile:
     case 0:
       Request{request, count} = input
       handle.basic(~business, state, profile, count, request)
     case _:
       Request{request, count} = input
-      do IO<Unit & Result<&2, &1, U32, Http.Res>>:
-        response : Http.Res <- business(profile, request)
+      do IO<Unit & Result<&2, &1, U32, Pure.Res>>:
+        response : Pure.Res <- business(profile, request)
         return (state, Done{response})
 
-def endpoint(~business: U32 -> Http.Req -> IO(Http.Res), state: Unit, profile: U32, meta: Registry.Metadata, count: U32, body: Http.Body) -> IO(Unit & Surface.Flow):
+def endpoint(~business: U32 -> Pure.Req -> IO(Pure.Res), state: Unit, profile: U32, meta: Registry.Metadata, count: U32, body: Pure.Body) -> IO(Unit & Surface.Flow):
   Surface.endpoint(~Unit, ~U32, ~U32, ~U32, ~Input, ~decode, ~(state => profile => input => handle(~business, state, profile, input)), ~mapper, ~validate, state, profile, meta, count, body)
 
-def response(result: Unit & Surface.Flow) -> Http.Res:
+def response(result: Unit & Surface.Flow) -> Pure.Res:
   (state, Surface.Flow{response, mapped, stopped}) = result
   response
 
-def dispatch(~business: U32 -> Http.Req -> IO(Http.Res), +profile: U32, req: Http.Req) -> IO(Http.Res):
-  Http.Req{method, target, headers, body} = req
-  do IO<Http.Res>:
+def dispatch(~business: U32 -> Pure.Req -> IO(Pure.Res), +profile: U32, req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, target, headers, body} = req
+  do IO<Pure.Res>:
     result : Unit & Surface.Flow <- Surface.scope(~Unit, ~U32, ~U32, ~U32, ~U32, ~Unit, ~enter, ~(state => profile => meta => count => body => endpoint(~business, state, profile, meta, count, body)), ~unchanged, ~mapper, ~validate, Surface.Policy{Nil{}}, Unit{}, profile, Registry.Metadata{method, target, headers}, 0, body)
     checked : Unit & Surface.Flow <- Surface.finish(~Unit, ~U32, ~U32, ~mapper, ~validate, profile, result)
     return response(checked)
 
 # The cooperative lifecycle probe uses this same scoped dispatch, the shared
 # transport owner and typed request-local completion, not a second server.
-def serve.reply(~business: U32 -> Http.Req -> IO(Http.Res),
-  ~done: Completion.Completion<String> -> IO(Unit), context: Unit, req: Http.Req) -> IO(Http.Reply):
-  Http.Req{method, +path, headers, body} = req
+def serve.reply(~business: U32 -> Pure.Req -> IO(Pure.Res),
+  ~done: Completion.Completion<String> -> IO(Unit), context: Unit, req: Pure.Req) -> IO(Http.Reply):
+  Pure.Req{method, +path, headers, body} = req
   do IO<Http.Reply>:
-    response : Http.Res <- dispatch(~business, 0, Http.Req{method, path, headers, body})
+    response : Pure.Res <- dispatch(~business, 0, Pure.Req{method, path, headers, body})
     return Http.reply.complete(~String, ~done, path, response)
 
-def serve(~business: U32 -> Http.Req -> IO(Http.Res),
+def serve(~business: U32 -> Pure.Req -> IO(Pure.Res),
   ~done: Completion.Completion<String> -> IO(Unit),
-  ~observe: U32 -> Completion.Outcome -> IO(Unit), server: Http.Server<Unit>) -> IO(Http.ServerExit):
+  ~observe: U32 -> Completion.Outcome -> IO(Unit), server: Http.Server<Unit>) -> IO(Pure.ServerExit):
   Http.server.run(~Unit, ~(context => req => serve.reply(~business, ~done, context, req)),
     ~(context => status => outcome => observe(status, outcome)), server)
