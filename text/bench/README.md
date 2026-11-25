@@ -125,3 +125,72 @@ Median milliseconds:
 | wrap_utf | 4.4 | — | — | 14.5 | 20.6 |
 
 All existing checksums match: 654, 174397, and 2632:177792 for both wrap cases.
+
+## Lazy Myers overlap points
+
+Measured on the same M4 Pro, macOS arm64, Bend 2.0.40, one thread,
+2026-11-25. Baseline is `bd8aceb` (`text` 0.2.2.0). Candidate is
+`text` 0.2.2.1. Compile the baseline before changing `text.bend`, then run:
+
+```sh
+bend packed.bend -o /tmp/text-packed-baseline
+# After applying the candidate:
+python3 packed.py --baseline /tmp/text-packed-baseline
+bend profile.bend -o out/profile
+out/profile
+python3 run.py 5
+```
+
+The retained runner alternates baseline/candidate, then candidate/baseline,
+for five pairs. Both binaries run the packed operation, with the same input
+and timer boundaries as above. Every full-size checksum is **654**.
+Times are milliseconds; peak process RSS is MiB.
+
+| pair | baseline diff | candidate diff | baseline conversion | candidate conversion | baseline materialization | candidate materialization | baseline RSS | candidate RSS |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 4.771458 | 2.077625 | 1.375500 | 1.425458 | 4.947541 | 4.780916 | 9.718750 | 9.718750 |
+| 2 | 4.729167 | 2.012416 | 1.380375 | 1.334042 | 4.902250 | 4.788750 | 9.718750 | 9.718750 |
+| 3 | 4.877250 | 2.019667 | 1.347334 | 1.363417 | 4.856125 | 4.888583 | 9.718750 | 9.718750 |
+| 4 | 4.717292 | 2.061917 | 1.312916 | 1.335083 | 4.853583 | 4.952375 | 9.718750 | 9.718750 |
+| 5 | 4.815292 | 2.069000 | 1.403292 | 1.355542 | 4.879417 | 4.878917 | 9.718750 | 9.718750 |
+| median | **4.771458** | **2.061917** | **1.375500** | **1.355542** | **4.879417** | **4.878917** | **9.718750** | **9.718750** |
+
+The packed diff median falls by about 57%, below 4 ms. Conversion and full
+materialization remain outside the diff timer. RSS still covers the whole
+process, not diff-only allocations.
+
+`profile.bend` separates indexed scanning (including FNV hashing and range
+records), key-array/frontier setup, Myers plus script construction, and exact
+matched-range verification. Three native samples per version:
+
+| version | sample | scan | setup | Myers/script | verification |
+|---|---:|---:|---:|---:|---:|
+| baseline | 1 | 0.396375 | 0.332625 | 3.679250 | 0.177542 |
+| baseline | 2 | 0.359375 | 0.346042 | 3.711625 | 0.179125 |
+| baseline | 3 | 0.340083 | 0.326166 | 3.760625 | 0.184958 |
+| candidate | 1 | 0.398959 | 0.340167 | 1.008791 | 0.206000 |
+| candidate | 2 | 0.356916 | 0.355250 | 0.979250 | 0.193709 |
+| candidate | 3 | 0.329916 | 0.317416 | 0.971000 | 0.208875 |
+| baseline median | — | 0.359375 | 0.332625 | 3.711625 | 0.179125 |
+| candidate median | — | 0.356916 | 0.340167 | 0.979250 | 0.206000 |
+
+The measured cost was in Myers, not byte scanning. `Bool.pick` eagerly built
+both candidate meeting points, then `Some`, even when the frontiers did not
+overlap. The candidate checks overlap first, then builds only the selected
+point. Scanning, hashing, range records, setup, exact verification, and the
+collision fallback remain unchanged. The stage harness holds its own range
+references, so its stage sum is not a replacement for the full diff timer.
+Collision fallback allocation measurement is tracked in issue #1217.
+
+The complete five-run package benchmark gives these medians in milliseconds:
+
+| op | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|
+| diff | 0.5 | 24.8 | 19.6 | 28.0 | 5.8 |
+| distance | 3.2 | 4.9 | 5.1 | 55.5 | 15.9 |
+| wrap | 3.9 | — | — | 12.0 | 13.4 |
+| wrap_utf | 4.4 | — | — | 14.6 | 20.3 |
+
+All checksums match. String diff remains above 4 ms; issue #820 remains open.
+Package checks pass the packed boundary and collision round trips and find
+zero non-shortest scripts in 3,000 random pairs.

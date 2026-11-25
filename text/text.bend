@@ -152,10 +152,23 @@ def ctx.mk(~A: Data, rev: Bool, a: Array<A>, b: Array<A>, v: Array<U32>, w: Arra
     case False{}:
       Ctx{a, b, v, w}
 
+def at.point(rev: Bool, +g: Geo, +k: U32, +x: U32, +x0: U32) -> Maybe<&2, Pt>:
+  match rev:
+    case True{}:
+      Some{Pt{(geo.os(g) + geo.n(g) - x : U32), (geo.ns(g) + geo.m(g) - x + k : U32)}}
+    case False{}:
+      Some{Pt{(geo.os(g) + x0 : U32), (geo.ns(g) + x0 - k : U32)}}
+
+def at.overlap(hit: Bool, rev: Bool, g: Geo, k: U32, x: U32, x0: U32) -> Maybe<&2, Pt>:
+  match hit:
+    case True{}:
+      at.point(rev, g, k, x, x0)
+    case False{}:
+      None{}
+
 def at.hit(~A: Data, r: Array<U32> & U32, a: Array<A>, b: Array<A>, v: Array<U32>, +rev: Bool, +g: Geo, +k: U32, +x: U32, +x0: U32) -> Ctx<A> & Maybe<&2, Pt>:
   (w, u) = r
-  p = Bool.pick(Pt, rev, Pt{(geo.os(g) + geo.n(g) - x : U32), (geo.ns(g) + geo.m(g) - x + k : U32)}, Pt{(geo.os(g) + x0 : U32), (geo.ns(g) + x0 - k : U32)})
-  (ctx.mk(~A, rev, a, b, v, w), Bool.pick(Maybe<&2, Pt>, U32.is_le(geo.n(g), (x + u : U32)), Some{p}, None{}))
+  (ctx.mk(~A, rev, a, b, v, w), at.overlap(U32.is_le(geo.n(g), (x + u : U32)), rev, g, k, x, x0))
 
 def at.chk(~A: Data, on: Bool, a: Array<A>, b: Array<A>, v: Array<U32>, w: Array<U32>, +rev: Bool, +g: Geo, +k: U32, +x: U32, +x0: U32) -> Ctx<A> & Maybe<&2, Pt>:
   match on:

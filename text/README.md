@@ -3,7 +3,7 @@
 Myers diff with unified output, Levenshtein distance, and word wrap by display width. Pure Bend.
 
 ```bend
-import bend-kit-text@0.2.2.0/text.bend as Text
+import bend-kit-text@0.2.2.1/text.bend as Text
 ```
 
 `text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend`, `bend-kit-tty@0.1.0.1/text.bend`, and `bend-kit-bytes@0.3.3.1/bytes.bend`.
@@ -56,7 +56,7 @@ This complete caller materializes only the first old line:
 
 ```bend
 import Base
-import bend-kit-text@0.2.2.0/text.bend as Text
+import bend-kit-text@0.2.2.1/text.bend as Text
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def print_part(r: Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
