@@ -23,6 +23,9 @@ openssl verify -x509_strict -CAfile "$dir/ca.pem" -purpose sslserver \
   -verify_hostname localhost "$dir/server.pem"
 
 cd "$here"
+if [ "${WIRE_LOOPBACK_ONLY:-0}" = 1 ]; then
+  python3 -B "$here/loopback-run-test.py" --policy
+fi
 if [ "${1:-native}" = js ]; then
   bend ca_check.bend -o "$dir/ca_check.js"
   bend check.bend -o "$dir/check.js"
