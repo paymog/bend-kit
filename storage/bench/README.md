@@ -36,6 +36,30 @@ bend storage/bench/stream.bend -o storage/bench/out/stream
 
 Apple M4 Pro, macOS arm64, Bend 2.0.40, 2026-11-24: 0.19 s elapsed and 6,356,992 bytes maximum resident set size. The process includes the streaming origin and client. The encoded response is 17,825,806 bytes. Its root is `89c9109ce931e20ac63a1729d6f6a9db03dee9401161eb8a3fbd35c4a09a9528`. This single measurement is not a throughput comparison. The fixed network and verifier buffers bound payload memory; the visited index still grows with object count.
 
+### File-backed origin
+
+The origin-only check creates encoded 17 MiB and 129 MiB files outside the server process. It reads and hashes each response in the Python client. The server never checks out a tree. It then resets 24 connections during their responses and requires its file/socket descriptor count to return to the warmed baseline. Both package check scripts run this check.
+
+```sh
+mkdir -p storage/bench/out
+bend storage/http_origin.bend -o storage/bench/out/origin
+python3 storage/http_origin_check.py storage/bench/out/origin
+bend storage/http_origin.bend -o storage/bench/out/origin.js
+python3 storage/http_origin_check.py bun storage/bench/out/origin.js
+```
+
+Apple M4 Pro, macOS arm64, Bend 2.0.40, 2026-11-25. One process per size and runtime, three complete transfers and 24 reset connections per process:
+
+| runtime | payload MiB | peak sampled origin RSS, bytes | descriptors before / after |
+|---|---:|---:|---:|
+| native | 17 | 3,047,424 | 6 / 6 |
+| native | 129 | 3,145,728 | 6 / 6 |
+| Bun | 17 | 83,623,936 | 5 / 5 |
+| Bun | 129 | 98,549,760 | 5 / 5 |
+
+RSS is sampled with `ps` every 20 ms, not the OS high-water counter. Bun includes its VM, heap, and collection overhead. A 112 MiB payload increase adds about 96 KiB native RSS and 14.2 MiB Bun RSS in this sample. The regression permits less than 32 MiB of growth. This is a bounded-buffer check, not a throughput comparison or a claim that runtime overhead stays constant.
+
+
 
 
 ## Run

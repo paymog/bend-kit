@@ -3,8 +3,8 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.8.2.0/storage.bend as S
-import bend-kit-storage@0.8.2.0/pure.bend as P
+import bend-kit-storage@0.9.0.0/storage.bend as S
+import bend-kit-storage@0.9.0.0/pure.bend as P
 ```
 
 `pure.bend` owns the model, digest types and ordering, and encoding and decoding helpers. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` import only this module. `storage.bend` owns hashing and disk IO. Import both modules for disk operations; pure types and constructors use `P`, and effects use `S`.
@@ -17,8 +17,8 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.8.2.0/storage.bend as S
-import bend-kit-storage@0.8.2.0/pure.bend as P
+import bend-kit-storage@0.9.0.0/storage.bend as S
+import bend-kit-storage@0.9.0.0/pure.bend as P
 
 def ship(+root: P.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -119,17 +119,17 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 
 ## HTTP synchronization
 
-Import `bend-kit-storage@0.8.2.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.40.0.1`; the pure storage core does not import HTTP.
+Import `bend-kit-storage@0.9.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.40.0.1`; the pure storage core does not import HTTP.
 
-`Transport.handle(dir, request)` is the server handler. It serves `GET /objects/<digest>` as `application/octet-stream`. Invalid paths and missing objects return 404; other disk failures return 500. Mount it with `Http.server.start(~String, ~Unit, dir, Unit{}, config)` and `Http.server.run(~String, ~Transport.handle, ~observe, server)`. The observer has type `String -> U32 -> Completion.Outcome -> IO(Unit)` and may call `Completion.ignore(status, outcome)`. The caller owns the listener, bind address, admission limits, shutdown, authentication, and TLS termination.
+`Transport.handle(dir, request)` returns `Http.WriteHead<Transport.Source>`. It serves `GET /objects/<digest>` as `application/octet-stream`. Invalid paths and missing objects return 404; other disk failures return 500. Mount it with `Http.server.start(~String, ~Unit, dir, Unit{}, config)` and `Transport.server.run(~observe, server)`. The observer has type `String -> U32 -> Completion.Outcome -> IO(Unit)` and may call `Completion.ignore(status, outcome)`. Custom write servers can use `Transport.write` and `Transport.dispose`, or `Transport.talk` with their own context and start handler. The caller owns the listener, bind address, admission limits, shutdown, authentication, and TLS termination.
 
 The client is:
 
 ```bend
 import Base
-import bend-kit-storage@0.8.2.0/storage.bend as S
-import bend-kit-storage@0.8.2.0/pure.bend as P
-import bend-kit-storage@0.8.2.0/http.bend as Transport
+import bend-kit-storage@0.9.0.0/storage.bend as S
+import bend-kit-storage@0.9.0.0/pure.bend as P
+import bend-kit-storage@0.9.0.0/http.bend as Transport
 
 def pull(+root: P.Digest) -> S.Run(U32):
   Transport.sync("https://artifacts.example", "b", root)
@@ -145,9 +145,11 @@ The design follows [Git's dumb HTTP protocol](https://git-scm.com/docs/http-prot
 
 Keep the source roots and their closure available for the transfer. Do not run collection against either store during a sync. Multiple writers may sync into one destination. The handler exposes every object under the configured store, not only one root. Put private stores behind access control; a digest is not an authorization token.
 
-The client accepts encoded objects up to 4,294,967,295 octets. A file payload can therefore hold at most 4,294,967,279 octets with its 16-octet header. Each network read has a 30 s timeout. The client requests identity encoding and reads the raw HTTP stream in pieces of at most 64 KiB. Disk verification uses a 64 KiB buffer and a header of at most 400 octets. Payload memory does not grow with object size; index memory grows with the number of objects. Verification makes a second bounded pass over the temporary file. `Disk.checkout` still loads file payloads into memory. The provided server handler still buffers each response; a streaming origin can serve large objects without that source-side allocation.
+The client accepts encoded objects up to 4,294,967,295 octets. A file payload can therefore hold at most 4,294,967,279 octets with its 16-octet header. Each network read has a 30 s timeout. The client requests identity encoding and reads the raw HTTP stream in pieces of at most 64 KiB. Disk verification uses a 64 KiB buffer and a header of at most 400 octets. Payload memory does not grow with object size; index memory grows with the number of objects. Verification makes a second bounded pass over the temporary file. `Disk.checkout` still loads file payloads into memory. The origin opens one file per response, announces its length, and reads at most 64 KiB before each bounded write. It closes the file on success, a failed or interrupted send, a short read, and a suppressed body. The HTTP writer retains connection reuse, completion outcomes, write deadlines, and shutdown admission.
 
 `http_check.bend`, called by `check.bend`, runs the actual handler and client on an OS-assigned loopback port. It checks partial and repeated transfers, shared objects, repair of a missing descendant, reconstruction after repair, invalid methods and paths, missing source objects, corrupt local objects, closed-server failures, and a tampered response that ingress refuses without writing it. Server-side connection events prove that three object GETs share one connection, and that successful, missing-object, and tampered-object syncs close it. `http_stream_check.bend` uses a bounded raw loopback origin on port 0. It checks a 17 MiB file, reconstruction of its root, truncated and tampered streams, and temporary-file cleanup.
+
+The same checks transfer a 17 MiB object from the real file origin and reconstruct its root after shutdown. `http_origin_check.py` runs the origin alone against 17 MiB and 129 MiB objects. It verifies response hashes, checks descriptor counts after 24 reset connections, and samples only the origin process's RSS. Both runtime check scripts run it. See [bench/README.md](bench/README.md) for the isolated memory measurement.
 
 ## Laws
 

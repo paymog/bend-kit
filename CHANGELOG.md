@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.9.0.0: serve digest-addressed HTTP objects from owned files with 64 KiB reads. Mount the new write handler with `Transport.server.run`; preserve ingress, keep-alive, and shutdown checks.
+
 - `runner` 0.21.0.0: adopt journal 0.4.0.0 for runtime IO and pure replay benchmarks. Remove the old journal pin exception.
 
 - `zlib` 0.7.0.2: replace per-match length and distance list scans with bounded symbol arithmetic. Preserve compressed bytes and match choices.

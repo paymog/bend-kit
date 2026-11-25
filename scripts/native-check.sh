@@ -36,6 +36,10 @@ for d in "$@"; do
       "$out/large-check" 0
       "$out/large-check" 27
     fi
+    if [ "$d" = storage ]; then
+      bend http_origin.bend -o "$out/origin"
+      python3 http_origin_check.py "$out/origin"
+    fi
   )
   rm -rf "$out"
   out=

@@ -20,16 +20,16 @@ def ok(good: Bool, name: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, "bad HTTP storage " ++ name)
 
-def reply(bad: Bool, dir: String, request: Http.Req) -> IO(Http.Reply):
+def reply(bad: Bool, dir: String, request: Http.Req) -> IO(Http.WriteHead<Transport.Source>):
   match bad:
     case False{}:
       Transport.handle(dir, request)
     case True{}:
-      IO.pure(Http.Reply, Transport.response(200, Http.from_string("end\n")))
+      IO.pure(Http.WriteHead<Transport.Source>, Transport.response(200, Http.from_string("end\n")))
 
-def handle(context: Context, request: Http.Req) -> IO(Http.Reply):
+def handle(context: Context, request: Http.Req) -> IO(Http.WriteHead<Transport.Source>):
   Context{dir, bad, events} = context
-  do IO<Http.Reply>:
+  do IO<Http.WriteHead<Transport.Source>>:
     sent : Result<&1, &1, Char, Unit> <- Chan.send(Char, events, 'r')
     reply(bad, dir, request)
 
@@ -40,7 +40,7 @@ def connection(context: Context, limits: Http.Limits, inbox: Chan(Admission.Comm
   Context{dir, bad, +events} = context
   do IO<Unit>:
     opened : Result<&1, &1, Char, Unit> <- Chan.send(Char, events, 'o')
-    Http.talk(~Context, ~handle, ~observe, Context{dir, bad, events}, limits, inbox,
+    Transport.talk(~Context, ~handle, ~observe, Context{dir, bad, events}, limits, inbox,
       Some{Http.Serving{(socket, Http.TurnMore{Http.sv.none(), False{}}), None{}}})
     closed : Result<&1, &1, Char, Unit> <- Chan.send(Char, events, 'c')
     return Unit{}
@@ -191,6 +191,41 @@ def serve(bad: Bool, src: String, dir: String, root: P.Digest) -> IO(Unit):
     listener : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
     bound(bad, src, dir, root, listener)
 
+def large.running(+src: String, +dst: String, +port: U32, +events: Chan(Char), pair: Http.Server<Context> & Http.ServerControl) -> IO(Unit):
+  (server, control) = pair
+  do IO<Unit>:
+    done : Chan(Http.ServerExit) <- IO.fork(Http.ServerExit, Http.server.run.loop(~Context, ~connection, Http.ServerListening{server}))
+    count : U32 <- IO.try(U32, Transport.sync("http://127.0.0.1:" ++ U32.show(port), dst, StreamCheck.root()))
+    ok(U32.is_eq(count, 1), "real origin streams a 17 MiB object")
+    events.check("orc", events)
+    stopped : Bool <- Http.server.stop(control)
+    exit : Http.ServerExit <- IO.join(Http.ServerExit, done)
+    ok(stopped, "large origin drains")
+    StreamCheck.reconstruct(dst)
+    Chan.close(Char, events)
+
+def large.started(src: String, dst: String, port: U32, events: Chan(Char), pair: Unit & Result<&2, &1, Http.StartupError, Http.Server<Context>>) -> IO(Unit):
+  (owner, result) = pair
+  match result:
+    case Fail{error}:
+      IO.die(Unit, 1, "large origin startup failed")
+    case Done{server}:
+      large.running(src, dst, port, events, Http.server.control(~Context, server))
+
+def large.bound(+src: String, dst: String, pair: Listener & U32) -> IO(Unit):
+  (listener, +port) = pair
+  do IO<Unit>:
+    +events : Chan(Char) <- Chan.new(Char, 64)
+    started : Unit & Result<&2, &1, Http.StartupError, Http.Server<Context>> <- Http.server.started(~Context, ~Unit, Context{src, False{}, events}, Unit{}, Http.server.config("127.0.0.1", port), Done{listener})
+    large.started(src, dst, port, events, started)
+
+def large(+dir: String) -> IO(Unit):
+  do IO<Unit>:
+    StreamCheck.one(0, dir ++ "/large-src")
+    IO.try(Unit, S.Disk.init(dir ++ "/large-dst"))
+    pair : Listener & U32 <- IO.try(Listener & U32, Wire.listen("127.0.0.1", 0))
+    large.bound(dir ++ "/large-src", dir ++ "/large-dst", pair)
+
 def run() -> IO(Unit):
   do IO<Unit>:
     errors()
@@ -204,3 +239,4 @@ def run() -> IO(Unit):
     serve(False{}, dir ++ "/src", dir ++ "/dst", root)
     serve(True{}, dir ++ "/src", dir ++ "/bad", root)
     StreamCheck.run()
+    large(dir)

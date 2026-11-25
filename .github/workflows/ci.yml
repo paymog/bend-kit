@@ -280,6 +280,11 @@ jobs:
       - uses: actions/checkout@v7
       - name: Install Bend
         run: scripts/install-bend.sh
+      - name: Install Bun
+        if: matrix.package == 'storage' || matrix.package == 'dns' || matrix.package == 'http' || matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
       - name: Check ${{ matrix.package }}
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
@@ -307,11 +312,6 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           python3 markdown/conformance.py --gfm-diff
-      - name: Install Bun
-        if: matrix.package == 'dns' || matrix.package == 'http' || matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
       - name: Check HTTP startup sockets in native and JS
         if: matrix.package == 'http'
         run: |
