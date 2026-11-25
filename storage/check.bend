@@ -433,10 +433,10 @@ def durability.fault(+dir: String, +path: String, +stage: U32) -> IO(Unit):
     result : Result<&1, &1, U32 & String, Unit> <- S.write.durable(dir ++ "/tmp/injected", path, stage)
     ok(expect.fail(Unit, result, ""), "each publication boundary reports an injected failure")
     bytes : Bytes.Bytes <- run(Bytes.Bytes, S.read(path))
-    ok(String.eq(Bytes.to_string(bytes), Bool.pick(String, U32.is_lt(stage, 4), "old", "new")),
+    ok(String.eq(Bytes.to_string(bytes), Bool.pick(String, U32.is_lt(stage, 4) || U32.is_eq(stage, 7), "old", "new")),
       "a failed publication exposes only the complete old or new file")
     +pending : Bool <- Files.exists(dir ++ "/tmp/injected")
-    ok(Bool.pick(Bool, U32.is_lt(stage, 4), pending, Bool.not(pending)),
+    ok(Bool.pick(Bool, U32.is_lt(stage, 4) || U32.is_eq(stage, 7), pending, Bool.not(pending)),
       "the rename boundary determines temporary-file ownership")
     cleaned : Result<&1, &1, U32 & String, Unit> <- S.write.cleanup(dir ++ "/tmp/injected", Fail{(5, "injected")})
     ok(expect.fail(Unit, cleaned, "injected"), "cleanup keeps the publication failure")
@@ -454,7 +454,13 @@ def durability.steps(n: Nat, +dir: String, +stage: U32) -> IO(Unit):
 def durability(+dir: String) -> IO(Unit):
   do IO<Unit>:
     run(Unit, S.Disk.init(dir))
-    durability.steps(6n, dir, 1)
+    durability.steps(7n, dir, 1)
+    run(Unit, S.write.file(dir ++ "/tmp/fullsync", Bytes.from_string("new")))
+    fullsync : Result<&1, &1, U32 & String, Unit> <- S.write.durable(dir ++ "/tmp/fullsync", dir ++ "/roots/fullsync", 7)
+    ok(expect.fail(Unit, fullsync, ""), "a failed full-sync barrier returns an error")
+    published : Bool <- Files.exists(dir ++ "/roots/fullsync")
+    ok(Bool.not(published), "a failed full-sync barrier cannot publish a new root")
+    run(Unit, Files.remove(dir ++ "/tmp/fullsync"))
     +end : P.Digest <- run(P.Digest, S.digest(Bytes.from_string("end\n")))
     run(Unit, S.write.file(dir ++ "/tmp/interrupted", Bytes.from_string("end\n")))
     interrupted : Result<&1, &1, U32 & String, Unit> <- S.write.durable(dir ++ "/tmp/interrupted", S.Disk.object(dir, end), 4)

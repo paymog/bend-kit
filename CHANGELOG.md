@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.9.1.1: use macOS full synchronization before publication and after directory changes. Keep Linux fsync barriers and check failed full-sync publication.
+
 - `storage` 0.9.1.0: validate and fence named roots with bounded file reads. Keep metadata only and sync each shared object once before root publication.
 
 - `text` 0.2.2.1: construct a Myers meeting point only after the frontiers overlap. Preserve shortest scripts and packed collision checks.
