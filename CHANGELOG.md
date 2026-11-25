@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.20.1.3: prove pool bounds, flight removal, cancellation, and one-shot settlement across retry requeues.
+
 - HTTP smoke checks: inject compiler, readiness, serving, rejection, request stream, and response writer failures in both runtime lanes. Check failure status, lane ordering, and server cleanup in required CI.
 
 - `webhooks` 0.14.0.2: isolate header parsing, timestamp checks, and signature framing in `pure.bend`. Check all existing laws without foreign effects. Preserve the runtime API.

@@ -378,7 +378,7 @@ law pick_release:
   for now: Nat
   {pick.round(A, R.pick(~A, Res.Pool{o, c, h}, s, now)) == Res.Pool{o, c, h} : Res.Pool}
 
-# The pool bound holds after every prefix, for arbitrary claim, cancel, and finish orders.
+# The pool bound holds after every prefix, for arbitrary claim, cancel, finish, and retry orders.
 law loop_capacity:
   for ~A: Data
   for es: List<&2, R.LoopEvent>
@@ -441,6 +441,96 @@ law loop_finish_once:
   for +i: Nat
   for s: R.Loop<A>
   {R.loop.step(~A, R.Finish{i}, R.loop.step(~A, R.Finish{i}, s)) == R.loop.step(~A, R.Finish{i}, s) : R.Loop<A>}
+
+law loop_retry_settles:
+  for ~A: Data
+  for +i: Nat
+  for d: Nat
+  for +o: Nat
+  for c: Nat
+  for h: Nat
+  for s: R.State<A>
+  for +fs: List<&2, Q.Ticket<A>>
+  for t: Q.Ticket<A>
+  for found: {Q.find.list(A, fs, i) == Some{t} : Maybe<&2, Q.Ticket<A>>}
+  {R.loop.step(~A, R.RetrySettle{i, d}, R.Loop{Res.Pool{o, c, h}, s, fs}) ==
+   R.Loop{R.loop.release(Res.release(Res.Pool{o, c, h}, Res.Grant{o, 1n})), R.step(~A, s, R.Requeue{i, d}), Q.remove.list(A, fs, i)} : R.Loop<A>}
+
+law loop_retry_pending:
+  for ~A: Data
+  for +i: Nat
+  for +d: Nat
+  for old: Nat
+  for +x: A
+  for +n: Nat
+  for +heap: H.Heap<Q.Ticket<A>>
+  for +rs: List<&2, Q.Ticket<A>>
+  for ts: R.Tries()
+  for ds: R.Graves(A)
+  for bs: R.Breakers()
+  for o: Nat
+  for c: Nat
+  for h: Nat
+  for fs: List<&2, Q.Ticket<A>>
+  for t: Q.Ticket<A>
+  for found: {Q.find.list(A, fs, i) == Some{t} : Maybe<&2, Q.Ticket<A>>}
+  {R.queue(A, R.loop.state(A, R.loop.step(~A, R.RetrySettle{i, d},
+     R.Loop{Res.Pool{o, c, h}, R.State{Q.State{n, heap, Q.Ticket{i, old, x} <> rs}, ts, ds, bs}, fs}))) ==
+   Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, heap),
+     Q.remove.list(A, Q.Ticket{i, old, x} <> rs, i)} : Q.State<A>}
+
+law loop_retry_releases:
+  for ~A: Data
+  for +i: Nat
+  for d: Nat
+  for o: Nat
+  for c: Nat
+  for h: Nat
+  for s: R.State<A>
+  for fs: List<&2, Q.Ticket<A>>
+  for t: Q.Ticket<A>
+  for found: {Q.find.list(A, fs, i) == Some{t} : Maybe<&2, Q.Ticket<A>>}
+  {R.loop.pool(A, R.loop.step(~A, R.RetrySettle{i, d}, R.Loop{Res.Pool{o, c, 1n+h}, s, fs})) == Res.Pool{o, c, h} : Res.Pool}
+
+law loop_retry_absent:
+  for ~A: Data
+  for +i: Nat
+  for d: Nat
+  for +s: R.Loop<A>
+  QL.absent.list(A, R.loop.flights(A, R.loop.step(~A, R.RetrySettle{i, d}, s)), i)
+
+law loop_retry_once:
+  for ~A: Data
+  for +i: Nat
+  for d: Nat
+  for next: Nat
+  for +s: R.Loop<A>
+  {R.loop.step(~A, R.RetrySettle{i, next}, R.loop.step(~A, R.RetrySettle{i, d}, s)) ==
+   R.loop.step(~A, R.RetrySettle{i, d}, s) : R.Loop<A>}
+
+law loop_retry_finish_once:
+  for ~A: Data
+  for +i: Nat
+  for d: Nat
+  for +s: R.Loop<A>
+  {R.loop.step(~A, R.Finish{i}, R.loop.step(~A, R.RetrySettle{i, d}, s)) ==
+   R.loop.step(~A, R.RetrySettle{i, d}, s) : R.Loop<A>}
+
+law loop_finish_retry_once:
+  for ~A: Data
+  for +i: Nat
+  for d: Nat
+  for +s: R.Loop<A>
+  {R.loop.step(~A, R.RetrySettle{i, d}, R.loop.step(~A, R.Finish{i}, s)) ==
+   R.loop.step(~A, R.Finish{i}, s) : R.Loop<A>}
+
+law loop_cancel_retry_queue:
+  for ~A: Data
+  for +i: Nat
+  for d: Nat
+  for +s: R.Loop<A>
+  {R.queue(A, R.loop.state(A, R.loop.step(~A, R.RetrySettle{i, d}, R.loop.step(~A, R.CancelFlight{i}, s)))) ==
+   R.queue(A, R.loop.state(A, R.loop.step(~A, R.CancelFlight{i}, s))) : Q.State<A>}
 
 # ---- a failed attempt waits retry's wait
 

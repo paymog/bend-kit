@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.20.1.2/runner.bend as R
+import bend-kit-runner@0.20.1.3/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.3.1.3`, `bend-kit-scheduler@0.4.4.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.1`, `bend-kit-collections@0.1.6.0`, `bend-kit-files@0.4.0.1`, `bend-kit-encoding@0.5.0.1`, and `bend-kit-bytes@0.3.3.1`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.4.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.20.1.2/runner.bend as R
+import bend-kit-runner@0.20.1.3/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.20.1.2/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.20.1.3/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `Breakers()` is a `collections.HMap<String, Retry.State>`. The breaker proofs use its checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings.
 
@@ -181,10 +181,13 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 | `pick_holds_one` | A picked attempt holds exactly one more pool unit; an idle pick holds none. |
 | `pick_bounded` | The units held after a pick never exceed the capacity. |
 | `pick_release` | Releasing a picked grant once gives back the pool as it was before the pick. |
-| `loop_capacity`, `loop_capacity_stable` | Every finite sequence of claims, cancellations, and finishes keeps the units held within the initial capacity. Apply the laws to any prefix to cover each intermediate state. No finish order is assumed. |
+| `loop_capacity`, `loop_capacity_stable` | Every finite sequence of claims, cancellations, completion finishes, and retry settles keeps the units held within the initial capacity. Apply the laws to any prefix to cover each intermediate state. No settle order is assumed. |
 | `loop_flights` | The queue's running list stays a subsequence of live flights. From an initially equal list, only cancellation leaves a flight outside the running queue. |
 | `loop_cancel_retains`, `loop_cancel_finish_releases` | Cancellation keeps the pool and flights unchanged. A later matching finish releases exactly one unit, even though cancellation removed the queue entry. |
 | `loop_finish_releases`, `loop_finish_once` | A finish for a flight gives back one reserved unit. Finishing the same id again changes neither the pool, flights, nor queue, including after cancellation. |
+| `loop_retry_settles`, `loop_retry_pending`, `loop_retry_releases`, `loop_retry_absent` | A retry settle returns the running ticket to pending at its new deadline, releases exactly one reserved unit, and removes the old flight. Another attempt must obtain a new grant through a successful claim. |
+| `loop_retry_once`, `loop_retry_finish_once`, `loop_finish_retry_once` | A repeated settle, including mixed retry and completion settles, changes neither the pool, flights, nor pending queue until another successful claim. |
+| `loop_cancel_retry_queue` | A retry settle after cancellation leaves the cancelled queue unchanged. It cannot return the cancelled ticket to pending. The live flight still releases its unit. |
 | `requeue_wait` | When `retry.plan` waits `w`, the record is `Requeue{id, now + w}`. |
 | `settled_complete` | A `Settled` attempt gives `Complete{id}`. |
 | `unsafe_abandon` | An `Unsafe` attempt gives `Abandon{id, WhyUnsafe, now}`. |
@@ -197,11 +200,11 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 
 `journal`'s `replay` and `roundtrip` laws give the other half of `replay_prefix`: `open` folds exactly the committed records, in order. `scheduler`'s laws give the queue's own behavior, such as `requeue_token`.
 
-`Loop{pool, state, flights}` is the pure accounting view of the settle loop. `loop.fold` consumes `Claim{now}`, `CancelFlight{id}`, and `Finish{id}` events. A claim uses the runtime's `pick` and `Select` transition. Cancellation applies `Cancel` without changing the pool or flights. A finish takes the flight by id, applies `Complete`, and uses the same release transition as the runtime. It releases the unit even when the queue entry is already absent. Flights represent one-unit grants from that pool; the runtime retains the affine grants. As in the queue, live attempts have distinct ticket ids. The capacity laws also hold for malformed accounting views.
+`Loop{pool, state, flights}` is the pure accounting view of the settle loop. `loop.fold` consumes `Claim{now}`, `CancelFlight{id}`, `Finish{id}`, and `RetrySettle{id, due}` events. A claim uses the runtime's `pick` and `Select` transition. Cancellation applies `Cancel` without changing the pool or flights. A completion or retry settle takes the flight by id, applies `Complete` or `Requeue`, and uses the same release transition as the runtime. It releases the unit even when the queue entry is already absent. Flights represent one-unit grants from that pool; the runtime retains the affine grants. As in the queue, live attempts have distinct ticket ids. The capacity laws also hold for malformed accounting views.
 
-`flights.cover` states that the running queue is a subsequence of flights. It permits cancelled live flights without counting them as free units. Claims add the same ticket to both lists. Cancellation removes only queue entries. A matching finish removes the id from both lists; an absent or duplicate finish is a no-op. The laws quantify over every finite event list, so no claim, cancel, or finish order is assumed.
+`flights.cover` states that the running queue is a subsequence of flights. It permits cancelled live flights without counting them as free units. Claims add the same ticket to both lists. Cancellation removes only queue entries. Either settle removes the old id from both lists; a retry also moves the running ticket to pending. An absent or duplicate settle is a no-op. Only a successful claim adds a new flight and reserves a new unit. The laws quantify over every finite event list, so no claim, cancel, or settle order is assumed.
 
-The events cover successful claims, live cancellation, and completion settles. They do not model journal failure, breaker refusal, or requeue. The runtime must retain each affine grant across cancellation and return it only after its attempt ends. The laws prove the pure accounting transitions, not that IO ownership or journal writes follow them. These paths remain in the wiring checks.
+The events cover successful claims, live cancellation, completion settles, and retry requeues. They do not model journal failure or breaker refusal. The runtime must retain each affine grant across cancellation and return it only after its attempt ends. Events identify tickets, not attempt generations: the runtime must not deliver a stale settle after a new claim for the same ticket. The laws prove the pure accounting transitions, not that IO ownership or journal writes follow them. These paths remain in the wiring checks.
 
 ## Trust boundary
 
