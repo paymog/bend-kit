@@ -1602,7 +1602,7 @@ def decoded.breakers(bs: R.Breakers()) -> Data:
   {Laws.breaker.wf(bs) == True{} : Bool}
 
 def decoded.state(-A: Data, s: R.State<A>) -> Data:
-  decoded.breakers(R.breakers(A, s))
+  +Sigma<decoded.breakers(R.breakers(A, s)), _ => {Laws.dead.wf(~A, R.dead(A, s)) == True{} : Bool}>
 
 def decoded.rec(-A: Data, r: R.Rec<A>) -> Data:
   match r:
@@ -1644,6 +1644,27 @@ def read.brks(-T: Data, -P: Maybe<&1, R.Rd & T> -> Data, +none: P(None{}),
             m => r => read.brks(T, P, none, f, m, M.HMap.put(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, acc, k, b),
               CL.hmap_put_wf(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, ~breaker.refl, ~breaker.sound, acc, wf, k, b), end, good, r))))
 
+
+def read.wf.if(~A: Data, ok: Bool, +ds: R.Graves(A),
+    valid: {R.rd.valid(~A, ds) == ok : Bool},
+    -T: Data, -P: Maybe<&1, R.Rd & T> -> Data, none: P(None{}),
+    -end: R.Graves(A) -> R.Dec(T),
+    good: @xs: R.Graves(A) -> {Laws.dead.wf(~A, xs) == True{} : Bool} ->
+      @r: R.Rd -> P(end(xs)(r)), r: R.Rd) ->
+    P(R.Dec.next(R.Graves(A), T, R.rd.wf(A, ok, ds)(r), end)):
+  match ok:
+    case True{}:
+      good(ds)(decoded.wf(~A, ds, valid))(r)
+    case False{}:
+      none
+
+def read.wf(~A: Data, +ds: R.Graves(A),
+    -T: Data, -P: Maybe<&1, R.Rd & T> -> Data, none: P(None{}),
+    -end: R.Graves(A) -> R.Dec(T),
+    good: @xs: R.Graves(A) -> {Laws.dead.wf(~A, xs) == True{} : Bool} ->
+      @r: R.Rd -> P(end(xs)(r)), r: R.Rd) ->
+    P(R.Dec.next(R.Graves(A), T, R.rd.wf(A, R.rd.valid(~A, ds), ds)(r), end)):
+  read.wf.if(~A, R.rd.valid(~A, ds), ds, {==}, T, P, none, end, good, r)
 
 def read.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
     -P: Maybe<&1, R.Rd & R.State<A>> -> Data, +none: P(None{}),
@@ -1739,18 +1760,18 @@ def read.state(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
                       +bf : Bool <- R.rd.flag()
                       bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
                       return R.State{Q.State{n, h, run}, ts, ds, bs}),
-                    +dt => r => read.next(R.Graves(A), R.State<A>, P, none, R.rd.wf(A, R.rd.valid(~A, dt), dt)(r),
+                    +dt => r => read.wf(~A, dt, R.State<A>, P, none,
                       ds => (do R.Dec<R.State<A>>:
                         +bf : Bool <- R.rd.flag()
                         bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
                         return R.State{Q.State{n, h, run}, ts, ds, bs}),
-                      +ds => r => read.next(Bool, R.State<A>, P, none, R.rd.flag()(r),
+                      +ds => dwf => r => read.next(Bool, R.State<A>, P, none, R.rd.flag()(r),
                         bf => (do R.Dec<R.State<A>>:
                           bs : R.Breakers() <- R.rd.brks(fuel, bf, M.HMap.new(String, Retry.State))
                           return R.State{Q.State{n, h, run}, ts, ds, bs}),
                         +bf => r => read.brks(R.State<A>, P, none, fuel, bf, M.HMap.new(String, Retry.State), {==},
                           bs => R.Dec.pure(R.State<A>, R.State{Q.State{n, h, run}, ts, ds, bs}),
-                          bs => wf => r => some(R.State{Q.State{n, h, run}, ts, ds, bs})(wf)(r), r))))))))))))
+                          bs => wf => r => some(R.State{Q.State{n, h, run}, ts, ds, bs})((wf, dwf))(r), r)), r))))))))))
 
 def decoded.maybe(-T: Data, P: T -> Data, m: Maybe<&2, T>) -> Data:
   match m:
@@ -1810,11 +1831,28 @@ def decode.rec.valid(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Byte
     decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.rec(~A, ~pdec, b)):
   decode.rec.tag.valid(~A, ~pdec, R.get.u32(Bytes.get.u32le(b, 0)))
 
+def snapshot.state.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    decoded.state(A, s):
+  %e : decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), _)
+  decode.rec.valid(~A, ~pdec, b)
+
+def decoded.breaker(~A: Data, +s: R.State<A>, wf: decoded.state(A, s)) ->
+    {Laws.breaker.wf(R.breakers(A, s)) == True{} : Bool}:
+  match wf:
+    case (bw, dw):
+      bw
+
+def decoded.dead(~A: Data, +s: R.State<A>, wf: decoded.state(A, s)) ->
+    {Laws.dead.wf(~A, R.dead(A, s)) == True{} : Bool}:
+  match wf:
+    case (bw, dw):
+      dw
+
 def snapshot.breaker.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
     e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
     {Laws.breaker.wf(R.breakers(A, s)) == True{} : Bool}:
-  %e : decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), _)
-  decode.rec.valid(~A, ~pdec, b)
+  decoded.breaker(~A, s, snapshot.state.wf(~A, ~pdec, b, s, e))
 
 def calm.absent(es: List<&2, M.Entry<String, Retry.State>>, +k: String) ->
     {CL.hmap_absent(~String, ~Retry.State, ~R.brk.eq, R.calm.entries(es), k) ==
@@ -1868,7 +1906,7 @@ def calm.map.wf(+n: Nat, bs: R.Breakers()) ->
       %calm.map.wf(p, hi) : {CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(lo)) && CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(hi)) == CL.hmap_wf.go(~String, ~Retry.State, ~R.brk.hash, ~R.brk.eq, p, R.calm.map(lo)) && _ : Bool}
       {==}
 
-def calm.breaker.wf(~A: Data, +s: R.State<A>, wf: decoded.state(A, s)) ->
+def calm.breaker.wf(~A: Data, +s: R.State<A>, wf: decoded.breakers(R.breakers(A, s))) ->
     {Laws.breaker.wf(R.breakers(A, R.calm(A, s))) == True{} : Bool}:
   match s:
     case R.State{q, ts, ds, +bs}:
@@ -1881,3 +1919,25 @@ def snapshot.recovered.breaker.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, 
     e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
     {Laws.breaker.wf(R.breakers(A, R.calm(A, s))) == True{} : Bool}:
   calm.breaker.wf(~A, s, snapshot.breaker.wf(~A, ~pdec, b, s, e))
+
+def snapshot.dead.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    {Laws.dead.wf(~A, R.dead(A, s)) == True{} : Bool}:
+  decoded.dead(~A, s, snapshot.state.wf(~A, ~pdec, b, s, e))
+
+def calm.dead(~A: Data, s: R.State<A>) ->
+    {R.dead(A, R.calm(A, s)) == R.dead(A, s) : R.Graves(A)}:
+  match s:
+    case R.State{q, ts, ds, bs}:
+      {==}
+
+def calm.dead.wf(~A: Data, +s: R.State<A>, wf: {Laws.dead.wf(~A, R.dead(A, s)) == True{} : Bool}) ->
+    {Laws.dead.wf(~A, R.dead(A, R.calm(A, s))) == True{} : Bool}:
+  %Equal.sym(R.Graves(A), R.dead(A, R.calm(A, s)), R.dead(A, s), calm.dead(~A, s)) :
+    {Laws.dead.wf(~A, _) == True{} : Bool}
+  wf
+
+def snapshot.recovered.dead.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    {Laws.dead.wf(~A, R.dead(A, R.calm(A, s))) == True{} : Bool}:
+  calm.dead.wf(~A, s, snapshot.dead.wf(~A, ~pdec, b, s, e))
