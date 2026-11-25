@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check re-pin wave planning and exceptions without contacting the hub."""
+"""Check re-pin waves, cycle rejection, self-imports, and exceptions offline."""
 import importlib.util
 from contextlib import redirect_stdout
 from io import StringIO
@@ -188,5 +188,57 @@ with TemporaryDirectory() as tmp:
     repin.same_type(after, list(reversed(versions)))
     assert (root / "README.md").read_text() == generated, "generation is not stable"
     assert "bend-kit-http@0.39.2.0" in (root / "scripts/pins.allow").read_text()
+
+versions = {"alpha": "0.2.0.0", "beta": "0.2.0.0"}
+files = {p: [f"{p}/{p}.bend"] for p in versions}
+pins = {"alpha/alpha.bend": {("beta", "0.1.0.0")},
+        "beta/beta.bend": {("alpha", "0.1.0.0")}}
+output = StringIO()
+with patch.object(repin, "load", return_value=(list(versions), versions, files, pins)), \
+        patch.object(repin, "hub_hash", return_value="published"), \
+        patch.object(repin, "newest", return_value="0.2.0.0"), \
+        patch.object(repin, "hub_files", side_effect=lambda p, v: set(files[p])), \
+        patch("sys.argv", ["repin.py"]), redirect_stdout(output):
+    try:
+        repin.main()
+    except SystemExit as error:
+        assert error.code == "repin: stale imports form a cycle: alpha beta", error.code
+    else:
+        raise AssertionError("stale dependency cycle was accepted")
+assert output.getvalue() == "", output.getvalue()
+
+versions = {"dep": "0.2.0.0", "consumer": "0.1.0.0"}
+files = {"dep": ["dep/dep.bend"],
+         "consumer": ["consumer/consumer.bend", "consumer/check.bend"]}
+pins = {"dep/dep.bend": set(),
+        "consumer/consumer.bend": {("dep", "0.1.0.0")},
+        "consumer/check.bend": {("consumer", "0.0.0.0")}}
+published = {("dep", "0.2.0.0"), ("consumer", "0.1.0.0")}
+with patch.object(repin, "hub_hash", side_effect=lambda p, v: "published" if (p, v) in published else None), \
+        patch.object(repin, "newest", return_value="0.1.0.0"), \
+        patch.object(repin, "hub_files", side_effect=lambda p, v: {f"{p}/{p}.bend"}):
+    plan = list(repin.waves(list(versions), versions, files, pins))
+    assert plan == [
+        ([("consumer", "0.2.0.0", {
+            "consumer/consumer.bend": {("dep", "0.1.0.0"): "0.2.0.0"},
+        })], set()),
+        ([("consumer", None, {
+            "consumer/check.bend": {("consumer", "0.0.0.0"): "0.2.0.0"},
+        })], set()),
+    ], plan
+
+    published.remove(("dep", "0.2.0.0"))
+    first = next(repin.waves(list(versions), versions, files, pins))
+    assert first == ([], {("dep", "0.2.0.0")}), first
+
+    versions["consumer"] = "0.2.0.0"
+    pins["consumer/consumer.bend"] = {("dep", "0.2.0.0")}
+    first = next(repin.waves(list(versions), versions, files, pins))
+    assert first == ([], {("consumer", "0.2.0.0")}), first
+    published.add(("consumer", "0.2.0.0"))
+    plan = list(repin.waves(list(versions), versions, files, pins))
+    assert plan == [([("consumer", None, {
+        "consumer/check.bend": {("consumer", "0.0.0.0"): "0.2.0.0"},
+    })], set())], plan
 
 print("Re-pin wave checks pass")
