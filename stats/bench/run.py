@@ -5,11 +5,15 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
-RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 4
 OPS = ["mean", "variance", "median", "histogram", "gcd", "lcm", "isqrt"]
 PACKED = ["packed_identity", "packed_gcd", "packed_lcm", "packed_isqrt"]
 WARM_PACKED = [f"warm_{op}" for op in PACKED]
 CONTROLS = ["shared_cold", "shared_warm", "direct_cold", "direct_warm"]
+CONTROL_ORDERS = [
+    [CONTROLS[i] for i in order]
+    for order in [(0, 1, 3, 2), (1, 2, 0, 3), (2, 3, 1, 0), (3, 0, 2, 1)]
+]
 CONTROL_OPS = [f"{mode}_{op}" for mode in CONTROLS for op in ["identity", "gcd", "lcm", "isqrt"]]
 BEND_LIST = ["identity_shared", "gcd_shared", "lcm_shared", "isqrt_shared", "identity_release"]
 OPS += PACKED
@@ -61,13 +65,13 @@ def check_rows(name, result):
             sys.exit(f"diagnostic checksum mismatch: {name}: {op} != {reference}")
 
 
-def execute(name, run, count):
+def execute(name, run, count, order=CONTROLS):
     r = subprocess.run([*run, str(count)], cwd=HERE, env=ENV, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit(f"{name} failed:\n{r.stdout}\n{r.stderr}")
     result = parse(r.stdout)
     if name in ("Bun", "Node"):
-        for mode in CONTROLS:
+        for mode in order:
             r = subprocess.run([*run, str(count), mode], cwd=HERE, env=ENV, capture_output=True, text=True)
             if r.returncode != 0:
                 sys.exit(f"{name} {mode} failed:\n{r.stdout}\n{r.stderr}")
@@ -89,7 +93,7 @@ def main():
             if r.returncode != 0:
                 sys.exit(f"build failed: {name}\n{r.stderr}")
         runs = []
-        for _ in range(RUNS):
+        for index in range(RUNS):
             # A small first run checks the edge cases before the timed input.
             if not runs:
                 small = execute(name, run, 16)
@@ -99,7 +103,10 @@ def main():
                     small_checks = current
                 elif current != small_checks:
                     sys.exit(f"small input checksum mismatch: {name}: {current} != {small_checks}")
-            runs.append(execute(name, run, 2097152))
+            order = CONTROL_ORDERS[index % len(CONTROL_ORDERS)]
+            if name in ("Bun", "Node"):
+                print(f"{name} run {index + 1} mode order: {' -> '.join(order)}", file=sys.stderr)
+            runs.append(execute(name, run, 2097152, order))
         measured = OPS + (BEND_LIST if name == "Bend" else [])
         if name in ("Bun", "Node"):
             measured += WARM_PACKED + CONTROL_OPS
@@ -184,4 +191,5 @@ def main():
                   + f" | {statistics.median(values):+.3f} |")
 
 
-main()
+if __name__ == "__main__":
+    main()
