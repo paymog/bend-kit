@@ -54,6 +54,8 @@ def sum(mode: U32, a: A.F32Array, cutoff: U32) -> A.F32Array & F32:
       A.sum.fin(len, legacy.sum(U32.to_nat(A.cells(len)), Array.get(A.Cell, buf, 0), 0, 0.0, 0.0, 0.0, 0.0))
     case 1:
       A.sum(a)
+    case 3:
+      A.sum.compensated(a)
     case _:
       P.sum.with_cutoff(a, cutoff)
 
@@ -65,6 +67,8 @@ def dot(mode: U32, a: A.F32Array, b: A.F32Array, cutoff: U32) -> A.F32Array & A.
       A.dot.fin(la, lb, legacy.dot(U32.to_nat(A.cells(la)), Array.get(A.Cell, xa, 0), Array.get(A.Cell, xb, 0), 0, 0.0, 0.0, 0.0, 0.0))
     case 1:
       A.dot(a, b)
+    case 3:
+      A.dot.compensated(a, b)
     case _:
       P.dot.with_cutoff(a, b, cutoff)
 
@@ -113,7 +117,7 @@ def args(xs: List<&1, String>) -> IO(Unit):
       +cutoff = number(U32.read(cs))
       prepared(n, mode, cutoff, input(number(U32.read(fs)), n))
     case _:
-      IO.die(Unit, 1, "usage: reduce N MODE CELL_CUTOFF FAMILY (MODE 0=old, 1=pairwise, 2=fork-join; FAMILY 0=positive, 1=cancellation, 2=mixed)")
+      IO.die(Unit, 1, "usage: reduce N MODE CELL_CUTOFF FAMILY (MODE 0=old, 1=pairwise, 2=fork-join, 3=compensated; FAMILY 0=positive, 1=cancellation, 2=mixed)")
 
 def main() -> IO(Unit):
   do IO<Unit>:

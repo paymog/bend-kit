@@ -112,6 +112,25 @@ Cancellation still loses the unit terms inside each cell. The optimization does 
 
 The driver also checks N = 0, 1, 7, 8, 9, 127, 128, and 129 for each family. It checks pure/parallel result bits at cell cutoffs 16, 256, 4,096, 65,536, and 1,048,576, with one and eight workers.
 
+## Compensated reductions
+
+Run `python3 f32array/bench/reduce.py 3 --accuracy`. This compares the unchanged blocked-pairwise path with pure, sequential Neumaier accumulation. M4 Pro, macOS 25.6.0, Bend 2.0.40, 2026-11-25, one worker. Times are medians of three separate processes in milliseconds. References use float32 inputs and float64 `math.fsum`, as above.
+
+| input | N | pairwise sum / dot ms | compensated sum / dot ms | pairwise sum / dot abs error | compensated sum / dot abs error |
+|---|---:|---:|---:|---:|---:|
+| positive | 49,152 | 0.0682 / 0.0633 | 0.1539 / 0.1425 | 7 / 7 | 1 / 1 |
+| positive | 4,194,304 | 0.6730 / 1.3235 | 8.3300 / 8.1094 | 7 / 7 | 1 / 1 |
+| cancellation | 4 | 0.0454 / 0.0319 | 0.0477 / 0.0331 | 2 / 2 | 0 / 0 |
+| cancellation | 129 | 0.0534 / 0.0354 | 0.0463 / 0.0326 | 64 / 64 | 0 / 0 |
+| cancellation | 49,152 | 0.0614 / 0.0608 | 0.1590 / 0.1398 | 24,576 / 24,576 | 0 / 0 |
+| cancellation | 4,194,304 | 0.7283 / 1.3125 | 8.1601 / 8.0245 | 2,097,152 / 2,097,152 | 0 / 0 |
+| mixed-scale | 127 | 0.0508 / 0.0363 | 0.0425 / 0.0398 | 0.00000762939453 / 0 | 0 / 0 |
+| mixed-scale | 4,194,304 | 0.6784 / 1.3156 | 8.2456 / 8.0717 | 0.25 / 0 | 0 / 0 |
+
+The compensated cancellation result is 2 at N = 4 and 2,097,152 at N = 4,194,304. The driver asserts the correctly rounded float64 reference for every cancellation case, including partial cells. It covers N = 0, 1, 4, 7, 8, 9, 127, 128, 129, 49,152, and 4,194,304 for all three families. At N = 9, the cancellation reference is 100,000,004; the F32 result is 100,000,000, so error 4 is unavoidable in this return type.
+
+At N = 4,194,304, compensation costs about 11–12 times the pairwise sum time and six times the dot time. It therefore remains an explicit API rather than replacing the fast calls. No foreign or unsafe code enters the pure module. There is no new parallel path. Compensation uses only one F32 correction, so it does not promise exact sums or avoid overflow. The positive reference is not representable in F32; its compensated error of 1 is final-result rounding.
+
 ## Destination-range loads
 
 Run `python3 f32array/bench/load.py` from the repo root. It builds `load.bend`, writes NumPy float32 ones, and checks each checksum. It compares `.read.le.at.into` with `.read.le.at` followed by an element copy into the same destination range. Both retain a destination with two untouched boundary lanes. The timer includes the read, any copy, checksum reduction, and checksum output. The destination is allocated before the timer. File data is warm.

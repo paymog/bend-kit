@@ -4,7 +4,7 @@ Packed `F32` arrays with affine ownership. Each `Array` slot is a `Cell` of eigh
 
 ```bend
 import Base
-import bend-kit-f32array@0.2.2.0/f32array.bend as A
+import bend-kit-f32array@0.2.3.0/f32array.bend as A
 
 def show(r: A.F32Array & A.F32Array & Maybe<&2, F32>) -> IO(Unit):
   (a, b, d) = r
@@ -24,7 +24,9 @@ A call that reads an array returns the array beside its result. Pass that array 
 
 `sum` and `dot` add each eight-lane cell pairwise. They add at most 16 cell totals in a sequential leaf, then combine equal halves of the padded cell tree pairwise. This bounds the sequential part to 128 elements rather than the whole input. The order differs from the former four running sums. Rounding, overflow, signed zero, and NaN payloads can therefore change. Empty inputs return `+0.0`. `dot` rounds each product to `F32` before adding it.
 
-For CPU parallelism, import `bend-kit-f32array@0.2.2.0/parallel.bend as P` and call `P.sum(a)` or `P.dot(a, b)`. They return the same types and use the same addition order as the pure calls. Below 2^20 elements they stay sequential. Larger inputs split into read-only tasks of at most 4,096 cells (32,768 elements). `Array.fork` shares each buffer without cloning it. Every pair of returned handles is joined before the caller can write again. These Base operations are unsafe, so the parallel module must not enter proof imports. Native binaries use `+RTS --threads 8` to select eight CPU workers. The JS target stays sequential.
+Use `sum.compensated` and `dot.compensated` when small terms must survive cancellation. These pure calls use left-to-right Neumaier accumulation with one F32 correction and return writable arrays. `dot.compensated` rounds each product to F32 before accumulation. The final result is F32, not float64. Compensation reduces addition error; it cannot prevent product rounding, overflow, or all loss across arbitrarily large scale differences. Non-finite running sums discard the correction and follow ordinary F32 addition. Empty inputs return `+0.0`; mismatched dot lengths return `None` with unchanged arrays. There is no compensated parallel counterpart: the existing `P.sum` and `P.dot` retain their pairwise contract. See [accuracy measurements](bench/README.md#compensated-reductions) for the time cost.
+
+For CPU parallelism, import `bend-kit-f32array@0.2.3.0/parallel.bend as P` and call `P.sum(a)` or `P.dot(a, b)`. They return the same types and use the same addition order as the pure calls. Below 2^20 elements they stay sequential. Larger inputs split into read-only tasks of at most 4,096 cells (32,768 elements). `Array.fork` shares each buffer without cloning it. Every pair of returned handles is joined before the caller can write again. These Base operations are unsafe, so the parallel module must not enter proof imports. Native binaries use `+RTS --threads 8` to select eight CPU workers. The JS target stays sequential.
 
 `P.sum.with_cutoff(a, cells)` and `P.dot.with_cutoff(a, b, cells)` expose the task cutoff for measurements or a different machine. The cutoff is at least 16 cells. These calls do not apply the default 2^20-element threshold. Their results keep the same bits at every cutoff and worker count. See [the benchmark](bench/README.md) for the measured cutoff and float64 errors.
 
@@ -46,6 +48,8 @@ For CPU parallelism, import `bend-kit-f32array@0.2.2.0/parallel.bend as P` and c
 | `add(a, b)`, `mul(a, b) -> F32Array & F32Array & Bool` | `a[i] + b[i]` or `a[i] * b[i]`, as for `zip_with`. |
 | `dot(a, b) -> F32Array & F32Array & Maybe<&2, F32>` | Both arrays, and the sum of `a[i] * b[i]`. |
 | `sum(a) -> F32Array & F32` | The sum, from `+0.0`. |
+| `sum.compensated(a) -> F32Array & F32` | The sum with element-order Neumaier compensation. |
+| `dot.compensated(a, b) -> F32Array & F32Array & Maybe<&2, F32>` | F32 products with element-order Neumaier compensation. |
 | `max(a) -> F32Array & Maybe<&2, F32>` | The largest element, or `None` when empty. |
 | `from_bytes.le(b: Bytes.Bytes) -> Maybe<&1, F32Array>` | Four bytes per element, least significant first. `None` when the length is not a multiple of 4. |
 | `to_bytes.le(a) -> Bytes.Bytes` | Four bytes per element, least significant first. `len` must be below 2^30. |
@@ -65,8 +69,8 @@ Native F32 and BF16 loads preserve all bits, including signed zero, subnormals, 
 
 ```bend
 import Base
-import bend-kit-f32array@0.2.2.0/f32array.bend as A
-import bend-kit-f32array@0.2.2.0/io.bend as F
+import bend-kit-f32array@0.2.3.0/f32array.bend as A
+import bend-kit-f32array@0.2.3.0/io.bend as F
 
 def count(r: A.F32Array & U32) -> String:
   (a, n) = r
