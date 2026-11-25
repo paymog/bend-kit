@@ -1712,3 +1712,188 @@ def k_exact_sum(-K: Data, +s: Crdt.KCounter<K>) ->
       Equal.cong(Nat, Nat, n => (U32.to_nat(c) + n : Nat),
         Crdt.KCounter.value_exact(K, r), Crdt.GCounter.value_exact(k_counts(K, r)),
         k_exact_sum(K, r))
+
+def Laws.k_le_refl(K, cmp, refl, a):
+  le_self(~K, ~cmp, ~refl, a)
+
+def k_trans(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~eq: Eq(~K, ~cmp),
+  a: Crdt.KCounter<K>, +b: Crdt.KCounter<K>, +c: Crdt.KCounter<K>,
+  +hab: {KL(~K, ~cmp, a, b) == True{} : Bool}, +hbc: {KL(~K, ~cmp, b, c) == True{} : Bool}
+) -> {KL(~K, ~cmp, a, c) == True{} : Bool}:
+  match a:
+    case Crdt.KNil{}:
+      {==}
+    case Crdt.KCon{+x, +n, +r}:
+      MBool.and_eq_true(U32.is_le(n, KG(~K, ~cmp, c, x)), KL(~K, ~cmp, r, c),
+        le_trans(n, KG(~K, ~cmp, b, x), KG(~K, ~cmp, c, x),
+          MBool.eq_true_of_and_left(U32.is_le(n, KG(~K, ~cmp, b, x)), KL(~K, ~cmp, r, b), hab),
+          le_get(~K, ~cmp, ~eq, b, c, hbc, x)),
+        k_trans(~K, ~cmp, ~eq, r, b, c,
+          MBool.eq_true_of_and_right(U32.is_le(n, KG(~K, ~cmp, b, x)), KL(~K, ~cmp, r, b), hab), hbc))
+
+def Laws.k_le_trans(K, cmp, eq, a, b, c, hab, hbc):
+  k_trans(~K, ~cmp, ~eq, a, b, c, hab, hbc)
+
+def Laws.k_merge_mono(K, cmp, refl, eq, a, b, c, hab):
+  +a = a
+  +b = b
+  +c = c
+  least.go(~K, ~cmp, ~eq, a, c, KH2(~K, ~cmp, a, c), KM(~K, ~cmp, b, c),
+    k_trans(~K, ~cmp, ~eq, a, b, KM(~K, ~cmp, b, c), hab, upper_l(~K, ~cmp, ~refl, ~eq, b, c)),
+    le_merge_l(~K, ~cmp, ~eq, c, c, b, le_self(~K, ~cmp, ~refl, c)), {==})
+
+def Trans(~K: Data, ~cmp: K -> K -> Cmp) -> Type:
+  @x: K -> @y: K -> @z: K -> {Cmp.is_lt(cmp(x, y)) == True{} : Bool} -> {Cmp.is_lt(cmp(y, z)) == True{} : Bool} -> {Cmp.is_lt(cmp(x, z)) == True{} : Bool}
+
+def above_trans(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~trans: Trans(~K, ~cmp), s: Crdt.KCounter<K>, +x: K, +y: K,
+  hxy: {Cmp.is_lt(cmp(x, y)) == True{} : Bool}, hs: {KA(~K, ~cmp, s, y) == True{} : Bool}
+) -> {KA(~K, ~cmp, s, x) == True{} : Bool}:
+  match s:
+    case Crdt.KNil{}:
+      {==}
+    case Crdt.KCon{z, n, r}:
+      trans(x, y, z, hxy, hs)
+
+def hit_lt(q: Cmp, -n: U32, h: {Cmp.is_lt(q) == True{} : Bool}) -> {Crdt.KCounter.hit(q, n) == 0 : U32}:
+  match q:
+    case LT{}:
+      {==}
+    case EQ{}:
+      Empty.absurd({n == 0 : U32}, MBool.false_ne_true()(h))
+    case GT{}:
+      {==}
+
+def get_below(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~trans: Trans(~K, ~cmp), s: Crdt.KCounter<K>, +x: K,
+  +hv: {KV(~K, ~cmp, s) == True{} : Bool}, ha: {KA(~K, ~cmp, s, x) == True{} : Bool}
+) -> {KG(~K, ~cmp, s, x) == 0 : U32}:
+  match s:
+    case Crdt.KNil{}:
+      {==}
+    case Crdt.KCon{+y, +n, +r}:
+      +ha = ha
+      %Equal.sym(U32, Crdt.KCounter.hit(cmp(x, y), n), 0, hit_lt(cmp(x, y), n, ha)) : {U32.max(_, KG(~K, ~cmp, r, x)) == 0 : U32}
+      %Equal.sym(U32, KG(~K, ~cmp, r, x), 0,
+        get_below(~K, ~cmp, ~trans, r, x, v.tail(~K, ~cmp, y, n, r, hv),
+          above_trans(~K, ~cmp, ~trans, r, x, y, ha, v.above(~K, ~cmp, y, n, r, hv)))) : {U32.max(0, _) == 0 : U32}
+      Lemmas.u32_max_self(0)
+
+def get_first(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  +x: K, +n: U32, +r: Crdt.KCounter<K>, +hv: {KV(~K, ~cmp, Crdt.KCon{x, n, r}) == True{} : Bool}
+) -> {KG(~K, ~cmp, Crdt.KCon{x, n, r}, x) == n : U32}:
+  %Equal.sym(Cmp, cmp(x, x), EQ{}, refl(x)) : {U32.max(Crdt.KCounter.hit(_, n), KG(~K, ~cmp, r, x)) == n : U32}
+  %Equal.sym(U32, KG(~K, ~cmp, r, x), 0,
+    get_below(~K, ~cmp, ~trans, r, x, v.tail(~K, ~cmp, x, n, r, hv), v.above(~K, ~cmp, x, n, r, hv))) : {U32.max(n, _) == n : U32}
+  Lemmas.u32_max0_r(n)
+
+def hit_reverse(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~flip: Flip(~K, ~cmp), q: Cmp, +x: K, +y: K, -n: U32,
+  h: {Cmp.is_lt(q) == True{} : Bool}, e: {cmp(x, y) == q : Cmp}
+) -> {Crdt.KCounter.hit(cmp(y, x), n) == 0 : U32}:
+  match q:
+    case LT{}:
+      %Equal.sym(Cmp, cmp(y, x), GT{},
+        Equal.trans(Cmp, cmp(y, x), Laws.flip(cmp(x, y)), GT{}, flip(x, y),
+          Equal.cong(Cmp, Cmp, z => Laws.flip(z), cmp(x, y), LT{}, e))) : {Crdt.KCounter.hit(_, n) == 0 : U32}
+      {==}
+    case EQ{}:
+      Empty.absurd({Crdt.KCounter.hit(cmp(y, x), n) == 0 : U32}, MBool.false_ne_true()(h))
+    case GT{}:
+      Empty.absurd({Crdt.KCounter.hit(cmp(y, x), n) == 0 : U32}, MBool.false_ne_true()(h))
+
+def le_drop(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  a: Crdt.KCounter<K>, +x: K, +n: U32, +b: Crdt.KCounter<K>,
+  +hv: {KV(~K, ~cmp, a) == True{} : Bool}, ha: {KA(~K, ~cmp, a, x) == True{} : Bool},
+  +h: {KL(~K, ~cmp, a, Crdt.KCon{x, n, b}) == True{} : Bool}
+) -> {KL(~K, ~cmp, a, b) == True{} : Bool}:
+  match a:
+    case Crdt.KNil{}:
+      {==}
+    case Crdt.KCon{+y, +d, +r}:
+      +ha = ha
+      MBool.and_eq_true(U32.is_le(d, KG(~K, ~cmp, b, y)), KL(~K, ~cmp, r, b),
+        le_rw(d, KG(~K, ~cmp, Crdt.KCon{x, n, b}, y), KG(~K, ~cmp, b, y),
+          %Equal.sym(U32, Crdt.KCounter.hit(cmp(y, x), n), 0,
+            hit_reverse(~K, ~cmp, ~flip, cmp(x, y), x, y, n, ha, {==})) : {U32.max(_, KG(~K, ~cmp, b, y)) == KG(~K, ~cmp, b, y) : U32}
+          Lemmas.u32_max0_l(KG(~K, ~cmp, b, y)),
+          MBool.eq_true_of_and_left(U32.is_le(d, KG(~K, ~cmp, Crdt.KCon{x, n, b}, y)), KL(~K, ~cmp, r, Crdt.KCon{x, n, b}), h)),
+        le_drop(~K, ~cmp, ~flip, ~trans, r, x, n, b, v.tail(~K, ~cmp, y, d, r, hv),
+          above_trans(~K, ~cmp, ~trans, r, x, y, ha, v.above(~K, ~cmp, y, d, r, hv)),
+          MBool.eq_true_of_and_right(U32.is_le(d, KG(~K, ~cmp, Crdt.KCon{x, n, b}, y)), KL(~K, ~cmp, r, Crdt.KCon{x, n, b}), h)))
+
+def ne_le_zero(+n: U32, hn: {U32.is_ne(n, 0) == True{} : Bool}, h: {U32.is_le(n, 0) == True{} : Bool}) -> Empty:
+  MBool.false_ne_true()(
+    %eq32(n, 0, Equal.trans(Bool, U32.is_eq(n, 0), U32.is_le(n, 0), True{}, Lemmas.u32_eq0_le(n), h)) : {U32.is_ne(_, 0) == True{} : Bool}
+    hn)
+
+def k_cons_equal(
+  ~K: Data, -x: K, -y: K, -c: U32, -d: U32, -r: Crdt.KCounter<K>, -t: Crdt.KCounter<K>,
+  ex: {x == y : K}, ec: {c == d : U32}, er: {r == t : Crdt.KCounter<K>}
+) -> {Crdt.KCon{x, c, r} == Crdt.KCon{y, d, t} : Crdt.KCounter<K>}:
+  %ex : {Crdt.KCon{x, c, r} == Crdt.KCon{_, d, t} : Crdt.KCounter<K>}
+  %ec : {Crdt.KCon{x, c, r} == Crdt.KCon{x, _, t} : Crdt.KCounter<K>}
+  %er : {Crdt.KCon{x, c, r} == Crdt.KCon{x, c, _} : Crdt.KCounter<K>}
+  {==}
+
+def anti.go(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  a: Crdt.KCounter<K>, b: Crdt.KCounter<K>, q: Cmp,
+  +va: {KV(~K, ~cmp, a) == True{} : Bool}, +vb: {KV(~K, ~cmp, b) == True{} : Bool},
+  +hab: {KL(~K, ~cmp, a, b) == True{} : Bool}, +hba: {KL(~K, ~cmp, b, a) == True{} : Bool},
+  e: {KH2(~K, ~cmp, a, b) == q : Cmp}
+) -> {a == b : Crdt.KCounter<K>}:
+  match a b q:
+    case Crdt.KNil{} Crdt.KNil{} _:
+      {==}
+    case Crdt.KNil{} Crdt.KCon{+y, +d, +t} _:
+      Empty.absurd({Crdt.KNil{} == Crdt.KCon{y, d, t} : Crdt.KCounter<K>},
+        ne_le_zero(d, v.ne(~K, ~cmp, y, d, t, vb),
+          MBool.eq_true_of_and_left(U32.is_le(d, 0), KL(~K, ~cmp, t, Crdt.KNil{}), hba)))
+    case Crdt.KCon{+x, +c, +r} Crdt.KNil{} _:
+      Empty.absurd({Crdt.KCon{x, c, r} == Crdt.KNil{} : Crdt.KCounter<K>},
+        ne_le_zero(c, v.ne(~K, ~cmp, x, c, r, va),
+          MBool.eq_true_of_and_left(U32.is_le(c, 0), KL(~K, ~cmp, r, Crdt.KNil{}), hab)))
+    case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} LT{}:
+      Empty.absurd({Crdt.KCon{x, c, r} == Crdt.KCon{y, d, t} : Crdt.KCounter<K>},
+        ne_le_zero(c, v.ne(~K, ~cmp, x, c, r, va),
+          le_rw(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x), 0,
+            get_below(~K, ~cmp, ~trans, Crdt.KCon{y, d, t}, x, vb, lt_true(cmp(x, y), e)),
+            MBool.eq_true_of_and_left(U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x)), KL(~K, ~cmp, r, Crdt.KCon{y, d, t}), hab))))
+    case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} EQ{}:
+      +ex = eq(x, y, e)
+      k_cons_equal(~K, x, y, c, d, r, t, ex,
+        le_antisymm(c, d,
+          le_rw(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x), d,
+            %Equal.sym(K, x, y, ex) : {KG(~K, ~cmp, Crdt.KCon{y, d, t}, _) == d : U32}
+            get_first(~K, ~cmp, ~refl, ~trans, y, d, t, vb),
+            MBool.eq_true_of_and_left(U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x)), KL(~K, ~cmp, r, Crdt.KCon{y, d, t}), hab)),
+          le_rw(d, KG(~K, ~cmp, Crdt.KCon{x, c, r}, y), c,
+            %ex : {KG(~K, ~cmp, Crdt.KCon{x, c, r}, _) == c : U32}
+            get_first(~K, ~cmp, ~refl, ~trans, x, c, r, va),
+            MBool.eq_true_of_and_left(U32.is_le(d, KG(~K, ~cmp, Crdt.KCon{x, c, r}, y)), KL(~K, ~cmp, t, Crdt.KCon{x, c, r}), hba))),
+        anti.go(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, r, t, KH2(~K, ~cmp, r, t),
+          v.tail(~K, ~cmp, x, c, r, va), v.tail(~K, ~cmp, y, d, t, vb),
+          le_drop(~K, ~cmp, ~flip, ~trans, r, y, d, t, v.tail(~K, ~cmp, x, c, r, va),
+            %ex : {KA(~K, ~cmp, r, _) == True{} : Bool}
+            v.above(~K, ~cmp, x, c, r, va),
+            MBool.eq_true_of_and_right(U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x)), KL(~K, ~cmp, r, Crdt.KCon{y, d, t}), hab)),
+          le_drop(~K, ~cmp, ~flip, ~trans, t, x, c, r, v.tail(~K, ~cmp, y, d, t, vb),
+            %Equal.sym(K, x, y, ex) : {KA(~K, ~cmp, t, _) == True{} : Bool}
+            v.above(~K, ~cmp, y, d, t, vb),
+            MBool.eq_true_of_and_right(U32.is_le(d, KG(~K, ~cmp, Crdt.KCon{x, c, r}, y)), KL(~K, ~cmp, t, Crdt.KCon{x, c, r}), hba)), {==}))
+    case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} GT{}:
+      Empty.absurd({Crdt.KCon{x, c, r} == Crdt.KCon{y, d, t} : Crdt.KCounter<K>},
+        ne_le_zero(d, v.ne(~K, ~cmp, y, d, t, vb),
+          le_rw(d, KG(~K, ~cmp, Crdt.KCon{x, c, r}, y), 0,
+            get_below(~K, ~cmp, ~trans, Crdt.KCon{x, c, r}, y, va, lt_true(cmp(y, x), gt_flip(~K, ~cmp, ~flip, x, y, e))),
+            MBool.eq_true_of_and_left(U32.is_le(d, KG(~K, ~cmp, Crdt.KCon{x, c, r}, y)), KL(~K, ~cmp, t, Crdt.KCon{x, c, r}), hba))))
+
+def Laws.k_le_antisymm(K, cmp, refl, eq, flip, trans, a, b, va, vb, hab, hba):
+  +a = a
+  +b = b
+  anti.go(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, a, b, KH2(~K, ~cmp, a, b), va, vb, hab, hba, {==})
