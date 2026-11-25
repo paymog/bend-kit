@@ -8,6 +8,8 @@ import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import ./pure.bend as Pure
+import bend-kit-time@0.3.0.2/pure.bend as PureTime
 
 # RFC 6749 and RFC 7636. Text is a String of code points; form values go out as UTF-8.
 # token: the token endpoint URL. secret: "" for a public client, which sends client_id in the body;
@@ -32,138 +34,169 @@ type Err is Data:
   ErrCrypto{code: U32, why: String}
   ErrExpired{}
 
+type Got is Data:
+  Got{access: String, kind: String, refresh: String, scope: String, expires: String, error: String, desc: String}
+
+def instant.to.pure(v: Time.Instant) -> PureTime.Instant:
+  Time.Instant{s, n} = v
+  PureTime.Instant{s, n}
+
+def instant.from.pure(v: PureTime.Instant) -> Time.Instant:
+  PureTime.Instant{s, n} = v
+  Time.Instant{s, n}
+
+def expiry.to.pure(v: Maybe<&2, Time.Instant>) -> Maybe<&2, PureTime.Instant>:
+  match v:
+    case None{}:
+      None{}
+    case Some{x}:
+      Some{instant.to.pure(x)}
+
+def expiry.from.pure(v: Maybe<&2, PureTime.Instant>) -> Maybe<&2, Time.Instant>:
+  match v:
+    case None{}:
+      None{}
+    case Some{x}:
+      Some{instant.from.pure(x)}
+
+def config.to.pure(v: Config) -> Pure.Config:
+  Config{t, i, s} = v
+  Pure.Config{t, i, s}
+
+def token.to.pure(v: Token) -> Pure.Token:
+  Token{a, k, r, s, e} = v
+  Pure.Token{a, k, r, s, expiry.to.pure(e)}
+
+def token.from.pure(v: Pure.Token) -> Token:
+  Pure.Token{a, k, r, s, e} = v
+  Token{a, k, r, s, expiry.from.pure(e)}
+
+def err.from.pure(v: Pure.Err) -> Err:
+  match v:
+    case Pure.ErrOAuth{s, c, w}:
+      ErrOAuth{s, c, w}
+    case Pure.ErrReply{s, b}:
+      ErrReply{s, b}
+    case Pure.ErrState{}:
+      ErrState{}
+
+def result.token.from.pure(v: Result<&1, &1, Pure.Err, Pure.Token>) -> Result<&1, &1, Err, Token>:
+  match v:
+    case Fail{e}:
+      Fail{err.from.pure(e)}
+    case Done{t}:
+      Done{token.from.pure(t)}
+
+def result.string.from.pure(v: Result<&1, &1, Pure.Err, String>) -> Result<&1, &1, Err, String>:
+  match v:
+    case Fail{e}:
+      Fail{err.from.pure(e)}
+    case Done{t}:
+      Done{t}
+
+def got.to.pure(v: Got) -> Pure.Got:
+  Got{a, k, r, s, e, er, d} = v
+  Pure.Got{a, k, r, s, e, er, d}
+
+def maybe.got.to.pure(v: Maybe<&2, Got>) -> Maybe<&2, Pure.Got>:
+  match v:
+    case None{}:
+      None{}
+    case Some{x}:
+      Some{got.to.pure(x)}
+
+def got.from.pure(v: Pure.Got) -> Got:
+  Pure.Got{a, k, r, s, e, er, d} = v
+  Got{a, k, r, s, e, er, d}
+
+def maybe.got.from.pure(v: Maybe<&2, Pure.Got>) -> Maybe<&2, Got>:
+  match v:
+    case None{}:
+      None{}
+    case Some{x}:
+      Some{got.from.pure(x)}
+
+
 # ---- base64url
 
 def b64url.ch(+c: U32, t: String) -> String:
-  match c:
-    case 43:
-      SCon{Chr{45}, t}
-    case 47:
-      SCon{Chr{95}, t}
-    case 61:
-      t
-    case _:
-      SCon{Chr{c}, t}
+  Pure.b64url.ch(c, t)
 
 def b64url.go(s: String) -> String:
-  match s:
-    case SNil{}:
-      SNil{}
-    case SCon{Chr{+c}, t}:
-      b64url.ch(c, b64url.go(t))
+  Pure.b64url.go(s)
 
 # Base64url without padding (RFC 4648 §5, RFC 7636 Appendix A).
 def b64url(b: Bytes.Bytes) -> String:
-  b64url.go(Bytes.to_base64(b))
+  Pure.b64url(b)
 
 # ---- forms
 
 def utf8(+s: String) -> String:
-  Bytes.to_string(Enc.utf8.encode(s))
+  Pure.utf8(s)
 
 def field(m: Map<&2, String>, k: String, +v: String) -> Map<&2, String>:
-  Map.set(&2, String, m, k, utf8(v))
+  Pure.field(m, k, v)
 
 def scoped(+scope: String, +m: Map<&2, String>) -> Map<&2, String>:
-  Bool.pick(Map<&2, String>, String.is_empty(scope), m, field(m, "scope", scope))
+  Pure.scoped(scope, m)
 
 def form(+k: String, +v: String) -> Map<&2, String>:
-  field(Map.new(&2, String), k, v)
+  Pure.form(k, v)
 
 # RFC 6749 §2.3.1: id and secret are form-encoded before base64.
 def basic(+id: String, +secret: String) -> String:
-  "Basic " ++ Bytes.to_base64(Bytes.from_string(Url.pct.encode_q(utf8(id)) ++ ":" ++ Url.pct.encode_q(utf8(secret))))
+  Pure.basic(id, secret)
 
 def auth.headers(+id: String, +secret: String) -> Map<&2, List<&2, String>>:
   +h = Http.set(Http.set(Http.empty(), "content-type", "application/x-www-form-urlencoded"), "accept", "application/json")
   Bool.pick(Map<&2, List<&2, String>>, String.is_empty(secret), h, Http.set(h, "authorization", basic(id, secret)))
 
 def auth.body(+id: String, +secret: String, +m: Map<&2, String>) -> Map<&2, String>:
-  Bool.pick(Map<&2, String>, String.is_empty(secret), field(m, "client_id", id), m)
+  Pure.auth.body(id, secret, m)
 
 # The form body of a token request from cfg's client.
 def body(+id: String, +secret: String, m: Map<&2, String>) -> String:
-  Url.form(auth.body(id, secret, m))
+  Pure.body(id, secret, m)
 
 # ---- token responses (RFC 6749 §5)
 
-type Got is Data:
-  Got{access: String, kind: String, refresh: String, scope: String, expires: String, error: String, desc: String}
 
 def got.put(g: Got, +k: String, +v: String) -> Got:
-  Got{a, t, r, s, e, er, d} = g
-  Got{Bool.pick(String, String.eq(k, "access_token"), v, a), Bool.pick(String, String.eq(k, "token_type"), v, t),
-    Bool.pick(String, String.eq(k, "refresh_token"), v, r), Bool.pick(String, String.eq(k, "scope"), v, s),
-    Bool.pick(String, String.eq(k, "expires_in"), v, e), Bool.pick(String, String.eq(k, "error"), v, er),
-    Bool.pick(String, String.eq(k, "error_description"), v, d)}
+  got.from.pure(Pure.got.put(got.to.pure(g), k, v))
 
 # A string's text, or a number's, as some servers send expires_in as "3600".
 def got.text(v: Json.Val) -> String:
-  match v:
-    case Json.Str{s}:
-      Enc.utf8.decode(s)
-    case Json.Num{s}:
-      Bytes.to_string(s)
-    case other:
-      ""
+  Pure.got.text(v)
 
 def got.go(kvs: List<&1, Bytes.Bytes & Json.Val>, g: Got) -> Got:
-  match kvs:
-    case Nil{}:
-      g
-    case Con{(k, v), t}:
-      got.go(t, got.put(g, Bytes.to_string(k), got.text(v)))
+  got.from.pure(Pure.got.go(kvs, got.to.pure(g)))
 
 def got.obj(v: Json.Val) -> Maybe<&2, Got>:
-  match v:
-    case Json.Obj{kvs}:
-      Some{got.go(kvs, Got{"", "", "", "", "", "", ""})}
-    case other:
-      None{}
+  maybe.got.from.pure(Pure.got.obj(v))
 
 def got(m: Maybe<&1, Json.Val>) -> Maybe<&2, Got>:
-  match m:
-    case None{}:
-      None{}
-    case Some{v}:
-      got.obj(v)
+  maybe.got.from.pure(Pure.got(m))
 
 def expiry(now: Time.Instant, m: Maybe<&2, U32>) -> Maybe<&2, Time.Instant>:
-  match m:
-    case None{}:
-      None{}
-    case Some{n}:
-      Some{Time.Instant.add(now, Time.Duration.of_secs(Time.i64(n)))}
+  expiry.from.pure(Pure.expiry(instant.to.pure(now), m))
 
 # A 2xx with an access token of type Bearer (RFC 6750 §4, case-insensitive), the only kind request sends.
 def good(+status: U32, g: Got) -> Bool:
-  Got{a, t, r, s, e, er, d} = g
-  Bool.and(Bool.and(U32.is_le(200, status), U32.is_lt(status, 300)), Bool.and(Bool.not(String.is_empty(a)), String.eq(String.to_lower(t), "bearer")))
+  Pure.good(status, got.to.pure(g))
 
 # §6: a refresh reply without refresh_token keeps the old one. b: the body, decoded only for an error.
 def token.pick(ok: Bool, +status: U32, +old: String, now: Time.Instant, b: Bytes.Bytes, g: Got) -> Result<&1, &1, Err, Token>:
-  match ok:
-    case True{}:
-      Got{a, t, +r, s, e, er, d} = g
-      Done{Token{a, t, Bool.pick(String, String.is_empty(r), old, r), s, expiry(now, Json.u32.num(e))}}
-    case False{}:
-      Got{a, t, r, s, e, +er, d} = g
-      Fail{Bool.pick(Err, String.is_empty(er), ErrReply{status, Enc.utf8.decode(b)}, ErrOAuth{status, er, d})}
+  result.token.from.pure(Pure.token.pick(ok, status, old, instant.to.pure(now), b, got.to.pure(g)))
 
 def token.of(+status: U32, +old: String, now: Time.Instant, b: Bytes.Bytes, m: Maybe<&2, Got>) -> Result<&1, &1, Err, Token>:
-  match m:
-    case None{}:
-      Fail{ErrReply{status, Enc.utf8.decode(b)}}
-    case Some{+g}:
-      token.pick(good(status, g), status, old, now, b, g)
+  result.token.from.pure(Pure.token.of(status, old, instant.to.pure(now), b, maybe.got.to.pure(m)))
 
 def parse.copy(+status: U32, +old: String, now: Time.Instant, r: Bytes.Bytes & Bytes.Bytes) -> Result<&1, &1, Err, Token>:
-  (b, c) = r
-  token.of(status, old, now, b, got(Json.parse.bytes(c)))
+  result.token.from.pure(Pure.parse.copy(status, old, instant.to.pure(now), r))
 
 # A token endpoint's reply at status, requested at now. old: the refresh token to keep when none comes back.
 def parse(+status: U32, +old: String, now: Time.Instant, b: Bytes.Bytes) -> Result<&1, &1, Err, Token>:
-  parse.copy(status, old, now, Bytes.slice(b, 0, 4294967295))
+  result.token.from.pure(Pure.parse(status, old, instant.to.pure(now), b))
 
 def reply(+old: String, now: Time.Instant, r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Token>:
   match r:
@@ -211,16 +244,11 @@ def refresh(h: Hairpin.Client, cfg: Config, tok: Token, +scope: String) -> IO(Ha
   refresh.go(String.is_empty(r), h, cfg, r, scope)
 
 def expiring.at(e: Maybe<&2, Time.Instant>, now: Time.Instant, +skew: U32) -> Bool:
-  match e:
-    case None{}:
-      False{}
-    case Some{at}:
-      Bool.not(Cmp.is_lt(Time.Instant.cmp(Time.Instant.add(now, Time.Duration.of_secs(Time.i64(skew))), at)))
+  Pure.expiring.at(expiry.to.pure(e), instant.to.pure(now), skew)
 
 # Does tok lapse within skew seconds of now? A token without expires_in never does.
 def expiring(tok: Token, now: Time.Instant, +skew: U32) -> Bool:
-  Token{a, k, r, s, e} = tok
-  expiring.at(e, now, skew)
+  Pure.expiring(token.to.pure(tok), instant.to.pure(now), skew)
 
 def fresh.go(due: Bool, h: Hairpin.Client, cfg: Config, +tok: Token) -> IO(Hairpin.Client & Result<&1, &1, Err, Token>):
   match due:
@@ -282,49 +310,33 @@ def challenge(+verifier: String) -> IO(Result<&1, &1, Err, String>):
   challenge.words(Bytes.from_string(verifier))
 
 def qmark(s: String) -> Bool:
-  match s:
-    case SNil{}:
-      False{}
-    case SCon{Chr{+c}, t}:
-      Bool.or(U32.is_eq(c, 63), qmark(t))
+  Pure.qmark(s)
 
 # RFC 6749 §4.1.1 with RFC 7636 §4.3: the URL to send the user to. endpoint may carry its own query.
 def authorize.url(cfg: Config, +endpoint: String, +redirect: String, +scope: String, +state: String, +challenge: String) -> String:
-  Config{t, +id, s} = cfg
-  +q = field(field(field(field(field(form("response_type", "code"), "client_id", id), "redirect_uri", redirect), "state", state),
-    "code_challenge", challenge), "code_challenge_method", "S256")
-  endpoint ++ Bool.pick(String, qmark(endpoint), "&", "?") ++ Url.form(scoped(scope, q))
+  Pure.authorize.url(config.to.pure(cfg), endpoint, redirect, scope, state, challenge)
 
 def param.of(r: Map<&2, String> & String) -> String:
-  (n, v) = r
-  v
+  Pure.param.of(r)
 
 def param(+m: Map<&2, String>, k: String) -> String:
-  param.of(Map.get(String, "", m, k))
+  Pure.param(m, k)
 
 def callback.pick(+err: String, desc: String, +got: String, +code: String, +state: String) -> Result<&1, &1, Err, String>:
-  Bool.pick(Result<&1, &1, Err, String>, Bool.not(String.eq(got, state)), Fail{ErrState{}},
-    Bool.pick(Result<&1, &1, Err, String>, Bool.not(String.is_empty(err)), Fail{ErrOAuth{0, err, desc}},
-      Bool.pick(Result<&1, &1, Err, String>, String.is_empty(code), Fail{ErrReply{0, "no code"}}, Done{code})))
+  result.string.from.pure(Pure.callback.pick(err, desc, got, code, state))
 
 def callback.m(+state: String, m: Maybe<&2, Url.Url>) -> Result<&1, &1, Err, String>:
-  match m:
-    case None{}:
-      Fail{ErrReply{0, "bad callback query"}}
-    case Some{Url.Url{p, +q}}:
-      callback.pick(param(q, "error"), param(q, "error_description"), param(q, "state"), param(q, "code"), state)
+  result.string.from.pure(Pure.callback.m(state, m))
 
 def callback.frag(+state: String, r: String & String) -> Result<&1, &1, Err, String>:
-  (q, f) = r
-  callback.m(state, Url.parse("/?" ++ q))
+  result.string.from.pure(Pure.callback.frag(state, r))
 
 def callback.q(+state: String, r: String & String) -> Result<&1, &1, Err, String>:
-  (p, rest) = r
-  callback.frag(state, Url.take_to(rest, 35))
+  result.string.from.pure(Pure.callback.q(state, r))
 
 # §4.1.2: the code in the redirect to redirect_uri, once its state matches ours; the server's error if it sent one.
 def callback(url: String, +state: String) -> Result<&1, &1, Err, String>:
-  callback.q(state, Url.take_to(url, 63))
+  result.string.from.pure(Pure.callback(url, state))
 
 # ---- bearer requests (RFC 6750 §2.1)
 

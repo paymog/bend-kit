@@ -3,7 +3,7 @@
 OAuth 2.0 client credentials, refresh, and authorization code with PKCE, over `hairpin`. RFC 6749 and RFC 7636.
 
 ```bend
-import bend-kit-oauth2@0.14.0.1/oauth2.bend as OAuth
+import bend-kit-oauth2@0.14.0.2/oauth2.bend as OAuth
 import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
 import bend-kit-http@0.40.0.1/http.bend as Http
 ```
@@ -17,3 +17,5 @@ Every call returns the `Hairpin.Client` beside the result. Pass that client on, 
 `client_credentials`, `refresh`, and `code` return a `Token{access, kind, refresh, scope, expires}`. `fresh` refreshes when the token expires within `skew` seconds. `bearer` sets the `Authorization` header. `request` sends one bearer request and refreshes when the token is due.
 
 `verifier` and `challenge` build the PKCE pair. `authorize.url` builds the authorization request. `callback` checks `state` and returns the code. A crypto failure is `ErrCrypto`. Secure random and SHA-256 come from the pinned `crypto`, which needs OpenSSL 3 (`BEND_LIBCRYPTO`).
+
+`pure.bend` contains the forms, token codecs, expiry checks, authorization URLs, and callback state checks. It imports `bend-kit-time@0.3.0.2/pure.bend` and has no foreign effects. `LAWS.bend` imports this module; its claims are unchanged. The runtime entry keeps its existing types and APIs, including `time` 0.3.0.1 instants.
