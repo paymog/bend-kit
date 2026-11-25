@@ -5,38 +5,203 @@ import bend-kit-http@0.40.0.1/http.bend as Http
 import bend-kit-http@0.40.0.1/completion.bend as Completion
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-http@0.40.0.1/admission.bend as Admission
+
+type Source is Type:
+  Object{file: File, size: U32}
+  Message{body: Http.Body}
 
 # Git's dumb HTTP object walk: immutable objects are fetched by digest from a known root.
-def response(status: U32, body: Http.Body) -> Http.Reply:
-  Http.Reply{Http.Res{status, Http.set(Http.empty(), "content-type", "application/octet-stream"), body}, Completion.Unobserved{}}
+def response(status: U32, body: Http.Body) -> Http.WriteHead<Source>:
+  Bytes.Bytes{+len, buf} = body
+  Http.WriteHead{status, Http.set(Http.empty(), "content-type", "application/octet-stream"), Some{len}, Message{Bytes.Bytes{len, buf}}, Completion.Unobserved{}}
 
-def served(result: Result<&1, &1, U32 & String, Http.Body>) -> IO(Http.Reply):
+def source.size(info: Files.Info) -> S.Run(U32):
+  match info:
+    case Files.Info{Files.Regular{}, size, time}:
+      S.info.size(Files.Info{Files.Regular{}, size, time})
+    case Files.Info{Files.Directory{}, size, time}:
+      S.Run.fail(U32, (21, "storage: object is a directory"))
+    case Files.Info{Files.Other{}, size, time}:
+      S.Run.fail(U32, (22, "storage: object is not a regular file"))
+
+def source(+path: String) -> S.Run(File & U32):
+  do S.Run<File & U32>:
+    info : Files.Info <- Files.stat(path)
+    size : U32 <- source.size(info)
+    file : File <- File.open(path, "r")
+    return (file, size)
+
+def served(result: Result<&1, &1, U32 & String, File & U32>) -> IO(Http.WriteHead<Source>):
   match result:
-    case Done{body}:
-      IO.pure(Http.Reply, response(200, body))
+    case Done{(file, +size)}:
+      IO.pure(Http.WriteHead<Source>, Http.WriteHead{200, Http.set(Http.empty(), "content-type", "application/octet-stream"), Some{size}, Object{file, size}, Completion.Unobserved{}})
     case Fail{(code, message)}:
-      IO.pure(Http.Reply, response(Bool.pick(U32, U32.is_eq(code, 2), 404, 500), Http.from_string("object unavailable\n")))
+      IO.pure(Http.WriteHead<Source>, response(Bool.pick(U32, U32.is_eq(code, 2), 404, 500), Http.from_string("object unavailable\n")))
 
-def object(+dir: String, digest: Maybe<&2, P.Digest>) -> IO(Http.Reply):
+def object(+dir: String, digest: Maybe<&2, P.Digest>) -> IO(Http.WriteHead<Source>):
   match digest:
     case None{}:
-      IO.pure(Http.Reply, response(404, Http.from_string("not found\n")))
+      IO.pure(Http.WriteHead<Source>, response(404, Http.from_string("not found\n")))
     case Some{d}:
-      do IO<Http.Reply>:
-        result : Result<&1, &1, U32 & String, Http.Body> <- S.read(S.Disk.object(dir, d))
+      do IO<Http.WriteHead<Source>>:
+        result : Result<&1, &1, U32 & String, File & U32> <- source(S.Disk.object(dir, d))
         served(result)
 
-def route(valid: Bool, dir: String, path: String) -> IO(Http.Reply):
+def route(valid: Bool, dir: String, path: String) -> IO(Http.WriteHead<Source>):
   match valid:
     case False{}:
-      IO.pure(Http.Reply, response(404, Http.from_string("not found\n")))
+      IO.pure(Http.WriteHead<Source>, response(404, Http.from_string("not found\n")))
     case True{}:
       object(dir, P.Digest.read(String.drop(path, 9n)))
 
 # Mount on a read-only store; freeze collection while the server serves its roots.
-def handle(dir: String, request: Http.Req) -> IO(Http.Reply):
+def handle(dir: String, request: Http.Req) -> IO(Http.WriteHead<Source>):
   Http.Req{+method, +path, headers, body} = request
   route(String.eq(method, "GET") && String.starts_with(path, "/objects/"), dir, path)
+
+def dispose(state: Source) -> IO(Unit):
+  match state:
+    case Object{file, size}:
+      File.close(file)
+    case Message{body}:
+      IO.pure(Unit, Unit{})
+
+def close.socket(socket: Maybe<&1, Socket>) -> IO(Unit):
+  match socket:
+    case None{}:
+      IO.pure(Unit, Unit{})
+    case Some{s}:
+      Socket.close(s)
+
+def send.failed(writer: Http.Writer, code: U32, message: String) -> IO(Http.Writer):
+  Http.Writer{socket, mode, until, outcome} = writer
+  do IO<Http.Writer>:
+    close.socket(socket)
+    return Http.Writer{None{}, mode, until, Completion.WriteFailed{code, message}}
+
+type Transfer is Type:
+  Remaining{file: File, left: U32}
+  Sent{}
+
+def send.piece(empty: Bool, file: File, +left: U32, body: Bytes.Bytes, writer: Http.Writer) -> IO(Transfer & Http.Writer):
+  match empty:
+    case True{}:
+      do IO<Transfer & Http.Writer>:
+        File.close(file)
+        failed : Http.Writer <- send.failed(writer, 5, "storage: short object read")
+        return (Sent{}, failed)
+    case False{}:
+      Bytes.Bytes{+len, buf} = body
+      do IO<Transfer & Http.Writer>:
+        sent : Http.Writer <- Http.writer.write(writer, Bytes.Bytes{len, buf})
+        return (Remaining{file, (left - len : U32)}, sent)
+
+def send.read(writer: Http.Writer, +left: U32, pair: File & Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Transfer & Http.Writer):
+  match pair:
+    case (file, Fail{(code, message)}):
+      do IO<Transfer & Http.Writer>:
+        File.close(file)
+        failed : Http.Writer <- send.failed(writer, code, message)
+        return (Sent{}, failed)
+    case (file, Done{Bytes.Bytes{+len, buf}}):
+      send.piece(U32.is_zero(len), file, left, Bytes.Bytes{len, buf}, writer)
+
+def send.step(empty: Bool, file: File, +left: U32, writer: Http.Writer) -> IO(Transfer & Http.Writer):
+  match empty:
+    case True{}:
+      do IO<Transfer & Http.Writer>:
+        File.close(file)
+        return (Sent{}, writer)
+    case False{}:
+      Http.Writer{socket, mode, until, outcome} = writer
+      match socket:
+        case None{}:
+          do IO<Transfer & Http.Writer>:
+            File.close(file)
+            return (Sent{}, Http.Writer{None{}, mode, until, outcome})
+        case Some{s}:
+          do IO<Transfer & Http.Writer>:
+            pair : File & Result<&1, &1, U32 & String, Bytes.Bytes> <- Files.read_bytes(file, U32.min(left, 65536))
+            send.read(Http.Writer{Some{s}, mode, until, outcome}, left, pair)
+
+def send(fuel: Nat, state: Transfer & Http.Writer) -> IO(Http.Writer):
+  match fuel state:
+    case _ Tuple{Sent{}, writer}:
+      IO.pure(Http.Writer, writer)
+    case 0n Tuple{Remaining{file, left}, writer}:
+      do IO<Http.Writer>:
+        File.close(file)
+        send.failed(writer, 27, "storage: file send limit")
+    case 1n+p Tuple{Remaining{file, +left}, writer}:
+      do IO<Http.Writer>:
+        next : Transfer & Http.Writer <- send.step(U32.is_zero(left), file, left, writer)
+        send(p, next)
+
+def write(state: Source, writer: Http.Writer, receipt: Completion.Receipt) -> IO(Http.Writer & Completion.Receipt):
+  match state:
+    case Object{file, +size}:
+      do IO<Http.Writer & Completion.Receipt>:
+        sent : Http.Writer <- send(2n+U32.to_nat(size), (Remaining{file, size}, writer))
+        return (sent, receipt)
+    case Message{body}:
+      do IO<Http.Writer & Completion.Receipt>:
+        sent : Http.Writer <- Http.writer.write(writer, body)
+        return (sent, receipt)
+
+def reject.admission(settings: Http.Limits, receipt: Completion.Receipt, socket: Socket, head: Bool) -> IO(Unit):
+  Http.Limits{max, cap, hm, bm, im, wm} = settings
+  Http.admission.reject(receipt, socket, head, wm)
+
+def admitted(~C: Data, ~start: C -> Http.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
+  allowed: Bool, +context: C, +inbox: Chan(Admission.Command), +settings: Http.Limits, socket: Socket, req: Http.Req, rest: Bytes.Bytes, v11: Bool) -> IO(Maybe<&1, Socket & Http.Turn>):
+  match allowed:
+    case False{}:
+      do IO<Maybe<&1, Socket & Http.Turn>>:
+        reject.admission(settings, Completion.Observed{status => outcome => observe(context, status, outcome)}, socket, Http.admission.head(req))
+        return None{}
+    case True{}:
+      Http.Req{+method, path, +headers, body} = req
+      do IO<Maybe<&1, Socket & Http.Turn>>:
+        out : Http.WriteHead<Source> <- start(context, Http.Req{method, path, headers, body})
+        after : Maybe<&1, Socket & Http.Turn> <- Http.serve.write.send(~Source, ~write, ~dispose,
+          Completion.Observed{status => outcome => observe(context, status, outcome)}, settings, socket, rest, headers, v11, String.eq(method, "HEAD"), out)
+        Admission.give(inbox, 1)
+        return after
+
+def reject(settings: Http.Limits, receipt: Completion.Receipt, socket: Socket, status: U32) -> IO(Unit):
+  Http.Limits{max, cap, hm, bm, im, wm} = settings
+  Http.reply_fail(receipt, socket, status, wm)
+
+@unsafe
+def talk(~C: Data, ~start: C -> Http.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
+  +context: C, +settings: Http.Limits, +inbox: Chan(Admission.Command), state: Maybe<&1, Http.Serving>) -> IO(Unit):
+  match state:
+    case None{}:
+      IO.pure(Unit, Unit{})
+    case Some{Http.Serving{(socket, turn), phase}}:
+      match turn:
+        case Http.TurnMore{sv, cont}:
+          do IO<Unit>:
+            got : (Socket & Http.Turn) & Http.Phase <- Http.talk.recv(inbox, False{}, settings, socket, sv, cont, phase)
+            talk(~C, ~start, ~observe, context, settings, inbox, Some{Http.talk.state(got)})
+        case Http.TurnReq{req, rest, v11}:
+          do IO<Unit>:
+            allowed : Bool <- Admission.take(inbox, 1)
+            after : Maybe<&1, Socket & Http.Turn> <- admitted(~C, ~start, ~observe, allowed, context, inbox, settings, socket, req, rest, v11)
+            talk(~C, ~start, ~observe, context, settings, inbox, Http.serve.write.state(after))
+        case Http.TurnFail{status}:
+          reject(settings, Completion.Observed{status => outcome => observe(context, status, outcome)}, socket, status)
+        case Http.TurnClose{}:
+          Socket.close(socket)
+        case Http.TurnInputFailed{operation, code, message}:
+          Socket.close(socket)
+
+def server.run(~observe: String -> U32 -> Completion.Outcome -> IO(Unit), server: Http.Server<String>) -> IO(Http.ServerExit):
+  Http.server.run.loop(~String, ~(dir => settings => inbox => socket =>
+    talk(~String, ~handle, ~observe, dir, settings, inbox, Some{Http.Serving{(socket, Http.TurnMore{Http.sv.none(), False{}}), None{}}})),
+    Http.ServerListening{server})
+
 
 
 def Run(-A: Type) -> Type:

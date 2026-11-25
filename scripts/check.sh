@@ -20,5 +20,11 @@ for d in "$@"; do
       fi
     fi
     [ ! -f check.bend ] || bend check.bend
+    if [ "$d" = storage ]; then
+      out=$(mktemp -d)
+      trap 'rm -rf "$out"' EXIT
+      bend http_origin.bend -o "$out/origin.js"
+      python3 http_origin_check.py bun "$out/origin.js"
+    fi
   )
 done
