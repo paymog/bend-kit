@@ -117,14 +117,14 @@ def sip.string(n: Nat, +i: U32) -> String:
     case 0n:
       SNil{}
     case 1n+p:
-      SCon{Chr{i}, sip.string(p, (i + 1 : U32))}
+      SCon{Chr{(i .&. 255 : U32)}, sip.string(p, (i + 1 : U32))}
 
 def sip.fill(n: Nat, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:
   match n:
     case 0n:
       b
     case 1n+p:
-      sip.fill(p, Bytes.set(b, i, i), (i + 1 : U32))
+      sip.fill(p, Bytes.set(b, i, (i .&. 255 : U32)), (i + 1 : U32))
 
 def sip.equal(+a: Hash.W64, +b: Hash.W64) -> Bool:
   U32.is_eq(Hash.W64.hi(a), Hash.W64.hi(b)) && U32.is_eq(Hash.W64.lo(a), Hash.W64.lo(b))
@@ -134,7 +134,7 @@ def sip.check(+len: U32, +want: Hash.W64) -> Bool:
   +k0 = Hash.W64.of(117835012, 50462976)
   +k1 = Hash.W64.of(252579084, 185207048)
   clean = Hash.v64(Hash.siphash24(Bytes.from_string(s), k0, k1))
-  dirty = sip.fill(U32.to_nat(len), Bytes.Bytes{len, [4294967295 : U32*32n]}, 0)
+  dirty = sip.fill(U32.to_nat(len), Bytes.Bytes{len, [4294967295 : U32*256n]}, 0)
   padded = Hash.v64(Hash.siphash24(dirty, k0, k1))
   text = Hash.siphash24.str(s, k0, k1)
   sip.equal(clean, want) && sip.equal(padded, want) && sip.equal(text, want)
@@ -155,6 +155,16 @@ def sip.lengths(vectors: List<Hash.W64>, +len: U32) -> IO(Unit):
         sip.result(sip.check(len, want), len)
         sip.lengths(rest, (len + 1 : U32))
 
+def sip.boundaries() -> IO(Unit):
+  do IO<Unit>:
+    sip.result(sip.check(255, Hash.W64.of(2848025086, 3343757850)), 255)
+    sip.result(sip.check(256, Hash.W64.of(2577204518, 3534208983)), 256)
+    sip.result(sip.check(257, Hash.W64.of(2323741581, 1437767496)), 257)
+    sip.result(sip.check(511, Hash.W64.of(2526217168, 1583018562)), 511)
+    sip.result(sip.check(512, Hash.W64.of(2285590467, 3847936526)), 512)
+    sip.result(sip.check(513, Hash.W64.of(2427847039, 540107307)), 513)
+    IO.print("ok SipHash-2-4 lengths 255, 256, 257, 511, 512, 513, byte-string parity, dirty padding")
+
 def finish(ok: Bool) -> IO(Unit):
   match ok:
     case True{}:
@@ -166,3 +176,4 @@ def main() -> IO(Unit):
   do IO<Unit>:
     finish(lengths(258n, 0, True{}))
     sip.lengths(sip.vectors(), 0)
+    sip.boundaries()
