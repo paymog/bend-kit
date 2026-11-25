@@ -3,10 +3,12 @@
 Clocks, `Duration`, `Instant`, Gregorian dates, RFC 3339, HTTP-date, and TZif zones.
 
 ```bend
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-time@0.3.0.2/time.bend as Time
 ```
 
 `now` is the wall clock. `mono` is a monotonic duration. Both are effects in `effs/time.c` and `effs/time.js`. Proofs do not cover them. There is no `BEND_LIB` override.
+
+`pure.bend` holds duration, calendar, formatting, and timezone definitions. The law gate imports it without clock effects. `time.bend` keeps the runtime API.
 
 `mono.ms` and `mono.us` read the monotonic clock as a `Nat` of whole milliseconds or microseconds. Pure cores that take a `Nat` `now` take one of them, so every core sees the same clock. `Duration.to_ms_nat` and `Duration.to_us_nat` are the pure conversions; a negative duration gives 0. Native `Nat` stops at `2^48 - 1`, which microseconds reach after about 8.9 years of uptime.
 
