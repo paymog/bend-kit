@@ -133,16 +133,26 @@ At N = 4,194,304, compensation costs about 11–12 times the pairwise sum time a
 
 ## Destination-range loads
 
-Run `python3 f32array/bench/load.py` from the repo root. It builds `load.bend`, writes NumPy float32 ones, and checks each checksum. It compares `.read.le.at.into` with `.read.le.at` followed by an element copy into the same destination range. Both retain a destination with two untouched boundary lanes. The timer includes the read, any copy, checksum reduction, and checksum output. The destination is allocated before the timer. File data is warm.
+Run `python3 f32array/bench/load.py` from the repo root. Set `BEND=/path/to/bend` to select a compiler. The driver emits C and builds two binaries with `cc -O2 -std=c11`: one unchanged for time and RSS, and one with allocation counters. It runs one process at a time, with one worker. Each row is the median of three runs. Allocation counts and bytes must be identical across all three instrumented runs.
 
-M4 Pro, macOS, 2026-11-24, Bend 2.0.40, one worker. Median of three separate processes. `/usr/bin/time -l` measures peak resident memory for each process; this is not an allocator byte counter.
+Both F32 and little-endian BF16 files repeat `[-2, -1, 0, 1, 2, 3, 4, 5]`. These values are exact in both formats. The driver warms the file cache before each pair of paths. The `into` path reads into an existing destination at index 1. The `copy` path allocates a source array and copies each element into that same destination range. Both retain two zero boundary lanes. Each run checks the sum against NumPy float64. After the timer stops, it checks every element and both boundary lanes. The sums are 12 and 1,572,864.
 
-| elements | into ms | allocate + copy ms | into peak RSS bytes | allocate + copy peak RSS bytes |
-|---:|---:|---:|---:|---:|
-| 8 | 0.115209 | 0.082167 | 1,982,464 | 1,982,464 |
-| 1,048,576 | 5.424375 | 8.422959 | 12,533,760 | 17,809,408 |
+Apple M4 Pro, arm64, macOS 26.7.2, 2026-11-25. Bend 2.0.40, Apple clang 21.0.0 (`-O2`), Python 3.14.6, NumPy 2.4.2. Times are in milliseconds. `/usr/bin/time -l` measures peak RSS for the full, uninstrumented process.
 
-At 2^20 elements, destination reads save 36% of measured load time and 5,275,648 bytes of peak RSS. The allocated path creates one extra 4 MiB logical F32 buffer, plus its runtime metadata. Both paths still allocate bounded packed-byte read chunks. Tiny loads are dominated by fixed IO and timing costs. This comparison measures the Bend API paths, not raw filesystem throughput.
+| format | elements | path | ms | peak RSS bytes | runtime allocation requests | runtime allocation bytes |
+|---|---:|---|---:|---:|---:|---:|
+| F32 | 8 | into | 0.098875 | 1,998,848 | 5,011 | 70,880 |
+| F32 | 8 | copy | 0.077208 | 1,998,848 | 5,020 | 71,056 |
+| BF16 | 8 | into | 0.077166 | 1,998,848 | 5,011 | 70,864 |
+| BF16 | 8 | copy | 0.076667 | 1,998,848 | 5,020 | 71,040 |
+| F32 | 1,048,576 | into | 6.101000 | 12,550,144 | 21,439 | 4,659,808 |
+| F32 | 1,048,576 | copy | 8.745083 | 16,777,216 | 21,448 | 8,854,256 |
+| BF16 | 1,048,576 | into | 4.036250 | 12,550,144 | 21,415 | 2,561,744 |
+| BF16 | 1,048,576 | copy | 7.588708 | 17,809,408 | 21,424 | 6,756,192 |
+
+The instrument counts calls to Bend's emitted `heap_alloc`, including requests served from its free lists. It sums each request's size class as `8 << cls` bytes. These are cumulative runtime allocation requests, not live bytes, libc `malloc` calls, or physical memory commitments. The two `Time.mono` host calls enable and disable the counters. This interval includes the first clock result, load, byte chunks, runtime nodes, any source allocation and copy, checksum reduction, and checksum output. It excludes destination allocation, file open, process setup, the second clock result, the full element check, and file close. Host-library allocations and heap arena reservations are not counted. The driver fails if either runtime hook no longer matches exactly once.
+
+At 2^20 elements, the copy path requests 4,194,448 more runtime bytes and nine more allocations in either format. The extra logical F32 array is 4 MiB even when the file is BF16. Destination reads reduce measured time by 30% for F32 and 47% for BF16. Tiny times are dominated by fixed IO and clock costs. Counter overhead does not enter these times or RSS values. RSS covers the full process and has a different scope from the counters; do not subtract it to estimate allocator bytes. This measures the Bend API paths, not raw filesystem throughput.
 
 ## Caveats
 
