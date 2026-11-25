@@ -1695,3 +1695,20 @@ def pn_exact_sum(+p: List<&2, U32>, +n: List<&2, U32>) ->
   {Crdt.PNCounter.value_exact(Crdt.PN{p, n}) ==
    signed_sum(Crdt.GCounter.value_exact(p), Crdt.GCounter.value_exact(n)) : Bool & Nat}:
   exact_diff_spec(Crdt.GCounter.value_exact(p), Crdt.GCounter.value_exact(n))
+
+def k_counts(-K: Data, s: Crdt.KCounter<K>) -> List<&2, U32>:
+  match s:
+    case Crdt.KNil{}:
+      Nil{}
+    case Crdt.KCon{x, c, r}:
+      Con{c, k_counts(K, r)}
+
+def k_exact_sum(-K: Data, +s: Crdt.KCounter<K>) ->
+  {Crdt.KCounter.value_exact(K, s) == Crdt.GCounter.value_exact(k_counts(K, s)) : Nat}:
+  match s:
+    case Crdt.KNil{}:
+      {==}
+    case Crdt.KCon{x, +c, +r}:
+      Equal.cong(Nat, Nat, n => (U32.to_nat(c) + n : Nat),
+        Crdt.KCounter.value_exact(K, r), Crdt.GCounter.value_exact(k_counts(K, r)),
+        k_exact_sum(K, r))

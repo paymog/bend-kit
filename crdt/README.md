@@ -3,7 +3,7 @@
 Replicated data types with proved merges, as in Shapiro et al., "A comprehensive study of Convergent and Commutative Replicated Data Types" (2011). `GCounter` is a grow-only counter keyed by small dense indices. `KCounter` is a grow-only counter keyed by sparse IDs of any `Data` type. `PNCounter` adds decrements with a pair of dense G-Counters. Replicas exchange whole states in any order, and every replica that has seen the same states holds the same counter.
 
 ```bend
-import bend-kit-crdt@0.2.2.1/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.0/crdt.bend as Crdt
 ```
 
 It imports `bend-kit-cbor@0.3.0.1` and `bend-kit-bytes@0.3.3.1` for the wire form.
@@ -18,7 +18,7 @@ Replica 0 receives the state of replica 1 twice.
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.2.1/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.0/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -88,7 +88,7 @@ Replica 7 counts 2 events. Replica 4000000000 counts 1 event and merges the stat
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.2.1/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.0/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -114,6 +114,7 @@ It prints `3`.
 | `KCounter.merge(~K, ~cmp, a, b)` | the entry-wise maximum, in one pass over both states |
 | `KCounter.merge_all(~K, ~cmp, xs)` | the merge of a list of states |
 | `KCounter.value(K, s)` | `Maybe<&2, U32>`: the sum of the counts; `None` when the sum does not fit in a `U32` |
+| `KCounter.value_exact(K, s)` | `Nat`: the exact, unbounded sum of the stored counts |
 | `KCounter.le(~K, ~cmp, a, b)` | `Bool`: each count in `a` is at most the count of its ID in `b` |
 | `KCounter.valid(~K, ~cmp, s)` | `Bool`: IDs strictly ascend and no count is 0 |
 | `KCounter.to_cbor(~K, ~enc, s)`, `KCounter.encode(~K, ~enc, s)` | a CBOR map from `enc(id)` to count, in ID order, as a `Cbor.Val` or as `Bytes`; `encode` is `None` only when `enc` gives a value with no CBOR form |
@@ -122,6 +123,8 @@ It prints `3`.
 `decode` returns `None` for bytes that are not CBOR, a value that is not a map, a key that `dec` refuses, a count that is not an unsigned integer below 2^32, a count of 0, keys that are not strictly ascending under `cmp` (this also rejects a repeated key), or more than `cap` entries.
 
 `KCounter` states are not canonical in general: an unsorted list or one with a repeated ID still has a meaning. `get` reads the largest count under any ID that `cmp` makes equal to `k`. So the join laws compare two states by `get` at every ID, not as lists. They hold for every state, valid or not, and for every comparator with the order facts that each law names.
+
+`value_exact` returns 0 for an empty state. It adds every stored count without U32 overflow and needs no comparator. Like `value`, it counts each stored entry on a raw state, including repeated IDs. `k_exact_sum` in `PROOF.bend` proves, for every ID type and state, that its result equals `GCounter.value_exact` of the list of stored counts. The checked `value` API is unchanged.
 
 | law | claim |
 |---|---|

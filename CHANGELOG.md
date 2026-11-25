@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `crdt` 0.2.3.0: add `KCounter.value_exact` for unbounded totals, prove its sum for every keyed state, and benchmark exact reads against Rust.
+
 - `runner` 0.20.1.3: prove pool bounds, flight removal, cancellation, and one-shot settlement across retry requeues.
 
 - HTTP smoke checks: inject compiler, readiness, serving, rejection, request stream, and response writer failures in both runtime lanes. Check failure status, lane ordering, and server cleanup in required CI.

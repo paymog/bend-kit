@@ -420,6 +420,14 @@ def KCounter.le(~K: Data, ~cmp: K -> K -> Cmp, a: KCounter<K>, +b: KCounter<K>) 
     case KCon{x, c, r}:
       Bool.and(U32.is_le(c, KCounter.get(~K, ~cmp, b, x)), KCounter.le(~K, ~cmp, r, b))
 
+# The unbounded sum of all stored replica counts.
+def KCounter.value_exact(-K: Data, s: KCounter<K>) -> Nat:
+  match s:
+    case KNil{}:
+      0n
+    case KCon{x, c, r}:
+      (U32.to_nat(c) + KCounter.value_exact(K, r) : Nat)
+
 # True when s is empty or its first ID is above lo.
 def KCounter.above(~K: Data, ~cmp: K -> K -> Cmp, s: KCounter<K>, +lo: K) -> Bool:
   match s:
