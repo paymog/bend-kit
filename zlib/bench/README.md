@@ -35,15 +35,15 @@ Bend reads the files with `File.read_bytes` so the bytes are not UTF-8 decoded. 
 
 ## Results
 
-M4 Pro, macOS arm64, 2026-11-24. Median of five runs on Bend 2.0.40.
+M4 Pro, macOS arm64, 2026-11-25. Median of five runs on Bend 2.0.40.
 
 | variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |
 |---:|---:|---:|---:|---:|---:|---:|
-| Bun | 6.8 | 619 | 40.2 | 104 | 1,063,003 | 3.95x |
-| Node | 6.2 | 673 | 75.6 | 55 | 1,045,511 | 4.01x |
-| Python | 2.9 | 1,453 | 117.6 | 36 | 1,050,286 | 3.99x |
-| Bend | 95.0 | 44 | 457.8 | 9 | 1,083,353 | 3.87x |
-| Bend (libz) | 3.9 | 1,073 | 118.2 | 35 | 1,050,286 | 3.99x |
+| Bun | 7.0 | 598 | 39.6 | 106 | 1,063,003 | 3.95x |
+| Node | 6.3 | 663 | 74.5 | 56 | 1,045,511 | 4.01x |
+| Python | 2.8 | 1,496 | 115.6 | 36 | 1,050,286 | 3.99x |
+| Bend | 113.2 | 37 | 251.2 | 17 | 1,083,353 | 3.87x |
+| Bend (libz) | 3.8 | 1,107 | 116.9 | 36 | 1,050,286 | 3.99x |
 
 The pure encoder uses lazy matching and dynamic Huffman trees in 32 KiB blocks. It keeps fixed codes when they cost fewer bits. Dynamic headers trim trailing unused lengths and encode runs with symbols 16–18. `run.py` decodes the first output header and reports its exact bit count, including the block prefix, alphabet lengths, run symbols, and extra bits.
 
@@ -58,5 +58,22 @@ A native `sample` profile (`sample <pid> 2 1 -file out/before.sample`) shows tok
 When lazy lookahead wins, the encoder now carries its length and distance into the next step. That step inserts the position into its hash chain but does not search the same candidates again. It still performs the next lazy comparison, so token choice does not change.
 
 The 64 KiB smoke run passes. Pure Bend emits 19,032 bytes in 7.7 ms. Both full-run checksums are 2339964736, and system `gzip -d` accepts `out/bend.gz` and `out/native.gz`.
+
+### Token-symbol comparison
+
+Before changing the mapper, `symbols.bend` isolated the two `cx.go` list scans plus `es.copy` from `es.copy` with preselected descriptors. Both loops construct and consume 1,048,576 tokens. Lengths cycle through 3–258 and distances through 1–32768. This is a uniform-domain microbenchmark, not the corpus's token distribution.
+
+On Bend 2.0.40, five native runs gave median **331.95 ms** for scans plus construction and **0.159 ms** for construction with preselected descriptors. The compiler can inline and eliminate temporary tokens in this loop. These figures isolate mapping work; they do not measure retained-token allocation in the full encoder.
+
+The replacement uses the power-of-two groups in RFC 1951, with direct cases for lengths 3–10 and 258 and distances 1–4. `U32.log2` gives the group exponent. No lookup array or per-token lists are needed. The same mapping loop now takes **1.959 ms**; its checksum stays **3210001344**. The construction-only checksum is **402653184**. The benchmark retains the old scan as `legacy` for comparison:
+
+```sh
+bend symbols.bend -o out/symbols
+for i in 1 2 3 4 5; do out/symbols; done
+```
+
+On the fixed 4 MiB corpus, `python3 run.py 5` measured **458.2 ms before** (commit `36cfda9`) and **251.2 ms after**, both with Bend 2.0.40: **45.2% less encoder time**. `cmp out/before.gz out/bend.gz` passes. Output remains **1,083,353 bytes**, and system `gzip -d` restores the input. Both full-run checksums are **2339964736**. The 64 KiB smoke run passes at **3.9 ms** with **19,032 output bytes**.
+
+`check.bend` compares every legal length (3–258) and distance (1–32768), including both sides of every symbol boundary, against the previous table scan. Match selection and Huffman planning are unchanged.
 
 Versions: Bend 2.0.40, Bun 1.4.4, Node 24.0.1, Python 3.14.6. Python `gzip.compress(..., compresslevel=6)` and Bend's native wrapper both use libz level 6.

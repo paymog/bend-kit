@@ -4,8 +4,8 @@ DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli.
 
 ```bend
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-zlib@0.7.0.1/zlib.bend as Zlib
-import bend-kit-zlib@0.7.0.1/native.bend as Native
+import bend-kit-zlib@0.7.0.2/zlib.bend as Zlib
+import bend-kit-zlib@0.7.0.2/native.bend as Native
 ```
 
 The codec takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes` 0.3.3.1, `bits` 0.4.0.0, and `hash` 0.3.2.2 from the hub. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` use only this pure graph. `publish.bend` bundles both modules for the hub.

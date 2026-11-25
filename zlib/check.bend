@@ -248,9 +248,34 @@ def encoder.runs() -> IO(Unit):
     ok(encoder.runs.same(Encode.runs([0, 0, 1, 1, 1, 2, 0, 0, 0], 0, 0, Nil{}), [Encode.Run{0, 0, 0}, Encode.Run{0, 0, 0}, Encode.Run{1, 0, 0}, Encode.Run{1, 0, 0}, Encode.Run{1, 0, 0}, Encode.Run{2, 0, 0}, Encode.Run{17, 3, 0}]), "short length runs")
     encoder.header(Encode.header.make(Z.rep(256n, 0, [1]), [1, 1, 0, 0]))
 
+def encoder.symbol.scan(bs: List<&2, U32>, es: List<&2, U32>, +v: U32, +i: U32, +best: Z.Cx) -> Z.Cx:
+  match bs:
+    case Nil{}:
+      best
+    case Con{+b, bt}:
+      match es:
+        case Nil{}:
+          best
+        case Con{+e, et}:
+          encoder.symbol.scan(bt, et, v, (i + 1 : U32), Bool.pick(Z.Cx, U32.is_le(b, v), Z.Cx{i, b, e}, best))
+
+def encoder.symbol.same(a: Z.Cx, b: Z.Cx) -> Bool:
+  Z.Cx{i, base, extra} = a
+  Z.Cx{j, other, bits} = b
+  Bool.and(U32.is_eq(i, j), Bool.and(U32.is_eq(base, other), U32.is_eq(extra, bits)))
+
+def encoder.symbol.all(~map: @+v:U32 -> Z.Cx, fuel: Nat, +v: U32, +bs: List<&2, U32>, +es: List<&2, U32>, good: Bool) -> Bool:
+  match fuel:
+    case 0n:
+      good
+    case 1n+p:
+      encoder.symbol.all(~map, p, (v + 1 : U32), bs, es, Bool.and(good, encoder.symbol.same(map(v), encoder.symbol.scan(bs, es, v, 0, Z.Cx{0, 0, 0}))))
+
 def encoder.check() -> IO(Unit):
   do IO<Unit>:
     encoder.runs()
+    ok(encoder.symbol.all(~Z.cx.length, 256n, 3, Z.len.base(), Z.len.extra(), True{}), "every length symbol boundary")
+    ok(encoder.symbol.all(~Z.cx.distance, 32768n, 1, Z.dist.base(), Z.dist.extra(), True{}), "every distance symbol boundary")
     encoder.case("")
     encoder.case(String.repeat("a", 600n))
     encoder.case(String.repeat("abcde abcdf ghijkl mnopqr stuvwx yz. ", 2200n))

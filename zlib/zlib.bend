@@ -779,20 +779,41 @@ def fx.low(+s: U32, lo: Bool) -> U32 & U32:
 def fx.lit(+s: U32) -> U32 & U32:
   fx.low(s, U32.is_lt(s, 144))
 
-# The last index whose base is at most v, with that base and its extra-bit count; bases ascend.
+# RFC 1951 symbol index, base value, and extra-bit count.
 type Cx is Data:
   Cx{i: U32, base: U32, extra: U32}
 
-def cx.go(bs: List<&2, U32>, es: List<&2, U32>, +v: U32, +i: U32, +best: Cx) -> Cx:
-  match bs:
-    case Nil{}:
-      best
-    case Con{+b, bt}:
-      match es:
-        case Nil{}:
-          best
-        case Con{+e, et}:
-          cx.go(bt, et, v, (i + 1 : U32), Bool.pick(Cx, U32.is_le(b, v), Cx{i, b, e}, best))
+def cx.length.group(+v: U32, +extra: Nat) -> Cx:
+  +top = U32.shrn((v - 3 : U32), extra)
+  Cx{(4 * U32.from_nat(extra) + top : U32), (3 + U32.shln(top, extra) : U32), U32.from_nat(extra)}
+
+def cx.length.small(small: Bool, +v: U32) -> Cx:
+  match small:
+    case True{}:
+      Cx{(v - 3 : U32), v, 0}
+    case False{}:
+      cx.length.group(v, Nat.sub(U32.log2((v - 3 : U32)), 2n))
+
+def cx.length(+v: U32) -> Cx:
+  match v:
+    case 258:
+      Cx{28, 258, 0}
+    case _:
+      cx.length.small(U32.is_le(v, 10), v)
+
+def cx.distance.group(+v: U32, +extra: Nat) -> Cx:
+  +top = U32.shrn((v - 1 : U32), extra)
+  Cx{(2 * U32.from_nat(extra) + top : U32), (1 + U32.shln(top, extra) : U32), U32.from_nat(extra)}
+
+def cx.distance.small(small: Bool, +v: U32) -> Cx:
+  match small:
+    case True{}:
+      Cx{(v - 1 : U32), v, 0}
+    case False{}:
+      cx.distance.group(v, Nat.sub(U32.log2((v - 1 : U32)), 1n))
+
+def cx.distance(+v: U32) -> Cx:
+  cx.distance.small(U32.is_le(v, 4), v)
 
 
 
@@ -942,7 +963,7 @@ def es.emit(hit: Bool, z: Lz, tokens: List<&2, Encode.Token>, +i: U32, +n: U32, 
   match hit:
     case True{}:
       +j = (i + blen : U32)
-      token = es.copy(blen, bdist, cx.go(len.base(), len.extra(), blen, 0, Cx{0, 3, 0}), cx.go(dist.base(), dist.extra(), bdist, 0, Cx{0, 1, 0}))
+      token = es.copy(blen, bdist, cx.length(blen), cx.distance(bdist))
       Es{ins.go(bits((blen - 1 : U32)), z, (i + 1 : U32), n), Con{token, tokens}, j, n, U32.is_lt(j, n), 0, 0}
     case False{}:
       es.lit(z, tokens, i, n)
