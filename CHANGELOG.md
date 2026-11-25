@@ -8,6 +8,13 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `jwt` 0.15.0.0: adopt the published Hairpin and HTTP pure response types for JWKS requests.
+- `llm` 0.17.0.0: adopt the published Hairpin and HTTP split API. Consume each drained stream piece before the next read.
+- `oauth2` 0.15.0.0: adopt the current Hairpin, HTTP pure responses, and pure model clocks.
+- `sigv4` 0.15.0.0: adopt the current Hairpin, HTTP pure response types, and Time release.
+- `webhooks` 0.15.0.0: adopt the current Hairpin, HTTP split API, and pure model clocks.
+- `authz` and Camber public examples: adopt the published Camber release and matching HTTP model imports.
+
 - `camber` 0.18.0.0: adopt the current HTTP pure model, runtime API, Time clocks, and Notch release.
 - `hairpin` 0.17.0.0: use the current HTTP pure response, error, cookie, and retry types beside runtime client effects.
 - `storage` 0.10.0.0: adopt current HTTP model and transport types while preserving streamed object and origin handling.

@@ -1,9 +1,10 @@
 # Published live-only acceptance consumer: same public users application and real transport/Store joins.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-http@0.40.0.1/http.bend as H
-import bend-kit-http@0.40.0.1/completion.bend as T
+import bend-kit-camber@0.18.0.0/camber.bend as C
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as Pure
+import bend-kit-http@0.44.0.1/completion.bend as T
 
 def store.closed(result: C.OwnerClose<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
   match result:
@@ -12,31 +13,31 @@ def store.closed(result: C.OwnerClose<U.Store, U32, U.Operation, String, U.User>
 
 
 type Control is Data:
-  Control{stop: H.ServerControl, gate: Chan(Unit), own: Chan(H.ServerControl)}
+  Control{stop: Http.ServerControl, gate: Chan(Unit), own: Chan(Http.ServerControl)}
 
-def control(context: Control, req: H.Req) -> IO(H.Reply):
+def control(context: Control, req: Pure.Req) -> IO(Http.Reply):
   Control{stop, +gate, +own} = context
-  H.Req{method, path, headers, body} = req
+  Pure.Req{method, path, headers, body} = req
   match path:
     case "/release":
-      do IO<H.Reply>:
+      do IO<Http.Reply>:
         sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
         U.require(Result.is_done(&1, &1, Unit, Unit, sent), "release rejected")
-        return H.Reply{C.empty(200), T.Unobserved{}}
+        return Http.Reply{C.empty(200), T.Unobserved{}}
     case "/stop":
-      do IO<H.Reply>:
-        accepted : Bool <- H.server.stop(stop)
+      do IO<Http.Reply>:
+        accepted : Bool <- Http.server.stop(stop)
         U.require(accepted, "stop rejected")
         IO.print("STOP REQUESTED")
-        return H.Reply{C.empty(200), T.Unobserved{}}
+        return Http.Reply{C.empty(200), T.Unobserved{}}
     case "/finish":
-      do IO<H.Reply>:
-        accepted : Bool <- H.server.stop(stop)
-        own_stop : H.ServerControl <- C.receive(H.ServerControl, own)
-        stopped : Bool <- H.server.stop(own_stop)
+      do IO<Http.Reply>:
+        accepted : Bool <- Http.server.stop(stop)
+        own_stop : Http.ServerControl <- C.receive(Http.ServerControl, own)
+        stopped : Bool <- Http.server.stop(own_stop)
         U.require(stopped, "control stop rejected")
-        return H.Reply{C.empty(200), T.Unobserved{}}
-    case _: IO.pure(H.Reply, H.Reply{C.empty(404), T.Unobserved{}})
+        return Http.Reply{C.empty(200), T.Unobserved{}}
+    case _: IO.pure(Http.Reply, Http.Reply{C.empty(404), T.Unobserved{}})
 
 def done(completion: T.Completion<C.ApplicationReport<String>>) -> IO(Unit):
   IO.print("COMPLETED")
@@ -50,24 +51,24 @@ def server.closed(result: C.ServerExit<U.Action, U.State, U.Config, String>) -> 
     case C.OwnerClosed{}: IO.print("APPLICATION JOINED")
     case C.OwnerBusy{owner, counts}: IO.die(Unit, 1, "application busy after transport drain")
 
-def live.running(controlled: H.Server<Control> & H.ServerControl, server: C.Server<U.Action, U.State, U.Config, String>, +own: Chan(H.ServerControl), owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +gate: Chan(Unit), arrived: Chan(Unit)) -> IO(Unit):
+def live.running(controlled: Http.Server<Control> & Http.ServerControl, server: C.Server<U.Action, U.State, U.Config, String>, +own: Chan(Http.ServerControl), owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +gate: Chan(Unit), arrived: Chan(Unit)) -> IO(Unit):
   (control_server, stop) = controlled
   do IO<Unit>:
-    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, own, stop)
+    sent : Result<&1, &1, Http.ServerControl, Unit> <- Chan.send(Http.ServerControl, own, stop)
     future : Chan(C.ServerExit<U.Action, U.State, U.Config, String>) <- IO.fork(C.ServerExit<U.Action, U.State, U.Config, String>,
       C.server.run(~U.Action, ~U.State, ~U.Config, ~String, ~String, ~done, ~observed, ~U.notify, ~U.report, ~C.access.disabled(~U.Config), server))
     IO.print("READY")
-    control_exit : H.ServerExit <- H.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), control_server)
+    control_exit : Pure.ServerExit <- Http.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), control_server)
     application_exit : C.ServerExit<U.Action, U.State, U.Config, String> <- IO.join(C.ServerExit<U.Action, U.State, U.Config, String>, future)
     server.closed(application_exit)
     closed : C.OwnerClose<U.Store, U32, U.Operation, String, U.User> <- C.close(U.Store, U32, U.Operation, String, U.User, owner)
     store.closed(closed)
-    Chan.close(H.ServerControl, own)
+    Chan.close(Http.ServerControl, own)
     Chan.close(Unit, arrived)
     Chan.close(Unit, gate)
     IO.print("CONTROL JOINED")
 
-def live.controlled(started: Unit & Result<&2, &1, H.StartupError, H.Server<Control>>, server: C.Server<U.Action, U.State, U.Config, String>, own: Chan(H.ServerControl), owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit)) -> IO(Unit):
+def live.controlled(started: Unit & Result<&2, &1, Pure.StartupError, Http.Server<Control>>, server: C.Server<U.Action, U.State, U.Config, String>, own: Chan(Http.ServerControl), owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit)) -> IO(Unit):
   (unit, result) = started
   match result:
     case Fail{error}:
@@ -76,20 +77,20 @@ def live.controlled(started: Unit & Result<&2, &1, H.StartupError, H.Server<Cont
         server.closed(exited)
         closed : C.OwnerClose<U.Store, U32, U.Operation, String, U.User> <- C.close(U.Store, U32, U.Operation, String, U.User, owner)
         store.closed(closed)
-        Chan.close(H.ServerControl, own)
+        Chan.close(Http.ServerControl, own)
         Chan.close(Unit, gate)
         Chan.close(Unit, arrived)
         IO.die(Unit, 1, "control startup failed")
     case Done{transport}:
       do IO<Unit>:
-        transport : H.Server<Control> <- U.port(~Control, H.server.port(~Control, transport))
-        live.running(H.server.control(~Control, transport), server, own, owner, gate, arrived)
+        transport : Http.Server<Control> <- U.port(~Control, Http.server.port(~Control, transport))
+        live.running(Http.server.control(~Control, transport), server, own, owner, gate, arrived)
 
-def live.prepared(controlled: C.Server<U.Action, U.State, U.Config, String> & H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +gate: Chan(Unit), arrived: Chan(Unit), port: U32) -> IO(Unit):
+def live.prepared(controlled: C.Server<U.Action, U.State, U.Config, String> & Http.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +gate: Chan(Unit), arrived: Chan(Unit), port: U32) -> IO(Unit):
   (server, stop) = controlled
   do IO<Unit>:
-    +own : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    started : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, gate, own}, Unit{}, C.server.config(port))
+    +own : Chan(Http.ServerControl) <- Chan.new(Http.ServerControl, 1)
+    started : Unit & Result<&2, &1, Pure.StartupError, Http.Server<Control>> <- Http.server.start(~Control, ~Unit, Control{stop, gate, own}, Unit{}, C.server.config(port))
     live.controlled(started, server, own, owner, gate, arrived)
 
 def live.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit), port: U32) -> IO(Unit):
@@ -103,7 +104,7 @@ def live.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.Sta
         IO.die(Unit, 1, "application startup failed")
     case Done{C.Server{transport, application}}:
       do IO<Unit>:
-        transport : H.Server<C.ServingContext<U.Action, U.State, U.Config, String>> <- U.port(~C.ServingContext<U.Action, U.State, U.Config, String>, H.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport))
+        transport : Http.Server<C.ServingContext<U.Action, U.State, U.Config, String>> <- U.port(~C.ServingContext<U.Action, U.State, U.Config, String>, Http.server.port(~C.ServingContext<U.Action, U.State, U.Config, String>, transport))
         live.prepared(C.server.control(~U.Action, ~U.State, ~U.Config, ~String, C.Server{transport, application}), owner, gate, arrived, port)
 
 def start(app: Result<&2, &2, C.RegistrationError, C.Application<U.Action, U.Config, C.Policy<String>>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, gate: Chan(Unit), arrived: Chan(Unit), port: U32, control_port: U32) -> IO(Unit):

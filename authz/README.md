@@ -78,3 +78,5 @@ def main() -> Bool:
 ## Checks
 
 `bend check.bend` guards one Camber route, `DELETE /docs/:id`, with a route `before` hook that runs `granted` and answers 403 on denial. It checks the status and the list of protected effects for each case: an owner and an admin are allowed and the delete runs; a non-owner, a suspended owner, a suspended admin, a missing subject, a missing owner, and missing roles get 403 with no delete; and a read-only `Intersect` restriction turns both allowed deletes into 403 with no delete. `bench/` times policy evaluation. See [bench/README.md](bench/README.md).
+
+The check consumes Camber `0.18.0.0` and HTTP `0.44.0.1`. Its `Pure` alias imports HTTP's `pure.bend` for request/response types and header helpers.

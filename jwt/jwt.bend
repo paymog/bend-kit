@@ -1,8 +1,8 @@
 # JSON Web Tokens: HS256/384/512, RS256, and ES256 compact JWS sign and verify, claim checks, and JWKS keys over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/jwt
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ./pure.bend as Pure
@@ -788,15 +788,15 @@ def fetch.body(ok: Bool, +status: U32, c: Hairpin.Client, s: Jwks, +now: U32, b:
     case True{}:
       fetch.keys(jwks.parse(b), c, s, now)
 
-def fetch.res(c: Hairpin.Client, s: Jwks, +now: U32, r: Result<&1, &1, Hairpin.Err, Http.Res>) ->
+def fetch.res(c: Hairpin.Client, s: Jwks, +now: U32, r: Result<&1, &1, Hairpin.Err, HttpPure.Res>) ->
     Hairpin.Client & Jwks & Result<&1, &1, Err, Unit>:
   match r:
     case Fail{e}:
       (c, s, Fail{Net{e}})
-    case Done{Http.Res{+status, h, b}}:
+    case Done{HttpPure.Res{+status, h, b}}:
       fetch.body(U32.is_eq(status, 200), status, c, s, now, b)
 
-def fetch.done(s: Jwks, +now: U32, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) ->
+def fetch.done(s: Jwks, +now: U32, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>) ->
     Hairpin.Client & Jwks & Result<&1, &1, Err, Unit>:
   (c, r) = x
   fetch.res(c, s, now, r)
@@ -805,7 +805,7 @@ def fetch.done(s: Jwks, +now: U32, x: Hairpin.Client & Result<&1, &1, Hairpin.Er
 def fetch(c: Hairpin.Client, s: Jwks, +now: U32) -> IO(Hairpin.Client & Jwks & Result<&1, &1, Err, Unit>):
   Jwks{+url, ttl, live, at, old, ks} = s
   do IO<Hairpin.Client & Jwks & Result<&1, &1, Err, Unit>>:
-    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c, url)
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res> <- Hairpin.get(c, url)
     return fetch.done(Jwks{url, ttl, live, at, Some{now}, ks}, now, x)
 
 def key.after.r(r: Result<&1, &1, Err, Unit>, c: Hairpin.Client, +s: Jwks, +kid: String, +a: Alg) ->

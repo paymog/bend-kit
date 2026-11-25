@@ -1,7 +1,7 @@
 import Base
 import ./sigv4.bend as Sigv4
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as Http
 
 # Signatures need HMAC-SHA256 through libcrypto, so they run here, not in LAWS.bend.
 

@@ -6,3 +6,4 @@ bend-kit-time@0.3.0.1  # consumers: adopt pure clock isolation after time publis
 bend-kit-http@0.40.0.1  # consumers: adopt the pure model import layout after HTTP publishes (#1166)
 bend-kit-camber@0.17.0.1  # consumers: adopt the current HTTP model after Camber publishes (#1166)
 bend-kit-hairpin@0.16.0.1  # consumers: adopt the current HTTP model after Hairpin publishes (#1166)
+bend-kit-webhooks@0.14.0.2  # runner: adopt the current HTTP model after Webhooks publishes (#1166)

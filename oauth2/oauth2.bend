@@ -1,15 +1,15 @@
 # OAuth 2.0 client credentials, refresh, and authorization code with PKCE over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/oauth2
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
+import bend-kit-time@0.3.0.2/pure.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ./pure.bend as Pure
-import bend-kit-time@0.3.0.2/pure.bend as PureTime
 
 # RFC 6749 and RFC 7636. Text is a String of code points; form values go out as UTF-8.
 # token: the token endpoint URL. secret: "" for a public client, which sends client_id in the body;
@@ -37,39 +37,17 @@ type Err is Data:
 type Got is Data:
   Got{access: String, kind: String, refresh: String, scope: String, expires: String, error: String, desc: String}
 
-def instant.to.pure(v: Time.Instant) -> PureTime.Instant:
-  Time.Instant{s, n} = v
-  PureTime.Instant{s, n}
-
-def instant.from.pure(v: PureTime.Instant) -> Time.Instant:
-  PureTime.Instant{s, n} = v
-  Time.Instant{s, n}
-
-def expiry.to.pure(v: Maybe<&2, Time.Instant>) -> Maybe<&2, PureTime.Instant>:
-  match v:
-    case None{}:
-      None{}
-    case Some{x}:
-      Some{instant.to.pure(x)}
-
-def expiry.from.pure(v: Maybe<&2, PureTime.Instant>) -> Maybe<&2, Time.Instant>:
-  match v:
-    case None{}:
-      None{}
-    case Some{x}:
-      Some{instant.from.pure(x)}
-
 def config.to.pure(v: Config) -> Pure.Config:
   Config{t, i, s} = v
   Pure.Config{t, i, s}
 
 def token.to.pure(v: Token) -> Pure.Token:
   Token{a, k, r, s, e} = v
-  Pure.Token{a, k, r, s, expiry.to.pure(e)}
+  Pure.Token{a, k, r, s, e}
 
 def token.from.pure(v: Pure.Token) -> Token:
   Pure.Token{a, k, r, s, e} = v
-  Token{a, k, r, s, expiry.from.pure(e)}
+  Token{a, k, r, s, e}
 
 def err.from.pure(v: Pure.Err) -> Err:
   match v:
@@ -148,8 +126,8 @@ def basic(+id: String, +secret: String) -> String:
   Pure.basic(id, secret)
 
 def auth.headers(+id: String, +secret: String) -> Map<&2, List<&2, String>>:
-  +h = Http.set(Http.set(Http.empty(), "content-type", "application/x-www-form-urlencoded"), "accept", "application/json")
-  Bool.pick(Map<&2, List<&2, String>>, String.is_empty(secret), h, Http.set(h, "authorization", basic(id, secret)))
+  +h = HttpPure.set(HttpPure.set(HttpPure.empty(), "content-type", "application/x-www-form-urlencoded"), "accept", "application/json")
+  Bool.pick(Map<&2, List<&2, String>>, String.is_empty(secret), h, HttpPure.set(h, "authorization", basic(id, secret)))
 
 def auth.body(+id: String, +secret: String, +m: Map<&2, String>) -> Map<&2, String>:
   Pure.auth.body(id, secret, m)
@@ -178,7 +156,7 @@ def got(m: Maybe<&1, Json.Val>) -> Maybe<&2, Got>:
   maybe.got.from.pure(Pure.got(m))
 
 def expiry(now: Time.Instant, m: Maybe<&2, U32>) -> Maybe<&2, Time.Instant>:
-  expiry.from.pure(Pure.expiry(instant.to.pure(now), m))
+  Pure.expiry(now, m)
 
 # A 2xx with an access token of type Bearer (RFC 6750 §4, case-insensitive), the only kind request sends.
 def good(+status: U32, g: Got) -> Bool:
@@ -186,27 +164,27 @@ def good(+status: U32, g: Got) -> Bool:
 
 # §6: a refresh reply without refresh_token keeps the old one. b: the body, decoded only for an error.
 def token.pick(ok: Bool, +status: U32, +old: String, now: Time.Instant, b: Bytes.Bytes, g: Got) -> Result<&1, &1, Err, Token>:
-  result.token.from.pure(Pure.token.pick(ok, status, old, instant.to.pure(now), b, got.to.pure(g)))
+  result.token.from.pure(Pure.token.pick(ok, status, old, now, b, got.to.pure(g)))
 
 def token.of(+status: U32, +old: String, now: Time.Instant, b: Bytes.Bytes, m: Maybe<&2, Got>) -> Result<&1, &1, Err, Token>:
-  result.token.from.pure(Pure.token.of(status, old, instant.to.pure(now), b, maybe.got.to.pure(m)))
+  result.token.from.pure(Pure.token.of(status, old, now, b, maybe.got.to.pure(m)))
 
 def parse.copy(+status: U32, +old: String, now: Time.Instant, r: Bytes.Bytes & Bytes.Bytes) -> Result<&1, &1, Err, Token>:
-  result.token.from.pure(Pure.parse.copy(status, old, instant.to.pure(now), r))
+  result.token.from.pure(Pure.parse.copy(status, old, now, r))
 
 # A token endpoint's reply at status, requested at now. old: the refresh token to keep when none comes back.
 def parse(+status: U32, +old: String, now: Time.Instant, b: Bytes.Bytes) -> Result<&1, &1, Err, Token>:
-  result.token.from.pure(Pure.parse(status, old, instant.to.pure(now), b))
+  result.token.from.pure(Pure.parse(status, old, now, b))
 
-def reply(+old: String, now: Time.Instant, r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Token>:
+def reply(+old: String, now: Time.Instant, r: Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> Result<&1, &1, Err, Token>:
   match r:
     case Fail{e}:
       Fail{ErrNet{e}}
     case Done{res}:
-      Http.Res{+status, h, b} = res
+      HttpPure.Res{+status, h, b} = res
       parse(status, old, now, b)
 
-def grant.done(+old: String, now: Time.Instant, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) ->
+def grant.done(+old: String, now: Time.Instant, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>) ->
     Hairpin.Client & Result<&1, &1, Err, Token>:
   (h, r) = x
   (h, reply(old, now, r))
@@ -215,9 +193,9 @@ def grant.done(+old: String, now: Time.Instant, x: Hairpin.Client & Result<&1, &
 def grant(h: Hairpin.Client, cfg: Config, m: Map<&2, String>, +old: String) -> IO(Hairpin.Client & Result<&1, &1, Err, Token>):
   Config{url, +id, +secret} = cfg
   do IO<Hairpin.Client & Result<&1, &1, Err, Token>>:
-    now : Time.Instant <- Time.now()
-    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
-      Hairpin.request(h, "POST", url, auth.headers(id, secret), Http.from_string(body(id, secret, m)))
+    now : Time.Instant <- Http.clock.now()
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res> <-
+      Hairpin.request(h, "POST", url, auth.headers(id, secret), HttpPure.from_string(body(id, secret, m)))
     return grant.done(old, now, x)
 
 # ---- grants
@@ -244,11 +222,11 @@ def refresh(h: Hairpin.Client, cfg: Config, tok: Token, +scope: String) -> IO(Ha
   refresh.go(String.is_empty(r), h, cfg, r, scope)
 
 def expiring.at(e: Maybe<&2, Time.Instant>, now: Time.Instant, +skew: U32) -> Bool:
-  Pure.expiring.at(expiry.to.pure(e), instant.to.pure(now), skew)
+  Pure.expiring.at(e, now, skew)
 
 # Does tok lapse within skew seconds of now? A token without expires_in never does.
 def expiring(tok: Token, now: Time.Instant, +skew: U32) -> Bool:
-  Pure.expiring(token.to.pure(tok), instant.to.pure(now), skew)
+  Pure.expiring(token.to.pure(tok), now, skew)
 
 def fresh.go(due: Bool, h: Hairpin.Client, cfg: Config, +tok: Token) -> IO(Hairpin.Client & Result<&1, &1, Err, Token>):
   match due:
@@ -260,7 +238,7 @@ def fresh.go(due: Bool, h: Hairpin.Client, cfg: Config, +tok: Token) -> IO(Hairp
 # tok, or a refreshed one when it lapses within skew seconds.
 def fresh(h: Hairpin.Client, cfg: Config, +tok: Token, +skew: U32) -> IO(Hairpin.Client & Result<&1, &1, Err, Token>):
   do IO<Hairpin.Client & Result<&1, &1, Err, Token>>:
-    now : Time.Instant <- Time.now()
+    now : Time.Instant <- Http.clock.now()
     fresh.go(expiring(tok, now, skew), h, cfg, tok)
 
 def fresh.cc.go(due: Bool, h: Hairpin.Client, cfg: Config, +scope: String, +tok: Token) -> IO(Hairpin.Client & Result<&1, &1, Err, Token>):
@@ -273,7 +251,7 @@ def fresh.cc.go(due: Bool, h: Hairpin.Client, cfg: Config, +scope: String, +tok:
 # tok, or a new client-credentials token when it lapses within skew seconds (§4.4.3: no refresh token).
 def fresh.cc(h: Hairpin.Client, cfg: Config, +scope: String, +tok: Token, +skew: U32) -> IO(Hairpin.Client & Result<&1, &1, Err, Token>):
   do IO<Hairpin.Client & Result<&1, &1, Err, Token>>:
-    now : Time.Instant <- Time.now()
+    now : Time.Instant <- Http.clock.now()
     fresh.cc.go(expiring(tok, now, skew), h, cfg, scope, tok)
 
 # ---- authorization code with PKCE (RFC 7636)
@@ -342,9 +320,9 @@ def callback(url: String, +state: String) -> Result<&1, &1, Err, String>:
 
 def bearer(tok: Token, h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
   Token{a, k, r, s, e} = tok
-  Http.set(h, "authorization", "Bearer " ++ a)
+  HttpPure.set(h, "authorization", "Bearer " ++ a)
 
 # Hairpin.request with Authorization: Bearer <access>, over any authorization header in headers.
 def request(c: Hairpin.Client, tok: Token, +method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>):
+    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
   Hairpin.request(c, method, url, bearer(tok, headers), body)

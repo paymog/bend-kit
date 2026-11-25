@@ -1,9 +1,10 @@
 # LLM client for the Anthropic Messages and OpenAI Chat Completions APIs, with SSE streaming. Source: https://github.com/paymog/bend-kit/tree/main/llm
 import Base
 import ./sse.bend as Sse
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
@@ -251,17 +252,17 @@ def again.status(+s: U32) -> Bool:
   Pure.again.status(s)
 
 # A refused connect or a timeout may clear.
-def again.err(+e: Http.Err) -> Maybe<&2, String>:
+def again.err(+e: HttpPure.Err) -> Maybe<&2, String>:
   match e:
-    case Http.ErrConnect{code, why}:
+    case HttpPure.ErrConnect{code, why}:
       Some{""}
-    case Http.ErrTimeout{}:
+    case HttpPure.ErrTimeout{}:
       Some{""}
     case other:
       None{}
 
 def again.of(+status: U32, +h: Map<&2, List<&2, String>>) -> Maybe<&2, String>:
-  Bool.pick(Maybe<&2, String>, again.status(status), Some{Http.header(h, "retry-after")}, None{})
+  Bool.pick(Maybe<&2, String>, again.status(status), Some{HttpPure.header(h, "retry-after")}, None{})
 
 # Again when another try may help; otherwise settled, as Hairpin.judge would settle it.
 def verdict(m: Maybe<&2, String>, settled: Hairpin.Verdict) -> Hairpin.Verdict:
@@ -272,13 +273,13 @@ def verdict(m: Maybe<&2, String>, settled: Hairpin.Verdict) -> Hairpin.Verdict:
       settled
 
 # Hairpin's judge for every call.
-def again(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Http.Err, Http.Res> & Hairpin.Verdict:
+def again(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) -> Result<&1, &1, HttpPure.Err, HttpPure.Res> & Hairpin.Verdict:
   match r:
     case Fail{+e}:
       (Fail{e}, verdict(again.err(e), Hairpin.VerdictTarget{}))
     case Done{res}:
-      Http.Res{+status, +h, b} = res
-      (Done{Http.Res{status, h, b}}, verdict(again.of(status, h), Hairpin.judge.status(status)))
+      HttpPure.Res{+status, +h, b} = res
+      (Done{HttpPure.Res{status, h, b}}, verdict(again.of(status, h), Hairpin.judge.status(status)))
 
 def body.ok(good: Bool, +status: U32, b: Bytes.Bytes) -> Result<&1, &1, Err, Bytes.Bytes>:
   match good:
@@ -288,12 +289,12 @@ def body.ok(good: Bool, +status: U32, b: Bytes.Bytes) -> Result<&1, &1, Err, Byt
       Fail{ErrApi{status, Enc.utf8.decode(b)}}
 
 # The 2xx body, or why there is none.
-def body.of(r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
+def body.of(r: Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
   match r:
     case Fail{e}:
       Fail{ErrNet{e}}
     case Done{res}:
-      Http.Res{+status, h, b} = res
+      HttpPure.Res{+status, h, b} = res
       body.ok(ok(status), status, b)
 
 def url(api: Api, +base: String) -> String:
@@ -309,15 +310,15 @@ def new(+api: Api, base: String, headers: Map<&2, List<&2, String>>) -> Client:
   Client{api, base, headers, 600000, 2, Hairpin.timeout(Hairpin.new(), 600000)}
 
 def json(h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
-  Http.set(h, "content-type", "application/json")
+  HttpPure.set(h, "content-type", "application/json")
 
 # base https://api.anthropic.com, 10 min steps, 2 retries.
 def anthropic(key: String) -> Client:
-  new(Anthropic{}, "https://api.anthropic.com", json(Http.set(Http.set(Http.empty(), "x-api-key", key), "anthropic-version", "2023-06-01")))
+  new(Anthropic{}, "https://api.anthropic.com", json(HttpPure.set(HttpPure.set(HttpPure.empty(), "x-api-key", key), "anthropic-version", "2023-06-01")))
 
 # base https://api.openai.com/v1, 10 min steps, 2 retries.
 def openai(key: String) -> Client:
-  new(OpenAI{}, "https://api.openai.com/v1", json(Http.set(Http.empty(), "authorization", "Bearer " ++ key)))
+  new(OpenAI{}, "https://api.openai.com/v1", json(HttpPure.set(HttpPure.empty(), "authorization", "Bearer " ++ key)))
 
 # Another base URL, as for a provider that serves the same API.
 def base(c: Client, url: String) -> Client:
@@ -327,7 +328,7 @@ def base(c: Client, url: String) -> Client:
 # A header on every request, as anthropic-beta. It replaces one of the same name.
 def header(c: Client, k: String, v: String) -> Client:
   Client{api, b, h, ms, n, http} = c
-  Client{api, b, Http.set(h, String.to_lower(k), v), ms, n, http}
+  Client{api, b, HttpPure.set(h, String.to_lower(k), v), ms, n, http}
 
 def timeout(c: Client, +ms: U32) -> Client:
   Client{api, b, h, old, n, http} = c
@@ -342,14 +343,14 @@ def close(c: Client) -> IO(Unit):
   Hairpin.close(http)
 
 def call.done(+api: Api, base: String, headers: Map<&2, List<&2, String>>, +ms: U32, +n: U32,
-    x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
+    x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
   (h, b, r) = x
   (Client{api, base, headers, ms, n, h}, body.of(r))
 
 def call.budget(+api: Api, +base: String, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes, y: Hairpin.Client & Retry.Budget) ->
-    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
   (h, b) = y
-  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>>:
+  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res>>:
     enc : String <- Http.codings()
     Hairpin.request.as(~again, h, b, True{}, enc, "POST", url(api, base), headers, body)
 
@@ -359,7 +360,7 @@ def call(c: Client, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Bytes.
   Client{+api, +base, +headers, +ms, +n, h} = c
   do IO<Client & Result<&1, &1, Err, Bytes.Bytes>>:
     y : Hairpin.Client & Retry.Budget <- Hairpin.budget(Hairpin.retry(h, n))
-    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- call.budget(api, base, headers, body, y)
+    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res> <- call.budget(api, base, headers, body, y)
     return call.done(api, base, headers, ms, n, x)
 
 def raw.got(b: Bytes.Bytes, m: Maybe<&1, Json.Val>) -> Result<&1, &1, Err, Json.Val>:
@@ -413,12 +414,12 @@ def send(c: Client, req: Req) -> IO(Client & Result<&1, &1, Err, Reply>):
 type Stream is Type:
   Stream{api: Api, h: Http.Stream, rd: Sse.Reader}
 
-def open.res(x: Http.Stream & Http.Res) -> Result<&1, &1, Http.Err, Http.Stream> & Hairpin.Verdict:
+def open.res(x: Http.Stream & HttpPure.Res) -> Result<&1, &1, HttpPure.Err, Http.Stream> & Hairpin.Verdict:
   (st, res) = x
-  Http.Res{+status, +h, b} = res
+  HttpPure.Res{+status, +h, b} = res
   (Done{st}, verdict(again.of(status, h), Hairpin.judge.status(status)))
 
-def open.judge(r: Result<&1, &1, Http.Err, Http.Stream>) -> Result<&1, &1, Http.Err, Http.Stream> & Hairpin.Verdict:
+def open.judge(r: Result<&1, &1, HttpPure.Err, Http.Stream>) -> Result<&1, &1, HttpPure.Err, Http.Stream> & Hairpin.Verdict:
   match r:
     case Fail{+e}:
       (Fail{e}, verdict(again.err(e), Hairpin.VerdictTarget{}))
@@ -426,7 +427,7 @@ def open.judge(r: Result<&1, &1, Http.Err, Http.Stream>) -> Result<&1, &1, Http.
       open.res(Http.stream.res(st))
 
 # A refused stream's error body, at most f more pieces; only a complete body returns its connection.
-def drain(f: Nat, c: Hairpin.Client, x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>, acc: Bytes.Bytes) -> IO(Hairpin.Client & Bytes.Bytes):
+def drain(f: Nat, c: Hairpin.Client, x: Http.Stream & Result<&1, &1, HttpPure.Err, Maybe<&1, Bytes.Bytes>>, acc: Bytes.Bytes) -> IO(Hairpin.Client & Bytes.Bytes):
   match f:
     case 0n:
       (h, r) = x
@@ -448,8 +449,9 @@ def drain(f: Nat, c: Hairpin.Client, x: Http.Stream & Result<&1, &1, Http.Err, M
                 return (p, acc)
             case Some{b}:
               do IO<Hairpin.Client & Bytes.Bytes>:
-                y : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
-                drain(g, c, y, Bytes.append(acc, b))
+                merged : Bytes.Bytes = Bytes.append(acc, b)
+                y : Http.Stream & Result<&1, &1, HttpPure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
+                drain(g, c, y, merged)
 
 def start.error(+status: U32, x: Hairpin.Client & Bytes.Bytes) -> Hairpin.Client & Result<&1, &1, Err, Http.Stream>:
   (c, b) = x
@@ -457,7 +459,7 @@ def start.error(+status: U32, x: Hairpin.Client & Bytes.Bytes) -> Hairpin.Client
 
 def start.refused(+status: U32, c: Hairpin.Client, h: Http.Stream) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
   do IO<Hairpin.Client & Result<&1, &1, Err, Http.Stream>>:
-    y : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
+    y : Http.Stream & Result<&1, &1, HttpPure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
     x : Hairpin.Client & Bytes.Bytes <- drain(64n, c, y, Bytes.new(0))
     return start.error(status, x)
 
@@ -468,9 +470,9 @@ def start.ok(good: Bool, +status: U32, c: Hairpin.Client, h: Http.Stream) -> IO(
     case False{}:
       start.refused(status, c, h)
 
-def start.res(c: Hairpin.Client, x: Http.Stream & Http.Res) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
+def start.res(c: Hairpin.Client, x: Http.Stream & HttpPure.Res) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
   (h, res) = x
-  Http.Res{+status, hd, b} = res
+  HttpPure.Res{+status, hd, b} = res
   start.ok(ok(status), status, c, h)
 
 def start(c: Hairpin.Client, r: Result<&1, &1, Hairpin.Err, Http.Stream>) -> IO(Hairpin.Client & Result<&1, &1, Err, Http.Stream>):
@@ -533,7 +535,7 @@ type Rn is Type:
   RnNext{h: Http.Stream, r: Sse.Reader & Sse.Next}
   RnOut{h: Http.Stream, rd: Sse.Reader, r: Result<&1, &1, Err, Maybe<&1, Sse.Message>>}
 
-def event.read(rd: Sse.Reader, x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> Rn:
+def event.read(rd: Sse.Reader, x: Http.Stream & Result<&1, &1, HttpPure.Err, Maybe<&1, Bytes.Bytes>>) -> Rn:
   (h, r) = x
   match r:
     case Fail{e}:
@@ -564,7 +566,7 @@ def event.loop(f: Nat, st: Rn) -> IO(Http.Stream & Sse.Reader & Result<&1, &1, E
               IO.pure(Http.Stream & Sse.Reader & Result<&1, &1, Err, Maybe<&1, Sse.Message>>, (h, rd, Done{Some{e}}))
             case Sse.Want{}:
               do IO<Http.Stream & Sse.Reader & Result<&1, &1, Err, Maybe<&1, Sse.Message>>>:
-                x : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
+                x : Http.Stream & Result<&1, &1, HttpPure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(h)
                 event.loop(g, event.read(rd, x))
         case RnOut{h, rd, r}:
           IO.pure(Http.Stream & Sse.Reader & Result<&1, &1, Err, Maybe<&1, Sse.Message>>, (h, rd, r))

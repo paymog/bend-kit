@@ -1,20 +1,20 @@
 # Webhook signatures: Standard Webhooks sign and verify, Stripe and GitHub verify, over the raw body. Source: https://github.com/paymog/bend-kit/tree/main/webhooks
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-time@0.3.0.2/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
 import ./pure.bend as Pure
-import bend-kit-time@0.3.0.2/pure.bend as PureTime
 
 # Every MAC is HMAC-SHA256 over the body exactly as received, never a re-encoding of parsed JSON.
-# Headers are Http.Req headers: lowercase names, octet-string values. Each verify hands the body back.
+# Headers are HttpPure.Req headers: lowercase names, octet-string values. Each verify hands the body back.
 # secrets: candidates, tried in turn, for key rotation. Every MAC comparison is Crypto.eq.ct.words.
-# now is explicit, so a check is deterministic; a handler passes Time.now().
+# now is explicit, so a check is deterministic; a handler passes Http.clock.now().
 
 type Err is Data:
   Missing{name: String}
@@ -25,10 +25,6 @@ type Err is Data:
   TooNew{}
   NoMatch{}
   CryptoErr{code: U32, msg: String}
-
-def instant.to.pure(v: Time.Instant) -> PureTime.Instant:
-  Time.Instant{s, n} = v
-  PureTime.Instant{s, n}
 
 def err.from.pure(e: Pure.Err) -> Err:
   match e:
@@ -90,7 +86,7 @@ def window.pick(old: Bool, ahead: Bool) -> Result<&1, &1, Err, Unit>:
   result.from.pure(Unit, Pure.window.pick(old, ahead))
 
 def window(+tol: U32, now: Time.Instant, t: Int.I64) -> Result<&1, &1, Err, Unit>:
-  result.from.pure(Unit, Pure.window(tol, instant.to.pure(now), t))
+  result.from.pure(Unit, Pure.window(tol, now, t))
 
 def id.check(+id: String) -> Result<&1, &1, Err, Unit>:
   result.from.pure(Unit, Pure.id.check(id))
@@ -266,7 +262,7 @@ def std.sigs(xs: List<&2, String>) -> List<&2, String>:
   Pure.std.sigs(xs)
 
 def std.check(+tol: U32, now: Time.Instant, +h: Map<&2, List<&2, String>>) -> Result<&1, &1, Err, String & String & List<&2, String>>:
-  result.from.pure(String & String & List<&2, String>, Pure.std.check(tol, instant.to.pure(now), h))
+  result.from.pure(String & String & List<&2, String>, Pure.std.check(tol, now, h))
 
 # Done with the webhook-id when a v1 signature in webhook-signature signs id.timestamp.body under a secret,
 # and webhook-timestamp is within tol seconds of now.
@@ -342,10 +338,10 @@ def stripe.one(r: List<&2, String> & List<&2, String>) -> Result<&1, &1, Err, St
   result.from.pure(String & List<&2, String>, Pure.stripe.one(r))
 
 def stripe.when(+tol: U32, now: Time.Instant, p: String & List<&2, String>) -> Result<&1, &1, Err, Unit & String & List<&2, String>>:
-  result.from.pure(Unit & String & List<&2, String>, Pure.stripe.when(tol, instant.to.pure(now), p))
+  result.from.pure(Unit & String & List<&2, String>, Pure.stripe.when(tol, now, p))
 
 def stripe.check(+tol: U32, now: Time.Instant, +h: Map<&2, List<&2, String>>) -> Result<&1, &1, Err, Unit & String & List<&2, String>>:
-  result.from.pure(Unit & String & List<&2, String>, Pure.stripe.check(tol, instant.to.pure(now), h))
+  result.from.pure(Unit & String & List<&2, String>, Pure.stripe.check(tol, now, h))
 
 # Done when a v1 hex signature in stripe-signature signs t.body under a secret (the whsec_ text itself, as UTF-8),
 # and t is within tol seconds of now.
@@ -372,8 +368,8 @@ type SendErr is Data:
   SendSign{err: Err}
   SendNet{err: Hairpin.Err}
 
-def send.result(x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>) ->
-    Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>:
+def send.result(x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res>) ->
+    Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>:
   (c, b, r) = x
   match r:
     case Fail{e}:
@@ -382,39 +378,39 @@ def send.result(x: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, H
       (c, b, Done{res})
 
 # A timeout, a refused connect, 408, 429, or any 5xx may clear.
-def send.again(r: Result<&1, &1, Http.Err, Http.Res>) ->
-    Result<&1, &1, Http.Err, Http.Res> & Maybe<&2, String>:
+def send.again(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) ->
+    Result<&1, &1, HttpPure.Err, HttpPure.Res> & Maybe<&2, String>:
   match r:
     case Fail{e}:
-      Http.retry.judge(True{}, Fail{e})
+      HttpPure.retry.judge(True{}, Fail{e})
     case Done{res}:
-      Http.Res{+status, +headers, body} = res
-      +again = Bool.or(Http.retry.status(status), U32.is_eq((status / 100 : U32), 5))
-      (Done{Http.Res{status, headers, body}}, Bool.pick(Maybe<&2, String>, again, Some{Http.header(headers, "retry-after")}, None{}))
+      HttpPure.Res{+status, +headers, body} = res
+      +again = Bool.or(HttpPure.retry.status(status), U32.is_eq((status / 100 : U32), 5))
+      (Done{HttpPure.Res{status, headers, body}}, Bool.pick(Maybe<&2, String>, again, Some{HttpPure.header(headers, "retry-after")}, None{}))
 
-def send.judge(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Http.Err, Http.Res> & Hairpin.Verdict:
+def send.judge(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) -> Result<&1, &1, HttpPure.Err, HttpPure.Res> & Hairpin.Verdict:
   Hairpin.judge.of(send.again(r))
 
 # Receivers deduplicate on the event ID, so the POST is safe to repeat.
 def send.signed(c: Hairpin.Client, b: Retry.Budget, +url: String, r: Bytes.Bytes & Result<&1, &1, Err, Map<&2, List<&2, String>>>) ->
-    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>):
   (body, signed) = r
   match signed:
     case Fail{e}:
-      IO.pure(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>, (c, b, Fail{SendSign{e}}))
+      IO.pure(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>, (c, b, Fail{SendSign{e}}))
     case Done{+h}:
-      do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>>:
+      do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>>:
         enc : String <- Http.codings()
-        x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <-
-          Hairpin.request.as(~send.judge, Hairpin.redirect(c, Http.ModeManual{}), b, True{}, enc, "POST", url,
-            Http.set(h, "content-type", "application/json"), body)
+        x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res> <-
+          Hairpin.request.as(~send.judge, Hairpin.redirect(c, HttpPure.ModeManual{}), b, True{}, enc, "POST", url,
+            HttpPure.set(h, "content-type", "application/json"), body)
         return send.result(x)
 
 def send.at(c: Hairpin.Client, b: Retry.Budget, url: String, id: String, secret: String, body: Bytes.Bytes, now: Time.Instant) ->
-    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>):
   match now:
     case Time.Instant{secs, nanos}:
-      do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>>:
+      do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>>:
         signed : Bytes.Bytes & Result<&1, &1, Err, Map<&2, List<&2, String>>> <- sign(id, secs, body, secret)
         send.signed(c, b, url, signed)
 
@@ -422,29 +418,29 @@ def send.at(c: Hairpin.Client, b: Retry.Budget, url: String, id: String, secret:
 # reuses this event ID, timestamp, headers, and raw body; the client's retry setting caps this delivery.
 # The budget left comes back: pass it to the next delivery of the same operation.
 def send.in(c: Hairpin.Client, b: Retry.Budget, url: String, id: String, secret: String, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
-  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>>:
-    now : Time.Instant <- Time.now()
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>):
+  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>>:
+    now : Time.Instant <- Http.clock.now()
     send.at(c, b, url, id, secret, body, now)
 
-def send.drop(x: Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>) -> Hairpin.Client & Result<&1, &1, SendErr, Http.Res>:
+def send.drop(x: Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>) -> Hairpin.Client & Result<&1, &1, SendErr, HttpPure.Res>:
   (c, b, r) = x
   (c, r)
 
 def send.budget(url: String, id: String, secret: String, body: Bytes.Bytes, y: Hairpin.Client & Retry.Budget) ->
-    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res>):
+    IO(Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res>):
   (c, b) = y
   send.in(c, b, url, id, secret, body)
 
 # n extra attempts, on a budget of n + 1 and the client's deadline, with Hairpin's backoff. The client comes back with retry n.
 def send.with(+n: U32, c: Hairpin.Client, url: String, id: String, secret: String, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>):
-  do IO<Hairpin.Client & Result<&1, &1, SendErr, Http.Res>>:
+    IO(Hairpin.Client & Result<&1, &1, SendErr, HttpPure.Res>):
+  do IO<Hairpin.Client & Result<&1, &1, SendErr, HttpPure.Res>>:
     y : Hairpin.Client & Retry.Budget <- Hairpin.budget(Hairpin.retry(c, n))
-    x : Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, Http.Res> <- send.budget(url, id, secret, body, y)
+    x : Hairpin.Client & Retry.Budget & Result<&1, &1, SendErr, HttpPure.Res> <- send.budget(url, id, secret, body, y)
     return send.drop(x)
 
 # Three extra attempts by default.
 def send(c: Hairpin.Client, url: String, id: String, secret: String, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, SendErr, Http.Res>):
+    IO(Hairpin.Client & Result<&1, &1, SendErr, HttpPure.Res>):
   send.with(3, c, url, id, secret, body)
