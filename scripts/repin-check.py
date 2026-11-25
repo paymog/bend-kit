@@ -160,10 +160,15 @@ with TemporaryDirectory() as tmp:
         (root / p / "VERSION").write_text(v + "\n")
         (root / p / f"{p}.bend").write_text("" if p in ("http", "time") else
             "import bend-kit-http@0.39.2.0/http.bend\n")
+    (root / "http/http.bend").write_text("import bend-kit-time@0.2.0.0/time.bend\n")
+    for p in ("camber", "jwt"):
+        with (root / p / f"{p}.bend").open("a") as entry:
+            entry.write("import bend-kit-hairpin@0.15.0.0/hairpin.bend\n")
     prose = ("## Same type\n\n"
              "`hairpin@0.15.0.0`, `camber@0.16.0.0`, and `jwt@0.13.0.0` "
              "use `bend-kit-http@0.39.2.0`.\n")
-    (root / "README.md").write_text(prose + "bend-kit-hairpin@0.15.0.0/hairpin.bend\n")
+    tail = "## Packages\n\nbend-kit-hairpin@0.15.0.0/hairpin.bend\n"
+    (root / "README.md").write_text(prose + tail)
     (root / "time/README.md").write_text("Used by `http@0.39.2.0`.\n")
     output = StringIO()
     with redirect_stdout(output):
@@ -171,13 +176,17 @@ with TemporaryDirectory() as tmp:
                      for p, v in (("hairpin", "0.16.0.0"), ("camber", "0.17.0.0"))],
                     versions, list(versions))
     report = output.getvalue()
-    assert "README.md:3: review dependency guidance manually:" in report, report
-    assert "hairpin@0.16.0.0 imports: http@0.40.0.0" in report, report
-    assert "camber@0.17.0.0 imports: http@0.40.0.0" in report, report
-    assert "jwt@0.13.0.0 imports: http@0.39.2.0" in report, report
+    generated = (root / "README.md").read_text()
+    assert "| `bend-kit-http@0.39.2.0` | `jwt@0.13.0.0` |" in generated, generated
+    assert "| `bend-kit-http@0.40.0.0` | `camber@0.17.0.0`, `hairpin@0.16.0.0` |" in generated, generated
+    assert "| `bend-kit-hairpin@0.15.0.0` | `camber@0.17.0.0`, `jwt@0.13.0.0` |" in generated, generated
+    assert "`http@0.40.0.0` imports: `time@0.2.0.0`." in generated, generated
+    assert "README.md:" not in report.replace("time/README.md:", ""), report
     assert "time/README.md:1: review dependency guidance manually:" in report, report
-    assert "README.md:4:" not in report, report
-    assert (root / "README.md").read_text().startswith(prose), "do not guess prose replacements"
+    assert generated.endswith(tail.replace("0.15.0.0", "0.16.0.0")), generated
+    after = dict(versions, hairpin="0.16.0.0", camber="0.17.0.0")
+    repin.same_type(after, list(reversed(versions)))
+    assert (root / "README.md").read_text() == generated, "generation is not stable"
     assert "bend-kit-http@0.39.2.0" in (root / "scripts/pins.allow").read_text()
 
 print("Re-pin wave checks pass")

@@ -36,9 +36,14 @@ Each package has `LAWS.bend` and `PROOF.bend`. In that folder, `bend PROOF.bend`
 
 Import the version the callee imports when you pass it a value. The newest folder version is often a different type. Each package README names the pins in its entry file.
 
-`http@0.43.0.0` imports its siblings by name: `wire@0.4.8.1`, `http2@0.6.0.0`, `bytes@0.3.3.1`, `time@0.3.0.2`, `int@0.2.0.0`, `concurrency@0.2.0.0`, `url@0.4.1.0`, `encoding@0.5.0.1`, `json@0.7.3.0`, `dns@0.7.1.2`, and `zlib@0.7.0.1`. `Pure.Body` is `bend-kit-bytes@0.3.3.1`.
+This section comes from entry-file imports and package versions. Run `scripts/repin.py --guidance` to update it without hub access.
 
-`hairpin@0.16.0.1`, `camber@0.17.0.1`, `jwt@0.14.0.2`, `llm@0.16.0.2`, `oauth2@0.14.0.2`, `sigv4@0.14.0.2`, and `webhooks@0.14.0.1` use `bend-kit-http@0.40.0.1`. The `jwt`, `llm`, `oauth2`, `sigv4`, and `webhooks` packages use `bend-kit-hairpin@0.16.0.1`. These versions share their sibling types and C effects.
+`http@0.43.0.0` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.7.1.2`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.2`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.1`.
+
+| Dependency pin | Consumers |
+|---|---|
+| `bend-kit-http@0.40.0.1` | `camber@0.17.0.1`, `hairpin@0.16.0.1`, `jwt@0.14.0.2`, `llm@0.16.0.2`, `oauth2@0.14.0.2`, `sigv4@0.14.0.2`, `webhooks@0.14.0.2` |
+| `bend-kit-hairpin@0.16.0.1` | `jwt@0.14.0.2`, `llm@0.16.0.2`, `oauth2@0.14.0.2`, `sigv4@0.14.0.2`, `webhooks@0.14.0.2` |
 
 ## Native libraries
 

@@ -14,6 +14,7 @@ benchmark import templates take part in the same waves as Bend sources.
 
 Usage: scripts/repin.py [--apply]. --apply re-pins the first wave: imports,
 package READMEs, root README import rows, VERSION, and scripts/pins.allow.
+Use --guidance to regenerate the root Same type section without hub access.
 BEND_HUB overrides the hub, as in scripts/publish.sh.
 """
 import json
@@ -169,6 +170,41 @@ def sub(path, old, new):
         path.write_text(out)
 
 
+def same_type(ver, pkgs):
+    path = ROOT / "README.md"
+    text = path.read_text()
+    if "## Same type\n" not in text:
+        return
+    entries = {}
+    for p in sorted(pkgs):
+        entry = ROOT / p / f"{p}.bend"
+        entries[p] = sorted(set(IMPORT.findall(entry.read_text()))) if entry.exists() else []
+    lines = [
+        "## Same type", "",
+        "Import the version the callee imports when you pass it a value. "
+        "The newest folder version is often a different type. "
+        "Each package README names the pins in its entry file.", "",
+        "This section comes from entry-file imports and package versions. "
+        "Run `scripts/repin.py --guidance` to update it without hub access.", "",
+    ]
+    if "http" in entries:
+        pins = ", ".join(f"`{q}@{v}`" for q, v in entries["http"])
+        lines += [f"`http@{ver['http']}` imports: {pins or 'no siblings'}.", ""]
+    lines += ["| Dependency pin | Consumers |", "|---|---|"]
+    for dependency in ("http", "hairpin"):
+        groups = {}
+        for p, pins in entries.items():
+            for q, v in pins:
+                if q == dependency:
+                    groups.setdefault(v, []).append(f"`{p}@{ver[p]}`")
+        for v, consumers in sorted(groups.items(), key=lambda item: tuple(map(int, item[0].split(".")))):
+            lines.append(f"| `bend-kit-{dependency}@{v}` | {', '.join(consumers)} |")
+    replacement = "\n".join(lines) + "\n\n"
+    out = re.sub(r"(?ms)^## Same type\n.*?(?=^## |\Z)", lambda _: replacement, text, count=1)
+    if out != text:
+        path.write_text(out)
+
+
 def apply(moves, ver, pkgs):
     after = dict(ver)
     for p, new, edits in moves:
@@ -186,6 +222,7 @@ def apply(moves, ver, pkgs):
             if readme.exists():
                 sub(readme, rf"bend-kit-{p}@{re.escape(ver[p])}(?![0-9])", f"bend-kit-{p}@{new}")
     allow(after, pkgs)
+    same_type(after, pkgs)
     guidance(after, pkgs, {p for p, _, _ in moves}
              | {q for _, _, edits in moves for e in edits.values() for q, _ in e})
 
@@ -196,7 +233,12 @@ def guidance(ver, pkgs, changed):
     for path in paths:
         if not path.exists():
             continue
+        generated = False
         for n, line in enumerate(path.read_text().splitlines(), 1):
+            if path == ROOT / "README.md" and line.startswith("## "):
+                generated = line == "## Same type"
+            if generated:
+                continue
             refs = [(p.removeprefix("bend-kit-"), v) for p, v in re.findall(
                 r"\b((?:bend-kit-)?[a-z0-9-]+)@([0-9]+(?:\.[0-9]+)*)(?![0-9./])", line)]
             refs = [(p, v) for p, v in refs if p in ver]
@@ -231,6 +273,9 @@ def allow(before, pkgs):
 
 def main():
     pkgs, ver, files, pins = load()
+    if "--guidance" in sys.argv[1:]:
+        same_type(ver, pkgs)
+        return
     plan = waves(pkgs, ver, files, pins)
     if "--apply" in sys.argv[1:]:
         first = next(plan, None)
