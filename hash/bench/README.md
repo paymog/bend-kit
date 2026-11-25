@@ -1,6 +1,6 @@
 # Hash benchmark
 
-This times each hash in `hash` on one fixed input, in Bend and in C, Rust, JavaScript (Bun and Node), and Python.
+This times each hash in `hash` on one fixed input, in Bend and in C, Rust, JavaScript (Bun and Node), and Python. It also measures a CRC-32 short-input matrix in Bend and Python zlib.
 
 ## Run
 
@@ -26,6 +26,57 @@ You need `bend`, `clang` with zlib, `pkg-config` with libsodium, `rustc`, `bun`,
 | xxh64 | `ba036b508762d94b` |
 | siphash13 | `5499ab03ca48bea5` |
 | siphash24 | `f0c18ef62990dd94` |
+
+## Short-input matrix
+
+Run `python3 run.py 5` from this directory. The runner prints compiler versions, checks all 36 Bend checksums against Python's standard `zlib.crc32`, and reports median batch times and Bend nanoseconds per call. Missing rows or changed checksums fail the run.
+
+Each sample hashes one buffer 100,000 times. Input construction runs before the timer. The timed loop retains the buffer and returns the last CRC. Times include loop overhead; Python uses a scalar loop, not a list of results. Patterns are zero bytes, incrementing bytes (`byte[i] = i`), and deterministic mixed bytes (`byte[i] = ((i * 73 + 19) ^ (i * i * 11)) & 255`). Each length starts at byte index zero.
+
+M4 Pro, macOS, 2026-11-25, `hash` 0.3.2.2 at `fb528db`. Median of five fresh processes per language. Bend 2.0.40, Apple clang 21.0.0, rustc 1.91.0, Bun 1.4.4, Node 24.0.1, Python 3.14.6. Only one process runs at a time. The unchanged 16 MB benchmark also ran; all nine existing checksums above still agree.
+
+| pattern | bytes | checksum | Bend ms | Python zlib ms | Bend ns/call |
+|---|---:|---|---:|---:|---:|
+| zero | 0 | `00000000` | 0.258917 | 2.364000 | 2.589 |
+| zero | 1 | `d202ef8d` | 0.247875 | 3.149000 | 2.479 |
+| zero | 3 | `ff41d912` | 0.252459 | 3.192000 | 2.525 |
+| zero | 4 | `2144df1c` | 0.247833 | 2.875000 | 2.478 |
+| zero | 7 | `9d6cdf7e` | 0.278666 | 3.275000 | 2.787 |
+| zero | 8 | `6522df69` | 0.268083 | 3.258000 | 2.681 |
+| zero | 15 | `d7d303e7` | 0.360000 | 3.483000 | 3.600 |
+| zero | 16 | `ecbb4b55` | 0.370959 | 4.093000 | 3.710 |
+| zero | 17 | `c9eff1bd` | 0.410750 | 4.358000 | 4.107 |
+| zero | 31 | `6909acb0` | 0.770333 | 6.834000 | 7.703 |
+| zero | 32 | `190a55ad` | 1.076541 | 2.955000 | 10.765 |
+| zero | 33 | `7a7c3a8d` | 0.853083 | 3.236000 | 8.531 |
+| incrementing | 0 | `00000000` | 0.259333 | 2.291000 | 2.593 |
+| incrementing | 1 | `d202ef8d` | 0.262583 | 3.080000 | 2.626 |
+| incrementing | 3 | `0854897f` | 0.246291 | 2.881000 | 2.463 |
+| incrementing | 4 | `8bb98613` | 0.250375 | 3.281000 | 2.504 |
+| incrementing | 7 | `ad5809f9` | 0.281000 | 3.436000 | 2.810 |
+| incrementing | 8 | `88aa689f` | 0.264375 | 3.245000 | 2.644 |
+| incrementing | 15 | `a06c675e` | 0.359083 | 3.526000 | 3.591 |
+| incrementing | 16 | `cecee288` | 0.361000 | 4.117000 | 3.610 |
+| incrementing | 17 | `2c183a19` | 0.400333 | 3.561000 | 4.003 |
+| incrementing | 31 | `4d786d77` | 0.716917 | 7.082000 | 7.169 |
+| incrementing | 32 | `91267e8a` | 0.682500 | 3.151000 | 6.825 |
+| incrementing | 33 | `e4908305` | 0.657500 | 3.262000 | 6.575 |
+| mixed | 0 | `00000000` | 0.245792 | 2.480000 | 2.458 |
+| mixed | 1 | `56bcae53` | 0.237792 | 3.150000 | 2.378 |
+| mixed | 3 | `80bf342c` | 0.242000 | 3.207000 | 2.420 |
+| mixed | 4 | `7353c3c7` | 0.235084 | 3.276000 | 2.351 |
+| mixed | 7 | `c1b4bca4` | 0.271375 | 3.284000 | 2.714 |
+| mixed | 8 | `7aa48464` | 0.268792 | 3.280000 | 2.688 |
+| mixed | 15 | `1faad43c` | 0.366583 | 3.224000 | 3.666 |
+| mixed | 16 | `37c8fb54` | 0.373083 | 3.579000 | 3.731 |
+| mixed | 17 | `f1ec40c9` | 0.387292 | 4.455000 | 3.873 |
+| mixed | 31 | `90b6db35` | 0.711542 | 7.133000 | 7.115 |
+| mixed | 32 | `25f00e0b` | 0.590625 | 2.928000 | 5.906 |
+| mixed | 33 | `fa25a71d` | 0.638458 | 3.282000 | 6.385 |
+
+The 16-byte incrementing input does not represent all callers. These samples span about 2.35 to 10.77 ns per call. Lengths around the 32-byte path boundary and different byte patterns need separate measurements. Fixed pattern order and machine noise can affect these medians; the zero-byte 32-byte row alone does not prove a pattern-specific bottleneck.
+
+This is a baseline measurement, not an optimization comparison. No production CRC code changes. A future candidate must run alternating baseline/candidate pairs (AB, BA) for every matrix row before claiming a gain. Keep the long-input checksum and timing in that comparison.
 
 ## Results
 

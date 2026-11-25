@@ -58,6 +58,36 @@ def short(n: Nat, r: Bytes.Bytes & U32) -> Bytes.Bytes & U32:
       (b, +h) = r
       short(p, Hash.crc32(b))
 
+def matrix.byte(pattern: U32, +i: U32) -> U32:
+  match pattern:
+    case 0:
+      0
+    case 1:
+      i
+    case _:
+      (((i * 73 + 19 : U32) .^. (i * i * 11 : U32)) .&. 255 : U32)
+
+def matrix.fill(n: Nat, b: Bytes.Bytes, +pattern: U32, +i: U32) -> Bytes.Bytes:
+  match n:
+    case 0n:
+      b
+    case 1n+p:
+      matrix.fill(p, Bytes.set(b, i, matrix.byte(pattern, i)), pattern, (i + 1 : U32))
+
+def matrix.lengths(ns: List<U32>, +pattern: U32, +name: String) -> IO(Unit):
+  match ns:
+    case Nil{}:
+      IO.pure(Unit, Unit{})
+    case Con{+len, rest}:
+      do IO<Unit>:
+        b : Bytes.Bytes = matrix.fill(U32.to_nat(len), Bytes.new(len), pattern, 0)
+        t : Time.Duration <- Time.mono()
+        done : Bytes.Bytes <- stop("crc32_" ++ name ++ "_" ++ U32.show(len), t, short(100000n, (b, 0)))
+        matrix.lengths(rest, pattern, name)
+
+def matrix(+pattern: U32, name: String) -> IO(Unit):
+  matrix.lengths([0, 1, 3, 4, 7, 8, 15, 16, 17, 31, 32, 33], pattern, name)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     b0 : Bytes.Bytes = input()
@@ -80,4 +110,7 @@ def main() -> IO(Unit):
     s0 : Bytes.Bytes = fill(16n, Bytes.new(16), 0)
     t7 : Time.Duration <- Time.mono()
     s1 : Bytes.Bytes <- stop("crc32_short", t7, short(100000n, (s0, 0)))
+    matrix(0, "zero")
+    matrix(1, "incrementing")
+    matrix(2, "mixed")
     return Unit{}
