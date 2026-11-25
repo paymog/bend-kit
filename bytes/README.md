@@ -50,6 +50,13 @@ The round-trip check includes its imported decimal, array, packed, ASCII,
 codec, and shared arithmetic proofs. The separate lemmas command checks the
 shared library entry too. The runtime codec and proof claims are unchanged.
 
+CI repeats these three checks in the `bytes-kernel` job when Bend files in
+`bytes/` or `lemmas/` change. Changes to its workflow, installer, RSS guard,
+or regression check also select the job. CI pins and caches Lean 4.34.0 and
+the BendTT kernel. Each check must exit zero and print `ALL PROOFS CHECK`.
+The job fails on a proof error, a process-tree RSS above 20 GiB, or its
+30-minute timeout. The merge gate requires this job when selected.
+
 
 ## Positional reads and writes
 

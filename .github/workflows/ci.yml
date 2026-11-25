@@ -100,6 +100,7 @@ jobs:
       stream: ${{ steps.list.outputs.stream }}
       native: ${{ steps.list.outputs.native }}
       workflows: ${{ steps.workflows.outputs.changed }}
+      decimal: ${{ steps.decimal.outputs.changed }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -118,6 +119,25 @@ jobs:
             fi
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - id: decimal
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            changed=$(git diff --name-only "origin/$BASE_REF"...HEAD)
+          elif [ "$BEFORE" = 0000000000000000000000000000000000000000 ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            changed=$(git diff --name-only "$BEFORE" HEAD)
+          fi
+          if grep -qE '^(bytes|lemmas)/.*\.bend$|^scripts/(install-bend\.sh|rss-check\.py|bytes-kernel-test\.py)$|^\.github/workflows/ci\.yml$' <<<"$changed"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
       - id: list
         run: |
@@ -195,6 +215,54 @@ jobs:
         run: actionlint -shellcheck "$(command -v shellcheck)"
       - name: Check workflow lint selection and failure handling
         run: python3 -B scripts/workflow-lint-test.py
+      - name: Check bytes kernel selection and failure handling
+        run: python3 -B scripts/bytes-kernel-test.py
+
+  bytes-kernel:
+    needs: changes
+    if: needs.changes.outputs.decimal == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: bytes-kernel-${{ github.event_name }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Bend
+        run: |
+          scripts/install-bend.sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+      - name: Cache Lean and BendTT
+        id: kernel-cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/lean-4.34.0
+            ~/.bend/bendtt
+          key: bytes-kernel-${{ runner.os }}-${{ runner.arch }}-lean-4.34.0-${{ hashFiles('scripts/install-bend.sh') }}
+      - name: Install Lean 4.34.0
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL -o "$RUNNER_TEMP/lean.tar.zst" \
+            https://github.com/leanprover/lean4/releases/download/v4.34.0/lean-4.34.0-linux.tar.zst
+          echo "caaa98356098c85dc0fcbbd28e1ec66f39eb6551829972b752ff20e1286b646b  $RUNNER_TEMP/lean.tar.zst" | sha256sum -c -
+          mkdir -p "$HOME/.cache/lean-4.34.0"
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" --strip-components=1 -C "$HOME/.cache/lean-4.34.0"
+      - name: Select Lean 4.34.0
+        run: |
+          "$HOME/.cache/lean-4.34.0/bin/lean" --version
+          echo "$HOME/.cache/lean-4.34.0/bin" >> "$GITHUB_PATH"
+      - name: Check independent decimal proofs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for proof in bytes/array-proof.bend bytes/roundtrip-proof.bend lemmas/lemmas.bend; do
+            echo "== $proof --verdict"
+            python3 -B scripts/rss-check.py bend "$proof" --verdict 2>&1 | tee "$RUNNER_TEMP/bytes-kernel.log"
+            grep -qx 'ALL PROOFS CHECK' "$RUNNER_TEMP/bytes-kernel.log"
+          done
 
   check:
     needs: changes
@@ -556,7 +624,7 @@ jobs:
 
   gate:
     name: gate
-    needs: [changes, workflow-lint, check, native-macos, stream-live, http-macos, http-tls-macos, wire-tls-macos, hairpin-ca-macos, smoke]
+    needs: [changes, workflow-lint, bytes-kernel, check, native-macos, stream-live, http-macos, http-tls-macos, wire-tls-macos, hairpin-ca-macos, smoke]
     if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     steps:
@@ -569,6 +637,10 @@ jobs:
           case "${{ needs.workflow-lint.result }}" in
             success|skipped) ;;
             *) echo "workflow-lint is ${{ needs.workflow-lint.result }}"; exit 1 ;;
+          esac
+          case "${{ needs.bytes-kernel.result }}" in
+            success|skipped) ;;
+            *) echo "bytes-kernel is ${{ needs.bytes-kernel.result }}"; exit 1 ;;
           esac
           case "${{ needs.check.result }}" in
             success|skipped) ;;
