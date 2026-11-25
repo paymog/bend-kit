@@ -8,6 +8,8 @@ import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.40.0.1/http.bend as Http
+import ./pure.bend as Pure
+import bend-kit-time@0.3.0.2/pure.bend as PureTime
 
 # Every MAC is HMAC-SHA256 over the body exactly as received, never a re-encoding of parsed JSON.
 # Headers are Http.Req headers: lowercase names, octet-string values. Each verify hands the body back.
@@ -24,84 +26,74 @@ type Err is Data:
   NoMatch{}
   CryptoErr{code: U32, msg: String}
 
-# ---- headers and text
+def instant.to.pure(v: Time.Instant) -> PureTime.Instant:
+  Time.Instant{s, n} = v
+  PureTime.Instant{s, n}
 
-def field.head(xs: List<&2, String>) -> Maybe<&2, String>:
-  match xs:
-    case Nil{}:
-      None{}
-    case Con{v, t}:
-      Some{v}
+def err.from.pure(e: Pure.Err) -> Err:
+  match e:
+    case Pure.Missing{name}:
+      Missing{name}
+    case Pure.BadSecret{}:
+      BadSecret{}
+    case Pure.BadId{}:
+      BadId{}
+    case Pure.BadTimestamp{}:
+      BadTimestamp{}
+    case Pure.TooOld{}:
+      TooOld{}
+    case Pure.TooNew{}:
+      TooNew{}
+    case Pure.NoMatch{}:
+      NoMatch{}
+    case Pure.CryptoErr{code, msg}:
+      CryptoErr{code, msg}
 
-def field.of(r: Map<&2, List<&2, String>> & List<&2, String>) -> Maybe<&2, String>:
-  (h, xs) = r
-  field.head(xs)
-
-def field(+h: Map<&2, List<&2, String>>, k: String) -> Maybe<&2, String>:
-  field.of(Map.get(List<&2, String>, Nil{}, h, k))
-
-def need(+name: String, m: Maybe<&2, String>) -> Result<&1, &1, Err, String>:
-  match m:
-    case None{}:
-      Fail{Missing{name}}
-    case Some{v}:
+def result.from.pure(-A: Type, r: Result<&1, &1, Pure.Err, A>) -> Result<&1, &1, Err, A>:
+  match r:
+    case Fail{e}:
+      Fail{err.from.pure(e)}
+    case Done{v}:
       Done{v}
 
-# s after the prefix p, or None.
+def field.head(xs: List<&2, String>) -> Maybe<&2, String>:
+  Pure.field.head(xs)
+
+def field.of(r: Map<&2, List<&2, String>> & List<&2, String>) -> Maybe<&2, String>:
+  Pure.field.of(r)
+
+def field(+h: Map<&2, List<&2, String>>, k: String) -> Maybe<&2, String>:
+  Pure.field(h, k)
+
+def need(+name: String, m: Maybe<&2, String>) -> Result<&1, &1, Err, String>:
+  result.from.pure(String, Pure.need(name, m))
+
 def strip(+p: String, +s: String) -> Maybe<&2, String>:
-  Bool.pick(Maybe<&2, String>, String.starts_with(s, p), Some{String.drop(s, String.length(p))}, None{})
+  Pure.strip(p, s)
 
 def push(m: Maybe<&2, String>, rest: List<&2, String>) -> List<&2, String>:
-  match m:
-    case None{}:
-      rest
-    case Some{s}:
-      Con{s, rest}
+  Pure.push(m, rest)
 
 def put(m: Map<&2, List<&2, String>>, k: String, v: String) -> Map<&2, List<&2, String>>:
-  Map.set(&2, List<&2, String>, m, k, Con{v, Nil{}})
+  Pure.put(m, k, v)
 
 def digits(s: String) -> Bool:
-  match s:
-    case SNil{}:
-      True{}
-    case SCon{Chr{+c}, t}:
-      Bool.and(Bool.and(U32.is_le(48, c), U32.is_le(c, 57)), digits(t))
+  Pure.digits(s)
 
 def ts.some(ok: Bool, m: Maybe<&2, Int.I64>) -> Result<&1, &1, Err, Int.I64>:
-  match ok:
-    case False{}:
-      Fail{BadTimestamp{}}
-    case True{}:
-      match m:
-        case None{}:
-          Fail{BadTimestamp{}}
-        case Some{t}:
-          Done{t}
+  result.from.pure(Int.I64, Pure.ts.some(ok, m))
 
-# Unix seconds: 1 to 18 ASCII digits, no sign, so the parse never overflows.
 def ts.read(+s: String) -> Result<&1, &1, Err, Int.I64>:
-  +n = String.length(s)
-  ts.some(Bool.and(Bool.and(Nat.is_lt(0n, n), Nat.is_le(n, 18n)), digits(s)), Int.I64.read(s))
+  result.from.pure(Int.I64, Pure.ts.read(s))
 
 def window.pick(old: Bool, ahead: Bool) -> Result<&1, &1, Err, Unit>:
-  match old:
-    case True{}:
-      Fail{TooOld{}}
-    case False{}:
-      Bool.pick(Result<&1, &1, Err, Unit>, ahead, Fail{TooNew{}}, Done{Unit{}})
+  result.from.pure(Unit, Pure.window.pick(old, ahead))
 
-# t within tol seconds of now, either way.
 def window(+tol: U32, now: Time.Instant, t: Int.I64) -> Result<&1, &1, Err, Unit>:
-  match now:
-    case Time.Instant{n, ns}:
-      +d = Int.I64.sub(n, t)
-      +w = Int.I64.from_u32(tol)
-      window.pick(Int.I64.is_gt(d, w), Int.I64.is_lt(d, Int.I64.neg(w)))
+  result.from.pure(Unit, Pure.window(tol, instant.to.pure(now), t))
 
-# A webhook id is not empty and has no '.', so id.timestamp.body reads one way.
 def id.check(+id: String) -> Result<&1, &1, Err, Unit>:
-  Bool.pick(Result<&1, &1, Err, Unit>, Bool.or(String.is_empty(id), String.contains(id, ".")), Fail{BadId{}}, Done{Unit{}})
+  result.from.pure(Unit, Pure.id.check(id))
 
 # ---- keys and signatures
 
@@ -120,10 +112,8 @@ def b64.canon(+s: String, m: Maybe<&1, Bytes.Bytes>) -> Maybe<&1, Bytes.Bytes>:
 def b64(+s: String) -> Maybe<&1, Bytes.Bytes>:
   b64.canon(s, Bytes.from_base64(s))
 
-# '=' up to a multiple of four chars.
 def pad(+s: String) -> String:
-  +r = (String.length(s) % 4n : Nat)
-  s ++ Bool.pick(String, Nat.is_eq(r, 2n), "==", Bool.pick(String, Nat.is_eq(r, 3n), "=", ""))
+  Pure.pad(s)
 
 def nonempty.of(b: Bytes.Bytes) -> Maybe<&1, Bytes.Bytes>:
   Bytes.Bytes{+n, a} = b
@@ -272,23 +262,11 @@ def run(-A: Data, c: Result<&1, &1, Err, A & String & List<&2, String>>, +std: B
 
 # ---- Standard Webhooks (https://www.standardwebhooks.com)
 
-# The v1 entries of a space-separated webhook-signature; other versions are skipped.
 def std.sigs(xs: List<&2, String>) -> List<&2, String>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{x, t}:
-      push(strip("v1,", x), std.sigs(t))
+  Pure.std.sigs(xs)
 
 def std.check(+tol: U32, now: Time.Instant, +h: Map<&2, List<&2, String>>) -> Result<&1, &1, Err, String & String & List<&2, String>>:
-  do Result<&1, &1, Err, String & String & List<&2, String>>:
-    +id : String <- need("webhook-id", field(h, "webhook-id"))
-    +ts : String <- need("webhook-timestamp", field(h, "webhook-timestamp"))
-    sig : String <- need("webhook-signature", field(h, "webhook-signature"))
-    u : Unit <- id.check(id)
-    t : Int.I64 <- ts.read(ts)
-    w : Unit <- window(tol, now, t)
-    return (id, id ++ "." ++ ts ++ ".", std.sigs(String.split(sig, ' ')))
+  result.from.pure(String & String & List<&2, String>, Pure.std.check(tol, instant.to.pure(now), h))
 
 # Done with the webhook-id when a v1 signature in webhook-signature signs id.timestamp.body under a secret,
 # and webhook-timestamp is within tol seconds of now.
@@ -302,10 +280,7 @@ def verify(secrets: List<&2, String>, now: Time.Instant, +headers: Map<&2, List<
   verify.with(300, secrets, now, headers, body)
 
 def sign.check(+id: String, +ts: Int.I64) -> Result<&1, &1, Err, String & String>:
-  do Result<&1, &1, Err, String & String>:
-    u : Unit <- id.check(id)
-    w : Unit <- Bool.pick(Result<&1, &1, Err, Unit>, Int.I64.is_neg(ts), Fail{BadTimestamp{}}, Done{Unit{}})
-    return (id, Int.I64.show(ts))
+  result.from.pure(String & String, Pure.sign.check(id, ts))
 
 def sign.headers(+id: String, +ts: String, m: Result<&1, &1, Err, Bytes.Bytes>) -> Result<&1, &1, Err, Map<&2, List<&2, String>>>:
   match m:
@@ -346,62 +321,31 @@ def sign(+id: String, +ts: Int.I64, body: Bytes.Bytes, +secret: String) ->
 # ---- Stripe (https://docs.stripe.com/webhooks#verify-manually)
 
 def stripe.t(s: String, r: List<&2, String> & List<&2, String>) -> List<&2, String> & List<&2, String>:
-  (ts, vs) = r
-  (Con{s, ts}, vs)
+  Pure.stripe.t(s, r)
 
 def stripe.v.push(s: String, r: List<&2, String> & List<&2, String>) -> List<&2, String> & List<&2, String>:
-  (ts, vs) = r
-  (ts, Con{s, vs})
+  Pure.stripe.v.push(s, r)
 
 def stripe.v(m: Maybe<&2, String>, r: List<&2, String> & List<&2, String>) -> List<&2, String> & List<&2, String>:
-  match m:
-    case None{}:
-      r
-    case Some{s}:
-      stripe.v.push(s, r)
+  Pure.stripe.v(m, r)
 
-def stripe.item(t: Maybe<&2, String>, v: Maybe<&2, String>, r: List<&2, String> & List<&2, String>) ->
-    List<&2, String> & List<&2, String>:
-  match t:
-    case None{}:
-      stripe.v(v, r)
-    case Some{s}:
-      stripe.t(s, r)
+def stripe.item(t: Maybe<&2, String>, v: Maybe<&2, String>, r: List<&2, String> & List<&2, String>) -> List<&2, String> & List<&2, String>:
+  Pure.stripe.item(t, v, r)
 
-# The t= and v1= values of comma-separated items; other schemes (v0) are skipped.
 def stripe.items(xs: List<&2, String>) -> List<&2, String> & List<&2, String>:
-  match xs:
-    case Nil{}:
-      (Nil{}, Nil{})
-    case Con{+x, rest}:
-      stripe.item(strip("t=", x), strip("v1=", x), stripe.items(rest))
+  Pure.stripe.items(xs)
 
 def stripe.single(ts: List<&2, String>, vs: List<&2, String>) -> Result<&1, &1, Err, String & List<&2, String>>:
-  match ts:
-    case Nil{}:
-      Fail{BadTimestamp{}}
-    case Con{t, Nil{}}:
-      Done{(t, vs)}
-    case Con{t, more}:
-      Fail{BadTimestamp{}}
+  result.from.pure(String & List<&2, String>, Pure.stripe.single(ts, vs))
 
-# Exactly one t=: a second one would leave the signed timestamp ambiguous.
 def stripe.one(r: List<&2, String> & List<&2, String>) -> Result<&1, &1, Err, String & List<&2, String>>:
-  (ts, vs) = r
-  stripe.single(ts, vs)
+  result.from.pure(String & List<&2, String>, Pure.stripe.one(r))
 
 def stripe.when(+tol: U32, now: Time.Instant, p: String & List<&2, String>) -> Result<&1, &1, Err, Unit & String & List<&2, String>>:
-  (+ts, vs) = p
-  do Result<&1, &1, Err, Unit & String & List<&2, String>>:
-    t : Int.I64 <- ts.read(ts)
-    w : Unit <- window(tol, now, t)
-    return (Unit{}, ts ++ ".", vs)
+  result.from.pure(Unit & String & List<&2, String>, Pure.stripe.when(tol, instant.to.pure(now), p))
 
 def stripe.check(+tol: U32, now: Time.Instant, +h: Map<&2, List<&2, String>>) -> Result<&1, &1, Err, Unit & String & List<&2, String>>:
-  do Result<&1, &1, Err, Unit & String & List<&2, String>>:
-    sig : String <- need("stripe-signature", field(h, "stripe-signature"))
-    p : String & List<&2, String> <- stripe.one(stripe.items(String.split(sig, ',')))
-    stripe.when(tol, now, p)
+  result.from.pure(Unit & String & List<&2, String>, Pure.stripe.check(tol, instant.to.pure(now), h))
 
 # Done when a v1 hex signature in stripe-signature signs t.body under a secret (the whsec_ text itself, as UTF-8),
 # and t is within tol seconds of now.
@@ -417,9 +361,7 @@ def stripe.verify(secrets: List<&2, String>, now: Time.Instant, +headers: Map<&2
 # ---- GitHub (https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
 
 def github.check(+h: Map<&2, List<&2, String>>) -> Result<&1, &1, Err, Unit & String & List<&2, String>>:
-  do Result<&1, &1, Err, Unit & String & List<&2, String>>:
-    sig : String <- need("x-hub-signature-256", field(h, "x-hub-signature-256"))
-    return (Unit{}, "", push(strip("sha256=", sig), Nil{}))
+  result.from.pure(Unit & String & List<&2, String>, Pure.github.check(h))
 
 # Done when x-hub-signature-256 is sha256=<hex> of the body under a secret's UTF-8. GitHub signs no timestamp.
 def github.verify(secrets: List<&2, String>, +headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
