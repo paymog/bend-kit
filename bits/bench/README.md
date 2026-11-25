@@ -456,3 +456,120 @@ these three local replacements. No package version or sibling pin changes.
 The unchanged package proofs and functional checks pass, including invalid and
 truncated secondary-code checks in both orders. There are no native effects in
 this package. The temporary candidate sources and binaries are not shipped.
+
+## Caller table memory
+
+```sh
+python3 memory.py 1 1024
+python3 memory.py 3
+```
+
+Run from `bits/bench` on macOS. The runner builds three native binaries,
+one at a time. It needs Bend 2.0.40, Python, and `/usr/bin/time`.
+Generated inputs, binaries, and `report.json` stay in `out/memory/`.
+The JSON records every process RSS sample, input SHA-256, checksum, block
+boundary, and code-length histogram, including unused symbols.
+The parser checks stored, fixed, and dynamic blocks before the measurements.
+
+The kit has one compression caller of `Bits.Huff`: the pure `zlib` decoder.
+Raw DEFLATE, zlib, and gzip wrappers use that decoder. Native zlib effects use
+the host library, not these tables. There is no JPEG or MP3 caller in the kit.
+This run uses the actual caller, with its existing bits 0.3.0.1 hub pin.
+Current bits 0.4.0.0 has the same uniform secondary layout. The synthetic
+controls import local bits. No runtime, version, or pin changes are made.
+
+The plain bytes come from `zlib/bench/run.py:plain_bytes`: LCG sentences,
+newlines, and occasional raw bytes. The default sizes are 1024, 32768, and
+131072 bytes. `kit` uses the kit's gzip encoder, with 32 KiB blocks.
+`python` uses Python's `gzip.compress(..., mtime=0)`, with its default level.
+Both compressed streams pass Python decompression against the exact plain
+bytes. Every measured kit decode must return the plain-byte checksum.
+The runner parses every block, not only the first header.
+
+M4 Pro, macOS 25.6.0, arm64, 2026-11-25. Bend 2.0.40,
+Apple clang 21.0.0, Python 3.14.6. Three fresh processes per row.
+RSS is the whole process maximum from `/usr/bin/time -l`, in bytes.
+The timer surrounds `gunzip`; file reads and output checksum conversion are
+outside it. RSS includes those operations, runtime pages, input conversion,
+the output buffer, and table construction. It is not table-only memory.
+
+| encoder | plain bytes | gzip bytes | dynamic blocks | peak RSS bytes | checksum |
+|---|---:|---:|---:|---:|---:|
+| kit | 1024 | 540 | 1 | 2162688 | 569392708 |
+| Python | 1024 | 538 | 1 | 2162688 | 569392708 |
+| kit | 32768 | 10443 | 1 | 3244032 | 1279667653 |
+| Python | 32768 | 10408 | 1 | 3244032 | 1279667653 |
+| kit | 131072 | 35862 | 4 | 6406144 | 2713400746 |
+| Python | 131072 | 35133 | 2 | 6389760 | 2713400746 |
+
+The table gives the maximum of three RSS samples. Kit 1024 ranged from
+2146304 to 2162688 bytes; kit 131072 ranged from 6389760 to 6406144.
+All three samples matched within each other caller row.
+The following depth ranges are the nonzero lengths across all blocks.
+The secondary columns are allocated entries per table, not resident bytes.
+The last column is the largest simultaneous literal-plus-distance allocation,
+including both roots and both secondary arrays.
+
+| encoder / plain bytes | literal depths | distance depths | literal secondary | distance secondary | peak payload entries |
+|---|---|---|---:|---:|---:|
+| kit / 1024 | 3–9 | 3–7 | 1 | 1 | 642 |
+| Python / 1024 | 3–9 | 3–6 | 1 | 1 | 578 |
+| kit / 32768 | 2–13 | 3–13 | 64 | 16 | 1104 |
+| Python / 32768 | 2–13 | 3–10 | 64 | 2 | 1090 |
+| kit / 131072 | 2–13 | 3–13 | 32–64 | 16 | 1104 |
+| Python / 131072 | 2–13 | 3–11 | 8–64 | 2–8 | 1096 |
+
+For the kit's first 32 KiB block, the literal histogram is
+`2:1, 3:3, 4:1, 5:2, 6:7, 7:14, 8:4, 9:5, 10:2, 11:5, 12:3, 13:6`,
+with 226 unused symbols. Its distance histogram is
+`3:2, 4:9, 5:4, 6:2, 7:2, 8:2, 9:3, 10:1, 11:1, 12:1, 13:2`,
+with one unused symbol. The other blocks' full histograms are in the JSON.
+Header trees have maximum lengths 5–7 and no secondary entries beyond the
+one-entry placeholder.
+
+### Retention and controls
+
+Concurrent table counts come from the caller's ownership flow, not an allocator
+trace. `Cd` retains one header tree while it reads the lengths.
+`dyn.done` drops that tree before `dyn.tables` creates the payload pair.
+`MoCodes` retains exactly two tables during payload decode.
+`inf.end` drops both on end-of-block; `inf.go` then reads the next header.
+Neither later blocks nor later gzip members retain earlier tables.
+Thus these sequential caller workloads retain at most two decode tables,
+not two per block. The encoder builds encoding arrays, not decode tables.
+Concurrent independent streams would multiply this count; this run uses one.
+
+The parser records lifetime in compressed bit positions and output bytes.
+For the kit's 128 KiB stream, the four payload intervals are
+`[446,83400)`, `[83851,152108)`, `[152551,219178)`, and `[219609,286746)`.
+Each pair serves exactly 32768 output bytes. Python's intervals are
+`[414,254884)` and `[255274,280920)`, serving 118266 and 12806 bytes.
+Positions exclude the gzip header. These are stream lifetimes, not elapsed
+per-table times. The RSS high-water mark does not identify a particular phase.
+
+The same runner executes the existing sparse/mixed controls in both orders.
+It checks every build and decode checksum and the actual array sizes.
+Each operation retains one table; the 1000-build loop destroys each before
+the next build. The process runs all four controls in sequence.
+Its three combined peak RSS samples were 2408448, 2392064, and 2392064 bytes.
+These are not separate sparse and mixed RSS measurements, and must not be
+subtracted from caller RSS to estimate table memory.
+
+| control | lengths | root | secondary | modeled compact secondary |
+|---|---|---:|---:|---:|
+| sparse | two at 16 | 512 | 128 | 128 |
+| mixed | 32 at 10, 16 at 12, two at 16 | 512 | 4096 | 256 |
+
+Keep the current layout. These real mixed-depth caller trees allocate at most
+64 secondary entries per literal tree, not the synthetic mixed tree's 4096.
+A per-prefix model reduces the first kit literal secondary from 64 to 32
+entries, but leaves its distance secondary at 16. Across all measured trees,
+the largest saving is 32 allocated entries per table, before width metadata.
+The caller has no configured table-memory limit and does not cache tables.
+This run shows no caller limit that smaller secondary widths would resolve.
+Whole-process RSS rises with the input/output workload, while retained table
+counts stay at two. It does not establish table-only resident-byte costs.
+No compact implementation was tested, so there is no compact decode-speed or
+RSS claim. Revisit only with a caller limit or high concurrent-stream count,
+then compare metadata-inclusive memory and batched build/decode on that input.
+The caller's reader-order re-pin is already tracked in issue #1107.
