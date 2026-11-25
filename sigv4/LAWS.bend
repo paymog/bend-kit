@@ -1,5 +1,5 @@
 import Base
-import ./sigv4.bend as Sigv4
+import ./pure.bend as Sigv4
 
 # AWS SigV4 test suite (aws-sig-v4-test-suite, as mirrored in mongodb/libmongocrypt kms-message):
 # region us-east-1, service "service", date 20150830T123600Z. Each vector pins the canonical request

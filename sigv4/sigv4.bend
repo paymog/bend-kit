@@ -8,7 +8,7 @@ import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-collections@0.1.6.0/order.bend as Order
+import ./pure.bend as Pure
 
 # Text (path, query, header values) is a String of code points; non-ASCII is sent as UTF-8.
 # S3 decodes and re-encodes wire escapes once; other services encode an escaped wire path twice.
@@ -19,251 +19,133 @@ type Credentials is Data:
 
 # Code points to UTF-8 octets, one Char per octet. acc is reversed.
 def utf8.c3(three: Bool, +c: U32, acc: String) -> String:
-  match three:
-    case True{}:
-      SCon{Chr{(128 + c % 64 : U32)}, SCon{Chr{(128 + c / 64 % 64 : U32)}, SCon{Chr{(224 + c / 4096 : U32)}, acc}}}
-    case False{}:
-      SCon{Chr{(128 + c % 64 : U32)}, SCon{Chr{(128 + c / 64 % 64 : U32)}, SCon{Chr{(128 + c / 4096 % 64 : U32)}, SCon{Chr{(240 + c / 262144 : U32)}, acc}}}}
+  Pure.utf8.c3(three, c, acc)
 
 def utf8.c2(two: Bool, +c: U32, acc: String) -> String:
-  match two:
-    case True{}:
-      SCon{Chr{(128 + c % 64 : U32)}, SCon{Chr{(192 + c / 64 : U32)}, acc}}
-    case False{}:
-      utf8.c3(U32.is_lt(c, 65536), c, acc)
+  Pure.utf8.c2(two, c, acc)
 
 def utf8.c1(one: Bool, +c: U32, acc: String) -> String:
-  match one:
-    case True{}:
-      SCon{Chr{c}, acc}
-    case False{}:
-      utf8.c2(U32.is_lt(c, 2048), c, acc)
+  Pure.utf8.c1(one, c, acc)
 
 def utf8.go(s: String, acc: String) -> String:
-  match s:
-    case SNil{}:
-      String.reverse(acc)
-    case SCon{Chr{+c}, t}:
-      utf8.go(t, utf8.c1(U32.is_lt(c, 128), c, acc))
+  Pure.utf8.go(s, acc)
 
 def utf8(s: String) -> String:
-  utf8.go(s, SNil{})
+  Pure.utf8(s)
 
 # SigV4 URI encoding of text: UTF-8, then every octet but the unreserved ones as %XX. slash keeps '/'.
 def encode(s: String, slash: Bool) -> String:
-  match slash:
-    case True{}:
-      Url.pct.encode_path(utf8(s))
-    case False{}:
-      Url.pct.encode_q(utf8(s))
+  Pure.encode(s, slash)
 
 def dec.of(m: Maybe<&2, String>, +raw: String) -> String:
-  match m:
-    case None{}:
-      raw
-    case Some{d}:
-      d
+  Pure.dec.of(m, raw)
 
 # A wire component, re-encoded. A malformed escape stays literal, so its '%' is encoded.
 def norm(s: String) -> String:
-  +o = utf8(s)
-  Url.pct.encode_q(dec.of(Url.pct.decode(o), o))
+  Pure.norm(s)
 
 def norms(xs: List<&2, String>) -> List<&2, String>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      Con{norm(h), norms(t)}
+  Pure.norms(xs)
 
 # Non-S3 services encode the wire path a second time; '%' becomes '%25'.
 def wire.segs(xs: List<&2, String>) -> List<&2, String>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{h, t}:
-      Con{Url.pct.encode_q(utf8(h)), wire.segs(t)}
+  Pure.wire.segs(xs)
 
 # Canonical URI (RFC 3986 §5.2.4 for services other than s3): "" and "." segments drop, ".." pops.
 def dots.seg(skip: Bool, up: Bool, +seg: String, st: List<&2, String>) -> List<&2, String>:
-  match skip up:
-    case True{} _:
-      st
-    case False{} True{}:
-      List.drop(&2, String, st, 1n)
-    case False{} False{}:
-      Con{seg, st}
+  Pure.dots.seg(skip, up, seg, st)
 
 def dots(xs: List<&2, String>, st: List<&2, String>) -> List<&2, String>:
-  match xs:
-    case Nil{}:
-      List.reverse(&2, String, st)
-    case Con{+h, t}:
-      dots(t, dots.seg(Bool.or(String.is_empty(h), String.eq(h, ".")), String.eq(h, ".."), h, st))
+  Pure.dots(xs, st)
 
 def uri.slash(empty: Bool, trail: Bool, +body: String) -> String:
-  match empty trail:
-    case True{} _:
-      "/"
-    case False{} True{}:
-      "/" ++ body ++ "/"
-    case False{} False{}:
-      "/" ++ body
+  Pure.uri.slash(empty, trail, body)
 
 def uri.dots(+path: String) -> String:
-  +body = String.join(wire.segs(dots(String.split(path, '/'), Nil{})), "/")
-  +trail = Bool.or(String.ends_with(path, "/"), Bool.or(String.ends_with(path, "/."), String.ends_with(path, "/..")))
-  uri.slash(String.is_empty(body), trail, body)
+  Pure.uri.dots(path)
 
 # S3 signs the path as sent: each segment re-encoded, nothing removed.
 def uri.s3(empty: Bool, +path: String) -> String:
-  match empty:
-    case True{}:
-      "/"
-    case False{}:
-      String.join(norms(String.split(path, '/')), "/")
+  Pure.uri.s3(empty, path)
 
 def uri.if(s3: Bool, +path: String) -> String:
-  match s3:
-    case True{}:
-      uri.s3(String.is_empty(path), path)
-    case False{}:
-      uri.dots(path)
+  Pure.uri.if(s3, path)
 
 def uri(+service: String, +path: String) -> String:
-  uri.if(String.eq(service, "s3"), path)
+  Pure.uri(service, path)
 
 # Canonical query: split on '&', each "k=v" (a bare "k" is "k="), re-encoded, sorted by key then value.
 def pair(xs: List<&2, String>) -> Sigma<&2, &2, String, _ => String>:
-  match xs:
-    case Nil{}:
-      ("", "")
-    case Con{k, t}:
-      (norm(k), norm(String.join(t, "=")))
+  Pure.pair(xs)
 
 def pairs.if(empty: Bool, +h: String, rest: List<&2, Sigma<&2, &2, String, _ => String>>) -> List<&2, Sigma<&2, &2, String, _ => String>>:
-  match empty:
-    case True{}:
-      rest
-    case False{}:
-      Con{pair(String.split(h, '=')), rest}
+  Pure.pairs.if(empty, h, rest)
 
 def pairs(xs: List<&2, String>) -> List<&2, Sigma<&2, &2, String, _ => String>>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{+h, t}:
-      pairs.if(String.is_empty(h), h, pairs(t))
+  Pure.pairs(xs)
 
 def pair.le.of(c: Cmp, av: String, bv: String) -> Bool:
-  match c:
-    case LT{}:
-      True{}
-    case GT{}:
-      False{}
-    case EQ{}:
-      String.is_le(av, bv)
+  Pure.pair.le.of(c, av, bv)
 
 def pair.le(a: Sigma<&2, &2, String, _ => String>, b: Sigma<&2, &2, String, _ => String>) -> Bool:
-  (ak, av) = a
-  (bk, bv) = b
-  pair.le.of(Order.string(ak, bk), av, bv)
+  Pure.pair.le(a, b)
 
 def pairs.show(xs: List<&2, Sigma<&2, &2, String, _ => String>>) -> List<&2, String>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{(k, v), t}:
-      Con{k ++ "=" ++ v, pairs.show(t)}
+  Pure.pairs.show(xs)
 
 def query(q: String) -> String:
-  String.join(pairs.show(List.sort(~Sigma<&2, &2, String, _ => String>, ~pair.le, pairs(String.split(q, '&')))), "&")
+  Pure.query(q)
 
 # Canonical headers: lowercase names, trimmed values with space runs squashed, sorted by name,
 # and a repeated name's values joined by ',' in the order given.
 def squash.if(space: Bool, sp: Bool, +c: U32, rest: String) -> String:
-  match space sp:
-    case True{} True{}:
-      rest
-    case _ _:
-      SCon{Chr{c}, rest}
+  Pure.squash.if(space, sp, c, rest)
 
 def squash(s: String, sp: Bool) -> String:
-  match s:
-    case SNil{}:
-      SNil{}
-    case SCon{Chr{+c}, t}:
-      squash.if(U32.is_eq(c, 32), sp, c, squash(t, U32.is_eq(c, 32)))
+  Pure.squash(s, sp)
 
 def hdrs.low(xs: List<&2, Sigma<&2, &2, String, _ => String>>) -> List<&2, Sigma<&2, &2, String, _ => String>>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{(n, v), t}:
-      Con{(String.to_lower(n), squash(String.trim(v), False{})), hdrs.low(t)}
+  Pure.hdrs.low(xs)
 
 def name.le(a: Sigma<&2, &2, String, _ => String>, b: Sigma<&2, &2, String, _ => String>) -> Bool:
-  (an, av) = a
-  (bn, bv) = b
-  String.is_le(an, bn)
+  Pure.name.le(a, b)
 
 def grp.if(same: Bool, +n: String, +v: String, +pn: String, +pv: String, rest: List<&2, Sigma<&2, &2, String, _ => String>>) -> List<&2, Sigma<&2, &2, String, _ => String>>:
-  match same:
-    case True{}:
-      Con{(pn, pv ++ "," ++ v), rest}
-    case False{}:
-      Con{(n, v), Con{(pn, pv), rest}}
+  Pure.grp.if(same, n, v, pn, pv, rest)
 
 def grp.add(acc: List<&2, Sigma<&2, &2, String, _ => String>>, +n: String, +v: String) -> List<&2, Sigma<&2, &2, String, _ => String>>:
-  match acc:
-    case Nil{}:
-      [(n, v)]
-    case Con{(+pn, +pv), rest}:
-      grp.if(String.eq(pn, n), n, v, pn, pv, rest)
+  Pure.grp.add(acc, n, v)
 
 def grp(xs: List<&2, Sigma<&2, &2, String, _ => String>>, acc: List<&2, Sigma<&2, &2, String, _ => String>>) -> List<&2, Sigma<&2, &2, String, _ => String>>:
-  match xs:
-    case Nil{}:
-      List.reverse(&2, Sigma<&2, &2, String, _ => String>, acc)
-    case Con{(+n, +v), t}:
-      grp(t, grp.add(acc, n, v))
+  Pure.grp(xs, acc)
 
 def headers(hs: List<&2, Sigma<&2, &2, String, _ => String>>) -> List<&2, Sigma<&2, &2, String, _ => String>>:
-  grp(List.sort(~Sigma<&2, &2, String, _ => String>, ~name.le, hdrs.low(hs)), Nil{})
+  Pure.headers(hs)
 
 def names(xs: List<&2, Sigma<&2, &2, String, _ => String>>) -> List<&2, String>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case Con{(n, v), t}:
-      Con{n, names(t)}
+  Pure.names(xs)
 
 def lines(xs: List<&2, Sigma<&2, &2, String, _ => String>>) -> String:
-  match xs:
-    case Nil{}:
-      ""
-    case Con{(n, v), t}:
-      n ++ ":" ++ v ++ "\n" ++ lines(t)
+  Pure.lines(xs)
 
 # The SignedHeaders value for headers hs.
 def signed(hs: List<&2, Sigma<&2, &2, String, _ => String>>) -> String:
-  String.join(names(headers(hs)), ";")
+  Pure.signed(hs)
 
 # The canonical request. hs must hold every header to sign, host included. phash is the
 # payload's lowercase hex SHA-256, or "UNSIGNED-PAYLOAD".
 def canonical(+service: String, +method: String, +path: String, +q: String, +hs: List<&2, Sigma<&2, &2, String, _ => String>>, +phash: String) -> String:
-  +h = headers(hs)
-  method ++ "\n" ++ uri(service, path) ++ "\n" ++ query(q) ++ "\n" ++ lines(h) ++ "\n" ++ String.join(names(h), ";") ++ "\n" ++ phash
+  Pure.canonical(service, method, path, q, hs, phash)
 
 def scope(+date: String, +region: String, +service: String) -> String:
-  String.take(date, 8n) ++ "/" ++ region ++ "/" ++ service ++ "/aws4_request"
+  Pure.scope(date, region, service)
 
 # The string to sign, from the hex SHA-256 of the canonical request.
 def to_sign(+date: String, +scope: String, +hash: String) -> String:
-  "AWS4-HMAC-SHA256\n" ++ date ++ "\n" ++ scope ++ "\n" ++ hash
+  Pure.to_sign(date, scope, hash)
 
 def header(+access: String, +scope: String, +signed: String, +sig: String) -> String:
-  "AWS4-HMAC-SHA256 Credential=" ++ access ++ "/" ++ scope ++ ", SignedHeaders=" ++ signed ++ ", Signature=" ++ sig
+  Pure.header(access, scope, signed, sig)
 
 # Crypto. Errors are the crypto effect's (errno, why).
 
@@ -377,15 +259,11 @@ def authorize(creds: Credentials, +region: String, +service: String, +date: Stri
     authorize.of(hex.of(r), creds, region, service, date, method, path, q, host)
 
 def token.q(empty: Bool, +token: String) -> String:
-  match empty:
-    case True{}:
-      ""
-    case False{}:
-      "&X-Amz-Security-Token=" ++ encode(token, False{})
+  Pure.token.q(empty, token)
 
 # The query a presigned request adds to q, before X-Amz-Signature.
 def presign.query(+access: String, +token: String, +scope: String, +date: String, +expires: U32, +q: String) -> String:
-  query(q ++ "&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=" ++ encode(access ++ "/" ++ scope, False{}) ++ "&X-Amz-Date=" ++ date ++ "&X-Amz-Expires=" ++ U32.show(expires) ++ token.q(String.is_empty(token), token) ++ "&X-Amz-SignedHeaders=host")
+  Pure.presign.query(access, token, scope, date, expires, q)
 
 def presign.of(r: Result<&1, &1, U32 & String, String>, +cq: String) -> Result<&1, &1, U32 & String, String>:
   match r:

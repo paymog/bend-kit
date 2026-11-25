@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `sigv4` 0.14.0.2: isolate canonical requests, signing strings, authorization headers, and presign queries in `pure.bend`. Check all existing laws without foreign effects. Preserve the runtime API.
+
 - `llm` 0.16.0.2: isolate request and response codecs, stream event decoding, and retry status policy in `pure.bend`. Check all existing laws without foreign effects. Preserve the runtime API.
 
 - `jwt` 0.14.0.2: isolate encoding, parsing, claim checks, and JWKS key selection in `pure.bend`. Check all existing laws without foreign effects. Preserve the runtime API.
