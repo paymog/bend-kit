@@ -39,6 +39,13 @@ M4 Pro, macOS 26.6.2, 2026-09-27. Median of three runs. Times are in ms for 20,0
 
 Versions: Bend 2.0.31, Apple clang 17.0.0 with llhttp 9.4.2, rustc 1.91.0 with httparse 1.10.1, Bun 1.3.14, Node 24.0.1, Python 3.14.6 with h11 0.16.0.
 
+### HTTP 0.42.0.0 verification
+
+`python3 -B http/bench/run.py 1` passed on arm64 macOS with Bend 2.0.40.
+All variants kept checksums `8200000`, `8300000`, `954665139`, and `4171655946`.
+Bend times were 407.2 ms, 351.9 ms, 143.1 ms, and 106.1 ms, in table order.
+These are single-run codec times, not HTTP/2 throughput measurements.
+
 ### HTTP 0.41.0.0 verification
 
 `python3 -B http/bench/run.py 1` passed on arm64 macOS with Bend 2.0.40.

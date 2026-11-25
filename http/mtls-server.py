@@ -3,6 +3,7 @@ import socket
 import ssl
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ca, chain, key, ports_path = sys.argv[1:5]
@@ -118,6 +119,20 @@ def h2_stream_conn(conn, number):
     buf = b''
     cancelled = False
     uploads = {}
+    connection_window = 65535
+    windows = {}
+    remaining = {}
+    delayed_at = None
+    delayed_credit = 0
+    def pump():
+        nonlocal connection_window
+        for stream in list(remaining):
+            while remaining[stream] and min(connection_window, windows[stream]) > 0:
+                size = min(16384, remaining[stream], connection_window, windows[stream])
+                remaining[stream] -= size
+                connection_window -= size
+                windows[stream] -= size
+                conn.sendall(frame(0, int(remaining[stream] == 0), stream, b'x' * size))
     def take(n):
         nonlocal buf
         while len(buf) < n:
@@ -137,8 +152,24 @@ def h2_stream_conn(conn, number):
             payload = take(int.from_bytes(head[:3], 'big'))
             if kind == 4 and not flags & 1:
                 conn.sendall(frame(4, 1, 0, b''))
+            elif kind == 8:
+                amount = int.from_bytes(payload, 'big')
+                assert amount > 0
+                if stream == 0:
+                    connection_window += amount
+                    assert connection_window <= 65535, 'connection credit returned twice'
+                    if delayed_at is not None:
+                        assert time.monotonic() - delayed_at >= 0.8, 'credit returned before consumption'
+                        delayed_credit += amount
+                        assert delayed_credit == 16, 'padding capacity was not returned once'
+                        delayed_at = None
+                else:
+                    assert stream != 11, 'cancelled stream credit returned before cancellation'
+                    windows[stream] += amount
+                    assert windows[stream] <= 65535, 'stream credit returned twice'
+                pump()
             elif kind == 3:
-                assert stream == 3 and payload == b'\0\0\0\x08'
+                assert stream in (3, 11) and payload == b'\0\0\0\x08'
                 cancelled = True
                 with open(ports_path + '.cancelled', 'w') as f:
                     f.write('cancelled\n')
@@ -147,16 +178,36 @@ def h2_stream_conn(conn, number):
                     uploads[stream] = uploads.get(stream, b'') + payload
                 if not flags & 1:
                     continue
-                if stream == 7:
+                windows[stream] = 65535
+                if stream == 17:
+                    assert connection_window == 65535 and delayed_credit == 16
+                    with open(ports_path + '.credit', 'w') as f:
+                        f.write('credit returned once\n')
                     conn.sendall(frame(7, 0, 0, stream.to_bytes(4, 'big') + b'\0\0\0\0'))
                 conn.sendall(frame(1, 4, stream, b'\x08\x03' + b'103'))
                 conn.sendall(frame(1, 4, stream, b'\x88'))
                 if stream == 3:
                     assert uploads[stream] == b'upload'
                     continue
+                if stream in (7, 9):
+                    remaining[stream] = 131072
+                    pump()
+                    continue
+                if stream == 11:
+                    delayed_at = time.monotonic()
+                    connection_window -= 16
+                    windows[stream] -= 16
+                    conn.sendall(frame(0, 8, stream, b'\x0e' + b'x' + b'\0' * 14))
+                    continue
+                if stream == 15:
+                    connection_window -= 16
+                    windows[stream] -= 16
+                    conn.sendall(frame(0, 9, stream, b'\x0e' + b'x' + b'\0' * 14))
+                    continue
                 assert stream == 1 or cancelled
-                import time
                 time.sleep(0.1)
+                connection_window -= 3
+                windows[stream] -= 3
                 conn.sendall(frame(0, 0, stream, str(number).encode() + b'a'))
                 conn.sendall(frame(0, 0, stream, b'b'))
                 conn.sendall(frame(1, 5, stream, b'\x00\x06x-tail\x03yes'))

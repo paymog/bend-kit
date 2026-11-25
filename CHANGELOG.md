@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` 0.42.0.0: adopt HTTP/2 consumption-driven receive credit. Release buffered chunks after acceptance and streamed chunks on the next read. Return discarded credit once when a session goes back to the pool.
+
 - `runner` 0.20.2.0: inspect current-format journals read-only with an application payload decoder. Return pre-recovery state and an explicit torn suffix without changing source bytes.
 
 - `runner` 0.20.1.4: prove that arbitrary accepted snapshots have well-formed dead-ticket tries and that crash recovery preserves them.

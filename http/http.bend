@@ -3,8 +3,8 @@ import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
-import bend-kit-http2@0.5.0.2/http2.bend as H2
-import bend-kit-http2@0.5.0.2/hpack.bend as Hpack
+import bend-kit-http2@0.6.0.0/http2.bend as H2
+import bend-kit-http2@0.6.0.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.3.1/bytes.bend as HBytes
 import bend-kit-time@0.3.0.2/pure.bend as Time
 import bend-kit-time@0.3.0.2/time.bend as Clock
@@ -589,6 +589,34 @@ def h2.reader.reply(s: Socket, +id: U32, reply: H2.Reply) ->
         sent : Result<&1, &1, Pure.Err, Socket> <- h2.send(writes, s)
         return h2.reader.sent(id, client, events, sent)
 
+def h2.reader.released(s: Socket, +id: U32, events: List<&1, H2.ClientEvent>,
+    reply: H2.Reply) -> IO(Result<&1, &1, Pure.Err, H2Reader>):
+  match reply:
+    case H2.Failed{error}:
+      do IO<Result<&1, &1, Pure.Err, H2Reader>>:
+        Wire.tls.close(s)
+        return Fail{Pure.ErrBad{}}
+    case H2.Advanced{client, writes, more}:
+      do IO<Result<&1, &1, Pure.Err, H2Reader>>:
+        sent : Result<&1, &1, Pure.Err, Socket> <- h2.send(writes, s)
+        return h2.reader.sent(id, client, List.append(&1, H2.ClientEvent, events, more), sent)
+
+def h2.reader.release(reader: H2Reader, +amount: U32) ->
+    IO(Result<&1, &1, Pure.Err, H2Reader>):
+  H2Reader{s, H2.Client{H2.Input{frames, discard, +pending}, streams, encoder, decoder, control},
+    +id, events} = reader
+  # Reset and GOAWAY can invalidate capacity in events already queued by receive.
+  count = Bool.pick(U32, U32.is_zero(H2.client.credit.get(pending, id)), 0, amount)
+  h2.reader.released(s, id, events, H2.client.release_capacity(
+    H2.Client{H2.Input{frames, discard, pending}, streams, encoder, decoder, control}, id, count))
+
+def h2.step(r: Result<&1, &1, Pure.Err, H2Reader>) -> H2Step:
+  match r:
+    case Fail{e}:
+      H2Event{Fail{e}}
+    case Done{reader}:
+      H2Pending{reader}
+
 def h2.reader.received(client: H2.Client, +id: U32,
     got: Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>) ->
     IO(Result<&1, &1, Pure.Err, H2Reader>):
@@ -610,8 +638,8 @@ def h2.event.for(+want: U32, event: H2.ClientEvent) -> Bool & H2.ClientEvent:
       (U32.is_eq(id, want), H2.Informational{id, headers})
     case H2.Headers{+id, headers}:
       (U32.is_eq(id, want), H2.Headers{id, headers})
-    case H2.Chunk{+id, bytes}:
-      (U32.is_eq(id, want), H2.Chunk{id, bytes})
+    case H2.Chunk{+id, bytes, capacity}:
+      (U32.is_eq(id, want), H2.Chunk{id, bytes, capacity})
     case H2.Trailers{+id, headers}:
       (U32.is_eq(id, want), H2.Trailers{id, headers})
     case H2.Complete{+id}:
@@ -702,10 +730,12 @@ def h2.buffered.loop(n: Nat, +ms: U32, over: Bool, step: H2Step,
         case H2.Headers{id, fields}:
           h2.buffered.loop(p, ms, False{}, H2Pending{reader},
             h2.buffered.head(fields), parts, used)
-        case H2.Chunk{id, HBytes.Bytes{+len, buf}}:
+        case H2.Chunk{id, HBytes.Bytes{+len, buf}, capacity}:
           +total = (used + len : U32)
-          h2.buffered.loop(p, ms, Pure.fetch.over(total), H2Pending{reader},
-            res, Bytes.Bytes{len, buf} <> parts, total)
+          do IO<Result<&1, &1, Pure.Err, Conn & Pure.Res>>:
+            released : Result<&1, &1, Pure.Err, H2Reader> <- h2.reader.release(reader, capacity)
+            h2.buffered.loop(p, ms, Pure.fetch.over(total), h2.step(released),
+              res, Bytes.Bytes{len, buf} <> parts, total)
         case H2.Complete{id}:
           h2.buffered.done(res, reader, parts)
         case H2.Reset{id, code}:
@@ -1512,7 +1542,7 @@ def fetch.retry(+n: U32, +method: String, +url: String,
 # What the next read returns: read more, a raw piece, a decoded piece, the end, or an error.
 type StreamWire is Type:
   StreamH1{s: Socket}
-  StreamH2{reader: H2Reader}
+  StreamH2{reader: H2Reader, capacity: U32}
   StreamDead{}
 
 # back: the pool key, while the connection can take another request after this body.
@@ -1608,17 +1638,17 @@ def stream.h2.event(+ms: U32, res: Pure.Res, decs: List<&1, ZNative.Decoder>,
       Stream{True{}, StreamDead{}, ms, res, Pure.RbDone{}, Pure.PoBad{e}, decs, None{}}
     case Done{(reader, event)}:
       match event:
-        case H2.Chunk{id, HBytes.Bytes{+len, buf}}:
-          Stream{True{}, StreamH2{reader}, ms, res, Pure.RbClose{},
+        case H2.Chunk{id, HBytes.Bytes{+len, buf}, capacity}:
+          Stream{True{}, StreamH2{reader, capacity}, ms, res, Pure.RbClose{},
             Pure.pc.po(True{}, U32.is_zero(len), Bytes.Bytes{len, buf}), decs, back}
         case H2.Complete{id}:
-          Stream{True{}, StreamH2{reader}, ms, res, Pure.RbDone{}, Pure.PoEnd{}, decs, back}
+          Stream{True{}, StreamH2{reader, 0}, ms, res, Pure.RbDone{}, Pure.PoEnd{}, decs, back}
         case H2.Reset{id, code}:
-          Stream{True{}, StreamH2{reader}, ms, res, Pure.RbDone{}, Pure.PoBad{Pure.ErrBad{}}, decs, back}
+          Stream{True{}, StreamH2{reader, 0}, ms, res, Pure.RbDone{}, Pure.PoBad{Pure.ErrBad{}}, decs, back}
         case H2.Shutdown{last, code}:
-          Stream{True{}, StreamH2{reader}, ms, res, Pure.RbClose{}, Pure.PoNone{}, decs, back}
+          Stream{True{}, StreamH2{reader, 0}, ms, res, Pure.RbClose{}, Pure.PoNone{}, decs, back}
         case other:
-          Stream{True{}, StreamH2{reader}, ms, res, Pure.RbClose{}, Pure.PoNone{}, decs, back}
+          Stream{True{}, StreamH2{reader, 0}, ms, res, Pure.RbClose{}, Pure.PoNone{}, decs, back}
 
 def stream.recv(+tls: Bool, wire: StreamWire, +ms: U32, res: Pure.Res, +rb: Pure.Rb,
     decs: List<&1, ZNative.Decoder>, back: Maybe<&2, String>) -> IO(Stream):
@@ -1628,10 +1658,11 @@ def stream.recv(+tls: Bool, wire: StreamWire, +ms: U32, res: Pure.Res, +rb: Pure
         got : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <-
           io.recv.words(tls, s, 65536, ms)
         return stream.got(tls, ms, res, decs, back, rb, got)
-    case StreamH2{reader}:
+    case StreamH2{reader, capacity}:
       do IO<Stream>:
+        released : Result<&1, &1, Pure.Err, H2Reader> <- h2.reader.release(reader, capacity)
         got : Result<&1, &1, Pure.Err, H2Reader & H2.ClientEvent> <-
-          h2.reader.next(65536n, Done{reader}, ms)
+          h2.reader.next(65536n, released, ms)
         return stream.h2.event(ms, res, decs, back, got)
     case StreamDead{}:
       IO.pure(Stream, Stream{tls, StreamDead{}, ms, res, Pure.RbDone{}, Pure.PoBad{Pure.ErrBad{}}, decs, None{}})
@@ -1640,7 +1671,7 @@ def stream.wire.close(+tls: Bool, wire: StreamWire) -> IO(Unit):
   match wire:
     case StreamH1{s}:
       io.close(tls, s)
-    case StreamH2{H2Reader{s, client, id, events}}:
+    case StreamH2{H2Reader{s, client, id, events}, capacity}:
       Wire.tls.close(s)
     case StreamDead{}:
       IO.pure(Unit, Unit{})
@@ -1666,7 +1697,10 @@ def stream.h2.release(active: Bool, p: Pool, +key: String, s: Socket,
     client: H2.Client, +id: U32) -> IO(Pool):
   match active:
     case False{}:
-      stream.h2.pool.keep(pool.h2.reusable(ConnH2{s, client}), p, key)
+      do IO<Pool>:
+        next : Result<&1, &1, Pure.Err, H2Reader> <-
+          h2.reader.reply(s, id, H2.client.credit.release_all(client, id))
+        stream.h2.give.result(p, key, next)
     case True{}:
       do IO<Pool>:
         next : Result<&1, &1, Pure.Err, H2Reader> <- h2.reader.reply(s, id, H2.client.cancel(client, id))
@@ -1680,7 +1714,7 @@ def stream.wire.give(whole: Bool, p: Pool, +key: String, +tls: Bool, wire: Strea
       do IO<Pool>:
         io.close(tls, s)
         return p
-    case _ StreamH2{H2Reader{s, H2.Client{input, streams, encoder, decoder, +control}, id, events}}:
+    case _ StreamH2{H2Reader{s, H2.Client{input, streams, encoder, decoder, +control}, id, events}, capacity}:
       H2.Control{next, +active, frame_max, initial, max_streams, send_window,
         recv_window, first, ack, continuation, goaway} = control
       stream.h2.release(U32.is_ne(active, 0), p, key, s,
@@ -1795,7 +1829,7 @@ def stream.h2.head.done(res: Maybe<&1, Pure.Res>, +ms: U32, back: Maybe<&2, Stri
         return (False{}, Fail{Pure.ErrBad{}})
     case Some{res}:
       IO.pure(Bool & Result<&1, &1, Pure.Err, Stream>,
-        (False{}, Done{Stream{True{}, StreamH2{reader}, ms, res, Pure.RbClose{}, Pure.PoNone{}, Nil{}, back}}))
+        (False{}, Done{Stream{True{}, StreamH2{reader, 0}, ms, res, Pure.RbClose{}, Pure.PoNone{}, Nil{}, back}}))
 
 def stream.h2.head(n: Nat, +ms: U32, +back: Maybe<&2, String>, step: H2Step) ->
     IO(Bool & Result<&1, &1, Pure.Err, Stream>):

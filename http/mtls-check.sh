@@ -64,3 +64,4 @@ fi
   exit 1
 }
 [ -s "$dir/ports.cancelled" ] || { echo "expected RST_STREAM(CANCEL)" >&2; exit 1; }
+[ -s "$dir/ports.credit" ] || { cat "$dir/server.log" >&2; echo "expected consumption-driven receive credit" >&2; exit 1; }

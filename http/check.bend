@@ -5,8 +5,8 @@ import ./admission.bend as Admission
 import ./completion.bend as Completion
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-http2@0.5.0.2/hpack.bend as Hpack
-import bend-kit-http2@0.5.0.2/http2.bend as H2
+import bend-kit-http2@0.6.0.0/hpack.bend as Hpack
+import bend-kit-http2@0.6.0.0/http2.bend as H2
 import bend-kit-bytes@0.3.3.1/bytes.bend as HBytes
 import bend-kit-time@0.3.0.2/pure.bend as Time
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
@@ -451,6 +451,59 @@ def h2.stream.early(opened: Http.Pool & Result<&1, &1, Pure.Err, Http.Stream>) -
     case Done{st}:
       Http.pool.stream.close(p, st)
 
+
+def h2.large.body(p: Http.Pool, body: Bytes.Bytes) -> IO(Http.Pool):
+  Bytes.Bytes{len, buf} = body
+  do IO<Http.Pool>:
+    local.ok(U32.is_eq(len, 131072), "h2 body exceeds the receive window")
+    return p
+
+def h2.large.buffered(got: Http.Pool & Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Http.Pool):
+  (p, r) = got
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, "h2 large buffered response failed")
+    case Done{Pure.Res{status, headers, body}}:
+      h2.large.body(p, body)
+
+def h2.large.read(p: Http.Pool, read: Http.Stream & Bytes.Bytes & U32) -> IO(Http.Pool):
+  (end, body, count) = read
+  do IO<Http.Pool>:
+    next : Http.Pool <- h2.large.body(p, body)
+    Http.pool.stream.close(next, end)
+
+def h2.large.stream(got: Http.Pool & Result<&1, &1, Pure.Err, Http.Stream>) -> IO(Http.Pool):
+  (p, r) = got
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, "h2 large stream failed")
+    case Done{st}:
+      do IO<Http.Pool>:
+        read : Http.Stream & Bytes.Bytes & U32 <- local.gz.read(100n, GrRead{st, Bytes.new(0), 0})
+        h2.large.read(p, read)
+
+def h2.delayed.read(got: Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>>,
+    p: Http.Pool) -> IO(Http.Pool):
+  (st, r) = got
+  match r:
+    case Done{Some{b}}:
+      do IO<Http.Pool>:
+        IO.sleep(500)
+        Http.pool.stream.close(p, st)
+    case _:
+      IO.die(Http.Pool, 1, "h2 delayed stream did not return a chunk")
+
+def h2.delayed(got: Http.Pool & Result<&1, &1, Pure.Err, Http.Stream>) -> IO(Http.Pool):
+  (p, r) = got
+  match r:
+    case Fail{e}:
+      IO.die(Http.Pool, 1, "h2 delayed stream failed")
+    case Done{st}:
+      do IO<Http.Pool>:
+        IO.sleep(500)
+        read : Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
+        h2.delayed.read(read, p)
+
 def h2.stream(+base: String) -> IO(Unit):
   do IO<Unit>:
     a : Http.Pool & Result<&1, &1, Pure.Err, Http.Stream> <-
@@ -462,10 +515,25 @@ def h2.stream(+base: String) -> IO(Unit):
     c : Http.Pool & Result<&1, &1, Pure.Err, Http.Stream> <-
       Http.pool.open.with(p2, "GET", base ++ "/c", Pure.empty(), Bytes.new(0), 2000)
     p3 : Http.Pool <- h2.stream.got("1ab", c)
+    large : Http.Pool & Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.pool.fetch.with(p3, "GET", base ++ "/large", Pure.empty(), Bytes.new(0), 2000)
+    p4 : Http.Pool <- h2.large.buffered(large)
+    streamed : Http.Pool & Result<&1, &1, Pure.Err, Http.Stream> <-
+      Http.pool.open.with(p4, "GET", base ++ "/large-stream", Pure.empty(), Bytes.new(0), 2000)
+    p5 : Http.Pool <- h2.large.stream(streamed)
+    delayed : Http.Pool & Result<&1, &1, Pure.Err, Http.Stream> <-
+      Http.pool.open.with(p5, "GET", base ++ "/delayed", Pure.empty(), Bytes.new(0), 2000)
+    p6 : Http.Pool <- h2.delayed(delayed)
+    after : Http.Pool & Result<&1, &1, Pure.Err, Pure.Res> <-
+      Http.pool.fetch.with(p6, "GET", base ++ "/after-cancel", Pure.empty(), Bytes.new(0), 2000)
+    p7 : Http.Pool <- h2.idle.got("h2 session after pending-credit cancellation", "1ab", after)
+    complete : Http.Pool & Result<&1, &1, Pure.Err, Http.Stream> <-
+      Http.pool.open.with(p7, "GET", base ++ "/complete-discard", Pure.empty(), Bytes.new(0), 2000)
+    p8 : Http.Pool <- h2.delayed(complete)
     d : Http.Pool & Result<&1, &1, Pure.Err, Pure.Res> <-
-      Http.pool.fetch.with(p3, "GET", base ++ "/d", Pure.empty(), Bytes.new(0), 2000)
-    p4 : Http.Pool <- h2.idle.got("h2 buffered fetch after streams", "1ab", d)
-    Http.pool.close(p4)
+      Http.pool.fetch.with(p8, "GET", base ++ "/d", Pure.empty(), Bytes.new(0), 2000)
+    p9 : Http.Pool <- h2.idle.got("h2 buffered fetch after streams", "1ab", d)
+    Http.pool.close(p9)
 
 def h2.has(xs: List<&2, Hpack.Field>, +want: String) -> Bool:
   match xs:
