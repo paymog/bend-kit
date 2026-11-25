@@ -2,7 +2,7 @@
 import Base
 import ./model.bend as Model
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-journal@0.3.1.3/journal.bend as J
+import bend-kit-journal@0.4.0.0/journal.bend as J
 import bend-kit-scheduler@0.4.4.0/queue.bend as Q
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry

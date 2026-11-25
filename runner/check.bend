@@ -1,6 +1,6 @@
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-journal@0.3.1.3/journal.bend as J
+import bend-kit-journal@0.4.0.0/journal.bend as J
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-scheduler@0.4.4.0/queue.bend as Q
 import bend-kit-files@0.4.0.1/files.bend as Files
