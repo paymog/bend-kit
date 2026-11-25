@@ -10,7 +10,7 @@ fn fill_buf(b: &mut [u8]) -> u32 {
     b[n - 3] = 10;
     b[n - 2] = 13;
     b[n - 1] = 10;
-    b[12345] as u32 + b[n - 1] as u32
+    b[12345 % n] as u32 + b[n - 1] as u32
 }
 
 fn build(n: usize) {
@@ -66,10 +66,11 @@ fn main() {
 
     let t0 = Instant::now();
     let mut out: Vec<u8> = Vec::new();
-    let chunks = n / 65536;
+    let chunk_size = n.min(65536);
+    let chunks = n / chunk_size;
     for k in 0..chunks {
         let byte = (k & 255) as u8;
-        out.extend(std::iter::repeat(byte).take(65536));
+        out.extend(std::iter::repeat(byte).take(chunk_size));
     }
     let ms = t0.elapsed().as_secs_f64() * 1000.0;
     if out.len() != n {

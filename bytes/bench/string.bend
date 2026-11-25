@@ -75,12 +75,12 @@ def rep(n: Nat, +c: U32, acc: String) -> String:
     case 1n+p:
       rep(p, c, SCon{Chr{c}, acc})
 
-def collect(n: Nat, +k: U32, acc: List<String>) -> List<String>:
+def collect(n: Nat, +chunk_size: U32, +k: U32, acc: List<String>) -> List<String>:
   match n:
     case 0n:
       acc
     case 1n+p:
-      collect(p, (k + 1 : U32), Con{rep(65536n, b8(k), SNil{}), acc})
+      collect(p, chunk_size, (k + 1 : U32), Con{rep(U32.to_nat(chunk_size), b8(k), SNil{}), acc})
 
 def joinr(xs: List<String>, acc: String) -> String:
   match xs:
@@ -104,7 +104,8 @@ def op.equal(+s: String, +s2: String) -> IO(Unit):
 def op.concat(+n: U32, +s: String) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    lap("concat", t0, ends(joinr(collect(U32.to_nat((n / 65536 : U32)), 0, Nil{}), SNil{})))
+    +chunk_size : U32 = U32.min(n, 65536)
+    lap("concat", t0, ends(joinr(collect(U32.to_nat((n / chunk_size : U32)), chunk_size, 0, Nil{}), SNil{})))
     op.equal(s, fill(n))
 
 def op.slice(+n: U32, +s: String) -> IO(Unit):
@@ -127,7 +128,7 @@ def op.sum(+n: U32, +s: String) -> IO(Unit):
 
 def op.fill.done(+n: U32, t0: Time.Duration, +s: String) -> IO(Unit):
   do IO<Unit>:
-    lap("fill", t0, (nth(12345n, s) + last(s, 0) : U32))
+    lap("fill", t0, (nth(U32.to_nat((12345 % n : U32)), s) + last(s, 0) : U32))
     op.sum(n, s)
 
 def size(args: List<&1, String>) -> U32:

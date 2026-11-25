@@ -159,7 +159,7 @@ def slice.start(+cfg: Config, r: Array<U32> & U32) -> Array<U32> & Array<U32>:
   (b, w0) = r
   slice.go(U32.to_nat((n(cfg) / 8 : U32)), Array.get(U32, b, (n(cfg) / 16 + 1 : U32)), w0, Array.new(U32, Nat.sub(lg(cfg), 3n), 0), 0, (n(cfg) / 16 + 1 : U32))
 
-# concat: 4096 fresh 64 KiB chunks, kept in a list (O(1) append), flattened once
+# concat: fresh chunks of min(N, 64 KiB), kept in a list, flattened once
 def fillc(n: Nat, a: Array<U32>, +j: U32, +w: U32) -> Array<U32>:
   match n:
     case 0n:
@@ -167,15 +167,15 @@ def fillc(n: Nat, a: Array<U32>, +j: U32, +w: U32) -> Array<U32>:
     case 1n+p:
       fillc(p, Array.set(U32, a, j, w), (j + 1 : U32), w)
 
-def chunk(+k: U32) -> Array<U32>:
-  fillc(16384n, Array.new(U32, 14n, 0), 0, (b8(k) * 16843009 : U32))
+def chunk(+depth: Nat, +k: U32) -> Array<U32>:
+  fillc(U32.to_nat(U32.shln(1, depth)), Array.new(U32, depth, 0), 0, (b8(k) * 16843009 : U32))
 
-def collect(n: Nat, +k: U32, acc: List<Array<U32>>) -> List<Array<U32>>:
+def collect(n: Nat, +depth: Nat, +k: U32, acc: List<Array<U32>>) -> List<Array<U32>>:
   match n:
     case 0n:
       acc
     case 1n+p:
-      collect(p, (k + 1 : U32), Con{chunk(k), acc})
+      collect(p, depth, (k + 1 : U32), Con{chunk(depth, k), acc})
 
 def copyc(n: Nat, r: Array<U32> & U32, out: Array<U32>, +j: U32, +off: U32) -> Array<U32>:
   match n:
@@ -185,15 +185,17 @@ def copyc(n: Nat, r: Array<U32> & U32, out: Array<U32>, +j: U32, +off: U32) -> A
       (c, w) = r
       copyc(p, Array.get(U32, c, (j + 1 : U32)), Array.set(U32, out, (off + j : U32), w), (j + 1 : U32), off)
 
-def flatten(xs: List<Array<U32>>, out: Array<U32>, +off: U32) -> Array<U32>:
+def flatten(xs: List<Array<U32>>, +words: U32, out: Array<U32>, +off: U32) -> Array<U32>:
   match xs:
     case Nil{}:
       out
     case Con{c, t}:
-      flatten(t, copyc(16384n, Array.get(U32, c, 0), out, 0, off), (off - 16384 : U32))
+      flatten(t, words, copyc(U32.to_nat(words), Array.get(U32, c, 0), out, 0, off), (off - words : U32))
 
 def concat(+cfg: Config) -> Array<U32>:
-  flatten(collect(U32.to_nat((n(cfg) / 65536 : U32)), 0, Nil{}), Array.new(U32, Nat.sub(lg(cfg), 2n), 0), (n(cfg) / 4 - 16384 : U32))
+  +depth = Nat.min(Nat.sub(lg(cfg), 2n), 14n)
+  +words = U32.shln(1, depth)
+  flatten(collect(U32.to_nat((n(cfg) / 4 / words : U32)), depth, 0, Nil{}), words, Array.new(U32, Nat.sub(lg(cfg), 2n), 0), (n(cfg) / 4 - words : U32))
 
 # random reads through byte()
 def rnd.go(n: Nat, +shift: Nat, r: Array<U32> & U32, +x: U32, acc: U32) -> Array<U32> & U32:
@@ -368,7 +370,7 @@ def op.fill.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Uni
 def start(+cfg: Config) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    op.fill.done(cfg, t0, add2(byte(fill.all(cfg), 12345), (n(cfg) - 1 : U32)))
+    op.fill.done(cfg, t0, add2(byte(fill.all(cfg), (12345 % n(cfg) : U32)), (n(cfg) - 1 : U32)))
 
 def main() -> IO(Unit):
   do IO<Unit>:

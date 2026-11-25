@@ -17,7 +17,7 @@ func fillBuf(b []byte) uint32 {
 	b[n-3] = 10
 	b[n-2] = 13
 	b[n-1] = 10
-	return uint32(b[12345]) + uint32(b[n-1])
+	return uint32(b[12345%n]) + uint32(b[n-1])
 }
 
 func main() {
@@ -60,9 +60,10 @@ func main() {
 
 	t0 = time.Now()
 	var out []byte
-	chunks := n / 65536
+	chunkSize := min(n, 65536)
+	chunks := n / chunkSize
 	for k := 0; k < chunks; k++ {
-		chunk := make([]byte, 65536)
+		chunk := make([]byte, chunkSize)
 		byteVal := byte(k & 255)
 		for i := range chunk {
 			chunk[i] = byteVal
