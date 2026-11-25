@@ -32,7 +32,7 @@ elif name == "bend":
     output.write_text(pathlib.Path(__file__).read_text())
     output.chmod(0o755)
 elif name == "sleep":
-    time.sleep(0.01)
+    time.sleep(0.1 if failure == "interrupt_startup" else 0.01)
 elif name == "python3":
     target = pathlib.Path(args[0]).name
     if target == "loopback-run.py":
@@ -46,7 +46,7 @@ elif name == "python3":
     listener.listen()
     port = listener.getsockname()[1]
     (root / "fixture").write_text(json.dumps([os.getpid(), port]))
-    if failure not in ("startup", "interrupt"):
+    if failure not in ("startup", "interrupt_startup"):
         pathlib.Path(args[3]).write_text(str(port) + "\n")
     while True:
         time.sleep(1)
@@ -56,6 +56,9 @@ elif name == "bun":
 else:
     check = name.removesuffix(".js")
     record("client", check, *args)
+    if failure == "interrupt_client" and check == "ca_check":
+        (root / "client").write_text("ready")
+        time.sleep(10)
     sys.exit(23 if failure == check else 0)
 '''
 
@@ -65,7 +68,7 @@ def events(root):
     return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
 
 
-def run_case(lane, failure, harness=HARNESS):
+def run_case(lane, failure, harness=HARNESS, interrupt=signal.SIGTERM):
     with tempfile.TemporaryDirectory(prefix="hairpin CA test ") as directory:
         root = Path(directory)
         commands = root / "bin"
@@ -84,14 +87,23 @@ def run_case(lane, failure, harness=HARNESS):
                                    start_new_session=True)
         fixture = None
         try:
-            if failure == "interrupt":
+            if failure.startswith("interrupt_"):
+                marker = root / ("fixture" if failure == "interrupt_startup" else "client")
                 deadline = time.monotonic() + 5
-                while not (root / "fixture").exists():
-                    assert process.poll() is None, "harness exited before fixture startup"
-                    assert time.monotonic() < deadline, "fixture did not start"
+                while not marker.exists():
+                    assert process.poll() is None, "harness exited before interruption"
+                    assert time.monotonic() < deadline, "interruption point was not reached"
                     time.sleep(0.01)
-                process.send_signal(signal.SIGTERM)
-            stdout, stderr = process.communicate(timeout=10)
+                started = time.monotonic()
+                if failure == "interrupt_client":
+                    os.killpg(process.pid, interrupt)
+                else:
+                    process.send_signal(interrupt)
+                stdout, stderr = process.communicate(timeout=2)
+                assert time.monotonic() - started < 2, "interruption was not prompt"
+                assert process.returncode == 128 + interrupt, (failure, process.returncode, stdout, stderr)
+            else:
+                stdout, stderr = process.communicate(timeout=15)
             calls = events(root)
             assert process.returncode == 0 if failure == "success" else process.returncode != 0, (failure, stdout, stderr)
             temporary = [Path(call[2]) for call in calls if call[0] == "temporary"]
@@ -102,7 +114,8 @@ def run_case(lane, failure, harness=HARNESS):
                 "success": ["loopback", "ca_check", "ca_stream_check"],
                 "loopback": ["loopback"], "ca_check": ["loopback", "ca_check"],
                 "ca_stream_check": ["loopback", "ca_check", "ca_stream_check"],
-                "startup": ["loopback"], "interrupt": ["loopback"],
+                "startup": ["loopback"], "interrupt_startup": ["loopback"],
+                "interrupt_client": ["loopback", "ca_check"],
             }[failure]
             assert clients == expected, calls
             restricted = [call for call in calls if call[0] == "restriction"]
@@ -131,7 +144,7 @@ def run_case(lane, failure, harness=HARNESS):
                     raise AssertionError(f"fixture was not stopped and reaped: {pid}")
                 with socket.socket() as listener:
                     listener.bind(("127.0.0.1", port))
-            print(f"PASS {lane}: {failure}")
+            print(f"PASS {lane}: {failure}" + (f" {interrupt.name}" if failure.startswith("interrupt_") else ""))
         finally:
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGKILL)
@@ -146,5 +159,8 @@ def run_case(lane, failure, harness=HARNESS):
 
 if __name__ == "__main__":
     for lane in ("native", "js"):
-        for failure in ("success", "loopback", "ca_check", "ca_stream_check", "startup", "interrupt"):
+        for failure in ("success", "loopback", "ca_check", "ca_stream_check", "startup"):
             run_case(lane, failure)
+        for failure in ("interrupt_startup", "interrupt_client"):
+            for interrupt in (signal.SIGINT, signal.SIGTERM):
+                run_case(lane, failure, interrupt=interrupt)
