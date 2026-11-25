@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.9.2.0: select named roots and collect their closure under one exclusive lock with `Disk.collect_named`. Keep explicit retained-root collection.
+
 - `storage` 0.9.1.1: use macOS full synchronization before publication and after directory changes. Keep Linux fsync barriers and check failed full-sync publication.
 
 - `storage` 0.9.1.0: validate and fence named roots with bounded file reads. Keep metadata only and sync each shared object once before root publication.

@@ -509,12 +509,20 @@ def Disk.collect.of(+dir: String, +retained: List<&2, P.Digest>, +s: P.Index(P.D
     names : List<&2, String> <- Files.list_dir(dir ++ "/objects")
     Disk.drop(dir, P.digests(names), P.Index.of(~P.Digest, ~P.Blob, ~P.Digest.cmp, ls), 0)
 
-# Deletes every object that no retained root reaches and answers how many it deleted. Fails, and
-# deletes nothing, when a retained root does not load. It reads only the objects the roots reach.
-def Disk.collect(+dir: String, +retained: List<&2, P.Digest>) -> Run(U32):
-  Disk.coordinated(U32, dir, True{}, u => do Run<U32>:
+def Disk.collect.retained(+dir: String, +retained: List<&2, P.Digest>) -> Run(U32):
+  do Run<U32>:
     s : P.Index(P.Digest, P.Blob) <- Disk.fetch.all(dir, retained, P.Index.new(P.Digest, P.Blob))
-    Disk.collect.of(dir, retained, s))
+    Disk.collect.of(dir, retained, s)
+
+# Keeps explicit roots selected by an external retention policy.
+def Disk.collect(+dir: String, retained: List<&2, P.Digest>) -> Run(U32):
+  Disk.coordinated(U32, dir, True{}, u => Disk.collect.retained(dir, retained))
+
+# Selects named roots and collects their closure under one exclusive lock.
+def Disk.collect_named(+dir: String) -> Run(U32):
+  Disk.coordinated(U32, dir, True{}, u => do Run<U32>:
+    retained : List<&2, P.Digest> <- Disk.roots(dir)
+    Disk.collect.retained(dir, retained))
 
 def Disk.clean_tmp.go(+dir: String, names: List<&2, String>, +n: U32) -> Run(U32):
   match names:
