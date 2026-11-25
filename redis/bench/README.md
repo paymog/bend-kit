@@ -52,3 +52,29 @@ Bend's `IO.now` counts whole ms, so Bend times are integers. The Bend binary pea
 | Python | redis-py `_RESP3Parser.read_response(disable_decoding=True)` over a stand-in socket that returns 64 KiB per `recv` |
 
 hiredis moves its unread bytes to the front of its buffer after every 1 KiB it decodes, so one 3 MB feed makes it quadratic; a socket never hands it that much at once. The ioredis decoder is internal (`ioredis/built/resp/decoder.js`, from node-redis). It turns map keys into UTF-8 strings, so the JavaScript checksum converts them back to bytes; every key here is ASCII. Its integers are JavaScript numbers, exact below 2^53, which covers this input.
+
+## Chunked aggregate
+
+Run from the repository root:
+
+```sh
+bend redis/bench/chunks.bend -o /tmp/redis-chunks && /tmp/redis-chunks
+```
+
+The input is one array of 4,000 bulk strings, `item-0` through `item-3999`.
+It has 58,897 bytes. Each read feeds 32 bytes and calls the public reader.
+The timer excludes input creation and includes decoding and counting the result.
+Every run prints 4,000 items.
+
+Apple M4 Pro, arm64, macOS 26.7.2, Bend 2.0.40, 2026-11-25:
+
+| Reader | Three runs (ms) | Median (ms) |
+|---|---|---|
+| Restart each reply, main `832a3bd` | 148, 147, 150 | 148 |
+| Retain phase and aggregate stack | 0, 0, 0 | below 1 |
+
+`IO.now` has 1 ms resolution. Zero means below that resolution, not zero work.
+
+The full recording benchmark also ran with `python3 run.py 3`.
+Its checksum was `4096574027` in every language.
+Median times in ms: C 8.8, Rust 21.3, Bun 31.7, Node 52.0, Python 127.5, Bend 17.0.

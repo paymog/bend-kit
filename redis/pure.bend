@@ -306,6 +306,9 @@ type Frame is Type:
 
 type St is Type:
   SHead{i: U32, stack: List<&1, Frame>}
+  SLine{t: U32, i: U32, scan: U32, stack: List<&1, Frame>}
+  SBlob{kind: U32, n: U32, next: U32, stack: List<&1, Frame>}
+  SWait{state: St}
   SDone{v: Val, i: U32, stack: List<&1, Frame>}
   SOk{v: Val, i: U32}
   SMore{}
@@ -470,7 +473,7 @@ def blob.fit(ok: Bool, +kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, 
     case True{}:
       blob.crlf(kind, n, next, stack, crlf.at(b, (next + n : U32)))
     case False{}:
-      (b, SMore{})
+      (b, SWait{SBlob{kind, n, next, stack}})
 
 def blob.room(+kind: U32, +n: U32, +next: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
   (b, +len) = r
@@ -563,13 +566,17 @@ def item(+t: U32, +s: U32, +e: U32, b: Bytes.Bytes, stack: List<&1, Frame>) -> B
     case _:
       agg.st(4, (e + 2 : U32), stack, num(b, s, e))
 
+def head.wait(+t: U32, +i: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
+  (b, +len) = r
+  (b, SWait{SLine{t, i, U32.max((i + 1 : U32), (len - 1 : U32)), stack}})
+
 def head.eol(+t: U32, +i: U32, stack: List<&1, Frame>, r: Bytes.Bytes & Maybe<&2, U32>) -> Bytes.Bytes & St:
   (b, m) = r
   match m:
     case Some{+e}:
       item(t, (i + 1 : U32), e, b, stack)
     case None{}:
-      (b, SMore{})
+      head.wait(t, i, stack, Bytes.length(b))
 
 def head.end(end: Bool) -> St:
   match end:
@@ -578,12 +585,19 @@ def head.end(end: Bool) -> St:
     case False{}:
       SBad{}
 
+def head.missing(end: Bool, +i: U32, stack: List<&1, Frame>) -> St:
+  match end:
+    case True{}:
+      SWait{SHead{i, stack}}
+    case False{}:
+      SBad{}
+
 def head.known(ok: Bool, +t: U32, +i: U32, stack: List<&1, Frame>, b: Bytes.Bytes) -> Bytes.Bytes & St:
   match ok:
     case True{}:
       head.eol(t, i, stack, Bytes.find.from(b, "\r\n", (i + 1 : U32)))
     case False{}:
-      (b, head.end(U32.is_eq(t, 256)))
+      (b, head.missing(U32.is_eq(t, 256), i, stack))
 
 def head(+i: U32, stack: List<&1, Frame>, r: Bytes.Bytes & U32) -> Bytes.Bytes & St:
   (b, +t) = r
@@ -604,24 +618,43 @@ def done(stack: List<&1, Frame>, v: Val, +i: U32) -> St:
       Frame{+kind, +left, xs} = fr
       done.last(U32.is_eq(left, 1), kind, left, Con{v, xs}, i, rest)
 
-def run(fuel: Nat, r: Bytes.Bytes & St) -> Bytes.Bytes & Step:
+def run.state(fuel: Nat, r: Bytes.Bytes & St) -> Bytes.Bytes & St:
   match fuel:
     case 0n:
       (b, st) = r
-      (b, Bad{})
+      (b, SBad{})
     case 1n+f:
       (b, st) = r
       match st:
-        case SOk{v, +i}:
-          (b, Reply{v, i})
+        case SOk{v, i}:
+          (b, SOk{v, i})
         case SMore{}:
-          (b, More{})
+          (b, SMore{})
         case SBad{}:
-          (b, Bad{})
+          (b, SBad{})
+        case SWait{state}:
+          (b, state)
         case SHead{+i, stack}:
-          run(f, head(i, stack, byte(b, i)))
+          run.state(f, head(i, stack, byte(b, i)))
+        case SLine{+t, +i, +scan, stack}:
+          run.state(f, head.eol(t, i, stack, Bytes.find.from(b, "\r\n", scan)))
+        case SBlob{+kind, +n, +next, stack}:
+          run.state(f, blob.room(kind, n, next, stack, Bytes.length(b)))
         case SDone{v, +i, stack}:
-          run(f, (b, done(stack, v, i)))
+          run.state(f, (b, done(stack, v, i)))
+
+def run.step(r: Bytes.Bytes & St) -> Bytes.Bytes & Step:
+  (b, st) = r
+  match st:
+    case SOk{v, i}:
+      (b, Reply{v, i})
+    case SBad{}:
+      (b, Bad{})
+    case _:
+      (b, More{})
+
+def run(fuel: Nat, r: Bytes.Bytes & St) -> Bytes.Bytes & Step:
+  run.step(run.state(fuel, r))
 
 # One reply starting at byte i of b. Every item takes at least 3 bytes and each step
 # reads an item or closes one, so 2 * (len - i) + 2 steps are enough.
@@ -631,51 +664,68 @@ def decode(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Step:
 
 # ---- incremental reader
 
-# Bytes read from the server, and the index of the first byte not yet decoded.
+# The reply start stays pending while its phase and aggregate stack advance.
 type Reader is Type:
-  Reader{buf: Bytes.Bytes, pos: U32}
+  Reader{buf: Bytes.Bytes, pos: U32, state: St}
 
 def reader() -> Reader:
-  Reader{Bytes.new(0), 0}
+  Reader{Bytes.new(0), 0, SHead{0, Nil{}}}
 
-def feed.at(zero: Bool, buf: Bytes.Bytes, +pos: U32, chunk: Bytes.Bytes) -> Reader:
+def state.shift(st: St, +pos: U32) -> St:
+  match st:
+    case SHead{+i, stack}:
+      SHead{(i - pos : U32), stack}
+    case SLine{t, +i, +scan, stack}:
+      SLine{t, (i - pos : U32), (scan - pos : U32), stack}
+    case SBlob{kind, n, +next, stack}:
+      SBlob{kind, n, (next - pos : U32), stack}
+    case _:
+      SBad{}
+
+def feed.at(zero: Bool, buf: Bytes.Bytes, +pos: U32, state: St, chunk: Bytes.Bytes) -> Reader:
   match zero:
     case True{}:
-      Reader{Bytes.append(buf, chunk), 0}
+      Reader{Bytes.append(buf, chunk), 0, state}
     case False{}:
-      Reader{Bytes.append(Bytes.snd(Bytes.slice(buf, pos, 4294967295)), chunk), 0}
+      Reader{Bytes.append(Bytes.snd(Bytes.slice(buf, pos, 4294967295)), chunk), 0, state.shift(state, pos)}
 
-# Drops the decoded bytes, then adds chunk.
-# ponytail: a reply split over k reads is decoded from its start k times; keep state per item if huge arrays arrive slowly.
+# Drops completed replies, then adds chunk without revisiting completed items.
 def feed(r: Reader, chunk: Bytes.Bytes) -> Reader:
-  Reader{buf, +pos} = r
-  feed.at(U32.is_zero(pos), buf, pos, chunk)
+  Reader{buf, +pos, state} = r
+  feed.at(U32.is_zero(pos), buf, pos, state, chunk)
 
 type Next is Type:
   Got{v: Val}
   Want{}
   Broken{}
 
-def next.of(+pos: U32, r: Bytes.Bytes & Step) -> Reader & Next:
+def next.of(+pos: U32, r: Bytes.Bytes & St) -> Reader & Next:
   (b, s) = r
   match s:
-    case Reply{v, +i}:
-      (Reader{b, i}, Got{v})
-    case More{}:
-      (Reader{b, pos}, Want{})
-    case Bad{}:
-      (Reader{b, pos}, Broken{})
+    case SOk{v, +i}:
+      (Reader{b, i, SHead{i, Nil{}}}, Got{v})
+    case SBad{}:
+      (Reader{b, pos, SBad{}}, Broken{})
+    case SHead{i, stack}:
+      (Reader{b, pos, SHead{i, stack}}, Want{})
+    case SLine{t, i, scan, stack}:
+      (Reader{b, pos, SLine{t, i, scan, stack}}, Want{})
+    case SBlob{kind, n, next, stack}:
+      (Reader{b, pos, SBlob{kind, n, next, stack}}, Want{})
+    case _:
+      (Reader{b, pos, SBad{}}, Broken{})
 
 # The next whole reply, Want when it has not all arrived, or Broken for bytes that are not RESP.
 def next(r: Reader) -> Reader & Next:
-  Reader{buf, +pos} = r
-  next.of(pos, decode(buf, pos))
+  Reader{buf, +pos, state} = r
+  Bytes.Bytes{+len, words} = buf
+  next.of(pos, run.state(Nat.add(Nat.mul(U32.to_nat(len), 2n), 4n), (Bytes.Bytes{len, words}, state)))
 
-def pending.of(+pos: U32, r: Bytes.Bytes & U32) -> Reader & U32:
+def pending.of(+pos: U32, state: St, r: Bytes.Bytes & U32) -> Reader & U32:
   (b, +len) = r
-  (Reader{b, pos}, (len - pos : U32))
+  (Reader{b, pos, state}, (len - pos : U32))
 
-# The count of bytes read but not yet decoded.
+# The count of bytes in replies that are not yet complete.
 def pending(r: Reader) -> Reader & U32:
-  Reader{buf, +pos} = r
-  pending.of(pos, Bytes.length(buf))
+  Reader{buf, +pos, state} = r
+  pending.of(pos, state, Bytes.length(buf))

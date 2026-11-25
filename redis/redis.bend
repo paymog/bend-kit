@@ -33,6 +33,9 @@ type Frame is Type:
 
 type St is Type:
   SHead{i: U32, stack: List<&1, Frame>}
+  SLine{t: U32, i: U32, scan: U32, stack: List<&1, Frame>}
+  SBlob{kind: U32, n: U32, next: U32, stack: List<&1, Frame>}
+  SWait{state: St}
   SDone{v: Val, i: U32, stack: List<&1, Frame>}
   SOk{v: Val, i: U32}
   SMore{}
@@ -44,7 +47,7 @@ type Step is Type:
   Bad{}
 
 type Reader is Type:
-  Reader{buf: Bytes.Bytes, pos: U32}
+  Reader{state: Pure.Reader}
 
 type Next is Type:
   Got{v: Val}
@@ -225,6 +228,12 @@ def st.from(v: Pure.St) -> St:
       SDone{val.from(v), i, frame.from.list(stack)}
     case Pure.SOk{v, i}:
       SOk{val.from(v), i}
+    case Pure.SLine{t, i, scan, stack}:
+      SLine{t, i, scan, frame.from.list(stack)}
+    case Pure.SBlob{kind, n, next, stack}:
+      SBlob{kind, n, next, frame.from.list(stack)}
+    case Pure.SWait{state}:
+      SWait{st.from(state)}
     case Pure.SMore{}:
       SMore{}
     case Pure.SBad{}:
@@ -254,6 +263,12 @@ def st.to(v: St) -> Pure.St:
       Pure.SDone{val.to(v), i, frame.to.list(stack)}
     case SOk{v, i}:
       Pure.SOk{val.to(v), i}
+    case SLine{t, i, scan, stack}:
+      Pure.SLine{t, i, scan, frame.to.list(stack)}
+    case SBlob{kind, n, next, stack}:
+      Pure.SBlob{kind, n, next, frame.to.list(stack)}
+    case SWait{state}:
+      Pure.SWait{st.to(state)}
     case SMore{}:
       Pure.SMore{}
     case SBad{}:
@@ -290,9 +305,7 @@ def step.to.bytes(r: Bytes.Bytes & Step) -> Bytes.Bytes & Pure.Step:
   (x0, step.to(x1))
 
 def reader.from(v: Pure.Reader) -> Reader:
-  match v:
-    case Pure.Reader{buf, pos}:
-      Reader{buf, pos}
+  Reader{v}
 
 def next.from(v: Pure.Next) -> Next:
   match v:
@@ -318,8 +331,8 @@ def e.to(v: E) -> Pure.E:
 
 def reader.to(v: Reader) -> Pure.Reader:
   match v:
-    case Reader{buf, pos}:
-      Pure.Reader{buf, pos}
+    case Reader{state}:
+      state
 
 def next.to(v: Next) -> Pure.Next:
   match v:
@@ -575,20 +588,20 @@ def decode(b: Bytes.Bytes, +i: U32) -> Bytes.Bytes & Step:
 def reader() -> Reader:
   reader.from(Pure.reader())
 
-def feed.at(zero: Bool, buf: Bytes.Bytes, +pos: U32, chunk: Bytes.Bytes) -> Reader:
-  reader.from(Pure.feed.at(zero, buf, pos, chunk))
+def feed.at(zero: Bool, buf: Bytes.Bytes, +pos: U32, state: St, chunk: Bytes.Bytes) -> Reader:
+  reader.from(Pure.feed.at(zero, buf, pos, st.to(state), chunk))
 
 def feed(r: Reader, chunk: Bytes.Bytes) -> Reader:
   reader.from(Pure.feed(reader.to(r), chunk))
 
-def next.of(+pos: U32, r: Bytes.Bytes & Step) -> Reader & Next:
-  next.from.reader(Pure.next.of(pos, step.to.bytes(r)))
+def next.of(+pos: U32, r: Bytes.Bytes & St) -> Reader & Next:
+  next.from.reader(Pure.next.of(pos, st.to.bytes(r)))
 
 def next(r: Reader) -> Reader & Next:
   next.from.reader(Pure.next(reader.to(r)))
 
-def pending.of(+pos: U32, r: Bytes.Bytes & U32) -> Reader & U32:
-  pending.from.reader(Pure.pending.of(pos, r))
+def pending.of(+pos: U32, state: St, r: Bytes.Bytes & U32) -> Reader & U32:
+  pending.from.reader(Pure.pending.of(pos, st.to(state), r))
 
 def pending(r: Reader) -> Reader & U32:
   pending.from.reader(Pure.pending(reader.to(r)))
