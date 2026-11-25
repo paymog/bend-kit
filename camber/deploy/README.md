@@ -91,6 +91,23 @@ gh run download <run-id> --name launchd-receipts-<run-id>-<attempt>
 
 Each attempt uploads `current.json` from a fresh runner-temporary directory for 30 days, even when the matrix fails. The JSON keeps cumulative adverse and passing invocations, runtime versions, source hashes, process identities, job release and port observations. Missing receipts fail artifact upload. Historical JSON and hash tables remain unchanged. Package CI still checks receipt metadata offline; dispatch this job when current launchd or signal-bridge operation needs evidence.
 
+### Guarded system-domain acceptance
+
+Manual dispatch can select `launchd-domain=system`. The scheduled lane and the default manual lane still use the GUI domain. Ordinary pull requests never provision a service account or run privileged jobs.
+
+```sh
+gh workflow run ci.yml --ref <branch> -f launchd-domain=system
+gh run watch <run-id> --exit-status
+gh run download <run-id> --name launchd-system-receipts-<run-id>-<attempt>
+```
+
+This lane requires root on a disposable GitHub-hosted macOS arm64 runner. It refuses an ordinary local host. It creates a unique hidden, non-login account and group with an unused ID. Both application lanes and the TLS proxy run as that account in the `system` bootstrap domain. Cases remain sequential and retain the existing disk, RSS, exit, reap and port-release gates.
+
+Executables, the adjacent signal source, plists and nginx configuration are root-owned in new root-owned mode-0755 directories. Private state directories belong to the service account with mode 0700; the TLS key has mode 0600. Receipts record UID, GID, mode and input hashes. They check actual process UID/GID and effective write access as the account. Protected input hashes and permissions are checked again after operation. System receipts remain separate from the historical GUI receipts.
+
+Cleanup removes only the invocation's jobs and temporary tree. It deletes its account and group only after the owned jobs and files are released. If release cannot be verified, the account and tree remain named in the failed receipt for recovery. The disposable runner is then discarded. These checks do not claim a production account, durable state or public TLS trust.
+
+
 
 Fresh receipts derive `published` from hub imports in `deploy/users.bend` and its relative Bend imports. This lists direct consumer dependencies, not transitive hub dependencies such as Wire. Conflicting versions of the same package fail before deployment. The receipt records the actual Bend and Bun commands separately. Run `python3 camber/deploy/metadata_check.py` to check import changes and fresh receipt metadata without building or starting a service.
 
