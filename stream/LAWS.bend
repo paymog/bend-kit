@@ -34,3 +34,38 @@ law nonempty_probe:
 
 law short_read_continues:
   {Stream.read.action(1, 4096) == Stream.Forward{} : Stream.ReadAction}
+
+law chunk_interval:
+  for chunk: U32
+  {Stream.chunk.valid(chunk) == (U32.is_ge(chunk, 1) && U32.is_le(chunk, 1048576)) : Bool}
+
+law request_bounds:
+  for chunk: U32
+  for remaining: U32
+  for nonzero: {U32.is_zero(remaining) == False{} : Bool}
+  {U32.is_le(Stream.request(chunk, remaining), chunk) == True{} : Bool} &
+  {U32.is_le(Stream.request(chunk, remaining), remaining) == True{} : Bool}
+
+law request_probe_general:
+  for chunk: U32
+  {Stream.request(chunk, 0) == 1 : U32}
+
+law read_eof_general:
+  for len: U32
+  for remaining: U32
+  for zero: {U32.is_zero(len) == True{} : Bool}
+  {Stream.read.action(len, remaining) == Stream.End{} : Stream.ReadAction}
+
+law read_probe_general:
+  for len: U32
+  for remaining: U32
+  for nonempty: {U32.is_zero(len) == False{} : Bool}
+  for probe: {U32.is_zero(remaining) == True{} : Bool}
+  {Stream.read.action(len, remaining) == Stream.Over{} : Stream.ReadAction}
+
+law read_forward_general:
+  for len: U32
+  for remaining: U32
+  for nonempty: {U32.is_zero(len) == False{} : Bool}
+  for nonzero: {U32.is_zero(remaining) == False{} : Bool}
+  {Stream.read.action(len, remaining) == Stream.Forward{} : Stream.ReadAction}

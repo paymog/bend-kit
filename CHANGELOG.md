@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `stream` 0.5.0.1: prove general chunk intervals, bounded non-probe requests, and EOF/probe/forward decisions. Select probes with the same zero flag used by the proofs.
+
 - `http` 0.44.0.0: adopt DNS 0.8.0.0 and keep resolver calls on `dns.bend`.
 - `postgres` 0.4.0.0: adopt DNS 0.8.0.0 and keep resolver calls on `dns.bend`.
 - `redis` 0.4.0.0: adopt DNS 0.8.0.0 and keep resolver calls on `dns.bend`.
