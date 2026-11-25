@@ -629,9 +629,9 @@ def tls_proof(guard, job, directory, row):
     nginx = guard.evidence.invocation.get("system_nginx") or shutil.which("nginx")
     assert nginx, "nginx unavailable"
     validation_user = ["sudo", "-n", "-u", guard.system.name] if guard.system else []
-    guard.command([*validation_user, nginx, "-t", "-p", str(directory) + "/", "-c", config])
+    guard.command([*validation_user, nginx, "-e", "/dev/null", "-t", "-p", str(directory) + "/", "-c", config])
     proxy = Job(guard, directory.parent if guard.system else directory, job.label + ".tls",
-                [nginx, "-p", str(directory) + "/", "-c", config])
+                [nginx, "-e", "/dev/null", "-p", str(directory) + "/", "-c", config])
     row["tls_proxy"] = proxy.record
     row["rendered_tls_config"] = config.read_text()
     guard.evidence.save()
