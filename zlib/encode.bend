@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bits@0.3.0.1/bits.bend as Bits
+import bend-kit-bits@0.4.0.0/bits.bend as Bits
 
 type Token is Data:
   Lit{s: U32}
