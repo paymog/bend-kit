@@ -44,7 +44,7 @@ This section comes from entry-file imports and package versions. Run `scripts/re
 
 | Dependency pin | Consumers |
 |---|---|
-| `bend-kit-http@0.44.0.1` | `camber@0.18.0.0`, `hairpin@0.17.0.0`, `jwt@0.15.0.0`, `llm@0.17.0.0`, `oauth2@0.15.0.0`, `sigv4@0.15.0.0`, `webhooks@0.15.0.0` |
+| `bend-kit-http@0.44.0.1` | `camber@0.18.0.1`, `hairpin@0.17.0.0`, `jwt@0.15.0.0`, `llm@0.17.0.0`, `oauth2@0.15.0.0`, `sigv4@0.15.0.0`, `webhooks@0.15.0.0` |
 | `bend-kit-hairpin@0.17.0.0` | `jwt@0.15.0.0`, `llm@0.17.0.0`, `oauth2@0.15.0.0`, `sigv4@0.15.0.0`, `webhooks@0.15.0.0` |
 
 ## Native libraries

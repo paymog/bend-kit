@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `time` 0.3.0.3: document matching pure clock types for HTTP and Hairpin.
+- `camber` 0.18.0.1: correct the published Notch pin and remove obsolete consumer migration guidance.
+
 
 - `jwt` 0.15.0.0: adopt the published Hairpin and HTTP pure response types for JWKS requests.
 - `llm` 0.17.0.0: adopt the published Hairpin and HTTP split API. Consume each drained stream piece before the next read.
