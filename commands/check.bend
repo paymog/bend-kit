@@ -120,7 +120,7 @@ def busy(r: Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>) -> IO(Unit):
 
 # Writer a is inside its transaction for evt_5 and has found no record. Writer b delivers evt_5 too.
 def inflight.go(a: C.Store, +b: C.Store) -> IO(Unit):
-  C.Store{db, +begin, +commit, rollback, +find, +read, +save, +del, +keep, +emit} = a
+  C.Store{db, +begin, +commit, rollback, +find, +read, range, +save, +del, +keep, +emit} = a
   do IO<Unit>:
     IO.try(Unit, C.exec(begin))
     found : Maybe<M.Record<Bytes.Bytes, Bytes.Bytes>> <- IO.try(Maybe<M.Record<Bytes.Bytes, Bytes.Bytes>>, C.seen.get(find, "evt_5"))
@@ -182,7 +182,7 @@ def retention() -> IO(Unit):
 
 # Adds 100,000 rows of 100 each, keyed acct_0 to acct_99999.
 def seed(st: C.Store) -> IO(Unit):
-  C.Store{+db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  C.Store{+db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   IO.try(Unit, C.sql(db, "INSERT INTO commands_rows (k, v) WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < 99999) SELECT CAST('acct_' || i AS BLOB), CAST('100' AS BLOB) FROM n"))
 
 # A credit reads and writes only its account's row, among 100,000.

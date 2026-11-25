@@ -99,7 +99,7 @@ type Read is Type:
 
 # A database and its prepared statements. One Store serves one task at a time.
 type Store is Data:
-  Store{db: U32, begin: U32, commit: U32, rollback: U32, find: U32, read: U32, save: U32, del: U32, keep: U32, emit: U32}
+  Store{db: U32, begin: U32, commit: U32, rollback: U32, find: U32, read: U32, range: U32, save: U32, del: U32, keep: U32, emit: U32}
 
 # Opens or creates the tables at path.
 # wait is how many ms a write waits for another connection's transaction before it fails with SQLITE_BUSY (5).
@@ -116,20 +116,22 @@ def open(path: String, wait: U32) -> Run(Store):
     rollback : U32 <- Sqlite.stmt.prepare(db, "ROLLBACK")
     find : U32 <- Sqlite.stmt.prepare(db, "SELECT payload, kind, result, at FROM commands_seen WHERE id = ?")
     read : U32 <- Sqlite.stmt.prepare(db, "SELECT v FROM commands_rows WHERE k = ?")
+    range : U32 <- Sqlite.stmt.prepare(db, "SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k")
     save : U32 <- Sqlite.stmt.prepare(db, "INSERT OR REPLACE INTO commands_rows (k, v) VALUES (?, ?)")
     del : U32 <- Sqlite.stmt.prepare(db, "DELETE FROM commands_rows WHERE k = ?")
     keep : U32 <- Sqlite.stmt.prepare(db, "INSERT INTO commands_seen (id, payload, kind, result, at) VALUES (?, ?, ?, ?, ?)")
     emit : U32 <- Sqlite.stmt.prepare(db, "INSERT INTO commands_outbox (id, effect) VALUES (?, ?)")
-    return Store{db, begin, commit, rollback, find, read, save, del, keep, emit}
+    return Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit}
 
 def close(st: Store) -> Run(Unit):
-  Store{db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   do Run<Unit>:
     Sqlite.stmt.finalize(begin)
     Sqlite.stmt.finalize(commit)
     Sqlite.stmt.finalize(rollback)
     Sqlite.stmt.finalize(find)
     Sqlite.stmt.finalize(read)
+    Sqlite.stmt.finalize(range)
     Sqlite.stmt.finalize(save)
     Sqlite.stmt.finalize(del)
     Sqlite.stmt.finalize(keep)
@@ -220,12 +222,18 @@ def range.run(+s: U32, lower: Bytes.Bytes, upper: Bytes.Bytes, n: U32) -> Run(Li
     row : Bool <- Sqlite.stmt.step(s)
     range.rows(U32.to_nat(n), row, s)
 
-def rows.read(r: Read, +db: U32, read: U32) -> Run(List<Row>):
+def range.read(+s: U32, lower: Bytes.Bytes, upper: Bytes.Bytes, n: U32) -> Run(List<Row>):
+  do IO<Result<&1, &1, U32 & String, List<Row>>>:
+    r : Result<&1, &1, U32 & String, List<Row>> <- range.run(s, lower, upper, n)
+    z : Result<&1, &1, U32 & String, Unit> <- Sqlite.stmt.reset(s)
+    return first(List<Row>, r, z)
+
+def rows.read(r: Read, range: U32, read: U32) -> Run(List<Row>):
   match r:
     case Keys{ks}:
       rows.get(ks, read)
     case Range{lo, hi, n}:
-      once(List<Row>, db, "SELECT k, v FROM commands_rows WHERE k >= ? AND k < ? ORDER BY k", +s => range.run(s, lo, hi, n))
+      range.read(range, lo, hi, n)
 
 def seen.put.row(+keep: U32, id: String, p: Bytes.Bytes, kind: U32, r: Bytes.Bytes, at: U32) -> Run(Unit):
   do Run<Unit>:
@@ -305,23 +313,23 @@ def written(
 def handle.new(
   ~keys: Bytes.Bytes -> Read,
   ~decide: List<Row> -> Bytes.Bytes -> M.Decision<List<Row>, Bytes.Bytes, Bytes.Bytes>,
-  pp: Bytes.Bytes & Bytes.Bytes, +db: U32, +read: U32, at: U32, +commit: U32, +save: U32, +del: U32, +keep: U32, +emit: U32, +id: String
+  pp: Bytes.Bytes & Bytes.Bytes, range: U32, +read: U32, at: U32, +commit: U32, +save: U32, +del: U32, +keep: U32, +emit: U32, +id: String
 ) -> Run(M.Reply<Bytes.Bytes>):
   (p, p2) = pp
   do Run<M.Reply<Bytes.Bytes>>:
-    rs : List<Row> <- rows.read(keys(p), db, read)
+    rs : List<Row> <- rows.read(keys(p), range, read)
     written(M.step(~List<Row>, ~Bytes.Bytes, ~Bytes.Bytes, ~Bytes.Bytes, ~same, ~Bytes.clone, ~Bytes.clone, ~decide, None{}, rs, p2, at), commit, save, del, keep, emit, id)
 
 # A duplicate reads no rows: step ignores them when found is Some.
 def handle.found(
   ~keys: Bytes.Bytes -> Read,
   ~decide: List<Row> -> Bytes.Bytes -> M.Decision<List<Row>, Bytes.Bytes, Bytes.Bytes>,
-  found: Maybe<M.Record<Bytes.Bytes, Bytes.Bytes>>, +db: U32, +read: U32, payload: Bytes.Bytes, at: U32,
+  found: Maybe<M.Record<Bytes.Bytes, Bytes.Bytes>>, range: U32, +read: U32, payload: Bytes.Bytes, at: U32,
   +commit: U32, +save: U32, +del: U32, +keep: U32, +emit: U32, +id: String
 ) -> Run(M.Reply<Bytes.Bytes>):
   match found:
     case None{}:
-      handle.new(~keys, ~decide, Bytes.clone(payload), db, read, at, commit, save, del, keep, emit, id)
+      handle.new(~keys, ~decide, Bytes.clone(payload), range, read, at, commit, save, del, keep, emit, id)
     case Some{rec}:
       written(M.step(~List<Row>, ~Bytes.Bytes, ~Bytes.Bytes, ~Bytes.Bytes, ~same, ~Bytes.clone, ~Bytes.clone, ~decide, Some{rec}, Nil{}, payload, at), commit, save, del, keep, emit, id)
 
@@ -330,11 +338,11 @@ def handle.txn(
   ~decide: List<Row> -> Bytes.Bytes -> M.Decision<List<Row>, Bytes.Bytes, Bytes.Bytes>,
   st: Store, +id: String, payload: Bytes.Bytes, at: U32
 ) -> Run(M.Reply<Bytes.Bytes>):
-  Store{db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   do Run<M.Reply<Bytes.Bytes>>:
     exec(begin)
     found : Maybe<M.Record<Bytes.Bytes, Bytes.Bytes>> <- seen.get(find, id)
-    handle.found(~keys, ~decide, found, db, read, payload, at, commit, save, del, keep, emit, id)
+    handle.found(~keys, ~decide, found, range, read, payload, at, commit, save, del, keep, emit, id)
 
 # On failure, resets the read statements and rolls back. Rollback errors are ignored: the transaction may not have started.
 def handle.end(r: Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>, st: Store) -> Run(M.Reply<Bytes.Bytes>):
@@ -342,7 +350,7 @@ def handle.end(r: Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>, st: Store)
     case Done{x}:
       Run.pure(M.Reply<Bytes.Bytes>, x)
     case Fail{e}:
-      Store{db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+      Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
       do IO<Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>>:
         a : Result<&1, &1, U32 & String, Unit> <- Sqlite.stmt.reset(find)
         b : Result<&1, &1, U32 & String, Unit> <- Sqlite.stmt.reset(read)
@@ -362,7 +370,7 @@ def handle(
 
 # The committed value at key k.
 def get(st: Store, k: Bytes.Bytes) -> Run(Maybe<Bytes.Bytes>):
-  Store{db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   row.get(read, k)
 
 def prune.run(+s: U32, before: U32) -> Run(Unit):
@@ -372,7 +380,7 @@ def prune.run(+s: U32, before: U32) -> Run(Unit):
 
 # Forgets every record made before the time before. A later retry of a forgotten id runs as a new command.
 def prune(st: Store, before: U32) -> Run(Unit):
-  Store{db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   once(Unit, db, "DELETE FROM commands_seen WHERE at < ?", +s => prune.run(s, before))
 
 # An undelivered effect: its sequence number, its command id, and the effect.
@@ -397,7 +405,7 @@ def outbox.first(+s: U32) -> Run(Maybe<Pending>):
 
 # The oldest undelivered effect.
 def outbox.next(st: Store) -> Run(Maybe<Pending>):
-  Store{db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   once(Maybe<Pending>, db, "SELECT seq, id, effect FROM commands_outbox ORDER BY seq LIMIT 1", +s => outbox.first(s))
 
 def outbox.ack.run(+s: U32, seq: U32) -> Run(Unit):
@@ -407,5 +415,5 @@ def outbox.ack.run(+s: U32, seq: U32) -> Run(Unit):
 
 # Removes a delivered effect. Deliver before ack: a crash between them delivers the effect again.
 def outbox.ack(st: Store, seq: U32) -> Run(Unit):
-  Store{db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  Store{db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   once(Unit, db, "DELETE FROM commands_outbox WHERE seq = ?", +s => outbox.ack.run(s, seq))

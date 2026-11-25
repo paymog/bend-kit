@@ -128,7 +128,7 @@ def range.run(n: Nat, +st: C.Store, +overflow: Bool, +i: U32, +h: U32) -> IO(U32
             range.run(p, st, False{}, (i + 1 : U32), (h * 31 + v : U32))
 
 def range.seed(st: C.Store, count: U32) -> IO(Unit):
-  C.Store{+db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  C.Store{+db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   do IO<Unit>:
     IO.try(Unit, C.sql(db, "DELETE FROM commands_rows"))
     IO.try(Unit, C.sql(db, "DELETE FROM commands_seen"))
@@ -144,7 +144,7 @@ def range.ok(b: Bool) -> IO(Unit):
       IO.die(Unit, 1, "overflow committed a record or an effect")
 
 def range.check(st: C.Store, +n: U32) -> IO(Unit):
-  C.Store{+db, begin, commit, rollback, find, read, save, del, keep, emit} = st
+  C.Store{+db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
   do IO<Unit>:
     +q : U32 <- IO.try(U32, S.stmt.prepare(db, "SELECT (SELECT count(*) FROM commands_seen), (SELECT count(*) FROM commands_outbox)"))
     row : Bool <- IO.try(Bool, S.stmt.step(q))
