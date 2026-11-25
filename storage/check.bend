@@ -5,6 +5,7 @@ import ./storage.bend as S
 import ./pure.bend as P
 import ./http_check.bend as HttpCheck
 import ../process/process.bend as Proc
+import ./root_check.bend as RootCheck
 
 def ok(good: Bool, +name: String) -> IO(Unit):
   match good:
@@ -573,4 +574,5 @@ def main() -> IO(Unit):
     maintenance(dir ++ "/maintenance")
     coordination(dir ++ "/coordination")
     durability(dir ++ "/durability")
+    RootCheck.main()
     HttpCheck.run()

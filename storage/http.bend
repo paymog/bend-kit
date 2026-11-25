@@ -232,43 +232,6 @@ def Run.close(-A: Type, pair: Http.Pool & Result<&1, &1, U32 & String, A>) -> S.
     Http.pool.close(pool)
     return result
 
-def inspect(path: String, digest: String) -> IO(Result<&1, &1, U32 & String, U32 & String>):
-  import "./effs/http.c"
-  import "./effs/http.js"
-
-def metadata.file(valid: Bool) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
-  match valid:
-    case True{}:
-      Some{P.OFile{Unit{}}}
-    case False{}:
-      None{}
-
-def metadata.node(node: Maybe<&2, P.Obj<P.Digest, P.Blob>>) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
-  match node:
-    case Some{P.OEnd{}}:
-      Some{P.OEnd{}}
-    case Some{P.OItem{n, c, r}}:
-      Some{P.OItem{n, c, r}}
-    case _:
-      None{}
-
-def metadata.of(file: Bool, +size: U32, +head: String, +d: P.Digest) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
-  match file:
-    case True{}:
-      +digits = String.drop(head, 5n)
-      +length = U32.from_nat(String.length(head ++ "\n"))
-      metadata.file(Bool.and(U32.is_le(length, size), String.eq(digits, U32.show((size - length : U32)))))
-    case False{}:
-      metadata.node(P.decode.hashed(d, Http.from_string(head ++ "\n")))
-
-def verified.pair(+d: P.Digest, pair: U32 & String) -> S.Run(P.Obj<P.Digest, Unit>):
-  (+size, +head) = pair
-  S.Run.some(P.Obj<P.Digest, Unit>, metadata.of(String.starts_with(head, "file "), size, head, d), "object " ++ P.Digest.hex(d) ++ " does not decode")
-
-def verified(+path: String, +d: P.Digest) -> S.Run(P.Obj<P.Digest, Unit>):
-  do S.Run<P.Obj<P.Digest, Unit>>:
-    pair : U32 & String <- inspect(path, P.Digest.hex(d))
-    verified.pair(d, pair)
 
 def error(e: Http.Err) -> String:
   match e:
@@ -406,7 +369,7 @@ def download(base: String, dir: String, +d: P.Digest) -> Run(String):
 
 def publish(+tmp: String, path: String, d: P.Digest) -> S.Run(P.Obj<P.Digest, Unit>):
   do S.Run<P.Obj<P.Digest, Unit>>:
-    node : P.Obj<P.Digest, Unit> <- verified(tmp, d)
+    node : P.Obj<P.Digest, Unit> <- S.verified(tmp, d)
     S.write.durable(tmp, path, 0)
     return node
 
@@ -444,7 +407,7 @@ def walk(fuel: Nat, +base: String, +dir: String, step: Step, +index: P.Index(P.D
       Run.bind(Bool, P.Index(P.Digest, Unit) & U32, Run.lift(Bool, S.Run.lift(Bool, Files.exists(S.Disk.object(dir, d)))), e => walk(p, base, dir, Local{d, e}, index, sent))
     case 1n+p Local{+d, True{}}:
       do Run<P.Index(P.Digest, Unit) & U32>:
-        +node : P.Obj<P.Digest, Unit> <- Run.lift(P.Obj<P.Digest, Unit>, verified(S.Disk.object(dir, d), d))
+        +node : P.Obj<P.Digest, Unit> <- Run.lift(P.Obj<P.Digest, Unit>, S.verified(S.Disk.object(dir, d), d))
         walk(p, base, dir, Children{node}, P.Index.put(~P.Digest, ~Unit, ~P.Digest.cmp, index, d, node), sent)
     case 1n+p Local{+d, False{}}:
       do Run<P.Index(P.Digest, Unit) & U32>:

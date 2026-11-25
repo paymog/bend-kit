@@ -3,8 +3,8 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.9.0.0/storage.bend as S
-import bend-kit-storage@0.9.0.0/pure.bend as P
+import bend-kit-storage@0.9.1.0/storage.bend as S
+import bend-kit-storage@0.9.1.0/pure.bend as P
 ```
 
 `pure.bend` owns the model, digest types and ordering, and encoding and decoding helpers. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` import only this module. `storage.bend` owns hashing and disk IO. Import both modules for disk operations; pure types and constructors use `P`, and effects use `S`.
@@ -17,8 +17,8 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.9.0.0/storage.bend as S
-import bend-kit-storage@0.9.0.0/pure.bend as P
+import bend-kit-storage@0.9.1.0/storage.bend as S
+import bend-kit-storage@0.9.1.0/pure.bend as P
 
 def ship(+root: P.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -117,9 +117,11 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 | `sync(src, dst, root)` | sends `dst` the objects of `Index.plan` through `Disk.receive` and answers how many. It reads the objects `root` reaches in `src`, and in `dst` only those of them that `dst` holds |
 | `snapshot(path)`, `restore(t, path)` | a directory on disk as a `Tree`; a `Tree` written as a new file or directory |
 
+`Disk.set_root` validates canonical objects with 64 KiB reads and keeps only links and a visited index. It verifies and syncs each reachable digest once, then syncs the objects directory before publishing the root. Payload memory does not grow with file size. Index memory grows with the number of distinct objects. `root_check.bend`, included in both package check lanes, checks a 17 MiB file and a 24-level shared graph without expanding its paths.
+
 ## HTTP synchronization
 
-Import `bend-kit-storage@0.9.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.40.0.1`; the pure storage core does not import HTTP.
+Import `bend-kit-storage@0.9.1.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.40.0.1`; the pure storage core does not import HTTP.
 
 `Transport.handle(dir, request)` returns `Http.WriteHead<Transport.Source>`. It serves `GET /objects/<digest>` as `application/octet-stream`. Invalid paths and missing objects return 404; other disk failures return 500. Mount it with `Http.server.start(~String, ~Unit, dir, Unit{}, config)` and `Transport.server.run(~observe, server)`. The observer has type `String -> U32 -> Completion.Outcome -> IO(Unit)` and may call `Completion.ignore(status, outcome)`. Custom write servers can use `Transport.write` and `Transport.dispose`, or `Transport.talk` with their own context and start handler. The caller owns the listener, bind address, admission limits, shutdown, authentication, and TLS termination.
 
@@ -127,9 +129,9 @@ The client is:
 
 ```bend
 import Base
-import bend-kit-storage@0.9.0.0/storage.bend as S
-import bend-kit-storage@0.9.0.0/pure.bend as P
-import bend-kit-storage@0.9.0.0/http.bend as Transport
+import bend-kit-storage@0.9.1.0/storage.bend as S
+import bend-kit-storage@0.9.1.0/pure.bend as P
+import bend-kit-storage@0.9.1.0/http.bend as Transport
 
 def pull(+root: P.Digest) -> S.Run(U32):
   Transport.sync("https://artifacts.example", "b", root)
