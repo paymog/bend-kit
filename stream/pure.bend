@@ -10,13 +10,16 @@ type ReadAction is Data:
 def chunk.valid(+chunk: U32) -> Bool:
   U32.is_ge(chunk, 1) && U32.is_le(chunk, 1048576)
 
-# The one-byte probe is only requested after the entire cap was forwarded.
-def request(+chunk: U32, +remaining: U32) -> U32:
-  match remaining:
-    case 0:
+def request.flags(probe: Bool, chunk: U32, remaining: U32) -> U32:
+  match probe:
+    case True{}:
       1
-    case _:
+    case False{}:
       U32.min(chunk, remaining)
+
+# The one-byte probe is only requested after the entire cap was forwarded.
+def request(chunk: U32, +remaining: U32) -> U32:
+  request.flags(U32.is_zero(remaining), chunk, remaining)
 
 def read.action.flags(zero: Bool, probe: Bool) -> ReadAction:
   match zero:

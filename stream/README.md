@@ -6,7 +6,7 @@ conversion, whole-input buffering, reader/writer hierarchy, or new host effect.
 
 ```bend
 import Base
-import bend-kit-stream@0.5.0.0/stream.bend as Stream
+import bend-kit-stream@0.5.0.1/stream.bend as Stream
 
 # Handles are already open; the caller owns their lifetime.
 def copy(source: File, destination: File) -> IO(File & File & Stream.Outcome):
@@ -78,3 +78,7 @@ See [SPEC.md](SPEC.md) for the precise effect assumptions. `LAWS.bend` and
 `pure.bend` contains `ReadAction`, `chunk.valid`, `request`, and `read.action`.
 Import it instead of `stream.bend` for pure control decisions. The runtime uses
 the same definitions. The proof import graph contains no file or socket effects.
+
+The general laws cover the exact chunk interval, both request bounds whenever
+the remaining cap is nonzero, the one-byte probe for every chunk, and all
+EOF/probe/forward branches for arbitrary lengths and remaining caps.
