@@ -1,7 +1,8 @@
 # A local upstream for the gateway checks and demo. It prints each request it serves.
 import Base
-import bend-kit-http@0.40.0.1/http.bend as H
-import bend-kit-http@0.40.0.1/completion.bend as T
+import bend-kit-http@0.44.0.1/http.bend as H
+import bend-kit-http@0.44.0.1/pure.bend as Pure
+import bend-kit-http@0.44.0.1/completion.bend as T
 
 # /items/gone is missing, /items/broken fails, /items/slow-* answers after 1.5 s.
 def kind(target: String) -> U32:
@@ -19,37 +20,37 @@ def kind(target: String) -> U32:
     case _:
       0
 
-def answer(k: U32, +target: String) -> IO(H.Res):
+def answer(k: U32, +target: String) -> IO(Pure.Res):
   match k:
     case 1:
-      IO.pure(H.Res, H.Res{404, H.empty(), H.from_string("")})
+      IO.pure(Pure.Res, Pure.Res{404, Pure.empty(), Pure.from_string("")})
     case 2:
-      IO.pure(H.Res, H.Res{500, H.empty(), H.from_string("")})
+      IO.pure(Pure.Res, Pure.Res{500, Pure.empty(), Pure.from_string("")})
     case 3:
-      do IO<H.Res>:
+      do IO<Pure.Res>:
         IO.sleep(1500)
-        return H.Res{200, H.empty(), H.from_string("slow " ++ target)}
+        return Pure.Res{200, Pure.empty(), Pure.from_string("slow " ++ target)}
     case _:
-      IO.pure(H.Res, H.Res{200, H.empty(), H.from_string("item " ++ target)})
+      IO.pure(Pure.Res, Pure.Res{200, Pure.empty(), Pure.from_string("item " ++ target)})
 
-def handle(context: Unit, req: H.Req) -> IO(H.Reply):
-  H.Req{method, +target, headers, body} = req
+def handle(context: Unit, req: Pure.Req) -> IO(H.Reply):
+  Pure.Req{method, +target, headers, body} = req
   do IO<H.Reply>:
     IO.print("UPSTREAM " ++ method ++ " " ++ target)
-    res : H.Res <- answer(kind(target), target)
+    res : Pure.Res <- answer(kind(target), target)
     return H.Reply{res, T.Unobserved{}}
 
-def config(port: U32) -> H.ServerConfig:
-  H.ServerConfig{"127.0.0.1", port, 1048576, 65536, 64, 64, 64, 5000, 30000, 30000, 30000}
+def config(port: U32) -> Pure.ServerConfig:
+  Pure.ServerConfig{"127.0.0.1", port, 1048576, 65536, 64, 64, 64, 5000, 30000, 30000, 30000}
 
-def run(server: H.Server<Unit>) -> IO(H.ServerExit):
+def run(server: H.Server<Unit>) -> IO(Pure.ServerExit):
   H.server.run(~Unit, ~handle, ~(context => status => outcome => T.ignore(status, outcome)), server)
 
 # Starts listening. The caller runs the server and stops it through its control.
-def start(port: U32) -> IO(Unit & Result<&2, &1, H.StartupError, H.Server<Unit>>):
+def start(port: U32) -> IO(Unit & Result<&2, &1, Pure.StartupError, H.Server<Unit>>):
   H.server.start(~Unit, ~Unit, Unit{}, Unit{}, config(port))
 
-def started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Unit>>) -> IO(Unit):
+def started(result: Unit & Result<&2, &1, Pure.StartupError, H.Server<Unit>>) -> IO(Unit):
   (unit, r) = result
   match r:
     case Fail{e}:
@@ -57,14 +58,14 @@ def started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Unit>>) -> IO
     case Done{server}:
       do IO<Unit>:
         IO.print("UPSTREAM READY")
-        exit : H.ServerExit <- run(server)
+        exit : Pure.ServerExit <- run(server)
         return Unit{}
 
 def main.port(port: Maybe<&2, U32>) -> IO(Unit):
   match port:
     case Some{p}:
       do IO<Unit>:
-        result : Unit & Result<&2, &1, H.StartupError, H.Server<Unit>> <- start(p)
+        result : Unit & Result<&2, &1, Pure.StartupError, H.Server<Unit>> <- start(p)
         started(result)
     case None{}:
       IO.die(Unit, 1, "upstream: expected a decimal port")
