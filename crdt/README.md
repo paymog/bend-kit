@@ -3,7 +3,7 @@
 Replicated data types with proved merges, as in Shapiro et al., "A comprehensive study of Convergent and Commutative Replicated Data Types" (2011). `GCounter` is a grow-only counter keyed by small dense indices. `KCounter` is a grow-only counter keyed by sparse IDs of any `Data` type. `PNCounter` adds decrements with a pair of dense G-Counters. Replicas exchange whole states in any order, and every replica that has seen the same states holds the same counter.
 
 ```bend
-import bend-kit-crdt@0.2.3.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.1/crdt.bend as Crdt
 ```
 
 It imports `bend-kit-cbor@0.3.0.1` and `bend-kit-bytes@0.3.3.1` for the wire form.
@@ -18,7 +18,7 @@ Replica 0 receives the state of replica 1 twice.
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.3.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.1/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -88,7 +88,7 @@ Replica 7 counts 2 events. Replica 4000000000 counts 1 event and merges the stat
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.3.0/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.1/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -130,13 +130,20 @@ It prints `3`.
 |---|---|
 | `k_merge_comm`, `k_merge_assoc`, `k_merge_idem` | for every ID `k`, `get` of each side is equal |
 | `k_merge_upper_l`, `k_merge_upper_r`, `k_merge_least` | merge is the least upper bound in the order `le` |
+| `k_le_refl`, `k_le_trans` | `le` is reflexive and transitive on all states |
+| `k_le_antisymm` | two valid canonical states that are at most each other are equal as lists |
+| `k_merge_mono` | `le(a, b)` implies `le(merge(a, c), merge(b, c))` |
 | `k_inc_grows` | a successful increment gives a state at least `s` |
 | `k_merge_valid`, `k_inc_valid` | merge and increment keep a state valid |
 | `k_converge` | if each state in `xs` is in `ys` and each state in `ys` is in `xs`, `get` of `merge_all(xs)` and `merge_all(ys)` agree at every ID |
 | `k_from_cbor_valid` | `from_cbor` returns only valid states, for every `dec` |
 | `k_cbor_roundtrip` | a valid state with at most `cap` entries decodes to itself when `dec(enc(x)) == Some{x}` |
 
-The order facts are `refl` (`cmp(x, x) == EQ`), `eq` (`cmp(x, y) == EQ` gives `x == y`), and `flip` (`cmp(y, x)` is the flip of `cmp(x, y)`). `U32.cmp` and a lexicographic `String` comparator have all three.
+The order facts are `refl` (`cmp(x, x) == EQ`), `eq` (`cmp(x, y) == EQ` gives `x == y`), `flip` (`cmp(y, x)` is the flip of `cmp(x, y)`), and strict-order `trans` (`x < y` and `y < z` give `x < z`). `U32.cmp` and a lexicographic `String` comparator have all four.
+
+`k_le_refl` needs `refl`. `k_le_trans` needs `eq`. `k_merge_mono` needs both and reuses the keyed join proofs. None needs validity. `k_le_antisymm` needs all four facts and valid states: IDs strictly ascend and every count is positive. These states form a partial order. Raw states form only a preorder; a zero entry and an empty state can be at most each other without being equal.
+
+State order compares each replica's count, not the total. States with one event under different IDs have equal totals but are incomparable.
 
 ## PNCounter
 

@@ -578,3 +578,47 @@ law k_from_cbor_bad_id:
 
 law k_from_cbor_not_map:
   {kfrom(Cbor.Arr{[uint(3)]}, 8) == None{} : Maybe<&2, Crdt.KCounter<U32>>}
+
+law k_le_refl:
+  for ~K: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for a: Crdt.KCounter<K>
+  {Crdt.KCounter.le(~K, ~cmp, a, a) == True{} : Bool}
+
+law k_le_trans:
+  for ~K: Data
+  for ~cmp: K -> K -> Cmp
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for a: Crdt.KCounter<K>
+  for b: Crdt.KCounter<K>
+  for c: Crdt.KCounter<K>
+  for hab: {Crdt.KCounter.le(~K, ~cmp, a, b) == True{} : Bool}
+  for hbc: {Crdt.KCounter.le(~K, ~cmp, b, c) == True{} : Bool}
+  {Crdt.KCounter.le(~K, ~cmp, a, c) == True{} : Bool}
+
+law k_le_antisymm:
+  for ~K: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for ~flip: @x: K -> @y: K -> {cmp(y, x) == flip(cmp(x, y)) : Cmp}
+  for ~trans: @x: K -> @y: K -> @z: K -> {Cmp.is_lt(cmp(x, y)) == True{} : Bool} -> {Cmp.is_lt(cmp(y, z)) == True{} : Bool} -> {Cmp.is_lt(cmp(x, z)) == True{} : Bool}
+  for a: Crdt.KCounter<K>
+  for b: Crdt.KCounter<K>
+  for va: {Crdt.KCounter.valid(~K, ~cmp, a) == True{} : Bool}
+  for vb: {Crdt.KCounter.valid(~K, ~cmp, b) == True{} : Bool}
+  for hab: {Crdt.KCounter.le(~K, ~cmp, a, b) == True{} : Bool}
+  for hba: {Crdt.KCounter.le(~K, ~cmp, b, a) == True{} : Bool}
+  {a == b : Crdt.KCounter<K>}
+
+law k_merge_mono:
+  for ~K: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for a: Crdt.KCounter<K>
+  for b: Crdt.KCounter<K>
+  for c: Crdt.KCounter<K>
+  for hab: {Crdt.KCounter.le(~K, ~cmp, a, b) == True{} : Bool}
+  {Crdt.KCounter.le(~K, ~cmp, Crdt.KCounter.merge(~K, ~cmp, a, c), Crdt.KCounter.merge(~K, ~cmp, b, c)) == True{} : Bool}
