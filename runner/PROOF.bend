@@ -1127,6 +1127,14 @@ def loop.finish.bound(~A: Data, tk: Q.Taken<A>, +o: Nat, +c: Nat, +h: Nat, s: R.
         f => MNat.le_trans(Nat.sub(h, 1n), h, c, MNat.sub_le(h, 1n), e),
         f => e)
 
+def loop.retry.pool(~A: Data, tk: Q.Taken<A>, +p: Res.Pool, +s: R.State<A>, +i: Nat, d: Nat) ->
+    {R.loop.pool(A, R.loop.retried(~A, tk, p, s, i, d)) == R.loop.pool(A, R.loop.finished(~A, tk, p, s, i)) : Res.Pool}:
+  match tk p:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, h}:
+      {==}
+    case Q.Taken{fs, Some{t}} Res.Pool{o, c, h}:
+      {==}
+
 def loop.step.bound(~A: Data, e: R.LoopEvent, s: R.Loop<A>, bound: loop.bound(A, s)) -> loop.bound(A, R.loop.step(~A, e, s)):
   match e s:
     case R.Claim{+now} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
@@ -1135,6 +1143,11 @@ def loop.step.bound(~A: Data, e: R.LoopEvent, s: R.Loop<A>, bound: loop.bound(A,
       loop.finish.bound(~A, Q.take.list(A, fs, i), o, c, h, s, i, bound)
     case R.CancelFlight{i} R.Loop{p, s, fs}:
       bound
+    case R.RetrySettle{+i, +d} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      %Equal.sym(Res.Pool, R.loop.pool(A, R.loop.retried(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i, d)),
+        R.loop.pool(A, R.loop.finished(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i)),
+        loop.retry.pool(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i, d)) : MNat.le(Res.reserved(_), Res.capacity(_))
+      loop.finish.bound(~A, Q.take.list(A, fs, i), o, c, h, s, i, bound)
 
 def Laws.loop_capacity(A, es, s, bound):
   match es:
@@ -1168,6 +1181,11 @@ def loop.step.cap(~A: Data, e: R.LoopEvent, s: R.Loop<A>) ->
       loop.finish.cap(~A, Q.take.list(A, fs, i), o, c, h, s, i)
     case R.CancelFlight{i} R.Loop{p, s, fs}:
       {==}
+    case R.RetrySettle{+i, +d} R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      %Equal.sym(Res.Pool, R.loop.pool(A, R.loop.retried(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i, d)),
+        R.loop.pool(A, R.loop.finished(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i)),
+        loop.retry.pool(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i, d)) : {Res.capacity(_) == c : Nat}
+      loop.finish.cap(~A, Q.take.list(A, fs, i), o, c, h, s, i)
 
 def Laws.loop_capacity_stable(A, es, s):
   match es:
@@ -1396,6 +1414,45 @@ def loop.finish.synced(~A: Data, tk: Q.Taken<A>, p: Res.Pool, +n: Nat, +heap: H.
         Laws.flights.cover(A, taken.rest(A, _), Q.remove.list(A, old, i))
       cover.both(A, original, old, i, same)
 
+def loop.retry.running(~A: Data, r: Q.State<A> & Maybe<&2, Q.Ticket<A>>, d: Nat) ->
+    {Q.running(A, QL.requeue.state(A, Q.requeue.completed(~A, r, d))) == Q.running(A, QL.state(A, r)) : List<&2, Q.Ticket<A>>}:
+  match r:
+    case (Q.State{n, h, rs}, None{}):
+      {==}
+    case (Q.State{n, h, rs}, Some{Q.Ticket{i, old, x}}):
+      {==}
+
+def loop.requeued.running(-A: Data, r: Q.State<A> & Bool, +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers()) ->
+    {Q.running(A, R.queue(A, R.step.requeued(A, r, ts, ds, bs))) == Q.running(A, QL.requeue.state(A, r)) : List<&2, Q.Ticket<A>>}:
+  match r:
+    case (q, b):
+      {==}
+
+def loop.completed.running(-A: Data, r: Q.State<A> & Maybe<&2, Q.Ticket<A>>, +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers()) ->
+    {Q.running(A, R.queue(A, R.step.completed(A, r, ts, ds, bs))) == Q.running(A, QL.state(A, r)) : List<&2, Q.Ticket<A>>}:
+  match r:
+    case (q, t):
+      {==}
+
+def loop.retry.sync(~A: Data, tk: Q.Taken<A>, +p: Res.Pool, +s: R.State<A>, +i: Nat, +d: Nat,
+    same: loop.sync(A, R.loop.finished(~A, tk, p, s, i))) ->
+    loop.sync(A, R.loop.retried(~A, tk, p, s, i, d)):
+  match tk p s:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, h} R.State{q, ts, ds, bs}:
+      same
+    case Q.Taken{+fs, Some{t}} Res.Pool{o, c, h} R.State{Q.State{+n, +heap, +rs}, +ts, +ds, +bs}:
+      +q = {Q.State{n, heap, rs} : Q.State<A>}
+      %Equal.sym(List<&2, Q.Ticket<A>>,
+        Q.running(A, R.queue(A, R.step(~A, R.State{q, ts, ds, bs}, R.Requeue{i, d}))),
+        Q.running(A, QL.requeue.state(A, Q.requeue(~A, i, d, q))),
+        loop.requeued.running(A, Q.requeue(~A, i, d, q), R.tries.bump(ts, i), ds, bs)) : Laws.flights.cover(A, fs, _)
+      %Equal.sym(List<&2, Q.Ticket<A>>,
+        Q.running(A, QL.requeue.state(A, Q.requeue(~A, i, d, q))),
+        Q.running(A, QL.state(A, Q.complete(A, i, q))),
+        loop.retry.running(~A, Q.complete(A, i, q), d)) : Laws.flights.cover(A, fs, _)
+      %loop.completed.running(A, Q.complete(A, i, q), R.tries.drop(ts, i), ds, bs) : Laws.flights.cover(A, fs, _)
+      same
+
 def loop.step.sync(~A: Data, +e: R.LoopEvent, s: R.Loop<A>, same: loop.sync(A, s)) -> loop.sync(A, R.loop.step(~A, e, s)):
   match e s:
     case R.Claim{+now} R.Loop{+p, R.State{Q.State{+n, +heap, +old}, +ts, +ds, +bs}, +fs}:
@@ -1405,6 +1462,9 @@ def loop.step.sync(~A: Data, +e: R.LoopEvent, s: R.Loop<A>, same: loop.sync(A, s
       loop.finish.synced(~A, Q.take.list(A, fs, i), p, n, heap, old, ts, ds, bs, i, fs, same, {==})
     case R.CancelFlight{+i} R.Loop{p, R.State{Q.State{n, heap, +old}, ts, ds, bs}, +fs}:
       cover.right(A, fs, old, i, same)
+    case R.RetrySettle{+i, +d} R.Loop{+p, R.State{Q.State{+n, +heap, +old}, +ts, +ds, +bs}, +fs}:
+      loop.retry.sync(~A, Q.take.list(A, fs, i), p, R.State{Q.State{n, heap, old}, ts, ds, bs}, i, d,
+        loop.finish.synced(~A, Q.take.list(A, fs, i), p, n, heap, old, ts, ds, bs, i, fs, same, {==}))
 
 def Laws.loop_flights(A, es, s, same):
   match es:
@@ -1419,6 +1479,112 @@ def Laws.loop_cancel_retains(A, i, p, s, fs):
 
 def Laws.loop_cancel_finish_releases(A, i, o, c, h, s, fs, t, found):
   Laws.loop_finish_releases(~A, i, o, c, h, R.step(~A, s, R.Cancel{i}), fs, t, found)
+
+
+def Laws.loop_retry_settles(A, i, d, o, c, h, s, fs, t, found):
+  +d = d
+  +c = c
+  +h = h
+  +s = s
+  %Equal.sym(Q.Taken<A>, Q.take.list(A, fs, i), Q.Taken{Q.remove.list(A, fs, i), Q.find.list(A, fs, i)}, QL.take_equivalent(A, fs, i)) :
+    {R.loop.retried(~A, _, Res.Pool{o, c, h}, s, i, d) == R.Loop{R.loop.release(Res.release(Res.Pool{o, c, h}, Res.Grant{o, 1n})), R.step(~A, s, R.Requeue{i, d}), Q.remove.list(A, fs, i)} : R.Loop<A>}
+  %Equal.sym(Maybe<&2, Q.Ticket<A>>, Q.find.list(A, fs, i), Some{t}, found) :
+    {R.loop.retried(~A, Q.Taken{Q.remove.list(A, fs, i), _}, Res.Pool{o, c, h}, s, i, d) == R.Loop{R.loop.release(Res.release(Res.Pool{o, c, h}, Res.Grant{o, 1n})), R.step(~A, s, R.Requeue{i, d}), Q.remove.list(A, fs, i)} : R.Loop<A>}
+  {==}
+
+def Laws.loop_retry_pending(A, i, d, old, x, n, heap, rs, ts, ds, bs, o, c, h, fs, t, found):
+  +old = old
+  +ts = ts
+  +ds = ds
+  +bs = bs
+  +o = o
+  +c = c
+  +h = h
+  +fs = fs
+  %Equal.sym(R.Loop<A>,
+    R.loop.step(~A, R.RetrySettle{i, d}, R.Loop{Res.Pool{o, c, h}, R.State{Q.State{n, heap, Q.Ticket{i, old, x} <> rs}, ts, ds, bs}, fs}),
+    R.Loop{R.loop.release(Res.release(Res.Pool{o, c, h}, Res.Grant{o, 1n})),
+      R.step(~A, R.State{Q.State{n, heap, Q.Ticket{i, old, x} <> rs}, ts, ds, bs}, R.Requeue{i, d}), Q.remove.list(A, fs, i)},
+    Laws.loop_retry_settles(~A, i, d, o, c, h, R.State{Q.State{n, heap, Q.Ticket{i, old, x} <> rs}, ts, ds, bs}, fs, t, found)) :
+    {R.queue(A, R.loop.state(A, _)) == Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, heap), Q.remove.list(A, Q.Ticket{i, old, x} <> rs, i)} : Q.State<A>}
+  %Equal.sym(Q.State<A> & Bool, Q.requeue(~A, i, d, Q.State{n, heap, Q.Ticket{i, old, x} <> rs}),
+    (Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, heap), Q.remove.list(A, Q.Ticket{i, old, x} <> rs, i)}, True{}),
+    QL.requeue_token(~A, i, d, old, x, n, heap, rs)) :
+    {R.queue(A, R.step.requeued(A, _, R.tries.bump(ts, i), ds, bs)) == Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, d, x}, heap), Q.remove.list(A, Q.Ticket{i, old, x} <> rs, i)} : Q.State<A>}
+  {==}
+
+def Laws.loop_retry_releases(A, i, d, o, c, h, s, fs, t, found):
+  +o = o
+  +c = c
+  +h = h
+  +s = s
+  +fs = fs
+  %Equal.sym(Res.Pool,
+    R.loop.pool(A, R.loop.step(~A, R.RetrySettle{i, d}, R.Loop{Res.Pool{o, c, 1n+h}, s, fs})),
+    R.loop.pool(A, R.loop.step(~A, R.Finish{i}, R.Loop{Res.Pool{o, c, 1n+h}, s, fs})),
+    loop.retry.pool(~A, Q.take.list(A, fs, i), Res.Pool{o, c, 1n+h}, s, i, d)) : {_ == Res.Pool{o, c, h} : Res.Pool}
+  Laws.loop_finish_releases(~A, i, o, c, h, s, fs, t, found)
+
+def loop.retried.absent(~A: Data, tk: Q.Taken<A>, o: Nat, c: Nat, h: Nat, s: R.State<A>, +i: Nat, d: Nat, er: taken.rem_ok(A, tk, i)) ->
+    QL.absent.list(A, R.loop.flights(A, R.loop.retried(~A, tk, Res.Pool{o, c, h}, s, i, d)), i):
+  match tk:
+    case Q.Taken{fs, None{}}:
+      er
+    case Q.Taken{fs, Some{t}}:
+      er
+
+def Laws.loop_retry_absent(A, i, d, s):
+  match s:
+    case R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.retried.absent(~A, Q.take.list(A, fs, i), o, c, h, s, i, d, take_absent(A, fs, i))
+
+def loop.retry.idle(~A: Data, +i: Nat, d: Nat, +s: R.Loop<A>, er: QL.absent.list(A, R.loop.flights(A, s), i)) ->
+    {R.loop.step(~A, R.RetrySettle{i, d}, s) == s : R.Loop<A>}:
+  match s:
+    case R.Loop{Res.Pool{o, c, h}, s, fs}:
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, fs, i), Q.Taken{fs, None{}}, loop.take.idle(A, fs, i, er)) :
+        {R.loop.retried(~A, _, Res.Pool{o, c, h}, s, i, d) == R.Loop{Res.Pool{o, c, h}, s, fs} : R.Loop<A>}
+      {==}
+
+def Laws.loop_retry_once(A, i, d, next, s):
+  +d = d
+  loop.retry.idle(~A, i, next, R.loop.step(~A, R.RetrySettle{i, d}, s), Laws.loop_retry_absent(~A, i, d, s))
+
+def Laws.loop_retry_finish_once(A, i, d, s):
+  +d = d
+  loop.finish.idle(~A, i, R.loop.step(~A, R.RetrySettle{i, d}, s), Laws.loop_retry_absent(~A, i, d, s))
+
+def Laws.loop_finish_retry_once(A, i, d, s):
+  match s:
+    case R.Loop{Res.Pool{+o, +c, +h}, +s, +fs}:
+      loop.retry.idle(~A, i, d, R.loop.finished(~A, Q.take.list(A, fs, i), Res.Pool{o, c, h}, s, i),
+        loop.finished.absent(~A, Q.take.list(A, fs, i), o, c, h, s, i, take_absent(A, fs, i)))
+
+def loop.requeue.absent(~A: Data, +q: Q.State<A>, +i: Nat, +d: Nat, er: QL.absent.list(A, Q.running(A, q), i)) ->
+    {Q.requeue(~A, i, d, q) == (q, False{}) : Q.State<A> & Bool}:
+  match q:
+    case Q.State{+n, +h, +rs}:
+      %Equal.sym(Q.Taken<A>, Q.take.list(A, rs, i), Q.Taken{rs, None{}}, loop.take.idle(A, rs, i, er)) :
+        {Q.requeue.completed(~A, Q.complete.taken(A, _, n, h), d) == (Q.State{n, h, rs}, False{}) : Q.State<A> & Bool}
+      {==}
+
+def loop.retry.cancelled(~A: Data, tk: Q.Taken<A>, p: Res.Pool, +s: R.State<A>, +i: Nat, +d: Nat) ->
+    {R.queue(A, R.loop.state(A, R.loop.retried(~A, tk, p, R.step(~A, s, R.Cancel{i}), i, d))) ==
+     R.queue(A, R.step(~A, s, R.Cancel{i})) : Q.State<A>}:
+  match tk p s:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, h} R.State{Q.State{n, heap, rs}, ts, ds, bs}:
+      {==}
+    case Q.Taken{fs, Some{t}} Res.Pool{o, c, h} R.State{Q.State{+n, +heap, +rs}, +ts, +ds, +bs}:
+      +q = {Q.State{n, heap, rs} : Q.State<A>}
+      %Equal.sym(Q.State<A> & Bool, Q.requeue(~A, i, d, Q.cancel(~A, i, q)), (Q.cancel(~A, i, q), False{}),
+        loop.requeue.absent(~A, Q.cancel(~A, i, q), i, d, QL.cancel_running_absent(~A, i, q))) :
+        {R.queue(A, R.step.requeued(A, _, R.tries.bump(R.tries.drop(ts, i), i), R.dead.drop(~A, ds, i), bs)) == Q.cancel(~A, i, q) : Q.State<A>}
+      {==}
+
+def Laws.loop_cancel_retry_queue(A, i, d, s):
+  match s:
+    case R.Loop{p, +s, fs}:
+      loop.retry.cancelled(~A, Q.take.list(A, fs, i), p, s, i, d)
 
 # ---- decoded breaker tries
 

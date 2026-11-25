@@ -390,6 +390,7 @@ type LoopEvent is Data:
   Claim{now: Nat}
   Finish{id: Nat}
   CancelFlight{id: Nat}
+  RetrySettle{id: Nat, due: Nat}
 
 def loop.pool(-A: Data, s: Loop<A>) -> Res.Pool:
   Loop{p, s, fs} = s
@@ -424,6 +425,13 @@ def loop.finished(~A: Data, tk: Q.Taken<A>, p: Res.Pool, s: State<A>, +i: Nat) -
     case Q.Taken{fs, Some{t}} Res.Pool{+o, c, h}:
       Loop{loop.release(Res.release(Res.Pool{o, c, h}, Res.Grant{o, 1n})), step(~A, s, Complete{i}), fs}
 
+def loop.retried(~A: Data, tk: Q.Taken<A>, p: Res.Pool, s: State<A>, +i: Nat, d: Nat) -> Loop<A>:
+  match tk p:
+    case Q.Taken{fs, None{}} Res.Pool{o, c, h}:
+      Loop{Res.Pool{o, c, h}, s, fs}
+    case Q.Taken{fs, Some{t}} Res.Pool{+o, c, h}:
+      Loop{loop.release(Res.release(Res.Pool{o, c, h}, Res.Grant{o, 1n})), step(~A, s, Requeue{i, d}), fs}
+
 def loop.step(~A: Data, e: LoopEvent, s: Loop<A>) -> Loop<A>:
   match e s:
     case Claim{+now} Loop{p, +s, fs}:
@@ -432,6 +440,8 @@ def loop.step(~A: Data, e: LoopEvent, s: Loop<A>) -> Loop<A>:
       loop.finished(~A, Q.take.list(A, fs, i), p, s, i)
     case CancelFlight{+i} Loop{p, s, fs}:
       Loop{p, step(~A, s, Cancel{i}), fs}
+    case RetrySettle{+i, d} Loop{p, s, fs}:
+      loop.retried(~A, Q.take.list(A, fs, i), p, s, i, d)
 
 def loop.fold(~A: Data, es: List<&2, LoopEvent>, s: Loop<A>) -> Loop<A>:
   match es:
