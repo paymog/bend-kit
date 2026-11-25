@@ -91,8 +91,9 @@ def work_seconds(record):
     return int(values[0]) + int(values[1]) / 1e9
 
 
-def inspect_drop(path):
+def inspect_failed_send_close(path):
     def interact(process, wait_for):
+        closed = wait_for("AFFINE_RESULT_CLOSED")
         wait_for("INSPECT_OPEN_FILES")
         assert process.poll() is None, "process exited before descriptor inspection"
         listing = subprocess.run([shutil.which("lsof"), "-a", "-p", str(process.pid), "-Fn"],
@@ -100,7 +101,13 @@ def inspect_drop(path):
         assert listing.returncode == 0 and process.poll() is None, listing.stderr
         target = "n" + str(path)
         observed = [line for line in listing.stdout.splitlines() if line == target]
-        return {"file_descriptor_remains_open_after_drop": bool(observed), "descriptor_evidence": observed}
+        return {"failed_send_resource_explicitly_closed": True,
+                "failed_send_close_seconds": closed["seconds"],
+                "file_descriptor_remains_open_after_explicit_close": bool(observed),
+                "descriptor_evidence": observed, "descriptor_listing": listing.stdout,
+                "descriptor_inspection_returncode": listing.returncode,
+                "process_alive_before_descriptor_inspection": True,
+                "process_alive_after_descriptor_inspection": True}
     return interact
 
 
@@ -168,7 +175,7 @@ def main():
                 path = temp / f"{lane}-{mode}"
                 interaction = None
                 if mode == "abandoned":
-                    interaction = inspect_drop(path)
+                    interaction = inspect_failed_send_close(path)
                 if mode == "idle":
                     interaction = idle_connection()
                 record = observe(command + [mode, str(path), str(chosen), "0"], path, interaction)
@@ -185,6 +192,10 @@ def main():
                     record["unrelated_work_completed"] = event_time(record, "UNRELATED_DONE") is not None
                 else:
                     assert record["returncode"] == 0, record
+                if mode == "abandoned":
+                    assert record["journal"] == "committed\n", record
+                    assert not record["file_descriptor_remains_open_after_explicit_close"], record
+                    assert event_time(record, "SERVER_WORK_DONE") is not None, record
                 if mode == "cooperative":
                     assert record["journal"] == "committed\n" and record["unrelated_journal"] == "unrelated completed\n", record
                     assert event_time(record, "COOPERATIVE_RETURN") < event_time(record, "OWNED_FILE_CLOSED") < event_time(record, "UNRELATED_DONE"), record
@@ -193,7 +204,8 @@ def main():
     target.write_text(json.dumps(results, indent=2) + "\n")
     print(json.dumps({lane: {mode: {key: value for key, value in record.items() if key in
           ("timer_to_force_seconds", "force_within_scaled_budget", "explicit_resource_close_observed", "unrelated_work_completed",
-           "file_descriptor_remains_open_after_drop", "new_connections_rejected", "process_alive_before_client_release",
+           "failed_send_resource_explicitly_closed", "file_descriptor_remains_open_after_explicit_close",
+           "new_connections_rejected", "process_alive_before_client_release",
            "idle_socket_closed_before_client_release")} for mode, record in data["cases"].items()}
           for lane, data in results["lanes"].items()}, indent=2))
 
