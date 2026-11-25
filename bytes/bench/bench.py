@@ -16,7 +16,7 @@ def fill_buf(n: int) -> tuple[bytearray, int]:
     for i in range(n):
         b[i] = (i * 31 + 7) & 255
     b[n - 4 : n] = bytes([13, 10, 13, 10])
-    cs = b[12345] + b[n - 1]
+    cs = b[12345 % n] + b[n - 1]
     return b, cs
 
 
@@ -44,9 +44,10 @@ print(f"slice\t{(time.perf_counter() - t0) * 1000:.6f}\t{cs}")
 
 t0 = time.perf_counter()
 out = bytearray()
-chunks = N // 65536
+chunk_size = min(N, 65536)
+chunks = N // chunk_size
 for k in range(chunks):
-    out += bytes([k & 255]) * 65536
+    out += bytes([k & 255]) * chunk_size
 if len(out) != N:
     sys.exit(1)
 cs = out[0] + out[-1]

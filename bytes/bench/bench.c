@@ -17,7 +17,7 @@ static uint32_t fill_buf(uint8_t *b, size_t n) {
 	b[n - 3] = 10;
 	b[n - 2] = 13;
 	b[n - 1] = 10;
-	return (uint32_t)b[12345] + (uint32_t)b[n - 1];
+	return (uint32_t)b[12345 % n] + (uint32_t)b[n - 1];
 }
 
 static int build(size_t n) {
@@ -87,11 +87,12 @@ int main(int argc, char **argv) {
 	uint8_t *out = NULL;
 	size_t out_len = 0;
 	size_t out_cap = 0;
-	size_t chunks = n / 65536;
+	size_t chunk_size = n < 65536 ? n : 65536;
+	size_t chunks = n / chunk_size;
 	for (size_t k = 0; k < chunks; k++) {
-		if (out_len + 65536 > out_cap) {
-			size_t new_cap = out_cap ? out_cap * 2 : 65536;
-			while (new_cap < out_len + 65536)
+		if (out_len + chunk_size > out_cap) {
+			size_t new_cap = out_cap ? out_cap * 2 : chunk_size;
+			while (new_cap < out_len + chunk_size)
 				new_cap *= 2;
 			uint8_t *tmp = realloc(out, new_cap);
 			if (!tmp) return 1;
@@ -99,8 +100,8 @@ int main(int argc, char **argv) {
 			out_cap = new_cap;
 		}
 		uint8_t byte = (uint8_t)(k & 255);
-		memset(out + out_len, byte, 65536);
-		out_len += 65536;
+		memset(out + out_len, byte, chunk_size);
+		out_len += chunk_size;
 	}
 	t1 = now_ms();
 	if (out_len != n)

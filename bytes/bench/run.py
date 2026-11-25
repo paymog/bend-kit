@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """Build and run the bytes benchmark; print a markdown table. See README.md."""
-import math, os, statistics, subprocess, sys
+import argparse, math, os, statistics, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
-ARGS = [arg for arg in sys.argv[1:] if arg != "--small"]
-RUNS = int(ARGS[0]) if ARGS else 3
-SMALL = "--small" in sys.argv
-LG = "16" if SMALL else "28"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("runs", nargs="?", type=int, default=3)
+parser.add_argument("--small", action="store_true")
+parser.add_argument("--log2-size", type=int, choices=range(8, 29), metavar="8..28")
+args = parser.parse_args()
+RUNS = args.runs
+SMALL = args.small
+SELECTED = args.log2_size is not None
+LG = str(args.log2_size if SELECTED else (16 if SMALL else 28))
 B1, B2 = (256, 1024) if SMALL else (1000000, 4000000)
 SIZES = [LG, "256" if SMALL else "16777216", str(B1), str(B2)]
 if RUNS < 1:
@@ -25,7 +30,7 @@ VARIANTS = {
     "Node": (None, ["node", "bench.ts", *SIZES], 1),
     "Python": (None, ["python3", "bench.py", *SIZES], 1),
     "Bend Array": (["bend", "packed.bend", "-o", OUT / "packed"], [OUT / "packed", *SIZES], 1),
-    "Bend String": (["bend", "string.bend", "-o", OUT / "string"], [OUT / "string", "16" if SMALL else "26"], 1 if SMALL else 4),
+    "Bend String": (["bend", "string.bend", "-o", OUT / "string"], [OUT / "string", LG if SMALL or SELECTED else "26"], 1 if SMALL or SELECTED else 4),
 }
 
 
@@ -88,8 +93,10 @@ def main():
     print("| op | " + " | ".join(names) + " |")
     print("|---|" + "---|" * len(names))
     for op in OPS:
-        cells = [f"{table[n][op]:,.1f} ({table[n][op] / best[op]:.1f}x)" if op in table[n] else "n/a" for n in names]
+        cells = [(f"{table[n][op]:.6f}" if SELECTED else f"{table[n][op]:,.1f} ({table[n][op] / best[op]:.1f}x)") if op in table[n] else "n/a" for n in names]
         print(f"| {op} | " + " | ".join(cells) + " |")
+    if SELECTED:
+        return
     growth = [f"{table[n][f'build_{B2}'] / table[n][f'build_{B1}']:.1f}x" if f"build_{B1}" in table[n] else "n/a" for n in names]
     print(("| build (1024 / 256) | " if SMALL else "| build (4M / 1M) | ") + " | ".join(growth) + " |")
     geo = []

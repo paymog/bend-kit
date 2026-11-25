@@ -13,7 +13,7 @@ function fillBuf(n: number): { b: Uint8Array; cs: number } {
   b[n - 3] = 10;
   b[n - 2] = 13;
   b[n - 1] = 10;
-  const cs = b[12345] + b[n - 1];
+  const cs = b[12345 % n] + b[n - 1];
   return { b, cs };
 }
 
@@ -43,9 +43,10 @@ console.log(`slice\t${performance.now() - t0}\t${sliceCs}`);
 
 t0 = performance.now();
 const chunks: Buffer[] = [];
-const numChunks = (N / 65536) | 0;
+const chunkSize = Math.min(N, 65536);
+const numChunks = (N / chunkSize) | 0;
 for (let k = 0; k < numChunks; k++) {
-  chunks.push(Buffer.alloc(65536, k & 255));
+  chunks.push(Buffer.alloc(chunkSize, k & 255));
 }
 const out = Buffer.concat(chunks);
 if (out.length !== N) {
