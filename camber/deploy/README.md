@@ -103,9 +103,15 @@ gh run download <run-id> --name launchd-system-receipts-<run-id>-<attempt>
 
 This lane requires root on a disposable GitHub-hosted macOS arm64 runner. It refuses an ordinary local host. It creates a unique hidden, non-login account and group with an unused ID. Both application lanes and the TLS proxy run as that account in the `system` bootstrap domain. Cases remain sequential and retain the existing disk, RSS, exit, reap and port-release gates.
 
+System JavaScript readiness has a 120-second startup bound for the new account's toolchain. The platform shutdown budget remains five seconds grace plus one second teardown.
+
 Executables, the adjacent signal source, plists and nginx configuration are root-owned in new root-owned mode-0755 directories. Private state directories belong to the service account with mode 0700; the TLS key has mode 0600. Receipts record UID, GID, mode and input hashes. They check actual process UID/GID and effective write access as the account. Protected input hashes and permissions are checked again after operation. System receipts remain separate from the historical GUI receipts.
 
 Cleanup removes only the invocation's jobs and temporary tree. It deletes its account and group only after the owned jobs and files are released. If release cannot be verified, the account and tree remain named in the failed receipt for recovery. The disposable runner is then discarded. These checks do not claim a production account, durable state or public TLS trust.
+
+[`system-results.json`](system-results.json) retains three invocations. Index 2 passed all eight system-domain cases on macOS 15.8.2 arm64 with Bend 2.0.40, Bun 1.4.4 and nginx 1.31.8 ([workflow run](https://github.com/paymog/bend-kit/actions/runs/45536492656)). All ten application/proxy roots had parent PID 1 and the dedicated UID/GID. Cooperative and TLS cases exited naturally; CPU and IO cases exited by launchd SIGKILL within the unchanged six-second budget. Every job, observed identity and port was released. The private tree, account and group were removed without safety cleanup.
+
+Index 0 retains the failed nginx check against Homebrew's default temporary paths. Index 1 retains the failed 10-second first-account JavaScript readiness wait. The final JavaScript cooperative job reached readiness about 19.6 seconds after bootstrap. The runner now keeps nginx temporary paths private and bounds system JavaScript startup separately at 120 seconds. Earlier failures remain adverse evidence, not passing rows.
 
 
 
