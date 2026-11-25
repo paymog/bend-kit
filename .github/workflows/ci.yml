@@ -166,6 +166,8 @@ jobs:
         run: python3 -B scripts/ci-pin-selection-test.py
       - name: Check process-tree RSS guard
         run: python3 -B scripts/rss-check-test.py
+      - name: Check HTTP local smoke failure paths
+        run: python3 -B http/local-smoke-test.py
 
   workflow-lint:
     needs: changes
