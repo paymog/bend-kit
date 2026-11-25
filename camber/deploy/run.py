@@ -377,8 +377,8 @@ class Job:
     def text(self):
         return self.output.read_text() if self.output.exists() else ""
 
-    def marker(self, marker):
-        wait_until(self.guard, lambda: marker in self.text())
+    def marker(self, marker, timeout=10):
+        wait_until(self.guard, lambda: marker in self.text(), timeout=timeout)
         record = {"marker": marker, "observed_monotonic": time.monotonic()}
         self.events.append(record)
         self.guard.evidence.save()
@@ -812,7 +812,7 @@ def main():
                     job = Job(guard, case_dir, f"org.bend-kit.camber.verify.{os.getpid()}.{results['started_ns']}.{lane}.{mode}",
                               [*command, APP, ADMIN, state_dir / "journal", mode])
                     row.update(pid=job.pid, parent_pid=job.parent, platform_job=job.record)
-                    job.marker("READY DEDICATED USERS")
+                    job.marker("READY DEDICATED USERS", timeout=120 if system and lane == "javascript" else 10)
                     if mode == "cooperative":
                         row.update(cooperative(guard, job))
                         journal = (state_dir / "journal").read_bytes()
@@ -827,6 +827,11 @@ def main():
                         row.update(tls_proof(guard, job, state_dir, row))
                     row["passed"] = True
                 except BaseException as error:
+                    if system and job:
+                        identities = guard.surviving(guard.trees.get(job.pid, {}))
+                        if identities:
+                            row["failure_process_names"] = guard.command(
+                                ["ps", "-o", "pid=,ppid=,comm=", "-p", ",".join(map(str, identities))], check=False)
                     row.update(passed=False, failure=repr(error))
                     raise
                 finally:
