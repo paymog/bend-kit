@@ -1,7 +1,7 @@
 import Base
 import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 import ./queue.bend as Q
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-time@0.3.0.2/time.bend as Time
 import ./recurrence.bend as R
 import ./check.bend as Check
 

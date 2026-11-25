@@ -1,6 +1,6 @@
 # Leveled, structured logging: a logger value, key-value fields, and logfmt or JSON-lines output. Source: https://github.com/paymog/bend-kit/tree/main/notch
 import Base
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-time@0.3.0.2/time.bend as Time
 
 type Level is Data:
   Debug{}

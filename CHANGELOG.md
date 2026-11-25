@@ -12,6 +12,9 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 - `runner`: use `bend-kit-webhooks@0.14.0.2` in the webhook example and remove the old pin exception. Keep the published package unchanged.
 
+- `notch` 0.4.0.2: adopt Time 0.3.0.2 with isolated pure clock types.
+- `cache`, `protobuf`, `scheduler`, `wire`: adopt Time 0.3.0.2 in checks, benchmarks, and clock helpers outside their published files.
+
 - `sigv4` 0.14.0.3: isolate pure S3 XML parsing and prove namespace, nesting, entity, comment, CDATA, malformed response, error, and list fixtures. Keep public runtime response types and signing checks.
 
 - `jwt`: prove claim-time and leeway boundaries for every `U32` timestamp. Compare sums in `Nat` to cover wrapped subtraction. Keep runtime behavior and the published version unchanged.

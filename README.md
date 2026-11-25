@@ -40,6 +40,8 @@ This section comes from entry-file imports and package versions. Run `scripts/re
 
 `http@0.44.0.0` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.8.0.0`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.2`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.1`.
 
+Time's `pure.bend` and `time.bend` define different `Instant` and `Duration` types at the same version. Use `Http.clock.now` and `Http.clock.mono` for HTTP model arguments.
+
 | Dependency pin | Consumers |
 |---|---|
 | `bend-kit-http@0.40.0.1` | `camber@0.17.0.1`, `hairpin@0.16.0.1`, `jwt@0.14.0.2`, `llm@0.16.0.2`, `oauth2@0.14.0.2`, `sigv4@0.14.0.3`, `webhooks@0.14.0.2` |
@@ -144,7 +146,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`stream`](stream) | `bend-kit-stream@0.5.0.1/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.2.1/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
-| [`time`](time) | `bend-kit-time@0.3.0.1/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
+| [`time`](time) | `bend-kit-time@0.3.0.2/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.1/random.bend` | Seeded xoshiro128**. Not for cryptography. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.2.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
 | [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.4.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |
@@ -154,7 +156,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`planner`](planner) | `bend-kit-planner@0.5.1.0/planner.bend` | Dependency plans with proved order, closure, completeness, true errors, minimal invalidation, and safe reuse, plus a parallel build runner over real commands. |
 | [`commands`](commands) | `bend-kit-commands@0.6.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.3.2.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
-| [`notch`](notch) | `bend-kit-notch@0.4.0.1/notch.bend` | Leveled logfmt or JSON-lines logging. |
+| [`notch`](notch) | `bend-kit-notch@0.4.0.2/notch.bend` | Leveled logfmt or JSON-lines logging. |
 | [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
 | [`property`](property) | `bend-kit-property@0.4.0.1/property.bend` | Seeded generators, shrinking, and a property runner. |
