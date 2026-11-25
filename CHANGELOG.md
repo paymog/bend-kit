@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner`: use `bend-kit-webhooks@0.14.0.2` in the webhook example and remove the old pin exception. Keep the published package unchanged.
+
 - `sigv4` 0.14.0.3: isolate pure S3 XML parsing and prove namespace, nesting, entity, comment, CDATA, malformed response, error, and list fixtures. Keep public runtime response types and signing checks.
 
 - `jwt`: prove claim-time and leeway boundaries for every `U32` timestamp. Compare sums in `Nat` to cover wrapped subtraction. Keep runtime behavior and the published version unchanged.
