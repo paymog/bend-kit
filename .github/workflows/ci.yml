@@ -159,8 +159,12 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/workflow-lint"
           cd "$RUNNER_TEMP/workflow-lint"
-          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz | tar -xz actionlint
-          curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz | tar -xJ --strip-components=1 shellcheck-v0.11.0/shellcheck
+          curl -fsSL -o actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          curl -fsSL -o shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz' | sha256sum -c -
+          echo '8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  shellcheck.tar.xz' | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
+          tar -xJf shellcheck.tar.xz --strip-components=1 shellcheck-v0.11.0/shellcheck
           echo "$RUNNER_TEMP/workflow-lint" >> "$GITHUB_PATH"
       - name: Check workflows with ShellCheck
         run: actionlint -shellcheck "$(command -v shellcheck)"
