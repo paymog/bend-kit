@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Check workflow selection, ShellCheck integration, and required-gate results."""
+"""Check workflow selection, archive integrity, ShellCheck, and gate results."""
 from pathlib import Path
+import hashlib
 import os
 import re
 import shutil
@@ -27,6 +28,38 @@ assert 'if-no-files-found: error' in acceptance
 assert "    if: github.event_name == 'push' || github.event_name == 'pull_request'" in workflow.split("  changes:\n", 1)[1]
 shellcheck = shutil.which("shellcheck")
 assert shellcheck, "ShellCheck must be installed"
+install = workflow.split("      - name: Install actionlint and ShellCheck\n", 1)[1].split("      - name:", 1)[0]
+install = textwrap.dedent(install.split("        run: |\n", 1)[1])
+pins = re.findall(r"([0-9a-f]{64})  (actionlint\.tar\.gz|shellcheck\.tar\.xz)", install)
+assert len(pins) == 2 and len({name for _, name in pins}) == 2, pins
+with tempfile.TemporaryDirectory() as tmp:
+    fixture = Path(tmp)
+    source = fixture / "source"
+    source.mkdir()
+    script = install
+    for digest, name in pins:
+        data = name.encode()
+        (source / name).write_bytes(data)
+        script = script.replace(digest, hashlib.sha256(data).hexdigest())
+    for name, body in [
+        ("curl", 'cp "$SOURCE/$3" "$3"'),
+        ("tar", 'echo extracted >> "$EXTRACTED"'),
+    ]:
+        command = fixture / name
+        command.write_text(f"#!/bin/sh\n{body}\n")
+        command.chmod(0o755)
+    extracted = fixture / "extracted"
+    for corrupt in [None, *[name for _, name in pins]]:
+        for _, name in pins:
+            (source / name).write_bytes(name.encode() + (b"changed" if name == corrupt else b""))
+        extracted.unlink(missing_ok=True)
+        result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", script],
+                                capture_output=True, text=True,
+                                env=dict(os.environ, PATH=f"{fixture}:{os.environ['PATH']}",
+                                         SOURCE=str(source), EXTRACTED=str(extracted),
+                                         RUNNER_TEMP=tmp, GITHUB_PATH=str(fixture / "path")))
+        assert (result.returncode == 0) == (corrupt is None), result.stdout + result.stderr
+        assert extracted.exists() == (corrupt is None), corrupt
 with tempfile.TemporaryDirectory() as tmp:
     fixture = Path(tmp)
     git = fixture / "git"
@@ -71,4 +104,4 @@ jobs:
                              lambda m: status if m[1] == "workflow-lint" else "success", script)
         result = subprocess.run(["bash", "-e", "-c", substituted], capture_output=True, text=True)
         assert (result.returncode == 0) == (status in ["success", "skipped"]), status
-print("PASS workflow lint: selection, SC2086 detection, and gate failure handling")
+print("PASS workflow lint: selection, archive integrity, SC2086 detection, and gate failure handling")
