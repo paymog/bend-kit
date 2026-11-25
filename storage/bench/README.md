@@ -2,6 +2,26 @@
 
 This times the hot path of a content-addressed store: commit an artifact tree (encode every object and take its SHA-256), put the objects in a store, and load the root back. It compares `storage` with the obvious loop over a standard SHA-256 and a standard map in C, Rust, Python, and JavaScript.
 
+## Root publication memory
+
+From the repo root:
+
+```sh
+bend storage/root_check.bend -o /tmp/storage-root-check
+/usr/bin/time -l /tmp/storage-root-check
+bend storage/root_check.bend -o /tmp/storage-root-check.js
+/usr/bin/time -l bun /tmp/storage-root-check.js
+```
+
+macOS arm64, Bend 2.0.40, 2026-11-25. The fixture publishes a small root, a 24-level shared graph with 25 distinct objects, and a 17 MiB file. A Python child writes the file in 64 KiB pieces before publication. No Blob or checkout loads its payload. The visited-index check removes an already verified object and confirms that a repeated visit performs no read or sync. Both storage check lanes include this fixture.
+
+| lane | elapsed seconds | maximum RSS bytes |
+|---|---:|---:|
+| native | 0.30 | 16,384,000 |
+| Bun | 0.21 | 60,276,736 |
+
+These are single `/usr/bin/time -l` measurements for the full fixture, including child-process overhead, not a throughput comparison or an isolated allocation profile. The verifier uses a 64 KiB buffer and a bounded header. Its payload memory does not scale with file length; the digest index grows with distinct object count.
+
 ## HTTP connection reuse
 
 `http.bend` runs the port-0 loopback checks and times the first sync. The fixed closure has two directory entries that share one 14-byte file, plus the end object. The destination already has the file, so three GETs fetch the two entries and the end. The timer includes local ingress checks and object writes, but not fixture setup or server startup.

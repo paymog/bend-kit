@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `storage` 0.9.1.0: validate and fence named roots with bounded file reads. Keep metadata only and sync each shared object once before root publication.
+
 - `text` 0.2.2.1: construct a Myers meeting point only after the frontiers overlap. Preserve shortest scripts and packed collision checks.
 
 - `storage` 0.9.0.0: serve digest-addressed HTTP objects from owned files with 64 KiB reads. Mount the new write handler with `Transport.server.run`; preserve ingress, keep-alive, and shutdown checks.

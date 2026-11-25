@@ -389,25 +389,77 @@ def Disk.probe(+dir: String, xs: P.Store<P.Digest, P.Blob>, +s: P.Index(P.Digest
         u : P.Index(P.Digest, P.Blob) <- Disk.probe.one(e, dir, d, s)
         Disk.probe(dir, r, u)
 
+def inspect(path: String, digest: String) -> IO(Result<&1, &1, U32 & String, U32 & String>):
+  import "./effs/verify.c"
+  import "./effs/verify.js"
+
+def metadata.file(valid: Bool) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
+  match valid:
+    case True{}:
+      Some{P.OFile{Unit{}}}
+    case False{}:
+      None{}
+
+def metadata.node(node: Maybe<&2, P.Obj<P.Digest, P.Blob>>) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
+  match node:
+    case Some{P.OEnd{}}:
+      Some{P.OEnd{}}
+    case Some{P.OItem{n, c, r}}:
+      Some{P.OItem{n, c, r}}
+    case _:
+      None{}
+
+def metadata.of(file: Bool, +size: U32, +head: String, +d: P.Digest) -> Maybe<&2, P.Obj<P.Digest, Unit>>:
+  match file:
+    case True{}:
+      +digits = String.drop(head, 5n)
+      +length = U32.from_nat(String.length(head ++ "\n"))
+      metadata.file(Bool.and(U32.is_le(length, size), String.eq(digits, U32.show((size - length : U32)))))
+    case False{}:
+      metadata.node(P.decode.hashed(d, Bytes.from_string(head ++ "\n")))
+
+def verified.pair(+d: P.Digest, pair: U32 & String) -> Run(P.Obj<P.Digest, Unit>):
+  (+size, +head) = pair
+  Run.some(P.Obj<P.Digest, Unit>, metadata.of(String.starts_with(head, "file "), size, head, d), "object " ++ P.Digest.hex(d) ++ " does not decode")
+
+def verified(+path: String, +d: P.Digest) -> Run(P.Obj<P.Digest, Unit>):
+  do Run<P.Obj<P.Digest, Unit>>:
+    pair : U32 & String <- inspect(path, P.Digest.hex(d))
+    verified.pair(d, pair)
+
 def write.sync(path: String) -> IO(Result<&1, &1, U32 & String, Unit>):
   import "./effs/storage.c"
   import "./effs/storage.js"
 
-def Disk.fence(+dir: String, xs: P.Store<P.Digest, P.Blob>) -> Run(Unit):
-  match xs:
-    case P.StNil{}:
-      Run.pure(Unit, Unit{})
-    case P.StCon{d, o, rest}:
-      do Run<Unit>:
+type Fence is Data:
+  FenceWant{digest: P.Digest}
+  FenceHeld{digest: P.Digest, seen: Bool}
+  FenceChildren{object: P.Obj<P.Digest, Unit>}
+
+def Disk.fence.go(fuel: Nat, +dir: String, step: Fence, +seen: P.Index(P.Digest, Unit)) -> Run(P.Index(P.Digest, Unit)):
+  match fuel step:
+    case 0n _:
+      Run.fail(P.Index(P.Digest, Unit), (36, "storage: root tree is too deep"))
+    case 1n+p FenceWant{+d}:
+      Disk.fence.go(p, dir, FenceHeld{d, P.Index.has(~P.Digest, ~Unit, ~P.Digest.cmp, seen, d)}, seen)
+    case 1n+p FenceHeld{d, True{}}:
+      Run.pure(P.Index(P.Digest, Unit), seen)
+    case 1n+p FenceHeld{+d, False{}}:
+      do Run<P.Index(P.Digest, Unit)>:
+        +node : P.Obj<P.Digest, Unit> <- verified(Disk.object(dir, d), d)
         write.sync(Disk.object(dir, d))
-        Disk.fence(dir, rest)
+        Disk.fence.go(p, dir, FenceChildren{node}, P.Index.put(~P.Digest, ~Unit, ~P.Digest.cmp, seen, d, node))
+    case 1n+(+p) FenceChildren{P.OItem{n, c, r}}:
+      do Run<P.Index(P.Digest, Unit)>:
+        next : P.Index(P.Digest, Unit) <- Disk.fence.go(p, dir, FenceWant{c}, seen)
+        Disk.fence.go(p, dir, FenceWant{r}, next)
+    case 1n+p FenceChildren{_}:
+      Run.pure(P.Index(P.Digest, Unit), seen)
 
 def Disk.set_root(+dir: String, +name: String, +d: P.Digest) -> Run(Unit):
   Disk.coordinated(Unit, dir, False{}, u => do Run<Unit>:
     Run.check(P.name.ok(name), "invalid root " ++ name)
-    +s : P.Index(P.Digest, P.Blob) <- Disk.fetch(dir, d)
-    objects : P.Store<P.Digest, P.Blob> <- Run.some(P.Store<P.Digest, P.Blob>, P.Index.closure(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), s, d), "root has missing objects")
-    Disk.fence(dir, objects)
+    seen : P.Index(P.Digest, Unit) <- Disk.fence.go(Nat.mul(3n, P.limit()), dir, FenceWant{d}, P.Index.new(P.Digest, Unit))
     write.durable("", dir ++ "/objects", 0)
     write(dir, "root", dir ++ "/roots/" ++ name, Bytes.from_string(P.Digest.hex(d))))
 
