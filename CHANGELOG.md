@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `f32array` 0.2.3.0: add pure `sum.compensated` and `dot.compensated` with element-order Neumaier accumulation. Preserve the fast pairwise calls.
+
 - `hash` checks: cover SipHash-2-4 length-byte wraps at 255, 256, 257, 511, 512, and 513 bytes against libsodium 1.0.22 in Bun and native checks.
 
 - `commands` 0.6.0.0: profile bounded range transactions and reuse the range statement. Reset it after success or overflow. Add the range handle to `Store`.

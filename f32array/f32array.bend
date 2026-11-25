@@ -567,3 +567,61 @@ def to_bytes.le(a: F32Array) -> Bytes.Bytes:
 def to_bytes.be(a: F32Array) -> Bytes.Bytes:
   to_bytes.with(~to_bits.be, a)
 
+type Compensated is Data:
+  Compensated{sum: F32, correction: F32}
+
+def compensated.finite(ok: Bool, +s: F32, +c: F32, +x: F32, +t: F32) -> Compensated:
+  match ok:
+    case True{}:
+      Compensated{t, (c + Bool.pick(F32, F32.is_ge(F32.abs(s), F32.abs(x)), ((s - t : F32) + x : F32), ((x - t : F32) + s : F32)) : F32)}
+    case False{}:
+      Compensated{t, 0.0}
+
+def compensated.add(acc: Compensated, x: F32) -> Compensated:
+  Compensated{+s, +c} = acc
+  F32{+w} = x
+  +x = {F32{w} : F32}
+  +t = (s + x : F32)
+  compensated.finite(U32.is_ne((to_bits(t) .&. 2139095040 : U32), 2139095040), s, c, x, t)
+
+def compensated.total(acc: Compensated) -> F32:
+  Compensated{s, c} = acc
+  (s + c : F32)
+
+def sum.compensated.fin(r: F32Array & Compensated) -> F32Array & F32:
+  (a, acc) = r
+  (a, compensated.total(acc))
+
+# Neumaier accumulation in element order, with one F32 correction.
+def sum.compensated(a: F32Array) -> F32Array & F32:
+  sum.compensated.fin(fold(~Compensated, ~compensated.add, a, Compensated{0.0, 0.0}))
+
+def dot.compensated.cell(a: Cell, b: Cell, acc: Compensated) -> Compensated:
+  Cell{x0, x1, x2, x3, x4, x5, x6, x7} = a
+  Cell{y0, y1, y2, y3, y4, y5, y6, y7} = b
+  fold.cell(~Compensated, ~compensated.add, acc, Cell{(x0 * y0 : F32), (x1 * y1 : F32), (x2 * y2 : F32), (x3 * y3 : F32), (x4 * y4 : F32), (x5 * y5 : F32), (x6 * y6 : F32), (x7 * y7 : F32)})
+
+def dot.compensated.go(n: Nat, r: Array<Cell> & Cell, s: Array<Cell> & Cell, +i: U32, acc: Compensated) -> Array<Cell> & Array<Cell> & F32:
+  match n:
+    case 0n:
+      (a, x) = r
+      (b, y) = s
+      (a, b, compensated.total(acc))
+    case 1n+p:
+      (a, x) = r
+      (b, y) = s
+      +j = (i + 1 : U32)
+      dot.compensated.go(p, Array.get(Cell, a, j), Array.get(Cell, b, j), j, dot.compensated.cell(x, y, acc))
+
+def dot.compensated.if(same: Bool, +la: U32, a: Array<Cell>, +lb: U32, b: Array<Cell>) -> F32Array & F32Array & Maybe<&2, F32>:
+  match same:
+    case True{}:
+      dot.fin(la, lb, dot.compensated.go(U32.to_nat(cells(la)), Array.get(Cell, a, 0), Array.get(Cell, b, 0), 0, Compensated{0.0, 0.0}))
+    case False{}:
+      (F32Array{la, a}, F32Array{lb, b}, None{})
+
+# F32 products in element order, accumulated with Neumaier compensation.
+def dot.compensated(a: F32Array, b: F32Array) -> F32Array & F32Array & Maybe<&2, F32>:
+  F32Array{+la, xa} = a
+  F32Array{+lb, ya} = b
+  dot.compensated.if(U32.is_eq(la, lb), la, xa, lb, ya)
