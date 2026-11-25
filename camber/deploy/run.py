@@ -18,6 +18,7 @@ import threading
 import time
 import sys
 from pathlib import Path
+from system_host import SystemHost
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -92,6 +93,7 @@ class Guard:
         self.peak_kib = 0
         self.failure = None
         self.forced_cleanup = False
+        self.system = None
         self.closed = threading.Event()
         self.register(os.getpid())
         self.thread = threading.Thread(target=self.monitor)
@@ -316,8 +318,9 @@ class Job:
     def __init__(self, guard, directory, label, argv):
         self.guard, self.directory, self.label = guard, directory, label
         self.target = f"{DOMAIN}/{label}"
-        self.output = directory / f"{label}.out"
-        self.error = directory / f"{label}.err"
+        state = directory / "state" if guard.system else directory
+        self.output = state / f"{label}.out"
+        self.error = state / f"{label}.err"
         self.plist = directory / f"{label}.plist"
         self.pid = None
         self.queue = None
@@ -332,12 +335,18 @@ class Job:
                   "EnvironmentVariables": {"BEND_NO_TELEMETRY": "1"},
                   "StandardOutPath": str(self.output), "StandardErrorPath": str(self.error),
                   "HardResourceLimits": {"Core": 0}}
+        if guard.system:
+            guard.system.job_config(config, state)
         self.record = {"target": self.target, "rendered_plist": config, "platform_commands": self.commands,
                        "observed_markers": self.events, "source_sha256": guard.evidence.invocation["source_sha256"]}
         guard.evidence.invocation["platform_jobs"].append(self.record)
         guard.evidence.save()
         try:
             self.plist.write_bytes(plistlib.dumps(config))
+            if guard.system:
+                self.plist.chmod(0o644)
+                guard.system.inspect(directory, mode=0o755)
+                guard.system.inspect(self.plist, mode=0o644)
             self.loaded = True # Exact unique label may exist even if bootstrap receipt fails.
             self.commands.append(guard.command(["launchctl", "bootstrap", DOMAIN, self.plist]))
             self.initial = wait_until(guard, self.snapshot)
@@ -349,6 +358,8 @@ class Job:
                                launchd_initial_state=self.initial)
             guard.evidence.save()
             assert self.parent == "1", (self.pid, self.parent)
+            if guard.system:
+                guard.system.identity(self.pid)
             self.queue = select.kqueue()
             self.queue.control([select.kevent(self.pid, filter=select.KQ_FILTER_PROC,
                                             flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE,
@@ -366,8 +377,8 @@ class Job:
     def text(self):
         return self.output.read_text() if self.output.exists() else ""
 
-    def marker(self, marker):
-        wait_until(self.guard, lambda: marker in self.text())
+    def marker(self, marker, timeout=10):
+        wait_until(self.guard, lambda: marker in self.text(), timeout=timeout)
         record = {"marker": marker, "observed_monotonic": time.monotonic()}
         self.events.append(record)
         self.guard.evidence.save()
@@ -600,14 +611,27 @@ def tls_proof(guard, job, directory, row):
                    "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost",
                    "-keyout", directory / "key.pem", "-out", directory / "certificate.pem"])
     (directory / "key.pem").chmod(0o600)
+    if guard.system:
+        os.chown(directory / "key.pem", guard.system.uid, guard.system.uid)
+        guard.system.inspect(directory / "key.pem", uid=guard.system.uid, mode=0o600)
     (directory / "body").mkdir()
     (directory / "proxy").mkdir()
-    config = directory / "nginx.conf"
+    if guard.system:
+        for path in (directory / "body", directory / "proxy"):
+            os.chown(path, guard.system.uid, guard.system.uid)
+            path.chmod(0o700)
+            guard.system.inspect(path, uid=guard.system.uid, mode=0o700)
+    config = directory.parent / "nginx.conf" if guard.system else directory / "nginx.conf"
     config.write_text((HERE / "nginx.conf").read_text().replace("@STATE@", str(directory)))
-    nginx = shutil.which("nginx")
+    if guard.system:
+        config.chmod(0o644)
+        guard.system.inspect(config, mode=0o644)
+    nginx = guard.evidence.invocation.get("system_nginx") or shutil.which("nginx")
     assert nginx, "nginx unavailable"
-    guard.command([nginx, "-t", "-p", str(directory) + "/", "-c", config])
-    proxy = Job(guard, directory, job.label + ".tls", [nginx, "-p", str(directory) + "/", "-c", config])
+    validation_user = ["sudo", "-n", "-u", guard.system.name] if guard.system else []
+    guard.command([*validation_user, nginx, "-e", "/dev/null", "-t", "-p", str(directory) + "/", "-c", config])
+    proxy = Job(guard, directory.parent if guard.system else directory, job.label + ".tls",
+                [nginx, "-e", "/dev/null", "-p", str(directory) + "/", "-c", config])
     row["tls_proxy"] = proxy.record
     row["rendered_tls_config"] = config.read_text()
     guard.evidence.save()
@@ -709,6 +733,8 @@ def main():
     parser.add_argument("--lane", choices=["native", "javascript", "all"], default="all")
     parser.add_argument("--case", choices=["cooperative", "cpu", "io", "tls-proof", "all"], default="all")
     parser.add_argument("--output", type=Path, default=HERE / "results.json")
+    parser.add_argument("--system-host", action="store_true",
+                        help="root-only acceptance on a disposable GitHub-hosted macOS arm64 runner")
     args = parser.parse_args()
     results = {"started_ns": time.time_ns(), "invocation": [sys.executable, *sys.argv], "cwd": str(ROOT),
                "status": "running", "platform": platform.platform(), "source_sha256": source_hashes(),
@@ -721,17 +747,31 @@ def main():
     directory = None
     signal_source = None
     failure = None
+    system = None
     try:
         disk_floor()
         guard = Guard(evidence)
+        if args.system_host:
+            global DOMAIN
+            DOMAIN = "system"
+            system = SystemHost(guard)
+            guard.system = system
+            system.provision()
+        results["bootstrap_domain"] = DOMAIN
         results["bend_version"] = guard.command(["bend", "version"])
         if args.lane in ("javascript", "all"):
             results["bun_version"] = guard.command(["bun", "--version"])
         if args.case in ("tls-proof", "all"):
             results["nginx_version"] = guard.command(["nginx", "-v"])
-        directory = Path(tempfile.mkdtemp(prefix="camber-launchd-"))
+        directory = Path(tempfile.mkdtemp(prefix="camber-launchd-", dir="/private/tmp" if system else None))
         results["owned_temporary_directory"] = str(directory)
-        directory.chmod(0o700)
+        directory.chmod(0o755 if system else 0o700)
+        if system:
+            system.inspect(directory, mode=0o755)
+            if args.lane in ("javascript", "all"):
+                results["system_bun"] = str(system.install(shutil.which("bun"), directory, "bun"))
+            if args.case in ("tls-proof", "all"):
+                results["system_nginx"] = str(system.install(shutil.which("nginx"), directory, "nginx"))
         for port in (APP, ADMIN, BLOCKING_IO, TLS):
             assert refused(port), ("port already owned", port)
         for lane in (["native", "javascript"] if args.lane == "all" else [args.lane]):
@@ -739,21 +779,28 @@ def main():
             if lane == "javascript":
                 signal_source = directory / "signals.c"
                 shutil.copyfile(HERE / "signals.c", signal_source)
-                signal_source.chmod(0o400)
+                signal_source.chmod(0o444 if system else 0o400)
+                if system:
+                    system.inspect(signal_source, mode=0o444)
                 results["javascript_signal_source"] = {
-                    "path": str(signal_source), "mode": "0400",
+                    "path": str(signal_source), "mode": "0444" if system else "0400",
                     "sha256": hashlib.sha256(signal_source.read_bytes()).hexdigest(),
                     "backend": "installed Bun experimental bun:ffi cc, native image retained until process exit"}
                 assert results["javascript_signal_source"]["sha256"] == results["source_sha256"]["camber/deploy/signals.c"]
                 evidence.save()
             guard.command(["bend", HERE / "users.bend", "-o", binary], timeout=180)
-            command = [binary, "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else [shutil.which("bun"), binary]
+            if system:
+                binary.chmod(0o555 if lane == "native" else 0o444)
+                system.inspect(binary, mode=0o555 if lane == "native" else 0o444)
+            bun = results.get("system_bun") or shutil.which("bun")
+            command = [binary, "+RTS", "--threads", "1", "--gpu", "off", "-RTS"] if lane == "native" else [bun, binary]
             for mode in (["cooperative", "cpu", "io", "tls-proof"] if args.case == "all" else [args.case]):
                 row = {"lane": lane, "mode": mode, "source_sha256": results["source_sha256"], "passed": False}
                 results["cases"].append(row) # Persist before bootstrap or any cleanup can fail.
                 evidence.save()
                 case_dir = directory / f"{lane}-{mode}"
-                case_dir.mkdir(mode=0o700)
+                case_dir.mkdir(mode=0o755 if system else 0o700)
+                state_dir = system.state(case_dir / "state") if system else case_dir
                 listener = None
                 job = None
                 try:
@@ -763,23 +810,28 @@ def main():
                         listener.listen(1)
                         listener.settimeout(2)
                     job = Job(guard, case_dir, f"org.bend-kit.camber.verify.{os.getpid()}.{results['started_ns']}.{lane}.{mode}",
-                              [*command, APP, ADMIN, case_dir / "journal", mode])
+                              [*command, APP, ADMIN, state_dir / "journal", mode])
                     row.update(pid=job.pid, parent_pid=job.parent, platform_job=job.record)
-                    job.marker("READY DEDICATED USERS")
+                    job.marker("READY DEDICATED USERS", timeout=120 if system and lane == "javascript" else 10)
                     if mode == "cooperative":
                         row.update(cooperative(guard, job))
-                        journal = (case_dir / "journal").read_bytes()
+                        journal = (state_dir / "journal").read_bytes()
                         row["journal_hex"] = journal.hex()
                         assert journal == b"CLOSED\n"
                     elif mode in ("cpu", "io"):
                         row.update(stuck(guard, job, mode, listener))
-                        journal = (case_dir / "journal").read_bytes()
+                        journal = (state_dir / "journal").read_bytes()
                         row["journal_hex"] = journal.hex()
                         assert journal == b""
                     else:
-                        row.update(tls_proof(guard, job, case_dir, row))
+                        row.update(tls_proof(guard, job, state_dir, row))
                     row["passed"] = True
                 except BaseException as error:
+                    if system and job:
+                        identities = guard.surviving(guard.trees.get(job.pid, {}))
+                        if identities:
+                            row["failure_process_names"] = guard.command(
+                                ["ps", "-o", "pid=,ppid=,comm=", "-p", ",".join(map(str, identities))], check=False)
                     row.update(passed=False, failure=repr(error))
                     raise
                 finally:
@@ -822,6 +874,12 @@ def main():
         results["all_platform_jobs_released"] = jobs_released
         if not jobs_released:
             failure = failure or RuntimeError("owned platform job release failed")
+        if system:
+            try:
+                system.verify_paths()
+            except BaseException as error:
+                results["system_permission_failure"] = repr(error)
+                failure = failure or error
         if directory:
             survivors = results.get("guard_release", {}).get("surviving_observed_processes")
             if jobs_released and not survivors and not results.get("guard_release", {}).get("cleanup_failure"):
@@ -833,6 +891,12 @@ def main():
                     failure = failure or error
             else:
                 results["owned_temporary_directory_preserved_for_recovery"] = str(directory)
+        if system:
+            try:
+                system.release(jobs_released and (not directory or bool(results.get("owned_temporary_directory_removed"))))
+            except BaseException as error:
+                results["system_release_failure"] = repr(error)
+                failure = failure or error
         results["finished_ns"] = time.time_ns()
         results["status"] = "failed" if failure else "passed"
         if failure:

@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      launchd-domain:
+        description: 'Launchd acceptance domain (system creates a temporary service account)'
+        type: choice
+        options: [gui, system]
+        default: gui
   schedule:
     - cron: '23 7 * * 1'
 
@@ -25,6 +31,7 @@ jobs:
       cancel-in-progress: false
     env:
       BUN_VERSION: "1.4.4"
+      LAUNCHD_DOMAIN: ${{ inputs.launchd-domain || 'gui' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -48,7 +55,12 @@ jobs:
       - name: Check supported host and exclusive runtime slot
         run: |
           test "$(uname -sm)" = 'Darwin arm64'
-          launchctl print "gui/$(id -u)" > /dev/null
+          if [ "$LAUNCHD_DOMAIN" = system ]; then
+            test "$RUNNER_ENVIRONMENT" = github-hosted
+            sudo -n launchctl print system > /dev/null
+          else
+            launchctl print "gui/$(id -u)" > /dev/null
+          fi
           if pgrep -l -x 'bend|bend2'; then
             echo 'Another Bend process owns the runtime slot' >&2
             exit 1
@@ -59,13 +71,20 @@ jobs:
       - name: Run sequential native and JavaScript launchd matrix
         run: |
           mkdir -p "$RUNNER_TEMP/launchd-receipts"
-          python3 -B camber/deploy/run.py --lane all --case all \
-            --output "$RUNNER_TEMP/launchd-receipts/current.json"
+          if [ "$LAUNCHD_DOMAIN" = system ]; then
+            sudo -n env "PATH=$PATH" "HOME=$HOME" \
+              GITHUB_ACTIONS=true RUNNER_ENVIRONMENT=github-hosted \
+              python3 -B camber/deploy/run.py --system-host --lane all --case all \
+                --output "$RUNNER_TEMP/launchd-receipts/current.json"
+          else
+            python3 -B camber/deploy/run.py --lane all --case all \
+              --output "$RUNNER_TEMP/launchd-receipts/current.json"
+          fi
       - name: Upload cumulative passing and adverse receipts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: launchd-receipts-${{ github.run_id }}-${{ github.run_attempt }}
+          name: launchd${{ env.LAUNCHD_DOMAIN == 'system' && '-system' || '' }}-receipts-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/launchd-receipts/
           if-no-files-found: error
           retention-days: 30

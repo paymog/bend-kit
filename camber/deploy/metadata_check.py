@@ -1,11 +1,55 @@
 #!/usr/bin/env python3
 """Check fresh receipt versions without compiling or starting platform jobs."""
 import json
+import os
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import run
+from system_host import SystemHost
+
+
+def system_permissions(root):
+    evidence = SimpleNamespace(invocation={}, save=lambda: None)
+    guard = SimpleNamespace(evidence=evidence)
+    with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}):
+        try:
+            SystemHost(guard)
+        except RuntimeError as error:
+            assert "disposable GitHub-hosted" in str(error)
+        else:
+            raise AssertionError("system deployment must reject an ordinary host")
+    host = SystemHost.__new__(SystemHost)
+    host.guard = guard
+    host.uid = os.getuid()
+    host.name = "fixture"
+    host.record = {"paths": []}
+    guard.command = lambda argv, **kwargs: {"status": 0 if os.access(argv[-1], os.W_OK) else 1}
+    file = root / "protected"
+    file.write_text("original")
+    file.chmod(0o600)
+    host.inspect(file, uid=host.uid, mode=0o600)
+    host.verify_paths()
+    file.write_text("changed")
+    try:
+        host.verify_paths()
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("runtime input mutation must fail")
+    for candidate in (file, root / "linked"):
+        if candidate == file:
+            file.chmod(0o666)
+        else:
+            candidate.symlink_to(file)
+        try:
+            host.inspect(candidate, uid=host.uid)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError("writable or symlinked input must fail")
 
 
 def receipt(output):
@@ -26,6 +70,7 @@ def receipt(output):
 def main():
     with tempfile.TemporaryDirectory(prefix="camber-metadata-") as temporary:
         root = Path(temporary)
+        system_permissions(root)
         current = receipt(root / "current.json")
         assert current == run.published_versions()
         assert current.keys() == {"camber", "http", "json", "router", "bytes"}, current
