@@ -333,3 +333,55 @@ Times are medians of three runs, in milliseconds.
 The reader now keeps the last successful field or Huffman read order.
 It computes byte alignment only on an order switch. This run checks the
 homogeneous-order hot paths; it is not a controlled before/after comparison.
+
+## Isolated fixed-tree cursor experiments
+
+M4 Pro, macOS 26.7.2 (25G332), arm64, Bend 2.0.40,
+Apple clang 21.0.0, 2026-11-25.
+The baseline is `a3257d1`, including reader order tracking.
+Each candidate changes only one part of `bits.bend`; candidates are not combined.
+All keep Nat stream counts and the two-word window.
+
+- **Position:** replace the window's `Nat.sub(total, aligned)` with word-index
+  subtraction and a low-five-bit borrow. Let `a = pos.offset(total)` and
+  `b = pos.offset(aligned)`. Call `win.at` with index
+  `pos.index(total) - pos.index(aligned) - (a < b ? 1 : 0)` and offset
+  `(a - b) & 31`, using wrapping U32 arithmetic.
+  This avoids the absolute-position Nat subtraction, but splits both counts.
+- **Remaining:** replace only the successful remaining-count subtraction in
+  `decode.hit`. If `left <= 4294967295n`, compute
+  `U32.to_nat((U32.from_nat(left) - l : U32))`; otherwise keep
+  `Nat.sub(left, U32.to_nat(l))`. The existing validity test still selects the
+  original count on failure. The Nat fallback retains large-stream support.
+- **Dispatch:** branch on `max <= 9` in `decode.root`. The short arm calls
+  `decode.hit` directly. The other arm keeps the existing `decode.sub` and
+  `decode.found` path. Both arms keep the original validation.
+
+To reproduce, copy `bits.bend` separately for each candidate and apply only its
+change above. Copy `bench.bend` for each candidate and change only its Bits import.
+Compile the baseline and all three copies with `bend FILE -o BINARY`.
+Run a 1 KiB payload first, then run the following command twice from `bits/bench`:
+
+```sh
+python3 compare.py out/baseline out/position out/remaining out/dispatch
+```
+
+Each pass has 21 rounds in rotating binary order on the same 1 MiB payload.
+Each cell is the median in milliseconds. Both original checksums passed on all
+168 full-size process runs: Huffman **1974733589**, fields **2819181156**.
+
+| candidate | pass 1 Huffman | pass 1 fields | pass 2 Huffman | pass 2 fields |
+|---|---:|---:|---:|---:|
+| baseline | 12.234208 | 0.560500 | 12.464584 | 0.577500 |
+| position | 12.906875 | 0.568834 | 12.909875 | 0.570083 |
+| remaining | 12.360125 | 0.571542 | 12.425958 | 0.565459 |
+| dispatch | 14.336958 | 0.572959 | 14.354209 | 0.573792 |
+
+Position and dispatch are slower in both passes. The remaining-count fast path
+changes from 1.03% slower to 0.31% faster, so it gives no repeatable gain.
+Keep the runtime unchanged. These experiments do not rule out a different
+representation, such as a separately maintained Nat cursor; they only reject
+these three local replacements. No package version or sibling pin changes.
+The unchanged package proofs and functional checks pass, including invalid and
+truncated secondary-code checks in both orders. There are no native effects in
+this package. The temporary candidate sources and binaries are not shipped.
