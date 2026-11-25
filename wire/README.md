@@ -92,6 +92,8 @@ Required ALPN acceptance runs in `ca-check.sh` in native and JS on Linux and mac
 
 Required TLS jobs set `WIRE_LOOPBACK_ONLY=1`. Each compiled native and JS client runs under a macOS network sandbox or temporary Linux IPv4/IPv6 firewall rules that reject non-loopback destinations from the root client. A compiled probe must receive EPERM, EACCES, or EHOSTUNREACH from a numeric public-IP connection in both lanes; a timeout or connection refusal does not pass. Builds, fixture servers, and process-tree RSS supervision stay outside the client restriction. Linux requires passwordless sudo and iptables; each client restores its firewall rules before returning.
 
+Run `python3 -B wire/loopback-run-test.py` to check disabled-mode argument and environment forwarding, child status, and Linux rule rollback after setup or client failures. Add `--policy` to test real IPv4 and IPv6 policy errors on Linux or macOS. Required CA jobs run both checks before the compiled probes and local native/JS fixtures. The IPv6 probe uses a numeric documentation address; Linux adds and removes a host route through loopback so the test needs no public IPv6 route or remote reply.
+
 ### Observed acceptance (2026-10-03, macOS arm64)
 
 `python3 -B wire/deadline_check.py` passed all eight scenarios in each compiled lane. Both peers received the exact 4099-byte binary success payload. Empty writes succeeded; oversize length, zero budget, and budget above INT32_MAX returned EINVAL with zero bytes. Real reset peers returned EPIPE with zero bytes in this run. Every returned socket was explicitly closed.

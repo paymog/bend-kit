@@ -168,6 +168,8 @@ jobs:
         run: python3 -B scripts/rss-check-test.py
       - name: Check HTTP local smoke failure paths
         run: python3 -B http/local-smoke-test.py
+      - name: Check loopback runner failure paths
+        run: python3 -B wire/loopback-run-test.py
 
   workflow-lint:
     needs: changes
