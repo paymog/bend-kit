@@ -8,6 +8,10 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `camber` 0.18.0.0: adopt the current HTTP pure model, runtime API, Time clocks, and Notch release.
+- `hairpin` 0.17.0.0: use the current HTTP pure response, error, cookie, and retry types beside runtime client effects.
+- `storage` 0.10.0.0: adopt current HTTP model and transport types while preserving streamed object and origin handling.
+
 - `archive` 0.7.0.1 and `http` 0.44.0.1: adopt zlib 0.7.0.2 symbol arithmetic before the HTTP consumer release waves. Remove the old zlib pin exception.
 
 - `runner` 0.21.0.1: prove that reserved pool units equal live flights after every event prefix. Preserve initial id uniqueness through claims, cancellation, completion, and retry, and derive the live-attempt capacity bound. Publish the documented accounting assumptions; runtime behavior is unchanged.

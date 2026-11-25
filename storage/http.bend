@@ -1,20 +1,21 @@
 import Base
 import ./storage.bend as S
 import ./pure.bend as P
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/completion.bend as Completion
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as Pure
+import bend-kit-http@0.44.0.1/completion.bend as Completion
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-http@0.40.0.1/admission.bend as Admission
+import bend-kit-http@0.44.0.1/admission.bend as Admission
 
 type Source is Type:
   Object{file: File, size: U32}
-  Message{body: Http.Body}
+  Message{body: Pure.Body}
 
 # Git's dumb HTTP object walk: immutable objects are fetched by digest from a known root.
-def response(status: U32, body: Http.Body) -> Http.WriteHead<Source>:
+def response(status: U32, body: Pure.Body) -> Http.WriteHead<Source>:
   Bytes.Bytes{+len, buf} = body
-  Http.WriteHead{status, Http.set(Http.empty(), "content-type", "application/octet-stream"), Some{len}, Message{Bytes.Bytes{len, buf}}, Completion.Unobserved{}}
+  Http.WriteHead{status, Pure.set(Pure.empty(), "content-type", "application/octet-stream"), Some{len}, Message{Bytes.Bytes{len, buf}}, Completion.Unobserved{}}
 
 def source.size(info: Files.Info) -> S.Run(U32):
   match info:
@@ -35,14 +36,14 @@ def source(+path: String) -> S.Run(File & U32):
 def served(result: Result<&1, &1, U32 & String, File & U32>) -> IO(Http.WriteHead<Source>):
   match result:
     case Done{(file, +size)}:
-      IO.pure(Http.WriteHead<Source>, Http.WriteHead{200, Http.set(Http.empty(), "content-type", "application/octet-stream"), Some{size}, Object{file, size}, Completion.Unobserved{}})
+      IO.pure(Http.WriteHead<Source>, Http.WriteHead{200, Pure.set(Pure.empty(), "content-type", "application/octet-stream"), Some{size}, Object{file, size}, Completion.Unobserved{}})
     case Fail{(code, message)}:
-      IO.pure(Http.WriteHead<Source>, response(Bool.pick(U32, U32.is_eq(code, 2), 404, 500), Http.from_string("object unavailable\n")))
+      IO.pure(Http.WriteHead<Source>, response(Bool.pick(U32, U32.is_eq(code, 2), 404, 500), Pure.from_string("object unavailable\n")))
 
 def object(+dir: String, digest: Maybe<&2, P.Digest>) -> IO(Http.WriteHead<Source>):
   match digest:
     case None{}:
-      IO.pure(Http.WriteHead<Source>, response(404, Http.from_string("not found\n")))
+      IO.pure(Http.WriteHead<Source>, response(404, Pure.from_string("not found\n")))
     case Some{d}:
       do IO<Http.WriteHead<Source>>:
         result : Result<&1, &1, U32 & String, File & U32> <- source(S.Disk.object(dir, d))
@@ -51,13 +52,13 @@ def object(+dir: String, digest: Maybe<&2, P.Digest>) -> IO(Http.WriteHead<Sourc
 def route(valid: Bool, dir: String, path: String) -> IO(Http.WriteHead<Source>):
   match valid:
     case False{}:
-      IO.pure(Http.WriteHead<Source>, response(404, Http.from_string("not found\n")))
+      IO.pure(Http.WriteHead<Source>, response(404, Pure.from_string("not found\n")))
     case True{}:
       object(dir, P.Digest.read(String.drop(path, 9n)))
 
 # Mount on a read-only store; freeze collection while the server serves its roots.
-def handle(dir: String, request: Http.Req) -> IO(Http.WriteHead<Source>):
-  Http.Req{+method, +path, headers, body} = request
+def handle(dir: String, request: Pure.Req) -> IO(Http.WriteHead<Source>):
+  Pure.Req{+method, +path, headers, body} = request
   route(String.eq(method, "GET") && String.starts_with(path, "/objects/"), dir, path)
 
 def dispose(state: Source) -> IO(Unit):
@@ -149,57 +150,57 @@ def write(state: Source, writer: Http.Writer, receipt: Completion.Receipt) -> IO
         sent : Http.Writer <- Http.writer.write(writer, body)
         return (sent, receipt)
 
-def reject.admission(settings: Http.Limits, receipt: Completion.Receipt, socket: Socket, head: Bool) -> IO(Unit):
-  Http.Limits{max, cap, hm, bm, im, wm} = settings
+def reject.admission(settings: Pure.Limits, receipt: Completion.Receipt, socket: Socket, head: Bool) -> IO(Unit):
+  Pure.Limits{max, cap, hm, bm, im, wm} = settings
   Http.admission.reject(receipt, socket, head, wm)
 
-def admitted(~C: Data, ~start: C -> Http.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
-  allowed: Bool, +context: C, +inbox: Chan(Admission.Command), +settings: Http.Limits, socket: Socket, req: Http.Req, rest: Bytes.Bytes, v11: Bool) -> IO(Maybe<&1, Socket & Http.Turn>):
+def admitted(~C: Data, ~start: C -> Pure.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
+  allowed: Bool, +context: C, +inbox: Chan(Admission.Command), +settings: Pure.Limits, socket: Socket, req: Pure.Req, rest: Bytes.Bytes, v11: Bool) -> IO(Maybe<&1, Socket & Pure.Turn>):
   match allowed:
     case False{}:
-      do IO<Maybe<&1, Socket & Http.Turn>>:
-        reject.admission(settings, Completion.Observed{status => outcome => observe(context, status, outcome)}, socket, Http.admission.head(req))
+      do IO<Maybe<&1, Socket & Pure.Turn>>:
+        reject.admission(settings, Completion.Observed{status => outcome => observe(context, status, outcome)}, socket, Pure.admission.head(req))
         return None{}
     case True{}:
-      Http.Req{+method, path, +headers, body} = req
-      do IO<Maybe<&1, Socket & Http.Turn>>:
-        out : Http.WriteHead<Source> <- start(context, Http.Req{method, path, headers, body})
-        after : Maybe<&1, Socket & Http.Turn> <- Http.serve.write.send(~Source, ~write, ~dispose,
+      Pure.Req{+method, path, +headers, body} = req
+      do IO<Maybe<&1, Socket & Pure.Turn>>:
+        out : Http.WriteHead<Source> <- start(context, Pure.Req{method, path, headers, body})
+        after : Maybe<&1, Socket & Pure.Turn> <- Http.serve.write.send(~Source, ~write, ~dispose,
           Completion.Observed{status => outcome => observe(context, status, outcome)}, settings, socket, rest, headers, v11, String.eq(method, "HEAD"), out)
         Admission.give(inbox, 1)
         return after
 
-def reject(settings: Http.Limits, receipt: Completion.Receipt, socket: Socket, status: U32) -> IO(Unit):
-  Http.Limits{max, cap, hm, bm, im, wm} = settings
+def reject(settings: Pure.Limits, receipt: Completion.Receipt, socket: Socket, status: U32) -> IO(Unit):
+  Pure.Limits{max, cap, hm, bm, im, wm} = settings
   Http.reply_fail(receipt, socket, status, wm)
 
 @unsafe
-def talk(~C: Data, ~start: C -> Http.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
-  +context: C, +settings: Http.Limits, +inbox: Chan(Admission.Command), state: Maybe<&1, Http.Serving>) -> IO(Unit):
+def talk(~C: Data, ~start: C -> Pure.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
+  +context: C, +settings: Pure.Limits, +inbox: Chan(Admission.Command), state: Maybe<&1, Pure.Serving>) -> IO(Unit):
   match state:
     case None{}:
       IO.pure(Unit, Unit{})
-    case Some{Http.Serving{(socket, turn), phase}}:
+    case Some{Pure.Serving{(socket, turn), phase}}:
       match turn:
-        case Http.TurnMore{sv, cont}:
+        case Pure.TurnMore{sv, cont}:
           do IO<Unit>:
-            got : (Socket & Http.Turn) & Http.Phase <- Http.talk.recv(inbox, False{}, settings, socket, sv, cont, phase)
-            talk(~C, ~start, ~observe, context, settings, inbox, Some{Http.talk.state(got)})
-        case Http.TurnReq{req, rest, v11}:
+            got : (Socket & Pure.Turn) & Pure.Phase <- Http.talk.recv(inbox, False{}, settings, socket, sv, cont, phase)
+            talk(~C, ~start, ~observe, context, settings, inbox, Some{Pure.talk.state(got)})
+        case Pure.TurnReq{req, rest, v11}:
           do IO<Unit>:
             allowed : Bool <- Admission.take(inbox, 1)
-            after : Maybe<&1, Socket & Http.Turn> <- admitted(~C, ~start, ~observe, allowed, context, inbox, settings, socket, req, rest, v11)
-            talk(~C, ~start, ~observe, context, settings, inbox, Http.serve.write.state(after))
-        case Http.TurnFail{status}:
+            after : Maybe<&1, Socket & Pure.Turn> <- admitted(~C, ~start, ~observe, allowed, context, inbox, settings, socket, req, rest, v11)
+            talk(~C, ~start, ~observe, context, settings, inbox, Pure.serve.write.state(after))
+        case Pure.TurnFail{status}:
           reject(settings, Completion.Observed{status => outcome => observe(context, status, outcome)}, socket, status)
-        case Http.TurnClose{}:
+        case Pure.TurnClose{}:
           Socket.close(socket)
-        case Http.TurnInputFailed{operation, code, message}:
+        case Pure.TurnInputFailed{operation, code, message}:
           Socket.close(socket)
 
-def server.run(~observe: String -> U32 -> Completion.Outcome -> IO(Unit), server: Http.Server<String>) -> IO(Http.ServerExit):
+def server.run(~observe: String -> U32 -> Completion.Outcome -> IO(Unit), server: Http.Server<String>) -> IO(Pure.ServerExit):
   Http.server.run.loop(~String, ~(dir => settings => inbox => socket =>
-    talk(~String, ~handle, ~observe, dir, settings, inbox, Some{Http.Serving{(socket, Http.TurnMore{Http.sv.none(), False{}}), None{}}})),
+    talk(~String, ~handle, ~observe, dir, settings, inbox, Some{Pure.Serving{(socket, Pure.TurnMore{Pure.sv.none(), False{}}), None{}}})),
     Http.ServerListening{server})
 
 
@@ -233,56 +234,56 @@ def Run.close(-A: Type, pair: Http.Pool & Result<&1, &1, U32 & String, A>) -> S.
     return result
 
 
-def error(e: Http.Err) -> String:
+def error(e: Pure.Err) -> String:
   match e:
-    case Http.ErrUrl{}:
+    case Pure.ErrUrl{}:
       "invalid URL"
-    case Http.ErrDns{}:
+    case Pure.ErrDns{}:
       "DNS lookup failed"
-    case Http.ErrConnect{code, why}:
+    case Pure.ErrConnect{code, why}:
       "connection failed (" ++ U32.show(code) ++ "): " ++ why
-    case Http.ErrTls{code, why}:
+    case Pure.ErrTls{code, why}:
       "TLS failed (" ++ U32.show(code) ++ "): " ++ why
-    case Http.ErrRead{code, why}:
+    case Pure.ErrRead{code, why}:
       "read failed (" ++ U32.show(code) ++ "): " ++ why
-    case Http.ErrWrite{code, why}:
+    case Pure.ErrWrite{code, why}:
       "write failed (" ++ U32.show(code) ++ "): " ++ why
-    case Http.ErrTimeout{}:
+    case Pure.ErrTimeout{}:
       "timeout"
-    case Http.ErrRedirect{}:
+    case Pure.ErrRedirect{}:
       "redirect failed"
-    case Http.ErrBad{}:
+    case Pure.ErrBad{}:
       "malformed or unsupported response, or response limit exceeded"
 
-def copy.result(result: Result<&1, &1, Http.Err, Maybe<&1, Http.Body>>) -> Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>:
+def copy.result(result: Result<&1, &1, Pure.Err, Maybe<&1, Pure.Body>>) -> Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>:
   match result:
     case Fail{e}:
       Fail{(5, "storage: HTTP object stream failed: " ++ error(e))}
     case Done{piece}:
       Done{piece}
 
-def copy.read(f: File, pair: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Http.Body>>) -> Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>):
+def copy.read(f: File, pair: Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Pure.Body>>) -> Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>):
   (next, result) = pair
   (next, (f, copy.result(result)))
 
-def copy.next(st: Http.Stream, pair: File & Result<&1, &1, U32 & String, Unit>) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>)):
+def copy.next(st: Http.Stream, pair: File & Result<&1, &1, U32 & String, Unit>) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>)):
   (f, result) = pair
   match result:
     case Fail{e}:
-      IO.pure(Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>), (st, (f, Fail{e})))
+      IO.pure(Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>), (st, (f, Fail{e})))
     case Done{u}:
-      do IO<Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>)>:
-        pair : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Http.Body>> <- Http.stream.read(st)
+      do IO<Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>)>:
+        pair : Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Pure.Body>> <- Http.stream.read(st)
         return copy.read(f, pair)
 
-def copy.write(over: Bool, f: File, body: Http.Body) -> IO(File & Result<&1, &1, U32 & String, Unit>):
+def copy.write(over: Bool, f: File, body: Pure.Body) -> IO(File & Result<&1, &1, U32 & String, Unit>):
   match over:
     case True{}:
       IO.pure(File & Result<&1, &1, U32 & String, Unit>, (f, Fail{(27, "storage: encoded object exceeds 4294967295 octets")}))
     case False{}:
       Files.write_bytes(f, body)
 
-def copy(fuel: Nat, pair: Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>), +total: U32) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)):
+def copy(fuel: Nat, pair: Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>), +total: U32) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)):
   match fuel pair:
     case 0n Tuple{st, Tuple{f, result}}:
       IO.pure(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>), (st, (f, Fail{(27, "storage: HTTP stream read limit")})))
@@ -294,7 +295,7 @@ def copy(fuel: Nat, pair: Http.Stream & (File & Result<&1, &1, U32 & String, May
       Bytes.Bytes{+len, buf} = body
       do IO<Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)>:
         written : File & Result<&1, &1, U32 & String, Unit> <- copy.write(U32.is_gt(len, (4294967295 - total : U32)), f, Bytes.Bytes{len, buf})
-        next : Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>) <- copy.next(st, written)
+        next : Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>) <- copy.next(st, written)
         copy(p, next, (total + len : U32))
 
 def status.result(good: Bool, message: String) -> Result<&1, &1, U32 & String, Unit>:
@@ -306,7 +307,7 @@ def status.result(good: Bool, message: String) -> Result<&1, &1, U32 & String, U
 
 def download.status(+status: U32, st: Http.Stream, f: File) -> IO(Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)):
   do IO<Http.Stream & (File & Result<&1, &1, U32 & String, Unit>)>:
-    first : Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Http.Body>>) <- copy.next(st, (f, status.result(U32.is_eq(status, 200), "HTTP object status " ++ U32.show(status))))
+    first : Http.Stream & (File & Result<&1, &1, U32 & String, Maybe<&1, Pure.Body>>) <- copy.next(st, (f, status.result(U32.is_eq(status, 200), "HTTP object status " ++ U32.show(status))))
     copy(1n+U32.to_nat(4294967295), first, 0)
 
 def download.path(tmp: String, result: Result<&1, &1, U32 & String, Unit>) -> Result<&1, &1, U32 & String, String>:
@@ -323,8 +324,8 @@ def download.closed(+tmp: String, pair: Http.Stream & (File & Result<&1, &1, U32
     cleaned : Result<&1, &1, U32 & String, Unit> <- S.write.cleanup(tmp, closed)
     return (next, download.path(tmp, cleaned))
 
-def download.response(+tmp: String, f: File, pair: Http.Stream & Http.Res) -> IO(Http.Stream & Result<&1, &1, U32 & String, String>):
-  (stream, Http.Res{status, headers, body}) = pair
+def download.response(+tmp: String, f: File, pair: Http.Stream & Pure.Res) -> IO(Http.Stream & Result<&1, &1, U32 & String, String>):
+  (stream, Pure.Res{status, headers, body}) = pair
   do IO<Http.Stream & Result<&1, &1, U32 & String, String>>:
     written : Http.Stream & (File & Result<&1, &1, U32 & String, Unit>) <- download.status(status, stream, f)
     download.closed(tmp, written)
@@ -342,7 +343,7 @@ def download.idle(pool: Http.Pool, pair: Http.Stream & Result<&1, &1, U32 & Stri
     idle : Http.Pool <- Http.pool.stream.close(pool, next)
     return (idle, result)
 
-def download.received(+dir: String, pair: Http.Pool & Result<&1, &1, Http.Err, Http.Stream>) -> IO(Http.Pool & Result<&1, &1, U32 & String, String>):
+def download.received(+dir: String, pair: Http.Pool & Result<&1, &1, Pure.Err, Http.Stream>) -> IO(Http.Pool & Result<&1, &1, U32 & String, String>):
   (pool, result) = pair
   match result:
     case Fail{e}:
@@ -363,7 +364,7 @@ def download.context(+d: P.Digest, pair: Http.Pool & Result<&1, &1, U32 & String
 
 def download(base: String, dir: String, +d: P.Digest) -> Run(String):
   pool => do IO<Http.Pool & Result<&1, &1, U32 & String, String>>:
-    pair : Http.Pool & Maybe<&2, Http.Jar> & Result<&1, &1, Http.Err, Http.Stream> <- Http.pool.open.raw.how(pool, Http.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/objects/" ++ P.Digest.hex(d), Http.set(Http.empty(), "accept-encoding", "identity"), Http.from_string(""), 30000)
+    pair : Http.Pool & Maybe<&2, Pure.Jar> & Result<&1, &1, Pure.Err, Http.Stream> <- Http.pool.open.raw.how(pool, Pure.ModeFollow{}, None{}, "", None{}, "GET", base ++ "/objects/" ++ P.Digest.hex(d), Pure.set(Pure.empty(), "accept-encoding", "identity"), Pure.from_string(""), 30000)
     received : Http.Pool & Result<&1, &1, U32 & String, String> <- download.received(dir, Http.pool.stream.only(pair))
     return download.context(d, received)
 

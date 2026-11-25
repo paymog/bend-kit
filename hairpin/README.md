@@ -3,13 +3,15 @@
 Hairpin is an HTTP client for Bend 2, built on `bend-kit-http`. One `Client` holds a base URL, default headers, a socket pool, a cookie jar, a client certificate, a redirect mode, a step timeout, a retry policy, and a circuit breaker. Each request uses all of them. The model is undici's `Agent` with ky's instance options.
 
 ```bend
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as Pure
+import bend-kit-time@0.3.0.2/pure.bend as Time
+import bend-kit-time@0.3.0.2/time.bend as Clock
 ```
 
-Import `bend-kit-http@0.40.0.1` and `bend-kit-retry@0.3.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Http.Res` or `Retry.Budget`. `Time` supplies both `Time.mono.ms()` and the `Instant` values that Http uses.
+Import `bend-kit-http@0.44.0.1` and `bend-kit-retry@0.3.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Pure.Res` or `Retry.Budget`. `Pure` supplies HTTP model types and pure helpers; `Http` supplies client effects and handles. `Time` supplies pure `Instant` values, `Http.clock.now()` reads the wall clock in that type, and runtime `Clock` supplies `Clock.mono.ms()`.
 
 Hairpinning, or NAT loopback, is traffic that goes out and bends back. A request does the same.
 
@@ -22,19 +24,19 @@ def api() -> Hairpin.Client:
   c = Hairpin.base(Hairpin.new(), "https://api.example.com/v1/")
   Hairpin.retry(Hairpin.header(c, "Accept", "application/json"), 2)
 
-def done(r: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Unit):
+def done(r: Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res>) -> IO(Unit):
   (c, got) = r
   Hairpin.close(c)
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    r : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(api(), "users/7")
+    r : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(api(), "users/7")
     done(r)
 ```
 
 A `Client` is affine. Every request returns the client beside the result; pass that client to the next request, and `Hairpin.close` it at the end to close its idle sockets.
 
-The result is `Result<&1, &1, Hairpin.Err, Http.Res>`. `ErrHttp{e}` is the `Http.Err` of the last attempt. `ErrDenied{why}` means that no attempt started: `DenyLate` (the deadline passed), `DenySpent` (the budget is spent), or `DenyOpen` (the circuit is open).
+The result is `Result<&1, &1, Hairpin.Err, Pure.Res>`. `ErrHttp{e}` is the `Pure.Err` of the last attempt. `ErrDenied{why}` means that no attempt started: `DenyLate` (the deadline passed), `DenySpent` (the budget is spent), or `DenyOpen` (the circuit is open).
 
 ## Options
 
@@ -44,17 +46,17 @@ The result is `Result<&1, &1, Hairpin.Err, Http.Res>`. `ErrHttp{e}` is the `Http
 | `Hairpin.base(c, url)` | none | Each request URL resolves against `url` (RFC 3986 §5.2), so `"users/7"` against `https://api.example.com/v1/` is `https://api.example.com/v1/users/7`. An absolute URL goes as given. With a base that is not an absolute `http` or `https` URL, every request fails with `ErrUrl`. |
 | `Hairpin.header(c, k, v)` | none | A default header. A second default of the same name replaces the first. A request header of the same name, in any case, replaces the default. The client sets `Host`, `Connection`, `Content-Length`, and `Transfer-Encoding` itself and drops them from both. |
 | `Hairpin.timeout(c, ms)` | 30000 | The step timeout of each connect, write, and read. |
-| `Hairpin.redirect(c, mode)` | `Http.ModeFollow{}` | `ModeManual` returns the 3xx; `ModeError` fails with `ErrRedirect`. A chain stops after 20 hops. |
+| `Hairpin.redirect(c, mode)` | `Pure.ModeFollow{}` | `ModeManual` returns the 3xx; `ModeError` fails with `ErrRedirect`. A chain stops after 20 hops. |
 | `Hairpin.retry(c, n)` | 0 | Up to `n` retries: `n + 1` attempts in all. See [Retries](#retries). |
 | `Hairpin.deadline(c, ms)` | none | No attempt of a request starts `ms` or more after the request starts. A wait that would reach the deadline ends the request instead. |
 | `Hairpin.circuit(c, Retry.Circuit{threshold, window, cooldown, probes})` | none | A circuit breaker in front of every request on this client. See [Circuit breaker](#circuit-breaker). `Hairpin.breaker.of(c)` gives its state back. |
 | `Hairpin.cert(c, chain, key)` | none | Paths to a PEM client chain and key for mutual TLS. The identity follows same-origin redirects only, and pooled sockets are kept per identity. |
 | `Hairpin.ca(c, path)` | `""` | Path to a PEM CA file, trusted for the server handshake in place of the default store. `""` trusts the default store. Like the certificate, the file follows same-origin redirects only. Requests and streams both use it. |
-| `Hairpin.jar(c, jar)` | none | Every hop, redirects and retries included, sends the jar's cookies and stores each `Set-Cookie`. Before each try, the jar's clock moves to `Time.now()`. `Hairpin.jar.of(c)` gives the jar back. |
+| `Hairpin.jar(c, jar)` | none | Every hop, redirects and retries included, sends the jar's cookies and stores each `Set-Cookie`. Before each try, the jar's clock moves to `Http.clock.now()`. `Hairpin.jar.of(c)` gives the jar back. |
 
 ## Requests
 
-- `Hairpin.request(c, method, url, headers, body)` makes one request. The body is an `Http.Body`.
+- `Hairpin.request(c, method, url, headers, body)` makes one request. The body is an `Pure.Body`.
 - `Hairpin.get(c, url)` is a GET with no headers and no body.
 - `Hairpin.post.json(c, url, v)` POSTs a `Json.Val` as compact JSON, with `content-type: application/json`.
 - `Hairpin.request.in(c, budget, method, url, headers, body)` makes one request inside a caller's retry layer. See [Nested retries](#nested-retries).
@@ -68,7 +70,7 @@ For a streamed response under the retry policy, use `open.as`. For a streamed up
 
 ## Retries
 
-[`bend-kit-retry`](../retry) is the policy. It is pure; Hairpin reads the clock and calls it. Every `now` in the policy is monotonic milliseconds from `Time.mono.ms()`. Each request runs this loop:
+[`bend-kit-retry`](../retry) is the policy. It is pure; Hairpin reads the clock and calls it. Every `now` in the policy is monotonic milliseconds from `Clock.mono.ms()`. Each request runs this loop:
 
 1. **Admit.** `Retry.admit(breaker, budget, now)` checks the deadline, then the budget, then the breaker. Only `GateGo` starts an attempt, and it takes one attempt from the budget. A denial before the first attempt is `ErrDenied{why}`; a later denial returns the last result.
 2. **Classify.** The judge gives a `Hairpin.Verdict` for the result, and `Hairpin.outcome(idem, verdict, now)` turns it into a `Retry.Outcome`. `Hairpin.judge` calls a connect error, a timeout, and 408, 429, 500, 502, 503, and 504 `VerdictAgain{after}`, where `after` is the `Retry-After` value. Any other status below 400 is `VerdictOk`, another 4xx is `VerdictCaller`, and another 5xx or another error (such as DNS or TLS) is `VerdictTarget`. `VerdictOk` is `Settled`. `VerdictCaller` is `Rejected`, and `VerdictTarget` is `Failed`; another try would repeat either one. `VerdictAgain` of GET, HEAD, OPTIONS, TRACE, PUT, or DELETE is `Transient`, with the server's `Retry-After` (at most 30 s). Of any other method, it is `Unsafe`.
@@ -86,13 +88,13 @@ A retry repeats the request. Hairpin retries only methods that RFC 9110 calls id
 A caller with its own retry loop (an SDK above Hairpin, a job runner) multiplies attempts: 3 outer tries of 3 inner attempts are 9 requests. A shared `Retry.Budget` stops that. Make one budget for the whole operation, pass it to each `Hairpin.request.in`, and pass the budget that comes back to the next call:
 
 ```bend
-def call(x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
+def call(x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res>):
   (c, b) = x
-  Hairpin.request.in(c, b, "GET", "jobs/7", Http.empty(), Bytes.new(0))
+  Hairpin.request.in(c, b, "GET", "jobs/7", Pure.empty(), Bytes.new(0))
 
-def start(c: Hairpin.Client) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
-  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>>:
-    now : Nat <- Time.mono.ms()
+def start(c: Hairpin.Client) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res>):
+  do IO<Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res>>:
+    now : Nat <- Clock.mono.ms()
     call((c, Retry.Budget.new(4n, now, Some{2000n})))
 ```
 
@@ -100,7 +102,7 @@ Every attempt of every call takes from the one budget and obeys its deadline. Th
 
 ## Your own retry rules
 
-`request.in` retries only what `Http.retry.judge` calls transient, and only for an idempotent method. An API with other rules, such as Anthropic's 529 or a POST that the server deduplicates, uses `request.as`:
+`request.in` retries only what `Pure.retry.judge` calls transient, and only for an idempotent method. An API with other rules, such as Anthropic's 529 or a POST that the server deduplicates, uses `request.as`:
 
 - `~judge` takes the result of one attempt. It returns the result and a `Hairpin.Verdict`: `VerdictOk{}`, `VerdictCaller{}`, `VerdictTarget{}`, or `VerdictAgain{after}` when another attempt may help (`after` is the `Retry-After` value, `""` for no header). `Hairpin.judge` is the default.
 - `idem` says that the request is safe to repeat. When it is `False{}`, `VerdictAgain` counts against the breaker but never repeats.
@@ -126,7 +128,7 @@ A `Client` has one breaker for all origins. Requests on one client are sequentia
 
 [../retry/README.md](../retry/README.md#proven-claims) lists the proven claims of the policy. `LAWS.bend` here proves Hairpin's URL resolution, header merge, and outcome classification (`outcome_*`) on fixtures.
 
-The proofs cover the policy, not the IO loop in `hairpin.bend`. Hairpin calls `Retry.admit` before each attempt and `Retry.plan` after it; `check.bend` tests this against a server that counts attempts. A deadline does not cancel an attempt in flight; its connect, write, and read steps each time out after `Hairpin.timeout`. The monotonic clock (`Time.mono.ms`), the random jitter (`IO.random_u32`), the sleep, and the sockets are host code. `request` and `request.in` retry only the methods that RFC 9110 calls idempotent. With `request.as`, the caller's `idem` and `judge` decide, and Hairpin trusts them.
+The proofs cover the policy, not the IO loop in `hairpin.bend`. Hairpin calls `Retry.admit` before each attempt and `Retry.plan` after it; `check.bend` tests this against a server that counts attempts. A deadline does not cancel an attempt in flight; its connect, write, and read steps each time out after `Hairpin.timeout`. The monotonic clock (`Clock.mono.ms`), the random jitter (`IO.random_u32`), the sleep, and the sockets are host code. `request` and `request.in` retry only the methods that RFC 9110 calls idempotent. With `request.as`, the caller's `idem` and `judge` decide, and Hairpin trusts them.
 
 ## Checks
 

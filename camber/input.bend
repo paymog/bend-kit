@@ -1,6 +1,6 @@
 # Checked typed inputs; bodies are consumed once, without caching or decompression.
 import Base
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as Pure
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
@@ -102,19 +102,19 @@ def utf8.go(fuel: Nat, pair: Array<U32> & Maybe<&2, Target.Utf>, +index: U32) ->
         case None{}: (bytes, None{})
         case Some{state}: utf8.go(rest, utf8.step(Bytes.peek(bytes, index), state), (index + 1 : U32))
 
-def utf8.borrowed(len: U32, pair: Array<U32> & Maybe<&2, String>) -> Http.Body & Maybe<&2, String>:
+def utf8.borrowed(len: U32, pair: Array<U32> & Maybe<&2, String>) -> Pure.Body & Maybe<&2, String>:
   (buffer, text) = pair
   (Bytes.Bytes{len, buffer}, text)
 
-def utf8.borrow(bytes: Http.Body) -> Http.Body & Maybe<&2, String>:
+def utf8.borrow(bytes: Pure.Body) -> Pure.Body & Maybe<&2, String>:
   Bytes.Bytes{+len, buffer} = bytes
   utf8.borrowed(len, utf8.go(U32.to_nat(len), (buffer, Some{Target.Utf{0, 128, 191, 0, ""}}), 0))
 
-def utf8.text(pair: Http.Body & Maybe<&2, String>) -> Maybe<&2, String>:
+def utf8.text(pair: Pure.Body & Maybe<&2, String>) -> Maybe<&2, String>:
   (bytes, text) = pair
   text
 
-def utf8(bytes: Http.Body) -> Maybe<&2, String>:
+def utf8(bytes: Pure.Body) -> Maybe<&2, String>:
   utf8.text(utf8.borrow(bytes))
 
 # Split only unquoted semicolons, retaining quoted parameter syntax for checks.
@@ -168,8 +168,8 @@ def media.charset.value(value: String) -> Bool:
 
 def media.parameter(pair: String & String) -> Bool:
   (key, value) = pair
-  +name = String.to_lower(Http.trim(key))
-  +charset = String.to_lower(Http.trim(value))
+  +name = String.to_lower(Pure.trim(key))
+  +charset = String.to_lower(Pure.trim(value))
   Bool.not(String.eq(name, "charset")) || media.charset.value(charset)
 
 def media.charset(parts: List<&2, String>) -> Bool:
@@ -187,7 +187,7 @@ def media.type(json: Bool, +name: String) -> Bool:
 def media.content(json: Bool, parts: List<&2, String>) -> Bool:
   match parts:
     case Nil{}: False{}
-    case name <> rest: media.type(json, String.to_lower(Http.trim(name))) && media.charset(rest)
+    case name <> rest: media.type(json, String.to_lower(Pure.trim(name))) && media.charset(rest)
 
 def media.encoding(values: List<&2, String>) -> Bool:
   match values:
@@ -196,32 +196,32 @@ def media.encoding(values: List<&2, String>) -> Bool:
 
 def media.headers(json: Bool, types: List<&2, String>, encodings: List<&2, String>) -> Bool:
   match types:
-    case value <> Nil{}: media.content(json, media.parts(value, (False{}, False{}, "", Nil{}))) && media.encoding(Http.ce.split(encodings))
+    case value <> Nil{}: media.content(json, media.parts(value, (False{}, False{}, "", Nil{}))) && media.encoding(Pure.ce.split(encodings))
     case _: False{}
 
 def media(json: Bool, +headers: Map<&2, List<&2, String>>) -> Bool:
-  media.headers(json, Http.fields(headers, "content-type"), Http.fields(headers, "content-encoding"))
+  media.headers(json, Pure.fields(headers, "content-type"), Pure.fields(headers, "content-encoding"))
 
-def raw(body: Http.Body) -> Result<&2, &1, U32, Http.Body>:
+def raw(body: Pure.Body) -> Result<&2, &1, U32, Pure.Body>:
   Done{body}
 
-def text.accepted(accepted: Bool, body: Http.Body) -> Result<&2, &1, U32, String>:
+def text.accepted(accepted: Bool, body: Pure.Body) -> Result<&2, &1, U32, String>:
   match accepted:
     case False{}: Fail{415}
     case True{}: scalar.convert(~String, utf8(body))
 
-def text(headers: Map<&2, List<&2, String>>, body: Http.Body) -> Result<&2, &1, U32, String>:
+def text(headers: Map<&2, List<&2, String>>, body: Pure.Body) -> Result<&2, &1, U32, String>:
   text.accepted(media(False{}, headers), body)
 
-def json.accepted(accepted: Bool, cap: U32, body: Http.Body) -> Result<&2, &1, U32, Json.Val>:
+def json.accepted(accepted: Bool, cap: U32, body: Pure.Body) -> Result<&2, &1, U32, Json.Val>:
   match accepted:
     case False{}: Fail{415}
     case True{}: checked(~Json.Val, Json.parse.strict.unique.bytes(body, cap))
 
-def json.with_depth(headers: Map<&2, List<&2, String>>, body: Http.Body, cap: U32) -> Result<&2, &1, U32, Json.Val>:
+def json.with_depth(headers: Map<&2, List<&2, String>>, body: Pure.Body, cap: U32) -> Result<&2, &1, U32, Json.Val>:
   json.accepted(media(True{}, headers), cap, body)
 
-def json(headers: Map<&2, List<&2, String>>, body: Http.Body) -> Result<&2, &1, U32, Json.Val>:
+def json(headers: Map<&2, List<&2, String>>, body: Pure.Body) -> Result<&2, &1, U32, Json.Val>:
   json.with_depth(headers, body, 64)
 
 # Exact number text remains packed until this explicit checked conversion.

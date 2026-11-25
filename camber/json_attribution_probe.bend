@@ -2,7 +2,7 @@
 import Base
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-time@0.3.0.2/time.bend as Time
 import ./prerequisites.bend as Probe
 
 def end_stage(label: String, started: Time.Duration) -> IO(Unit):
