@@ -1,6 +1,7 @@
 import Base
 import ./redis.bend as R
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import ./pure.bend as Pure
 
 # The laws run in the checker. This runs the codec on the runtime at sizes the checker would not reach.
 
@@ -86,6 +87,60 @@ def resp3() -> Bool:
     "|1\r\n+k\r\n:1\r\n*1\r\n$1\r\nv\r\n", ">2\r\n+message\r\n+hi\r\n"
   ])
 
+def retained.finish(r: R.Reader & R.Next) -> Bool:
+  (rd, nx) = r
+  match nx:
+    case R.Got{R.Arr{xs}}:
+      Nat.is_eq(List.length(&1, R.Val, xs), 100n)
+    case _:
+      False{}
+
+def retained.go(n: Nat, r: R.Reader & R.Next) -> Bool:
+  match n:
+    case 0n:
+      retained.finish(r)
+    case 1n+p:
+      (rd, nx) = r
+      match nx:
+        case R.Want{}:
+          retained.go(p, R.next(R.feed(rd, R.text(":1\r\n"))))
+        case _:
+          False{}
+
+# Poison a completed item's tag: resuming must use the value in the aggregate frame.
+def retained.start(r: R.Reader & R.Next) -> Bool:
+  (rd, nx) = r
+  R.Reader{state} = rd
+  Pure.Reader{buf, pos, st} = state
+  retained.go(99n, (R.Reader{Pure.Reader{Bytes.set(buf, 6, 63), pos, st}}, nx))
+
+def pipeline.last(+want: String, r: R.Reader & R.Next) -> Bool:
+  (rd, nx) = r
+  match nx:
+    case R.Got{v}:
+      same(R.text(want), Some{v})
+    case _:
+      False{}
+
+def pipeline.wait(+tail: String, +want: String, r: R.Reader & R.Next) -> Bool:
+  (rd, nx) = r
+  match nx:
+    case R.Want{}:
+      pipeline.last(want, R.next(R.feed(rd, R.text(tail))))
+    case _:
+      False{}
+
+def pipeline.first(+tail: String, +want: String, r: R.Reader & R.Next) -> Bool:
+  (rd, nx) = r
+  match nx:
+    case R.Got{v}:
+      pipeline.wait(tail, want, R.next(rd))
+    case _:
+      False{}
+
+def pipeline(+head: String, +tail: String, +want: String) -> Bool:
+  pipeline.first(tail, want, R.next(R.feed(R.reader(), R.text("+OK\r\n" ++ head))))
+
 def verdict(+name: String, ok: Bool) -> IO(Unit):
   match ok:
     case True{}:
@@ -96,6 +151,10 @@ def verdict(+name: String, ok: Bool) -> IO(Unit):
 def main() -> IO(Unit):
   do IO<Unit>:
     verdict("RESP3 public codec in 1-byte reads", resp3())
+    verdict("completed aggregate items survive 100 small reads", retained.start(R.next(R.feed(R.reader(), R.text("*100\r\n:1\r\n")))))
+    verdict("partial line survives pipeline compaction", pipeline("*2\r\n:1\r\n+ab\r", "\n", "*2\r\n:1\r\n+ab\r\n"))
+    verdict("partial bulk survives pipeline compaction", pipeline("*2\r\n:1\r\n$3\r\nab", "c\r\n", "*2\r\n:1\r\n$3\r\nabc\r\n"))
+    verdict("empty pipeline head survives compaction", pipeline("", ":1\r\n", ":1\r\n"))
     verdict("500 items in 7-byte reads", same(arr(500), chunks(arr(500), 7)))
     verdict("20000 items in 65536-byte reads", same(arr(20000), chunks(arr(20000), 65536)))
     verdict("1 MiB bulk in 65536-byte reads", same(bulk(1048576), chunks(bulk(1048576), 65536)))

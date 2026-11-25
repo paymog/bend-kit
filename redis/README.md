@@ -3,7 +3,7 @@
 A Redis and Valkey client. RESP3 over TCP or TLS, with pipelining and a pool.
 
 ```bend
-import bend-kit-redis@0.4.0.0/redis.bend as Redis
+import bend-kit-redis@0.5.0.0/redis.bend as Redis
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 ```
 
@@ -13,6 +13,8 @@ import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 `encode` and `decode` are the RESP3 codec. Integers use two `U32` words for a signed 64-bit value. `pool.get` takes a connection from the pool or opens one. Return it with `pool.put` when you are done.
 
-For pure proofs, import `bend-kit-redis@0.4.0.0/pure.bend`. It contains the RESP3 codec and incremental reader, without Wire or DNS effects. `LAWS.bend` and `PROOF.bend` check all existing fixtures through this module. The public `redis.bend` API keeps its types and entry points.
+For pure proofs, import `bend-kit-redis@0.5.0.0/pure.bend`. It contains the RESP3 codec and incremental reader, without Wire or DNS effects. `LAWS.bend` and `PROOF.bend` check all existing fixtures through this module.
+
+Use `reader`, `feed`, `next`, and `pending` to manage chunked replies. `Reader{state}` wraps a pure reader that retains the current line scan, bulk length, and aggregate stack between reads. `Want` keeps every byte of the unfinished reply pending. Completed replies are removed when the next chunk arrives.
 
 Pub/sub, cluster, sentinel, and client-side caching are not in this version. `smoke.bend` uses database 9 and `FLUSHDB` against a live server.
