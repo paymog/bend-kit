@@ -1,7 +1,7 @@
 import Base
 import bend-kit-int@0.2.0.0/int.bend as Int
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import ./time.bend as Time
+import ./pure.bend as Time
 
 def u(x: U32) -> Int.I64:
   Int.I64.from_u32(x)
