@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `runner` 0.20.2.0: inspect current-format journals read-only with an application payload decoder. Return pre-recovery state and an explicit torn suffix without changing source bytes.
+
 - `runner` 0.20.1.4: prove that arbitrary accepted snapshots have well-formed dead-ticket tries and that crash recovery preserves them.
 
 - `crdt` 0.2.3.1: prove keyed counter reflexivity, transitivity, canonical antisymmetry, and merge monotonicity with explicit comparator assumptions.

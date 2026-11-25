@@ -98,6 +98,42 @@ class Migration(unittest.TestCase):
                 self.assertEqual(old.read_bytes(), original)
                 self.assertEqual(new.read_bytes(), expected.read_bytes())
                 subprocess.run([str(self.binary), str(new), str(expected)], check=True)
+                self.assertEqual(new.read_bytes(), journal(current))
+                self.assertEqual(expected.read_bytes(), journal(current))
+
+    def test_read_only_inspection(self):
+        valid = journal([snapshot(False)])
+        bad_crc = bytearray(valid)
+        bad_crc[8] ^= 1
+        bad_length = bytearray(valid)
+        bad_length[4] ^= 1
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "journal"
+            def inspect(data):
+                path.chmod(0o600) if path.exists() else None
+                path.write_bytes(data)
+                path.chmod(0o400)
+                result = subprocess.run([str(self.binary), str(path)], check=True,
+                                        capture_output=True, text=True).stdout.strip()
+                self.assertEqual(path.read_bytes(), data)
+                return result
+            clean = inspect(valid)
+            self.assertFalse(clean.startswith(("error:", "torn:")))
+            self.assertEqual(inspect(valid + b"x"), f"torn:{len(valid)}:{clean}")
+            extra = migrate.frame(words(1) + q(300) + b"later")
+            self.assertEqual(inspect(valid + extra[:-1]), f"torn:{len(valid)}:{clean}")
+            for corrupt in (bytes(bad_crc), bytes(bad_length)):
+                self.assertIn("corrupt frame at offset 0", inspect(corrupt))
+            self.assertIn("undecodable record", inspect(valid + migrate.frame(words(99))))
+            self.assertIn("undecodable record", inspect(
+                valid + migrate.frame(words(1) + q(300) + b"reject")))
+            self.assertIn("file exceeds limit", inspect(b"x" * 1048577))
+            self.assertFalse(inspect(b"").startswith(("error:", "torn:")))
+            missing = Path(directory) / "missing"
+            result = subprocess.run([str(self.binary), str(missing)], check=True,
+                                    capture_output=True, text=True).stdout
+            self.assertTrue(result.startswith("error:"))
+            self.assertFalse(missing.exists())
 
     def test_small_records(self):
         for tag in (2, 3, 4, 5, 6, 9, 11, 12):
