@@ -3,12 +3,12 @@
 Compact JWS tokens. HS256, HS384, HS512, RS256, and ES256. Claim checks, and JWKS lookup over `hairpin`.
 
 ```bend
-import bend-kit-jwt@0.14.0.2/jwt.bend as Jwt
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-jwt@0.15.0.0/jwt.bend as Jwt
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
 ```
 
-`jwt.bend` imports that `http` and `bend-kit-crypto@0.2.2.2`. JSON and bytes use the named versions in the entry file. Times in claims are Unix seconds as `U32`, through 2106.
+`jwt.bend` imports that HTTP model module and `bend-kit-crypto@0.2.2.2`. JWKS response boundaries use `HttpPure.Res`. JSON and bytes use the named versions in the entry file. Times in claims are Unix seconds as `U32`, through 2106.
 
 `policy` pins one algorithm. `iss` and `aud` add the claims you require. `verify` rejects `alg` of `none` and any algorithm other than the pin. An HMAC secret must be at least as long as the digest. `sign` and `verify` are `IO` because the signature goes through libcrypto.
 

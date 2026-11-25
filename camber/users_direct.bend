@@ -1,9 +1,9 @@
 # Published direct acceptance consumer: one reusable application/state and one actual Store Owner.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-camber@0.17.0.1/notices.bend as N
-import bend-kit-http@0.40.0.1/http.bend as H
+import bend-kit-camber@0.18.0.0/camber.bend as C
+import bend-kit-camber@0.18.0.0/notices.bend as N
+import bend-kit-http@0.44.0.1/pure.bend as Pure
 import bend-kit-json@0.7.3.0/json.bend as J
 import bend-kit-router@0.2.0.0/router.bend as R
 import bend-kit-bytes@0.3.3.1/bytes.bend as B
@@ -33,21 +33,21 @@ def unhex(text: String) -> String:
     case SCon{Chr{a}, SCon{Chr{b}, rest}}: SCon{Chr{(digit(a) * 16 + digit(b) : U32)}, unhex(rest)}
     case _: ""
 
-def response.hex(body: H.Body) -> String:
+def response.hex(body: Pure.Body) -> String:
   B.to_hex(body)
 
-def response(res: H.Res) -> IO(Unit):
-  H.Res{+status, +headers, body} = res
-  IO.print("RESPONSE " ++ H.to_string(J.encode.bytes(J.Obj{
+def response(res: Pure.Res) -> IO(Unit):
+  Pure.Res{+status, +headers, body} = res
+  IO.print("RESPONSE " ++ Pure.to_string(J.encode.bytes(J.Obj{
     [(J.utf8("status"), J.Num{B.u32.show(status)}),
-     (J.utf8("allow"), J.Str{J.utf8(H.header(headers, "allow"))}),
-     (J.utf8("location"), J.Str{J.utf8(H.header(headers, "location"))}),
-     (J.utf8("www-authenticate"), J.Str{J.utf8(H.header(headers, "www-authenticate"))}),
-     (J.utf8("content-type"), J.Str{J.utf8(H.header(headers, "content-type"))}),
-     (J.utf8("x-plain"), J.Str{J.utf8(H.header(headers, "x-plain"))}),
-     (J.utf8("x-root"), J.Str{J.utf8(H.header(headers, "x-root"))}),
-     (J.utf8("x-group"), J.Str{J.utf8(H.header(headers, "x-group"))}),
-     (J.utf8("x-route"), J.Str{J.utf8(H.header(headers, "x-route"))}),
+     (J.utf8("allow"), J.Str{J.utf8(Pure.header(headers, "allow"))}),
+     (J.utf8("location"), J.Str{J.utf8(Pure.header(headers, "location"))}),
+     (J.utf8("www-authenticate"), J.Str{J.utf8(Pure.header(headers, "www-authenticate"))}),
+     (J.utf8("content-type"), J.Str{J.utf8(Pure.header(headers, "content-type"))}),
+     (J.utf8("x-plain"), J.Str{J.utf8(Pure.header(headers, "x-plain"))}),
+     (J.utf8("x-root"), J.Str{J.utf8(Pure.header(headers, "x-root"))}),
+     (J.utf8("x-group"), J.Str{J.utf8(Pure.header(headers, "x-group"))}),
+     (J.utf8("x-route"), J.Str{J.utf8(Pure.header(headers, "x-route"))}),
      (J.utf8("body"), J.Str{J.utf8(response.hex(body))})]})))
 
 def finished(completion: C.Completion<U.State, String>) -> IO(U.State):
@@ -56,7 +56,7 @@ def finished(completion: C.Completion<U.State, String>) -> IO(U.State):
     response(res)
     return state
 
-def dispatch(+app: C.Application<U.Action, U.Config, C.Policy<String>>, state: U.State, req: H.Req) -> IO(U.State):
+def dispatch(+app: C.Application<U.Action, U.Config, C.Policy<String>>, state: U.State, req: Pure.Req) -> IO(U.State):
   C.Application{table, +config, root, groups} = app
   do IO<U.State>:
     completion : C.Completion<U.State, String> <- C.dispatch(~U.Action, ~U.State, ~U.Config, ~String, ~String, ~U.Config,
@@ -69,8 +69,8 @@ def requests(values: List<&1, String>, +app: C.Application<U.Action, U.Config, C
     case +label <> method <> target <> token <> media <> encoding <> fault <> hex <> rest:
       do IO<Unit>:
         IO.print("CASE " ++ label)
-        headers : Map<&2, List<&2, String>> = H.set(H.set(H.set(H.set(H.set(H.set(H.empty(), "x-case", label), "authorization", token), "content-type", media), "content-encoding", encoding), "x-invalid", fault), "host", "wrong.test")
-        returned : U.State <- dispatch(app, state, H.Req{method, target, headers, H.from_string(unhex(hex))})
+        headers : Map<&2, List<&2, String>> = Pure.set(Pure.set(Pure.set(Pure.set(Pure.set(Pure.set(Pure.empty(), "x-case", label), "authorization", token), "content-type", media), "content-encoding", encoding), "x-invalid", fault), "host", "wrong.test")
+        returned : U.State <- dispatch(app, state, Pure.Req{method, target, headers, Pure.from_string(unhex(hex))})
         requests(rest, app, returned)
     case _: IO.die(Unit, 1, "incomplete batch request")
 

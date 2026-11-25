@@ -2,8 +2,8 @@
 import Base
 import ./users.bend as U
 import ./users_direct.bend as Check
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-http@0.40.0.1/http.bend as H
+import bend-kit-camber@0.18.0.0/camber.bend as C
+import bend-kit-http@0.44.0.1/pure.bend as Pure
 
 def require.success(outcome: C.Outcome<String, U.User>) -> IO(Unit):
   match outcome:
@@ -71,15 +71,15 @@ def held(owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +context: C.
 def concurrent(app: C.Application<U.Action, U.Config, C.Policy<String>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, +context: C.Context<U.Store, U32, U.Operation, String, U.User>, +arrived: Chan(Unit), +release: Chan(Unit)) -> IO(Unit):
   +application = app
   do IO<Unit>:
-    first : Chan(U.State) <- IO.fork(U.State, Check.dispatch(application, U.fresh(), H.Req{"GET", "/users/me", H.set(H.set(H.empty(), "authorization", "Bearer seven"), "x-hold", "yes"), H.from_string("")}))
+    first : Chan(U.State) <- IO.fork(U.State, Check.dispatch(application, U.fresh(), Pure.Req{"GET", "/users/me", Pure.set(Pure.set(Pure.empty(), "authorization", "Bearer seven"), "x-hold", "yes"), Pure.from_string("")}))
     C.receive(Unit, arrived)
-    failed : U.State <- Check.dispatch(application, U.fresh(), H.Req{"GET", "/users/me", H.set(H.set(H.empty(), "authorization", "Bearer eight"), "x-store-fail", "yes"), H.from_string("")})
+    failed : U.State <- Check.dispatch(application, U.fresh(), Pure.Req{"GET", "/users/me", Pure.set(Pure.set(Pure.empty(), "authorization", "Bearer eight"), "x-store-fail", "yes"), Pure.from_string("")})
     U.destroy(failed)
     sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, release, Unit{})
     U.require(Result.is_done(&1, &1, Unit, Unit, sent), "first request release failed")
     restored : U.State <- IO.join(U.State, first)
     U.destroy(restored)
-    recovery : U.State <- Check.dispatch(application, U.fresh(), H.Req{"GET", "/users/me", H.set(H.empty(), "authorization", "Bearer eight"), H.from_string("")})
+    recovery : U.State <- Check.dispatch(application, U.fresh(), Pure.Req{"GET", "/users/me", Pure.set(Pure.empty(), "authorization", "Bearer eight"), Pure.from_string("")})
     U.destroy(recovery)
     Chan.close(Unit, arrived)
     Chan.close(Unit, release)

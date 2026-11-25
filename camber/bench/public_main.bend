@@ -1,10 +1,10 @@
 import Base
 import ./public_app.bend as A
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-http@0.40.0.1/http.bend as H
-import bend-kit-http@0.40.0.1/completion.bend as T
+import bend-kit-camber@0.18.0.0/camber.bend as C
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as Pure
+import bend-kit-http@0.44.0.1/completion.bend as T
 import bend-kit-router@0.2.0.0/router.bend as R
-import bend-kit-time@0.3.0.1/time.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type RawTarget is Data:
@@ -12,9 +12,9 @@ type RawTarget is Data:
 type Raw is Data:
   Raw{table: R.Table<RawTarget>, config: A.Config}
 type Control is Data:
-  Control{main: H.ServerControl, own: Chan(H.ServerControl), gate: Chan(Unit)}
-def config(port: U32) -> H.ServerConfig:
-  H.ServerConfig{"127.0.0.1", port, 8388608, 65536, 32, 16, 16, 200, 30000, 30000, 30000}
+  Control{main: Http.ServerControl, own: Chan(Http.ServerControl), gate: Chan(Unit)}
+def config(port: U32) -> Pure.ServerConfig:
+  Pure.ServerConfig{"127.0.0.1", port, 8388608, 65536, 32, 16, 16, 200, 30000, 30000, 30000}
 def entries(routes: List<&2, C.Route<A.Action, C.Policy<U32>>>) -> List<&2, R.Entry<RawTarget>>:
   match routes:
     case Nil{}: Nil{}
@@ -26,34 +26,34 @@ def raw.checked(result: Result<&2, &2, R.Error, R.Table<RawTarget>>, settings: A
     case Fail{error}: IO.die(Raw, 1, "raw registration failed")
 def raw(profile: U32, settings: A.Config) -> IO(Raw):
   raw.checked(R.prepare(~RawTarget, entries(A.registrations(profile))), settings)
-def raw.entered(step: C.Step<U32, String>, action: A.Action, settings: A.Config, selected: C.Match<C.Policy<U32>>, req: H.Req) -> IO(H.Res):
+def raw.entered(step: C.Step<U32, String>, action: A.Action, settings: A.Config, selected: C.Match<C.Policy<U32>>, req: Pure.Req) -> IO(Pure.Res):
   match step:
     case C.Continue{state}: A.business(action, state, settings, selected, req)
-    case C.Early{state, response}: IO.pure(H.Res, response)
-    case C.Reject{state, error}: IO.pure(H.Res, A.mapped(error))
-def raw.selected(choice: R.Resolved<RawTarget>, +settings: A.Config, req: H.Req) -> IO(H.Res):
+    case C.Early{state, response}: IO.pure(Pure.Res, response)
+    case C.Reject{state, error}: IO.pure(Pure.Res, A.mapped(error))
+def raw.selected(choice: R.Resolved<RawTarget>, +settings: A.Config, req: Pure.Req) -> IO(Pure.Res):
   R.Resolved{target, selected} = choice
   match selected:
-    case R.NotFound{}: IO.pure(H.Res, A.mapped(C.Framework{404, ""}))
-    case R.MethodMissing{groups, allow}: IO.pure(H.Res, A.mapped(C.Framework{405, allow}))
-    case R.Options{groups, allow}: IO.pure(H.Res, H.Res{204, H.set(H.empty(), "allow", allow), H.from_string("")})
+    case R.NotFound{}: IO.pure(Pure.Res, A.mapped(C.Framework{404, ""}))
+    case R.MethodMissing{groups, allow}: IO.pure(Pure.Res, A.mapped(C.Framework{405, allow}))
+    case R.Options{groups, allow}: IO.pure(Pure.Res, Pure.Res{204, Pure.set(Pure.empty(), "allow", allow), Pure.from_string("")})
     case R.Found{RawTarget{action, C.Policy{id, hooks, transforms}}, params, groups, method, pattern}:
-      H.Req{+verb, +path, +headers, body} = req
-      do IO<H.Res>:
+      Pure.Req{+verb, +path, +headers, body} = req
+      do IO<Pure.Res>:
         step : C.Step<U32, String> <- C.before(~U32, ~A.Config, ~String, ~U32, ~A.before, hooks, 0, settings, C.Metadata{verb, path, headers})
-        raw.entered(step, action, settings, C.Match{target, params, groups, method, pattern, Nil{}}, H.Req{verb, path, headers, body})
-def raw.resolved(result: Result<&2, &2, R.Error, R.Resolved<RawTarget>>, settings: A.Config, req: H.Req) -> IO(H.Res):
+        raw.entered(step, action, settings, C.Match{target, params, groups, method, pattern, Nil{}}, Pure.Req{verb, path, headers, body})
+def raw.resolved(result: Result<&2, &2, R.Error, R.Resolved<RawTarget>>, settings: A.Config, req: Pure.Req) -> IO(Pure.Res):
   match result:
-    case Fail{error}: IO.pure(H.Res, C.empty(400))
+    case Fail{error}: IO.pure(Pure.Res, C.empty(400))
     case Done{choice}: raw.selected(choice, settings, req)
-def raw.dispatch(context: Raw, req: H.Req) -> IO(H.Res):
+def raw.dispatch(context: Raw, req: Pure.Req) -> IO(Pure.Res):
   Raw{table, settings} = context
-  H.Req{+method, +path, headers, body} = req
-  raw.resolved(R.resolve(~RawTarget, table, method, path), settings, H.Req{method, path, headers, body})
-def raw.reply(context: Raw, req: H.Req) -> IO(H.Reply):
-  do IO<H.Reply>:
-    response : H.Res <- raw.dispatch(context, req)
-    return H.Reply{response, T.Unobserved{}}
+  Pure.Req{+method, +path, headers, body} = req
+  raw.resolved(R.resolve(~RawTarget, table, method, path), settings, Pure.Req{method, path, headers, body})
+def raw.reply(context: Raw, req: Pure.Req) -> IO(Http.Reply):
+  do IO<Http.Reply>:
+    response : Pure.Res <- raw.dispatch(context, req)
+    return Http.Reply{response, T.Unobserved{}}
 def ignored(context: Raw, status: U32, outcome: T.Outcome) -> IO(Unit):
   IO.pure(Unit, Unit{})
 def done(completion: T.Completion<C.ApplicationReport<U32>>) -> IO(Unit):
@@ -67,50 +67,50 @@ def closed(exit: C.ServerExit<A.Action, U32, A.Config, U32>) -> IO(Unit):
   match application:
     case C.OwnerClosed{}: IO.print("APPLICATION JOINED")
     case C.OwnerBusy{owner, counts}: IO.die(Unit, 1, "application failed to drain")
-def control(context: Control, req: H.Req) -> IO(H.Reply):
+def control(context: Control, req: Pure.Req) -> IO(Http.Reply):
   Control{main, +own, +gate} = context
-  H.Req{method, path, headers, body} = req
+  Pure.Req{method, path, headers, body} = req
   match path:
     case "/release":
-      do IO<H.Reply>:
+      do IO<Http.Reply>:
         released : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
-        return H.Reply{C.empty(200), T.Unobserved{}}
+        return Http.Reply{C.empty(200), T.Unobserved{}}
     case "/finish":
-      do IO<H.Reply>:
-        stopped : Bool <- H.server.stop(main)
-        own_stop : H.ServerControl <- C.receive(H.ServerControl, own)
-        finished : Bool <- H.server.stop(own_stop)
-        return H.Reply{C.empty(200), T.Unobserved{}}
-    case _: IO.pure(H.Reply, H.Reply{C.empty(404), T.Unobserved{}})
-def report.port(~K: Data, prefix: String, observed: H.Server<K> & U32) -> IO(H.Server<K>):
+      do IO<Http.Reply>:
+        stopped : Bool <- Http.server.stop(main)
+        own_stop : Http.ServerControl <- C.receive(Http.ServerControl, own)
+        finished : Bool <- Http.server.stop(own_stop)
+        return Http.Reply{C.empty(200), T.Unobserved{}}
+    case _: IO.pure(Http.Reply, Http.Reply{C.empty(404), T.Unobserved{}})
+def report.port(~K: Data, prefix: String, observed: Http.Server<K> & U32) -> IO(Http.Server<K>):
   (server, port) = observed
-  do IO<H.Server<K>>:
+  do IO<Http.Server<K>>:
     IO.print(prefix ++ " " ++ U32.show(port))
     return server
 
-def control.running(controlled: H.Server<Control> & H.ServerControl, +own: Chan(H.ServerControl)) -> IO(Unit):
+def control.running(controlled: Http.Server<Control> & Http.ServerControl, +own: Chan(Http.ServerControl)) -> IO(Unit):
   (returned, stop) = controlled
   do IO<Unit>:
-    sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, own, stop)
-    returned : H.Server<Control> <- report.port(~Control, "CONTROL_READY", H.server.port(~Control, returned))
-    exit : H.ServerExit <- H.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), returned)
+    sent : Result<&1, &1, Http.ServerControl, Unit> <- Chan.send(Http.ServerControl, own, stop)
+    returned : Http.Server<Control> <- report.port(~Control, "CONTROL_READY", Http.server.port(~Control, returned))
+    exit : Pure.ServerExit <- Http.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), returned)
     IO.print("CONTROL JOINED")
-def control.run(started: Unit & Result<&2, &1, H.StartupError, H.Server<Control>>, +own: Chan(H.ServerControl)) -> IO(Unit):
+def control.run(started: Unit & Result<&2, &1, Pure.StartupError, Http.Server<Control>>, +own: Chan(Http.ServerControl)) -> IO(Unit):
   (unit, result) = started
   match result:
     case Fail{error}: IO.die(Unit, 1, "control bind failed")
-    case Done{server}: control.running(H.server.control(~Control, server), own)
-def controls(stop: H.ServerControl, +gate: Chan(Unit), port: U32) -> IO(Unit):
+    case Done{server}: control.running(Http.server.control(~Control, server), own)
+def controls(stop: Http.ServerControl, +gate: Chan(Unit), port: U32) -> IO(Unit):
   do IO<Unit>:
-    +own : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    started : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{stop, own, gate}, Unit{}, config(port))
+    +own : Chan(Http.ServerControl) <- Chan.new(Http.ServerControl, 1)
+    started : Unit & Result<&2, &1, Pure.StartupError, Http.Server<Control>> <- Http.server.start(~Control, ~Unit, Control{stop, own, gate}, Unit{}, config(port))
     control.run(started, own)
-    Chan.close(H.ServerControl, own)
-def camber.running(controlled: C.Server<A.Action, U32, A.Config, U32> & H.ServerControl, gate: Chan(Unit), port: U32) -> IO(Unit):
+    Chan.close(Http.ServerControl, own)
+def camber.running(controlled: C.Server<A.Action, U32, A.Config, U32> & Http.ServerControl, gate: Chan(Unit), port: U32) -> IO(Unit):
   (returned, stop) = controlled
   C.Server{transport, owner} = returned
   do IO<Unit>:
-    transport : H.Server<C.ServingContext<A.Action, U32, A.Config, U32>> <- report.port(~C.ServingContext<A.Action, U32, A.Config, U32>, "READY", H.server.port(~C.ServingContext<A.Action, U32, A.Config, U32>, transport))
+    transport : Http.Server<C.ServingContext<A.Action, U32, A.Config, U32>> <- report.port(~C.ServingContext<A.Action, U32, A.Config, U32>, "READY", Http.server.port(~C.ServingContext<A.Action, U32, A.Config, U32>, transport))
     returned : C.Server<A.Action, U32, A.Config, U32> = C.Server{transport, owner}
     control_future : Chan(Unit) <- IO.fork(Unit, controls(stop, gate, port))
     exit : C.ServerExit<A.Action, U32, A.Config, U32> <- C.server.run(~A.Action, ~U32, ~A.Config, ~U32, ~String, ~done, ~observed, ~A.notify, ~A.report, ~C.access.disabled(~A.Config), returned)
@@ -121,23 +121,23 @@ def camber.started(result: Result<&2, &1, C.StartupError, C.Server<A.Action, U32
   match result:
     case Fail{error}: IO.die(Unit, 1, "application startup failed")
     case Done{server}: camber.running(C.server.control(~A.Action, ~U32, ~A.Config, ~U32, server), gate, port)
-def raw.controlled(controlled: H.Server<Raw> & H.ServerControl, gate: Chan(Unit), port: U32) -> IO(Unit):
+def raw.controlled(controlled: Http.Server<Raw> & Http.ServerControl, gate: Chan(Unit), port: U32) -> IO(Unit):
   (returned, stop) = controlled
   do IO<Unit>:
-    returned : H.Server<Raw> <- report.port(~Raw, "READY", H.server.port(~Raw, returned))
+    returned : Http.Server<Raw> <- report.port(~Raw, "READY", Http.server.port(~Raw, returned))
     control_future : Chan(Unit) <- IO.fork(Unit, controls(stop, gate, port))
-    exit : H.ServerExit <- H.server.run(~Raw, ~raw.reply, ~ignored, returned)
+    exit : Pure.ServerExit <- Http.server.run(~Raw, ~raw.reply, ~ignored, returned)
     control_done : Unit <- IO.join(Unit, control_future)
     IO.print("RAW JOINED")
-def raw.running(started: Unit & Result<&2, &1, H.StartupError, H.Server<Raw>>, gate: Chan(Unit), port: U32) -> IO(Unit):
+def raw.running(started: Unit & Result<&2, &1, Pure.StartupError, Http.Server<Raw>>, gate: Chan(Unit), port: U32) -> IO(Unit):
   (unit, result) = started
   match result:
     case Fail{error}: IO.die(Unit, 1, "raw startup failed")
-    case Done{server}: raw.controlled(H.server.control(~Raw, server), gate, port)
-def headroom.config(headroom: Bool, port: U32) -> H.ServerConfig:
+    case Done{server}: raw.controlled(Http.server.control(~Raw, server), gate, port)
+def headroom.config(headroom: Bool, port: U32) -> Pure.ServerConfig:
   match headroom:
     case False{}: config(port)
-    case True{}: H.ServerConfig{"127.0.0.1", port, 8388608, 65536, 32, 18, 18, 200, 30000, 30000, 30000}
+    case True{}: Pure.ServerConfig{"127.0.0.1", port, 8388608, 65536, 32, 18, 18, 200, 30000, 30000, 30000}
 def resources(headroom: Bool) -> List<U32>:
   match headroom:
     case False{}: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -160,7 +160,7 @@ def serving(mode: String, profile: U32, port: U32, control_port: U32, settings: 
       do IO<Unit>:
         context : Raw <- raw(profile, settings)
         A.stamp("CONSTRUCTION_END")
-        started : Unit & Result<&2, &1, H.StartupError, H.Server<Raw>> <- H.server.start(~Raw, ~Unit, context, Unit{}, config(port))
+        started : Unit & Result<&2, &1, Pure.StartupError, Http.Server<Raw>> <- Http.server.start(~Raw, ~Unit, context, Unit{}, config(port))
         raw.running(started, gate, control_port)
     case "camber": camber.start(False{}, profile, port, control_port, settings, gate)
     case "camber-headroom": camber.start(True{}, profile, port, control_port, settings, gate)

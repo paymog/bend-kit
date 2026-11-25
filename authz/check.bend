@@ -1,8 +1,8 @@
 # One Camber route guarded by an authz policy: allow, deny overrides, missing context, and restriction.
 import Base
 import ./authz.bend as Az
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-http@0.40.0.1/http.bend as H
+import bend-kit-camber@0.18.0.0/camber.bend as C
+import bend-kit-http@0.44.0.1/pure.bend as Pure
 import bend-kit-bytes@0.3.3.1/bytes.bend as B
 
 # The protected effects that ran, oldest first.
@@ -65,7 +65,7 @@ def roles(value: String) -> Maybe<&2, List<&2, String>>:
 # Authentication is outside this check: x-subject and x-roles stand for verified identity.
 def request(meta: C.Metadata) -> Az.Request:
   C.Metadata{method, +target, +headers} = meta
-  Az.Request{present(H.header(headers, "x-subject")), roles(H.header(headers, "x-roles")), owner(target), method, target}
+  Az.Request{present(Pure.header(headers, "x-subject")), roles(Pure.header(headers, "x-roles")), owner(target), method, target}
 
 def gate(allowed: Bool, state: State) -> C.Step<State, String>:
   match allowed:
@@ -78,17 +78,17 @@ def before(hook: String, state: State, config: Config, meta: C.Metadata) -> IO(C
   Config{policy} = config
   IO.pure(C.Step<State, String>, gate(Az.granted(policy, request(meta)), state))
 
-def after(hook: String, state: State, config: Config, response: H.Res) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
-  IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Done{response}))
+def after(hook: String, state: State, config: Config, response: Pure.Res) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
+  IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Done{response}))
 
-def mapper(state: State, config: Config, error: C.Error<String>) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
-  IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Done{C.default.error(~String, error)}))
+def mapper(state: State, config: Config, error: C.Error<String>) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
+  IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Done{C.default.error(~String, error)}))
 
 # The protected operation. Its only effect is the event it records.
-def run(action: U32, state: State, config: Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def run(action: U32, state: State, config: Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   State{events} = state
-  H.Req{method, +target, headers, body} = req
-  do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+  Pure.Req{method, +target, headers, body} = req
+  do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
     IO.print("effect: delete " ++ target)
     return (State{List.append(&2, String, events, ["delete " ++ target])}, Done{C.empty(204)})
 
@@ -105,7 +105,7 @@ def join(xs: List<&2, String>) -> String:
       x ++ ";" ++ join(rest)
 
 def checked(completion: C.Completion<State, String>, +label: String, +status: U32, +events: String) -> IO(Unit):
-  C.Completed{State{+seen}, H.Res{+actual, headers, body}, entered, mapped, stopped} = completion
+  C.Completed{State{+seen}, Pure.Res{+actual, headers, body}, entered, mapped, stopped} = completion
   do IO<Unit>:
     require(U32.is_eq(actual, status), label ++ ": status " ++ U32.show(actual) ++ " expected " ++ U32.show(status))
     require(String.eq(join(seen), events), label ++ ": effects " ++ join(seen) ++ " expected " ++ events)
@@ -120,7 +120,7 @@ def scenario(result: Result<&2, &2, C.RegistrationError, C.Application<U32, Conf
         completion : C.Completion<State, String> <- C.dispatch(~U32, ~State, ~Config, ~String, ~String, ~Unit,
           ~before, ~after, ~run, ~mapper, ~C.notice.ignore(~Unit, ~String, ~String), ~C.notice.error.ignore(~Unit, ~String),
           Unit{}, C.access.disabled(~Unit, Unit{}), app, State{Nil{}},
-          H.Req{"DELETE", target, H.set(H.set(H.empty(), "x-subject", subject), "x-roles", roles), H.from_string("")})
+          Pure.Req{"DELETE", target, Pure.set(Pure.set(Pure.empty(), "x-subject", subject), "x-roles", roles), Pure.from_string("")})
         checked(completion, label, status, events)
 
 def main() -> IO(Unit):

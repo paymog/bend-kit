@@ -1,6 +1,6 @@
 # Dedicated users deployment (macOS launchd)
 
-This consumer imports the final four-route `../users.bend` application and published Camber 0.17.0.0 / HTTP 0.40.0.0. `users_demo.bend` supplies existing owner-result checks, not a second dispatcher or transport. Both lanes run as **launchd-owned dedicated processes**, not Python-owned Bend children. The historical `../run_supervision.py` and its risk artifacts remain historical only.
+This consumer imports the final four-route `../users.bend` application and published Camber 0.18.0.0 / HTTP 0.44.0.1. HTTP model types come from `pure.bend` as `Pure`; runtime handles and effects come from `http.bend` as `Http`. `users_demo.bend` supplies existing owner-result checks, not a second dispatcher or transport. Both lanes run as **launchd-owned dedicated processes**, not Python-owned Bend children. The historical `../run_supervision.py` and its risk artifacts remain historical only.
 
 ## Build and install
 

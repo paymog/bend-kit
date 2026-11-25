@@ -2,8 +2,8 @@
 # ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN (bearer), ANTHROPIC_BASE_URL, ANTHROPIC_MODEL; OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL.
 import Base
 import ./llm.bend as Llm
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
 
 def env(r: Result<&1, &1, U32 & String, String>) -> Maybe<&2, String>:
   match r:
@@ -15,25 +15,25 @@ def env(r: Result<&1, &1, U32 & String, String>) -> Maybe<&2, String>:
 def env.or(r: Result<&1, &1, U32 & String, String>, d: String) -> String:
   Maybe.default(&2, String, env(r), d)
 
-def net(e: Http.Err) -> String:
+def net(e: HttpPure.Err) -> String:
   match e:
-    case Http.ErrUrl{}:
+    case HttpPure.ErrUrl{}:
       "bad url"
-    case Http.ErrDns{}:
+    case HttpPure.ErrDns{}:
       "dns"
-    case Http.ErrConnect{code, why}:
+    case HttpPure.ErrConnect{code, why}:
       "connect: " ++ why
-    case Http.ErrTls{code, why}:
+    case HttpPure.ErrTls{code, why}:
       "tls: " ++ why
-    case Http.ErrRead{code, why}:
+    case HttpPure.ErrRead{code, why}:
       "read: " ++ why
-    case Http.ErrWrite{code, why}:
+    case HttpPure.ErrWrite{code, why}:
       "write: " ++ why
-    case Http.ErrTimeout{}:
+    case HttpPure.ErrTimeout{}:
       "timeout"
-    case Http.ErrRedirect{}:
+    case HttpPure.ErrRedirect{}:
       "redirect"
-    case Http.ErrBad{}:
+    case HttpPure.ErrBad{}:
       "bad response"
 
 def err(e: Llm.Err) -> String:

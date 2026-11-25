@@ -1,10 +1,11 @@
 import Base
 import ./oauth2.bend as O
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/admission.bend as Admission
-import bend-kit-http@0.40.0.1/completion.bend as Completion
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
+import bend-kit-http@0.44.0.1/admission.bend as Admission
+import bend-kit-http@0.44.0.1/completion.bend as Completion
+import bend-kit-time@0.3.0.2/pure.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
@@ -41,13 +42,13 @@ def REDIRECT(+port: U32) -> String:
 
 # ---- the server. Each reply closes its connection, so each request is one accept.
 
-def res(+status: U32, h: Map<&2, List<&2, String>>, body: String) -> IO(Http.Res):
-  IO.pure(Http.Res, Http.Res{status, Http.set(h, "connection", "close"), Bytes.from_string(body)})
+def res(+status: U32, h: Map<&2, List<&2, String>>, body: String) -> IO(HttpPure.Res):
+  IO.pure(HttpPure.Res, HttpPure.Res{status, HttpPure.set(h, "connection", "close"), Bytes.from_string(body)})
 
-def json(+status: U32, body: String) -> IO(Http.Res):
-  res(status, Http.set(Http.empty(), "content-type", "application/json"), body)
+def json(+status: U32, body: String) -> IO(HttpPure.Res):
+  res(status, HttpPure.set(HttpPure.empty(), "content-type", "application/json"), body)
 
-def oops(+status: U32, +code: String) -> IO(Http.Res):
+def oops(+status: U32, +code: String) -> IO(HttpPure.Res):
   json(status, "{\"error\":\"" ++ code ++ "\",\"error_description\":\"" ++ code ++ " from the test server\"}")
 
 def query(m: Maybe<&2, Url.Url>) -> Map<&2, String>:
@@ -67,62 +68,62 @@ def conf.auth(+auth: String) -> Bool:
 def client.auth(+auth: String, +f: Map<&2, String>) -> Bool:
   Bool.or(conf.auth(auth), Bool.and(String.is_empty(auth), String.eq(O.param(f, "client_id"), "app")))
 
-def s.cc(+auth: String, +f: Map<&2, String>) -> IO(Http.Res):
-  Bool.pick(IO(Http.Res), conf.auth(auth),
+def s.cc(+auth: String, +f: Map<&2, String>) -> IO(HttpPure.Res):
+  Bool.pick(IO(HttpPure.Res), conf.auth(auth),
     json(200, "{\"access_token\":\"cc-1\",\"token_type\":\"Bearer\",\"expires_in\":3600,\"scope\":\"" ++ O.param(f, "scope") ++ "\"}"),
     oops(401, "invalid_client"))
 
 # RFC 7636 §4.6: the server hashes code_verifier and compares it with the challenge. This server's code is the challenge.
-def s.code.done(c: Result<&1, &1, O.Err, String>, good: Bool, +code: String) -> IO(Http.Res):
+def s.code.done(c: Result<&1, &1, O.Err, String>, good: Bool, +code: String) -> IO(HttpPure.Res):
   match c:
     case Fail{e}:
       oops(500, "server_error")
     case Done{+want}:
-      Bool.pick(IO(Http.Res), Bool.and(good, String.eq(want, code)),
+      Bool.pick(IO(HttpPure.Res), Bool.and(good, String.eq(want, code)),
         json(200, "{\"access_token\":\"ac-1\",\"token_type\":\"Bearer\",\"refresh_token\":\"rt-1\",\"expires_in\":0}"),
         oops(400, "invalid_grant"))
 
-def s.code(+auth: String, +redirect: String, +f: Map<&2, String>) -> IO(Http.Res):
-  do IO<Http.Res>:
+def s.code(+auth: String, +redirect: String, +f: Map<&2, String>) -> IO(HttpPure.Res):
+  do IO<HttpPure.Res>:
     c : Result<&1, &1, O.Err, String> <- O.challenge(O.param(f, "code_verifier"))
     s.code.done(c, Bool.and(client.auth(auth, f), String.eq(O.param(f, "redirect_uri"), redirect)), O.param(f, "code"))
 
 # No refresh_token in the reply, so the client keeps rt-1.
-def s.refresh(+auth: String, +f: Map<&2, String>) -> IO(Http.Res):
-  Bool.pick(IO(Http.Res), Bool.and(client.auth(auth, f), String.eq(O.param(f, "refresh_token"), "rt-1")),
+def s.refresh(+auth: String, +f: Map<&2, String>) -> IO(HttpPure.Res):
+  Bool.pick(IO(HttpPure.Res), Bool.and(client.auth(auth, f), String.eq(O.param(f, "refresh_token"), "rt-1")),
     json(200, "{\"access_token\":\"ac-2\",\"token_type\":\"Bearer\",\"expires_in\":\"3600\"}"),
     oops(400, "invalid_grant"))
 
-def s.token(+auth: String, +redirect: String, +f: Map<&2, String>) -> IO(Http.Res):
+def s.token(+auth: String, +redirect: String, +f: Map<&2, String>) -> IO(HttpPure.Res):
   +g = O.param(f, "grant_type")
-  Bool.pick(IO(Http.Res), String.eq(g, "client_credentials"), s.cc(auth, f),
-    Bool.pick(IO(Http.Res), String.eq(g, "authorization_code"), s.code(auth, redirect, f),
-      Bool.pick(IO(Http.Res), String.eq(g, "refresh_token"), s.refresh(auth, f), oops(400, "unsupported_grant_type"))))
+  Bool.pick(IO(HttpPure.Res), String.eq(g, "client_credentials"), s.cc(auth, f),
+    Bool.pick(IO(HttpPure.Res), String.eq(g, "authorization_code"), s.code(auth, redirect, f),
+      Bool.pick(IO(HttpPure.Res), String.eq(g, "refresh_token"), s.refresh(auth, f), oops(400, "unsupported_grant_type"))))
 
 # §4.1.2: back to redirect_uri with a code, here the challenge itself, and the state.
-def s.authorize(+redirect: String, +q: Map<&2, String>) -> IO(Http.Res):
+def s.authorize(+redirect: String, +q: Map<&2, String>) -> IO(HttpPure.Res):
   +good = Bool.and(Bool.and(String.eq(O.param(q, "response_type"), "code"), String.eq(O.param(q, "client_id"), "app")),
     Bool.and(String.eq(O.param(q, "code_challenge_method"), "S256"), String.eq(O.param(q, "redirect_uri"), redirect)))
   +to = Bool.pick(String, good, "?code=" ++ O.param(q, "code_challenge"), "?error=invalid_request") ++ "&state=" ++ O.param(q, "state")
-  res(302, Http.set(Http.empty(), "location", redirect ++ to), "")
+  res(302, HttpPure.set(HttpPure.empty(), "location", redirect ++ to), "")
 
-def s.route(m: Maybe<&2, Url.Url>, +auth: String, +redirect: String, body: Bytes.Bytes) -> IO(Http.Res):
+def s.route(m: Maybe<&2, Url.Url>, +auth: String, +redirect: String, body: Bytes.Bytes) -> IO(HttpPure.Res):
   match m:
     case None{}:
       oops(400, "invalid_request")
     case Some{Url.Url{+p, +q}}:
-      Bool.pick(IO(Http.Res), String.eq(p, "/token"), s.token(auth, redirect, form(body)),
-        Bool.pick(IO(Http.Res), String.eq(p, "/authorize"), s.authorize(redirect, q),
-          res(200, Http.empty(), auth)))
+      Bool.pick(IO(HttpPure.Res), String.eq(p, "/token"), s.token(auth, redirect, form(body)),
+        Bool.pick(IO(HttpPure.Res), String.eq(p, "/authorize"), s.authorize(redirect, q),
+          res(200, HttpPure.empty(), auth)))
 
 # /api answers with the Authorization header it got. The redirect URI comes from Host, so the server needs no port.
-def s(req: Http.Req) -> IO(Http.Res):
-  Http.Req{method, path, +headers, body} = req
-  s.route(Url.parse(path), Http.header(headers, "authorization"), "http://" ++ Http.header(headers, "host") ++ "/cb", body)
+def s(req: HttpPure.Req) -> IO(HttpPure.Res):
+  HttpPure.Req{method, path, +headers, body} = req
+  s.route(Url.parse(path), HttpPure.header(headers, "authorization"), "http://" ++ HttpPure.header(headers, "host") ++ "/cb", body)
 
-def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
+def wrap(op: IO(HttpPure.Res)) -> IO(Http.Reply):
   do IO<Http.Reply>:
-    r : Http.Res <- op
+    r : HttpPure.Res <- op
     return Http.Reply{r, Completion.Unobserved{}}
 
 def serve.go(n: Nat, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
@@ -134,7 +135,7 @@ def serve.go(n: Nat, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
     case 1n+k:
       do IO<Unit>:
         a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-        l1 : Listener <- Http.conn(~(req => wrap(s(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+        l1 : Listener <- Http.conn(~(req => wrap(s(req))), ~Completion.ignore, HttpPure.limits(1048576n), inbox, a)
         serve.go(k, inbox, l1)
 
 def serve(n: Nat, l: Listener) -> IO(Unit):
@@ -180,16 +181,16 @@ def want(+name: String, +access: String, +refresh: String, +scope: String, y: Ha
       name ++ " (" ++ a ++ " refresh " ++ r ++ " scope " ++ s ++ ")")
     return (c, t)
 
-def res.body(+name: String, +status: U32, +body: String, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Hairpin.Client & String):
+def res.body(+name: String, +status: U32, +body: String, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> IO(Hairpin.Client & String):
   (c, r) = x
   match r:
     case Fail{e}:
       IO.die(Hairpin.Client & String, 1, "FAIL " ++ name ++ ": request failed")
-    case Done{Http.Res{+s, +h, b}}:
+    case Done{HttpPure.Res{+s, +h, b}}:
       +seen = Bytes.to_string(b)
       do IO<Hairpin.Client & String>:
         ok(Bool.and(U32.is_eq(s, status), String.eq(seen, body)), name ++ " (" ++ U32.show(s) ++ " " ++ seen ++ ")")
-        return (c, Http.header(h, "location"))
+        return (c, HttpPure.header(h, "location"))
 
 def invalid_grant(x: Hairpin.Client & Result<&1, &1, O.Err, O.Token>) -> IO(Hairpin.Client):
   (c, r) = x
@@ -217,14 +218,14 @@ def api.done(x: Hairpin.Client & String) -> Hairpin.Client:
 def api(+port: U32, y: Hairpin.Client & O.Token) -> IO(Hairpin.Client):
   (c, t) = y
   do IO<Hairpin.Client>:
-    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- O.request(c, t, "GET", BASE(port) ++ "/api", Http.empty(), Bytes.new(0))
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res> <- O.request(c, t, "GET", BASE(port) ++ "/api", HttpPure.empty(), Bytes.new(0))
     z : Hairpin.Client & String <- res.body("request sends Authorization: Bearer", 200, "Bearer cc-1", x)
     return api.done(z)
 
 def callback.ok(c: Hairpin.Client, +code: String) -> IO(Hairpin.Client & String):
   do IO<Hairpin.Client & String>:
     ok(String.eq(code, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"), "callback code checked against state")
-    return (Hairpin.redirect(c, Http.ModeFollow{}), code)
+    return (Hairpin.redirect(c, HttpPure.ModeFollow{}), code)
 
 def callback(+st: String, x: Hairpin.Client & String) -> IO(Hairpin.Client & String):
   (c, loc) = x
@@ -240,8 +241,8 @@ def authz(+port: U32, +st: String, c: Hairpin.Client) -> IO(Hairpin.Client & Str
   do IO<Hairpin.Client & String>:
     ch : Result<&1, &1, O.Err, String> <- O.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
     cc : String <- str("challenge", ch)
-    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
-      Hairpin.get(Hairpin.redirect(c, Http.ModeManual{}), O.authorize.url(public(port), BASE(port) ++ "/authorize", REDIRECT(port), "openid", st, cc))
+    x : Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res> <-
+      Hairpin.get(Hairpin.redirect(c, HttpPure.ModeManual{}), O.authorize.url(public(port), BASE(port) ++ "/authorize", REDIRECT(port), "openid", st, cc))
     z : Hairpin.Client & String <- res.body("authorize redirects to redirect_uri", 302, "", x)
     callback(st, z)
 

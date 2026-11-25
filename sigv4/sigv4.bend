@@ -1,10 +1,11 @@
 # AWS Signature V4 signing and S3 object storage over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/sigv4
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as HttpPure
+import bend-kit-time@0.3.0.2/pure.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
@@ -332,7 +333,7 @@ type Meta is Data:
 
 # Redirects come back as ErrS3: a signed request must not follow one.
 def new(cfg: Config) -> Client:
-  Client{cfg, Hairpin.redirect(Hairpin.new(), Http.ModeManual{})}
+  Client{cfg, Hairpin.redirect(Hairpin.new(), HttpPure.ModeManual{})}
 
 def close(c: Client) -> IO(Unit):
   Client{cfg, http} = c
@@ -407,19 +408,19 @@ def fault(+status: U32, m: Maybe<&2, List<&2, Xml.Leaf>>) -> Err:
 def ok(+s: U32) -> Bool:
   Bool.and(U32.is_le(200, s), U32.is_lt(s, 300))
 
-def judge.res(good: Bool, +status: U32, h: Map<&2, List<&2, String>>, b: Bytes.Bytes) -> Result<&1, &1, Err, Http.Res>:
+def judge.res(good: Bool, +status: U32, h: Map<&2, List<&2, String>>, b: Bytes.Bytes) -> Result<&1, &1, Err, HttpPure.Res>:
   match good:
     case True{}:
-      Done{Http.Res{status, h, b}}
+      Done{HttpPure.Res{status, h, b}}
     case False{}:
       Fail{fault(status, xml(Enc.utf8.decode(b)))}
 
-def judge(r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Http.Res>:
+def judge(r: Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> Result<&1, &1, Err, HttpPure.Res>:
   match r:
     case Fail{e}:
       Fail{ErrNet{e}}
     case Done{res}:
-      Http.Res{+status, h, b} = res
+      HttpPure.Res{+status, h, b} = res
       judge.res(ok(status), status, h, b)
 
 # ---- requests
@@ -434,7 +435,7 @@ def stamp.of(m: Maybe<&2, Time.DateTime>) -> String:
 # Now as YYYYMMDDTHHMMSSZ. "" only outside years 0 to 9999, which S3 then refuses.
 def stamp() -> IO(String):
   do IO<String>:
-    now : Time.Instant <- Time.now()
+    now : Time.Instant <- Http.clock.now()
     return stamp.of(Time.DateTime.of_instant(now))
 
 # origin: scheme://host field. host: the Host field, as Http sends it. path: the wire path.
@@ -468,106 +469,106 @@ def token(c: Credentials) -> String:
   t
 
 def with.token(+token: String, +h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
-  Bool.pick(Map<&2, List<&2, String>>, String.is_empty(token), h, Http.set(h, "x-amz-security-token", token))
+  Bool.pick(Map<&2, List<&2, String>>, String.is_empty(token), h, HttpPure.set(h, "x-amz-security-token", token))
 
 # extra, and the headers the signature covers. Host is Http's own, from the same URL.
 def request.signed(extra: Map<&2, List<&2, String>>, date: String, +token: String, got: String & String) -> Map<&2, List<&2, String>>:
   (auth, hash) = got
-  with.token(token, Http.set(Http.set(Http.set(Http.set(extra, "x-amz-date", date), "x-amz-content-sha256", hash), "authorization", auth), "accept-encoding", "identity"))
+  with.token(token, HttpPure.set(HttpPure.set(HttpPure.set(HttpPure.set(extra, "x-amz-date", date), "x-amz-content-sha256", hash), "authorization", auth), "accept-encoding", "identity"))
 
 def url(origin: String, path: String, +query: String) -> String:
   origin ++ path ++ Bool.pick(String, String.is_empty(query), "", "?" ++ query)
 
-def call.done(cfg: Config, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> Client & Result<&1, &1, Err, Http.Res>:
+def call.done(cfg: Config, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, HttpPure.Res>:
   (h, r) = x
   (Client{cfg, h}, judge(r))
 
 # Hairpin's request with the codings "identity": Http then leaves a stored Content-Encoding (gzip, br, ..) as sent,
 # so GET returns the object's bytes and HEAD's size matches. ponytail: Http still undoes x-gzip, which S3 rarely stores.
 def send.budget(+method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes,
-    y: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
+    y: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
   (h, b) = y
-  Hairpin.request.as(~Hairpin.judge, h, b, Http.pool.idempotent(method), "identity", method, url, headers, body)
+  Hairpin.request.as(~Hairpin.judge, h, b, HttpPure.pool.idempotent(method), "identity", method, url, headers, body)
 
 def send(c: Hairpin.Client, +method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>):
-  do IO<Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>>:
+    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
+  do IO<Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>>:
     y : Hairpin.Client & Retry.Budget <- Hairpin.budget(c)
-    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- send.budget(method, url, headers, body, y)
+    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res> <- send.budget(method, url, headers, body, y)
     return Hairpin.request.drop(x)
 
 def call.send(s: Result<&1, &1, U32 & String, String & String>, cfg: Config, http: Hairpin.Client, +method: String, url: String,
-    extra: Map<&2, List<&2, String>>, date: String, token: String, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    extra: Map<&2, List<&2, String>>, date: String, token: String, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   match s:
     case Fail{e}:
       (code, why) = e
-      IO.pure(Client & Result<&1, &1, Err, Http.Res>, (Client{cfg, http}, Fail{ErrSign{code, why}}))
+      IO.pure(Client & Result<&1, &1, Err, HttpPure.Res>, (Client{cfg, http}, Fail{ErrSign{code, why}}))
     case Done{got}:
-      do IO<Client & Result<&1, &1, Err, Http.Res>>:
-        x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- send(http, method, url, request.signed(extra, date, token, got), body)
+      do IO<Client & Result<&1, &1, Err, HttpPure.Res>>:
+        x : Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res> <- send(http, method, url, request.signed(extra, date, token, got), body)
         return call.done(cfg, x)
 
 # The signer hashes one copy of the body; the other goes on the wire.
 def call.sign(got: Where, +endpoint: String, +region: String, +style: Style, +creds: Credentials,
     http: Hairpin.Client, +method: String, +query: String, extra: Map<&2, List<&2, String>>, +date: String,
-    b: Bytes.Bytes & Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    b: Bytes.Bytes & Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   Where{origin, host, +path} = got
   (keep, copy) = b
-  do IO<Client & Result<&1, &1, Err, Http.Res>>:
+  do IO<Client & Result<&1, &1, Err, HttpPure.Res>>:
     s : Result<&1, &1, U32 & String, String & String> <- authorize(creds, region, "s3", date, method, path, query, host, copy)
     call.send(s, Config{endpoint, region, style, creds}, http, method, url(origin, path, query), extra, date, token(creds), keep)
 
 def call.at(w: Maybe<&2, Where>, +endpoint: String, +region: String, +style: Style, +creds: Credentials,
     http: Hairpin.Client, +method: String, +query: String, extra: Map<&2, List<&2, String>>, +date: String, body: Bytes.Bytes) ->
-    IO(Client & Result<&1, &1, Err, Http.Res>):
+    IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   match w:
     case None{}:
-      IO.pure(Client & Result<&1, &1, Err, Http.Res>, (Client{Config{endpoint, region, style, creds}, http}, Fail{ErrConfig{"bad endpoint: " ++ endpoint}}))
+      IO.pure(Client & Result<&1, &1, Err, HttpPure.Res>, (Client{Config{endpoint, region, style, creds}, http}, Fail{ErrConfig{"bad endpoint: " ++ endpoint}}))
     case Some{got}:
       call.sign(got, endpoint, region, style, creds, http, method, query, extra, date, Bytes.slice(body, 0, 4294967295))
 
 # Object calls require a bucket and a key. ListObjectsV2 targets the bucket with list-type=2.
 # The absolute URL bypasses base resolution, so '.' and '..' in object keys survive.
 def call.run(c: Client, +method: String, +bucket: String, +key: String, +query: String, extra: Map<&2, List<&2, String>>,
-    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   Client{cfg, http} = c
   Config{+endpoint, +region, +style, +creds} = cfg
-  do IO<Client & Result<&1, &1, Err, Http.Res>>:
+  do IO<Client & Result<&1, &1, Err, HttpPure.Res>>:
     date : String <- stamp()
     call.at(loc(style, bucket, key, Url.absolute(endpoint)), endpoint, region, style, creds, http, method, query, extra, date, body)
 
 def call.guard(bad: Bool, c: Client, +method: String, +bucket: String, +key: String, +query: String,
-    extra: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    extra: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   match bad:
     case True{}:
-      IO.pure(Client & Result<&1, &1, Err, Http.Res>, (c, Fail{ErrConfig{"bucket and object key must not be empty"}}))
+      IO.pure(Client & Result<&1, &1, Err, HttpPure.Res>, (c, Fail{ErrConfig{"bucket and object key must not be empty"}}))
     case False{}:
       call.run(c, method, bucket, key, query, extra, body)
 
 def call(c: Client, +method: String, +bucket: String, +key: String, +query: String, extra: Map<&2, List<&2, String>>,
-    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   call.guard(Bool.or(String.is_empty(bucket), Bool.and(String.is_empty(key), String.is_empty(query))),
     c, method, bucket, key, query, extra, body)
 
 # ---- operations
 
-def etag.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, String>:
+def etag.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, String>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, +h, b} = res
-      Done{Http.header(h, "etag")}
+      HttpPure.Res{s, +h, b} = res
+      Done{HttpPure.header(h, "etag")}
 
-def put.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, String>:
+def put.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, String>:
   (c, r) = x
   (c, etag.of(r))
 
 # PutObject. mime: Content-Type, "" for none. The ETag comes back.
 def put(c: Client, bucket: String, key: String, +mime: String, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, String>):
-  +h = Bool.pick(Map<&2, List<&2, String>>, String.is_empty(mime), Http.empty(), Http.set(Http.empty(), "content-type", mime))
+  +h = Bool.pick(Map<&2, List<&2, String>>, String.is_empty(mime), HttpPure.empty(), HttpPure.set(HttpPure.empty(), "content-type", mime))
   do IO<Client & Result<&1, &1, Err, String>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "PUT", bucket, key, "", h, body)
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "PUT", bucket, key, "", h, body)
     return put.done(x)
 
 def xgzip.values(xs: List<&2, String>) -> Bool:
@@ -591,15 +592,15 @@ def body.encoding(gzip: Bool, b: Bytes.Bytes) -> Result<&1, &1, Err, Bytes.Bytes
     case False{}:
       Done{b}
 
-def body.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
+def body.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, h, b} = res
-      body.encoding(xgzip.fields(Http.fields(h, "content-encoding")), b)
+      HttpPure.Res{s, h, b} = res
+      body.encoding(xgzip.fields(HttpPure.fields(h, "content-encoding")), b)
 
-def get.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
+def get.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
   (c, r) = x
   (c, body.of(r))
 
@@ -607,45 +608,45 @@ def get.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &
 # ponytail: Hairpin decodes x-gzip; reject it rather than return bytes that differ from the stored object.
 def get(c: Client, bucket: String, key: String) -> IO(Client & Result<&1, &1, Err, Bytes.Bytes>):
   do IO<Client & Result<&1, &1, Err, Bytes.Bytes>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "GET", bucket, key, "", Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "GET", bucket, key, "", HttpPure.empty(), Bytes.new(0))
     return get.done(x)
 
 def nat(s: String) -> Nat:
   Maybe.default(&2, Nat, Nat.read(s), 0n)
 
-def meta.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Meta>:
+def meta.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Meta>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, +h, b} = res
-      Done{Meta{nat(Http.header(h, "content-length")), Http.header(h, "etag"), Http.header(h, "content-type"), Http.header(h, "last-modified")}}
+      HttpPure.Res{s, +h, b} = res
+      Done{Meta{nat(HttpPure.header(h, "content-length")), HttpPure.header(h, "etag"), HttpPure.header(h, "content-type"), HttpPure.header(h, "last-modified")}}
 
-def head.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Meta>:
+def head.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Meta>:
   (c, r) = x
   (c, meta.of(r))
 
 # HeadObject. A missing key is ErrS3{404, "", ""}: HEAD has no error body.
 def head(c: Client, bucket: String, key: String) -> IO(Client & Result<&1, &1, Err, Meta>):
   do IO<Client & Result<&1, &1, Err, Meta>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "HEAD", bucket, key, "", Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "HEAD", bucket, key, "", HttpPure.empty(), Bytes.new(0))
     return head.done(x)
 
-def unit.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Unit>:
+def unit.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Unit>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
       Done{Unit{}}
 
-def delete.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Unit>:
+def delete.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Unit>:
   (c, r) = x
   (c, unit.of(r))
 
 # DeleteObject. S3 answers 204 for a key that was never there too.
 def delete(c: Client, bucket: String, key: String) -> IO(Client & Result<&1, &1, Err, Unit>):
   do IO<Client & Result<&1, &1, Err, Unit>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "DELETE", bucket, key, "", Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "DELETE", bucket, key, "", HttpPure.empty(), Bytes.new(0))
     return delete.done(x)
 
 # ---- ListObjectsV2
@@ -663,16 +664,16 @@ def page.result(m: Maybe<&2, Xml.Page<Object>>, s: String) -> Result<&1, &1, Err
 def page.doc(+s: String, m: Maybe<&2, List<&2, Xml.Leaf>>) -> Result<&1, &1, Err, Page>:
   page.result(Xml.page(~Object, ~object, m), s)
 
-def page.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Page>:
+def page.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Page>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, h, b} = res
+      HttpPure.Res{s, h, b} = res
       +text = Enc.utf8.decode(b)
       page.doc(text, xml(text))
 
-def list.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Page>:
+def list.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Page>:
   (c, r) = x
   (c, page.of(r))
 
@@ -700,7 +701,7 @@ def list.query(prefix: String, delim: String, +max: U32, t: Maybe<&2, String>) -
 def list(c: Client, +bucket: String, prefix: String, delim: String, +max: U32, token: Maybe<&2, String>) ->
     IO(Client & Result<&1, &1, Err, Page>):
   do IO<Client & Result<&1, &1, Err, Page>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "GET", bucket, "", list.query(prefix, delim, max, token), Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "GET", bucket, "", list.query(prefix, delim, max, token), HttpPure.empty(), Bytes.new(0))
     return list.done(x)
 
 def all.merge(objs: List<&2, Object>, pre: List<&2, String>, r: Result<&1, &1, Err, Page>) -> Result<&1, &1, Err, Page>:
