@@ -13,7 +13,7 @@ import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-json@0.7.3.0/json.bend as Json
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-dns@0.7.1.2/dns.bend as Dns
+import bend-kit-dns@0.8.0.0/dns.bend as Dns
 import bend-kit-zlib@0.7.0.1/native.bend as ZNative
 
 

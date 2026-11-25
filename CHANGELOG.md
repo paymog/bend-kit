@@ -8,6 +8,10 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 
+- `http` 0.44.0.0: adopt DNS 0.8.0.0 and keep resolver calls on `dns.bend`.
+- `postgres` 0.4.0.0: adopt DNS 0.8.0.0 and keep resolver calls on `dns.bend`.
+- `redis` 0.4.0.0: adopt DNS 0.8.0.0 and keep resolver calls on `dns.bend`.
+
 - `storage` 0.9.2.0: select named roots and collect their closure under one exclusive lock with `Disk.collect_named`. Keep explicit retained-root collection.
 
 - `storage` 0.9.1.1: use macOS full synchronization before publication and after directory changes. Keep Linux fsync barriers and check failed full-sync publication.

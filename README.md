@@ -38,7 +38,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 This section comes from entry-file imports and package versions. Run `scripts/repin.py --guidance` to update it without hub access.
 
-`http@0.43.0.0` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.7.1.2`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.2`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.1`.
+`http@0.44.0.0` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.8.0.0`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.2`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.1`.
 
 | Dependency pin | Consumers |
 |---|---|
@@ -165,8 +165,8 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.1/sqlite.bend` | Prepared statements through libsqlite3. |
-| [`postgres`](postgres) | `bend-kit-postgres@0.3.1.2/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
-| [`redis`](redis) | `bend-kit-redis@0.3.1.3/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
+| [`postgres`](postgres) | `bend-kit-postgres@0.4.0.0/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
+| [`redis`](redis) | `bend-kit-redis@0.4.0.0/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
 | [`llm`](llm) | `bend-kit-llm@0.16.0.2/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
 
 ### Applications

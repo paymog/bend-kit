@@ -3,11 +3,11 @@
 A Postgres client in Bend. Protocol 3.0, SCRAM-SHA-256, prepared queries, and a pool.
 
 ```bend
-import bend-kit-postgres@0.3.1.2/postgres.bend as Pg
+import bend-kit-postgres@0.4.0.0/postgres.bend as Pg
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 ```
 
-`postgres.bend` imports that bytes version, `bend-kit-wire@0.4.8.1`, and `bend-kit-dns@0.7.1.2`. `scram.bend` also imports `bend-kit-crypto@0.2.2.2`. `codec.bend` and `scram.bend` are part of this package. Callers use `postgres.bend`.
+`postgres.bend` imports that bytes version, `bend-kit-wire@0.4.8.1`, and `bend-kit-dns@0.8.0.0`. `scram.bend` also imports `bend-kit-crypto@0.2.2.2`. `codec.bend` and `scram.bend` are part of this package. Callers use `postgres.bend`.
 
 `config(host, port, user, pass, db)` builds a `Config`. TLS is on by default. The default step timeout is 10 seconds. Keep `tls` set when the server must use TLS. If the server refuses SSL, the error is `NoTls`. The client does not switch to cleartext.
 
