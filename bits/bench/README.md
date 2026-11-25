@@ -220,6 +220,77 @@ The earlier 0.041 ms build measurement is mostly clock-boundary overhead.
 It is not evidence that canonical setup consumes 0.041 ms of CPU work.
 Every profiled decode still checks the original payload checksum.
 
+### Batched canonical stages
+
+```sh
+python3 stages.py 3
+```
+
+Run this command from `bits/bench`. It compiles `stages.bend` with Bend 2.0.40.
+M4 Pro, macOS 26.7.2 (25G332), arm64, Apple clang 21.0.0, Python 3.14.6,
+2026-11-25. No runtime code changed.
+
+The fixture is `Build.lens()`, the same complete max-15 tree used above.
+Each native process takes ten samples. Each sample runs each stage 1000 times
+in a pure loop, without an intervening clock read. The table contains medians
+of 30 samples from three processes. All times are milliseconds per 1000 trees.
+
+Before each operation timer, the program prepares 1000 independent inputs.
+The preparation column includes that allocation, the required earlier stages,
+and one clock boundary. It is not part of the operation column.
+The operation column includes loop traversal, the stage, result consumption,
+and destruction. A separate control prepares the same stage's outputs outside
+its timer, then runs the same consumer over 1000 outputs.
+The paired difference subtracts this control from the operation in each sample.
+The final column is the observed minimum–maximum of those paired differences,
+not a confidence interval.
+
+Maximum, count, reserve, and assign retain the code list beside their result.
+Both their operation and control consume this list with the same checksum loop.
+This keeps list destruction in both measurements and gives the operation a
+shared input list, as in the full builder. Without this control, freeing a
+unique list makes the maximum scan appear to cost several extra milliseconds.
+`reserve` calls `Profile.reserved`, including the starts clone and table
+allocations. `assign` calls `Bits.assign.two` and wraps the result as `Huff`.
+The inputs for `next` are already-built count arrays.
+
+| stage | input preparation | operation + consumption | consumption control | paired difference | difference range |
+|---|---:|---:|---:|---:|---:|
+| codes | 0.989980 | 4.019145 | 1.772792 | 2.255708 | 1.816167–2.528292 |
+| maximum | 3.547645 | 2.700770 | 1.848292 | 0.964938 | 0.463375–1.680417 |
+| count | 3.599875 | 2.890270 | 1.836334 | 1.043938 | 0.541750–1.718166 |
+| next | 6.851145 | 0.053875 | 0.044791 | 0.009751 | -0.007584–0.027000 |
+| reserve | 11.041458 | 3.127063 | 1.887417 | 1.128125 | 0.829166–2.003792 |
+| assign | 17.844063 | 5.238646 | 1.941541 | 3.294105 | 2.518625–4.045541 |
+
+Two consecutive `Time.mono` calls have a median of 0.034875 ms and a range
+of 0.030334–0.136083 ms. This boundary occurs once per batch, not per tree.
+Length conversion and assignment are the largest resolved costs here.
+The maximum, count, and reserve ranges overlap, so this run cannot rank them.
+The `next` difference is smaller than the clock boundary and crosses zero.
+It is unresolved; the negative lower end does not mean negative CPU work.
+
+Each operation and control checks a fixed wrapping-U32 checksum.
+The code-list consumer adds every symbol and length, giving 36592 per tree.
+Count reads bin 8 (255). Next checks canonical start 15 (32766) and validity
+(1). Reserve reads start 15, root entry 511 (31), and secondary entry 0 (0).
+Assign reads root entry 0 (8), using `Profile.batch.code`.
+With retained-list sums, the six batch checksums are respectively
+`36592000`, `36607000`, `36847000`, `32767000`, `69389000`, and `36600000`.
+The program exits on a mismatch. The Python runner also checks all 20 rows
+per sample. Checks and printing occur outside the operation and control timers.
+
+The same sample also runs the existing `Profile.batch.loop` unchanged.
+Its 1000 complete builds take 7.325229 ms (range 6.741041–7.850000), with
+checksum 8000. This agrees with the earlier 7.23–7.27 ms batch measurements
+within the observed range. The paired stage sums have median 8.719541 ms
+(range 7.446209–10.255333), about 19% above the complete-build median.
+The stages are therefore not an exact additive decomposition: separate batches
+change allocation, ownership, cache state, and destruction, and subtract noisy
+controls. They establish microsecond-scale costs, not the earlier clock-bound
+33–37 microsecond stage estimates. No runtime rewrite follows from this run.
+
+
 ### Fixed-tree comparison
 
 `compare.py` runs prebuilt binaries 21 times each. It rotates their order
