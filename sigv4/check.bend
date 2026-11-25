@@ -1,6 +1,7 @@
 import Base
 import ./sigv4.bend as Sigv4
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-http@0.40.0.1/http.bend as Http
 
 # Signatures need HMAC-SHA256 through libcrypto, so they run here, not in LAWS.bend.
 
@@ -48,6 +49,30 @@ def vec(+name: String, +method: String, +path: String, +q: String, +hs: List<&2,
     r : Result<&1, &1, U32 & String, String> <- Sigv4.sign(suite(), "us-east-1", "service", "20150830T123600Z", method, path, q, hs, phash)
     same(name, "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=" ++ signed ++ ", Signature=" ++ sig, r)
 
+def response(+status: U32, body: String) -> Result<&1, &1, Sigv4.Err, Http.Res>:
+  Sigv4.judge(Done{Http.Res{status, Http.empty(), Bytes.from_string(body)}})
+
+def response.error(r: Result<&1, &1, Sigv4.Err, Http.Res>, +code: String, +message: String) -> Bool:
+  match r:
+    case Fail{Sigv4.ErrS3{status, c, m}}:
+      Bool.and(String.eq(c, code), String.eq(m, message))
+    case _:
+      False{}
+
+def response.page(r: Result<&1, &1, Sigv4.Err, Sigv4.Page>) -> Bool:
+  match r:
+    case Done{Sigv4.Page{Con{Sigv4.Object{k, size, etag, modified}, Nil{}}, Con{p, Nil{}}, Some{t}}}:
+      String.eq(k, "a&b") && Nat.is_eq(size, 12n) && String.eq(etag, "\"e\"") && String.eq(modified, "date") && String.eq(p, "d/") && String.eq(t, "t&+")
+    case _:
+      False{}
+
+def response.bad_xml(r: Result<&1, &1, Sigv4.Err, Sigv4.Page>, +body: String) -> Bool:
+  match r:
+    case Fail{Sigv4.ErrXml{text}}:
+      String.eq(text, body)
+    case _:
+      False{}
+
 def main() -> IO(Unit):
   do IO<Unit>:
     # AWS SigV4 test suite: the .authz of each vector LAWS.bend pins.
@@ -85,3 +110,9 @@ def main() -> IO(Unit):
     fails("presign expires 0", z)
     y : Result<&1, &1, U32 & String, String> <- Sigv4.presign(s3(), "us-east-1", "s3", "20130524T000000Z", "GET", "/test.txt", "", "examplebucket.s3.amazonaws.com", 604801)
     fails("presign expires > 7 days", y)
+    ok(response.error(response(404, "<Error><Code>NoSuchKey</Code><Message>A &amp; B</Message></Error>"), "NoSuchKey", "A & B"), "s3 error response", "")
+    ok(response.error(response(404, ""), "", ""), "s3 empty error response", "")
+    ok(response.error(response(500, "<Error>"), "", ""), "s3 malformed error response", "")
+    ok(response.page(Sigv4.page.of(response(200, "<ListBucketResult><Contents><Key>a&amp;b</Key><Size>12</Size><ETag>&quot;e&quot;</ETag><LastModified>date</LastModified></Contents><CommonPrefixes><Prefix>d/</Prefix></CommonPrefixes><IsTruncated>true</IsTruncated><NextContinuationToken>t&amp;+</NextContinuationToken></ListBucketResult>"))), "s3 list response", "")
+    ok(response.bad_xml(Sigv4.page.of(response(200, "<ListBucketResult>")), "<ListBucketResult>"), "s3 malformed list response", "")
+    ok(response.bad_xml(Sigv4.page.of(response(200, "<Error/>")), "<Error/>"), "s3 wrong list root", "")
