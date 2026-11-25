@@ -2,7 +2,6 @@
 # Remove a line when the issue named on it lands.
 0x4eed9d7ac6ece61523d747a9d804e4f0  # bytes: bend-kit-int@0.2.0.0 by hash, until bytes releases (#456)
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
-bend-kit-http2@0.5.0.2  # http: adopt consumption-driven credit after http2 publishes (#1091)
 bend-kit-bits@0.3.0.1  # zlib: adopt reader order tracking after bits publishes (#1107)
 bend-kit-zlib@0.6.0.0  # archive, http: adopt run-length headers after zlib publishes (#1109)
 bend-kit-dns@0.7.1.2  # http, postgres, redis: adopt pure proof isolation after DNS publishes (#1146)
