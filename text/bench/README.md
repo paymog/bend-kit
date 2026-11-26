@@ -194,3 +194,92 @@ The complete five-run package benchmark gives these medians in milliseconds:
 All checksums match. String diff remains above 4 ms; issue #820 remains open.
 Package checks pass the packed boundary and collision round trips and find
 zero non-shortest scripts in 3,000 random pairs.
+
+## Exact-octet collision fallback
+
+Run `python3 collision.py` from this directory. It requires Bend **2.0.40**
+and `clang`. It builds native timing and allocation-counting executables.
+It first checks eight-line inputs, then records five alternating pairs:
+collision/control, control/collision, and so on. Each timing run is followed
+by a separate allocation run of the same workload. Raw results also go to
+`out/collision-samples.json`.
+
+Each side has 10,000 lines and **1,418,602 octets**. Every hundredth line,
+starting at index 7, changes from `aan1wu` to `aa0tfa` (collision) or
+`aa0tfb` (control). Other lines contain their unique index. Every line has
+the same suffix: 128 `x` octets, NUL, FF, 80, CR, LF. The runner checks that
+the first pair has equal FNV-1a hashes and the control does not. A common
+suffix preserves an existing FNV collision. Lengths and edit positions
+match between workloads.
+
+Both workloads have exactly 100 absent old lines and 100 absent new lines.
+The other 9,900 lines occur in order, so the shortest script has **200**
+insertions plus deletions. Every run checks that count, reconstructs both
+octet inputs from the ranges, and checks both returned owned buffers.
+The public `diff_bytes` runs before the staged measurement and passes the
+same checks. Existing empty, boundary, collision, and arbitrary-octet
+fixtures also run. The collision hash script fails exact verification;
+the control passes it. Both final scripts pass.
+
+Stages call the production helpers without changing the pure API:
+String-to-Bytes conversion; indexed scan and FNV hashes; hash Myers/script;
+exact verification; `byte_diff.pick` (including the exact-octet fallback
+only for collisions); and full materialization with round-trip validation.
+Input generation and the public API check finish before these timers.
+Both buffers stay owned throughout the measured diff. The harness retains
+input Strings and range lists for validation, so its absolute costs are not
+a replacement for an application benchmark.
+
+Apple M4 Pro, macOS 26.7.2, arm64, 2026-11-26. Bend 2.0.40,
+Apple clang 21.0.0, `-O2 -pthread`, one runtime thread. All times are ms.
+`clock` is an empty stage with the same timer and snapshot boundaries.
+
+| pair | workload | clock | conversion | scan | hash diff | verify | fallback | materialize/check |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | collision | 0.054834 | 23.040625 | 2.372042 | 0.893708 | 1.163083 | 237.817500 | 123.221666 |
+| 1 | control | 0.059166 | 23.048375 | 2.461542 | 1.143167 | 1.206000 | 0.273250 | 110.172500 |
+| 2 | collision | 0.063167 | 23.290125 | 2.451709 | 0.918000 | 1.210916 | 237.001458 | 114.100000 |
+| 2 | control | 0.069375 | 22.977084 | 2.565375 | 1.148125 | 1.191791 | 0.295208 | 107.104708 |
+| 3 | collision | 0.060834 | 23.145959 | 2.468459 | 0.924166 | 1.168625 | 238.092208 | 117.237583 |
+| 3 | control | 0.056875 | 23.089042 | 2.380500 | 1.093625 | 1.161750 | 0.238000 | 108.449417 |
+| 4 | collision | 0.058750 | 22.861416 | 2.371084 | 0.891791 | 1.174584 | 237.965708 | 120.109125 |
+| 4 | control | 0.069459 | 22.273333 | 2.387416 | 1.129584 | 1.165042 | 0.216167 | 113.686791 |
+| 5 | collision | 0.051125 | 23.555417 | 2.508541 | 0.905083 | 1.206375 | 247.353791 | 125.759000 |
+| 5 | control | 0.057208 | 23.149250 | 2.364041 | 1.081666 | 1.176875 | 0.313666 | 114.948250 |
+| median | collision | **0.058750** | **23.145959** | **2.451709** | **0.905083** | **1.174584** | **237.965708** | **120.109125** |
+| median | control | **0.059166** | **23.048375** | **2.387416** | **1.129584** | **1.176875** | **0.273250** | **110.172500** |
+
+### Allocation evidence
+
+The runner instruments the generated native runtime's `heap_alloc` entry.
+Each request adds one call and `8 << cls` requested bytes. It counts requests
+even when the runtime serves them from a free list. It does not count
+compiler-generated in-place node reuse, host malloc, or live/peak memory.
+These are cumulative allocator-request bytes, **not RSS**. A source-shape
+guard rejects a changed allocator. The production source is not modified.
+Only the separate counted executable has this instrumentation.
+
+The benchmark-only snapshot effect resets the counters at each boundary.
+It excludes its own result String. Clock calls and their Bend wrappers
+remain inside each interval; the empty stage records their overhead.
+All five samples in each workload produced exactly the counts below.
+Thus each row reports all five allocation samples and their median.
+
+| stage | collision calls (each sample/median) | collision bytes (each sample/median) | control calls (each sample/median) | control bytes (each sample/median) |
+|---|---:|---:|---:|---:|
+| clock | 9,931 | 127,704 | 9,931 | 127,704 |
+| conversion | 9,933 | 4,322,072 | 9,933 | 4,322,072 |
+| scan | 109,927 | 1,567,864 | 109,927 | 1,567,864 |
+| hash diff | 149,954 | 2,463,496 | 159,612 | 2,582,176 |
+| verify | 9,931 | 127,896 | 9,931 | 127,896 |
+| fallback | 8,671,220 | 93,503,680 | 9,931 | 127,832 |
+| materialize/check | 17,153,146 | 210,646,280 | 17,153,146 | 210,646,280 |
+
+The collision fallback interval adds **8,661,289 allocator requests** and
+**93,375,848 requested bytes (89.05 MiB)** over the matched control.
+That interval includes octet-list construction, exact Myers, script
+construction, and disposal of the rejected hash script. Scanning,
+conversion, verification, and materialization are outside it.
+This is a measurement, not a speed improvement or a peak-memory claim.
+`scripts/check.sh text`, `scripts/publish.sh --check`, and `scripts/pins.sh`
+were run. No published source changed.
