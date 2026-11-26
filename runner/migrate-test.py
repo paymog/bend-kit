@@ -79,6 +79,9 @@ class Migration(unittest.TestCase):
         cls.build = tempfile.TemporaryDirectory()
         cls.binary = Path(cls.build.name) / "migration-check"
         subprocess.run(["bend", str(ROOT / "migration-check.bend"), "-o", str(cls.binary)], check=True)
+        cls.javascript = Path(cls.build.name) / "migration-check.js"
+        subprocess.run(["bend", str(ROOT / "migration-check.bend"), "-o", str(cls.javascript)], check=True)
+        cls.lanes = ([str(cls.binary)], ["bun", str(cls.javascript)])
 
     @classmethod
     def tearDownClass(cls):
@@ -113,10 +116,14 @@ class Migration(unittest.TestCase):
                 path.chmod(0o600) if path.exists() else None
                 path.write_bytes(data)
                 path.chmod(0o400)
-                result = subprocess.run([str(self.binary), str(path)], check=True,
-                                        capture_output=True, text=True).stdout.strip()
-                self.assertEqual(path.read_bytes(), data)
-                return result
+                outputs = []
+                for lane in self.lanes:
+                    result = subprocess.run([*lane, str(path)], check=True,
+                                            capture_output=True, text=True).stdout.strip()
+                    self.assertEqual(path.read_bytes(), data)
+                    outputs.append(result)
+                self.assertEqual(outputs[0], outputs[1])
+                return outputs[0]
             clean = inspect(valid)
             self.assertFalse(clean.startswith(("error:", "torn:")))
             self.assertEqual(inspect(valid + b"x"), f"torn:{len(valid)}:{clean}")
@@ -124,16 +131,24 @@ class Migration(unittest.TestCase):
             self.assertEqual(inspect(valid + extra[:-1]), f"torn:{len(valid)}:{clean}")
             for corrupt in (bytes(bad_crc), bytes(bad_length)):
                 self.assertIn("corrupt frame at offset 0", inspect(corrupt))
-            self.assertIn("undecodable record", inspect(valid + migrate.frame(words(99))))
-            self.assertIn("undecodable record", inspect(
-                valid + migrate.frame(words(1) + q(300) + b"reject")))
+            prefix = journal(operations(False))
+            for rejected in (words(99), words(1) + q(300) + b"reject",
+                             snapshot(False).replace(words(10) + "pending λ".encode(), words(6) + b"reject")):
+                error = (f"error:runner inspect: undecodable record at offset {len(prefix)}, "
+                         f"index {len(operations(False))}")
+                for suffix in (b"", valid, migrate.frame(words(99)), valid + b"x"):
+                    result = inspect(prefix + migrate.frame(rejected) + suffix)
+                    self.assertEqual(result, error + (" before torn suffix" if suffix.endswith(b"x") else ""))
+            self.assertEqual(inspect(migrate.frame(words(99))),
+                             "error:runner inspect: undecodable record at offset 0, index 0")
             self.assertIn("file exceeds limit", inspect(b"x" * 1048577))
             self.assertFalse(inspect(b"").startswith(("error:", "torn:")))
             missing = Path(directory) / "missing"
-            result = subprocess.run([str(self.binary), str(missing)], check=True,
-                                    capture_output=True, text=True).stdout
-            self.assertTrue(result.startswith("error:"))
-            self.assertFalse(missing.exists())
+            for lane in self.lanes:
+                result = subprocess.run([*lane, str(missing)], check=True,
+                                        capture_output=True, text=True).stdout
+                self.assertTrue(result.startswith("error:"))
+                self.assertFalse(missing.exists())
 
     def test_small_records(self):
         for tag in (2, 3, 4, 5, 6, 9, 11, 12):
