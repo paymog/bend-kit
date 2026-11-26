@@ -4,8 +4,8 @@ Bit readers and writers over `Bytes`, in either bit order, and canonical Huffman
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-bits@0.4.0.0/bits.bend as Bits
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bits@0.4.0.1/bits.bend as Bits
 
 # BFINAL, the first bit of a DEFLATE block header.
 def head(r: Bits.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -16,7 +16,7 @@ def main() -> Maybe<&2, U32>:
   head(Bits.Reader.lsb(Bits.Reader.new(Bytes.from_string("\u{3}")), 1))
 ```
 
-`bits.bend` imports `bend-kit-bytes@0.3.3.1`. A `Reader` and a `Writer` own their buffer. Each call returns the handle beside its result, so pass it on.
+`bits.bend` imports `bend-kit-bytes@0.3.3.2`. A `Reader` and a `Writer` own their buffer. Each call returns the handle beside its result, so pass it on.
 
 ## Reader
 

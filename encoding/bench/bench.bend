@@ -1,7 +1,7 @@
 # Encoding benchmark: UTF-8 and hex over one fixed input (see README.md).
 import Base
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 import ../encoding.bend as Enc
 
 def of(xs: List<U32>) -> String:

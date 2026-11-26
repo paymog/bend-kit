@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 import ./multipart.bend as Mp
 
 def txt(s: String) -> Bytes.Bytes:

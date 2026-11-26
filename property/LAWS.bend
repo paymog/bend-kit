@@ -1,6 +1,6 @@
 import Base
 import bend-kit-random@0.1.0.1/random.bend as Rand
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 import ./property.bend as Prop
 import ./generate.bend as Gen
 import ./shrink.bend as Shrink

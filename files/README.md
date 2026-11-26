@@ -3,8 +3,8 @@
 POSIX paths, directory listing, metadata, and packed file IO.
 
 ```bend
-import bend-kit-files@0.4.0.1/files.bend as Fs
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-files@0.4.0.2/files.bend as Fs
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 ```
 
 `path.is_absolute`, `path.join`, `path.normalize`, `path.parent`, `path.file_name`, and `path.extension` are pure. They do not touch the disk. `path.join` does not insert a slash that the arguments already imply. Check the result before you pass it to an effect.
@@ -21,7 +21,7 @@ def main() -> IO(Unit):
 `IO.try` returns the value from `Done` and fails the `IO` on `Fail`. Match the `Result` in a helper when you need errno. `match` takes a parameter or a pattern-bound variable.
 
 
-`read_bytes(file, max)` and `write_bytes(file, data)` use `Bytes`. This package imports `bend-kit-bytes@0.3.3.1`. `read.words` reads at most 1 MiB per call. A short read does not always mean EOF. `write.words` writes the whole buffer or fails. It does not undo bytes already written.
+`read_bytes(file, max)` and `write_bytes(file, data)` use `Bytes`. This package imports `bend-kit-bytes@0.3.3.2`. `read.words` reads at most 1 MiB per call. A short read does not always mean EOF. `write.words` writes the whole buffer or fails. It does not undo bytes already written.
 
 `size64(file)` gives the size of an open file as `(hi, lo)`, which is `hi * 2^32 + lo` bytes. `read.words.at(file, hi, lo, max)` reads like `read.words`, at that byte offset. It does not move the file position. Use them for files over 4 GiB.
 

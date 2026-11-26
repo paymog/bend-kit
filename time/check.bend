@@ -1,6 +1,6 @@
 import Base
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 import ./time.bend as Time
 
 def show(m: Maybe<&2, String>) -> String:
