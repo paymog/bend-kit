@@ -4,7 +4,7 @@ import Base
 import ../http.bend as Http
 import ../pure.bend as Pure
 import ../completion.bend as Completion
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def len(req: Pure.Req) -> IO(Http.Reply):
   Pure.Req{method, path, headers, body} = req
