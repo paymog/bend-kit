@@ -242,7 +242,9 @@ law bytes_roundtrip_le:
   {lists(A.from_bytes.le(A.to_bytes.le(a))) == Some{list(a)} : Maybe<&2, List<&2, F32>>}
 
 law bytes_roundtrip_be:
-  {lists(A.from_bytes.be(A.to_bytes.be(of([1.0, 2.5, neg2(), 0.5, 3.0])))) == Some{[1.0, 2.5, neg2(), 0.5, 3.0]} : Maybe<&2, List<&2, F32>>}
+  for a: A.F32Array
+  for h: {U32.is_lt(len(a), U32.shln(1, 30n)) == True{} : Bool}
+  {lists(A.from_bytes.be(A.to_bytes.be(a))) == Some{list(a)} : Maybe<&2, List<&2, F32>>}
 
 law cells_roundtrip:
   {list(of(eleven())) == eleven() : List<&2, F32>}
