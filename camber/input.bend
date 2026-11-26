@@ -1,9 +1,9 @@
 # Checked typed inputs; bodies are consumed once, without caching or decompression.
 import Base
-import bend-kit-http@0.45.0.1/pure.bend as Pure
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 import bend-kit-router@0.2.0.0/target.bend as Target
-import bend-kit-json@0.7.3.1/json.bend as Json
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-url@0.4.1.0/url.bend as Url
 import ./response.bend as Response
 

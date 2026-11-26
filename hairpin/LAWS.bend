@@ -1,10 +1,10 @@
 import Base
 import ./pure.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.45.0.1/pure.bend as Pure
-import bend-kit-time@0.3.0.4/pure.bend as Time
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def hs(k: String, v: String) -> Map<&2, List<&2, String>>:
   Pure.set(Pure.empty(), k, v)

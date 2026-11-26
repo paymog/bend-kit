@@ -2,8 +2,8 @@
 import Base
 import ./camber.bend as C
 import ./dispatch_check.bend as Check
-import bend-kit-bytes@0.3.3.2/bytes.bend as B
-import bend-kit-http@0.45.0.1/pure.bend as Pure
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 
 type Principal is Data:
   Principal{subject: String}

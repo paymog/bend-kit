@@ -1,17 +1,17 @@
 # Camber
 
-`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP 0.45.0.0. Package version: `0.19.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch 0.4.0.3.
+`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP 0.45.0.2. Package version: `0.19.0.2`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch 0.4.0.5.
 
 ```bend
-import bend-kit-camber@0.19.0.1/camber.bend as Camber
-import bend-kit-camber@0.19.0.1/input.bend as Input
-import bend-kit-camber@0.19.0.1/notices.bend as Notices
-import bend-kit-http@0.45.0.1/http.bend as Http
-import bend-kit-http@0.45.0.1/pure.bend as Pure
-import bend-kit-time@0.3.0.4/pure.bend as Time
+import bend-kit-camber@0.19.0.2/camber.bend as Camber
+import bend-kit-camber@0.19.0.2/input.bend as Input
+import bend-kit-camber@0.19.0.2/notices.bend as Notices
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-time@0.3.0.5/pure.bend as Time
 ```
 
-`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. HTTP model types, headers, codecs, and server configuration come from `Pure`; effects and server handles come from `Http`. Both imports must use `bend-kit-http@0.45.0.1`. Router uses `bend-kit-router@0.2.0.0` and JSON uses `bend-kit-json@0.7.3.1`. Notices use pure `Time.Duration`; `Http.clock.mono()` returns that type, unlike runtime `Time.mono()` from `time.bend`.
+`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. HTTP model types, headers, codecs, and server configuration come from `Pure`; effects and server handles come from `Http`. Both imports must use `bend-kit-http@0.45.0.2`. Router uses `bend-kit-router@0.2.0.0` and JSON uses `bend-kit-json@0.7.3.2`. Notices use pure `Time.Duration`; `Http.clock.mono()` returns that type, unlike runtime `Time.mono()` from `time.bend`.
 
 
 ## API
@@ -44,7 +44,7 @@ Import the package's `input.bend` module as `Input`. `path(~I, ~convert, params,
 
 `Input.raw(body)` moves the same affine packed bytes unchanged. `Input.text(headers, body)` accepts `text/*`, absent or UTF-8 charset, and identity content encoding; unsupported media/charset/encoding fails415, malformed UTF-8 fails400. Its packed byte walk reuses published Target's strict RFC3629 state machine, not `Pure.text` replacement or a linked-list octet copy.
 
-`Input.json(headers, body)` uses default depth64; `json.with_depth(headers, body, cap)` sets the maximum array/object nesting (scalars have depth0). Media is case-insensitive `application/json` or `application/<subtype>+json`; ignored parameters may contain quoted semicolons, and charset must be UTF-8. Published Json0.6.0.0 performs strict bounded parsing before an unrestricted tree can exist. Camber then rejects repeated decoded keys in every object, including objects nested in arrays, preserving the affine tree, object/array order and exact packed number text. Neither decoder decompresses or caches the body. `number.u32` is an explicit checked conversion of a JSON number; decimal fractions, exponents, signs and overflow are rejected rather than coerced.
+`Input.json(headers, body)` uses default depth64; `json.with_depth(headers, body, cap)` sets the maximum array/object nesting (scalars have depth0). Media is case-insensitive `application/json` or `application/<subtype>+json`; ignored parameters may contain quoted semicolons, and charset must be UTF-8. Published Json0.7.3.2 performs strict bounded parsing before an unrestricted tree can exist. Camber then rejects repeated decoded keys in every object, including objects nested in arrays, preserving the affine tree, object/array order and exact packed number text. Neither decoder decompresses or caches the body. `number.u32` is an explicit checked conversion of a JSON number; decimal fractions, exponents, signs and overflow are rejected rather than coerced.
 
 Input helpers return `Result<&2,&1,U32,I>`, with expected status400/415. `C.input(~I,~E,result)` adapts them to the existing `Error<E>` mapper. Call `execute(~I,~S,~K,~E,~H,~decoder,~handler,state,config,match,req)` from dispatch's `run` template: its decoder returns a validated typed `I` or expected error; only success invokes the business handler. This is an executor inside the single public dispatcher, not another pipeline. All applicable before hooks therefore precede body and typed path/query decoding.
 
@@ -52,7 +52,7 @@ Input helpers return `Result<&2,&1,U32,I>`, with expected status400/415. `C.inpu
 
 ### Explicit outputs and expected failures
 
-`json(~T, ~encode, status, value)` accepts an explicit `T -> Json.Val` public encoder and produces `application/json` using published Json `0.5.1.0`. It never reflects or serializes domain fields itself. `text(status, value)` encodes code-point text with the existing UTF-8 encoder and sets `text/plain; charset=utf-8`. `raw(status, Pure.Body)` moves packed bytes without a guessed content type; `empty(status)` has no body or content type. These helpers return `Pure.Res`; the final dispatch/plain boundary validates status and headers.
+`json(~T, ~encode, status, value)` accepts an explicit `T -> Json.Val` public encoder and produces `application/json` using published Json `0.7.3.2`. It never reflects or serializes domain fields itself. `text(status, value)` encodes code-point text with the existing UTF-8 encoder and sets `text/plain; charset=utf-8`. `raw(status, Pure.Body)` moves packed bytes without a guessed content type; `empty(status)` has no body or content type. These helpers return `Pure.Res`; the final dispatch/plain boundary validates status and headers.
 
 `redirect(status, location)` returns `Result<&2, &1, ResponseError, Pure.Res>`. Only 301/302/303/307/308 with a nonempty safe Location succeed; other inputs return `InvalidRedirect`. Location is an HTTP field octet String, not an implicitly encoded Unicode URL.
 
@@ -171,7 +171,7 @@ The command inbox has `room` buffered slots (zero uses rendezvous). Resource exh
 
 The lifecycle receive loop uses `@unsafe` because its termination depends on an external orderly-close command, not structurally shrinking input. The post-close drain is structurally bounded by the inbox's slot count. Base channel/file effects also lie outside mathematical proofs. `ledger.bend` has no host imports. Its universal laws prove fresh-return rejection, full-pool rejection, exact lend/return counts, capacity bounds, and resource conservation. The bounds assume a valid pool and a matching aggregate grant, as maintained from `open` by the proved transitions. These proofs do not attest host IO or lifecycle safety.
 
-Import `bend-kit-camber@0.19.0.1/ledger.bend` for `Ledger`, `open`, `lend`, `give`, `counts`, and `refuse`. The old ledger exports in `camber.bend` are removed. Actor inspection still returns `Camber.Counts`; pure ledger inspection returns the separate `Ledger.Counts` projection. The owner maps that projection at its message boundary.
+Import `bend-kit-camber@0.19.0.2/ledger.bend` for `Ledger`, `open`, `lend`, `give`, `counts`, and `refuse`. The old ledger exports in `camber.bend` are removed. Actor inspection still returns `Camber.Counts`; pure ledger inspection returns the separate `Ledger.Counts` projection. The owner maps that projection at its message boundary.
 
 `check.bend` remains the native/JS owner consumer with real two-File bundles, held principals, expected failures, exhaustion, counts, disposed caller replies, partial startup cleanup and Busy→same-owner retry. `python3 camber/run_serving.py --checks` runs the affected package gate and both actual compiled owner/serving lanes sequentially, with aggregate descendant RSS/disk guards and explicit listener release. [OWNER_EVIDENCE.md](OWNER_EVIDENCE.md) preserves the original owner receipts rather than rewriting historical measurements.
 

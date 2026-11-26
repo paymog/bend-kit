@@ -1,6 +1,6 @@
 # Storage benchmark: the Bend side (see README.md).
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ../../time/time.bend as Time
 import ../storage.bend as S
 import ../pure.bend as P
