@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `runner` 0.22.0.2: report the first undecodable record's frame offset and zero-based index during read-only inspection. Check native and Bun diagnostics without changing source files.
 - `crdt` 0.2.3.3: prove canonical keyed merge commutativity, associativity, and idempotence as stored-state equality. Keep raw pointwise laws.
 - `crdt` 0.2.3.2: prove exact keyed totals respect valid-state order and cannot decrease after merge or a successful increment. Document the validity and comparator assumptions.
 - `runner` 0.22.0.1: adopt the current Time and Webhooks releases with matching Hairpin and HTTP models.

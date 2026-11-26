@@ -166,6 +166,8 @@ for name in ["check", "native-macos"]:
     job = workflow.split(f"\n  {name}:\n", 1)[1].split("\n\n", 1)[0]
     bun = next(step for step in job.split("      - ") if "uses: oven-sh/setup-bun@v2" in step)
     assert "matrix.package == 'dns'" in bun
+    if name == "check":
+        assert "matrix.package == 'runner'" in bun
     assert "bun-version: ${{ env.BUN_VERSION }}" in job
     dns = job.split("      - name: Check DNS JavaScript backend\n", 1)[1].split("      - ", 1)[0]
     assert "if: matrix.package == 'dns'" in dns
