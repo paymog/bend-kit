@@ -156,7 +156,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`planner`](planner) | `bend-kit-planner@0.5.1.0/planner.bend` | Dependency plans with proved order, closure, completeness, true errors, minimal invalidation, and safe reuse, plus a parallel build runner over real commands. |
 | [`commands`](commands) | `bend-kit-commands@0.6.0.0/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.3.2.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
-| [`notch`](notch) | `bend-kit-notch@0.4.0.2/notch.bend` | Leveled logfmt or JSON-lines logging. |
+| [`notch`](notch) | `bend-kit-notch@0.4.0.3/notch.bend` | Leveled logfmt or JSON-lines logging. |
 | [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
 | [`property`](property) | `bend-kit-property@0.4.0.1/property.bend` | Seeded generators, shrinking, and a property runner. |
