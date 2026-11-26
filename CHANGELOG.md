@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `f32array` benchmark: measure tensor-load peak RSS on Linux with GNU time while retaining the macOS path. Keep runtime allocation counters and their interval unchanged.
 - `f32array` 0.2.4.0: add bounded four-lane compensated sum and dot with a fixed pure merge order. Keep element-order compensation and fast pairwise reductions unchanged.
 - `commands` 0.6.0.1: reduce BLOB column continuation dispatch without changing owned bytes or failure handling. Attribute native range closure calls and separate pure decision work.
 - `runner` 0.22.0.2: report the first undecodable record's frame offset and zero-based index during read-only inspection. Check native and Bun diagnostics without changing source files.

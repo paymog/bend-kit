@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare warm F32/BF16 loads, runtime allocation requests, and macOS RSS."""
+"""Compare warm F32/BF16 loads, runtime allocation requests, and process RSS."""
 from pathlib import Path
 import os
 import platform
@@ -13,6 +13,20 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / 'out'
 OUT.mkdir(exist_ok=True)
 BEND = os.environ.get('BEND', 'bend')
+CC = os.environ.get('CC', 'cc')
+SYSTEM = platform.system()
+if SYSTEM == 'Darwin':
+    TIME_ARGS = ['-l']
+    RSS_PATTERN, RSS_SCALE = r'(\d+)\s+maximum resident set size', 1
+    CPU = subprocess.check_output(['sysctl', '-n', 'machdep.cpu.brand_string'], text=True).strip()
+elif SYSTEM == 'Linux':
+    TIME_ARGS = ['-f', 'peak_rss_kib %M']
+    RSS_PATTERN, RSS_SCALE = r'^peak_rss_kib (\d+)$', 1024
+    CPU = next((line.split(':', 1)[1].strip()
+                for line in Path('/proc/cpuinfo').read_text().splitlines()
+                if line.startswith(('model name', 'Hardware'))), platform.machine())
+else:
+    raise RuntimeError(f'Unsupported RSS platform: {SYSTEM}')
 source = OUT / 'load.c'
 subprocess.run([BEND, str(HERE / 'load.bend'), '-o', str(source)], check=True)
 
@@ -43,12 +57,12 @@ code = source.read_text()
 counted = OUT / 'load_counted.c'
 counted.write_text(instrument(code))
 for src, binary in [(source, OUT / 'load'), (counted, OUT / 'load_counted')]:
-    subprocess.run(['cc', '-O2', '-std=c11', str(src), '-lm', '-lpthread',
+    subprocess.run([CC, '-O2', '-std=c11', str(src), '-lm', '-lpthread',
                     '-o', str(binary)], check=True)
 print(subprocess.check_output([BEND, 'version'], text=True).strip())
-print(platform.platform(), subprocess.check_output(
-    ['sysctl', '-n', 'machdep.cpu.brand_string'], text=True).strip())
-print(subprocess.check_output(['cc', '--version'], text=True).splitlines()[0], '-O2')
+print(platform.platform(), CPU)
+print('Python', platform.python_version(), 'NumPy', np.__version__)
+print(subprocess.check_output([CC, '--version'], text=True).splitlines()[0], '-O2')
 
 with tempfile.TemporaryDirectory(prefix='f32array-load-') as tmp:
     for n in [8, 2**20]:
@@ -62,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix='f32array-load-') as tmp:
                 times, rss, counts, sizes = [], [], [], []
                 for binary in ['load', 'load_counted']:
                     for _ in range(3):
-                        run = subprocess.run(['/usr/bin/time', '-l', str(OUT / binary),
+                        run = subprocess.run(['/usr/bin/time', *TIME_ARGS, str(OUT / binary),
                                               mode, fmt, str(n), '+RTS', '--threads', '1'],
                                              cwd=tmp, capture_output=True, text=True, check=True)
                         assert float(re.search(r'^sum (.+)$', run.stdout, re.M)[1]) == float(
@@ -71,7 +85,7 @@ with tempfile.TemporaryDirectory(prefix='f32array-load-') as tmp:
                         if binary == 'load':
                             times.append(float(re.search(r'^ms (.+)$', run.stdout, re.M)[1]))
                             rss.append(int(re.search(
-                                r'(\d+)\s+maximum resident set size', run.stderr)[1]))
+                                RSS_PATTERN, run.stderr, re.M)[1]) * RSS_SCALE)
                         else:
                             counts.append(int(re.search(r'^alloc_count (\d+)$', run.stderr, re.M)[1]))
                             sizes.append(int(re.search(r'^alloc_bytes (\d+)$', run.stderr, re.M)[1]))
