@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `bytes` 0.3.3.3: align the cursor import example with the package release.
 - `jwt` 0.17.0.1: use current sibling releases with matching types.
 - `llm` 0.19.0.1: use current sibling releases with matching types.
 - `oauth2` 0.17.0.1: use current sibling releases with matching types.
