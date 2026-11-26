@@ -3,13 +3,13 @@
 AWS Signature V4, and an S3 client over `hairpin`.
 
 ```bend
-import bend-kit-sigv4@0.17.0.0/sigv4.bend as Sig
-import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
-import bend-kit-hairpin@0.19.0.0/pure.bend as HairpinPure
-import bend-kit-http@0.45.0.0/pure.bend as HttpPure
+import bend-kit-sigv4@0.17.0.1/sigv4.bend as Sig
+import bend-kit-hairpin@0.19.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.1/pure.bend as HairpinPure
+import bend-kit-http@0.45.0.1/pure.bend as HttpPure
 ```
 
-`sigv4.bend` imports HTTP models from `pure.bend` and live clocks from `http.bend`, plus `bend-kit-crypto@0.2.2.2`, `bend-kit-time@0.3.0.3/pure.bend`, and `bend-kit-collections@0.1.6.0`, whose `Order.string` sorts the canonical query. `Http.clock.now` supplies the pure timestamp used for signing. HMAC-SHA256 needs OpenSSL 3 (`BEND_LIBCRYPTO` on the crypto package).
+`sigv4.bend` imports HTTP models from `pure.bend` and live clocks from `http.bend`, plus `bend-kit-crypto@0.2.2.2`, `bend-kit-time@0.3.0.4/pure.bend`, and `bend-kit-collections@0.1.6.0`, whose `Order.string` sorts the canonical query. `Http.clock.now` supplies the pure timestamp used for signing. HMAC-SHA256 needs OpenSSL 3 (`BEND_LIBCRYPTO` on the crypto package).
 The request judge comes from Hairpin's `pure.bend`.
 
 `Credentials` holds the access key, secret, and session token. An empty token means a long-term key. `sign` returns the `Authorization` value. The date argument is `x-amz-date` form, `YYYYMMDDTHHMMSSZ`. `authorize` returns that header and the signed `x-amz-date`. `presign` builds a query-string signature with an expiry in seconds.

@@ -1,13 +1,13 @@
 import Base
 import ./public_app.bend as A
 import ./public_main.bend as M
-import bend-kit-camber@0.19.0.0/camber.bend as C
-import bend-kit-http@0.45.0.0/http.bend as Http
-import bend-kit-http@0.45.0.0/pure.bend as Pure
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
-import bend-kit-time@0.3.0.3/pure.bend as Time
+import bend-kit-camber@0.19.0.1/camber.bend as C
+import bend-kit-http@0.45.0.1/http.bend as Http
+import bend-kit-http@0.45.0.1/pure.bend as Pure
+import bend-kit-bytes@0.3.3.2/bytes.bend as B
+import bend-kit-time@0.3.0.4/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-files@0.4.0.1/files.bend as F
+import bend-kit-files@0.4.0.2/files.bend as F
 
 def payload(label: String) -> Pure.Body:
   match label:

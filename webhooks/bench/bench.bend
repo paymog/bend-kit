@@ -2,9 +2,9 @@
 import Base
 import ../../time/time.bend as Clock
 import ../webhooks.bend as Webhooks
-import bend-kit-time@0.3.0.3/pure.bend as Time
+import bend-kit-time@0.3.0.4/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 # run.py signs the message at its start and passes the timestamp and signature in the environment.
 def headers(ts: String, sig: String) -> Map<&2, List<&2, String>>:
