@@ -14,7 +14,7 @@ You need [Bend 2.0.38 or newer](https://bend-lang.com/install.sh) and [Bun 1.4.2
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 def show(r: Bytes.Bytes & U32) -> IO(Unit):
   (b, n) = r
@@ -80,7 +80,7 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`bytes`](bytes) | `bend-kit-bytes@0.3.3.1/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
+| [`bytes`](bytes) | `bend-kit-bytes@0.3.3.2/bytes.bend` | Packed byte buffers, cursors, endian integers, search, hex, base64, and decimal U32. |
 | [`bits`](bits) | `bend-kit-bits@0.4.0.0/bits.bend` | Bit readers and writers over `Bytes`, LSB-first or MSB-first, and canonical Huffman codes and decode tables. |
 | [`encoding`](encoding) | `bend-kit-encoding@0.5.0.1/encoding.bend` | UTF-8 between `String` and `Bytes`. |
 | [`unicode`](unicode) | `bend-kit-unicode@0.1.0.0/unicode.bend` | Unicode 17.0 category, NFC/NFD, case folding, and grapheme clusters. |
@@ -157,7 +157,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`commands`](commands) | `bend-kit-commands@0.6.0.1/commands.bend` | Retry-safe commands: deduplication by id, recorded replies, and keyed rows, record, and outbox committed in one SQLite transaction, with proofs. |
 | [`cache`](cache) | `bend-kit-cache@0.3.2.0/cache.bend` | Cache validity: expiry, negative results, invalidation, and generation-safe fetch completion. |
 | [`notch`](notch) | `bend-kit-notch@0.4.0.3/notch.bend` | Leveled logfmt or JSON-lines logging. |
-| [`tty`](tty) | `bend-kit-tty@0.1.0.1/tty.bend` | Terminal size, color, and display width. |
+| [`tty`](tty) | `bend-kit-tty@0.1.0.2/tty.bend` | Terminal size, color, and display width. |
 | [`router`](router) | `bend-kit-router@0.2.0.0/router.bend` | Prepared HTTP routes. Target parsing is `target.bend`. |
 | [`property`](property) | `bend-kit-property@0.4.0.1/property.bend` | Seeded generators, shrinking, and a property runner. |
 | [`lemmas`](lemmas) | `bend-kit-lemmas@0.1.5.1/lemmas.bend` | Proved laws that relate `Word` and `U32` arithmetic to `Nat`, on top of `bend-mathlib`. |
