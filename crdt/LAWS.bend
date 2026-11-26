@@ -622,3 +622,43 @@ law k_merge_mono:
   for c: Crdt.KCounter<K>
   for hab: {Crdt.KCounter.le(~K, ~cmp, a, b) == True{} : Bool}
   {Crdt.KCounter.le(~K, ~cmp, Crdt.KCounter.merge(~K, ~cmp, a, c), Crdt.KCounter.merge(~K, ~cmp, b, c)) == True{} : Bool}
+
+law k_merge_comm_state:
+  for ~K: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for ~flip: @x: K -> @y: K -> {cmp(y, x) == flip(cmp(x, y)) : Cmp}
+  for ~trans: @x: K -> @y: K -> @z: K -> {Cmp.is_lt(cmp(x, y)) == True{} : Bool} -> {Cmp.is_lt(cmp(y, z)) == True{} : Bool} -> {Cmp.is_lt(cmp(x, z)) == True{} : Bool}
+  for a: Crdt.KCounter<K>
+  for b: Crdt.KCounter<K>
+  for va: {Crdt.KCounter.valid(~K, ~cmp, a) == True{} : Bool}
+  for vb: {Crdt.KCounter.valid(~K, ~cmp, b) == True{} : Bool}
+  {Crdt.KCounter.merge(~K, ~cmp, a, b) == Crdt.KCounter.merge(~K, ~cmp, b, a) : Crdt.KCounter<K>}
+
+law k_merge_assoc_state:
+  for ~K: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for ~flip: @x: K -> @y: K -> {cmp(y, x) == flip(cmp(x, y)) : Cmp}
+  for ~trans: @x: K -> @y: K -> @z: K -> {Cmp.is_lt(cmp(x, y)) == True{} : Bool} -> {Cmp.is_lt(cmp(y, z)) == True{} : Bool} -> {Cmp.is_lt(cmp(x, z)) == True{} : Bool}
+  for a: Crdt.KCounter<K>
+  for b: Crdt.KCounter<K>
+  for c: Crdt.KCounter<K>
+  for va: {Crdt.KCounter.valid(~K, ~cmp, a) == True{} : Bool}
+  for vb: {Crdt.KCounter.valid(~K, ~cmp, b) == True{} : Bool}
+  for vc: {Crdt.KCounter.valid(~K, ~cmp, c) == True{} : Bool}
+  {Crdt.KCounter.merge(~K, ~cmp, Crdt.KCounter.merge(~K, ~cmp, a, b), c)
+   == Crdt.KCounter.merge(~K, ~cmp, a, Crdt.KCounter.merge(~K, ~cmp, b, c)) : Crdt.KCounter<K>}
+
+law k_merge_idem_state:
+  for ~K: Data
+  for ~cmp: K -> K -> Cmp
+  for ~refl: @x: K -> {cmp(x, x) == EQ{} : Cmp}
+  for ~eq: @x: K -> @y: K -> {cmp(x, y) == EQ{} : Cmp} -> {x == y : K}
+  for ~flip: @x: K -> @y: K -> {cmp(y, x) == flip(cmp(x, y)) : Cmp}
+  for ~trans: @x: K -> @y: K -> @z: K -> {Cmp.is_lt(cmp(x, y)) == True{} : Bool} -> {Cmp.is_lt(cmp(y, z)) == True{} : Bool} -> {Cmp.is_lt(cmp(x, z)) == True{} : Bool}
+  for a: Crdt.KCounter<K>
+  for va: {Crdt.KCounter.valid(~K, ~cmp, a) == True{} : Bool}
+  {Crdt.KCounter.merge(~K, ~cmp, a, a) == a : Crdt.KCounter<K>}
