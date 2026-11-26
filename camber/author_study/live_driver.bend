@@ -8,7 +8,7 @@ import ../../interface_check.bend as Registry
 import ../../../http/http.bend as Http
 import ../../../http/pure.bend as Pure
 import ../../../http/context_probe.bend as Transport
-import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-json@0.7.3.1/json.bend as Json
 import ../../../concurrency/concurrency.bend as Conc
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 

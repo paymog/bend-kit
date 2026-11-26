@@ -1,7 +1,7 @@
 # Content-addressed object store: Merkle trees, sync plans, and reachability GC with proved laws. Source: https://github.com/paymog/bend-kit/tree/main/storage
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-files@0.4.0.1/files.bend as Files
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-files@0.4.0.2/files.bend as Files
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
 import bend-kit-collections@0.1.6.0/omap.bend as OMap
 import ./pure.bend as P
