@@ -2,13 +2,14 @@
 # A receiver on 127.0.0.1 answers 503, then 200: the runner requeues the first delivery and then completes both.
 import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-webhooks@0.14.0.2/webhooks.bend as W
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-webhooks@0.15.0.0/webhooks.bend as W
+import bend-kit-hairpin@0.17.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/admission.bend as Admission
-import bend-kit-http@0.40.0.1/completion.bend as Completion
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.1/pure.bend as Pure
+import bend-kit-http@0.44.0.1/admission.bend as Admission
+import bend-kit-http@0.44.0.1/completion.bend as Completion
+import bend-kit-time@0.3.0.2/pure.bend as Time
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import ./runner.bend as R
@@ -50,16 +51,16 @@ def judge.status(+s: U32) -> Retry.Outcome:
   Bool.pick(Retry.Outcome, Bool.or(Bool.or(U32.is_eq(s, 408), U32.is_eq(s, 429)), U32.is_ge(s, 500)), Retry.Transient{None{}},
   Bool.pick(Retry.Outcome, U32.is_ge(s, 400), Retry.Rejected{}, Retry.Failed{})))
 
-def judge(r: Result<&1, &1, W.SendErr, Http.Res>) -> Retry.Outcome:
+def judge(r: Result<&1, &1, W.SendErr, Pure.Res>) -> Retry.Outcome:
   match r:
-    case Done{Http.Res{s, h, b}}:
+    case Done{Pure.Res{s, h, b}}:
       judge.status(s)
     case Fail{W.SendNet{e}}:
       Retry.Transient{None{}}
     case Fail{W.SendSign{e}}:
       Retry.Failed{}
 
-def sent(x: Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res>) -> IO(Retry.Outcome):
+def sent(x: Hairpin.Client & Result<&1, &1, W.SendErr, Pure.Res>) -> IO(Retry.Outcome):
   (c, r) = x
   do IO<Retry.Outcome>:
     Hairpin.close(c)
@@ -69,7 +70,7 @@ def sent(x: Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res>) -> IO(Retry.Ou
 def deliver(h: Hook) -> IO(Retry.Outcome):
   Hook{url, id, body} = h
   do IO<Retry.Outcome>:
-    x : Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res> <- W.send.with(0, Hairpin.new(), url, id, secret(), Bytes.from_string(body))
+    x : Hairpin.Client & Result<&1, &1, W.SendErr, Pure.Res> <- W.send.with(0, Hairpin.new(), url, id, secret(), Bytes.from_string(body))
     sent(x)
 
 # ---- the receiver: one connection per entry of a script of statuses
@@ -80,21 +81,21 @@ def respond(+status: U32, r: Bytes.Bytes & Result<&1, &1, W.Err, String>) -> IO(
     case Fail{e}:
       IO.die(Http.Reply, 1, "bad webhook: the receiver rejected a signature")
     case Done{id}:
-      IO.pure(Http.Reply, Http.Reply{Http.Res{status, Http.set(Http.empty(), "connection", "close"), Bytes.new(0)}, Completion.Unobserved{}})
+      IO.pure(Http.Reply, Http.Reply{Pure.Res{status, Pure.set(Pure.empty(), "connection", "close"), Bytes.new(0)}, Completion.Unobserved{}})
 
-def handle(+status: U32, req: Http.Req) -> IO(Http.Reply):
-  Http.Req{method, path, +headers, body} = req
+def handle(+status: U32, req: Pure.Req) -> IO(Http.Reply):
+  Pure.Req{method, path, +headers, body} = req
   do IO<Http.Reply>:
-    now : Time.Instant <- Time.now()
+    now : Time.Instant <- Http.clock.now()
     r : Bytes.Bytes & Result<&1, &1, W.Err, String> <- W.verify([secret()], now, headers, body)
     respond(status, r)
 
 def serve.one(+busy: Bool, +inbox: Chan(Admission.Command), a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   match busy:
     case True{}:
-      Http.conn(~(req => handle(503, req)), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => handle(503, req)), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case False{}:
-      Http.conn(~(req => handle(200, req)), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => handle(200, req)), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
 
 def serve.go(ks: List<&2, Bool>, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
   match ks:

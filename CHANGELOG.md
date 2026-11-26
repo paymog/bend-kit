@@ -11,6 +11,9 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 - `camber` 0.18.0.1: correct the published Notch pin and remove obsolete consumer migration guidance.
 
 
+- `runner` 0.22.0.0: adopt current Time and the published Webhooks, Hairpin, and HTTP model types in the signed-delivery example.
+- Gateway repository examples adopt the published Camber and Hairpin releases and current HTTP pure models and runtime effects. Remove the final old HTTP and consumer pin exceptions.
+
 - `jwt` 0.15.0.0: adopt the published Hairpin and HTTP pure response types for JWKS requests.
 - `llm` 0.17.0.0: adopt the published Hairpin and HTTP split API. Consume each drained stream piece before the next read.
 - `oauth2` 0.15.0.0: adopt the current Hairpin, HTTP pure responses, and pure model clocks.
