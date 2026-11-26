@@ -4,3 +4,4 @@
 0x6c784a08486e2e02415e89c5249e9e8a  # tty: bend-kit-unicode by hash, until tty releases (#456)
 bend-kit-time@0.3.0.2  # consumers: adopt the current Time guidance release (#1163)
 bend-kit-camber@0.18.0.0  # consumers: adopt the corrected Notch guidance release (#1163)
+bend-kit-notch@0.4.0.2  # consumers: adopt the current Time guidance release (#1163)
