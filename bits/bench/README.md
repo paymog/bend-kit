@@ -291,6 +291,85 @@ controls. They establish microsecond-scale costs, not the earlier clock-bound
 33–37 microsecond stage estimates. No runtime rewrite follows from this run.
 
 
+### Larger canonical batches and cumulative controls
+
+```sh
+python3 stages.py 3
+```
+
+M4 Pro, macOS 26.7.2 (25G332), arm64, Bend 2.0.40, Apple clang 21.0.0,
+Python 3.14.6, 2026-11-25. A one-process run passed before this run.
+The runner checks 38 rows in each sample and saves timings to `out/stages.json`.
+There are ten samples per native process and three fresh processes.
+All operation and control checksums passed.
+
+`next-10000` and `next-100000` use the same count arrays, `next` helper,
+and output consumer as the original 1000-tree batch. Every input is independent.
+Count construction stays outside the operation timer. Its median preparation
+times are 68.685479 and 684.046312 ms. Output construction stays outside the
+control timer. Both timed loops consume and destroy their results.
+The operation checksum adds canonical start 15 and validity: 32767 per tree.
+The three batch checksums are 32767000, 327670000, and 3276700000.
+Times below are milliseconds per named batch. Ranges are observed extrema of
+paired operation-minus-control differences, not confidence intervals.
+
+| trees | operation + consumption | consumption control | paired difference | difference range |
+|---:|---:|---:|---:|---:|
+| 1000 | 0.054501 | 0.044437 | 0.011500 | 0.000000–0.023333 |
+| 10000 | 0.226312 | 0.143667 | 0.086062 | 0.029917–0.107083 |
+| 100000 | 1.891437 | 1.128667 | 0.774146 | 0.241209–0.953667 |
+
+Two consecutive clock reads have median 0.033354 ms and range
+0.030500–0.124333 ms. The 1000-tree signal remains unresolved.
+The 10000-tree range still overlaps clock-boundary variation.
+At 100000 trees, every paired difference exceeds the largest clock baseline.
+Its per-tree median is 0.000007741 ms, about 7.74 ns.
+This resolves a positive batch cost under these controls, not a precise
+instruction-only cost: traversal, allocation, cache state, and destruction
+still affect the difference.
+
+| process | next 10000 median | next 100000 median | next 100000 range |
+|---:|---:|---:|---:|
+| 1 | 0.073916 | 0.781791 | 0.481709–0.953667 |
+| 2 | 0.088666 | 0.851978 | 0.433583–0.942625 |
+| 3 | 0.090583 | 0.721291 | 0.241209–0.895001 |
+
+The cumulative controls start with 1000 prepared length lists, not separate
+inputs for each internal stage. They convert to codes, count, then optionally
+compute starts and reserve tables. The code list stays shared across those
+steps and is consumed beside the result. These fixed max-15 prefixes omit the
+maximum scan and general validation; they are not complete builds.
+`pipeline` instead calls the unchanged `Huff.from_lens`, including maximum
+and validation, and reads root entry zero. Its checksum is 8000.
+Its output-only control prepares complete tables before timing consumption.
+The other cumulative checksums are 36847000, 69359000, and 69389000.
+
+| cumulative batch | input preparation | operation + consumption | consumption control | paired difference | difference range |
+|---|---:|---:|---:|---:|---:|
+| through count | 1.270354 | 5.316771 | 2.162063 | 3.163542 | 2.887458–3.775208 |
+| through next | 1.049854 | 5.429771 | 2.143604 | 3.165792 | 2.629416–4.018458 |
+| through reserve | 1.094729 | 6.460083 | 2.294771 | 4.117063 | 3.742166–5.620291 |
+| full pipeline | 1.052229 | 8.405209 | 0.053625 | 8.354125 | 6.713416–10.385458 |
+
+The original six isolated paired stages sum to median 8.477874 ms
+(range 7.325958–10.247833). The unchanged `Profile.batch.loop` takes
+median 7.457979 ms (range 6.985375–8.495791), with checksum 8000.
+The median per-sample isolated-sum/complete gap is 12.288%
+(range -0.186%–30.089%), versus about 19% in the earlier run.
+The full cumulative pipeline reduces that median gap to 9.435%
+(range -7.662%–29.485%). Process pipeline medians are 8.117646,
+8.022229, and 8.360688 ms.
+
+The remaining ranges overlap widely. Cumulative ownership does not explain
+the gap completely or establish a stable reduction. Prepared batches retain
+1000 input lists, whereas the complete loop constructs and destroys one tree
+at a time. Even though input construction is excluded from the pipeline timer,
+that pipeline is slower in the median. Live-set size, list traversal, cache
+state, and noisy separately allocated controls remain confounded.
+Do not add cumulative medians or subtract adjacent prefixes to rank tiny stages.
+Keep the runtime unchanged; these controls justify no runtime rewrite.
+No published file, version, or sibling pin changes are needed.
+
 ### Fixed-tree comparison
 
 `compare.py` runs prebuilt binaries 21 times each. It rotates their order
