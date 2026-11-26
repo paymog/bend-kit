@@ -1942,6 +1942,187 @@ def snapshot.recovered.dead.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: 
     {Laws.dead.wf(~A, R.dead(A, R.calm(A, s))) == True{} : Bool}:
   calm.dead.wf(~A, s, snapshot.dead.wf(~A, ~pdec, b, s, e))
 
+def load.rec.wf(~A: Data, m: Maybe<&2, R.Rec<A>>, +s: R.State<A>,
+    valid: decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), m), wf: decoded.state(A, s)) ->
+    decoded.maybe(R.State<A>, t => decoded.state(A, t), R.load.rec(~A, m, s)):
+  match m:
+    case None{}:
+      Unit{}
+    case Some{R.Snap{t}}:
+      valid
+    case Some{R.Do{+op}}:
+      (bw, dw) = wf
+      (breaker.step.wf(~A, s, op, bw), step_wf(~A, s, op, dw))
+
+def load.wf(~A: Data, +m: Maybe<&2, R.Rec<A>>, acc: Maybe<&2, R.State<A>>,
+    valid: decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), m),
+    wf: decoded.maybe(R.State<A>, s => decoded.state(A, s), acc)) ->
+    decoded.maybe(R.State<A>, s => decoded.state(A, s),
+      R.load(~A, ~Maybe<&2, R.Rec<A>>, ~(x => x), acc, m)):
+  match acc:
+    case None{}:
+      Unit{}
+    case Some{s}:
+      load.rec.wf(~A, m, s, valid, wf)
+
+def decode.done.with(~A: Data, -P: Maybe<&2, R.Rec<A>> -> Data, none: P(None{}),
+    some: @x: R.Rec<A> -> decoded.rec(A, x) -> P(Some{x}),
+    +len: U32, +s: R.State<A>, wf: decoded.state(A, s), r: R.Rd) ->
+    P(R.decode.snapped(A, R.rd.done(R.State<A>, len, Some{(r, s)}))):
+  match r:
+    case R.Rd{b, +at}:
+      split(keep => P(R.decode.snapped(A, Bool.pick(Maybe<&2, R.State<A>>, keep, Some{s}, None{}))),
+        U32.is_eq(at, len), e => some(R.Snap{s})(wf), e => none)
+
+def decode.snap.with(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    -P: Maybe<&2, R.Rec<A>> -> Data, +none: P(None{}),
+    some: @x: R.Rec<A> -> decoded.rec(A, x) -> P(Some{x}),
+    b: Bytes.Bytes) -> P(R.decode.snapped(A, R.decode.snap(~A, ~pdec, b))):
+  match b:
+    case Bytes.Bytes{+len, buf}:
+      read.state(~A, ~pdec, m => P(R.decode.snapped(A, R.rd.done(R.State<A>, len, m))),
+        none, +s => wf => r => decode.done.with(~A, P, none, some, len, s, wf, r),
+        U32.to_nat((len / 4 + 1 : U32)), R.Rd{Bytes.Bytes{len, buf}, 4})
+
+def decode.did.with(~A: Data, -P: Maybe<&2, R.Rec<A>> -> Data, none: P(None{}),
+    some: @x: R.Rec<A> -> decoded.rec(A, x) -> P(Some{x}),
+    m: Maybe<&2, R.Op<A>>) -> P(R.decode.did(A, m)):
+  match m:
+    case None{}:
+      none
+    case Some{+op}:
+      some(R.Do{op})(Unit{})
+
+def decode.if.with(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    -P: Maybe<&2, R.Rec<A>> -> Data, +none: P(None{}),
+    some: @x: R.Rec<A> -> decoded.rec(A, x) -> P(Some{x}),
+    snap: Bool, b: Bytes.Bytes) -> P(R.decode.rec.if(~A, ~pdec, snap, b)):
+  match snap:
+    case True{}:
+      decode.snap.with(~A, ~pdec, P, none, some, b)
+    case False{}:
+      decode.did.with(~A, P, none, some, R.decode(~A, ~pdec, b))
+
+def decode.tag.with(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    -P: Maybe<&2, R.Rec<A>> -> Data, +none: P(None{}),
+    some: @x: R.Rec<A> -> decoded.rec(A, x) -> P(Some{x}),
+    pair: Bytes.Bytes & U32) -> P(R.decode.rec.tag(~A, ~pdec, pair)):
+  match pair:
+    case (b, +tag):
+      decode.if.with(~A, ~pdec, P, none, some, U32.is_eq(tag, 14), b)
+
+def replay.step.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    +acc: Maybe<&2, R.State<A>>, b: Bytes.Bytes,
+    +wf: decoded.maybe(R.State<A>, s => decoded.state(A, s), acc)) ->
+    decoded.maybe(R.State<A>, s => decoded.state(A, s), R.replay.step(~A, ~pdec, acc, b)):
+  match acc:
+    case None{}:
+      Unit{}
+    case Some{+s}:
+      decode.tag.with(~A, ~pdec,
+        m => decoded.maybe(R.State<A>, t => decoded.state(A, t), R.load.rec(~A, m, s)),
+        Unit{}, +x => valid => load.rec.wf(~A, Some{x}, s, valid, wf), R.get.u32(Bytes.get.u32le(b, 0)))
+
+def replay.cert(-A: Data, m: Maybe<&2, R.State<A>>) -> Data:
+  +Sigma<Maybe<&2, R.State<A>>, n =>
+    +Sigma<{m == n : Maybe<&2, R.State<A>>}, _ => decoded.maybe(R.State<A>, s => decoded.state(A, s), n)>>
+
+def replay.cert.make(~A: Data, +m: Maybe<&2, R.Rec<A>>, +s: R.State<A>,
+    valid: decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), m), wf: decoded.state(A, s)) ->
+    replay.cert(A, R.load.rec(~A, m, s)):
+  (R.load.rec(~A, m, s), ({==}, load.rec.wf(~A, m, s, valid, wf)))
+
+def replay.step.cert(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    acc: Maybe<&2, R.State<A>>, b: Bytes.Bytes,
+    wf: decoded.maybe(R.State<A>, s => decoded.state(A, s), acc)) ->
+    replay.cert(A, R.replay.step(~A, ~pdec, acc, b)):
+  match acc:
+    case None{}:
+      (None{}, ({==}, Unit{}))
+    case Some{+s}:
+      decode.tag.with(~A, ~pdec, m => replay.cert(A, R.load.rec(~A, m, s)),
+        (None{}, ({==}, Unit{})), +x => valid => replay.cert.make(~A, Some{x}, s, valid, wf),
+        R.get.u32(Bytes.get.u32le(b, 0)))
+
+def replay.cert.use(~A: Data, -m: Maybe<&2, R.State<A>>, -P: Data, cert: replay.cert(A, m),
+    good: @n: Maybe<&2, R.State<A>> -> {m == n : Maybe<&2, R.State<A>>} ->
+      decoded.maybe(R.State<A>, s => decoded.state(A, s), n) -> P) -> P:
+  match cert:
+    case (n, (eq, wf)):
+      good(n)(eq)(wf)
+
+def replay.fold(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    records: List<&1, Bytes.Bytes>, acc: Maybe<&2, R.State<A>>) -> Maybe<&2, R.State<A>>:
+  match records:
+    case Nil{}:
+      acc
+    case Con{b, rest}:
+      replay.fold(~A, ~pdec, rest, R.replay.step(~A, ~pdec, acc, b))
+
+def replay.fold.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    records: List<&1, Bytes.Bytes>, +acc: Maybe<&2, R.State<A>>,
+    wf: decoded.maybe(R.State<A>, s => decoded.state(A, s), acc)) ->
+    decoded.maybe(R.State<A>, s => decoded.state(A, s), replay.fold(~A, ~pdec, records, acc)):
+  match records:
+    case Nil{}:
+      wf
+    case Con{b, rest}:
+      replay.cert.use(~A, R.replay.step(~A, ~pdec, acc, b),
+        decoded.maybe(R.State<A>, s => decoded.state(A, s), replay.fold(~A, ~pdec, rest, R.replay.step(~A, ~pdec, acc, b))),
+        replay.step.cert(~A, ~pdec, acc, b, wf),
+        +n => eq => valid => (
+          %Equal.sym(Maybe<&2, R.State<A>>, R.replay.step(~A, ~pdec, acc, b), n, eq) :
+            decoded.maybe(R.State<A>, s => decoded.state(A, s), replay.fold(~A, ~pdec, rest, _))
+          replay.fold.wf(~A, ~pdec, rest, n, valid)))
+
+def replay.fold.none(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, records: List<&1, Bytes.Bytes>) ->
+    {replay.fold(~A, ~pdec, records, None{}) == None{} : Maybe<&2, R.State<A>>}:
+  match records:
+    case Nil{}:
+      {==}
+    case Con{b, rest}:
+      replay.fold.none(~A, ~pdec, rest)
+
+def load.failed(~A: Data, ~X: Type, ~dec: X -> Maybe<&2, R.Rec<A>>,
+    acc: Maybe<&2, R.State<A>>, x: X, failed: {dec(x) == None{} : Maybe<&2, R.Rec<A>>}) ->
+    {R.load(~A, ~X, ~dec, acc, x) == None{} : Maybe<&2, R.State<A>>}:
+  match acc:
+    case None{}:
+      {==}
+    case Some{+s}:
+      %Equal.sym(Maybe<&2, R.Rec<A>>, dec(x), None{}, failed) :
+        {R.load.rec(~A, _, s) == None{} : Maybe<&2, R.State<A>>}
+      {==}
+
+def replay.failed(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    b: Bytes.Bytes, rest: List<&1, Bytes.Bytes>, +acc: Maybe<&2, R.State<A>>,
+    failed: {R.decode.rec(~A, ~pdec, b) == None{} : Maybe<&2, R.Rec<A>>}) ->
+    {replay.fold(~A, ~pdec, Con{b, rest}, acc) == None{} : Maybe<&2, R.State<A>>}:
+  %Equal.sym(Maybe<&2, R.State<A>>, R.replay.step(~A, ~pdec, acc, b), None{},
+    load.failed(~A, ~Bytes.Bytes, ~(x => R.decode.rec(~A, ~pdec, x)), acc, b, failed)) :
+    {replay.fold(~A, ~pdec, rest, _) == None{} : Maybe<&2, R.State<A>>}
+  replay.fold.none(~A, ~pdec, rest)
+
+def replay.accepted.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    records: List<&1, Bytes.Bytes>, +s: R.State<A>, +t: R.State<A>, wf: decoded.state(A, s),
+    accepted: {replay.fold(~A, ~pdec, records, Some{s}) == Some{t} : Maybe<&2, R.State<A>>}) ->
+    decoded.state(A, t):
+  %accepted : decoded.maybe(R.State<A>, x => decoded.state(A, x), _)
+  replay.fold.wf(~A, ~pdec, records, Some{s}, wf)
+
+def calm.state.wf(~A: Data, +s: R.State<A>, wf: decoded.state(A, s)) ->
+    decoded.state(A, R.calm(A, s)):
+  match wf:
+    case (bw, dw):
+      (calm.breaker.wf(~A, s, bw), calm.dead.wf(~A, s, dw))
+
+def replay.recovered.wf(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
+    records: List<&1, Bytes.Bytes>, +s: R.State<A>, +t: R.State<A>, wf: decoded.state(A, s),
+    accepted: {replay.fold(~A, ~pdec, records, Some{s}) == Some{t} : Maybe<&2, R.State<A>>}) ->
+    +Sigma<decoded.state(A, t), _ => decoded.state(A, R.calm(A, t))>:
+  +valid = replay.accepted.wf(~A, ~pdec, records, s, t, wf, accepted)
+  (valid, calm.state.wf(~A, t, valid))
+
 # ---- flight accounting
 
 def flights.distinct(-A: Data, fs: List<&2, Q.Ticket<A>>) -> Data:
