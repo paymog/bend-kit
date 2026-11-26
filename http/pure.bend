@@ -1,6 +1,6 @@
 # Pure HTTP codecs, framing, redirect, retry, and cookie rules.
 import Base
-import bend-kit-time@0.3.0.2/pure.bend as Time
+import bend-kit-time@0.3.0.3/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc

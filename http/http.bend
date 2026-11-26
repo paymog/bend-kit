@@ -6,8 +6,8 @@ import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-http2@0.6.0.0/http2.bend as H2
 import bend-kit-http2@0.6.0.0/hpack.bend as Hpack
 import bend-kit-bytes@0.3.3.1/bytes.bend as HBytes
-import bend-kit-time@0.3.0.2/pure.bend as Time
-import bend-kit-time@0.3.0.2/time.bend as Clock
+import bend-kit-time@0.3.0.3/pure.bend as Time
+import bend-kit-time@0.3.0.3/time.bend as Clock
 import ./pure.bend as Pure
 import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 import bend-kit-url@0.4.1.0/url.bend as Url

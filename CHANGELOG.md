@@ -7,6 +7,8 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `http` 0.44.0.2: use Time 0.3.0.3 for pure models and runtime clock adapters.
+
 - `notch` 0.4.0.3: adopt Time 0.3.0.3.
 - `cache`, `protobuf`, `scheduler`, `wire`: use Time 0.3.0.3 in checks, benchmarks, and clock helpers.
 
