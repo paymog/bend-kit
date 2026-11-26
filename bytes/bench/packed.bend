@@ -1,7 +1,7 @@
 # Bytes benchmark: a packed Array<U32> byte buffer (see README.md).
 import Base
-import ../../time/time.bend as Time
 import ../bytes.bend as Bytes
+import ./batch.bend as Batch
 
 # Bytes as Array<U32>, 4 bytes per slot, little-endian: byte i = (w[i/4] >> 8*(i%4)) & 255.
 # L = 28: N = 2^28 bytes, 2^26 words.
@@ -209,12 +209,12 @@ def rnd.go(n: Nat, +shift: Nat, r: Array<U32> & U32, +x: U32, acc: U32) -> Array
       rnd.go(p, shift, byte(b, U32.shrn(x2, shift)), x2, (acc + v : U32))
 
 # equal, word at a time
-def eq.fin(r1: Array<U32> & U32, r2: Array<U32> & U32, ok: Bool) -> Array<U32> & U32:
+def eq.fin(r1: Array<U32> & U32, r2: Array<U32> & U32, ok: Bool) -> Array<U32> & (Array<U32> & U32):
   (a, x) = r1
   (c, y) = r2
-  (a, Bool.pick(U32, Bool.and(ok, U32.is_eq(x, y)), 1, 0))
+  (a, (c, Bool.pick(U32, Bool.and(ok, U32.is_eq(x, y)), 1, 0)))
 
-def eq.go(n: Nat, r1: Array<U32> & U32, r2: Array<U32> & U32, +i: U32, ok: Bool) -> Array<U32> & U32:
+def eq.go(n: Nat, r1: Array<U32> & U32, r2: Array<U32> & U32, +i: U32, ok: Bool) -> Array<U32> & (Array<U32> & U32):
   match n:
     case 0n:
       eq.fin(r1, r2, ok)
@@ -223,16 +223,9 @@ def eq.go(n: Nat, r1: Array<U32> & U32, r2: Array<U32> & U32, +i: U32, ok: Bool)
       (c, +y) = r2
       eq.go(p, Array.get(U32, a, (i + 1 : U32)), Array.get(U32, c, (i + 1 : U32)), (i + 1 : U32), Bool.and(ok, U32.is_eq(x, y)))
 
-def eq.start(+cfg: Config, ac: Array<U32> & Array<U32>) -> Array<U32> & U32:
+def eq.start(+cfg: Config, ac: Array<U32> & Array<U32>) -> Array<U32> & (Array<U32> & U32):
   (a, c) = ac
   eq.go(U32.to_nat((n(cfg) / 4 : U32)), (a, 0), (c, 0), 4294967295, True{})
-
-# ops, timed in-process. The checksum is printed before the second clock read so it is forced.
-def lap(+name: String, t0: Time.Duration, +chk: U32) -> IO(Unit):
-  do IO<Unit>:
-    IO.print("chk\t" ++ name ++ "\t" ++ U32.show(chk))
-    t1 : Time.Duration <- Time.mono()
-    IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
 
 def build.go(n: Nat, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:
   match n:
@@ -249,128 +242,79 @@ def build.check(r: Bytes.Bytes & Maybe<&2, U32>, +n: U32) -> U32:
     case None{}:
       0
 
-def build.done(b: Bytes.Bytes, +n: U32) -> U32:
-  build.check(Bytes.get(b, (n - 1 : U32)), n)
+def step.build(+n: U32) -> U32 & U32:
+  (n, build.check(Bytes.get(build.go(U32.to_nat(n), Bytes.new(0), 0), (n - 1 : U32)), n))
 
-def op.build(+n: U32, +name: String) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    lap(name, t0, build.done(build.go(U32.to_nat(n), Bytes.new(0), 0), n))
+def step.fill(+cfg: Config, old: Array<U32>) -> Array<U32> & U32:
+  add2(byte(fill.all(cfg), (12345 % n(cfg) : U32)), (n(cfg) - 1 : U32))
 
-def op.equal.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
-  do IO<Unit>:
-    lap("equal", t0, v)
-    op.build(build1(cfg), "build_" ++ U32.show(build1(cfg)))
-    op.build(build2(cfg), "build_" ++ U32.show(build2(cfg)))
+def step.sum(+cfg: Config, a: Array<U32>) -> Array<U32> & U32:
+  sum.go(U32.to_nat((n(cfg) / 4 : U32)), Array.get(U32, a, 0), 0, 0)
 
-def op.equal(+cfg: Config, ac: Array<U32> & Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.equal.done(cfg, t0, eq.start(cfg, ac))
+def step.sumb(+cfg: Config, a: Array<U32>) -> Array<U32> & U32:
+  sumb.go(U32.to_nat(n(cfg)), byte(a, 0), 0, 0)
 
-def op.random.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
-  do IO<Unit>:
-    lap("random", t0, v)
-    op.equal(cfg, Array.clone(U32, a))
+def step.find(+cfg: Config, a: Array<U32>) -> Array<U32> & U32:
+  find.go(U32.to_nat((n(cfg) / 4 : U32)), Array.get(U32, a, 0), (0, 4294967295), 0)
 
-def op.random(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.random.done(cfg, t0, rnd.go(reads(cfg), Nat.sub(32n, lg(cfg)), (a, 0), 1, 0))
+def step.findw(+cfg: Config, a: Array<U32>) -> Array<U32> & U32:
+  findw.go(U32.to_nat((n(cfg) / 4 : U32)), Array.get(U32, a, 0), (0, 4294967295), 0)
+def keep(a: Array<U32>, r: Array<U32> & U32) -> Array<U32> & U32:
+  (out, value) = r
+  (a, value)
 
-def op.concat.done(+cfg: Config, t0: Time.Duration, a: Array<U32>, r: Array<U32> & U32) -> IO(Unit):
-  (o, v) = r
-  do IO<Unit>:
-    lap("concat", t0, v)
-    op.random(cfg, a)
-
-def op.concat(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.concat.done(cfg, t0, a, add2(byte(concat(cfg), 0), (n(cfg) - 1 : U32)))
-
-def op.slice.chk(+cfg: Config, t0: Time.Duration, a: Array<U32>, r: Array<U32> & U32) -> IO(Unit):
-  (s, v) = r
-  do IO<Unit>:
-    lap("slice", t0, v)
-    op.concat(cfg, a)
-
-def op.slice.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & Array<U32>) -> IO(Unit):
+def step.slice.done(+cfg: Config, r: Array<U32> & Array<U32>) -> Array<U32> & U32:
   (a, s) = r
-  op.slice.chk(cfg, t0, a, add2(byte(s, 0), (n(cfg) / 2 - 1 : U32)))
+  keep(a, add2(byte(s, 0), (n(cfg) / 2 - 1 : U32)))
 
-def op.slice(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.slice.done(cfg, t0, slice.start(cfg, Array.get(U32, a, (n(cfg) / 16 : U32))))
+def step.slice(+cfg: Config, a: Array<U32>) -> Array<U32> & U32:
+  step.slice.done(cfg, slice.start(cfg, Array.get(U32, a, (n(cfg) / 16 : U32))))
 
-def op.findw.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
-  do IO<Unit>:
-    lap("find_swar", t0, v)
-    op.slice(cfg, a)
+def step.concat(+cfg: Config, a: Array<U32>) -> Array<U32> & U32:
+  keep(a, add2(byte(concat(cfg), 0), (n(cfg) - 1 : U32)))
 
-def op.findw(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.findw.done(cfg, t0, findw.go(U32.to_nat((n(cfg) / 4 : U32)), Array.get(U32, a, 0), (0, 4294967295), 0))
+def step.random(+cfg: Config, a: Array<U32>) -> Array<U32> & U32:
+  rnd.go(reads(cfg), Nat.sub(32n, lg(cfg)), (a, 0), 1, 0)
 
-def op.find.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
-  do IO<Unit>:
-    lap("find", t0, v)
-    op.findw(cfg, a)
+def run.array.done(cfg: Config, r: Array<U32> & U32) -> (Config & Array<U32>) & U32:
+  (out, value) = r
+  ((cfg, out), value)
 
-def op.find(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.find.done(cfg, t0, find.go(U32.to_nat((n(cfg) / 4 : U32)), Array.get(U32, a, 0), (0, 4294967295), 0))
+def run.array(~step: Config -> Array<U32> -> Array<U32> & U32, state: Config & Array<U32>) -> (Config & Array<U32>) & U32:
+  (+cfg, a) = state
+  run.array.done(cfg, step(cfg, a))
 
-def op.sum2.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
-  do IO<Unit>:
-    lap("sum_again", t0, v)
-    op.find(cfg, a)
+def run.equal.done(cfg: Config, r: Array<U32> & (Array<U32> & U32)) -> (Config & (Array<U32> & Array<U32>)) & U32:
+  (a, (c, value)) = r
+  ((cfg, (a, c)), value)
 
-def op.sum2(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.sum2.done(cfg, t0, sum.go(U32.to_nat((n(cfg) / 4 : U32)), Array.get(U32, a, 0), 0, 0))
+def run.equal(state: Config & (Array<U32> & Array<U32>)) -> (Config & (Array<U32> & Array<U32>)) & U32:
+  (+cfg, ac) = state
+  run.equal.done(cfg, eq.start(cfg, ac))
 
-def op.sumb.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
+def finish(+cfg: Config, ac: Array<U32> & Array<U32>) -> IO(Unit):
   do IO<Unit>:
-    lap("sum_bytewise", t0, v)
-    op.sum2(cfg, a)
+    unused : Config & (Array<U32> & Array<U32>) <- Batch.run(~(Config & (Array<U32> & Array<U32>)), ~run.equal, "equal", (cfg, ac))
+    b1 : U32 <- Batch.run(~U32, ~(n => step.build(n)), "build_" ++ U32.show(build1(cfg)), build1(cfg))
+    b2 : U32 <- Batch.run(~U32, ~(n => step.build(n)), "build_" ++ U32.show(build2(cfg)), build2(cfg))
+    return Unit{}
 
-def op.sumb(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.sumb.done(cfg, t0, sumb.go(U32.to_nat(n(cfg)), byte(a, 0), 0, 0))
-
-def op.sum.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
-  do IO<Unit>:
-    lap("sum", t0, v)
-    op.sumb(cfg, a)
-
-def op.sum(+cfg: Config, a: Array<U32>) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.sum.done(cfg, t0, sum.go(U32.to_nat((n(cfg) / 4 : U32)), Array.get(U32, a, 0), 0, 0))
-
-def op.fill.done(+cfg: Config, t0: Time.Duration, r: Array<U32> & U32) -> IO(Unit):
-  (a, v) = r
-  do IO<Unit>:
-    lap("fill", t0, v)
-    op.sum(cfg, a)
+def finish.state(state: Config & Array<U32>) -> IO(Unit):
+  (cfg, a) = state
+  finish(cfg, Array.clone(U32, a))
 
 def start(+cfg: Config) -> IO(Unit):
   do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.fill.done(cfg, t0, add2(byte(fill.all(cfg), (12345 % n(cfg) : U32)), (n(cfg) - 1 : U32)))
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.fill(cfg, a))), "fill", (cfg, Array.new(U32, 0n, 0)))
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.sum(cfg, a))), "sum", state)
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.sumb(cfg, a))), "sum_bytewise", state)
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.sum(cfg, a))), "sum_again", state)
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.find(cfg, a))), "find", state)
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.findw(cfg, a))), "find_swar", state)
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.slice(cfg, a))), "slice", state)
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.concat(cfg, a))), "concat", state)
+    state : Config & Array<U32> <- Batch.run(~(Config & Array<U32>), ~run.array(~(cfg => a => step.random(cfg, a))), "random", state)
+    finish.state(state)
 
 def main() -> IO(Unit):
   do IO<Unit>:

@@ -1,110 +1,75 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
-	"os"
-	"strconv"
-	"time"
+    "bytes"
+    "fmt"
+    "os"
+    "runtime"
+    "strconv"
+    "time"
 )
 
-func fillBuf(b []byte) uint32 {
-	n := len(b)
-	for i := range b {
-		b[i] = byte((i*31 + 7) & 255)
-	}
-	b[n-4] = 13
-	b[n-3] = 10
-	b[n-2] = 13
-	b[n-1] = 10
-	return uint32(b[12345%n]) + uint32(b[n-1])
+func envCount(name string, fallback int) int {
+    if s := os.Getenv(name); s != "" { n, err := strconv.Atoi(s); if err != nil || n < 0 { panic("invalid count") }; return n }
+    return fallback
+}
+
+func measure(name string, operation func() uint32) {
+    count := max(1, envCount("BYTES_BENCH_COUNT", 1))
+    warmup := envCount("BYTES_BENCH_WARMUP", 0)
+    for i := 0; i < warmup; i++ { runtime.KeepAlive(operation()) }
+    var last, total uint32
+    t0 := time.Now()
+    for i := 0; i < count; i++ { last = operation(); total += last }
+    ms := time.Since(t0).Seconds() * 1000
+    fmt.Printf("%s\t%.6f\t%d\t%d\t%d\n", name, ms, last, count, total)
+}
+
+func fill(n int) []byte {
+    b := make([]byte, n)
+    for i := range b { b[i] = byte((i*31 + 7) & 255) }
+    copy(b[n-4:], []byte{13, 10, 13, 10})
+    return b
 }
 
 func main() {
-	L := 28
-	if len(os.Args) > 1 {
-		if v, err := strconv.Atoi(os.Args[1]); err == nil {
-			L = v
-		}
-	}
-	n := 1 << L
-	reads, b1, b2 := 1<<24, 1000000, 4000000
-	if len(os.Args) > 2 { reads, _ = strconv.Atoi(os.Args[2]) }
-	if len(os.Args) > 3 { b1, _ = strconv.Atoi(os.Args[3]) }
-	if len(os.Args) > 4 { b2, _ = strconv.Atoi(os.Args[4]) }
-
-	t0 := time.Now()
-	b := make([]byte, n)
-	cs := fillBuf(b)
-	fmt.Printf("fill\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, cs)
-
-	t0 = time.Now()
-	var sum uint32
-	for _, v := range b {
-		sum += uint32(v)
-	}
-	fmt.Printf("sum\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, sum)
-
-	needle := []byte{13, 10, 13, 10}
-	t0 = time.Now()
-	findIdx := bytes.Index(b, needle)
-	fmt.Printf("find\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, findIdx)
-
-	sliceStart := n/4 + 1
-	sliceLen := n / 2
-	t0 = time.Now()
-	s := make([]byte, sliceLen)
-	copy(s, b[sliceStart:sliceStart+sliceLen])
-	cs = uint32(s[0]) + uint32(s[sliceLen-1])
-	fmt.Printf("slice\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, cs)
-
-	t0 = time.Now()
-	var out []byte
-	chunkSize := min(n, 65536)
-	chunks := n / chunkSize
-	for k := 0; k < chunks; k++ {
-		chunk := make([]byte, chunkSize)
-		byteVal := byte(k & 255)
-		for i := range chunk {
-			chunk[i] = byteVal
-		}
-		out = append(out, chunk...)
-	}
-	if len(out) != n {
-		os.Exit(1)
-	}
-	cs = uint32(out[0]) + uint32(out[len(out)-1])
-	fmt.Printf("concat\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, cs)
-
-	x, acc := uint32(1), uint32(0)
-	shift := 32 - L
-	t0 = time.Now()
-	for i := 0; i < reads; i++ {
-		x = x*1664525 + 1013904223
-		idx := x >> shift
-		acc += uint32(b[idx])
-	}
-	fmt.Printf("random\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, acc)
-
-	c := make([]byte, n)
-	copy(c, b)
-	t0 = time.Now()
-	eq := bytes.Equal(b, c)
-	fmt.Printf("equal\t%.6f\t%d\n", time.Since(t0).Seconds()*1000.0, boolToU32(eq))
-	for _, size := range []int{b1, b2} {
-		t0 = time.Now()
-		var built []byte
-		for i := range size {
-			built = append(built, byte(i&255))
-		}
-		cs = uint32(size) + uint32(built[size-1])
-		fmt.Printf("build_%d\t%.6f\t%d\n", size, time.Since(t0).Seconds()*1000.0, cs)
-	}
-}
-
-func boolToU32(b bool) uint32 {
-	if b {
-		return 1
-	}
-	return 0
+    arg := func(i, fallback int) int { if len(os.Args) > i { n, err := strconv.Atoi(os.Args[i]); if err != nil { panic(err) }; return n }; return fallback }
+    L := arg(1, 28)
+    n := 1 << L
+    reads, b1, b2 := arg(2, 1<<24), arg(3, 1000000), arg(4, 4000000)
+    measure("fill", func() uint32 { b := fill(n); return uint32(b[12345%n]) + uint32(b[n-1]) })
+    b := fill(n)
+    measure("sum", func() uint32 { var sum uint32; for _, v := range b { sum += uint32(v) }; return sum })
+    needle := []byte{13, 10, 13, 10}
+    measure("find", func() uint32 { return uint32(bytes.Index(b, needle)) })
+    measure("slice", func() uint32 {
+        out := make([]byte, n/2)
+        copy(out, b[n/4+1:n/4+1+n/2])
+        return uint32(out[0]) + uint32(out[len(out)-1])
+    })
+    measure("concat", func() uint32 {
+        var out []byte
+        chunkSize := min(n, 65536)
+        for k := 0; k < n/chunkSize; k++ {
+            chunk := make([]byte, chunkSize)
+            for i := range chunk { chunk[i] = byte(k & 255) }
+            out = append(out, chunk...)
+        }
+        if len(out) != n { panic("concat length") }
+        return uint32(out[0]) + uint32(out[len(out)-1])
+    })
+    measure("random", func() uint32 {
+        x, acc := uint32(1), uint32(0)
+        for i := 0; i < reads; i++ { x = x*1664525 + 1013904223; acc += uint32(b[x >> (32-L)]) }
+        return acc
+    })
+    c := append([]byte(nil), b...)
+    measure("equal", func() uint32 { if bytes.Equal(b, c) { return 1 }; return 0 })
+    for _, size := range []int{b1, b2} {
+        measure(fmt.Sprintf("build_%d", size), func() uint32 {
+            var out []byte
+            for i := 0; i < size; i++ { out = append(out, byte(i&255)) }
+            return uint32(size) + uint32(out[size-1])
+        })
+    }
 }

@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("runs", nargs="?", type=int, default=3)
 parser.add_argument("--small", action="store_true")
 parser.add_argument("--log2-size", type=int, choices=range(8, 29), metavar="8..28")
+parser.add_argument("--batch", action="store_true", help="warm up and batch each operation above 5 ms")
 args = parser.parse_args()
 RUNS = args.runs
 SMALL = args.small
@@ -35,67 +36,91 @@ VARIANTS = {
 
 
 def parse(text):
-    """-> {op: (ms, checksum)}. Baselines print `op ms chk`; Bend prints `chk op v` then `ms op v`."""
-    got, chk = {}, {}
+    """Read operation, batch milliseconds, last checksum, count, and checksum sum."""
+    got = {}
     for line in text.splitlines():
         p = line.split("\t")
-        if len(p) != 3:
+        if len(p) != 5:
             continue
-        if p[0] == "chk":
-            chk[p[1]] = p[2]
-        elif p[0] == "ms":
-            got[p[1]] = (float(p[2]), chk.get(p[1]))
-        else:
-            got[p[0]] = (float(p[1]), p[2])
-    # Bend's byte-API sum is what a Bytes.get caller pays; report it as `sum`.
+        op, ms, last, count, total = p
+        ms, last, count, total = float(ms), int(last), int(count), int(total)
+        if count < 1 or not math.isfinite(ms) or ms < 0 or total != (last * count) & 0xFFFFFFFF:
+            sys.exit(f"invalid batch: {line}")
+        if op in got:
+            sys.exit(f"duplicate operation: {op}")
+        got[op] = (ms / count, last, count, ms)
     for extra, reference in (("sum_bytewise", "sum"), ("sum_again", "sum"), ("find_swar", "find")):
         if extra in got and got[extra][1] != got.get(reference, (None, None))[1]:
             sys.exit(f"checksum mismatch in {extra}: {got[extra]} != {got.get(reference)}")
-    if "sum_bytewise" in got:
-        got["sum"] = got["sum_bytewise"]
     return got
 
 
 def main():
     OUT.mkdir(exist_ok=True)
-    table, checks = {}, {}
+    table, checks, batches = {}, {}, {}
     for name, (build, run, scale) in VARIANTS.items():
         if build and subprocess.run(build, cwd=HERE, env=ENV).returncode != 0:
             sys.exit(f"build failed: {name}")
-        runs = []
-        for _ in range(1 if name in ("Python", "Bend String") else RUNS):
-            r = subprocess.run(run, cwd=HERE, env=ENV, capture_output=True, text=True)
+        expected = OPS if name != "Bend String" else OPS[:5] + ["equal"]
+        if name == "Bend Array":
+            expected = expected + ["sum_bytewise", "sum_again", "find_swar"]
+
+        def sample(count):
+            env = {**ENV, "BYTES_BENCH_COUNT": str(count), "BYTES_BENCH_WARMUP": "32" if args.batch else "0"}
+            r = subprocess.run(run, cwd=HERE, env=env, capture_output=True, text=True)
             if r.returncode != 0:
                 sys.exit(f"{name} failed:\n{r.stderr}")
-            runs.append(parse(r.stdout))
-            result = runs[-1]
-            expected = OPS if name != "Bend String" else OPS[:5] + ["equal"]
-            if name == "Bend Array":
-                expected = expected + ["sum_bytewise", "sum_again", "find_swar"]
-            missing = [op for op in expected if op not in result or any(value is None for value in result[op])]
-            if not result or missing:
-                sys.exit(f"{name} repetition {len(runs)}: missing timing or checksum for {missing or 'all operations'}: {result}")
-            if {op: value[1:] for op, value in result.items()} != {op: value[1:] for op, value in runs[0].items()}:
-                sys.exit(f"{name} repetition {len(runs)}: checksum mismatch: {result} != {runs[0]}")
-        table[name] = {op: statistics.median(x[op][0] for x in runs) * scale for op in OPS if op in runs[0]}
+            result = parse(r.stdout)
+            if set(result) != set(expected) or any(v[2] != count for v in result.values()):
+                sys.exit(f"{name}: missing or unexpected operation/count: {result}")
+            return result
+
+        count = 32 if args.batch else 1
+        runs = []
+        repetitions = RUNS if args.batch or name not in ("Python", "Bend String") else 1
+        while len(runs) < repetitions:
+            result = sample(count)
+            minimum = min(v[3] for v in result.values())
+            if args.batch and minimum < 5:
+                count *= max(2, min(16, math.ceil(10 / max(minimum, 0.000001))))
+                if count > 16777216:
+                    sys.exit(f"{name}: cannot reach the batch timer floor")
+                runs.clear()
+                continue
+            if runs and {op: v[1] for op, v in result.items()} != {op: v[1] for op, v in runs[0].items()}:
+                sys.exit(f"{name}: checksum mismatch between repetitions")
+            runs.append(result)
+        batches[name] = runs
+        reported = [dict(x, sum=x["sum_bytewise"]) if "sum_bytewise" in x else x for x in runs]
+        table[name] = {op: statistics.median(x[op][0] for x in reported) * scale for op in OPS if op in reported[0]}
         if scale == 1:
-            checks[name] = {op: runs[0][op][1] for op in OPS if op in runs[0]}
-        print(f"ran {name}", file=sys.stderr)
+            checks[name] = {op: reported[0][op][1] for op in OPS if op in reported[0]}
+        print(f"ran {name}: {count} operations per batch, {len(runs)} runs", file=sys.stderr)
 
     ref = next(iter(checks.values()))
     for name, c in checks.items():
         bad = [op for op in (OPS[:5] + ["equal"] if name == "Bend String" else OPS) if c.get(op) != ref.get(op)]
         if bad:
             sys.exit(f"checksum mismatch in {name}: {bad}")
+    if args.batch:
+        print("| variant | op | count | batch ms (median) | ms/op (median) | ms/op (min–max) |")
+        print("|---|---|---:|---:|---:|---:|")
+        for name, runs in batches.items():
+            for op in runs[0]:
+                times = [x[op][0] for x in runs]
+                total = statistics.median(x[op][3] for x in runs)
+                print(f"| {name} | {op} | {runs[0][op][2]} | {total:.6f} | {statistics.median(times):.9f} | {min(times):.9f}–{max(times):.9f} |")
+        return
 
     best = {op: min(t[op] for t in table.values() if op in t) for op in OPS}
     names = list(table)
+    timings_only = SELECTED or any(value <= 0 for value in best.values())
     print("| op | " + " | ".join(names) + " |")
     print("|---|" + "---|" * len(names))
     for op in OPS:
-        cells = [(f"{table[n][op]:.6f}" if SELECTED else f"{table[n][op]:,.1f} ({table[n][op] / best[op]:.1f}x)") if op in table[n] else "n/a" for n in names]
+        cells = [(f"{table[n][op]:.6f}" if timings_only else f"{table[n][op]:,.1f} ({table[n][op] / best[op]:.1f}x)") if op in table[n] else "n/a" for n in names]
         print(f"| {op} | " + " | ".join(cells) + " |")
-    if SELECTED:
+    if timings_only:
         return
     growth = [f"{table[n][f'build_{B2}'] / table[n][f'build_{B1}']:.1f}x" if f"build_{B1}" in table[n] else "n/a" for n in names]
     print(("| build (1024 / 256) | " if SMALL else "| build (4M / 1M) | ") + " | ".join(growth) + " |")
