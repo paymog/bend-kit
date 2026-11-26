@@ -6,7 +6,7 @@ import bend-kit-journal@0.4.0.0/journal.bend as J
 import bend-kit-scheduler@0.4.4.0/queue.bend as Q
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-time@0.3.0.2/time.bend as Time
+import bend-kit-time@0.3.0.3/time.bend as Time
 import bend-kit-collections@0.1.6.0/heap.bend as H
 import bend-kit-files@0.4.0.1/files.bend as Files
 import ./inspect.bend as Inspect
