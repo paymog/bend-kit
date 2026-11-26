@@ -2,10 +2,10 @@
 import Base
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.45.0.0/pure.bend as Pure
+import bend-kit-http@0.45.0.1/pure.bend as Pure
 import bend-kit-router@0.2.0.0/target.bend as Target
-import bend-kit-json@0.7.3.0/json.bend as J
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-json@0.7.3.1/json.bend as J
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 type Config is Data:
   Config{journal: String, depth: U32}

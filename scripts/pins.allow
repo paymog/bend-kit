@@ -6,5 +6,6 @@ bend-kit-files@0.4.0.1  # importers re-pin to bend-kit-files@0.4.0.2 in a later 
 bend-kit-json@0.7.3.0  # importers re-pin to bend-kit-json@0.7.3.1 in a later wave (#456)
 bend-kit-time@0.3.0.3  # importers re-pin to bend-kit-time@0.3.0.4 in a later wave (#456)
 bend-kit-journal@0.4.0.0  # importers re-pin to bend-kit-journal@0.4.0.1 in a later wave (#456)
-bend-kit-notch@0.4.0.3  # importers re-pin to bend-kit-notch@0.4.0.4 in a later wave (#456)
 bend-kit-http@0.45.0.0  # importers re-pin to bend-kit-http@0.45.0.1 in a later wave (#456)
+bend-kit-camber@0.19.0.0  # importers re-pin to bend-kit-camber@0.19.0.1 in a later wave (#456)
+bend-kit-hairpin@0.19.0.0  # importers re-pin to bend-kit-hairpin@0.19.0.1 in a later wave (#456)

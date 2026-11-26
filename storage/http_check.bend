@@ -2,13 +2,13 @@ import Base
 import ./storage.bend as S
 import ./pure.bend as P
 import ./http.bend as Transport
-import bend-kit-http@0.45.0.0/http.bend as Http
-import bend-kit-http@0.45.0.0/pure.bend as Pure
-import bend-kit-http@0.45.0.0/completion.bend as Completion
+import bend-kit-http@0.45.0.1/http.bend as Http
+import bend-kit-http@0.45.0.1/pure.bend as Pure
+import bend-kit-http@0.45.0.1/completion.bend as Completion
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
-import bend-kit-files@0.4.0.1/files.bend as Files
-import bend-kit-http@0.45.0.0/admission.bend as Admission
-import bend-kit-time@0.3.0.3/pure.bend as Time
+import bend-kit-files@0.4.0.2/files.bend as Files
+import bend-kit-http@0.45.0.1/admission.bend as Admission
+import bend-kit-time@0.3.0.4/pure.bend as Time
 import ./http_stream_check.bend as StreamCheck
 
 type Context is Data:

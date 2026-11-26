@@ -4,7 +4,7 @@ import ../http/http.bend as Http
 import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
-import bend-kit-time@0.3.0.3/time.bend as Time
+import bend-kit-time@0.3.0.4/time.bend as Time
 import ./prerequisites.bend as Probe
 
 def receive(-A: Type, channel: Chan(A)) -> IO(A):

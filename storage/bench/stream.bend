@@ -1,6 +1,6 @@
 import Base
 import ../http_stream_check.bend as Check
-import bend-kit-files@0.4.0.1/files.bend as Files
+import bend-kit-files@0.4.0.2/files.bend as Files
 
 def main() -> IO(Unit):
   do IO<Unit>:
