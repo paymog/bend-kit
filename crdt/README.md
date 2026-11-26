@@ -3,7 +3,7 @@
 Replicated data types with proved merges, as in Shapiro et al., "A comprehensive study of Convergent and Commutative Replicated Data Types" (2011). `GCounter` is a grow-only counter keyed by small dense indices. `KCounter` is a grow-only counter keyed by sparse IDs of any `Data` type. `PNCounter` adds decrements with a pair of dense G-Counters. Replicas exchange whole states in any order, and every replica that has seen the same states holds the same counter.
 
 ```bend
-import bend-kit-crdt@0.2.3.1/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.2/crdt.bend as Crdt
 ```
 
 It imports `bend-kit-cbor@0.3.0.1` and `bend-kit-bytes@0.3.3.1` for the wire form.
@@ -18,7 +18,7 @@ Replica 0 receives the state of replica 1 twice.
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.3.1/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.2/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -88,7 +88,7 @@ Replica 7 counts 2 events. Replica 4000000000 counts 1 event and merges the stat
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.3.1/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.2/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -144,6 +144,16 @@ The order facts are `refl` (`cmp(x, x) == EQ`), `eq` (`cmp(x, y) == EQ` gives `x
 `k_le_refl` needs `refl`. `k_le_trans` needs `eq`. `k_merge_mono` needs both and reuses the keyed join proofs. None needs validity. `k_le_antisymm` needs all four facts and valid states: IDs strictly ascend and every count is positive. These states form a partial order. Raw states form only a preorder; a zero entry and an empty state can be at most each other without being equal.
 
 State order compares each replica's count, not the total. States with one event under different IDs have equal totals but are incomparable.
+
+`PROOF.bend` also proves these exact-total statements for valid states, with all four comparator order facts:
+
+| theorem | claim |
+|---|---|
+| `k_exact_mono` | `le(a, b)` implies `value_exact(a) <= value_exact(b)` |
+| `k_exact_merge_grows_l`, `k_exact_merge_grows_r` | the exact total of `merge(a, b)` is at least the exact total of each input |
+| `k_exact_inc_grows` | if `inc(s, k) == Some{u}`, the exact total of `u` is at least that of `s` |
+
+Both inputs to the order and merge statements must be valid. The increment statement requires a valid input and derives validity of the successful result. These statements do not apply to raw states with repeated IDs: two entries with count 1 under the same ID have total 2, but are at most a single entry with count 1.
 
 ## PNCounter
 
