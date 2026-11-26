@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `jwt` 0.15.0.1, `llm` 0.17.0.1, `oauth2` 0.15.0.1, `sigv4` 0.15.0.1, and `webhooks` 0.15.0.1: adopt matching published HTTP, Hairpin, and Time types.
+- `authz` checks and Camber public examples: use the current published Camber release.
+
 - `camber` 0.18.0.2, `hairpin` 0.17.0.1, and `storage` 0.10.0.1: share the published HTTP 0.44.0.2 and Time 0.3.0.3 types. Camber also adopts Notch 0.4.0.3.
 
 - `http` 0.44.0.2: use Time 0.3.0.3 for pure models and runtime clock adapters.

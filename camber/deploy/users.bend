@@ -3,10 +3,10 @@ import Base
 import ../users.bend as U
 import ../users_demo.bend as Demo
 import ./signals.bend as S
-import bend-kit-camber@0.18.0.0/camber.bend as C
-import bend-kit-http@0.44.0.1/http.bend as Http
-import bend-kit-http@0.44.0.1/pure.bend as Pure
-import bend-kit-http@0.44.0.1/completion.bend as T
+import bend-kit-camber@0.18.0.2/camber.bend as C
+import bend-kit-http@0.44.0.2/http.bend as Http
+import bend-kit-http@0.44.0.2/pure.bend as Pure
+import bend-kit-http@0.44.0.2/completion.bend as T
 
 # Acceptance-only non-yielding CPU fixture. No cancellation or proof claim.
 @unsafe
