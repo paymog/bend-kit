@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure whole-process caller RSS and inspect every DEFLATE block on macOS."""
+"""Measure caller RSS, retained JS heap, and every DEFLATE block on macOS."""
 import collections
 import gzip
 import hashlib
@@ -154,6 +154,19 @@ def measured(binary, cwd, want, runs):
     return {"rss_bytes": rss, "inflate_ms": times}
 
 
+def retained(fixture, runs):
+    manifest = OUT / "retained-input.json"
+    manifest.write_text(json.dumps(fixture))
+    samples = []
+    for count in (1, 8, 32):
+        for _ in range(runs):
+            p = subprocess.run(["node", "--expose-gc", str(HERE / "retained.mjs"),
+                                str(manifest), str(count)], env=ENV, capture_output=True,
+                               text=True, check=True)
+            samples.append(json.loads(p.stdout))
+    return samples
+
+
 def main():
     assert sys.platform == "darwin", "RSS units and /usr/bin/time flags are macOS-specific"
     runs = int(sys.argv[1]) if len(sys.argv) > 1 else 3
@@ -172,7 +185,11 @@ def main():
                            (HERE / "../../zlib/bench/bench.bend", OUT / "encode"),
                            (HERE / "sparse.bend", OUT / "sparse")]:
         subprocess.run(["bend", str(source), "-o", str(binary)], env=ENV, check=True)
-    report = {}
+    subprocess.run(["bend", str(HERE / "../../zlib/zlib.bend"), "-o",
+                    str(OUT / "zlib.mjs")], env=ENV, check=True)
+    report = {"environment": {"compiler": subprocess.check_output(
+        ["bend", "version"], text=True).strip(), "python": sys.version,
+        "platform": os.uname().version}}
     for n in sizes_plain:
         plain = caller.plain_bytes(n)
         work = OUT / str(n)
@@ -191,6 +208,12 @@ def main():
             result.update(blocks=blocks, plain_bytes=n, gzip_bytes=len(gz),
                           sha256=hashlib.sha256(gz).hexdigest(), checksum=bits.checksum(plain))
             report[f"{name}-{n}"] = result
+            members = gz + gz
+            (work / "out/members.gz").write_bytes(members)
+            result["retained"] = retained({
+                "path": str(work / "out/payload.gz"), "checksum": bits.checksum(plain),
+                "members_path": str(work / "out/members.gz"), "members_bytes": len(members),
+                "members_checksum": bits.checksum(plain + plain)}, runs)
             print(name, n, "blocks", len(blocks), "peak RSS bytes", result["rss_bytes"],
                   "median inflate ms", statistics.median(result["inflate_ms"]))
     control = OUT / "controls"
@@ -222,6 +245,8 @@ def main():
         assert checked == 84, p.stdout
         control_rss.append(int(re.search(r"(\d+)\s+maximum resident set size", p.stderr)[1]))
     report["controls"] = {"rss_bytes": control_rss, "live_tables": 1}
+    report["controls"]["retained"] = {
+        name: retained({"lens": lens}, runs) for name, lens in sparse.FIXTURES.items()}
     (OUT / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print("synthetic combined RSS bytes", control_rss)
     print("raw samples and all block distributions:", OUT / "report.json")
