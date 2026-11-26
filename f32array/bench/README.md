@@ -160,6 +160,16 @@ Three rejected same-machine layouts used three-run medians at N = 4,194,304 on m
 
 Run `python3 f32array/bench/load.py` from the repo root. Set `BEND=/path/to/bend` to select a compiler. The driver emits C and builds two binaries with `cc -O2 -std=c11`: one unchanged for time and RSS, and one with allocation counters. It runs one process at a time, with one worker. Each row is the median of three runs. Allocation counts and bytes must be identical across all three instrumented runs.
 
+On Linux, install GNU time, Clang, Python, NumPy, and Bend, then run:
+
+```sh
+CC=clang BEND=/path/to/bend python3 f32array/bench/load.py
+```
+
+The Linux driver uses `/usr/bin/time -f 'peak_rss_kib %M'` and multiplies its KiB result by 1,024. The macOS driver keeps `/usr/bin/time -l`, whose RSS is already in bytes. Both report the full uninstrumented process's peak RSS, including setup and validation outside the timed interval. Linux machine data comes from `/proc/cpuinfo` and Python's platform record; macOS keeps `sysctl`. Neither path changes the allocation instrument below.
+
+`CC` selects the C compiler; it defaults to `cc`. Bend 2.0.40 emits Clang's statement-level `musttail` attribute. GCC 13 rejects this emitted C, so use Clang on Linux.
+
 Both F32 and little-endian BF16 files repeat `[-2, -1, 0, 1, 2, 3, 4, 5]`. These values are exact in both formats. The driver warms the file cache before each pair of paths. The `into` path reads into an existing destination at index 1. The `copy` path allocates a source array and copies each element into that same destination range. Both retain two zero boundary lanes. Each run checks the sum against NumPy float64. After the timer stops, it checks every element and both boundary lanes. The sums are 12 and 1,572,864.
 
 Apple M4 Pro, arm64, macOS 26.7.2, 2026-11-25. Bend 2.0.40, Apple clang 21.0.0 (`-O2`), Python 3.14.6, NumPy 2.4.2. Times are in milliseconds. `/usr/bin/time -l` measures peak RSS for the full, uninstrumented process.
@@ -178,6 +188,23 @@ Apple M4 Pro, arm64, macOS 26.7.2, 2026-11-25. Bend 2.0.40, Apple clang 21.0.0 (
 The instrument counts calls to Bend's emitted `heap_alloc`, including requests served from its free lists. It sums each request's size class as `8 << cls` bytes. These are cumulative runtime allocation requests, not live bytes, libc `malloc` calls, or physical memory commitments. The two `Time.mono` host calls enable and disable the counters. This interval includes the first clock result, load, byte chunks, runtime nodes, any source allocation and copy, checksum reduction, and checksum output. It excludes destination allocation, file open, process setup, the second clock result, the full element check, and file close. Host-library allocations and heap arena reservations are not counted. The driver fails if either runtime hook no longer matches exactly once.
 
 At 2^20 elements, the copy path requests 4,194,448 more runtime bytes and nine more allocations in either format. The extra logical F32 array is 4 MiB even when the file is BF16. Destination reads reduce measured time by 30% for F32 and 47% for BF16. Tiny times are dominated by fixed IO and clock costs. Counter overhead does not enter these times or RSS values. RSS covers the full process and has a different scope from the counters; do not subtract it to estimate allocator bytes. This measures the Bend API paths, not raw filesystem throughput.
+
+### Linux load results
+
+Apple M4 Pro host, native aarch64 Ubuntu 24.04.5 container in OrbStack, Linux `7.2.12-orbstack-00394-gbecdd6130068`, 2026-11-25 local time. The VM exposes 12 CPUs; the benchmark uses one worker. Bend 2.0.40 (`linux-arm64` release), Ubuntu Clang 18.1.3 (`-O2 -std=c11`), glibc 2.39, Python 3.12.3, NumPy 1.26.4, GNU time package 1.9-0.2build1. The command above ran both paths at both sizes. Each row is the median of three uninstrumented runs. All six runs per row passed the sum, full element, and boundary checks; all three instrumented runs agreed on allocation counts and bytes.
+
+| format | elements | path | ms | peak RSS bytes | runtime allocation requests | runtime allocation bytes |
+|---|---:|---|---:|---:|---:|---:|
+| F32 | 8 | into | 0.062624 | 2,146,304 | 5,011 | 70,880 |
+| F32 | 8 | copy | 0.067625 | 2,154,496 | 5,020 | 71,056 |
+| BF16 | 8 | into | 0.065500 | 2,035,712 | 5,011 | 70,864 |
+| BF16 | 8 | copy | 0.071374 | 2,154,496 | 5,020 | 71,040 |
+| F32 | 1,048,576 | into | 6.138461 | 12,754,944 | 21,439 | 4,659,808 |
+| F32 | 1,048,576 | copy | 8.995277 | 16,945,152 | 21,448 | 8,854,256 |
+| BF16 | 1,048,576 | into | 4.334807 | 12,754,944 | 21,415 | 2,561,744 |
+| BF16 | 1,048,576 | copy | 7.975700 | 16,928,768 | 21,424 | 6,756,192 |
+
+Linux runtime allocation requests and bytes match the macOS results exactly. At 2^20 elements, destination reads reduce measured time by 32% for F32 and 46% for BF16. These are warm-cache measurements in a VM, not a bare-metal Linux comparison or a cross-OS speed claim. GNU time reports process peak RSS, not container or VM peak memory. RSS and allocator counters keep the different scopes stated above.
 
 ## Caveats
 
