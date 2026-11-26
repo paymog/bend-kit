@@ -159,3 +159,62 @@ After statement reuse, the success sample has 3,974 observations and the overflo
 Row materialization is not the dominant native effect. Success reads 16 BLOB columns; overflow reads 14 and steps the eighth row without decoding it. Each read still crosses an effect boundary and the `Run` continuation chain, so the column effect percentage alone is not the total cost of reading rows. Transaction handling includes `BEGIN IMMEDIATE`, lookup, and either record insertion plus `COMMIT`, or cleanup plus `ROLLBACK`. These appear together under `stmt_step_run`; the sampler does not separate statement ids. Overflow has no decision, record write, or commit, yet closure dispatch remains the largest named cost.
 
 The remaining large-table gap is about 3.3 times C for success and 3.6 times C for overflow. Removing transaction steps would weaken atomicity or retry behavior. Returning SQLite-owned row memory would break ownership when the statement advances. Fusing effects or changing continuation dispatch needs separate evidence and a wider interface change. This change does neither.
+
+### Continuation dispatch isolation
+
+Apple arm64, Darwin 25.6.0, 2026-11-25. Bend 2.0.40 and Apple clang 21.0.0. Rust 1.91.0, Bun 1.4.4, and Python 3.14.6. The baseline and final change ran separately on the same machine with `python3 run.py 3 10000`. Each implementation was checked first with `python3 run.py 1 5`. Times are medians in ms.
+
+| variant | phase | range small | overflow small | range large | overflow large |
+|---|---|---:|---:|---:|---:|
+| C | before | 41.192 | 23.832 | 42.329 | 24.871 |
+| C | after | 40.760 | 23.501 | 42.454 | 24.505 |
+| Rust | before | 40.859 | 23.928 | 42.174 | 24.908 |
+| Rust | after | 40.453 | 23.445 | 40.858 | 24.629 |
+| Bun | before | 77.634 | 36.732 | 75.512 | 35.638 |
+| Bun | after | 75.789 | 36.047 | 73.714 | 34.893 |
+| Python | before | 115.607 | 44.226 | 117.363 | 46.015 |
+| Python | after | 115.198 | 44.044 | 117.694 | 45.260 |
+| Bend | before | 136.557 | 89.020 | 137.583 | 88.991 |
+| Bend | after | 132.767 | 85.710 | 133.157 | 85.736 |
+
+The final Bend change reduces range time by 2.8% (small) and 3.2% (large). Overflow improves by 3.7% and 3.7%. A separate candidate run before the final driver changes measured 133.665, 86.150, 134.091, and 87.130 ms. The gain is small; it does not remove the continuation cost. All five variants agree on all six checksums in every run: fresh **5023800**, replay **1224217884**, both ranges **4216059904**, and both overflows **1895051776**. The independent expected range hashes pass.
+
+#### Native closure targets
+
+`python3 dispatch.py` builds the focused native driver as generated C. It counts the target function id at `Clo.apply`, not just entries in the generic dispatcher. It runs each mode with 0 and 1,000 commands and subtracts the counts to remove seed and post-run checks. It checks the resulting checksums independently. Run it with the default sequential driver; the counters are not a concurrent profiler. It rejects an unrecognized generated dispatcher. The instrumented binary is diagnostic only and is not used for timings.
+
+| closure calls per command | range before | range after | overflow before | overflow after |
+|---|---:|---:|---:|---:|
+| `IO.bind` continuation | 79 | 79 | 64 | 64 |
+| `Run.bind` first continuation | 67 | 51 | 52 | 38 |
+| `Run.bind` second continuation | 67 | 51 | 52 | 38 |
+| `Run.pure` continuation | 31 | 15 | 16 | 2 |
+| column wrapper continuations, combined | 16 | 48 | 14 | 42 |
+| SQLite BLOB column effect closure | 16 | 16 | 14 | 14 |
+| range row continuations, combined | 32 | 32 | 21 | 21 |
+| all closures | 383 | 367 | 300 | 286 |
+
+Before the change, the two `Run.bind` continuations and `IO.bind` account for 213 of 383 successful-path closure calls and 168 of 300 overflow calls. The pure decision is not the source of those calls. Every BLOB column previously used a fallible `Run` bind just to wrap the owned `(length, array)` pair in `Bytes.Bytes`. The new `column.result` matches `Done` or `Fail` inside one IO block. It passes failures through unchanged and transfers the same owned array. It adds no traversal or byte copy. The compiler emits three column continuations instead of one, but removes two `Run.bind` continuations and one `Run.pure` continuation per column. The net reduction is one closure call per BLOB column: 16 on success and 14 on overflow.
+
+The native samples use the earlier sampling command with a three-second duration and 1,000,000 commands. Before the change, the success and overflow samples have 2,368 and 2,382 main-thread observations; `Clo.apply` appears in 1,092 and 1,289. After the change, the totals are 2,385 and 2,398; `Clo.apply` appears in 1,021 and 1,271. These samples include the brief seed. They show that dispatch remains substantial, not an exact time saving for a named closure. The target counters above identify which continuations execute.
+
+#### Pure decision control
+
+```sh
+bend profile.bend -o out/profile
+out/profile range 5
+out/profile constant 5
+out/profile overflow 5
+out/profile range 10000
+out/profile constant 10000
+out/profile overflow 10000
+python3 dispatch.py
+```
+
+`constant` retains the full successful transaction and all eight owned rows. Only its decision changes: it drops the rows and returns the known hash **1588457592**. It skips row-byte-to-text conversion, concatenation, and hashing. This is a diagnostic control, not a production replacement for the real decision.
+
+Three native runs per mode, N = 10,000, after the change: `range` **134.277 ms**, `constant` **127.414 ms**, and `overflow` **86.336 ms**. Both success modes produce checksum **4216059904** and have exactly 367 closure calls per command. Thus the pure decision work costs about 6.863 ms in this control without changing the closure-call count. It includes dropping the owned rows, so it is not an isolated hash microbenchmark. Native SQLite BLOB materialization remains separate from this pure conversion: the native effect still creates the owned arrays, and the existing sample places that work at about 2% of observations.
+
+The range reader, extra overflow step, reset, rollback, record writes, and commit are unchanged. Overflow still fails with code 18 before the decision, leaves no record or effect, and permits a fresh retry with bound eight. The checks also cover exact bounds, zero bounds, replay without a range read, and error-code/message preservation in column conversion.
+
+No tested specialization was rejected. The constant decision is deliberately excluded from production because it does not compute the caller's result. Transaction removal, borrowed SQLite row memory, and truncated ranges remain invalid shortcuts. Broader effect fusion is not justified by this small specialization: 367 and 286 closure calls per command remain, and the large-table implementation still takes about 3.1 times C on success and 3.5 times C on overflow.
