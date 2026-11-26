@@ -131,6 +131,31 @@ The compensated cancellation result is 2 at N = 4 and 2,097,152 at N = 4,194,304
 
 At N = 4,194,304, compensation costs about 11–12 times the pairwise sum time and six times the dot time. It therefore remains an explicit API rather than replacing the fast calls. No foreign or unsafe code enters the pure module. There is no new parallel path. Compensation uses only one F32 correction, so it does not promise exact sums or avoid overflow. The positive reference is not representable in F32; its compensated error of 1 is final-result rounding.
 
+### Bounded compensated leaves
+
+Run `python3 f32array/bench/reduce.py 5 --accuracy`. Apple M4 Pro, macOS, Bend 2.0.40, 2026-11-25, one worker. These are medians of five processes from the same run. Times are milliseconds; each pair is sum / dot. References use float32 inputs and float64 `math.fsum`.
+
+| input | N | pairwise ms | element-order compensated ms | blocked compensated ms | pairwise abs error | both compensated abs error |
+|---|---:|---:|---:|---:|---:|---:|
+| positive | 49,152 | 0.0659 / 0.0569 | 0.1512 / 0.1352 | 0.1431 / 0.1497 | 7 / 7 | 1 / 1 |
+| positive | 4,194,301 | 0.7004 / 1.3101 | 8.1586 / 8.1390 | 6.2082 / 6.7781 | 4 / 4 | 4 / 4 |
+| positive | 4,194,304 | 0.6836 / 1.2405 | 8.2347 / 8.0597 | 6.4413 / 6.9444 | 7 / 7 | 1 / 1 |
+| cancellation | 4 | 0.0445 / 0.0354 | 0.0450 / 0.0331 | 0.0520 / 0.0368 | 2 / 2 | 0 / 0 |
+| cancellation | 129 | 0.0509 / 0.0360 | 0.0552 / 0.0333 | 0.0487 / 0.0347 | 64 / 64 | 0 / 0 |
+| cancellation | 49,152 | 0.0570 / 0.0570 | 0.1621 / 0.1274 | 0.1536 / 0.1502 | 24,576 / 24,576 | 0 / 0 |
+| cancellation | 4,194,301 | 0.7035 / 1.2805 | 8.0614 / 7.9544 | 6.1182 / 6.7100 | 2,097,150 / 2,097,150 | 2 / 2 |
+| cancellation | 4,194,304 | 0.6730 / 1.2443 | 8.2037 / 8.0911 | 6.3095 / 6.7107 | 2,097,152 / 2,097,152 | 0 / 0 |
+| mixed-scale | 127 | 0.0454 / 0.0343 | 0.0545 / 0.0345 | 0.0522 / 0.0323 | 0.00000762939453 / 0 | 0 / 0 |
+| mixed-scale | 4,194,301 | 0.6829 / 1.2780 | 8.0936 / 7.8720 | 6.2029 / 6.8683 | 0.499 / 0.00200000009 | 0.00100000016 / 0.00200000009 |
+| mixed-scale | 4,194,304 | 0.6804 / 1.2805 | 8.2240 / 8.0691 | 6.3534 / 6.8457 | 0.25 / 0 | 0 / 0 |
+
+At N = 4,194,304, the blocked calls reduce compensated sum time by 22–23% and dot time by 14–17%. They do not replace the faster pairwise calls or the original element-order calls. Four independent Neumaier lane states reduce the serial dependency. Each leaf spans at most 16 cells. Lane merges and tree merges retain both sum and correction; see the package README for their exact order. There is no parallel path or worker-dependent ordering.
+
+Both compensated layouts recover 2 and 2,097,152 exactly on the small and large repeated cancellation fixtures. The driver also asserts correctly rounded cancellation results at N = 0, 1, 7, 8, 9, 127, 128, 129, 255, 256, 257, 49,152, and 4,194,301. It covers all three families at these sizes. Nonzero compensated errors in the table are final F32 rounding on these inputs, not a general error guarantee. Other inputs can differ between layouts; overflow, signed zero, and NaN payloads remain order-sensitive.
+
+Three rejected same-machine layouts used three-run medians at N = 4,194,304 on mixed-scale input. Selecting correction operands before arithmetic took 9.1491 / 9.2044 ms. Branching before the correction arithmetic took 9.1371 / 9.1421 ms. Element-order 16-cell leaves with compensated tree merges took 8.6095 / 9.2632 ms, against 8.0860 / 8.0435 ms for the original calls in that run. These variants were removed. The bounded four-lane layout is the only added API.
+
+
 ## Destination-range loads
 
 Run `python3 f32array/bench/load.py` from the repo root. Set `BEND=/path/to/bend` to select a compiler. The driver emits C and builds two binaries with `cc -O2 -std=c11`: one unchanged for time and RSS, and one with allocation counters. It runs one process at a time, with one worker. Each row is the median of three runs. Allocation counts and bytes must be identical across all three instrumented runs.

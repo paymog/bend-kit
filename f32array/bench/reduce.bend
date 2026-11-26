@@ -56,6 +56,8 @@ def sum(mode: U32, a: A.F32Array, cutoff: U32) -> A.F32Array & F32:
       A.sum(a)
     case 3:
       A.sum.compensated(a)
+    case 4:
+      A.sum.compensated.blocked(a)
     case _:
       P.sum.with_cutoff(a, cutoff)
 
@@ -69,6 +71,8 @@ def dot(mode: U32, a: A.F32Array, b: A.F32Array, cutoff: U32) -> A.F32Array & A.
       A.dot(a, b)
     case 3:
       A.dot.compensated(a, b)
+    case 4:
+      A.dot.compensated.blocked(a, b)
     case _:
       P.dot.with_cutoff(a, b, cutoff)
 
@@ -117,7 +121,7 @@ def args(xs: List<&1, String>) -> IO(Unit):
       +cutoff = number(U32.read(cs))
       prepared(n, mode, cutoff, input(number(U32.read(fs)), n))
     case _:
-      IO.die(Unit, 1, "usage: reduce N MODE CELL_CUTOFF FAMILY (MODE 0=old, 1=pairwise, 2=fork-join, 3=compensated; FAMILY 0=positive, 1=cancellation, 2=mixed)")
+      IO.die(Unit, 1, "usage: reduce N MODE CELL_CUTOFF FAMILY (MODE 0=old, 1=pairwise, 2=fork-join, 3=compensated, 4=blocked-compensated; FAMILY 0=positive, 1=cancellation, 2=mixed)")
 
 def main() -> IO(Unit):
   do IO<Unit>:
