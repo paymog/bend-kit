@@ -21,12 +21,14 @@ type Value is Data:
 # A parsed template. A path is a dotted name split at its dots; the name "." is the empty path.
 # NPart's ind is the whitespace before a standalone partial tag; it indents each line of the partial.
 type Node is Data:
+  NLine{}
   NText{s: String}
   NVar{path: List<&2, String>, raw: Bool}
   NSec{path: List<&2, String>, inv: Bool, body: List<&2, Node>}
   NPart{name: String, ind: String}
 
 type Tok is Data:
+  TLine{}
   TText{s: String}
   TVar{name: String}
   TRaw{name: String}
@@ -271,6 +273,8 @@ def last_line(s: String) -> String:
 # A partial tag takes ind as its indentation.
 def std.ind(t: Tok, +ind: String) -> Tok:
   match t:
+    case TLine{}:
+      TLine{}
     case TPart{n, i}:
       TPart{n, ind}
     case TText{s}:
@@ -292,20 +296,34 @@ def std.ind(t: Tok, +ind: String) -> Tok:
     case TBad{m}:
       TBad{m}
 
+def line.text(+s: String, line: Bool, +out: List<&2, Tok>) -> List<&2, Tok>:
+  when(List<&2, Tok>, String.is_empty(s), u => out,
+    u => TText{s} <> when(List<&2, Tok>, line, u => TLine{} <> out, u => out))
+
+def line.mark(s: String, +line: Bool, +tag: Bool, +acc: String, +out: List<&2, Tok>) -> List<&2, Tok>:
+  match s:
+    case SNil{}:
+      when(List<&2, Tok>, String.is_empty(acc) && line && tag,
+        u => TLine{} <> out, u => line.text(String.reverse(acc), line, out))
+    case SCon{Chr{10}, rest}:
+      line.mark(rest, True{}, tag, "", line.text(String.reverse(acc) ++ "\n", line && Bool.not(String.is_empty(acc)), out))
+    case SCon{c, rest}:
+      line.mark(rest, line, tag, SCon{c, acc}, out)
+
 # orig is the text before the tag as lexed; cur is that text after its own head trim.
-def std.go(toks: List<&2, Tok>, +orig: String, first: Bool, +cur: String, out: List<&2, Tok>) -> List<&2, Tok>:
+def std.go(toks: List<&2, Tok>, +orig: String, first: Bool, +cur: String, line: Bool, out: List<&2, Tok>) -> List<&2, Tok>:
   match toks:
     case Con{+tag, Con{TText{+next}, +rest}}:
       +sa = Bool.and(std.kind(tag), Bool.and(head_ok(String.reverse(orig), first), head_ok(next, List.is_empty(&2, Tok, rest))))
-      std.go(rest, next, False{}, when(String, sa, u => trim_head(next), u => next), std.ind(tag, when(String, sa, u => last_line(cur), u => "")) <> TText{when(String, sa, u => trim_tail(cur), u => cur)} <> out)
+      std.go(rest, next, False{}, when(String, sa, u => trim_head(next), u => next), sa, std.ind(tag, when(String, sa, u => last_line(cur), u => "")) <> line.mark(when(String, sa, u => trim_tail(cur), u => cur), line, Bool.not(sa), "", out))
     case _:
-      List.reverse(&2, Tok, TText{cur} <> out)
+      List.reverse(&2, Tok, line.mark(cur, line, False{}, "", out))
 
 # A section, inverted, close, comment, set-delimiter, or partial tag alone on its line takes the line with it.
 def std(toks: List<&2, Tok>) -> List<&2, Tok>:
   match toks:
     case Con{TText{+t0}, rest}:
-      std.go(rest, t0, True{}, t0, Nil{})
+      std.go(rest, t0, True{}, t0, True{}, Nil{})
     case _:
       Nil{}
 
@@ -344,6 +362,8 @@ def step(st: St, t: Tok) -> St:
       SErr{m}
     case SOk{top, stack}:
       match t:
+        case TLine{}:
+          SOk{add(top, NLine{}), stack}
         case TText{s}:
           SOk{add(top, NText{s}), stack}
         case TVar{n}:
@@ -498,21 +518,6 @@ def sec.items(inv: Bool, +v: Maybe<&2, Value>) -> List<&2, Value>:
     case True{}:
       when(List<&2, Value>, truthy(v), u => Nil{}, u => [VMap{Map.new(&2, Value)}])
 
-# Each LF in partial text is followed by the partial's indentation.
-def indent(ind: String, +s: String) -> String:
-  match ind:
-    case SNil{}:
-      s
-    case SCon{c, t}:
-      String.join(String.split(s, '\n'), "\n" ++ SCon{c, t})
-
-# Drops the indentation that indent left after the partial's last LF.
-def undent(+ind: String, +s: String) -> String:
-  +r = String.reverse(s)
-  +rest = String.drop(r, String.length(ind))
-  +cut = String.starts_with(r, String.reverse(ind)) && (String.is_empty(rest) || String.starts_with(rest, "\n"))
-  when(String, cut, u => String.reverse(rest), u => s)
-
 def part.got(r: Map<&2, List<&2, Node>> & List<&2, Node>) -> List<&2, Node>:
   (m, v) = r
   v
@@ -530,8 +535,10 @@ def go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool, +ps: M
       tail
     case k Nil{} xs False{}:
       tail
+    case +k Con{NLine{}, rest} +xs False{}:
+      ind ++ go(k, rest, xs, False{}, ps, stack, ind, tail)
     case +k Con{NText{s}, rest} +xs False{}:
-      indent(ind, s) ++ go(k, rest, xs, False{}, ps, stack, ind, tail)
+      s ++ go(k, rest, xs, False{}, ps, stack, ind, tail)
     case +k Con{NVar{p, raw}, rest} +xs False{}:
       show(raw, lookup(p, stack)) ++ go(k, rest, xs, False{}, ps, stack, ind, tail)
     case +k Con{NSec{p, inv, body}, rest} +xs False{}:
@@ -539,8 +546,7 @@ def go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool, +ps: M
     case 0n Con{NPart{n, pi}, rest} +xs False{}:
       go(0n, rest, xs, False{}, ps, stack, ind, tail)
     case 1n+g Con{NPart{n, pi}, rest} +xs False{}:
-      +i2 = ind ++ pi
-      undent(i2, i2 ++ go(g, part(ps, n), Nil{}, False{}, ps, stack, i2, "")) ++ go(1n+g, rest, xs, False{}, ps, stack, ind, tail)
+      go(g, part(ps, n), Nil{}, False{}, ps, stack, ind ++ pi, go(1n+g, rest, xs, False{}, ps, stack, ind, tail))
 
 # The nodes rendered against ctx, with {{> name}} taken from partials. Partials nest at most 64 deep; a deeper one renders as nothing.
 def render_with(nodes: List<&2, Node>, ctx: Map<&2, Value>, partials: Map<&2, List<&2, Node>>) -> String:
@@ -591,40 +597,6 @@ def packed.value(raw: Bool, v: Maybe<&2, Value>, o: Encoding.Out) -> Encoding.Ou
     case _:
       o
 
-def packed.resume.at(+n: U32, +r: U32, p: Array<U32> & U32) -> Encoding.Out:
-  (buf, w) = p
-  Encoding.Out{Array.set(U32, buf, (n >> 2n : U32), 0), n, U32.shln(w, U32.to_nat(((4 - r) * 8 : U32)))}
-
-def packed.resume.if(full: Bool, +n: U32, buf: Array<U32>) -> Encoding.Out:
-  match full:
-    case True{}:
-      Encoding.Out{buf, n, 0}
-    case False{}:
-      packed.resume.at(n, (n .&. 3 : U32), Array.get(U32, buf, (n >> 2n : U32)))
-
-def packed.resume(b: Bytes.Bytes) -> Encoding.Out:
-  Bytes.Bytes{+n, buf} = b
-  packed.resume.if(U32.is_eq((n .&. 3 : U32), 0), n, buf)
-
-def packed.trim.got(r: Bytes.Bytes & Bytes.Bytes) -> Bytes.Bytes:
-  (old, trimmed) = r
-  trimmed
-
-def packed.trim.pick(cut: Bool, b: Bytes.Bytes, +n: U32, +i: U32) -> Bytes.Bytes:
-  match cut:
-    case False{}:
-      b
-    case True{}:
-      packed.trim.got(Bytes.slice(b, 0, (n - i : U32)))
-
-def packed.trim.suffix(+ind: String, +n: U32, r: Bytes.Bytes & Bool) -> Bytes.Bytes:
-  (b, suffix) = r
-  packed.trim.pick(suffix, b, n, Bytes.count(ind, 0))
-
-def packed.trim(+ind: String, b: Bytes.Bytes) -> Bytes.Bytes:
-  Bytes.Bytes{+n, buf} = b
-  packed.trim.suffix(ind, n, Bytes.ends_with(Bytes.Bytes{n, buf}, when(String, U32.is_eq(n, Bytes.count(ind, 0)), u => ind, u => "\n" ++ ind)))
-
 def packed.go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool, +ps: Map<&2, List<&2, Node>>, +stack: List<&2, Value>, +ind: String, out: Encoding.Out) -> Encoding.Out:
   match f nodes items iter:
     case +k +ns Con{it, +more} True{}:
@@ -633,8 +605,10 @@ def packed.go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool,
       out
     case k Nil{} xs False{}:
       out
+    case +k Con{NLine{}, rest} +xs False{}:
+      packed.go(k, rest, xs, False{}, ps, stack, ind, packed.text(ind, out))
     case +k Con{NText{s}, rest} +xs False{}:
-      packed.go(k, rest, xs, False{}, ps, stack, ind, packed.text(indent(ind, s), out))
+      packed.go(k, rest, xs, False{}, ps, stack, ind, packed.text(s, out))
     case +k Con{NVar{p, raw}, rest} +xs False{}:
       packed.go(k, rest, xs, False{}, ps, stack, ind, packed.value(raw, lookup(p, stack), out))
     case +k Con{NSec{p, inv, body}, rest} +xs False{}:
@@ -642,8 +616,7 @@ def packed.go(f: Nat, nodes: List<&2, Node>, items: List<&2, Value>, iter: Bool,
     case 0n Con{NPart{n, pi}, rest} +xs False{}:
       packed.go(0n, rest, xs, False{}, ps, stack, ind, out)
     case 1n+g Con{NPart{n, pi}, rest} +xs False{}:
-      +i2 = ind ++ pi
-      packed.go(1n+g, rest, xs, False{}, ps, stack, ind, packed.resume(Bytes.append(Encoding.done(out), packed.trim(i2, Encoding.done(packed.go(g, part(ps, n), Nil{}, False{}, ps, stack, i2, packed.text(i2, Encoding.Out{Bytes.alloc(0), 0, 0})))))))
+      packed.go(1n+g, rest, xs, False{}, ps, stack, ind, packed.go(g, part(ps, n), Nil{}, False{}, ps, stack, ind ++ pi, out))
 
 # Render UTF-8 directly into packed bytes, with the same partial rules as render_with.
 def render_bytes_with(nodes: List<&2, Node>, ctx: Map<&2, Value>, partials: Map<&2, List<&2, Node>>) -> Bytes.Bytes:
