@@ -1,10 +1,10 @@
 # Runnable loopback users demo plus a separate loopback owner-stop listener; no supervisor claim.
 import Base
 import ./users.bend as U
-import bend-kit-camber@0.19.0.0/camber.bend as C
-import bend-kit-http@0.45.0.0/http.bend as Http
-import bend-kit-http@0.45.0.0/pure.bend as Pure
-import bend-kit-http@0.45.0.0/completion.bend as T
+import bend-kit-camber@0.19.0.1/camber.bend as C
+import bend-kit-http@0.45.0.1/http.bend as Http
+import bend-kit-http@0.45.0.1/pure.bend as Pure
+import bend-kit-http@0.45.0.1/completion.bend as T
 
 def done(completion: T.Completion<C.ApplicationReport<String>>) -> IO(Unit):
   IO.pure(Unit, Unit{})

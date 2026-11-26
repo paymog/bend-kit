@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../sigv4.bend as Sigv4
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 def sign() -> IO(Result<&1, &1, U32 & String, String & String>):
   Sigv4.authorize(Sigv4.Credentials{"AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", ""}, "us-east-1", "s3", "20130524T000000Z", "PUT", "/test.txt", "x-id=PutObject", "examplebucket.s3.amazonaws.com", Bytes.from_string("Welcome to Amazon S3."))

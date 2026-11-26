@@ -1,13 +1,13 @@
 import Base
 import ./oauth2.bend as O
-import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
-import bend-kit-http@0.45.0.0/http.bend as Http
-import bend-kit-http@0.45.0.0/pure.bend as HttpPure
-import bend-kit-http@0.45.0.0/admission.bend as Admission
-import bend-kit-http@0.45.0.0/completion.bend as Completion
-import bend-kit-time@0.3.0.3/pure.bend as Time
+import bend-kit-hairpin@0.19.0.1/hairpin.bend as Hairpin
+import bend-kit-http@0.45.0.1/http.bend as Http
+import bend-kit-http@0.45.0.1/pure.bend as HttpPure
+import bend-kit-http@0.45.0.1/admission.bend as Admission
+import bend-kit-http@0.45.0.1/completion.bend as Completion
+import bend-kit-time@0.3.0.4/pure.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 # A local authorization server on an OS-picked port, then every flow against it through Hairpin.
