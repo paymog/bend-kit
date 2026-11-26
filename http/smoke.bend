@@ -1,8 +1,8 @@
 import Base
 import ./http.bend as Http
 import ./pure.bend as Pure
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-http2@0.6.0.0/http2.bend as H2
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-http2@0.6.0.1/http2.bend as H2
 
 
 def line(kind: String, url: String) -> IO(Unit):
