@@ -252,7 +252,7 @@ def run(mode: String, port: U32) -> IO(Unit):
         checked(started)
     case "writer":
       do IO<Unit>:
-        started : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.write.config(~Download, ~download.start, ~download.write, ~download.dispose, ~owner, config(port))
+        started : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.write.config(~String, ~Download, ~(context => req => download.start(req)), ~download.write, ~download.dispose, ~(context => status => outcome => owner(status, outcome)), "owned", config(port))
         checked(started)
     case "whole-convenience": Http.serve.on.with(~whole.convenience, ~owner, "127.0.0.1", port, 8n)
     case "stream-convenience": Http.serve.stream.on.with(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~owner, "127.0.0.1", port, 8n)

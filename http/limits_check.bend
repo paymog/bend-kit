@@ -146,7 +146,7 @@ def run(mode: String, port: U32) -> IO(Unit):
         checked(result)
     case "writer":
       do IO<Unit>:
-        result : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.write.config(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, config(port))
+        result : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.write.config(~Unit, ~Download, ~(context => req => download.start(req)), ~download.write, ~download.dispose, ~(context => status => outcome => Completion.ignore(status, outcome)), Unit{}, config(port))
         checked(result)
     case _:
       IO.die(Unit, 1, "invalid mode")
