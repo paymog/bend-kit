@@ -143,7 +143,7 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`files`](files) | `bend-kit-files@0.4.0.3/files.bend` | POSIX paths, directories, and packed file IO. |
 | [`storage`](storage) | `bend-kit-storage@0.12.0.1/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
-| [`stream`](stream) | `bend-kit-stream@0.5.0.2/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
+| [`stream`](stream) | `bend-kit-stream@0.5.0.3/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.2.3/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
 | [`time`](time) | `bend-kit-time@0.3.0.5/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
@@ -167,8 +167,8 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.1/sqlite.bend` | Prepared statements through libsqlite3. |
-| [`postgres`](postgres) | `bend-kit-postgres@0.4.0.1/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
-| [`redis`](redis) | `bend-kit-redis@0.5.0.1/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
+| [`postgres`](postgres) | `bend-kit-postgres@0.4.0.2/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
+| [`redis`](redis) | `bend-kit-redis@0.5.0.2/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
 | [`llm`](llm) | `bend-kit-llm@0.19.0.1/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
 
 ### Applications
