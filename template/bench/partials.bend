@@ -1,7 +1,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../template.bend as T
-import bend-kit-bytes@0.3.3.2/bytes.bend as B
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 import ../../encoding/encoding.bend as Encoding
 
 def nodes(r: Result<&2, &2, String, List<&2, T.Node>>) -> List<&2, T.Node>:

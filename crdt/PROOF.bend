@@ -1,7 +1,7 @@
 import Base
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-mathlib@0.8.0.0/bool.bend as MBool
-import bend-kit-cbor@0.3.0.2/cbor.bend as Cbor
+import bend-kit-cbor@0.3.0.3/cbor.bend as Cbor
 import ../lemmas/lemmas.bend as Lemmas
 import ./crdt.bend as Crdt
 import ./LAWS.bend as Laws

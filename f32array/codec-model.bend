@@ -3,7 +3,7 @@ import Base
 import ./f32array.bend as A
 import ../lemmas/array.bend as Arr
 import ../lemmas/perfect.bend as P
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def from_bytes(~dec: U32 -> F32, b: Bytes.Bytes) -> Maybe<&1, A.F32Array>:
   Bytes.Bytes{+len, buf} = b

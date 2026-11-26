@@ -37,7 +37,7 @@ def main():
     raw = sample(bench_pb2).SerializeToString(deterministic=True)
     (OUT / "fixture.bin").write_bytes(raw)
     (OUT / "fixture.bend").write_text(
-        'import Base\nimport bend-kit-bytes@0.3.3.2/bytes.bend as B\n'
+        'import Base\nimport bend-kit-bytes@0.3.3.3/bytes.bend as B\n'
         'def bytes() -> Maybe<&1, B.Bytes>:\n  B.from_hex("' + raw.hex() + '")\n')
     shutil.copy(HERE / "package.json", OUT / "package.json")
     command(["bun", "install"], cwd=OUT)

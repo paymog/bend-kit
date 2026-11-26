@@ -2,7 +2,7 @@
 import Base
 import bend-kit-unicode@0.1.0.0/unicode.bend as Unicode
 import bend-kit-tty@0.1.0.2/text.bend as Tty
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # ---- edit scripts
 

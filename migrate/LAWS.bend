@@ -1,6 +1,6 @@
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
-import bend-kit-json@0.7.3.1/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-json@0.7.3.2/json.bend as Json
 import ./migrate.bend as M
 
 def v3(p: M.V3 & M.Dropped) -> M.V3:
