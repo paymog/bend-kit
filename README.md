@@ -40,11 +40,12 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 This section comes from entry-file imports and package versions. Run `scripts/repin.py --guidance` to update it without hub access.
 
-`http@0.44.0.2` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.8.0.0`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.3`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.2`.
+`http@0.45.0.0` imports: `bytes@0.3.3.1`, `concurrency@0.2.0.0`, `dns@0.8.0.0`, `http2@0.6.0.0`, `json@0.7.3.0`, `time@0.3.0.3`, `url@0.4.1.0`, `wire@0.4.8.1`, `zlib@0.7.0.2`.
 
 | Dependency pin | Consumers |
 |---|---|
-| `bend-kit-http@0.44.0.2` | `camber@0.18.0.2`, `hairpin@0.17.0.1`, `jwt@0.15.0.1`, `llm@0.17.0.1`, `oauth2@0.15.0.1`, `sigv4@0.15.0.1`, `webhooks@0.15.0.1` |
+| `bend-kit-http@0.44.0.2` | `jwt@0.15.0.1`, `llm@0.17.0.1`, `oauth2@0.15.0.1`, `sigv4@0.15.0.1`, `webhooks@0.15.0.1` |
+| `bend-kit-http@0.45.0.0` | `camber@0.19.0.0`, `hairpin@0.18.0.0` |
 | `bend-kit-hairpin@0.17.0.1` | `jwt@0.15.0.1`, `llm@0.17.0.1`, `oauth2@0.15.0.1`, `sigv4@0.15.0.1`, `webhooks@0.15.0.1` |
 
 ## Native libraries
@@ -121,7 +122,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`wire`](wire) | `bend-kit-wire@0.4.8.1/wire.bend` | TCP, UDP, and TLS sockets. |
 | [`http`](http) | `bend-kit-http@0.45.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.6.0.0/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
-| [`hairpin`](hairpin) | `bend-kit-hairpin@0.17.0.1/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
+| [`hairpin`](hairpin) | `bend-kit-hairpin@0.18.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
 | [`websocket`](websocket) | `bend-kit-websocket@0.4.1.5/websocket.bend` | RFC 6455 client handshake and frames. |
 | [`multipart`](multipart) | `bend-kit-multipart@0.3.0.2/multipart.bend` | RFC 7578 form-data encode and decode. |
@@ -175,7 +176,7 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`camber`](camber) | `bend-kit-camber@0.18.0.2/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
+| [`camber`](camber) | `bend-kit-camber@0.19.0.0/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
 | [`gateway`](gateway) | `bend-kit-gateway@0.5.0.0/gateway.bend` | A guarded read-through gateway: authorize, admit, serve from cache, and fetch on a miss, with proofs that every path gives its unit back. `app.bend` is the Camber app. |
 
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). For CLI arguments, use [shake](https://github.com/Emerging-Patterns/shake).

@@ -7,6 +7,8 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `camber` 0.19.0.0: use published HTTP 0.45.0.0 types.
+- `hairpin` 0.18.0.0: use published HTTP 0.45.0.0 types.
 - `text` 0.2.2.2: pack exact collision-fallback keys four octets per list cell. Keep partial words and byte lengths exact, and retain both owned buffers.
 - `storage` 0.12.0.0: verify local sync and collection with payload-free digest indexes. Stream missing encoded objects in 64 KiB pieces and keep collection fail-closed.
 - `storage` 0.11.0.0: use HTTP 0.45.0.0's context-aware owned response loop for file-backed origins. Remove the duplicate connection loop without changing object routes or status codes.
