@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `runner` 0.22.0.1: adopt the current Time and Webhooks releases with matching Hairpin and HTTP models.
+- Gateway examples: complete the Time consumer re-pin waves and remove their final pin exceptions.
+
 - `jwt` 0.15.0.1, `llm` 0.17.0.1, `oauth2` 0.15.0.1, `sigv4` 0.15.0.1, and `webhooks` 0.15.0.1: adopt matching published HTTP, Hairpin, and Time types.
 - `authz` checks and Camber public examples: use the current published Camber release.
 
