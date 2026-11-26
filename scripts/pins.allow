@@ -5,3 +5,4 @@
 bend-kit-time@0.3.0.2  # consumers: adopt the current Time guidance release (#1163)
 bend-kit-camber@0.18.0.0  # consumers: adopt the corrected Notch guidance release (#1163)
 bend-kit-notch@0.4.0.2  # consumers: adopt the current Time guidance release (#1163)
+bend-kit-http@0.44.0.1  # consumers: adopt the current Time guidance release (#1163)
