@@ -1,8 +1,8 @@
 import Base
 import ./stream.bend as Stream
-import bend-kit-files@0.4.0.2/files.bend as Files
+import bend-kit-files@0.4.0.3/files.bend as Files
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def outcome(o: Stream.Outcome) -> IO(Unit):
   match o:

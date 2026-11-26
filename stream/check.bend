@@ -1,7 +1,7 @@
 import Base
 import ./stream.bend as Stream
-import bend-kit-files@0.4.0.2/files.bend as Files
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-files@0.4.0.3/files.bend as Files
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def require(ok: Bool, why: String) -> IO(Unit):
   match ok:

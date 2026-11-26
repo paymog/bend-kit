@@ -1,7 +1,7 @@
 # Bounded packed-byte transfers between files and TCP/TLS sockets.
 import Base
 import ./pure.bend as Pure
-import bend-kit-files@0.4.0.2/files.bend as Files
+import bend-kit-files@0.4.0.3/files.bend as Files
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 type Error is Data:
