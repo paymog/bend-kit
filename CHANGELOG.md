@@ -7,6 +7,11 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `jwt` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
+- `llm` 0.18.0.0: use the published Hairpin and HTTP releases with matching types.
+- `oauth2` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
+- `sigv4` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
+- `webhooks` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
 - `camber` 0.19.0.0: use published HTTP 0.45.0.0 types.
 - `hairpin` 0.18.0.0: use published HTTP 0.45.0.0 types.
 - `text` 0.2.2.2: pack exact collision-fallback keys four octets per list cell. Keep partial words and byte lengths exact, and retain both owned buffers.
