@@ -402,3 +402,46 @@ Signed warm-minus-cold deltas in ms. Each delta pairs processes from the same ou
 Shared identity remains slower after warm-up in both runtimes. Bun direct identity and direct isqrt remain faster. Bun shared gcd still varies: the balanced deltas range from -18.042 to -2.043 ms, versus -15.424 to +4.945 ms in the fixed-order sample. Bun shared lcm changes median sign. Node direct identity and gcd also change median sign, but their per-run deltas still cross zero.
 
 Thus the earlier numerical deltas are not stable constants. The broad identity-path result survives this order cycle, while small effects remain noisy. The fixed baseline and balanced cycle were collected on different dates, not interleaved, and each schedule has only one sample block. These observations cannot attribute the difference to process order alone or prove that order has no effect. Repeated balanced and fixed blocks would be needed to separate schedule effects from between-block drift. The clocks still include traversal, dispatch, checksum work, and runtime behavior; neither this comparison nor kernel-minus-identity subtraction isolates arithmetic or a fixed JIT tier.
+
+## Interleaved fixed and counterbalanced blocks
+
+Run `python3 -u stats/bench/blocks.py` from the repository root. This first runs the six-language harness once, including its small probe, original rows, and checksum gates. It then runs six JavaScript blocks in this order: fixed, balanced, balanced, fixed, fixed, balanced. Each runtime gets three four-run blocks per schedule. Each balanced block uses one complete Williams cycle from the table above. Each fixed block repeats `shared_cold -> shared_warm -> direct_cold -> direct_warm` four times.
+
+Bun runs before Node in odd blocks; Node runs before Bun in even blocks. Every outer run retains the original JavaScript rows before its four fresh controlled processes. The packed input, integer functions, per-mode operation order, and three discarded warm-up rounds stay unchanged. Every run checks all original and diagnostic rows against the full C checksums already checked by the six-language harness. The output records block order, runtime order, mode order, signed per-run deltas, block medians, and per-block minimum and maximum deltas. The final table compares medians of block medians and their ranges. No library file or package version changes.
+
+This is a descriptive comparison, not a randomized causal experiment. Blocks retain time order and only three repetitions per schedule. Runtime order also alternates rather than randomizes. Drift, scheduling, garbage collection, and cross-process runtime behavior remain possible causes of differences. These clocks do not isolate arithmetic or identify a fixed JIT tier.
+
+### Interleaved results
+
+Command: `python3 -u stats/bench/blocks.py`, 2026-11-26. M4 Pro, macOS 26.7.2 (Darwin 25.6.0), arm64. Bend 2.0.40, Apple clang 21.0.0 (`-O2`), rustc 1.91.0 (`-C opt-level=3`), Bun 1.4.4, Node 24.0.1, Python 3.14.6. A one-second monitor capped Bend at 20 GB RSS; peak observed RSS was 657616 KiB.
+
+All six languages passed the small and full checksum gates. All 48 JavaScript outer runs passed the original, packed, warmed, and controlled checksum gates. Each outer run launched four fresh controlled processes. Full controlled identity, gcd, checked lcm, and isqrt checksums remain `2699619501`, `18047959`, `3181042401`, and `1421540955`.
+
+[The complete output](interleaved-results.txt) records the baseline rows, every process order, signed per-run warm-minus-cold deltas, block medians, and each block's minimum and maximum delta. The table below gives the three block medians in time order within each schedule. The difference is balanced median-of-block-medians minus fixed median-of-block-medians. Spread is maximum minus minimum block median. All values are ms; calculations use unrounded deltas.
+
+| runtime | path and op | fixed block medians | balanced block medians | balanced-fixed | fixed spread | balanced spread |
+|---|---|---|---|---:|---:|---:|
+| Bun | shared identity | +12.475, +4.801, +10.477 | +11.440, +11.399, +10.885 | +0.921 | 7.674 | 0.555 |
+| Bun | shared gcd | -13.455, -10.025, -9.908 | -12.561, -11.061, -11.073 | -1.048 | 3.547 | 1.500 |
+| Bun | shared checked lcm | -1.212, -1.688, +1.001 | -0.945, -3.078, +3.496 | +0.267 | 2.688 | 6.574 |
+| Bun | shared isqrt | -0.157, -1.690, -1.785 | -1.489, -0.171, -0.133 | +1.519 | 1.627 | 1.356 |
+| Bun | direct identity | -10.395, -6.729, -8.259 | -8.308, -2.997, -1.836 | +5.262 | 3.666 | 6.472 |
+| Bun | direct gcd | -14.584, -11.837, -11.107 | -15.240, -8.565, -15.221 | -3.384 | 3.478 | 6.675 |
+| Bun | direct checked lcm | -5.970, -3.830, -4.726 | -6.356, -3.267, -3.549 | +1.178 | 2.140 | 3.089 |
+| Bun | direct isqrt | -16.259, -14.061, -16.233 | -10.429, -11.544, -15.715 | +4.689 | 2.198 | 5.286 |
+| Node | shared identity | +11.886, +12.108, +12.236 | +12.021, +12.158, +12.344 | +0.050 | 0.350 | 0.322 |
+| Node | shared gcd | -12.274, -11.066, -12.117 | -12.565, -10.179, -12.060 | +0.058 | 1.207 | 2.386 |
+| Node | shared checked lcm | -5.774, +0.531, -4.611 | -5.206, -0.481, -5.416 | -0.594 | 6.305 | 4.935 |
+| Node | shared isqrt | -2.355, -1.431, -1.710 | -1.645, -1.123, -1.446 | +0.264 | 0.924 | 0.522 |
+| Node | direct identity | -0.204, +0.064, +0.412 | -0.072, +0.360, -0.062 | -0.127 | 0.616 | 0.432 |
+| Node | direct gcd | -1.081, -0.655, +0.728 | +0.614, -0.286, -1.630 | +0.369 | 1.809 | 2.244 |
+| Node | direct checked lcm | -3.940, -0.720, -2.529 | -3.558, -1.070, -1.946 | +0.583 | 3.220 | 2.488 |
+| Node | direct isqrt | -5.141, -5.170, -5.034 | -6.691, -5.392, -5.473 | -0.332 | 0.135 | 1.299 |
+
+Bun shared checked lcm has a +0.267 ms schedule difference, smaller than either between-block spread (2.688 and 6.574 ms). Both schedules contain positive and negative block medians. Its earlier cross-date sign change does not persist as a clear schedule separation. Bun shared gcd differs by -1.048 ms, also smaller than either block spread (3.547 and 1.500 ms).
+
+Bun direct identity and isqrt have larger schedule differences (+5.262 and +4.689 ms). Each exceeds the fixed block spread but remains below the balanced block spread (6.472 and 5.286 ms). Their block ranges overlap. Shared identity remains slower after explicit warm-up, while Bun direct identity and isqrt remain faster, in every block median.
+
+Every Node schedule difference is smaller than at least one corresponding block spread. For direct isqrt, the -0.332 ms difference exceeds the fixed spread of 0.135 ms but not the balanced spread of 1.299 ms; the fixed and balanced block ranges do not overlap in this sample. That is a descriptive separation, not proof of an order effect. The larger balanced spread and ordered collection still leave drift and process noise unresolved.
+
+The sample does not establish a causal order effect beyond between-block variation, nor does it prove that process order has no effect. It does show why one fixed block and one balanced block from different dates cannot support that claim. No isolated arithmetic timing or fixed JIT tier is inferred.
