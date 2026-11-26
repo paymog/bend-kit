@@ -3,8 +3,8 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.11.0.0/storage.bend as S
-import bend-kit-storage@0.11.0.0/pure.bend as P
+import bend-kit-storage@0.12.0.0/storage.bend as S
+import bend-kit-storage@0.12.0.0/pure.bend as P
 ```
 
 `pure.bend` owns the model, digest types and ordering, and encoding and decoding helpers. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` import only this module. `storage.bend` owns hashing and disk IO. Import both modules for disk operations; pure types and constructors use `P`, and effects use `S`.
@@ -17,8 +17,8 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.11.0.0/storage.bend as S
-import bend-kit-storage@0.11.0.0/pure.bend as P
+import bend-kit-storage@0.12.0.0/storage.bend as S
+import bend-kit-storage@0.12.0.0/pure.bend as P
 
 def ship(+root: P.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -115,16 +115,18 @@ The disk layer returns `S.Run(A)`, which is `IO(Result<&1, &1, U32 & String, A>)
 | `Disk.collect(dir, retained)` | deletes the objects that `live` does not reach and answers how many; deletes nothing when a retained root does not load. It reads only the objects the retained roots reach |
 | `Disk.collect_named(dir)` | selects all named roots and collects their closure under one exclusive lock; malformed roots and missing or corrupt closures cause no deletion |
 | `Disk.clean_tmp(dir)` | exclusively deletes files directly under `dir/tmp` and answers how many; fails immediately while a cooperating writer is active |
-| `sync(src, dst, root)` | sends `dst` the objects of `Index.plan` through `Disk.receive` and answers how many. It reads the objects `root` reaches in `src`, and in `dst` only those of them that `dst` holds |
+| `sync(src, dst, root)` | verifies the source closure and existing destination objects, streams missing encoded objects, and answers how many it sent |
 | `snapshot(path)`, `restore(t, path)` | a directory on disk as a `Tree`; a `Tree` written as a new file or directory |
 
 `Disk.set_root` validates canonical objects with 64 KiB reads and keeps only links and a visited index. It verifies and syncs each reachable digest once, then syncs the objects directory before publishing the root. Payload memory does not grow with file size. Index memory grows with the number of distinct objects. `root_check.bend`, included in both package check lanes, checks a 17 MiB file and a 24-level shared graph without expanding its paths.
+
+Local `sync`, `Disk.collect`, and `Disk.collect_named` use the same bounded canonical verifier without file sync barriers. Their indexes hold links and visited digests, not payloads or expanded trees. Each shared descendant is visited once per digest. Local sync verifies all source objects and existing destination objects before copying. It copies in 64 KiB pieces to an exclusive temporary file, verifies that file, and publishes it with the usual durability barriers. Collection completes verification before deleting anything. `local_check.py` checks shared graphs, missing and corrupt objects, and 17 MiB and 129 MiB files in both runtime lanes. See [bench/README.md](bench/README.md) for peak memory.
 
 Use `Disk.collect_named` to retain the current named roots. Separate `Disk.roots` and `Disk.collect` calls are not a transaction: a root writer can enter between them. Keep `Disk.collect` for an external retention policy. Its caller must protect root selection when that policy requires it.
 
 ## HTTP synchronization
 
-Import `bend-kit-storage@0.11.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.45.0.0`; the pure storage core does not import HTTP.
+Import `bend-kit-storage@0.12.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.45.0.0`; the pure storage core does not import HTTP.
 
 Import HTTP models and state functions from `pure.bend` as `Pure`, and client/server handles and effects from `http.bend` as `Http`:
 
@@ -141,9 +143,9 @@ The client is:
 
 ```bend
 import Base
-import bend-kit-storage@0.11.0.0/storage.bend as S
-import bend-kit-storage@0.11.0.0/pure.bend as P
-import bend-kit-storage@0.11.0.0/http.bend as Transport
+import bend-kit-storage@0.12.0.0/storage.bend as S
+import bend-kit-storage@0.12.0.0/pure.bend as P
+import bend-kit-storage@0.12.0.0/http.bend as Transport
 
 def pull(+root: P.Digest) -> S.Run(U32):
   Transport.sync("https://artifacts.example", "b", root)

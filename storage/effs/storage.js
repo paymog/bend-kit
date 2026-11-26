@@ -133,3 +133,35 @@ function write_sync(path) {
 }
 
 io_eff(CID(write.sync), write_sync);
+
+function copy_into(path, file) {
+  const fs = require("fs");
+  let src, code = 0;
+  try {
+    const name = io_bytes(path);
+    if (name.includes(0)) throw {errno: 22};
+    src = fs.openSync(Buffer.from(name), fs.constants.O_RDONLY | fs.constants.O_CLOEXEC);
+    const buffer = Buffer.alloc(65536);
+    let total = 0;
+    for (;;) {
+      const n = fs.readSync(src, buffer, 0, buffer.length, null);
+      if (!n) break;
+      total += n;
+      if (total > 0xffffffff) throw {errno: 27};
+      for (let at = 0; at < n;) {
+        const wrote = fs.writeSync(file, buffer, at, n - at);
+        if (!wrote) throw {errno: 5};
+        at += wrote;
+      }
+    }
+  } catch (e) {
+    code = Math.abs(e?.errno ?? 5);
+  } finally {
+    if (src !== undefined) {
+      try { fs.closeSync(src); } catch (e) { code ||= Math.abs(e?.errno ?? 5); }
+    }
+  }
+  return io_tup(file, code ? io_fail(code) : io_done({$: CID(Unit)}));
+}
+
+io_eff(CID(copy.into), copy_into);

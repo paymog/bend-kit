@@ -25,6 +25,8 @@ for d in "$@"; do
       trap 'rm -rf "$out"' EXIT
       bend http_origin.bend -o "$out/origin.js"
       python3 http_origin_check.py bun "$out/origin.js"
+      bend local_check.bend -o "$out/local.js"
+      python3 local_check.py bun "$out/local.js"
     fi
   )
 done

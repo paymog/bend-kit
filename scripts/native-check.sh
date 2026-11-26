@@ -39,6 +39,8 @@ for d in "$@"; do
     if [ "$d" = storage ]; then
       bend http_origin.bend -o "$out/origin"
       python3 http_origin_check.py "$out/origin"
+      bend local_check.bend -o "$out/local"
+      python3 local_check.py "$out/local"
     fi
   )
   rm -rf "$out"
