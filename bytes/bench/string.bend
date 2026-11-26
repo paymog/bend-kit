@@ -1,6 +1,6 @@
 # Bytes benchmark: today's String-as-bytes layout (see README.md).
 import Base
-import ../../time/time.bend as Time
+import ./batch.bend as Batch
 
 # Bytes as today's String: one Char per byte. L = 26 (64 MiB): at 16 bytes per cell, 2^28 needs 4 GiB+.
 
@@ -89,47 +89,31 @@ def joinr(xs: List<String>, acc: String) -> String:
     case Con{c, t}:
       joinr(t, c ++ acc)
 
-def lap(+name: String, t0: Time.Duration, +chk: U32) -> IO(Unit):
-  do IO<Unit>:
-    IO.print("chk\t" ++ name ++ "\t" ++ U32.show(chk))
-    t1 : Time.Duration <- Time.mono()
-    IO.print("ms\t" ++ name ++ "\t" ++ Time.Duration.show_ms(Time.Duration.sub(t1, t0)))
+def step.fill(state: U32 & String) -> (U32 & String) & U32:
+  (+n, old) = state
+  +s = fill(n)
+  ((n, s), (nth(U32.to_nat((12345 % n : U32)), s) + last(s, 0) : U32))
 
-def op.equal(+s: String, +s2: String) -> IO(Unit):
-  do IO<Unit>:
-    IO.print("copy ready " ++ U32.show(last(s2, 0)))
-    t0 : Time.Duration <- Time.mono()
-    lap("equal", t0, Bool.pick(U32, String.eq(s, s2), 1, 0))
+def step.sum(state: U32 & String) -> (U32 & String) & U32:
+  (+n, +s) = state
+  ((n, s), sum(s, 0))
 
-def op.concat(+n: U32, +s: String) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    +chunk_size : U32 = U32.min(n, 65536)
-    lap("concat", t0, ends(joinr(collect(U32.to_nat((n / chunk_size : U32)), chunk_size, 0, Nil{}), SNil{})))
-    op.equal(s, fill(n))
+def step.find(state: U32 & String) -> (U32 & String) & U32:
+  (+n, +s) = state
+  ((n, s), find(s, 0, 4294967295, 0))
 
-def op.slice(+n: U32, +s: String) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    lap("slice", t0, ends(take(U32.to_nat((n / 2 : U32)), String.drop(s, U32.to_nat((n / 4 + 1 : U32))))))
-    op.concat(n, s)
+def step.slice(state: U32 & String) -> (U32 & String) & U32:
+  (+n, +s) = state
+  ((n, s), ends(take(U32.to_nat((n / 2 : U32)), String.drop(s, U32.to_nat((n / 4 + 1 : U32))))))
 
-def op.find(+n: U32, +s: String) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    lap("find", t0, find(s, 0, 4294967295, 0))
-    op.slice(n, s)
+def step.concat(state: U32 & String) -> (U32 & String) & U32:
+  (+n, s) = state
+  +chunk_size = U32.min(n, 65536)
+  ((n, s), ends(joinr(collect(U32.to_nat((n / chunk_size : U32)), chunk_size, 0, Nil{}), SNil{})))
 
-def op.sum(+n: U32, +s: String) -> IO(Unit):
-  do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    lap("sum", t0, sum(s, 0))
-    op.find(n, s)
-
-def op.fill.done(+n: U32, t0: Time.Duration, +s: String) -> IO(Unit):
-  do IO<Unit>:
-    lap("fill", t0, (nth(U32.to_nat((12345 % n : U32)), s) + last(s, 0) : U32))
-    op.sum(n, s)
+def step.equal(state: String & String) -> (String & String) & U32:
+  (+s, +copy) = state
+  ((s, copy), Bool.pick(U32, String.eq(s, copy), 1, 0))
 
 def size(args: List<&1, String>) -> U32:
   match args:
@@ -138,11 +122,21 @@ def size(args: List<&1, String>) -> U32:
     case _:
       67108864
 
+def finish(state: U32 & String) -> IO(Unit):
+  (n, +s) = state
+  do IO<Unit>:
+    +copy : String = fill(n)
+    IO.print("copy ready " ++ U32.show(last(copy, 0)))
+    unused : String & String <- Batch.run(~(String & String), ~step.equal, "equal", (s, copy))
+    return Unit{}
 def start(+n: U32) -> IO(Unit):
   do IO<Unit>:
-    t0 : Time.Duration <- Time.mono()
-    op.fill.done(n, t0, fill(n))
-
+    state : U32 & String <- Batch.run(~(U32 & String), ~step.fill, "fill", (n, ""))
+    state : U32 & String <- Batch.run(~(U32 & String), ~step.sum, "sum", state)
+    state : U32 & String <- Batch.run(~(U32 & String), ~step.find, "find", state)
+    state : U32 & String <- Batch.run(~(U32 & String), ~step.slice, "slice", state)
+    state : U32 & String <- Batch.run(~(U32 & String), ~step.concat, "concat", state)
+    finish(state)
 def main() -> IO(Unit):
   do IO<Unit>:
     args : List<&1, String> <- IO.args()
