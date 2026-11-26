@@ -1,7 +1,7 @@
 import Base
 import ./zlib.bend as Z
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-bits@0.4.0.0/bits.bend as Bits
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bits@0.4.0.1/bits.bend as Bits
 import ./encode.bend as Encode
 
 def str(xs: List<&2, U32>) -> String:

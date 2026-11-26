@@ -7,6 +7,10 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `postgres` 0.4.0.1: use current sibling releases with matching types.
+- `redis` 0.5.0.1: use current sibling releases with matching types.
+- `stream` 0.5.0.2: use current sibling releases with matching types.
+- `zlib` 0.7.0.3: use current sibling releases with matching types.
 - `commands` 0.6.0.2: use current sibling releases with matching types.
 - `crdt` 0.2.3.4: use current sibling releases with matching types.
 - `f32array` 0.2.4.2: use current sibling releases with matching types.

@@ -1,6 +1,6 @@
 # Pure RESP3 codec and incremental reader.
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 # A RESP3 value (RESP2 replies decode into the same type). Text fields hold the raw
 # bytes of the line. Dict (a RESP3 map) and Attr keep their pairs flat, key then value, as
 # on the wire and in hiredis. Attr holds the attribute pairs, then the reply they annotate, last.
