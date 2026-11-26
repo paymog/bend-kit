@@ -1982,3 +1982,51 @@ def k_exact_inc_grows(
       Equal.sym(Bool, Laws.k.grows(~K, ~cmp, s, KI(~K, ~cmp, s, k)), KL(~K, ~cmp, s, u),
         Equal.cong(Maybe<&2, Crdt.KCounter<K>>, Bool, m => Laws.k.grows(~K, ~cmp, s, m), KI(~K, ~cmp, s, k), Some{u}, ok)),
       k_inc_grows.go(~K, ~cmp, ~refl, s, k, KH(~K, ~cmp, k, s))))
+
+def Laws.k_merge_comm_state(K, cmp, refl, eq, flip, trans, a, b, va, vb):
+  +a = a
+  +b = b
+  +va = va
+  +vb = vb
+  Laws.k_le_antisymm(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, KM(~K, ~cmp, a, b), KM(~K, ~cmp, b, a),
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, b, va, vb),
+    merge_valid(~K, ~cmp, ~eq, ~flip, b, a, vb, va),
+    Laws.k_merge_least(~K, ~cmp, ~eq, a, b, KM(~K, ~cmp, b, a),
+      Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, b, a), upper_l(~K, ~cmp, ~refl, ~eq, b, a)),
+    Laws.k_merge_least(~K, ~cmp, ~eq, b, a, KM(~K, ~cmp, a, b),
+      Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, b), upper_l(~K, ~cmp, ~refl, ~eq, a, b)))
+
+def Laws.k_merge_assoc_state(K, cmp, refl, eq, flip, trans, a, b, c, va, vb, vc):
+  +a = a
+  +b = b
+  +c = c
+  +va = va
+  +vb = vb
+  +vc = vc
+  +ab = KM(~K, ~cmp, a, b)
+  +bc = KM(~K, ~cmp, b, c)
+  +l = KM(~K, ~cmp, ab, c)
+  +r = KM(~K, ~cmp, a, bc)
+  +bl = Laws.k_le_trans(~K, ~cmp, ~eq, b, ab, l,
+    Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, b), upper_l(~K, ~cmp, ~refl, ~eq, ab, c))
+  +br = Laws.k_le_trans(~K, ~cmp, ~eq, b, bc, r,
+    upper_l(~K, ~cmp, ~refl, ~eq, b, c), Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, bc))
+  Laws.k_le_antisymm(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, l, r,
+    merge_valid(~K, ~cmp, ~eq, ~flip, ab, c, merge_valid(~K, ~cmp, ~eq, ~flip, a, b, va, vb), vc),
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, bc, va, merge_valid(~K, ~cmp, ~eq, ~flip, b, c, vb, vc)),
+    Laws.k_merge_least(~K, ~cmp, ~eq, ab, c, r,
+      Laws.k_merge_least(~K, ~cmp, ~eq, a, b, r, upper_l(~K, ~cmp, ~refl, ~eq, a, bc), br),
+      Laws.k_le_trans(~K, ~cmp, ~eq, c, bc, r,
+        Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, b, c), Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, bc))),
+    Laws.k_merge_least(~K, ~cmp, ~eq, a, bc, l,
+      Laws.k_le_trans(~K, ~cmp, ~eq, a, ab, l,
+        upper_l(~K, ~cmp, ~refl, ~eq, a, b), upper_l(~K, ~cmp, ~refl, ~eq, ab, c)),
+      Laws.k_merge_least(~K, ~cmp, ~eq, b, c, l, bl, Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, ab, c))))
+
+def Laws.k_merge_idem_state(K, cmp, refl, eq, flip, trans, a, va):
+  +a = a
+  +va = va
+  +ha = le_self(~K, ~cmp, ~refl, a)
+  Laws.k_le_antisymm(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, KM(~K, ~cmp, a, a), a,
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, a, va, va), va,
+    Laws.k_merge_least(~K, ~cmp, ~eq, a, a, a, ha, ha), upper_l(~K, ~cmp, ~refl, ~eq, a, a))

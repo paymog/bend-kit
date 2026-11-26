@@ -3,7 +3,7 @@
 Replicated data types with proved merges, as in Shapiro et al., "A comprehensive study of Convergent and Commutative Replicated Data Types" (2011). `GCounter` is a grow-only counter keyed by small dense indices. `KCounter` is a grow-only counter keyed by sparse IDs of any `Data` type. `PNCounter` adds decrements with a pair of dense G-Counters. Replicas exchange whole states in any order, and every replica that has seen the same states holds the same counter.
 
 ```bend
-import bend-kit-crdt@0.2.3.2/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.3/crdt.bend as Crdt
 ```
 
 It imports `bend-kit-cbor@0.3.0.1` and `bend-kit-bytes@0.3.3.1` for the wire form.
@@ -18,7 +18,7 @@ Replica 0 receives the state of replica 1 twice.
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.3.2/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.3/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -88,7 +88,7 @@ Replica 7 counts 2 events. Replica 4000000000 counts 1 event and merges the stat
 
 ```bend
 import Base
-import bend-kit-crdt@0.2.3.2/crdt.bend as Crdt
+import bend-kit-crdt@0.2.3.3/crdt.bend as Crdt
 
 def total(m: Maybe<&2, U32>) -> String:
   match m:
@@ -122,13 +122,14 @@ It prints `3`.
 
 `decode` returns `None` for bytes that are not CBOR, a value that is not a map, a key that `dec` refuses, a count that is not an unsigned integer below 2^32, a count of 0, keys that are not strictly ascending under `cmp` (this also rejects a repeated key), or more than `cap` entries.
 
-`KCounter` states are not canonical in general: an unsorted list or one with a repeated ID still has a meaning. `get` reads the largest count under any ID that `cmp` makes equal to `k`. So the join laws compare two states by `get` at every ID, not as lists. They hold for every state, valid or not, and for every comparator with the order facts that each law names.
+`KCounter` states are not canonical in general: an unsorted list or one with a repeated ID still has a meaning. `get` reads the largest count under any ID that `cmp` makes equal to `k`. The raw join laws compare two states by `get` at every ID, not as lists. They hold for every state, valid or not. The canonical join laws prove equality of the stored `KCounter` states when IDs strictly ascend and every count is positive.
 
 `value_exact` returns 0 for an empty state. It adds every stored count without U32 overflow and needs no comparator. Like `value`, it counts each stored entry on a raw state, including repeated IDs. `k_exact_sum` in `PROOF.bend` proves, for every ID type and state, that its result equals `GCounter.value_exact` of the list of stored counts. The checked `value` API is unchanged.
 
 | law | claim |
 |---|---|
 | `k_merge_comm`, `k_merge_assoc`, `k_merge_idem` | for every ID `k`, `get` of each side is equal |
+| `k_merge_comm_state`, `k_merge_assoc_state`, `k_merge_idem_state` | merge is commutative, associative, and idempotent as stored-state equality for valid canonical inputs |
 | `k_merge_upper_l`, `k_merge_upper_r`, `k_merge_least` | merge is the least upper bound in the order `le` |
 | `k_le_refl`, `k_le_trans` | `le` is reflexive and transitive on all states |
 | `k_le_antisymm` | two valid canonical states that are at most each other are equal as lists |
@@ -142,6 +143,8 @@ It prints `3`.
 The order facts are `refl` (`cmp(x, x) == EQ`), `eq` (`cmp(x, y) == EQ` gives `x == y`), `flip` (`cmp(y, x)` is the flip of `cmp(x, y)`), and strict-order `trans` (`x < y` and `y < z` give `x < z`). `U32.cmp` and a lexicographic `String` comparator have all four.
 
 `k_le_refl` needs `refl`. `k_le_trans` needs `eq`. `k_merge_mono` needs both and reuses the keyed join proofs. None needs validity. `k_le_antisymm` needs all four facts and valid states: IDs strictly ascend and every count is positive. These states form a partial order. Raw states form only a preorder; a zero entry and an empty state can be at most each other without being equal.
+
+The three canonical join laws need valid inputs and all four comparator facts. They reuse merge validity, the least-upper-bound laws, and keyed state antisymmetry. The raw pointwise laws remain available without validity assumptions.
 
 State order compares each replica's count, not the total. States with one event under different IDs have equal totals but are incomparable.
 
