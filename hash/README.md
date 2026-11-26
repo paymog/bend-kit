@@ -3,8 +3,8 @@
 Non-cryptographic hashes over `Bytes`: FNV-1a (32 and 64), xxHash (32 and 64), SipHash-1-3, SipHash-2-4, CRC-32, and Adler-32.
 
 ```bend
-import bend-kit-hash@0.3.2.3/hash.bend as Hash
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-hash@0.3.2.4/hash.bend as Hash
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 ```
 
 Each hash function that takes `Bytes` returns the buffer beside the digest. The buffer is affine.

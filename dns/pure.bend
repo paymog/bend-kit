@@ -1,6 +1,6 @@
 # Pure DNS codec and host lookup model.
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # Query
 # -----

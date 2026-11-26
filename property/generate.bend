@@ -1,7 +1,7 @@
 # Pure generators: each takes a Rand.Rng and returns a value beside the next state.
 import Base
 import bend-kit-random@0.1.0.1/random.bend as Rand
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # A generator is `Rand.Rng -> T & Rand.Rng`. The same seed replays the same value:
 #   (xs, r) = Gen.list(~U32, ~Gen.u32, 8, Rand.seed(42))

@@ -3,8 +3,8 @@
 Encode and decode CBOR values over `Bytes` as specified in RFC 8949.
 
 ```bend
-import bend-kit-cbor@0.3.0.2/cbor.bend as Cbor
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-cbor@0.3.0.3/cbor.bend as Cbor
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 ```
 
 `Val` has these constructors: `UInt`, `NInt`, `BStr`, `TStr`, `Arr`, `Obj`, `Tag`, `Sim`, and `Flt`. Values wider than a `U32` use `W64`. It holds two `U32` halves.

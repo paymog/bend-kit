@@ -1,7 +1,7 @@
 # Clocks, Duration and Instant, Gregorian dates, RFC 3339 and HTTP-date text, and TZif time zones. Source: https://github.com/paymog/bend-kit/tree/main/time
 import Base
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 import ./pure.bend as Pure
 

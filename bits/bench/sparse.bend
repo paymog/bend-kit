@@ -3,7 +3,7 @@ import ./bench.bend as Bench
 import ./profile.bend as Profile
 import ../bits.bend as Bits
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def lens(mixed: Bool) -> List<&2, U32>:
   match mixed:

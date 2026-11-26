@@ -1,6 +1,6 @@
 # RFC 6455 WebSocket client: opening handshake, frames over packed Bytes, and messages over Wire. Source: https://github.com/paymog/bend-kit/tree/main/websocket
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import ./pure.bend as Pure

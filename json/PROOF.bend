@@ -1,7 +1,7 @@
 import Base
 import ./json.bend as Json
 import ./LAWS.bend as Laws
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # Concrete strict-mode evidence and implementations of the declared laws.
 def strict.high() -> {Json.parse.strict.bytes(Bytes.from_string("\"\\uD800\""), 64) == None{} : Maybe<&1, Json.Val>}:

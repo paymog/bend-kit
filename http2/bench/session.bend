@@ -1,6 +1,6 @@
 import Base
 import ../http2.bend as H
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def payload.sum(b: Bytes.Bytes) -> U32:
   H.with_number(U32, Bytes.get.u32be(b, 0), b => a =>
