@@ -241,4 +241,67 @@ with patch.object(repin, "hub_hash", side_effect=lambda p, v: "published" if (p,
         "consumer/check.bend": {("consumer", "0.0.0.0"): "0.2.0.0"},
     })], set())], plan
 
+with TemporaryDirectory() as tmp:
+    root = Path(tmp)
+    repin.ROOT = root
+    versions = {"http": "0.45.0.0", "camber": "0.19.0.0", "runner": "0.22.0.2"}
+    for p in versions:
+        (root / p).mkdir()
+        (root / p / f"{p}.bend").write_text(
+            "import bend-kit-http@0.44.0.2/http.bend\n" if p != "http" else "")
+    camber = "Uses HTTP0.44.0.2. Package version: `0.18.0.2`.\n"
+    runner = "It uses HTTP 0.44.0.2 models.\n"
+    (root / "camber/README.md").write_text(camber)
+    (root / "runner/README.md").write_text(runner)
+    (root / "README.md").write_text("")
+    history = root / "camber/evidence"
+    history.mkdir()
+    (history / "README.md").write_text(camber)
+    (root / "camber/CHANGELOG.md").write_text(camber)
+    output = StringIO()
+    with redirect_stdout(output):
+        repin.guidance(versions, list(versions), set())
+    report = output.getvalue()
+    assert "camber/README.md:1:" in report, report
+    assert "runner/README.md:1:" in report, report
+    assert "camber@0.19.0.0" in report and "http@0.45.0.0" in report, report
+    assert "http@0.44.0.2" in report, "guidance must show the consumer's actual pin"
+    assert (root / "camber/README.md").read_text() == camber
+    assert (root / "runner/README.md").read_text() == runner
+
+    (root / "runner/README.md").write_text("It uses HTTP 0.45.0.0 models.\n")
+    (root / "runner/runner.bend").write_text("import bend-kit-http@0.45.0.0/http.bend\n")
+    files = {p: [f"{p}/{p}.bend"] for p in versions}
+    pins = {f: set(repin.IMPORT.findall((root / f).read_text())) for fs in files.values() for f in fs}
+    pins["camber/camber.bend"] = {("http", "0.45.0.0")}
+    with patch.object(repin, "hub_hash", return_value="published"), \
+            patch.object(repin, "hub_files", side_effect=lambda p, v:
+                         {f"{p}/{p}.bend"} | ({"runner/README.md"} if p == "runner" else set())), \
+            patch.object(repin, "hub_readme", return_value=runner):
+        plan = list(repin.waves(list(versions), versions, files, pins))
+    assert plan == [([("runner", "0.22.0.3", {"runner/README.md": {}})], set())], plan
+    (root / "scripts").mkdir()
+    (root / "scripts/pins.allow").write_text("")
+    output = StringIO()
+    with redirect_stdout(output):
+        repin.apply(plan[0][0], versions, list(versions))
+    assert (root / "runner/VERSION").read_text() == "0.22.0.3\n"
+    assert (root / "runner/README.md").read_text() == "It uses HTTP 0.45.0.0 models.\n"
+    assert (history / "README.md").read_text() == camber
+    assert (root / "camber/CHANGELOG.md").read_text() == camber
+
+    (root / "runner/README.md").write_text("Use bend-kit-http@0.44.0.2.\n")
+    (root / "runner/check.bend").write_text("import bend-kit-http@0.44.0.2/http.bend\n")
+    files["runner"].append("runner/check.bend")
+    pins["runner/check.bend"] = {("http", "0.44.0.2")}
+    with patch.object(repin, "hub_hash", return_value="published"), \
+            patch.object(repin, "hub_files", side_effect=lambda p, v:
+                         {f"{p}/{p}.bend"} | ({"runner/README.md"} if p == "runner" else set())), \
+            patch.object(repin, "hub_readme", return_value="Use bend-kit-http@0.44.0.2.\n"):
+        plan = list(repin.waves(list(versions), versions, files, pins))
+    assert plan == [([("runner", "0.22.0.3", {
+        "runner/check.bend": {("http", "0.44.0.2"): "0.45.0.0"},
+        "runner/README.md": {},
+    })], set())], plan
+
 print("Re-pin wave checks pass")
