@@ -1,6 +1,6 @@
 import Base
 import ./text.bend as T
-import bend-kit-tty@0.1.0.1/text.bend as Tty
+import bend-kit-tty@0.1.0.2/text.bend as Tty
 
 # Every edit that is not Same.
 def changes(-A: Data, es: List<&2, T.Edit<A>>) -> Nat:

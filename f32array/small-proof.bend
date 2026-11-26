@@ -5,7 +5,7 @@ import ./codec-model.bend as C
 import ./codec-bridge.bend as B
 import ../lemmas/array.bend as Arr
 import ../lemmas/perfect.bend as P
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 def values(~enc: F32 -> U32, ~dec: U32 -> F32, xs: List<&2, F32>) -> List<&2, F32>:
   match xs:

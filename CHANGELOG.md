@@ -7,6 +7,17 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `commands` 0.6.0.2: use current sibling releases with matching types.
+- `crdt` 0.2.3.4: use current sibling releases with matching types.
+- `f32array` 0.2.4.2: use current sibling releases with matching types.
+- `journal` 0.4.0.1: use current sibling releases with matching types.
+- `migrate` 0.4.1.1: use current sibling releases with matching types.
+- `notch` 0.4.0.4: use current sibling releases with matching types.
+- `planner` 0.5.1.1: use current sibling releases with matching types.
+- `protobuf` 0.2.2.1: use current sibling releases with matching types.
+- `regex` 0.9.0.2: use current sibling releases with matching types.
+- `template` 0.4.0.1: use current sibling releases with matching types.
+- `text` 0.2.2.3: use current sibling releases with matching types.
 - `bits` 0.4.0.1: use current sibling releases with matching types.
 - `cbor` 0.3.0.2: use current sibling releases with matching types.
 - `csv` 0.3.0.2: use current sibling releases with matching types.

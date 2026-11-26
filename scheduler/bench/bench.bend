@@ -1,6 +1,6 @@
 import Base
 import ../queue.bend as Q
-import bend-kit-time@0.3.0.3/time.bend as Time
+import bend-kit-time@0.3.0.4/time.bend as Time
 
 def fill(n: Nat, s: Q.State<U32>) -> Q.State<U32>:
   match n:

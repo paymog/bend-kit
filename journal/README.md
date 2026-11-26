@@ -3,10 +3,10 @@
 An append-only journal: checksummed frames, fsync'd appends, and crash recovery of the committed prefix. Use one to keep local state durable, such as a task list, a queue's progress, or applied commands.
 
 ```bend
-import bend-kit-journal@0.4.0.0/journal.bend as J
+import bend-kit-journal@0.4.0.1/journal.bend as J
 ```
 
-It imports `bend-kit-hash@0.3.2.2` and `bend-kit-bytes@0.3.3.1`. Payloads are that version's `Bytes`.
+It imports `bend-kit-hash@0.3.2.3` and `bend-kit-bytes@0.3.3.2`. Payloads are that version's `Bytes`.
 
 ## Example
 
@@ -14,8 +14,8 @@ A durable task list. Each record is `add <task>` or `done <task>`, and `open` fo
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-journal@0.4.0.0/journal.bend as J
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-journal@0.4.0.1/journal.bend as J
 
 def without(xs: List<&2, String>, +x: String) -> List<&2, String>:
   match xs:
@@ -65,7 +65,7 @@ Each run prints the open tasks and adds one. The record is on disk when `append`
 | `frame(p)` | The octets that `append(j, p)` writes. |
 | `replay.bytes(~A, ~step, max, b, acc)` | The pure fold that `open` runs over a buffer. Answers `Replay{state, tail, Cur{b, end}}`. |
 
-Import `bend-kit-journal@0.4.0.0/pure.bend` for `frame`, `replay.bytes`, `Tail`, `Step`, `Recovery`, `Replay`, `Cur`, the generic decoder, and the list model. Import `journal.bend` for `Journal` and file operations.
+Import `bend-kit-journal@0.4.0.1/pure.bend` for `frame`, `replay.bytes`, `Tail`, `Step`, `Recovery`, `Replay`, `Cur`, the generic decoder, and the list model. Import `journal.bend` for `Journal` and file operations.
 
 `max` caps a record's length in octets. `limit` caps the file size that `open` reads. `open` fails when:
 

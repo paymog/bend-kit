@@ -2,7 +2,7 @@ import Base
 import ../text.bend as T
 import ../byte_check.bend as Check
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 def allocations() -> IO(String):
   import "./collision.c"

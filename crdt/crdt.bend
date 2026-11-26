@@ -5,8 +5,8 @@
 # al. (2011). Each replica must increment only its own entry. A KCounter is the
 # same counter keyed by sparse replica IDs of any Data type.
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-cbor@0.3.0.1/cbor.bend as Cbor
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-cbor@0.3.0.2/cbor.bend as Cbor
 
 # The counter with no increments.
 def GCounter.new() -> List<&2, U32>:

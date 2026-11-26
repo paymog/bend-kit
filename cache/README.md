@@ -109,7 +109,7 @@ Their proofs cite `omap_put_searchtree`, `omap_get_put_other_key`, and the `Orde
 
 ## Trust boundary
 
-- **Clock.** The core takes the clock as a `Nat` argument in the caller's unit; `Policy` TTLs use the same unit. Pass a monotonic clock, such as `Time.mono.ms()` from `bend-kit-time@0.3.0.3`, as `check.bend` does. A wall clock that goes back can keep an entry fresh for too long.
+- **Clock.** The core takes the clock as a `Nat` argument in the caller's unit; `Policy` TTLs use the same unit. Pass a monotonic clock, such as `Time.mono.ms()` from `bend-kit-time@0.3.0.4`, as `check.bend` does. A wall clock that goes back can keep an entry fresh for too long.
 - **Upstream versions.** The cache orders fetches by when they started, not by the upstream `version`. It assumes upstream is linearizable: a fetch that starts later sees a version at least as new. A replica that lags can answer an older version to a newer fetch, and the cache stores it. `version` is reported, not compared.
 - **Invalidation.** The cache learns of an upstream change only when you call `invalidate`. Until then it serves the old value up to its TTL.
 - **One owner.** A `Cache` is a value. Keep it in one task and run fetches elsewhere, as `check.bend` does: the forked task only fetches, and the main task completes. Two copies of a cache that both take completions diverge.
