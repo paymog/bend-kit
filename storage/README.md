@@ -3,8 +3,8 @@
 An immutable content-addressed object store for artifact trees, such as a build output directory. Each object is named by the SHA-256 of its canonical encoding. Two stores exchange only the objects one of them lacks, every object is checked against its digest when it enters a store, and collection keeps every object that a retained root reaches. `LAWS.bend` states these properties for every store, and `PROOF.bend` proves them.
 
 ```bend
-import bend-kit-storage@0.10.0.0/storage.bend as S
-import bend-kit-storage@0.10.0.0/pure.bend as P
+import bend-kit-storage@0.10.0.1/storage.bend as S
+import bend-kit-storage@0.10.0.1/pure.bend as P
 ```
 
 `pure.bend` owns the model, digest types and ordering, and encoding and decoding helpers. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` import only this module. `storage.bend` owns hashing and disk IO. Import both modules for disk operations; pure types and constructors use `P`, and effects use `S`.
@@ -17,8 +17,8 @@ Snapshot a build directory into store `a`, send it to store `b`, and restore it 
 
 ```bend
 import Base
-import bend-kit-storage@0.10.0.0/storage.bend as S
-import bend-kit-storage@0.10.0.0/pure.bend as P
+import bend-kit-storage@0.10.0.1/storage.bend as S
+import bend-kit-storage@0.10.0.1/pure.bend as P
 
 def ship(+root: P.Digest) -> S.Run(Unit):
   do S.Run<Unit>:
@@ -124,16 +124,16 @@ Use `Disk.collect_named` to retain the current named roots. Separate `Disk.roots
 
 ## HTTP synchronization
 
-Import `bend-kit-storage@0.10.0.0/http.bend` as `Transport`. This module adds `bend-kit-http@0.44.0.1`; the pure storage core does not import HTTP.
+Import `bend-kit-storage@0.10.0.1/http.bend` as `Transport`. This module adds `bend-kit-http@0.44.0.2`; the pure storage core does not import HTTP.
 
 Import HTTP models and state functions from `pure.bend` as `Pure`, and client/server handles and effects from `http.bend` as `Http`:
 
 ```bend
-import bend-kit-http@0.44.0.1/pure.bend as Pure
-import bend-kit-http@0.44.0.1/http.bend as Http
+import bend-kit-http@0.44.0.2/pure.bend as Pure
+import bend-kit-http@0.44.0.2/http.bend as Http
 ```
 
-Handlers take `Pure.Req`; server configuration uses `Pure.server.config(host, port)`. Startup errors and server exits are `Pure.StartupError` and `Pure.ServerExit`. Model deadlines use `bend-kit-time@0.3.0.2/pure.bend` values returned by `Http.clock.now()` and `Http.clock.mono()`.
+Handlers take `Pure.Req`; server configuration uses `Pure.server.config(host, port)`. Startup errors and server exits are `Pure.StartupError` and `Pure.ServerExit`. Model deadlines use `bend-kit-time@0.3.0.3/pure.bend` values returned by `Http.clock.now()` and `Http.clock.mono()`.
 
 `Transport.handle(dir, request)` returns `Http.WriteHead<Transport.Source>`. It serves `GET /objects/<digest>` as `application/octet-stream`. Invalid paths and missing objects return 404; other disk failures return 500. Mount it with `Http.server.start(~String, ~Unit, dir, Unit{}, config)` and `Transport.server.run(~observe, server)`. The observer has type `String -> U32 -> Completion.Outcome -> IO(Unit)` and may call `Completion.ignore(status, outcome)`. Custom write servers can use `Transport.write` and `Transport.dispose`, or `Transport.talk` with their own context and start handler. The caller owns the listener, bind address, admission limits, shutdown, authentication, and TLS termination.
 
@@ -141,9 +141,9 @@ The client is:
 
 ```bend
 import Base
-import bend-kit-storage@0.10.0.0/storage.bend as S
-import bend-kit-storage@0.10.0.0/pure.bend as P
-import bend-kit-storage@0.10.0.0/http.bend as Transport
+import bend-kit-storage@0.10.0.1/storage.bend as S
+import bend-kit-storage@0.10.0.1/pure.bend as P
+import bend-kit-storage@0.10.0.1/http.bend as Transport
 
 def pull(+root: P.Digest) -> S.Run(U32):
   Transport.sync("https://artifacts.example", "b", root)

@@ -2,9 +2,9 @@
 import Base
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.44.0.1/http.bend as H
-import bend-kit-http@0.44.0.1/pure.bend as Pure
-import bend-kit-http@0.44.0.1/completion.bend as T
+import bend-kit-http@0.44.0.2/http.bend as H
+import bend-kit-http@0.44.0.2/pure.bend as Pure
+import bend-kit-http@0.44.0.2/completion.bend as T
 import bend-kit-json@0.7.3.0/json.bend as J
 import bend-kit-bytes@0.3.3.1/bytes.bend as B
 

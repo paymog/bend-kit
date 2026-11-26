@@ -1,12 +1,12 @@
 import Base
 import ./storage.bend as S
 import ./pure.bend as P
-import bend-kit-http@0.44.0.1/http.bend as Http
-import bend-kit-http@0.44.0.1/pure.bend as Pure
-import bend-kit-http@0.44.0.1/completion.bend as Completion
+import bend-kit-http@0.44.0.2/http.bend as Http
+import bend-kit-http@0.44.0.2/pure.bend as Pure
+import bend-kit-http@0.44.0.2/completion.bend as Completion
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-http@0.44.0.1/admission.bend as Admission
+import bend-kit-http@0.44.0.2/admission.bend as Admission
 
 type Source is Type:
   Object{file: File, size: U32}

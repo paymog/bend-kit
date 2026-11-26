@@ -5,7 +5,7 @@ import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import ../http/http.bend as Http
 import ../http/pure.bend as Pure
 import ./json_progress_probe.bend as Progress
-import bend-kit-time@0.3.0.2/time.bend as Time
+import bend-kit-time@0.3.0.3/time.bend as Time
 
 # Explicit traversal isolates automatic-erasure cost: https://github.com/bendlang/bend/issues/1307
 def numbers(values: List<&1, Json.Val>, count: U32) -> U32:
