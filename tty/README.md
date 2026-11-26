@@ -1,11 +1,11 @@
 # Terminal text
 
 ```bend
-import bend-kit-tty@0.1.0.1/tty.bend as Tty
-import bend-kit-tty@0.1.0.1/text.bend as Text
+import bend-kit-tty@0.1.0.2/tty.bend as Tty
+import bend-kit-tty@0.1.0.2/text.bend as Text
 ```
 
-`tty.bend` provides wrappers for its text helpers. Import `text.bend` directly for pure width and style functions. `text.bend` imports Unicode from `0x6c784a08486e2e02415e89c5249e9e8a/unicode.bend`.
+`tty.bend` provides wrappers for its text helpers. Import `text.bend` directly for pure width and style functions. `text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend` by name.
 
 
 `Tty.stdout_tty()` reports whether standard output is a terminal. `Tty.size()` returns `Some{(columns, rows)}` when its size can be read, or `None{}` for redirected output and unavailable dimensions. `Tty.color_enabled()` requires a terminal and the absence of `NO_COLOR`; even an empty `NO_COLOR` disables automatic color.

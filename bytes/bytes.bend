@@ -1,7 +1,6 @@
 # Byte buffers packed four bytes to a U32, with bounds-checked access. Source: https://github.com/paymog/bend-kit/tree/main/bytes
 import Base
-# bend-kit-int@0.2.0.0
-import 0x4eed9d7ac6ece61523d747a9d804e4f0/int.bend as Int
+import bend-kit-int@0.2.0.0/int.bend as Int
 
 # Bytes{len, buf}: byte i is bits 8*(i%4) of buf[i/4]. buf has the fewest 2^d words
 # that hold len bytes. Every byte at or past len is 0, so equal buffers have equal words.

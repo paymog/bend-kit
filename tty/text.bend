@@ -1,6 +1,6 @@
 # Pure terminal text: ANSI SGR styling and Unicode 17 display width.
 import Base
-import 0x6c784a08486e2e02415e89c5249e9e8a/unicode.bend as Unicode
+import bend-kit-unicode@0.1.0.0/unicode.bend as Unicode
 import ./width.bend as W
 
 # Wrap text in one numeric SGR code and a reset when enabled; otherwise return it unchanged.
