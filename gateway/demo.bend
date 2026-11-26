@@ -3,10 +3,10 @@ import Base
 import ./app.bend as Gw
 import ./gateway.bend as G
 import bend-kit-cache@0.3.2.0/cache.bend as Cache
-import bend-kit-camber@0.18.0.2/camber.bend as C
-import bend-kit-camber@0.18.0.2/notices.bend as N
-import bend-kit-http@0.44.0.2/completion.bend as T
-import bend-kit-hairpin@0.17.0.1/hairpin.bend as Hairpin
+import bend-kit-camber@0.19.0.0/camber.bend as C
+import bend-kit-camber@0.19.0.0/notices.bend as N
+import bend-kit-http@0.45.0.0/completion.bend as T
+import bend-kit-hairpin@0.18.0.0/hairpin.bend as Hairpin
 
 def done(completion: T.Completion<C.ApplicationReport<String>>) -> IO(Unit):
   IO.pure(Unit, Unit{})

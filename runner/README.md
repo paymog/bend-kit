@@ -76,7 +76,7 @@ def main() -> IO(Unit):
     done(y)
 ```
 
-[example.bend](example.bend) is a full webhook outbox: each job signs a Standard Webhooks POST with `bend-kit-webhooks@0.15.0.1` and sends it through `bend-kit-hairpin@0.17.0.1`. It uses HTTP 0.44.0.2 models from `pure.bend` and effects from `http.bend`. Its receiver reads pure Time 0.3.0.3 with `Http.clock.now()`, answers 503 once, and the runner requeues that delivery and completes it on the next attempt.
+[example.bend](example.bend) is a full webhook outbox: each job signs a Standard Webhooks POST with `bend-kit-webhooks@0.16.0.0` and sends it through `bend-kit-hairpin@0.18.0.0`. It uses HTTP 0.45.0.0 models from `pure.bend` and effects from `http.bend`. Its receiver reads pure Time 0.3.0.3 with `Http.clock.now()`, answers 503 once, and the runner requeues that delivery and completes it on the next attempt.
 
 ## API
 
