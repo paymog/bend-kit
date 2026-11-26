@@ -5,7 +5,8 @@ import bend-kit-time@0.3.0.3/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-hairpin@0.18.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/pure.bend as HairpinPure
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.45.0.0/http.bend as Http
 import bend-kit-http@0.45.0.0/pure.bend as HttpPure
@@ -388,8 +389,8 @@ def send.again(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) ->
       +again = Bool.or(HttpPure.retry.status(status), U32.is_eq((status / 100 : U32), 5))
       (Done{HttpPure.Res{status, headers, body}}, Bool.pick(Maybe<&2, String>, again, Some{HttpPure.header(headers, "retry-after")}, None{}))
 
-def send.judge(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) -> Result<&1, &1, HttpPure.Err, HttpPure.Res> & Hairpin.Verdict:
-  Hairpin.judge.of(send.again(r))
+def send.judge(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) -> Result<&1, &1, HttpPure.Err, HttpPure.Res> & HairpinPure.Verdict:
+  HairpinPure.judge.of(send.again(r))
 
 # Receivers deduplicate on the event ID, so the POST is safe to repeat.
 def send.signed(c: Hairpin.Client, b: Retry.Budget, +url: String, r: Bytes.Bytes & Result<&1, &1, Err, Map<&2, List<&2, String>>>) ->

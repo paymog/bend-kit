@@ -2,7 +2,7 @@
 # ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN (bearer), ANTHROPIC_BASE_URL, ANTHROPIC_MODEL; OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL.
 import Base
 import ./llm.bend as Llm
-import bend-kit-hairpin@0.18.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
 import bend-kit-http@0.45.0.0/pure.bend as HttpPure
 
 def env(r: Result<&1, &1, U32 & String, String>) -> Maybe<&2, String>:

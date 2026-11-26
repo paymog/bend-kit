@@ -7,6 +7,11 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `jwt` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
+- `llm` 0.19.0.0: use Hairpin 0.19.0.0 with matching HTTP models and pure verdicts.
+- `oauth2` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
+- `sigv4` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
+- `webhooks` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models and pure verdicts.
 - `hairpin` 0.19.0.0: isolate URL resolution, header merge, verdicts, and outcome classification in `pure.bend`. Runtime requests use the same definitions, and proofs import no foreign effects. Import pure helpers and `Verdict` from `pure.bend`.
 - Gateway and Runner examples: use current HTTP, Camber, Hairpin, and Webhooks types. Remove the completed HTTP consumer pin exceptions.
 - `runner` 0.22.0.3: publish the webhook example guidance with matching current HTTP, Hairpin, and Webhooks versions.
