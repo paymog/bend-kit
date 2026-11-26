@@ -1,7 +1,7 @@
 # Allocation bridges for the source perfect-tree model (bendlang/bend#2213).
 import Base
 import ./f32array.bend as A
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 import ../lemmas/perfect.bend as P
 import ../lemmas/lemmas.bend as L
 import bend-mathlib@0.8.0.0/nat.bend as N

@@ -1,7 +1,7 @@
 # A versioned configuration cache, run against the real clock with a delayed fetch.
 import Base
 import ./cache.bend as C
-import bend-kit-time@0.3.0.3/time.bend as Time
+import bend-kit-time@0.3.0.4/time.bend as Time
 
 # Values stay fresh for 1000 ms; a missing key is remembered for 400 ms.
 def POLICY() -> C.Policy:

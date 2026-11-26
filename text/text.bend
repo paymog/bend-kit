@@ -1,8 +1,8 @@
 # Text utilities: Myers diff with unified output, Levenshtein distance, and word wrap by display width.
 import Base
 import bend-kit-unicode@0.1.0.0/unicode.bend as Unicode
-import bend-kit-tty@0.1.0.1/text.bend as Tty
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-tty@0.1.0.2/text.bend as Tty
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 # ---- edit scripts
 

@@ -1,7 +1,7 @@
 # Mustache templates: variables, sections, inverted sections, comments, partials, and set delimiters, with HTML escaping on by default.
 import Base
-import bend-kit-encoding@0.5.0.1/encoding.bend as Encoding
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.2/encoding.bend as Encoding
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 # Bool.pick evaluates both branches; when evaluates only the chosen one.
 def when(-A: Type, c: Bool, t: Unit -> A, e: Unit -> A) -> A:

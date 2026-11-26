@@ -1,6 +1,6 @@
 import Base
 import ./text.bend as T
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 def collect.part(r: Bytes.Bytes & Bytes.Bytes, out: List<&2, String>) -> Bytes.Bytes & List<&2, String>:
   (b, part) = r

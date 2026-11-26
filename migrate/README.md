@@ -3,10 +3,10 @@
 Versioned records for one family: subscriptions. A record arrives as JSON in version 1, 2, or 3. `migrate` validates it, migrates it to the version you need, and encodes it again. The laws prove that each migration keeps what the record means to billing, and that decoding an encoded record gives it back.
 
 ```bend
-import bend-kit-migrate@0.4.1.0/migrate.bend as M
+import bend-kit-migrate@0.4.1.1/migrate.bend as M
 ```
 
-It imports `bend-kit-json@0.7.3.0` and `bend-kit-bytes@0.3.3.1`. Everything is bytes: decode takes and encode gives UTF-8 `Bytes.Bytes`, and the text fields of a record (`plan` and the note) are `Bytes.Bytes` too. Convert to `String` only at the edge, to print.
+It imports `bend-kit-json@0.7.3.1` and `bend-kit-bytes@0.3.3.2`. Everything is bytes: decode takes and encode gives UTF-8 `Bytes.Bytes`, and the text fields of a record (`plan` and the note) are `Bytes.Bytes` too. Convert to `String` only at the edge, to print.
 
 The package is one worked family, not a schema language. To version another record family, copy this package and replace the types, the terms, and the migrations.
 
@@ -16,9 +16,9 @@ A billing job reads records that old writers stored, and bills them with v3 rule
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-migrate@0.4.1.0/migrate.bend as M
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-json@0.7.3.1/json.bend as Json
+import bend-kit-migrate@0.4.1.1/migrate.bend as M
 
 def bill(p: M.V3 & M.Dropped) -> String:
   (M.V3{i, plan, c, pe, s}, d) = p
