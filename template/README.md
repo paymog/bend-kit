@@ -3,7 +3,7 @@
 Mustache templates: variables, sections, inverted sections, and comments. A variable is HTML-escaped unless you ask for raw output.
 
 ```bend
-import bend-kit-template@0.3.1.0/template.bend as T
+import bend-kit-template@0.4.0.0/template.bend as T
 ```
 
 ```bend
@@ -43,6 +43,8 @@ A name is looked up from the innermost section outward. In a dotted name such as
 
 Partials come from a `Map<&2, List<&2, Node>>` of parsed templates, passed to `render_with`. Parse each partial with `parse` and handle its `Fail`. A partial always starts with `{{` and `}}`, whatever delimiters the caller set. A standalone partial tag indents each line of the partial's template text by the whitespace before the tag; text that a value inserts is not indented. Partials nest at most 64 deep, so a partial that includes itself stops; a partial below that depth prints nothing.
 
+Parsed nodes include `NLine{}` before each nonempty source line. Both renderers emit the current partial indentation at that node, not after a rendered newline. Empty source lines stay empty. Newlines inside values do not add indentation. Use `parse` for partials; hand-built nodes must include these line markers. The old output indentation and trimming helpers are removed.
+
 Escaping replaces `&`, `<`, `>`, `"`, and `'` with `&amp;`, `&lt;`, `&gt;`, `&quot;`, and `&#39;`. That makes a value safe in HTML text and in a quoted attribute. It does not make a value safe in a URL, a script, or a style.
 
 | Def | Result | Use |
@@ -59,6 +61,6 @@ Lambdas and dynamic partial names (`{{>*name}}`) are not supported.
 
 The packed API uses `bend-kit-bytes@0.3.3.1` and `bend-kit-encoding@0.5.0.1`. Text inputs remain Unicode strings. The output holds UTF-8 octets, not one byte per code point. Use `Encoding.utf8.decode` only when a caller needs text. The text API and its pure proofs remain unchanged.
 
-`python3 template/conformance.py` checks both output paths against all 130 applicable Mustache spec v1.4.2 cases and two Unicode fixtures. It covers interpolation, sections, inverted sections, comments, delimiters, and partials. It skips tests whose data is not a map. `LAWS.bend` holds escaping laws and a sample of those cases. Two of its laws hold for every string: `escape` output has no `<`, `>`, `"`, or `'`, and each `&` in it starts `&amp;`, `&lt;`, `&gt;`, `&quot;`, or `&#39;`.
+`python3 template/conformance.py` checks both output paths against all 130 applicable Mustache spec v1.4.2 cases, two Unicode fixtures, and ten nested-partial regressions. It covers tabs, empty and whitespace-only lines, variable newlines, parent continuation, and the recursive-partial limit. It skips tests whose data is not a map. `LAWS.bend` holds escaping laws and a sample of those cases. Two of its laws hold for every string: `escape` output has no `<`, `>`, `"`, or `'`, and each `&` in it starts `&amp;`, `&lt;`, `&gt;`, `&quot;`, or `&#39;`.
 
 `bench/README.md` compares `render_bytes` with Rust, JavaScript, and Python libraries.

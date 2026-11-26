@@ -98,6 +98,48 @@ def main():
         "partials": {"empty": "", "p": "é\n"},
         "expected": "é\n😀é\n猫",
     }))
+    for name, outer, inner, value in [
+        ("Unicode", "  ", "  ", "é猫😀 & <"),
+        ("tabs", "\t", "\t ", "é猫😀 & <"),
+        ("variable newlines", "  ", "\t", "é\n猫😀 & <"),
+    ]:
+        cases.append(("nested-partials", {
+            "name": name,
+            "template": "{{v}}\n" + outer + "{{>p}}\n{{{v}}}",
+            "data": {"v": value},
+            "partials": {"p": "猫\n{{v}}\n" + inner + "{{>q}}\n", "q": "😀\n{{{v}}}\n"},
+            "expected": value.replace("&", "&amp;").replace("<", "&lt;") + "\n"
+                + outer + "猫\n" + outer + value.replace("&", "&amp;").replace("<", "&lt;") + "\n"
+                + outer + inner + "😀\n" + outer + inner + value + "\n" + value,
+        }))
+    for name, partial, expected in [
+        ("empty blank line", "😀\n\n{{{v}}}\n", "  猫\n    😀\n\n    é\n猫\n"),
+        ("leading blank line", "\n😀\n", "  猫\n\n    😀\n"),
+        ("whitespace-only line", "😀\n  \n猫\n", "  猫\n    😀\n      \n    猫\n"),
+        ("empty nested partial", "", "  猫\n"),
+        ("third nesting level", "{{>r}}\n", "  猫\n    😀\n"),
+    ]:
+        cases.append(("nested-partials", {
+            "name": name,
+            "template": "  {{>p}}\n",
+            "data": {"v": "é\n猫"},
+            "partials": {"p": "猫\n  {{>q}}\n", "q": partial, "r": "😀\n"},
+            "expected": expected,
+        }))
+    cases.append(("nested-partials", {
+        "name": "resume parent after nested partial",
+        "template": "  {{>p}}\n",
+        "data": {},
+        "partials": {"p": "猫\n  {{>q}}\n後\n", "q": "😀\n"},
+        "expected": "  猫\n    😀\n  後\n",
+    }))
+    cases.append(("nested-partials", {
+        "name": "recursive partial depth limit",
+        "template": "  {{>p}}\n",
+        "data": {},
+        "partials": {"p": "猫\n{{>p}}\n"},
+        "expected": "  猫\n" * 64,
+    }))
     body = "".join(f"def c{i}() -> String:\n  out(T.parse({lit(t['template'])}), {obj(t['data'])}, {parts(t.get('partials', {}))})\n\n" for i, (_, t) in enumerate(cases))
     main = "def main() -> IO(Unit):\n  do IO<Unit>:\n" + "".join(f"    IO.print(c{i}() ++ {lit(END)})\n" for i in range(len(cases)))
     (OUT / "conformance.bend").write_text(HEAD + body + main)

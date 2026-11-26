@@ -54,6 +54,6 @@ The renderer writes UTF-8 into a growing buffer and uses the encoding package's 
 
 - `chevron.render` tokenizes the template on every call. The other libraries render a parsed template.
 - `mustache.js` escapes `/`, `` ` ``, and `=` as well. `bench.ts` sets `Mustache.escape` to the same five characters as the others.
-- Text nodes and values remain Unicode strings. Indented partial text still uses the existing text indentation helper. Partials render into separate packed buffers, trim trailing indentation, and append once to their caller. The fixed input has no partials, so these results do not measure partial-heavy workloads.
+- Text nodes and values remain Unicode strings. Parsed line markers tell both renderers where partial indentation belongs. The packed path writes nested partials into the caller's buffer without a separate buffer or trailing-indentation trim. The fixed input has no partials, so these results do not measure partial-heavy workloads.
 - Bend times itself with `Time.mono`, a nanosecond clock.
 - One machine, one thread.

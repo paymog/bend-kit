@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `template` 0.4.0.0: mark nonempty source lines in parsed nodes. Both renderers indent nested standalone partials once, preserve blank lines and variable newlines, and keep the 64-level limit. Add `NLine` and remove the old output indentation and trimming helpers.
 - `f32array` 0.2.4.1: prove the big-endian array-to-Bytes-to-array round trip for every input below `2^30` elements. Share the little-endian proof stack and retain all F32 bit patterns in the law's domain.
 - `runner` 0.22.0.4: align the webhook example and its published guidance with Hairpin 0.19.0.0 and Webhooks 0.17.0.0. Remove the completed Hairpin consumer pin exceptions.
 - `jwt` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
