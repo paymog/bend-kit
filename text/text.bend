@@ -531,14 +531,33 @@ def byte_paired(es: List<&2, Edit<ByteRange>>, r: Array<U32> & Array<U32> & Bool
     case Con{_, t}:
       byte_paired(t, r, ok)
 
-def byte_values.go(f: Nat, r: Array<U32> & U32, +i: U32, out: List<&2, U32>) -> Array<U32> & List<&2, U32>:
+def byte_values.word.high(r: Array<U32> & U32, low: U32, +shift: Nat) -> Array<U32> & U32:
+  (a, high) = r
+  (a, (U32.shrn(low, shift) .|. U32.shln(high, Nat.sub(32n, shift)) : U32))
+
+def byte_values.word.pick(aligned: Bool, r: Array<U32> & U32, +i: U32) -> Array<U32> & U32:
+  match aligned:
+    case True{}:
+      r
+    case False{}:
+      (a, low) = r
+      byte_values.word.high(Array.get(U32, a, ((i >> 2n) + 1 : U32)), low, Bytes.shift(i))
+
+def byte_values.word(a: Array<U32>, +i: U32) -> Array<U32> & U32:
+  byte_values.word.pick(U32.is_eq((i .&. 3 : U32), 0), Array.get(U32, a, (i >> 2n : U32)), i)
+
+def byte_values.tail(r: Array<U32> & U32, n: U32, out: List<&2, U32>) -> Array<U32> & List<&2, U32>:
+  (a, tail) = r
+  (a, n <> tail <> out)
+
+def byte_values.go(f: Nat, r: Array<U32> & U32, +i: U32, +n: U32, out: List<&2, U32>) -> Array<U32> & List<&2, U32>:
   match f:
     case 0n:
       (a, _) = r
-      (a, List.reverse(&2, U32, out))
+      byte_values.tail(Bytes.uint.go(U32.to_nat((n .&. 3 : U32)), Bytes.peek(a, i), i, True{}, 0), n, out)
     case 1n+p:
       (a, v) = r
-      byte_values.go(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32), v <> out)
+      byte_values.go(p, byte_values.word(a, (i + 4 : U32)), (i + 4 : U32), n, v <> out)
 
 def byte_values.push(first: Bool, vs: List<&2, U32>, out: List<&2, List<&2, U32>>) -> List<&2, List<&2, U32>>:
   match first:
@@ -552,9 +571,9 @@ def byte_values(rs: List<&2, ByteRange>, r: Array<U32> & List<&2, U32>, out: Lis
     case Nil{}:
       (a, vs) = r
       (a, List.reverse(&2, List<&2, U32>, byte_values.push(first, vs, out)))
-    case Con{ByteRange{+i, n, _}, t}:
+    case Con{ByteRange{+i, +n, _}, t}:
       (a, vs) = r
-      byte_values(t, byte_values.go(U32.to_nat(n), Bytes.peek(a, i), i, Nil{}), byte_values.push(first, vs, out), False{})
+      byte_values(t, byte_values.go(U32.to_nat((n >> 2n : U32)), byte_values.word(a, i), i, n, Nil{}), byte_values.push(first, vs, out), False{})
 
 def byte_values.eq(a: List<&2, U32>, b: List<&2, U32>) -> Bool:
   match a b:
@@ -573,7 +592,7 @@ def byte_diff.fallback.a(r: Array<U32> & List<&2, List<&2, U32>>, b: Array<U32>,
   (a, av) = r
   byte_diff.fallback.b(a, av, byte_values(new, (b, Nil{}), Nil{}, True{}), old, new)
 
-# A collision uses exact octet lists only on the fallback path.
+# A collision compares exact packed words, a partial word, and the byte length.
 def byte_diff.pick(ok: Bool, es: List<&2, Edit<ByteRange>>, a: Array<U32>, b: Array<U32>, +old: List<&2, ByteRange>, +new: List<&2, ByteRange>) -> Array<U32> & Array<U32> & List<&2, Edit<ByteRange>>:
   match ok:
     case True{}:
