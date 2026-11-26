@@ -281,7 +281,7 @@ jobs:
       - name: Install Bend
         run: scripts/install-bend.sh
       - name: Install Bun
-        if: matrix.package == 'storage' || matrix.package == 'dns' || matrix.package == 'http' || matrix.package == 'process' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
+        if: matrix.package == 'storage' || matrix.package == 'dns' || matrix.package == 'http' || matrix.package == 'process' || matrix.package == 'runner' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
