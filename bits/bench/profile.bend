@@ -3,7 +3,7 @@ import ./bench.bend as Bench
 import ./build.bend as Build
 import ../bits.bend as Bits
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 def reserved.done(n: Array<U32>, r: Array<U32> & U32) -> Array<U32> & Array<U32> & Array<U32>:
   (table, +used) = r

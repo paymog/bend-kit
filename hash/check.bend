@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 import ./hash.bend as Hash
 
 def fill(n: Nat, b: Bytes.Bytes, +i: U32, +seed: U32) -> Bytes.Bytes:
