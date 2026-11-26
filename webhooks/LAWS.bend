@@ -1,6 +1,6 @@
 import Base
 import ./pure.bend as W
-import bend-kit-time@0.3.0.2/pure.bend as Time
+import bend-kit-time@0.3.0.3/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 # Pure framing and freshness only. HMAC and the constant-time compare are foreign code; check.bend runs them.

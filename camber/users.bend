@@ -1,10 +1,10 @@
 # Four-route users demo over published Camber; one affine in-memory store, no persistence claim.
 import Base
-import bend-kit-camber@0.18.0.0/camber.bend as C
-import bend-kit-camber@0.18.0.0/input.bend as Input
-import bend-kit-camber@0.18.0.0/notices.bend as N
-import bend-kit-http@0.44.0.1/http.bend as Http
-import bend-kit-http@0.44.0.1/pure.bend as Pure
+import bend-kit-camber@0.18.0.2/camber.bend as C
+import bend-kit-camber@0.18.0.2/input.bend as Input
+import bend-kit-camber@0.18.0.2/notices.bend as N
+import bend-kit-http@0.44.0.2/http.bend as Http
+import bend-kit-http@0.44.0.2/pure.bend as Pure
 import bend-kit-json@0.7.3.0/json.bend as J
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-bytes@0.3.3.1/bytes.bend as B

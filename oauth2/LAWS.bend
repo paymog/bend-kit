@@ -1,6 +1,6 @@
 import Base
 import ./pure.bend as O
-import bend-kit-time@0.3.0.2/pure.bend as Time
+import bend-kit-time@0.3.0.3/pure.bend as Time
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 
 def octs(xs: List<&2, U32>) -> String:
