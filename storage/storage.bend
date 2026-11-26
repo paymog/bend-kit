@@ -3,6 +3,7 @@ import Base
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
+import bend-kit-collections@0.1.6.0/omap.bend as OMap
 import ./pure.bend as P
 
 # ---- IO that can fail
@@ -360,34 +361,6 @@ def fetch.fuel() -> Nat:
 def Disk.fetch(+dir: String, +root: P.Digest) -> Run(P.Index(P.Digest, P.Blob)):
   Disk.fetch.go(fetch.fuel(), dir, Want{root}, P.Index.new(P.Digest, P.Blob))
 
-def Disk.fetch.all(+dir: String, roots: List<&2, P.Digest>, +s: P.Index(P.Digest, P.Blob)) -> Run(P.Index(P.Digest, P.Blob)):
-  match roots:
-    case Nil{}:
-      Run.pure(P.Index(P.Digest, P.Blob), s)
-    case Con{+r, t}:
-      do Run<P.Index(P.Digest, P.Blob)>:
-        u : P.Index(P.Digest, P.Blob) <- Disk.fetch.go(fetch.fuel(), dir, Want{r}, s)
-        Disk.fetch.all(dir, t, u)
-
-def Disk.probe.one(there: Bool, +dir: String, +d: P.Digest, +s: P.Index(P.Digest, P.Blob)) -> Run(P.Index(P.Digest, P.Blob)):
-  match there:
-    case True{}:
-      do Run<P.Index(P.Digest, P.Blob)>:
-        b : Bytes.Bytes <- read(Disk.object(dir, d))
-        receive(s, d, b)
-    case False{}:
-      Run.pure(P.Index(P.Digest, P.Blob), s)
-
-# Adds to s the objects of xs that dir holds, each read and checked. Other objects are not read.
-def Disk.probe(+dir: String, xs: P.Store<P.Digest, P.Blob>, +s: P.Index(P.Digest, P.Blob)) -> Run(P.Index(P.Digest, P.Blob)):
-  match xs:
-    case P.StNil{}:
-      Run.pure(P.Index(P.Digest, P.Blob), s)
-    case P.StCon{+d, o, r}:
-      do Run<P.Index(P.Digest, P.Blob)>:
-        e : Bool <- Run.lift(Bool, Files.exists(Disk.object(dir, d)))
-        u : P.Index(P.Digest, P.Blob) <- Disk.probe.one(e, dir, d, s)
-        Disk.probe(dir, r, u)
 
 def inspect(path: String, digest: String) -> IO(Result<&1, &1, U32 & String, U32 & String>):
   import "./effs/verify.c"
@@ -431,35 +404,49 @@ def write.sync(path: String) -> IO(Result<&1, &1, U32 & String, Unit>):
   import "./effs/storage.c"
   import "./effs/storage.js"
 
+def verified.sync(+path: String, +d: P.Digest) -> Run(P.Obj<P.Digest, Unit>):
+  do Run<P.Obj<P.Digest, Unit>>:
+    node : P.Obj<P.Digest, Unit> <- verified(path, d)
+    write.sync(path)
+    return node
+
 type Fence is Data:
   FenceWant{digest: P.Digest}
   FenceHeld{digest: P.Digest, seen: Bool}
   FenceChildren{object: P.Obj<P.Digest, Unit>}
 
-def Disk.fence.go(fuel: Nat, +dir: String, step: Fence, +seen: P.Index(P.Digest, Unit)) -> Run(P.Index(P.Digest, Unit)):
+def Disk.walk.go(~visit: @+path:String -> @+d:P.Digest -> Run(P.Obj<P.Digest, Unit>), fuel: Nat, +dir: String, step: Fence, +seen: P.Index(P.Digest, Unit)) -> Run(P.Index(P.Digest, Unit)):
   match fuel step:
     case 0n _:
       Run.fail(P.Index(P.Digest, Unit), (36, "storage: root tree is too deep"))
     case 1n+p FenceWant{+d}:
-      Disk.fence.go(p, dir, FenceHeld{d, P.Index.has(~P.Digest, ~Unit, ~P.Digest.cmp, seen, d)}, seen)
+      Disk.walk.go(~visit, p, dir, FenceHeld{d, P.Index.has(~P.Digest, ~Unit, ~P.Digest.cmp, seen, d)}, seen)
     case 1n+p FenceHeld{d, True{}}:
       Run.pure(P.Index(P.Digest, Unit), seen)
     case 1n+p FenceHeld{+d, False{}}:
       do Run<P.Index(P.Digest, Unit)>:
-        +node : P.Obj<P.Digest, Unit> <- verified(Disk.object(dir, d), d)
-        write.sync(Disk.object(dir, d))
-        Disk.fence.go(p, dir, FenceChildren{node}, P.Index.put(~P.Digest, ~Unit, ~P.Digest.cmp, seen, d, node))
+        +node : P.Obj<P.Digest, Unit> <- visit(Disk.object(dir, d), d)
+        Disk.walk.go(~visit, p, dir, FenceChildren{node}, P.Index.put(~P.Digest, ~Unit, ~P.Digest.cmp, seen, d, node))
     case 1n+(+p) FenceChildren{P.OItem{n, c, r}}:
       do Run<P.Index(P.Digest, Unit)>:
-        next : P.Index(P.Digest, Unit) <- Disk.fence.go(p, dir, FenceWant{c}, seen)
-        Disk.fence.go(p, dir, FenceWant{r}, next)
+        next : P.Index(P.Digest, Unit) <- Disk.walk.go(~visit, p, dir, FenceWant{c}, seen)
+        Disk.walk.go(~visit, p, dir, FenceWant{r}, next)
     case 1n+p FenceChildren{_}:
       Run.pure(P.Index(P.Digest, Unit), seen)
+
+def Disk.walk.all(+dir: String, roots: List<&2, P.Digest>, +seen: P.Index(P.Digest, Unit)) -> Run(P.Index(P.Digest, Unit)):
+  match roots:
+    case Nil{}:
+      Run.pure(P.Index(P.Digest, Unit), seen)
+    case Con{root, rest}:
+      do Run<P.Index(P.Digest, Unit)>:
+        next : P.Index(P.Digest, Unit) <- Disk.walk.go(~verified, Nat.mul(3n, P.limit()), dir, FenceWant{root}, seen)
+        Disk.walk.all(dir, rest, next)
 
 def Disk.set_root(+dir: String, +name: String, +d: P.Digest) -> Run(Unit):
   Disk.coordinated(Unit, dir, False{}, u => do Run<Unit>:
     Run.check(P.name.ok(name), "invalid root " ++ name)
-    seen : P.Index(P.Digest, Unit) <- Disk.fence.go(Nat.mul(3n, P.limit()), dir, FenceWant{d}, P.Index.new(P.Digest, Unit))
+    seen : P.Index(P.Digest, Unit) <- Disk.walk.go(~verified.sync, Nat.mul(3n, P.limit()), dir, FenceWant{d}, P.Index.new(P.Digest, Unit))
     write.durable("", dir ++ "/objects", 0)
     write(dir, "root", dir ++ "/roots/" ++ name, Bytes.from_string(P.Digest.hex(d))))
 
@@ -493,26 +480,28 @@ def Disk.drop.one(live: Bool, +dir: String, +d: P.Digest) -> Run(U32):
         Files.remove(Disk.object(dir, d))
         return 1
 
-def Disk.drop(+dir: String, ds: List<&2, P.Digest>, +live: P.Index(P.Digest, P.Blob), +n: U32) -> Run(U32):
+def Disk.drop(+dir: String, ds: List<&2, P.Digest>, +live: P.Index(P.Digest, Unit), +n: U32) -> Run(U32):
   match ds:
     case Nil{}:
       Run.pure(U32, n)
     case Con{+d, r}:
       do Run<U32>:
-        k : U32 <- Disk.drop.one(P.Index.has(~P.Digest, ~P.Blob, ~P.Digest.cmp, live, d), dir, d)
+        k : U32 <- Disk.drop.one(P.Index.has(~P.Digest, ~Unit, ~P.Digest.cmp, live, d), dir, d)
         Disk.drop(dir, r, live, (n + k : U32))
 
-# Drops what gc drops: an object stays exactly when its digest is in the live set.
-def Disk.collect.of(+dir: String, +retained: List<&2, P.Digest>, +s: P.Index(P.Digest, P.Blob)) -> Run(U32):
-  do Run<U32>:
-    ls : P.Store<P.Digest, P.Blob> <- Run.some(P.Store<P.Digest, P.Blob>, P.Index.live(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), s, retained), "a retained root does not load")
-    names : List<&2, String> <- Files.list_dir(dir ++ "/objects")
-    Disk.drop(dir, P.digests(names), P.Index.of(~P.Digest, ~P.Blob, ~P.Digest.cmp, ls), 0)
+def Disk.walk.checked(result: Result<&1, &1, U32 & String, P.Index(P.Digest, Unit)>, why: String) -> Run(P.Index(P.Digest, Unit)):
+  match result:
+    case Done{seen}:
+      Run.pure(P.Index(P.Digest, Unit), seen)
+    case Fail{(+code, message)}:
+      Run.fail(P.Index(P.Digest, Unit), (code, Bool.pick(String, U32.is_eq(code, 2), "storage: " ++ why, message)))
 
-def Disk.collect.retained(+dir: String, +retained: List<&2, P.Digest>) -> Run(U32):
+def Disk.collect.retained(+dir: String, retained: List<&2, P.Digest>) -> Run(U32):
   do Run<U32>:
-    s : P.Index(P.Digest, P.Blob) <- Disk.fetch.all(dir, retained, P.Index.new(P.Digest, P.Blob))
-    Disk.collect.of(dir, retained, s)
+    result : Result<&1, &1, U32 & String, P.Index(P.Digest, Unit)> <- Run.lift(Result<&1, &1, U32 & String, P.Index(P.Digest, Unit)>, Disk.walk.all(dir, retained, P.Index.new(P.Digest, Unit)))
+    live : P.Index(P.Digest, Unit) <- Disk.walk.checked(result, "a retained root does not load")
+    names : List<&2, String> <- Files.list_dir(dir ++ "/objects")
+    Disk.drop(dir, P.digests(names), live, 0)
 
 # Keeps explicit roots selected by an external retention policy.
 def Disk.collect(+dir: String, retained: List<&2, P.Digest>) -> Run(U32):
@@ -539,38 +528,61 @@ def Disk.clean_tmp(+dir: String) -> Run(U32):
     names : List<&2, String> <- Files.list_dir(dir ++ "/tmp")
     Disk.clean_tmp.go(dir, names, 0))
 
-def sync.send(+dir: String, ys: P.Store<P.Digest, P.Blob>, +dst: P.Index(P.Digest, P.Blob), +n: U32) -> Run(U32):
-  match ys:
-    case P.StNil{}:
+def copy.into(path: String, file: File) -> IO(File & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/storage.c"
+  import "./effs/storage.js"
+
+def copy.verified(+tmp: String, +d: P.Digest) -> Run(Unit):
+  do Run<Unit>:
+    node : P.Obj<P.Digest, Unit> <- verified(tmp, d)
+    return Unit{}
+
+def copy.opened(pair: String & File, src: String, +dst: String, +d: P.Digest) -> Run(Unit):
+  (+tmp, file) = pair
+  do IO<Result<&1, &1, U32 & String, Unit>>:
+    copied : File & Result<&1, &1, U32 & String, Unit> <- copy.into(Disk.object(src, d), file)
+    closed : Result<&1, &1, U32 & String, Unit> <- write.close(copied)
+    checked : Result<&1, &1, U32 & String, Unit> <- Run.bind(Unit, Unit, IO.pure(Result<&1, &1, U32 & String, Unit>, closed), u => copy.verified(tmp, d))
+    write.publish(checked, tmp, Disk.object(dst, d))
+
+def sync.send(+src: String, +dst: String, ds: List<&2, P.Digest>, +n: U32) -> Run(U32):
+  match ds:
+    case Nil{}:
       Run.pure(U32, n)
-    case P.StCon{+d, o, r}:
+    case Con{+d, rest}:
       do Run<U32>:
-        t : P.Index(P.Digest, P.Blob) <- Disk.receive(dir, dst, d, P.encode(o))
-        sync.send(dir, r, t, (n + 1 : U32))
+        pair : String & File <- write.temp(dst ++ "/tmp/" ++ P.Digest.hex(d))
+        copy.opened(pair, src, dst, d)
+        sync.send(src, dst, rest, (n + 1 : U32))
 
-def sync.of(+dst: String, +root: P.Digest, +a: P.Index(P.Digest, P.Blob), +b: P.Index(P.Digest, P.Blob)) -> Run(U32):
-  do Run<U32>:
-    ys : P.Store<P.Digest, P.Blob> <- Run.some(P.Store<P.Digest, P.Blob>, P.Index.plan(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), a, b, root), "the source cannot load " ++ P.Digest.hex(root))
-    sync.send(dst, ys, b, 0)
+def sync.probe.one(there: Bool, +dst: String, +d: P.Digest) -> Run(List<&2, P.Digest>):
+  match there:
+    case False{}:
+      Run.pure(List<&2, P.Digest>, [d])
+    case True{}:
+      do Run<List<&2, P.Digest>>:
+        node : P.Obj<P.Digest, Unit> <- verified(Disk.object(dst, d), d)
+        return Nil{}
 
-# b holds the objects of the closure ys that dst has, so plan sees what a full load of dst would show it.
-def sync.probe(+dst: String, +root: P.Digest, +a: P.Index(P.Digest, P.Blob), +ys: P.Store<P.Digest, P.Blob>) -> Run(U32):
-  do Run<U32>:
-    b : P.Index(P.Digest, P.Blob) <- Disk.probe(dst, P.Index.need(~P.Digest, ~P.Blob, ~P.Digest.cmp, ys, P.Index.new(P.Digest, P.Blob)), P.Index.new(P.Digest, P.Blob))
-    sync.of(dst, root, a, b)
+def sync.probe(+dst: String, ds: List<&2, P.Digest>) -> Run(List<&2, P.Digest>):
+  match ds:
+    case Nil{}:
+      Run.pure(List<&2, P.Digest>, Nil{})
+    case Con{+d, rest}:
+      do Run<List<&2, P.Digest>>:
+        there : Bool <- Run.lift(Bool, Files.exists(Disk.object(dst, d)))
+        missing : List<&2, P.Digest> <- sync.probe.one(there, dst, d)
+        tail : List<&2, P.Digest> <- sync.probe(dst, rest)
+        return List.append(&2, P.Digest, missing, tail)
 
-def sync.from(+dst: String, +root: P.Digest, +a: P.Index(P.Digest, P.Blob)) -> Run(U32):
-  do Run<U32>:
-    ys : P.Store<P.Digest, P.Blob> <- Run.some(P.Store<P.Digest, P.Blob>, P.Index.closure(~P.Digest, ~P.Blob, ~P.Digest.cmp, P.limit(), a, root), "the source cannot load " ++ P.Digest.hex(root))
-    sync.probe(dst, root, a, ys)
-
-# Sends dst every object it needs to load root as src does, through ingress. Answers how many it sent.
-# It reads the objects root reaches in src, and only those of them that dst holds.
+# Reads each reachable digest once, verifies existing destinations, then streams missing objects.
 def sync(+src: String, +dst: String, +root: P.Digest) -> Run(U32):
   Disk.coordinated(U32, src, False{}, u =>
     Disk.coordinated(U32, dst, False{}, v => do Run<U32>:
-      a : P.Index(P.Digest, P.Blob) <- Disk.fetch(src, root)
-      sync.from(dst, root, a)))
+      result : Result<&1, &1, U32 & String, P.Index(P.Digest, Unit)> <- Run.lift(Result<&1, &1, U32 & String, P.Index(P.Digest, Unit)>, Disk.walk.all(src, [root], P.Index.new(P.Digest, Unit)))
+      seen : P.Index(P.Digest, Unit) <- Disk.walk.checked(result, "the source cannot load " ++ P.Digest.hex(root))
+      missing : List<&2, P.Digest> <- sync.probe(dst, OMap.OMap.keys(P.Digest, P.Obj<P.Digest, Unit>, seen))
+      sync.send(src, dst, missing, 0)))
 
 # The tree under root at dir. Fails when an object is missing or tampered, or the tree is too deep.
 # It reads only the objects root reaches.

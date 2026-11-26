@@ -208,3 +208,53 @@ static void __attribute__((constructor)) write_sync_use(void) {
 #endif
 #endif
 #endif
+
+#ifdef CID(copy.into)
+#ifndef STORAGE_COPY_EFF
+#define STORAGE_COPY_EFF
+#include <fcntl.h>
+#include <unistd.h>
+
+static void copy_into_call(IoWork* w) {
+  int src = open(w->data, O_RDONLY | O_CLOEXEC);
+  w->code = src < 0 ? errno : 0;
+  unsigned char buffer[65536];
+  uint64_t total = 0;
+  while (!w->code) {
+    ssize_t n;
+    do { n = read(src, buffer, sizeof(buffer)); } while (n < 0 && errno == EINTR);
+    if (n <= 0) { if (n < 0) w->code = errno; break; }
+    total += (uint64_t)n;
+    if (total > UINT32_MAX) { w->code = EFBIG; break; }
+    for (ssize_t at = 0; at < n;) {
+      ssize_t wrote = write(w->hand, buffer + at, (size_t)(n - at));
+      if (wrote < 0 && errno == EINTR) continue;
+      if (wrote <= 0) { w->code = wrote < 0 ? errno : EIO; break; }
+      at += wrote;
+    }
+  }
+  if (src >= 0 && close(src) < 0 && !w->code) w->code = errno;
+}
+
+static Term copy_into_pack(Env e, IoWork* w) {
+  free(w->data);
+  return io_tup(e, io_hand(w->hand), w->code ? io_fail(e, w->code, NULL)
+    : io_done(e, term_pak(CID(Unit), 0)));
+}
+
+static Term copy_into_run(Env e, Term* f, IoWork* w) {
+  u64 n;
+  w->data = io_cstr(e, f[0], &n);
+  w->hand = io_hand_v(f[1]);
+  if (!w->data || io_nul(w->data, n)) {
+    w->code = EINVAL;
+    return copy_into_pack(e, w);
+  }
+  return io_work(w, copy_into_call, copy_into_pack);
+}
+
+static void __attribute__((constructor)) copy_into_use(void) {
+  io_eff(CID(copy.into), copy_into_run);
+}
+#endif
+#endif
