@@ -1,6 +1,6 @@
 # Native gzip, zstd, and brotli over Bytes.
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 # The C libraries, through packed words at the effect boundary. Call the Bytes wrappers below.
 def zstd.words(max: U32, len: U32, words: Array<U32>) ->
