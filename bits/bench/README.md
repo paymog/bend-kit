@@ -728,3 +728,73 @@ The next 13-bit read, peek, remaining count, alignment, failed skip, and finish
 check positions above 2^32 in both orders. The candidate's large run peaks at
 2149105664 resident bytes. Temporary candidate sources and binaries are not
 shipped. `scripts/check.sh bits` passes the unchanged package proofs and checks.
+
+## Retained concurrent streams
+
+`python3 memory.py 1 1024` checks the small input first.
+`python3 memory.py 3` runs the full experiment above plus retained-heap samples.
+It also needs Node with `--expose-gc`. This run used Bend 2.0.40,
+Node 24.0.1, V8 13.6.233.8-node.10, and Python 3.14.6 on macOS arm64.
+The input sizes, hashes, checksums, raw samples, environment, and boundary
+observations are in [retained-samples.json](retained-samples.json).
+The runner writes a fresh report to `out/memory/report.json`.
+
+The new probe compiles the unchanged local zlib decoder to an ES module.
+It uses the caller's current bits 0.4.0.0 hub pin. It creates 1, then 8,
+then 32 independent decoder states in one process. Each owns separate input,
+output, and Huffman arrays. Each state stops after producing at least 256
+bytes in the first block. These are co-live suspended states, not parallel
+CPU throughput measurements. No streaming API or runtime layout is added.
+
+After GC, V8's heap snapshot gives each object's `self_size`.
+The probe follows the Huff objects' own table/sub properties and each array's
+element storage. It sums distinct nodes by snapshot identity. This includes
+the Huff object, array headers, and backing stores. Input and output arrays
+are measured in separate categories. Category-list storage is excluded.
+VM maps, prototypes, strings, decoder wrappers, temporary construction nodes,
+free heap space, allocator fragmentation, and runtime pages are excluded.
+The snapshots are deleted after extraction. This is measured live JS heap,
+not native table residency, RSS, or a modeled four-byte-per-entry estimate.
+Shared VM metadata is not charged to each table. These byte counts must not
+be applied to the native runtime.
+
+Each cell below is bytes for **one stream**. All three raw samples agree.
+The 8- and 32-stream samples are exactly 8 and 32 times these values.
+The paused output owns 256 bytes in a packed buffer.
+
+| input | tables | table heap | input heap | output heap |
+|---|---:|---:|---:|---:|
+| kit / 1024 | 2 | 5456 | 2096 | 560 |
+| Python / 1024 | 2 | 4944 | 2096 | 560 |
+| kit / 32768 | 2 | 9152 | 32816 | 560 |
+| Python / 32768 | 2 | 9040 | 32816 | 560 |
+| kit / 131072 | 2 | 9152 | 131120 | 560 |
+| Python / 131072 | 2 | 9088 | 131120 | 560 |
+| sparse control | 1 | 5280 | 0 | 0 |
+| mixed control | 1 | 37024 | 0 | 0 |
+
+The sparse/mixed retained controls build independent LSB tables without caller
+buffers. The existing native controls still check build/decode checksums in
+both orders. At 32 streams, the real kit payload tables occupy 292864 measured
+JS heap bytes, versus 4195840 input bytes for the 128 KiB input.
+The synthetic mixed tables occupy 1184768 bytes, but are not real gzip trees.
+
+The probe resumes every state to completion and checks the decoded checksum.
+It inspects the actual state graph at every end-of-block. All boundaries
+retain zero Huff objects, including the four-block kit input and two-block
+Python input. Suspended payload states retain 2, 16, and 64 tables for
+1, 8, and 32 streams. Each later block replaces the old pair.
+It also runs the real gzip member transition on two concatenated copies of
+each input. The first transition returns `GzMore`, the second `GzDone`;
+both state graphs retain zero tables. The combined output checksum must
+match two concatenated plain inputs. Header construction is synchronous
+between these checkpoints, so this experiment does not measure its transient
+peak or any concurrent header-build overlap.
+
+There is still no explicit caller table-memory limit. The measured 32-stream
+case stays below 293 KiB of table heap for every real input. It does not
+justify a compact-layout comparison for this caller. A larger measured
+deployment or a concrete caller budget can change that decision.
+No compact layout was built, and no memory or speed benefit is claimed.
+Any future comparison must include width metadata, construction, and decode
+costs on the same inputs. No published files, versions, or pins change.
