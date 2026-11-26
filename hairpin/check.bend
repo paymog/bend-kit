@@ -1,5 +1,6 @@
 import Base
 import ./hairpin.bend as Hairpin
+import ./pure.bend as Policy
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.45.0.0/http.bend as Http
 import bend-kit-http@0.45.0.0/pure.bend as Pure
@@ -305,13 +306,13 @@ def nested(bound: U32 & Chan(Unit)) -> IO(Unit):
     served("nested: 4 attempts on a budget of 4", ch)
 
 # Any status but 200 may clear, after Retry-After: 0.
-def judge.all(r: Result<&1, &1, Pure.Err, Pure.Res>) -> Result<&1, &1, Pure.Err, Pure.Res> & Hairpin.Verdict:
+def judge.all(r: Result<&1, &1, Pure.Err, Pure.Res>) -> Result<&1, &1, Pure.Err, Pure.Res> & Policy.Verdict:
   match r:
     case Fail{e}:
-      (Fail{e}, Hairpin.VerdictAgain{"0"})
+      (Fail{e}, Policy.VerdictAgain{"0"})
     case Done{res}:
       Pure.Res{+s, h, b} = res
-      (Done{Pure.Res{s, h, b}}, Bool.pick(Hairpin.Verdict, U32.is_eq(s, 200), Hairpin.VerdictOk{}, Hairpin.VerdictAgain{"0"}))
+      (Done{Pure.Res{s, h, b}}, Bool.pick(Policy.Verdict, U32.is_eq(s, 200), Policy.VerdictOk{}, Policy.VerdictAgain{"0"}))
 
 # A caller's judge retries a 404, and a POST it calls idempotent repeats: 3 attempts.
 def judged(bound: U32 & Chan(Unit)) -> IO(Unit):
@@ -325,15 +326,15 @@ def judged(bound: U32 & Chan(Unit)) -> IO(Unit):
     served("judged: 3 attempts", ch)
 
 # Any status but 200 may clear, after Retry-After: 0.
-def judge.stream.res(x: Http.Stream & Pure.Res) -> Result<&1, &1, Pure.Err, Http.Stream> & Hairpin.Verdict:
+def judge.stream.res(x: Http.Stream & Pure.Res) -> Result<&1, &1, Pure.Err, Http.Stream> & Policy.Verdict:
   (st, res) = x
   Pure.Res{+s, h, b} = res
-  (Done{st}, Bool.pick(Hairpin.Verdict, U32.is_eq(s, 200), Hairpin.VerdictOk{}, Hairpin.VerdictAgain{"0"}))
+  (Done{st}, Bool.pick(Policy.Verdict, U32.is_eq(s, 200), Policy.VerdictOk{}, Policy.VerdictAgain{"0"}))
 
-def judge.stream(r: Result<&1, &1, Pure.Err, Http.Stream>) -> Result<&1, &1, Pure.Err, Http.Stream> & Hairpin.Verdict:
+def judge.stream(r: Result<&1, &1, Pure.Err, Http.Stream>) -> Result<&1, &1, Pure.Err, Http.Stream> & Policy.Verdict:
   match r:
     case Fail{e}:
-      (Fail{e}, Hairpin.VerdictAgain{"0"})
+      (Fail{e}, Policy.VerdictAgain{"0"})
     case Done{st}:
       judge.stream.res(Http.stream.res(st))
 

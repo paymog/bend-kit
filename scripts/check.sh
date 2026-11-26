@@ -11,9 +11,13 @@ for d in "$@"; do
   [ "$d" != runner ] || python3 runner/migrate-test.py
   (
     cd "$d"
-    verdict "$d.bend" ""
+    if [ "$d" = hairpin ]; then
+      bend pure.bend --check-only
+    else
+      verdict "$d.bend" ""
+    fi
     if [ -f PROOF.bend ]; then
-      if [ "$d" = http ]; then
+      if [ "$d" = http ] || [ "$d" = hairpin ]; then
         bend PROOF.bend --check-only
       else
         verdict PROOF.bend '^LAWS[.]'
