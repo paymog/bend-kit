@@ -1,6 +1,6 @@
 # Camber
 
-`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP0.44.0.2. Package version: `0.18.0.2`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch0.4.0.3.
+`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP 0.45.0.0. Package version: `0.19.0.0`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch 0.4.0.3.
 
 ```bend
 import bend-kit-camber@0.19.0.0/camber.bend as Camber
