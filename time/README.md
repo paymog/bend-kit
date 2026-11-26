@@ -3,7 +3,7 @@
 Clocks, `Duration`, `Instant`, Gregorian dates, RFC 3339, HTTP-date, and TZif zones.
 
 ```bend
-import bend-kit-time@0.3.0.2/time.bend as Time
+import bend-kit-time@0.3.0.3/time.bend as Time
 ```
 
 `now` is the wall clock. `mono` is a monotonic duration. Both are effects in `effs/time.c` and `effs/time.js`. Proofs do not cover them. There is no `BEND_LIB` override.
@@ -18,4 +18,4 @@ import bend-kit-time@0.3.0.2/time.bend as Time
 
 `tzif.parse` reads a zone from packed bytes. This package imports `bend-kit-bytes@0.3.3.1`, `bend-kit-int@0.2.0.0`, and `bend-kit-fmt@0.1.0.0`. `Zone.local` gives the local date and time for an instant. It uses the POSIX footer after the last explicit transition.
 
-`http@0.40.0.1` and Hairpin import `bend-kit-time@0.3.0.1`. Pass an `Instant` only into the version that expects it.
+HTTP and Hairpin use `Instant` and `Duration` from `pure.bend`. Import the same Time version and module as the callee; the clock effects in `time.bend` use different types. Use `Http.clock.now()` and `Http.clock.mono()` with HTTP model types.
