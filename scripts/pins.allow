@@ -1,6 +1,7 @@
 # Imports that scripts/pins.sh lets through: a target per line, then why.
 # Remove a line when the issue named on it lands.
 bend-kit-bytes@0.3.3.1  # Re-pin consumers after bytes publishes (#456).
+bend-kit-bytes@0.3.3.2  # Re-pin consumers after the README correction publishes (#456).
 bend-kit-encoding@0.5.0.1  # importers re-pin to bend-kit-encoding@0.5.0.2 in a later wave (#456)
 bend-kit-files@0.4.0.1  # importers re-pin to bend-kit-files@0.4.0.2 in a later wave (#456)
 bend-kit-time@0.3.0.3  # importers re-pin to bend-kit-time@0.3.0.4 in a later wave (#456)

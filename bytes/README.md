@@ -3,7 +3,7 @@
 Packed byte buffers with affine ownership. Four octets occupy each U32 array word.
 
 ```bend
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def show(r: Bytes.Bytes & U32) -> IO(Unit):
   (b, n) = r
@@ -24,7 +24,7 @@ def main() -> IO(Unit):
 
 `u32_roundtrip_all` proves that reading `u32.show(n)` gives every U32 `n` back. The law projects the result through `U32.to_nat`. The proof covers packed byte writes, reads, decimal arithmetic, and the digit count. It does not change the runtime codec.
 
-Import `bend-kit-bytes@0.3.3.2/roundtrip-proof.bend` to reuse `raw(n)`, which proves `u32.read(u32.show(n)) == Some{n}` directly. The runtime entry does not import the proof modules.
+Import `bend-kit-bytes@0.3.3.3/roundtrip-proof.bend` to reuse `raw(n)`, which proves `u32.read(u32.show(n)) == Some{n}` directly. The runtime entry does not import the proof modules.
 
 ### Independent decimal proof check
 
@@ -60,7 +60,7 @@ The job fails on a proof error, a process-tree RSS above 20 GiB, or its
 
 ## Positional reads and writes
 
-Import `bend-kit-bytes@0.3.3.1/bytes.bend`. `Cursor.new(bytes)` owns the
+Import `bend-kit-bytes@0.3.3.3/bytes.bend`. `Cursor.new(bytes)` owns the
 existing buffer at position zero. `Cursor.u8`, `Cursor.u16be`, `Cursor.u16le`,
 `Cursor.u32be`, `Cursor.u32le`, `Cursor.u64be`, and `Cursor.u64le` return `(cursor, Maybe(value))`.
 `None` means incomplete bytes, not an invalid protocol value. A failed read
