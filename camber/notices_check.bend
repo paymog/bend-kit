@@ -5,9 +5,9 @@ import ./notices.bend as N
 import ./serving_check.bend as Existing
 import ./input.bend as Input
 import bend-kit-json@0.7.3.0/json.bend as J
-import bend-kit-http@0.44.0.2/http.bend as H
-import bend-kit-http@0.44.0.2/pure.bend as Pure
-import bend-kit-http@0.44.0.2/completion.bend as T
+import bend-kit-http@0.45.0.0/http.bend as H
+import bend-kit-http@0.45.0.0/pure.bend as Pure
+import bend-kit-http@0.45.0.0/completion.bend as T
 import bend-kit-notch@0.4.0.3/notch.bend as Notch
 import bend-kit-time@0.3.0.3/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
