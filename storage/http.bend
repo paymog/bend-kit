@@ -1,12 +1,11 @@
 import Base
 import ./storage.bend as S
 import ./pure.bend as P
-import bend-kit-http@0.44.0.2/http.bend as Http
-import bend-kit-http@0.44.0.2/pure.bend as Pure
-import bend-kit-http@0.44.0.2/completion.bend as Completion
+import bend-kit-http@0.45.0.0/http.bend as Http
+import bend-kit-http@0.45.0.0/pure.bend as Pure
+import bend-kit-http@0.45.0.0/completion.bend as Completion
 import bend-kit-files@0.4.0.1/files.bend as Files
 import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-http@0.44.0.2/admission.bend as Admission
 
 type Source is Type:
   Object{file: File, size: U32}
@@ -150,58 +149,8 @@ def write(state: Source, writer: Http.Writer, receipt: Completion.Receipt) -> IO
         sent : Http.Writer <- Http.writer.write(writer, body)
         return (sent, receipt)
 
-def reject.admission(settings: Pure.Limits, receipt: Completion.Receipt, socket: Socket, head: Bool) -> IO(Unit):
-  Pure.Limits{max, cap, hm, bm, im, wm} = settings
-  Http.admission.reject(receipt, socket, head, wm)
-
-def admitted(~C: Data, ~start: C -> Pure.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
-  allowed: Bool, +context: C, +inbox: Chan(Admission.Command), +settings: Pure.Limits, socket: Socket, req: Pure.Req, rest: Bytes.Bytes, v11: Bool) -> IO(Maybe<&1, Socket & Pure.Turn>):
-  match allowed:
-    case False{}:
-      do IO<Maybe<&1, Socket & Pure.Turn>>:
-        reject.admission(settings, Completion.Observed{status => outcome => observe(context, status, outcome)}, socket, Pure.admission.head(req))
-        return None{}
-    case True{}:
-      Pure.Req{+method, path, +headers, body} = req
-      do IO<Maybe<&1, Socket & Pure.Turn>>:
-        out : Http.WriteHead<Source> <- start(context, Pure.Req{method, path, headers, body})
-        after : Maybe<&1, Socket & Pure.Turn> <- Http.serve.write.send(~Source, ~write, ~dispose,
-          Completion.Observed{status => outcome => observe(context, status, outcome)}, settings, socket, rest, headers, v11, String.eq(method, "HEAD"), out)
-        Admission.give(inbox, 1)
-        return after
-
-def reject(settings: Pure.Limits, receipt: Completion.Receipt, socket: Socket, status: U32) -> IO(Unit):
-  Pure.Limits{max, cap, hm, bm, im, wm} = settings
-  Http.reply_fail(receipt, socket, status, wm)
-
-@unsafe
-def talk(~C: Data, ~start: C -> Pure.Req -> IO(Http.WriteHead<Source>), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
-  +context: C, +settings: Pure.Limits, +inbox: Chan(Admission.Command), state: Maybe<&1, Pure.Serving>) -> IO(Unit):
-  match state:
-    case None{}:
-      IO.pure(Unit, Unit{})
-    case Some{Pure.Serving{(socket, turn), phase}}:
-      match turn:
-        case Pure.TurnMore{sv, cont}:
-          do IO<Unit>:
-            got : (Socket & Pure.Turn) & Pure.Phase <- Http.talk.recv(inbox, False{}, settings, socket, sv, cont, phase)
-            talk(~C, ~start, ~observe, context, settings, inbox, Some{Pure.talk.state(got)})
-        case Pure.TurnReq{req, rest, v11}:
-          do IO<Unit>:
-            allowed : Bool <- Admission.take(inbox, 1)
-            after : Maybe<&1, Socket & Pure.Turn> <- admitted(~C, ~start, ~observe, allowed, context, inbox, settings, socket, req, rest, v11)
-            talk(~C, ~start, ~observe, context, settings, inbox, Pure.serve.write.state(after))
-        case Pure.TurnFail{status}:
-          reject(settings, Completion.Observed{status => outcome => observe(context, status, outcome)}, socket, status)
-        case Pure.TurnClose{}:
-          Socket.close(socket)
-        case Pure.TurnInputFailed{operation, code, message}:
-          Socket.close(socket)
-
 def server.run(~observe: String -> U32 -> Completion.Outcome -> IO(Unit), server: Http.Server<String>) -> IO(Pure.ServerExit):
-  Http.server.run.loop(~String, ~(dir => settings => inbox => socket =>
-    talk(~String, ~handle, ~observe, dir, settings, inbox, Some{Pure.Serving{(socket, Pure.TurnMore{Pure.sv.none(), False{}}), None{}}})),
-    Http.ServerListening{server})
+  Http.server.write.run(~String, ~Source, ~handle, ~write, ~dispose, ~observe, server)
 
 
 

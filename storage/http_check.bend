@@ -2,12 +2,12 @@ import Base
 import ./storage.bend as S
 import ./pure.bend as P
 import ./http.bend as Transport
-import bend-kit-http@0.44.0.2/http.bend as Http
-import bend-kit-http@0.44.0.2/pure.bend as Pure
-import bend-kit-http@0.44.0.2/completion.bend as Completion
+import bend-kit-http@0.45.0.0/http.bend as Http
+import bend-kit-http@0.45.0.0/pure.bend as Pure
+import bend-kit-http@0.45.0.0/completion.bend as Completion
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-files@0.4.0.1/files.bend as Files
-import bend-kit-http@0.44.0.2/admission.bend as Admission
+import bend-kit-http@0.45.0.0/admission.bend as Admission
 import bend-kit-time@0.3.0.3/pure.bend as Time
 import ./http_stream_check.bend as StreamCheck
 
@@ -41,7 +41,7 @@ def connection(context: Context, limits: Pure.Limits, inbox: Chan(Admission.Comm
   Context{dir, bad, +events} = context
   do IO<Unit>:
     opened : Result<&1, &1, Char, Unit> <- Chan.send(Char, events, 'o')
-    Transport.talk(~Context, ~handle, ~observe, Context{dir, bad, events}, limits, inbox,
+    Http.serve.write.talk(~Context, ~Transport.Source, ~handle, ~Transport.write, ~Transport.dispose, ~observe, Context{dir, bad, events}, limits, inbox,
       Some{Pure.Serving{(socket, Pure.TurnMore{Pure.sv.none(), False{}}), None{}}})
     closed : Result<&1, &1, Char, Unit> <- Chan.send(Char, events, 'c')
     return Unit{}
