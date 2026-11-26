@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./hash.bend as Hash
 
 law w64_hi_of:

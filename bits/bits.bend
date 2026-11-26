@@ -1,6 +1,6 @@
 # Bit readers and writers over Bytes, LSB-first (DEFLATE) or MSB-first (JPEG), and canonical Huffman codes and decode tables. Source: https://github.com/paymog/bend-kit/tree/main/bits
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # Bytes packs byte i at bits 8*(i%4) of word i/4, so LSB-first stream bit p is bit p%32 of
 # word p/32, and MSB-first it is bit 31 - p%32 of that word byte-swapped.

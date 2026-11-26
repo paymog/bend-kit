@@ -1,6 +1,6 @@
 import Base
 import ./process.bend as Proc
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def expect.yes(ok: Bool, message: String) -> IO(Unit):
   match ok:

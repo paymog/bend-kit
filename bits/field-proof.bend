@@ -1,7 +1,7 @@
 # Structural word algebra for packed bit fields.
 import Base
 import ./bits.bend as Bits
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ../bytes/word-proof.bend as WProof

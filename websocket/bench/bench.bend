@@ -1,7 +1,7 @@
 # WebSocket benchmark: frame (mask, encode, parse, unmask 64 KiB frames) and stream (decode frames from 64 KiB reads); see README.md.
 import Base
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ../websocket.bend as WS
 
 def fill(n: Nat, b: Bytes.Bytes, +i: U32) -> Bytes.Bytes:

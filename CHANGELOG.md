@@ -7,6 +7,21 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `bits` 0.4.0.2: use current sibling releases with matching types.
+- `cbor` 0.3.0.3: use current sibling releases with matching types.
+- `csv` 0.3.0.3: use current sibling releases with matching types.
+- `dns` 0.8.0.2: use current sibling releases with matching types.
+- `encoding` 0.5.0.3: use current sibling releases with matching types.
+- `files` 0.4.0.3: use current sibling releases with matching types.
+- `hash` 0.3.2.4: use current sibling releases with matching types.
+- `http2` 0.6.0.2: use current sibling releases with matching types.
+- `json` 0.7.3.2: use current sibling releases with matching types.
+- `multipart` 0.3.0.4: use current sibling releases with matching types.
+- `process` 0.5.2.3: use current sibling releases with matching types.
+- `property` 0.4.0.3: use current sibling releases with matching types.
+- `tar` 0.3.0.3: use current sibling releases with matching types.
+- `time` 0.3.0.5: use current sibling releases with matching types.
+- `websocket` 0.4.1.7: use current sibling releases with matching types.
 - `bytes` 0.3.3.3: align the cursor import example with the package release.
 - `jwt` 0.17.0.1: use current sibling releases with matching types.
 - `llm` 0.19.0.1: use current sibling releases with matching types.

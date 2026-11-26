@@ -1,7 +1,7 @@
 import Base
 import ./http2.bend as H
 import ./hpack.bend as Hp
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def fields(xs: List<&2, Hp.Field>) -> String:
   match xs:

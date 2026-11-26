@@ -4,8 +4,8 @@
 
 ```bend
 import Base
-import bend-kit-tar@0.3.0.2/tar.bend as Tar
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-tar@0.3.0.3/tar.bend as Tar
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def example() -> Maybe<&1, Bytes.Bytes>:
   Tar.encode([Tar.Dir{Bytes.from_string("assets/")}, Tar.File{Bytes.from_string("assets/a"), Bytes.from_string("hello")}])

@@ -1,6 +1,6 @@
 # RFC 7541 HPACK header blocks with a bounded dynamic table.
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./huffman.bend as Huff
 
 # mode: 0 permits indexing, 1 is without indexing, 2 is never indexed.

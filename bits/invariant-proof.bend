@@ -9,7 +9,7 @@ import ./transition-proof.bend as T
 import ./prefix-proof.bend as Prefix
 import ./LAWS.bend as Laws
 import bend-mathlib@0.8.0.0/u32.bend as MU32
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 

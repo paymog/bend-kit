@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import ./pure.bend as WS
 
