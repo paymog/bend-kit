@@ -38,12 +38,12 @@ The `int` package represents `U64` as a bit list. This representation is too slo
 ## Runtime checks
 
 `scripts/check.sh hash` and `scripts/native-check.sh hash` check all 64 short
-SipHash-2-4 reference vectors. They also check lengths 255, 256, 257, 511, 512,
-and 513 with key `00..0f` and message bytes `i modulo 256`. Each case checks
-the byte-string form, packed `Bytes`, and `Bytes` with nonzero storage past
-the logical length. Benchmarks stay separate from CI.
+SipHash-2-4 reference vectors. They also check SipHash-1-3 and SipHash-2-4 at
+lengths 255, 256, 257, 511, 512, and 513 with key `00..0f` and message bytes
+`i modulo 256`. Each case checks the byte-string form, packed `Bytes`, and
+`Bytes` with nonzero storage past the logical length. Benchmarks stay separate from CI.
 
-The wrap-boundary digests come from libsodium 1.0.22. Run this command on
+The SipHash-2-4 wrap-boundary digests come from libsodium 1.0.22. Run this command on
 macOS with Homebrew libsodium to reproduce them:
 
 ```sh
@@ -60,4 +60,27 @@ for n in (255, 256, 257, 511, 512, 513):
     digest = int.from_bytes(out.raw, 'little')
     print(n, f'{digest:016x}', digest >> 32, digest & 0xffffffff)
 PY
+```
+
+The SipHash-1-3 wrap-boundary digests come from the Rust
+[`siphasher` crate](https://docs.rs/siphasher/1.0.3/siphasher/sip/struct.SipHasher13.html)
+version 1.0.3. Run this command to reproduce them:
+
+```sh
+tmp=$(mktemp -d)
+cargo init --quiet --name sip13_vectors "$tmp"
+printf '\nsiphasher = "=1.0.3"\n' >> "$tmp/Cargo.toml"
+cat > "$tmp/src/main.rs" <<'RS'
+use siphasher::sip::SipHasher13;
+fn main() {
+    let key = std::array::from_fn(|i| i as u8);
+    for n in [255, 256, 257, 511, 512, 513] {
+        let msg: Vec<u8> = (0..n).map(|i| i as u8).collect();
+        let digest = SipHasher13::new_with_key(&key).hash(&msg);
+        println!("{n} {digest:016x} {} {}", digest >> 32, digest & 0xffffffff);
+    }
+}
+RS
+cargo run --quiet --manifest-path "$tmp/Cargo.toml"
+rm -rf "$tmp"
 ```
