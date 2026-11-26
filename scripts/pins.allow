@@ -5,3 +5,4 @@
 bend-kit-http@0.44.0.2  # HTTP consumer release waves after 0.45.0.0 publishes (#1266).
 bend-kit-camber@0.18.0.2  # importers re-pin to bend-kit-camber@0.19.0.0 in a later wave (#1266)
 bend-kit-hairpin@0.17.0.1  # importers re-pin to bend-kit-hairpin@0.18.0.0 in a later wave (#1266)
+bend-kit-webhooks@0.15.0.1  # importers re-pin to bend-kit-webhooks@0.16.0.0 in a later wave (#1266)
