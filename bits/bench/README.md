@@ -573,3 +573,79 @@ No compact implementation was tested, so there is no compact decode-speed or
 RSS claim. Revisit only with a caller limit or high concurrent-stream count,
 then compare metadata-inclusive memory and batched build/decode on that input.
 The caller's reader-order re-pin is already tracked in issue #1107.
+
+## Separately maintained Nat cursor
+
+M4 Pro, macOS 26.7.2 (25G332), arm64, Bend 2.0.40, Apple clang 21.0.0,
+Python 3.14.6, 2026-11-25. Baseline: `7869dc8`. No runtime code changed.
+
+The temporary candidate adds `pos: Nat` to `Reader`, beside `total`, `left`,
+and `last`. It initializes `pos` to zero in `Reader.new` and to
+`Nat.min(total, pos)` in `Reader.at`. Successful field reads and Huffman
+decodes add their consumed width to the cursor and subtract it from `left`.
+The total stays fixed. Windows use the cursor directly, not `total - left`.
+All windows still read two words.
+
+The candidate preserves `pos + left = total`. On an order switch, it rounds
+`pos` up with `pos.align` and rounds `left` down with `read.left`.
+It checks the last order for both computations. On failure, it restores both
+original counts and the original order. Peek uses an aligned cursor but keeps
+the stored cursor unchanged. Skip advances both counts only on success.
+Explicit alignment updates both counts. Finish returns the stored cursor.
+The Huffman table, dispatch, validity tests, and symbol checksum loop do not
+change. Timers include cursor advancement and the extra reader state.
+
+To reproduce, copy `bits.bend` to a temporary candidate and apply these changes
+to every reader constructor and operation. Copy `bench.bend` and `cursor.bend`
+with imports that select the candidate. Build both `cursor.bend` workloads:
+
+```sh
+bend cursor.bend -o out/cursor-base
+bend cursor-temp.bend -o out/cursor-candidate
+python3 compare.py --mixed --size 1024 --rounds 1 out/cursor-base out/cursor-candidate
+python3 compare.py --mixed out/cursor-base out/cursor-candidate
+python3 compare.py --mixed out/cursor-base out/cursor-candidate
+```
+
+Run from `bits/bench`. The 1 KiB run checks the setup before full-size runs.
+Each full-size pass has 21 paired rounds, alternating binary order.
+The input is the existing 1 MiB fixed block. `cursor.bend` runs the original
+Huffman and field operations unchanged, then alternates 13-bit LSB and MSB
+reads over the same payload. Each switch advances to the next byte boundary.
+There are 552973 successful mixed reads. Python computes their checksum
+independently from successive two-byte groups, taking the low 13 bits
+little-endian and then the high 13 bits big-endian.
+
+All 84 full-size process runs passed all three checksums:
+Huffman **1974733589**, fields **2819181156**, mixed **3115405108**.
+Cells below are median milliseconds.
+
+| reader | pass 1 Huffman | pass 1 fields | pass 1 mixed | pass 2 Huffman | pass 2 fields | pass 2 mixed |
+|---|---:|---:|---:|---:|---:|---:|
+| total and remaining | 12.596333 | 0.563667 | 0.749750 | 12.657500 | 0.559209 | 0.762333 |
+| additional Nat cursor | 12.694417 | 0.602042 | 0.840125 | 12.650541 | 0.619583 | 0.843625 |
+
+The following changes are medians of the 21 per-round candidate/baseline
+ratios minus one, not ratios of the preceding medians.
+
+| operation | pass 1 paired change | pass 2 paired change |
+|---|---:|---:|
+| Huffman | +0.67% | -0.13% |
+| fields | +8.29% | +10.08% |
+| mixed | +11.43% | +10.85% |
+
+The Huffman difference changes sign. Fields and mixed reads are slower in both
+passes. Keep the total/remaining reader: this candidate gives no repeatable
+gain. These results reject this extra-cursor implementation, not every possible
+reader representation. No package version or sibling pin changes are needed.
+
+Both readers pass `check.bend`, including invalid and truncated secondary
+codes in both orders, failed reads, invalid widths, zero-width switches,
+peek, and successful and failed Huffman order switches. Candidate checks use
+copies of `check.bend` and its Bits import. Both also pass native
+`large-check.bend` at depths 3 and 27, with matching imports for the candidate.
+At depth 27, a 32-bit field starts at bit 4294967293 and crosses 2^32.
+The next 13-bit read, peek, remaining count, alignment, failed skip, and finish
+check positions above 2^32 in both orders. The candidate's large run peaks at
+2149105664 resident bytes. Temporary candidate sources and binaries are not
+shipped. `scripts/check.sh bits` passes the unchanged package proofs and checks.
