@@ -3,7 +3,8 @@
 Hairpin is an HTTP client for Bend 2, built on `bend-kit-http`. One `Client` holds a base URL, default headers, a socket pool, a cookie jar, a client certificate, a redirect mode, a step timeout, a retry policy, and a circuit breaker. Each request uses all of them. The model is undici's `Agent` with ky's instance options.
 
 ```bend
-import bend-kit-hairpin@0.18.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/pure.bend as Policy
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.45.0.0/http.bend as Http
 import bend-kit-http@0.45.0.0/pure.bend as Pure
@@ -73,11 +74,11 @@ For a streamed response under the retry policy, use `open.as`. For a streamed up
 [`bend-kit-retry`](../retry) is the policy. It is pure; Hairpin reads the clock and calls it. Every `now` in the policy is monotonic milliseconds from `Clock.mono.ms()`. Each request runs this loop:
 
 1. **Admit.** `Retry.admit(breaker, budget, now)` checks the deadline, then the budget, then the breaker. Only `GateGo` starts an attempt, and it takes one attempt from the budget. A denial before the first attempt is `ErrDenied{why}`; a later denial returns the last result.
-2. **Classify.** The judge gives a `Hairpin.Verdict` for the result, and `Hairpin.outcome(idem, verdict, now)` turns it into a `Retry.Outcome`. `Hairpin.judge` calls a connect error, a timeout, and 408, 429, 500, 502, 503, and 504 `VerdictAgain{after}`, where `after` is the `Retry-After` value. Any other status below 400 is `VerdictOk`, another 4xx is `VerdictCaller`, and another 5xx or another error (such as DNS or TLS) is `VerdictTarget`. `VerdictOk` is `Settled`. `VerdictCaller` is `Rejected`, and `VerdictTarget` is `Failed`; another try would repeat either one. `VerdictAgain` of GET, HEAD, OPTIONS, TRACE, PUT, or DELETE is `Transient`, with the server's `Retry-After` (at most 30 s). Of any other method, it is `Unsafe`.
+2. **Classify.** The judge gives a `Policy.Verdict` for the result, and `Policy.outcome(idem, verdict, now)` turns it into a `Retry.Outcome`. `Policy.judge` calls a connect error, a timeout, and 408, 429, 500, 502, 503, and 504 `VerdictAgain{after}`, where `after` is the `Retry-After` value. Any other status below 400 is `VerdictOk`, another 4xx is `VerdictCaller`, and another 5xx or another error (such as DNS or TLS) is `VerdictTarget`. `VerdictOk` is `Settled`. `VerdictCaller` is `Rejected`, and `VerdictTarget` is `Failed`; another try would repeat either one. `VerdictAgain` of GET, HEAD, OPTIONS, TRACE, PUT, or DELETE is `Transient`, with the server's `Retry-After` (at most 30 s). Of any other method, it is `Unsafe`.
 3. **Tell the breaker.** `Retry.failed(outcome)` decides. `Failed`, `Transient`, and `Unsafe` count as failures. `Settled` and `Rejected` count as successes: a client error is not the target's fault, so a run of 404s does not open the breaker.
 4. **Plan.** `Retry.plan` stops on `Settled`, `Failed`, `Rejected`, and `Unsafe`. On `Transient` it waits `Retry-After`, or a backoff of 500 ms doubled per retry up to 30 s, with equal jitter (a wait in `[d/2, d]`). It stops when the budget is spent or when the wait would reach the deadline.
 
-A caller that hands an outcome to [`runner`](../runner) can take it from `Hairpin.outcome(idem, verdict, now)`. Then a 404 or a DNS failure keeps the job dead, and a 503 retries it. A 404 does not move the target's breaker in `runner` either.
+A caller that hands an outcome to [`runner`](../runner) can take it from `Policy.outcome(idem, verdict, now)`. Then a 404 or a DNS failure keeps the job dead, and a 503 retries it. A 404 does not move the target's breaker in `runner` either.
 
 The policy is `Retry.Policy{attempts, base, cap, deadline}`. `Hairpin.retry` sets `attempts`, and `Hairpin.deadline` sets `deadline`.
 
@@ -104,7 +105,7 @@ Every attempt of every call takes from the one budget and obeys its deadline. Th
 
 `request.in` retries only what `Pure.retry.judge` calls transient, and only for an idempotent method. An API with other rules, such as Anthropic's 529 or a POST that the server deduplicates, uses `request.as`:
 
-- `~judge` takes the result of one attempt. It returns the result and a `Hairpin.Verdict`: `VerdictOk{}`, `VerdictCaller{}`, `VerdictTarget{}`, or `VerdictAgain{after}` when another attempt may help (`after` is the `Retry-After` value, `""` for no header). `Hairpin.judge` is the default.
+- `~judge` takes the result of one attempt. It returns the result and a `Policy.Verdict`: `VerdictOk{}`, `VerdictCaller{}`, `VerdictTarget{}`, or `VerdictAgain{after}` when another attempt may help (`after` is the `Retry-After` value, `""` for no header). `Policy.judge` is the default.
 - `idem` says that the request is safe to repeat. When it is `False{}`, `VerdictAgain` counts against the breaker but never repeats.
 - `enc` is the `Accept-Encoding` value. `Http.codings()` gives every coding that Http decodes. `"identity"` leaves the body as the server sent it.
 
@@ -127,6 +128,8 @@ A `Client` has one breaker for all origins. Requests on one client are sequentia
 ## Guarantees
 
 [../retry/README.md](../retry/README.md#proven-claims) lists the proven claims of the policy. `LAWS.bend` here proves Hairpin's URL resolution, header merge, and outcome classification (`outcome_*`) on fixtures.
+
+`pure.bend` owns URL resolution, header merge, `Verdict`, and outcome classification. Runtime requests and `LAWS.bend` use these same definitions. Import it as `Policy` for pure helpers and custom judge verdicts. Its import graph has no runtime effects.
 
 The proofs cover the policy, not the IO loop in `hairpin.bend`. Hairpin calls `Retry.admit` before each attempt and `Retry.plan` after it; `check.bend` tests this against a server that counts attempts. A deadline does not cancel an attempt in flight; its connect, write, and read steps each time out after `Hairpin.timeout`. The monotonic clock (`Clock.mono.ms`), the random jitter (`IO.random_u32`), the sleep, and the sockets are host code. `request` and `request.in` retry only the methods that RFC 9110 calls idempotent. With `request.as`, the caller's `idem` and `judge` decide, and Hairpin trusts them.
 
