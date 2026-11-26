@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `runner` 0.22.0.4: align the webhook example and its published guidance with Hairpin 0.19.0.0 and Webhooks 0.17.0.0. Remove the completed Hairpin consumer pin exceptions.
 - `jwt` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
 - `llm` 0.19.0.0: use Hairpin 0.19.0.0 with matching HTTP models and pure verdicts.
 - `oauth2` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
