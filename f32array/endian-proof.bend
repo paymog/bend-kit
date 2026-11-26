@@ -1,6 +1,6 @@
 import Base
 import ./f32array.bend as A
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def BitsEqual(n: Nat, a: Word(n), b: Word(n)) -> Type:
   match n:

@@ -4,7 +4,7 @@ Packed `F32` arrays with affine ownership. Each `Array` slot is a `Cell` of eigh
 
 ```bend
 import Base
-import bend-kit-f32array@0.2.4.2/f32array.bend as A
+import bend-kit-f32array@0.2.4.3/f32array.bend as A
 
 def show(r: A.F32Array & A.F32Array & Maybe<&2, F32>) -> IO(Unit):
   (a, b, d) = r
@@ -18,7 +18,7 @@ def main() -> IO(Unit):
   show(A.dot(A.from_list([1.0, 2.0, 3.0]), A.from_list([4.0, 5.0, 6.0])))
 ```
 
-The pure module imports `bend-kit-bytes@0.3.3.2`. `io.bend` also imports `bend-kit-files@0.4.0.2`. `from_bytes.le`, `to_bytes.le`, and their `.be` twins take and give that `Bytes.Bytes`.
+The pure module imports `bend-kit-bytes@0.3.3.3`. `io.bend` also imports `bend-kit-files@0.4.0.3`. `from_bytes.le`, `to_bytes.le`, and their `.be` twins take and give that `Bytes.Bytes`.
 
 A call that reads an array returns the array beside its result. Pass that array on. `get` returns `None` when the index is at or past `len`, and `set` then leaves the array unchanged. `map` and `zip_with` write into the array they are given. `zip_with`, `add`, and `mul` give `b` back, and they return `False` with both arrays unchanged when the two lengths differ. `dot` returns `None` when the lengths differ.
 
@@ -28,7 +28,7 @@ Use `sum.compensated` and `dot.compensated` when small terms must survive cancel
 
 `sum.compensated.blocked` and `dot.compensated.blocked` use four compensated lanes per leaf of at most 16 cells. Within each cell, lane states receive positions `(0, 4)`, `(1, 5)`, `(2, 6)`, and `(3, 7)`. Merge lane states as `((0, 1), (2, 3))`, then merge equal halves of the padded cell tree. Each merge adds the right sum, then its correction, into the left state. The final addition applies the remaining correction. Zero padding participates. This fixed pure order uses no tasks or unsafe operations. Empty inputs and mismatched lengths follow the original calls. Returned arrays remain writable. The repeated cancellation fixtures remain exact, but rounding, overflow, signed zero, and NaN payloads can differ from element order. Neither compensated layout has a universal accuracy advantage. Use the original calls when element order matters.
 
-For CPU parallelism, import `bend-kit-f32array@0.2.4.2/parallel.bend as P` and call `P.sum(a)` or `P.dot(a, b)`. They return the same types and use the same addition order as the pure calls. Below 2^20 elements they stay sequential. Larger inputs split into read-only tasks of at most 4,096 cells (32,768 elements). `Array.fork` shares each buffer without cloning it. Every pair of returned handles is joined before the caller can write again. These Base operations are unsafe, so the parallel module must not enter proof imports. Native binaries use `+RTS --threads 8` to select eight CPU workers. The JS target stays sequential.
+For CPU parallelism, import `bend-kit-f32array@0.2.4.3/parallel.bend as P` and call `P.sum(a)` or `P.dot(a, b)`. They return the same types and use the same addition order as the pure calls. Below 2^20 elements they stay sequential. Larger inputs split into read-only tasks of at most 4,096 cells (32,768 elements). `Array.fork` shares each buffer without cloning it. Every pair of returned handles is joined before the caller can write again. These Base operations are unsafe, so the parallel module must not enter proof imports. Native binaries use `+RTS --threads 8` to select eight CPU workers. The JS target stays sequential.
 
 `P.sum.with_cutoff(a, cells)` and `P.dot.with_cutoff(a, b, cells)` expose the task cutoff for measurements or a different machine. The cutoff is at least 16 cells. These calls do not apply the default 2^20-element threshold. Their results keep the same bits at every cutoff and worker count. See [the benchmark](bench/README.md) for the measured cutoff and float64 errors.
 
@@ -73,8 +73,8 @@ Native F32 and BF16 loads preserve all bits, including signed zero, subnormals, 
 
 ```bend
 import Base
-import bend-kit-f32array@0.2.4.2/f32array.bend as A
-import bend-kit-f32array@0.2.4.2/io.bend as F
+import bend-kit-f32array@0.2.4.3/f32array.bend as A
+import bend-kit-f32array@0.2.4.3/io.bend as F
 
 def count(r: A.F32Array & U32) -> String:
   (a, n) = r

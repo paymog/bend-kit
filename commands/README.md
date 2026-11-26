@@ -3,10 +3,10 @@
 Retry-safe commands. Each command has an id and a payload. The first delivery of an id reads the rows that the command names, runs your `decide`, and commits the rows it writes, a record of the outcome, and the outbox effects in one SQLite transaction. A retry of the id with the same payload writes nothing and replays the recorded outcome. A retry with a different payload is a conflict.
 
 ```bend
-import bend-kit-commands@0.6.0.2/commands.bend as C
+import bend-kit-commands@0.6.0.3/commands.bend as C
 ```
 
-It imports `bend-kit-sqlite@0.1.0.1` and `bend-kit-bytes@0.3.3.2`. The store's database and statement handles are that sqlite version's `U32` ids. Payloads, row keys and values, results, and effects are that bytes version's `Bytes.Bytes`.
+It imports `bend-kit-sqlite@0.1.0.1` and `bend-kit-bytes@0.3.3.3`. The store's database and statement handles are that sqlite version's `U32` ids. Payloads, row keys and values, results, and effects are that bytes version's `Bytes.Bytes`.
 
 ```mermaid
 flowchart LR
@@ -30,9 +30,9 @@ A running total in one row, key `total`. Each payload is an amount in decimal, t
 
 ```bend
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
-import bend-kit-commands@0.6.0.2/commands.bend as C
-import bend-kit-commands@0.6.0.2/model.bend as M
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-commands@0.6.0.3/commands.bend as C
+import bend-kit-commands@0.6.0.3/model.bend as M
 
 def num(b: Bytes.Bytes) -> U32:
   Maybe.default(&2, U32, Bytes.u32.read(b), 0)

@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../native.bend as Z
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def from_bytes(xs: List<&2, U32>) -> String:
   match xs:

@@ -3,7 +3,7 @@ import ../text.bend as T
 import ../byte_check.bend as Check
 import ./bench.bend as Bench
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def verified(r: Array<U32> & Array<U32> & Bool, t0: Time.Duration) -> IO(Unit):
   (_, _, ok) = r

@@ -1,10 +1,10 @@
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
-import bend-kit-json@0.7.3.1/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-json@0.7.3.2/json.bend as Json
 import ./migrate.bend as M
 import ./LAWS.bend as Laws
-import bend-kit-bytes@0.3.3.2/roundtrip-proof.bend as DecimalProof
-import bend-kit-bytes@0.3.3.2/decimal-proof.bend as Decimal
+import bend-kit-bytes@0.3.3.3/roundtrip-proof.bend as DecimalProof
+import bend-kit-bytes@0.3.3.3/decimal-proof.bend as Decimal
 
 # Result lemmas
 # -------------

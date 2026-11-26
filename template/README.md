@@ -3,7 +3,7 @@
 Mustache templates: variables, sections, inverted sections, and comments. A variable is HTML-escaped unless you ask for raw output.
 
 ```bend
-import bend-kit-template@0.4.0.1/template.bend as T
+import bend-kit-template@0.4.0.2/template.bend as T
 ```
 
 ```bend
@@ -59,7 +59,7 @@ Escaping replaces `&`, `<`, `>`, `"`, and `'` with `&amp;`, `&lt;`, `&gt;`, `&qu
 
 Lambdas and dynamic partial names (`{{>*name}}`) are not supported.
 
-The packed API uses `bend-kit-bytes@0.3.3.2` and `bend-kit-encoding@0.5.0.2`. Text inputs remain Unicode strings. The output holds UTF-8 octets, not one byte per code point. Use `Encoding.utf8.decode` only when a caller needs text. The text API and its pure proofs remain unchanged.
+The packed API uses `bend-kit-bytes@0.3.3.3` and `bend-kit-encoding@0.5.0.3`. Text inputs remain Unicode strings. The output holds UTF-8 octets, not one byte per code point. Use `Encoding.utf8.decode` only when a caller needs text. The text API and its pure proofs remain unchanged.
 
 `python3 template/conformance.py` checks both output paths against all 130 applicable Mustache spec v1.4.2 cases, two Unicode fixtures, and ten nested-partial regressions. It covers tabs, empty and whitespace-only lines, variable newlines, parent continuation, and the recursive-partial limit. It skips tests whose data is not a map. `LAWS.bend` holds escaping laws and a sample of those cases. Two of its laws hold for every string: `escape` output has no `<`, `>`, `"`, or `'`, and each `&` in it starts `&amp;`, `&lt;`, `&gt;`, `&quot;`, or `&#39;`.
 

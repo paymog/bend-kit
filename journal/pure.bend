@@ -1,7 +1,7 @@
 # Pure journal framing, recovery, and list model.
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
-import bend-kit-hash@0.3.2.3/hash.bend as Hash
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-hash@0.3.2.4/hash.bend as Hash
 
 # A frame is one record and one commit: three u32 little-endian fields, then the payload.
 # len, then U32.not(len), then the CRC-32 of the payload, then len payload octets.

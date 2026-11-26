@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as B
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 import bend-kit-f64@0.1.4.0/f64.bend as F
 import ../protobuf.bend as P
 import ./schema.bend as S

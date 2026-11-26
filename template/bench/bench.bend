@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../template.bend as T
-import bend-kit-bytes@0.3.3.2/bytes.bend as B
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 
 def N() -> Nat:
   200n
