@@ -7,6 +7,8 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- Gateway and Runner examples: use current HTTP, Camber, Hairpin, and Webhooks types. Remove the completed HTTP consumer pin exceptions.
+- `runner` 0.22.0.3: publish the webhook example guidance with matching current HTTP, Hairpin, and Webhooks versions.
 - `jwt` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
 - `llm` 0.18.0.0: use the published Hairpin and HTTP releases with matching types.
 - `oauth2` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
