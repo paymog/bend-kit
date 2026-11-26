@@ -3,6 +3,7 @@ import ./bytes.bend as Bytes
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import ./LAWS.bend as Laws
 import ./roundtrip-proof.bend as DecimalProof
+import ./copy-proof.bend as CopyProof
 
 def Laws.roundtrip_empty():
   {==}

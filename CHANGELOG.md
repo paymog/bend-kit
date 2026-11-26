@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `bytes` proof: prove that an empty copy preserves its destination for arbitrary arrays and indexes, through byte, aligned-word, and shifted-word paths.
 - `storage` 0.12.0.0: verify local sync and collection with payload-free digest indexes. Stream missing encoded objects in 64 KiB pieces and keep collection fail-closed.
 - `storage` 0.11.0.0: use HTTP 0.45.0.0's context-aware owned response loop for file-backed origins. Remove the duplicate connection loop without changing object routes or status codes.
 - `http` 0.45.0.0: pass server context to owned streaming response handlers and completion observers. Keep affine body state and HTTP connection lifecycle in the shared loop.
