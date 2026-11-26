@@ -25,6 +25,7 @@ def response(reader, method="GET"):
         name, value = line.split(":", 1)
         fields.append((name.lower(), value.strip()))
     headers = dict(fields)
+    assert headers.pop("x-context") == "owned"
     assert sum(name == "content-length" for name, _ in fields) <= 1
     assert sum(name == "transfer-encoding" for name, _ in fields) <= 1
     assert not ("content-length" in headers and "transfer-encoding" in headers)

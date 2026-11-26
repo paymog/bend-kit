@@ -170,7 +170,7 @@ def serve(mode: String, server: Http.Server<Unit>, +observer: Http.ServerStats, 
         return Unit{}
     case "writer":
       do IO<Unit>:
-        result : Pure.ServerExit <- Http.server.write.run(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, server)
+        result : Pure.ServerExit <- Http.server.write.run(~Unit, ~Download, ~(context => req => download.start(req)), ~download.write, ~download.dispose, ~(context => status => outcome => Completion.ignore(status, outcome)), server)
         return Unit{}
     case "stats-close":
       do IO<Unit>:

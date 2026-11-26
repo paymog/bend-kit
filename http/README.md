@@ -3,9 +3,9 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.44.0.2/http.bend as Http
-import bend-kit-http@0.44.0.2/pure.bend as Pure
-import bend-kit-http@0.44.0.2/completion.bend as Completion
+import bend-kit-http@0.45.0.0/http.bend as Http
+import bend-kit-http@0.45.0.0/pure.bend as Pure
+import bend-kit-http@0.45.0.0/completion.bend as Completion
 ```
 
 `Pure.Body` uses `bend-kit-bytes@0.3.3.1`. JSON values for `post.json` use `bend-kit-json@0.7.3.0`. DNS lookup uses `bend-kit-dns@0.8.0.0`. TLS uses `bend-kit-wire@0.4.8.1`.
@@ -20,8 +20,8 @@ HTTPS needs OpenSSL 3. On macOS, `brew install openssl@3`. Set `BEND_LIBSSL` if 
 
 ```bend
 import Base
-import bend-kit-http@0.44.0.2/http.bend as Http
-import bend-kit-http@0.44.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.0/http.bend as Http
+import bend-kit-http@0.45.0.0/pure.bend as Pure
 
 def show(got: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match got:
@@ -95,9 +95,9 @@ A convenience handler returns `IO(Reply)`. `Reply` is the `Res` plus a completio
 
 ```bend
 import Base
-import bend-kit-http@0.44.0.2/http.bend as Http
-import bend-kit-http@0.44.0.2/pure.bend as Pure
-import bend-kit-http@0.44.0.2/completion.bend as Completion
+import bend-kit-http@0.45.0.0/http.bend as Http
+import bend-kit-http@0.45.0.0/pure.bend as Pure
+import bend-kit-http@0.45.0.0/completion.bend as Completion
 
 def hello(req: Pure.Req) -> IO(Http.Reply):
   Pure.Req{method, path, headers, body} = req
@@ -110,6 +110,8 @@ def main() -> IO(Unit):
 `serve.on` binds an address. `serve` binds `0.0.0.0`. Neither prints a start line. `serve.with` and `serve.on.with` set the body cap. The default is 16 MiB. Header cap on these entry points is 64 KiB. Phase deadlines are 5, 30, 30, and 30 seconds for header, body, idle, and write. A bad request is 400, an oversized body is 413, and a head over 64 KiB is 431. HTTP/1.1 connections stay open unless `Connection: close`. Pipelined requests run in order. HEAD, 1xx, 204, and 304 get no body.
 
 `serve.stream.on.with` takes `start`, `piece`, `finish`, and `abort`. `abort` runs on an incomplete upload and must close any handle it owns. It does not call `finish`. `serve.write.on.with` takes `start`, `write`, and `dispose`. `dispose` runs when the body is suppressed or the header write fails. `Some{n}` sends `Content-Length`. `None` sends chunked encoding. A length mismatch closes the socket and does not replay the body.
+
+`server.write.run(~C, ~S, ~start, ~write, ~dispose, ~observe, server)` uses a `Server<C>`. `C` is reusable server context; `S` is affine response state. The start handler has type `C -> Pure.Req -> IO(WriteHead<S>)`. The observer has type `C -> U32 -> Completion.Outcome -> IO(Unit)`. `serve.write.config` takes the same templates, then the context and configuration. The `on.with` and `with` conveniences use `Unit` context.
 
 ## Configured server
 
