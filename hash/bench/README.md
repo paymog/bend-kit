@@ -78,6 +78,99 @@ The 16-byte incrementing input does not represent all callers. These samples spa
 
 This is a baseline measurement, not an optimization comparison. No production CRC code changes. A future candidate must run alternating baseline/candidate pairs (AB, BA) for every matrix row before claiming a gain. Keep the long-input checksum and timing in that comparison.
 
+## Rotated 32-byte boundary
+
+Run `python3 boundary.py 5 boundary.csv` from this directory. This builds
+`boundary.bend`, which reuses the matrix input builder, timer, and 100,000-call
+loop from `bench.bend`. Each fresh process runs nine rotations of the nine
+pattern/length rows. Rotation `r` starts at row `r` and wraps around. Each row
+thus occupies each timed position once per process. Input construction is
+outside the timer. The runner rejects missing rows, wrong row order, and any
+checksum that differs from Python's standard `zlib.crc32`.
+
+M4 Pro, macOS 26.7.2 arm64, 2026-11-26. Baseline: `hash` 0.3.2.2 at
+`666d99b`. Bend 2.0.40, Apple clang 21.0.0 (clang-2100.4.1.1), Python
+3.14.6. Five fresh processes, one at a time, give 45 samples per row and
+405 samples in total. [boundary.csv](boundary.csv) retains every sample,
+with process, rotation, position, call count, time, and checksum. Times
+below are milliseconds per 100,000 calls, including the repeat loop.
+
+| pattern | bytes | median ms | min ms | max ms |
+|---|---:|---:|---:|---:|
+| zero | 31 | 0.684125 | 0.636708 | 0.834750 |
+| zero | 32 | 0.629250 | 0.563291 | 0.669875 |
+| zero | 33 | 0.638667 | 0.588750 | 0.744959 |
+| incrementing | 31 | 0.737542 | 0.683667 | 0.801667 |
+| incrementing | 32 | 0.472125 | 0.429917 | 0.528709 |
+| incrementing | 33 | 0.497084 | 0.467584 | 0.552917 |
+| mixed | 31 | 0.739750 | 0.680791 | 0.816208 |
+| mixed | 32 | 0.445209 | 0.424333 | 0.513917 |
+| mixed | 33 | 0.476916 | 0.444667 | 0.512625 |
+
+The medians by timed position, across all rows and processes, are
+0.604125, 0.614792, 0.595209, 0.630583, 0.629250, 0.612459, 0.606792,
+0.629959, and 0.630333 ms. Each position has the same mix of rows.
+The 0.035124 ms position-median range is smaller than the 32-byte zero
+versus incrementing gap (0.157125 ms), or the zero versus mixed gap
+(0.184041 ms). In all five processes, the zero 32-byte median exceeds
+both other 32-byte medians. Its individual samples do not overlap theirs.
+The pattern cost therefore survives row rotation in this build.
+
+The previous 1.076541 ms zero 32-byte median does not reproduce. This
+experiment does not assign that earlier excess to order alone: it uses
+a separate entry point and cannot remove machine or code-layout effects.
+Rotation balances timed position, not every possible predecessor pair.
+At 31 bytes, zero is faster than the other patterns. At 32 and 33, it
+is slower. The boundary reduces the median for every pattern, but by
+different amounts. There is no general 32-byte slowdown.
+
+### Generated-code inspection
+
+From the repo root:
+
+```sh
+bend hash/bench/boundary.bend -o hash/bench/out/boundary.c
+clang -O2 -S hash/bench/out/boundary.c -o hash/bench/out/boundary.s
+```
+
+- **Path selection:** generated C `spin____hash_crc32` compares the
+  logical length with 32. The assembly retains `cmp w12, #32` and
+  `b.lo` inside the repeat loop. No branch inspects the byte pattern.
+  Thus pattern differences at a fixed length do not select another path.
+- **Table work:** `spin____hash_crc_tab*` emits `TAB_AT`, not a
+  256-way runtime branch. Assembly uses indexed constant-table `ldr`
+  instructions and XORs. The 31-byte path performs seven word updates
+  (four table reads each), then three byte updates: 31 table reads.
+  The 32-byte path performs two 16-byte updates: 32 table reads.
+  The 33-byte path adds one byte update: 33 table reads.
+  Table addresses depend on the input and CRC state. There is no
+  zero-specific instruction path. Cache or load scheduling could explain
+  part of the pattern gap, but these timings do not prove that cause.
+- **Loop work:** `spin_bench_short` counts down and calls the CRC on
+  the same retained buffer. The native assembly retains that outer loop;
+  it does not hoist the hash out. At 31 bytes the word loop has seven
+  iterations and the byte tail has three. At 32 bytes the block loop
+  has two iterations and no byte tail. At 33 bytes it has two iterations
+  and one byte tail. The generated folds carry scalar CRC state and
+  read masked array indices. They allocate no per-word or per-block
+  heap objects. The short word fold still reads ahead, and both paths
+  still enter their tail helpers even when a tail count is zero.
+
+These are operation counts and inclusive timings, not separate nanosecond
+estimates for dispatch, loads, or loop control. The lower block-loop count
+explains why more table reads need not mean a slower call. The remaining
+pattern cost is reproducible here, but its hardware cause is unresolved.
+Production code is unchanged. No candidate or optimization gain is claimed.
+Any future candidate must use alternating AB/BA pairs and retain the
+16 MB benchmark and its checksums.
+
+Validation: `scripts/check.sh hash`, `scripts/native-check.sh hash`,
+`scripts/publish.sh --check`, and `scripts/pins.sh` pass. The unchanged
+`python3 hash/bench/run.py 1` also passes all cross-language and matrix
+checksum checks. Its Bend 16 MB CRC time is 4.4 ms, checksum `b99c61cb`;
+the other eight operation checksums remain as listed above. This one-run
+check is not a performance comparison.
+
 ## Results
 
 M4 Pro, macOS, 2026-11-20, `hash` 0.3.2.0. Median of three runs. Times are in ms; `Nx` is the multiple of the fastest variant for that op.
