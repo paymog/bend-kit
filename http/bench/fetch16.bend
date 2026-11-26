@@ -4,7 +4,7 @@ import Base
 import ../../time/time.bend as Time
 import ../http.bend as Http
 import ../pure.bend as Pure
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
 
 def report(+t0: Time.Duration, +t1: Time.Duration, r: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match r:

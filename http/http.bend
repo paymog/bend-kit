@@ -3,18 +3,18 @@ import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
-import bend-kit-http2@0.6.0.0/http2.bend as H2
-import bend-kit-http2@0.6.0.0/hpack.bend as Hpack
-import bend-kit-bytes@0.3.3.1/bytes.bend as HBytes
-import bend-kit-time@0.3.0.3/pure.bend as Time
-import bend-kit-time@0.3.0.3/time.bend as Clock
+import bend-kit-http2@0.6.0.1/http2.bend as H2
+import bend-kit-http2@0.6.0.1/hpack.bend as Hpack
+import bend-kit-bytes@0.3.3.2/bytes.bend as HBytes
+import bend-kit-time@0.3.0.4/pure.bend as Time
+import bend-kit-time@0.3.0.4/time.bend as Clock
 import ./pure.bend as Pure
 import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-dns@0.8.0.0/dns.bend as Dns
-import bend-kit-zlib@0.7.0.2/native.bend as ZNative
+import bend-kit-json@0.7.3.1/json.bend as Json
+import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-dns@0.8.0.1/dns.bend as Dns
+import bend-kit-zlib@0.7.0.3/native.bend as ZNative
 
 
 def clock.instant(v: Clock.Instant) -> Time.Instant:
