@@ -44,8 +44,8 @@ This section comes from entry-file imports and package versions. Run `scripts/re
 
 | Dependency pin | Consumers |
 |---|---|
-| `bend-kit-http@0.45.0.0` | `camber@0.19.0.0`, `hairpin@0.18.0.0`, `jwt@0.16.0.0`, `llm@0.18.0.0`, `oauth2@0.16.0.0`, `sigv4@0.16.0.0`, `webhooks@0.16.0.0` |
-| `bend-kit-hairpin@0.18.0.0` | `jwt@0.16.0.0`, `llm@0.18.0.0`, `oauth2@0.16.0.0`, `sigv4@0.16.0.0`, `webhooks@0.16.0.0` |
+| `bend-kit-http@0.45.0.0` | `camber@0.19.0.0`, `hairpin@0.19.0.0`, `jwt@0.17.0.0`, `llm@0.19.0.0`, `oauth2@0.17.0.0`, `sigv4@0.17.0.0`, `webhooks@0.17.0.0` |
+| `bend-kit-hairpin@0.19.0.0` | `jwt@0.17.0.0`, `llm@0.19.0.0`, `oauth2@0.17.0.0`, `sigv4@0.17.0.0`, `webhooks@0.17.0.0` |
 
 ## Native libraries
 
@@ -121,7 +121,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`wire`](wire) | `bend-kit-wire@0.4.8.1/wire.bend` | TCP, UDP, and TLS sockets. |
 | [`http`](http) | `bend-kit-http@0.45.0.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.6.0.0/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
-| [`hairpin`](hairpin) | `bend-kit-hairpin@0.18.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
+| [`hairpin`](hairpin) | `bend-kit-hairpin@0.19.0.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
 | [`websocket`](websocket) | `bend-kit-websocket@0.4.1.5/websocket.bend` | RFC 6455 client handshake and frames. |
 | [`multipart`](multipart) | `bend-kit-multipart@0.3.0.2/multipart.bend` | RFC 7578 form-data encode and decode. |
@@ -131,11 +131,11 @@ Each package README has the import, one example, and the limits that change the 
 | Package | Import | What it does |
 |---|---|---|
 | [`crypto`](crypto) | `bend-kit-crypto@0.2.2.2/crypto.bend` | Digests, HMAC, HKDF, AEAD, scrypt, RSA, and P-256 through OpenSSL 3. |
-| [`oauth2`](oauth2) | `bend-kit-oauth2@0.16.0.0/oauth2.bend` | Client credentials, refresh, and authorization code with PKCE. |
+| [`oauth2`](oauth2) | `bend-kit-oauth2@0.17.0.0/oauth2.bend` | Client credentials, refresh, and authorization code with PKCE. |
 | [`authz`](authz) | `bend-kit-authz@0.1.0.0/authz.bend` | Pure authorization policies: deny-overrides, default deny, intersection, and fail-closed missing context. |
-| [`jwt`](jwt) | `bend-kit-jwt@0.16.0.0/jwt.bend` | HS256/384/512, RS256, and ES256, plus JWKS lookup. |
-| [`sigv4`](sigv4) | `bend-kit-sigv4@0.16.0.0/sigv4.bend` | AWS Signature V4 and S3 over `hairpin`. |
-| [`webhooks`](webhooks) | `bend-kit-webhooks@0.16.0.0/webhooks.bend` | Standard Webhooks, Stripe, and GitHub signature checks. |
+| [`jwt`](jwt) | `bend-kit-jwt@0.17.0.0/jwt.bend` | HS256/384/512, RS256, and ES256, plus JWKS lookup. |
+| [`sigv4`](sigv4) | `bend-kit-sigv4@0.17.0.0/sigv4.bend` | AWS Signature V4 and S3 over `hairpin`. |
+| [`webhooks`](webhooks) | `bend-kit-webhooks@0.17.0.0/webhooks.bend` | Standard Webhooks, Stripe, and GitHub signature checks. |
 
 ### Programs
 
@@ -169,7 +169,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`sqlite`](sqlite) | `bend-kit-sqlite@0.1.0.1/sqlite.bend` | Prepared statements through libsqlite3. |
 | [`postgres`](postgres) | `bend-kit-postgres@0.4.0.0/postgres.bend` | Postgres protocol 3.0, SCRAM-SHA-256, and a pool. |
 | [`redis`](redis) | `bend-kit-redis@0.5.0.0/redis.bend` | Redis and Valkey over RESP3, with pipelining and a pool. |
-| [`llm`](llm) | `bend-kit-llm@0.18.0.0/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
+| [`llm`](llm) | `bend-kit-llm@0.19.0.0/llm.bend` | Anthropic Messages and OpenAI Chat Completions, including SSE. |
 
 ### Applications
 

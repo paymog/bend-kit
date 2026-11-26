@@ -1,6 +1,6 @@
 import Base
 import ./webhooks.bend as W
-import bend-kit-hairpin@0.18.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.45.0.0/http.bend as Http
 import bend-kit-http@0.45.0.0/pure.bend as HttpPure

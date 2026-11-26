@@ -1,6 +1,6 @@
 import Base
 import ./oauth2.bend as O
-import bend-kit-hairpin@0.18.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
 import bend-kit-http@0.45.0.0/http.bend as Http
 import bend-kit-http@0.45.0.0/pure.bend as HttpPure
 import bend-kit-http@0.45.0.0/admission.bend as Admission

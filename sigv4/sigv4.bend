@@ -1,7 +1,8 @@
 # AWS Signature V4 signing and S3 object storage over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/sigv4
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-hairpin@0.18.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.0/pure.bend as HairpinPure
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-http@0.45.0.0/http.bend as Http
 import bend-kit-http@0.45.0.0/pure.bend as HttpPure
@@ -488,7 +489,7 @@ def call.done(cfg: Config, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpP
 def send.budget(+method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes,
     y: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
   (h, b) = y
-  Hairpin.request.as(~Hairpin.judge, h, b, HttpPure.pool.idempotent(method), "identity", method, url, headers, body)
+  Hairpin.request.as(~HairpinPure.judge, h, b, HttpPure.pool.idempotent(method), "identity", method, url, headers, body)
 
 def send(c: Hairpin.Client, +method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
     IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
