@@ -1022,3 +1022,413 @@ def drain_room_after(+fuel: Nat, +len: U32, +s: U32, -result: Sse.Reader & Sse.N
           Budget.remaining_strict(len, s, pos, strict, upper),
           MNat.le_of_lt_succ(U32.to_nat((len - s : U32)), fuel, before)))
 
+def event_advance(fuel: Nat, result: Sse.Reader & Sse.Next) -> Sse.Reader & Sse.Next:
+  match fuel:
+    case 0n: result
+    case 1n+p:
+      (rd, next) = result
+      match next:
+        case Sse.Want{}: (rd, Sse.Want{})
+        case Sse.Got{message}: event_advance(p, Sse.next(rd))
+
+# Keep the terminal equation folded: https://github.com/bendlang/bend/issues/1071.
+type EventHalted<-fuel: Nat, -result: Sse.Reader & Sse.Next> is Type:
+  EventHalted{proof: {Budget.is_got(Budget.result_line(event_advance(fuel, result))) == False{} : Bool}}
+
+def event_halted(+fuel: Nat, -result: Sse.Reader & Sse.Next) -> Type:
+  EventHalted<fuel, result>
+
+def event_valid(+len: U32, -result: Sse.Reader & Sse.Next, +limit: Nat) -> Type:
+  {reader_length(result_reader(result)) == len : U32} &
+    reader_valid(result_reader(result), limit) &
+    Budget.line_reserved(len, reader_line(result_reader(result)), limit)
+
+def event_result_facts(+len: U32, -result: Sse.Reader & Sse.Next, +limit: Nat,
+  length: {reader_length(result_reader(result)) == len : U32},
+  reserve: Budget.line_reserved(len, Budget.result_line(result), limit),
+  facts: reader_valid(result_reader(result), limit) &
+    {stripped(Drain.line_view(len, Budget.result_line(result))) == reader_view(result_reader(result)) : Budget.view_type()} &
+    {Budget.line_mass(len, Budget.result_line(result)) == Budget.line_mass(len, reader_line(result_reader(result))) : Nat}) ->
+  event_valid(len, result, limit):
+  (valid, view, mass) = facts
+  (length, valid,
+    (%mass : MNat.lt(Nat.add(Nat.add(_, 1n), 3n), limit); reserve))
+
+def event_from_certificate_actual(result: Sse.Reader & Sse.Next, +limit: Nat,
+  certificate: Budget.next_certificate(result_length(result), result_length(result), result, result, limit)) ->
+  event_valid(result_length(result), result, limit):
+  (Sse.Reader{Bytes.Bytes{+la, a}, +pos, +seen, +cr, st}, n) = result
+  (((views, valid, other_valid), reserve), canonical, other_canonical) = certificate
+  event_result_facts(la, (Sse.Reader{Bytes.Bytes{la, a}, pos, seen, cr, st}, n), limit, {==}, reserve,
+    result_facts(n, la, a, pos, seen, cr, st, limit, canonical, valid))
+
+def event_from_certificate(+len: U32, result: Sse.Reader & Sse.Next, +limit: Nat,
+  +length: {result_length(result) == len : U32},
+  certificate: Budget.next_certificate(len, len, result, result, limit)) -> event_valid(len, result, limit):
+  %length : event_valid(_, result, limit)
+  event_from_certificate_actual(result, limit,
+    (%Equal.sym(U32, result_length(result), len, length) :
+      Budget.next_certificate(_, _, result, result, limit); certificate))
+
+def next_event_valid(+len: U32, rd: Sse.Reader, +limit: Nat,
+  facts: after_next(len, len, rd, rd, limit)) -> event_valid(len, Sse.next(rd), limit):
+  (left_length, right_length, certificate) = facts
+  event_from_certificate(len, Sse.next(rd), limit, left_length, certificate)
+
+type ReaderSeed is Data:
+  ReaderSeed{len: U32, src: Tree.Tree<U32>, pos: U32, seen: U32, cr: Bool,
+    name: String, data_len: U32, data: Tree.Tree<U32>, id: String, retry: Maybe<&2, U32>}
+
+def seed_length(seed: ReaderSeed) -> U32:
+  ReaderSeed{len, src, pos, seen, cr, name, data_len, data, id, retry} = seed
+  len
+
+def seed_reader(seed: ReaderSeed) -> Sse.Reader:
+  ReaderSeed{len, src, pos, seen, cr, name, data_len, data, id, retry} = seed
+  Sse.Reader{Bytes.Bytes{len, Tree.reify(U32, src)}, pos, seen, cr,
+    Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}}
+
+def seed_self(+seed: ReaderSeed, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit),
+  valid: reader_valid(seed_reader(seed), limit)) ->
+  after_next(seed_length(seed), seed_length(seed), seed_reader(seed), seed_reader(seed), limit):
+  ReaderSeed{+len, +src, +pos, +seen, +cr, +name, +data_len, +data, +id, +retry} = seed
+  self_next(len, Tree.reify(U32, src), pos, seen, cr,
+    Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}, limit, hu, reserve, valid)
+
+def seed_event_valid(+seed: ReaderSeed, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit),
+  valid: reader_valid(seed_reader(seed), limit)) ->
+  event_valid(seed_length(seed), Sse.next(seed_reader(seed)), limit):
+  next_event_valid(seed_length(seed), seed_reader(seed), limit, seed_self(seed, limit, hu, reserve, valid))
+def reader_rebuild(+len: U32, -a: Array<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St,
+  +src: Tree.Tree<U32>, +name: String, +data_len: U32, +data: Tree.Tree<U32>, +id: String, +retry: Maybe<&2, U32>,
+  ea: {a == Tree.reify(U32, src) : Array<U32>},
+  eq: {st == Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry} : Sse.St}) ->
+  {Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st} ==
+    seed_reader(ReaderSeed{len, src, pos, seen, cr, name, data_len, data, id, retry}) : Sse.Reader}:
+  Equal.trans(Sse.Reader, Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st},
+    Sse.Reader{Bytes.Bytes{len, Tree.reify(U32, src)}, pos, seen, cr, st},
+    Sse.Reader{Bytes.Bytes{len, Tree.reify(U32, src)}, pos, seen, cr,
+      Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}},
+    Equal.cong(Array<U32>, Sse.Reader, x => Sse.Reader{Bytes.Bytes{len, x}, pos, seen, cr, st},
+      a, Tree.reify(U32, src), ea),
+    Equal.cong(Sse.St, Sse.Reader, x => Sse.Reader{Bytes.Bytes{len, Tree.reify(U32, src)}, pos, seen, cr, x},
+      st, Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}, eq))
+
+def seed_inputs(+len: U32, -rd: Sse.Reader, +limit: Nat) -> Type:
+  &seed: ReaderSeed ->
+    {len == seed_length(seed) : U32} & {rd == seed_reader(seed) : Sse.Reader} &
+    reader_valid(seed_reader(seed), limit) &
+    Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit)
+
+def seed_inputs_reserved(+len: U32, -rd: Sse.Reader, +seed: ReaderSeed, +limit: Nat,
+  +length: {len == seed_length(seed) : U32}, +eq: {rd == seed_reader(seed) : Sse.Reader},
+  reserve: Budget.line_reserved(len, reader_line(rd), limit), valid: reader_valid(seed_reader(seed), limit)) ->
+  seed_inputs(len, rd, limit):
+  (seed, length, eq, valid,
+    (%length : Budget.line_reserved(_, reader_line(seed_reader(seed)), limit);
+     %eq : Budget.line_reserved(len, reader_line(_), limit); reserve))
+
+def reader_seed(+len: U32, -a: Array<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St, +limit: Nat,
+  reserve: Budget.line_reserved(len, Sse.LMore{a, pos, cr, st}, limit),
+  valid: reader_valid(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit)) ->
+  seed_inputs(len, Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit):
+  ((+src, +prefix, +tail, +ea, buffer), +name, +old, +id, +retry, +data_len, +data, +eq, shape, length, bound, reads) = valid
+  seed_inputs_reserved(len, Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st},
+    ReaderSeed{len, src, pos, seen, cr, name, data_len, data, id, retry}, limit, {==},
+    reader_rebuild(len, a, pos, seen, cr, st, src, name, data_len, data, id, retry, ea, eq), reserve,
+    ((src, prefix, tail, {==}, buffer), name, old, id, retry, data_len, data, {==}, shape, length, bound, reads))
+
+def event_from_seed(+len: U32, -rd: Sse.Reader, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)), inputs: seed_inputs(len, rd, limit)) ->
+  event_valid(len, Sse.next(rd), limit):
+  (+seed, length, eq, valid, reserve) = inputs
+  %Equal.sym(U32, len, seed_length(seed), length) : event_valid(_, Sse.next(rd), limit)
+  %Equal.sym(Sse.Reader, rd, seed_reader(seed), eq) : event_valid(seed_length(seed), Sse.next(_), limit)
+  seed_event_valid(seed, limit, hu, reserve, valid)
+
+def event_next_valid(+len: U32, -a: Array<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(len, Sse.LMore{a, pos, cr, st}, limit),
+  valid: reader_valid(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit)) ->
+  event_valid(len, Sse.next(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}), limit):
+  event_from_seed(len, Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit, hu,
+    reader_seed(len, a, pos, seen, cr, st, limit, reserve, valid))
+def seed_next_progress(+seed: ReaderSeed, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit),
+  valid: reader_valid(seed_reader(seed), limit)) ->
+  Budget.result_progress(Budget.line_position(reader_line(seed_reader(seed))), seed_length(seed), Sse.next(seed_reader(seed))):
+  ReaderSeed{+len, +src, +pos, +seen, +cr, +name, +data_len, +data, +id, +retry} = seed
+  next_progress(len, Tree.reify(U32, src), pos, seen, cr,
+    Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}, limit, hu, reserve, valid)
+
+def seed_valid_copy(+seed: ReaderSeed, +limit: Nat, valid: reader_valid(seed_reader(seed), limit)) ->
+  reader_valid(seed_reader(seed), limit) & reader_valid(seed_reader(seed), limit):
+  ReaderSeed{+len, +src, +pos, +seen, +cr, +name, +data_len, +data, +id, +retry} = seed
+  reader_valid_copy(len, Tree.reify(U32, src), pos, seen, cr,
+    Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}, limit, valid)
+
+def progress_room_scalars(+fuel: Nat, +len: U32, +s: U32, +got: Bool, +at: U32,
+  before: MNat.lt(U32.to_nat((len - s : U32)), 1n+fuel),
+  progress: {got == False{} : Bool} |
+    (&pos: U32 -> {at == pos : U32} & MNat.lt(U32.to_nat(s), U32.to_nat(pos)) &
+      MNat.le(U32.to_nat(pos), U32.to_nat(len)))) ->
+  {got == True{} : Bool} -> MNat.lt(U32.to_nat((len - at : U32)), fuel):
+  match progress:
+    case Inl{no_event}:
+      event => Empty.absurd(MNat.lt(U32.to_nat((len - at : U32)), fuel),
+        MNat.internal_false_ne_true(Equal.trans(Bool, False{}, got, True{},
+          Equal.sym(Bool, got, False{}, no_event), event)))
+    case Inr{(+pos, eq, strict, upper)}:
+      event => (
+        %Equal.sym(U32, at, pos, eq) : MNat.lt(U32.to_nat((len - _ : U32)), fuel)
+        MNat.lt_of_lt_of_le(U32.to_nat((len - pos : U32)), U32.to_nat((len - s : U32)), fuel,
+          Budget.remaining_strict(len, s, pos, strict, upper),
+          MNat.le_of_lt_succ(U32.to_nat((len - s : U32)), fuel, before)))
+
+def seed_room(+fuel: Nat, +seed: ReaderSeed, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  before: MNat.lt(U32.to_nat((seed_length(seed) - Budget.line_position(reader_line(seed_reader(seed))) : U32)), 1n+fuel),
+  reserve: Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit),
+  valid: reader_valid(seed_reader(seed), limit)) ->
+  drain_room(fuel, seed_length(seed), Sse.next(seed_reader(seed))):
+  progress_room_scalars(fuel, seed_length(seed), Budget.line_position(reader_line(seed_reader(seed))),
+    Budget.is_got(Budget.result_line(Sse.next(seed_reader(seed)))),
+    Budget.line_position(Budget.result_line(Sse.next(seed_reader(seed)))), before,
+    seed_next_progress(seed, limit, hu, reserve, valid))
+def seed_halts_goal(+fuel: Nat, +seed: ReaderSeed, +limit: Nat) -> Type:
+  MNat.lt(U32.to_nat((seed_length(seed) - Budget.line_position(reader_line(seed_reader(seed))) : U32)), fuel) ->
+    Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit) ->
+    reader_valid(seed_reader(seed), limit) -> event_halted(fuel, Sse.next(seed_reader(seed)))
+
+def event_halts_from_seed(+fuel: Nat, +len: U32, -rd: Sse.Reader, +limit: Nat,
+  ih: @seed: ReaderSeed -> seed_halts_goal(fuel, seed, limit),
+  before: MNat.lt(U32.to_nat((len - Budget.line_position(reader_line(rd)) : U32)), fuel),
+  inputs: seed_inputs(len, rd, limit)) -> event_halted(fuel, Sse.next(rd)):
+  (+seed, +length, +eq, valid, reserve) = inputs
+  %Equal.sym(Sse.Reader, rd, seed_reader(seed), eq) : event_halted(fuel, Sse.next(_))
+  ih(seed,
+    (%length : MNat.lt(U32.to_nat((_ - Budget.line_position(reader_line(seed_reader(seed))) : U32)), fuel);
+     %eq : MNat.lt(U32.to_nat((len - Budget.line_position(reader_line(_)) : U32)), fuel); before),
+    reserve, valid)
+
+def reader_seed_any(+len: U32, rd: Sse.Reader, +limit: Nat,
+  +length: {reader_length(rd) == len : U32},
+  reserve: Budget.line_reserved(len, reader_line(rd), limit), valid: reader_valid(rd, limit)) ->
+  seed_inputs(len, rd, limit):
+  Sse.Reader{Bytes.Bytes{+la, a}, +pos, +seen, +cr, st} = rd
+  %length : seed_inputs(_, Sse.Reader{Bytes.Bytes{la, a}, pos, seen, cr, st}, limit)
+  reader_seed(la, a, pos, seen, cr, st, limit,
+    (%Equal.sym(U32, la, len, length) : Budget.line_reserved(_, Sse.LMore{a, pos, cr, st}, limit); reserve), valid)
+
+def event_halts_reader(+fuel: Nat, +len: U32, rd: Sse.Reader, +limit: Nat,
+  ih: @seed: ReaderSeed -> seed_halts_goal(fuel, seed, limit),
+  before: MNat.lt(U32.to_nat((len - Budget.line_position(reader_line(rd)) : U32)), fuel),
+  facts: {reader_length(rd) == len : U32} & reader_valid(rd, limit) &
+    Budget.line_reserved(len, reader_line(rd), limit)) -> event_halted(fuel, Sse.next(rd)):
+  (length, valid, reserve) = facts
+  event_halts_from_seed(fuel, len, rd, limit, ih, before, reader_seed_any(len, rd, limit, length, reserve, valid))
+
+def event_got_box(+fuel: Nat, -rd: Sse.Reader, -message: Sse.Message,
+  proof: event_halted(fuel, Sse.next(rd))) -> event_halted(1n+fuel, (rd, Sse.Got{message})):
+  EventHalted{eq} = proof
+  EventHalted{eq}
+
+def event_halts_result(+fuel: Nat, +len: U32, result: Sse.Reader & Sse.Next, +limit: Nat,
+  ih: @seed: ReaderSeed -> seed_halts_goal(fuel, seed, limit),
+  facts: drain_room(fuel, len, result) & event_valid(len, result, limit)) -> event_halted(1n+fuel, result):
+  (Sse.Reader{Bytes.Bytes{+la, a}, +pos, +seen, +cr, st}, next) = result
+  match next:
+    case Sse.Want{}:
+      EventHalted{{==}}
+    case Sse.Got{message}:
+      (room, valid) = facts
+      event_got_box(fuel, Sse.Reader{Bytes.Bytes{la, a}, pos, seen, cr, st}, message,
+        event_halts_reader(fuel, len, Sse.Reader{Bytes.Bytes{la, a}, pos, seen, cr, st}, limit, ih, room({==}), valid))
+
+def event_halted_transport(+fuel: Nat, -left: Sse.Reader & Sse.Next, -right: Sse.Reader & Sse.Next,
+  eq: {left == right : Sse.Reader & Sse.Next}, proof: event_halted(fuel, right)) -> event_halted(fuel, left):
+  %Equal.sym(Sse.Reader & Sse.Next, left, right, eq) : event_halted(fuel, _)
+  proof
+
+def seed_halts_succ_abstract(+fuel: Nat, +seed: ReaderSeed, result: Sse.Reader & Sse.Next, +limit: Nat,
+  +eq: {Sse.next(seed_reader(seed)) == result : Sse.Reader & Sse.Next},
+  ih: @next: ReaderSeed -> seed_halts_goal(fuel, next, limit),
+  facts: drain_room(fuel, seed_length(seed), Sse.next(seed_reader(seed))) &
+    event_valid(seed_length(seed), Sse.next(seed_reader(seed)), limit)) ->
+  event_halted(1n+fuel, Sse.next(seed_reader(seed))):
+  event_halted_transport(1n+fuel, Sse.next(seed_reader(seed)), result, eq,
+    event_halts_result(fuel, seed_length(seed), result, limit, ih,
+      (%eq : drain_room(fuel, seed_length(seed), _) & event_valid(seed_length(seed), _, limit); facts)))
+
+def seed_halts_with_facts(+fuel: Nat, +seed: ReaderSeed, +limit: Nat,
+  ih: @next: ReaderSeed -> seed_halts_goal(fuel, next, limit),
+  room: drain_room(fuel, seed_length(seed), Sse.next(seed_reader(seed))),
+  valid: event_valid(seed_length(seed), Sse.next(seed_reader(seed)), limit)) ->
+  event_halted(1n+fuel, Sse.next(seed_reader(seed))):
+  seed_halts_succ_abstract(fuel, seed, Sse.next(seed_reader(seed)), limit, {==}, ih, (room, valid))
+
+def seed_halts_succ_copies(+fuel: Nat, +seed: ReaderSeed, +limit: Nat,
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  ih: @next: ReaderSeed -> seed_halts_goal(fuel, next, limit),
+  before: MNat.lt(U32.to_nat((seed_length(seed) - Budget.line_position(reader_line(seed_reader(seed))) : U32)), 1n+fuel),
+  reserves: Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit) &
+    Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit),
+  copies: reader_valid(seed_reader(seed), limit) & reader_valid(seed_reader(seed), limit)) ->
+  event_halted(1n+fuel, Sse.next(seed_reader(seed))):
+  (left_reserve, right_reserve) = reserves
+  (left, right) = copies
+  seed_halts_with_facts(fuel, seed, limit, ih,
+    seed_room(fuel, seed, limit, hu, before, left_reserve, left),
+    seed_event_valid(seed, limit, hu, right_reserve, right))
+def reserve_copies(+mass: Nat, +limit: Nat, +bound: MNat.lt(Nat.add(Nat.add(mass, 1n), 3n), limit)) ->
+  MNat.lt(Nat.add(Nat.add(mass, 1n), 3n), limit) & MNat.lt(Nat.add(Nat.add(mass, 1n), 3n), limit):
+  (bound, bound)
+
+def seed_halts_succ(+fuel: Nat, +seed: ReaderSeed, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  ih: @next: ReaderSeed -> seed_halts_goal(fuel, next, limit)) -> seed_halts_goal(1n+fuel, seed, limit):
+  before => reserve => valid =>
+    seed_halts_succ_copies(fuel, seed, limit, hu, ih, before,
+      reserve_copies(Budget.line_mass(seed_length(seed), reader_line(seed_reader(seed))), limit, reserve),
+      seed_valid_copy(seed, limit, valid))
+
+def seed_halts(fuel: Nat, +limit: Nat, +hu: MNat.le(limit, Lemmas.pow2(32n))) ->
+  @seed: ReaderSeed -> seed_halts_goal(fuel, seed, limit):
+  match fuel:
+    case 0n:
+      +seed => before => reserve => valid =>
+        Empty.absurd(event_halted(0n, Sse.next(seed_reader(seed))),
+          MNat.lt_zero(U32.to_nat((seed_length(seed) - Budget.line_position(reader_line(seed_reader(seed))) : U32)))(before))
+    case 1n+ +p:
+      seed => seed_halts_succ(p, seed, limit, hu, seed_halts(p, limit, hu))
+
+def event_halted_tail(+fuel: Nat, -rd: Sse.Reader, -message: Sse.Message,
+  proof: event_halted(1n+fuel, (rd, Sse.Got{message}))) -> event_halted(fuel, Sse.next(rd)):
+  EventHalted{eq} = proof
+  EventHalted{eq}
+
+def drain_want(fuel: Nat, rd: Sse.Reader, acc: List<&1, Sse.Message>) ->
+  {Laws.drain(fuel, (rd, Sse.Want{}), acc) == (rd, acc) : Sse.Reader & List<&1, Sse.Message>}:
+  match fuel:
+    case 0n: {==}
+    case 1n+p: {==}
+
+def drain_sufficient(fuel: Nat, +extra: Nat, result: Sse.Reader & Sse.Next, acc: List<&1, Sse.Message>,
+  halted: event_halted(fuel, result)) ->
+  {Laws.drain(Nat.add(fuel, extra), result, acc) == Laws.drain(fuel, result, acc) : Sse.Reader & List<&1, Sse.Message>}:
+  match fuel:
+    case 0n:
+      (Sse.Reader{Bytes.Bytes{+len, a}, +pos, +seen, +cr, st}, next) = result
+      match next:
+        case Sse.Want{}:
+          drain_want(extra, Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, acc)
+        case Sse.Got{message}:
+          EventHalted{eq} = halted
+          Empty.absurd({Laws.drain(extra, (Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, Sse.Got{message}), acc) ==
+            (Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, acc) : Sse.Reader & List<&1, Sse.Message>},
+            MNat.internal_false_ne_true(Equal.sym(Bool, True{}, False{}, eq)))
+    case 1n+ +p:
+      (rd, next) = result
+      match next:
+        case Sse.Want{}: {==}
+        case Sse.Got{message}:
+          drain_sufficient(p, extra, Sse.next(rd), Con{message, acc}, event_halted_tail(p, rd, message, halted))
+
+def runtime_room(+len: U32, +pos: U32, lower: MNat.le(U32.to_nat(pos), U32.to_nat(len))) ->
+  MNat.lt(U32.to_nat((len - pos : U32)), Nat.add(U32.to_nat(len), 1n)):
+  %Equal.sym(Nat, Nat.add(U32.to_nat(len), 1n), 1n+U32.to_nat(len),
+    Equal.trans(Nat, Nat.add(U32.to_nat(len), 1n), 1n+Nat.add(U32.to_nat(len), 0n), 1n+U32.to_nat(len),
+      MNat.add_succ(U32.to_nat(len), 0n),
+      Equal.cong(Nat, Nat, x => 1n+x, Nat.add(U32.to_nat(len), 0n), U32.to_nat(len), MNat.add_zero(U32.to_nat(len))))) :
+    MNat.lt(U32.to_nat((len - pos : U32)), _)
+  %Equal.sym(Nat, U32.to_nat((len - pos : U32)), Nat.sub(U32.to_nat(len), U32.to_nat(pos)),
+    Lemmas.u32_sub_nat(len, pos, lower)) : MNat.lt(_, 1n+U32.to_nat(len))
+  MNat.lt_of_le_of_lt(Nat.sub(U32.to_nat(len), U32.to_nat(pos)), U32.to_nat(len), 1n+U32.to_nat(len),
+    MNat.sub_le(U32.to_nat(len), U32.to_nat(pos)), MNat.lt_succ_self(U32.to_nat(len)))
+
+def runtime_room_valid(+len: U32, -a: Array<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St, +limit: Nat,
+  valid: reader_valid(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit)) ->
+  MNat.lt(U32.to_nat((len - pos : U32)), Nat.add(U32.to_nat(len), 1n)):
+  ((src, prefix, tail, eq, (shape, hl, lower, upper, width, length, reads, clean)), state) = valid
+  runtime_room(len, pos, MNat.le_trans(U32.to_nat(pos), U32.to_nat(seen), U32.to_nat(len), lower, upper))
+
+def runtime_halts_copies(+len: U32, -a: Array<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St, +limit: Nat,
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(len, Sse.LMore{a, pos, cr, st}, limit),
+  copies: reader_valid(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit) &
+    reader_valid(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit)) ->
+  event_halted(Nat.add(U32.to_nat(len), 1n), Sse.next(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st})):
+  (left, right) = copies
+  event_halts_from_seed(Nat.add(U32.to_nat(len), 1n), len, Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit,
+    seed_halts(Nat.add(U32.to_nat(len), 1n), limit, hu),
+    runtime_room_valid(len, a, pos, seen, cr, st, limit, left),
+    reader_seed(len, a, pos, seen, cr, st, limit, reserve, right))
+
+def runtime_halts(+len: U32, -a: Array<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(len, Sse.LMore{a, pos, cr, st}, limit),
+  valid: reader_valid(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit)) ->
+  event_halted(Nat.add(U32.to_nat(len), 1n), Sse.next(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st})):
+  runtime_halts_copies(len, a, pos, seen, cr, st, limit, hu, reserve,
+    reader_valid_copy(len, a, pos, seen, cr, st, limit, valid))
+
+def seed_runtime_halts(+seed: ReaderSeed, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit),
+  valid: reader_valid(seed_reader(seed), limit)) ->
+  event_halted(Nat.add(U32.to_nat(seed_length(seed)), 1n), Sse.next(seed_reader(seed))):
+  ReaderSeed{+len, +src, +pos, +seen, +cr, +name, +data_len, +data, +id, +retry} = seed
+  runtime_halts(len, Tree.reify(U32, src), pos, seen, cr,
+    Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}, limit, hu, reserve, valid)
+
+def seed_feed_drain(+seed: ReaderSeed, -acc: List<&1, Sse.Message>) ->
+  {Laws.feed_drain(seed_reader(seed), acc) ==
+    Laws.drain(Nat.add(U32.to_nat(seed_length(seed)), 1n), Sse.next(seed_reader(seed)), acc) :
+    Sse.Reader & List<&1, Sse.Message>}:
+  ReaderSeed{len, src, pos, seen, cr, name, data_len, data, id, retry} = seed
+  {==}
+
+def seed_feed_drain_sufficient(+seed: ReaderSeed, +extra: Nat, acc: List<&1, Sse.Message>, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(seed_length(seed), reader_line(seed_reader(seed)), limit),
+  valid: reader_valid(seed_reader(seed), limit)) ->
+  {Laws.drain(Nat.add(Nat.add(U32.to_nat(seed_length(seed)), 1n), extra), Sse.next(seed_reader(seed)), acc) ==
+    Laws.feed_drain(seed_reader(seed), acc) : Sse.Reader & List<&1, Sse.Message>}:
+  Equal.trans(Sse.Reader & List<&1, Sse.Message>,
+    Laws.drain(Nat.add(Nat.add(U32.to_nat(seed_length(seed)), 1n), extra), Sse.next(seed_reader(seed)), acc),
+    Laws.drain(Nat.add(U32.to_nat(seed_length(seed)), 1n), Sse.next(seed_reader(seed)), acc),
+    Laws.feed_drain(seed_reader(seed), acc),
+    drain_sufficient(Nat.add(U32.to_nat(seed_length(seed)), 1n), extra, Sse.next(seed_reader(seed)), acc,
+      seed_runtime_halts(seed, limit, hu, reserve, valid)),
+    Equal.sym(Sse.Reader & List<&1, Sse.Message>,
+      Laws.feed_drain(seed_reader(seed), acc),
+      Laws.drain(Nat.add(U32.to_nat(seed_length(seed)), 1n), Sse.next(seed_reader(seed)), acc),
+      seed_feed_drain(seed, acc)))
+
+def feed_drain_sufficient_from_seed(+len: U32, -rd: Sse.Reader, +extra: Nat, acc: List<&1, Sse.Message>, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)), inputs: seed_inputs(len, rd, limit)) ->
+  {Laws.drain(Nat.add(Nat.add(U32.to_nat(len), 1n), extra), Sse.next(rd), acc) ==
+    Laws.feed_drain(rd, acc) : Sse.Reader & List<&1, Sse.Message>}:
+  (+seed, length, eq, valid, reserve) = inputs
+  %Equal.sym(U32, len, seed_length(seed), length) :
+    {Laws.drain(Nat.add(Nat.add(U32.to_nat(_), 1n), extra), Sse.next(rd), acc) ==
+      Laws.feed_drain(rd, acc) : Sse.Reader & List<&1, Sse.Message>}
+  %Equal.sym(Sse.Reader, rd, seed_reader(seed), eq) :
+    {Laws.drain(Nat.add(Nat.add(U32.to_nat(seed_length(seed)), 1n), extra), Sse.next(_), acc) ==
+      Laws.feed_drain(_, acc) : Sse.Reader & List<&1, Sse.Message>}
+  seed_feed_drain_sufficient(seed, extra, acc, limit, hu, reserve, valid)
+
+def feed_drain_sufficient(+len: U32, -a: Array<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St,
+  +extra: Nat, acc: List<&1, Sse.Message>, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: Budget.line_reserved(len, Sse.LMore{a, pos, cr, st}, limit),
+  valid: reader_valid(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, limit)) ->
+  {Laws.drain(Nat.add(Nat.add(U32.to_nat(len), 1n), extra), Sse.next(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}), acc) ==
+    Laws.feed_drain(Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, acc) : Sse.Reader & List<&1, Sse.Message>}:
+  feed_drain_sufficient_from_seed(len, Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st}, extra, acc, limit, hu,
+    reader_seed(len, a, pos, seen, cr, st, limit, reserve, valid))
