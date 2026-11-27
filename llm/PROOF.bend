@@ -13,6 +13,7 @@ import ./sse-field-proof.bend as Field
 import ./sse-refinement-proof.bend as Refinement
 import ./sse-line-proof.bend as Line
 import ./sse-boundary-proof.bend as Boundary
+import ./sse-drain-proof.bend as Drain
 
 def Laws.sse_whole():
   {==}
