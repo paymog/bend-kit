@@ -1922,3 +1922,39 @@ def repartition_refines(+left: List<&2, Nat>, +right: List<&2, Nat>,
      Equal.sym((Sse.Reader & Sse.Next) & List<&1, Sse.Message>,
        Laws.drain_schedule(right, r), Laws.drain_resume(Laws.drain_budget(right), r),
        schedule_refines(right, r))))
+
+law line_end_refines:
+  for old: String
+  for name: String
+  for id: String
+  for retry: Maybe<&2, U32>
+  for a: Tree.Tree<U32>
+  for b: Tree.Tree<U32>
+  for len: U32
+  for other: U32
+  for s: U32
+  for t: U32
+  for cr: Bool
+  for -st: Sse.St
+  for -next: Sse.St
+  for delta: Nat
+  for limit: Nat
+  for hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
+  for hr: MNat.lt(Nat.add(U32.to_nat(other), 3n), limit)
+  for hu: MNat.le(limit, Lemmas.pow2(32n))
+  for sl: MNat.le(U32.to_nat(s), U32.to_nat(len))
+  for to: MNat.le(U32.to_nat(t), U32.to_nat(other))
+  for starts: Offset.offset(delta, s, t)
+  for ends: Offset.offset(delta, len, other)
+  for hn: MNat.lt(Nat.add(Nat.add(Nat.add(String.length(old), U32.to_nat((len - s : U32))), 1n), 3n), limit)
+  for shape_left: Bound.shape(Local.depth(Local.words(len)), Packed.as_bits(a))
+  for shape_right: Bound.shape(Local.depth(Local.words(other)), Packed.as_bits(b))
+  for left_state: Field.state_snapshot(name, old, id, retry, st, limit)
+  for right_state: Field.state_snapshot(name, old, id, retry, next, limit)
+  for same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ==
+    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}
+  line_relation(len, other,
+    Sse.line.end(U32.is_eq(Refinement.eol_index(U32.to_nat((len - s : U32)), a, s), len),
+      Tree.reify(U32, a), len, s, Refinement.eol_index(U32.to_nat((len - s : U32)), a, s), cr, st),
+    Sse.line.end(U32.is_eq(Refinement.eol_index(U32.to_nat((other - t : U32)), b, t), other),
+      Tree.reify(U32, b), other, t, Refinement.eol_index(U32.to_nat((other - t : U32)), b, t), cr, next), limit)
