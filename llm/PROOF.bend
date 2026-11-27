@@ -153,6 +153,21 @@ def Laws.sse_shifted_copy_word(i, n, depth, src, dst, lo, hi, s, d, limit, shape
 def Laws.sse_shifted_copy_head(m, n, depth, src, dst, s, limit, shape, hd, hl, hu, hn, em):
   Packed.shifted_head_capacity(m, n, depth, src, dst, s, limit, shape, hd, hl, hu, hn, em)
 
+def Laws.sse_copy_octet(depth, m, src, dst, s, i, limit, source_limit, shape, hd, hl, hu, hi, end, source, hsu):
+  Packed.copied_octet_value(depth, m, src, dst, s, i, limit, source_limit, shape, hd, hl, hu, hi, end, source, hsu)
+
+def Laws.sse_slice_observe(text, len, src, start, n, limit, hn, hu, elen, reads):
+  Packed.slice_observed_bounded(text, len, src, start, n, limit, hn, hu, elen, reads)
+
+def Laws.sse_slice_preserves_buffer(len, src, start, n):
+  Packed.slice_preserves(len, src, start, n)
+
+def Laws.sse_slice_string(text, len, m, src, s, limit, hn, hu, elen, total, reads):
+  Packed.slice_at_string(text, len, m, src, s, limit, hn, hu, elen, total, reads)
+
+def Laws.sse_compact_feed_state(len, src, pos, seen, cr, st, lb, right):
+  Packed.feed_compact_bridge(len, src, pos, seen, cr, st, lb, right)
+
 def Laws.reply_anthropic():
   {==}
 
