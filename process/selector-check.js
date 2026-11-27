@@ -14,7 +14,7 @@ const expandedSource = rawSource.replace(/CID\(([^)]+)\)/g, (_, name) =>
   JSON.stringify(name === "Unit" ? "Unit" : "process:" + name),
 );
 
-function loadEffects({ platform, dlopenImpl, sysImpl }) {
+function loadEffects({ platform, dlopenImpl, sysImpl, parkImpl }) {
   const registered = Object.create(null);
   const fakeProcess = {
     platform,
@@ -55,6 +55,9 @@ function loadEffects({ platform, dlopenImpl, sysImpl }) {
   const io_tup = (...xs) => xs.reduceRight((snd, fst) => ({ $: "Tuple", fst, snd }));
   const io_done = (value) => ({ $: "Done", value });
   const io_fail = (code) => ({ $: "Fail", code: code >>> 0 });
+  const io_park_on = parkImpl ?? (() => {
+    throw new Error("unexpected io_park_on in selector-check");
+  });
 
   const factory = new Function(
     "io_eff",
@@ -62,13 +65,14 @@ function loadEffects({ platform, dlopenImpl, sysImpl }) {
     "io_done",
     "io_fail",
     "io_tup",
+    "io_park_on",
     "require",
     "process",
     expandedSource + "\nreturn { process_bounded_libc, run_bounded_raw };",
   );
   return {
     registered,
-    ...factory(io_eff, () => sysImpl, io_done, io_fail, io_tup, fakeRequire, fakeProcess),
+    ...factory(io_eff, () => sysImpl, io_done, io_fail, io_tup, io_park_on, fakeRequire, fakeProcess),
   };
 }
 
@@ -113,6 +117,29 @@ function checkFfiDescriptors() {
       { args: ["i32", "i32", "ptr", "i32"], returns: "i32" },
       `${platform}: waitid FFI signature mismatch`,
     );
+    if (platform === "linux") {
+      assert.deepStrictEqual(
+        seenDesc.posix_spawn_file_actions_addclosefrom_np,
+        { args: ["ptr", "i32"], returns: "i32" },
+        "linux: addclosefrom_np FFI signature mismatch",
+      );
+      assert.strictEqual(
+        seenDesc.posix_spawn_file_actions_addclose,
+        undefined,
+        "linux: addclose is unnecessary when addclosefrom_np(3) is used",
+      );
+    } else {
+      assert.strictEqual(
+        seenDesc.posix_spawn_file_actions_addclosefrom_np,
+        undefined,
+        "darwin: must not dlopen Linux-only addclosefrom_np",
+      );
+      assert.deepStrictEqual(
+        seenDesc.posix_spawn_file_actions_addclose,
+        { args: ["ptr", "i32"], returns: "i32" },
+        "darwin: addclose FFI signature mismatch",
+      );
+    }
   }
 }
 
@@ -139,9 +166,14 @@ function runScenario(platform, scenario) {
     errno: 0,
     nextFd: 10,
     openFds: new Set(),
+    fcntlCalls: [],
     streams: new Map(),
     children: new Map(scenario.initialChildren ?? []),
     spawns: 0,
+    spawnFlags: [],
+    pgroups: [],
+    closefromCalls: [],
+    addcloseCalls: [],
     sigactions: [],
     pollNfds: [],
     waitids: [],
@@ -153,8 +185,9 @@ function runScenario(platform, scenario) {
     mac,
     ptr: realFfi.ptr,
     errno: () => state.errno,
-    fcntl: (fd) => {
+    fcntl: (fd, cmd, arg) => {
       assert(state.openFds.has(fd), `${platform}: fcntl on closed fd ${fd}`);
+      state.fcntlCalls.push({ fd, cmd, arg });
       return 0;
     },
     close: (fd) => {
@@ -200,13 +233,26 @@ function runScenario(platform, scenario) {
     posix_spawn_file_actions_destroy: () => 0,
     posix_spawn_file_actions_addchdir_np: () => 0,
     posix_spawn_file_actions_adddup2: () => 0,
-    posix_spawn_file_actions_addclose: () => 0,
+    posix_spawn_file_actions_addclose: (_actions, fd) => {
+      state.addcloseCalls.push(fd);
+      return 0;
+    },
+    posix_spawn_file_actions_addclosefrom_np: (_actions, fromFd) => {
+      state.closefromCalls.push(fromFd);
+      return 0;
+    },
     posix_spawnattr_init: () => 0,
     posix_spawnattr_destroy: () => 0,
     posix_spawnattr_setsigdefault: () => 0,
     posix_spawnattr_setsigmask: () => 0,
-    posix_spawnattr_setpgroup: () => 0,
-    posix_spawnattr_setflags: () => 0,
+    posix_spawnattr_setpgroup: (_attrs, pgroup) => {
+      state.pgroups.push(pgroup);
+      return 0;
+    },
+    posix_spawnattr_setflags: (_attrs, flags) => {
+      state.spawnFlags.push(flags);
+      return 0;
+    },
     sigemptyset: () => 0,
     sigaddset: () => 0,
     posix_spawnp: (pidPtr) => {
@@ -394,6 +440,14 @@ function checkPlatformMatrix(platform) {
     });
     assert.strictEqual(state.waitids.length, 2, `${platform}: must poll running leader until it exits`);
     assert(state.waitids.every((w) => w.idtype === 1 && w.id === 4242), `${platform}: every poll must use P_PID`);
+    if (platform === "linux") {
+      assert.deepStrictEqual(state.closefromCalls, [3], "linux: bounded spawn must close fds >= 3");
+      assert.deepStrictEqual(state.spawnFlags, [0x02 | 0x04 | 0x08], "linux: bounded spawn flags");
+    } else {
+      assert.deepStrictEqual(state.closefromCalls, [], "darwin: must not call addclosefrom_np");
+      assert.deepStrictEqual(state.spawnFlags, [0x4000 | 0x02 | 0x04 | 0x08], "darwin: bounded spawn must set POSIX_SPAWN_CLOEXEC_DEFAULT");
+      assert.deepStrictEqual(state.addcloseCalls, [10, 11, 12, 13, 14, 15], "darwin: bounded spawn must close pipe fds > 2");
+    }
     assert.deepStrictEqual(state.signals, [{ pid: -4242, sig: 9 }], `${platform}: expected group kill on held leader`);
     assert.deepStrictEqual(state.waitpids, [{ pid: 4242, options: 0 }], `${platform}: expected leader reap`);
     assert(state.children.has(9003), `${platform}: sibling zombie must remain for its own waiter`);
@@ -420,7 +474,135 @@ function checkPlatformMatrix(platform) {
   }
 }
 
+function checkSpawnLifecycle(platform) {
+  const mac = platform === "darwin";
+  const state = {
+    errno: 0,
+    nextFd: 10,
+    openFds: new Set(),
+    fcntlCalls: [],
+    spawnFlags: [],
+    pgroups: [],
+    closefromCalls: [],
+    addcloseCalls: [],
+    waitpidCalls: 0,
+    parked: [],
+  };
+  const sysImpl = {
+    mac,
+    ptr: realFfi.ptr,
+    errno: () => state.errno,
+    fcntl: (fd, cmd, arg) => {
+      assert(state.openFds.has(fd), `${platform} spawn: fcntl on closed fd ${fd}`);
+      state.fcntlCalls.push({ fd, cmd, arg });
+      return 0;
+    },
+    close: (fd) => {
+      assert(state.openFds.has(fd), `${platform} spawn: invalid close on fd ${fd}`);
+      state.openFds.delete(fd);
+      return 0;
+    },
+  };
+  const fakeSymbols = {
+    pipe: (fdsPtr) => {
+      const r = state.nextFd++;
+      const w = state.nextFd++;
+      state.openFds.add(r);
+      state.openFds.add(w);
+      const pair = new Int32Array(realFfi.toArrayBuffer(fdsPtr, 0, 8));
+      pair[0] = r;
+      pair[1] = w;
+      return 0;
+    },
+    posix_spawn_file_actions_init: () => 0,
+    posix_spawn_file_actions_destroy: () => 0,
+    posix_spawn_file_actions_addchdir_np: () => 0,
+    posix_spawn_file_actions_adddup2: () => 0,
+    posix_spawn_file_actions_addclose: (_a, fd) => {
+      state.addcloseCalls.push(fd);
+      return 0;
+    },
+    posix_spawn_file_actions_addclosefrom_np: (_a, fromFd) => {
+      state.closefromCalls.push(fromFd);
+      return 0;
+    },
+    posix_spawnattr_init: () => 0,
+    posix_spawnattr_destroy: () => 0,
+    posix_spawnattr_setsigdefault: () => 0,
+    posix_spawnattr_setsigmask: () => 0,
+    posix_spawnattr_setpgroup: (_a, g) => {
+      state.pgroups.push(g);
+      return 0;
+    },
+    posix_spawnattr_setflags: (_a, f) => {
+      state.spawnFlags.push(f);
+      return 0;
+    },
+    sigemptyset: () => 0,
+    sigaddset: () => 0,
+    posix_spawnp: (pidPtr) => {
+      new Int32Array(realFfi.toArrayBuffer(pidPtr, 0, 4))[0] = 5150;
+      return 0;
+    },
+    waitpid: (pid, statusPtr, options) => {
+      assert.strictEqual(pid, 5150, `${platform} spawn: unexpected waitpid pid`);
+      assert.strictEqual(options, 1, `${platform} spawn: waitpid must use WNOHANG`);
+      state.waitpidCalls += 1;
+      if (state.waitpidCalls === 1) {
+        return 0;
+      }
+      new Int32Array(realFfi.toArrayBuffer(statusPtr, 0, 4))[0] = 19 << 8;
+      return pid;
+    },
+  };
+  const loaded = loadEffects({
+    platform,
+    dlopenImpl: () => ({ symbols: fakeSymbols }),
+    sysImpl,
+    parkImpl: (fd, out, k, more, at) => {
+      state.parked.push({ fd, out, k, more, at });
+    },
+  });
+  const spawned = loaded.registered["process:spawn"](
+    "/bin/fake",
+    bendList([]),
+    bendList([]),
+    ".",
+  );
+  assert.strictEqual(spawned.$, "Done", `${platform}: spawn must succeed via posix_spawnp`);
+  assert.strictEqual(spawned.value.fst, 5150, `${platform}: spawn pid mismatch`);
+  assert.deepStrictEqual([...state.openFds].sort((a, b) => a - b), [11, 12, 14], `${platform}: child pipe ends must be closed`);
+  assert.strictEqual(state.fcntlCalls.filter((c) => c.cmd === 2 && c.arg === 1).length, 6, `${platform}: all 6 pipe fds must be CLOEXEC`);
+  assert.strictEqual(state.fcntlCalls.filter((c) => c.cmd === 4).length, 0, `${platform}: spawn parent pipes must stay blocking for Base File.read`);
+  assert.deepStrictEqual(state.pgroups, [], `${platform}: spawn must not create a new process group`);
+  if (platform === "linux") {
+    assert.deepStrictEqual(state.closefromCalls, [3], "linux: spawn must close fds >= 3");
+    assert.deepStrictEqual(state.spawnFlags, [0x04 | 0x08], "linux: spawn flags");
+  } else {
+    assert.deepStrictEqual(state.closefromCalls, [], "darwin: spawn must not call addclosefrom_np");
+    assert.deepStrictEqual(state.spawnFlags, [0x4000 | 0x04 | 0x08], "darwin: spawn must set POSIX_SPAWN_CLOEXEC_DEFAULT");
+    assert.deepStrictEqual(state.addcloseCalls, [10, 11, 12, 13, 14, 15], "darwin: spawn must close pipe fds > 2");
+  }
+  assert.deepStrictEqual(
+    loaded.registered["process:wait"](9999, () => {}),
+    { $: "Fail", code: 10 },
+    `${platform}: wait on untracked pid must fail ECHILD`,
+  );
+  const first = loaded.registered["process:wait"](5150, () => {});
+  assert.strictEqual(first, undefined, `${platform}: wait on running child must park`);
+  assert.strictEqual(state.parked.length, 1, `${platform}: expected one timer park`);
+  const second = state.parked[0].more();
+  assert.deepStrictEqual(second, { $: "Done", value: 19 }, `${platform}: wait must reap child status`);
+  assert.deepStrictEqual(
+    loaded.registered["process:wait"](5150, () => {}),
+    { $: "Fail", code: 10 },
+    `${platform}: second wait must fail ECHILD`,
+  );
+}
+
 checkFfiDescriptors();
 checkPlatformMatrix("linux");
 checkPlatformMatrix("darwin");
+checkSpawnLifecycle("linux");
+checkSpawnLifecycle("darwin");
 console.log("process selector and fake-ffi ownership ok");

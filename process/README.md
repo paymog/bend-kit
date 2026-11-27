@@ -4,7 +4,7 @@ Run an executable with literal arguments and a child working directory. Stdin, s
 
 `wait` accepts PID values from `1` through `2147483647`. Zero and larger values return `EINVAL` before reaching the host wait operation; they cannot select a process group or an arbitrary child.
 
-`wait.deadline(pid, ms)` has the same result as `wait`, but fails with the host's `ETIMEDOUT` when the child is still running after `ms` milliseconds. Zero means no deadline. A timeout does not kill the child or consume its logical wait result: call `wait` or `wait.deadline` again. Bun may already have reaped the OS child and cached its status. Do not rely on this API to reserve the kernel PID. Both wait APIs consume a successful result once. Drain output before waiting to avoid pipe deadlock.
+`wait.deadline(pid, ms)` has the same result as `wait`, but fails with the host's `ETIMEDOUT` when the child is still running after `ms` milliseconds. Zero means no deadline. A timeout does not kill the child or consume its logical wait result: call `wait` or `wait.deadline` again. Both targets spawn via `posix_spawnp` and reap directly with `waitpid`; do not rely on this API to reserve the kernel PID if external code reaps children. Both wait APIs consume a successful result once. Drain output before waiting to avoid pipe deadlock.
 
 `kill(pid, signal)` sends a signal to one positive PID, whether or not `spawn` created it. Signal zero probes existence and permission. PID zero and values above `2147483647` fail with `EINVAL`; process groups are never selected. The caller must account for PID reuse. A successful signal does not wait for termination or kill descendants.
 
@@ -22,10 +22,10 @@ The child leads its own process group. When the call ends, for any reason, the g
 
 The group kill is not containment. A descendant that leaves the group with `setsid` or `setpgid` escapes it, and so does anything it started. A descendant that inherited a pipe can hold the call until the deadline. The deadline bounds the call, not the cleanup: the kill and the final reap come after it, so the call can return a little later than `ms`. It is not a hard real-time bound.
 
-The JS target needs `bun:ffi`, and `posix_spawn_file_actions_addchdir_np` from glibc 2.29 or later, or from macOS 10.15 or later. It was tested with Bun 1.4.2, the version CI pins, and with Bun 1.4.4.
+The JS target needs `bun:ffi`, `posix_spawn_file_actions_addchdir_np`, and child FD isolation (`posix_spawn_file_actions_addclosefrom_np` from glibc 2.34 or later on Linux, or `POSIX_SPAWN_CLOEXEC_DEFAULT` on macOS 10.15 or later). On macOS and Linux (glibc 2.34 or later), children inherit only stdin, stdout, and stderr; parent file descriptors `>= 3` are closed before exec on both targets (older or non-glibc native Linux builds fall back to closing only the six pipe FDs). It was tested with Bun 1.4.2 (in CI) and with Bun 1.4.4.
 
 ```bend
-import bend-kit-process@0.5.2.3/process.bend as Proc
+import bend-kit-process@0.5.2.4/process.bend as Proc
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 ```
 
