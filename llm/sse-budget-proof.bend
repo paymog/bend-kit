@@ -614,8 +614,14 @@ def is_more(line: Sse.Line) -> Bool:
     case Sse.LWant{a, pos, cr, st}: False{}
     case Sse.LGot{a, pos, cr, st, message}: False{}
 
+def is_got(line: Sse.Line) -> Bool:
+  match line:
+    case Sse.LMore{a, pos, cr, st}: False{}
+    case Sse.LWant{a, pos, cr, st}: False{}
+    case Sse.LGot{a, pos, cr, st, message}: True{}
+
 def line_progress(+s: U32, +len: U32, -line: Sse.Line) -> Type:
-  {is_more(line) == False{} : Bool} |
+  ({is_more(line) == False{} : Bool} & {is_got(line) == False{} : Bool}) |
     (&next: U32 -> {line_position(line) == next : U32} &
       MNat.lt(U32.to_nat(s), U32.to_nat(next)) & MNat.le(U32.to_nat(next), U32.to_nat(len)))
 
@@ -729,7 +735,7 @@ def line_end_progress(+src: Tree.Tree<U32>, +len: U32, +s: U32, +e: U32, +cr: Bo
     exhausted => result => state => (
       %Equal.sym(Bool, U32.is_eq(e, len), True{}, exhausted) :
         line_progress(s, len, Sse.line.end(_, Tree.reify(U32, src), len, s, e, cr, st))
-      Inl{{==}}),
+      Inl{({==}, {==})}),
     +not_end => result => state => (
       %Equal.sym(Bool, U32.is_eq(e, len), False{}, not_end) :
         line_progress(s, len, Sse.line.end(_, Tree.reify(U32, src), len, s, e, cr, st))
@@ -864,7 +870,7 @@ def fuel_after_progress(+fuel: Nat, +len: U32, +s: U32, -line: Sse.Line,
   before: MNat.lt(U32.to_nat((len - s : U32)), 1n+fuel),
   progress: line_progress(s, len, line)) -> fuel_fits(fuel, len, line):
   match progress:
-    case Inl{stopped}:
+    case Inl{(stopped, no_event)}:
       continued => Empty.absurd(MNat.lt(U32.to_nat((len - line_position(line) : U32)), fuel),
         MNat.internal_false_ne_true(Equal.trans(Bool, False{}, is_more(line), True{},
           Equal.sym(Bool, is_more(line), False{}, stopped), continued)))
@@ -1567,3 +1573,122 @@ def pending_next_refines(+old: String, +name: String, +id: String, +retry: Maybe
     Drain.pending_observation(len, s, a, Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t),
       limit, sl,
       MNat.lt_of_le_of_lt(U32.to_nat(len), Nat.add(U32.to_nat(len), 3n), limit, MNat.le_add_right(U32.to_nat(len), 3n), hl), hu, same))
+
+def got_progress(+s: U32, +len: U32, -line: Sse.Line,
+  progress: line_progress(s, len, line), got: {is_got(line) == True{} : Bool}) ->
+  &pos: U32 -> {line_position(line) == pos : U32} &
+    MNat.lt(U32.to_nat(s), U32.to_nat(pos)) & MNat.le(U32.to_nat(pos), U32.to_nat(len)):
+  match progress:
+    case Inl{(stopped, no_event)}:
+      Empty.absurd(&pos: U32 -> {line_position(line) == pos : U32} &
+        MNat.lt(U32.to_nat(s), U32.to_nat(pos)) & MNat.le(U32.to_nat(pos), U32.to_nat(len)),
+        MNat.internal_false_ne_true(Equal.trans(Bool, False{}, is_got(line), True{},
+          Equal.sym(Bool, is_got(line), False{}, no_event), got)))
+    case Inr{result}: result
+
+def more_progress(+s: U32, +len: U32, -a: Array<U32>, +pos: U32, +cr: Bool, -st: Sse.St,
+  progress: line_progress(s, len, Sse.LMore{a, pos, cr, st})) ->
+  MNat.lt(U32.to_nat(s), U32.to_nat(pos)):
+  match progress:
+    case Inl{(stopped, no_event)}:
+      Empty.absurd(MNat.lt(U32.to_nat(s), U32.to_nat(pos)),
+        MNat.internal_false_ne_true(Equal.sym(Bool, True{}, False{}, stopped)))
+    case Inr{(+next, eq, lower, upper)}:
+      %Equal.sym(U32, pos, next, eq) : MNat.lt(U32.to_nat(s), U32.to_nat(_))
+      lower
+
+def progress_trans(+origin: U32, +s: U32, +len: U32, -line: Sse.Line,
+  lower: MNat.le(U32.to_nat(origin), U32.to_nat(s)), progress: line_progress(s, len, line)) ->
+  line_progress(origin, len, line):
+  match progress:
+    case Inl{stopped}: Inl{stopped}
+    case Inr{(+pos, eq, strict, upper)}:
+      Inr{(pos, eq, MNat.lt_of_le_of_lt(U32.to_nat(origin), U32.to_nat(s), U32.to_nat(pos), lower, strict), upper)}
+
+def result_progress(+s: U32, +len: U32, -result: Sse.Reader & Sse.Next) -> Type:
+  {is_got(result_line(result)) == False{} : Bool} |
+    (&pos: U32 -> {line_position(result_line(result)) == pos : U32} &
+      MNat.lt(U32.to_nat(s), U32.to_nat(pos)) & MNat.le(U32.to_nat(pos), U32.to_nat(len)))
+
+def stopped_progress(+s: U32, +len: U32, line: Sse.Line, progress: line_progress(s, len, line)) ->
+  result_progress(s, len, Sse.stop(line, len)):
+  match line:
+    case Sse.LMore{a, pos, cr, st}: Inl{{==}}
+    case Sse.LWant{a, pos, cr, st}: Inl{{==}}
+    case Sse.LGot{a, pos, cr, st, message}:
+      Inr{got_progress(s, len, Sse.LGot{a, pos, cr, st, message}, progress, {==})}
+
+def progress_goal(+fuel: Nat, +s: U32, +len: U32, -line: Sse.Line, +limit: Nat) -> Type:
+  line_progress(s, len, line) -> line_reserved(len, line, limit) ->
+    Drain.line_valid(len, line, limit) -> result_progress(s, len, Sse.loop(fuel, line, len))
+
+def progress_step(+s: U32, +pos: U32, +len: U32, -line: Sse.Line, +limit: Nat, -P: Type,
+  lower: MNat.le(U32.to_nat(s), U32.to_nat(pos)),
+  continue: line_progress(s, len, line) -> line_reserved(len, line, limit) -> Drain.line_valid(len, line, limit) -> P,
+  certificate: Drain.line_valid(len, line, limit) & line_reserved(len, line, limit) & line_progress(pos, len, line)) -> P:
+  (valid, reserved, progress) = certificate
+  continue(progress_trans(s, pos, len, line, lower, progress), reserved, valid)
+
+def loop_progress_succ(+fuel: Nat, +s: U32, +len: U32, +limit: Nat, +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  ih: @line: Sse.Line -> progress_goal(fuel, s, len, line, limit), line: Sse.Line) ->
+  progress_goal(1n+fuel, s, len, line, limit):
+  match line:
+    case Sse.LMore{a, +pos, +cr, st}:
+      progress => reserve => valid =>
+        progress_step(s, pos, len, Sse.line(a, len, pos, pos, cr, st), limit,
+          result_progress(s, len, Sse.loop(fuel, Sse.line(a, len, pos, pos, cr, st), len)),
+          MNat.le_of_lt(U32.to_nat(s), U32.to_nat(pos), more_progress(s, len, a, pos, cr, st, progress)),
+          ih(Sse.line(a, len, pos, pos, cr, st)), step_preserves(len, a, pos, cr, st, limit, hu, reserve, valid))
+    case Sse.LWant{a, pos, cr, st}: progress => reserve => valid => Inl{{==}}
+    case Sse.LGot{a, pos, cr, st, message}:
+      progress => reserve => valid =>
+        Inr{got_progress(s, len, Sse.LGot{a, pos, cr, st, message}, progress, {==})}
+
+def loop_progress(fuel: Nat, +s: U32, +len: U32, +limit: Nat, +hu: MNat.le(limit, Lemmas.pow2(32n))) ->
+  @line: Sse.Line -> progress_goal(fuel, s, len, line, limit):
+  match fuel:
+    case 0n: line => progress => reserve => valid => stopped_progress(s, len, line, progress)
+    case 1n+ +p:
+      line => loop_progress_succ(p, s, len, limit, hu, loop_progress(p, s, len, limit, hu), line)
+
+def next_at_progress(+len: U32, a: Array<U32>, +s: U32, +cr: Bool, st: Sse.St, +limit: Nat,
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: line_reserved(len, Sse.LMore{a, s, cr, st}, limit),
+  valid: Drain.line_valid(len, Sse.LMore{a, s, cr, st}, limit)) ->
+  result_progress(s, len, Sse.next.at(len, s, st, (a, s, cr))):
+  progress_step(s, s, len, Sse.line(a, len, s, s, cr, st), limit,
+    result_progress(s, len, Sse.next.at(len, s, st, (a, s, cr))),
+    MNat.le_refl(U32.to_nat(s)),
+    loop_progress(Nat.add(U32.to_nat((len - s : U32)), 2n), s, len, limit, hu, Sse.line(a, len, s, s, cr, st)),
+    step_preserves(len, a, s, cr, st, limit, hu, reserve, valid))
+
+def next_at_progress_valid(+len: U32, -a: Array<U32>, +s: U32, +cr: Bool, -st: Sse.St, +limit: Nat,
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  reserve: line_reserved(len, Sse.LMore{a, s, cr, st}, limit),
+  valid: Drain.line_valid(len, Sse.LMore{a, s, cr, st}, limit)) ->
+  result_progress(s, len, Sse.next.at(len, s, st, (a, s, cr))):
+  ((+src, +prefix, +tail, +ea, buffer),
+    +name, +old, +id, +retry, +data_len, +data, +eq, shape, length, bound, reads) = valid
+  %Equal.sym(Array<U32>, a, Tree.reify(U32, src), ea) :
+    result_progress(s, len, Sse.next.at(len, s, st, (_, s, cr)))
+  %Equal.sym(Sse.St, st, Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}, eq) :
+    result_progress(s, len, Sse.next.at(len, s, _, (Tree.reify(U32, src), s, cr)))
+  next_at_progress(len, Tree.reify(U32, src), s, cr,
+    Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}, limit, hu,
+    (%ea : line_reserved(len, Sse.LMore{_, s, cr, Sse.St{name, Bytes.Bytes{data_len, Tree.reify(U32, data)}, id, retry}}, limit)
+     %eq : line_reserved(len, Sse.LMore{a, s, cr, _}, limit); reserve),
+    ((src, prefix, tail, {==}, buffer), name, old, id, retry, data_len, data, {==}, shape, length, bound, reads))
+
+def result_progress_trans(+origin: U32, +s: U32, +len: U32, -result: Sse.Reader & Sse.Next,
+  lower: MNat.le(U32.to_nat(origin), U32.to_nat(s)), progress: result_progress(s, len, result)) ->
+  result_progress(origin, len, result):
+  match progress:
+    case Inl{stopped}: Inl{stopped}
+    case Inr{(+pos, eq, strict, upper)}:
+      Inr{(pos, eq, MNat.lt_of_le_of_lt(U32.to_nat(origin), U32.to_nat(s), U32.to_nat(pos), lower, strict), upper)}
+
+def result_progress_transport(+s: U32, +len: U32, -actual: Sse.Reader & Sse.Next, -normalized: Sse.Reader & Sse.Next,
+  eq: {actual == normalized : Sse.Reader & Sse.Next}, progress: result_progress(s, len, normalized)) ->
+  result_progress(s, len, actual):
+  %Equal.sym(Sse.Reader & Sse.Next, actual, normalized, eq) : result_progress(s, len, _)
+  progress
