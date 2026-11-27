@@ -1,6 +1,8 @@
 import Base
 import ./bytes.bend as Bytes
 import bend-kit-int@0.2.0.0/int.bend as Int
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 
 def bytes(xs: List<&2, U32>) -> String:
   match xs:
@@ -671,3 +673,20 @@ law u32_roundtrip:
 law u32_roundtrip_all:
   for +n: U32
   {Maybe.map(&2, U32, Nat, U32.to_nat, Bytes.u32.read(Bytes.u32.show(n))) == Some{U32.to_nat(n)} : Maybe<&2, Nat>}
+
+def Octets(s: String) -> Type:
+  match s:
+    case SNil{}:
+      Unit
+    case SCon{Chr{c}, tail}:
+      {U32.is_lt(c, 256) == True{} : Bool} & Octets(tail)
+
+law canonical_append:
+  for +a: String
+  for +b: String
+  for oa: Octets(a)
+  for ob: Octets(b)
+  for +limit: Nat
+  for hn: MNat.lt(Nat.add(Nat.add(String.length(a), String.length(b)), 3n), limit)
+  for hu: MNat.le(limit, Lemmas.pow2(32n))
+  {str(Bytes.append(of(a), of(b))) == a ++ b : String}
