@@ -273,7 +273,7 @@ def srv.binary(r: WS.Conn & Result<&1, &1, U32 & String, WS.Incoming>) -> IO(Uni
   match r:
     case (c, Done{WS.Binary{d}}):
       do IO<Unit>:
-        s : WS.Conn & Result<&1, &1, U32 & String, Unit> <- WS.send(c, True{}, 2, d)
+        s : WS.Conn & Result<&1, &1, U32 & String, Unit> <- WS.send(c, True{}, 2, d, 5000)
         srv.echoed(s)
     case (c, Fail{e}):
       die("server binary", e)
@@ -310,7 +310,7 @@ def srv.reply(a: Result<&1, &1, U32 & String, String>, sock: Socket, rest: Bytes
       do IO<Unit>:
         s : Socket & Result<&1, &1, U32 & String, Unit> <- WS.io.send(sock, False{}, Bytes.append(
           of("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " ++ acc ++ "\r\n\r\n"),
-          of("\u{1}\u{3}Hel\u{89}\u{1}p\u{80}\u{2}lo")))
+          of("\u{1}\u{3}Hel\u{89}\u{1}p\u{80}\u{2}lo")), 5000)
         srv.sent(s, rest)
 
 def srv.key(m: Maybe<&2, String>, sock: Socket, rest: Bytes.Bytes) -> IO(Unit):
@@ -377,7 +377,7 @@ def cl.binary(r: WS.Conn & Result<&1, &1, U32 & String, WS.Incoming>) -> IO(Unit
     case (c, Done{WS.Binary{d}}):
       do IO<Unit>:
         ok(same(Bytes.eq(d, big(70000))), "70000-byte masked binary message echoes back")
-        s : WS.Conn & Result<&1, &1, U32 & String, Unit> <- WS.close(c, 1000, of("done"))
+        s : WS.Conn & Result<&1, &1, U32 & String, Unit> <- WS.close(c, 1000, of("done"), 5000)
         cl.closing(s)
     case (c, Fail{e}):
       die("client binary", e)
@@ -398,7 +398,7 @@ def cl.text(r: WS.Conn & Result<&1, &1, U32 & String, WS.Incoming>) -> IO(Unit):
     case (c, Done{WS.TextMessage{d}}):
       do IO<Unit>:
         ok(text.is(d, "Hello"), "fragments join across a ping, from bytes sent with the 101")
-        s : WS.Conn & Result<&1, &1, U32 & String, Unit> <- WS.send(c, True{}, 2, big(70000))
+        s : WS.Conn & Result<&1, &1, U32 & String, Unit> <- WS.send(c, True{}, 2, big(70000), 5000)
         cl.sent(s)
     case (c, Fail{e}):
       die("client text", e)
@@ -450,7 +450,7 @@ def eof.reply(a: Result<&1, &1, U32 & String, String>, sock: Socket) -> IO(Unit)
       do IO<Unit>:
         s : Socket & Result<&1, &1, U32 & String, Unit> <- WS.io.send(sock, False{}, Bytes.append(
           of("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " ++ acc ++ "\r\n\r\n"),
-          of("\u{81}\u{5}He")))
+          of("\u{81}\u{5}He")), 5000)
         eof.sent(s)
 
 def eof.key(m: Maybe<&2, String>, sock: Socket) -> IO(Unit):

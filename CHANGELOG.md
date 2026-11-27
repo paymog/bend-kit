@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `websocket` 0.5.0.0: add `ms: U32` write deadline (`0` = none, `1..2147483647` = deadline in ms) to `send`, `close`, and `io.send`, and thread `ms` through `handshake` and `recv` internal control-frame writes (Ping→Pong, Close echo, protocol-fault Close) over both `ws://` (`Wire.send.words.deadline`) and `wss://` (`Wire.tls.send.words.deadline`). Callers must call `shutdown` after a write timeout/error.
 - `wire` 0.4.9.0: add `tls.send.words.deadline` with a single monotonic write budget across OpenSSL `WANT_READ`/`WANT_WRITE` retries in both C and JS, capping each `SSL_write` to one 16 KiB TLS plaintext record for accurate partial-progress accounting and bounded stall/trickle termination.
 - `llm` proofs: prove event-boundary drain pauses preserve complete parser state and messages for arbitrary fixed chunk cuts and finite drain budgets. Arbitrary chunk re-partitioning remains unproved.
 - `sigv4` 0.17.0.4: reject overflowing, empty, and invalid XML numeric character references.
