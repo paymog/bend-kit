@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `stats` 0.1.8.1: prove Newton convergence and remove integer square root certification and its search fallback.
 - `runner` 0.22.0.5: use current sibling releases with matching types.
 - `jwt` 0.17.0.2: use current sibling releases with matching types.
 - `llm` 0.19.0.2: use current sibling releases with matching types.
