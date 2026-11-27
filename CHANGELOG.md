@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `text` 0.2.2.5: split String lines with a direct LF pattern. The 10,000-line diff median falls from 5.859333 ms to 5.610250 ms on Bend 2.0.40. Line joining and diff reconstruction remain proved.
 - `llm` proofs: prove bounded observational composition of the actual SSE feed across arbitrary adjacent chunks and valid readers, including compaction, pending CR, and persistent IDs. Complete different-buffer field refinement and dispatch content also check. Interleaved-drain invariance is not claimed.
 - `bytes` proof: prove canonical append preserves arbitrary bounded octet strings, including aligned and unaligned destinations, growth, empty inputs, and exact-capacity buffers.
 - `stats` 0.1.8.1: prove Newton convergence and remove integer square root certification and its search fallback.

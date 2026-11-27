@@ -419,20 +419,15 @@ def lines.push(c: Char, ls: List<&2, String>) -> List<&2, String>:
     case Con{h, t}:
       SCon{c, h} <> t
 
-def lines.pick(nl: Bool, c: Char, ls: List<&2, String>) -> List<&2, String>:
-  match nl:
-    case True{}:
-      SCon{c, SNil{}} <> ls
-    case False{}:
-      lines.push(c, ls)
-
 # Lines with their "\n". Only the last line can lack one, and joining the lines gives s back.
 def lines(s: String) -> List<&2, String>:
   match s:
     case SNil{}:
       Nil{}
-    case SCon{+c, t}:
-      lines.pick(Char.is_eq(c, '\n'), c, lines(t))
+    case SCon{Chr{10}, t}:
+      "\n" <> lines(t)
+    case SCon{c, t}:
+      lines.push(c, lines(t))
 
 # 32-bit FNV-1a, a key for diff_by.
 def fnv.go(s: String, +h: U32) -> U32:
