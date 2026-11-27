@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 - `llm` proofs: split arbitrary parser-loop and clean-prefix scanner fuel, transport scanner results and clean-prefix evidence across equal packed-read observations, generalize CRLF skipping, and remove the proof harness's 64-event chunk limit. The runtime chunk-boundary refinement remains open.
+- `bytes` proof: prove canonical append preserves arbitrary bounded octet strings, including aligned and unaligned destinations, growth, empty inputs, and exact-capacity buffers.
+- `stats` 0.1.8.1: prove Newton convergence and remove integer square root certification and its search fallback.
 - `runner` 0.22.0.5: use current sibling releases with matching types.
 - `jwt` 0.17.0.2: use current sibling releases with matching types.
 - `llm` 0.19.0.2: use current sibling releases with matching types.
