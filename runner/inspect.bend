@@ -1,9 +1,9 @@
 # Read-only current-format journal replay, before crash recovery.
 import Base
 import ./model.bend as Model
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-files@0.4.0.1/files.bend as Files
-import bend-kit-journal@0.4.0.0/pure.bend as J
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-files@0.4.0.3/files.bend as Files
+import bend-kit-journal@0.4.0.2/pure.bend as J
 
 type Inspection<-A: Data> is Data:
   Inspection{state: Model.State<A>, tail: J.Tail, end: U32}
