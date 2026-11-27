@@ -786,6 +786,106 @@ law sse_observation_span:
   for same: {Buffer.observed(Nat.add(Nat.add(f, g), h), Bytes.peek(Tree.reify(U32, a), i), i) == Buffer.observed(Nat.add(Nat.add(f, g), h), Bytes.peek(Tree.reify(U32, b), j), j) : String}
   {Buffer.observed(g, Bytes.peek(Tree.reify(U32, a), u), u) == Buffer.observed(g, Bytes.peek(Tree.reify(U32, b), v), v) : String}
 
+law sse_field_pair:
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +s: U32
+  for +e: U32
+  for -st: Sse.St
+  {Sse.field(Tree.reify(U32, src), len, s, e, st) ==
+    (Tree.reify(U32, src), Field.field_state_result(len, src, s, e, st)) : Array<U32> & Sse.St}
+
+law sse_field_colon_bounds:
+  for +src: Tree.Tree<U32>
+  for +s: U32
+  for +e: U32
+  for +limit: Nat
+  for +hs: MNat.le(U32.to_nat(s), U32.to_nat(e))
+  for he: MNat.lt(U32.to_nat(e), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  MNat.le(U32.to_nat(s), U32.to_nat(Field.colon_index(U32.to_nat((e - s : U32)), src, s))) &
+  MNat.le(U32.to_nat(Field.colon_index(U32.to_nat((e - s : U32)), src, s)), U32.to_nat(e))
+
+law sse_field_start_bounds:
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +s: U32
+  for +e: U32
+  for +limit: Nat
+  for hs: MNat.le(U32.to_nat(s), U32.to_nat(e))
+  for +he: MNat.le(U32.to_nat(e), U32.to_nat(len))
+  for +hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  MNat.le(U32.to_nat(s), U32.to_nat(Field.field_start(src, s, e))) &
+  MNat.le(U32.to_nat(Field.field_start(src, s, e)), U32.to_nat(e))
+
+law sse_classify_relocated:
+  for +name: String
+  for +delta: Nat
+  for +a: Tree.Tree<U32>
+  for +b: Tree.Tree<U32>
+  for +s: U32
+  for +t: U32
+  for +c: U32
+  for +d: U32
+  for hs: MNat.le(U32.to_nat(s), U32.to_nat(c))
+  for ht: MNat.le(U32.to_nat(t), U32.to_nat(d))
+  for starts: Offset.offset(delta, s, t)
+  for ends: Offset.offset(delta, c, d)
+  for length: {U32.to_nat((c - s : U32)) == String.length(name) : Nat}
+  for ra: PackedModel.Reads(name, a, s)
+  for rb: PackedModel.Reads(name, b, t)
+  {Field.classify((c - s : U32), a, s) == Field.classify((d - t : U32), b, t) : Field.FieldKind}
+
+law sse_field_observed:
+  for +old: String
+  for +value: String
+  for +la: U32
+  for +left: Tree.Tree<U32>
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +s: U32
+  for +e: U32
+  for +limit: Nat
+  for +name: String
+  for +id: String
+  for +retry: Maybe<&2, U32>
+  for shape: Bound.shape(LocalBytes.depth(LocalBytes.words(la)), PackedModel.as_bits(left))
+  for +hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +ea: {U32.to_nat(la) == String.length(old) : Nat}
+  for +eb: {U32.to_nat(U32.min((e - Field.field_start(src, s, e) : U32), (len - U32.min(Field.field_start(src, s, e), len) : U32))) == String.length(value) : Nat}
+  for +hn: MNat.lt(Nat.add(Nat.add(Nat.add(U32.to_nat(la), U32.to_nat(U32.min((e - Field.field_start(src, s, e) : U32), (len - U32.min(Field.field_start(src, s, e), len) : U32)))), 1n), 3n), limit)
+  for ra: PackedModel.Reads(old, left, 0)
+  for rb: PackedModel.Reads(value, src, U32.min(Field.field_start(src, s, e), len))
+  {Field.field_state(String.length(Field.text_data(Field.field_text(src, s, e, value, old, name, id, retry))),
+    Sse.field(Tree.reify(U32, src), len, s, e, Sse.St{name, Bytes.Bytes{la, Tree.reify(U32, left)}, id, retry})) ==
+    Field.field_text(src, s, e, value, old, name, id, retry) : String & String & String & Maybe<&2, U32>}
+
+law sse_field_valid:
+  for +old: String
+  for +value: String
+  for +la: U32
+  for +left: Tree.Tree<U32>
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +s: U32
+  for +e: U32
+  for +limit: Nat
+  for +name: String
+  for +id: String
+  for +retry: Maybe<&2, U32>
+  for shape: Bound.shape(LocalBytes.depth(LocalBytes.words(la)), PackedModel.as_bits(left))
+  for +hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +ea: {U32.to_nat(la) == String.length(old) : Nat}
+  for +eb: {U32.to_nat(U32.min((e - Field.field_start(src, s, e) : U32), (len - U32.min(Field.field_start(src, s, e), len) : U32))) == String.length(value) : Nat}
+  for +hn: MNat.lt(Nat.add(Nat.add(Nat.add(U32.to_nat(la), U32.to_nat(U32.min((e - Field.field_start(src, s, e) : U32), (len - U32.min(Field.field_start(src, s, e), len) : U32)))), 1n), 3n), limit)
+  for ra: PackedModel.Reads(old, left, 0)
+  for rb: PackedModel.Reads(value, src, U32.min(Field.field_start(src, s, e), len))
+  Field.set_snapshot_type(Field.field_kind(src, s, e), old, value, name, id, retry,
+    Field.field_after(Sse.field(Tree.reify(U32, src), len, s, e, Sse.St{name, Bytes.Bytes{la, Tree.reify(U32, left)}, id, retry})), limit)
+
 def repeated_events(n: Nat) -> String:
   match n:
     case 0n:

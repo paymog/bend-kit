@@ -227,6 +227,24 @@ def Laws.sse_value_relocated(delta, c, d, e, f, b, limit, hc1, hd1, hc2, hd2, hu
 def Laws.sse_observation_span(f, g, h, a, b, i, j, u, v, limit, hu, ha, hb, ea, eb, same):
   Reader.observed_span(f, g, h, a, b, i, j, u, v, limit, hu, ha, hb, ea, eb, same)
 
+def Laws.sse_field_pair(len, src, s, e, st):
+  Field.field_pair(len, src, s, e, st)
+
+def Laws.sse_field_colon_bounds(src, s, e, limit, hs, he, hu):
+  Field.field_colon_bounds(src, s, e, limit, hs, he, hu)
+
+def Laws.sse_field_start_bounds(len, src, s, e, limit, hs, he, hl, hu):
+  Field.field_start_bounds(len, src, s, e, limit, hs, he, hl, hu)
+
+def Laws.sse_classify_relocated(name, delta, a, b, s, t, c, d, hs, ht, starts, ends, length, ra, rb):
+  Field.classify_relocated(name, delta, a, b, s, t, c, d, hs, ht, starts, ends, length, ra, rb)
+
+def Laws.sse_field_observed(old, value, la, left, len, src, s, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb):
+  Field.field_observed(old, value, la, left, len, src, s, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb)
+
+def Laws.sse_field_valid(old, value, la, left, len, src, s, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb):
+  Field.field_valid(old, value, la, left, len, src, s, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb)
+
 def Laws.reply_anthropic():
   {==}
 
