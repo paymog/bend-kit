@@ -172,6 +172,66 @@ law xml_named_entities:
 law xml_numeric_entities:
   {Xml.xml("<K>&#65;&#x42;&#xE9;</K>") == Some{[Xml.Leaf{"", "K", "ABé"}]} : Maybe<&2, List<&2, Xml.Leaf>>}
 
+law xml_numeric_overflow_hex:
+  {Xml.xml("<K>&#x100000041;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_overflow_decimal:
+  {Xml.xml("<K>&#4294967361;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_empty_hex:
+  {Xml.xml("<K>&#x;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_empty_decimal:
+  {Xml.xml("<K>&#;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_zero_hex:
+  {Xml.xml("<K>&#x0;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_zero_decimal:
+  {Xml.xml("<K>&#0;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_surrogate_start_hex:
+  {Xml.xml("<K>&#xD800;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_surrogate_end_hex:
+  {Xml.xml("<K>&#xDFFF;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_surrogate_start_decimal:
+  {Xml.xml("<K>&#55296;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_surrogate_end_decimal:
+  {Xml.xml("<K>&#57343;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_above_unicode_hex:
+  {Xml.xml("<K>&#x110000;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_above_unicode_decimal:
+  {Xml.xml("<K>&#1114112;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_control_hex:
+  {Xml.xml("<K>&#x1F;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_control_decimal:
+  {Xml.xml("<K>&#31;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_fffe_hex:
+  {Xml.xml("<K>&#xFFFE;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_ffff_hex:
+  {Xml.xml("<K>&#xFFFF;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_fffe_decimal:
+  {Xml.xml("<K>&#65534;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_ffff_decimal:
+  {Xml.xml("<K>&#65535;</K>") == None{} : Maybe<&2, List<&2, Xml.Leaf>>}
+
+law xml_numeric_boundaries_decimal:
+  {[Xml.ent("#9"), Xml.ent("#10"), Xml.ent("#13"), Xml.ent("#32"), Xml.ent("#55295"), Xml.ent("#57344"), Xml.ent("#65533"), Xml.ent("#65536"), Xml.ent("#1114111")] == [Some{9}, Some{10}, Some{13}, Some{32}, Some{55295}, Some{57344}, Some{65533}, Some{65536}, Some{1114111}] : List<&2, Maybe<&2, U32>>}
+
+law xml_numeric_boundaries_hex:
+  {[Xml.ent("#x9"), Xml.ent("#xA"), Xml.ent("#xD"), Xml.ent("#x20"), Xml.ent("#xD7FF"), Xml.ent("#xE000"), Xml.ent("#xFFFD"), Xml.ent("#x10000"), Xml.ent("#x10FFFF")] == [Some{9}, Some{10}, Some{13}, Some{32}, Some{55295}, Some{57344}, Some{65533}, Some{65536}, Some{1114111}] : List<&2, Maybe<&2, U32>>}
+
 law xml_comment:
   {Xml.xml("<K>a<!-- <bad>&unknown; -->b</K>") == Some{[Xml.Leaf{"", "K", "ab"}]} : Maybe<&2, List<&2, Xml.Leaf>>}
 

@@ -160,6 +160,66 @@ def Laws.xml_named_entities():
 def Laws.xml_numeric_entities():
   {==}
 
+def Laws.xml_numeric_overflow_hex():
+  {==}
+
+def Laws.xml_numeric_overflow_decimal():
+  {==}
+
+def Laws.xml_numeric_empty_hex():
+  {==}
+
+def Laws.xml_numeric_empty_decimal():
+  {==}
+
+def Laws.xml_numeric_zero_hex():
+  {==}
+
+def Laws.xml_numeric_zero_decimal():
+  {==}
+
+def Laws.xml_numeric_surrogate_start_hex():
+  {==}
+
+def Laws.xml_numeric_surrogate_end_hex():
+  {==}
+
+def Laws.xml_numeric_surrogate_start_decimal():
+  {==}
+
+def Laws.xml_numeric_surrogate_end_decimal():
+  {==}
+
+def Laws.xml_numeric_above_unicode_hex():
+  {==}
+
+def Laws.xml_numeric_above_unicode_decimal():
+  {==}
+
+def Laws.xml_numeric_control_hex():
+  {==}
+
+def Laws.xml_numeric_control_decimal():
+  {==}
+
+def Laws.xml_numeric_fffe_hex():
+  {==}
+
+def Laws.xml_numeric_ffff_hex():
+  {==}
+
+def Laws.xml_numeric_fffe_decimal():
+  {==}
+
+def Laws.xml_numeric_ffff_decimal():
+  {==}
+
+def Laws.xml_numeric_boundaries_decimal():
+  {==}
+
+def Laws.xml_numeric_boundaries_hex():
+  {==}
+
 def Laws.xml_comment():
   {==}
 
