@@ -1,53 +1,54 @@
 # Fixed prepared HTTP applications and bounded affine dependency bundles.
 import Base
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 import bend-kit-router@0.2.0.0/router.bend as Router
 import bend-kit-router@0.2.0.0/target.bend as Target
-import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-json@0.7.3.2/json.bend as Json
 import ./response.bend as Response
 import ./input.bend as Input
-import bend-kit-http@0.40.0.1/completion.bend as TransportCompletion
+import bend-kit-http@0.45.0.2/completion.bend as TransportCompletion
 import ./notices.bend as Notices
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-time@0.3.0.5/pure.bend as Time
 import ./ledger.bend as Book
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 type ResponseError is Data:
   InvalidResponse{}
   InvalidRedirect{}
 
-def validate.checked(valid: Bool, response: Http.Res) -> Result<&2, &1, ResponseError, Http.Res>:
+def validate.checked(valid: Bool, response: Pure.Res) -> Result<&2, &1, ResponseError, Pure.Res>:
   match valid:
     case True{}:
       Done{response}
     case False{}:
       Fail{InvalidResponse{}}
 
-def validate(response: Http.Res) -> Result<&2, &1, ResponseError, Http.Res>:
-  Http.Res{+status, +headers, body} = response
-  validate.checked(Response.valid(status, headers), Http.Res{status, headers, body})
+def validate(response: Pure.Res) -> Result<&2, &1, ResponseError, Pure.Res>:
+  Pure.Res{+status, +headers, body} = response
+  validate.checked(Response.valid(status, headers), Pure.Res{status, headers, body})
 
 # The encoder is an explicit public projection, never record reflection.
-def json(~T: Type, ~encode: T -> Json.Val, status: U32, value: T) -> Http.Res:
-  Http.Res{status, Http.set(Http.empty(), "content-type", "application/json"), Json.encode.bytes(encode(value))}
+def json(~T: Type, ~encode: T -> Json.Val, status: U32, value: T) -> Pure.Res:
+  Pure.Res{status, Pure.set(Pure.empty(), "content-type", "application/json"), Json.encode.bytes(encode(value))}
 
-def text(status: U32, value: String) -> Http.Res:
-  Http.Res{status, Http.set(Http.empty(), "content-type", "text/plain; charset=utf-8"), Json.utf8(value)}
+def text(status: U32, value: String) -> Pure.Res:
+  Pure.Res{status, Pure.set(Pure.empty(), "content-type", "text/plain; charset=utf-8"), Json.utf8(value)}
 
-def raw(status: U32, body: Http.Body) -> Http.Res:
-  Http.Res{status, Http.empty(), body}
+def raw(status: U32, body: Pure.Body) -> Pure.Res:
+  Pure.Res{status, Pure.empty(), body}
 
-def empty(status: U32) -> Http.Res:
-  raw(status, Http.from_string(""))
+def empty(status: U32) -> Pure.Res:
+  raw(status, Pure.from_string(""))
 
-def redirect.checked(valid: Bool, status: U32, location: String) -> Result<&2, &1, ResponseError, Http.Res>:
+def redirect.checked(valid: Bool, status: U32, location: String) -> Result<&2, &1, ResponseError, Pure.Res>:
   match valid:
     case False{}:
       Fail{InvalidRedirect{}}
     case True{}:
-      Done{Http.Res{status, Http.set(Http.empty(), "location", location), Http.from_string("")}}
+      Done{Pure.Res{status, Pure.set(Pure.empty(), "location", location), Pure.from_string("")}}
 
-def redirect(+status: U32, +location: String) -> Result<&2, &1, ResponseError, Http.Res>:
+def redirect(+status: U32, +location: String) -> Result<&2, &1, ResponseError, Pure.Res>:
   redirect.checked((U32.is_eq(status, 301) || U32.is_eq(status, 302) || U32.is_eq(status, 303) || U32.is_eq(status, 307) || U32.is_eq(status, 308)) && Bool.not(String.eq(location, "")) && Response.value(location), status, location)
 
 type Counts is Data:
@@ -562,9 +563,9 @@ def describe(~A: Data, ~C: Data, ~P: Data, app: Application<A, C, P>) -> List<&2
   Router.describe(~Endpoint<A, P>, table)
 
 # A closed template can run repeatedly; an affine callback registry cannot.
-def plain(~handler: Http.Req -> IO(Http.Res), req: Http.Req) -> IO(Result<&2, &1, ResponseError, Http.Res>):
-  do IO<Result<&2, &1, ResponseError, Http.Res>>:
-    response : Http.Res <- handler(req)
+def plain(~handler: Pure.Req -> IO(Pure.Res), req: Pure.Req) -> IO(Result<&2, &1, ResponseError, Pure.Res>):
+  do IO<Result<&2, &1, ResponseError, Pure.Res>>:
+    response : Pure.Res <- handler(req)
     return validate(response)
 
 type Policy<-H: Data> is Data:
@@ -588,47 +589,47 @@ def input(~I: Type, ~E: Data, outcome: Result<&2, &1, U32, I>) -> Result<&2, &1,
     case Done{value}: Done{value}
 
 def execute.decoded(~I: Type, ~S: Type, ~K: Data, ~E: Data,
-  ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   outcome: Result<&2, &1, Error<E>, I>, state: S, config: K
-) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
+) -> IO(S & Result<&2, &1, Error<E>, Pure.Res>):
   match outcome:
-    case Fail{error}: IO.pure(S & Result<&2, &1, Error<E>, Http.Res>, (state, Fail{error}))
+    case Fail{error}: IO.pure(S & Result<&2, &1, Error<E>, Pure.Res>, (state, Fail{error}))
     case Done{value}: handler(state, config, value)
 
 # An executor, not a second dispatcher: call from dispatch's run template, after
 # all applicable before hooks. Only validated typed input reaches business IO.
 def execute(~I: Type, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~decoder: K -> Match<Policy<H>> -> Http.Req -> Result<&2, &1, Error<E>, I>,
-  ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  state: S, +config: K, selected: Match<Policy<H>>, req: Http.Req
-) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
+  ~decoder: K -> Match<Policy<H>> -> Pure.Req -> Result<&2, &1, Error<E>, I>,
+  ~handler: S -> K -> I -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  state: S, +config: K, selected: Match<Policy<H>>, req: Pure.Req
+) -> IO(S & Result<&2, &1, Error<E>, Pure.Res>):
   execute.decoded(~I, ~S, ~K, ~E, ~handler, decoder(config, selected, req), state, config)
 
 type Step<-S: Type, -E: Data> is Type:
   Continue{state: S}
-  Early{state: S, response: Http.Res}
+  Early{state: S, response: Pure.Res}
   Reject{state: S, error: Error<E>}
 
 type Completion<-S: Type, -H: Data> is Type:
-  Completed{state: S, response: Http.Res, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool}
+  Completed{state: S, response: Pure.Res, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool}
 
 # Application completion only: no socket write, duration, or peer-receipt claim.
-def minimal() -> Http.Res:
+def minimal() -> Pure.Res:
   empty(500)
 
 def problem.allow(add: Bool, headers: Map<&2, List<&2, String>>, allow: String) -> Map<&2, List<&2, String>>:
   match add:
-    case True{}: Http.set(headers, "allow", allow)
+    case True{}: Pure.set(headers, "allow", allow)
     case False{}: headers
 
-def problem.response(allow: String, response: Http.Res) -> Http.Res:
-  Http.Res{+status, headers, body} = response
-  Http.Res{status, problem.allow(U32.is_eq(status, 405), Http.set(headers, "content-type", "application/problem+json"), allow), body}
+def problem.response(allow: String, response: Pure.Res) -> Pure.Res:
+  Pure.Res{+status, headers, body} = response
+  Pure.Res{status, problem.allow(U32.is_eq(status, 405), Pure.set(headers, "content-type", "application/problem+json"), allow), body}
 
-def problem(+status: U32, title: String, allow: String) -> Http.Res:
+def problem(+status: U32, title: String, allow: String) -> Pure.Res:
   problem.response(allow, json(~Json.Val, ~(x => x), status, Json.Obj{[(Json.utf8("type"), Json.Str{Json.utf8("about:blank")}), (Json.utf8("title"), Json.Str{Json.utf8(title)}), (Json.utf8("status"), Json.Num{Bytes.u32.show(status)})]}))
 
-def default.error(~E: Data, error: Error<E>) -> Http.Res:
+def default.error(~E: Data, error: Error<E>) -> Pure.Res:
   match error:
     case Framework{status, allow}:
       match status:
@@ -645,17 +646,17 @@ def default.error(~E: Data, error: Error<E>) -> Http.Res:
     case _:
       minimal()
 
-def default.mapper(~S: Type, ~K: Data, ~E: Data, state: S, config: K, error: Error<E>) -> IO(S & Result<&2, &1, Error<E>, Http.Res>):
-  IO.pure(S & Result<&2, &1, Error<E>, Http.Res>, (state, Done{default.error(~E, error)}))
+def default.mapper(~S: Type, ~K: Data, ~E: Data, state: S, config: K, error: Error<E>) -> IO(S & Result<&2, &1, Error<E>, Pure.Res>):
+  IO.pure(S & Result<&2, &1, Error<E>, Pure.Res>, (state, Done{default.error(~E, error)}))
 
-def mapped.checked(~S: Type, ~H: Data, state: S, entered: List<&2, Policy<H>>, stopped: Bool, result: Result<&2, &1, ResponseError, Http.Res>) -> Completion<S, H>:
+def mapped.checked(~S: Type, ~H: Data, state: S, entered: List<&2, Policy<H>>, stopped: Bool, result: Result<&2, &1, ResponseError, Pure.Res>) -> Completion<S, H>:
   match result:
     case Fail{error}:
       Completed{state, minimal(), entered, True{}, True{}}
     case Done{response}:
       Completed{state, response, entered, True{}, stopped}
 
-def mapped.result(~S: Type, ~E: Data, ~H: Data, entered: List<&2, Policy<H>>, stopped: Bool, result: S & Result<&2, &1, Error<E>, Http.Res>) -> Completion<S, H>:
+def mapped.result(~S: Type, ~E: Data, ~H: Data, entered: List<&2, Policy<H>>, stopped: Bool, result: S & Result<&2, &1, Error<E>, Pure.Res>) -> Completion<S, H>:
   (state, outcome) = result
   match outcome:
     case Fail{error}:
@@ -664,7 +665,7 @@ def mapped.result(~S: Type, ~E: Data, ~H: Data, entered: List<&2, Policy<H>>, st
       mapped.checked(~S, ~H, state, entered, stopped, validate(response))
 
 def failed(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   mapped: Bool, state: S, config: K, error: Error<E>, entered: List<&2, Policy<H>>, stopped: Bool
 ) -> IO(Completion<S, H>):
   match mapped:
@@ -672,12 +673,12 @@ def failed(~S: Type, ~K: Data, ~E: Data, ~H: Data,
       IO.pure(Completion<S, H>, Completed{state, minimal(), entered, True{}, True{}})
     case False{}:
       do IO<Completion<S, H>>:
-        result : S & Result<&2, &1, Error<E>, Http.Res> <- mapper(state, config, error)
+        result : S & Result<&2, &1, Error<E>, Pure.Res> <- mapper(state, config, error)
         return mapped.result(~S, ~E, ~H, entered, stopped, result)
 
 def result(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  config: K, entered: List<&2, Policy<H>>, outcome: S & Result<&2, &1, Error<E>, Http.Res>
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  config: K, entered: List<&2, Policy<H>>, outcome: S & Result<&2, &1, Error<E>, Pure.Res>
 ) -> IO(Completion<S, H>):
   (state, response) = outcome
   match response:
@@ -708,8 +709,8 @@ def before(~S: Type, ~K: Data, ~E: Data, ~H: Data,
         before.next(~S, ~E, step, s => before(~S, ~K, ~E, ~H, ~hook, rest, s, config, meta))
 
 def transformed(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  config: K, entered: List<&2, Policy<H>>, mapped: Bool, outcome: S & Result<&2, &1, Error<E>, Http.Res>
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  config: K, entered: List<&2, Policy<H>>, mapped: Bool, outcome: S & Result<&2, &1, Error<E>, Pure.Res>
 ) -> IO(Completion<S, H>):
   (state, response) = outcome
   match response:
@@ -719,8 +720,8 @@ def transformed(~S: Type, ~K: Data, ~E: Data, ~H: Data,
       IO.pure(Completion<S, H>, Completed{state, res, entered, mapped, False{}})
 
 def transforms(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   hooks: List<&2, H>, +config: K, completion: Completion<S, H>
 ) -> IO(Completion<S, H>):
   match hooks:
@@ -732,13 +733,13 @@ def transforms(~S: Type, ~K: Data, ~E: Data, ~H: Data,
           IO.pure(Completion<S, H>, Completed{state, response, entered, mapped, True{}})
         case Completed{state, response, +entered, +mapped, False{}}:
           do IO<Completion<S, H>>:
-            changed : S & Result<&2, &1, Error<E>, Http.Res> <- hook(h, state, config, response)
+            changed : S & Result<&2, &1, Error<E>, Pure.Res> <- hook(h, state, config, response)
             next : Completion<S, H> <- transformed(~S, ~K, ~E, ~H, ~mapper, config, entered, mapped, changed)
             transforms(~S, ~K, ~E, ~H, ~hook, ~mapper, rest, config, next)
 
 def entered.step(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  config: K, entered: List<&2, Policy<H>>, body: Http.Body, step: Step<S, E>, next: S -> List<&2, Policy<H>> -> Http.Body -> IO(Completion<S, H>)
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  config: K, entered: List<&2, Policy<H>>, body: Pure.Body, step: Step<S, E>, next: S -> List<&2, Policy<H>> -> Pure.Body -> IO(Completion<S, H>)
 ) -> IO(Completion<S, H>):
   match step:
     case Continue{state}:
@@ -750,10 +751,10 @@ def entered.step(~S: Type, ~K: Data, ~E: Data, ~H: Data,
 
 def scopes(~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  policies: List<&2, Policy<H>>, state: S, +config: K, +meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body,
-  next: S -> List<&2, Policy<H>> -> Http.Body -> IO(Completion<S, H>)
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  policies: List<&2, Policy<H>>, state: S, +config: K, +meta: Metadata, entered: List<&2, Policy<H>>, body: Pure.Body,
+  next: S -> List<&2, Policy<H>> -> Pure.Body -> IO(Completion<S, H>)
 ) -> IO(Completion<S, H>):
   match policies:
     case Nil{}:
@@ -766,8 +767,8 @@ def scopes(~S: Type, ~K: Data, ~E: Data, ~H: Data,
         transforms(~S, ~K, ~E, ~H, ~after_hook, ~mapper, unwind, config, inner)
 
 def finish.checked(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  state: S, config: K, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool, checked: Result<&2, &1, ResponseError, Http.Res>
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  state: S, config: K, entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool, checked: Result<&2, &1, ResponseError, Pure.Res>
 ) -> IO(Completion<S, H>):
   match checked:
     case Done{response}:
@@ -776,7 +777,7 @@ def finish.checked(~S: Type, ~K: Data, ~E: Data, ~H: Data,
       failed(~S, ~K, ~E, ~H, ~mapper, mapped, state, config, ResponseInvalid{}, entered, True{})
 
 def finish(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   config: K, completion: Completion<S, H>
 ) -> IO(Completion<S, H>):
   Completed{state, response, entered, mapped, stopped} = completion
@@ -791,32 +792,32 @@ def policies.tail(~H: Data, policies: List<&2, Policy<H>>) -> List<&2, Policy<H>
 
 
 def endpoint(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  action: A, state: S, +config: K, selected: Match<Policy<H>>, meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  action: A, state: S, +config: K, selected: Match<Policy<H>>, meta: Metadata, entered: List<&2, Policy<H>>, body: Pure.Body
 ) -> IO(Completion<S, H>):
   Metadata{method, target, headers} = meta
   do IO<Completion<S, H>>:
-    outcome : S & Result<&2, &1, Error<E>, Http.Res> <- run(action, state, config, selected, Http.Req{method, target, headers, body})
+    outcome : S & Result<&2, &1, Error<E>, Pure.Res> <- run(action, state, config, selected, Pure.Req{method, target, headers, body})
     result(~S, ~K, ~E, ~H, ~mapper, config, entered, outcome)
 
 def framework(~S: Type, ~K: Data, ~E: Data, ~H: Data,
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  +status: U32, allow: String, state: S, config: K, entered: List<&2, Policy<H>>, body: Http.Body
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  +status: U32, allow: String, state: S, config: K, entered: List<&2, Policy<H>>, body: Pure.Body
 ) -> IO(Completion<S, H>):
   match status:
     case 204:
-      IO.pure(Completion<S, H>, Completed{state, Http.Res{204, Http.set(Http.empty(), "allow", allow), Http.from_string("")}, entered, False{}, False{}})
+      IO.pure(Completion<S, H>, Completed{state, Pure.Res{204, Pure.set(Pure.empty(), "allow", allow), Pure.from_string("")}, entered, False{}, False{}})
     case _:
       failed(~S, ~K, ~E, ~H, ~mapper, False{}, state, config, Framework{status, allow}, entered, False{})
 
 def choice(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   selected: Router.Choice<Endpoint<A, Policy<H>>>, target: Target.Target,
-  groups: List<&2, GroupPlan<Policy<H>>>, state: S, +config: K, +meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body
+  groups: List<&2, GroupPlan<Policy<H>>>, state: S, +config: K, +meta: Metadata, entered: List<&2, Policy<H>>, body: Pure.Body
 ) -> IO(Completion<S, H>):
   match selected:
     case Router.NotFound{}:
@@ -840,15 +841,15 @@ def metadata.authority(authority: Maybe<&2, String>, meta: Metadata) -> Metadata
       meta
     case Some{host}:
       Metadata{method, target, headers} = meta
-      Metadata{method, target, Http.set(headers, "host", host)}
+      Metadata{method, target, Pure.set(headers, "host", host)}
 
 def resolved(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   outcome: Result<&2, &2, Router.Error, Router.Resolved<Endpoint<A, Policy<H>>>>,
-  groups: List<&2, GroupPlan<Policy<H>>>, state: S, config: K, meta: Metadata, entered: List<&2, Policy<H>>, body: Http.Body
+  groups: List<&2, GroupPlan<Policy<H>>>, state: S, config: K, meta: Metadata, entered: List<&2, Policy<H>>, body: Pure.Body
 ) -> IO(Completion<S, H>):
   match outcome:
     case Fail{error}:
@@ -859,13 +860,13 @@ def resolved(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
 
 def dispatch.application(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  app: Application<A, K, Policy<H>>, state: S, req: Http.Req
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  app: Application<A, K, Policy<H>>, state: S, req: Pure.Req
 ) -> IO(Completion<S, H>):
   Application{table, +config, root, groups} = app
-  Http.Req{+method, +path, +headers, body} = req
+  Pure.Req{+method, +path, +headers, body} = req
   +meta = {Metadata{method, path, headers} : Metadata}
   do IO<Completion<S, H>>:
     completion : Completion<S, H> <- scopes(~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~mapper, [root], state, config, meta, Nil{}, body,
@@ -905,33 +906,33 @@ def dispatch.completed(~S: Type, ~N: Data, ~H: Data, ~E: Data,
   ~report: N -> E -> IO(Unit),
   observer: N, access: Notices.Access, started: Time.Duration, completion: Completion<S, H>
 ) -> IO(Completion<S, H>):
-  Completed{state, Http.Res{+status, headers, body}, +entered, +mapped, +stopped} = completion
+  Completed{state, Pure.Res{+status, headers, body}, +entered, +mapped, +stopped} = completion
   do IO<Completion<S, H>>:
-    ended : Time.Duration <- Time.mono()
+    ended : Time.Duration <- Http.clock.mono()
     +notice : Notices.Notice = Notices.Notice{status, Time.Duration.sub(ended, started), mapped, stopped, Notices.ApplicationOnly{}}
     notices(~N, ~H, ~E, ~notify, ~report, entered, observer, notice)
     Notices.access(access, notice)
-    return Completed{state, Http.Res{status, headers, body}, entered, mapped, stopped}
+    return Completed{state, Pure.Res{status, headers, body}, entered, mapped, stopped}
 
 # The same application pipeline is used live; only this boundary emits direct notices.
 def dispatch(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data, ~N: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   ~notify: N -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
   ~report: N -> E -> IO(Unit),
-  observer: N, access: Notices.Access, app: Application<A, K, Policy<H>>, state: S, req: Http.Req
+  observer: N, access: Notices.Access, app: Application<A, K, Policy<H>>, state: S, req: Pure.Req
 ) -> IO(Completion<S, H>):
   do IO<Completion<S, H>>:
-    started : Time.Duration <- Time.mono()
+    started : Time.Duration <- Http.clock.mono()
     completion : Completion<S, H> <- dispatch.application(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, app, state, req)
     dispatch.completed(~S, ~N, ~H, ~E, ~notify, ~report, observer, access, started, completion)
 
 # The wrapper owns both pipes until its admitted operation really returns.
 # Only disposable HTTP packed buffers cross them, never external handles.
 type BufferedRequest is Data:
-  BufferedRequest{metadata: Metadata, body: Chan(Http.Body), response: Chan(Http.Res)}
+  BufferedRequest{metadata: Metadata, body: Chan(Pure.Body), response: Chan(Pure.Res)}
 
 type ApplicationReport<-H: Data> is Data:
   Dispatched{entered: List<&2, Policy<H>>, mapped: Bool, stopped: Bool}
@@ -947,14 +948,14 @@ type Server<-A: Data, -S: Type, -K: Data, -H: Data> is Type:
 
 type StartupError is Data:
   RegistrationFailed{error: RegistrationError}
-  TransportFailed{error: Http.StartupError}
+  TransportFailed{error: Pure.StartupError}
   EmptyBundles{}
 
 type ServerExit<-A: Data, -S: Type, -K: Data, -H: Data> is Type:
-  ServerExit{transport: Http.ServerExit, application: OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>}
+  ServerExit{transport: Pure.ServerExit, application: OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>}
 
-def server.config(port: U32) -> Http.ServerConfig:
-  Http.ServerConfig{"127.0.0.1", port, 1048576, 65536, 128, 128, 128, 5000, 30000, 30000, 30000}
+def server.config(port: U32) -> Pure.ServerConfig:
+  Pure.ServerConfig{"127.0.0.1", port, 1048576, 65536, 128, 128, 128, 5000, 30000, 30000, 30000}
 
 def server.bundles.cons(~S: Type, resource: S, counted: List<S> & Nat) -> List<S> & Nat:
   (returned, count) = counted
@@ -966,26 +967,26 @@ def server.bundles(~S: Type, resources: List<S>) -> List<S> & Nat:
     case resource <> rest:
       server.bundles.cons(~S, resource, server.bundles(~S, rest))
 
-def server.work.completed(~S: Type, ~H: Data, response_channel: Chan(Http.Res),
+def server.work.completed(~S: Type, ~H: Data, response_channel: Chan(Pure.Res),
   completion: Completion<S, H>
 ) -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>):
   Completed{state, response, entered, mapped, stopped} = completion
   do IO<S & Result<&2, &2, Unit, ApplicationReport<H>>>:
-    sent : Result<&1, &1, Http.Res, Unit> <- Chan.send(Http.Res, response_channel, response)
+    sent : Result<&1, &1, Pure.Res, Unit> <- Chan.send(Pure.Res, response_channel, response)
     return (state, Done{Dispatched{entered, mapped, stopped}})
 
 def server.work(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   state: S, app: Application<A, K, Policy<H>>, input: BufferedRequest
 ) -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>):
   BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel} = input
   do IO<S & Result<&2, &2, Unit, ApplicationReport<H>>>:
-    body : Http.Body <- receive(Http.Body, body_channel)
+    body : Pure.Body <- receive(Pure.Body, body_channel)
     completion : Completion<S, H> <- dispatch.application(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper,
-      app, state, Http.Req{method, target, headers, body})
+      app, state, Pure.Req{method, target, headers, body})
     server.work.completed(~S, ~H, response_channel, completion)
 
 type NoticePayload<-K: Data, -H: Data> is Data:
@@ -1031,42 +1032,42 @@ def server.completed(~K: Data, ~H: Data, ~E: Data,
 ) -> IO(Unit):
   TransportCompletion.Completion{NoticePayload{config, started, +application}, +status, +outcome} = completion
   do IO<Unit>:
-    ended : Time.Duration <- Time.mono()
+    ended : Time.Duration <- Http.clock.mono()
     server.completed.report(~K, ~H, ~E, ~notify, ~report, ~access, ~done, config, Time.Duration.sub(ended, started), application, status, outcome)
 
 def server.response(~K: Data, ~H: Data,
   ~done: TransportCompletion.Completion<NoticePayload<K, H>> -> IO(Unit),
-  config: K, started: Time.Duration, outcome: Outcome<Unit, ApplicationReport<H>>, +body: Chan(Http.Body), +response: Chan(Http.Res)
+  config: K, started: Time.Duration, outcome: Outcome<Unit, ApplicationReport<H>>, +body: Chan(Pure.Body), +response: Chan(Pure.Res)
 ) -> IO(Http.Reply):
   match outcome:
     case Success{report}:
       do IO<Http.Reply>:
-        result : Http.Res <- receive(Http.Res, response)
-        Chan.close(Http.Body, body)
-        Chan.close(Http.Res, response)
+        result : Pure.Res <- receive(Pure.Res, response)
+        Chan.close(Pure.Body, body)
+        Chan.close(Pure.Res, response)
         return Http.reply.complete(~NoticePayload<K, H>, ~done, NoticePayload{config, started, report}, result)
     case _:
       do IO<Http.Reply>:
         # Closing alone retains buffered values in Base. Consume the rejected
         # body before closing; the single room1 send has already completed.
-        discarded : Http.Body <- receive(Http.Body, body)
-        Chan.close(Http.Body, body)
-        Chan.close(Http.Res, response)
+        discarded : Pure.Body <- receive(Pure.Body, body)
+        Chan.close(Pure.Body, body)
+        Chan.close(Pure.Res, response)
         return Http.reply.complete(~NoticePayload<K, H>, ~done, NoticePayload{config, started, CapacityRejected{}},
-          Http.Res{503, Http.set(Http.empty(), "connection", "close"), Http.from_string("")})
+          Pure.Res{503, Pure.set(Pure.empty(), "connection", "close"), Pure.from_string("")})
 
 def server.handle(~A: Data, ~S: Type, ~K: Data, ~H: Data,
   ~done: TransportCompletion.Completion<NoticePayload<K, H>> -> IO(Unit),
-  context: ServingContext<A, S, K, H>, req: Http.Req
+  context: ServingContext<A, S, K, H>, req: Pure.Req
 ) -> IO(Http.Reply):
   ServingContext{+app, owner} = context
   Application{table, config, root, groups} = app
-  Http.Req{method, target, headers, body} = req
+  Pure.Req{method, target, headers, body} = req
   do IO<Http.Reply>:
-    started : Time.Duration <- Time.mono()
-    +body_channel : Chan(Http.Body) <- Chan.new(Http.Body, 1)
-    +response_channel : Chan(Http.Res) <- Chan.new(Http.Res, 1)
-    sent : Result<&1, &1, Http.Body, Unit> <- Chan.send(Http.Body, body_channel, body)
+    started : Time.Duration <- Http.clock.mono()
+    +body_channel : Chan(Pure.Body) <- Chan.new(Pure.Body, 1)
+    +response_channel : Chan(Pure.Res) <- Chan.new(Pure.Res, 1)
+    sent : Result<&1, &1, Pure.Body, Unit> <- Chan.send(Pure.Body, body_channel, body)
     outcome : Outcome<Unit, ApplicationReport<H>> <- call(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>,
       owner, app, BufferedRequest{Metadata{method, target, headers}, body_channel, response_channel})
     server.response(~K, ~H, ~done, config, started, outcome, body_channel, response_channel)
@@ -1077,7 +1078,7 @@ def server.started(~A: Data, ~S: Type, ~K: Data, ~H: Data,
   ~destroy: S -> IO(Unit),
   +context: Context<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>,
   room: U32, capacity: Nat,
-  started: List<S> & Result<&2, &1, Http.StartupError, Http.Server<ServingContext<A, S, K, H>>>
+  started: List<S> & Result<&2, &1, Pure.StartupError, Http.Server<ServingContext<A, S, K, H>>>
 ) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
   Context{+messages} = context
   (resources, result) = started
@@ -1095,9 +1096,9 @@ def server.started(~A: Data, ~S: Type, ~K: Data, ~H: Data,
 
 def server.prepared(~A: Data, ~S: Type, ~K: Data, ~H: Data,
   ~work: S -> Application<A, K, Policy<H>> -> BufferedRequest -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>),
-  ~destroy: S -> IO(Unit), app: Application<A, K, Policy<H>>, +config: Http.ServerConfig, resources: List<S> & Nat
+  ~destroy: S -> IO(Unit), app: Application<A, K, Policy<H>>, +config: Pure.ServerConfig, resources: List<S> & Nat
 ) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
-  Http.ServerConfig{host, port, body, headers, connections, requests, +buffered, hm, bm, im, wm} = config
+  Pure.ServerConfig{host, port, body, headers, connections, requests, +buffered, hm, bm, im, wm} = config
   (bundles, capacity) = resources
   match capacity:
     case 0n:
@@ -1109,26 +1110,26 @@ def server.prepared(~A: Data, ~S: Type, ~K: Data, ~H: Data,
         messages : Chan(Message<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>) <-
           Chan.new(Message<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>>, buffered)
         +context : Context<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>> = Context{messages}
-        started : List<S> & Result<&2, &1, Http.StartupError, Http.Server<ServingContext<A, S, K, H>>> <-
+        started : List<S> & Result<&2, &1, Pure.StartupError, Http.Server<ServingContext<A, S, K, H>>> <-
           Http.server.start(~ServingContext<A, S, K, H>, ~List<S>, ServingContext{app, context}, bundles, config)
         server.started(~A, ~S, ~K, ~H, ~work, ~destroy, context, buffered, 1n+rest, started)
 
 def server.valid(~A: Data, ~S: Type, ~K: Data, ~H: Data,
   ~work: S -> Application<A, K, Policy<H>> -> BufferedRequest -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>),
-  ~destroy: S -> IO(Unit), valid: Bool, app: Application<A, K, Policy<H>>, config: Http.ServerConfig, resources: List<S>
+  ~destroy: S -> IO(Unit), valid: Bool, app: Application<A, K, Policy<H>>, config: Pure.ServerConfig, resources: List<S>
 ) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
   match valid:
     case False{}:
       do IO<Result<&2, &1, StartupError, Server<A, S, K, H>>>:
         dispose(~S, ~destroy, resources)
-        return Fail{TransportFailed{Http.InvalidConfig{}}}
+        return Fail{TransportFailed{Pure.InvalidConfig{}}}
     case True{}:
       server.prepared(~A, ~S, ~K, ~H, ~work, ~destroy, app, config, server.bundles(~S, resources))
 
 def server.registered(~A: Data, ~S: Type, ~K: Data, ~H: Data,
   ~work: S -> Application<A, K, Policy<H>> -> BufferedRequest -> IO(S & Result<&2, &2, Unit, ApplicationReport<H>>),
   ~destroy: S -> IO(Unit), registration: Result<&2, &2, RegistrationError, Application<A, K, Policy<H>>>,
-  +config: Http.ServerConfig, resources: List<S>
+  +config: Pure.ServerConfig, resources: List<S>
 ) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
   match registration:
     case Fail{error}:
@@ -1136,16 +1137,16 @@ def server.registered(~A: Data, ~S: Type, ~K: Data, ~H: Data,
         dispose(~S, ~destroy, resources)
         return Fail{RegistrationFailed{error}}
     case Done{app}:
-      server.valid(~A, ~S, ~K, ~H, ~work, ~destroy, Http.server.config.valid(config), app, config, resources)
+      server.valid(~A, ~S, ~K, ~H, ~work, ~destroy, Pure.server.config.valid(config), app, config, resources)
 
 def server.start(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   ~destroy: S -> IO(Unit),
   registration: Result<&2, &2, RegistrationError, Application<A, K, Policy<H>>>,
-  config: Http.ServerConfig, resources: List<S>
+  config: Pure.ServerConfig, resources: List<S>
 ) -> IO(Result<&2, &1, StartupError, Server<A, S, K, H>>):
   server.registered(~A, ~S, ~K, ~H,
     ~(state => app => input => server.work(~A, ~S, ~K, ~E, ~H, ~before_hook, ~after_hook, ~run, ~mapper, state, app, input)),
@@ -1187,7 +1188,7 @@ def server.run(~A: Data, ~S: Type, ~K: Data, ~H: Data, ~E: Data,
 ) -> IO(ServerExit<A, S, K, H>):
   Server{transport, owner} = server
   do IO<ServerExit<A, S, K, H>>:
-    exited : Http.ServerExit <- Http.server.run(~ServingContext<A, S, K, H>,
+    exited : Pure.ServerExit <- Http.server.run(~ServingContext<A, S, K, H>,
       ~(context => req => server.handle(~A, ~S, ~K, ~H,
         ~(completion => server.completed(~K, ~H, ~E, ~notify, ~report, ~access, ~done, completion)), context, req)),
       ~(context => status => outcome => observe(status, outcome)), transport)
@@ -1199,9 +1200,9 @@ def server.run(~A: Data, ~S: Type, ~K: Data, ~H: Data, ~E: Data,
 def server.close(~A: Data, ~S: Type, ~K: Data, ~H: Data, server: Server<A, S, K, H>) -> IO(ServerExit<A, S, K, H>):
   Server{transport, owner} = server
   do IO<ServerExit<A, S, K, H>>:
-    counts : Http.ServerCounts <- Http.server.close(~ServingContext<A, S, K, H>, transport)
+    counts : Pure.ServerCounts <- Http.server.close(~ServingContext<A, S, K, H>, transport)
     closed : OwnerClose<S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>> <- close(S, Application<A, K, Policy<H>>, BufferedRequest, Unit, ApplicationReport<H>, owner)
-    return ServerExit{Http.ServerStopped{counts}, closed}
+    return ServerExit{Pure.ServerStopped{counts}, closed}
 
 def serve.started(~A: Data, ~S: Type, ~K: Data, ~H: Data, ~E: Data,
   ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
@@ -1220,16 +1221,16 @@ def serve.started(~A: Data, ~S: Type, ~K: Data, ~H: Data, ~E: Data,
 # Owners that need readiness/control use server.start then server.run instead.
 def serve(~A: Data, ~S: Type, ~K: Data, ~E: Data, ~H: Data,
   ~before_hook: H -> S -> K -> Metadata -> IO(Step<S, E>),
-  ~after_hook: H -> S -> K -> Http.Res -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~run: A -> S -> K -> Match<Policy<H>> -> Http.Req -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
-  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Http.Res>),
+  ~after_hook: H -> S -> K -> Pure.Res -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~run: A -> S -> K -> Match<Policy<H>> -> Pure.Req -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
+  ~mapper: S -> K -> Error<E> -> IO(S & Result<&2, &1, Error<E>, Pure.Res>),
   ~destroy: S -> IO(Unit),
   ~done: TransportCompletion.Completion<ApplicationReport<H>> -> IO(Unit),
   ~observe: U32 -> TransportCompletion.Outcome -> IO(Unit),
   ~notify: K -> Policy<H> -> Notices.Notice -> IO(Result<&2, &2, E, Unit>),
   ~report: K -> E -> IO(Unit), ~access: K -> Notices.Access,
   registration: Result<&2, &2, RegistrationError, Application<A, K, Policy<H>>>,
-  config: Http.ServerConfig, resources: List<S>
+  config: Pure.ServerConfig, resources: List<S>
 ) -> IO(Result<&2, &1, StartupError, ServerExit<A, S, K, H>>):
   do IO<Result<&2, &1, StartupError, ServerExit<A, S, K, H>>>:
     started : Result<&2, &1, StartupError, Server<A, S, K, H>> <-

@@ -1,6 +1,6 @@
 # Pure storage model, digest ordering, and canonical encoding.
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-collections@0.1.6.0/omap.bend as OMap
 import bend-kit-collections@0.1.6.0/order.bend as Order
 

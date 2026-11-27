@@ -1,14 +1,17 @@
 # AWS Signature V4 signing and S3 object storage over Hairpin. Source: https://github.com/paymog/bend-kit/tree/main/sigv4
 import Base
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.2/pure.bend as HairpinPure
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-time@0.3.0.1/time.bend as Time
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.3/encoding.bend as Enc
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./pure.bend as Pure
+import ./xml.bend as Xml
 
 # Text (path, query, header values) is a String of code points; non-ASCII is sent as UTF-8.
 # S3 decodes and re-encodes wire escapes once; other services encode an escaped wire path twice.
@@ -331,7 +334,7 @@ type Meta is Data:
 
 # Redirects come back as ErrS3: a signed request must not follow one.
 def new(cfg: Config) -> Client:
-  Client{cfg, Hairpin.redirect(Hairpin.new(), Http.ModeManual{})}
+  Client{cfg, Hairpin.redirect(Hairpin.new(), HttpPure.ModeManual{})}
 
 def close(c: Client) -> IO(Unit):
   Client{cfg, http} = c
@@ -393,338 +396,32 @@ def from_env() -> IO(Result<&1, &1, Err, Config>):
 
 # ---- XML
 
-# One closed element: its parent's name, its name, and its own text, entities decoded. Names drop any namespace prefix.
-type Leaf is Data:
-  Leaf{parent: String, name: String, text: String}
-
-# Where the lexer is: text; after '<'; a start tag's name; its attributes, outside or in "..." or '...'; after '/'
-# in a start tag; an end tag's name; <?...?>, after '?'; after '<!'; a comment, after one or two '-'; <![CDATA[ up
-# to its '['; CDATA, after one or two ']'; an entity; <!DOCTYPE ...>.
-type Lx is Data:
-  LText{}
-  LOpen{}
-  LName{}
-  LAttr{}
-  LDq{}
-  LSq{}
-  LSelf{}
-  LEnd{}
-  LPi{}
-  LPiQ{}
-  LBang{}
-  LCom{}
-  LCom1{}
-  LCom2{}
-  LCdHead{}
-  LCd{}
-  LCd1{}
-  LCd2{}
-  LEnt{}
-  LDecl{}
-
-# stack: open names, innermost first. txt and nm: text and the name or entity so far, reversed. out: leaves, last first.
-# ok turns False at a mismatched end tag or an unknown entity.
-type St is Data:
-  St{stack: List<&2, String>, txt: String, nm: String, out: List<&2, Leaf>, ok: Bool}
-
-def first(xs: List<&2, String>) -> String:
-  match xs:
-    case Nil{}:
-      ""
-    case Con{h, t}:
-      h
-
-def local.go(s: String, acc: String) -> String:
-  match s:
-    case SNil{}:
-      String.reverse(acc)
-    case SCon{Chr{58}, t}:
-      local.go(t, SNil{})
-    case SCon{c, t}:
-      local.go(t, SCon{c, acc})
-
-# The name after its namespace prefix, as Key for s3:Key.
-def local(s: String) -> String:
-  local.go(s, SNil{})
-
-def st.txt(st: St, c: Char) -> St:
-  St{a, x, n, o, k} = st
-  St{a, SCon{c, x}, n, o, k}
-
-def st.nm(st: St, c: Char) -> St:
-  St{a, x, n, o, k} = st
-  St{a, x, SCon{c, n}, o, k}
-
-def st.nm0(st: St) -> St:
-  St{a, x, n, o, k} = st
-  St{a, x, "", o, k}
-
-def st.open(st: St) -> St:
-  St{a, x, n, o, k} = st
-  St{Con{local(String.reverse(n)), a}, "", "", o, k}
-
-def st.shut(stack: List<&2, String>, txt: String, out: List<&2, Leaf>, ok: Bool, +name: String) -> St:
-  match stack:
-    case Nil{}:
-      St{Nil{}, "", "", out, False{}}
-    case Con{+top, +rest}:
-      St{rest, "", "", Con{Leaf{first(rest), top, String.reverse(txt)}, out}, Bool.and(ok, String.eq(top, name))}
-
-def st.close(st: St) -> St:
-  St{a, x, n, o, k} = st
-  st.shut(a, x, o, k, local(String.reverse(n)))
-
-def st.close.top(st: St) -> St:
-  St{+a, x, n, o, k} = st
-  st.shut(a, x, o, k, first(a))
-
-def hex.digit(+c: U32) -> Maybe<&2, U32>:
-  Bool.pick(Maybe<&2, U32>, Bool.and(U32.is_le(48, c), U32.is_le(c, 57)), Some{(c - 48 : U32)},
-    Bool.pick(Maybe<&2, U32>, Bool.and(U32.is_le(97, c), U32.is_le(c, 102)), Some{(c - 87 : U32)},
-      Bool.pick(Maybe<&2, U32>, Bool.and(U32.is_le(65, c), U32.is_le(c, 70)), Some{(c - 55 : U32)}, None{})))
-
-def hex.step(m: Maybe<&2, U32>, +acc: U32) -> Maybe<&2, U32>:
-  match m:
-    case None{}:
-      None{}
-    case Some{d}:
-      Some{(acc * 16 + d : U32)}
-
-# ponytail: no overflow check; a reference past U+10FFFF wraps and decodes to junk rather than failing.
-def hex(s: String, m: Maybe<&2, U32>) -> Maybe<&2, U32>:
-  match s:
-    case SNil{}:
-      m
-    case SCon{Chr{c}, t}:
-      match m:
-        case None{}:
-          None{}
-        case Some{acc}:
-          hex(t, hex.step(hex.digit(c), acc))
-
-def ent.num(+s: String) -> Maybe<&2, U32>:
-  Bool.pick(Maybe<&2, U32>, String.starts_with(s, "x"), hex(String.drop(s, 1n), Some{0}), U32.read(s))
-
-# The five XML entities and &#NN; / &#xHH;. None for any other.
-def ent(+e: String) -> Maybe<&2, U32>:
-  Bool.pick(Maybe<&2, U32>, String.eq(e, "lt"), Some{60},
-    Bool.pick(Maybe<&2, U32>, String.eq(e, "gt"), Some{62},
-      Bool.pick(Maybe<&2, U32>, String.eq(e, "amp"), Some{38},
-        Bool.pick(Maybe<&2, U32>, String.eq(e, "quot"), Some{34},
-          Bool.pick(Maybe<&2, U32>, String.eq(e, "apos"), Some{39},
-            Bool.pick(Maybe<&2, U32>, Bool.and(String.starts_with(e, "#"), Nat.is_lt(1n, String.length(e))), ent.num(String.drop(e, 1n)), None{}))))))
-
-def st.ent.of(m: Maybe<&2, U32>, st: St) -> St:
-  match m:
-    case None{}:
-      St{a, x, n, o, k} = st
-      St{a, x, n, o, False{}}
-    case Some{c}:
-      st.txt(st, Chr{c})
-
-def st.ent(st: St) -> St:
-  St{a, x, n, o, k} = st
-  st.ent.of(ent(String.reverse(n)), St{a, x, "", o, k})
-
-def lx.idle(m: Lx) -> Bool:
-  match m:
-    case LText{}:
-      True{}
-    case _:
-      False{}
-
-def st.end(m: Lx, st: St) -> St:
-  St{a, x, n, o, k} = st
-  St{a, x, n, o, Bool.and(k, lx.idle(m))}
-
-# One pass over the text. Each step takes one char, so it ends.
-def lex(s: String, m: Lx, st: St) -> St:
-  match s:
-    case SNil{}:
-      st.end(m, st)
-    case SCon{h, t}:
-      match h m:
-        case '<' LText{}:
-          lex(t, LOpen{}, st.nm0(st))
-        case '&' LText{}:
-          lex(t, LEnt{}, st.nm0(st))
-        case c LText{}:
-          lex(t, LText{}, st.txt(st, c))
-        case '/' LOpen{}:
-          lex(t, LEnd{}, st)
-        case '?' LOpen{}:
-          lex(t, LPi{}, st)
-        case '!' LOpen{}:
-          lex(t, LBang{}, st)
-        case c LOpen{}:
-          lex(t, LName{}, st.nm(st, c))
-        case '>' LName{}:
-          lex(t, LText{}, st.open(st))
-        case '/' LName{}:
-          lex(t, LSelf{}, st.open(st))
-        case ' ' LName{}:
-          lex(t, LAttr{}, st.open(st))
-        case Chr{9} LName{}:
-          lex(t, LAttr{}, st.open(st))
-        case Chr{10} LName{}:
-          lex(t, LAttr{}, st.open(st))
-        case Chr{13} LName{}:
-          lex(t, LAttr{}, st.open(st))
-        case c LName{}:
-          lex(t, LName{}, st.nm(st, c))
-        case '"' LAttr{}:
-          lex(t, LDq{}, st)
-        case Chr{39} LAttr{}:
-          lex(t, LSq{}, st)
-        case '>' LAttr{}:
-          lex(t, LText{}, st)
-        case '/' LAttr{}:
-          lex(t, LSelf{}, st)
-        case c LAttr{}:
-          lex(t, LAttr{}, st)
-        case '"' LDq{}:
-          lex(t, LAttr{}, st)
-        case c LDq{}:
-          lex(t, LDq{}, st)
-        case Chr{39} LSq{}:
-          lex(t, LAttr{}, st)
-        case c LSq{}:
-          lex(t, LSq{}, st)
-        case '>' LSelf{}:
-          lex(t, LText{}, st.close.top(st))
-        case c LSelf{}:
-          lex(t, LAttr{}, st)
-        case '>' LEnd{}:
-          lex(t, LText{}, st.close(st))
-        case ' ' LEnd{}:
-          lex(t, LEnd{}, st)
-        case Chr{9} LEnd{}:
-          lex(t, LEnd{}, st)
-        case Chr{10} LEnd{}:
-          lex(t, LEnd{}, st)
-        case Chr{13} LEnd{}:
-          lex(t, LEnd{}, st)
-        case c LEnd{}:
-          lex(t, LEnd{}, st.nm(st, c))
-        case '?' LPi{}:
-          lex(t, LPiQ{}, st)
-        case c LPi{}:
-          lex(t, LPi{}, st)
-        case '>' LPiQ{}:
-          lex(t, LText{}, st)
-        case '?' LPiQ{}:
-          lex(t, LPiQ{}, st)
-        case c LPiQ{}:
-          lex(t, LPi{}, st)
-        case '-' LBang{}:
-          lex(t, LCom{}, st)
-        case '[' LBang{}:
-          lex(t, LCdHead{}, st)
-        case c LBang{}:
-          lex(t, LDecl{}, st)
-        case '-' LCom{}:
-          lex(t, LCom1{}, st)
-        case c LCom{}:
-          lex(t, LCom{}, st)
-        case '-' LCom1{}:
-          lex(t, LCom2{}, st)
-        case c LCom1{}:
-          lex(t, LCom{}, st)
-        case '>' LCom2{}:
-          lex(t, LText{}, st)
-        case '-' LCom2{}:
-          lex(t, LCom2{}, st)
-        case c LCom2{}:
-          lex(t, LCom{}, st)
-        case '[' LCdHead{}:
-          lex(t, LCd{}, st)
-        case c LCdHead{}:
-          lex(t, LCdHead{}, st)
-        case ']' LCd{}:
-          lex(t, LCd1{}, st)
-        case c LCd{}:
-          lex(t, LCd{}, st.txt(st, c))
-        case ']' LCd1{}:
-          lex(t, LCd2{}, st)
-        case c LCd1{}:
-          lex(t, LCd{}, st.txt(st.txt(st, ']'), c))
-        case '>' LCd2{}:
-          lex(t, LText{}, st)
-        case ']' LCd2{}:
-          lex(t, LCd2{}, st.txt(st, ']'))
-        case c LCd2{}:
-          lex(t, LCd{}, st.txt(st.txt(st.txt(st, ']'), ']'), c))
-        case ';' LEnt{}:
-          lex(t, LText{}, st.ent(st))
-        case c LEnt{}:
-          lex(t, LEnt{}, st.nm(st, c))
-        case '>' LDecl{}:
-          lex(t, LText{}, st)
-        case c LDecl{}:
-          lex(t, LDecl{}, st)
-
-def xml.if(ok: Bool, out: List<&2, Leaf>) -> Maybe<&2, List<&2, Leaf>>:
-  match ok:
-    case True{}:
-      Some{List.reverse(&2, Leaf, out)}
-    case False{}:
-      None{}
-
-def closed(xs: List<&2, String>) -> Bool:
-  match xs:
-    case Nil{}:
-      True{}
-    case Con{h, t}:
-      False{}
-
-def xml.fin(st: St) -> Maybe<&2, List<&2, Leaf>>:
-  St{a, x, n, o, k} = st
-  xml.if(Bool.and(k, closed(a)), o)
-
-# The closed elements of a document in document order, or None when it is not well formed.
-# ponytail: no DTD internal subsets, and no check of names or attribute syntax; S3 sends neither.
-def xml(s: String) -> Maybe<&2, List<&2, Leaf>>:
-  xml.fin(lex(s, LText{}, St{Nil{}, "", "", Nil{}, True{}}))
-
-# ---- responses
-
-# S3's <Error><Code>..</Code><Message>..</Message></Error>.
-def fault.scan(ls: List<&2, Leaf>, code: String, msg: String) -> String & String:
-  match ls:
-    case Nil{}:
-      (code, msg)
-    case Con{Leaf{+p, +n, +x}, t}:
-      +err = String.eq(p, "Error")
-      fault.scan(t, Bool.pick(String, Bool.and(err, String.eq(n, "Code")), x, code),
-        Bool.pick(String, Bool.and(err, String.eq(n, "Message")), x, msg))
+def xml(s: String) -> Maybe<&2, List<&2, Xml.Leaf>>:
+  Xml.xml(s)
 
 def fault.of(+status: U32, cm: String & String) -> Err:
   (code, msg) = cm
   ErrS3{status, code, msg}
 
-def fault(+status: U32, m: Maybe<&2, List<&2, Leaf>>) -> Err:
-  match m:
-    case None{}:
-      ErrS3{status, "", ""}
-    case Some{ls}:
-      fault.of(status, fault.scan(ls, "", ""))
+def fault(+status: U32, m: Maybe<&2, List<&2, Xml.Leaf>>) -> Err:
+  fault.of(status, Xml.fault(m))
 
 def ok(+s: U32) -> Bool:
   Bool.and(U32.is_le(200, s), U32.is_lt(s, 300))
 
-def judge.res(good: Bool, +status: U32, h: Map<&2, List<&2, String>>, b: Bytes.Bytes) -> Result<&1, &1, Err, Http.Res>:
+def judge.res(good: Bool, +status: U32, h: Map<&2, List<&2, String>>, b: Bytes.Bytes) -> Result<&1, &1, Err, HttpPure.Res>:
   match good:
     case True{}:
-      Done{Http.Res{status, h, b}}
+      Done{HttpPure.Res{status, h, b}}
     case False{}:
       Fail{fault(status, xml(Enc.utf8.decode(b)))}
 
-def judge(r: Result<&1, &1, Hairpin.Err, Http.Res>) -> Result<&1, &1, Err, Http.Res>:
+def judge(r: Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> Result<&1, &1, Err, HttpPure.Res>:
   match r:
     case Fail{e}:
       Fail{ErrNet{e}}
     case Done{res}:
-      Http.Res{+status, h, b} = res
+      HttpPure.Res{+status, h, b} = res
       judge.res(ok(status), status, h, b)
 
 # ---- requests
@@ -739,7 +436,7 @@ def stamp.of(m: Maybe<&2, Time.DateTime>) -> String:
 # Now as YYYYMMDDTHHMMSSZ. "" only outside years 0 to 9999, which S3 then refuses.
 def stamp() -> IO(String):
   do IO<String>:
-    now : Time.Instant <- Time.now()
+    now : Time.Instant <- Http.clock.now()
     return stamp.of(Time.DateTime.of_instant(now))
 
 # origin: scheme://host field. host: the Host field, as Http sends it. path: the wire path.
@@ -773,106 +470,106 @@ def token(c: Credentials) -> String:
   t
 
 def with.token(+token: String, +h: Map<&2, List<&2, String>>) -> Map<&2, List<&2, String>>:
-  Bool.pick(Map<&2, List<&2, String>>, String.is_empty(token), h, Http.set(h, "x-amz-security-token", token))
+  Bool.pick(Map<&2, List<&2, String>>, String.is_empty(token), h, HttpPure.set(h, "x-amz-security-token", token))
 
 # extra, and the headers the signature covers. Host is Http's own, from the same URL.
 def request.signed(extra: Map<&2, List<&2, String>>, date: String, +token: String, got: String & String) -> Map<&2, List<&2, String>>:
   (auth, hash) = got
-  with.token(token, Http.set(Http.set(Http.set(Http.set(extra, "x-amz-date", date), "x-amz-content-sha256", hash), "authorization", auth), "accept-encoding", "identity"))
+  with.token(token, HttpPure.set(HttpPure.set(HttpPure.set(HttpPure.set(extra, "x-amz-date", date), "x-amz-content-sha256", hash), "authorization", auth), "accept-encoding", "identity"))
 
 def url(origin: String, path: String, +query: String) -> String:
   origin ++ path ++ Bool.pick(String, String.is_empty(query), "", "?" ++ query)
 
-def call.done(cfg: Config, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> Client & Result<&1, &1, Err, Http.Res>:
+def call.done(cfg: Config, x: Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, HttpPure.Res>:
   (h, r) = x
   (Client{cfg, h}, judge(r))
 
 # Hairpin's request with the codings "identity": Http then leaves a stored Content-Encoding (gzip, br, ..) as sent,
 # so GET returns the object's bytes and HEAD's size matches. ponytail: Http still undoes x-gzip, which S3 rarely stores.
 def send.budget(+method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes,
-    y: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
+    y: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
   (h, b) = y
-  Hairpin.request.as(~Hairpin.judge, h, b, Http.pool.idempotent(method), "identity", method, url, headers, body)
+  Hairpin.request.as(~HairpinPure.judge, h, b, HttpPure.pool.idempotent(method), "identity", method, url, headers, body)
 
 def send(c: Hairpin.Client, +method: String, url: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes) ->
-    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>):
-  do IO<Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>>:
+    IO(Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>):
+  do IO<Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res>>:
     y : Hairpin.Client & Retry.Budget <- Hairpin.budget(c)
-    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- send.budget(method, url, headers, body, y)
+    x : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, HttpPure.Res> <- send.budget(method, url, headers, body, y)
     return Hairpin.request.drop(x)
 
 def call.send(s: Result<&1, &1, U32 & String, String & String>, cfg: Config, http: Hairpin.Client, +method: String, url: String,
-    extra: Map<&2, List<&2, String>>, date: String, token: String, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    extra: Map<&2, List<&2, String>>, date: String, token: String, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   match s:
     case Fail{e}:
       (code, why) = e
-      IO.pure(Client & Result<&1, &1, Err, Http.Res>, (Client{cfg, http}, Fail{ErrSign{code, why}}))
+      IO.pure(Client & Result<&1, &1, Err, HttpPure.Res>, (Client{cfg, http}, Fail{ErrSign{code, why}}))
     case Done{got}:
-      do IO<Client & Result<&1, &1, Err, Http.Res>>:
-        x : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- send(http, method, url, request.signed(extra, date, token, got), body)
+      do IO<Client & Result<&1, &1, Err, HttpPure.Res>>:
+        x : Hairpin.Client & Result<&1, &1, Hairpin.Err, HttpPure.Res> <- send(http, method, url, request.signed(extra, date, token, got), body)
         return call.done(cfg, x)
 
 # The signer hashes one copy of the body; the other goes on the wire.
 def call.sign(got: Where, +endpoint: String, +region: String, +style: Style, +creds: Credentials,
     http: Hairpin.Client, +method: String, +query: String, extra: Map<&2, List<&2, String>>, +date: String,
-    b: Bytes.Bytes & Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    b: Bytes.Bytes & Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   Where{origin, host, +path} = got
   (keep, copy) = b
-  do IO<Client & Result<&1, &1, Err, Http.Res>>:
+  do IO<Client & Result<&1, &1, Err, HttpPure.Res>>:
     s : Result<&1, &1, U32 & String, String & String> <- authorize(creds, region, "s3", date, method, path, query, host, copy)
     call.send(s, Config{endpoint, region, style, creds}, http, method, url(origin, path, query), extra, date, token(creds), keep)
 
 def call.at(w: Maybe<&2, Where>, +endpoint: String, +region: String, +style: Style, +creds: Credentials,
     http: Hairpin.Client, +method: String, +query: String, extra: Map<&2, List<&2, String>>, +date: String, body: Bytes.Bytes) ->
-    IO(Client & Result<&1, &1, Err, Http.Res>):
+    IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   match w:
     case None{}:
-      IO.pure(Client & Result<&1, &1, Err, Http.Res>, (Client{Config{endpoint, region, style, creds}, http}, Fail{ErrConfig{"bad endpoint: " ++ endpoint}}))
+      IO.pure(Client & Result<&1, &1, Err, HttpPure.Res>, (Client{Config{endpoint, region, style, creds}, http}, Fail{ErrConfig{"bad endpoint: " ++ endpoint}}))
     case Some{got}:
       call.sign(got, endpoint, region, style, creds, http, method, query, extra, date, Bytes.slice(body, 0, 4294967295))
 
 # Object calls require a bucket and a key. ListObjectsV2 targets the bucket with list-type=2.
 # The absolute URL bypasses base resolution, so '.' and '..' in object keys survive.
 def call.run(c: Client, +method: String, +bucket: String, +key: String, +query: String, extra: Map<&2, List<&2, String>>,
-    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   Client{cfg, http} = c
   Config{+endpoint, +region, +style, +creds} = cfg
-  do IO<Client & Result<&1, &1, Err, Http.Res>>:
+  do IO<Client & Result<&1, &1, Err, HttpPure.Res>>:
     date : String <- stamp()
     call.at(loc(style, bucket, key, Url.absolute(endpoint)), endpoint, region, style, creds, http, method, query, extra, date, body)
 
 def call.guard(bad: Bool, c: Client, +method: String, +bucket: String, +key: String, +query: String,
-    extra: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    extra: Map<&2, List<&2, String>>, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   match bad:
     case True{}:
-      IO.pure(Client & Result<&1, &1, Err, Http.Res>, (c, Fail{ErrConfig{"bucket and object key must not be empty"}}))
+      IO.pure(Client & Result<&1, &1, Err, HttpPure.Res>, (c, Fail{ErrConfig{"bucket and object key must not be empty"}}))
     case False{}:
       call.run(c, method, bucket, key, query, extra, body)
 
 def call(c: Client, +method: String, +bucket: String, +key: String, +query: String, extra: Map<&2, List<&2, String>>,
-    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, Http.Res>):
+    body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, HttpPure.Res>):
   call.guard(Bool.or(String.is_empty(bucket), Bool.and(String.is_empty(key), String.is_empty(query))),
     c, method, bucket, key, query, extra, body)
 
 # ---- operations
 
-def etag.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, String>:
+def etag.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, String>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, +h, b} = res
-      Done{Http.header(h, "etag")}
+      HttpPure.Res{s, +h, b} = res
+      Done{HttpPure.header(h, "etag")}
 
-def put.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, String>:
+def put.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, String>:
   (c, r) = x
   (c, etag.of(r))
 
 # PutObject. mime: Content-Type, "" for none. The ETag comes back.
 def put(c: Client, bucket: String, key: String, +mime: String, body: Bytes.Bytes) -> IO(Client & Result<&1, &1, Err, String>):
-  +h = Bool.pick(Map<&2, List<&2, String>>, String.is_empty(mime), Http.empty(), Http.set(Http.empty(), "content-type", mime))
+  +h = Bool.pick(Map<&2, List<&2, String>>, String.is_empty(mime), HttpPure.empty(), HttpPure.set(HttpPure.empty(), "content-type", mime))
   do IO<Client & Result<&1, &1, Err, String>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "PUT", bucket, key, "", h, body)
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "PUT", bucket, key, "", h, body)
     return put.done(x)
 
 def xgzip.values(xs: List<&2, String>) -> Bool:
@@ -896,15 +593,15 @@ def body.encoding(gzip: Bool, b: Bytes.Bytes) -> Result<&1, &1, Err, Bytes.Bytes
     case False{}:
       Done{b}
 
-def body.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
+def body.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Bytes.Bytes>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, h, b} = res
-      body.encoding(xgzip.fields(Http.fields(h, "content-encoding")), b)
+      HttpPure.Res{s, h, b} = res
+      body.encoding(xgzip.fields(HttpPure.fields(h, "content-encoding")), b)
 
-def get.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
+def get.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Bytes.Bytes>:
   (c, r) = x
   (c, body.of(r))
 
@@ -912,114 +609,72 @@ def get.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &
 # ponytail: Hairpin decodes x-gzip; reject it rather than return bytes that differ from the stored object.
 def get(c: Client, bucket: String, key: String) -> IO(Client & Result<&1, &1, Err, Bytes.Bytes>):
   do IO<Client & Result<&1, &1, Err, Bytes.Bytes>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "GET", bucket, key, "", Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "GET", bucket, key, "", HttpPure.empty(), Bytes.new(0))
     return get.done(x)
 
 def nat(s: String) -> Nat:
   Maybe.default(&2, Nat, Nat.read(s), 0n)
 
-def meta.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Meta>:
+def meta.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Meta>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, +h, b} = res
-      Done{Meta{nat(Http.header(h, "content-length")), Http.header(h, "etag"), Http.header(h, "content-type"), Http.header(h, "last-modified")}}
+      HttpPure.Res{s, +h, b} = res
+      Done{Meta{nat(HttpPure.header(h, "content-length")), HttpPure.header(h, "etag"), HttpPure.header(h, "content-type"), HttpPure.header(h, "last-modified")}}
 
-def head.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Meta>:
+def head.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Meta>:
   (c, r) = x
   (c, meta.of(r))
 
 # HeadObject. A missing key is ErrS3{404, "", ""}: HEAD has no error body.
 def head(c: Client, bucket: String, key: String) -> IO(Client & Result<&1, &1, Err, Meta>):
   do IO<Client & Result<&1, &1, Err, Meta>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "HEAD", bucket, key, "", Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "HEAD", bucket, key, "", HttpPure.empty(), Bytes.new(0))
     return head.done(x)
 
-def unit.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Unit>:
+def unit.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Unit>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
       Done{Unit{}}
 
-def delete.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Unit>:
+def delete.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Unit>:
   (c, r) = x
   (c, unit.of(r))
 
 # DeleteObject. S3 answers 204 for a key that was never there too.
 def delete(c: Client, bucket: String, key: String) -> IO(Client & Result<&1, &1, Err, Unit>):
   do IO<Client & Result<&1, &1, Err, Unit>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "DELETE", bucket, key, "", Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "DELETE", bucket, key, "", HttpPure.empty(), Bytes.new(0))
     return delete.done(x)
 
 # ---- ListObjectsV2
 
-# cur: the <Contents> being read. Leaves come in document order, so a Contents closes after its fields.
-type Acc is Data:
-  Acc{cur: Object, objs: List<&2, Object>, pre: List<&2, String>, cut: Bool, next: String}
+def object(key: String, size: Nat, etag: String, modified: String) -> Object:
+  Object{key, size, etag, modified}
 
-def blank() -> Object:
-  Object{"", 0n, "", ""}
-
-def obj.set(o: Object, +n: String, +x: String) -> Object:
-  Object{+k, +sz, +e, +mo} = o
-  Object{Bool.pick(String, String.eq(n, "Key"), x, k), Bool.pick(Nat, String.eq(n, "Size"), nat(x), sz),
-    Bool.pick(String, String.eq(n, "ETag"), x, e), Bool.pick(String, String.eq(n, "LastModified"), x, mo)}
-
-def page.leaf(a: Acc, +p: String, +n: String, +x: String) -> Acc:
-  Acc{+cur, +objs, +pre, +cut, +next} = a
-  +top = String.eq(p, "ListBucketResult")
-  +done = Bool.and(top, String.eq(n, "Contents"))
-  Acc{Bool.pick(Object, done, blank(), Bool.pick(Object, String.eq(p, "Contents"), obj.set(cur, n, x), cur)),
-    Bool.pick(List<&2, Object>, done, Con{cur, objs}, objs),
-    Bool.pick(List<&2, String>, Bool.and(String.eq(p, "CommonPrefixes"), String.eq(n, "Prefix")), Con{x, pre}, pre),
-    Bool.pick(Bool, Bool.and(top, String.eq(n, "IsTruncated")), String.eq(x, "true"), cut),
-    Bool.pick(String, Bool.and(top, String.eq(n, "NextContinuationToken")), x, next)}
-
-def page.scan(ls: List<&2, Leaf>, a: Acc) -> Acc:
-  match ls:
-    case Nil{}:
-      a
-    case Con{Leaf{p, n, x}, t}:
-      page.scan(t, page.leaf(a, p, n, x))
-
-def page.fin(a: Acc) -> Page:
-  Acc{cur, objs, pre, +cut, +next} = a
-  Page{List.reverse(&2, Object, objs), List.reverse(&2, String, pre),
-    Bool.pick(Maybe<&2, String>, Bool.and(cut, Bool.not(String.is_empty(next))), Some{next}, None{})}
-
-def page.root.last(ls: List<&2, Leaf>, +n: String) -> String:
-  match ls:
-    case Nil{}:
-      n
-    case Con{Leaf{p, +m, x}, t}:
-      page.root.last(t, m)
-
-def page.if(good: Bool, s: String, ls: List<&2, Leaf>) -> Result<&1, &1, Err, Page>:
-  match good:
-    case True{}:
-      Done{page.fin(page.scan(ls, Acc{blank(), Nil{}, Nil{}, False{}, ""}))}
-    case False{}:
-      Fail{ErrXml{s}}
-
-def page.doc(+s: String, m: Maybe<&2, List<&2, Leaf>>) -> Result<&1, &1, Err, Page>:
+def page.result(m: Maybe<&2, Xml.Page<Object>>, s: String) -> Result<&1, &1, Err, Page>:
   match m:
     case None{}:
       Fail{ErrXml{s}}
-    case Some{+ls}:
-      page.if(String.eq(page.root.last(ls, ""), "ListBucketResult"), s, ls)
+    case Some{Xml.Page{objects, prefixes, next}}:
+      Done{Page{objects, prefixes, next}}
 
-def page.of(r: Result<&1, &1, Err, Http.Res>) -> Result<&1, &1, Err, Page>:
+def page.doc(+s: String, m: Maybe<&2, List<&2, Xml.Leaf>>) -> Result<&1, &1, Err, Page>:
+  page.result(Xml.page(~Object, ~object, m), s)
+
+def page.of(r: Result<&1, &1, Err, HttpPure.Res>) -> Result<&1, &1, Err, Page>:
   match r:
     case Fail{e}:
       Fail{e}
     case Done{res}:
-      Http.Res{s, h, b} = res
+      HttpPure.Res{s, h, b} = res
       +text = Enc.utf8.decode(b)
       page.doc(text, xml(text))
 
-def list.done(x: Client & Result<&1, &1, Err, Http.Res>) -> Client & Result<&1, &1, Err, Page>:
+def list.done(x: Client & Result<&1, &1, Err, HttpPure.Res>) -> Client & Result<&1, &1, Err, Page>:
   (c, r) = x
   (c, page.of(r))
 
@@ -1047,7 +702,7 @@ def list.query(prefix: String, delim: String, +max: U32, t: Maybe<&2, String>) -
 def list(c: Client, +bucket: String, prefix: String, delim: String, +max: U32, token: Maybe<&2, String>) ->
     IO(Client & Result<&1, &1, Err, Page>):
   do IO<Client & Result<&1, &1, Err, Page>>:
-    x : Client & Result<&1, &1, Err, Http.Res> <- call(c, "GET", bucket, "", list.query(prefix, delim, max, token), Http.empty(), Bytes.new(0))
+    x : Client & Result<&1, &1, Err, HttpPure.Res> <- call(c, "GET", bucket, "", list.query(prefix, delim, max, token), HttpPure.empty(), Bytes.new(0))
     return list.done(x)
 
 def all.merge(objs: List<&2, Object>, pre: List<&2, String>, r: Result<&1, &1, Err, Page>) -> Result<&1, &1, Err, Page>:

@@ -1,6 +1,6 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-files@0.4.0.1/files.bend as Files
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-files@0.4.0.3/files.bend as Files
 import ./storage.bend as S
 import ./pure.bend as P
 
@@ -33,11 +33,11 @@ def main() -> IO(Unit):
     +end : P.Digest <- IO.try(P.Digest, S.Disk.commit(dir, P.TEnd{}))
     IO.try(Unit, S.Disk.set_root(dir, "small", end))
     +root : P.Digest <- IO.try(P.Digest, shared(24n, dir, end))
-    +seen : P.Index(P.Digest, Unit) <- IO.try(P.Index(P.Digest, Unit), S.Disk.fence.go(Nat.mul(3n, P.limit()), dir, S.FenceWant{root}, P.Index.new(P.Digest, Unit)))
+    +seen : P.Index(P.Digest, Unit) <- IO.try(P.Index(P.Digest, Unit), S.Disk.walk.go(~S.verified.sync, Nat.mul(3n, P.limit()), dir, S.FenceWant{root}, P.Index.new(P.Digest, Unit)))
     ok(U32.is_eq(P.Index.size(P.Digest, Unit, seen), 25))
     IO.try(Unit, S.Disk.set_root(dir, "shared", root))
     IO.try(Unit, Files.remove(S.Disk.object(dir, end)))
-    cached : P.Index(P.Digest, Unit) <- IO.try(P.Index(P.Digest, Unit), S.Disk.fence.go(3n, dir, S.FenceWant{end}, seen))
+    cached : P.Index(P.Digest, Unit) <- IO.try(P.Index(P.Digest, Unit), S.Disk.walk.go(~S.verified.sync, 3n, dir, S.FenceWant{end}, seen))
     ok(U32.is_eq(P.Index.size(P.Digest, Unit, cached), 25))
     made : U32 & (String & String) <- IO.try(U32 & (String & String), Process.run("python3", ["-c",
       "import sys; f=open(sys.argv[1],'wb'); f.write(b'file 17825792\\n'); chunk=bytes(65536)\nfor _ in range(272): f.write(chunk)\nf.close()",

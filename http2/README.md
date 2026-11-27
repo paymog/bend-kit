@@ -1,12 +1,12 @@
 # HTTP/2 client, frame codec, and HPACK
 
 ```bend
-import bend-kit-http2@0.6.0.0/http2.bend as H2
-import bend-kit-http2@0.6.0.0/hpack.bend as Hpack
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-http2@0.6.0.2/http2.bend as H2
+import bend-kit-http2@0.6.0.2/hpack.bend as Hpack
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 ```
 
-`http2.bend`, `hpack.bend`, and `huffman.bend` import `bend-kit-bytes@0.3.3.1`. `hpack.bend` is a separate file in this package. Use the same package version for both imports.
+`http2.bend`, `hpack.bend`, and `huffman.bend` import `bend-kit-bytes@0.3.3.3`. `hpack.bend` is a separate file in this package. Use the same package version for both imports.
 
 `http2.bend` encodes and parses the nine-octet frame header. It supports all ten frame types in RFC 9113 §6. A `Frame` carries the type, flags, stream ID, and packed payload bytes. The payload keeps padding and fixed fields in wire order. Callers can decode HPACK and other frame content without a `String` conversion.
 

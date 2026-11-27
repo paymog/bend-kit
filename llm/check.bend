@@ -1,12 +1,13 @@
 import Base
 import ./sse.bend as Sse
 import ./llm.bend as Llm
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/admission.bend as Admission
-import bend-kit-http@0.40.0.1/completion.bend as Completion
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-http@0.45.0.2/admission.bend as Admission
+import bend-kit-http@0.45.0.2/completion.bend as Completion
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 # The laws run in the checker. This runs the parser on the runtime at sizes the checker would not reach.
@@ -68,26 +69,26 @@ def verdict(+name: String, r: U32 & U32, +c: U32, +t: U32) -> IO(Unit):
   (+gc, +gt) = r
   verdict.of(Bool.and(U32.is_eq(gc, c), U32.is_eq(gt, t)), name, gc, gt)
 
-def reply(+status: U32, body: String) -> IO(Http.Res):
-  IO.pure(Http.Res, Http.Res{status, Http.set(Http.set(Http.empty(), "connection", "close"), "retry-after", "0"), Bytes.from_string(body)})
+def reply(+status: U32, body: String) -> IO(HttpPure.Res):
+  IO.pure(HttpPure.Res, HttpPure.Res{status, HttpPure.set(HttpPure.set(HttpPure.empty(), "connection", "close"), "retry-after", "0"), Bytes.from_string(body)})
 
-def s.overloaded(req: Http.Req) -> IO(Http.Res):
+def s.overloaded(req: HttpPure.Req) -> IO(HttpPure.Res):
   reply(529, "{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\"}}")
 
-def s.fine(req: Http.Req) -> IO(Http.Res):
+def s.fine(req: HttpPure.Req) -> IO(HttpPure.Res):
   reply(200, "{\"ok\":true}")
 
-def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
+def wrap(op: IO(HttpPure.Res)) -> IO(Http.Reply):
   do IO<Http.Reply>:
-    res : Http.Res <- op
+    res : HttpPure.Res <- op
     return Http.Reply{res, Completion.Unobserved{}}
 
 def serve.one(fine: Bool, +inbox: Chan(Admission.Command), a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   match fine:
     case True{}:
-      Http.conn(~(req => wrap(s.fine(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => wrap(s.fine(req))), ~Completion.ignore, HttpPure.limits(1048576n), inbox, a)
     case False{}:
-      Http.conn(~(req => wrap(s.overloaded(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => wrap(s.overloaded(req))), ~Completion.ignore, HttpPure.limits(1048576n), inbox, a)
 
 def serve.go(ks: List<&2, Bool>, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
   match ks:
@@ -220,15 +221,15 @@ def overloaded.stream() -> IO(Unit):
     y : Chan(Unit) & U32 <- listen([False{}, False{}])
     overloaded.spent.on(y)
 
-def sse.reply(req: Http.Req) -> IO(Http.Reply):
-  wrap(IO.pure(Http.Res, Http.Res{200, Http.set(Http.empty(), "content-type", "text/event-stream"), Bytes.from_string("data: a\n\ndata: b\n\n")}))
+def sse.reply(req: HttpPure.Req) -> IO(Http.Reply):
+  wrap(IO.pure(HttpPure.Res, HttpPure.Res{200, HttpPure.set(HttpPure.empty(), "content-type", "text/event-stream"), Bytes.from_string("data: a\n\ndata: b\n\n")}))
 
 # One keep-alive connection, then stop listening.
 def sse.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- Http.conn(~sse.reply, ~Completion.ignore, Http.limits(1048576n), inbox, a)
+    l2 : Listener <- Http.conn(~sse.reply, ~Completion.ignore, HttpPure.limits(1048576n), inbox, a)
     Listener.close(l2)
     Admission.close(inbox)
 
@@ -300,7 +301,7 @@ def pool.idle(pm: Http.Pool & Maybe<&1, Http.Conn>) -> IO(Unit):
 def pool.left(+port: U32, c: Llm.Client) -> IO(Unit):
   Llm.Client{api, b, h, ms, n, hc} = c
   Hairpin.Client{o, p, j, br} = hc
-  pool.idle(Http.pool.take(p, Http.pool.key("http", "127.0.0.1", port)))
+  pool.idle(Http.pool.take(p, HttpPure.pool.key("http", "127.0.0.1", port)))
 
 # The server takes one connection, so the second and third streams must reuse it.
 def pooled.stream.on(b: Listener & U32) -> IO(Unit):
@@ -326,19 +327,19 @@ def pooled.stream() -> IO(Unit):
 def refused.reply(first: Bool) -> IO(Http.Reply):
   match first:
     case True{}:
-      wrap(IO.pure(Http.Res, Http.Res{529, Http.empty(), Bytes.from_string("{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\"}}")}))
+      wrap(IO.pure(HttpPure.Res, HttpPure.Res{529, HttpPure.empty(), Bytes.from_string("{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\"}}")}))
     case False{}:
-      sse.reply(Http.Req{"POST", "/", Http.empty(), Bytes.new(0)})
+      sse.reply(HttpPure.Req{"POST", "/", HttpPure.empty(), Bytes.new(0)})
 
-def refused.request(req: Http.Req) -> IO(Http.Reply):
-  Http.Req{method, path, headers, body} = req
+def refused.request(req: HttpPure.Req) -> IO(Http.Reply):
+  HttpPure.Req{method, path, headers, body} = req
   refused.reply(String.eq(Bytes.to_string(body), "true"))
 
 def refused.serve(l: Listener) -> IO(Unit):
   do IO<Unit>:
     +inbox : Chan(Admission.Command) <- Admission.open(Admission.Caps{128, 128, 128})
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    l2 : Listener <- Http.conn(~refused.request, ~Completion.ignore, Http.limits(1048576n), inbox, a)
+    l2 : Listener <- Http.conn(~refused.request, ~Completion.ignore, HttpPure.limits(1048576n), inbox, a)
     Listener.close(l2)
     Admission.close(inbox)
 
@@ -381,7 +382,7 @@ def refused.drop.idle(+name: String, pm: Http.Pool & Maybe<&1, Http.Conn>) -> IO
 
 def refused.drop.left(+name: String, +port: U32, c: Llm.Client) -> IO(Unit):
   Llm.Client{api, b, h, ms, n, Hairpin.Client{o, p, j, br}} = c
-  refused.drop.idle(name, Http.pool.take(p, Http.pool.key("http", "127.0.0.1", port)))
+  refused.drop.idle(name, Http.pool.take(p, HttpPure.pool.key("http", "127.0.0.1", port)))
 
 def refused.drop.result(+limited: Bool, +port: U32, x: Llm.Client & Result<&1, &1, Llm.Err, Llm.Stream>) -> IO(Unit):
   (c, r) = x
@@ -389,7 +390,7 @@ def refused.drop.result(+limited: Bool, +port: U32, x: Llm.Client & Result<&1, &
     case Fail{Llm.ErrApi{+status, +body}}:
       +name = Bool.pick(String, limited, "piece-limited refusal", "cut-off refusal")
       +good = Bool.pick(Bool, limited,
-        Bool.and(Nat.is_lt(0n, String.length(body)), Nat.is_le(String.length(body), 4194304n)),
+        Bool.and(String.starts_with(body, "first"), Bool.and(Nat.is_lt(0n, String.length(body)), Nat.is_le(String.length(body), 4194304n))),
         String.eq(body, "partial"))
       do IO<Unit>:
         pool.ok(Bool.and(U32.is_eq(status, 529), good), name ++ ": original status and partial body")
@@ -447,7 +448,7 @@ def refused.drop.send(+limited: Bool, s: Socket, body: Bytes.Bytes) -> IO(Unit):
 def refused.drop.reply(+limited: Bool, s: Socket) -> IO(Unit):
   # Each read is at most 65536 bytes, so this body cannot finish in 64 pieces.
   body = Bool.pick(Bytes.Bytes, limited,
-    Bytes.Bytes{4325376, Array.new(U32, 21n, 2021161080)}, Bytes.from_string("partial"))
+    Bytes.append(Bytes.from_string("first"), Bytes.Bytes{4325371, Array.new(U32, 21n, 2021161080)}), Bytes.from_string("partial"))
   head = "HTTP/1.1 529 Overloaded\r\nContent-Length: " ++
     Bool.pick(String, limited, "4325376", "100") ++ "\r\n\r\n"
   refused.drop.send(limited, s, Bytes.append(Bytes.from_string(head), body))

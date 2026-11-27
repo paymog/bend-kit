@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./hash.bend as Hash
 
 def fill(n: Nat, b: Bytes.Bytes, +i: U32, +seed: U32) -> Bytes.Bytes:
@@ -139,12 +139,22 @@ def sip.check(+len: U32, +want: Hash.W64) -> Bool:
   text = Hash.siphash24.str(s, k0, k1)
   sip.equal(clean, want) && sip.equal(padded, want) && sip.equal(text, want)
 
+def sip13.check(+len: U32, +want: Hash.W64) -> Bool:
+  +s = sip.string(U32.to_nat(len), 0)
+  +k0 = Hash.W64.of(117835012, 50462976)
+  +k1 = Hash.W64.of(252579084, 185207048)
+  clean = Hash.v64(Hash.siphash13(Bytes.from_string(s), k0, k1))
+  dirty = sip.fill(U32.to_nat(len), Bytes.Bytes{len, [4294967295 : U32*256n]}, 0)
+  padded = Hash.v64(Hash.siphash13(dirty, k0, k1))
+  text = Hash.siphash13.str(s, k0, k1)
+  sip.equal(clean, want) && sip.equal(padded, want) && sip.equal(text, want)
+
 def sip.result(ok: Bool, +len: U32) -> IO(Unit):
   match ok:
     case True{}:
       IO.pure(Unit, Unit{})
     case False{}:
-      IO.die(Unit, 1, "FAIL SipHash-2-4 reference, byte-string parity, or dirty padding at length " ++ U32.show(len))
+      IO.die(Unit, 1, "FAIL SipHash reference, byte-string parity, or dirty padding at length " ++ U32.show(len))
 
 def sip.lengths(vectors: List<Hash.W64>, +len: U32) -> IO(Unit):
   match vectors:
@@ -165,6 +175,16 @@ def sip.boundaries() -> IO(Unit):
     sip.result(sip.check(513, Hash.W64.of(2427847039, 540107307)), 513)
     IO.print("ok SipHash-2-4 lengths 255, 256, 257, 511, 512, 513, byte-string parity, dirty padding")
 
+def sip13.boundaries() -> IO(Unit):
+  do IO<Unit>:
+    sip.result(sip13.check(255, Hash.W64.of(4150400227, 356272661)), 255)
+    sip.result(sip13.check(256, Hash.W64.of(1974724174, 377348976)), 256)
+    sip.result(sip13.check(257, Hash.W64.of(1569717414, 557609912)), 257)
+    sip.result(sip13.check(511, Hash.W64.of(2276097623, 1131805261)), 511)
+    sip.result(sip13.check(512, Hash.W64.of(622999479, 1573115622)), 512)
+    sip.result(sip13.check(513, Hash.W64.of(2399211897, 573359008)), 513)
+    IO.print("ok SipHash-1-3 lengths 255, 256, 257, 511, 512, 513, byte-string parity, dirty padding")
+
 def finish(ok: Bool) -> IO(Unit):
   match ok:
     case True{}:
@@ -177,3 +197,4 @@ def main() -> IO(Unit):
     finish(lengths(258n, 0, True{}))
     sip.lengths(sip.vectors(), 0)
     sip.boundaries()
+    sip13.boundaries()

@@ -1,9 +1,9 @@
 # Read-only current-format journal replay, before crash recovery.
 import Base
 import ./model.bend as Model
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-files@0.4.0.1/files.bend as Files
-import bend-kit-journal@0.4.0.0/pure.bend as J
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-files@0.4.0.3/files.bend as Files
+import bend-kit-journal@0.4.0.2/pure.bend as J
 
 type Inspection<-A: Data> is Data:
   Inspection{state: Model.State<A>, tail: J.Tail, end: U32}
@@ -11,21 +11,40 @@ type Inspection<-A: Data> is Data:
 def Out(-A: Type) -> Type:
   Result<&1, &1, U32 & String, A>
 
-def finish(~A: Data, r: J.Replay<Maybe<&2, Model.State<A>>, J.Cur>) -> Out(Inspection<A>):
+type Replay<-A: Data> is Data:
+  Accepted{state: Model.State<A>, offset: U32, index: U32}
+  Rejected{offset: U32, index: U32}
+
+def stepped(~A: Data, +offset: U32, +index: U32, len: U32, s: Maybe<&2, Model.State<A>>) -> Replay<A>:
+  match s:
+    case None{}:
+      Rejected{offset, index}
+    case Some{s}:
+      Accepted{s, (offset + 12 + len : U32), (index + 1 : U32)}
+
+def step(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, acc: Replay<A>, b: Bytes.Bytes) -> Replay<A>:
+  match acc:
+    case Rejected{offset, index}:
+      Rejected{offset, index}
+    case Accepted{s, offset, index}:
+      Bytes.Bytes{+len, words} = b
+      stepped(~A, offset, index, len, Model.replay.step(~A, ~pdec, Some{s}, Bytes.Bytes{len, words}))
+
+def finish(~A: Data, r: J.Replay<Replay<A>, J.Cur>) -> Out(Inspection<A>):
   match r:
     case J.Replay{acc, J.Corrupt{why}, J.Cur{b, +pos}}:
       Fail{(22, "runner inspect: corrupt frame at offset " ++ U32.show(pos) ++ ": " ++ why)}
-    case J.Replay{None{}, J.Clean{}, J.Cur{b, pos}}:
-      Fail{(22, "runner inspect: undecodable record")}
-    case J.Replay{None{}, J.Torn{}, J.Cur{b, pos}}:
-      Fail{(22, "runner inspect: undecodable record before torn suffix")}
-    case J.Replay{Some{s}, J.Clean{}, J.Cur{b, pos}}:
+    case J.Replay{Rejected{offset, index}, J.Clean{}, J.Cur{b, pos}}:
+      Fail{(22, "runner inspect: undecodable record at offset " ++ U32.show(offset) ++ ", index " ++ U32.show(index))}
+    case J.Replay{Rejected{offset, index}, J.Torn{}, J.Cur{b, pos}}:
+      Fail{(22, "runner inspect: undecodable record at offset " ++ U32.show(offset) ++ ", index " ++ U32.show(index) ++ " before torn suffix")}
+    case J.Replay{Accepted{s, offset, index}, J.Clean{}, J.Cur{b, pos}}:
       Done{Inspection{s, J.Clean{}, pos}}
-    case J.Replay{Some{s}, J.Torn{}, J.Cur{b, pos}}:
+    case J.Replay{Accepted{s, offset, index}, J.Torn{}, J.Cur{b, pos}}:
       Done{Inspection{s, J.Torn{}, pos}}
 
 def bytes(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, max: U32, b: Bytes.Bytes) -> Out(Inspection<A>):
-  finish(~A, J.replay.bytes(~Maybe<&2, Model.State<A>>, ~(s => p => Model.replay.step(~A, ~pdec, s, p)), max, b, Some{Model.new(A)}))
+  finish(~A, J.replay.bytes(~Replay<A>, ~(s => p => step(~A, ~pdec, s, p)), max, b, Accepted{Model.new(A), 0, 0}))
 
 def read.more(over: Bool, f: File, +left: U32, b: Bytes.Bytes, acc: Bytes.Bytes, next: File -> U32 -> Bytes.Bytes -> IO(Out(Bytes.Bytes))) -> IO(Out(Bytes.Bytes)):
   match over:

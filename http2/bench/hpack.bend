@@ -1,6 +1,6 @@
 import Base
 import ../hpack.bend as Hp
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def text.sum(s: String, +sum: U32) -> U32:
   match s:

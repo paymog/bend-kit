@@ -3,7 +3,7 @@ import Base
 import ../../time/time.bend as Time
 import ../model.bend as M
 import ../commands.bend as C
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-sqlite@0.1.0.1/sqlite.bend as S
 
 def lcg(+x: U32) -> U32:
@@ -110,7 +110,7 @@ def range.reply(r: Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>>) -> IO(U32
     case Done{x}:
       IO.die(U32, 1, "overflow reached decide or committed")
 
-def range.run(n: Nat, +st: C.Store, +overflow: Bool, +i: U32, +h: U32) -> IO(U32):
+def range.run(~decide: List<C.Row> -> Bytes.Bytes -> M.Decision<List<C.Row>, Bytes.Bytes, Bytes.Bytes>, n: Nat, +st: C.Store, +overflow: Bool, +i: U32, +h: U32) -> IO(U32):
   match n:
     case 0n:
       IO.pure(U32, h)
@@ -118,14 +118,14 @@ def range.run(n: Nat, +st: C.Store, +overflow: Bool, +i: U32, +h: U32) -> IO(U32
       match overflow:
         case True{}:
           do IO<U32>:
-            r : Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>> <- C.handle(~range.keys, ~range.decide, st, "overflow", Bytes.from_string("7"), 200)
+            r : Result<&1, &1, U32 & String, M.Reply<Bytes.Bytes>> <- C.handle(~range.keys, ~decide, st, "overflow", Bytes.from_string("7"), 200)
             v : U32 <- range.reply(r)
-            range.run(p, st, True{}, (i + 1 : U32), (h * 31 + v : U32))
+            range.run(~decide, p, st, True{}, (i + 1 : U32), (h * 31 + v : U32))
         case False{}:
           do IO<U32>:
-            r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~range.keys, ~range.decide, st, "range_" ++ U32.show(i), Bytes.from_string("8"), 200))
+            r : M.Reply<Bytes.Bytes> <- IO.try(M.Reply<Bytes.Bytes>, C.handle(~range.keys, ~decide, st, "range_" ++ U32.show(i), Bytes.from_string("8"), 200))
             v : U32 <- result(True{}, r)
-            range.run(p, st, False{}, (i + 1 : U32), (h * 31 + v : U32))
+            range.run(~decide, p, st, False{}, (i + 1 : U32), (h * 31 + v : U32))
 
 def range.seed(st: C.Store, count: U32) -> IO(Unit):
   C.Store{+db, begin, commit, rollback, find, read, range, save, del, keep, emit} = st
@@ -157,11 +157,11 @@ def range.bench(+st: C.Store, +n: U32, count: U32, +label: String) -> IO(Unit):
   do IO<Unit>:
     range.seed(st, count)
     t0 : Time.Duration <- Time.mono()
-    h : U32 <- range.run(U32.to_nat(n), st, False{}, 0, 0)
+    h : U32 <- range.run(~range.decide, U32.to_nat(n), st, False{}, 0, 0)
     t1 : Time.Duration <- Time.mono()
     lap("range_" ++ label, t0, t1, h)
     t2 : Time.Duration <- Time.mono()
-    h2 : U32 <- range.run(U32.to_nat(n), st, True{}, 0, 0)
+    h2 : U32 <- range.run(~range.decide, U32.to_nat(n), st, True{}, 0, 0)
     t3 : Time.Duration <- Time.mono()
     lap("overflow_" ++ label, t2, t3, h2)
     range.check(st, n)

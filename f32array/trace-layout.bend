@@ -431,9 +431,9 @@ def layout(+len: U32, +words: Nat, +cells: Nat,
   +h: P.lt(U32.to_nat(len), L.pow2(30n)), +hw: P.le(U32.to_nat(len), words), +hc: P.le(U32.to_nat(A.cells(len)), cells)) -> C.Layout(U32.to_nat(len), observations(U32.to_nat(len), (len - 1 : U32)), (len - 1 : U32), len, words, cells):
   layout_go(U32.to_nat(len), (len - 1 : U32), len, words, cells, h, hw, hc, logical_bounds(len))
 
-def roundtrip(+len: U32, +src: Arr.Tree<A.Cell>, +words: List<&2, U32>, +out: List<&2, A.Cell>,
-  +h: P.lt(U32.to_nat(len), L.pow2(30n)), +hw: P.le(U32.to_nat(len), P.len(U32, 0, words)), +hc: P.le(U32.to_nat(A.cells(len)), P.len(A.Cell, A.zero(), out))) -> {C.source_list(len, src) == C.to_list(len, C.decode(len, C.encode(len, src, words), out)) : List<&2, F32>}:
-  C.roundtrip_list(len, src, words, out, observations(U32.to_nat(len), (len - 1 : U32)), layout(len, P.len(U32, 0, words), P.len(A.Cell, A.zero(), out), h, hw, hc))
+def roundtrip(~enc: F32 -> U32, ~dec: U32 -> F32, ~rt: @v:F32 -> {dec(enc(v)) == v : F32}, +len: U32, +src: Arr.Tree<A.Cell>, +words: List<&2, U32>, +out: List<&2, A.Cell>,
+  +h: P.lt(U32.to_nat(len), L.pow2(30n)), +hw: P.le(U32.to_nat(len), P.len(U32, 0, words)), +hc: P.le(U32.to_nat(A.cells(len)), P.len(A.Cell, A.zero(), out))) -> {C.source_list(len, src) == C.to_list(len, C.decode(~dec, len, C.encode(~enc, len, src, words), out)) : List<&2, F32>}:
+  C.roundtrip_list(~enc, ~dec, ~rt, len, src, words, out, observations(U32.to_nat(len), (len - 1 : U32)), layout(len, P.len(U32, 0, words), P.len(A.Cell, A.zero(), out), h, hw, hc))
 
 def eight_succ(+n: Nat) -> {Nat.mul(8n, 1n+n) == 8n+Nat.mul(8n, n) : Nat}:
   Equal.trans(Nat, Nat.mul(8n, 1n+n), Nat.add(Nat.mul(8n, n), 8n), 8n+Nat.mul(8n, n), N.mul_succ(8n, n), N.add_comm(Nat.mul(8n, n), 8n))

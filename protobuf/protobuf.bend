@@ -1,6 +1,6 @@
 # Pure bounded protobuf wire codec over Bytes. https://github.com/paymog/bend-kit/tree/main/protobuf
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 import bend-kit-f64@0.1.4.0/f64.bend as F
 
 # Signed integers use two's-complement bits, not host numeric conversions.

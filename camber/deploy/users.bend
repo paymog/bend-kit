@@ -3,9 +3,10 @@ import Base
 import ../users.bend as U
 import ../users_demo.bend as Demo
 import ./signals.bend as S
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-http@0.40.0.1/http.bend as H
-import bend-kit-http@0.40.0.1/completion.bend as T
+import bend-kit-camber@0.19.0.2/camber.bend as C
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.2/completion.bend as T
 
 # Acceptance-only non-yielding CPU fixture. No cancellation or proof claim.
 @unsafe
@@ -53,13 +54,13 @@ def work(mode: String, io_port: U32) -> IO(Unit):
         io.returned(result)
     case _: IO.pure(Unit, Unit{})
 
-def run.me(mode: String, io_port: U32, state: U.State, config: U.Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(U.State & Result<&2, &1, C.Error<String>, H.Res>):
-  do IO<U.State & Result<&2, &1, C.Error<String>, H.Res>>:
+def run.me(mode: String, io_port: U32, state: U.State, config: U.Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(U.State & Result<&2, &1, C.Error<String>, Pure.Res>):
+  do IO<U.State & Result<&2, &1, C.Error<String>, Pure.Res>>:
     work(mode, io_port)
     U.run(U.Me{}, state, config, selected, req)
 
 # Config.fault carries only an explicit acceptance mode; U's fault tracing stays disabled.
-def run(action: U.Action, state: U.State, config: U.Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(U.State & Result<&2, &1, C.Error<String>, H.Res>):
+def run(action: U.Action, state: U.State, config: U.Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(U.State & Result<&2, &1, C.Error<String>, Pure.Res>):
   match action:
     case U.Me{}:
       U.Config{store, gate, fault} = config
@@ -82,7 +83,7 @@ def target.proof(mode: String, hook: String, target: String, headers: Map<&2, Li
   match mode hook:
     case "tls-proof" "root":
       do IO<Unit>:
-        U.require(String.eq(target, H.header(headers, "x-test-raw-target")), "proxy modified raw target")
+        U.require(String.eq(target, Pure.header(headers, "x-test-raw-target")), "proxy modified raw target")
         IO.print("RAW TARGET EXACT")
     case _ _: IO.pure(Unit, Unit{})
 
@@ -100,28 +101,28 @@ def before(hook: String, state: U.State, config: U.Config, meta: C.Metadata) -> 
 type Control is Data:
   Control{}
 
-def control(context: Control, req: H.Req) -> IO(H.Reply):
-  H.Req{method, path, headers, body} = req
+def control(context: Control, req: Pure.Req) -> IO(Http.Reply):
+  Pure.Req{method, path, headers, body} = req
   match method path:
     case "POST" "/stop":
-      do IO<H.Reply>:
+      do IO<Http.Reply>:
         IO.print("ADMIN STOP REQUESTED")
         S.request()
-        return H.Reply{C.empty(200), T.Unobserved{}}
-    case _ _: IO.pure(H.Reply, H.Reply{C.empty(404), T.Unobserved{}})
+        return Http.Reply{C.empty(200), T.Unobserved{}}
+    case _ _: IO.pure(Http.Reply, Http.Reply{C.empty(404), T.Unobserved{}})
 
 @unsafe
-def poll(application: H.ServerControl, admin: H.ServerControl) -> IO(Unit):
+def poll(application: Http.ServerControl, admin: Http.ServerControl) -> IO(Unit):
   do IO<Unit>:
     requested : Bool <- S.requested()
     stopping(requested, application, admin)
 
-def stopping(requested: Bool, application: H.ServerControl, admin: H.ServerControl) -> IO(Unit):
+def stopping(requested: Bool, application: Http.ServerControl, admin: Http.ServerControl) -> IO(Unit):
   match requested:
     case True{}:
       do IO<Unit>:
-        accepted : Bool <- H.server.stop(application)
-        stopped : Bool <- H.server.stop(admin)
+        accepted : Bool <- Http.server.stop(application)
+        stopped : Bool <- Http.server.stop(admin)
         U.require(accepted && stopped, "stop controls rejected")
         IO.print("STOP CONTROLS ACCEPTED")
     case False{}:
@@ -129,14 +130,14 @@ def stopping(requested: Bool, application: H.ServerControl, admin: H.ServerContr
         IO.sleep(10)
         poll(application, admin)
 
-def running(controlled: H.Server<Control> & H.ServerControl, server: C.Server<U.Action, U.State, U.Config, String>, stop: H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
+def running(controlled: Http.Server<Control> & Http.ServerControl, server: C.Server<U.Action, U.State, U.Config, String>, stop: Http.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
   (admin, admin_stop) = controlled
   do IO<Unit>:
     watcher : Chan(Unit) <- IO.fork(Unit, poll(stop, admin_stop))
     future : Chan(C.ServerExit<U.Action, U.State, U.Config, String>) <- IO.fork(C.ServerExit<U.Action, U.State, U.Config, String>,
       C.server.run(~U.Action, ~U.State, ~U.Config, ~String, ~String, ~Demo.done, ~Demo.observed, ~U.notify, ~U.report, ~C.access.disabled(~U.Config), server))
     IO.print("READY DEDICATED USERS")
-    admin_exit : H.ServerExit <- H.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), admin)
+    admin_exit : Pure.ServerExit <- Http.server.run(~Control, ~control, ~(context => status => outcome => T.ignore(status, outcome)), admin)
     IO.join(Unit, watcher)
     exited : C.ServerExit<U.Action, U.State, U.Config, String> <- IO.join(C.ServerExit<U.Action, U.State, U.Config, String>, future)
     Demo.server.closed(exited)
@@ -146,10 +147,10 @@ def running(controlled: H.Server<Control> & H.ServerControl, server: C.Server<U.
     IO.print("ADMIN OWNER COMPLETED")
     IO.print("NATURAL EXIT READY")
 
-def admin.started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Control>>, server: C.Server<U.Action, U.State, U.Config, String>, stop: H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
+def admin.started(result: Unit & Result<&2, &1, Pure.StartupError, Http.Server<Control>>, server: C.Server<U.Action, U.State, U.Config, String>, stop: Http.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>) -> IO(Unit):
   (unit, started) = result
   match started:
-    case Done{admin}: running(H.server.control(~Control, admin), server, stop, owner)
+    case Done{admin}: running(Http.server.control(~Control, admin), server, stop, owner)
     case Fail{error}:
       do IO<Unit>:
         exited : C.ServerExit<U.Action, U.State, U.Config, String> <- C.server.close(~U.Action, ~U.State, ~U.Config, ~String, server)
@@ -158,10 +159,10 @@ def admin.started(result: Unit & Result<&2, &1, H.StartupError, H.Server<Control
         Demo.store.closed(closed)
         IO.die(Unit, 1, "private admin startup failed")
 
-def server.controlled(controlled: C.Server<U.Action, U.State, U.Config, String> & H.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, admin_port: U32) -> IO(Unit):
+def server.controlled(controlled: C.Server<U.Action, U.State, U.Config, String> & Http.ServerControl, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, admin_port: U32) -> IO(Unit):
   (server, stop) = controlled
   do IO<Unit>:
-    result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <- H.server.start(~Control, ~Unit, Control{}, Unit{}, C.server.config(admin_port))
+    result : Unit & Result<&2, &1, Pure.StartupError, Http.Server<Control>> <- Http.server.start(~Control, ~Unit, Control{}, Unit{}, C.server.config(admin_port))
     admin.started(result, server, stop, owner)
 
 def server.started(result: Result<&2, &1, C.StartupError, C.Server<U.Action, U.State, U.Config, String>>, owner: C.Owner<U.Store, U32, U.Operation, String, U.User>, admin_port: U32) -> IO(Unit):

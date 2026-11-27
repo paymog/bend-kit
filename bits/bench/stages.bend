@@ -77,6 +77,24 @@ def consume.retained(~O: Type, ~consume: O -> U32, r: List<&2, Bits.Code> & O) -
   (xs, value) = r
   (consume.codes(xs) + consume(value) : U32)
 
+def cumulative.count(lens: List<&2, U32>) -> List<&2, Bits.Code> & Array<U32>:
+  +xs = Bits.codes(lens, 0)
+  (xs, count(xs))
+
+def cumulative.next.done(r: List<&2, Bits.Code> & Array<U32>) -> List<&2, Bits.Code> & (Array<U32> & Bool):
+  (xs, c) = r
+  (xs, next(c))
+
+def cumulative.next(lens: List<&2, U32>) -> List<&2, Bits.Code> & (Array<U32> & Bool):
+  cumulative.next.done(cumulative.count(lens))
+
+def cumulative.reserve.done(state: List<&2, Bits.Code> & (Array<U32> & Bool)) -> List<&2, Bits.Code> & (Array<U32> & Array<U32> & Array<U32>):
+  (xs, r) = state
+  retained.reserve((xs, starts(r)))
+
+def cumulative.reserve(lens: List<&2, U32>) -> List<&2, Bits.Code> & (Array<U32> & Array<U32> & Array<U32>):
+  cumulative.reserve.done(cumulative.next(lens))
+
 def prepare(~T: Type, ~make: Unit -> T, k: Nat) -> List<T>:
   match k:
     case 0n:
@@ -128,6 +146,12 @@ def repeat(k: Nat, +n: Nat, +scale: U32) -> IO(Unit):
         sample(~Array<U32>, ~(Array<U32> & Bool), ~counts, ~next, ~consume.next, n, "next", (scale * 32767 : U32))
         sample(~(List<&2, Bits.Code> & Array<U32>), ~(List<&2, Bits.Code> & (Array<U32> & Array<U32> & Array<U32>)), ~reserve.input, ~retained.reserve, ~(r => consume.retained(~(Array<U32> & Array<U32> & Array<U32>), ~consume.reserve, r)), n, "reserve", (scale * 69389 : U32))
         sample(~(List<&2, Bits.Code> & (Array<U32> & Array<U32> & Array<U32>)), ~(List<&2, Bits.Code> & Bits.Huff), ~assign.input, ~retained.assign, ~(r => consume.retained(~Bits.Huff, ~consume.assign, r)), n, "assign", (scale * 36600 : U32))
+        sample(~Array<U32>, ~(Array<U32> & Bool), ~counts, ~next, ~consume.next, 10000n, "next-10000", 327670000)
+        sample(~Array<U32>, ~(Array<U32> & Bool), ~counts, ~next, ~consume.next, 100000n, "next-100000", 3276700000)
+        sample(~List<&2, U32>, ~(List<&2, Bits.Code> & Array<U32>), ~(u => Build.lens()), ~cumulative.count, ~(r => consume.retained(~Array<U32>, ~consume.array, r)), n, "through-count", (scale * 36847 : U32))
+        sample(~List<&2, U32>, ~(List<&2, Bits.Code> & (Array<U32> & Bool)), ~(u => Build.lens()), ~cumulative.next, ~(r => consume.retained(~(Array<U32> & Bool), ~consume.next, r)), n, "through-next", (scale * 69359 : U32))
+        sample(~List<&2, U32>, ~(List<&2, Bits.Code> & (Array<U32> & Array<U32> & Array<U32>)), ~(u => Build.lens()), ~cumulative.reserve, ~(r => consume.retained(~(Array<U32> & Array<U32> & Array<U32>), ~consume.reserve, r)), n, "through-reserve", (scale * 69389 : U32))
+        sample(~List<&2, U32>, ~Maybe<&1, Bits.Huff>, ~(u => Build.lens()), ~(lens => Bits.Huff.from_lens(False{}, lens)), ~Profile.batch.code, n, "pipeline", (scale * 8 : U32))
         t0 : Time.Duration <- Time.mono()
         +sum : U32 = Profile.batch.loop(n, 0)
         t1 : Time.Duration <- Time.mono()

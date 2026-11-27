@@ -1,16 +1,17 @@
 # Four-route users demo over published Camber; one affine in-memory store, no persistence claim.
 import Base
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-camber@0.17.0.1/input.bend as Input
-import bend-kit-camber@0.17.0.1/notices.bend as N
-import bend-kit-http@0.40.0.1/http.bend as H
-import bend-kit-json@0.7.3.0/json.bend as J
+import bend-kit-camber@0.19.0.2/camber.bend as C
+import bend-kit-camber@0.19.0.2/input.bend as Input
+import bend-kit-camber@0.19.0.2/notices.bend as N
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-json@0.7.3.2/json.bend as J
 import bend-kit-router@0.2.0.0/target.bend as Target
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 
-def port(~K: Data, observed: H.Server<K> & U32) -> IO(H.Server<K>):
+def port(~K: Data, observed: Http.Server<K> & U32) -> IO(Http.Server<K>):
   (server, bound_port) = observed
-  do IO<H.Server<K>>:
+  do IO<Http.Server<K>>:
     IO.print("PORT " ++ U32.show(bound_port))
     return server
 
@@ -215,12 +216,12 @@ def before.root(state: State, config: Config, +headers: Map<&2, List<&2, String>
   Config{store, gate, +fault} = config
   do IO<C.Step<State, String>>:
     require(clean(principal), "request began with stale principal")
-    return C.Continue{State{None{}, H.header(headers, "x-case"), String.eq(fault, "testing") && String.eq(H.header(headers, "x-store-fail"), "yes"), String.eq(fault, "testing") && String.eq(H.header(headers, "x-hold"), "yes")}}
+    return C.Continue{State{None{}, Pure.header(headers, "x-case"), String.eq(fault, "testing") && String.eq(Pure.header(headers, "x-store-fail"), "yes"), String.eq(fault, "testing") && String.eq(Pure.header(headers, "x-hold"), "yes")}}
 
 def before.selected(hook: String, state: State, config: Config, +headers: Map<&2, List<&2, String>>) -> IO(C.Step<State, String>):
   match hook:
     case "root": before.root(state, config, headers)
-    case "group": authenticated(state, credential(H.header(headers, "authorization")))
+    case "group": authenticated(state, credential(Pure.header(headers, "authorization")))
     case _: IO.pure(C.Step<State, String>, C.Continue{state})
 
 def before.go(+hook: String, state: State, +config: Config, meta: C.Metadata) -> IO(C.Step<State, String>):
@@ -232,33 +233,33 @@ def before.go(+hook: String, state: State, +config: Config, meta: C.Metadata) ->
 def before(hook: String, state: State, config: Config, meta: C.Metadata) -> IO(C.Step<State, String>):
   before.go(hook, state, config, meta)
 
-def after.selected(fail: Bool, state: State, response: H.Res) -> State & Result<&2, &1, C.Error<String>, H.Res>:
+def after.selected(fail: Bool, state: State, response: Pure.Res) -> State & Result<&2, &1, C.Error<String>, Pure.Res>:
   match fail:
     case True{}: (clear(state), Fail{C.ApplicationError{"transform failure"}})
     case False{}: (clear(state), Done{response})
 
-def after.go(+hook: String, state: State, +config: Config, response: H.Res) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def after.go(+hook: String, state: State, +config: Config, response: Pure.Res) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   Config{store, gate, fault} = config
-  H.Res{status, headers, body} = response
-  do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+  Pure.Res{status, headers, body} = response
+  do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
     trace(config, x => IO.print("TRANSFORM " ++ hook))
     return after.selected(String.eq(fault, "transform") && String.eq(hook, "route"), state,
-      H.Res{status, H.set(headers, "x-" ++ hook, "yes"), body})
+      Pure.Res{status, Pure.set(headers, "x-" ++ hook, "yes"), body})
 
-def after(hook: String, state: State, config: Config, response: H.Res) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def after(hook: String, state: State, config: Config, response: Pure.Res) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   after.go(hook, state, config, response)
 
-def mapped(error: C.Error<String>) -> H.Res:
+def mapped(error: C.Error<String>) -> Pure.Res:
   match error:
-    case C.Framework{401, allow}: H.Res{401, H.set(H.empty(), "www-authenticate", "Bearer"), H.from_string("")}
+    case C.Framework{401, allow}: Pure.Res{401, Pure.set(Pure.empty(), "www-authenticate", "Bearer"), Pure.from_string("")}
     case C.Framework{503, allow}: C.text(503, "store unavailable")
     case C.ApplicationError{"not found"}: C.default.error(~String, C.Framework{404, ""})
     case C.ApplicationError{other}: C.default.error(~String, C.ApplicationError{other})
     case C.Framework{status, allow}: C.default.error(~String, C.Framework{status, allow})
     case C.ResponseInvalid{}: C.default.error(~String, C.ResponseInvalid{})
 
-def mapper(state: State, config: Config, error: C.Error<String>) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
-  do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+def mapper(state: State, config: Config, error: C.Error<String>) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
+  do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
     trace(config, x => IO.print("MAPPER"))
     return (clear(state), Done{mapped(error)})
 
@@ -281,89 +282,89 @@ def name.object(value: J.Val) -> Result<&2, &1, U32, String>:
     case J.Obj{(key, J.Str{text}) <> Nil{}}: name.field(Input.utf8(key), Input.utf8(text))
     case _: Fail{400}
 
-def decode.new(config: Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> Result<&2, &1, C.Error<String>, String>:
-  H.Req{method, target, headers, body} = req
+def decode.new(config: Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> Result<&2, &1, C.Error<String>, String>:
+  Pure.Req{method, target, headers, body} = req
   C.input(~String, ~String, do Result<&2, &1, U32, String>:
     value : J.Val <- Input.json(headers, body)
     name.object(value))
 
-def decode.id(config: Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> Result<&2, &1, C.Error<String>, U32>:
+def decode.id(config: Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> Result<&2, &1, C.Error<String>, U32>:
   C.Match{Target.Target{segments, query, authority, star}, params, groups, method, pattern, policies} = selected
   C.input(~U32, ~String, Input.path(~U32, ~Input.u32, params, "id"))
 
-def user.location.put(id: U32, response: H.Res) -> H.Res:
-  H.Res{status, headers, body} = response
-  H.Res{status, H.set(headers, "location", "/users/" ++ U32.show(id)), body}
+def user.location.put(id: U32, response: Pure.Res) -> Pure.Res:
+  Pure.Res{status, headers, body} = response
+  Pure.Res{status, Pure.set(headers, "location", "/users/" ++ U32.show(id)), body}
 
-def user.location(created: Bool, id: U32, response: H.Res) -> H.Res:
+def user.location(created: Bool, id: U32, response: Pure.Res) -> Pure.Res:
   match created:
     case True{}: user.location.put(id, response)
     case False{}: response
 
-def user.response(+created: Bool, user: User) -> H.Res:
+def user.response(+created: Bool, user: User) -> Pure.Res:
   User{+id, name, secret} = user
   user.location(created, id, C.json(~User, ~public, Bool.pick(U32, created, 201, 200), User{id, name, secret}))
 
-def returned(state: State, created: Bool, result: C.Outcome<String, User>) -> State & Result<&2, &1, C.Error<String>, H.Res>:
+def returned(state: State, created: Bool, result: C.Outcome<String, User>) -> State & Result<&2, &1, C.Error<String>, Pure.Res>:
   match result:
     case C.Success{user}: (clear(state), Done{user.response(created, user)})
     case C.Expected{error}: (clear(state), Fail{C.ApplicationError{error}})
     case C.Exhausted{}: (clear(state), Fail{C.Framework{503, ""}})
     case C.Stopped{}: (clear(state), Fail{C.Framework{503, ""}})
 
-def business.principal(principal: Maybe<&2, U32>, state: State, config: Config, operation: Operation, created: Bool) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def business.principal(principal: Maybe<&2, U32>, state: State, config: Config, operation: Operation, created: Bool) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   match principal:
-    case None{}: IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (clear(state), Fail{C.Framework{401, ""}}))
+    case None{}: IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (clear(state), Fail{C.Framework{401, ""}}))
     case Some{id}:
       Config{store, gate, fault} = config
-      do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+      do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
         result : C.Outcome<String, User> <- C.call(Store, U32, Operation, String, User, store, id, operation)
         return returned(state, created, result)
 
-def business(state: State, config: Config, operation: Operation, created: Bool) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def business(state: State, config: Config, operation: Operation, created: Bool) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   State{+principal, label, fail, hold} = state
   business.principal(principal, State{principal, label, fail, hold}, config, operation, created)
 
-def lookup(state: State, config: Config, id: U32) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def lookup(state: State, config: Config, id: U32) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   State{principal, label, +fail, hold} = state
   business(State{principal, label, fail, hold}, config, Lookup{id, fail}, False{})
 
-def create(state: State, config: Config, name: String) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def create(state: State, config: Config, name: String) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   business(state, config, Create{name}, True{})
 
-def me(principal: Maybe<&2, U32>, state: State, config: Config) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def me(principal: Maybe<&2, U32>, state: State, config: Config) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   match principal:
-    case None{}: IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (clear(state), Fail{C.Framework{401, ""}}))
+    case None{}: IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (clear(state), Fail{C.Framework{401, ""}}))
     case Some{id}: lookup(state, config, id)
 
-def plain.response(fault: String, body: H.Body) -> H.Res:
+def plain.response(fault: String, body: Pure.Body) -> Pure.Res:
   match fault:
-    case "crlf": H.Res{201, H.set(H.empty(), "x-invalid", "PRIVATE\r\ninjected: yes"), body}
-    case "framing": H.Res{201, H.set(H.empty(), "transfer-encoding", "chunked"), body}
-    case _: H.Res{201, H.set(H.empty(), "x-plain", "packed"), body}
+    case "crlf": Pure.Res{201, Pure.set(Pure.empty(), "x-invalid", "PRIVATE\r\ninjected: yes"), body}
+    case "framing": Pure.Res{201, Pure.set(Pure.empty(), "transfer-encoding", "chunked"), body}
+    case _: Pure.Res{201, Pure.set(Pure.empty(), "x-plain", "packed"), body}
 
-def plain(req: H.Req) -> IO(H.Res):
-  H.Req{method, target, headers, body} = req
-  IO.pure(H.Res, plain.response(H.header(headers, "x-invalid"), body))
+def plain(req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, target, headers, body} = req
+  IO.pure(Pure.Res, plain.response(Pure.header(headers, "x-invalid"), body))
 
-def plain.result(state: State, result: Result<&2, &1, C.ResponseError, H.Res>) -> State & Result<&2, &1, C.Error<String>, H.Res>:
+def plain.result(state: State, result: Result<&2, &1, C.ResponseError, Pure.Res>) -> State & Result<&2, &1, C.Error<String>, Pure.Res>:
   match result:
     case Done{res}: (clear(state), Done{res})
     case Fail{err}: (clear(state), Fail{C.ResponseInvalid{}})
 
-def run.me(state: State, config: Config) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def run.me(state: State, config: Config) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   State{+principal, label, fail, hold} = state
   me(principal, State{principal, label, fail, hold}, config)
 
-def run.selected(action: Action, state: State, config: Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def run.selected(action: Action, state: State, config: Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   match action:
-    case Health{}: IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (clear(state), Done{C.json(~Unit, ~(x => J.Obj{[(J.utf8("ok"), J.Flag{True{}})]}), 200, Unit{})}))
+    case Health{}: IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (clear(state), Done{C.json(~Unit, ~(x => J.Obj{[(J.utf8("ok"), J.Flag{True{}})]}), 200, Unit{})}))
     case ById{}: C.execute(~U32, ~State, ~Config, ~String, ~String, ~decode.id, ~lookup, state, config, selected, req)
     case New{}: C.execute(~String, ~State, ~Config, ~String, ~String, ~decode.new, ~create, state, config, selected, req)
     case Me{}: run.me(state, config)
     case Plain{}:
-      do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
-        result : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, req)
+      do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
+        result : Result<&2, &1, C.ResponseError, Pure.Res> <- C.plain(~plain, req)
         return plain.result(state, result)
 
 def wait.gate(gate: Gate) -> IO(Unit):
@@ -398,21 +399,21 @@ def query.values(values: List<&2, String>) -> IO(Unit):
 def observe(selected: C.Match<C.Policy<String>>, headers: Map<&2, List<&2, String>>) -> IO(Unit):
   C.Match{Target.Target{segments, query, authority, star}, params, groups, method, pattern, policies} = selected
   do IO<Unit>:
-    IO.print("HOST " ++ H.header(headers, "host"))
+    IO.print("HOST " ++ Pure.header(headers, "host"))
     query.values(Input.query.values(query, "tag"))
 
-def run.go(+action: Action, state: State, +config: Config, +selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def run.go(+action: Action, state: State, +config: Config, +selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   State{principal, +label, fail, +hold} = state
   Config{store, +gate, fault} = config
-  H.Req{method, target, +headers, body} = req
-  do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+  Pure.Req{method, target, +headers, body} = req
+  do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
     trace(config, x => do IO<Unit>:
       IO.print(phase(action) ++ " " ++ label)
       observe(selected, headers))
     wait(hold, gate)
-    run.selected(action, State{principal, label, fail, hold}, config, selected, H.Req{method, target, headers, body})
+    run.selected(action, State{principal, label, fail, hold}, config, selected, Pure.Req{method, target, headers, body})
 
-def run(action: Action, state: State, config: Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def run(action: Action, state: State, config: Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   run.go(action, state, config, selected, req)
 
 # Both insertion orders describe the same four routes; the plain fixture is separate.

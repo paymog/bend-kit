@@ -1,12 +1,13 @@
 import Base
 import ./webhooks.bend as W
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/admission.bend as Admission
-import bend-kit-http@0.40.0.1/completion.bend as Completion
-import bend-kit-time@0.3.0.1/time.bend as Time
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-http@0.45.0.2/admission.bend as Admission
+import bend-kit-http@0.45.0.2/completion.bend as Completion
+import bend-kit-time@0.3.0.5/pure.bend as Time
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 # HMAC and the constant-time compare need libcrypto, so actual sign and verify run here; LAWS.bend covers framing.
@@ -151,48 +152,48 @@ def github.h() -> Map<&2, List<&2, String>>:
 def secret() -> String:
   std.key()
 
-def respond(status: U32) -> IO(Http.Res):
-  IO.pure(Http.Res, Http.Res{status, Http.set(Http.set(Http.empty(), "connection", "close"), "retry-after", "0"), Bytes.new(0)})
+def respond(status: U32) -> IO(HttpPure.Res):
+  IO.pure(HttpPure.Res, HttpPure.Res{status, HttpPure.set(HttpPure.set(HttpPure.empty(), "connection", "close"), "retry-after", "0"), Bytes.new(0)})
 
-def verified.id(status: U32, ok: Bool) -> IO(Http.Res):
+def verified.id(status: U32, ok: Bool) -> IO(HttpPure.Res):
   match ok:
     case False{}:
-      IO.die(Http.Res, 1, "FAIL the event ID changed between attempts")
+      IO.die(HttpPure.Res, 1, "FAIL the event ID changed between attempts")
     case True{}:
       respond(status)
 
-def verified(status: U32, r: Bytes.Bytes & Result<&1, &1, W.Err, String>) -> IO(Http.Res):
+def verified(status: U32, r: Bytes.Bytes & Result<&1, &1, W.Err, String>) -> IO(HttpPure.Res):
   (body, result) = r
   match result:
     case Fail{e}:
-      IO.die(Http.Res, 1, "FAIL the receiver rejected the signature: " ++ name(e))
+      IO.die(HttpPure.Res, 1, "FAIL the receiver rejected the signature: " ++ name(e))
     case Done{id}:
       verified.id(status, String.eq(id, "msg_local_1"))
 
-def handle(status: U32, req: Http.Req) -> IO(Http.Res):
-  Http.Req{method, path, +headers, body} = req
-  do IO<Http.Res>:
-    now : Time.Instant <- Time.now()
+def handle(status: U32, req: HttpPure.Req) -> IO(HttpPure.Res):
+  HttpPure.Req{method, path, +headers, body} = req
+  do IO<HttpPure.Res>:
+    now : Time.Instant <- Http.clock.now()
     r : Bytes.Bytes & Result<&1, &1, W.Err, String> <- W.verify([secret()], now, headers, body)
     verified(status, r)
 
-def s.busy(req: Http.Req) -> IO(Http.Res):
+def s.busy(req: HttpPure.Req) -> IO(HttpPure.Res):
   handle(501, req)
 
-def s.accepted(req: Http.Req) -> IO(Http.Res):
+def s.accepted(req: HttpPure.Req) -> IO(HttpPure.Res):
   handle(200, req)
 
-def wrap(op: IO(Http.Res)) -> IO(Http.Reply):
+def wrap(op: IO(HttpPure.Res)) -> IO(Http.Reply):
   do IO<Http.Reply>:
-    res : Http.Res <- op
+    res : HttpPure.Res <- op
     return Http.Reply{res, Completion.Unobserved{}}
 
 def serve.one(k: Bool, +inbox: Chan(Admission.Command), a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   match k:
     case True{}:
-      Http.conn(~(req => wrap(s.accepted(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => wrap(s.accepted(req))), ~Completion.ignore, HttpPure.limits(1048576n), inbox, a)
     case False{}:
-      Http.conn(~(req => wrap(s.busy(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => wrap(s.busy(req))), ~Completion.ignore, HttpPure.limits(1048576n), inbox, a)
 
 def serve.go(ks: List<&2, Bool>, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
   match ks:
@@ -225,7 +226,7 @@ def served(+label: String, ch: Chan(Unit)) -> IO(Unit):
     m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
     served.of(label, m)
 
-def status(r: Result<&1, &1, W.SendErr, Http.Res>) -> String:
+def status(r: Result<&1, &1, W.SendErr, HttpPure.Res>) -> String:
   match r:
     case Fail{W.SendSign{e}}:
       "SendSign " ++ name(e)
@@ -234,16 +235,16 @@ def status(r: Result<&1, &1, W.SendErr, Http.Res>) -> String:
     case Fail{W.SendNet{Hairpin.ErrDenied{why}}}:
       "SendNet ErrDenied"
     case Done{res}:
-      Http.Res{+s, h, b} = res
+      HttpPure.Res{+s, h, b} = res
       U32.show(s)
 
-def sent(+label: String, +want: String, x: Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res>) -> IO(Hairpin.Client):
+def sent(+label: String, +want: String, x: Hairpin.Client & Result<&1, &1, W.SendErr, HttpPure.Res>) -> IO(Hairpin.Client):
   (c, r) = x
   do IO<Hairpin.Client>:
     same(label, want, status(r))
     return c
 
-def sent.in(+label: String, +want: String, x: Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res>) ->
+def sent.in(+label: String, +want: String, x: Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, HttpPure.Res>) ->
     IO(Hairpin.Client & Retry.Budget):
   (c, b, r) = x
   do IO<Hairpin.Client & Retry.Budget>:
@@ -256,7 +257,7 @@ def url(+port: U32) -> String:
 def body() -> Bytes.Bytes:
   Bytes.from_string("{\"test\": 2432232314}")
 
-def again(+port: U32, x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res>):
+def again(+port: U32, x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, HttpPure.Res>):
   (c, b) = x
   W.send.in(c, b, url(port), "msg_local_1", secret(), body())
 
@@ -270,12 +271,12 @@ def deliveries.on(b: Listener & U32) -> IO(Unit):
   (l, +port) = b
   do IO<Unit>:
     ch : Chan(Unit) <- IO.fork(Unit, serve([False{}, True{}, False{}, False{}, False{}], l))
-    r1 : Hairpin.Client & Result<&1, &1, W.SendErr, Http.Res> <- W.send(Hairpin.new(), url(port), "msg_local_1", secret(), body())
+    r1 : Hairpin.Client & Result<&1, &1, W.SendErr, HttpPure.Res> <- W.send(Hairpin.new(), url(port), "msg_local_1", secret(), body())
     c1 : Hairpin.Client <- sent("send: a 501 retried to a verified 200", "200", r1)
-    r2 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res> <-
+    r2 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, HttpPure.Res> <-
       W.send.in(Hairpin.retry(c1, 2), Retry.Budget.new(3n, 0n, None{}), url(port), "msg_local_1", secret(), body())
     x2 : Hairpin.Client & Retry.Budget <- sent.in("send.in: the first delivery takes the 3 attempts", "501", r2)
-    r3 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, Http.Res> <- again(port, x2)
+    r3 : Hairpin.Client & Retry.Budget & Result<&1, &1, W.SendErr, HttpPure.Res> <- again(port, x2)
     x3 : Hairpin.Client & Retry.Budget <- sent.in("send.in: the second delivery is denied, the budget is spent", "SendNet ErrDenied", r3)
     Hairpin.close(drop(x3))
     served("deliveries: 2 + 3 attempts", ch)

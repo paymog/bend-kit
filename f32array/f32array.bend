@@ -1,6 +1,6 @@
 # Packed F32 arrays: get, set, slice, concat, map, fold, zip, dot, sum, max, and little- or big-endian Bytes and files. Source: https://github.com/paymog/bend-kit/tree/main/f32array
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # Eight elements per Array slot, so one access reads or writes eight.
 type Cell is Data:
@@ -625,3 +625,107 @@ def dot.compensated(a: F32Array, b: F32Array) -> F32Array & F32Array & Maybe<&2,
   F32Array{+la, xa} = a
   F32Array{+lb, ya} = b
   dot.compensated.if(U32.is_eq(la, lb), la, xa, lb, ya)
+
+def compensated.merge(left: Compensated, right: Compensated) -> Compensated:
+  Compensated{s, c} = right
+  compensated.add(compensated.add(left, s), c)
+
+type CompensatedLanes is Data:
+  CompensatedLanes{a: Compensated, b: Compensated, c: Compensated, d: Compensated}
+
+def compensated.lanes.zero() -> CompensatedLanes:
+  CompensatedLanes{Compensated{0.0, 0.0}, Compensated{0.0, 0.0}, Compensated{0.0, 0.0}, Compensated{0.0, 0.0}}
+
+def compensated.lanes(acc: CompensatedLanes, cell: Cell) -> CompensatedLanes:
+  CompensatedLanes{a, b, c, d} = acc
+  Cell{x0, x1, x2, x3, x4, x5, x6, x7} = cell
+  CompensatedLanes{compensated.add(compensated.add(a, x0), x4), compensated.add(compensated.add(b, x1), x5), compensated.add(compensated.add(c, x2), x6), compensated.add(compensated.add(d, x3), x7)}
+
+def compensated.lanes.merge(acc: CompensatedLanes) -> Compensated:
+  CompensatedLanes{a, b, c, d} = acc
+  compensated.merge(compensated.merge(a, b), compensated.merge(c, d))
+
+def sum.compensated.blocked.leaf(n: Nat, r: Array<Cell> & Cell, +i: U32, acc: CompensatedLanes) -> Array<Cell> & Compensated:
+  match n:
+    case 0n:
+      (a, c) = r
+      (a, compensated.lanes.merge(acc))
+    case 1n+p:
+      (a, c) = r
+      +j = (i + 1 : U32)
+      sum.compensated.blocked.leaf(p, Array.get(Cell, a, j), j, compensated.lanes(acc, c))
+
+def sum.compensated.blocked.merge(left: Compensated, r: Array<Cell> & Compensated) -> Array<Cell> & Compensated:
+  (a, right) = r
+  (a, compensated.merge(left, right))
+
+def sum.compensated.blocked.right(next: Array<Cell> -> Array<Cell> & Compensated, r: Array<Cell> & Compensated) -> Array<Cell> & Compensated:
+  (a, left) = r
+  sum.compensated.blocked.merge(left, next(a))
+
+def sum.compensated.blocked.range(d: Nat, +n: U32, +i: U32, a: Array<Cell>) -> Array<Cell> & Compensated:
+  match d:
+    case 0n:
+      sum.compensated.blocked.leaf(U32.to_nat(n), Array.get(Cell, a, i), i, compensated.lanes.zero())
+    case 1n+ +p:
+      +h = (n >> 1n : U32)
+      sum.compensated.blocked.right(a => sum.compensated.blocked.range(p, h, (i + h : U32), a), sum.compensated.blocked.range(p, h, i, a))
+
+def sum.compensated.blocked.fin(+len: U32, r: Array<Cell> & Compensated) -> F32Array & F32:
+  (a, acc) = r
+  (F32Array{len, a}, compensated.total(acc))
+
+# Neumaier leaves of at most 16 cells; merge each right sum, then correction, into the left state.
+def sum.compensated.blocked(a: F32Array) -> F32Array & F32:
+  F32Array{+len, buf} = a
+  sum.compensated.blocked.fin(len, sum.compensated.blocked.range(Nat.sub(Bytes.depth(cells(len)), 4n), (1 << Bytes.depth(cells(len)) : U32), 0, buf))
+
+def dot.compensated.blocked.cell(a: Cell, b: Cell, acc: CompensatedLanes) -> CompensatedLanes:
+  Cell{x0, x1, x2, x3, x4, x5, x6, x7} = a
+  Cell{y0, y1, y2, y3, y4, y5, y6, y7} = b
+  compensated.lanes(acc, Cell{(x0 * y0 : F32), (x1 * y1 : F32), (x2 * y2 : F32), (x3 * y3 : F32), (x4 * y4 : F32), (x5 * y5 : F32), (x6 * y6 : F32), (x7 * y7 : F32)})
+
+def dot.compensated.blocked.leaf(n: Nat, r: Array<Cell> & Cell, s: Array<Cell> & Cell, +i: U32, acc: CompensatedLanes) -> Array<Cell> & Array<Cell> & Compensated:
+  match n:
+    case 0n:
+      (a, x) = r
+      (b, y) = s
+      (a, b, compensated.lanes.merge(acc))
+    case 1n+p:
+      (a, x) = r
+      (b, y) = s
+      +j = (i + 1 : U32)
+      dot.compensated.blocked.leaf(p, Array.get(Cell, a, j), Array.get(Cell, b, j), j, dot.compensated.blocked.cell(x, y, acc))
+
+def dot.compensated.blocked.merge(left: Compensated, r: Array<Cell> & Array<Cell> & Compensated) -> Array<Cell> & Array<Cell> & Compensated:
+  (a, b, right) = r
+  (a, b, compensated.merge(left, right))
+
+def dot.compensated.blocked.right(next: Array<Cell> -> Array<Cell> -> Array<Cell> & Array<Cell> & Compensated, r: Array<Cell> & Array<Cell> & Compensated) -> Array<Cell> & Array<Cell> & Compensated:
+  (a, b, left) = r
+  dot.compensated.blocked.merge(left, next(a, b))
+
+def dot.compensated.blocked.range(d: Nat, +n: U32, +i: U32, a: Array<Cell>, b: Array<Cell>) -> Array<Cell> & Array<Cell> & Compensated:
+  match d:
+    case 0n:
+      dot.compensated.blocked.leaf(U32.to_nat(n), Array.get(Cell, a, i), Array.get(Cell, b, i), i, compensated.lanes.zero())
+    case 1n+ +p:
+      +h = (n >> 1n : U32)
+      dot.compensated.blocked.right(a => b => dot.compensated.blocked.range(p, h, (i + h : U32), a, b), dot.compensated.blocked.range(p, h, i, a, b))
+
+def dot.compensated.blocked.fin(+la: U32, +lb: U32, r: Array<Cell> & Array<Cell> & Compensated) -> F32Array & F32Array & Maybe<&2, F32>:
+  (a, b, acc) = r
+  (F32Array{la, a}, F32Array{lb, b}, Some{compensated.total(acc)})
+
+def dot.compensated.blocked.if(same: Bool, +la: U32, a: Array<Cell>, +lb: U32, b: Array<Cell>) -> F32Array & F32Array & Maybe<&2, F32>:
+  match same:
+    case True{}:
+      dot.compensated.blocked.fin(la, lb, dot.compensated.blocked.range(Nat.sub(Bytes.depth(cells(la)), 4n), (1 << Bytes.depth(cells(la)) : U32), 0, a, b))
+    case False{}:
+      (F32Array{la, a}, F32Array{lb, b}, None{})
+
+# F32 products, with the same bounded Neumaier leaves and fixed merge order as sum.compensated.blocked.
+def dot.compensated.blocked(a: F32Array, b: F32Array) -> F32Array & F32Array & Maybe<&2, F32>:
+  F32Array{+la, a} = a
+  F32Array{+lb, b} = b
+  dot.compensated.blocked.if(U32.is_eq(la, lb), la, a, lb, b)

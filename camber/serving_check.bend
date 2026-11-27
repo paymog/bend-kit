@@ -2,10 +2,11 @@
 import Base
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.40.0.1/http.bend as H
-import bend-kit-http@0.40.0.1/completion.bend as T
-import bend-kit-json@0.7.3.0/json.bend as J
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-http@0.45.0.2/http.bend as H
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.2/completion.bend as T
+import bend-kit-json@0.7.3.2/json.bend as J
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 
 def port(~K: Data, observed: H.Server<K> & U32) -> IO(H.Server<K>):
   (server, bound_port) = observed
@@ -47,57 +48,57 @@ def before(hook: String, file: File, config: Config, meta: C.Metadata) -> IO(C.S
   match hook:
     case "auth":
       C.Metadata{method, target, headers} = meta
-      authenticate(H.header(headers, "x-deny"), file)
+      authenticate(Pure.header(headers, "x-deny"), file)
     case _: IO.pure(C.Step<File, Unit>, C.Continue{file})
 
-def after(hook: String, file: File, config: Config, response: H.Res) -> IO(File & Result<&2, &1, C.Error<Unit>, H.Res>):
-  H.Res{status, headers, body} = response
-  IO.pure(File & Result<&2, &1, C.Error<Unit>, H.Res>, (file, Done{H.Res{status, H.set(headers, "x-" ++ hook, "yes"), body}}))
+def after(hook: String, file: File, config: Config, response: Pure.Res) -> IO(File & Result<&2, &1, C.Error<Unit>, Pure.Res>):
+  Pure.Res{status, headers, body} = response
+  IO.pure(File & Result<&2, &1, C.Error<Unit>, Pure.Res>, (file, Done{Pure.Res{status, Pure.set(headers, "x-" ++ hook, "yes"), body}}))
 
-def mapper.response(file: File, response: H.Res) -> IO(File & Result<&2, &1, C.Error<Unit>, H.Res>):
-  H.Res{status, headers, body} = response
-  IO.pure(File & Result<&2, &1, C.Error<Unit>, H.Res>, (file, Done{H.Res{status, H.set(headers, "x-mapped", "once"), body}}))
+def mapper.response(file: File, response: Pure.Res) -> IO(File & Result<&2, &1, C.Error<Unit>, Pure.Res>):
+  Pure.Res{status, headers, body} = response
+  IO.pure(File & Result<&2, &1, C.Error<Unit>, Pure.Res>, (file, Done{Pure.Res{status, Pure.set(headers, "x-mapped", "once"), body}}))
 
-def mapper(file: File, config: Config, error: C.Error<Unit>) -> IO(File & Result<&2, &1, C.Error<Unit>, H.Res>):
+def mapper(file: File, config: Config, error: C.Error<Unit>) -> IO(File & Result<&2, &1, C.Error<Unit>, Pure.Res>):
   match error:
     case C.Framework{401, allow}: mapper.response(file, C.text(401, "Unauthorized"))
     case _: mapper.response(file, C.default.error(~Unit, error))
 
-def plain(req: H.Req) -> IO(H.Res):
-  H.Req{method, target, headers, body} = req
-  IO.pure(H.Res, H.Res{201, H.set(H.empty(), "x-plain", "packed"), body})
+def plain(req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, target, headers, body} = req
+  IO.pure(Pure.Res, Pure.Res{201, Pure.set(Pure.empty(), "x-plain", "packed"), body})
 
-def plain.result(file: File, result: Result<&2, &1, C.ResponseError, H.Res>) -> File & Result<&2, &1, C.Error<Unit>, H.Res>:
+def plain.result(file: File, result: Result<&2, &1, C.ResponseError, Pure.Res>) -> File & Result<&2, &1, C.Error<Unit>, Pure.Res>:
   match result:
     case Done{response}: (file, Done{response})
     case Fail{error}: (file, Fail{C.ResponseInvalid{}})
 
-def json.result(file: File, result: Result<&2, &1, U32, J.Val>) -> File & Result<&2, &1, C.Error<Unit>, H.Res>:
+def json.result(file: File, result: Result<&2, &1, U32, J.Val>) -> File & Result<&2, &1, C.Error<Unit>, Pure.Res>:
   match result:
     case Done{value}: (file, Done{C.json(~J.Val, ~(x => x), 201, value)})
     case Fail{status}: (file, Fail{C.Framework{status, ""}})
 
-def run(action: U32, file: File, config: Config, selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(File & Result<&2, &1, C.Error<Unit>, H.Res>):
+def run(action: U32, file: File, config: Config, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(File & Result<&2, &1, C.Error<Unit>, Pure.Res>):
   match action:
     case 0:
-      do IO<File & Result<&2, &1, C.Error<Unit>, H.Res>>:
+      do IO<File & Result<&2, &1, C.Error<Unit>, Pure.Res>>:
         returned : File <- record(file, "BUSINESS plain")
-        result : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, req)
+        result : Result<&2, &1, C.ResponseError, Pure.Res> <- C.plain(~plain, req)
         return plain.result(returned, result)
     case 1:
-      H.Req{method, target, headers, body} = req
-      IO.pure(File & Result<&2, &1, C.Error<Unit>, H.Res>, json.result(file, Input.json(headers, body)))
+      Pure.Req{method, target, headers, body} = req
+      IO.pure(File & Result<&2, &1, C.Error<Unit>, Pure.Res>, json.result(file, Input.json(headers, body)))
     case 2:
-      IO.pure(File & Result<&2, &1, C.Error<Unit>, H.Res>, (file, Fail{C.ApplicationError{Unit{}}}))
+      IO.pure(File & Result<&2, &1, C.Error<Unit>, Pure.Res>, (file, Fail{C.ApplicationError{Unit{}}}))
     case 3:
       Config{release} = config
-      do IO<File & Result<&2, &1, C.Error<Unit>, H.Res>>:
+      do IO<File & Result<&2, &1, C.Error<Unit>, Pure.Res>>:
         returned : File <- record(file, "BUSINESS hold")
         IO.print("HELD")
         C.receive(Unit, release)
         return (returned, Done{C.text(200, "released")})
     case _:
-      IO.pure(File & Result<&2, &1, C.Error<Unit>, H.Res>, (file, Done{C.text(action, "suppressed")}))
+      IO.pure(File & Result<&2, &1, C.Error<Unit>, Pure.Res>, (file, Done{C.text(action, "suppressed")}))
 
 def registration(bad: Bool, config: Config) -> Result<&2, &2, C.RegistrationError, C.Application<U32, Config, C.Policy<String>>>:
   match bad:
@@ -164,48 +165,48 @@ type Control is Data:
   Control{stop: H.ServerControl, stats: H.ServerStats, release: Chan(Unit),
     blocked: Maybe<&2, Chan(C.Counts)>, self: Chan(H.ServerControl)}
 
-def counts(result: Maybe<&2, H.ServerCounts>) -> IO(H.Res):
+def counts(result: Maybe<&2, Pure.ServerCounts>) -> IO(Pure.Res):
   match result:
-    case None{}: IO.die(H.Res, 1, "counts unavailable")
-    case Some{H.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br}}:
-      IO.pure(H.Res, C.text(200, U32.show(a) ++ " " ++ U32.show(b)))
+    case None{}: IO.die(Pure.Res, 1, "counts unavailable")
+    case Some{Pure.ServerCounts{c, a, b, ch, ah, bh, cr, ar, br}}:
+      IO.pure(Pure.Res, C.text(200, U32.show(a) ++ " " ++ U32.show(b)))
 
-def control(path: String, context: Control, req: H.Req) -> IO(H.Res):
+def control(path: String, context: Control, req: Pure.Req) -> IO(Pure.Res):
   match path:
     case "/plain": plain(req)
     case "/counts":
       Control{stop, stats, release, blocked, self} = context
-      do IO<H.Res>:
-        snapshot : Maybe<&2, H.ServerCounts> <- H.server.stats(stats)
+      do IO<Pure.Res>:
+        snapshot : Maybe<&2, Pure.ServerCounts> <- H.server.stats(stats)
         counts(snapshot)
     case "/stop":
       Control{stop, stats, release, blocked, self} = context
-      do IO<H.Res>:
+      do IO<Pure.Res>:
         accepted : Bool <- H.server.stop(stop)
         require(accepted, "stop not accepted")
         IO.print("STOP REQUESTED")
         return C.empty(200)
     case "/release":
       Control{stop, stats, gate, blocked, self} = context
-      do IO<H.Res>:
+      do IO<Pure.Res>:
         release(blocked)
         sent : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, gate, Unit{})
         require(Result.is_done(&1, &1, Unit, Unit, sent), "release failed")
         return C.empty(200)
     case "/finish":
       Control{stop, stats, release, blocked, +self} = context
-      do IO<H.Res>:
+      do IO<Pure.Res>:
         accepted : Bool <- H.server.stop(stop)
         own : H.ServerControl <- C.receive(H.ServerControl, self)
         own_stopped : Bool <- H.server.stop(own)
         require(own_stopped, "control stop not accepted")
         return C.empty(200)
-    case _: IO.pure(H.Res, C.empty(404))
+    case _: IO.pure(Pure.Res, C.empty(404))
 
-def control.reply(context: Control, req: H.Req) -> IO(H.Reply):
-  H.Req{method, +path, headers, body} = req
+def control.reply(context: Control, req: Pure.Req) -> IO(H.Reply):
+  Pure.Req{method, +path, headers, body} = req
   do IO<H.Reply>:
-    response : H.Res <- control(path, context, H.Req{method, path, headers, body})
+    response : Pure.Res <- control(path, context, Pure.Req{method, path, headers, body})
     return H.Reply{response, T.Unobserved{}}
 
 def control.running(controlled: H.Server<Control> & H.ServerControl,
@@ -217,7 +218,7 @@ def control.running(controlled: H.Server<Control> & H.ServerControl,
     finished : Chan(C.ServerExit<U32, File, Config, String>) <- IO.fork(C.ServerExit<U32, File, Config, String>,
       C.server.run(~U32, ~File, ~Config, ~String, ~Unit, ~done, ~observe, ~C.notice.ignore(~Config, ~String, ~Unit), ~C.notice.error.ignore(~Config, ~Unit), ~C.access.disabled(~Config), server))
     IO.print("READY")
-    control_exit : H.ServerExit <- H.server.run(~Control, ~control.reply, ~(context => status => outcome => T.ignore(status, outcome)), transport)
+    control_exit : Pure.ServerExit <- H.server.run(~Control, ~control.reply, ~(context => status => outcome => T.ignore(status, outcome)), transport)
     exited : C.ServerExit<U32, File, Config, String> <- IO.join(C.ServerExit<U32, File, Config, String>, finished)
     final(exited)
     Chan.close(Unit, gate)
@@ -225,7 +226,7 @@ def control.running(controlled: H.Server<Control> & H.ServerControl,
     IO.print("CONTROL JOINED")
 
 def control.started(server: C.Server<U32, File, Config, String>, +gate: Chan(Unit),
-  +self: Chan(H.ServerControl), started: Unit & Result<&2, &1, H.StartupError, H.Server<Control>>
+  +self: Chan(H.ServerControl), started: Unit & Result<&2, &1, Pure.StartupError, H.Server<Control>>
 ) -> IO(Unit):
   (owner, result) = started
   match result:
@@ -247,7 +248,7 @@ def application.observed(observed: C.Server<U32, File, Config, String> & H.Serve
   (server, stats) = observed
   do IO<Unit>:
     +self : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
-    control_result : Unit & Result<&2, &1, H.StartupError, H.Server<Control>> <-
+    control_result : Unit & Result<&2, &1, Pure.StartupError, H.Server<Control>> <-
       H.server.start(~Control, ~Unit, Control{stop, stats, gate, blocked, self}, Unit{}, C.server.config(control_port))
     control.started(server, gate, self, control_result)
 
@@ -291,11 +292,11 @@ def started(result: Result<&2, &1, C.StartupError, C.Server<U32, File, Config, S
         transport : H.Server<C.ServingContext<U32, File, Config, String>> <- port(~C.ServingContext<U32, File, Config, String>, H.server.port(~C.ServingContext<U32, File, Config, String>, transport))
         started.ready(C.Server{transport, owner}, mode, config, control_port)
 
-def config.adjust(+mode: String, configured: H.ServerConfig) -> H.ServerConfig:
-  H.ServerConfig{host, p, body, headers, c, a, b, hm, bm, im, wm} = configured
-  H.ServerConfig{host, p, Bool.pick(U32, String.eq(mode, "invalid"), 0, body), headers, 8, 4, 4, hm, bm, im, wm}
+def config.adjust(+mode: String, configured: Pure.ServerConfig) -> Pure.ServerConfig:
+  Pure.ServerConfig{host, p, body, headers, c, a, b, hm, bm, im, wm} = configured
+  Pure.ServerConfig{host, p, Bool.pick(U32, String.eq(mode, "invalid"), 0, body), headers, 8, 4, 4, hm, bm, im, wm}
 
-def config(mode: String, port: U32) -> H.ServerConfig:
+def config(mode: String, port: U32) -> Pure.ServerConfig:
   config.adjust(mode, C.server.config(port))
 
 def start(+mode: String, port: U32, path: String, control_port: U32) -> IO(Unit):
@@ -313,11 +314,11 @@ def headers(names: List<&2, String>, +fields: Map<&2, List<&2, String>>) -> IO(U
     case Nil{}: IO.pure(Unit, Unit{})
     case +name <> rest:
       do IO<Unit>:
-        IO.print("HEADER " ++ name ++ "=" ++ H.header(fields, name))
+        IO.print("HEADER " ++ name ++ "=" ++ Pure.header(fields, name))
         headers(rest, fields)
 
 def direct.completed(result: C.Completion<File, String>) -> IO(Unit):
-  C.Completed{file, H.Res{status, fields, body}, entered, mapped, stopped} = result
+  C.Completed{file, Pure.Res{status, fields, body}, entered, mapped, stopped} = result
   do IO<Unit>:
     IO.print("STATUS " ++ U32.show(status))
     headers(["content-type", "allow", "x-root", "x-group", "x-route", "x-plain", "x-mapped"], fields)
@@ -332,7 +333,7 @@ def direct.ready(app: Result<&2, &2, C.RegistrationError, C.Application<U32, Con
       do IO<Unit>:
         completion : C.Completion<File, String> <- C.dispatch(~U32, ~File, ~Config, ~Unit, ~String, ~Unit, ~before, ~after, ~run, ~mapper,
           ~C.notice.ignore(~Unit, ~String, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}),
-          application, file, H.Req{method, target, H.set(H.set(H.empty(), "content-type", media), "x-deny", deny), packed})
+          application, file, Pure.Req{method, target, Pure.set(Pure.set(Pure.empty(), "content-type", media), "x-deny", deny), packed})
         direct.completed(completion)
     case _ _:
       do IO<Unit>:

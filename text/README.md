@@ -3,10 +3,10 @@
 Myers diff with unified output, Levenshtein distance, and word wrap by display width. Pure Bend.
 
 ```bend
-import bend-kit-text@0.2.2.1/text.bend as Text
+import bend-kit-text@0.2.2.4/text.bend as Text
 ```
 
-`text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend`, `bend-kit-tty@0.1.0.1/text.bend`, and `bend-kit-bytes@0.3.3.1/bytes.bend`.
+`text.bend` imports `bend-kit-unicode@0.1.0.0/unicode.bend`, `bend-kit-tty@0.1.0.2/text.bend`, and `bend-kit-bytes@0.3.3.3/bytes.bend`.
 
 ```bend
 def main() -> IO(Unit):
@@ -40,8 +40,8 @@ Keep each buffer until you finish reading its ranges.
 
 The scan reads packed bytes by index. It creates one range and hash per line,
 not one String cell per character. Myers compares the hashes, then the byte
-ranges verify every match. A hash collision falls back to exact octet-list
-comparison and a new Myers run. Only this fallback allocates per-byte lists.
+ranges verify every match. A hash collision falls back to exact packed-word
+lists and a new Myers run. Each list includes the byte length and partial word.
 The result is a shortest line script, with deletes before inserts.
 The String API and its laws do not change.
 
@@ -56,8 +56,8 @@ This complete caller materializes only the first old line:
 
 ```bend
 import Base
-import bend-kit-text@0.2.2.1/text.bend as Text
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-text@0.2.2.4/text.bend as Text
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def print_part(r: Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
   (old, part) = r

@@ -1,10 +1,10 @@
 import Base
 import ./model.bend as Model
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-encoding@0.5.0.1/encoding.bend as Encoding
-import bend-kit-journal@0.4.0.0/journal.bend as J
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.3/encoding.bend as Encoding
+import bend-kit-journal@0.4.0.2/journal.bend as J
 import ./inspect.bend as Inspect
-import bend-kit-journal@0.4.0.0/pure.bend as Pure
+import bend-kit-journal@0.4.0.2/pure.bend as Pure
 
 def decoded(reject: Bool, s: String) -> Maybe<&2, String>:
   match reject:

@@ -1,8 +1,8 @@
 # A payment ledger fed by webhook events: each event id is a command id, so a redelivered event applies once.
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./model.bend as M
-import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-json@0.7.3.2/json.bend as Json
 import ./commands.bend as C
 
 # ---- state: one row per account, the key the account name and the value its balance in decimal

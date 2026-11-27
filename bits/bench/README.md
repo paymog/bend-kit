@@ -291,6 +291,85 @@ controls. They establish microsecond-scale costs, not the earlier clock-bound
 33–37 microsecond stage estimates. No runtime rewrite follows from this run.
 
 
+### Larger canonical batches and cumulative controls
+
+```sh
+python3 stages.py 3
+```
+
+M4 Pro, macOS 26.7.2 (25G332), arm64, Bend 2.0.40, Apple clang 21.0.0,
+Python 3.14.6, 2026-11-25. A one-process run passed before this run.
+The runner checks 38 rows in each sample and saves timings to `out/stages.json`.
+There are ten samples per native process and three fresh processes.
+All operation and control checksums passed.
+
+`next-10000` and `next-100000` use the same count arrays, `next` helper,
+and output consumer as the original 1000-tree batch. Every input is independent.
+Count construction stays outside the operation timer. Its median preparation
+times are 68.685479 and 684.046312 ms. Output construction stays outside the
+control timer. Both timed loops consume and destroy their results.
+The operation checksum adds canonical start 15 and validity: 32767 per tree.
+The three batch checksums are 32767000, 327670000, and 3276700000.
+Times below are milliseconds per named batch. Ranges are observed extrema of
+paired operation-minus-control differences, not confidence intervals.
+
+| trees | operation + consumption | consumption control | paired difference | difference range |
+|---:|---:|---:|---:|---:|
+| 1000 | 0.054501 | 0.044437 | 0.011500 | 0.000000–0.023333 |
+| 10000 | 0.226312 | 0.143667 | 0.086062 | 0.029917–0.107083 |
+| 100000 | 1.891437 | 1.128667 | 0.774146 | 0.241209–0.953667 |
+
+Two consecutive clock reads have median 0.033354 ms and range
+0.030500–0.124333 ms. The 1000-tree signal remains unresolved.
+The 10000-tree range still overlaps clock-boundary variation.
+At 100000 trees, every paired difference exceeds the largest clock baseline.
+Its per-tree median is 0.000007741 ms, about 7.74 ns.
+This resolves a positive batch cost under these controls, not a precise
+instruction-only cost: traversal, allocation, cache state, and destruction
+still affect the difference.
+
+| process | next 10000 median | next 100000 median | next 100000 range |
+|---:|---:|---:|---:|
+| 1 | 0.073916 | 0.781791 | 0.481709–0.953667 |
+| 2 | 0.088666 | 0.851978 | 0.433583–0.942625 |
+| 3 | 0.090583 | 0.721291 | 0.241209–0.895001 |
+
+The cumulative controls start with 1000 prepared length lists, not separate
+inputs for each internal stage. They convert to codes, count, then optionally
+compute starts and reserve tables. The code list stays shared across those
+steps and is consumed beside the result. These fixed max-15 prefixes omit the
+maximum scan and general validation; they are not complete builds.
+`pipeline` instead calls the unchanged `Huff.from_lens`, including maximum
+and validation, and reads root entry zero. Its checksum is 8000.
+Its output-only control prepares complete tables before timing consumption.
+The other cumulative checksums are 36847000, 69359000, and 69389000.
+
+| cumulative batch | input preparation | operation + consumption | consumption control | paired difference | difference range |
+|---|---:|---:|---:|---:|---:|
+| through count | 1.270354 | 5.316771 | 2.162063 | 3.163542 | 2.887458–3.775208 |
+| through next | 1.049854 | 5.429771 | 2.143604 | 3.165792 | 2.629416–4.018458 |
+| through reserve | 1.094729 | 6.460083 | 2.294771 | 4.117063 | 3.742166–5.620291 |
+| full pipeline | 1.052229 | 8.405209 | 0.053625 | 8.354125 | 6.713416–10.385458 |
+
+The original six isolated paired stages sum to median 8.477874 ms
+(range 7.325958–10.247833). The unchanged `Profile.batch.loop` takes
+median 7.457979 ms (range 6.985375–8.495791), with checksum 8000.
+The median per-sample isolated-sum/complete gap is 12.288%
+(range -0.186%–30.089%), versus about 19% in the earlier run.
+The full cumulative pipeline reduces that median gap to 9.435%
+(range -7.662%–29.485%). Process pipeline medians are 8.117646,
+8.022229, and 8.360688 ms.
+
+The remaining ranges overlap widely. Cumulative ownership does not explain
+the gap completely or establish a stable reduction. Prepared batches retain
+1000 input lists, whereas the complete loop constructs and destroys one tree
+at a time. Even though input construction is excluded from the pipeline timer,
+that pipeline is slower in the median. Live-set size, list traversal, cache
+state, and noisy separately allocated controls remain confounded.
+Do not add cumulative medians or subtract adjacent prefixes to rank tiny stages.
+Keep the runtime unchanged; these controls justify no runtime rewrite.
+No published file, version, or sibling pin changes are needed.
+
 ### Fixed-tree comparison
 
 `compare.py` runs prebuilt binaries 21 times each. It rotates their order
@@ -573,3 +652,149 @@ No compact implementation was tested, so there is no compact decode-speed or
 RSS claim. Revisit only with a caller limit or high concurrent-stream count,
 then compare metadata-inclusive memory and batched build/decode on that input.
 The caller's reader-order re-pin is already tracked in issue #1107.
+
+## Separately maintained Nat cursor
+
+M4 Pro, macOS 26.7.2 (25G332), arm64, Bend 2.0.40, Apple clang 21.0.0,
+Python 3.14.6, 2026-11-25. Baseline: `7869dc8`. No runtime code changed.
+
+The temporary candidate adds `pos: Nat` to `Reader`, beside `total`, `left`,
+and `last`. It initializes `pos` to zero in `Reader.new` and to
+`Nat.min(total, pos)` in `Reader.at`. Successful field reads and Huffman
+decodes add their consumed width to the cursor and subtract it from `left`.
+The total stays fixed. Windows use the cursor directly, not `total - left`.
+All windows still read two words.
+
+The candidate preserves `pos + left = total`. On an order switch, it rounds
+`pos` up with `pos.align` and rounds `left` down with `read.left`.
+It checks the last order for both computations. On failure, it restores both
+original counts and the original order. Peek uses an aligned cursor but keeps
+the stored cursor unchanged. Skip advances both counts only on success.
+Explicit alignment updates both counts. Finish returns the stored cursor.
+The Huffman table, dispatch, validity tests, and symbol checksum loop do not
+change. Timers include cursor advancement and the extra reader state.
+
+To reproduce, copy `bits.bend` to a temporary candidate and apply these changes
+to every reader constructor and operation. Copy `bench.bend` and `cursor.bend`
+with imports that select the candidate. Build both `cursor.bend` workloads:
+
+```sh
+bend cursor.bend -o out/cursor-base
+bend cursor-temp.bend -o out/cursor-candidate
+python3 compare.py --mixed --size 1024 --rounds 1 out/cursor-base out/cursor-candidate
+python3 compare.py --mixed out/cursor-base out/cursor-candidate
+python3 compare.py --mixed out/cursor-base out/cursor-candidate
+```
+
+Run from `bits/bench`. The 1 KiB run checks the setup before full-size runs.
+Each full-size pass has 21 paired rounds, alternating binary order.
+The input is the existing 1 MiB fixed block. `cursor.bend` runs the original
+Huffman and field operations unchanged, then alternates 13-bit LSB and MSB
+reads over the same payload. Each switch advances to the next byte boundary.
+There are 552973 successful mixed reads. Python computes their checksum
+independently from successive two-byte groups, taking the low 13 bits
+little-endian and then the high 13 bits big-endian.
+
+All 84 full-size process runs passed all three checksums:
+Huffman **1974733589**, fields **2819181156**, mixed **3115405108**.
+Cells below are median milliseconds.
+
+| reader | pass 1 Huffman | pass 1 fields | pass 1 mixed | pass 2 Huffman | pass 2 fields | pass 2 mixed |
+|---|---:|---:|---:|---:|---:|---:|
+| total and remaining | 12.596333 | 0.563667 | 0.749750 | 12.657500 | 0.559209 | 0.762333 |
+| additional Nat cursor | 12.694417 | 0.602042 | 0.840125 | 12.650541 | 0.619583 | 0.843625 |
+
+The following changes are medians of the 21 per-round candidate/baseline
+ratios minus one, not ratios of the preceding medians.
+
+| operation | pass 1 paired change | pass 2 paired change |
+|---|---:|---:|
+| Huffman | +0.67% | -0.13% |
+| fields | +8.29% | +10.08% |
+| mixed | +11.43% | +10.85% |
+
+The Huffman difference changes sign. Fields and mixed reads are slower in both
+passes. Keep the total/remaining reader: this candidate gives no repeatable
+gain. These results reject this extra-cursor implementation, not every possible
+reader representation. No package version or sibling pin changes are needed.
+
+Both readers pass `check.bend`, including invalid and truncated secondary
+codes in both orders, failed reads, invalid widths, zero-width switches,
+peek, and successful and failed Huffman order switches. Candidate checks use
+copies of `check.bend` and its Bits import. Both also pass native
+`large-check.bend` at depths 3 and 27, with matching imports for the candidate.
+At depth 27, a 32-bit field starts at bit 4294967293 and crosses 2^32.
+The next 13-bit read, peek, remaining count, alignment, failed skip, and finish
+check positions above 2^32 in both orders. The candidate's large run peaks at
+2149105664 resident bytes. Temporary candidate sources and binaries are not
+shipped. `scripts/check.sh bits` passes the unchanged package proofs and checks.
+
+## Retained concurrent streams
+
+`python3 memory.py 1 1024` checks the small input first.
+`python3 memory.py 3` runs the full experiment above plus retained-heap samples.
+It also needs Node with `--expose-gc`. This run used Bend 2.0.40,
+Node 24.0.1, V8 13.6.233.8-node.10, and Python 3.14.6 on macOS arm64.
+The input sizes, hashes, checksums, raw samples, environment, and boundary
+observations are in [retained-samples.json](retained-samples.json).
+The runner writes a fresh report to `out/memory/report.json`.
+
+The new probe compiles the unchanged local zlib decoder to an ES module.
+It uses the caller's current bits 0.4.0.0 hub pin. It creates 1, then 8,
+then 32 independent decoder states in one process. Each owns separate input,
+output, and Huffman arrays. Each state stops after producing at least 256
+bytes in the first block. These are co-live suspended states, not parallel
+CPU throughput measurements. No streaming API or runtime layout is added.
+
+After GC, V8's heap snapshot gives each object's `self_size`.
+The probe follows the Huff objects' own table/sub properties and each array's
+element storage. It sums distinct nodes by snapshot identity. This includes
+the Huff object, array headers, and backing stores. Input and output arrays
+are measured in separate categories. Category-list storage is excluded.
+VM maps, prototypes, strings, decoder wrappers, temporary construction nodes,
+free heap space, allocator fragmentation, and runtime pages are excluded.
+The snapshots are deleted after extraction. This is measured live JS heap,
+not native table residency, RSS, or a modeled four-byte-per-entry estimate.
+Shared VM metadata is not charged to each table. These byte counts must not
+be applied to the native runtime.
+
+Each cell below is bytes for **one stream**. All three raw samples agree.
+The 8- and 32-stream samples are exactly 8 and 32 times these values.
+The paused output owns 256 bytes in a packed buffer.
+
+| input | tables | table heap | input heap | output heap |
+|---|---:|---:|---:|---:|
+| kit / 1024 | 2 | 5456 | 2096 | 560 |
+| Python / 1024 | 2 | 4944 | 2096 | 560 |
+| kit / 32768 | 2 | 9152 | 32816 | 560 |
+| Python / 32768 | 2 | 9040 | 32816 | 560 |
+| kit / 131072 | 2 | 9152 | 131120 | 560 |
+| Python / 131072 | 2 | 9088 | 131120 | 560 |
+| sparse control | 1 | 5280 | 0 | 0 |
+| mixed control | 1 | 37024 | 0 | 0 |
+
+The sparse/mixed retained controls build independent LSB tables without caller
+buffers. The existing native controls still check build/decode checksums in
+both orders. At 32 streams, the real kit payload tables occupy 292864 measured
+JS heap bytes, versus 4195840 input bytes for the 128 KiB input.
+The synthetic mixed tables occupy 1184768 bytes, but are not real gzip trees.
+
+The probe resumes every state to completion and checks the decoded checksum.
+It inspects the actual state graph at every end-of-block. All boundaries
+retain zero Huff objects, including the four-block kit input and two-block
+Python input. Suspended payload states retain 2, 16, and 64 tables for
+1, 8, and 32 streams. Each later block replaces the old pair.
+It also runs the real gzip member transition on two concatenated copies of
+each input. The first transition returns `GzMore`, the second `GzDone`;
+both state graphs retain zero tables. The combined output checksum must
+match two concatenated plain inputs. Header construction is synchronous
+between these checkpoints, so this experiment does not measure its transient
+peak or any concurrent header-build overlap.
+
+There is still no explicit caller table-memory limit. The measured 32-stream
+case stays below 293 KiB of table heap for every real input. It does not
+justify a compact-layout comparison for this caller. A larger measured
+deployment or a concrete caller budget can change that decision.
+No compact layout was built, and no memory or speed benefit is claimed.
+Any future comparison must include width metadata, construction, and decode
+costs on the same inputs. No published files, versions, or pins change.

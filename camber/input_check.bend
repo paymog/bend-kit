@@ -3,9 +3,10 @@ import Base
 import ./camber.bend as C
 import ./input_app.bend as App
 import ./input.bend as Input
-import bend-kit-http@0.40.0.1/http.bend as H
-import bend-kit-http@0.40.0.1/completion.bend as T
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-http@0.45.0.2/http.bend as H
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.2/completion.bend as T
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 def ready(result: Result<&2, &2, C.RegistrationError, C.Application<Unit, App.Config, C.Policy<Unit>>>) -> IO(C.Application<Unit, App.Config, C.Policy<Unit>>):
@@ -13,12 +14,12 @@ def ready(result: Result<&2, &2, C.RegistrationError, C.Application<Unit, App.Co
     case Fail{error}: IO.die(C.Application<Unit, App.Config, C.Policy<Unit>>, 1, "registration failed")
     case Done{app}: IO.pure(C.Application<Unit, App.Config, C.Policy<Unit>>, app)
 
-def response(completion: C.Completion<Unit, Unit>) -> H.Res:
+def response(completion: C.Completion<Unit, Unit>) -> Pure.Res:
   C.Completed{state, response, entered, mapped, stopped} = completion
   response
 
-def dispatch(config: App.Config, req: H.Req) -> IO(H.Res):
-  do IO<H.Res>:
+def dispatch(config: App.Config, req: Pure.Req) -> IO(Pure.Res):
+  do IO<Pure.Res>:
     app : C.Application<Unit, App.Config, C.Policy<Unit>> <- ready(App.application(config))
     completion : C.Completion<Unit, Unit> <- App.dispatch(app, req)
     return response(completion)
@@ -26,15 +27,15 @@ def dispatch(config: App.Config, req: H.Req) -> IO(H.Res):
 def header(headers: Map<&2, List<&2, String>>, key: String, value: String) -> Map<&2, List<&2, String>>:
   match value:
     case "-": headers
-    case _: H.set(headers, key, value)
+    case _: Pure.set(headers, key, value)
 
 def direct.body(body: Maybe<&1, B.Bytes>, method: String, target: String, headers: Map<&2, List<&2, String>>, depth: U32, journal: String) -> IO(Unit):
   match body:
     case None{}: IO.die(Unit, 1, "invalid fixture hex")
     case Some{body}:
       do IO<Unit>:
-        res : H.Res <- dispatch(App.Config{journal, depth}, H.Req{method, target, headers, body})
-        IO.print("RESPONSE " ++ B.to_hex(H.reply.bytes(res, False{}, True{})))
+        res : Pure.Res <- dispatch(App.Config{journal, depth}, Pure.Req{method, target, headers, body})
+        IO.print("RESPONSE " ++ B.to_hex(Pure.reply.bytes(res, False{}, True{})))
 
 def integer(value: Maybe<&2, U32>) -> IO(U32):
   match value:
@@ -44,16 +45,16 @@ def integer(value: Maybe<&2, U32>) -> IO(U32):
 def direct(method: String, target: String, media: String, encoding: String, auth: String, hex: String, depth: String, journal: String) -> IO(Unit):
   do IO<Unit>:
     cap : U32 <- integer(Input.u32(depth))
-    direct.body(B.from_hex(hex), method, target, header(header(header(H.empty(), "content-type", media), "content-encoding", encoding), "authorization", auth), cap, journal)
+    direct.body(B.from_hex(hex), method, target, header(header(header(Pure.empty(), "content-type", media), "content-encoding", encoding), "authorization", auth), cap, journal)
 
 # Finite evidence uses the same published server owner, not a socket loop.
 type Live is Data:
   Live{config: App.Config, remaining: Chan(Nat), stop: Chan(H.ServerControl)}
 
-def live.handler(context: Live, req: H.Req) -> IO(H.Reply):
+def live.handler(context: Live, req: Pure.Req) -> IO(H.Reply):
   Live{config, remaining, stop} = context
   do IO<H.Reply>:
-    res : H.Res <- dispatch(config, req)
+    res : Pure.Res <- dispatch(config, req)
     return H.Reply{res, T.Unobserved{}}
 
 def live.remaining(count: Nat, +remaining: Chan(Nat), stop: Chan(H.ServerControl)) -> IO(Unit):
@@ -83,12 +84,12 @@ def live.controlled(controlled: H.Server<Live> & H.ServerControl, context: Live,
   do IO<Unit>:
     sent : Result<&1, &1, H.ServerControl, Unit> <- Chan.send(H.ServerControl, stop, control)
     IO.print("READY " ++ U32.show(port))
-    exited : H.ServerExit <- H.server.run(~Live, ~live.handler, ~live.observe, server)
+    exited : Pure.ServerExit <- H.server.run(~Live, ~live.handler, ~live.observe, server)
     Chan.close(Nat, remaining)
     Chan.close(H.ServerControl, stop)
     IO.print("CLOSED")
 
-def live.started(started: Unit & Result<&2, &1, H.StartupError, H.Server<Live>>, context: Live, port: U32) -> IO(Unit):
+def live.started(started: Unit & Result<&2, &1, Pure.StartupError, H.Server<Live>>, context: Live, port: U32) -> IO(Unit):
   (owner, result) = started
   match result:
     case Fail{error}:
@@ -106,7 +107,7 @@ def live.bound(bound: Listener & U32, n: U32, cap: U32, journal: String) -> IO(U
     stop : Chan(H.ServerControl) <- Chan.new(H.ServerControl, 1)
     sent : Result<&1, &1, Nat, Unit> <- Chan.send(Nat, remaining, U32.to_nat(n))
     +context : Live = Live{App.Config{journal, cap}, remaining, stop}
-    started : Unit & Result<&2, &1, H.StartupError, H.Server<Live>> <-
+    started : Unit & Result<&2, &1, Pure.StartupError, H.Server<Live>> <-
       H.server.started(~Live, ~Unit, context, Unit{}, C.server.config(port), Done{listener})
     live.started(started, context, port)
 

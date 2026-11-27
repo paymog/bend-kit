@@ -11,9 +11,13 @@ for d in "$@"; do
   [ "$d" != runner ] || python3 runner/migrate-test.py
   (
     cd "$d"
-    verdict "$d.bend" ""
+    if [ "$d" = hairpin ]; then
+      bend pure.bend --check-only
+    else
+      verdict "$d.bend" ""
+    fi
     if [ -f PROOF.bend ]; then
-      if [ "$d" = http ]; then
+      if [ "$d" = http ] || [ "$d" = hairpin ]; then
         bend PROOF.bend --check-only
       else
         verdict PROOF.bend '^LAWS[.]'
@@ -25,6 +29,8 @@ for d in "$@"; do
       trap 'rm -rf "$out"' EXIT
       bend http_origin.bend -o "$out/origin.js"
       python3 http_origin_check.py bun "$out/origin.js"
+      bend local_check.bend -o "$out/local.js"
+      python3 local_check.py bun "$out/local.js"
     fi
   )
 done

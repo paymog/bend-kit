@@ -2,17 +2,17 @@
 import Base
 import ./camber.bend as C
 import ./input.bend as Input
-import bend-kit-http@0.40.0.1/http.bend as H
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 import bend-kit-router@0.2.0.0/target.bend as Target
-import bend-kit-json@0.7.3.0/json.bend as J
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-json@0.7.3.2/json.bend as J
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 type Config is Data:
   Config{journal: String, depth: U32}
 
 type Domain is Type:
   Lookup{id: U32, limit: U32, tags: List<&2, String>, empty_keys: List<&2, String>}
-  Binary{body: H.Body}
+  Binary{body: Pure.Body}
   Plain{value: String}
   Document{value: J.Val}
   Number{value: U32}
@@ -34,21 +34,21 @@ def journal(config: Config, event: String) -> IO(Unit):
 
 def authenticated(accepted: Bool, state: Unit) -> C.Step<Unit, Unit>:
   match accepted:
-    case False{}: C.Early{state, H.Res{401, H.set(H.empty(), "www-authenticate", "Bearer"), H.from_string("")}}
+    case False{}: C.Early{state, Pure.Res{401, Pure.set(Pure.empty(), "www-authenticate", "Bearer"), Pure.from_string("")}}
     case True{}: C.Continue{state}
 
 def before(hook: Unit, state: Unit, config: Config, meta: C.Metadata) -> IO(C.Step<Unit, Unit>):
   C.Metadata{method, target, headers} = meta
   do IO<C.Step<Unit, Unit>>:
     journal(config, "auth")
-    return authenticated(String.eq(H.header(headers, "authorization"), "Bearer accepted"), state)
+    return authenticated(String.eq(Pure.header(headers, "authorization"), "Bearer accepted"), state)
 
-def after(hook: Unit, state: Unit, config: Config, response: H.Res) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
-  IO.pure(Unit & Result<&2, &1, C.Error<Unit>, H.Res>, (state, Done{response}))
+def after(hook: Unit, state: Unit, config: Config, response: Pure.Res) -> IO(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>):
+  IO.pure(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>, (state, Done{response}))
 
-def mapper(state: Unit, config: Config, error: C.Error<Unit>) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
+def mapper(state: Unit, config: Config, error: C.Error<Unit>) -> IO(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>):
   +settings = config
-  do IO<Unit & Result<&2, &1, C.Error<Unit>, H.Res>>:
+  do IO<Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>>:
     journal(settings, "map")
     C.default.mapper(~Unit, ~Config, ~Unit, state, settings, error)
 
@@ -63,7 +63,7 @@ def name.text(text: Maybe<&2, String>) -> Result<&2, &1, C.Error<Unit>, Domain>:
     case Some{+name}:
       name.valid(Nat.is_ge(String.length(name), 1n) && Nat.is_le(String.length(name), 100n), name)
 
-def creation.key(key: Maybe<&2, String>, name: H.Body) -> Result<&2, &1, C.Error<Unit>, Domain>:
+def creation.key(key: Maybe<&2, String>, name: Pure.Body) -> Result<&2, &1, C.Error<Unit>, Domain>:
   match key:
     case Some{"name"}: name.text(Input.utf8(name))
     case _: Fail{C.Framework{400, ""}}
@@ -87,12 +87,12 @@ def decode.lookup(params: Map<&2, String>, +query: List<&2, Target.Query>) -> Re
     empty_keys : List<&2, String> <- C.input(~List<&2, String>, ~Unit, Input.query.list(~String, ~(x => Some{x}), query, ""))
     return Lookup{id, limit, tags, empty_keys}
 
-def decode.route(pattern: String, params: Map<&2, String>, query: List<&2, Target.Query>, depth: U32, headers: Map<&2, List<&2, String>>, body: H.Body) -> Result<&2, &1, C.Error<Unit>, Domain>:
+def decode.route(pattern: String, params: Map<&2, String>, query: List<&2, Target.Query>, depth: U32, headers: Map<&2, List<&2, String>>, body: Pure.Body) -> Result<&2, &1, C.Error<Unit>, Domain>:
   match pattern:
     case "/users/:id": decode.lookup(params, query)
     case "/raw":
       do Result<&2, &1, C.Error<Unit>, Domain>:
-        bytes : H.Body <- C.input(~H.Body, ~Unit, Input.raw(body))
+        bytes : Pure.Body <- C.input(~Pure.Body, ~Unit, Input.raw(body))
         return Binary{bytes}
     case "/text":
       do Result<&2, &1, C.Error<Unit>, Domain>:
@@ -113,10 +113,10 @@ def decode.route(pattern: String, params: Map<&2, String>, query: List<&2, Targe
         creation(value)
     case _: Fail{C.Framework{400, ""}}
 
-def decode(config: Config, selected: C.Match<C.Policy<Unit>>, req: H.Req) -> Result<&2, &1, C.Error<Unit>, Domain>:
+def decode(config: Config, selected: C.Match<C.Policy<Unit>>, req: Pure.Req) -> Result<&2, &1, C.Error<Unit>, Domain>:
   Config{journal, depth} = config
   C.Match{Target.Target{segments, query, authority, star}, params, groups, method, pattern, policies} = selected
-  H.Req{verb, target, headers, body} = req
+  Pure.Req{verb, target, headers, body} = req
   decode.route(pattern, params, query, depth, headers, body)
 
 def tags(values: List<&2, String>) -> List<&1, J.Val>:
@@ -124,7 +124,7 @@ def tags(values: List<&2, String>) -> List<&1, J.Val>:
     case Nil{}: Nil{}
     case head <> rest: J.Str{J.utf8(head)} <> tags(rest)
 
-def output(input: Domain) -> H.Res:
+def output(input: Domain) -> Pure.Res:
   match input:
     case Lookup{id, limit, values, empty_keys}:
       C.json(~J.Val, ~(v => v), 200, J.Obj{[(J.utf8("id"), J.Num{Bytes.u32.show(id)}), (J.utf8("limit"), J.Num{Bytes.u32.show(limit)}), (J.utf8("tags"), J.Arr{tags(values)}), (J.utf8("empty_keys"), J.Arr{tags(empty_keys)})]})
@@ -134,14 +134,14 @@ def output(input: Domain) -> H.Res:
     case Number{value}: C.text(200, U32.show(value))
     case Create{name}: C.json(~J.Val, ~(v => v), 201, J.Obj{[(J.utf8("name"), J.Str{J.utf8(name)})]})
 
-def handle(state: Unit, config: Config, input: Domain) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
-  do IO<Unit & Result<&2, &1, C.Error<Unit>, H.Res>>:
+def handle(state: Unit, config: Config, input: Domain) -> IO(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>):
+  do IO<Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>>:
     journal(config, "business")
     return (state, Done{output(input)})
 
-def run(action: Unit, state: Unit, config: Config, selected: C.Match<C.Policy<Unit>>, req: H.Req) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
+def run(action: Unit, state: Unit, config: Config, selected: C.Match<C.Policy<Unit>>, req: Pure.Req) -> IO(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>):
   +settings = config
-  do IO<Unit & Result<&2, &1, C.Error<Unit>, H.Res>>:
+  do IO<Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>>:
     journal(settings, "decode")
     C.execute(~Domain, ~Unit, ~Config, ~Unit, ~Unit, ~decode, ~handle, state, settings, selected, req)
 
@@ -149,5 +149,5 @@ def application(config: Config) -> Result<&2, &2, C.RegistrationError, C.Applica
   +route = C.policy(~Unit, 2, Nil{}, Nil{})
   C.application(~Unit, ~Config, ~C.Policy<Unit>, [C.Route{"GET", "/users/:id", Unit{}, [1], route}, C.Route{"POST", "/raw", Unit{}, [1], route}, C.Route{"POST", "/text", Unit{}, [1], route}, C.Route{"POST", "/json", Unit{}, [1], route}, C.Route{"POST", "/number", Unit{}, [1], route}, C.Route{"POST", "/create", Unit{}, [1], route}], [C.Group{1, [], C.policy(~Unit, 1, [Unit{}], Nil{})}], config, C.policy(~Unit, 0, Nil{}, Nil{}))
 
-def dispatch(app: C.Application<Unit, Config, C.Policy<Unit>>, req: H.Req) -> IO(C.Completion<Unit, Unit>):
+def dispatch(app: C.Application<Unit, Config, C.Policy<Unit>>, req: Pure.Req) -> IO(C.Completion<Unit, Unit>):
   C.dispatch(~Unit, ~Unit, ~Config, ~Unit, ~Unit, ~Unit, ~before, ~after, ~run, ~mapper, ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, req)

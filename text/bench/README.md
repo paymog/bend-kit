@@ -106,8 +106,8 @@ every range on both sides to octet Strings, then joins them. Most callers
 should materialize only selected lines. All timers include their checksum
 output, as the existing benchmark does. RSS includes input generation,
 conversion, diff, and materialization; it does not isolate diff allocations.
-The packed path avoids per-character String cells during its scan. The
-collision fallback still builds exact octet lists.
+The packed path avoids per-character String cells during its scan.
+The collision fallback now builds exact packed-word lists; see the measurements below.
 
 The packed median is about 47% below the paired String median. It does not
 reach the proposed sub-4-ms target. Converting String inputs and materializing
@@ -180,7 +180,7 @@ overlap. The candidate checks overlap first, then builds only the selected
 point. Scanning, hashing, range records, setup, exact verification, and the
 collision fallback remain unchanged. The stage harness holds its own range
 references, so its stage sum is not a replacement for the full diff timer.
-Collision fallback allocation measurement is tracked in issue #1217.
+Collision fallback allocation measurements are recorded below.
 
 The complete five-run package benchmark gives these medians in milliseconds:
 
@@ -194,3 +194,157 @@ The complete five-run package benchmark gives these medians in milliseconds:
 All checksums match. String diff remains above 4 ms; issue #820 remains open.
 Package checks pass the packed boundary and collision round trips and find
 zero non-shortest scripts in 3,000 random pairs.
+
+## Exact-octet collision fallback
+
+Run `python3 collision.py` from this directory. It requires Bend **2.0.40**
+and `clang`. It builds native timing and allocation-counting executables.
+It first checks eight-line inputs, then records five alternating pairs:
+collision/control, control/collision, and so on. Each timing run is followed
+by a separate allocation run of the same workload. Raw results also go to
+`out/collision-samples.json`.
+
+Each side has 10,000 lines and **1,418,602 octets**. Every hundredth line,
+starting at index 7, changes from `aan1wu` to `aa0tfa` (collision) or
+`aa0tfb` (control). Other lines contain their unique index. Every line has
+the same suffix: 128 `x` octets, NUL, FF, 80, CR, LF. The runner checks that
+the first pair has equal FNV-1a hashes and the control does not. A common
+suffix preserves an existing FNV collision. Lengths and edit positions
+match between workloads.
+
+Both workloads have exactly 100 absent old lines and 100 absent new lines.
+The other 9,900 lines occur in order, so the shortest script has **200**
+insertions plus deletions. Every run checks that count, reconstructs both
+octet inputs from the ranges, and checks both returned owned buffers.
+The public `diff_bytes` runs before the staged measurement and passes the
+same checks. Existing empty, boundary, collision, and arbitrary-octet
+fixtures also run. The collision hash script fails exact verification;
+the control passes it. Both final scripts pass.
+
+Stages call the production helpers without changing the pure API:
+String-to-Bytes conversion; indexed scan and FNV hashes; hash Myers/script;
+exact verification; `byte_diff.pick` (including the exact-octet fallback
+only for collisions); and full materialization with round-trip validation.
+Input generation and the public API check finish before these timers.
+Both buffers stay owned throughout the measured diff. The harness retains
+input Strings and range lists for validation, so its absolute costs are not
+a replacement for an application benchmark.
+
+Apple M4 Pro, macOS 26.7.2, arm64, 2026-11-26. Bend 2.0.40,
+Apple clang 21.0.0, `-O2 -pthread`, one runtime thread. All times are ms.
+`clock` is an empty stage with the same timer and snapshot boundaries.
+
+| pair | workload | clock | conversion | scan | hash diff | verify | fallback | materialize/check |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | collision | 0.054834 | 23.040625 | 2.372042 | 0.893708 | 1.163083 | 237.817500 | 123.221666 |
+| 1 | control | 0.059166 | 23.048375 | 2.461542 | 1.143167 | 1.206000 | 0.273250 | 110.172500 |
+| 2 | collision | 0.063167 | 23.290125 | 2.451709 | 0.918000 | 1.210916 | 237.001458 | 114.100000 |
+| 2 | control | 0.069375 | 22.977084 | 2.565375 | 1.148125 | 1.191791 | 0.295208 | 107.104708 |
+| 3 | collision | 0.060834 | 23.145959 | 2.468459 | 0.924166 | 1.168625 | 238.092208 | 117.237583 |
+| 3 | control | 0.056875 | 23.089042 | 2.380500 | 1.093625 | 1.161750 | 0.238000 | 108.449417 |
+| 4 | collision | 0.058750 | 22.861416 | 2.371084 | 0.891791 | 1.174584 | 237.965708 | 120.109125 |
+| 4 | control | 0.069459 | 22.273333 | 2.387416 | 1.129584 | 1.165042 | 0.216167 | 113.686791 |
+| 5 | collision | 0.051125 | 23.555417 | 2.508541 | 0.905083 | 1.206375 | 247.353791 | 125.759000 |
+| 5 | control | 0.057208 | 23.149250 | 2.364041 | 1.081666 | 1.176875 | 0.313666 | 114.948250 |
+| median | collision | **0.058750** | **23.145959** | **2.451709** | **0.905083** | **1.174584** | **237.965708** | **120.109125** |
+| median | control | **0.059166** | **23.048375** | **2.387416** | **1.129584** | **1.176875** | **0.273250** | **110.172500** |
+
+### Allocation evidence
+
+The runner instruments the generated native runtime's `heap_alloc` entry.
+Each request adds one call and `8 << cls` requested bytes. It counts requests
+even when the runtime serves them from a free list. It does not count
+compiler-generated in-place node reuse, host malloc, or live/peak memory.
+These are cumulative allocator-request bytes, **not RSS**. A source-shape
+guard rejects a changed allocator. The production source is not modified.
+Only the separate counted executable has this instrumentation.
+
+The benchmark-only snapshot effect resets the counters at each boundary.
+It excludes its own result String. Clock calls and their Bend wrappers
+remain inside each interval; the empty stage records their overhead.
+All five samples in each workload produced exactly the counts below.
+Thus each row reports all five allocation samples and their median.
+
+| stage | collision calls (each sample/median) | collision bytes (each sample/median) | control calls (each sample/median) | control bytes (each sample/median) |
+|---|---:|---:|---:|---:|
+| clock | 9,931 | 127,704 | 9,931 | 127,704 |
+| conversion | 9,933 | 4,322,072 | 9,933 | 4,322,072 |
+| scan | 109,927 | 1,567,864 | 109,927 | 1,567,864 |
+| hash diff | 149,954 | 2,463,496 | 159,612 | 2,582,176 |
+| verify | 9,931 | 127,896 | 9,931 | 127,896 |
+| fallback | 8,671,220 | 93,503,680 | 9,931 | 127,832 |
+| materialize/check | 17,153,146 | 210,646,280 | 17,153,146 | 210,646,280 |
+
+The collision fallback interval adds **8,661,289 allocator requests** and
+**93,375,848 requested bytes (89.05 MiB)** over the matched control.
+That interval includes octet-list construction, exact Myers, script
+construction, and disposal of the rejected hash script. Scanning,
+conversion, verification, and materialization are outside it.
+This is a measurement, not a speed improvement or a peak-memory claim.
+`scripts/check.sh text`, `scripts/publish.sh --check`, and `scripts/pins.sh`
+were run. No published source changed.
+
+### Packed fallback keys
+
+The fallback now reads four octets per U32 directly from the owned arrays.
+Unaligned reads combine adjacent words. Each line key stores its byte length,
+its final zero-to-three octets, and the full words in reverse order.
+The byte length distinguishes trailing zero octets. Equality still compares
+every word; no hash stands in for exact equality. Myers and its tie rules
+do not change. No per-line octet-list reversal is needed.
+
+The same command, compiler, machine, input, and alternating order were run
+before and after this change on 2026-11-26. The baseline is `ae99a6e`.
+Each row below is one timing sample, in ms. Allocation runs are separate.
+
+| source | pair | workload | clock | conversion | scan | hash diff | verify | fallback | materialize/check |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| before | 1 | collision | 0.058500 | 22.682500 | 2.384583 | 0.926208 | 1.190334 | 236.271459 | 122.207375 |
+| before | 1 | control | 0.065000 | 22.998375 | 2.334667 | 1.032208 | 1.133875 | 0.236083 | 105.817625 |
+| before | 2 | control | 0.057000 | 23.026042 | 2.441625 | 1.114083 | 1.174750 | 0.227334 | 106.681708 |
+| before | 2 | collision | 0.058167 | 22.717042 | 2.523458 | 0.900250 | 1.194792 | 234.490917 | 120.293416 |
+| before | 3 | collision | 0.069667 | 23.213958 | 2.555083 | 0.928417 | 1.205000 | 238.880208 | 118.360834 |
+| before | 3 | control | 0.061792 | 22.598083 | 2.375292 | 1.087041 | 1.206042 | 0.233042 | 108.725625 |
+| before | 4 | control | 0.052042 | 23.879375 | 2.491209 | 1.112667 | 1.168583 | 0.224125 | 115.569625 |
+| before | 4 | collision | 0.063667 | 23.231042 | 2.487959 | 0.945208 | 1.183541 | 248.093292 | 121.263292 |
+| before | 5 | collision | 0.061041 | 23.445584 | 2.438042 | 0.915459 | 1.183708 | 237.535708 | 118.627667 |
+| before | 5 | control | 0.073791 | 22.620000 | 2.483334 | 1.088208 | 1.187250 | 0.225708 | 110.918583 |
+| after | 1 | collision | 0.060000 | 22.945083 | 2.463708 | 0.866000 | 1.257875 | 54.947125 | 118.955375 |
+| after | 1 | control | 0.060291 | 22.851042 | 2.459750 | 1.148208 | 1.191541 | 0.228500 | 112.578958 |
+| after | 2 | control | 0.055667 | 23.371750 | 2.566083 | 1.099584 | 1.149166 | 0.229833 | 113.406500 |
+| after | 2 | collision | 0.060375 | 22.904209 | 2.460875 | 0.883291 | 1.172958 | 55.285292 | 120.549584 |
+| after | 3 | collision | 0.063500 | 23.192417 | 2.481750 | 0.878208 | 1.155750 | 54.206041 | 123.405000 |
+| after | 3 | control | 0.053208 | 23.016458 | 2.325334 | 1.059250 | 1.142125 | 0.269250 | 113.317416 |
+| after | 4 | control | 0.064792 | 24.235166 | 2.384541 | 1.056166 | 1.103458 | 0.233375 | 111.222000 |
+| after | 4 | collision | 0.054500 | 22.694167 | 2.473750 | 0.884667 | 1.154834 | 56.179542 | 123.554208 |
+| after | 5 | collision | 0.060667 | 23.091917 | 2.431708 | 0.883333 | 1.147666 | 56.305375 | 117.837709 |
+| after | 5 | control | 0.059583 | 22.618375 | 2.486292 | 1.071208 | 1.208000 | 0.244208 | 111.417916 |
+| before | median | collision | 0.061041 | 23.213958 | 2.487959 | 0.926208 | 1.190334 | **237.535708** | 120.293416 |
+| before | median | control | 0.061792 | 22.998375 | 2.441625 | 1.088208 | 1.174750 | **0.227334** | 108.725625 |
+| after | median | collision | 0.060375 | 22.945083 | 2.463708 | 0.883291 | 1.155750 | **55.285292** | 120.549584 |
+| after | median | control | 0.059583 | 23.016458 | 2.459750 | 1.071208 | 1.149166 | **0.233375** | 112.578958 |
+
+All five allocation samples and their medians are identical within each
+source/workload. The counter and byte definitions are unchanged.
+
+| source | stage | collision calls | collision bytes | control calls | control bytes |
+|---|---|---:|---:|---:|---:|
+| before and after | clock | 9,931 | 127,704 | 9,931 | 127,704 |
+| before and after | conversion | 9,933 | 4,322,072 | 9,933 | 4,322,072 |
+| before and after | scan | 109,927 | 1,567,864 | 109,927 | 1,567,864 |
+| before and after | hash diff | 149,954 | 2,463,496 | 159,612 | 2,582,176 |
+| before and after | verify | 9,931 | 127,896 | 9,931 | 127,896 |
+| before | fallback | 8,671,220 | 93,503,680 | 9,931 | 127,832 |
+| after | fallback | 1,659,172 | 20,627,920 | 9,931 | 127,832 |
+| before and after | materialize/check | 17,153,146 | 210,646,280 | 17,153,146 | 210,646,280 |
+
+Collision fallback time falls **76.7%** (4.30x faster).
+Its allocator requests fall **80.9%** and requested bytes fall **77.9%**.
+All other stage allocation counts stay identical: the cost did not move.
+Materialization time varies slightly; its work and allocation counts do not
+change. These remain allocator-request figures, not peak RSS.
+
+The retained runner passes collision detection, 200 shortest-script changes,
+arbitrary-octet reconstruction, and both owned-buffer checks. Forced-fallback
+checks also cover all four source offsets, different offsets across buffers,
+zero-to-eight-octet tails, trailing NUL lengths, and FF/FE differences.

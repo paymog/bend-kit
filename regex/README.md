@@ -3,7 +3,7 @@
 Regular expressions in pure Bend, with matching in linear time. It uses RE2 syntax and a Pike VM (a Thompson NFA with capture slots). It does not backtrack, so a pattern cannot cause ReDoS.
 
 ```bend
-import bend-kit-regex@0.9.0.1/regex.bend as Re
+import bend-kit-regex@0.9.0.3/regex.bend as Re
 
 # Re.compile(pat) is Some{re}, or None for a syntax error.
 # Re.find(re, s) gives the leftmost match: the span of group 0, then one entry per group.
@@ -15,7 +15,7 @@ Re.find.bytes(re, b)           # Bytes & Maybe<List<Maybe<Span>>>
 Re.is_match.bytes(re, b)       # Bytes & Bool
 ```
 
-This package imports `bend-kit-bytes@0.3.3.1` and `bend-kit-unicode@0.1.0.0`. Import those versions for the byte buffer and Unicode APIs.
+This package imports `bend-kit-bytes@0.3.3.3` and `bend-kit-unicode@0.1.0.0`. Import those versions for the byte buffer and Unicode APIs.
 
 With a `String`, positions count its code points, not octets. With `Bytes`, the matcher decodes UTF-8 as it goes and positions are byte offsets, as in RE2 and Go; an invalid byte matches as one U+FFFD. While no match is in progress, both paths skip chars that cannot start one, looking past leading assertions such as `\b` and `^`. The `Bytes` path is still the faster one. A group that did not take part in the match is `None`. The semantics are leftmost-first, as in RE2 and Perl: `a|ab` against `ab` matches `a`.
 

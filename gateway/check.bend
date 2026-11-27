@@ -3,10 +3,11 @@ import Base
 import ./gateway.bend as G
 import ./app.bend as Gw
 import ./upstream.bend as Up
-import bend-kit-camber@0.17.0.1/camber.bend as C
-import bend-kit-http@0.40.0.1/http.bend as H
+import bend-kit-camber@0.19.0.2/camber.bend as C
+import bend-kit-http@0.45.0.2/http.bend as H
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 import bend-kit-cache@0.3.2.0/cache.bend as Cache
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
 
 def PORT() -> U32:
   18461
@@ -25,12 +26,12 @@ def ask(app: C.Application<Gw.Action, Gw.Config, C.Policy<String>>, client: Hair
   C.dispatch(~Gw.Action, ~Hairpin.Client, ~Gw.Config, ~String, ~String, ~Unit,
     ~Gw.before, ~Gw.after, ~Gw.run, ~Gw.mapper, ~C.notice.ignore(~Unit, ~String, ~String), ~C.notice.error.ignore(~Unit, ~String),
     Unit{}, C.access.disabled(~Unit, Unit{}), app, client,
-    H.Req{"GET", target, H.set(H.set(H.empty(), "x-subject", "alice"), "x-roles", roles), H.from_string("")})
+    Pure.Req{"GET", target, Pure.set(Pure.set(Pure.empty(), "x-subject", "alice"), "x-roles", roles), Pure.from_string("")})
 
 # Checks the status and the x-cache header, and gives the client back for the next request.
 def expect(c: C.Completion<Hairpin.Client, String>, +label: String, +status: U32, +cache: String) -> IO(Hairpin.Client):
-  C.Completed{client, H.Res{+actual, +headers, body}, entered, mapped, stopped} = c
-  +seen = H.header(headers, "x-cache")
+  C.Completed{client, Pure.Res{+actual, +headers, body}, entered, mapped, stopped} = c
+  +seen = Pure.header(headers, "x-cache")
   do IO<Hairpin.Client>:
     require(U32.is_eq(actual, status) && String.eq(seen, cache), label ++ ": got " ++ U32.show(actual) ++ " x-cache=" ++ seen)
     IO.print("PASS " ++ label ++ ": " ++ U32.show(actual) ++ " x-cache=" ++ seen)
@@ -122,14 +123,14 @@ def opened(r: Result<&2, &1, String, C.Owner<G.Gate, Unit, Gw.Op, String, Gw.Rep
 def serving(p: H.Server<Unit> & H.ServerControl) -> IO(Unit):
   (server, control) = p
   do IO<Unit>:
-    exit : Chan(H.ServerExit) <- IO.fork(H.ServerExit, Up.run(server))
+    exit : Chan(Pure.ServerExit) <- IO.fork(Pure.ServerExit, Up.run(server))
     r : Result<&2, &1, String, C.Owner<G.Gate, Unit, Gw.Op, String, Gw.Reply>> <- Gw.store.start(Gw.Setup{1n, Cache.Policy{60000n, 60000n}})
     opened(r)
     stopped : Bool <- H.server.stop(control)
-    done : H.ServerExit <- IO.join(H.ServerExit, exit)
+    done : Pure.ServerExit <- IO.join(Pure.ServerExit, exit)
     IO.print("ALL GATEWAY CHECKS PASS")
 
-def listening(result: Unit & Result<&2, &1, H.StartupError, H.Server<Unit>>) -> IO(Unit):
+def listening(result: Unit & Result<&2, &1, Pure.StartupError, H.Server<Unit>>) -> IO(Unit):
   (unit, r) = result
   match r:
     case Fail{e}:
@@ -139,5 +140,5 @@ def listening(result: Unit & Result<&2, &1, H.StartupError, H.Server<Unit>>) -> 
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    result : Unit & Result<&2, &1, H.StartupError, H.Server<Unit>> <- Up.start(PORT())
+    result : Unit & Result<&2, &1, Pure.StartupError, H.Server<Unit>> <- Up.start(PORT())
     listening(result)

@@ -1,9 +1,9 @@
 # Compiled public application consumer; no listener and no transport simulation.
 import Base
 import ./camber.bend as C
-import bend-kit-http@0.40.0.1/http.bend as H
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 import bend-kit-router@0.2.0.0/router.bend as R
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 
 def require(ok: Bool, label: String) -> IO(Unit):
   match ok:
@@ -13,14 +13,14 @@ def require(ok: Bool, label: String) -> IO(Unit):
       IO.die(Unit, 1, label)
 
 
-def response(result: Result<&2, &1, C.ResponseError, H.Res>) -> IO(H.Res):
+def response(result: Result<&2, &1, C.ResponseError, Pure.Res>) -> IO(Pure.Res):
   match result:
     case Fail{error}:
-      IO.die(H.Res, 1, "valid response rejected")
+      IO.die(Pure.Res, 1, "valid response rejected")
     case Done{res}:
-      IO.pure(H.Res, res)
+      IO.pure(Pure.Res, res)
 
-def completion(value: C.Completion<Unit, Unit>) -> H.Res:
+def completion(value: C.Completion<Unit, Unit>) -> Pure.Res:
   C.Completed{state, response, entered, mapped, stopped} = value
   response
 
@@ -101,23 +101,23 @@ def routes() -> List<&2, C.Route<U32, String>>:
    C.Route{"GET", "/a/:second", 10, [], "specific"},
    C.Route{"POST", "/echo", 99, [], "plain"}]
 
-def plain(req: H.Req) -> IO(H.Res):
-  H.Req{method, path, headers, body} = req
-  IO.pure(H.Res, H.Res{200, H.empty(), body})
+def plain(req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, path, headers, body} = req
+  IO.pure(Pure.Res, Pure.Res{200, Pure.empty(), body})
 
 def value(pair: Map<&2, String> & String) -> String:
   (params, text) = pair
   text
 
-def run(action: U32, context: String, matched: C.Match<String>, req: H.Req) -> IO(H.Res):
+def run(action: U32, context: String, matched: C.Match<String>, req: Pure.Req) -> IO(Pure.Res):
   match action:
     case 99:
       plain(req)
     case +id:
       C.Match{target, params, groups, selected, pattern, policies} = matched
-      H.Req{method, path, headers, body} = req
-      out = H.set(H.set(H.set(H.set(H.set(H.set(H.set(H.empty(), "x-action", U32.show(id)), "x-method", method), "x-selected", selected), "x-capture", value(Map.get(String, "", params, Bool.pick(String, U32.is_eq(id, 1), "id", Bool.pick(String, U32.is_eq(id, 7), "name", "second"))))), "x-policies", String.join(policies, "/")), "x-host", H.header(headers, "host")), "x-context", context)
-      IO.pure(H.Res, H.Res{200, out, H.from_string("handler-body")})
+      Pure.Req{method, path, headers, body} = req
+      out = Pure.set(Pure.set(Pure.set(Pure.set(Pure.set(Pure.set(Pure.set(Pure.empty(), "x-action", U32.show(id)), "x-method", method), "x-selected", selected), "x-capture", value(Map.get(String, "", params, Bool.pick(String, U32.is_eq(id, 1), "id", Bool.pick(String, U32.is_eq(id, 7), "name", "second"))))), "x-policies", String.join(policies, "/")), "x-host", Pure.header(headers, "host")), "x-context", context)
+      IO.pure(Pure.Res, Pure.Res{200, out, Pure.from_string("handler-body")})
 
 def policies.names(policies: List<&2, C.Policy<Unit>>) -> List<&2, String>:
   match policies:
@@ -129,33 +129,33 @@ def policies.names(policies: List<&2, C.Policy<Unit>>) -> List<&2, String>:
 def empty.before(hook: Unit, state: Unit, config: String, meta: C.Metadata) -> IO(C.Step<Unit, Unit>):
   IO.pure(C.Step<Unit, Unit>, C.Continue{state})
 
-def empty.after(hook: Unit, state: Unit, config: String, response: H.Res) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
-  IO.pure(Unit & Result<&2, &1, C.Error<Unit>, H.Res>, (state, Done{response}))
+def empty.after(hook: Unit, state: Unit, config: String, response: Pure.Res) -> IO(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>):
+  IO.pure(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>, (state, Done{response}))
 
-def scoped.run(action: U32, state: Unit, context: String, matched: C.Match<C.Policy<Unit>>, req: H.Req) -> IO(Unit & Result<&2, &1, C.Error<Unit>, H.Res>):
+def scoped.run(action: U32, state: Unit, context: String, matched: C.Match<C.Policy<Unit>>, req: Pure.Req) -> IO(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>):
   C.Match{target, params, groups, method, pattern, policies} = matched
-  do IO<Unit & Result<&2, &1, C.Error<Unit>, H.Res>>:
-    res : H.Res <- run(action, context, C.Match{target, params, groups, method, pattern, policies.names(policies)}, req)
+  do IO<Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>>:
+    res : Pure.Res <- run(action, context, C.Match{target, params, groups, method, pattern, policies.names(policies)}, req)
     return (state, Done{res})
 
-def checked(res: H.Res, +status: U32, action: String, allow: String, method: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
-  H.Res{got, +headers, body} = res
+def checked(res: Pure.Res, +status: U32, action: String, allow: String, method: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
+  Pure.Res{got, +headers, body} = res
   do IO<Unit>:
     require(U32.is_eq(got, status), "status")
-    require(String.eq(H.header(headers, "x-action"), action), "selected action")
-    require(String.eq(H.header(headers, "allow"), allow), "Allow")
-    require(String.eq(H.header(headers, "x-method"), method), "original method")
-    require(String.eq(H.header(headers, "x-selected"), selected), "selected method")
-    require(String.eq(H.header(headers, "x-capture"), capture), "single decoded method capture")
-    require(String.eq(H.header(headers, "x-policies"), policies), "prepared policies")
-    require(String.eq(H.header(headers, "x-host"), host), "absolute-form Host")
-    require(String.eq(H.header(headers, "x-context"), Bool.pick(String, U32.is_eq(status, 200), "typed-context", "")), "typed runtime context")
+    require(String.eq(Pure.header(headers, "x-action"), action), "selected action")
+    require(String.eq(Pure.header(headers, "allow"), allow), "Allow")
+    require(String.eq(Pure.header(headers, "x-method"), method), "original method")
+    require(String.eq(Pure.header(headers, "x-selected"), selected), "selected method")
+    require(String.eq(Pure.header(headers, "x-capture"), capture), "single decoded method capture")
+    require(String.eq(Pure.header(headers, "x-policies"), policies), "prepared policies")
+    require(String.eq(Pure.header(headers, "x-host"), host), "absolute-form Host")
+    require(String.eq(Pure.header(headers, "x-context"), Bool.pick(String, U32.is_eq(status, 200), "typed-context", "")), "typed runtime context")
     require(Bool.not(U32.is_eq(status, 200)) || String.eq(B.to_string(body), "handler-body"), "direct dispatch suppressed body")
 
 def check(+app: C.Application<U32, String, C.Policy<Unit>>, +method: String, path: String, +status: U32, action: String, allow: String, selected: String, capture: String, policies: String, host: String) -> IO(Unit):
   do IO<Unit>:
-    result : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, H.Req{method, path, H.set(H.empty(), "host", "received.test"), H.from_string("")})
-    res : H.Res = completion(result)
+    result : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, Pure.Req{method, path, Pure.set(Pure.empty(), "host", "received.test"), Pure.from_string("")})
+    res : Pure.Res = completion(result)
     checked(res, status, action, allow, Bool.pick(String, U32.is_eq(status, 200), method, ""), selected, capture, policies, host)
 
 def exercise(+app: C.Application<U32, String, C.Policy<Unit>>) -> IO(Unit):
@@ -236,18 +236,18 @@ def packed.word(pair: Array<U32> & U32, status: U32, len: U32) -> IO(Unit):
   (buf, word) = pair
   require(U32.is_eq(status, 200) && U32.is_eq(len, 4) && U32.is_eq(word, 796983040), "plain packed body changed")
 
-def packed.checked(res: H.Res) -> IO(Unit):
-  H.Res{status, headers, B.Bytes{len, buf}} = res
+def packed.checked(res: Pure.Res) -> IO(Unit):
+  Pure.Res{status, headers, B.Bytes{len, buf}} = res
   packed.word(buf[0], status, len)
 
 def packed(app: C.Application<U32, String, C.Policy<Unit>>) -> IO(Unit):
   # One little-endian packed word: NUL, FF, 80, slash. Not UTF-8 text.
   do IO<Unit>:
-    dispatched : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
-    res : H.Res = completion(dispatched)
+    dispatched : C.Completion<Unit, Unit> <- C.dispatch(~U32, ~Unit, ~String, ~Unit, ~Unit, ~Unit, ~empty.before, ~empty.after, ~scoped.run, ~C.default.mapper(~Unit, ~String, ~Unit), ~C.notice.ignore(~Unit, ~Unit, ~Unit), ~C.notice.error.ignore(~Unit, ~Unit), Unit{}, C.access.disabled(~Unit, Unit{}), app, Unit{}, Pure.Req{"POST", "/echo", Pure.empty(), B.Bytes{4, [796983040 : U32*1n]}})
+    res : Pure.Res = completion(dispatched)
     packed.checked(res)
-    adapted : Result<&2, &1, C.ResponseError, H.Res> <- C.plain(~plain, H.Req{"POST", "/echo", H.empty(), B.Bytes{4, [796983040 : U32*1n]}})
-    plain_res : H.Res <- response(adapted)
+    adapted : Result<&2, &1, C.ResponseError, Pure.Res> <- C.plain(~plain, Pure.Req{"POST", "/echo", Pure.empty(), B.Bytes{4, [796983040 : U32*1n]}})
+    plain_res : Pure.Res <- response(adapted)
     packed.checked(plain_res)
 
 def main() -> IO(Unit):

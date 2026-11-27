@@ -1,6 +1,6 @@
 import Base
 import ./process.bend as Process
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 law run.failure:
   {Process.run.result(Fail{(2, "missing")}) == Fail{(2, "missing")} :

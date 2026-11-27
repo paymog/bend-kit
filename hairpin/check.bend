@@ -1,12 +1,15 @@
 import Base
 import ./hairpin.bend as Hairpin
+import ./pure.bend as Policy
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.40.0.1/http.bend as Http
-import bend-kit-http@0.40.0.1/admission.bend as Admission
-import bend-kit-http@0.40.0.1/completion.bend as Completion
-import bend-kit-time@0.3.0.1/time.bend as Time
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.2/admission.bend as Admission
+import bend-kit-http@0.45.0.2/completion.bend as Completion
+import bend-kit-time@0.3.0.5/pure.bend as Time
+import bend-kit-time@0.3.0.5/time.bend as Clock
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 def ok(b: Bool, +name: String) -> IO(Unit):
@@ -16,63 +19,63 @@ def ok(b: Bool, +name: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, "FAIL " ++ name)
 
-def closing(+status: U32, h: Map<&2, List<&2, String>>, body: String) -> IO(Http.Res):
-  IO.pure(Http.Res, Http.Res{status, Http.set(h, "connection", "close"), Bytes.from_string(body)})
+def closing(+status: U32, h: Map<&2, List<&2, String>>, body: String) -> IO(Pure.Res):
+  IO.pure(Pure.Res, Pure.Res{status, Pure.set(h, "connection", "close"), Bytes.from_string(body)})
 
-def echo(req: Http.Req) -> String:
-  Http.Req{method, path, +headers, body} = req
-  method ++ " " ++ path ++ " " ++ Http.header(headers, "accept") ++ " " ++ Http.header(headers, "x-a") ++ " " ++ Http.header(headers, "cookie")
+def echo(req: Pure.Req) -> String:
+  Pure.Req{method, path, +headers, body} = req
+  method ++ " " ++ path ++ " " ++ Pure.header(headers, "accept") ++ " " ++ Pure.header(headers, "x-a") ++ " " ++ Pure.header(headers, "cookie")
 
 # Every response closes its connection, so each attempt is one accept.
-def s.login(req: Http.Req) -> IO(Http.Res):
-  closing(302, Http.set(Http.set(Http.empty(), "location", "/api/echo"), "set-cookie", "sid=abc; Path=/"), "")
+def s.login(req: Pure.Req) -> IO(Pure.Res):
+  closing(302, Pure.set(Pure.set(Pure.empty(), "location", "/api/echo"), "set-cookie", "sid=abc; Path=/"), "")
 
-def s.echo(req: Http.Req) -> IO(Http.Res):
-  closing(200, Http.empty(), echo(req))
+def s.echo(req: Pure.Req) -> IO(Pure.Res):
+  closing(200, Pure.empty(), echo(req))
 
-def s.busy(req: Http.Req) -> IO(Http.Res):
-  closing(503, Http.set(Http.empty(), "retry-after", "0"), "busy")
+def s.busy(req: Pure.Req) -> IO(Pure.Res):
+  closing(503, Pure.set(Pure.empty(), "retry-after", "0"), "busy")
 
-def s.again(req: Http.Req) -> IO(Http.Res):
-  Http.Req{method, path, +headers, body} = req
-  closing(200, Http.empty(), "retry " ++ Http.header(headers, "cookie"))
+def s.again(req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, path, +headers, body} = req
+  closing(200, Pure.empty(), "retry " ++ Pure.header(headers, "cookie"))
 
-def s.post(req: Http.Req) -> IO(Http.Res):
-  Http.Req{method, path, +headers, body} = req
-  closing(503, Http.set(Http.empty(), "retry-after", "0"), method ++ " " ++ Http.header(headers, "content-type") ++ " " ++ Bytes.to_string(body))
+def s.post(req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, path, +headers, body} = req
+  closing(503, Pure.set(Pure.empty(), "retry-after", "0"), method ++ " " ++ Pure.header(headers, "content-type") ++ " " ++ Bytes.to_string(body))
 
-def s.slow(req: Http.Req) -> IO(Http.Res):
-  closing(503, Http.set(Http.empty(), "retry-after", "1"), "slow")
+def s.slow(req: Pure.Req) -> IO(Pure.Res):
+  closing(503, Pure.set(Pure.empty(), "retry-after", "1"), "slow")
 
-def s.fine(req: Http.Req) -> IO(Http.Res):
-  closing(200, Http.empty(), "fine")
+def s.fine(req: Pure.Req) -> IO(Pure.Res):
+  closing(200, Pure.empty(), "fine")
 
-def s.missing(req: Http.Req) -> IO(Http.Res):
-  closing(404, Http.empty(), "missing")
+def s.missing(req: Pure.Req) -> IO(Pure.Res):
+  closing(404, Pure.empty(), "missing")
 
-def reply(op: IO(Http.Res)) -> IO(Http.Reply):
+def reply(op: IO(Pure.Res)) -> IO(Http.Reply):
   do IO<Http.Reply>:
-    res : Http.Res <- op
+    res : Pure.Res <- op
     return Http.Reply{res, Completion.Unobserved{}}
 
 def serve.one(+k: U32, +inbox: Chan(Admission.Command), a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Listener):
   match k:
     case 0:
-      Http.conn(~(req => reply(s.login(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.login(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case 1:
-      Http.conn(~(req => reply(s.echo(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.echo(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case 2:
-      Http.conn(~(req => reply(s.busy(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.busy(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case 3:
-      Http.conn(~(req => reply(s.again(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.again(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case 4:
-      Http.conn(~(req => reply(s.post(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.post(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case 5:
-      Http.conn(~(req => reply(s.slow(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.slow(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case 6:
-      Http.conn(~(req => reply(s.fine(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.fine(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
     case _:
-      Http.conn(~(req => reply(s.missing(req))), ~Completion.ignore, Http.limits(1048576n), inbox, a)
+      Http.conn(~(req => reply(s.missing(req))), ~Completion.ignore, Pure.limits(1048576n), inbox, a)
 
 # Accept exactly one connection per script entry, then stop listening.
 def serve.go(ks: List<&2, U32>, +inbox: Chan(Admission.Command), l: Listener) -> IO(Unit):
@@ -140,12 +143,12 @@ def served(+name: String, ch: Chan(Unit)) -> IO(Unit):
     m : Maybe<&1, Unit> <- IO.within(Unit, 3000, IO.join(Unit, ch))
     served.of(name, m)
 
-def res.ok(+name: String, +status: U32, +want: String, m: Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Unit):
+def res.ok(+name: String, +status: U32, +want: String, m: Result<&1, &1, Hairpin.Err, Pure.Res>) -> IO(Unit):
   match m:
     case Fail{e}:
       IO.die(Unit, 1, "FAIL " ++ name ++ ": request failed")
     case Done{res}:
-      Http.Res{+s, headers, body} = res
+      Pure.Res{+s, headers, body} = res
       +seen = Bytes.to_string(body)
       ok(Bool.and(U32.is_eq(s, status), String.eq(seen, want)), name ++ " (" ++ U32.show(s) ++ " " ++ seen ++ ")")
 
@@ -158,7 +161,7 @@ def deny.code(d: Retry.Deny) -> U32:
     case Retry.DenyOpen{}:
       2
 
-def res.denied(+name: String, +want: U32, m: Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Unit):
+def res.denied(+name: String, +want: U32, m: Result<&1, &1, Hairpin.Err, Pure.Res>) -> IO(Unit):
   match m:
     case Fail{Hairpin.ErrDenied{why}}:
       ok(U32.is_eq(deny.code(why), want), name)
@@ -167,26 +170,26 @@ def res.denied(+name: String, +want: U32, m: Result<&1, &1, Hairpin.Err, Http.Re
     case Done{res}:
       IO.die(Unit, 1, "FAIL " ++ name ++ ": an attempt started")
 
-def got(+name: String, +status: U32, +want: String, r: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Hairpin.Client):
+def got(+name: String, +status: U32, +want: String, r: Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res>) -> IO(Hairpin.Client):
   (c, m) = r
   do IO<Hairpin.Client>:
     res.ok(name, status, want, m)
     return c
 
-def denied(+name: String, +want: U32, r: Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res>) -> IO(Hairpin.Client):
+def denied(+name: String, +want: U32, r: Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res>) -> IO(Hairpin.Client):
   (c, m) = r
   do IO<Hairpin.Client>:
     res.denied(name, want, m)
     return c
 
-def got.in(+name: String, +status: U32, +want: String, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>) ->
+def got.in(+name: String, +status: U32, +want: String, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res>) ->
     IO(Hairpin.Client & Retry.Budget):
   (c, b, m) = r
   do IO<Hairpin.Client & Retry.Budget>:
     res.ok(name, status, want, m)
     return (c, b)
 
-def denied.in(+name: String, +want: U32, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>) ->
+def denied.in(+name: String, +want: U32, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res>) ->
     IO(Hairpin.Client & Retry.Budget):
   (c, b, m) = r
   do IO<Hairpin.Client & Retry.Budget>:
@@ -199,21 +202,21 @@ def at(+port: U32) -> Hairpin.Client:
 def client(port: U32, now: Time.Instant) -> Hairpin.Client:
   c0 = at(port)
   c1 = Hairpin.header(Hairpin.header(c0, "Accept", "text/plain"), "X-A", "default")
-  Hairpin.jar(Hairpin.retry(c1, 2), Http.jar.new(now))
+  Hairpin.jar(Hairpin.retry(c1, 2), Pure.jar.new(now))
 
 # A redirect that sets a cookie, a 503 retried to a 200, a POST tried once, and a 302 in manual mode.
 def basics(bound: U32 & Chan(Unit)) -> IO(Unit):
   (port, ch) = bound
   do IO<Unit>:
-    now : Time.Instant <- Time.now()
-    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <-
-      Hairpin.request(client(port, now), "GET", "login", Http.set(Http.empty(), "X-A", "mine"), Bytes.new(0))
+    now : Time.Instant <- Http.clock.now()
+    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <-
+      Hairpin.request(client(port, now), "GET", "login", Pure.set(Pure.empty(), "X-A", "mine"), Bytes.new(0))
     c1 : Hairpin.Client <- got("base, default and request headers, redirect, and jar", 200, "GET /api/echo text/plain mine sid=abc", r1)
-    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c1, "/api/flaky")
+    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(c1, "/api/flaky")
     c2 : Hairpin.Client <- got("503 then 200 on the retry, jar kept", 200, "retry sid=abc", r2)
-    r3 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.post.json(c2, "echo", Json.Flag{True{}})
+    r3 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.post.json(c2, "echo", Json.Flag{True{}})
     c3 : Hairpin.Client <- got("a POST 503 is Unsafe: one try", 503, "POST application/json true", r3)
-    r4 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.redirect(c3, Http.ModeManual{}), "login")
+    r4 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(Hairpin.redirect(c3, Pure.ModeManual{}), "login")
     c4 : Hairpin.Client <- got("manual redirect mode returns the 302", 302, "", r4)
     Hairpin.close(c4)
     served("basics: 6 attempts", ch)
@@ -222,9 +225,9 @@ def basics(bound: U32 & Chan(Unit)) -> IO(Unit):
 def counts(bound: U32 & Chan(Unit)) -> IO(Unit):
   (port, ch) = bound
   do IO<Unit>:
-    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.retry(at(port), 2), "x")
+    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(Hairpin.retry(at(port), 2), "x")
     c1 : Hairpin.Client <- got("retry 2 on a 503 ends with the third 503", 503, "busy", r1)
-    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c1, "x")
+    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(c1, "x")
     c2 : Hairpin.Client <- got("a 404 is settled: one attempt", 404, "missing", r2)
     Hairpin.close(c2)
     served("counts: 3 + 1 attempts", ch)
@@ -240,12 +243,12 @@ def took(t0: Nat, t1: Nat) -> IO(Unit):
 def deadlines(bound: U32 & Chan(Unit)) -> IO(Unit):
   (port, ch) = bound
   do IO<Unit>:
-    t0 : Nat <- Time.mono.ms()
-    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.deadline(Hairpin.retry(at(port), 5), 1500), "x")
-    t1 : Nat <- Time.mono.ms()
+    t0 : Nat <- Clock.mono.ms()
+    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(Hairpin.deadline(Hairpin.retry(at(port), 5), 1500), "x")
+    t1 : Nat <- Clock.mono.ms()
     c1 : Hairpin.Client <- got("the deadline stops the retries after 2 attempts", 503, "slow", r1)
     took(t0, t1)
-    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(Hairpin.deadline(c1, 0), "x")
+    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(Hairpin.deadline(c1, 0), "x")
     c2 : Hairpin.Client <- denied("a past deadline denies the first attempt", 0, r2)
     Hairpin.close(c2)
     served("deadlines: 2 attempts", ch)
@@ -256,20 +259,20 @@ def breaker(bound: U32 & Chan(Unit)) -> IO(Unit):
   (port, ch) = bound
   do IO<Unit>:
     m0 : Hairpin.Client = Hairpin.circuit(at(port), Retry.Circuit{2n, 10000n, 300n, 1n})
-    q1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(m0, "x")
+    q1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(m0, "x")
     m1 : Hairpin.Client <- got("breaker: a 404 does not count", 404, "missing", q1)
-    q2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(m1, "x")
+    q2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(m1, "x")
     c0 : Hairpin.Client <- got("breaker: a second 404 leaves it closed", 404, "missing", q2)
-    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c0, "x")
+    r1 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(c0, "x")
     c1 : Hairpin.Client <- got("breaker: first failure", 503, "busy", r1)
-    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c1, "x")
+    r2 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(c1, "x")
     c2 : Hairpin.Client <- got("breaker: second failure opens it", 503, "busy", r2)
-    r3 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c2, "x")
+    r3 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(c2, "x")
     c3 : Hairpin.Client <- denied("breaker: open, no attempt", 2, r3)
     IO.sleep(400)
-    r4 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c3, "x")
+    r4 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(c3, "x")
     c4 : Hairpin.Client <- got("breaker: the probe after cooldown succeeds", 200, "fine", r4)
-    r5 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.get(c4, "x")
+    r5 : Hairpin.Client & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.get(c4, "x")
     c5 : Hairpin.Client <- got("breaker: closed again", 200, "fine", r5)
     Hairpin.close(c5)
     served("breaker: 6 attempts", ch)
@@ -282,60 +285,60 @@ def nested.b(x: Hairpin.Client & Retry.Budget) -> Retry.Budget:
   (c, b) = x
   b
 
-def nested.call(x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res>):
+def nested.call(x: Hairpin.Client & Retry.Budget) -> IO(Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res>):
   (c, b) = x
-  Hairpin.request.in(c, b, "GET", "x", Http.empty(), Bytes.new(0))
+  Hairpin.request.in(c, b, "GET", "x", Pure.empty(), Bytes.new(0))
 
 # An outer layer makes 3 calls, each allowed 3 attempts by the client, on one budget of 4:
 # 3 attempts, then 1, then none. Without the shared budget it would be 9.
 def nested(bound: U32 & Chan(Unit)) -> IO(Unit):
   (port, ch) = bound
   do IO<Unit>:
-    now : Nat <- Time.mono.ms()
+    now : Nat <- Clock.mono.ms()
     b0 : Retry.Budget = Retry.Budget.new(4n, now, None{})
-    r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- Hairpin.request.in(Hairpin.retry(at(port), 2), b0, "GET", "x", Http.empty(), Bytes.new(0))
+    r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res> <- Hairpin.request.in(Hairpin.retry(at(port), 2), b0, "GET", "x", Pure.empty(), Bytes.new(0))
     x1 : Hairpin.Client & Retry.Budget <- got.in("nested: the first call takes 3", 503, "busy", r1)
-    r2 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- nested.call(x1)
+    r2 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res> <- nested.call(x1)
     x2 : Hairpin.Client & Retry.Budget <- got.in("nested: the second call gets the 1 left", 503, "busy", r2)
-    r3 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <- nested.call(x2)
+    r3 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res> <- nested.call(x2)
     x3 : Hairpin.Client & Retry.Budget <- denied.in("nested: the third call is denied, the budget is spent", 1, r3)
     Hairpin.close(nested.c(x3))
     served("nested: 4 attempts on a budget of 4", ch)
 
 # Any status but 200 may clear, after Retry-After: 0.
-def judge.all(r: Result<&1, &1, Http.Err, Http.Res>) -> Result<&1, &1, Http.Err, Http.Res> & Hairpin.Verdict:
+def judge.all(r: Result<&1, &1, Pure.Err, Pure.Res>) -> Result<&1, &1, Pure.Err, Pure.Res> & Policy.Verdict:
   match r:
     case Fail{e}:
-      (Fail{e}, Hairpin.VerdictAgain{"0"})
+      (Fail{e}, Policy.VerdictAgain{"0"})
     case Done{res}:
-      Http.Res{+s, h, b} = res
-      (Done{Http.Res{s, h, b}}, Bool.pick(Hairpin.Verdict, U32.is_eq(s, 200), Hairpin.VerdictOk{}, Hairpin.VerdictAgain{"0"}))
+      Pure.Res{+s, h, b} = res
+      (Done{Pure.Res{s, h, b}}, Bool.pick(Policy.Verdict, U32.is_eq(s, 200), Policy.VerdictOk{}, Policy.VerdictAgain{"0"}))
 
 # A caller's judge retries a 404, and a POST it calls idempotent repeats: 3 attempts.
 def judged(bound: U32 & Chan(Unit)) -> IO(Unit):
   (port, ch) = bound
   do IO<Unit>:
     b0 : Retry.Budget = Retry.Budget.new(3n, 0n, None{})
-    r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Res> <-
-      Hairpin.request.as(~judge.all, Hairpin.retry(at(port), 2), b0, True{}, "identity", "POST", "x", Http.empty(), Bytes.from_string("{}"))
+    r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Pure.Res> <-
+      Hairpin.request.as(~judge.all, Hairpin.retry(at(port), 2), b0, True{}, "identity", "POST", "x", Pure.empty(), Bytes.from_string("{}"))
     x1 : Hairpin.Client & Retry.Budget <- got.in("request.as: the caller's judge retries an idempotent POST", 200, "fine", r1)
     Hairpin.close(nested.c(x1))
     served("judged: 3 attempts", ch)
 
 # Any status but 200 may clear, after Retry-After: 0.
-def judge.stream.res(x: Http.Stream & Http.Res) -> Result<&1, &1, Http.Err, Http.Stream> & Hairpin.Verdict:
+def judge.stream.res(x: Http.Stream & Pure.Res) -> Result<&1, &1, Pure.Err, Http.Stream> & Policy.Verdict:
   (st, res) = x
-  Http.Res{+s, h, b} = res
-  (Done{st}, Bool.pick(Hairpin.Verdict, U32.is_eq(s, 200), Hairpin.VerdictOk{}, Hairpin.VerdictAgain{"0"}))
+  Pure.Res{+s, h, b} = res
+  (Done{st}, Bool.pick(Policy.Verdict, U32.is_eq(s, 200), Policy.VerdictOk{}, Policy.VerdictAgain{"0"}))
 
-def judge.stream(r: Result<&1, &1, Http.Err, Http.Stream>) -> Result<&1, &1, Http.Err, Http.Stream> & Hairpin.Verdict:
+def judge.stream(r: Result<&1, &1, Pure.Err, Http.Stream>) -> Result<&1, &1, Pure.Err, Http.Stream> & Policy.Verdict:
   match r:
     case Fail{e}:
-      (Fail{e}, Hairpin.VerdictAgain{"0"})
+      (Fail{e}, Policy.VerdictAgain{"0"})
     case Done{st}:
       judge.stream.res(Http.stream.res(st))
 
-def piece(r: Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> String:
+def piece(r: Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>>) -> String:
   match r:
     case Fail{e}:
       "<read failed>"
@@ -346,7 +349,7 @@ def piece(r: Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> String:
         case Some{b}:
           Bytes.to_string(b)
 
-def streamed.read(c: Hairpin.Client, +name: String, +s: U32, x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Hairpin.Client):
+def streamed.read(c: Hairpin.Client, +name: String, +s: U32, x: Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Hairpin.Client):
   (st, r) = x
   +seen = piece(r)
   do IO<Hairpin.Client>:
@@ -354,11 +357,11 @@ def streamed.read(c: Hairpin.Client, +name: String, +s: U32, x: Http.Stream & Re
     ok(Bool.and(U32.is_eq(s, 200), String.eq(seen, "fine")), name ++ " (" ++ U32.show(s) ++ " " ++ seen ++ ")")
     return next
 
-def streamed.head(c: Hairpin.Client, +name: String, x: Http.Stream & Http.Res) -> IO(Hairpin.Client):
+def streamed.head(c: Hairpin.Client, +name: String, x: Http.Stream & Pure.Res) -> IO(Hairpin.Client):
   (st, res) = x
-  Http.Res{+s, h, b} = res
+  Pure.Res{+s, h, b} = res
   do IO<Hairpin.Client>:
-    y : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
+    y : Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
     streamed.read(c, name, s, y)
 
 def streamed(+name: String, +want: Nat, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream>) -> IO(Hairpin.Client):
@@ -379,33 +382,33 @@ def opened(bound: U32 & Chan(Unit)) -> IO(Unit):
   do IO<Unit>:
     b0 : Retry.Budget = Retry.Budget.new(4n, 0n, None{})
     r1 : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <-
-      Hairpin.open.as(~judge.stream, Hairpin.retry(at(port), 2), b0, True{}, "identity", "GET", "x", Http.empty(), Bytes.new(0))
+      Hairpin.open.as(~judge.stream, Hairpin.retry(at(port), 2), b0, True{}, "identity", "GET", "x", Pure.empty(), Bytes.new(0))
     c1 : Hairpin.Client <- streamed("open.as: 503, 503, then a 200 stream", 1n, r1)
     Hairpin.close(c1)
     served("opened: 3 attempts", ch)
 
-def jarred.first(r: Http.Jar & Http.Res) -> Http.Jar:
+def jarred.first(r: Pure.Jar & Pure.Res) -> Pure.Jar:
   (j, res) = r
   j
 
-def jarred.start(+port: U32, +now: Time.Instant) -> Http.Jar:
-  jarred.first(Http.jar.store(Http.jar.new(now), "http://127.0.0.1:" ++ U32.show(port) ++ "/", Http.Res{200, Http.set(Http.empty(), "set-cookie", "pre=1"), Bytes.new(0)}))
+def jarred.start(+port: U32, +now: Time.Instant) -> Pure.Jar:
+  jarred.first(Pure.jar.store(Pure.jar.new(now), "http://127.0.0.1:" ++ U32.show(port) ++ "/", Pure.Res{200, Pure.set(Pure.empty(), "set-cookie", "pre=1"), Bytes.new(0)}))
 
-def jarred.sent(+port: U32, m: Maybe<&2, Http.Jar>) -> String:
+def jarred.sent(+port: U32, m: Maybe<&2, Pure.Jar>) -> String:
   match m:
     case None{}:
       "no jar"
     case Some{j}:
-      Http.header(Http.jar.apply(j, "http://127.0.0.1:" ++ U32.show(port) ++ "/", Http.empty()), "cookie")
+      Pure.header(Pure.jar.apply(j, "http://127.0.0.1:" ++ U32.show(port) ++ "/", Pure.empty()), "cookie")
 
-def jarred.jar(port: U32, x: Hairpin.Client & Maybe<&2, Http.Jar>) -> IO(Unit):
+def jarred.jar(port: U32, x: Hairpin.Client & Maybe<&2, Pure.Jar>) -> IO(Unit):
   (c, m) = x
   +sent = jarred.sent(port, m)
   do IO<Unit>:
     ok(String.eq(sent, "pre=1; sid=abc"), "open.as: the jar comes back with the server's Set-Cookie (" ++ sent ++ ")")
     Hairpin.close(c)
 
-def jarred.read(x: Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Unit):
+def jarred.read(x: Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>>) -> IO(Unit):
   (st, r) = x
   +seen = piece(r)
   do IO<Unit>:
@@ -419,7 +422,7 @@ def jarred(+port: U32, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin
       IO.die(Unit, 1, "FAIL open.as with a jar: no stream opened")
     case Done{st}:
       do IO<Unit>:
-        y : Http.Stream & Result<&1, &1, Http.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
+        y : Http.Stream & Result<&1, &1, Pure.Err, Maybe<&1, Bytes.Bytes>> <- Http.stream.read(st)
         jarred.read(y)
         jarred.jar(port, Hairpin.jar.of(c))
 
@@ -427,9 +430,9 @@ def jarred(+port: U32, r: Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin
 def jarred.test(bound: U32 & Chan(Unit)) -> IO(Unit):
   (+port, ch) = bound
   do IO<Unit>:
-    now : Time.Instant <- Time.now()
+    now : Time.Instant <- Http.clock.now()
     r : Hairpin.Client & Retry.Budget & Result<&1, &1, Hairpin.Err, Http.Stream> <-
-      Hairpin.open.as(~judge.stream, Hairpin.jar(at(port), jarred.start(port, now)), Retry.Budget.new(1n, 0n, None{}), True{}, "identity", "GET", "login", Http.empty(), Bytes.new(0))
+      Hairpin.open.as(~judge.stream, Hairpin.jar(at(port), jarred.start(port, now)), Retry.Budget.new(1n, 0n, None{}), True{}, "identity", "GET", "login", Pure.empty(), Bytes.new(0))
     jarred(port, r)
     served("jarred: 2 attempts", ch)
 

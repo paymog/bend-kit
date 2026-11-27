@@ -3,7 +3,7 @@ import Base
 import ./http.bend as Http
 import ./pure.bend as Pure
 import ./completion.bend as Completion
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def config(port: U32) -> Pure.ServerConfig:
   Pure.ServerConfig{"127.0.0.1", port, 8, 128, 128, 128, 128, 600, 600, 800, 600}
@@ -146,7 +146,7 @@ def run(mode: String, port: U32) -> IO(Unit):
         checked(result)
     case "writer":
       do IO<Unit>:
-        result : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.write.config(~Download, ~download.start, ~download.write, ~download.dispose, ~Completion.ignore, config(port))
+        result : Result<&2, &2, Pure.StartupError, Unit> <- Http.serve.write.config(~Unit, ~Download, ~(context => req => download.start(req)), ~download.write, ~download.dispose, ~(context => status => outcome => Completion.ignore(status, outcome)), Unit{}, config(port))
         checked(result)
     case _:
       IO.die(Unit, 1, "invalid mode")

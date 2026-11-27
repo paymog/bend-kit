@@ -22,6 +22,29 @@ macOS arm64, Bend 2.0.40, 2026-11-25. The fixture publishes a small root, a 24-l
 
 These are single `/usr/bin/time -l` measurements for the full fixture, including child-process overhead, not a throughput comparison or an isolated allocation profile. The verifier uses a 64 KiB buffer and a bounded header. Its payload memory does not scale with file length; the digest index grows with distinct object count.
 
+## Local synchronization and collection memory
+
+From the repo root:
+
+```sh
+bend storage/local_check.bend -o /tmp/storage-local-check
+python3 storage/local_check.py /tmp/storage-local-check
+bend storage/local_check.bend -o /tmp/storage-local-check.js
+python3 storage/local_check.py bun /tmp/storage-local-check.js
+```
+
+macOS arm64, Bend 2.0.40, 2026-11-26. Python writes canonical files in 64 KiB pieces outside the measured process. Each file is the leaf of a 24-level shared graph with 25 distinct objects. Each size runs first sync, repeated sync, explicit collection with duplicate retained roots, and named-root collection in separate processes. The table records the largest sampled process RSS across those operations.
+
+| lane | payload MiB | peak sampled RSS bytes |
+|---|---:|---:|
+| native | 17 | 4,702,208 |
+| native | 129 | 4,685,824 |
+| Bun | 17 | 43,532,288 |
+| Bun | 129 | 42,811,392 |
+
+These are single runs sampled with `ps` every 5 ms, not OS high-water counters or throughput measurements. Both package check lanes run the fixture and require less than 32 MiB of RSS growth between sizes. The fixture verifies every copied digest, transfer counts, temporary cleanup, and fail-closed collection for missing, corrupt, and noncanonical objects. A 30 s bound on the shared graph detects expansion of its millions of repeated paths. Payload buffers are fixed at 64 KiB; index memory still grows with distinct object count.
+
+
 ## HTTP connection reuse
 
 `http.bend` runs the port-0 loopback checks and times the first sync. The fixed closure has two directory entries that share one 14-byte file, plus the end object. The destination already has the file, so three GETs fetch the two entries and the end. The timer includes local ingress checks and object writes, but not fixture setup or server startup.

@@ -1,7 +1,7 @@
 # Live smoke against a local Redis or Valkey on REDIS_PORT (default 6379). It flushes db 9.
 import Base
 import ./redis.bend as R
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def esc(s: String) -> String:
   match s:

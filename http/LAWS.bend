@@ -1,9 +1,9 @@
 import Base
 import ./pure.bend as Http
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-time@0.3.0.2/pure.bend as Time
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 # LAW: the text after a blank line is the body.

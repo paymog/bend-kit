@@ -1,7 +1,7 @@
 import Base
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-mathlib@0.8.0.0/bool.bend as MBool
-import bend-kit-cbor@0.3.0.1/cbor.bend as Cbor
+import bend-kit-cbor@0.3.0.3/cbor.bend as Cbor
 import ../lemmas/lemmas.bend as Lemmas
 import ./crdt.bend as Crdt
 import ./LAWS.bend as Laws
@@ -1897,3 +1897,136 @@ def Laws.k_le_antisymm(K, cmp, refl, eq, flip, trans, a, b, va, vb, hab, hba):
   +a = a
   +b = b
   anti.go(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, a, b, KH2(~K, ~cmp, a, b), va, vb, hab, hba, {==})
+
+def k_exact_mono.go(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  a: Crdt.KCounter<K>, b: Crdt.KCounter<K>, q: Cmp,
+  +va: {KV(~K, ~cmp, a) == True{} : Bool}, +vb: {KV(~K, ~cmp, b) == True{} : Bool},
+  +hab: {KL(~K, ~cmp, a, b) == True{} : Bool}, e: {KH2(~K, ~cmp, a, b) == q : Cmp}
+) -> {Nat.is_le(Crdt.KCounter.value_exact(K, a), Crdt.KCounter.value_exact(K, b)) == True{} : Bool}:
+  match a b q:
+    case Crdt.KNil{} _ _:
+      MNat.zero_le(Crdt.KCounter.value_exact(K, b))
+    case Crdt.KCon{+x, +c, +r} Crdt.KNil{} _:
+      Empty.absurd({Nat.is_le(Crdt.KCounter.value_exact(K, Crdt.KCon{x, c, r}), 0n) == True{} : Bool},
+        ne_le_zero(c, v.ne(~K, ~cmp, x, c, r, va),
+          MBool.eq_true_of_and_left(U32.is_le(c, 0), KL(~K, ~cmp, r, Crdt.KNil{}), hab)))
+    case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} LT{}:
+      Empty.absurd({Nat.is_le(Crdt.KCounter.value_exact(K, Crdt.KCon{x, c, r}), Crdt.KCounter.value_exact(K, Crdt.KCon{y, d, t})) == True{} : Bool},
+        ne_le_zero(c, v.ne(~K, ~cmp, x, c, r, va),
+          le_rw(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x), 0,
+            get_below(~K, ~cmp, ~trans, Crdt.KCon{y, d, t}, x, vb, lt_true(cmp(x, y), e)),
+            MBool.eq_true_of_and_left(U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x)), KL(~K, ~cmp, r, Crdt.KCon{y, d, t}), hab))))
+    case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} EQ{}:
+      +ex = eq(x, y, e)
+      MNat.add_le_add(U32.to_nat(c), Crdt.KCounter.value_exact(K, r), U32.to_nat(d), Crdt.KCounter.value_exact(K, t),
+        Equal.trans(Bool, Nat.is_le(U32.to_nat(c), U32.to_nat(d)), U32.is_le(c, d), True{},
+          Lemmas.u32_le_nat_sym(c, d),
+          le_rw(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x), d,
+            %Equal.sym(K, x, y, ex) : {KG(~K, ~cmp, Crdt.KCon{y, d, t}, _) == d : U32}
+            get_first(~K, ~cmp, ~refl, ~trans, y, d, t, vb),
+            MBool.eq_true_of_and_left(U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x)), KL(~K, ~cmp, r, Crdt.KCon{y, d, t}), hab))),
+        k_exact_mono.go(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, r, t, KH2(~K, ~cmp, r, t),
+          v.tail(~K, ~cmp, x, c, r, va), v.tail(~K, ~cmp, y, d, t, vb),
+          le_drop(~K, ~cmp, ~flip, ~trans, r, y, d, t, v.tail(~K, ~cmp, x, c, r, va),
+            %ex : {KA(~K, ~cmp, r, _) == True{} : Bool}
+            v.above(~K, ~cmp, x, c, r, va),
+            MBool.eq_true_of_and_right(U32.is_le(c, KG(~K, ~cmp, Crdt.KCon{y, d, t}, x)), KL(~K, ~cmp, r, Crdt.KCon{y, d, t}), hab)), {==}))
+    case Crdt.KCon{+x, +c, +r} Crdt.KCon{+y, +d, +t} GT{}:
+      MNat.le_trans(Crdt.KCounter.value_exact(K, Crdt.KCon{x, c, r}), Crdt.KCounter.value_exact(K, t),
+        Crdt.KCounter.value_exact(K, Crdt.KCon{y, d, t}),
+        k_exact_mono.go(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, Crdt.KCon{x, c, r}, t, KH2(~K, ~cmp, Crdt.KCon{x, c, r}, t),
+          va, v.tail(~K, ~cmp, y, d, t, vb),
+          le_drop(~K, ~cmp, ~flip, ~trans, Crdt.KCon{x, c, r}, y, d, t, va,
+            lt_true(cmp(y, x), gt_flip(~K, ~cmp, ~flip, x, y, e)), hab), {==}),
+        MNat.le_add_left(Crdt.KCounter.value_exact(K, t), U32.to_nat(d)))
+
+def k_exact_mono(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp),
+  +a: Crdt.KCounter<K>, +b: Crdt.KCounter<K>,
+  va: {KV(~K, ~cmp, a) == True{} : Bool}, vb: {KV(~K, ~cmp, b) == True{} : Bool},
+  hab: {KL(~K, ~cmp, a, b) == True{} : Bool}
+) -> {Nat.is_le(Crdt.KCounter.value_exact(K, a), Crdt.KCounter.value_exact(K, b)) == True{} : Bool}:
+  k_exact_mono.go(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, a, b, KH2(~K, ~cmp, a, b), va, vb, hab, {==})
+
+def k_exact_merge_grows_l(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp), +a: Crdt.KCounter<K>, +b: Crdt.KCounter<K>,
+  +va: {KV(~K, ~cmp, a) == True{} : Bool}, vb: {KV(~K, ~cmp, b) == True{} : Bool}
+) -> {Nat.is_le(Crdt.KCounter.value_exact(K, a), Crdt.KCounter.value_exact(K, KM(~K, ~cmp, a, b))) == True{} : Bool}:
+  k_exact_mono(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, a, KM(~K, ~cmp, a, b), va,
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, b, va, vb), upper_l(~K, ~cmp, ~refl, ~eq, a, b))
+
+def k_exact_merge_grows_r(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp), +a: Crdt.KCounter<K>, +b: Crdt.KCounter<K>,
+  va: {KV(~K, ~cmp, a) == True{} : Bool}, +vb: {KV(~K, ~cmp, b) == True{} : Bool}
+) -> {Nat.is_le(Crdt.KCounter.value_exact(K, b), Crdt.KCounter.value_exact(K, KM(~K, ~cmp, a, b))) == True{} : Bool}:
+  k_exact_mono(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, b, KM(~K, ~cmp, a, b), vb,
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, b, va, vb), le_merge_l(~K, ~cmp, ~eq, b, b, a, le_self(~K, ~cmp, ~refl, b)))
+
+def k_exact_inc_grows(
+  ~K: Data, ~cmp: K -> K -> Cmp, ~refl: Refl(~K, ~cmp), ~eq: Eq(~K, ~cmp),
+  ~flip: Flip(~K, ~cmp), ~trans: Trans(~K, ~cmp), +s: Crdt.KCounter<K>, +k: K, +u: Crdt.KCounter<K>,
+  +vs: {KV(~K, ~cmp, s) == True{} : Bool}, ok: {KI(~K, ~cmp, s, k) == Some{u} : Maybe<&2, Crdt.KCounter<K>>}
+) -> {Nat.is_le(Crdt.KCounter.value_exact(K, s), Crdt.KCounter.value_exact(K, u)) == True{} : Bool}:
+  +ok = ok
+  k_exact_mono(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, s, u, vs,
+    Equal.trans(Bool, KV(~K, ~cmp, u), Laws.k.ok_valid(~K, ~cmp, KI(~K, ~cmp, s, k)), True{},
+      Equal.sym(Bool, Laws.k.ok_valid(~K, ~cmp, KI(~K, ~cmp, s, k)), KV(~K, ~cmp, u),
+        Equal.cong(Maybe<&2, Crdt.KCounter<K>>, Bool, m => Laws.k.ok_valid(~K, ~cmp, m), KI(~K, ~cmp, s, k), Some{u}, ok)),
+      k_inc_valid.go(~K, ~cmp, ~flip, s, k, KH(~K, ~cmp, k, s), vs, {==})),
+    Equal.trans(Bool, KL(~K, ~cmp, s, u), Laws.k.grows(~K, ~cmp, s, KI(~K, ~cmp, s, k)), True{},
+      Equal.sym(Bool, Laws.k.grows(~K, ~cmp, s, KI(~K, ~cmp, s, k)), KL(~K, ~cmp, s, u),
+        Equal.cong(Maybe<&2, Crdt.KCounter<K>>, Bool, m => Laws.k.grows(~K, ~cmp, s, m), KI(~K, ~cmp, s, k), Some{u}, ok)),
+      k_inc_grows.go(~K, ~cmp, ~refl, s, k, KH(~K, ~cmp, k, s))))
+
+def Laws.k_merge_comm_state(K, cmp, refl, eq, flip, trans, a, b, va, vb):
+  +a = a
+  +b = b
+  +va = va
+  +vb = vb
+  Laws.k_le_antisymm(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, KM(~K, ~cmp, a, b), KM(~K, ~cmp, b, a),
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, b, va, vb),
+    merge_valid(~K, ~cmp, ~eq, ~flip, b, a, vb, va),
+    Laws.k_merge_least(~K, ~cmp, ~eq, a, b, KM(~K, ~cmp, b, a),
+      Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, b, a), upper_l(~K, ~cmp, ~refl, ~eq, b, a)),
+    Laws.k_merge_least(~K, ~cmp, ~eq, b, a, KM(~K, ~cmp, a, b),
+      Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, b), upper_l(~K, ~cmp, ~refl, ~eq, a, b)))
+
+def Laws.k_merge_assoc_state(K, cmp, refl, eq, flip, trans, a, b, c, va, vb, vc):
+  +a = a
+  +b = b
+  +c = c
+  +va = va
+  +vb = vb
+  +vc = vc
+  +ab = KM(~K, ~cmp, a, b)
+  +bc = KM(~K, ~cmp, b, c)
+  +l = KM(~K, ~cmp, ab, c)
+  +r = KM(~K, ~cmp, a, bc)
+  +bl = Laws.k_le_trans(~K, ~cmp, ~eq, b, ab, l,
+    Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, b), upper_l(~K, ~cmp, ~refl, ~eq, ab, c))
+  +br = Laws.k_le_trans(~K, ~cmp, ~eq, b, bc, r,
+    upper_l(~K, ~cmp, ~refl, ~eq, b, c), Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, bc))
+  Laws.k_le_antisymm(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, l, r,
+    merge_valid(~K, ~cmp, ~eq, ~flip, ab, c, merge_valid(~K, ~cmp, ~eq, ~flip, a, b, va, vb), vc),
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, bc, va, merge_valid(~K, ~cmp, ~eq, ~flip, b, c, vb, vc)),
+    Laws.k_merge_least(~K, ~cmp, ~eq, ab, c, r,
+      Laws.k_merge_least(~K, ~cmp, ~eq, a, b, r, upper_l(~K, ~cmp, ~refl, ~eq, a, bc), br),
+      Laws.k_le_trans(~K, ~cmp, ~eq, c, bc, r,
+        Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, b, c), Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, a, bc))),
+    Laws.k_merge_least(~K, ~cmp, ~eq, a, bc, l,
+      Laws.k_le_trans(~K, ~cmp, ~eq, a, ab, l,
+        upper_l(~K, ~cmp, ~refl, ~eq, a, b), upper_l(~K, ~cmp, ~refl, ~eq, ab, c)),
+      Laws.k_merge_least(~K, ~cmp, ~eq, b, c, l, bl, Laws.k_merge_upper_r(~K, ~cmp, ~refl, ~eq, ab, c))))
+
+def Laws.k_merge_idem_state(K, cmp, refl, eq, flip, trans, a, va):
+  +a = a
+  +va = va
+  +ha = le_self(~K, ~cmp, ~refl, a)
+  Laws.k_le_antisymm(~K, ~cmp, ~refl, ~eq, ~flip, ~trans, KM(~K, ~cmp, a, a), a,
+    merge_valid(~K, ~cmp, ~eq, ~flip, a, a, va, va), va,
+    Laws.k_merge_least(~K, ~cmp, ~eq, a, a, a, ha, ha), upper_l(~K, ~cmp, ~refl, ~eq, a, a))

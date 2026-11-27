@@ -1,6 +1,6 @@
 # Retry-safe commands: deduplicate by command id, replay recorded results, and commit keyed rows, record, and outbox in one SQLite transaction. Source: https://github.com/paymog/bend-kit/tree/main/commands
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-sqlite@0.1.0.1/sqlite.bend as Sqlite
 import ./model.bend as M
 
@@ -70,10 +70,17 @@ def blob.of(lw: U32 & Array<U32>) -> Bytes.Bytes:
   (n, w) = lw
   Bytes.Bytes{n, w}
 
+def column.result(r: Result<&1, &1, U32 & String, U32 & Array<U32>>) -> Result<&1, &1, U32 & String, Bytes.Bytes>:
+  match r:
+    case Fail{e}:
+      Fail{e}
+    case Done{lw}:
+      Done{blob.of(lw)}
+
 def column(+s: U32, i: U32) -> Run(Bytes.Bytes):
-  do Run<Bytes.Bytes>:
-    lw : U32 & Array<U32> <- Sqlite.stmt.column.blob(s, i)
-    return blob.of(lw)
+  do IO<Result<&1, &1, U32 & String, Bytes.Bytes>>:
+    r : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Sqlite.stmt.column.blob(s, i)
+    return column.result(r)
 
 def bind(+s: U32, i: U32, b: Bytes.Bytes) -> Run(Unit):
   Bytes.Bytes{n, w} = b

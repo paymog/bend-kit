@@ -1,10 +1,10 @@
 import Base
 import ../../../http/http.bend as Http
 import ../../../http/pure.bend as Pure
-import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-json@0.7.3.2/json.bend as Json
 import ./app.bend as App
 import ../contract.bend as Contract
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def strings(xs: List<&2, String>) -> List<&1, Json.Val>:
   match xs:

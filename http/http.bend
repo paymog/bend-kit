@@ -3,18 +3,18 @@ import Base
 import ./admission.bend as Admission
 import ./completion.bend as Completion
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
-import bend-kit-http2@0.6.0.0/http2.bend as H2
-import bend-kit-http2@0.6.0.0/hpack.bend as Hpack
-import bend-kit-bytes@0.3.3.1/bytes.bend as HBytes
-import bend-kit-time@0.3.0.2/pure.bend as Time
-import bend-kit-time@0.3.0.2/time.bend as Clock
+import bend-kit-http2@0.6.0.2/http2.bend as H2
+import bend-kit-http2@0.6.0.2/hpack.bend as Hpack
+import bend-kit-bytes@0.3.3.3/bytes.bend as HBytes
+import bend-kit-time@0.3.0.5/pure.bend as Time
+import bend-kit-time@0.3.0.5/time.bend as Clock
 import ./pure.bend as Pure
 import bend-kit-concurrency@0.2.0.0/concurrency.bend as Conc
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-dns@0.8.0.0/dns.bend as Dns
-import bend-kit-zlib@0.7.0.1/native.bend as ZNative
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-dns@0.8.0.2/dns.bend as Dns
+import bend-kit-zlib@0.7.0.4/native.bend as ZNative
 
 
 def clock.instant(v: Clock.Instant) -> Time.Instant:
@@ -3246,28 +3246,28 @@ def serve.write.send(
     Pure.writer.plan(Pure.frame.nobody(status, False{}), normalized, length))
 
 def admission.write(
-  ~S: Type, ~start: Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  admitted: Bool, +inbox: Chan(Admission.Command), +settings: Pure.Limits,
+  ~C: Data, ~S: Type, ~start: C -> Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
+  admitted: Bool, +context: C, +inbox: Chan(Admission.Command), +settings: Pure.Limits,
   s: Socket, req: Pure.Req, rest: Bytes.Bytes, v11: Bool
 ) -> IO(Maybe<&1, Socket & Pure.Turn>):
   match admitted:
     case False{}:
       Pure.Limits{max, cap, hm, bm, im, wm} = settings
       do IO<Maybe<&1, Socket & Pure.Turn>>:
-        admission.reject(Completion.Observed{status => outcome => observe(status, outcome)}, s, Pure.admission.head(req), wm)
+        admission.reject(Completion.Observed{status => outcome => observe(context, status, outcome)}, s, Pure.admission.head(req), wm)
         return None{}
     case True{}:
       Pure.Req{+method, path, +headers, body} = req
       do IO<Maybe<&1, Socket & Pure.Turn>>:
-        out : WriteHead<S> <- start(Pure.Req{method, path, headers, body})
-        after : Maybe<&1, Socket & Pure.Turn> <- serve.write.send(~S, ~write, ~dispose, Completion.Observed{status => outcome => observe(status, outcome)}, settings, s, rest, headers, v11, String.eq(method, "HEAD"), out)
+        out : WriteHead<S> <- start(context, Pure.Req{method, path, headers, body})
+        after : Maybe<&1, Socket & Pure.Turn> <- serve.write.send(~S, ~write, ~dispose, Completion.Observed{status => outcome => observe(context, status, outcome)}, settings, s, rest, headers, v11, String.eq(method, "HEAD"), out)
         Admission.give(inbox, 1)
         return after
 
 @unsafe
 def serve.write.talk(
-  ~S: Type, ~start: Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  +settings: Pure.Limits, +inbox: Chan(Admission.Command), st: Maybe<&1, Pure.Serving>
+  ~C: Data, ~S: Type, ~start: C -> Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
+  +context: C, +settings: Pure.Limits, +inbox: Chan(Admission.Command), st: Maybe<&1, Pure.Serving>
 ) -> IO(Unit):
   Pure.Limits{max, cap, hm, bm, im, wm} = settings
   match st:
@@ -3278,34 +3278,34 @@ def serve.write.talk(
         case Pure.TurnMore{sv, cont}:
           do IO<Unit>:
             received : (Socket & Pure.Turn) & Pure.Phase <- talk.recv(inbox, False{}, settings, s, sv, cont, phase)
-            serve.write.talk(~S, ~start, ~write, ~dispose, ~observe, settings, inbox, Some{Pure.talk.state(received)})
+            serve.write.talk(~C, ~S, ~start, ~write, ~dispose, ~observe, context, settings, inbox, Some{Pure.talk.state(received)})
         case Pure.TurnReq{req, rest, v11}:
           do IO<Unit>:
             admitted : Bool <- Admission.take(inbox, 1)
-            after : Maybe<&1, Socket & Pure.Turn> <- admission.write(~S, ~start, ~write, ~dispose, ~observe, admitted, inbox, settings, s, req, rest, v11)
-            serve.write.talk(~S, ~start, ~write, ~dispose, ~observe, settings, inbox, Pure.serve.write.state(after))
+            after : Maybe<&1, Socket & Pure.Turn> <- admission.write(~C, ~S, ~start, ~write, ~dispose, ~observe, admitted, context, inbox, settings, s, req, rest, v11)
+            serve.write.talk(~C, ~S, ~start, ~write, ~dispose, ~observe, context, settings, inbox, Pure.serve.write.state(after))
         case Pure.TurnFail{status}:
-          reply_fail(Completion.Observed{status => outcome => observe(status, outcome)}, s, status, wm)
+          reply_fail(Completion.Observed{status => outcome => observe(context, status, outcome)}, s, status, wm)
         case Pure.TurnClose{}:
           Socket.close(s)
         case Pure.TurnInputFailed{operation, code, message}:
           Socket.close(s)
 
 def server.write.run(
-  ~S: Type, ~start: Pure.Req -> IO(WriteHead<S>),
+  ~C: Data, ~S: Type, ~start: C -> Pure.Req -> IO(WriteHead<S>),
   ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt),
   ~dispose: S -> IO(Unit),
-  ~observe: U32 -> Completion.Outcome -> IO(Unit), server: Server<Unit>
+  ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), server: Server<C>
 ) -> IO(Pure.ServerExit):
-  server.run.loop(~Unit,
-    ~(context => settings => inbox => socket =>
-      serve.write.talk(~S, ~start, ~write, ~dispose, ~observe, settings, inbox,
+  server.run.loop(~C,
+    ~(+context => settings => inbox => socket =>
+      serve.write.talk(~C, ~S, ~start, ~write, ~dispose, ~observe, context, settings, inbox,
         Some{Pure.Serving{(socket, Pure.TurnMore{Pure.sv.none(), False{}}), None{}}})),
     ServerListening{server})
 
 def serve.write.started(
-  ~S: Type, ~start: Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit),
-  result: Unit & Result<&2, &1, Pure.StartupError, Server<Unit>>
+  ~C: Data, ~S: Type, ~start: C -> Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit),
+  result: Unit & Result<&2, &1, Pure.StartupError, Server<C>>
 ) -> IO(Result<&2, &2, Pure.StartupError, Unit>):
   (owner, got) = result
   match got:
@@ -3313,16 +3313,16 @@ def serve.write.started(
       IO.pure(Result<&2, &2, Pure.StartupError, Unit>, Fail{error})
     case Done{server}:
       do IO<Result<&2, &2, Pure.StartupError, Unit>>:
-        exited : Pure.ServerExit <- server.write.run(~S, ~start, ~write, ~dispose, ~observe, server)
+        exited : Pure.ServerExit <- server.write.run(~C, ~S, ~start, ~write, ~dispose, ~observe, server)
         server.exited(exited)
         return Done{Unit{}}
 
 def serve.write.config(
-  ~S: Type, ~start: Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: U32 -> Completion.Outcome -> IO(Unit), config: Pure.ServerConfig
+  ~C: Data, ~S: Type, ~start: C -> Pure.Req -> IO(WriteHead<S>), ~write: S -> Writer -> Completion.Receipt -> IO(Writer & Completion.Receipt), ~dispose: S -> IO(Unit), ~observe: C -> U32 -> Completion.Outcome -> IO(Unit), context: C, config: Pure.ServerConfig
 ) -> IO(Result<&2, &2, Pure.StartupError, Unit>):
   do IO<Result<&2, &2, Pure.StartupError, Unit>>:
-    started : Unit & Result<&2, &1, Pure.StartupError, Server<Unit>> <- server.start(~Unit, ~Unit, Unit{}, Unit{}, config)
-    serve.write.started(~S, ~start, ~write, ~dispose, ~observe, started)
+    started : Unit & Result<&2, &1, Pure.StartupError, Server<C>> <- server.start(~C, ~Unit, context, Unit{}, config)
+    serve.write.started(~C, ~S, ~start, ~write, ~dispose, ~observe, started)
 
 def serve.started(~h: Pure.Req -> IO(Reply), ~observe: U32 -> Completion.Outcome -> IO(Unit),
   started: Unit & Result<&2, &1, Pure.StartupError, Server<Unit>>) -> IO(Unit):
@@ -3374,7 +3374,7 @@ def serve.write.on.with(
   do IO<Unit>:
     limits.validate(max)
     result : Result<&2, &2, Pure.StartupError, Unit> <-
-      serve.write.config(~S, ~start, ~write, ~dispose, ~observe, Pure.server.config.with(host, port, max))
+      serve.write.config(~Unit, ~S, ~(context => req => start(req)), ~write, ~dispose, ~(context => status => outcome => observe(status, outcome)), Unit{}, Pure.server.config.with(host, port, max))
     serve.config.result(result)
 
 def serve.write.with(

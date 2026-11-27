@@ -1,7 +1,7 @@
 # Pure runner state transitions, retry decisions, and journal codecs.
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-encoding@0.5.0.1/encoding.bend as Encoding
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.3/encoding.bend as Encoding
 import bend-kit-scheduler@0.4.4.0/queue.bend as Q
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-retry@0.3.0.0/retry.bend as Retry

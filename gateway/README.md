@@ -97,6 +97,8 @@ The gate keeps one grant that joins every unit it lent, as `http` admission does
 
 `app.bend` is a Camber application with one route, `GET /items/:id`. `check.bend`, `demo.bend`, and `upstream.bend` use it. They are repository examples, not published modules; compile them from this checkout.
 
+The examples use `bend-kit-camber@0.19.0.2`, `bend-kit-hairpin@0.19.0.2`, and `bend-kit-http@0.45.0.2`. HTTP models and configuration come from `pure.bend`; server effects and handles come from `http.bend`.
+
 - One `Gate` lives in a Camber dependency owner (`C.start`, one bundle). Each request calls it twice: `OpBegin`, then `OpFinish` after a miss. The owner runs one operation at a time and answers `Exhausted` to the others, so `call` tries again every millisecond. A finish has to land, or its unit would stay lent.
 - The handler reads `Time.mono.ms()` once. That value is the cache clock and the start of the retry budget (`Retry.Budget.new(attempts, now, Some{deadline})`).
 - Each Camber request slot owns one `Hairpin.Client` with a step timeout, one retry, and a circuit breaker (`Retry.Circuit{2n, 10000n, 2000n, 1n}`).

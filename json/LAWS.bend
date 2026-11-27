@@ -1,6 +1,6 @@
 import Base
 import ./json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-f64@0.1.4.0/f64.bend as F64
 
 def str(t: String) -> Json.Val:

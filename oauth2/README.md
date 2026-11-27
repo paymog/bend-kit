@@ -3,12 +3,14 @@
 OAuth 2.0 client credentials, refresh, and authorization code with PKCE, over `hairpin`. RFC 6749 and RFC 7636.
 
 ```bend
-import bend-kit-oauth2@0.14.0.2/oauth2.bend as OAuth
-import bend-kit-hairpin@0.16.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.40.0.1/http.bend as Http
+import bend-kit-oauth2@0.17.0.2/oauth2.bend as OAuth
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-time@0.3.0.5/pure.bend as Time
 ```
 
-Import that `http` version. `oauth2.bend` does, and another version has a different `Http.Res`. It also imports `bend-kit-crypto@0.2.2.2` and `bend-kit-time@0.3.0.1`, plus the named url, json, encoding, and bytes packages in the entry file.
+Import that HTTP version. `oauth2.bend` uses `HttpPure.Res` from its `pure.bend` model module and `Http.clock.now` from its runtime module. It also imports `bend-kit-crypto@0.2.2.2` and `bend-kit-time@0.3.0.5/pure.bend`, plus the named url, json, encoding, and bytes packages in the entry file.
 
 `Config` is `Config{token, id, secret}`. `token` is the token endpoint URL. An empty `secret` is a public client: `client_id` goes in the body. A non-empty secret uses HTTP Basic.
 
@@ -18,4 +20,4 @@ Every call returns the `Hairpin.Client` beside the result. Pass that client on, 
 
 `verifier` and `challenge` build the PKCE pair. `authorize.url` builds the authorization request. `callback` checks `state` and returns the code. A crypto failure is `ErrCrypto`. Secure random and SHA-256 come from the pinned `crypto`, which needs OpenSSL 3 (`BEND_LIBCRYPTO`).
 
-`pure.bend` contains the forms, token codecs, expiry checks, authorization URLs, and callback state checks. It imports `bend-kit-time@0.3.0.2/pure.bend` and has no foreign effects. `LAWS.bend` imports this module; its claims are unchanged. The runtime entry keeps its existing types and APIs, including `time` 0.3.0.1 instants.
+`pure.bend` contains the forms, token codecs, expiry checks, authorization URLs, and callback state checks. It imports `bend-kit-time@0.3.0.5/pure.bend` and has no foreign effects. `LAWS.bend` imports this module; its claims are unchanged. The runtime entry keeps its OAuth domain-model types. Token expiry and clock arguments use the same pure `Time.Instant` values directly.

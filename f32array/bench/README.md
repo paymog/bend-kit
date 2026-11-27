@@ -131,9 +131,44 @@ The compensated cancellation result is 2 at N = 4 and 2,097,152 at N = 4,194,304
 
 At N = 4,194,304, compensation costs about 11–12 times the pairwise sum time and six times the dot time. It therefore remains an explicit API rather than replacing the fast calls. No foreign or unsafe code enters the pure module. There is no new parallel path. Compensation uses only one F32 correction, so it does not promise exact sums or avoid overflow. The positive reference is not representable in F32; its compensated error of 1 is final-result rounding.
 
+### Bounded compensated leaves
+
+Run `python3 f32array/bench/reduce.py 5 --accuracy`. Apple M4 Pro, macOS, Bend 2.0.40, 2026-11-25, one worker. These are medians of five processes from the same run. Times are milliseconds; each pair is sum / dot. References use float32 inputs and float64 `math.fsum`.
+
+| input | N | pairwise ms | element-order compensated ms | blocked compensated ms | pairwise abs error | both compensated abs error |
+|---|---:|---:|---:|---:|---:|---:|
+| positive | 49,152 | 0.0659 / 0.0569 | 0.1512 / 0.1352 | 0.1431 / 0.1497 | 7 / 7 | 1 / 1 |
+| positive | 4,194,301 | 0.7004 / 1.3101 | 8.1586 / 8.1390 | 6.2082 / 6.7781 | 4 / 4 | 4 / 4 |
+| positive | 4,194,304 | 0.6836 / 1.2405 | 8.2347 / 8.0597 | 6.4413 / 6.9444 | 7 / 7 | 1 / 1 |
+| cancellation | 4 | 0.0445 / 0.0354 | 0.0450 / 0.0331 | 0.0520 / 0.0368 | 2 / 2 | 0 / 0 |
+| cancellation | 129 | 0.0509 / 0.0360 | 0.0552 / 0.0333 | 0.0487 / 0.0347 | 64 / 64 | 0 / 0 |
+| cancellation | 49,152 | 0.0570 / 0.0570 | 0.1621 / 0.1274 | 0.1536 / 0.1502 | 24,576 / 24,576 | 0 / 0 |
+| cancellation | 4,194,301 | 0.7035 / 1.2805 | 8.0614 / 7.9544 | 6.1182 / 6.7100 | 2,097,150 / 2,097,150 | 2 / 2 |
+| cancellation | 4,194,304 | 0.6730 / 1.2443 | 8.2037 / 8.0911 | 6.3095 / 6.7107 | 2,097,152 / 2,097,152 | 0 / 0 |
+| mixed-scale | 127 | 0.0454 / 0.0343 | 0.0545 / 0.0345 | 0.0522 / 0.0323 | 0.00000762939453 / 0 | 0 / 0 |
+| mixed-scale | 4,194,301 | 0.6829 / 1.2780 | 8.0936 / 7.8720 | 6.2029 / 6.8683 | 0.499 / 0.00200000009 | 0.00100000016 / 0.00200000009 |
+| mixed-scale | 4,194,304 | 0.6804 / 1.2805 | 8.2240 / 8.0691 | 6.3534 / 6.8457 | 0.25 / 0 | 0 / 0 |
+
+At N = 4,194,304, the blocked calls reduce compensated sum time by 22–23% and dot time by 14–17%. They do not replace the faster pairwise calls or the original element-order calls. Four independent Neumaier lane states reduce the serial dependency. Each leaf spans at most 16 cells. Lane merges and tree merges retain both sum and correction; see the package README for their exact order. There is no parallel path or worker-dependent ordering.
+
+Both compensated layouts recover 2 and 2,097,152 exactly on the small and large repeated cancellation fixtures. The driver also asserts correctly rounded cancellation results at N = 0, 1, 7, 8, 9, 127, 128, 129, 255, 256, 257, 49,152, and 4,194,301. It covers all three families at these sizes. Nonzero compensated errors in the table are final F32 rounding on these inputs, not a general error guarantee. Other inputs can differ between layouts; overflow, signed zero, and NaN payloads remain order-sensitive.
+
+Three rejected same-machine layouts used three-run medians at N = 4,194,304 on mixed-scale input. Selecting correction operands before arithmetic took 9.1491 / 9.2044 ms. Branching before the correction arithmetic took 9.1371 / 9.1421 ms. Element-order 16-cell leaves with compensated tree merges took 8.6095 / 9.2632 ms, against 8.0860 / 8.0435 ms for the original calls in that run. These variants were removed. The bounded four-lane layout is the only added API.
+
+
 ## Destination-range loads
 
 Run `python3 f32array/bench/load.py` from the repo root. Set `BEND=/path/to/bend` to select a compiler. The driver emits C and builds two binaries with `cc -O2 -std=c11`: one unchanged for time and RSS, and one with allocation counters. It runs one process at a time, with one worker. Each row is the median of three runs. Allocation counts and bytes must be identical across all three instrumented runs.
+
+On Linux, install GNU time, Clang, Python, NumPy, and Bend, then run:
+
+```sh
+CC=clang BEND=/path/to/bend python3 f32array/bench/load.py
+```
+
+The Linux driver uses `/usr/bin/time -f 'peak_rss_kib %M'` and multiplies its KiB result by 1,024. The macOS driver keeps `/usr/bin/time -l`, whose RSS is already in bytes. Both report the full uninstrumented process's peak RSS, including setup and validation outside the timed interval. Linux machine data comes from `/proc/cpuinfo` and Python's platform record; macOS keeps `sysctl`. Neither path changes the allocation instrument below.
+
+`CC` selects the C compiler; it defaults to `cc`. Bend 2.0.40 emits Clang's statement-level `musttail` attribute. GCC 13 rejects this emitted C, so use Clang on Linux.
 
 Both F32 and little-endian BF16 files repeat `[-2, -1, 0, 1, 2, 3, 4, 5]`. These values are exact in both formats. The driver warms the file cache before each pair of paths. The `into` path reads into an existing destination at index 1. The `copy` path allocates a source array and copies each element into that same destination range. Both retain two zero boundary lanes. Each run checks the sum against NumPy float64. After the timer stops, it checks every element and both boundary lanes. The sums are 12 and 1,572,864.
 
@@ -153,6 +188,23 @@ Apple M4 Pro, arm64, macOS 26.7.2, 2026-11-25. Bend 2.0.40, Apple clang 21.0.0 (
 The instrument counts calls to Bend's emitted `heap_alloc`, including requests served from its free lists. It sums each request's size class as `8 << cls` bytes. These are cumulative runtime allocation requests, not live bytes, libc `malloc` calls, or physical memory commitments. The two `Time.mono` host calls enable and disable the counters. This interval includes the first clock result, load, byte chunks, runtime nodes, any source allocation and copy, checksum reduction, and checksum output. It excludes destination allocation, file open, process setup, the second clock result, the full element check, and file close. Host-library allocations and heap arena reservations are not counted. The driver fails if either runtime hook no longer matches exactly once.
 
 At 2^20 elements, the copy path requests 4,194,448 more runtime bytes and nine more allocations in either format. The extra logical F32 array is 4 MiB even when the file is BF16. Destination reads reduce measured time by 30% for F32 and 47% for BF16. Tiny times are dominated by fixed IO and clock costs. Counter overhead does not enter these times or RSS values. RSS covers the full process and has a different scope from the counters; do not subtract it to estimate allocator bytes. This measures the Bend API paths, not raw filesystem throughput.
+
+### Linux load results
+
+Apple M4 Pro host, native aarch64 Ubuntu 24.04.5 container in OrbStack, Linux `7.2.12-orbstack-00394-gbecdd6130068`, 2026-11-25 local time. The VM exposes 12 CPUs; the benchmark uses one worker. Bend 2.0.40 (`linux-arm64` release), Ubuntu Clang 18.1.3 (`-O2 -std=c11`), glibc 2.39, Python 3.12.3, NumPy 1.26.4, GNU time package 1.9-0.2build1. The command above ran both paths at both sizes. Each row is the median of three uninstrumented runs. All six runs per row passed the sum, full element, and boundary checks; all three instrumented runs agreed on allocation counts and bytes.
+
+| format | elements | path | ms | peak RSS bytes | runtime allocation requests | runtime allocation bytes |
+|---|---:|---|---:|---:|---:|---:|
+| F32 | 8 | into | 0.062624 | 2,146,304 | 5,011 | 70,880 |
+| F32 | 8 | copy | 0.067625 | 2,154,496 | 5,020 | 71,056 |
+| BF16 | 8 | into | 0.065500 | 2,035,712 | 5,011 | 70,864 |
+| BF16 | 8 | copy | 0.071374 | 2,154,496 | 5,020 | 71,040 |
+| F32 | 1,048,576 | into | 6.138461 | 12,754,944 | 21,439 | 4,659,808 |
+| F32 | 1,048,576 | copy | 8.995277 | 16,945,152 | 21,448 | 8,854,256 |
+| BF16 | 1,048,576 | into | 4.334807 | 12,754,944 | 21,415 | 2,561,744 |
+| BF16 | 1,048,576 | copy | 7.975700 | 16,928,768 | 21,424 | 6,756,192 |
+
+Linux runtime allocation requests and bytes match the macOS results exactly. At 2^20 elements, destination reads reduce measured time by 32% for F32 and 46% for BF16. These are warm-cache measurements in a VM, not a bare-metal Linux comparison or a cross-OS speed claim. GNU time reports process peak RSS, not container or VM peak memory. RSS and allocator counters keep the different scopes stated above.
 
 ## Caveats
 

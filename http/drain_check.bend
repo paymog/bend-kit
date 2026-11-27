@@ -5,7 +5,7 @@ import ./pure.bend as Pure
 import ./completion.bend as Completion
 import ./admission_check.bend as Checks
 import ../camber/lifecycle_http.bend as Lifecycle
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def require(ok: Bool) -> IO(Unit):
   match ok:
@@ -276,7 +276,7 @@ def download.dispose(state: Download) -> IO(Unit):
 def serve(mode: String, server: Http.Server<Unit>) -> IO(Pure.ServerExit):
   match mode:
     case "stream": Http.server.stream.run(~Upload, ~upload.start, ~upload.piece, ~upload.finish, ~upload.abort, ~(status => outcome => observed(Unit{}, status, outcome)), server)
-    case "writer": Http.server.write.run(~Download, ~download.start, ~download.write, ~download.dispose, ~(status => outcome => observed(Unit{}, status, outcome)), server)
+    case "writer": Http.server.write.run(~Unit, ~Download, ~(context => req => download.start(req)), ~download.write, ~download.dispose, ~observed, server)
     case "camber": Lifecycle.serve(~business, ~callback.done, ~(status => outcome => observed(Unit{}, status, outcome)), server)
     case _: Http.server.run(~Unit, ~whole, ~observed, server)
 

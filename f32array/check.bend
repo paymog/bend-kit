@@ -1,6 +1,6 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-files@0.4.0.1/files.bend as Files
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-files@0.4.0.3/files.bend as Files
 import ./f32array.bend as A
 import ./io.bend as F
 import ./parallel.bend as P
@@ -161,6 +161,19 @@ def main() -> IO(Unit):
     expect("compensated_infinity", F32.is_eq(total(A.sum.compensated(A.from_list([A.of_bits(2139095040), 1.0]))), A.of_bits(2139095040)))
     expect("compensated_nan", nan(total(A.sum.compensated(A.from_list([A.of_bits(2143289344), 1.0])))))
     expect("compensated_infinities", nan(total(A.sum.compensated(A.from_list([A.of_bits(2139095040), A.of_bits(4286578688)])))))
+    expect("blocked_cancel_sum", F32.is_eq(total(A.sum.compensated.blocked(A.from_list([100000000.0, 1.0, F32.neg(100000000.0), 1.0]))), 2.0))
+    expect("blocked_cancel_dot", has(product(A.dot.compensated.blocked(A.from_list([100000000.0, 1.0, F32.neg(100000000.0), 1.0]), A.map(~plus1, A.new(4)))), 2.0))
+    expect("blocked_empty", F32.is_eq(total(A.sum.compensated.blocked(A.new(0))), 0.0))
+    expect("blocked_dot_empty", has(product(A.dot.compensated.blocked(A.new(0), A.new(0))), 0.0))
+    expect("blocked_partial", F32.is_eq(total(A.sum.compensated.blocked(A.map(~plus1, A.new(11)))), 11.0))
+    expect("blocked_dot_partial", has(product(A.dot.compensated.blocked(A.map(~plus1, A.new(11)), A.map(~plus1, A.new(11)))), 11.0))
+    expect("blocked_sum_kept", sum.kept(A.sum.compensated.blocked(ramp(n, 1))))
+    expect("blocked_dot_kept", dot.kept(A.dot.compensated.blocked(ramp(n, 1), ramp(n, 5))))
+    expect("blocked_mismatch", mismatch.kept(A.dot.compensated.blocked(A.from_list([2.0]), A.from_list([1.0, 3.0]))))
+    expect("blocked_infinity", F32.is_eq(total(A.sum.compensated.blocked(A.from_list([A.of_bits(2139095040), 1.0]))), A.of_bits(2139095040)))
+    expect("blocked_nan", nan(total(A.sum.compensated.blocked(A.from_list([A.of_bits(2143289344), 1.0])))))
+    expect("blocked_infinities", nan(total(A.sum.compensated.blocked(A.from_list([A.of_bits(2139095040), A.of_bits(4286578688)])))))
+    expect("blocked_dot_infinity", has(product(A.dot.compensated.blocked(A.from_list([A.of_bits(2139095040)]), A.from_list([1.0]))), A.of_bits(2139095040)))
     expect("sum_nan", nan(total(A.sum(A.from_list([A.of_bits(2143289344), 1.0])))))
     expect("fork_sum_infinities", nan(total(P.sum.with_cutoff(A.from_list([A.of_bits(2139095040), A.of_bits(4286578688)]), 0))))
     +dir : String <- IO.try(String, Files.temp_dir())

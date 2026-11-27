@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./encoding.bend as Enc
 
 def main() -> IO(Unit):

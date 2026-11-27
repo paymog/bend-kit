@@ -1,7 +1,7 @@
 import Base
 import ../dns/dns.bend as Dns
 import ../wire/wire.bend as Wire
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./http2.bend as H
 import ./hpack.bend as Hp
 

@@ -2,8 +2,8 @@
 import Base
 import ./camber.bend as C
 import ./dispatch_check.bend as Check
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
-import bend-kit-http@0.40.0.1/http.bend as H
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 
 type Principal is Data:
   Principal{subject: String}
@@ -50,28 +50,28 @@ def before(+hook: String, +state: State, mode: String, meta: C.Metadata) -> IO(C
   State{events, Principal{subject}} = state
   C.Metadata{method, target, headers} = meta
   do IO<C.Step<State, String>>:
-    Check.require(String.eq(H.header(headers, "x-principal"), subject), "metadata/context before decode")
+    Check.require(String.eq(Pure.header(headers, "x-principal"), subject), "metadata/context before decode")
     next : State <- record(state, "b" ++ hook)
     decision(mode, hook, next)
 
-def after.result(fail: Bool, state: State, response: H.Res) -> State & Result<&2, &1, C.Error<String>, H.Res>:
+def after.result(fail: Bool, state: State, response: Pure.Res) -> State & Result<&2, &1, C.Error<String>, Pure.Res>:
   match fail:
     case True{}:
       (state, Fail{C.ApplicationError{"secret-transform"}})
     case False{}:
       (state, Done{response})
 
-def after.response(invalid: Bool, response: H.Res) -> H.Res:
+def after.response(invalid: Bool, response: Pure.Res) -> Pure.Res:
   match invalid:
     case True{}: C.text(99, "secret-after-map")
     case False{}: response
 
-def after(+hook: String, state: State, +mode: String, response: H.Res) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
-  do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+def after(+hook: String, state: State, +mode: String, response: Pure.Res) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
+  do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
     next : State <- record(state, "t" ++ hook)
     return after.result((String.eq(mode, "transform") || String.eq(mode, "mapped-transform")) && String.eq(hook, "r2"), next, after.response(String.eq(mode, "mapped-invalid") && String.eq(hook, "r2"), response))
 
-def mapper.result(mode: String, state: State, error: C.Error<String>) -> State & Result<&2, &1, C.Error<String>, H.Res>:
+def mapper.result(mode: String, state: State, error: C.Error<String>) -> State & Result<&2, &1, C.Error<String>, Pure.Res>:
   match mode:
     case "mapper-fail":
       (state, Fail{C.ApplicationError{"secret-mapper"}})
@@ -82,57 +82,57 @@ def mapper.result(mode: String, state: State, error: C.Error<String>) -> State &
     case _:
       (state, Done{C.default.error(~String, error)})
 
-def mapper(state: State, mode: String, error: C.Error<String>) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
-  do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+def mapper(state: State, mode: String, error: C.Error<String>) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
+  do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
     next : State <- record(state, "map")
     return mapper.result(mode, next, error)
 
-def handler.mode(mode: String, state: State, body: H.Body) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def handler.mode(mode: String, state: State, body: Pure.Body) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   match mode:
     case "handler":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Fail{C.ApplicationError{"secret-handler"}}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Fail{C.ApplicationError{"secret-handler"}}))
     case "invalid":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Done{C.text(99, "secret-response")}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Done{C.text(99, "secret-response")}))
     case _:
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Done{C.raw(200, body)}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Done{C.raw(200, body)}))
 
-def decoded(mode: String, state: State, body: H.Body) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def decoded(mode: String, state: State, body: Pure.Body) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   match mode:
     case "decoder":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Fail{C.Framework{400, ""}}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Fail{C.Framework{400, ""}}))
     case "unsupported":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Fail{C.Framework{415, ""}}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Fail{C.Framework{415, ""}}))
     case "mapper-fail":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Fail{C.ApplicationError{"secret"}}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Fail{C.ApplicationError{"secret"}}))
     case "mapper-invalid":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Fail{C.ApplicationError{"secret"}}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Fail{C.ApplicationError{"secret"}}))
     case "mapped-transform":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Fail{C.ApplicationError{"secret"}}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Fail{C.ApplicationError{"secret"}}))
     case "mapped-invalid":
-      IO.pure(State & Result<&2, &1, C.Error<String>, H.Res>, (state, Fail{C.ApplicationError{"secret"}}))
+      IO.pure(State & Result<&2, &1, C.Error<String>, Pure.Res>, (state, Fail{C.ApplicationError{"secret"}}))
     case _:
-      do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+      do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
         next : State <- record(state, "handler")
         handler.mode(mode, next, body)
 
-def ordinary(req: H.Req) -> IO(H.Res):
-  H.Req{method, target, headers, body} = req
-  IO.pure(H.Res, C.raw(200, body))
+def ordinary(req: Pure.Req) -> IO(Pure.Res):
+  Pure.Req{method, target, headers, body} = req
+  IO.pure(Pure.Res, C.raw(200, body))
 
-def run.mode(mode: String, state: State, req: H.Req) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def run.mode(mode: String, state: State, req: Pure.Req) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   match mode:
     case "plain":
-      do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+      do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
         next : State <- record(state, "handler")
-        response : H.Res <- ordinary(req)
+        response : Pure.Res <- ordinary(req)
         return (next, Done{response})
     case other:
-      H.Req{method, target, headers, body} = req
-      do IO<State & Result<&2, &1, C.Error<String>, H.Res>>:
+      Pure.Req{method, target, headers, body} = req
+      do IO<State & Result<&2, &1, C.Error<String>, Pure.Res>>:
         next : State <- record(state, "decode")
         decoded(other, next, body)
 
-def run(action: U32, state: State, mode: String, selected: C.Match<C.Policy<String>>, req: H.Req) -> IO(State & Result<&2, &1, C.Error<String>, H.Res>):
+def run(action: U32, state: State, mode: String, selected: C.Match<C.Policy<String>>, req: Pure.Req) -> IO(State & Result<&2, &1, C.Error<String>, Pure.Res>):
   run.mode(mode, state, req)
 
 def application(mode: String, reverse: Bool) -> Result<&2, &2, C.RegistrationError, C.Application<U32, String, C.Policy<String>>>:
@@ -170,7 +170,7 @@ def entered.policies(xs: List<&2, C.Policy<String>>) -> Bool:
       entered.policy(id, join(before), join(after)) && entered.policies(rest)
 
 def checked(completion: C.Completion<State, String>, +trace: String, scopes: String, +status: U32, mapped: Bool, +principal: String) -> IO(Unit):
-  C.Completed{State{+events, Principal{actual_principal}}, H.Res{actual_status, headers, body}, +ids, actual_mapped, stopped} = completion
+  C.Completed{State{+events, Principal{actual_principal}}, Pure.Res{actual_status, headers, body}, +ids, actual_mapped, stopped} = completion
   do IO<Unit>:
     Check.require(String.eq(join(events), trace), "effect order: " ++ join(events) ++ " expected " ++ trace)
     Check.require(String.eq(entered(ids), scopes), "entered scopes")
@@ -187,7 +187,7 @@ def scenario(result: Result<&2, &2, C.RegistrationError, C.Application<U32, Stri
       IO.die(Unit, 1, "registration")
     case Done{app}:
       do IO<Unit>:
-        completion : C.Completion<State, String> <- C.dispatch(~U32, ~State, ~String, ~String, ~String, ~Unit, ~(h => s => k => m => before(h, s, k, m)), ~(h => s => k => r => after(h, s, k, r)), ~run, ~mapper, ~C.notice.ignore(~Unit, ~String, ~String), ~C.notice.error.ignore(~Unit, ~String), Unit{}, C.access.disabled(~Unit, Unit{}), app, State{Nil{}, Principal{principal}}, H.Req{method, path, H.set(H.empty(), "x-principal", principal), H.from_string("raw-body")})
+        completion : C.Completion<State, String> <- C.dispatch(~U32, ~State, ~String, ~String, ~String, ~Unit, ~(h => s => k => m => before(h, s, k, m)), ~(h => s => k => r => after(h, s, k, r)), ~run, ~mapper, ~C.notice.ignore(~Unit, ~String, ~String), ~C.notice.error.ignore(~Unit, ~String), Unit{}, C.access.disabled(~Unit, Unit{}), app, State{Nil{}, Principal{principal}}, Pure.Req{method, path, Pure.set(Pure.empty(), "x-principal", principal), Pure.from_string("raw-body")})
         checked(completion, trace, scopes, status, mapped, principal)
 
 def check() -> IO(Unit):

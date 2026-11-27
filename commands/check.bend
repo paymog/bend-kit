@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./commands.bend as C
 import ./model.bend as M
 import ./ledger.bend as L
@@ -236,8 +236,16 @@ def ranges() -> IO(Unit):
     same(L.reply.show(e), "fresh accepted ", "an empty range fits a zero bound")
     IO.try(Unit, C.close(st))
 
+def column.error(r: Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(Unit):
+  match r:
+    case Fail{(code, msg)}:
+      ok(U32.is_eq(code, 20) && String.eq(msg, "column failure"), "column conversion keeps the error code and message")
+    case Done{v}:
+      IO.die(Unit, 1, "column conversion lost the error")
+
 def main() -> IO(Unit):
   do IO<Unit>:
+    column.error(C.column.result(Fail{(20, "column failure")}))
     rm()
     duplicates()
     restart()

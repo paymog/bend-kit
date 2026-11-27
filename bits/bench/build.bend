@@ -2,7 +2,7 @@ import Base
 import ./bench.bend as Bench
 import ../bits.bend as Bits
 import ../../time/time.bend as Time
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def lens() -> List<&2, U32>:
   Bench.rep(255n, 8, [9, 10, 11, 12, 13, 14, 15, 15])
