@@ -269,13 +269,12 @@ def expect.census(own: U32) -> IO(Result<&1, &1, U32 & String, U32 & Bytes.Bytes
     "f=$(ls /proc/$1/fd 2>/dev/null | wc -l); z=$(ps -A -o ppid= -o stat= | awk -v p=$1 '$1==p && $2 ~ /^Z/' | wc -l); echo $f $z",
     "process-census", U32.show(own)], [], ".", Bytes.from_string(""))
 
-def expect.census.same(before: U32 & Bytes.Bytes & Bytes.Bytes,
+def expect.census.same(message: String, before: U32 & Bytes.Bytes & Bytes.Bytes,
                        after: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
   (b_code, b_out, b_err) = before
   (a_code, a_out, a_err) = after
   do IO<Unit>:
-    expect.yes(String.eq(Bytes.to_string(b_out), Bytes.to_string(a_out)),
-      "200 bounded runs leak no file descriptors and leave no zombies")
+    expect.yes(String.eq(Bytes.to_string(b_out), Bytes.to_string(a_out)), message)
 
 def expect.bounded.repeat() -> IO(Unit):
   do IO<Unit>:
@@ -283,7 +282,72 @@ def expect.bounded.repeat() -> IO(Unit):
     before : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
     expect.bounded.times(200n)
     after : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
-    expect.census.same(before, after)
+    expect.census.same("200 bounded runs leak no file descriptors and leave no zombies", before, after)
+
+def expect.spawn.one(child: U32 & File & File & File) -> IO(Unit):
+  (pid, input, output, errors) = child
+  do IO<Unit>:
+    File.close(input)
+    File.close(output)
+    File.close(errors)
+    status : U32 <- IO.try(U32, Proc.wait(pid))
+    expect.yes(U32.is_eq(status, 4), "repeated spawn status")
+
+def expect.spawn.times(n: Nat) -> IO(Unit):
+  match n:
+    case Zero{}:
+      IO.pure(Unit, Unit{})
+    case Succ{k}:
+      do IO<Unit>:
+        child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+          Proc.spawn("/bin/sh", ["-c", "exit 4"], [], "."))
+        expect.spawn.one(child)
+        expect.spawn.times(k)
+
+def expect.spawn.repeat() -> IO(Unit):
+  do IO<Unit>:
+    +own : U32 <- Proc.pid()
+    before : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    expect.spawn.times(200n)
+    after : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    expect.census.same("200 spawns leak no file descriptors and leave no zombies", before, after)
+
+def expect.fd.count.out(value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(String):
+  (code, out, err) = value
+  do IO<String>:
+    expect.yes(U32.is_eq(code, 0), "fd isolation probe exit code")
+    return Bytes.to_string(out)
+
+def expect.fd.isolation.with(+base: String, s1: Listener, s2: Listener, s3: Listener, s4: Listener) -> IO(Unit):
+  do IO<Unit>:
+    +probe : String = "c=0; for f in /dev/fd/*; do c=$((c+1)); done; printf %s $c"
+    bounded : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/sh", ["-c", probe], [], ".", Bytes.from_string(""), 5000, 64))
+    bounded_fds : String <- expect.fd.count.out(bounded)
+    expect.yes(String.eq(base, bounded_fds), "run.bounded child does not inherit parent sockets")
+    ran : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run("/bin/sh", ["-c", probe], [], ".", Bytes.from_string("")))
+    ran_fds : String <- expect.fd.count.out(ran)
+    expect.yes(String.eq(base, ran_fds), "run child does not inherit parent sockets")
+    child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+      Proc.spawn("/bin/sh", ["-c", probe], [], "."))
+    expect.child(base, "", child)
+    Listener.close(s1)
+    Listener.close(s2)
+    Listener.close(s3)
+    Listener.close(s4)
+
+def expect.fd.isolation() -> IO(Unit):
+  do IO<Unit>:
+    +probe : String = "c=0; for f in /dev/fd/*; do c=$((c+1)); done; printf %s $c"
+    base_res : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/sh", ["-c", probe], [], ".", Bytes.from_string(""), 5000, 64))
+    +base : String <- expect.fd.count.out(base_res)
+    s1 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
+    s2 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
+    s3 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
+    s4 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
+    expect.fd.isolation.with(base, s1, s2, s3, s4)
 
 def expect.bounded() -> IO(Unit):
   do IO<Unit>:
@@ -452,6 +516,8 @@ def main() -> IO(Unit):
       Proc.run("/usr/bin/uname", ["-s"], [], ".", Bytes.from_string("")))
     expect.etimedout(host_timeout, uname)
     expect.bounded()
+    expect.spawn.repeat()
+    expect.fd.isolation()
     expect.signal()
 
     IO.print("process smoke ok")
