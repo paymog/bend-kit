@@ -22,6 +22,7 @@ import ../bits/array-proof.bend as Bound
 import ../bytes/bytes.bend as Local
 import ./sse-state-proof.bend as State
 import ./sse-line-proof.bend as Line
+import bend-mathlib@0.8.0.0/bool.bend as MBool
 
 def reader_length(rd: Sse.Reader) -> U32:
   Sse.Reader{Bytes.Bytes{len, a}, pos, seen, cr, st} = rd
@@ -2531,3 +2532,663 @@ def future_suffix(+future: String, +body: String, +suffix: String, +a: Tree.Tree
   (right_eq, right_bound) = right_span
   prefix_suffix_at(String.length(body), String.length(suffix), String.length(future), a, b, s, t, e, f, future, limit,
     hu, left_bound, right_bound, left_eq, right_eq, same)
+
+def prefix_width(+n: Nat, +m: Nat, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +future: String,
+  same: {Buffer.observed(n, Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(m, Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  {Nat.add(n, String.length(future)) == m : Nat}:
+  +left = Buffer.observed(n, Bytes.peek(Tree.reify(U32, a), s), s)
+  +right = Buffer.observed(m, Bytes.peek(Tree.reify(U32, b), t), t)
+  Equal.trans(Nat, Nat.add(n, String.length(future)), String.length(left ++ future), m,
+    Equal.sym(Nat, String.length(left ++ future), Nat.add(n, String.length(future)),
+      Equal.trans(Nat, String.length(left ++ future),
+        Nat.add(String.length(left), String.length(future)), Nat.add(n, String.length(future)),
+        Model.length_append(left, future),
+        Equal.cong(Nat, Nat, x => Nat.add(x, String.length(future)),
+          String.length(left), n, Reader.observed_length(n, Bytes.peek(Tree.reify(U32, a), s), s)))),
+    Equal.trans(Nat, String.length(left ++ future), String.length(right), m,
+      Equal.cong(String, Nat, String.length, left ++ future, right, same),
+      Reader.observed_length(m, Bytes.peek(Tree.reify(U32, b), t), t)))
+
+def prefix_fuels(+p: Nat, +q: Nat, +n: Nat, +m: Nat, -a: Array<U32> & U32, -b: Array<U32> & U32,
+  +s: U32, +t: U32, +future: String, left: {Nat.add(p, q) == n : Nat},
+  right: {Nat.add(p, Nat.add(q, String.length(future))) == m : Nat},
+  same: {Buffer.observed(n, a, s) ++ future == Buffer.observed(m, b, t) : String}) ->
+  {Buffer.observed(Nat.add(p, q), a, s) ++ future ==
+    Buffer.observed(Nat.add(p, Nat.add(q, String.length(future))), b, t) : String}:
+  %Equal.sym(Nat, Nat.add(p, q), n, left) :
+    {Buffer.observed(_, a, s) ++ future == Buffer.observed(Nat.add(p, Nat.add(q, String.length(future))), b, t) : String}
+  %Equal.sym(Nat, Nat.add(p, Nat.add(q, String.length(future))), m, right) :
+    {Buffer.observed(n, a, s) ++ future == Buffer.observed(_, b, t) : String}
+  same
+
+def prefix_split_width(+p: Nat, +q: Nat, +n: Nat, +m: Nat, +extra: Nat,
+  left: {Nat.add(p, q) == n : Nat}, right: {Nat.add(n, extra) == m : Nat}) ->
+  {Nat.add(p, Nat.add(q, extra)) == m : Nat}:
+  Equal.trans(Nat, Nat.add(p, Nat.add(q, extra)), Nat.add(Nat.add(p, q), extra), m,
+    Equal.sym(Nat, Nat.add(Nat.add(p, q), extra), Nat.add(p, Nat.add(q, extra)), MNat.add_assoc(p, q, extra)),
+    Equal.trans(Nat, Nat.add(Nat.add(p, q), extra), Nat.add(n, extra), m,
+      Equal.cong(Nat, Nat, x => Nat.add(x, extra), Nat.add(p, q), n, left), right))
+
+def prefix_body_at(+future: String, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +e: U32, +f: U32, +len: U32, +other: U32, +delta: Nat,
+  +se: MNat.le(U32.to_nat(s), U32.to_nat(e)), +tf: MNat.le(U32.to_nat(t), U32.to_nat(f)),
+  +el: MNat.le(U32.to_nat(e), U32.to_nat(len)),
+  starts: Offset.offset(delta, s, t), ends: Offset.offset(delta, e, f),
+  +same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  {Buffer.observed(U32.to_nat((e - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ==
+    Buffer.observed(U32.to_nat((f - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}:
+  +p = U32.to_nat((e - s : U32))
+  +q = U32.to_nat((len - e : U32))
+  +n = U32.to_nat((len - s : U32))
+  +m = U32.to_nat((other - t : U32))
+  Refinement.observed_other_length(p, U32.to_nat((f - t : U32)),
+    Bytes.peek(Tree.reify(U32, a), s), Bytes.peek(Tree.reify(U32, b), t), s, t,
+    Equal.cong(U32, Nat, U32.to_nat, (e - s : U32), (f - t : U32), Field.relocated_width(delta, s, t, e, f, se, tf, starts, ends)),
+    prefix_observed_take(p, q, String.length(future), Bytes.peek(Tree.reify(U32, a), s), Bytes.peek(Tree.reify(U32, b), t),
+      s, t, future,
+      prefix_fuels(p, q, n, m, Bytes.peek(Tree.reify(U32, a), s), Bytes.peek(Tree.reify(U32, b), t), s, t, future,
+        Refinement.split_span(s, e, len, se, el),
+        prefix_split_width(p, q, n, m, String.length(future), Refinement.split_span(s, e, len, se, el),
+          prefix_width(n, m, a, b, s, t, future, same)), same)))
+
+def prefix_suffix_width(+p: Nat, +q: Nat, +r: Nat, +n: Nat, +m: Nat, +extra: Nat,
+  left: {Nat.add(p, q) == n : Nat}, right: {Nat.add(p, r) == m : Nat},
+  total: {Nat.add(n, extra) == m : Nat}) ->
+  {Nat.add(q, extra) == r : Nat}:
+  MNat.add_left_cancel(p, Nat.add(q, extra), r,
+    Equal.trans(Nat, Nat.add(p, Nat.add(q, extra)), m, Nat.add(p, r),
+      prefix_split_width(p, q, n, m, extra, left, total),
+      Equal.sym(Nat, Nat.add(p, r), m, right)))
+
+def prefix_suffix_cursor(+future: String, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +e: U32, +f: U32, +len: U32, +other: U32, +delta: Nat, +limit: Nat,
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  +se: MNat.le(U32.to_nat(s), U32.to_nat(e)), +tf: MNat.le(U32.to_nat(t), U32.to_nat(f)),
+  +el: MNat.le(U32.to_nat(e), U32.to_nat(len)), +fo: MNat.le(U32.to_nat(f), U32.to_nat(other)),
+  hl: MNat.lt(U32.to_nat(len), limit), hr: MNat.lt(U32.to_nat(other), limit),
+  +starts: Offset.offset(delta, s, t), +ends: Offset.offset(delta, e, f),
+  +same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  {Buffer.observed(U32.to_nat((len - e : U32)), Bytes.peek(Tree.reify(U32, a), e), e) ++ future ==
+    Buffer.observed(U32.to_nat((other - f : U32)), Bytes.peek(Tree.reify(U32, b), f), f) : String}:
+  +p = U32.to_nat((e - s : U32))
+  +q = U32.to_nat((len - e : U32))
+  +r = U32.to_nat((other - f : U32))
+  +n = U32.to_nat((len - s : U32))
+  +m = U32.to_nat((other - t : U32))
+  +width = Equal.cong(U32, Nat, U32.to_nat, (e - s : U32), (f - t : U32),
+    Field.relocated_width(delta, s, t, e, f, se, tf, starts, ends))
+  +left = Refinement.split_span(s, e, len, se, el)
+  +right = Equal.trans(Nat, Nat.add(p, r), Nat.add(U32.to_nat((f - t : U32)), r), m,
+    Equal.cong(Nat, Nat, x => Nat.add(x, r), p, U32.to_nat((f - t : U32)), width),
+    Refinement.split_span(t, f, other, tf, fo))
+  +total = prefix_width(n, m, a, b, s, t, future, same)
+  +ea = Field.span_end(s, e, se)
+  +eb = Equal.trans(Nat, Nat.add(p, U32.to_nat(t)),
+    Nat.add(U32.to_nat((f - t : U32)), U32.to_nat(t)), U32.to_nat(f),
+    Equal.cong(Nat, Nat, x => Nat.add(x, U32.to_nat(t)), p, U32.to_nat((f - t : U32)), width),
+    Field.span_end(t, f, tf))
+  Equal.trans(String, Buffer.observed(q, Bytes.peek(Tree.reify(U32, a), e), e) ++ future,
+    Buffer.observed(Nat.add(q, String.length(future)), Bytes.peek(Tree.reify(U32, b), f), f),
+    Buffer.observed(r, Bytes.peek(Tree.reify(U32, b), f), f),
+    prefix_suffix_at(p, q, String.length(future), a, b, s, t, e, f, future, limit, hu,
+      Refinement.endpoint_bound(p, s, e, len, limit, ea, el, hl),
+      Refinement.endpoint_bound(p, t, f, other, limit, eb, fo, hr), ea, eb,
+      prefix_fuels(p, q, n, m, Bytes.peek(Tree.reify(U32, a), s), Bytes.peek(Tree.reify(U32, b), t), s, t, future,
+        left, prefix_split_width(p, q, n, m, String.length(future), left, total), same)),
+    Equal.cong(Nat, String, x => Buffer.observed(x, Bytes.peek(Tree.reify(U32, b), f), f),
+      Nat.add(q, String.length(future)), r, prefix_suffix_width(p, q, r, n, m, String.length(future), left, right, total)))
+
+def prefix_increment(+delta: Nat, +e: U32, +f: U32, +len: U32, +other: U32, +limit: Nat,
+  el: MNat.lt(U32.to_nat(e), U32.to_nat(len)), fo: MNat.lt(U32.to_nat(f), U32.to_nat(other)),
+  hl: MNat.lt(U32.to_nat(len), limit), hr: MNat.lt(U32.to_nat(other), limit),
+  hu: MNat.le(limit, Lemmas.pow2(32n)), ends: Offset.offset(delta, e, f)) ->
+  Offset.offset(delta, (e + 1 : U32), (f + 1 : U32)):
+  Offset.increment(delta, e, f, limit,
+    MNat.lt_of_le_of_lt(1n+U32.to_nat(e), U32.to_nat(len), limit,
+      MNat.succ_le_of_lt(U32.to_nat(e), U32.to_nat(len), el), hl),
+    MNat.lt_of_le_of_lt(1n+U32.to_nat(f), U32.to_nat(other), limit,
+      MNat.succ_le_of_lt(U32.to_nat(f), U32.to_nat(other), fo), hr), hu, ends)
+
+def line_lf_field_inputs(+future: String, +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  +a: Tree.Tree<U32>, +b: Tree.Tree<U32>, +len: U32, +other: U32, +s: U32, +t: U32, +e: U32, +f: U32,
+  +cr: Bool, -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(len)), Model.as_bits(a)),
+  right_shape: Bound.shape(Local.depth(Local.words(other)), Model.as_bits(b)),
+  +hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit), +hr: MNat.lt(Nat.add(U32.to_nat(other), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  +se: MNat.le(U32.to_nat(s), U32.to_nat(e)), +tf: MNat.le(U32.to_nat(t), U32.to_nat(f)),
+  +el: MNat.lt(U32.to_nat(e), U32.to_nat(len)), +fo: MNat.lt(U32.to_nat(f), U32.to_nat(other)),
+  +starts: Offset.offset(delta, s, t), +ends: Offset.offset(delta, e, f),
+  hn: MNat.lt(Nat.add(Nat.add(Nat.add(String.length(old), U32.to_nat((e - s : U32))), 1n), 3n), limit),
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit),
+  left_clean: Scan.clean_prefix(U32.to_nat((e - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s),
+  right_clean: Scan.clean_prefix(U32.to_nat((f - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t),
+  left_lf: {Model.peek(a, e) == 10 : U32}, right_lf: {Model.peek(b, f) == 10 : U32},
+  left_nonblank: {U32.is_eq(s, e) == False{} : Bool}, right_nonblank: {U32.is_eq(t, f) == False{} : Bool},
+  +same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  prefix_line_relation(future, len, other,
+    Sse.line(Tree.reify(U32, a), len, s, s, cr, st), Sse.line(Tree.reify(U32, b), other, t, t, cr, next), limit):
+  +left_bound = MNat.lt_of_le_of_lt(U32.to_nat(len), Nat.add(U32.to_nat(len), 3n), limit, MNat.le_add_right(U32.to_nat(len), 3n), hl)
+  +right_bound = MNat.lt_of_le_of_lt(U32.to_nat(other), Nat.add(U32.to_nat(other), 3n), limit, MNat.le_add_right(U32.to_nat(other), 3n), hr)
+  +ep = Pair.fst(MNat.le(U32.to_nat(e), U32.to_nat((e + 1 : U32))), MNat.le(U32.to_nat((e + 1 : U32)), U32.to_nat(len)),
+    Drain.cursor_step(e, len, limit, el, left_bound, hu))
+  +pl = Pair.snd(MNat.le(U32.to_nat(e), U32.to_nat((e + 1 : U32))), MNat.le(U32.to_nat((e + 1 : U32)), U32.to_nat(len)),
+    Drain.cursor_step(e, len, limit, el, left_bound, hu))
+  +fq = Pair.fst(MNat.le(U32.to_nat(f), U32.to_nat((f + 1 : U32))), MNat.le(U32.to_nat((f + 1 : U32)), U32.to_nat(other)),
+    Drain.cursor_step(f, other, limit, fo, right_bound, hu))
+  +qo = Pair.snd(MNat.le(U32.to_nat(f), U32.to_nat((f + 1 : U32))), MNat.le(U32.to_nat((f + 1 : U32)), U32.to_nat(other)),
+    Drain.cursor_step(f, other, limit, fo, right_bound, hu))
+  line_lf_prefix_refines(future, old, name, id, retry, a, b, len, other, s, t, e, f, cr, st, next, delta, limit,
+    left_shape, right_shape, hl, hr, hu, se, tf, el, fo, starts, ends, hn, left_state, right_state,
+    left_clean, right_clean, left_lf, right_lf, left_nonblank, right_nonblank,
+    prefix_body_at(future, a, b, s, t, e, f, len, other, delta, se, tf,
+      MNat.le_of_lt(U32.to_nat(e), U32.to_nat(len), el), starts, ends, same),
+    prefix_suffix_cursor(future, a, b, s, t, (e + 1 : U32), (f + 1 : U32), len, other, delta, limit, hu,
+      MNat.le_trans(U32.to_nat(s), U32.to_nat(e), U32.to_nat((e + 1 : U32)), se, ep),
+      MNat.le_trans(U32.to_nat(t), U32.to_nat(f), U32.to_nat((f + 1 : U32)), tf, fq),
+      pl, qo, left_bound, right_bound, starts,
+      prefix_increment(delta, e, f, len, other, limit, el, fo, left_bound, right_bound, hu, ends), same))
+
+def blank_prefix_relocated(+future: String, +a: State.Scanner, +b: State.Scanner,
+  +e: U32, +f: U32, +pos: U32, +next_pos: U32, +cr: Bool,
+  +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(a))), Model.as_bits(State.scanner_source(a))),
+  right_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(b))), Model.as_bits(State.scanner_source(b))),
+  +hl: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(a)), 3n), limit),
+  +hr: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(b)), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  sp: MNat.le(U32.to_nat(State.scanner_start(a)), U32.to_nat(pos)),
+  tq: MNat.le(U32.to_nat(State.scanner_start(b)), U32.to_nat(next_pos)),
+  +pl: MNat.le(U32.to_nat(pos), U32.to_nat(State.scanner_length(a))),
+  +qo: MNat.le(U32.to_nat(next_pos), U32.to_nat(State.scanner_length(b))),
+  starts: Offset.offset(delta, State.scanner_start(a), State.scanner_start(b)),
+  positions: Offset.offset(delta, pos, next_pos),
+  same: {Buffer.observed(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(a)), State.scanner_start(a)), State.scanner_start(a)) ++ future ==
+    Buffer.observed(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(b)), State.scanner_start(b)), State.scanner_start(b)) : String},
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit)) ->
+  prefix_line_relation(future, State.scanner_length(a), State.scanner_length(b),
+    State.scanner_body(a, e, pos, cr, st), State.scanner_body(b, f, next_pos, cr, next), limit):
+  match a b:
+    case State.Scanner{+src, +len, +s, +pending} State.Scanner{+dst, +other, +t, +other_pending}:
+      blank_body_prefix(future, State.Scanner{src, len, s, pending}, State.Scanner{dst, other, t, other_pending},
+        e, f, pos, next_pos, cr, old, name, id, retry, st, next, limit,
+        left_shape, right_shape, hl, hr, hu,
+        MNat.lt_of_le_of_lt(3n, Nat.add(U32.to_nat(len), 3n), limit, MNat.le_add_left(3n, U32.to_nat(len)), hl), pl, qo,
+        prefix_suffix_cursor(future, src, dst, s, t, pos, next_pos, len, other, delta, limit, hu, sp, tq, pl, qo,
+          MNat.lt_of_le_of_lt(U32.to_nat(len), Nat.add(U32.to_nat(len), 3n), limit, MNat.le_add_right(U32.to_nat(len), 3n), hl),
+          MNat.lt_of_le_of_lt(U32.to_nat(other), Nat.add(U32.to_nat(other), 3n), limit, MNat.le_add_right(U32.to_nat(other), 3n), hr),
+          starts, positions, same), left_state, right_state)
+
+def blank_prefix_add(+future: String, +a: State.Scanner, +b: State.Scanner,
+  +e: U32, +f: U32, +step: U32, +cr: Bool,
+  +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(a))), Model.as_bits(State.scanner_source(a))),
+  right_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(b))), Model.as_bits(State.scanner_source(b))),
+  +hl: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(a)), 3n), limit),
+  +hr: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(b)), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  se: MNat.le(U32.to_nat(State.scanner_start(a)), U32.to_nat(e)),
+  tf: MNat.le(U32.to_nat(State.scanner_start(b)), U32.to_nat(f)),
+  +left_after: MNat.le(Nat.add(U32.to_nat(e), U32.to_nat(step)), U32.to_nat(State.scanner_length(a))),
+  +right_after: MNat.le(Nat.add(U32.to_nat(f), U32.to_nat(step)), U32.to_nat(State.scanner_length(b))),
+  starts: Offset.offset(delta, State.scanner_start(a), State.scanner_start(b)),
+  scanned: Offset.offset(delta, e, f),
+  same: {Buffer.observed(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(a)), State.scanner_start(a)), State.scanner_start(a)) ++ future ==
+    Buffer.observed(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(b)), State.scanner_start(b)), State.scanner_start(b)) : String},
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit),
+  left_step: {State.scanner_line(a, st) == State.scanner_body(a, e, (e + step : U32), cr, st) : Sse.Line},
+  right_step: {State.scanner_line(b, next) == State.scanner_body(b, f, (f + step : U32), cr, next) : Sse.Line}) ->
+  prefix_line_relation(future, State.scanner_length(a), State.scanner_length(b),
+    State.scanner_line(a, st), State.scanner_line(b, next), limit):
+  +len = State.scanner_length(a)
+  +other = State.scanner_length(b)
+  +hl0 = MNat.lt_of_le_of_lt(U32.to_nat(len), Nat.add(U32.to_nat(len), 3n), limit, MNat.le_add_right(U32.to_nat(len), 3n), hl)
+  +hr0 = MNat.lt_of_le_of_lt(U32.to_nat(other), Nat.add(U32.to_nat(other), 3n), limit, MNat.le_add_right(U32.to_nat(other), 3n), hr)
+  ep = Pair.fst(MNat.le(U32.to_nat(e), U32.to_nat((e + step : U32))), MNat.le(U32.to_nat((e + step : U32)), U32.to_nat(len)),
+    State.cursor_add(e, step, len, limit, left_after, hl0, hu))
+  pl = Pair.snd(MNat.le(U32.to_nat(e), U32.to_nat((e + step : U32))), MNat.le(U32.to_nat((e + step : U32)), U32.to_nat(len)),
+    State.cursor_add(e, step, len, limit, left_after, hl0, hu))
+  fq = Pair.fst(MNat.le(U32.to_nat(f), U32.to_nat((f + step : U32))), MNat.le(U32.to_nat((f + step : U32)), U32.to_nat(other)),
+    State.cursor_add(f, step, other, limit, right_after, hr0, hu))
+  qo = Pair.snd(MNat.le(U32.to_nat(f), U32.to_nat((f + step : U32))), MNat.le(U32.to_nat((f + step : U32)), U32.to_nat(other)),
+    State.cursor_add(f, step, other, limit, right_after, hr0, hu))
+  prefix_line_transport(future, len, other, State.scanner_line(a, st), State.scanner_line(b, next),
+    State.scanner_body(a, e, (e + step : U32), cr, st), State.scanner_body(b, f, (f + step : U32), cr, next), limit,
+    left_step, right_step,
+    blank_prefix_relocated(future, a, b, e, f, (e + step : U32), (f + step : U32), cr,
+      old, name, id, retry, st, next, delta, limit, left_shape, right_shape, hl, hr, hu,
+      MNat.le_trans(U32.to_nat(State.scanner_start(a)), U32.to_nat(e), U32.to_nat((e + step : U32)), se, ep),
+      MNat.le_trans(U32.to_nat(State.scanner_start(b)), U32.to_nat(f), U32.to_nat((f + step : U32)), tf, fq), pl, qo,
+      starts, Field.add_offset(delta, e, f, step, limit,
+        MNat.lt_of_le_of_lt(Nat.add(U32.to_nat(e), U32.to_nat(step)), U32.to_nat(len), limit, left_after, hl0),
+        MNat.lt_of_le_of_lt(Nat.add(U32.to_nat(f), U32.to_nat(step)), U32.to_nat(other), limit, right_after, hr0),
+        hu, scanned), same, left_state, right_state))
+
+def line_crlf_blank_prefix(+future: String, +a: State.Scanner, +b: State.Scanner,
+  +e: U32, +f: U32, +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(a))), Model.as_bits(State.scanner_source(a))),
+  right_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(b))), Model.as_bits(State.scanner_source(b))),
+  +hl: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(a)), 3n), limit),
+  +hr: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(b)), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  se: MNat.le(U32.to_nat(State.scanner_start(a)), U32.to_nat(e)),
+  tf: MNat.le(U32.to_nat(State.scanner_start(b)), U32.to_nat(f)),
+  +el: MNat.lt(U32.to_nat(e), U32.to_nat(State.scanner_length(a))),
+  +fo: MNat.lt(U32.to_nat(f), U32.to_nat(State.scanner_length(b))),
+  starts: Offset.offset(delta, State.scanner_start(a), State.scanner_start(b)),
+  scanned: Offset.offset(delta, e, f),
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit),
+  left_scan: {Refinement.eol_index(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+    State.scanner_source(a), State.scanner_start(a)) == e : U32},
+  right_scan: {Refinement.eol_index(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+    State.scanner_source(b), State.scanner_start(b)) == f : U32},
+  left_cr: {Model.peek(State.scanner_source(a), e) == 13 : U32},
+  right_cr: {Model.peek(State.scanner_source(b), f) == 13 : U32},
+  +left_more: {U32.is_lt((e + 1 : U32), State.scanner_length(a)) == True{} : Bool},
+  +right_more: {U32.is_lt((f + 1 : U32), State.scanner_length(b)) == True{} : Bool},
+  left_lf: {Model.peek(State.scanner_source(a), (e + 1 : U32)) == 10 : U32},
+  right_lf: {Model.peek(State.scanner_source(b), (f + 1 : U32)) == 10 : U32},
+  left_blank: {U32.is_eq(State.scanner_start(a), e) == True{} : Bool},
+  right_blank: {U32.is_eq(State.scanner_start(b), f) == True{} : Bool},
+  same: {Buffer.observed(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(a)), State.scanner_start(a)), State.scanner_start(a)) ++ future ==
+    Buffer.observed(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(b)), State.scanner_start(b)), State.scanner_start(b)) : String}) ->
+  prefix_line_relation(future, State.scanner_length(a), State.scanner_length(b),
+    State.scanner_line(a, st), State.scanner_line(b, next), limit):
+  blank_prefix_add(future, a, b, e, f, 2, False{}, old, name, id, retry, st, next, delta, limit,
+    left_shape, right_shape, hl, hr, hu, se, tf,
+    State.crlf_upper(e, State.scanner_length(a), limit, el,
+      MNat.lt_of_le_of_lt(U32.to_nat(State.scanner_length(a)), Nat.add(U32.to_nat(State.scanner_length(a)), 3n),
+        limit, MNat.le_add_right(U32.to_nat(State.scanner_length(a)), 3n), hl), hu, left_more),
+    State.crlf_upper(f, State.scanner_length(b), limit, fo,
+      MNat.lt_of_le_of_lt(U32.to_nat(State.scanner_length(b)), Nat.add(U32.to_nat(State.scanner_length(b)), 3n),
+        limit, MNat.le_add_right(U32.to_nat(State.scanner_length(b)), 3n), hr), hu, right_more),
+    starts, scanned, same, left_state, right_state,
+    State.scanner_cr_followed_blank(a, e, st, left_scan, el, left_cr, left_more, left_lf, left_blank),
+    State.scanner_cr_followed_blank(b, f, next, right_scan, fo, right_cr, right_more, right_lf, right_blank))
+
+def line_cr_non_lf_blank_prefix(+future: String, +a: State.Scanner, +b: State.Scanner,
+  +e: U32, +f: U32, +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(a))), Model.as_bits(State.scanner_source(a))),
+  right_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(b))), Model.as_bits(State.scanner_source(b))),
+  +hl: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(a)), 3n), limit),
+  +hr: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(b)), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  se: MNat.le(U32.to_nat(State.scanner_start(a)), U32.to_nat(e)),
+  tf: MNat.le(U32.to_nat(State.scanner_start(b)), U32.to_nat(f)),
+  +el: MNat.lt(U32.to_nat(e), U32.to_nat(State.scanner_length(a))),
+  +fo: MNat.lt(U32.to_nat(f), U32.to_nat(State.scanner_length(b))),
+  starts: Offset.offset(delta, State.scanner_start(a), State.scanner_start(b)),
+  scanned: Offset.offset(delta, e, f),
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit),
+  left_scan: {Refinement.eol_index(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+    State.scanner_source(a), State.scanner_start(a)) == e : U32},
+  right_scan: {Refinement.eol_index(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+    State.scanner_source(b), State.scanner_start(b)) == f : U32},
+  left_cr: {Model.peek(State.scanner_source(a), e) == 13 : U32},
+  right_cr: {Model.peek(State.scanner_source(b), f) == 13 : U32},
+  left_more: {U32.is_lt((e + 1 : U32), State.scanner_length(a)) == True{} : Bool},
+  right_more: {U32.is_lt((f + 1 : U32), State.scanner_length(b)) == True{} : Bool},
+  left_not_lf: {U32.is_eq(Model.peek(State.scanner_source(a), (e + 1 : U32)), 10) == False{} : Bool},
+  right_not_lf: {U32.is_eq(Model.peek(State.scanner_source(b), (f + 1 : U32)), 10) == False{} : Bool},
+  left_blank: {U32.is_eq(State.scanner_start(a), e) == True{} : Bool},
+  right_blank: {U32.is_eq(State.scanner_start(b), f) == True{} : Bool},
+  same: {Buffer.observed(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(a)), State.scanner_start(a)), State.scanner_start(a)) ++ future ==
+    Buffer.observed(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(b)), State.scanner_start(b)), State.scanner_start(b)) : String}) ->
+  prefix_line_relation(future, State.scanner_length(a), State.scanner_length(b),
+    State.scanner_line(a, st), State.scanner_line(b, next), limit):
+  blank_prefix_add(future, a, b, e, f, 1, False{}, old, name, id, retry, st, next, delta, limit,
+    left_shape, right_shape, hl, hr, hu, se, tf,
+    State.cursor_one_upper(U32.to_nat(e), U32.to_nat(State.scanner_length(a)), el),
+    State.cursor_one_upper(U32.to_nat(f), U32.to_nat(State.scanner_length(b)), fo),
+    starts, scanned, same, left_state, right_state,
+    State.scanner_cr_non_lf_blank(a, e, st, left_scan, el, left_cr, left_more, left_not_lf, left_blank),
+    State.scanner_cr_non_lf_blank(b, f, next, right_scan, fo, right_cr, right_more, right_not_lf, right_blank))
+
+def field_prefix_relocated(+future: String, +a: State.Scanner, +b: State.Scanner,
+  +e: U32, +f: U32, +pos: U32, +next_pos: U32, +cr: Bool,
+  +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(a))), Model.as_bits(State.scanner_source(a))),
+  right_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(b))), Model.as_bits(State.scanner_source(b))),
+  +hl: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(a)), 3n), limit),
+  +hr: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(b)), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  +se: MNat.le(U32.to_nat(State.scanner_start(a)), U32.to_nat(e)),
+  +tf: MNat.le(U32.to_nat(State.scanner_start(b)), U32.to_nat(f)),
+  +el: MNat.le(U32.to_nat(e), U32.to_nat(State.scanner_length(a))),
+  fo: MNat.le(U32.to_nat(f), U32.to_nat(State.scanner_length(b))),
+  sp: MNat.le(U32.to_nat(State.scanner_start(a)), U32.to_nat(pos)),
+  tq: MNat.le(U32.to_nat(State.scanner_start(b)), U32.to_nat(next_pos)),
+  +pl: MNat.le(U32.to_nat(pos), U32.to_nat(State.scanner_length(a))),
+  +qo: MNat.le(U32.to_nat(next_pos), U32.to_nat(State.scanner_length(b))),
+  +starts: Offset.offset(delta, State.scanner_start(a), State.scanner_start(b)),
+  +scanned: Offset.offset(delta, e, f), positions: Offset.offset(delta, pos, next_pos),
+  hn: MNat.lt(Nat.add(Nat.add(Nat.add(String.length(old),
+    U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32))), 1n), 3n), limit),
+  +same: {Buffer.observed(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(a)), State.scanner_start(a)), State.scanner_start(a)) ++ future ==
+    Buffer.observed(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(b)), State.scanner_start(b)), State.scanner_start(b)) : String},
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit)) ->
+  prefix_line_relation(future, State.scanner_length(a), State.scanner_length(b),
+    State.scanner_field(a, e, pos, cr, st), State.scanner_field(b, f, next_pos, cr, next), limit):
+  match a b:
+    case State.Scanner{+src, +len, +s, +pending} State.Scanner{+dst, +other, +t, +other_pending}:
+      field_prefix_refines(future, old, name, id, retry, src, dst, len, other, s, t, e, f,
+        pos, next_pos, cr, st, next, delta, limit, left_shape, right_shape, hl, hr, hu, se, tf, el, fo, pl, qo, starts, scanned,
+        Refinement.accumulation_bound(String.length(old), U32.to_nat((e - s : U32)),
+          U32.to_nat((len - s : U32)), limit, Refinement.prefix_length_le(s, e, len, se, el), hn),
+        left_state, right_state,
+        prefix_body_at(future, src, dst, s, t, e, f, len, other, delta, se, tf, el, starts, scanned, same),
+        prefix_suffix_cursor(future, src, dst, s, t, pos, next_pos, len, other, delta, limit, hu, sp, tq, pl, qo,
+          MNat.lt_of_le_of_lt(U32.to_nat(len), Nat.add(U32.to_nat(len), 3n), limit, MNat.le_add_right(U32.to_nat(len), 3n), hl),
+          MNat.lt_of_le_of_lt(U32.to_nat(other), Nat.add(U32.to_nat(other), 3n), limit, MNat.le_add_right(U32.to_nat(other), 3n), hr),
+          starts, positions, same))
+
+def field_prefix_add(+future: String, +a: State.Scanner, +b: State.Scanner,
+  +e: U32, +f: U32, +step: U32, +cr: Bool,
+  +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(a))), Model.as_bits(State.scanner_source(a))),
+  right_shape: Bound.shape(Local.depth(Local.words(State.scanner_length(b))), Model.as_bits(State.scanner_source(b))),
+  +hl: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(a)), 3n), limit),
+  +hr: MNat.lt(Nat.add(U32.to_nat(State.scanner_length(b)), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  +se: MNat.le(U32.to_nat(State.scanner_start(a)), U32.to_nat(e)),
+  +tf: MNat.le(U32.to_nat(State.scanner_start(b)), U32.to_nat(f)),
+  el: MNat.le(U32.to_nat(e), U32.to_nat(State.scanner_length(a))),
+  fo: MNat.le(U32.to_nat(f), U32.to_nat(State.scanner_length(b))),
+  +left_after: MNat.le(Nat.add(U32.to_nat(e), U32.to_nat(step)), U32.to_nat(State.scanner_length(a))),
+  +right_after: MNat.le(Nat.add(U32.to_nat(f), U32.to_nat(step)), U32.to_nat(State.scanner_length(b))),
+  starts: Offset.offset(delta, State.scanner_start(a), State.scanner_start(b)),
+  +scanned: Offset.offset(delta, e, f),
+  hn: MNat.lt(Nat.add(Nat.add(Nat.add(String.length(old),
+    U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32))), 1n), 3n), limit),
+  same: {Buffer.observed(U32.to_nat((State.scanner_length(a) - State.scanner_start(a) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(a)), State.scanner_start(a)), State.scanner_start(a)) ++ future ==
+    Buffer.observed(U32.to_nat((State.scanner_length(b) - State.scanner_start(b) : U32)),
+      Bytes.peek(Tree.reify(U32, State.scanner_source(b)), State.scanner_start(b)), State.scanner_start(b)) : String},
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit),
+  left_step: {State.scanner_line(a, st) == State.scanner_field(a, e, (e + step : U32), cr, st) : Sse.Line},
+  right_step: {State.scanner_line(b, next) == State.scanner_field(b, f, (f + step : U32), cr, next) : Sse.Line}) ->
+  prefix_line_relation(future, State.scanner_length(a), State.scanner_length(b),
+    State.scanner_line(a, st), State.scanner_line(b, next), limit):
+  +len = State.scanner_length(a)
+  +other = State.scanner_length(b)
+  +hl0 = MNat.lt_of_le_of_lt(U32.to_nat(len), Nat.add(U32.to_nat(len), 3n), limit, MNat.le_add_right(U32.to_nat(len), 3n), hl)
+  +hr0 = MNat.lt_of_le_of_lt(U32.to_nat(other), Nat.add(U32.to_nat(other), 3n), limit, MNat.le_add_right(U32.to_nat(other), 3n), hr)
+  ep = Pair.fst(MNat.le(U32.to_nat(e), U32.to_nat((e + step : U32))), MNat.le(U32.to_nat((e + step : U32)), U32.to_nat(len)),
+    State.cursor_add(e, step, len, limit, left_after, hl0, hu))
+  pl = Pair.snd(MNat.le(U32.to_nat(e), U32.to_nat((e + step : U32))), MNat.le(U32.to_nat((e + step : U32)), U32.to_nat(len)),
+    State.cursor_add(e, step, len, limit, left_after, hl0, hu))
+  fq = Pair.fst(MNat.le(U32.to_nat(f), U32.to_nat((f + step : U32))), MNat.le(U32.to_nat((f + step : U32)), U32.to_nat(other)),
+    State.cursor_add(f, step, other, limit, right_after, hr0, hu))
+  qo = Pair.snd(MNat.le(U32.to_nat(f), U32.to_nat((f + step : U32))), MNat.le(U32.to_nat((f + step : U32)), U32.to_nat(other)),
+    State.cursor_add(f, step, other, limit, right_after, hr0, hu))
+  prefix_line_transport(future, len, other, State.scanner_line(a, st), State.scanner_line(b, next),
+    State.scanner_field(a, e, (e + step : U32), cr, st), State.scanner_field(b, f, (f + step : U32), cr, next), limit,
+    left_step, right_step,
+    field_prefix_relocated(future, a, b, e, f, (e + step : U32), (f + step : U32), cr,
+      old, name, id, retry, st, next, delta, limit, left_shape, right_shape, hl, hr, hu, se, tf, el, fo,
+      MNat.le_trans(U32.to_nat(State.scanner_start(a)), U32.to_nat(e), U32.to_nat((e + step : U32)), se, ep),
+      MNat.le_trans(U32.to_nat(State.scanner_start(b)), U32.to_nat(f), U32.to_nat((f + step : U32)), tf, fq), pl, qo,
+      starts, scanned, Field.add_offset(delta, e, f, step, limit,
+        MNat.lt_of_le_of_lt(Nat.add(U32.to_nat(e), U32.to_nat(step)), U32.to_nat(len), limit, left_after, hl0),
+        MNat.lt_of_le_of_lt(Nat.add(U32.to_nat(f), U32.to_nat(step)), U32.to_nat(other), limit, right_after, hr0),
+        hu, scanned), hn, same, left_state, right_state))
+
+def prefix_common(+n: Nat, +m: Nat, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +future: String,
+  +same: {Buffer.observed(n, Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(m, Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  {Buffer.observed(n, Bytes.peek(Tree.reify(U32, a), s), s) ==
+    Buffer.observed(n, Bytes.peek(Tree.reify(U32, b), t), t) : String}:
+  prefix_observed_take(n, 0n, String.length(future),
+    Bytes.peek(Tree.reify(U32, a), s), Bytes.peek(Tree.reify(U32, b), t), s, t, future,
+    prefix_fuels(n, 0n, n, m, Bytes.peek(Tree.reify(U32, a), s), Bytes.peek(Tree.reify(U32, b), t), s, t, future,
+      MNat.add_zero(n), prefix_width(n, m, a, b, s, t, future, same), same))
+
+def stopped_right(+n: Nat, +s: U32, +t: U32, +e: U32, +f: U32, +delta: Nat,
+  starts: Offset.offset(delta, s, t), scanned: Offset.offset(delta, e, f),
+  stopped: {U32.to_nat(e) != Nat.add(n, U32.to_nat(s)) : Nat}) ->
+  {U32.to_nat(f) != Nat.add(n, U32.to_nat(t)) : Nat}:
+  eq => stopped(
+    Equal.trans(Nat, U32.to_nat(e), Nat.add(delta, U32.to_nat(f)), Nat.add(n, U32.to_nat(s)), scanned,
+      Equal.trans(Nat, Nat.add(delta, U32.to_nat(f)), Nat.add(delta, Nat.add(n, U32.to_nat(t))), Nat.add(n, U32.to_nat(s)),
+        Equal.cong(Nat, Nat, x => Nat.add(delta, x), U32.to_nat(f), Nat.add(n, U32.to_nat(t)), eq),
+        Equal.trans(Nat, Nat.add(delta, Nat.add(n, U32.to_nat(t))), Nat.add(n, Nat.add(delta, U32.to_nat(t))),
+          Nat.add(n, U32.to_nat(s)), MNat.add_left_comm(delta, n, U32.to_nat(t)),
+          Equal.cong(Nat, Nat, x => Nat.add(n, x), Nat.add(delta, U32.to_nat(t)), U32.to_nat(s),
+            Equal.sym(Nat, U32.to_nat(s), Nat.add(delta, U32.to_nat(t)), starts))))))
+
+def prefix_scan_relocated(+n: Nat, +m: Nat, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +future: String, +delta: Nat, +limit: Nat,
+  ha: MNat.lt(Nat.add(n, U32.to_nat(s)), limit), +hb: MNat.lt(Nat.add(n, U32.to_nat(t)), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)), +starts: Offset.offset(delta, s, t),
+  +same: {Buffer.observed(n, Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(m, Bytes.peek(Tree.reify(U32, b), t), t) : String},
+  stopped: {U32.to_nat(Refinement.eol_index(n, a, s)) != Nat.add(n, U32.to_nat(s)) : Nat}) ->
+  Offset.offset(delta, Refinement.eol_index(n, a, s), Refinement.eol_index(m, b, t)):
+  +scanned = Offset.scan_observed(n, a, b, delta, s, t, limit, ha, hb, hu, starts,
+    prefix_common(n, m, a, b, s, t, future, same))
+  %prefix_width(n, m, a, b, s, t, future, same) :
+    Offset.offset(delta, Refinement.eol_index(n, a, s), Refinement.eol_index(_, b, t))
+  Refinement.offset_right(delta, Refinement.eol_index(n, a, s), Refinement.eol_index(n, b, t),
+    Refinement.eol_index(Nat.add(n, String.length(future)), b, t), scanned,
+    Equal.sym(U32, Refinement.eol_index(Nat.add(n, String.length(future)), b, t), Refinement.eol_index(n, b, t),
+      Equal.cong(Array<U32> & U32, U32, Buffer.index,
+        Sse.eol(Nat.add(n, String.length(future)), Bytes.peek(Tree.reify(U32, b), t), t),
+        Sse.eol(n, Bytes.peek(Tree.reify(U32, b), t), t),
+        scanner_stopped_extend(n, String.length(future), Bytes.peek(Tree.reify(U32, b), t), t, limit, hb, hu,
+          stopped_right(n, s, t, Refinement.eol_index(n, a, s), Refinement.eol_index(n, b, t), delta, starts, scanned, stopped)))))
+
+def scan_not_end_nat(+n: Nat, +s: U32, +len: U32, +e: U32,
+  span: {Nat.add(n, U32.to_nat(s)) == U32.to_nat(len) : Nat},
+  different: {U32.is_eq(e, len) == False{} : Bool}) ->
+  {U32.to_nat(e) != Nat.add(n, U32.to_nat(s)) : Nat}:
+  eq => MBool.false_ne_true()(
+    Equal.trans(Bool, False{}, U32.is_eq(e, len), True{},
+      Equal.sym(Bool, U32.is_eq(e, len), False{}, different),
+      Drain.endpoint_is_eq(e, len, Lemmas.u32_to_nat_inj(e, len,
+        Equal.trans(Nat, U32.to_nat(e), Nat.add(n, U32.to_nat(s)), U32.to_nat(len), eq, span)))))
+
+def prefix_scan_case(+a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +len: U32, +other: U32, +future: String, +delta: Nat, +limit: Nat,
+  +sl: MNat.le(U32.to_nat(s), U32.to_nat(len)),
+  +hl: MNat.lt(U32.to_nat(len), limit),
+  +hb: MNat.lt(Nat.add(U32.to_nat((len - s : U32)), U32.to_nat(t)), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)), +starts: Offset.offset(delta, s, t),
+  +same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  Scan.clean_prefix(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) |
+    Offset.offset(delta, Refinement.eol_index(U32.to_nat((len - s : U32)), a, s),
+      Refinement.eol_index(U32.to_nat((other - t : U32)), b, t)):
+  +n = U32.to_nat((len - s : U32))
+  +m = U32.to_nat((other - t : U32))
+  +e = Refinement.eol_index(n, a, s)
+  State.choose(Scan.clean_prefix(n, Bytes.peek(Tree.reify(U32, a), s), s) |
+    Offset.offset(delta, e, Refinement.eol_index(m, b, t)), U32.is_eq(e, len),
+    yes => Inl{Drain.line_exhausted_clean(a, s, len, limit, sl, hl, hu, State.unsigned_eq(e, len, yes))},
+    no => Inr{prefix_scan_relocated(n, m, a, b, s, t, future, delta, limit,
+      Refinement.endpoint_bound(n, s, len, len, limit, Field.span_end(s, len, sl), MNat.le_refl(U32.to_nat(len)), hl),
+      hb, hu, starts, same, scan_not_end_nat(n, s, len, e, Field.span_end(s, len, sl), no))})
+
+def prefix_length_le(+n: Nat, +m: Nat, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +future: String,
+  same: {Buffer.observed(n, Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(m, Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  MNat.le(n, m):
+  %prefix_width(n, m, a, b, s, t, future, same) : MNat.le(n, _)
+  MNat.le_add_right(n, String.length(future))
+
+def prefix_scan_ready(+a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +len: U32, +other: U32, +future: String, +delta: Nat, +limit: Nat,
+  +sl: MNat.le(U32.to_nat(s), U32.to_nat(len)), +to: MNat.le(U32.to_nat(t), U32.to_nat(other)),
+  hl: MNat.lt(U32.to_nat(len), limit), hr: MNat.lt(U32.to_nat(other), limit),
+  hu: MNat.le(limit, Lemmas.pow2(32n)), starts: Offset.offset(delta, s, t),
+  +same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ++ future ==
+    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}) ->
+  Scan.clean_prefix(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) |
+    Offset.offset(delta, Refinement.eol_index(U32.to_nat((len - s : U32)), a, s),
+      Refinement.eol_index(U32.to_nat((other - t : U32)), b, t)):
+  +n = U32.to_nat((len - s : U32))
+  +m = U32.to_nat((other - t : U32))
+  prefix_scan_case(a, b, s, t, len, other, future, delta, limit, sl, hl,
+    MNat.lt_of_le_of_lt(Nat.add(n, U32.to_nat(t)), Nat.add(m, U32.to_nat(t)), limit,
+      MNat.add_le_add_right(n, m, U32.to_nat(t), prefix_length_le(n, m, a, b, s, t, future, same)),
+      Refinement.endpoint_bound(m, t, other, other, limit, Field.span_end(t, other, to), MNat.le_refl(U32.to_nat(other)), hr)),
+    hu, starts, same)
+
+def pending_text(cr: Bool, text: String) -> String:
+  match cr:
+    case False{}: text
+    case True{}:
+      match text:
+        case SNil{}: ""
+        case SCon{Chr{c}, tail}:
+          match c:
+            case 10: tail
+            case _: SCon{Chr{c}, tail}
+
+def logical_view(view: Budget.view_type()) -> Budget.view_type():
+  (tag, tail, cr, state, message) = view
+  (tag, pending_text(cr, tail), False{}, state, message)
+
+def logical_prefix_views(+future: String, -left: Budget.view_type(), -right: Budget.view_type(),
+  same: {extend_view(future, left) == right : Budget.view_type()}) ->
+  {logical_view(extend_view(future, left)) == logical_view(right) : Budget.view_type()}:
+  Equal.cong(Budget.view_type(), Budget.view_type(), logical_view, extend_view(future, left), right, same)
+
+def view_pending(view: Budget.view_type()) -> Bool:
+  (tag, tail, cr, state, message) = view
+  cr
+
+def pending_prefix_distinct(+tag: U32, +tail: String, -state: String & String & String & Maybe<&2, U32>,
+  -message: Maybe<&1, String & String & String>) ->
+  {extend_view("\n" ++ tail, (tag, "", True{}, state, message)) != (tag, tail, False{}, state, message) : Budget.view_type()}:
+  eq => MBool.true_ne_false()(Equal.cong(Budget.view_type(), Bool, view_pending,
+    extend_view("\n" ++ tail, (tag, "", True{}, state, message)), (tag, tail, False{}, state, message), eq))
+
+def pending_prefix_logical(+tag: U32, +tail: String, -state: String & String & String & Maybe<&2, U32>,
+  -message: Maybe<&1, String & String & String>) ->
+  {logical_view(extend_view("\n" ++ tail, (tag, "", True{}, state, message))) ==
+    logical_view((tag, tail, False{}, state, message)) : Budget.view_type()}:
+  {==}
+
+def first_line_bytes(bytes: Bytes.Bytes) -> Sse.Line:
+  Bytes.Bytes{+len, a} = bytes
+  Sse.line(a, len, 0, 0, False{}, Sse.St{"", Bytes.new(0), "", None{}})
+
+def first_line(text: String) -> Sse.Line:
+  first_line_bytes(Bytes.from_string(text))
+
+def crlf_cut_raw_distinct() ->
+  {extend_view("\n", Drain.line_view(1, first_line("\r"))) != Drain.line_view(2, first_line("\r\n")) : Budget.view_type()}:
+  eq => MBool.true_ne_false()(Equal.cong(Budget.view_type(), Bool, view_pending,
+    extend_view("\n", Drain.line_view(1, first_line("\r"))), Drain.line_view(2, first_line("\r\n")), eq))
+
+def crlf_cut_logical() ->
+  {logical_view(extend_view("\n", Drain.line_view(1, first_line("\r")))) ==
+    logical_view(Drain.line_view(2, first_line("\r\n"))) : Budget.view_type()}:
+  {==}
+
+def skipped_view(+len: U32, st: Sse.St, skipped: Array<U32> & U32 & Bool) -> Budget.view_type():
+  (a, pos, cr) = skipped
+  Drain.line_view(len, Sse.LMore{a, pos, cr, st})
+
+def logical_reader_observed(+len: U32, +src: Tree.Tree<U32>, +s: U32, +cr: Bool, -st: Sse.St, +text: String,
+  same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == text : String}) ->
+  {logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, cr, st})) ==
+    (0, pending_text(cr, text), False{}, Drain.state_view(st), None{}) : Budget.view_type()}:
+  Equal.cong(String, Budget.view_type(), x => (0, pending_text(cr, x), False{}, Drain.state_view(st), None{}),
+    Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s), text, same)
+
+def skip_pending_lf_logical_parts(+len: U32, +src: Tree.Tree<U32>, +s: U32, -st: Sse.St, +tail: String,
+  +before: MNat.lt(U32.to_nat(s), U32.to_nat(len)),
+  original: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == SCon{Chr{10}, tail} : String},
+  parts: {Model.peek(src, s) == 10 : U32} &
+    {Buffer.observed(U32.to_nat((len - (s + 1 : U32) : U32)),
+      Bytes.peek(Tree.reify(U32, src), (s + 1 : U32)), (s + 1 : U32)) == tail : String}) ->
+  {logical_view(skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))) ==
+    logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})) : Budget.view_type()}:
+  (lf, remaining) = parts
+  Equal.trans(Budget.view_type(),
+    logical_view(skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))),
+    logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), (s + 1 : U32), False{}, st})),
+    logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+    Equal.cong(Array<U32> & U32 & Bool, Budget.view_type(), skipped => logical_view(skipped_view(len, st, skipped)),
+      Sse.skip(True{}, Tree.reify(U32, src), len, s), (Tree.reify(U32, src), (s + 1 : U32), False{}),
+      Drain.skip_pending(len, s, src,
+        Equal.trans(Bool, U32.is_lt(s, len), Nat.is_lt(U32.to_nat(s), U32.to_nat(len)), True{},
+          Lemmas.u32_is_lt_nat(s, len), before), lf)),
+    Equal.trans(Budget.view_type(),
+      logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), (s + 1 : U32), False{}, st})),
+      (0, tail, False{}, Drain.state_view(st), None{}),
+      logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+      logical_reader_observed(len, src, (s + 1 : U32), False{}, st, tail, remaining),
+      Equal.sym(Budget.view_type(), logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+        (0, tail, False{}, Drain.state_view(st), None{}),
+        logical_reader_observed(len, src, s, True{}, st, SCon{Chr{10}, tail}, original))))
+
+def skip_pending_lf_logical(+len: U32, +src: Tree.Tree<U32>, +s: U32, -st: Sse.St, +tail: String, +limit: Nat,
+  +before: MNat.lt(U32.to_nat(s), U32.to_nat(len)), hl: MNat.lt(U32.to_nat(len), limit),
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  +original: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == SCon{Chr{10}, tail} : String}) ->
+  {logical_view(skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))) ==
+    logical_view(Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})) : Budget.view_type()}:
+  skip_pending_lf_logical_parts(len, src, s, st, tail, before, original,
+    Drain.pending_observation(len, s, src, tail, limit, before, hl, hu, original))
+
+def pending_empty_reader(cr: Bool) -> Sse.Reader:
+  Sse.Reader{Bytes.new(0), 0, 0, cr, Sse.St{"", Bytes.from_string("x\n"), "", None{}}}
+
+def pending_empty_logical_equal() ->
+  {logical_view(reader_view(pending_empty_reader(True{}))) ==
+    logical_view(reader_view(pending_empty_reader(False{}))) : Budget.view_type()}:
+  {==}
+
+def pending_empty_future(cr: Bool) -> List<&2, String>:
+  Laws.show(Laws.got(Laws.feed(["\n"], (pending_empty_reader(cr), Nil{}))))
+
+def pending_empty_future_distinct() ->
+  {pending_empty_future(True{}) != pending_empty_future(False{}) : List<&2, String>}:
+  eq => MNat.zero_ne_succ(0n)(Equal.cong(List<&2, String>, Nat, xs => List.length(&2, String, xs),
+    pending_empty_future(True{}), pending_empty_future(False{}), eq))
+
+def logical_line_relation(+future: String, +len: U32, +other: U32,
+  -left: Sse.Line, -right: Sse.Line, +limit: Nat) -> Type:
+  {logical_view(extend_view(future, Drain.line_view(len, left))) ==
+    logical_view(Drain.line_view(other, right)) : Budget.view_type()} &
+    Drain.line_valid(len, left, limit) & Drain.line_valid(other, right, limit)
+
+def logical_line_lift(+future: String, +len: U32, +other: U32,
+  -left: Sse.Line, -right: Sse.Line, +limit: Nat,
+  relation: prefix_line_relation(future, len, other, left, right, limit)) ->
+  logical_line_relation(future, len, other, left, right, limit):
+  (views, left_valid, right_valid) = relation
+  (logical_prefix_views(future, Drain.line_view(len, left), Drain.line_view(other, right), views),
+    left_valid, right_valid)
