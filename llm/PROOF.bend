@@ -12,6 +12,7 @@ import ./sse-reader-proof.bend as Reader
 import ./sse-field-proof.bend as Field
 import ./sse-refinement-proof.bend as Refinement
 import ./sse-line-proof.bend as Line
+import ./sse-boundary-proof.bend as Boundary
 
 def Laws.sse_whole():
   {==}
@@ -261,6 +262,9 @@ def Laws.sse_trim_string(text, len, src, depth, limit, hd, hl, hu, hc, length, s
 
 def Laws.sse_dispatch_content(text, name, id, retry, len, src, depth, limit, nonempty, hd, hl, hu, hc, length, shape, reads):
   Line.dispatch_nonempty(text, name, id, retry, len, src, depth, limit, nonempty, hd, hl, hu, hc, length, shape, reads)
+
+def Laws.sse_runtime_feed_composition(prefix, tail, a, b, len, src, pos, seen, cr, st, la, left, lb, right, limit, hu, ea, eb, ha, hb, hab, hc, shape, ra, rb, valid):
+  Boundary.feed_composition(prefix, tail, a, b, len, src, pos, seen, cr, st, la, left, lb, right, limit, hu, ea, eb, ha, hb, hab, hc, shape, ra, rb, valid)
 
 def Laws.reply_anthropic():
   {==}

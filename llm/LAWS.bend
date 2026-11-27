@@ -19,6 +19,7 @@ import ./sse-reader-proof.bend as Reader
 import ./sse-field-proof.bend as Field
 import ./sse-refinement-proof.bend as Refinement
 import ./sse-line-proof.bend as Line
+import ./sse-boundary-proof.bend as Boundary
 
 def b(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -1004,6 +1005,37 @@ law sse_dispatch_content:
   for reads: PackedModel.Reads(text, src, 0)
   {Line.dispatch_text(Sse.dispatch(Sse.St{name, Bytes.Bytes{len, Tree.reify(U32, src)}, id, retry})) ==
     Some{(Bool.pick(String, String.is_empty(name), "message", name), text, id)} : Maybe<&1, String & String & String>}
+
+# Adjacent runtime feeds compose without intervening next calls; backing storage may differ.
+law sse_runtime_feed_composition:
+  for +prefix: String
+  for +tail: String
+  for +a: String
+  for +b: String
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +pos: U32
+  for +seen: U32
+  for +cr: Bool
+  for -st: Sse.St
+  for +la: U32
+  for +left: Tree.Tree<U32>
+  for +lb: U32
+  for +right: Tree.Tree<U32>
+  for +limit: Nat
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +ea: {U32.to_nat(la) == String.length(a) : Nat}
+  for +eb: {U32.to_nat(lb) == String.length(b) : Nat}
+  for ha: MNat.lt(Nat.add(Nat.add(U32.to_nat(Feed.input_length(U32.is_zero(pos), len, pos)), U32.to_nat(la)), 3n), limit)
+  for hb: MNat.lt(Nat.add(Nat.add(U32.to_nat((Feed.input_length(U32.is_zero(pos), len, pos) + la : U32)), U32.to_nat(lb)), 3n), limit)
+  for hab: MNat.lt(Nat.add(Nat.add(U32.to_nat(la), U32.to_nat(lb)), 3n), limit)
+  for hc: MNat.lt(Nat.add(Nat.add(U32.to_nat(Feed.input_length(U32.is_zero(pos), len, pos)), U32.to_nat((la + lb : U32))), 3n), limit)
+  for shape: Bound.shape(LocalBytes.depth(LocalBytes.words(la)), PackedModel.as_bits(left))
+  for ra: PackedModel.Reads(a, left, 0)
+  for rb: PackedModel.Reads(b, right, 0)
+  for valid: Reader.valid_buffer(prefix, tail, len, src, pos, seen, limit)
+  {Boundary.view(Sse.feed(Sse.feed(Sse.Reader{Bytes.Bytes{len, Tree.reify(U32, src)}, pos, seen, cr, st}, Bytes.Bytes{la, Tree.reify(U32, left)}), Bytes.Bytes{lb, Tree.reify(U32, right)})) ==
+    Boundary.view(Sse.feed(Sse.Reader{Bytes.Bytes{len, Tree.reify(U32, src)}, pos, seen, cr, st}, Bytes.append(Bytes.Bytes{la, Tree.reify(U32, left)}, Bytes.Bytes{lb, Tree.reify(U32, right)}))) : Nat & String & U32 & U32 & Bool & Sse.St}
 
 def repeated_events(n: Nat) -> String:
   match n:

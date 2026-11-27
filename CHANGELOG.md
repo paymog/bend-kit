@@ -7,7 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
-- `llm` proofs: prove bounded packed feed observations, complete different-buffer field-state refinement, actual delimiter-span transport, and trimmed dispatch content. The runtime feed/drain boundary theorem remains open.
+- `llm` proofs: prove bounded observational composition of the actual SSE feed across arbitrary adjacent chunks and valid readers, including compaction, pending CR, and persistent IDs. Complete different-buffer field refinement and dispatch content also check. Interleaved-drain invariance is not claimed.
 - `bytes` proof: prove canonical append preserves arbitrary bounded octet strings, including aligned and unaligned destinations, growth, empty inputs, and exact-capacity buffers.
 - `stats` 0.1.8.1: prove Newton convergence and remove integer square root certification and its search fallback.
 - `runner` 0.22.0.5: use current sibling releases with matching types.
