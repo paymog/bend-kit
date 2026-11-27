@@ -15,6 +15,7 @@ Published README changes also need a release. README-only changes raise the
 fourth version number. Prose such as HTTP0.44.0.2, HTTP 0.44.0.2, and Package
 version is flagged for manual review, not replaced. Historical evidence and
 changelogs are not edited.
+The printed plan carries README pin edits forward between simulated waves.
 
 Usage: scripts/repin.py [--apply]. --apply re-pins the first wave: imports,
 package READMEs, root README import rows, VERSION, and scripts/pins.allow.
@@ -121,14 +122,16 @@ def waves(pkgs, ver, files, pins):
     real = {}
     on_hub = lambda p, v: (p, v) in published or hub_hash(p, v) is not None
     dirty_readmes = set()
+    readmes = {}
     for p in pkgs:
         path = ROOT / p / "README.md"
         if not path.exists():
             continue
+        readmes[p] = path.read_text()
         base = ver[p] if on_hub(p, ver[p]) else newest(p)
         if base:
             real[p] = hub_files(p, base)
-            if f"{p}/README.md" in real[p] and path.read_text() != hub_readme(p, base):
+            if f"{p}/README.md" in real[p] and readmes[p] != hub_readme(p, base):
                 dirty_readmes.add(p)
     for _ in range(64):
         moves, waiting, groups = [], set(), {}
@@ -161,10 +164,8 @@ def waves(pkgs, ver, files, pins):
             if base:
                 if p not in real:
                     real[p] = hub_files(p, base) if hub_hash(p, base) else {f"{p}/{p}.bend"}
-                readme = ROOT / p / "README.md"
-                if f"{p}/README.md" in real[p] and readme.exists():
-                    text = readme.read_text()
-                    if any(re.search(rf"bend-kit-{q}@{re.escape(old)}(?![0-9])", text)
+                if f"{p}/README.md" in real[p] and p in readmes:
+                    if any(re.search(rf"bend-kit-{q}@{re.escape(old)}(?![0-9])", readmes[p])
                            for e in edits.values() for q, old in e):
                         edits.setdefault(f"{p}/README.md", {})
                 if edits.keys() & real[p]:
@@ -184,7 +185,14 @@ def waves(pkgs, ver, files, pins):
             dirty_readmes.discard(p)
             for f, e in edits.items():
                 pins[f] = {(q, v) for q, v in pins.get(f, set()) if (q, v) not in e} | {(q, n) for (q, _), n in e.items()}
+                if p in readmes:
+                    for (q, old), n in e.items():
+                        readmes[p] = re.sub(rf"bend-kit-{q}@{re.escape(old)}(?![0-9])",
+                                            f"bend-kit-{q}@{n}", readmes[p])
             if new:
+                if p in readmes:
+                    readmes[p] = re.sub(rf"bend-kit-{p}@{re.escape(ver[p])}(?![0-9])",
+                                        f"bend-kit-{p}@{new}", readmes[p])
                 ver[p] = new
         published |= set(ver.items())
     sys.exit("repin: no fixed point after 64 waves")
