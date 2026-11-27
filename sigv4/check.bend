@@ -116,3 +116,4 @@ def main() -> IO(Unit):
     ok(response.page(Sigv4.page.of(response(200, "<ListBucketResult><Contents><Key>a&amp;b</Key><Size>12</Size><ETag>&quot;e&quot;</ETag><LastModified>date</LastModified></Contents><CommonPrefixes><Prefix>d/</Prefix></CommonPrefixes><IsTruncated>true</IsTruncated><NextContinuationToken>t&amp;+</NextContinuationToken></ListBucketResult>"))), "s3 list response", "")
     ok(response.bad_xml(Sigv4.page.of(response(200, "<ListBucketResult>")), "<ListBucketResult>"), "s3 malformed list response", "")
     ok(response.bad_xml(Sigv4.page.of(response(200, "<Error/>")), "<Error/>"), "s3 wrong list root", "")
+    ok(response.bad_xml(Sigv4.page.of(response(200, "<ListBucketResult><Contents><Key>&#x100000041;</Key></Contents></ListBucketResult>")), "<ListBucketResult><Contents><Key>&#x100000041;</Key></Contents></ListBucketResult>"), "s3 overflowing XML reference", "")
