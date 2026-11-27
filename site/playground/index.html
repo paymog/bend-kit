@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markdown playground · bend-kit</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header>
+<nav><a class="brand" href="../">bend-kit</a><a href="./">Playground</a><a href="../llms.txt">llms.txt</a><a href="https://github.com/paymog/bend-kit">GitHub</a></nav>
+</header>
+<main>
+<h1>Markdown playground</h1>
+<p>Type markdown on the left. The <a href="../packages/markdown/">markdown</a> package renders it in your browser, compiled from Bend to JavaScript. It runs in safe mode with the GitHub extensions on, so raw HTML is dropped.</p>
+<div class="playground">
+<textarea id="src" spellcheck="false"># Hello from Bend
+
+This text is rendered by **bend-kit**'s `markdown` package, in your browser.
+
+- [x] CommonMark 0.31.2
+- [x] GitHub tables and task lists
+- [ ] Your *own* text
+
+| package | language |
+| --- | --- |
+| markdown | Bend |
+</textarea>
+<div id="out"></div>
+</div>
+</main>
+<script type="module">
+import Md from "./render.bend";
+const src = document.getElementById("src");
+const out = document.getElementById("out");
+const show = () => { out.innerHTML = Md.render(src.value); };
+src.addEventListener("input", show);
+show();
+</script>
+</body>
+</html>
