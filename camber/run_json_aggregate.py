@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Measure a held batch of real JSON bodies; do not infer production admission."""
+import argparse
 import concurrent.futures
 import errno
 import hashlib
@@ -118,6 +119,9 @@ def classify(record, count):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("/tmp/camber-json-aggregate-current.json"))
+    args = parser.parse_args()
     fixtures = {name: body for name, mode, body, status in workloads() if mode == "json" and status == 200}
     small, large = fixtures["json_array_65536"], fixtures["json_array_1048576"]
     for body in (small, large):
@@ -136,7 +140,7 @@ def main():
                "measurement": "Internal monotonic work clocks include body receive, parsing/value disposal, and tiny response construction. Sampled child RSS is not a kernel peak, total-system bound, or steady-state leak test.",
                "host_deadline_note": "Longer observation window for aggregate work; existing application/performance budgets and 20 GiB RSS guard are unchanged.",
                "lanes": {}}
-    target = ROOT / "camber/json_aggregate_results.json"
+    target = args.output
     if target.exists():
         raise FileExistsError("Preserve the previous dataset before running another experiment")
     target.write_text(json.dumps(results, indent=2) + "\n")

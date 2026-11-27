@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Measure real JSON parsing/name validation beside ordinary HTTP and timed IO."""
 
+import argparse
 import errno
 import hashlib
 import json
@@ -37,6 +38,9 @@ def workloads():
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("/tmp/camber-json-progress-current.json"))
+    args = parser.parse_args()
     cases = list(workloads())
     for name, mode, body, status in cases:
         assert len(body) <= 1048576, (name, len(body))
@@ -60,10 +64,10 @@ def main():
                "scope": "Existing Json.parse.bytes or Users.name on HTTP bodies; parser/name validation and value disposal, not a strict Camber decoder or production server",
                "deadline_setup": "Timed read starts after complete body framing and both HTTP connections are accepted",
                "body_delivery": "One-shot affine body channel is received after CPU_BEGIN to prevent early decoder evaluation",
-               "marker_flush_pause_ms": 1,
-               "work_clock": "Time.mono around body receive, parsing/validation, value disposal and tiny response construction; excludes pre-work marker pause",
+               "marker_flush": "Explicit synchronous stdout flush before the internal work clock",
+               "work_clock": "Time.mono around body receive, parsing/validation, value disposal and tiny response construction; excludes marker flush",
                "lanes": {}}
-    target = ROOT / "camber/json_progress_results.json"
+    target = args.output
     with tempfile.TemporaryDirectory(prefix="camber-json-progress-") as directory:
         temp = Path(directory)
         for backend, suffix in (("native", ""), ("javascript", ".js")):

@@ -723,7 +723,8 @@ def published_versions(source=None):
 
 
 def source_hashes():
-    paths = sorted(HERE.glob("*")) + [HERE.parent / "users.bend", HERE.parent / "users_demo.bend"]
+    paths = (sorted(HERE.glob("*")) + [HERE.parent / "users.bend", HERE.parent / "users_demo.bend"]
+             + sorted(HERE.parent.glob("probe_stdout.*")))
     return {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in paths if path.is_file() and path.suffix in (".bend", ".c", ".js", ".py", ".plist", ".conf")}
 

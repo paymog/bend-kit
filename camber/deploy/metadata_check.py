@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check fresh receipt versions without compiling or starting platform jobs."""
+import hashlib
 import json
 import os
 import tempfile
@@ -74,6 +75,10 @@ def main():
         current = receipt(root / "current.json")
         assert current == run.published_versions()
         assert current.keys() == {"camber", "http", "json", "router", "bytes"}, current
+        hashes = run.source_hashes()
+        for suffix in ("bend", "c", "js"):
+            path = run.HERE.parent / f"probe_stdout.{suffix}"
+            assert hashes[str(path.relative_to(run.ROOT))] == hashlib.sha256(path.read_bytes()).hexdigest()
 
         source = root / "users.bend"
         sibling = root / "sibling.bend"

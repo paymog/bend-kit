@@ -26,7 +26,7 @@ sudo launchctl print system/org.bend-kit.camber.users
 
 Native `ProgramArguments` execute `/opt/camber/users +RTS --threads 1 --gpu off -RTS 19441 19442 /var/lib/camber/journal`; JS executes `/opt/camber/bin/bun /opt/camber/users.js 19441 19442 /var/lib/camber/journal`. The runtime consumes only the options between `+RTS` and `-RTS`; application arguments follow `-RTS`. Neither lane passes credentials in argv. The final optional acceptance-mode argument is omitted in deployment; `cooperative`, `cpu`, `io`, and `tls-proof` are deliberate verification fixtures, not public routes. The blocking IO fixture retains a real TCP Socket while receiving from a private loopback peer; the CPU fixture intentionally does not yield.
 
-The CPU fixture pauses for 1 ms after `CPU ADMITTED` and before the effect-provided seed. Bend's JavaScript runtime buffers non-TTY stdout until an event-loop wait, so this pre-work checkpoint exposes admission to the observer. The CPU loop itself remains non-yielding. The marker does not measure CPU execution time.
+The CPU fixture calls the probe-only `probe_stdout.flush` after `CPU ADMITTED` and before the effect-provided seed. Its native and JavaScript twins flush Bend 2.0.40's stdout buffer synchronously, without a timer or event-loop yield. The CPU loop remains non-yielding. The marker does not measure CPU execution time.
 
 ## Stop and observe
 
