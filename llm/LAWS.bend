@@ -264,6 +264,58 @@ law sse_scan_clean_transport:
   for clean: Scan.clean_prefix(f, r, i)
   Scan.clean_prefix(f, s, j)
 
+# Field delimiters and exact field-name matches depend only on observed octets.
+law sse_colon_observe:
+  for f: Nat
+  for r: Array<U32> & U32
+  for s: Array<U32> & U32
+  for +i: U32
+  for same: {Buffer.observed(f, r, i) == Buffer.observed(f, s, i) : String}
+  {Buffer.index(Sse.colon(f, r, i)) == Buffer.index(Sse.colon(f, s, i)) : U32}
+
+law sse_colon_relocate:
+  for ~R: U32 -> U32 -> Type
+  for f: Nat
+  for r: Array<U32> & U32
+  for s: Array<U32> & U32
+  for +i: U32
+  for +j: U32
+  for same: Buffer.related_reads(~R, f, r, s, i, j)
+  R(Buffer.index(Sse.colon(f, r, i)), Buffer.index(Sse.colon(f, s, j)))
+
+law sse_name_observe:
+  for +needle: String
+  for +ok: Bool
+  for r: Array<U32> & U32
+  for s: Array<U32> & U32
+  for +i: U32
+  for +j: U32
+  for same: {Buffer.observed(String.length(needle), r, i) == Buffer.observed(String.length(needle), s, j) : String}
+  {Buffer.matched(Bytes.at.go(needle, ok, r, i)) == Buffer.matched(Bytes.at.go(needle, ok, s, j)) : Bool}
+
+# Scanning leaves the complete packed buffer unchanged, not just the observed prefix.
+law sse_scan_preserves_buffer:
+  for +f: Nat
+  for a: Array<U32>
+  for +c: U32
+  for +i: U32
+  {Buffer.array(Sse.eol(f, (a, c), i)) == a : Array<U32>}
+
+law sse_colon_preserves_buffer:
+  for +f: Nat
+  for a: Array<U32>
+  for +c: U32
+  for +i: U32
+  {Buffer.array(Sse.colon(f, (a, c), i)) == a : Array<U32>}
+
+law sse_name_preserves_buffer:
+  for +needle: String
+  for +ok: Bool
+  for a: Array<U32>
+  for +c: U32
+  for +i: U32
+  {Buffer.at_array(Bytes.at.go(needle, ok, (a, c), i)) == a : Array<U32>}
+
 def repeated_events(n: Nat) -> String:
   match n:
     case 0n:

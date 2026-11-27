@@ -113,6 +113,24 @@ def Laws.sse_scan_relocate(R, f, r, s, i, j, same):
 def Laws.sse_scan_clean_transport(f, r, s, i, j, same, clean):
   Buffer.clean_observed(f, r, s, i, j, same, clean)
 
+def Laws.sse_colon_observe(f, r, s, i, same):
+  Buffer.colon_observed(f, r, s, i, same)
+
+def Laws.sse_colon_relocate(R, f, r, s, i, j, same):
+  Buffer.colon_related(~R, f, r, s, i, j, same)
+
+def Laws.sse_name_observe(needle, ok, r, s, i, j, same):
+  Buffer.at_observed(needle, ok, r, s, i, j, same)
+
+def Laws.sse_scan_preserves_buffer(f, a, c, i):
+  Buffer.eol_preserves(f, a, c, i)
+
+def Laws.sse_colon_preserves_buffer(f, a, c, i):
+  Buffer.colon_preserves(f, a, c, i)
+
+def Laws.sse_name_preserves_buffer(needle, ok, a, c, i):
+  Buffer.at_preserves(needle, ok, a, c, i)
+
 def Laws.reply_anthropic():
   {==}
 
