@@ -1,3 +1,5 @@
 # Imports that scripts/pins.sh lets through: a target per line, then why.
 # Remove a line when the issue named on it lands.
 bend-kit-http@0.45.0.2 # #1308 re-pins downstream consumers after HTTP publishes.
+bend-kit-camber@0.19.0.2  # importers re-pin to bend-kit-camber@0.19.0.3 in a later wave; #1308
+bend-kit-hairpin@0.19.0.2  # importers re-pin to bend-kit-hairpin@0.19.0.3 in a later wave; #1308

@@ -1,17 +1,17 @@
 # Camber
 
-`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP 0.45.0.2. Package version: `0.19.0.2`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch 0.4.0.5.
+`camber.bend` delivers fixed prepared applications, scoped hooks, once-only error mapping, strict typed inputs, validated packed responses, and public serving through published HTTP 0.45.0.3. Package version: `0.19.0.3`; CI publishes after merge, never by hand. Entered-policy notifications run inline at explicit application-only or actual transport completion boundaries; optional redacted access logging uses published Notch 0.4.0.5.
 
 ```bend
-import bend-kit-camber@0.19.0.2/camber.bend as Camber
-import bend-kit-camber@0.19.0.2/input.bend as Input
-import bend-kit-camber@0.19.0.2/notices.bend as Notices
-import bend-kit-http@0.45.0.2/http.bend as Http
-import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-camber@0.19.0.3/camber.bend as Camber
+import bend-kit-camber@0.19.0.3/input.bend as Input
+import bend-kit-camber@0.19.0.3/notices.bend as Notices
+import bend-kit-http@0.45.0.3/http.bend as Http
+import bend-kit-http@0.45.0.3/pure.bend as Pure
 import bend-kit-time@0.3.0.5/pure.bend as Time
 ```
 
-`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. HTTP model types, headers, codecs, and server configuration come from `Pure`; effects and server handles come from `Http`. Both imports must use `bend-kit-http@0.45.0.2`. Router uses `bend-kit-router@0.2.0.0` and JSON uses `bend-kit-json@0.7.3.2`. Notices use pure `Time.Duration`; `Http.clock.mono()` returns that type, unlike runtime `Time.mono()` from `time.bend`.
+`camber.bend` does not re-export `input.bend` or `notices.bend`. Import each file you call. HTTP model types, headers, codecs, and server configuration come from `Pure`; effects and server handles come from `Http`. Both imports must use `bend-kit-http@0.45.0.3`. Router uses `bend-kit-router@0.2.0.0` and JSON uses `bend-kit-json@0.7.3.2`. Notices use pure `Time.Duration`; `Http.clock.mono()` returns that type, unlike runtime `Time.mono()` from `time.bend`.
 
 
 ## API
@@ -171,7 +171,7 @@ The command inbox has `room` buffered slots (zero uses rendezvous). Resource exh
 
 The lifecycle receive loop uses `@unsafe` because its termination depends on an external orderly-close command, not structurally shrinking input. The post-close drain is structurally bounded by the inbox's slot count. Base channel/file effects also lie outside mathematical proofs. `ledger.bend` has no host imports. Its universal laws prove fresh-return rejection, full-pool rejection, exact lend/return counts, capacity bounds, and resource conservation. The bounds assume a valid pool and a matching aggregate grant, as maintained from `open` by the proved transitions. These proofs do not attest host IO or lifecycle safety.
 
-Import `bend-kit-camber@0.19.0.2/ledger.bend` for `Ledger`, `open`, `lend`, `give`, `counts`, and `refuse`. The old ledger exports in `camber.bend` are removed. Actor inspection still returns `Camber.Counts`; pure ledger inspection returns the separate `Ledger.Counts` projection. The owner maps that projection at its message boundary.
+Import `bend-kit-camber@0.19.0.3/ledger.bend` for `Ledger`, `open`, `lend`, `give`, `counts`, and `refuse`. The old ledger exports in `camber.bend` are removed. Actor inspection still returns `Camber.Counts`; pure ledger inspection returns the separate `Ledger.Counts` projection. The owner maps that projection at its message boundary.
 
 `check.bend` remains the native/JS owner consumer with real two-File bundles, held principals, expected failures, exhaustion, counts, disposed caller replies, partial startup cleanup and Busy→same-owner retry. `python3 camber/run_serving.py --checks` runs the affected package gate and both actual compiled owner/serving lanes sequentially, with aggregate descendant RSS/disk guards and explicit listener release. [OWNER_EVIDENCE.md](OWNER_EVIDENCE.md) preserves the original owner receipts rather than rewriting historical measurements.
 

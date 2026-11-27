@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `camber` 0.19.0.3: adopt HTTP 0.45.0.3 with Zlib 0.7.0.5.
+- `hairpin` 0.19.0.3: adopt HTTP 0.45.0.3 with Zlib 0.7.0.5.
+- `storage` 0.12.0.3: adopt HTTP 0.45.0.3 with Zlib 0.7.0.5.
 - `archive` 0.7.0.4: adopt Zlib 0.7.0.5.
 - `http` 0.45.0.3: adopt Zlib 0.7.0.5 for pure and native decompression.
 - `storage` checks: add deterministic native and Bun writer kills at every sync and rename boundary, plus disposable APFS forced-detach trials. Record the procedure, results, and physical qualification limits in [storage/recovery.md](storage/recovery.md).
