@@ -304,4 +304,64 @@ with TemporaryDirectory() as tmp:
         "runner/README.md": {},
     })], set())], plan
 
+with TemporaryDirectory() as tmp:
+    root = Path(tmp)
+    repin.ROOT = root
+    (root / "scripts").mkdir()
+    packages = root / "scripts/packages.sh"
+    packages.write_text("#!/bin/sh\nprintf 'dep\\nconsumer\\n'\n")
+    packages.chmod(0o755)
+    (root / "scripts/pins.allow").write_text("")
+    (root / "README.md").write_text("")
+    versions = {"dep": "0.2.0.1", "consumer": "0.1.0.0"}
+    for p, v in versions.items():
+        (root / p).mkdir()
+        (root / p / "VERSION").write_text(v + "\n")
+    (root / "dep/dep.bend").write_text("")
+    (root / "consumer/consumer.bend").write_text("import bend-kit-dep@0.2.0.0/dep.bend\n")
+    (root / "consumer/check.bend").write_text(
+        "import bend-kit-consumer@0.1.0.0/consumer.bend\n"
+        "import bend-kit-dep@0.2.0.0/dep.bend\n")
+    readme = root / "consumer/README.md"
+    original = "Use bend-kit-consumer@0.1.0.0 with bend-kit-dep@0.2.0.0.\n"
+    readme.write_text(original)
+    published = set(versions.items())
+    readmes = {("consumer", versions["consumer"]): original}
+    with patch.object(repin, "hub_hash", side_effect=lambda p, v:
+                      "published" if (p, v) in published else None), \
+            patch.object(repin, "hub_files", side_effect=lambda p, v:
+                         {f"{p}/{p}.bend"} | ({"consumer/README.md"} if p == "consumer" else set())), \
+            patch.object(repin, "hub_readme", side_effect=lambda p, v: readmes[p, v]):
+        pkgs, versions, files, pins = repin.load()
+        plan = list(repin.waves(pkgs, versions, files, pins))
+        assert plan == [
+            ([("consumer", "0.1.0.1", {
+                "consumer/consumer.bend": {("dep", "0.2.0.0"): "0.2.0.1"},
+                "consumer/README.md": {},
+            })], set()),
+            ([("consumer", None, {
+                "consumer/check.bend": {
+                    ("consumer", "0.1.0.0"): "0.1.0.1",
+                    ("dep", "0.2.0.0"): "0.2.0.1",
+                },
+            })], set()),
+        ], plan
+        assert readme.read_text() == original, "dry run changed the README"
+        applied = []
+        for _ in range(4):
+            pkgs, versions, files, pins = repin.load()
+            first = next(repin.waves(pkgs, versions, files, pins), None)
+            if first is None:
+                break
+            applied.append(first)
+            with redirect_stdout(StringIO()):
+                repin.apply(first[0], versions, pkgs)
+            for p, new, _ in first[0]:
+                if new:
+                    published.add((p, new))
+                    readmes[p, new] = (root / p / "README.md").read_text()
+        assert applied == plan, (applied, plan)
+        assert first is None, "applied waves did not settle"
+        assert readme.read_text() == "Use bend-kit-consumer@0.1.0.1 with bend-kit-dep@0.2.0.1.\n"
+
 print("Re-pin wave checks pass")
