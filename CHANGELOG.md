@@ -8,6 +8,7 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 - `bytes` proof: prove empty-copy identity and unrestricted tree-model bridges for packed reads, writes, all copy paths, allocation, growth, conversion, and canonical append. The octet-concatenation theorem is still open.
+- `stats` 0.1.8.1: prove Newton convergence and remove integer square root certification and its search fallback.
 - `runner` 0.22.0.5: use current sibling releases with matching types.
 - `jwt` 0.17.0.2: use current sibling releases with matching types.
 - `llm` 0.19.0.2: use current sibling releases with matching types.

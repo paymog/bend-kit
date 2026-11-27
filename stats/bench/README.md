@@ -1,5 +1,45 @@
 # Statistics benchmark
 
+## Proved Newton integer square root
+
+Stats 0.1.8.1 removes the certificate and runtime search fallback. The seed, four Newton steps, and division-based correction are unchanged. The last three steps use a terminating countdown so the proof can induct on the remaining work without expanding four nested arithmetic terms.
+
+Build and run the retained paired control:
+
+```sh
+bend stats/bench/evidence/newton.bend -o /tmp/stats-newton && \
+/tmp/stats-newton 16 && \
+/tmp/stats-newton && \
+/tmp/stats-newton && \
+/tmp/stats-newton
+```
+
+The small probe uses 71 pairs. Its isqrt checksum is `1042369`; its identity checksum is `1836604304`. Each full run uses the same 2097207 pairs as the prior controls. It retains one shared list for the identity, certified stats 0.1.8.0, and proved passes. The final identity pass releases the list. Input generation is outside the timed passes.
+
+2026-11-26, Apple M4 Pro, macOS 26.7.2 arm64, Bend 2.0.40. Times are ms.
+
+| paired shared-list pass | run 1 | run 2 | run 3 | median |
+|---|---:|---:|---:|---:|
+| Identity | 9.583375 | 9.644542 | 9.652416 | 9.644542 |
+| Certified Newton, stats 0.1.8.0 | 11.098042 | 11.039458 | 11.053459 | 11.053459 |
+| Proved Newton, stats 0.1.8.1 | 8.792250 | 9.223292 | 9.668083 | 9.223292 |
+| Identity with list release | 27.385208 | 28.327833 | 27.497917 | 27.497917 |
+
+The controlled median improves by 16.6%. Every full isqrt pass returns `1421540955`; every full identity pass returns `2699619501`. These are end-to-end shared-list timings, not isolated arithmetic costs. The control always runs the certified pass first, so it does not separate order effects from the implementation change.
+
+`python3 stats/bench/run.py 3` also passes the small probe and three full runs in all six languages. The isqrt medians are:
+
+| pass | C | Rust | Bun | Node | Python | Bend |
+|---|---:|---:|---:|---:|---:|---:|
+| Original list/array pass | 32.064 | 5.471 | 268.986 | 188.757 | 237.975 | 28.007 |
+| Packed pass | 31.921 | 5.548 | 280.134 | 176.545 | 328.096 | 4.717 |
+
+Bend's shared-list isqrt median is 8.692 ms, with identity at 7.773 ms and the final releasing identity at 27.121 ms. The original Bend list pass consumes its last list reference; the shared pass retains it. Do not compare those ownership paths as isolated arithmetic timings.
+
+All implementations retain these checksums: mean `3422847917`, variance `1370401302`, median `1092607460`, histogram `1092535808`, gcd `18047959`, lcm `3181042401`, isqrt `1421540955`, and packed identity `2699619501`. Packed gcd, lcm, and isqrt agree with their original passes. The JavaScript warm-up and dispatch controls also pass. Tool versions: Apple clang 21.0.0, rustc 1.91.0, Bun 1.4.4, Node 24.0.1, Python 3.14.6.
+
+The older measurements below retain their original package versions and runtime certification status.
+
 This times the mean, sample variance, median, and a 100-bin histogram of 10000 doubles. It also times U32 gcd, checked lcm, and integer square root. It compares `stats` with C, Rust, Python, and JavaScript.
 
 ## Run

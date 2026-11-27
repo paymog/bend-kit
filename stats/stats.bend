@@ -343,22 +343,6 @@ def U32.lcm.of(+q: U32, +b: U32) -> Maybe<&2, U32>:
 def U32.lcm(+a: U32, +b: U32) -> Maybe<&2, U32>:
   U32.lcm.of((a / U32.gcd(a, b) : U32), b)
 
-def U32.isqrt.pick(ok: Bool, c: U32, r: U32) -> U32:
-  match ok:
-    case True{}:
-      c
-    case False{}:
-      r
-
-def U32.isqrt.go(+k: Nat, +n: U32, +r: U32, +step: U32) -> U32:
-  match k:
-    case 0n:
-      r
-    case 1n+p:
-      +half = U32.div(step, 2)
-      +c = (r + half : U32)
-      U32.isqrt.go(p, n, U32.isqrt.pick(U32.is_le((c * c : U32), n), c, r), half)
-
 def U32.isqrt.newton(+n: U32, +r: U32) -> U32:
   ((r + n / r) / 2 : U32)
 
@@ -369,28 +353,24 @@ def U32.isqrt.correct(high: Bool, r: U32) -> U32:
     case False{}:
       r
 
-def U32.isqrt.accept(ok: Bool, n: U32, r: U32) -> U32:
-  match ok:
-    case True{}:
-      r
-    case False{}:
-      # The proved search covers any candidate that fails certification.
-      U32.isqrt.go(16n, n, 0, 65536)
+def U32.isqrt.steps(k: Nat, +n: U32, +r: U32) -> U32:
+  match k:
+    case 0n:
+      U32.isqrt.correct(U32.is_gt(r, U32.div(n, r)), r)
+    case 1n+p:
+      U32.isqrt.steps(p, n, U32.isqrt.newton(n, r))
 
-def U32.isqrt.certify(+n: U32, +r: U32) -> U32:
-  +next = U32.inc(r)
-  U32.isqrt.accept(Bool.and(U32.is_le((r * r : U32), n),
-    Bool.or(U32.is_eq(r, 65535), Bool.and(U32.is_lt(r, 65536),
-      Bool.and(U32.is_lt(next, 65536), U32.is_lt(n, (next * next : U32)))))), n, r)
+# Keep the iteration count folded during proofs (bendlang/bend#1071).
+def U32.isqrt.count(n: U32) -> Nat:
+  match n:
+    case U32{w}:
+      3n
 
 def U32.isqrt.candidate(+n: U32) -> U32:
   r = (1 << Nat.add(1n, Nat.div(U32.log2(n), 2n)) : U32)
   r = U32.isqrt.newton(n, r)
-  r = U32.isqrt.newton(n, r)
-  r = U32.isqrt.newton(n, r)
-  +r = U32.isqrt.newton(n, r)
-  U32.isqrt.correct(U32.is_gt(r, (n / r : U32)), r)
+  U32.isqrt.steps(U32.isqrt.count(n), n, r)
 
 # The floor of the square root.
 def U32.isqrt(+n: U32) -> U32:
-  U32.isqrt.certify(n, U32.isqrt.candidate(n))
+  U32.isqrt.candidate(n)
