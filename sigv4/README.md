@@ -3,10 +3,10 @@
 AWS Signature V4, and an S3 client over `hairpin`.
 
 ```bend
-import bend-kit-sigv4@0.17.0.2/sigv4.bend as Sig
-import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
-import bend-kit-hairpin@0.19.0.2/pure.bend as HairpinPure
-import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-sigv4@0.17.0.4/sigv4.bend as Sig
+import bend-kit-hairpin@0.19.0.3/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.3/pure.bend as HairpinPure
+import bend-kit-http@0.45.0.3/pure.bend as HttpPure
 ```
 
 `sigv4.bend` imports HTTP models from `pure.bend` and live clocks from `http.bend`, plus `bend-kit-crypto@0.2.2.2`, `bend-kit-time@0.3.0.5/pure.bend`, and `bend-kit-collections@0.1.6.0`, whose `Order.string` sorts the canonical query. `Http.clock.now` supplies the pure timestamp used for signing. HMAC-SHA256 needs OpenSSL 3 (`BEND_LIBCRYPTO` on the crypto package).
@@ -20,4 +20,4 @@ S3 path encoding is not the encoding used for other services. `new`, `put`, `get
 
 `pure.bend` builds canonical requests, signing strings, authorization headers, and presign queries without cryptographic or network effects. `xml.bend` parses XML, S3 error fields, and ListObjectsV2 pages. Its object constructor template lets the runtime keep its public `Object`, `Page`, and `Err` types without copying object lists.
 
-`LAWS.bend` imports only these pure modules. The XML fixtures cover namespace prefixes, nested elements, attributes, entities, comments, CDATA, malformed input, error fields, and list pages. Run `bend sigv4/PROOF.bend --verdict` from the repository root to check every claim with the pure proof gate. The runtime delegates to the same definitions. The parser still does not validate XML names, attribute syntax, DTD internal subsets, or numeric entity overflow.
+`LAWS.bend` imports only these pure modules. The XML fixtures cover namespace prefixes, nested elements, attributes, entities, comments, CDATA, malformed input, error fields, and list pages. Run `bend sigv4/PROOF.bend --verdict` from the repository root to check every claim with the pure proof gate. The runtime delegates to the same definitions. Numeric references must contain digits and name an XML 1.0 character. Invalid references make the document fail. The parser still does not validate XML names, attribute syntax, or DTD internal subsets.

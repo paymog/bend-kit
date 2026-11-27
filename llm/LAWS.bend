@@ -26,6 +26,33 @@ def b(+s: String) -> Bytes.Bytes:
 
 # ---- SSE
 
+# Pauses keep the pending event, so a zero budget cannot discard it.
+def drain_step(r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>) ->
+  (Sse.Reader & Sse.Next) & List<&1, Sse.Message>:
+  ((rd, n), acc) = r
+  match n:
+    case Sse.Got{e}:
+      (Sse.next(rd), Con{e, acc})
+    case Sse.Want{}:
+      ((rd, Sse.Want{}), acc)
+
+def drain_resume(f: Nat, r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>) ->
+  (Sse.Reader & Sse.Next) & List<&1, Sse.Message>:
+  match f:
+    case 0n:
+      r
+    case 1n+g:
+      drain_resume(g, drain_step(r))
+
+def drain_pause(f: Nat, r: Sse.Reader & Sse.Next, acc: List<&1, Sse.Message>) ->
+  (Sse.Reader & Sse.Next) & List<&1, Sse.Message>:
+  drain_resume(f, (r, acc))
+
+def drain_finish(r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>) ->
+  Sse.Reader & List<&1, Sse.Message>:
+  ((rd, n), acc) = r
+  (rd, acc)
+
 def drain(f: Nat, r: Sse.Reader & Sse.Next, acc: List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
   match f:
     case 0n:
@@ -38,6 +65,7 @@ def drain(f: Nat, r: Sse.Reader & Sse.Next, acc: List<&1, Sse.Message>) -> Sse.R
           drain(g, Sse.next(rd), Con{e, acc})
         case Sse.Want{}:
           (rd, acc)
+
 
 def feed_drain(r: Sse.Reader, acc: List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
   Sse.Reader{Bytes.Bytes{+n, a}, pos, seen, cr, st} = r
@@ -158,6 +186,77 @@ law sse_feed_compose:
   for ys: List<&2, String>
   for r: Sse.Reader & List<&1, Sse.Message>
   {feed(List.append(&2, String, xs, ys), r) == feed(ys, feed(xs, r)) : Sse.Reader & List<&1, Sse.Message>}
+
+
+def drain_budget(fs: List<&2, Nat>) -> Nat:
+  match fs:
+    case Nil{}:
+      0n
+    case Con{f, rest}:
+      Nat.add(f, drain_budget(rest))
+
+def drain_schedule(fs: List<&2, Nat>, r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>) ->
+  (Sse.Reader & Sse.Next) & List<&1, Sse.Message>:
+  match fs:
+    case Nil{}:
+      r
+    case Con{f, rest}:
+      drain_schedule(rest, drain_resume(f, r))
+
+# Every pause is between next calls; the exact reader and pending event are preserved.
+law sse_drain_schedule:
+  for fs: List<&2, Nat>
+  for r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>
+  {drain_schedule(fs, r) == drain_resume(drain_budget(fs), r) :
+    (Sse.Reader & Sse.Next) & List<&1, Sse.Message>}
+
+law sse_drain_repartition:
+  for left: List<&2, Nat>
+  for right: List<&2, Nat>
+  for same: {drain_budget(left) == drain_budget(right) : Nat}
+  for r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>
+  {drain_schedule(left, r) == drain_schedule(right, r) :
+    (Sse.Reader & Sse.Next) & List<&1, Sse.Message>}
+
+law sse_drain_finish:
+  for f: Nat
+  for r: Sse.Reader & Sse.Next
+  for acc: List<&1, Sse.Message>
+  {drain_finish(drain_pause(f, r, acc)) == drain(f, r, acc) :
+    Sse.Reader & List<&1, Sse.Message>}
+
+def feed_pending(chunk: String, r: Sse.Reader & List<&1, Sse.Message>) ->
+  (Sse.Reader & Sse.Next) & List<&1, Sse.Message>:
+  (rd, acc) = r
+  (Sse.next(Sse.feed(rd, b(chunk))), acc)
+
+def feed_scheduled(pieces: List<&2, +Sigma<String, _ => List<&2, Nat>>>,
+  r: Sse.Reader & List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
+  match pieces:
+    case Nil{}:
+      r
+    case Con{(chunk, budgets), rest}:
+      feed_scheduled(rest, drain_finish(drain_schedule(budgets, feed_pending(chunk, r))))
+
+def feed_uninterrupted(pieces: List<&2, +Sigma<String, _ => List<&2, Nat>>>,
+  r: Sse.Reader & List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
+  match pieces:
+    case Nil{}:
+      r
+    case Con{(chunk, +budgets), rest}:
+      feed_uninterrupted(rest, drain_finish(drain_resume(drain_budget(budgets), feed_pending(chunk, r))))
+
+# Chunk cuts and total budgets stay fixed; pauses occur only between next calls.
+law sse_interleaved_event_drains:
+  for pieces: List<&2, +Sigma<String, _ => List<&2, Nat>>>
+  for r: Sse.Reader & List<&1, Sse.Message>
+  {feed_scheduled(pieces, r) == feed_uninterrupted(pieces, r) :
+    Sse.Reader & List<&1, Sse.Message>}
+
+law sse_event_drain_fixture:
+  {show(got(feed_scheduled(
+    [("id:7\r\ndata:a\r", [0n, 1n, 0n, 8n]), ("\n\r\n", [0n, 1n, 0n, 8n]), ("", [0n, 3n])],
+    (Sse.reader(), Nil{})))) == ["message|a|7"] : List<&2, String>}
 
 # Feed the real parser one octet at a time, with the same drain policy as feed.
 def feed_octets(chunk: String, r: Sse.Reader & List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:

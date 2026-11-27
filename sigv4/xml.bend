@@ -91,14 +91,20 @@ def hex.digit(+c: U32) -> Maybe<&2, U32>:
     Bool.pick(Maybe<&2, U32>, Bool.and(U32.is_le(97, c), U32.is_le(c, 102)), Some{(c - 87 : U32)},
       Bool.pick(Maybe<&2, U32>, Bool.and(U32.is_le(65, c), U32.is_le(c, 70)), Some{(c - 55 : U32)}, None{})))
 
+def hex.step.if(ok: Bool, acc: U32, d: U32) -> Maybe<&2, U32>:
+  match ok:
+    case True{}:
+      Some{(acc * 16 + d : U32)}
+    case False{}:
+      None{}
+
 def hex.step(m: Maybe<&2, U32>, +acc: U32) -> Maybe<&2, U32>:
   match m:
     case None{}:
       None{}
     case Some{d}:
-      Some{(acc * 16 + d : U32)}
+      hex.step.if(U32.is_le(acc, 69631), acc, d)
 
-# ponytail: no overflow check; a reference past U+10FFFF wraps and decodes to junk rather than failing.
 def hex(s: String, m: Maybe<&2, U32>) -> Maybe<&2, U32>:
   match s:
     case SNil{}:
@@ -110,8 +116,27 @@ def hex(s: String, m: Maybe<&2, U32>) -> Maybe<&2, U32>:
         case Some{acc}:
           hex(t, hex.step(hex.digit(c), acc))
 
-def ent.num(+s: String) -> Maybe<&2, U32>:
-  Bool.pick(Maybe<&2, U32>, String.starts_with(s, "x"), hex(String.drop(s, 1n), Some{0}), U32.read(s))
+def ent.char(m: Maybe<&2, U32>) -> Maybe<&2, U32>:
+  match m:
+    case None{}:
+      None{}
+    case Some{+c}:
+      Bool.pick(Maybe<&2, U32>,
+        U32.is_eq(c, 9) || U32.is_eq(c, 10) || U32.is_eq(c, 13) ||
+        (U32.is_le(32, c) && U32.is_le(c, 55295)) ||
+        (U32.is_le(57344, c) && U32.is_le(c, 65533)) ||
+        (U32.is_le(65536, c) && U32.is_le(c, 1114111)), Some{c}, None{})
+
+def ent.num(s: String) -> Maybe<&2, U32>:
+  match s:
+    case SNil{}:
+      None{}
+    case SCon{'x', SNil{}}:
+      None{}
+    case SCon{'x', SCon{c, t}}:
+      ent.char(hex(SCon{c, t}, Some{0}))
+    case SCon{c, t}:
+      ent.char(U32.read(SCon{c, t}))
 
 # The five XML entities and &#NN; / &#xHH;. None for any other.
 def ent(+e: String) -> Maybe<&2, U32>:

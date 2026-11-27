@@ -1,7 +1,7 @@
 import Base
 import ./sigv4.bend as Sigv4
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
-import bend-kit-http@0.45.0.2/pure.bend as Http
+import bend-kit-http@0.45.0.3/pure.bend as Http
 
 # Signatures need HMAC-SHA256 through libcrypto, so they run here, not in LAWS.bend.
 
@@ -116,3 +116,4 @@ def main() -> IO(Unit):
     ok(response.page(Sigv4.page.of(response(200, "<ListBucketResult><Contents><Key>a&amp;b</Key><Size>12</Size><ETag>&quot;e&quot;</ETag><LastModified>date</LastModified></Contents><CommonPrefixes><Prefix>d/</Prefix></CommonPrefixes><IsTruncated>true</IsTruncated><NextContinuationToken>t&amp;+</NextContinuationToken></ListBucketResult>"))), "s3 list response", "")
     ok(response.bad_xml(Sigv4.page.of(response(200, "<ListBucketResult>")), "<ListBucketResult>"), "s3 malformed list response", "")
     ok(response.bad_xml(Sigv4.page.of(response(200, "<Error/>")), "<Error/>"), "s3 wrong list root", "")
+    ok(response.bad_xml(Sigv4.page.of(response(200, "<ListBucketResult><Contents><Key>&#x100000041;</Key></Contents></ListBucketResult>")), "<ListBucketResult><Contents><Key>&#x100000041;</Key></Contents></ListBucketResult>"), "s3 overflowing XML reference", "")

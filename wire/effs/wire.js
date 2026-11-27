@@ -589,6 +589,51 @@ function tls_send_words(socket, n, words, k) {
   return wire_tls_send(socket, wire_words_octets(n, words), k);
 }
 
+function tls_send_words_deadline(socket, len, words, ms, k) {
+  let made = 0;
+  let b = null;
+  const end = (code) => {
+    b = null; // Release the host copy; the consumed Bend array is not retained.
+    return io_tup(socket, io_tup(made,
+      code ? io_fail(code) : io_done({ $: CID(Unit) })));
+  };
+  if (!Number.isInteger(ms) || ms < 1 || ms > 2147483647
+      || !Number.isInteger(len) || len < 0 || len > 4294967295
+      || len > 4 * words.length) {
+    words = null;
+    return end(22);
+  }
+  const t = wire_tls();
+  const ssl = t && t.by.get(socket);
+  if (!ssl) {
+    words = null;
+    return end(9);
+  }
+  const deadline = wire_deadline(ms);
+  b = wire_words_octets(len, words);
+  words = null;
+  const go = () => {
+    while (made < b.length) {
+      if (wire_late(deadline)) return end(wire_timedout());
+      const chunk = Math.min(b.length - made, 16384);
+      const n = t.s.SSL_write(ssl, t.ffi.ptr(b, made), chunk);
+      if (n > 0) {
+        made += n;
+        continue;
+      }
+      const err = t.s.SSL_get_error(ssl, n);
+      if (err === 2 || err === 3) {
+        if (wire_late(deadline)) return end(wire_timedout());
+        io_park_on(socket, err === 3, k, go, deadline);
+        return undefined;
+      }
+      return end(32); // EPIPE
+    }
+    return end(0);
+  };
+  return go();
+}
+
 function wire_tls_send(socket, b, k) {
   const t = wire_tls();
   const ssl = t && t.by.get(socket);
@@ -790,3 +835,4 @@ io_eff(CID(send.words), send_words);
 io_eff(CID(send.words.deadline), send_words_deadline);
 io_eff(CID(tls.recv.words), tls_recv_words);
 io_eff(CID(tls.send.words), tls_send_words);
+io_eff(CID(tls.send.words.deadline), tls_send_words_deadline);
