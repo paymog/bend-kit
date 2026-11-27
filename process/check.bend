@@ -349,6 +349,48 @@ def expect.fd.isolation() -> IO(Unit):
     s4 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
     expect.fd.isolation.with(base, s1, s2, s3, s4)
 
+def expect.concurrent.touch(marker: String, done: Chan(Unit)) -> IO(Unit):
+  do IO<Unit>:
+    IO.sleep(50)
+    f : File <- IO.try(File, File.open(marker, "w"))
+    File.close(f)
+    _ : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, done, Unit{})
+    IO.pure(Unit, Unit{})
+
+def expect.concurrent.out(expected: String, +message: String,
+                          value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
+  (code, out, err) = value
+  do IO<Unit>:
+    expect.yes(U32.is_eq(code, 0), message)
+    expect.yes(String.eq(Bytes.to_string(out), expected), message)
+    expect.yes(String.eq(Bytes.to_string(err), ""), message)
+
+# A sibling fiber creates the marker file after 50 ms while run.bounded / run
+# waits for it. A blocking JS implementation freezes the scheduler so the
+# sibling never wakes and the child times out.
+def expect.concurrent() -> IO(Unit):
+  do IO<Unit>:
+    +own : U32 <- Proc.pid()
+    +m1 : String = ".process-conc-bounded-" ++ U32.show(own)
+    +m2 : String = ".process-conc-run-" ++ U32.show(own)
+    +script : String = "i=0; while [ ! -e \"$1\" ] && [ \"$i\" -lt 300 ]; do sleep 0.01; i=$((i+1)); done; test -e \"$1\" && rm -f \"$1\" && printf unblocked"
+    c1 : Chan(Unit) <- Chan.new(Unit, 1)
+    +ch1 : Chan(Unit) = c1
+    IO.spawn(Unit, expect.concurrent.touch(m1, ch1))
+    bounded : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run.bounded("/bin/sh", ["-c", script, "conc-bounded", m1], [], ".",
+        Bytes.from_string(""), 3000, 128))
+    _ : Maybe<&1, Unit> <- Chan.recv(Unit, ch1)
+    expect.concurrent.out("unblocked", "run.bounded yields to sibling fibers", bounded)
+    c2 : Chan(Unit) <- Chan.new(Unit, 1)
+    +ch2 : Chan(Unit) = c2
+    IO.spawn(Unit, expect.concurrent.touch(m2, ch2))
+    ran : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+      Proc.run("/bin/sh", ["-c", script, "conc-run", m2], [], ".",
+        Bytes.from_string("")))
+    _ : Maybe<&1, Unit> <- Chan.recv(Unit, ch2)
+    expect.concurrent.out("unblocked", "run yields to sibling fibers", ran)
+
 def expect.bounded() -> IO(Unit):
   do IO<Unit>:
     +timeout : U32 <- Proc.etimedout()
@@ -516,6 +558,7 @@ def main() -> IO(Unit):
       Proc.run("/usr/bin/uname", ["-s"], [], ".", Bytes.from_string("")))
     expect.etimedout(host_timeout, uname)
     expect.bounded()
+    expect.concurrent()
     expect.spawn.repeat()
     expect.fd.isolation()
     expect.signal()
