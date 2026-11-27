@@ -615,7 +615,8 @@ static void __attribute__((constructor)) listen_use(void) {
 #if defined(CID(tls.connect)) || defined(CID(tls.connect.alpn)) || defined(CID(tls.connect.cert)) \
   || defined(CID(tls.connect.ca)) || defined(CID(tls.connect.alpn.ca)) \
   || defined(CID(tls.send)) || defined(CID(tls.recv)) || defined(CID(tls.close)) \
-  || defined(CID(tls.send.words)) || defined(CID(tls.recv.words))
+  || defined(CID(tls.send.words)) || defined(CID(tls.send.words.deadline)) \
+  || defined(CID(tls.recv.words))
 #ifndef WIRE_TLS
 #define WIRE_TLS
 #include <dlfcn.h>
@@ -1090,6 +1091,70 @@ Term tls_send_words_run(Env e, Term* f, IoWork* w) {
 
 static void __attribute__((constructor)) tls_send_words_use(void) {
   io_eff(CID(tls.send.words), tls_send_words_run);
+}
+
+#endif
+
+#ifdef CID(tls.send.words.deadline)
+
+// Cap each SSL_write to one 16 KiB TLS plaintext record so progress advances
+// w->made at record granularity and the monotonic deadline is checked between
+// records. io_wait_on owns word (the fd); hand and time survive parking.
+static Term wire_tls_send_words_deadline_more(Env e, IoWork* w) {
+  int   fd  = (int)w->hand;
+  void* ssl = wire_tls_of(fd);
+  if (w->code == 0 && ssl == NULL) {
+    w->code = EBADF;
+  }
+  while (w->code == 0 && (u64)w->made < w->size) {
+    if (wire_late(w->time)) {
+      w->code = ETIMEDOUT;
+      break;
+    }
+    u64 left  = w->size - (u64)w->made;
+    int chunk = left > 16384 ? 16384 : (int)left;
+    int n     = wire_tls.write(ssl, w->data + w->made, chunk);
+    if (n > 0) {
+      w->made += n;
+      continue;
+    }
+    int err = wire_tls.get_error(ssl, n);
+    if (err == 2 || err == 3) {
+      if (wire_late(w->time)) {
+        w->code = ETIMEDOUT;
+        break;
+      }
+      return io_wait_on(w, fd, err == 2 ? POLLIN : POLLOUT, w->time, wire_tls_send_words_deadline_more);
+    }
+    w->code = EPIPE;
+    break;
+  }
+  Term result = w->code ? io_fail(e, w->code, NULL)
+    : io_done(e, term_pak(CID(Unit), 0));
+  free(w->data);
+  return io_tup(e, io_hand(w->hand), io_tup(e, (Term)w->made, result));
+}
+
+Term tls_send_words_deadline_run(Env e, Term* f, IoWork* w) {
+  w->hand = (intptr_t)io_hand_v(f[0]);
+  w->made = 0;
+  w->size = 0;
+  w->data = NULL;
+  w->code = 0;
+  if (f[3] == 0 || f[3] > INT32_MAX) {
+    term_drop(e, f[2]);
+    w->code = EINVAL;
+  } else {
+    w->time = wire_deadline((u64)f[3]);
+    bool bad;
+    w->data = wire_words_octets(e, f[2], (u64)f[1], &w->size, &bad);
+    w->code = bad ? EINVAL : 0;
+  }
+  return wire_tls_send_words_deadline_more(e, w);
+}
+
+static void __attribute__((constructor)) tls_send_words_deadline_use(void) {
+  io_eff(CID(tls.send.words.deadline), tls_send_words_deadline_run);
 }
 
 #endif
