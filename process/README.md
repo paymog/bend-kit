@@ -25,7 +25,7 @@ The group kill is not containment. A descendant that leaves the group with `sets
 The JS target needs `bun:ffi`, `posix_spawn_file_actions_addchdir_np`, and child FD isolation (`posix_spawn_file_actions_addclosefrom_np` from glibc 2.34 or later on Linux, or `POSIX_SPAWN_CLOEXEC_DEFAULT` on macOS 10.15 or later). On macOS and Linux (glibc 2.34 or later), children inherit only stdin, stdout, and stderr; parent file descriptors `>= 3` are closed before exec on both targets (older or non-glibc native Linux builds fall back to closing only the six pipe FDs). It was tested with Bun 1.4.2 (in CI) and with Bun 1.4.4.
 
 ```bend
-import bend-kit-process@0.5.2.4/process.bend as Proc
+import bend-kit-process@0.5.2.5/process.bend as Proc
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 ```
 
@@ -41,7 +41,7 @@ When migrating from `0.3.0.0`, pass `"."` after `env` to keep using the parent's
 
 The exit status is 0 to 255, or 128 plus the signal number. `env` entries override the inherited environment. They do not replace it.
 
-`read_stdin`, `cwd`, `chdir`, `pid`, `exit`, and `signal.poll` are process-level effects. On the JS target, `run` blocks other Bend fibers until the child exits. Use `spawn` when the program must stay responsive. JS signal polling uses Bun's FFI C compiler to install a signal-safe handler.
+`read_stdin`, `cwd`, `chdir`, `pid`, `exit`, and `signal.poll` are process-level effects. On the JS target, `run` and `run.bounded` yield cooperatively to other Bend fibers while the child runs. JS signal polling uses Bun's FFI C compiler to install a signal-safe handler.
 
 The effects require macOS or Linux. Proofs do not cover `effs/process.c` or `effs/process.js`. There is no pure hot path to benchmark. See [bench/README.md](bench/README.md) for the scope.
 

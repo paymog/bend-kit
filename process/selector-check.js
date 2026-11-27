@@ -85,9 +85,9 @@ function bendList(items) {
 }
 
 function checkFfiDescriptors() {
-  for (const [platform, wantLib, wantNfds] of [
-    ["linux", "libc.so.6", "u64"],
-    ["darwin", "libSystem.dylib", "u32"],
+  for (const [platform, wantLib] of [
+    ["linux", "libc.so.6"],
+    ["darwin", "libSystem.dylib"],
   ]) {
     let seenLib = null;
     let seenDesc = null;
@@ -102,15 +102,20 @@ function checkFfiDescriptors() {
     });
     assert.strictEqual(
       loaded.run_bounded_raw.length,
-      7,
-      "run_bounded_raw must take 7 parameters without unused continuation k",
+      8,
+      "run_bounded_raw must take 8 parameters including continuation k",
+    );
+    assert.strictEqual(
+      loaded.registered["process:run.raw"].length,
+      6,
+      "run_raw must take 6 parameters including continuation k",
     );
     loaded.process_bounded_libc();
     assert.strictEqual(seenLib, wantLib, `${platform}: unexpected libc soname`);
-    assert.deepStrictEqual(
+    assert.strictEqual(
       seenDesc.poll,
-      { args: ["ptr", wantNfds, "i32"], returns: "i32" },
-      `${platform}: poll nfds FFI type mismatch`,
+      undefined,
+      `${platform}: cooperative JS runner must not bind blocking poll(2)`,
     );
     assert.deepStrictEqual(
       seenDesc.waitid,
@@ -175,7 +180,7 @@ function runScenario(platform, scenario) {
     closefromCalls: [],
     addcloseCalls: [],
     sigactions: [],
-    pollNfds: [],
+    parks: [],
     waitids: [],
     waitpids: [],
     signals: [],
@@ -202,6 +207,10 @@ function runScenario(platform, scenario) {
         return 0;
       }
       const chunk = queue.shift();
+      if (chunk === "EAGAIN") {
+        state.errno = mac ? 35 : 11;
+        return -1;
+      }
       assert(chunk.length <= len, `${platform}: chunk larger than read buffer`);
       new Uint8Array(realFfi.toArrayBuffer(bufPtr, 0, chunk.length)).set(chunk);
       return chunk.length;
@@ -262,24 +271,16 @@ function runScenario(platform, scenario) {
       // fds allocated by 3 pipe() calls: [10,11] stdin, [12,13] stdout, [14,15] stderr.
       state.streams.set(
         12,
-        (scenario.stdoutChunks ?? []).map((s) => Buffer.from(s, "utf8")),
+        (scenario.stdoutChunks ?? []).map((s) => (s === "EAGAIN" ? "EAGAIN" : Buffer.from(s, "utf8"))),
       );
       state.streams.set(
         14,
-        (scenario.stderrChunks ?? []).map((s) => Buffer.from(s, "utf8")),
+        (scenario.stderrChunks ?? []).map((s) => (s === "EAGAIN" ? "EAGAIN" : Buffer.from(s, "utf8"))),
       );
       if (scenario.leaderInitial !== "reaped_before_check") {
         state.children.set(leaderPid, { ...(scenario.leaderInitial ?? { state: "exited", rawStatus: 0 }) });
       }
       return 0;
-    },
-    poll: (pfPtr, nfds) => {
-      state.pollNfds.push(nfds);
-      const pv = new Int16Array(realFfi.toArrayBuffer(pfPtr, 0, nfds * 8));
-      for (let i = 0; i < nfds; i += 1) {
-        pv[i * 4 + 3] = pv[i * 4 + 2];
-      }
-      return nfds;
     },
     write: (_fd, _ptr, count) => count,
     waitid: (idtype, id, infoPtr, options) => {
@@ -334,11 +335,19 @@ function runScenario(platform, scenario) {
       return 0;
     },
     waitpid: (pid, statusPtr, options) => {
+      const callIndex = state.waitpids.length;
       state.waitpids.push({ pid, options });
+      assert.strictEqual(options, WNOHANG, `${platform}: waitpid must use WNOHANG`);
+      if (scenario.onWaitpid) {
+        scenario.onWaitpid(state, callIndex);
+      }
       const child = state.children.get(pid);
       if (!child) {
         state.errno = ECHILD;
         return -1;
+      }
+      if (child.state === "running") {
+        return 0;
       }
       new Int32Array(realFfi.toArrayBuffer(statusPtr, 0, 4))[0] = child.rawStatus;
       state.children.delete(pid);
@@ -346,20 +355,44 @@ function runScenario(platform, scenario) {
     },
   };
 
+  let pendingPark = null;
   const loaded = loadEffects({
     platform,
     dlopenImpl: () => ({ symbols: fakeSymbols }),
     sysImpl,
+    parkImpl: (fd, out, _k, more, at) => {
+      state.parks.push({ fd, out, at });
+      pendingPark = more;
+    },
   });
-  const result = loaded.registered["process:run.bounded.raw"](
-    "/bin/fake",
-    bendList([]),
-    bendList([]),
-    ".",
-    scenario.stdin ?? "",
-    scenario.ms ?? 5000,
-    scenario.maxOut ?? 0,
-  );
+  let result = scenario.unbounded
+    ? loaded.registered["process:run.raw"](
+        "/bin/fake",
+        bendList([]),
+        bendList([]),
+        ".",
+        scenario.stdin ?? "",
+        () => {},
+      )
+    : loaded.registered["process:run.bounded.raw"](
+        "/bin/fake",
+        bendList([]),
+        bendList([]),
+        ".",
+        scenario.stdin ?? "",
+        scenario.ms ?? 5000,
+        scenario.maxOut ?? 0,
+        () => {},
+      );
+  let steps = 0;
+  while (result === undefined) {
+    assert(pendingPark !== null, `${platform}: effect returned undefined without parking`);
+    steps += 1;
+    assert(steps < 64, `${platform}: park loop did not terminate`);
+    const next = pendingPark;
+    pendingPark = null;
+    result = next();
+  }
   assert.strictEqual(state.openFds.size, 0, `${platform}: leaked fake pipe fds`);
   return { result, state };
 }
@@ -449,7 +482,9 @@ function checkPlatformMatrix(platform) {
       assert.deepStrictEqual(state.addcloseCalls, [10, 11, 12, 13, 14, 15], "darwin: bounded spawn must close pipe fds > 2");
     }
     assert.deepStrictEqual(state.signals, [{ pid: -4242, sig: 9 }], `${platform}: expected group kill on held leader`);
-    assert.deepStrictEqual(state.waitpids, [{ pid: 4242, options: 0 }], `${platform}: expected leader reap`);
+    assert.deepStrictEqual(state.waitpids, [{ pid: 4242, options: 1 }], `${platform}: expected nonblocking leader reap`);
+    assert.strictEqual(state.parks.length, 1, `${platform}: expected one cooperative park while waiting for leader exit`);
+    assert.strictEqual(state.parks[0].fd, undefined, `${platform}: leader wait must park on timer, not closed pipe`);
     assert(state.children.has(9003), `${platform}: sibling zombie must remain for its own waiter`);
     assert.deepStrictEqual(
       result,
@@ -471,6 +506,78 @@ function checkPlatformMatrix(platform) {
     assert.deepStrictEqual(result, { $: "Fail", code: 10 }, `${platform} (${mode}): must refuse with ECHILD`);
     assert.strictEqual(state.spawns, 0, `${platform} (${mode}): must not spawn`);
     assert.strictEqual(state.signals.length, 0, `${platform} (${mode}): must not signal`);
+  }
+
+  // 6. Cooperative parking on EAGAIN during pipe read and WNOHANG == 0 during final reap.
+  {
+    const { result, state } = runScenario(platform, {
+      leaderPid: 4242,
+      leaderInitial: { state: "exited", rawStatus: 0 },
+      stdoutChunks: ["EAGAIN", "hello"],
+      stderrChunks: ["EAGAIN", "err"],
+      maxOut: 0,
+      ms: 5000,
+      onWaitpid: (st, idx) => {
+        const leader = st.children.get(4242);
+        if (idx === 0) {
+          leader.state = "running";
+        } else {
+          leader.state = "exited";
+          leader.rawStatus = 3 << 8;
+        }
+      },
+    });
+    assert(state.parks.length >= 2, `${platform}: expected cooperative parks on EAGAIN and WNOHANG`);
+    assert.strictEqual(state.parks[0].fd, 12, `${platform}: pipe park must watch open stdout fd`);
+    assert.strictEqual(state.waitpids.length, 2, `${platform}: expected retry after WNOHANG == 0`);
+    assert.deepStrictEqual(
+      result,
+      {
+        $: "Done",
+        value: { $: "Tuple", fst: 3, snd: { $: "Tuple", fst: "hello", snd: "err" } },
+      },
+      `${platform}: cooperative pump must preserve stdout, stderr, and exit code`,
+    );
+  }
+
+  // 7. Unbounded run.raw pumps cooperatively through shared process_posix_spawn
+  //    (with FD isolation, without SETPGROUP, autoreap check, or group kill).
+  {
+    const { result, state } = runScenario(platform, {
+      unbounded: true,
+      leaderPid: 4242,
+      leaderInitial: { state: "running", rawStatus: 0 },
+      stdoutChunks: ["EAGAIN", "hi"],
+      stderrChunks: [],
+      onWaitpid: (st, idx) => {
+        if (idx === 1) {
+          const leader = st.children.get(4242);
+          leader.state = "exited";
+          leader.rawStatus = 5 << 8;
+        }
+      },
+    });
+    assert.strictEqual(state.sigactions.length, 0, `${platform}: run.raw must not run bounded autoreap check`);
+    assert.strictEqual(state.waitids.length, 0, `${platform}: run.raw must not call waitid`);
+    assert.strictEqual(state.signals.length, 0, `${platform}: run.raw must not signal process group`);
+    assert.deepStrictEqual(state.pgroups, [], `${platform}: run.raw must not create a new process group`);
+    if (platform === "linux") {
+      assert.deepStrictEqual(state.closefromCalls, [3], "linux: run.raw must close fds >= 3");
+      assert.deepStrictEqual(state.spawnFlags, [0x04 | 0x08], "linux: run.raw spawn flags");
+    } else {
+      assert.deepStrictEqual(state.closefromCalls, [], "darwin: run.raw must not call addclosefrom_np");
+      assert.deepStrictEqual(state.spawnFlags, [0x4000 | 0x04 | 0x08], "darwin: run.raw must set POSIX_SPAWN_CLOEXEC_DEFAULT");
+      assert.deepStrictEqual(state.addcloseCalls, [10, 11, 12, 13, 14, 15], "darwin: run.raw must close pipe fds > 2");
+    }
+    assert(state.parks.length >= 2, `${platform}: run.raw must park cooperatively on pipe and waitpid`);
+    assert.deepStrictEqual(
+      result,
+      {
+        $: "Done",
+        value: { $: "Tuple", fst: 5, snd: { $: "Tuple", fst: "hi", snd: "" } },
+      },
+      `${platform}: run.raw must return stdout and exit status`,
+    );
   }
 }
 
