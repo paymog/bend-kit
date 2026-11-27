@@ -1,9 +1,9 @@
 import Base
 import ./public_app.bend as A
 import ./public_main.bend as M
-import bend-kit-camber@0.19.0.2/camber.bend as C
-import bend-kit-http@0.45.0.2/http.bend as Http
-import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-camber@0.19.0.3/camber.bend as C
+import bend-kit-http@0.45.0.3/http.bend as Http
+import bend-kit-http@0.45.0.3/pure.bend as Pure
 import bend-kit-bytes@0.3.3.3/bytes.bend as B
 import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
