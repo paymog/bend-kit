@@ -1,0 +1,23 @@
+<article>
+<p class="meta"><a href="{{base}}/">All packages</a> · version <code>{{version}}</code> · <a href="{{base}}/packages/{{name}}/README.md">README.md</a> · <a href="https://github.com/paymog/bend-kit/tree/main/{{name}}">Source</a></p>
+<pre class="import"><code>import bend-kit-{{name}}@{{version}}/{{name}}.bend</code></pre>
+<section class="readme">
+{{{readme}}}
+</section>
+<section class="laws">
+<h2>Laws</h2>
+{{#has_laws}}
+<p><code>LAWS.bend</code> states {{law_count}} laws. <code>PROOF.bend</code> proves each one, and CI runs the proof check.</p>
+{{#laws}}
+<details><summary><code>{{name}}</code> <span>{{doc}}</span></summary><pre><code>{{statement}}</code></pre></details>
+{{/laws}}
+{{/has_laws}}
+{{^has_laws}}
+<p>This package has no <code>LAWS.bend</code>.</p>
+{{/has_laws}}
+</section>
+<section class="bench">
+<h2>Benchmarks</h2>
+{{{bench}}}
+</section>
+</article>
