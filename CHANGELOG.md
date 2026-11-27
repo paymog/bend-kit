@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `llm` proofs: derive full blank-line dispatch relations and the real LF/blank scanner branch across different packed buffers. Keep scanner and payload witnesses abstract. Arbitrary chunk re-partitioning with drains remains unproved.
 - `llm` proofs: prove event-boundary drain pauses preserve complete parser state and messages for arbitrary fixed chunk cuts and finite drain budgets. Arbitrary chunk re-partitioning remains unproved.
 - `sigv4` 0.17.0.4: reject overflowing, empty, and invalid XML numeric character references.
 - `runner` 0.22.0.6: use current Webhooks, Hairpin, and HTTP releases in the outbox example.
