@@ -2,15 +2,15 @@
 
 RFC 6455 WebSocket client over `wire`: the opening handshake, frames on packed `Bytes`, message reassembly, and a connection that answers pings and closes cleanly.
 
-`websocket.bend` imports `bend-kit-bytes@0.3.3.3`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-wire@0.4.8.1`. The handshake uses libcrypto SHA-1 and secure random (`BEND_LIBCRYPTO`).
+`websocket.bend` imports `bend-kit-bytes@0.3.3.3`, `bend-kit-crypto@0.2.2.2`, and `bend-kit-wire@0.4.9.0`. The handshake uses libcrypto SHA-1 and secure random (`BEND_LIBCRYPTO`).
 
 
 ```bend
-import bend-kit-websocket@0.4.1.7/websocket.bend as WS
+import bend-kit-websocket@0.5.0.0/websocket.bend as WS
 
 # ws://127.0.0.1:8080/chat; tls True{} for wss://. 1 MiB frame and message cap, 5 s per socket step.
 c : Result<&1, &1, U32 & String, WS.Conn> <- WS.connect("127.0.0.1", 8080, "localhost", "/chat", False{}, 1048576, 5000)
-# then WS.send(conn, True{}, 1, text_bytes), WS.recv(conn, 5000), WS.close(conn, 1000, reason), WS.shutdown(conn)
+# then WS.send(conn, True{}, 1, text_bytes, 5000), WS.recv(conn, 5000), WS.close(conn, 1000, reason, 5000), WS.shutdown(conn)
 ```
 
 - **Handshake** (§4.1). `key()` draws 16 octets from the OS secure random source (`crypto`'s `random.words`). `accept(key)` hashes it with the GUID through libcrypto SHA-1; `accept.of(digest)` is the pure base64 step. `request` refuses a host, path, or key with a char outside visible ASCII (EINVAL), so a caller's string cannot inject headers. `check` requires the status line `HTTP/1.1 101`, well-formed header lines, one `Upgrade: websocket`, a `Connection` list with `upgrade`, and exactly one matching `Sec-WebSocket-Accept`, and rejects any extension or subprotocol. Bytes after the server's head stay in the connection as frames.
@@ -19,7 +19,7 @@ c : Result<&1, &1, U32 & String, WS.Conn> <- WS.connect("127.0.0.1", 8080, "loca
 - **Trust boundary**. The proofs hold for the list operations. `parse` assumes that its four `Bytes.Cursor` operations act as the list ones on the same octets; `check.bend` compares the two decoders on concatenated, masked, malformed, and over-limit inputs, split into two reads at every octet and into reads of every fixed size. Proofs do not cover socket delivery, the native effects, or the peer.
 - **Pure module**. `pure.bend` contains the handshake validation, frame codec, and message assembly. It imports only Base and Bytes. The laws and proofs import this module without Wire or libcrypto. `websocket.bend` keeps the public types and delegates pure operations through adapters that move payloads without copying them.
 - **Messages** (§5.4). `feed` joins fragments, passes control frames through between them, rejects orphan continuations and interleaved data frames, caps the total size, and requires UTF-8 in text messages (1007).
-- **Connection**. `recv` returns `TextMessage`, `Binary`, `Pong`, or `Closed`. It answers pings, echoes the peer's close, and on a protocol fault sends close with the fault's code and fails with it. EOF inside a frame fails with 1006. A `Conn` built with `server` true reads masked frames and sends clear ones, for a socket an HTTP server upgraded; its input is a `Bytes.Cursor` (`Bytes.Cursor.new(rest)` for octets read past the HTTP head).
+- **Connection**. `send`, `close`, and `io.send` take `ms` (`0`: none, `1..2147483647`: deadline in ms); on write timeout or error, framing/TLS state may be half-flushed so call `shutdown` rather than writing again. `recv` returns `TextMessage`, `Binary`, `Pong`, or `Closed`. It answers pings, echoes the peer's close, and on a protocol fault sends close with the fault's code and fails with it (all bounded by `ms`). EOF inside a frame fails with 1006. A `Conn` built with `server` true reads masked frames and sends clear ones, for a socket an HTTP server upgraded; its input is a `Bytes.Cursor` (`Bytes.Cursor.new(rest)` for octets read past the HTTP head).
 
 Errors are `(code, why)`. Codes of 1000 and above are RFC 6455 §7.4 close codes. Lower codes are socket or crypto error numbers.
 

@@ -2,7 +2,7 @@
 import Base
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-crypto@0.2.2.2/crypto.bend as Crypto
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 import ./pure.bend as Pure
 
 type Split is Type:
@@ -514,16 +514,32 @@ type Incoming is Type:
   Pong{data: Bytes.Bytes}
   Closed{code: U32, reason: Bytes.Bytes}
 
-def io.send.if(tls: Bool, sock: Socket, +len: U32, buf: Array<U32>) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+def io.send.unwrap(p: Socket & (U32 & Result<&1, &1, U32 & String, Unit>)) -> Socket & Result<&1, &1, U32 & String, Unit>:
+  (sock, (_, r)) = p
+  (sock, r)
+
+def io.send.if(tls: Bool, bounded: Bool, sock: Socket, +len: U32, buf: Array<U32>, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   match tls:
     case True{}:
-      Wire.tls.send.words(sock, len, buf)
+      match bounded:
+        case True{}:
+          do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
+            p : Socket & (U32 & Result<&1, &1, U32 & String, Unit>) <- Wire.tls.send.words.deadline(sock, len, buf, ms)
+            return io.send.unwrap(p)
+        case False{}:
+          Wire.tls.send.words(sock, len, buf)
     case False{}:
-      Wire.send.words(sock, len, buf)
+      match bounded:
+        case True{}:
+          do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
+            p : Socket & (U32 & Result<&1, &1, U32 & String, Unit>) <- Wire.send.words.deadline(sock, len, buf, ms)
+            return io.send.unwrap(p)
+        case False{}:
+          Wire.send.words(sock, len, buf)
 
-def io.send(sock: Socket, +tls: Bool, b: Bytes.Bytes) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+def io.send(sock: Socket, +tls: Bool, b: Bytes.Bytes, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   Bytes.Bytes{+len, buf} = b
-  io.send.if(tls, sock, len, buf)
+  io.send.if(tls, Bool.not(U32.is_zero(ms)), sock, len, buf, ms)
 
 def io.recv(tls: Bool, sock: Socket, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, U32 & Array<U32>>):
   match tls:
@@ -618,7 +634,7 @@ def hs.request(q: Result<&1, &1, U32 & String, Bytes.Bytes>, sock: Socket, +tls:
       hs.fail(sock, tls, e)
     case Done{b}:
       do IO<Result<&1, &1, U32 & String, Conn>>:
-        r : Socket & Result<&1, &1, U32 & String, Unit> <- io.send(sock, tls, b)
+        r : Socket & Result<&1, &1, U32 & String, Unit> <- io.send(sock, tls, b, ms)
         hs.sent(r, tls, max, ms, want)
 
 def hs.accepted(a: Result<&1, &1, U32 & String, String>, sock: Socket, +tls: Bool, +host: String, +path: String, +max: U32, +ms: U32, +key: String) -> IO(Result<&1, &1, U32 & String, Conn>):
@@ -675,52 +691,56 @@ def connect(+addr: String, +port: U32, +host: String, +path: String, +tls: Bool,
     c : Result<&1, &1, U32 & String, Socket> <- Wire.connect(addr, port, ms)
     connect.tcp(c, tls, host, authority, path, max, ms)
 
-def raw.encoded(e: Result<&1, &1, U32 & String, Bytes.Bytes>, sock: Socket, +tls: Bool) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+def raw.encoded(e: Result<&1, &1, U32 & String, Bytes.Bytes>, sock: Socket, +tls: Bool, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   match e:
     case Fail{err}:
       do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
         return (sock, Fail{err})
     case Done{b}:
-      io.send(sock, tls, b)
+      io.send(sock, tls, b, ms)
 
-def raw.key(r: Array<U32> & U32, sock: Socket, +tls: Bool, +fin: Bool, +op: U32, payload: Bytes.Bytes) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+def raw.key(r: Array<U32> & U32, sock: Socket, +tls: Bool, +fin: Bool, +op: U32, payload: Bytes.Bytes, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   (a, +key) = r
-  raw.encoded(encode(Frame{fin, op, payload}, Some{key}), sock, tls)
+  raw.encoded(encode(Frame{fin, op, payload}, Some{key}), sock, tls, ms)
 
-def raw.keyed(k: Result<&1, &1, U32 & String, U32 & Array<U32>>, sock: Socket, +tls: Bool, +fin: Bool, +op: U32, payload: Bytes.Bytes) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+def raw.keyed(k: Result<&1, &1, U32 & String, U32 & Array<U32>>, sock: Socket, +tls: Bool, +fin: Bool, +op: U32, payload: Bytes.Bytes, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   match k:
     case Fail{e}:
       do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
         return (sock, Fail{e})
     case Done{(n, a)}:
-      raw.key(Array.get(U32, a, 0), sock, tls, fin, op, payload)
+      raw.key(Array.get(U32, a, 0), sock, tls, fin, op, payload, ms)
 
 # A client masks every frame with a fresh key from the OS secure random source (§5.3).
-def raw(server: Bool, sock: Socket, +tls: Bool, +fin: Bool, +op: U32, payload: Bytes.Bytes) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
+def raw(server: Bool, sock: Socket, +tls: Bool, +fin: Bool, +op: U32, payload: Bytes.Bytes, +ms: U32) -> IO(Socket & Result<&1, &1, U32 & String, Unit>):
   match server:
     case True{}:
-      raw.encoded(encode(Frame{fin, op, payload}, None{}), sock, tls)
+      raw.encoded(encode(Frame{fin, op, payload}, None{}), sock, tls, ms)
     case False{}:
       do IO<Socket & Result<&1, &1, U32 & String, Unit>>:
         k : Result<&1, &1, U32 & String, U32 & Array<U32>> <- Crypto.random.words(4)
-        raw.keyed(k, sock, tls, fin, op, payload)
+        raw.keyed(k, sock, tls, fin, op, payload, ms)
 
 def back(r: Socket & Result<&1, &1, U32 & String, Unit>, +tls: Bool, +server: Bool, input: Bytes.Cursor, partial: Partial, +max: U32, +closing: Bool) -> Conn & Result<&1, &1, U32 & String, Unit>:
   (sock, x) = r
   (Conn{sock, tls, server, input, partial, max, closing}, x)
 
 # Sends one frame: fin false starts or continues a fragmented message (later frames use op 0).
-def send(c: Conn, +fin: Bool, +op: U32, payload: Bytes.Bytes) -> IO(Conn & Result<&1, &1, U32 & String, Unit>):
+# ms bounds the write (0: none, 1..2147483647: deadline in ms). On timeout/write error,
+# framing and TLS state may be half-flushed: call shutdown, do not send or close again.
+def send(c: Conn, +fin: Bool, +op: U32, payload: Bytes.Bytes, +ms: U32) -> IO(Conn & Result<&1, &1, U32 & String, Unit>):
   Conn{sock, +tls, +server, input, partial, +max, +closing} = c
   do IO<Conn & Result<&1, &1, U32 & String, Unit>>:
-    r : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, fin, op, payload)
+    r : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, fin, op, payload, ms)
     return back(r, tls, server, input, partial, max, closing)
 
 # Sends a close frame; recv then runs until the peer's close comes back as Closed.
-def close(c: Conn, +code: U32, reason: Bytes.Bytes) -> IO(Conn & Result<&1, &1, U32 & String, Unit>):
+# ms bounds the write (0: none, 1..2147483647: deadline in ms). On timeout/write error,
+# call shutdown and do not send or close again.
+def close(c: Conn, +code: U32, reason: Bytes.Bytes, +ms: U32) -> IO(Conn & Result<&1, &1, U32 & String, Unit>):
   Conn{sock, +tls, +server, input, partial, +max, +closing} = c
   do IO<Conn & Result<&1, &1, U32 & String, Unit>>:
-    r : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 8, close.payload(code, reason))
+    r : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 8, close.payload(code, reason), ms)
     return back(r, tls, server, input, partial, max, True{})
 
 # Closes the socket (and its TLS session).
@@ -744,20 +764,20 @@ def recv.failed(r: Socket & Result<&1, &1, U32 & String, Unit>, +tls: Bool, +ser
   recv.out(sock, tls, server, Bytes.Cursor.new(Bytes.new(0)), Idle{}, max, True{}, Fail{e})
 
 # A peer broke the protocol: send close with its code (§7.1.7), then report it.
-def recv.fail(sock: Socket, +tls: Bool, +server: Bool, +max: U32, e: U32 & String) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
+def recv.fail(sock: Socket, +tls: Bool, +server: Bool, +max: U32, +ms: U32, e: U32 & String) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
   (+code, why) = e
   do IO<Conn & Result<&1, &1, U32 & String, Incoming>>:
-    r : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 8, close.payload(code, Bytes.new(0)))
+    r : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 8, close.payload(code, Bytes.new(0)), ms)
     recv.failed(r, tls, server, max, (code, why))
 
 def recv.echoed(r: Socket & Result<&1, &1, U32 & String, Unit>, +tls: Bool, +server: Bool, rest: Bytes.Cursor, partial: Partial, +max: U32, +code: U32, reason: Bytes.Bytes) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
   (sock, x) = r
   recv.out(sock, tls, server, rest, partial, max, True{}, Done{Closed{code, reason}})
 
-def recv.closed(r: Result<&1, &1, U32 & String, U32 & Bytes.Bytes>, sock: Socket, +tls: Bool, +server: Bool, rest: Bytes.Cursor, partial: Partial, +max: U32, closing: Bool) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
+def recv.closed(r: Result<&1, &1, U32 & String, U32 & Bytes.Bytes>, sock: Socket, +tls: Bool, +server: Bool, rest: Bytes.Cursor, partial: Partial, +max: U32, closing: Bool, +ms: U32) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
   match r:
     case Fail{e}:
-      recv.fail(sock, tls, server, max, e)
+      recv.fail(sock, tls, server, max, ms, e)
     case Done{(+code, reason)}:
       match closing:
         case True{}:
@@ -765,28 +785,28 @@ def recv.closed(r: Result<&1, &1, U32 & String, U32 & Bytes.Bytes>, sock: Socket
         case False{}:
           echo = Bool.pick(Bytes.Bytes, U32.is_eq(code, 1005), Bytes.new(0), close.payload(code, Bytes.new(0)))
           do IO<Conn & Result<&1, &1, U32 & String, Incoming>>:
-            s : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 8, echo)
+            s : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 8, echo, ms)
             recv.echoed(s, tls, server, rest, partial, max, code, reason)
 
-def recv.stuck(h: Step, +tls: Bool, +server: Bool, +max: U32) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
+def recv.stuck(h: Step, +tls: Bool, +server: Bool, +max: U32, +ms: U32) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
   match h:
     case Parse{sock, input, partial}:
-      recv.fail(sock, tls, server, max, (1011, "frame budget exhausted"))
+      recv.fail(sock, tls, server, max, ms, (1011, "frame budget exhausted"))
     case Decoded{sock, partial, d}:
-      recv.fail(sock, tls, server, max, (1011, "frame budget exhausted"))
+      recv.fail(sock, tls, server, max, ms, (1011, "frame budget exhausted"))
     case Fed{sock, rest, r}:
-      recv.fail(sock, tls, server, max, (1011, "frame budget exhausted"))
+      recv.fail(sock, tls, server, max, ms, (1011, "frame budget exhausted"))
     case Read{r, input, partial}:
       (sock, x) = r
-      recv.fail(sock, tls, server, max, (1011, "frame budget exhausted"))
+      recv.fail(sock, tls, server, max, ms, (1011, "frame budget exhausted"))
     case Ponged{r, input, partial}:
       (sock, x) = r
-      recv.fail(sock, tls, server, max, (1011, "frame budget exhausted"))
+      recv.fail(sock, tls, server, max, ms, (1011, "frame budget exhausted"))
 
 def recv.loop(n: Nat, h: Step, +tls: Bool, +server: Bool, +max: U32, +closing: Bool, +ms: U32) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
   match n:
     case 0n:
-      recv.stuck(h, tls, server, max)
+      recv.stuck(h, tls, server, max, ms)
     case 1n+p:
       match h:
         case Parse{sock, input, partial}:
@@ -798,13 +818,13 @@ def recv.loop(n: Nat, h: Step, +tls: Bool, +server: Bool, +max: U32, +closing: B
                 r : Socket & Result<&1, &1, U32 & String, U32 & Array<U32>> <- io.recv(tls, sock, ms)
                 recv.loop(p, Read{r, input, partial}, tls, server, max, closing, ms)
             case Bad{+code, why}:
-              recv.fail(sock, tls, server, max, (code, why))
+              recv.fail(sock, tls, server, max, ms, (code, why))
             case Got{f, rest}:
               recv.loop(p, Fed{sock, rest, feed(partial, f, max)}, tls, server, max, closing, ms)
         case Fed{sock, rest, r}:
           match r:
             case Fail{e}:
-              recv.fail(sock, tls, server, max, e)
+              recv.fail(sock, tls, server, max, ms, e)
             case Done{(partial, ev)}:
               match ev:
                 case More{}:
@@ -815,12 +835,12 @@ def recv.loop(n: Nat, h: Step, +tls: Bool, +server: Bool, +max: U32, +closing: B
                   recv.out(sock, tls, server, rest, partial, max, closing, Done{Binary{d}})
                 case Control{9, d}:
                   do IO<Conn & Result<&1, &1, U32 & String, Incoming>>:
-                    s : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 10, d)
+                    s : Socket & Result<&1, &1, U32 & String, Unit> <- raw(server, sock, tls, True{}, 10, d, ms)
                     recv.loop(p, Ponged{s, rest, partial}, tls, server, max, closing, ms)
                 case Control{10, d}:
                   recv.out(sock, tls, server, rest, partial, max, closing, Done{Pong{d}})
                 case Control{op, d}:
-                  recv.closed(close.parse(d), sock, tls, server, rest, partial, max, closing)
+                  recv.closed(close.parse(d), sock, tls, server, rest, partial, max, closing, ms)
         case Read{r, input, partial}:
           match r:
             case (sock, Fail{e}):
@@ -837,7 +857,8 @@ def recv.loop(n: Nat, h: Step, +tls: Bool, +server: Bool, +max: U32, +closing: B
               recv.loop(p, Parse{sock, input, partial}, tls, server, max, closing, ms)
 
 # The next message, pong, or close. Fragments are joined and pings answered on the way.
-# A protocol fault sends close with its code and fails with it. ms bounds each read.
+# A protocol fault sends close with its code and fails with it. ms bounds each read and
+# internal control-frame write.
 def recv(c: Conn, +ms: U32) -> IO(Conn & Result<&1, &1, U32 & String, Incoming>):
   Conn{sock, +tls, +server, input, partial, +max, +closing} = c
   recv.loop(U32.to_nat(16777216), Parse{sock, input, partial}, tls, server, max, closing, ms)
