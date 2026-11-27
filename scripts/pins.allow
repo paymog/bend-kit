@@ -1,7 +1,6 @@
 # Imports that scripts/pins.sh lets through: a target per line, then why.
 # Remove a line when the issue named on it lands.
 bend-kit-bytes@0.3.3.1  # Re-pin consumers after bytes publishes (#456).
-bend-kit-bytes@0.3.3.2  # Re-pin consumers after the README correction publishes (#456).
 bend-kit-encoding@0.5.0.1  # importers re-pin to bend-kit-encoding@0.5.0.2 in a later wave (#456)
 bend-kit-files@0.4.0.1  # importers re-pin to bend-kit-files@0.4.0.2 in a later wave (#456)
 bend-kit-time@0.3.0.3  # importers re-pin to bend-kit-time@0.3.0.4 in a later wave (#456)
@@ -10,10 +9,3 @@ bend-kit-http@0.45.0.0  # importers re-pin to bend-kit-http@0.45.0.1 in a later 
 bend-kit-camber@0.19.0.0  # importers re-pin to bend-kit-camber@0.19.0.1 in a later wave (#456)
 bend-kit-hairpin@0.19.0.0  # importers re-pin to bend-kit-hairpin@0.19.0.1 in a later wave (#456)
 bend-kit-webhooks@0.17.0.0  # importers re-pin to bend-kit-webhooks@0.17.0.1 in a later wave (#456)
-bend-kit-encoding@0.5.0.2  # importers re-pin to bend-kit-encoding@0.5.0.3 in a later wave (#456)
-bend-kit-files@0.4.0.2  # importers re-pin to bend-kit-files@0.4.0.3 in a later wave (#456)
-bend-kit-json@0.7.3.1  # importers re-pin to bend-kit-json@0.7.3.2 in a later wave (#456)
-bend-kit-time@0.3.0.4  # importers re-pin to bend-kit-time@0.3.0.5 in a later wave (#456)
-bend-kit-http@0.45.0.1  # importers re-pin to bend-kit-http@0.45.0.2 in a later wave (#456)
-bend-kit-camber@0.19.0.1  # importers re-pin to bend-kit-camber@0.19.0.2 in a later wave (#456)
-bend-kit-hairpin@0.19.0.1  # importers re-pin to bend-kit-hairpin@0.19.0.2 in a later wave (#456)
