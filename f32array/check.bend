@@ -4,6 +4,7 @@ import bend-kit-files@0.4.0.3/files.bend as Files
 import ./f32array.bend as A
 import ./io.bend as F
 import ./parallel.bend as P
+import ./conversion-check.bend as Conversion
 
 # The laws cannot run F32 arithmetic in the checker. This runs it natively, and at sizes the checker would not reach.
 
@@ -114,6 +115,7 @@ def nan(+x: F32) -> Bool:
 def main() -> IO(Unit):
   +n = {300003 : U32}
   do IO<Unit>:
+    Conversion.run()
     expect("add", has(zipped(A.add(A.from_list([1.0, 2.5]), A.from_list([0.5, 0.25])), 1), 2.75))
     expect("mul", has(zipped(A.mul(A.from_list([1.5, 2.0]), A.from_list([2.0, 0.25])), 0), 3.0))
     expect("sum", F32.is_eq(total(A.sum(A.from_list([1.0, 2.5, 0.5]))), 4.0))

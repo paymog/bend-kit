@@ -1,8 +1,50 @@
-# File reads for packed F32 arrays, kept outside the pure proof imports.
+# Native byte conversions and file reads, kept outside the pure proof imports.
 import Base
 import ./f32array.bend as A
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-files@0.4.0.3/files.bend as Files
+
+def from_bytes.raw(+n: U32, a: Array<U32>, +big: U32) -> IO(Array<A.Cell>):
+  import "./effs/convert.c"
+  import "./effs/convert.js"
+
+def to_bytes.raw(+n: U32, a: Array<A.Cell>, +big: U32) -> IO(Array<U32>):
+  import "./effs/convert.c"
+  import "./effs/convert.js"
+
+def from_bytes.if(ok: Bool, +len: U32, buf: Array<U32>, +big: U32) -> IO(Maybe<&1, A.F32Array>):
+  match ok:
+    case True{}:
+      +n = (len >> 2n : U32)
+      do IO<Maybe<&1, A.F32Array>>:
+        a : Array<A.Cell> <- from_bytes.raw(n, buf, big)
+        return Some{A.F32Array{n, a}}
+    case False{}:
+      IO.pure(Maybe<&1, A.F32Array>, None{})
+
+def from_bytes.with(b: Bytes.Bytes, +big: U32) -> IO(Maybe<&1, A.F32Array>):
+  Bytes.Bytes{+len, buf} = b
+  from_bytes.if(U32.is_eq((len .&. 3 : U32), 0), len, buf, big)
+
+# Native little-endian conversions transfer the packed buffer when its size fits.
+def from_bytes.le(b: Bytes.Bytes) -> IO(Maybe<&1, A.F32Array>):
+  from_bytes.with(b, 0)
+
+def from_bytes.be(b: Bytes.Bytes) -> IO(Maybe<&1, A.F32Array>):
+  from_bytes.with(b, 1)
+
+def to_bytes.with(a: A.F32Array, +big: U32) -> IO(Bytes.Bytes):
+  A.F32Array{+len, buf} = a
+  do IO<Bytes.Bytes>:
+    w : Array<U32> <- to_bytes.raw(len, buf, big)
+    return Bytes.Bytes{(len << 2n : U32), w}
+
+# len must be below 2^30, as for the pure encoder.
+def to_bytes.le(a: A.F32Array) -> IO(Bytes.Bytes):
+  to_bytes.with(a, 0)
+
+def to_bytes.be(a: A.F32Array) -> IO(Bytes.Bytes):
+  to_bytes.with(a, 1)
 
 # A file read in progress: more bytes to read, or the final result.
 type Read is Type:
@@ -59,27 +101,29 @@ def read.decode(m: Maybe<&1, A.F32Array>) -> Result<&1, &1, U32 & String, A.F32A
     case Some{a}:
       Done{a}
 
-def read.fin(~f: Bytes.Bytes -> Maybe<&1, A.F32Array>, got: File & Result<&1, &1, U32 & String, Bytes.Bytes>) -> File & Result<&1, &1, U32 & String, A.F32Array>:
+def read.fin(~f: Bytes.Bytes -> IO(Maybe<&1, A.F32Array>), got: File & Result<&1, &1, U32 & String, Bytes.Bytes>) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
   (file, r) = got
   match r:
     case Fail{e}:
-      (file, Fail{e})
+      IO.pure(File & Result<&1, &1, U32 & String, A.F32Array>, (file, Fail{e}))
     case Done{b}:
-      (file, read.decode(f(b)))
+      do IO<File & Result<&1, &1, U32 & String, A.F32Array>>:
+        a : Maybe<&1, A.F32Array> <- f(b)
+        return (file, read.decode(a))
 
-def read.with(~f: Bytes.Bytes -> Maybe<&1, A.F32Array>, file: File) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
+def read.with(~f: Bytes.Bytes -> IO(Maybe<&1, A.F32Array>), file: File) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
   do IO<File & Result<&1, &1, U32 & String, A.F32Array>>:
     sz : File & Result<&1, &1, U32 & String, U32> <- File.size(file)
     got : File & Result<&1, &1, U32 & String, Bytes.Bytes> <- read.sized(sz)
-    return read.fin(~f, got)
+    read.fin(~f, got)
 
 # The rest of an open file, four little-endian bytes per element. Fails EINVAL when its size is not a multiple of 4.
 def read.le(file: File) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
-  read.with(~A.from_bytes.le, file)
+  read.with(~from_bytes.le, file)
 
 # The rest of an open file, four big-endian bytes per element. Fails EINVAL when its size is not a multiple of 4.
 def read.be(file: File) -> IO(File & Result<&1, &1, U32 & String, A.F32Array>):
-  read.with(~A.from_bytes.be, file)
+  read.with(~from_bytes.be, file)
 
 type Tensor is Type:
   Tensor{array: A.F32Array, bits: U32, used: U32, index: U32}

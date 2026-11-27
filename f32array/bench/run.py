@@ -15,7 +15,7 @@ VARIANTS = {
     "Bun": (None, ["bun", "bench.ts"]),
     "Node": (None, ["node", "--no-warnings", "bench.ts"]),
     "NumPy": (None, ["python3", "bench.py"]),
-    "Bend": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "+RTS", "--threads", "8"]),
+    "Bend IO": (["bend", "bench.bend", "-o", OUT / "bend"], [OUT / "bend", "+RTS", "--threads", "8"]),
 }
 
 
@@ -76,7 +76,7 @@ def main():
     print("| op | checksum |")
     print("|---|---:|")
     for op in OPS:
-        print(f"| {op} | {checks['Bend'][op]} |")
+        print(f"| {op} | {checks['Bend IO'][op]} |")
 
 
 main()
