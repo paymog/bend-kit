@@ -7,6 +7,8 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `archive` 0.7.0.4: adopt Zlib 0.7.0.5.
+- `http` 0.45.0.3: adopt Zlib 0.7.0.5 for pure and native decompression.
 - `storage` checks: add deterministic native and Bun writer kills at every sync and rename boundary, plus disposable APFS forced-detach trials. Record the procedure, results, and physical qualification limits in [storage/recovery.md](storage/recovery.md).
 - `camber` probes: replace pre-work readiness sleeps with an explicit synchronous stdout flush in both lanes. Preserve workload clocks and yielding controls. JSON observation runners accept fresh receipt paths.
 - `f32array` 0.2.5.0: add IO byte conversions that reuse native packed buffers. File reads use them. On Bend 2.0.40, 16 MiB little-endian decoding and encoding fall from 2.109958 / 1.143792 ms to 0.074750 / 0.037208 ms in 21 interleaved runs. Pure converters and their laws remain unchanged.
