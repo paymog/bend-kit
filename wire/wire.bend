@@ -149,3 +149,13 @@ def tls.send.words(sock: Socket, len: U32, words: Array<U32>) ->
   IO(Socket & Result<&1, &1, U32 & String, Unit>):
   import "./effs/wire.c"
   import "./effs/wire.js"
+
+# Total TLS write budget, including packing; ms must be 1..2147483647.
+# Returns socket, plaintext bytes accepted by SSL_write, and outcome on every
+# path. Consumes words on every path. Timeout/error may leave OpenSSL's write
+# state half-flushed: close the returned socket with tls.close, do not call
+# tls.send* again. Success is not peer receipt.
+def tls.send.words.deadline(sock: Socket, len: U32, words: Array<U32>, ms: U32) ->
+  IO(Socket & (U32 & Result<&1, &1, U32 & String, Unit>)):
+  import "./effs/wire.c"
+  import "./effs/wire.js"

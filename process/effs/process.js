@@ -1,11 +1,12 @@
 // Process
 // =======
-// spawn: Bun.spawn + libc pipe(2) fds for Base File.read/write.
+// spawn and run.bounded.raw: libc posix_spawnp through bun:ffi with CLOEXEC
+// pipes and child FD isolation (addclosefrom_np(3) on Linux,
+// POSIX_SPAWN_CLOEXEC_DEFAULT on macOS). Bun never allocates a pidfd or reaps
+// the child.
 // ponytail: run.raw blocks other Bend fibers in JS while the child runs;
 // replace spawnSync with a nonblocking three-pipe pump if concurrency matters.
-// wait: WNOHANG waitpid on tracked pid (not proc.exited: promises stall under io_run).
-// run.bounded.raw: libc posix_spawn through bun:ffi, so this code alone spawns,
-// signals, and reaps the group leader; Bun never sees the child.
+// wait: WNOHANG waitpid on tracked pid (not Bun promises, which stall under io_run).
 
 function process_einval() {
   return 22;
@@ -79,35 +80,6 @@ function process_argv(cmd, args) {
   return argv;
 }
 
-function process_libc() {
-  if (process_libc.lib === undefined) {
-    const ffi = require("bun:ffi");
-    const mac = process.platform === "darwin";
-    process_libc.lib = ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6", {
-      pipe: { args: [ffi.FFIType.ptr], returns: ffi.FFIType.i32 },
-      waitpid: { args: [ffi.FFIType.i32, ffi.FFIType.ptr, ffi.FFIType.i32], returns: ffi.FFIType.i32 },
-    }).symbols;
-    process_libc.ptr = ffi.ptr;
-  }
-  return process_libc;
-}
-
-function process_pipe_pair() {
-  const { lib, ptr } = process_libc();
-  const fds = new Int32Array(2);
-  if (lib.pipe(ptr(fds)) < 0) {
-    return null;
-  }
-  return [fds[0], fds[1]];
-}
-
-function process_close_fd(fd) {
-  try {
-    require("fs").closeSync(fd);
-  } catch (e) {
-  }
-}
-
 function process_result(code, out, err) {
   return io_tup(code >>> 0, io_tup(out, err));
 }
@@ -137,62 +109,7 @@ function process_host_fail(e) {
   return process_einval();
 }
 
-const process_procs = new Map();
-
-function process_track(proc) {
-  process_procs.set(proc.pid, proc);
-}
-
-function process_spawn_pipes(argv, environment, cwd) {
-  const sys = io_sys();
-  const si = process_pipe_pair();
-  const so = process_pipe_pair();
-  const se = process_pipe_pair();
-  if (si === null || so === null || se === null) {
-    if (si) {
-      process_close_fd(si[0]);
-      process_close_fd(si[1]);
-    }
-    if (so) {
-      process_close_fd(so[0]);
-      process_close_fd(so[1]);
-    }
-    if (se) {
-      process_close_fd(se[0]);
-      process_close_fd(se[1]);
-    }
-    return io_fail(sys.errno());
-  }
-  const [stdin_r, stdin_w] = si;
-  const [stdout_r, stdout_w] = so;
-  const [stderr_r, stderr_w] = se;
-  let proc;
-  try {
-    proc = Bun.spawn({
-      cmd: argv,
-      env: environment,
-      cwd,
-      stdio: [stdin_r, stdout_w, stderr_w],
-    });
-  } catch (e) {
-    process_close_fd(stdin_r);
-    process_close_fd(stdin_w);
-    process_close_fd(stdout_r);
-    process_close_fd(stdout_w);
-    process_close_fd(stderr_r);
-    process_close_fd(stderr_w);
-    return io_fail(process_host_fail(e));
-  }
-  process_close_fd(stdin_r);
-  process_close_fd(stdout_w);
-  process_close_fd(stderr_w);
-  return {
-    proc,
-    stdin_w,
-    stdout_r,
-    stderr_r,
-  };
-}
+const process_spawned = new Set();
 
 function run_raw(cmd, args, env, cwd, stdin, k) {
   const argv = process_argv(cmd, args);
@@ -234,10 +151,13 @@ function process_bounded_libc() {
     const mac = process.platform === "darwin";
     // nfds_t is unsigned int on Darwin and unsigned long on 64-bit Linux.
     const T = { i: "i32", h: "i16", p: "ptr", U: "u64", I: "i64", n: mac ? "u32" : "u64" };
+    const closeSym = mac
+      ? " posix_spawn_file_actions_addclose:pi>i"
+      : " posix_spawn_file_actions_addclosefrom_np:pi>i";
     process_bounded_libc.lib = ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6",
       Object.fromEntries(("posix_spawnp:pppppp>i posix_spawn_file_actions_init:p>i"
         + " posix_spawn_file_actions_destroy:p>i posix_spawn_file_actions_adddup2:pii>i"
-        + " posix_spawn_file_actions_addclose:pi>i posix_spawn_file_actions_addchdir_np:pp>i"
+        + closeSym + " posix_spawn_file_actions_addchdir_np:pp>i"
         + " posix_spawnattr_init:p>i posix_spawnattr_destroy:p>i posix_spawnattr_setflags:ph>i"
         + " posix_spawnattr_setpgroup:pi>i posix_spawnattr_setsigdefault:pp>i"
         + " posix_spawnattr_setsigmask:pp>i sigemptyset:p>i sigaddset:pi>i sigaction:ipp>i"
@@ -302,8 +222,10 @@ function process_leader_held(c, pid, exited) {
   }
 }
 
-// Spawns argv as the leader of a new process group, with three pipes.
-function process_bounded_spawn(c, argv, environment, cwd) {
+// Spawns argv with three CLOEXEC pipes and child FD isolation (fds >= 3
+// closed in the child). When opts.group is true, starts a new process group.
+// When opts.nonblock is true, sets O_NONBLOCK on the parent-side pipe fds.
+function process_posix_spawn(c, argv, environment, cwd, opts) {
   const { ptr } = require("bun:ffi");
   const sys = io_sys();
   const fds = new Int32Array(6).fill(-1);
@@ -315,7 +237,6 @@ function process_bounded_spawn(c, argv, environment, cwd) {
       return { code };
     }
   }
-  const nonblock = c.mac ? 0x4 : 0x800;
   for (const fd of fds) {
     if (sys.fcntl(fd, 2, 1) < 0) {
       const code = sys.errno();
@@ -323,18 +244,22 @@ function process_bounded_spawn(c, argv, environment, cwd) {
       return { code };
     }
   }
-  for (const fd of [fds[1], fds[2], fds[4]]) {
-    const fl = sys.fcntl(fd, 3, 0);
-    if (fl < 0 || sys.fcntl(fd, 4, fl | nonblock) < 0) {
-      const code = sys.errno();
-      close_all();
-      return { code };
+  if (opts.nonblock) {
+    const nonblock = c.mac ? 0x4 : 0x800;
+    for (const fd of [fds[1], fds[2], fds[4]]) {
+      const fl = sys.fcntl(fd, 3, 0);
+      if (fl < 0 || sys.fcntl(fd, 4, fl | nonblock) < 0) {
+        const code = sys.errno();
+        close_all();
+        return { code };
+      }
     }
   }
   const keep = [];
   const args = process_cstr_array(argv, keep);
   const envp = process_cstr_array(Object.entries(environment).map(([k, v]) => k + "=" + v), keep);
   const dir = process_cstr(cwd);
+  keep.push(dir);
   const actions = new Uint8Array(256);
   const attrs = new Uint8Array(512);
   const defaults = new Uint8Array(128);
@@ -349,8 +274,14 @@ function process_bounded_spawn(c, argv, environment, cwd) {
   rc = rc || c.lib.posix_spawn_file_actions_adddup2(ptr(actions), fds[0], 0);
   rc = rc || c.lib.posix_spawn_file_actions_adddup2(ptr(actions), fds[3], 1);
   rc = rc || c.lib.posix_spawn_file_actions_adddup2(ptr(actions), fds[5], 2);
-  for (const fd of fds) {
-    rc = rc || c.lib.posix_spawn_file_actions_addclose(ptr(actions), fd);
+  if (c.mac) {
+    for (const fd of fds) {
+      if (fd > 2) {
+        rc = rc || c.lib.posix_spawn_file_actions_addclose(ptr(actions), fd);
+      }
+    }
+  } else {
+    rc = rc || c.lib.posix_spawn_file_actions_addclosefrom_np(ptr(actions), 3);
   }
   let attrs_ready = false;
   if (rc === 0) {
@@ -363,12 +294,22 @@ function process_bounded_spawn(c, argv, environment, cwd) {
     c.lib.sigemptyset(ptr(mask));
     rc = c.lib.posix_spawnattr_setsigdefault(ptr(attrs), ptr(defaults));
     rc = rc || c.lib.posix_spawnattr_setsigmask(ptr(attrs), ptr(mask));
-    rc = rc || c.lib.posix_spawnattr_setpgroup(ptr(attrs), 0);
-    rc = rc || c.lib.posix_spawnattr_setflags(ptr(attrs), 0x02 | 0x04 | 0x08);
+    let flags = 0x04 | 0x08;
+    if (c.mac) {
+      // POSIX_SPAWN_CLOEXEC_DEFAULT (Darwin <sys/spawn.h>): close all fds not
+      // targeted by file_actions.
+      flags |= 0x4000;
+    }
+    if (opts.group) {
+      flags |= 0x02;
+      rc = rc || c.lib.posix_spawnattr_setpgroup(ptr(attrs), 0);
+    }
+    rc = rc || c.lib.posix_spawnattr_setflags(ptr(attrs), flags);
   }
   if (rc === 0) {
     rc = c.lib.posix_spawnp(ptr(pid), ptr(keep[0]), ptr(actions), ptr(attrs), ptr(args), ptr(envp));
   }
+  void keep.length;
   if (attrs_ready) {
     c.lib.posix_spawnattr_destroy(ptr(attrs));
   }
@@ -506,7 +447,7 @@ function run_bounded_raw(cmd, args, env, cwd, stdin, ms, max_out) {
     return io_fail(echild);
   }
   const deadline = Number(ms) ? performance.now() + Number(ms) : 0;
-  const job = process_bounded_spawn(c, argv, environment, cwd);
+  const job = process_posix_spawn(c, argv, environment, cwd, { group: true, nonblock: true });
   if (job.code) {
     return io_fail(job.code);
   }
@@ -579,14 +520,20 @@ function spawn(cmd, args, env, cwd) {
   if (environment === null) {
     return io_fail(process_einval());
   }
-  const spawned = process_spawn_pipes(argv, environment, cwd);
-  if (spawned.$ === "Fail") {
-    return spawned;
+  let c;
+  try {
+    c = process_bounded_libc();
+  } catch (e) {
+    return io_fail(process_errno_named("ENOSYS"));
   }
-  const { proc, stdin_w, stdout_r, stderr_r } = spawned;
-  process_track(proc);
-  const files = io_tup(stdin_w, io_tup(stdout_r, stderr_r));
-  return io_done(io_tup(proc.pid >>> 0, files));
+  const job = process_posix_spawn(c, argv, environment, cwd, { group: false, nonblock: false });
+  if (job.code) {
+    return io_fail(job.code);
+  }
+  const child_pid = job.pid >>> 0;
+  process_spawned.add(child_pid);
+  const files = io_tup(job.in_w, io_tup(job.out_r, job.err_r));
+  return io_done(io_tup(child_pid, files));
 }
 
 // The host's ETIMEDOUT: 110 on Linux, 60 on macOS.
@@ -600,26 +547,32 @@ function process_wait(pid, ms, k) {
   if (!Number.isInteger(n) || n < 1 || n > 2147483647) {
     return io_fail(process_einval());
   }
-  const proc = process_procs.get(n);
-  if (proc === undefined) {
+  if (!process_spawned.has(n)) {
     return io_fail(10);
   }
-  const { lib, ptr } = process_libc();
+  let c;
+  try {
+    c = process_bounded_libc();
+  } catch (e) {
+    return io_fail(process_errno_named("ENOSYS"));
+  }
+  const { ptr } = require("bun:ffi");
+  const sys = io_sys();
   const deadline = ms === 0 ? 0 : performance.now() + ms;
+  const status = new Int32Array(1);
   const check = () => {
-    if (proc.exitCode !== null) {
-      process_procs.delete(Number(pid));
-      return io_done(process_exit_code(proc, proc.exitCode));
-    }
-    const status = new Int32Array([0]);
-    const r = Number(lib.waitpid(Number(pid), ptr(status), 1));
+    status[0] = 0;
+    const r = Number(c.lib.waitpid(n, ptr(status), 1));
     if (r > 0) {
-      process_procs.delete(Number(pid));
+      process_spawned.delete(n);
       return io_done(process_exit_status(status[0]));
     }
-    if (r < 0 && io_sys().errno() !== 4) {
-      process_procs.delete(Number(pid));
-      return io_fail(io_sys().errno());
+    if (r < 0) {
+      const code = sys.errno();
+      if (code !== 4) {
+        process_spawned.delete(n);
+        return io_fail(code);
+      }
     }
     const now = performance.now();
     if (deadline !== 0 && now >= deadline) {

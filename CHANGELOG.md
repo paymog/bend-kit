@@ -8,6 +8,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 - `llm` proofs: complete different-buffer line refinement, scanner cursor progress, bounded loop termination, paired loop refinement, and clean-prefix next-at refinement. Prove valid-reader next-call restart for either pending-CR flag, pending-CR/LF stuttering across arbitrary valid seen cursors, and paired empty/non-LF pending calls. Preserve the combined event-data and unread-input budget. Arbitrary chunk re-partitioning with drains remains unproved.
+- `process` 0.5.2.4: spawn JS children via `posix_spawnp` to eliminate Bun `pidfd` descriptor leaks and close inherited parent file descriptors `>= 3` on both native and JS targets (`addclosefrom_np(3)` on Linux, `POSIX_SPAWN_CLOEXEC_DEFAULT` on macOS).
+- `wire` 0.4.9.0: add `tls.send.words.deadline` with a single monotonic write budget across OpenSSL `WANT_READ`/`WANT_WRITE` retries in both C and JS, capping each `SSL_write` to one 16 KiB TLS plaintext record for accurate partial-progress accounting and bounded stall/trickle termination.
 - `llm` proofs: prove event-boundary drain pauses preserve complete parser state and messages for arbitrary fixed chunk cuts and finite drain budgets. Arbitrary chunk re-partitioning remains unproved.
 - `sigv4` 0.17.0.4: reject overflowing, empty, and invalid XML numeric character references.
 - `runner` 0.22.0.6: use current Webhooks, Hairpin, and HTTP releases in the outbox example.
