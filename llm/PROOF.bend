@@ -5,6 +5,9 @@ import ./sse-scan-proof.bend as Scan
 import ./sse-buffer-proof.bend as Buffer
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./sse-packed-proof.bend as Packed
+import ./sse-feed-proof.bend as Feed
+import ./sse-offset-proof.bend as Offset
+import ./sse-capacity-proof.bend as Capacity
 
 def Laws.sse_whole():
   {==}
@@ -167,6 +170,36 @@ def Laws.sse_slice_string(text, len, m, src, s, limit, hn, hu, elen, total, read
 
 def Laws.sse_compact_feed_state(len, src, pos, seen, cr, st, lb, right):
   Packed.feed_compact_bridge(len, src, pos, seen, cr, st, lb, right)
+
+def Laws.sse_slice_append_observe(text, chunk, len, src, start, n, lb, right, limit, hl, hu, ea, eb, hn, ra, rb):
+  Feed.slice_append_bounded(text, chunk, len, src, start, n, lb, right, limit, hl, hu, ea, eb, hn, ra, rb)
+
+def Laws.sse_feed_state_observe(text, chunk, len, src, pos, seen, cr, st, lb, right, limit, shape, hl, hu, ea, eb, hn, ra, rb):
+  Feed.feed_observed(text, chunk, len, src, pos, seen, cr, st, lb, right, limit, shape, hl, hu, ea, eb, hn, ra, rb)
+
+def Laws.sse_scan_logical_offset(f, a, b, delta, i, j, limit, hi, hj, hu, here, same):
+  Offset.scan_observed(f, a, b, delta, i, j, limit, hi, hj, hu, here, same)
+
+def Laws.sse_slice_scan_offset(text, len, m, src, s, limit, hn, hu, elen, total, reads):
+  Offset.slice_scan(text, len, m, src, s, limit, hn, hu, elen, total, reads)
+
+def Laws.sse_colon_logical_offset(f, a, b, delta, i, j, limit, hi, hj, hu, here, same):
+  Offset.colon_observed(f, a, b, delta, i, j, limit, hi, hj, hu, here, same)
+
+def Laws.sse_append_capacity(a, b, left, right, limit, shape, h, hn, hu):
+  Capacity.append_shape(a, b, left, right, limit, shape, h, hn, hu)
+
+def Laws.sse_set_data_observe(a, b, la, lb, left, right, limit, name, id, retry, shape, ea, eb, hn, hu, ra, rb):
+  Feed.set_data_observed(a, b, la, lb, left, right, limit, name, id, retry, shape, ea, eb, hn, hu, ra, rb)
+
+def Laws.sse_set_event_values(a, b, st, same):
+  Feed.event_values(a, b, st, same)
+
+def Laws.sse_set_id_values(a, b, st, same):
+  Feed.id_values(a, b, st, same)
+
+def Laws.sse_set_retry_values(a, b, st, same):
+  Feed.retry_values(a, b, st, same)
 
 def Laws.reply_anthropic():
   {==}
