@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `process` 0.5.2.4: spawn JS children via `posix_spawnp` to eliminate Bun `pidfd` descriptor leaks and close inherited parent file descriptors `>= 3` on both native and JS targets (`addclosefrom_np(3)` on Linux, `POSIX_SPAWN_CLOEXEC_DEFAULT` on macOS).
 - `camber` 0.19.0.3: adopt HTTP 0.45.0.3 with Zlib 0.7.0.5.
 - `hairpin` 0.19.0.3: adopt HTTP 0.45.0.3 with Zlib 0.7.0.5.
 - `storage` 0.12.0.3: adopt HTTP 0.45.0.3 with Zlib 0.7.0.5.

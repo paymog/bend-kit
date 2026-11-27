@@ -512,7 +512,7 @@ static int process_pipe_spawn(ProcessJob* j) {
     return -1;
   }
 #if (defined(__APPLE__) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 260000) \
-  || (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 44)))
+  || (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 45)))
   rc = posix_spawn_file_actions_addchdir(&actions, j->cwd);
 #else
   rc = posix_spawn_file_actions_addchdir_np(&actions, j->cwd);
@@ -520,12 +520,16 @@ static int process_pipe_spawn(ProcessJob* j) {
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, in[0], STDIN_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, out[1], STDOUT_FILENO);
   rc = rc ? rc : posix_spawn_file_actions_adddup2(&actions, err[1], STDERR_FILENO);
-  rc = rc ? rc : posix_spawn_file_actions_addclose(&actions, in[0]);
-  rc = rc ? rc : posix_spawn_file_actions_addclose(&actions, in[1]);
-  rc = rc ? rc : posix_spawn_file_actions_addclose(&actions, out[0]);
-  rc = rc ? rc : posix_spawn_file_actions_addclose(&actions, out[1]);
-  rc = rc ? rc : posix_spawn_file_actions_addclose(&actions, err[0]);
-  rc = rc ? rc : posix_spawn_file_actions_addclose(&actions, err[1]);
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 34))
+  rc = rc ? rc : posix_spawn_file_actions_addclosefrom_np(&actions, 3);
+#else
+  int pipe_fds[6] = { in[0], in[1], out[0], out[1], err[0], err[1] };
+  for (int i = 0; i < 6 && rc == 0; i += 1) {
+    if (pipe_fds[i] > STDERR_FILENO) {
+      rc = posix_spawn_file_actions_addclose(&actions, pipe_fds[i]);
+    }
+  }
+#endif
   posix_spawnattr_t attrs;
   bool attrs_ready = false;
   if (rc == 0) {
@@ -540,6 +544,9 @@ static int process_pipe_spawn(ProcessJob* j) {
     rc = posix_spawnattr_setsigdefault(&attrs, &defaults);
     rc = rc ? rc : posix_spawnattr_setsigmask(&attrs, &mask);
     short flags = POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK;
+#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
+    flags |= POSIX_SPAWN_CLOEXEC_DEFAULT;
+#endif
     if (j->group) {
       flags |= POSIX_SPAWN_SETPGROUP;
       rc = rc ? rc : posix_spawnattr_setpgroup(&attrs, 0);
