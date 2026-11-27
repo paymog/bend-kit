@@ -2,6 +2,7 @@ import Base
 import ./pure.bend as Llm
 import ./sse.bend as Sse
 import ./sse-scan-proof.bend as Scan
+import ./sse-buffer-proof.bend as Buffer
 import bend-kit-json@0.7.3.2/json.bend as Json
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
@@ -232,6 +233,36 @@ law sse_scan_extend:
   for +i: U32
   for clean: Scan.clean_prefix(f, r, i)
   {Sse.eol(Nat.add(f, g), r, i) == Scan.resume(g, Scan.advance(f, r, i)) : Array<U32> & U32}
+
+# Equal packed-read observations give the same delimiter position.
+law sse_scan_observe:
+  for f: Nat
+  for r: Array<U32> & U32
+  for s: Array<U32> & U32
+  for +i: U32
+  for same: {Buffer.observed(f, r, i) == Buffer.observed(f, s, i) : String}
+  {Buffer.index(Sse.eol(f, r, i)) == Buffer.index(Sse.eol(f, s, i)) : U32}
+
+# A position relation that holds along equal read traces holds at their scan results.
+law sse_scan_relocate:
+  for ~R: U32 -> U32 -> Type
+  for f: Nat
+  for r: Array<U32> & U32
+  for s: Array<U32> & U32
+  for +i: U32
+  for +j: U32
+  for same: Buffer.related_reads(~R, f, r, s, i, j)
+  R(Buffer.index(Sse.eol(f, r, i)), Buffer.index(Sse.eol(f, s, j)))
+
+law sse_scan_clean_transport:
+  for f: Nat
+  for r: Array<U32> & U32
+  for s: Array<U32> & U32
+  for +i: U32
+  for +j: U32
+  for same: {Buffer.observed(f, r, i) == Buffer.observed(f, s, j) : String}
+  for clean: Scan.clean_prefix(f, r, i)
+  Scan.clean_prefix(f, s, j)
 
 def repeated_events(n: Nat) -> String:
   match n:

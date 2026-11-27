@@ -2,6 +2,7 @@ import Base
 import ./LAWS.bend as Laws
 import ./sse.bend as Sse
 import ./sse-scan-proof.bend as Scan
+import ./sse-buffer-proof.bend as Buffer
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def Laws.sse_whole():
@@ -102,6 +103,15 @@ def Laws.sse_large_chunk():
 
 def Laws.sse_scan_extend(f, g, r, i, clean):
   Scan.extend(f, g, r, i, clean)
+
+def Laws.sse_scan_observe(f, r, s, i, same):
+  Buffer.eol_observed(f, r, s, i, same)
+
+def Laws.sse_scan_relocate(R, f, r, s, i, j, same):
+  Buffer.eol_related(~R, f, r, s, i, j, same)
+
+def Laws.sse_scan_clean_transport(f, r, s, i, j, same, clean):
+  Buffer.clean_observed(f, r, s, i, j, same, clean)
 
 def Laws.reply_anthropic():
   {==}

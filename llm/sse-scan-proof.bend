@@ -2,7 +2,7 @@ import Base
 import ./sse.bend as Sse
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
-def clean(c: U32) -> Type:
+def clean(c: U32) -> Data:
   match c:
     case 10:
       Empty
@@ -12,21 +12,24 @@ def clean(c: U32) -> Type:
       Unit
 
 # Split bits explicitly because numeral wildcard branches retain opaque bits.
-def eol_step(p: Nat, -a: Array<U32>, +c: U32, +i: U32, ok: clean(c)) ->
-  {Sse.eol(1n+p, (a, c), i) == Sse.eol(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32)) : Array<U32> & U32}:
+def eol_elim(-P: (Array<U32> & U32) -> Type, f: Nat, -a: Array<U32>, +c: U32, +i: U32,
+  on_lf: {c == 10 : U32} -> P((a, i)),
+  on_cr: {c == 13 : U32} -> P((a, i)),
+  on_more: clean(c) -> P(Sse.eol(f, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32)))) ->
+  P(Sse.eol(1n+f, (a, c), i)):
   match c:
     case U32{w0}:
       match w0:
         case WCon{False{}, w1}:
           match w1:
             case WCon{False{}, w2}:
-              {==}
+              on_more(Unit{})
             case WCon{True{}, w2}:
               match w2:
                 case WCon{False{}, w3}:
                   match w3:
                     case WCon{False{}, w4}:
-                      {==}
+                      on_more(Unit{})
                     case WCon{True{}, w4}:
                       match w4:
                         case WCon{False{}, w5}:
@@ -86,75 +89,75 @@ def eol_step(p: Nat, -a: Array<U32>, +c: U32, +i: U32, ok: clean(c)) ->
                                                                                                                                     case WCon{False{}, w32}:
                                                                                                                                       match w32:
                                                                                                                                         case WNil{}:
-                                                                                                                                          match ok:
+                                                                                                                                          on_lf({==})
                                                                                                                                     case WCon{True{}, w32}:
-                                                                                                                                      {==}
+                                                                                                                                      on_more(Unit{})
                                                                                                                                 case WCon{True{}, w31}:
-                                                                                                                                  {==}
+                                                                                                                                  on_more(Unit{})
                                                                                                                             case WCon{True{}, w30}:
-                                                                                                                              {==}
+                                                                                                                              on_more(Unit{})
                                                                                                                         case WCon{True{}, w29}:
-                                                                                                                          {==}
+                                                                                                                          on_more(Unit{})
                                                                                                                     case WCon{True{}, w28}:
-                                                                                                                      {==}
+                                                                                                                      on_more(Unit{})
                                                                                                                 case WCon{True{}, w27}:
-                                                                                                                  {==}
+                                                                                                                  on_more(Unit{})
                                                                                                             case WCon{True{}, w26}:
-                                                                                                              {==}
+                                                                                                              on_more(Unit{})
                                                                                                         case WCon{True{}, w25}:
-                                                                                                          {==}
+                                                                                                          on_more(Unit{})
                                                                                                     case WCon{True{}, w24}:
-                                                                                                      {==}
+                                                                                                      on_more(Unit{})
                                                                                                 case WCon{True{}, w23}:
-                                                                                                  {==}
+                                                                                                  on_more(Unit{})
                                                                                             case WCon{True{}, w22}:
-                                                                                              {==}
+                                                                                              on_more(Unit{})
                                                                                         case WCon{True{}, w21}:
-                                                                                          {==}
+                                                                                          on_more(Unit{})
                                                                                     case WCon{True{}, w20}:
-                                                                                      {==}
+                                                                                      on_more(Unit{})
                                                                                 case WCon{True{}, w19}:
-                                                                                  {==}
+                                                                                  on_more(Unit{})
                                                                             case WCon{True{}, w18}:
-                                                                              {==}
+                                                                              on_more(Unit{})
                                                                         case WCon{True{}, w17}:
-                                                                          {==}
+                                                                          on_more(Unit{})
                                                                     case WCon{True{}, w16}:
-                                                                      {==}
+                                                                      on_more(Unit{})
                                                                 case WCon{True{}, w15}:
-                                                                  {==}
+                                                                  on_more(Unit{})
                                                             case WCon{True{}, w14}:
-                                                              {==}
+                                                              on_more(Unit{})
                                                         case WCon{True{}, w13}:
-                                                          {==}
+                                                          on_more(Unit{})
                                                     case WCon{True{}, w12}:
-                                                      {==}
+                                                      on_more(Unit{})
                                                 case WCon{True{}, w11}:
-                                                  {==}
+                                                  on_more(Unit{})
                                             case WCon{True{}, w10}:
-                                              {==}
+                                              on_more(Unit{})
                                         case WCon{True{}, w9}:
-                                          {==}
+                                          on_more(Unit{})
                                     case WCon{True{}, w8}:
-                                      {==}
+                                      on_more(Unit{})
                                 case WCon{True{}, w7}:
-                                  {==}
+                                  on_more(Unit{})
                             case WCon{True{}, w6}:
-                              {==}
+                              on_more(Unit{})
                         case WCon{True{}, w5}:
-                          {==}
+                          on_more(Unit{})
                 case WCon{True{}, w3}:
-                  {==}
+                  on_more(Unit{})
         case WCon{True{}, w1}:
           match w1:
             case WCon{False{}, w2}:
               match w2:
                 case WCon{False{}, w3}:
-                  {==}
+                  on_more(Unit{})
                 case WCon{True{}, w3}:
                   match w3:
                     case WCon{False{}, w4}:
-                      {==}
+                      on_more(Unit{})
                     case WCon{True{}, w4}:
                       match w4:
                         case WCon{False{}, w5}:
@@ -214,65 +217,80 @@ def eol_step(p: Nat, -a: Array<U32>, +c: U32, +i: U32, ok: clean(c)) ->
                                                                                                                                     case WCon{False{}, w32}:
                                                                                                                                       match w32:
                                                                                                                                         case WNil{}:
-                                                                                                                                          match ok:
+                                                                                                                                          on_cr({==})
                                                                                                                                     case WCon{True{}, w32}:
-                                                                                                                                      {==}
+                                                                                                                                      on_more(Unit{})
                                                                                                                                 case WCon{True{}, w31}:
-                                                                                                                                  {==}
+                                                                                                                                  on_more(Unit{})
                                                                                                                             case WCon{True{}, w30}:
-                                                                                                                              {==}
+                                                                                                                              on_more(Unit{})
                                                                                                                         case WCon{True{}, w29}:
-                                                                                                                          {==}
+                                                                                                                          on_more(Unit{})
                                                                                                                     case WCon{True{}, w28}:
-                                                                                                                      {==}
+                                                                                                                      on_more(Unit{})
                                                                                                                 case WCon{True{}, w27}:
-                                                                                                                  {==}
+                                                                                                                  on_more(Unit{})
                                                                                                             case WCon{True{}, w26}:
-                                                                                                              {==}
+                                                                                                              on_more(Unit{})
                                                                                                         case WCon{True{}, w25}:
-                                                                                                          {==}
+                                                                                                          on_more(Unit{})
                                                                                                     case WCon{True{}, w24}:
-                                                                                                      {==}
+                                                                                                      on_more(Unit{})
                                                                                                 case WCon{True{}, w23}:
-                                                                                                  {==}
+                                                                                                  on_more(Unit{})
                                                                                             case WCon{True{}, w22}:
-                                                                                              {==}
+                                                                                              on_more(Unit{})
                                                                                         case WCon{True{}, w21}:
-                                                                                          {==}
+                                                                                          on_more(Unit{})
                                                                                     case WCon{True{}, w20}:
-                                                                                      {==}
+                                                                                      on_more(Unit{})
                                                                                 case WCon{True{}, w19}:
-                                                                                  {==}
+                                                                                  on_more(Unit{})
                                                                             case WCon{True{}, w18}:
-                                                                              {==}
+                                                                              on_more(Unit{})
                                                                         case WCon{True{}, w17}:
-                                                                          {==}
+                                                                          on_more(Unit{})
                                                                     case WCon{True{}, w16}:
-                                                                      {==}
+                                                                      on_more(Unit{})
                                                                 case WCon{True{}, w15}:
-                                                                  {==}
+                                                                  on_more(Unit{})
                                                             case WCon{True{}, w14}:
-                                                              {==}
+                                                              on_more(Unit{})
                                                         case WCon{True{}, w13}:
-                                                          {==}
+                                                          on_more(Unit{})
                                                     case WCon{True{}, w12}:
-                                                      {==}
+                                                      on_more(Unit{})
                                                 case WCon{True{}, w11}:
-                                                  {==}
+                                                  on_more(Unit{})
                                             case WCon{True{}, w10}:
-                                              {==}
+                                              on_more(Unit{})
                                         case WCon{True{}, w9}:
-                                          {==}
+                                          on_more(Unit{})
                                     case WCon{True{}, w8}:
-                                      {==}
+                                      on_more(Unit{})
                                 case WCon{True{}, w7}:
-                                  {==}
+                                  on_more(Unit{})
                             case WCon{True{}, w6}:
-                              {==}
+                              on_more(Unit{})
                         case WCon{True{}, w5}:
-                          {==}
+                          on_more(Unit{})
             case WCon{True{}, w2}:
-              {==}
+              on_more(Unit{})
+
+def clean_lf(-G: Type, +c: U32, eq: {c == 10 : U32}) -> clean(c) -> G:
+  %Equal.sym(U32, c, 10, eq) : clean(_) -> G
+  bad => Empty.absurd(G, bad)
+
+def clean_cr(-G: Type, +c: U32, eq: {c == 13 : U32}) -> clean(c) -> G:
+  %Equal.sym(U32, c, 13, eq) : clean(_) -> G
+  bad => Empty.absurd(G, bad)
+
+def eol_step(p: Nat, -a: Array<U32>, +c: U32, +i: U32, +ok: clean(c)) ->
+  {Sse.eol(1n+p, (a, c), i) == Sse.eol(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32)) : Array<U32> & U32}:
+  eol_elim(x => {x == Sse.eol(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32)) : Array<U32> & U32}, p, a, c, i,
+    eq => clean_lf({(a, i) == Sse.eol(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32)) : Array<U32> & U32}, c, eq)(ok),
+    eq => clean_cr({(a, i) == Sse.eol(p, Bytes.peek(a, (i + 1 : U32)), (i + 1 : U32)) : Array<U32> & U32}, c, eq)(ok),
+    good => {==})
 
 def clean_prefix(f: Nat, r: Array<U32> & U32, +i: U32) -> Type:
   match f:
