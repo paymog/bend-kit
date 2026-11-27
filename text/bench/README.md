@@ -348,3 +348,94 @@ The retained runner passes collision detection, 200 shortest-script changes,
 arbitrary-octet reconstruction, and both owned-buffer checks. Forced-fallback
 checks also cover all four source offsets, different offsets across buffers,
 zero-to-eight-octet tails, trailing NUL lengths, and FF/FE differences.
+
+## String line splitting
+
+macOS arm64, 2026-11-27, Bend **2.0.40**, one thread. The baseline is
+`e3b01c8`. All experiments use the existing 10,000-line generator, timer
+boundaries, checksum consumption, and compiler.
+
+Measure splitting alone from the repository root:
+
+```sh
+bend text/bench/lines.bend -o text/bench/out/lines
+text/bench/out/lines
+```
+
+The harness builds both texts before the clock starts. It times `lines` on
+both texts and consumes their lengths. Its checksum is **19,968**. Empty
+input, blank lines, final LF, missing final LF, CRLF, and Unicode fixtures
+must pass before timing. `Ċ` has low byte 10 but is not LF.
+
+Each candidate also ran `python3 text/bench/run.py 5`. Every language agreed
+on checksums **654**, **174397**, and **2632:177792** for both wrap variants.
+The table gives the Bend diff median and seven fresh-process split medians.
+
+| approach | package diff, ms | split alone, ms |
+|---|---:|---:|
+| baseline | 5.9 | 3.339250 |
+| direct LF constructor pattern | 5.7 | 3.174167 |
+| partial line paired with finished suffix lines | 5.7 | 3.141375 |
+| forward tail scan, reverse each line | 5.9 | 3.520333 |
+| literal Char predicate, existing Boolean dispatch | 5.9 | 3.364583 |
+| literal U32 predicate, unboxed character | 5.9 | 3.372208 |
+| carry the next character and LF flag into recursion | 5.9 | 3.391167 |
+| partial-line pair with Boolean dispatch | 5.9 | 3.329125 |
+| merge Boolean dispatch and list-head update | 5.9 | 3.319375 |
+| forward scan with fused FNV-1a, reverse each line | 6.6 | not measured separately |
+
+The first three candidates then ran in 15 fresh-process groups with the
+baseline. Odd groups ran baseline, literal, pair, forward; even groups
+reversed that order. Each diff process runs the complete package workload.
+Each split measurement uses a separate process, so these are not additive
+phase times. All diff checksums are 654 and all split checksums are 19,968.
+
+| group | baseline diff | literal diff | pair diff | forward diff | baseline split | literal split | pair split | forward split |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 6.212459 | 5.644083 | 5.766666 | 5.896292 | 3.565583 | 3.207500 | 3.062875 | 3.456584 |
+| 2 | 5.859333 | 5.616042 | 5.489500 | 5.935375 | 3.327959 | 3.184041 | 3.104416 | 3.448833 |
+| 3 | 5.817291 | 5.566834 | 5.523041 | 5.693250 | 3.342375 | 3.168000 | 3.117042 | 3.409708 |
+| 4 | 5.865334 | 5.564667 | 5.513542 | 5.706791 | 3.305667 | 3.119791 | 3.095167 | 3.512584 |
+| 5 | 5.830708 | 5.935167 | 5.572875 | 5.736166 | 3.307458 | 3.178083 | 3.087417 | 3.424708 |
+| 6 | 6.115625 | 5.578500 | 5.637208 | 5.682042 | 3.307667 | 3.131459 | 3.166250 | 3.418542 |
+| 7 | 5.847625 | 5.610250 | 5.530958 | 5.735084 | 3.311834 | 3.205000 | 3.118834 | 3.458917 |
+| 8 | 5.840000 | 5.655542 | 5.548334 | 5.711125 | 3.292584 | 3.135167 | 3.076375 | 3.483917 |
+| 9 | 5.875209 | 5.619375 | 5.561333 | 5.700417 | 3.309042 | 3.193208 | 3.089584 | 3.467583 |
+| 10 | 5.835375 | 5.664875 | 5.584042 | 5.736375 | 3.329083 | 3.168083 | 3.115250 | 3.505042 |
+| 11 | 5.878917 | 5.579667 | 5.738833 | 5.847875 | 3.353916 | 3.237500 | 3.258500 | 3.456042 |
+| 12 | 5.914083 | 5.601958 | 5.779750 | 5.874750 | 3.341000 | 3.188958 | 3.116500 | 3.582375 |
+| 13 | 5.773959 | 5.593917 | 5.601834 | 5.674208 | 3.304458 | 3.192750 | 3.085084 | 3.439958 |
+| 14 | 6.002584 | 5.594250 | 5.518375 | 5.700625 | 3.286083 | 3.163667 | 3.160375 | 3.446916 |
+| 15 | 5.848291 | 5.823916 | 5.608917 | 5.722334 | 3.287917 | 3.276125 | 3.122458 | 3.540750 |
+| median | **5.859333** | **5.610250** | **5.572875** | **5.722334** | **3.309042** | **3.184041** | **3.115250** | **3.456584** |
+
+A second 15-group comparison checked the Boolean-dispatch candidates.
+It used the same alternating order and checksums.
+
+| approach | diff median, ms | split median, ms |
+|---|---:|---:|
+| baseline | 5.872417 | 3.339041 |
+| merged dispatch | 5.912500 | 3.362125 |
+| partial-line pair | 5.956250 | 3.332125 |
+| next-character state | 5.913542 | 3.373542 |
+| Char predicate | 5.869958 | 3.390125 |
+| U32 predicate | 5.972541 | 3.339042 |
+
+The retained direct pattern lowers the diff median **4.25%** and the split
+median **3.78%**. It wins 14 of 15 diff groups and all 15 split groups.
+The pair representation saves another 0.037375 ms on the diff median.
+That small difference does not justify its extra state and helpers.
+
+The original below-4-ms String diff target is **not met**. The revised
+target is a repeatable String-path gain with the same input, checksum, API,
+and universal reconstruction laws. No packed-input result substitutes for
+the String measurement. The LF proof handles each first differing U32 bit
+explicitly; a numeric-pattern catch-all does not reduce in the checker.
+
+The final retained build ran the full package benchmark again: Bend diff
+**5.8 ms**, distance **16.1 ms**, wrap **13.4 ms**, and wrap_utf **20.6 ms**.
+All checksums still agree. Its seven split samples were 3.168542, 3.201250,
+3.147125, 3.203250, 3.158500, 3.247791, and 3.160167 ms; median **3.168542 ms**.
+`scripts/check.sh text`, `scripts/publish.sh --check text`, and
+`scripts/pins.sh origin/main text` pass. Both universal reconstruction laws
+remain proved, and both 3,000-case randomized checks report zero failures.
