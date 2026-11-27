@@ -22,13 +22,17 @@ def drain(f: Nat, r: Sse.Reader & Sse.Next, acc: List<&1, Sse.Message>) -> Sse.R
         case Sse.Want{}:
           (rd, acc)
 
+def feed_drain(r: Sse.Reader, acc: List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
+  Sse.Reader{Bytes.Bytes{+n, a}, pos, seen, cr, st} = r
+  drain(Nat.add(U32.to_nat(n), 1n), Sse.next(Sse.Reader{Bytes.Bytes{n, a}, pos, seen, cr, st}), acc)
+
 def feed(pieces: List<&2, String>, r: Sse.Reader & List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
   match pieces:
     case Nil{}:
       r
     case Con{h, t}:
       (rd, acc) = r
-      feed(t, drain(64n, Sse.next(Sse.feed(rd, b(h))), acc))
+      feed(t, feed_drain(Sse.feed(rd, b(h)), acc))
 
 def got(r: Sse.Reader & List<&1, Sse.Message>) -> List<&1, Sse.Message>:
   (rd, acc) = r
@@ -138,14 +142,14 @@ law sse_feed_compose:
   for r: Sse.Reader & List<&1, Sse.Message>
   {feed(List.append(&2, String, xs, ys), r) == feed(ys, feed(xs, r)) : Sse.Reader & List<&1, Sse.Message>}
 
-# Feed the real parser one octet at a time, with the same drain budget as feed.
+# Feed the real parser one octet at a time, with the same drain policy as feed.
 def feed_octets(chunk: String, r: Sse.Reader & List<&1, Sse.Message>) -> Sse.Reader & List<&1, Sse.Message>:
   match chunk:
     case SNil{}:
       r
     case SCon{c, t}:
       (rd, acc) = r
-      feed_octets(t, drain(64n, Sse.next(Sse.feed(rd, b(SCon{c, SNil{}}))), acc))
+      feed_octets(t, feed_drain(Sse.feed(rd, b(SCon{c, SNil{}})), acc))
 
 law sse_octet_compose:
   for a: String
@@ -188,6 +192,47 @@ law sse_message_id:
   for id: String
   for retry: Maybe<&2, U32>
   {message_id(Sse.dispatch.of(False{}, name, data, id, retry)) == Some{id} : Maybe<&2, String>}
+
+# Keep line progress separate from conversion to Reader so fuel can be split.
+def line_advance(f: Nat, l: Sse.Line, +len: U32) -> Sse.Line:
+  match f:
+    case 0n:
+      l
+    case 1n+p:
+      match l:
+        case Sse.LMore{a, +pos, cr, st}:
+          line_advance(p, Sse.line(a, len, pos, pos, cr, st), len)
+        case Sse.LWant{a, pos, cr, st}:
+          Sse.LWant{a, pos, cr, st}
+        case Sse.LGot{a, pos, cr, st, e}:
+          Sse.LGot{a, pos, cr, st, e}
+
+law sse_loop_compose:
+  for f: Nat
+  for g: Nat
+  for l: Sse.Line
+  for +len: U32
+  {Sse.loop(Nat.add(f, g), l, len) == Sse.loop(g, line_advance(f, l, len), len) : Sse.Reader & Sse.Next}
+
+law sse_crlf_skip:
+  for +len: U32
+  for +pos: U32
+  for a: Array<U32>
+  for b: Array<U32>
+  for more: {U32.is_lt(pos, len) == True{} : Bool}
+  for first: {Bytes.peek(a, pos) == (b, 10) : Array<U32> & U32}
+  {Sse.skip(True{}, a, len, pos) == (b, (pos + 1 : U32), False{}) : Array<U32> & U32 & Bool}
+
+def repeated_events(n: Nat) -> String:
+  match n:
+    case 0n:
+      ""
+    case 1n+p:
+      "data:x\n\n" ++ repeated_events(p)
+
+# A single chunk must not discard the event after the old 64-event budget.
+law sse_large_chunk:
+  {List.length(&1, Sse.Message, events([repeated_events(65n)])) == 65n : Nat}
 
 # ---- replies
 
