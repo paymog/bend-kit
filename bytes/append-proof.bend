@@ -5,6 +5,7 @@ import ./word-proof.bend as WordModel
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import ../bits/field-proof.bend as Field
+import ../bits/array-proof.bend as Bound
 
 # The tree model keeps array observations copyable without a small-depth bound.
 def set.go(t: Tree.Tree<U32>, +n: U32, +i: U32, +v: U32, z: Bool) -> Tree.Tree<U32>:
@@ -679,3 +680,660 @@ def append_unaligned_at(+la: U32, +a: Tree.Tree<U32>, +lb: U32, +b: Tree.Tree<U3
   %Equal.sym(Bool, U32.is_eq(U32.and(la, 3), 0), False{}, hd) : {peek(copy.dst(_, lb, b, grow(la, a, U32.add(la, lb)), 0, la), advance(k, la)) == peek(b, advance(k, 0)) : U32}
   %Equal.sym(Nat, U32.to_nat(lb), Nat.add(k, 1n+n), hm) : {peek(copy.go(_, b, grow(la, a, U32.add(la, lb)), 0, la, peek(b, 0)), advance(k, la)) == peek(b, advance(k, 0)) : U32}
   copy.bytes_at(k, n, b, grow(la, a, U32.add(la, lb)), 0, la, h)
+
+def from_one_end(+t: Tree.Tree<U32>, +i: U32, +j: U32, +r: U32, +q: U32, +w: U32, +c: U32) -> Tree.Tree<U32>:
+  flush(U32.is_ne(q, 0), flush(U32.is_eq(r, 3), t, U32.shrn(i, 2n), U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))), U32.shrn(j, 2n), U32.shrn(Bool.pick(U32, U32.is_eq(r, 3), 0, U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))), U32.to_nat(U32.mul(U32.and(U32.sub(4, q), 3), 8))))
+
+def from_one_normal(+t: Tree.Tree<U32>, +i: U32, +j: U32, +r: U32, +q: U32, +w: U32, +c: U32, hi: {U32.and(i, 3) == r : U32}, hj: {U32.and(j, 3) == q : U32}, he: {U32.add(i, 1) == j : U32}) -> {from.go(SCon{Chr{c}, SNil{}}, t, i, w) == from_one_end(t, i, j, r, q, w, c) : Tree.Tree<U32>}:
+  %Equal.sym(U32, U32.add(i, 1), j, he) : {from.go(SNil{}, flush(U32.is_eq(U32.and(i, 3), 3), t, U32.shrn(i, 2n), U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))), _, Bool.pick(U32, U32.is_eq(U32.and(i, 3), 3), 0, U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)))) == from_one_end(t, i, j, r, q, w, c) : Tree.Tree<U32>}
+  %Equal.sym(U32, U32.and(i, 3), r, hi) : {from.go(SNil{}, flush(U32.is_eq(_, 3), t, U32.shrn(i, 2n), U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))), j, Bool.pick(U32, U32.is_eq(_, 3), 0, U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)))) == from_one_end(t, i, j, r, q, w, c) : Tree.Tree<U32>}
+  %Equal.sym(U32, U32.and(j, 3), q, hj) : {from_one_end(t, i, j, r, _, w, c) == from_one_end(t, i, j, r, q, w, c) : Tree.Tree<U32>}
+  {==}
+
+def from_one_bits(+a: Bool, +b: Bool, +tail: Word(30n), +t: Tree.Tree<U32>, +w: U32, +c: U32) -> {peek(from.go(SCon{Chr{c}, SNil{}}, t, U32{WCon{a, WCon{b, tail}}}, w), U32{WCon{a, WCon{b, tail}}}) == Bytes.b8(c) : U32}:
+  match a b:
+    case False{} False{}:
+      +i : U32 = U32{WCon{False{}, WCon{False{}, tail}}}
+      +j : U32 = U32{WCon{True{}, WCon{False{}, tail}}}
+      %Equal.sym(Tree.Tree<U32>, from.go(SCon{Chr{c}, SNil{}}, t, i, w), from_one_end(t, i, j, 0, 1, w, c), from_one_normal(t, i, j, 0, 1, w, c, low2(False{}, False{}, tail), low2(True{}, False{}, tail), Lemmas.u32_add_one(i))) : {peek(_, i) == Bytes.b8(c) : U32}
+      %Equal.sym(U32, U32.and(i, 3), 0, low2(False{}, False{}, tail)) : {Bytes.b8(U32.shrn(Tree.read(U32, from_one_end(t, i, j, 0, 1, w, c), U32.shrn(i, 2n)), U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+      +v = U32.shrn(U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)), 24n)
+      %Equal.sym(U32, Tree.read(U32, set(t, U32.shrn(i, 2n), v), U32.shrn(i, 2n)), v, read_set(t, U32.shrn(i, 2n), v)) : {Bytes.b8(_) == Bytes.b8(c) : U32}
+      pending_lane(w, c, 24n, 0n, {==})
+    case True{} False{}:
+      +i : U32 = U32{WCon{True{}, WCon{False{}, tail}}}
+      +j : U32 = U32{WCon{False{}, WCon{True{}, tail}}}
+      %Equal.sym(Tree.Tree<U32>, from.go(SCon{Chr{c}, SNil{}}, t, i, w), from_one_end(t, i, j, 1, 2, w, c), from_one_normal(t, i, j, 1, 2, w, c, low2(True{}, False{}, tail), low2(False{}, True{}, tail), Lemmas.u32_add_one(i))) : {peek(_, i) == Bytes.b8(c) : U32}
+      %Equal.sym(U32, U32.and(i, 3), 1, low2(True{}, False{}, tail)) : {Bytes.b8(U32.shrn(Tree.read(U32, from_one_end(t, i, j, 1, 2, w, c), U32.shrn(i, 2n)), U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+      +v = U32.shrn(U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)), 16n)
+      %Equal.sym(U32, Tree.read(U32, set(t, U32.shrn(i, 2n), v), U32.shrn(i, 2n)), v, read_set(t, U32.shrn(i, 2n), v)) : {Bytes.b8(U32.shrn(_, 8n)) == Bytes.b8(c) : U32}
+      pending_lane(w, c, 16n, 8n, {==})
+    case False{} True{}:
+      +i : U32 = U32{WCon{False{}, WCon{True{}, tail}}}
+      +j : U32 = U32{WCon{True{}, WCon{True{}, tail}}}
+      %Equal.sym(Tree.Tree<U32>, from.go(SCon{Chr{c}, SNil{}}, t, i, w), from_one_end(t, i, j, 2, 3, w, c), from_one_normal(t, i, j, 2, 3, w, c, low2(False{}, True{}, tail), low2(True{}, True{}, tail), Lemmas.u32_add_one(i))) : {peek(_, i) == Bytes.b8(c) : U32}
+      %Equal.sym(U32, U32.and(i, 3), 2, low2(False{}, True{}, tail)) : {Bytes.b8(U32.shrn(Tree.read(U32, from_one_end(t, i, j, 2, 3, w, c), U32.shrn(i, 2n)), U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+      +v = U32.shrn(U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)), 8n)
+      %Equal.sym(U32, Tree.read(U32, set(t, U32.shrn(i, 2n), v), U32.shrn(i, 2n)), v, read_set(t, U32.shrn(i, 2n), v)) : {Bytes.b8(U32.shrn(_, 16n)) == Bytes.b8(c) : U32}
+      pending_lane(w, c, 8n, 16n, {==})
+    case True{} True{}:
+      +i : U32 = U32{WCon{True{}, WCon{True{}, tail}}}
+      +j : U32 = U32{WCon{False{}, WCon{False{}, Word.inc(30n, tail)}}}
+      %Equal.sym(Tree.Tree<U32>, from.go(SCon{Chr{c}, SNil{}}, t, i, w), from_one_end(t, i, j, 3, 0, w, c), from_one_normal(t, i, j, 3, 0, w, c, low2(True{}, True{}, tail), low2(False{}, False{}, Word.inc(30n, tail)), Lemmas.u32_add_one(i))) : {peek(_, i) == Bytes.b8(c) : U32}
+      %Equal.sym(U32, U32.and(i, 3), 3, low2(True{}, True{}, tail)) : {Bytes.b8(U32.shrn(Tree.read(U32, from_one_end(t, i, j, 3, 0, w, c), U32.shrn(i, 2n)), U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      %Equal.sym(U32, Tree.read(U32, set(t, U32.shrn(i, 2n), v), U32.shrn(i, 2n)), v, read_set(t, U32.shrn(i, 2n), v)) : {Bytes.b8(U32.shrn(_, 24n)) == Bytes.b8(c) : U32}
+      pending_lane(w, c, 0n, 24n, {==})
+
+def from_one(+t: Tree.Tree<U32>, +i: U32, +w: U32, +c: U32) -> {peek(from.go(SCon{Chr{c}, SNil{}}, t, i, w), i) == Bytes.b8(c) : U32}:
+  match i:
+    case U32{WCon{+a, WCon{+b, +tail}}}:
+      from_one_bits(a, b, tail, t, w, c)
+
+def from_last(+s: String, +t: Tree.Tree<U32>, +i: U32, +w: U32, +c: U32) -> {peek(from.go(s ++ SCon{Chr{c}, SNil{}}, t, i, w), advance(String.length(s), i)) == Bytes.b8(c) : U32}:
+  match s:
+    case SNil{}:
+      from_one(t, i, w, c)
+    case SCon{Chr{+a}, +rest}:
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(a), 24n))
+      +full = U32.is_eq(U32.and(i, 3), 3)
+      from_last(rest, flush(full, t, U32.shrn(i, 2n), v), U32.add(i, 1), Bool.pick(U32, full, 0, v), c)
+
+def copy.words_source(k: Nat, +src: Tree.Tree<U32>, +s: U32, w: U32) -> U32:
+  match k:
+    case 0n:
+      w
+    case 1n+p:
+      copy.words_source(p, src, U32.add(s, 1), Tree.read(U32, src, U32.add(s, 1)))
+
+def copy.words_source_value(k: Nat, +src: Tree.Tree<U32>, +s: U32) -> {copy.words_source(k, src, s, Tree.read(U32, src, s)) == Tree.read(U32, src, advance(k, s)) : U32}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+p:
+      copy.words_source_value(p, src, U32.add(s, 1))
+
+def copy.words_at(k: Nat, +n: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32, +d: U32, +w: U32, h: Outside(n, dst, advance(1n+k, d), advance(k, d))) -> {Tree.read(U32, copy.words(Nat.add(k, 1n+n), src, dst, s, d, w), advance(k, d)) == copy.words_source(k, src, s, w) : U32}:
+  match k:
+    case 0n:
+      copy.words_first(n, src, dst, s, d, w, h)
+    case 1n+ +p:
+      copy.words_at(p, n, src, set(dst, d, w), U32.add(s, 1), U32.add(d, 1), Tree.read(U32, src, U32.add(s, 1)), outside_set(n, dst, advance(1n+p, U32.add(d, 1)), advance(p, U32.add(d, 1)), d, w, h))
+
+def copy.words_value(+k: Nat, +n: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32, +d: U32, h: Outside(n, dst, advance(1n+k, d), advance(k, d))) -> {Tree.read(U32, copy.words(Nat.add(k, 1n+n), src, dst, s, d, Tree.read(U32, src, s)), advance(k, d)) == Tree.read(U32, src, advance(k, s)) : U32}:
+  Equal.trans(U32, Tree.read(U32, copy.words(Nat.add(k, 1n+n), src, dst, s, d, Tree.read(U32, src, s)), advance(k, d)), copy.words_source(k, src, s, Tree.read(U32, src, s)), Tree.read(U32, src, advance(k, s)), copy.words_at(k, n, src, dst, s, d, Tree.read(U32, src, s), h), copy.words_source_value(k, src, s))
+
+def as_bits(t: Tree.Tree<U32>) -> Bound.Tree:
+  match t:
+    case Tree.Leaf{x}:
+      Bound.Leaf{x}
+    case Tree.Node{xs, ys}:
+      Bound.Node{as_bits(xs), as_bits(ys)}
+
+def as_bits_size(+t: Tree.Tree<U32>) -> {Tree.size(U32, t) == Bound.size(as_bits(t)) : U32}:
+  match t:
+    case Tree.Leaf{x}:
+      {==}
+    case Tree.Node{xs, ys}:
+      Equal.cong(U32, U32, U32.shl, Tree.size(U32, xs), Bound.size(as_bits(xs)), as_bits_size(xs))
+
+def apart_separate(+depth: Nat, +t: Tree.Tree<U32>, +n: U32, +i: U32, +j: U32, +z: Bool, +q: Bool, h: Bound.shape(depth, as_bits(t)), sep: Bound.separate(depth, n, i, j, z, q)) -> {apart.go(t, n, i, j, z, q) == True{} : Bool}:
+  match depth t z q:
+    case 0n Tree.Leaf{x} _ _:
+      match sep:
+    case 0n Tree.Node{xs, ys} _ _:
+      match h:
+    case 1n+p Tree.Leaf{x} _ _:
+      match h:
+    case 1n+ +p Tree.Node{xs, ys} True{} True{}:
+      (hl, hr) = h
+      apart_separate(p, xs, U32.shr(n), i, j, U32.is_lt(i, U32.shr(U32.shr(n))), U32.is_lt(j, U32.shr(U32.shr(n))), hl, sep)
+    case 1n+ +p Tree.Node{xs, ys} False{} False{}:
+      (hl, hr) = h
+      apart_separate(p, ys, U32.shr(n), U32.sub(i, U32.shr(n)), U32.sub(j, U32.shr(n)), U32.is_lt(U32.sub(i, U32.shr(n)), U32.shr(U32.shr(n))), U32.is_lt(U32.sub(j, U32.shr(n)), U32.shr(U32.shr(n))), hr, sep)
+    case 1n+p Tree.Node{xs, ys} True{} False{}:
+      {==}
+    case 1n+p Tree.Node{xs, ys} False{} True{}:
+      {==}
+
+def apart_bounded.of(+depth: Nat, +t: Tree.Tree<U32>, +i: U32, +j: U32, hd: MNat.lt(depth, 32n), hi: MNat.lt(U32.to_nat(i), Lemmas.pow2(depth)), hj: MNat.lt(U32.to_nat(j), Lemmas.pow2(depth)), ne: {U32.is_eq(i, j) == False{} : Bool}, hs: Bound.shape(depth, as_bits(t)) & Bound.shape(depth, as_bits(t))) -> {apart(t, i, j) == True{} : Bool}:
+  (ha, hb) = hs
+  +en = Equal.trans(U32, Tree.size(U32, t), Bound.size(as_bits(t)), Bound.size(Bound.zeros(depth)), as_bits_size(t), Bound.shape_size(depth, as_bits(t), hb))
+  apart_separate(depth, t, Tree.size(U32, t), Tree.J(i, Tree.size(U32, t)), Tree.J(j, Tree.size(U32, t)), Tree.Z(i, Tree.size(U32, t)), Tree.Z(j, Tree.size(U32, t)), ha, Bound.separate_in_range(depth, Tree.size(U32, t), i, j, hd, hi, hj, ne, en))
+
+def apart_bounded(+depth: Nat, +t: Tree.Tree<U32>, +i: U32, +j: U32, h: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hi: MNat.lt(U32.to_nat(i), Lemmas.pow2(depth)), hj: MNat.lt(U32.to_nat(j), Lemmas.pow2(depth)), ne: {U32.is_eq(i, j) == False{} : Bool}) -> {apart(t, i, j) == True{} : Bool}:
+  apart_bounded.of(depth, t, i, j, hd, hi, hj, ne, Bound.shape_copy(depth, as_bits(t), h))
+
+def fresh_shape(+depth: Nat) -> Bound.shape(depth, as_bits(fresh(depth))):
+  match depth:
+    case 0n:
+      Unit{}
+    case 1n+ +p:
+      (fresh_shape(p), fresh_shape(p))
+
+def set_shape.go(+depth: Nat, +t: Tree.Tree<U32>, +n: U32, +i: U32, +v: U32, +z: Bool, h: Bound.shape(depth, as_bits(t))) -> Bound.shape(depth, as_bits(set.go(t, n, i, v, z))):
+  match depth t z:
+    case 0n Tree.Leaf{x} _:
+      Unit{}
+    case 0n Tree.Node{xs, ys} _:
+      match h:
+    case 1n+p Tree.Leaf{x} _:
+      match h:
+    case 1n+ +p Tree.Node{xs, ys} True{}:
+      (hl, hr) = h
+      (set_shape.go(p, xs, U32.shr(n), i, v, U32.is_lt(i, U32.shr(U32.shr(n))), hl), hr)
+    case 1n+ +p Tree.Node{xs, ys} False{}:
+      (hl, hr) = h
+      (hl, set_shape.go(p, ys, U32.shr(n), U32.sub(i, U32.shr(n)), v, U32.is_lt(U32.sub(i, U32.shr(n)), U32.shr(U32.shr(n))), hr))
+
+def set_shape(+depth: Nat, +t: Tree.Tree<U32>, +i: U32, +v: U32, h: Bound.shape(depth, as_bits(t))) -> Bound.shape(depth, as_bits(set(t, i, v))):
+  set_shape.go(depth, t, Tree.size(U32, t), Tree.J(i, Tree.size(U32, t)), v, Tree.Z(i, Tree.size(U32, t)), h)
+
+def nat_eq_false_gt(+a: Nat, +b: Nat, h: MNat.lt(a, b)) -> {Nat.is_eq(b, a) == False{} : Bool}:
+  match a b:
+    case 0n 0n:
+      Empty.absurd({True{} == False{} : Bool}, WordModel.false_true(h))
+    case 0n 1n+p:
+      {==}
+    case 1n+p 0n:
+      Empty.absurd({False{} == False{} : Bool}, WordModel.false_true(h))
+    case 1n+p 1n+q:
+      nat_eq_false_gt(p, q, h)
+
+def u32_eq_false_gt(+i: U32, +j: U32, h: MNat.lt(U32.to_nat(i), U32.to_nat(j))) -> {U32.is_eq(j, i) == False{} : Bool}:
+  Equal.trans(Bool, U32.is_eq(j, i), Nat.is_eq(U32.to_nat(j), U32.to_nat(i)), False{}, Lemmas.u32_is_eq_nat(j, i), nat_eq_false_gt(U32.to_nat(i), U32.to_nat(j), h))
+
+def outside_numeric.of(n: Nat, +depth: Nat, +t: Tree.Tree<U32>, +d: U32, +j: U32, +limit: Nat, hs: Bound.shape(depth, as_bits(t)) & Bound.shape(depth, as_bits(t)), +hd: MNat.lt(depth, 32n), +hl: MNat.le(limit, Lemmas.pow2(depth)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +hj: MNat.lt(U32.to_nat(j), U32.to_nat(d)), +end: MNat.lt(Nat.add(n, U32.to_nat(d)), limit)) -> Outside(n, t, d, j):
+  match n hs:
+    case 0n _:
+      Unit{}
+    case 1n+ +p Tuple{ha, hb}:
+      +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(d), 1n+Nat.add(p, U32.to_nat(d)), limit, le_add_left(U32.to_nat(d), p), end)
+      +he = add_one_nat(d, MNat.lt_of_lt_of_le(1n+U32.to_nat(d), limit, Lemmas.pow2(32n), step, hu))
+      +db = MNat.lt_trans(U32.to_nat(d), 1n+U32.to_nat(d), limit, MNat.lt_succ_self(U32.to_nat(d)), step)
+      +bound = MNat.lt_of_lt_of_le(U32.to_nat(d), limit, Lemmas.pow2(depth), db, hl)
+      +head = apart_bounded(depth, t, d, j, ha, hd, bound, MNat.lt_trans(U32.to_nat(j), U32.to_nat(d), Lemmas.pow2(depth), hj, bound), u32_eq_false_gt(j, d, hj))
+      +next : MNat.lt(Nat.add(p, U32.to_nat(U32.add(d, 1))), limit) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(d, 1)), 1n+U32.to_nat(d), he) : MNat.lt(Nat.add(p, _), limit)
+        %Equal.sym(Nat, Nat.add(p, 1n+U32.to_nat(d)), 1n+Nat.add(p, U32.to_nat(d)), MNat.add_succ(p, U32.to_nat(d))) : MNat.lt(_, limit)
+        end)
+      +later : MNat.lt(U32.to_nat(j), U32.to_nat(U32.add(d, 1))) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(d, 1)), 1n+U32.to_nat(d), he) : MNat.lt(U32.to_nat(j), _)
+        MNat.lt_trans(U32.to_nat(j), U32.to_nat(d), 1n+U32.to_nat(d), hj, MNat.lt_succ_self(U32.to_nat(d))))
+      (head, outside_numeric.of(p, depth, t, U32.add(d, 1), j, limit, Bound.shape_copy(depth, as_bits(t), hb), hd, hl, hu, later, next))
+
+def outside_numeric(+n: Nat, +depth: Nat, +t: Tree.Tree<U32>, +d: U32, +j: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Lemmas.pow2(depth)), hu: MNat.le(limit, Lemmas.pow2(32n)), hj: MNat.lt(U32.to_nat(j), U32.to_nat(d)), end: MNat.lt(Nat.add(n, U32.to_nat(d)), limit)) -> Outside(n, t, d, j):
+  outside_numeric.of(n, depth, t, d, j, limit, Bound.shape_copy(depth, as_bits(t), shape), hd, hl, hu, hj, end)
+
+def advance_nat(n: Nat, +i: U32, +limit: Nat, +hl: MNat.le(limit, Lemmas.pow2(32n)), +h: MNat.lt(Nat.add(n, U32.to_nat(i)), limit)) -> {U32.to_nat(advance(n, i)) == Nat.add(n, U32.to_nat(i)) : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+ +p:
+      +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(i), 1n+Nat.add(p, U32.to_nat(i)), limit, le_add_left(U32.to_nat(i), p), h)
+      +he = add_one_nat(i, MNat.lt_of_lt_of_le(1n+U32.to_nat(i), limit, Lemmas.pow2(32n), step, hl))
+      +next : MNat.lt(Nat.add(p, U32.to_nat(U32.add(i, 1))), limit) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.lt(Nat.add(p, _), limit)
+        %Equal.sym(Nat, Nat.add(p, 1n+U32.to_nat(i)), 1n+Nat.add(p, U32.to_nat(i)), MNat.add_succ(p, U32.to_nat(i))) : MNat.lt(_, limit)
+        h)
+      Equal.trans(Nat, U32.to_nat(advance(p, U32.add(i, 1))), Nat.add(p, U32.to_nat(U32.add(i, 1))), 1n+Nat.add(p, U32.to_nat(i)), advance_nat(p, U32.add(i, 1), limit, hl, next),
+        Equal.trans(Nat, Nat.add(p, U32.to_nat(U32.add(i, 1))), Nat.add(p, 1n+U32.to_nat(i)), 1n+Nat.add(p, U32.to_nat(i)), Equal.cong(Nat, Nat, x => Nat.add(p, x), U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he), MNat.add_succ(p, U32.to_nat(i))))
+
+def outside_offset(+k: Nat, +n: Nat, +depth: Nat, +t: Tree.Tree<U32>, +d: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), +hd: MNat.lt(depth, 32n), +hl: MNat.le(limit, Lemmas.pow2(depth)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +end: MNat.lt(Nat.add(n, 1n+Nat.add(k, U32.to_nat(d))), limit)) -> Outside(n, t, advance(1n+k, d), advance(k, d)):
+  +kn = Nat.add(k, U32.to_nat(d))
+  +hb = MNat.lt_of_le_of_lt(1n+kn, Nat.add(n, 1n+kn), limit, le_add_left(1n+kn, n), end)
+  +hk = MNat.lt_trans(kn, 1n+kn, limit, MNat.lt_succ_self(kn), hb)
+  +ek = advance_nat(k, d, limit, hu, hk)
+  +en = advance_nat(1n+k, d, limit, hu, hb)
+  +before : MNat.lt(U32.to_nat(advance(k, d)), U32.to_nat(advance(1n+k, d))) = (
+    %Equal.sym(Nat, U32.to_nat(advance(k, d)), kn, ek) : MNat.lt(_, U32.to_nat(advance(1n+k, d)))
+    %Equal.sym(Nat, U32.to_nat(advance(1n+k, d)), 1n+kn, en) : MNat.lt(kn, _)
+    MNat.lt_succ_self(kn))
+  +after : MNat.lt(Nat.add(n, U32.to_nat(advance(1n+k, d))), limit) = (
+    %Equal.sym(Nat, U32.to_nat(advance(1n+k, d)), 1n+kn, en) : MNat.lt(Nat.add(n, _), limit)
+    end)
+  outside_numeric(n, depth, t, advance(1n+k, d), advance(k, d), limit, shape, hd, hl, hu, before, after)
+
+def copy.words_bounded(+k: Nat, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32, +d: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(dst)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Lemmas.pow2(depth)), hu: MNat.le(limit, Lemmas.pow2(32n)), end: MNat.lt(Nat.add(n, 1n+Nat.add(k, U32.to_nat(d))), limit)) -> {Tree.read(U32, copy.words(Nat.add(k, 1n+n), src, dst, s, d, Tree.read(U32, src, s)), advance(k, d)) == Tree.read(U32, src, advance(k, s)) : U32}:
+  copy.words_value(k, n, src, dst, s, d, outside_offset(k, n, depth, dst, d, limit, shape, hd, hl, hu, end))
+
+def index_nat(+i: U32) -> {Nat.add(Nat.mul(U32.to_nat(U32.shrn(i, 2n)), 4n), U32.to_nat(U32.and(i, 3))) == U32.to_nat(i) : Nat}:
+  %Equal.sym(Nat, U32.to_nat(U32.shrn(i, 2n)), Nat.div(U32.to_nat(i), 4n), Field.shrn_nat(i, 2n)) : {Nat.add(Nat.mul(_, 4n), U32.to_nat(U32.and(i, 3))) == U32.to_nat(i) : Nat}
+  %Equal.sym(Nat, U32.to_nat(U32.and(i, 3)), Nat.mod(U32.to_nat(i), 4n), Field.mask_mod(i, 2, {==})) : {Nat.add(Nat.mul(Nat.div(U32.to_nat(i), 4n), 4n), _) == U32.to_nat(i) : Nat}
+  MNat.div_mod_eq(U32.to_nat(i), 3n)
+
+def index_inj(+i: U32, +j: U32, hw: {U32.shrn(i, 2n) == U32.shrn(j, 2n) : U32}, hl: {U32.to_nat(U32.and(i, 3)) == U32.to_nat(U32.and(j, 3)) : Nat}) -> {i == j : U32}:
+  Lemmas.u32_to_nat_inj(i, j,
+    Equal.trans(Nat, U32.to_nat(i), Nat.add(Nat.mul(U32.to_nat(U32.shrn(i, 2n)), 4n), U32.to_nat(U32.and(i, 3))), U32.to_nat(j), Equal.sym(Nat, Nat.add(Nat.mul(U32.to_nat(U32.shrn(i, 2n)), 4n), U32.to_nat(U32.and(i, 3))), U32.to_nat(i), index_nat(i)), (
+      %Equal.sym(U32, U32.shrn(i, 2n), U32.shrn(j, 2n), hw) : {Nat.add(Nat.mul(U32.to_nat(_), 4n), U32.to_nat(U32.and(i, 3))) == U32.to_nat(j) : Nat}
+      %Equal.sym(Nat, U32.to_nat(U32.and(i, 3)), U32.to_nat(U32.and(j, 3)), hl) : {Nat.add(Nat.mul(U32.to_nat(U32.shrn(j, 2n)), 4n), _) == U32.to_nat(j) : Nat}
+      index_nat(j))))
+
+def u32_eq_true(+i: U32, +j: U32, h: {U32.is_eq(i, j) == True{} : Bool}) -> {i == j : U32}:
+  Lemmas.u32_to_nat_inj(i, j, MNat.eq_of_is_eq(U32.to_nat(i), U32.to_nat(j), Equal.trans(Bool, Nat.is_eq(U32.to_nat(i), U32.to_nat(j)), U32.is_eq(i, j), True{}, Equal.sym(Bool, U32.is_eq(i, j), Nat.is_eq(U32.to_nat(i), U32.to_nat(j)), Lemmas.u32_is_eq_nat(i, j)), h)))
+
+def div4_lt(+i: U32, +cap: Nat, h: MNat.lt(U32.to_nat(i), Nat.mul(cap, 4n))) -> MNat.lt(U32.to_nat(U32.shrn(i, 2n)), cap):
+  %Equal.sym(Nat, U32.to_nat(U32.shrn(i, 2n)), Nat.div(U32.to_nat(i), 4n), Field.shrn_nat(i, 2n)) : MNat.lt(_, cap)
+  MNat.lt_of_not_le(cap, Nat.div(U32.to_nat(i), 4n),
+    Equal.trans(Bool, Nat.is_le(cap, Nat.div(U32.to_nat(i), 4n)), Nat.is_le(Nat.mul(cap, 4n), U32.to_nat(i)), False{}, MNat.le_div_iff_mul_le(cap, U32.to_nat(i), 3n), MNat.not_le_of_lt(U32.to_nat(i), Nat.mul(cap, 4n), h)))
+
+def byte_apart_bounded.pick(eq: Bool, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +j: U32, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hi: MNat.lt(U32.to_nat(i), Nat.mul(Lemmas.pow2(depth), 4n)), hj: MNat.lt(U32.to_nat(j), Nat.mul(Lemmas.pow2(depth), 4n)), ne: {i != j : U32}, he: {U32.is_eq(U32.shrn(i, 2n), U32.shrn(j, 2n)) == eq : Bool}) -> ByteApart<t, i, j>:
+  match eq:
+    case True{}:
+      +same = u32_eq_true(U32.shrn(i, 2n), U32.shrn(j, 2n), he)
+      LaneApart{same, e => ne(index_inj(i, j, same, e))}
+    case False{}:
+      WordApart{apart_bounded(depth, t, U32.shrn(i, 2n), U32.shrn(j, 2n), shape, hd, div4_lt(i, Lemmas.pow2(depth), hi), div4_lt(j, Lemmas.pow2(depth), hj), he)}
+
+def byte_apart_bounded(+depth: Nat, +t: Tree.Tree<U32>, +i: U32, +j: U32, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hi: MNat.lt(U32.to_nat(i), Nat.mul(Lemmas.pow2(depth), 4n)), hj: MNat.lt(U32.to_nat(j), Nat.mul(Lemmas.pow2(depth), 4n)), ne: {i != j : U32}) -> ByteApart<t, i, j>:
+  byte_apart_bounded.pick(U32.is_eq(U32.shrn(i, 2n), U32.shrn(j, 2n)), depth, t, i, j, shape, hd, hi, hj, ne, {==})
+
+def u32_ne_gt(+d: U32, +j: U32, hj: MNat.lt(U32.to_nat(j), U32.to_nat(d)), e: {d == j : U32}) -> Empty:
+  MNat.lt_irrefl(U32.to_nat(j))((%e : MNat.lt(U32.to_nat(j), U32.to_nat(_)); hj))
+
+def byte_outside_numeric.of(n: Nat, +depth: Nat, +t: Tree.Tree<U32>, +d: U32, +j: U32, +limit: Nat, hs: Bound.shape(depth, as_bits(t)) & Bound.shape(depth, as_bits(t)), +hd: MNat.lt(depth, 32n), +hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +hj: MNat.lt(U32.to_nat(j), U32.to_nat(d)), +end: MNat.lt(Nat.add(n, U32.to_nat(d)), limit)) -> ByteOutside(n, t, d, j):
+  match n hs:
+    case 0n _:
+      Unit{}
+    case 1n+ +p Tuple{ha, hb}:
+      +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(d), 1n+Nat.add(p, U32.to_nat(d)), limit, le_add_left(U32.to_nat(d), p), end)
+      +he = add_one_nat(d, MNat.lt_of_lt_of_le(1n+U32.to_nat(d), limit, Lemmas.pow2(32n), step, hu))
+      +db = MNat.lt_trans(U32.to_nat(d), 1n+U32.to_nat(d), limit, MNat.lt_succ_self(U32.to_nat(d)), step)
+      +bound = MNat.lt_of_lt_of_le(U32.to_nat(d), limit, Nat.mul(Lemmas.pow2(depth), 4n), db, hl)
+      head = byte_apart_bounded(depth, t, d, j, ha, hd, bound, MNat.lt_trans(U32.to_nat(j), U32.to_nat(d), Nat.mul(Lemmas.pow2(depth), 4n), hj, bound), e => u32_ne_gt(d, j, hj, e))
+      +next : MNat.lt(Nat.add(p, U32.to_nat(U32.add(d, 1))), limit) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(d, 1)), 1n+U32.to_nat(d), he) : MNat.lt(Nat.add(p, _), limit)
+        %Equal.sym(Nat, Nat.add(p, 1n+U32.to_nat(d)), 1n+Nat.add(p, U32.to_nat(d)), MNat.add_succ(p, U32.to_nat(d))) : MNat.lt(_, limit)
+        end)
+      +later : MNat.lt(U32.to_nat(j), U32.to_nat(U32.add(d, 1))) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(d, 1)), 1n+U32.to_nat(d), he) : MNat.lt(U32.to_nat(j), _)
+        MNat.lt_trans(U32.to_nat(j), U32.to_nat(d), 1n+U32.to_nat(d), hj, MNat.lt_succ_self(U32.to_nat(d))))
+      (head, byte_outside_numeric.of(p, depth, t, U32.add(d, 1), j, limit, Bound.shape_copy(depth, as_bits(t), hb), hd, hl, hu, later, next))
+
+def byte_outside_numeric(+n: Nat, +depth: Nat, +t: Tree.Tree<U32>, +d: U32, +j: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)), hj: MNat.lt(U32.to_nat(j), U32.to_nat(d)), end: MNat.lt(Nat.add(n, U32.to_nat(d)), limit)) -> ByteOutside(n, t, d, j):
+  byte_outside_numeric.of(n, depth, t, d, j, limit, Bound.shape_copy(depth, as_bits(t), shape), hd, hl, hu, hj, end)
+
+def byte_outside_offset(+k: Nat, +n: Nat, +depth: Nat, +t: Tree.Tree<U32>, +d: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), +hd: MNat.lt(depth, 32n), +hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +end: MNat.lt(Nat.add(n, 1n+Nat.add(k, U32.to_nat(d))), limit)) -> ByteOutside(n, t, advance(1n+k, d), advance(k, d)):
+  +kn = Nat.add(k, U32.to_nat(d))
+  +hb = MNat.lt_of_le_of_lt(1n+kn, Nat.add(n, 1n+kn), limit, le_add_left(1n+kn, n), end)
+  +hk = MNat.lt_trans(kn, 1n+kn, limit, MNat.lt_succ_self(kn), hb)
+  +ek = advance_nat(k, d, limit, hu, hk)
+  +en = advance_nat(1n+k, d, limit, hu, hb)
+  +before : MNat.lt(U32.to_nat(advance(k, d)), U32.to_nat(advance(1n+k, d))) = (
+    %Equal.sym(Nat, U32.to_nat(advance(k, d)), kn, ek) : MNat.lt(_, U32.to_nat(advance(1n+k, d)))
+    %Equal.sym(Nat, U32.to_nat(advance(1n+k, d)), 1n+kn, en) : MNat.lt(kn, _)
+    MNat.lt_succ_self(kn))
+  +after : MNat.lt(Nat.add(n, U32.to_nat(advance(1n+k, d))), limit) = (
+    %Equal.sym(Nat, U32.to_nat(advance(1n+k, d)), 1n+kn, en) : MNat.lt(Nat.add(n, _), limit)
+    end)
+  byte_outside_numeric(n, depth, t, advance(1n+k, d), advance(k, d), limit, shape, hd, hl, hu, before, after)
+
+def copy.bytes_bounded(+k: Nat, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32, +d: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(dst)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)), end: MNat.lt(Nat.add(n, 1n+Nat.add(k, U32.to_nat(d))), limit)) -> {peek(copy.go(Nat.add(k, 1n+n), src, dst, s, d, peek(src, s)), advance(k, d)) == peek(src, advance(k, s)) : U32}:
+  copy.bytes_at(k, n, src, dst, s, d, byte_outside_offset(k, n, depth, dst, d, limit, shape, hd, hl, hu, end))
+
+def flush_shape(full: Bool, +depth: Nat, +t: Tree.Tree<U32>, +k: U32, +w: U32, h: Bound.shape(depth, as_bits(t))) -> Bound.shape(depth, as_bits(flush(full, t, k, w))):
+  match full:
+    case True{}:
+      set_shape(depth, t, k, w, h)
+    case False{}:
+      h
+
+def flush_frame(full: Bool, +t: Tree.Tree<U32>, +k: U32, +v: U32, +j: U32, h: {apart(t, k, j) == True{} : Bool}) -> {Tree.read(U32, flush(full, t, k, v), j) == Tree.read(U32, t, j) : U32}:
+  match full:
+    case True{}:
+      read_set_other(t, k, j, v, h)
+    case False{}:
+      {==}
+
+def shr2_inc_mono(+i: U32, he: {U32.to_nat(U32.add(i, 1)) == 1n+U32.to_nat(i) : Nat}) -> MNat.le(U32.to_nat(U32.shrn(i, 2n)), U32.to_nat(U32.shrn(U32.add(i, 1), 2n))):
+  %Equal.sym(Nat, U32.to_nat(U32.shrn(i, 2n)), Nat.div(U32.to_nat(i), 4n), Field.shrn_nat(i, 2n)) : MNat.le(_, U32.to_nat(U32.shrn(U32.add(i, 1), 2n)))
+  %Equal.sym(Nat, U32.to_nat(U32.shrn(U32.add(i, 1), 2n)), Nat.div(U32.to_nat(U32.add(i, 1)), 4n), Field.shrn_nat(U32.add(i, 1), 2n)) : MNat.le(Nat.div(U32.to_nat(i), 4n), _)
+  %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.le(Nat.div(U32.to_nat(i), 4n), Nat.div(_, 4n))
+  MNat.div_le_div(U32.to_nat(i), 1n+U32.to_nat(i), 3n, MNat.le_of_lt(U32.to_nat(i), 1n+U32.to_nat(i), MNat.lt_succ_self(U32.to_nat(i))))
+
+def from_frame.of(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +j: U32, +limit: Nat, hs: Bound.shape(depth, as_bits(t)) & Bound.shape(depth, as_bits(t)), +hd: MNat.lt(depth, 32n), +hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +hj: MNat.lt(U32.to_nat(j), U32.to_nat(U32.shrn(i, 2n))), +end: MNat.lt(Nat.add(String.length(s), U32.to_nat(i)), limit)) -> {Tree.read(U32, from.go(s, t, i, w), j) == Tree.read(U32, t, j) : U32}:
+  match s hs:
+    case SNil{} Tuple{ha, hb}:
+      +ib = MNat.lt_of_lt_of_le(U32.to_nat(i), limit, Nat.mul(Lemmas.pow2(depth), 4n), end, hl)
+      +kb = div4_lt(i, Lemmas.pow2(depth), ib)
+      +h = apart_bounded(depth, t, U32.shrn(i, 2n), j, ha, hd, kb, MNat.lt_trans(U32.to_nat(j), U32.to_nat(U32.shrn(i, 2n)), Lemmas.pow2(depth), hj, kb), u32_eq_false_gt(j, U32.shrn(i, 2n), hj))
+      +r = U32.and(i, 3)
+      flush_frame(U32.is_ne(r, 0), t, U32.shrn(i, 2n), U32.shrn(w, U32.to_nat(U32.mul(U32.and(U32.sub(4, r), 3), 8))), j, h)
+    case SCon{Chr{+c}, +tail} Tuple{ha, hb}:
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      +full = U32.is_eq(U32.and(i, 3), 3)
+      +out = flush(full, t, U32.shrn(i, 2n), v)
+      +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(i), 1n+Nat.add(String.length(tail), U32.to_nat(i)), limit, le_add_left(U32.to_nat(i), String.length(tail)), end)
+      +he = add_one_nat(i, MNat.lt_of_lt_of_le(1n+U32.to_nat(i), limit, Lemmas.pow2(32n), step, hu))
+      +ib = MNat.lt_of_lt_of_le(U32.to_nat(i), limit, Nat.mul(Lemmas.pow2(depth), 4n), MNat.lt_trans(U32.to_nat(i), 1n+U32.to_nat(i), limit, MNat.lt_succ_self(U32.to_nat(i)), step), hl)
+      +kb = div4_lt(i, Lemmas.pow2(depth), ib)
+      +h = apart_bounded(depth, t, U32.shrn(i, 2n), j, ha, hd, kb, MNat.lt_trans(U32.to_nat(j), U32.to_nat(U32.shrn(i, 2n)), Lemmas.pow2(depth), hj, kb), u32_eq_false_gt(j, U32.shrn(i, 2n), hj))
+      +next : MNat.lt(Nat.add(String.length(tail), U32.to_nat(U32.add(i, 1))), limit) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.lt(Nat.add(String.length(tail), _), limit)
+        %Equal.sym(Nat, Nat.add(String.length(tail), 1n+U32.to_nat(i)), 1n+Nat.add(String.length(tail), U32.to_nat(i)), MNat.add_succ(String.length(tail), U32.to_nat(i))) : MNat.lt(_, limit)
+        end)
+      Equal.trans(U32, Tree.read(U32, from.go(s, t, i, w), j), Tree.read(U32, out, j), Tree.read(U32, t, j),
+        from_frame.of(tail, depth, out, U32.add(i, 1), Bool.pick(U32, full, 0, v), j, limit, Bound.shape_copy(depth, as_bits(out), flush_shape(full, depth, t, U32.shrn(i, 2n), v, hb)), hd, hl, hu, MNat.lt_of_lt_of_le(U32.to_nat(j), U32.to_nat(U32.shrn(i, 2n)), U32.to_nat(U32.shrn(U32.add(i, 1), 2n)), hj, shr2_inc_mono(i, he)), next),
+        flush_frame(full, t, U32.shrn(i, 2n), v, j, h))
+
+def from_frame(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +j: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)), hj: MNat.lt(U32.to_nat(j), U32.to_nat(U32.shrn(i, 2n))), end: MNat.lt(Nat.add(String.length(s), U32.to_nat(i)), limit)) -> {Tree.read(U32, from.go(s, t, i, w), j) == Tree.read(U32, t, j) : U32}:
+  from_frame.of(s, depth, t, i, w, j, limit, Bound.shape_copy(depth, as_bits(t), shape), hd, hl, hu, hj, end)
+
+def shr2_full_step(+i: U32, he: {U32.to_nat(U32.add(i, 1)) == 1n+U32.to_nat(i) : Nat}, hr: {U32.and(i, 3) == 3 : U32}) -> MNat.lt(U32.to_nat(U32.shrn(i, 2n)), U32.to_nat(U32.shrn(U32.add(i, 1), 2n))):
+  +q = U32.to_nat(U32.shrn(i, 2n))
+  +ei : {Nat.add(Nat.mul(q, 4n), 3n) == U32.to_nat(i) : Nat} = (
+    %hr : {Nat.add(Nat.mul(q, 4n), U32.to_nat(_)) == U32.to_nat(i) : Nat}
+    index_nat(i))
+  +hm : MNat.le(Nat.mul(1n+q, 4n), U32.to_nat(U32.add(i, 1))) = (
+    %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.le(Nat.mul(1n+q, 4n), _)
+    %ei : MNat.le(Nat.mul(1n+q, 4n), 1n+_)
+    %Equal.sym(Nat, Nat.add(Nat.mul(q, 4n), 3n), 3n+Nat.mul(q, 4n), MNat.add_comm(Nat.mul(q, 4n), 3n)) : MNat.le(Nat.mul(1n+q, 4n), 1n+_)
+    MNat.le_refl(4n+Nat.mul(q, 4n)))
+  %Equal.sym(Nat, U32.to_nat(U32.shrn(U32.add(i, 1), 2n)), Nat.div(U32.to_nat(U32.add(i, 1)), 4n), Field.shrn_nat(U32.add(i, 1), 2n)) : MNat.lt(q, _)
+  MNat.lt_of_succ_le(q, Nat.div(U32.to_nat(U32.add(i, 1)), 4n),
+    Equal.trans(Bool, Nat.is_le(1n+q, Nat.div(U32.to_nat(U32.add(i, 1)), 4n)), Nat.is_le(Nat.mul(1n+q, 4n), U32.to_nat(U32.add(i, 1))), True{}, MNat.le_div_iff_mul_le(1n+q, U32.to_nat(U32.add(i, 1)), 3n), hm))
+
+def from_full_word(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +c: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +hr: {U32.and(i, 3) == 3 : U32}, +end: MNat.lt(Nat.add(String.length(s), 1n+U32.to_nat(i)), limit)) -> {Tree.read(U32, from.go(SCon{Chr{c}, s}, t, i, w), U32.shrn(i, 2n)) == U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)) : U32}:
+  +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+  +k = U32.shrn(i, 2n)
+  +out = set(t, k, v)
+  +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(i), Nat.add(String.length(s), 1n+U32.to_nat(i)), limit, le_add_left(1n+U32.to_nat(i), String.length(s)), end)
+  +he = add_one_nat(i, MNat.lt_of_lt_of_le(1n+U32.to_nat(i), limit, Lemmas.pow2(32n), step, hu))
+  +next : MNat.lt(Nat.add(String.length(s), U32.to_nat(U32.add(i, 1))), limit) = (
+    %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.lt(Nat.add(String.length(s), _), limit)
+    end)
+  +hf = from_frame(s, depth, out, U32.add(i, 1), 0, k, limit, set_shape(depth, t, k, v, shape), hd, hl, hu, shr2_full_step(i, he, hr), next)
+  %Equal.sym(U32, U32.and(i, 3), 3, hr) : {Tree.read(U32, from.go(s, flush(U32.is_eq(_, 3), t, k, v), U32.add(i, 1), Bool.pick(U32, U32.is_eq(_, 3), 0, v)), k) == v : U32}
+  Equal.trans(U32, Tree.read(U32, from.go(s, out, U32.add(i, 1), 0), k), Tree.read(U32, out, k), v, hf, read_set(t, k, v))
+
+def from_full_octet(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +c: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)), +hr: {U32.and(i, 3) == 3 : U32}, end: MNat.lt(Nat.add(String.length(s), 1n+U32.to_nat(i)), limit)) -> {peek(from.go(SCon{Chr{c}, s}, t, i, w), i) == Bytes.b8(c) : U32}:
+  +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+  %Equal.sym(U32, Tree.read(U32, from.go(SCon{Chr{c}, s}, t, i, w), U32.shrn(i, 2n)), v, from_full_word(s, depth, t, i, w, c, limit, shape, hd, hl, hu, hr, end)) : {Bytes.b8(U32.shrn(_, Bytes.shift(i))) == Bytes.b8(c) : U32}
+  %Equal.sym(U32, U32.and(i, 3), 3, hr) : {Bytes.b8(U32.shrn(v, U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+  pending_lane(w, c, 0n, 24n, {==})
+
+def b8_or(+a: U32, +b: U32) -> {Bytes.b8(U32.or(a, b)) == U32.or(Bytes.b8(a), Bytes.b8(b)) : U32}:
+  match a b:
+    case U32{+x} U32{+y}:
+      %Equal.sym(U32, Bytes.b8(U32.or(a, b)), U32{Field.low(32n, 8n, Word.or(32n, x, y))}, Field.and_mask_word(U32.or(a, b), 8)) : {_ == U32.or(Bytes.b8(a), Bytes.b8(b)) : U32}
+      %Equal.sym(U32, Bytes.b8(a), U32{Field.low(32n, 8n, x)}, Field.and_mask_word(a, 8)) : {U32{Field.low(32n, 8n, Word.or(32n, x, y))} == U32.or(_, Bytes.b8(b)) : U32}
+      %Equal.sym(U32, Bytes.b8(b), U32{Field.low(32n, 8n, y)}, Field.and_mask_word(b, 8)) : {U32{Field.low(32n, 8n, Word.or(32n, x, y))} == U32.or(U32{Field.low(32n, 8n, x)}, _) : U32}
+      Equal.cong(Word(32n), U32, z => U32{z}, Field.low(32n, 8n, Word.or(32n, x, y)), Word.or(32n, Field.low(32n, 8n, x), Field.low(32n, 8n, y)), Field.low_or(32n, 8n, x, y))
+
+def pending_keep(+w: U32, +c: U32, +lane: Nat, hz: {Bytes.b8(U32.shrn(U32.shln(Bytes.b8(c), 24n), lane)) == 0 : U32}) -> {Bytes.b8(U32.shrn(U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}:
+  +a = U32.shrn(U32.shrn(w, 8n), lane)
+  +b = U32.shrn(U32.shln(Bytes.b8(c), 24n), lane)
+  %Equal.sym(U32, U32.shrn(U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)), lane), U32.or(a, b), Field.shrn_or(lane, U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))) : {Bytes.b8(_) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}
+  %Equal.sym(U32, Bytes.b8(U32.or(a, b)), U32.or(Bytes.b8(a), Bytes.b8(b)), b8_or(a, b)) : {_ == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}
+  %Equal.sym(U32, Bytes.b8(b), 0, hz) : {U32.or(Bytes.b8(a), _) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}
+  %Equal.sym(U32, U32.or(Bytes.b8(a), 0), Bytes.b8(a), Equal.trans(U32, U32.or(Bytes.b8(a), 0), U32.or(0, Bytes.b8(a)), Bytes.b8(a), Field.u32_or_comm(Bytes.b8(a), 0), Field.u32_zero_or(Bytes.b8(a)))) : {_ == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}
+  Equal.cong(U32, U32, x => Bytes.b8(x), a, U32.shrn(w, Nat.add(lane, 8n)), shrn_add(w, 8n, lane))
+
+def pending_high_zero(+c: U32, +lane: Nat, h: MNat.le(8n, Nat.sub(24n, lane))) -> {Bytes.b8(U32.shrn(U32.shln(Bytes.b8(c), 24n), lane)) == 0 : U32}:
+  +v = U32.shrn(U32.shln(Bytes.b8(c), 24n), lane)
+  +w = Field.wshr(lane, 32n, Field.wshl(24n, 32n, Field.word(Bytes.b8(c))))
+  +h0 = Field.low_zero_shl(32n, 0n, 24n, Field.word(Bytes.b8(c)), {==})
+  +h1 = Field.low_zero_shr(32n, 24n, lane, Field.wshl(24n, 32n, Field.word(Bytes.b8(c))), h0)
+  +h2 = Equal.trans(Word(32n), Field.low(32n, 8n, w), Field.low(32n, 8n, Field.low(32n, Nat.sub(24n, lane), w)), Word.zero(32n),
+    Equal.sym(Word(32n), Field.low(32n, 8n, Field.low(32n, Nat.sub(24n, lane), w)), Field.low(32n, 8n, w), Field.low_nest(32n, 8n, Nat.sub(24n, lane), w, h)),
+    Equal.trans(Word(32n), Field.low(32n, 8n, Field.low(32n, Nat.sub(24n, lane), w)), Field.low(32n, 8n, Word.zero(32n)), Word.zero(32n),
+      Equal.cong(Word(32n), Word(32n), x => Field.low(32n, 8n, x), Field.low(32n, Nat.sub(24n, lane), w), Word.zero(32n), h1), Field.low_zero(32n, 8n)))
+  %Equal.sym(U32, Bytes.b8(v), U32{Field.low(32n, 8n, Field.word(v))}, Field.and_mask_word(v, 8)) : {_ == 0 : U32}
+  %Equal.sym(Word(32n), Field.word(v), w, Field.word_shr_shl(24n, lane, Bytes.b8(c))) : {U32{Field.low(32n, 8n, _)} == 0 : U32}
+  Equal.cong(Word(32n), U32, x => U32{x}, Field.low(32n, 8n, w), Word.zero(32n), h2)
+
+def pending_keep_low(+w: U32, +c: U32, +lane: Nat, h: MNat.le(8n, Nat.sub(24n, lane))) -> {Bytes.b8(U32.shrn(U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n)), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}:
+  pending_keep(w, c, lane, pending_high_zero(c, lane, h))
+
+def index_inc_decomp(+i: U32, +r: Nat, he: {U32.to_nat(U32.add(i, 1)) == 1n+U32.to_nat(i) : Nat}, hr: {U32.to_nat(U32.and(i, 3)) == r : Nat}) -> {Nat.add(Nat.mul(U32.to_nat(U32.shrn(i, 2n)), 4n), 1n+r) == U32.to_nat(U32.add(i, 1)) : Nat}:
+  +q = U32.to_nat(U32.shrn(i, 2n))
+  +ei : {Nat.add(Nat.mul(q, 4n), r) == U32.to_nat(i) : Nat} = (
+    %hr : {Nat.add(Nat.mul(q, 4n), _) == U32.to_nat(i) : Nat}
+    index_nat(i))
+  %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : {Nat.add(Nat.mul(q, 4n), 1n+r) == _ : Nat}
+  %Equal.sym(Nat, Nat.add(Nat.mul(q, 4n), 1n+r), 1n+Nat.add(Nat.mul(q, 4n), r), MNat.add_succ(Nat.mul(q, 4n), r)) : {_ == 1n+U32.to_nat(i) : Nat}
+  Equal.cong(Nat, Nat, x => 1n+x, Nat.add(Nat.mul(q, 4n), r), U32.to_nat(i), ei)
+
+def shr2_same_inc(+i: U32, +r: Nat, he: {U32.to_nat(U32.add(i, 1)) == 1n+U32.to_nat(i) : Nat}, hr: {U32.to_nat(U32.and(i, 3)) == r : Nat}, small: MNat.lt(1n+r, 4n)) -> {U32.shrn(U32.add(i, 1), 2n) == U32.shrn(i, 2n) : U32}:
+  +q = U32.to_nat(U32.shrn(i, 2n))
+  +en = index_inc_decomp(i, r, he, hr)
+  Lemmas.u32_to_nat_inj(U32.shrn(U32.add(i, 1), 2n), U32.shrn(i, 2n),
+    Equal.trans(Nat, U32.to_nat(U32.shrn(U32.add(i, 1), 2n)), Nat.div(U32.to_nat(U32.add(i, 1)), 4n), q, Field.shrn_nat(U32.add(i, 1), 2n),
+      Equal.sym(Nat, q, Nat.div(U32.to_nat(U32.add(i, 1)), 4n), Lemmas.div_unique(4n, q, 1n+r, U32.to_nat(U32.add(i, 1)), {==}, small, en))))
+
+def pending_three(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +lane: Nat, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)), +hr: {U32.and(i, 3) == 3 : U32}, +h: MNat.le(lane, 16n), end: MNat.lt(Nat.add(String.length(s), U32.to_nat(i)), limit)) -> {Bytes.b8(U32.shrn(Tree.read(U32, from.go(s, t, i, w), U32.shrn(i, 2n)), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}:
+  match s:
+    case SNil{}:
+      +k = U32.shrn(i, 2n)
+      +v = U32.shrn(w, 8n)
+      %Equal.sym(U32, U32.and(i, 3), 3, hr) : {Bytes.b8(U32.shrn(Tree.read(U32, flush(U32.is_ne(_, 0), t, k, U32.shrn(w, U32.to_nat(U32.mul(U32.and(U32.sub(4, _), 3), 8)))), k), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}
+      %Equal.sym(U32, Tree.read(U32, set(t, k, v), k), v, read_set(t, k, v)) : {Bytes.b8(U32.shrn(_, lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}
+      Equal.cong(U32, U32, x => Bytes.b8(x), U32.shrn(v, lane), U32.shrn(w, Nat.add(lane, 8n)), shrn_add(w, 8n, lane))
+    case SCon{Chr{+c}, +tail}:
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      %Equal.sym(U32, Tree.read(U32, from.go(s, t, i, w), U32.shrn(i, 2n)), v, from_full_word(tail, depth, t, i, w, c, limit, shape, hd, hl, hu, hr, (
+        %Equal.sym(Nat, Nat.add(String.length(tail), 1n+U32.to_nat(i)), 1n+Nat.add(String.length(tail), U32.to_nat(i)), MNat.add_succ(String.length(tail), U32.to_nat(i))) : MNat.lt(_, limit)
+        end))) : {Bytes.b8(U32.shrn(_, lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 8n))) : U32}
+      pending_keep_low(w, c, lane, MNat.sub_le_sub_left(lane, 16n, h, 24n))
+
+def low_inc_nat(+i: U32, +r: Nat, he: {U32.to_nat(U32.add(i, 1)) == 1n+U32.to_nat(i) : Nat}, hr: {U32.to_nat(U32.and(i, 3)) == r : Nat}, small: MNat.lt(1n+r, 4n)) -> {U32.to_nat(U32.and(U32.add(i, 1), 3)) == 1n+r : Nat}:
+  Equal.trans(Nat, U32.to_nat(U32.and(U32.add(i, 1), 3)), Nat.mod(U32.to_nat(U32.add(i, 1)), 4n), 1n+r, Field.mask_mod(U32.add(i, 1), 2, {==}),
+    Equal.sym(Nat, 1n+r, Nat.mod(U32.to_nat(U32.add(i, 1)), 4n), Lemmas.mod_unique(U32.to_nat(U32.shrn(i, 2n)), 1n+r, U32.to_nat(U32.add(i, 1)), 4n, small, index_inc_decomp(i, r, he, hr))))
+
+def pending_two(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +lane: Nat, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +hr: {U32.and(i, 3) == 2 : U32}, +h: MNat.le(lane, 8n), +end: MNat.lt(Nat.add(String.length(s), U32.to_nat(i)), limit)) -> {Bytes.b8(U32.shrn(Tree.read(U32, from.go(s, t, i, w), U32.shrn(i, 2n)), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 16n))) : U32}:
+  match s:
+    case SNil{}:
+      +k = U32.shrn(i, 2n)
+      +v = U32.shrn(w, 16n)
+      %Equal.sym(U32, U32.and(i, 3), 2, hr) : {Bytes.b8(U32.shrn(Tree.read(U32, flush(U32.is_ne(_, 0), t, k, U32.shrn(w, U32.to_nat(U32.mul(U32.and(U32.sub(4, _), 3), 8)))), k), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 16n))) : U32}
+      %Equal.sym(U32, Tree.read(U32, set(t, k, v), k), v, read_set(t, k, v)) : {Bytes.b8(U32.shrn(_, lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 16n))) : U32}
+      Equal.cong(U32, U32, x => Bytes.b8(x), U32.shrn(v, lane), U32.shrn(w, Nat.add(lane, 16n)), shrn_add(w, 16n, lane))
+    case SCon{Chr{+c}, +tail}:
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(i), 1n+Nat.add(String.length(tail), U32.to_nat(i)), limit, le_add_left(U32.to_nat(i), String.length(tail)), end)
+      +he = add_one_nat(i, MNat.lt_of_lt_of_le(1n+U32.to_nat(i), limit, Lemmas.pow2(32n), step, hu))
+      +rn = Equal.cong(U32, Nat, U32.to_nat, U32.and(i, 3), 2, hr)
+      +hw = shr2_same_inc(i, 2n, he, rn, {==})
+      +hn = Lemmas.u32_to_nat_inj(U32.and(U32.add(i, 1), 3), 3, low_inc_nat(i, 2n, he, rn, {==}))
+      +next : MNat.lt(Nat.add(String.length(tail), U32.to_nat(U32.add(i, 1))), limit) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.lt(Nat.add(String.length(tail), _), limit)
+        %Equal.sym(Nat, Nat.add(String.length(tail), 1n+U32.to_nat(i)), 1n+Nat.add(String.length(tail), U32.to_nat(i)), MNat.add_succ(String.length(tail), U32.to_nat(i))) : MNat.lt(_, limit)
+        end)
+      %Equal.sym(U32, U32.and(i, 3), 2, hr) : {Bytes.b8(U32.shrn(Tree.read(U32, from.go(tail, flush(U32.is_eq(_, 3), t, U32.shrn(i, 2n), v), U32.add(i, 1), Bool.pick(U32, U32.is_eq(_, 3), 0, v)), U32.shrn(i, 2n)), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 16n))) : U32}
+      %hw : {Bytes.b8(U32.shrn(Tree.read(U32, from.go(tail, t, U32.add(i, 1), v), _), lane)) == Bytes.b8(U32.shrn(w, Nat.add(lane, 16n))) : U32}
+      Equal.trans(U32, Bytes.b8(U32.shrn(Tree.read(U32, from.go(tail, t, U32.add(i, 1), v), U32.shrn(U32.add(i, 1), 2n)), lane)), Bytes.b8(U32.shrn(v, Nat.add(lane, 8n))), Bytes.b8(U32.shrn(w, Nat.add(lane, 16n))),
+        pending_three(tail, depth, t, U32.add(i, 1), v, lane, limit, shape, hd, hl, hu, hn, MNat.le_trans(lane, 8n, 16n, h, {==}), next),
+        Equal.trans(U32, Bytes.b8(U32.shrn(v, Nat.add(lane, 8n))), Bytes.b8(U32.shrn(w, Nat.add(Nat.add(lane, 8n), 8n))), Bytes.b8(U32.shrn(w, Nat.add(lane, 16n))), pending_keep_low(w, c, Nat.add(lane, 8n), MNat.sub_le_sub_left(Nat.add(lane, 8n), 16n, MNat.add_le_add_right(lane, 8n, 8n, h), 24n)),
+          Equal.cong(Nat, U32, n => Bytes.b8(U32.shrn(w, n)), Nat.add(Nat.add(lane, 8n), 8n), Nat.add(lane, 16n), MNat.add_assoc(lane, 8n, 8n))))
+
+def pending_one(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +hr: {U32.and(i, 3) == 1 : U32}, +end: MNat.lt(Nat.add(String.length(s), U32.to_nat(i)), limit)) -> {Bytes.b8(Tree.read(U32, from.go(s, t, i, w), U32.shrn(i, 2n))) == Bytes.b8(U32.shrn(w, 24n)) : U32}:
+  match s:
+    case SNil{}:
+      +k = U32.shrn(i, 2n)
+      +v = U32.shrn(w, 24n)
+      %Equal.sym(U32, U32.and(i, 3), 1, hr) : {Bytes.b8(Tree.read(U32, flush(U32.is_ne(_, 0), t, k, U32.shrn(w, U32.to_nat(U32.mul(U32.and(U32.sub(4, _), 3), 8)))), k)) == Bytes.b8(v) : U32}
+      Equal.cong(U32, U32, x => Bytes.b8(x), Tree.read(U32, set(t, k, v), k), v, read_set(t, k, v))
+    case SCon{Chr{+c}, +tail}:
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(i), 1n+Nat.add(String.length(tail), U32.to_nat(i)), limit, le_add_left(U32.to_nat(i), String.length(tail)), end)
+      +he = add_one_nat(i, MNat.lt_of_lt_of_le(1n+U32.to_nat(i), limit, Lemmas.pow2(32n), step, hu))
+      +rn = Equal.cong(U32, Nat, U32.to_nat, U32.and(i, 3), 1, hr)
+      +hw = shr2_same_inc(i, 1n, he, rn, {==})
+      +hn = Lemmas.u32_to_nat_inj(U32.and(U32.add(i, 1), 3), 2, low_inc_nat(i, 1n, he, rn, {==}))
+      +next : MNat.lt(Nat.add(String.length(tail), U32.to_nat(U32.add(i, 1))), limit) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.lt(Nat.add(String.length(tail), _), limit)
+        %Equal.sym(Nat, Nat.add(String.length(tail), 1n+U32.to_nat(i)), 1n+Nat.add(String.length(tail), U32.to_nat(i)), MNat.add_succ(String.length(tail), U32.to_nat(i))) : MNat.lt(_, limit)
+        end)
+      %Equal.sym(U32, U32.and(i, 3), 1, hr) : {Bytes.b8(Tree.read(U32, from.go(tail, flush(U32.is_eq(_, 3), t, U32.shrn(i, 2n), v), U32.add(i, 1), Bool.pick(U32, U32.is_eq(_, 3), 0, v)), U32.shrn(i, 2n))) == Bytes.b8(U32.shrn(w, 24n)) : U32}
+      %hw : {Bytes.b8(Tree.read(U32, from.go(tail, t, U32.add(i, 1), v), _)) == Bytes.b8(U32.shrn(w, 24n)) : U32}
+      Equal.trans(U32, Bytes.b8(Tree.read(U32, from.go(tail, t, U32.add(i, 1), v), U32.shrn(U32.add(i, 1), 2n))), Bytes.b8(U32.shrn(v, 16n)), Bytes.b8(U32.shrn(w, 24n)),
+        pending_two(tail, depth, t, U32.add(i, 1), v, 0n, limit, shape, hd, hl, hu, hn, {==}, next), pending_keep_low(w, c, 16n, {==}))
+
+def next_end(+s: String, +i: U32, +limit: Nat, hu: MNat.le(limit, Lemmas.pow2(32n)), +end: MNat.lt(Nat.add(String.length(s), 1n+U32.to_nat(i)), limit)) -> MNat.lt(Nat.add(String.length(s), U32.to_nat(U32.inc(i))), limit):
+  +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(i), Nat.add(String.length(s), 1n+U32.to_nat(i)), limit, le_add_left(1n+U32.to_nat(i), String.length(s)), end)
+  +he = Lemmas.u32_inc_nat(i, MNat.lt_of_lt_of_le(1n+U32.to_nat(i), limit, Lemmas.pow2(32n), step, hu))
+  %Equal.sym(Nat, U32.to_nat(U32.inc(i)), 1n+U32.to_nat(i), he) : MNat.lt(Nat.add(String.length(s), _), limit)
+  end
+
+def from_step_end(+s: String, +t: Tree.Tree<U32>, +i: U32, +j: U32, +r: U32, +w: U32, +c: U32) -> Tree.Tree<U32>:
+  +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+  from.go(s, flush(U32.is_eq(r, 3), t, U32.shrn(i, 2n), v), j, Bool.pick(U32, U32.is_eq(r, 3), 0, v))
+
+def from_step_normal(+s: String, +t: Tree.Tree<U32>, +i: U32, +j: U32, +r: U32, +w: U32, +c: U32, hi: {U32.and(i, 3) == r : U32}, he: {U32.add(i, 1) == j : U32}) -> {from.go(SCon{Chr{c}, s}, t, i, w) == from_step_end(s, t, i, j, r, w, c) : Tree.Tree<U32>}:
+  %Equal.sym(U32, U32.add(i, 1), j, he) : {from_step_end(s, t, i, _, U32.and(i, 3), w, c) == from_step_end(s, t, i, j, r, w, c) : Tree.Tree<U32>}
+  %Equal.sym(U32, U32.and(i, 3), r, hi) : {from_step_end(s, t, i, j, _, w, c) == from_step_end(s, t, i, j, r, w, c) : Tree.Tree<U32>}
+  {==}
+
+def from_head_bits(+a: Bool, +b: Bool, +tail: Word(30n), +s: String, +depth: Nat, +t: Tree.Tree<U32>, +w: U32, +c: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), end: MNat.lt(Nat.add(String.length(s), 1n+U32.to_nat(U32{WCon{a, WCon{b, tail}}})), limit), next: MNat.lt(Nat.add(String.length(s), U32.to_nat(U32.inc(U32{WCon{a, WCon{b, tail}}}))), limit)) -> {peek(from.go(SCon{Chr{c}, s}, t, U32{WCon{a, WCon{b, tail}}}, w), U32{WCon{a, WCon{b, tail}}}) == Bytes.b8(c) : U32}:
+  match a b:
+    case False{} False{}:
+      +i : U32 = U32{WCon{False{}, WCon{False{}, tail}}}
+      +j : U32 = U32{WCon{True{}, WCon{False{}, tail}}}
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      %Equal.sym(Tree.Tree<U32>, from.go(SCon{Chr{c}, s}, t, i, w), from_step_end(s, t, i, j, 0, w, c), from_step_normal(s, t, i, j, 0, w, c, low2(False{}, False{}, tail), Lemmas.u32_add_one(i))) : {peek(_, i) == Bytes.b8(c) : U32}
+      %Equal.sym(U32, U32.and(i, 3), 0, low2(False{}, False{}, tail)) : {Bytes.b8(U32.shrn(Tree.read(U32, from_step_end(s, t, i, j, 0, w, c), U32.shrn(i, 2n)), U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+      Equal.trans(U32, Bytes.b8(Tree.read(U32, from.go(s, t, j, v), U32.shrn(j, 2n))), Bytes.b8(U32.shrn(v, 24n)), Bytes.b8(c),
+        pending_one(s, depth, t, j, v, limit, shape, hd, hl, hu, low2(True{}, False{}, tail), next), pending_lane(w, c, 0n, 24n, {==}))
+    case True{} False{}:
+      +i : U32 = U32{WCon{True{}, WCon{False{}, tail}}}
+      +j : U32 = U32{WCon{False{}, WCon{True{}, tail}}}
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      %Equal.sym(Tree.Tree<U32>, from.go(SCon{Chr{c}, s}, t, i, w), from_step_end(s, t, i, j, 1, w, c), from_step_normal(s, t, i, j, 1, w, c, low2(True{}, False{}, tail), Lemmas.u32_add_one(i))) : {peek(_, i) == Bytes.b8(c) : U32}
+      %Equal.sym(U32, U32.and(i, 3), 1, low2(True{}, False{}, tail)) : {Bytes.b8(U32.shrn(Tree.read(U32, from_step_end(s, t, i, j, 1, w, c), U32.shrn(i, 2n)), U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+      Equal.trans(U32, Bytes.b8(U32.shrn(Tree.read(U32, from.go(s, t, j, v), U32.shrn(j, 2n)), 8n)), Bytes.b8(U32.shrn(v, 24n)), Bytes.b8(c),
+        pending_two(s, depth, t, j, v, 8n, limit, shape, hd, hl, hu, low2(False{}, True{}, tail), {==}, next), pending_lane(w, c, 0n, 24n, {==}))
+    case False{} True{}:
+      +i : U32 = U32{WCon{False{}, WCon{True{}, tail}}}
+      +j : U32 = U32{WCon{True{}, WCon{True{}, tail}}}
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(c), 24n))
+      %Equal.sym(Tree.Tree<U32>, from.go(SCon{Chr{c}, s}, t, i, w), from_step_end(s, t, i, j, 2, w, c), from_step_normal(s, t, i, j, 2, w, c, low2(False{}, True{}, tail), Lemmas.u32_add_one(i))) : {peek(_, i) == Bytes.b8(c) : U32}
+      %Equal.sym(U32, U32.and(i, 3), 2, low2(False{}, True{}, tail)) : {Bytes.b8(U32.shrn(Tree.read(U32, from_step_end(s, t, i, j, 2, w, c), U32.shrn(i, 2n)), U32.to_nat(U32.mul(_, 8)))) == Bytes.b8(c) : U32}
+      Equal.trans(U32, Bytes.b8(U32.shrn(Tree.read(U32, from.go(s, t, j, v), U32.shrn(j, 2n)), 16n)), Bytes.b8(U32.shrn(v, 24n)), Bytes.b8(c),
+        pending_three(s, depth, t, j, v, 16n, limit, shape, hd, hl, hu, low2(True{}, True{}, tail), {==}, next), pending_lane(w, c, 0n, 24n, {==}))
+    case True{} True{}:
+      from_full_octet(s, depth, t, U32{WCon{True{}, WCon{True{}, tail}}}, w, c, limit, shape, hd, hl, hu, low2(True{}, True{}, tail), end)
+
+def from_head(+s: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +c: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), hd: MNat.lt(depth, 32n), hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +end: MNat.lt(Nat.add(String.length(s), 1n+U32.to_nat(i)), limit)) -> {peek(from.go(SCon{Chr{c}, s}, t, i, w), i) == Bytes.b8(c) : U32}:
+  match i:
+    case U32{WCon{+a, WCon{+b, +tail}}}:
+      from_head_bits(a, b, tail, s, depth, t, w, c, limit, shape, hd, hl, hu, end, next_end(s, i, limit, hu, end))
+
+def from_at(+prefix: String, +tail: String, +depth: Nat, +t: Tree.Tree<U32>, +i: U32, +w: U32, +c: U32, +limit: Nat, shape: Bound.shape(depth, as_bits(t)), +hd: MNat.lt(depth, 32n), +hl: MNat.le(limit, Nat.mul(Lemmas.pow2(depth), 4n)), +hu: MNat.le(limit, Lemmas.pow2(32n)), +end: MNat.lt(Nat.add(Nat.add(String.length(prefix), 1n+String.length(tail)), U32.to_nat(i)), limit)) -> {peek(from.go(prefix ++ SCon{Chr{c}, tail}, t, i, w), advance(String.length(prefix), i)) == Bytes.b8(c) : U32}:
+  match prefix:
+    case SNil{}:
+      from_head(tail, depth, t, i, w, c, limit, shape, hd, hl, hu, (
+        %Equal.sym(Nat, Nat.add(String.length(tail), 1n+U32.to_nat(i)), 1n+Nat.add(String.length(tail), U32.to_nat(i)), MNat.add_succ(String.length(tail), U32.to_nat(i))) : MNat.lt(_, limit)
+        end))
+    case SCon{Chr{+a}, +rest}:
+      +v = U32.or(U32.shrn(w, 8n), U32.shln(Bytes.b8(a), 24n))
+      +full = U32.is_eq(U32.and(i, 3), 3)
+      +out = flush(full, t, U32.shrn(i, 2n), v)
+      +n = Nat.add(String.length(rest), 1n+String.length(tail))
+      +step = MNat.lt_of_le_of_lt(1n+U32.to_nat(i), 1n+Nat.add(n, U32.to_nat(i)), limit, le_add_left(U32.to_nat(i), n), end)
+      +he = add_one_nat(i, MNat.lt_of_lt_of_le(1n+U32.to_nat(i), limit, Lemmas.pow2(32n), step, hu))
+      +next : MNat.lt(Nat.add(n, U32.to_nat(U32.add(i, 1))), limit) = (
+        %Equal.sym(Nat, U32.to_nat(U32.add(i, 1)), 1n+U32.to_nat(i), he) : MNat.lt(Nat.add(n, _), limit)
+        %Equal.sym(Nat, Nat.add(n, 1n+U32.to_nat(i)), 1n+Nat.add(n, U32.to_nat(i)), MNat.add_succ(n, U32.to_nat(i))) : MNat.lt(_, limit)
+        end)
+      from_at(rest, tail, depth, out, U32.add(i, 1), Bool.pick(U32, full, 0, v), c, limit, flush_shape(full, depth, t, U32.shrn(i, 2n), v, shape), hd, hl, hu, next)
+
+def depth_bound(+f: Nat, +more: Bool, +w: U32, +d: Nat, +cap: U32) -> MNat.le(Bytes.depth.go(f, more, w, d, cap), Nat.add(f, d)):
+  match f more:
+    case 0n _:
+      MNat.le_refl(d)
+    case 1n+p False{}:
+      le_add_left(d, 1n+p)
+    case 1n+ +p True{}:
+      %MNat.add_succ(p, d) : MNat.le(Bytes.depth.go(p, U32.is_lt(U32.mul(cap, 2), w), w, 1n+d, U32.mul(cap, 2)), _)
+      depth_bound(p, U32.is_lt(U32.mul(cap, 2), w), w, 1n+d, U32.mul(cap, 2))
+
+def mul_two(+n: Nat) -> {Nat.mul(n, 2n) == Nat.double(n) : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 2n+x, Nat.mul(p, 2n), Nat.double(p), mul_two(p))
+
+# Keep the multiplier symbolic to avoid checker expansion: https://github.com/bendlang/bend/issues/1071.
+def cap_double(+cap: U32, +two: U32, +power: Nat, +limit: Nat, hcap: {U32.to_nat(cap) == power : Nat}, ht: {U32.to_nat(two) == 2n : Nat}, hp: MNat.lt(Nat.double(power), limit), hu: MNat.le(limit, Lemmas.pow2(32n))) -> {U32.to_nat(U32.mul(cap, two)) == Nat.double(power) : Nat}:
+  +he = Equal.trans(Nat, Nat.mul(U32.to_nat(cap), U32.to_nat(two)), Nat.mul(power, U32.to_nat(two)), Nat.double(power),
+    Equal.cong(Nat, Nat, x => Nat.mul(x, U32.to_nat(two)), U32.to_nat(cap), power, hcap),
+    Equal.trans(Nat, Nat.mul(power, U32.to_nat(two)), Nat.mul(power, 2n), Nat.double(power), Equal.cong(Nat, Nat, x => Nat.mul(power, x), U32.to_nat(two), 2n, ht), mul_two(power)))
+  +hb : MNat.lt(Nat.mul(U32.to_nat(cap), U32.to_nat(two)), limit) = (
+    %Equal.sym(Nat, Nat.mul(U32.to_nat(cap), U32.to_nat(two)), Nat.double(power), he) : MNat.lt(_, limit)
+    hp)
+  Equal.trans(Nat, U32.to_nat(U32.mul(cap, two)), Nat.mul(U32.to_nat(cap), U32.to_nat(two)), Nat.double(power), Lemmas.u32_mul_nat(cap, two, MNat.lt_of_lt_of_le(Nat.mul(U32.to_nat(cap), U32.to_nat(two)), limit, Lemmas.pow2(32n), hb, hu)), he)
+
+
+def pow2_le(+a: Nat, +b: Nat, h: MNat.le(a, b)) -> MNat.le(Lemmas.pow2(a), Lemmas.pow2(b)):
+  match a b:
+    case 0n 0n:
+      {==}
+    case 0n 1n+p:
+      MNat.le_of_lt(1n, Lemmas.pow2(1n+p), Field.pow2_lt(0n, 1n+p, {==}))
+    case 1n+p 0n:
+      Empty.absurd(MNat.le(Lemmas.pow2(1n+p), 1n), WordModel.false_true(h))
+    case 1n+p 1n+q:
+      MNat.double_le_double(Lemmas.pow2(p), Lemmas.pow2(q), pow2_le(p, q, h))
+
+def depth_sufficient(+f: Nat, +more: Bool, +w: U32, +d: Nat, +cap: U32, +limit: Nat, +hcap: {U32.to_nat(cap) == Lemmas.pow2(d) : Nat}, hw: MNat.le(U32.to_nat(w), Lemmas.pow2(Nat.add(f, d))), +hp: MNat.lt(Lemmas.pow2(Nat.add(f, d)), limit), +hu: MNat.le(limit, Lemmas.pow2(32n)), emore: {U32.is_lt(cap, w) == more : Bool}) -> MNat.le(U32.to_nat(w), Lemmas.pow2(Bytes.depth.go(f, more, w, d, cap))):
+  match f more:
+    case 0n _:
+      hw
+    case 1n+p False{}:
+      %hcap : MNat.le(U32.to_nat(w), _)
+      Bound.u32_ge_bound(cap, w, emore)
+    case 1n+ +p True{}:
+      +step = MNat.lt_of_le_of_lt(Lemmas.pow2(1n+d), Lemmas.pow2(1n+Nat.add(p, d)), limit, pow2_le(1n+d, 1n+Nat.add(p, d), le_add_left(d, p)), hp)
+      +hc = cap_double(cap, 2, Lemmas.pow2(d), limit, hcap, {==}, step, hu)
+      +next : MNat.le(U32.to_nat(w), Lemmas.pow2(Nat.add(p, 1n+d))) = (
+        %Equal.sym(Nat, Nat.add(p, 1n+d), 1n+Nat.add(p, d), MNat.add_succ(p, d)) : MNat.le(U32.to_nat(w), Lemmas.pow2(_))
+        hw)
+      +np : MNat.lt(Lemmas.pow2(Nat.add(p, 1n+d)), limit) = (
+        %Equal.sym(Nat, Nat.add(p, 1n+d), 1n+Nat.add(p, d), MNat.add_succ(p, d)) : MNat.lt(Lemmas.pow2(_), limit)
+        hp)
+      depth_sufficient(p, U32.is_lt(U32.mul(cap, 2), w), w, 1n+d, U32.mul(cap, 2), limit, hc, next, np, hu, {==})
+
+def depth_false(+f: Nat, +w: U32, +d: Nat, +cap: U32) -> {Bytes.depth.go(f, False{}, w, d, cap) == d : Nat}:
+  match f:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+def depth_stable(+f: Nat, +extra: Nat, +more: Bool, +w: U32, +d: Nat, +cap: U32, +limit: Nat, +hcap: {U32.to_nat(cap) == Lemmas.pow2(d) : Nat}, hw: MNat.le(U32.to_nat(w), Lemmas.pow2(Nat.add(f, d))), +hp: MNat.lt(Lemmas.pow2(Nat.add(f, d)), limit), +hu: MNat.le(limit, Lemmas.pow2(32n)), emore: {U32.is_lt(cap, w) == more : Bool}) -> {Bytes.depth.go(Nat.add(f, extra), more, w, d, cap) == Bytes.depth.go(f, more, w, d, cap) : Nat}:
+  match f more:
+    case 0n False{}:
+      depth_false(extra, w, d, cap)
+    case 0n True{}:
+      Empty.absurd({Bytes.depth.go(extra, True{}, w, d, cap) == d : Nat},
+        MNat.lt_irrefl(U32.to_nat(w))(MNat.lt_of_le_of_lt(U32.to_nat(w), Lemmas.pow2(d), U32.to_nat(w), hw,
+          (%hcap : MNat.lt(_, U32.to_nat(w)); Bound.u32_lt_bound(cap, w, emore)))))
+    case 1n+p False{}:
+      {==}
+    case 1n+ +p True{}:
+      +step = MNat.lt_of_le_of_lt(Lemmas.pow2(1n+d), Lemmas.pow2(1n+Nat.add(p, d)), limit, pow2_le(1n+d, 1n+Nat.add(p, d), le_add_left(d, p)), hp)
+      +hc = cap_double(cap, 2, Lemmas.pow2(d), limit, hcap, {==}, step, hu)
+      +next : MNat.le(U32.to_nat(w), Lemmas.pow2(Nat.add(p, 1n+d))) = (
+        %Equal.sym(Nat, Nat.add(p, 1n+d), 1n+Nat.add(p, d), MNat.add_succ(p, d)) : MNat.le(U32.to_nat(w), Lemmas.pow2(_))
+        hw)
+      +np : MNat.lt(Lemmas.pow2(Nat.add(p, 1n+d)), limit) = (
+        %Equal.sym(Nat, Nat.add(p, 1n+d), 1n+Nat.add(p, d), MNat.add_succ(p, d)) : MNat.lt(Lemmas.pow2(_), limit)
+        hp)
+      depth_stable(p, extra, U32.is_lt(U32.mul(cap, 2), w), w, 1n+d, U32.mul(cap, 2), limit, hc, next, np, hu, {==})
+
+def depth_actual(+w: U32, +f: Nat, +extra: Nat, +limit: Nat, +hsum: {Nat.add(f, extra) == 32n : Nat}, hw: MNat.le(U32.to_nat(w), Lemmas.pow2(f)), hp: MNat.lt(Lemmas.pow2(f), limit), +hu: MNat.le(limit, Lemmas.pow2(32n))) -> MNat.le(U32.to_nat(w), Lemmas.pow2(Bytes.depth(w))) & MNat.le(Bytes.depth(w), f):
+  +hw0 : MNat.le(U32.to_nat(w), Lemmas.pow2(Nat.add(f, 0n))) = (
+    %Equal.sym(Nat, Nat.add(f, 0n), f, MNat.add_zero(f)) : MNat.le(U32.to_nat(w), Lemmas.pow2(_))
+    hw)
+  +hp0 : MNat.lt(Lemmas.pow2(Nat.add(f, 0n)), limit) = (
+    %Equal.sym(Nat, Nat.add(f, 0n), f, MNat.add_zero(f)) : MNat.lt(Lemmas.pow2(_), limit)
+    hp)
+  +e : {Bytes.depth(w) == Bytes.depth.go(f, U32.is_lt(1, w), w, 0n, 1) : Nat} = (
+    %hsum : {Bytes.depth.go(_, U32.is_lt(1, w), w, 0n, 1) == Bytes.depth.go(f, U32.is_lt(1, w), w, 0n, 1) : Nat}
+    depth_stable(f, extra, U32.is_lt(1, w), w, 0n, 1, limit, {==}, hw0, hp0, hu, {==}))
+  ((%Equal.sym(Nat, Bytes.depth(w), Bytes.depth.go(f, U32.is_lt(1, w), w, 0n, 1), e) : MNat.le(U32.to_nat(w), Lemmas.pow2(_))
+    depth_sufficient(f, U32.is_lt(1, w), w, 0n, 1, limit, {==}, hw0, hp0, hu, {==})),
+   (%Equal.sym(Nat, Bytes.depth(w), Bytes.depth.go(f, U32.is_lt(1, w), w, 0n, 1), e) : MNat.le(_, f)
+    %MNat.add_zero(f) : MNat.le(Bytes.depth.go(f, U32.is_lt(1, w), w, 0n, 1), _)
+    depth_bound(f, U32.is_lt(1, w), w, 0n, 1)))
