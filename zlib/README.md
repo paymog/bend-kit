@@ -4,8 +4,8 @@ DEFLATE, gzip, and zlib over `Bytes`, plus native gzip, zstd, and brotli.
 
 ```bend
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
-import bend-kit-zlib@0.7.0.4/zlib.bend as Zlib
-import bend-kit-zlib@0.7.0.4/native.bend as Native
+import bend-kit-zlib@0.7.0.5/zlib.bend as Zlib
+import bend-kit-zlib@0.7.0.5/native.bend as Native
 ```
 
 The codec takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes` 0.3.3.3, `bits` 0.4.0.2, and `hash` 0.3.2.4 from the hub. It imports no foreign effects. `LAWS.bend` and `PROOF.bend` use only this pure graph. `publish.bend` bundles both modules for the hub.
@@ -13,6 +13,8 @@ The codec takes and gives `Bytes.Bytes`. `zlib.bend` imports `bytes` 0.3.3.3, `b
 ## Pure
 
 `deflate`, `gzip`, and `zlib` compress. `inflate`, `gunzip`, and `unzlib` return `None` when the input is truncated or malformed, and `gunzip` and `unzlib` also check the CRC-32 or Adler-32. The decoder reads through a `Bits.Reader` and decodes symbols with `Bits.Huff` tables. Laws cover these functions. They do not cover the effects.
+
+Non-overlapping inflate matches copy whole packed words after at most three alignment bytes. Overlapping matches keep the forward byte loop.
 
 The encoder uses lazy matching with a 32 KiB window and up to 32 hash-chain candidates. It splits the input into 32 KiB blocks and picks fixed or dynamic Huffman codes by their encoded bit cost. Trees have at most 15 bits per code. `gunzip` decodes every gzip member and joins the outputs, as `gzip -d` does. It rejects bytes after a member that do not start another member.
 

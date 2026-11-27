@@ -352,8 +352,7 @@ def dyn.hlit(bv: Br & U32) -> Br & Mo:
 def dyn.read(b: Br) -> Br & Mo:
   dyn.hlit(br.take(b, 5))
 
-# A match copies len bytes from d back in the output, one at a time, so it may overlap itself.
-# ponytail: byte-at-a-time copy; use Bytes.copy when d >= len if long matches dominate.
+# Matches keep the byte loop when source and destination overlap.
 def cp.of(+dep: U32, +n: U32, r: Array<U32> & U32) -> Out:
   (a, +c) = r
   Out{Bytes.poke(a, n, c), dep, (n + 1 : U32)}
@@ -369,13 +368,63 @@ def cp.go(k: Nat, +d: U32, o: Out) -> Out:
     case 1n+f:
       cp.go(f, d, cp.one(d, o))
 
+def cp.word(+n: U32, r: Array<U32> & U32) -> Array<U32>:
+  (a, v) = r
+  Array.set(U32, a, n, v)
+
+def cp.words(k: Nat, a: Array<U32>, +s: U32, +n: U32) -> Array<U32>:
+  match k:
+    case 0n:
+      a
+    case 1n+f:
+      cp.words(f, cp.word(n, Array.get(U32, a, s)), (s + 1 : U32), (n + 1 : U32))
+
+def cp.shift(k: Nat, +prev: U32, r: Array<U32> & U32, +s: U32, +n: U32, +lo: Nat, +hi: Nat) -> Array<U32>:
+  match k:
+    case 0n:
+      (a, w) = r
+      a
+    case 1n+f:
+      (a, +w) = r
+      a = Array.set(U32, a, n, (U32.shrn(prev, lo) .|. U32.shln(w, hi) : U32))
+      cp.shift(f, w, Array.get(U32, a, (s + 1 : U32)), (s + 1 : U32), (n + 1 : U32), lo, hi)
+
+def cp.shift.start(+k: U32, +s: U32, +n: U32, +lo: U32, r: Array<U32> & U32) -> Array<U32>:
+  (a, prev) = r
+  cp.shift(bits(k), prev, Array.get(U32, a, (s + 1 : U32)), (s + 1 : U32), n, bits(lo), bits((32 - lo : U32)))
+
+def cp.pick(aligned: Bool, +k: U32, a: Array<U32>, +s: U32, +n: U32) -> Array<U32>:
+  match aligned:
+    case True{}:
+      cp.words(bits(k), a, (s >> 2n : U32), (n >> 2n : U32))
+    case False{}:
+      cp.shift.start(k, (s >> 2n : U32), (n >> 2n : U32), ((s .&. 3 : U32) * 8 : U32), Array.get(U32, a, (s >> 2n : U32)))
+
+def cp.packed(+len: U32, +d: U32, o: Out) -> Out:
+  Out{a, dep, +n} = o
+  +s = (n - d : U32)
+  +whole = (len .&. 4294967292 : U32)
+  cp.go(bits((len .&. 3 : U32)), d, Out{cp.pick(U32.is_eq((s .&. 3 : U32), 0), (len >> 2n : U32), a, s, n), dep, (n + whole : U32)})
+
+def cp.start(+len: U32, +d: U32, o: Out) -> Out:
+  Out{a, dep, +n} = o
+  +prefix = U32.min(len, ((4 - (n .&. 3) : U32) .&. 3 : U32))
+  cp.packed((len - prefix : U32), d, cp.go(bits(prefix), d, Out{a, dep, n}))
+
+def cp.match(nonoverlap: Bool, +len: U32, +d: U32, o: Out) -> Out:
+  match nonoverlap:
+    case False{}:
+      cp.go(bits(len), d, o)
+    case True{}:
+      cp.start(len, d, o)
+
 # RFC 1951 §3.2.5: a distance may not reach before the first byte out.
 def inf.far(ok: Bool, lit: Bits.Huff, dist: Bits.Huff, b: Br, +len: U32, +d: U32, o: Out, +last: Bool) -> Is:
   match ok:
     case False{}:
       inf.bad(b, o)
     case True{}:
-      Is{b, cp.go(bits(len), d, out.room(o, len)), MoCodes{lit, dist}, last}
+      Is{b, cp.match(U32.is_le(len, d), len, d, out.room(o, len)), MoCodes{lit, dist}, last}
 
 def inf.dn(lit: Bits.Huff, dist: Bits.Huff, b: Br, +len: U32, +d: U32, r: Out & U32, +last: Bool) -> Is:
   (o, +n) = r

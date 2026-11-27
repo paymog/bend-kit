@@ -286,12 +286,61 @@ def encoder.check() -> IO(Unit):
     encoder.lazy.input(Bytes.from_string("Xabc!abcdef?Xabcdef"))
     encoder.tree(Encode.tree.lengths(21n, [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946]))
 
+
+def copy.seed(k: Nat, a: Array<U32>, +i: U32, +seed: U32) -> Array<U32>:
+  match k:
+    case 0n:
+      a
+    case 1n+p:
+      copy.seed(p, Array.set(U32, a, i, seed), (i + 1 : U32), (seed * 1664525 + 1013904223 : U32))
+
+def copy.words(k: Nat, ar: Array<U32> & U32, br: Array<U32> & U32, +i: U32, good: Bool) -> Bool:
+  match k:
+    case 0n:
+      good
+    case 1n+p:
+      (a, x) = ar
+      (b, y) = br
+      copy.words(p, Array.get(U32, a, (i + 1 : U32)), Array.get(U32, b, (i + 1 : U32)), (i + 1 : U32), Bool.and(good, U32.is_eq(x, y)))
+
+def copy.same(a: Z.Out, b: Z.Out) -> Bool:
+  Z.Out{ab, ad, an} = a
+  Z.Out{bb, bd, bn} = b
+  copy.words(256n, Array.get(U32, ab, 0), Array.get(U32, bb, 0), 0, Bool.and(U32.is_eq(ad, bd), U32.is_eq(an, bn)))
+
+def copy.case.bufs(+len: U32, +d: U32, +n: U32, pair: Array<U32> & Array<U32>) -> Bool:
+  (a, b) = pair
+  copy.same(Z.cp.match(U32.is_le(len, d), len, d, Z.Out{a, 8, n}), Z.cp.go(U32.to_nat(len), d, Z.Out{b, 8, n}))
+
+def copy.case(+len: U32, +d: U32, +n: U32) -> Bool:
+  copy.case.bufs(len, d, n, Array.clone(U32, copy.seed(256n, Array.new(U32, 8n, 0), 0, 123456789)))
+
+def copy.distances(ds: List<&2, U32>, +len: U32, +n: U32, good: Bool) -> Bool:
+  match ds:
+    case Nil{}:
+      good
+    case Con{d, rest}:
+      copy.distances(rest, len, n, Bool.and(good, copy.case(len, d, n)))
+
+def copy.lengths(k: Nat, +len: U32, +n: U32, good: Bool) -> Bool:
+  match k:
+    case 0n:
+      good
+    case 1n+p:
+      copy.lengths(p, (len + 1 : U32), n, copy.distances([1, 2, 3, 4, 5, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 255, 256, 259, 260, U32.max(1, len), U32.max(1, (len - U32.min(len, 1) : U32)), (len + 1 : U32)], len, n, good))
+
+def copy.check() -> IO(Unit):
+  do IO<Unit>:
+    ok(Bool.and(copy.lengths(259n, 0, 260, True{}), Bool.and(copy.lengths(259n, 0, 261, True{}), Bool.and(copy.lengths(259n, 0, 262, True{}), copy.lengths(259n, 0, 263, True{})))), "match copies, alignments, overlap, and untouched bytes")
+    ok(Bool.and(copy.case(258, 260, 766), Bool.and(copy.case(257, 259, 767), Bool.and(copy.case(256, 258, 768), copy.case(255, 257, 769)))), "match copies at the buffer boundary")
+
 def main() -> IO(Unit):
   do IO<Unit>:
     show(Z.inflate(raw()))
     show(Z.inflate(Bytes.from_string("x")))
     show(Z.gunzip(Z.gzip(Bytes.from_string("pure round trip"))))
     encoder.check()
+    copy.check()
     r : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.zstd(1000, frames())
     got("hello zstd", r)
     e : Result<&1, &1, U32 & String, Bytes.Bytes> <- Native.zstd(5, frames())

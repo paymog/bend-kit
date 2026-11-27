@@ -35,15 +35,33 @@ Bend reads the files with `File.read_bytes` so the bytes are not UTF-8 decoded. 
 
 ## Results
 
-M4 Pro, macOS arm64, 2026-11-25. Median of five runs on Bend 2.0.40.
+M4 Pro, macOS arm64, 2026-11-27. Median of seven runs on Bend 2.0.40.
 
 | variant | inflate ms | inflate MB/s | deflate ms | deflate MB/s | gzip bytes | ratio |
 |---:|---:|---:|---:|---:|---:|---:|
-| Bun | 7.0 | 598 | 39.6 | 106 | 1,063,003 | 3.95x |
-| Node | 6.3 | 663 | 74.5 | 56 | 1,045,511 | 4.01x |
-| Python | 2.8 | 1,496 | 115.6 | 36 | 1,050,286 | 3.99x |
-| Bend | 113.2 | 37 | 251.2 | 17 | 1,083,353 | 3.87x |
-| Bend (libz) | 3.8 | 1,107 | 116.9 | 36 | 1,050,286 | 3.99x |
+| Bun | 7.0 | 598 | 40.9 | 102 | 1,063,003 | 3.95x |
+| Node | 6.4 | 659 | 77.4 | 54 | 1,045,511 | 4.01x |
+| Python | 2.9 | 1,456 | 121.3 | 35 | 1,050,286 | 3.99x |
+| Bend | 111.9 | 37 | 255.9 | 16 | 1,083,353 | 3.87x |
+| Bend (libz) | 3.9 | 1,085 | 122.1 | 34 | 1,050,286 | 3.99x |
+
+### Inflate match-copy comparison
+
+All variants use Bend 2.0.40 and the unchanged 4 MiB input. The baseline is commit `4549b99`. Each variant passed `python3 zlib/bench/run.py 1 65536` and `python3 zlib/bench/run.py 7`. The seven-run baseline took **114.7 ms**; the retained word-copy variant took **111.9 ms**.
+
+To reduce run-order bias, the four saved native binaries then ran 21 times each. Each round rotates the variant order by one place; odd rounds reverse that order. Every invocation checks both operation checksums.
+
+| copy path | median inflate ms | min–max ms | median paired time reduction | wins against baseline |
+|---|---:|---:|---:|---:|
+| Byte loop (baseline) | 114.988250 | 113.240958–117.818416 | — | — |
+| Four unrolled byte copies | 111.756625 | 108.497209–116.044708 | 2.85% | 19/21 |
+| Four source-byte reads, one destination-word write | 110.761208 | 108.258000–114.126083 | 3.69% | 21/21 |
+| Cached source words (retained) | 110.409250 | 108.007125–112.415875 | 4.02% | 21/21 |
+
+The retained path copies at most three bytes to align the destination. Aligned sources use one read and one write per word. Unaligned sources carry the previous word and join it with the next word. Tails and overlapping matches keep the byte loop. `Bytes.copy` takes separate affine arrays, so this path uses the same packed-word method in place without cloning the output buffer.
+
+The checksum stays **2339964736** for both operations in every full run. Both Bend outputs pass system `gzip -d`. Tests compare the complete output array with the byte loop for lengths 0–258, all four destination alignments, overlapping and non-overlapping distances, and exact-capacity output. They check untouched bytes as well as the copied range.
+
 
 The pure encoder uses lazy matching and dynamic Huffman trees in 32 KiB blocks. It keeps fixed codes when they cost fewer bits. Dynamic headers trim trailing unused lengths and encode runs with symbols 16–18. `run.py` decodes the first output header and reports its exact bit count, including the block prefix, alphabet lengths, run symbols, and extra bits.
 
