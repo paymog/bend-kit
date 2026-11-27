@@ -1,11 +1,11 @@
 # LLM client for the Anthropic Messages and OpenAI Chat Completions APIs, with SSE streaming. Source: https://github.com/paymog/bend-kit/tree/main/llm
 import Base
 import ./sse.bend as Sse
-import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
-import bend-kit-hairpin@0.19.0.2/pure.bend as HairpinPure
+import bend-kit-hairpin@0.19.0.3/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.3/pure.bend as HairpinPure
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.45.0.2/http.bend as Http
-import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-http@0.45.0.3/http.bend as Http
+import bend-kit-http@0.45.0.3/pure.bend as HttpPure
 import bend-kit-json@0.7.3.2/json.bend as Json
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-encoding@0.5.0.3/encoding.bend as Enc
