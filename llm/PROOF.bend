@@ -1,6 +1,7 @@
 import Base
 import ./LAWS.bend as Laws
 import ./sse.bend as Sse
+import ./sse-scan-proof.bend as Scan
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def Laws.sse_whole():
@@ -98,6 +99,9 @@ def Laws.sse_crlf_skip(len, pos, a, b, more, first):
 
 def Laws.sse_large_chunk():
   {==}
+
+def Laws.sse_scan_extend(f, g, r, i, clean):
+  Scan.extend(f, g, r, i, clean)
 
 def Laws.reply_anthropic():
   {==}

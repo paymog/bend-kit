@@ -1,6 +1,7 @@
 import Base
 import ./pure.bend as Llm
 import ./sse.bend as Sse
+import ./sse-scan-proof.bend as Scan
 import bend-kit-json@0.7.3.2/json.bend as Json
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
@@ -222,6 +223,15 @@ law sse_crlf_skip:
   for more: {U32.is_lt(pos, len) == True{} : Bool}
   for first: {Bytes.peek(a, pos) == (b, 10) : Array<U32> & U32}
   {Sse.skip(True{}, a, len, pos) == (b, (pos + 1 : U32), False{}) : Array<U32> & U32 & Bool}
+
+# Scanning a delimiter-free prefix can be split from scanning its suffix.
+law sse_scan_extend:
+  for f: Nat
+  for +g: Nat
+  for r: Array<U32> & U32
+  for +i: U32
+  for clean: Scan.clean_prefix(f, r, i)
+  {Sse.eol(Nat.add(f, g), r, i) == Scan.resume(g, Scan.advance(f, r, i)) : Array<U32> & U32}
 
 def repeated_events(n: Nat) -> String:
   match n:
