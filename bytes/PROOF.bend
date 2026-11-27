@@ -5,6 +5,7 @@ import ./LAWS.bend as Laws
 import ./roundtrip-proof.bend as DecimalProof
 import ./copy-proof.bend as CopyProof
 import ./append-proof.bend as AppendProof
+import ./word-proof.bend as WordProof
 
 def Laws.roundtrip_empty():
   {==}
@@ -528,3 +529,20 @@ def Laws.u32_roundtrip():
 def Laws.u32_roundtrip_all(n):
   Equal.cong(Maybe<&2, U32>, Maybe<&2, Nat>, m => Maybe.map(&2, U32, Nat, U32.to_nat, m),
     Bytes.u32.read(Bytes.u32.show(n)), Some{n}, DecimalProof.raw(n))
+
+def octets_mask(+s: String, octets: Laws.Octets(s)) -> {AppendProof.mask(s) == s : String}:
+  match s:
+    case SNil{}:
+      {==}
+    case SCon{Chr{+c}, +tail}:
+      (head, rest) = octets
+      Equal.trans(String, AppendProof.mask(s), SCon{Chr{c}, AppendProof.mask(tail)}, s,
+        Equal.cong(U32, String, x => SCon{Chr{x}, AppendProof.mask(tail)}, Bytes.b8(c), c, WordProof.and255_small(c, head)),
+        Equal.cong(String, String, x => SCon{Chr{c}, x}, AppendProof.mask(tail), tail, octets_mask(tail, rest)))
+
+def Laws.canonical_append(a, b, oa, ob, limit, hn, hu):
+  Equal.trans(String, Bytes.to_string(Bytes.append(Bytes.from_string(a), Bytes.from_string(b))), AppendProof.mask(a) ++ AppendProof.mask(b), a ++ b,
+    AppendProof.canonical_append(a, b, limit, hn, hu),
+    Equal.trans(String, AppendProof.mask(a) ++ AppendProof.mask(b), a ++ AppendProof.mask(b), a ++ b,
+      Equal.cong(String, String, x => x ++ AppendProof.mask(b), AppendProof.mask(a), a, octets_mask(a, oa)),
+      Equal.cong(String, String, x => a ++ x, AppendProof.mask(b), b, octets_mask(b, ob))))
