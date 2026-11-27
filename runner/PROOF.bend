@@ -14,7 +14,7 @@ import ./model.bend as R
 import ./LAWS.bend as Laws
 import bend-kit-collections@0.1.6.0/order.bend as Order
 import bend-kit-collections@0.1.6.0/omap.bend as O
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def split(-P: Bool -> Type, b: Bool, yes: {b == True{} : Bool} -> P(True{}), no: {b == False{} : Bool} -> P(False{})) -> P(b):
   match b:
