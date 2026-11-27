@@ -1,9 +1,9 @@
 # Compiled public application consumer; no listener and no transport simulation.
 import Base
 import ./camber.bend as C
-import bend-kit-http@0.44.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 import bend-kit-router@0.2.0.0/router.bend as R
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 
 def require(ok: Bool, label: String) -> IO(Unit):
   match ok:

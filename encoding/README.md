@@ -3,8 +3,8 @@
 Convert UTF-8 between a `String` of code points and `Bytes`. The `bytes` package provides `to_hex` and `from_hex`.
 
 ```bend
-import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.3/encoding.bend as Enc
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 ```
 
 ```bend

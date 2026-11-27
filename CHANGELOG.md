@@ -8,6 +8,109 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 - `bytes` proof: prove that an empty copy preserves its destination for arbitrary arrays and indexes, through byte, aligned-word, and shifted-word paths.
+- `runner` 0.22.0.5: use current sibling releases with matching types.
+- `jwt` 0.17.0.2: use current sibling releases with matching types.
+- `llm` 0.19.0.2: use current sibling releases with matching types.
+- `oauth2` 0.17.0.2: use current sibling releases with matching types.
+- `sigv4` 0.17.0.2: use current sibling releases with matching types.
+- `webhooks` 0.17.0.2: use current sibling releases with matching types.
+- `camber` 0.19.0.2: use current sibling releases with matching types.
+- `hairpin` 0.19.0.2: use current sibling releases with matching types.
+- `storage` 0.12.0.2: use current sibling releases with matching types.
+- `archive` 0.7.0.3: use current Bytes, Hash, and Zlib releases with matching types.
+- `http` 0.45.0.2: use current sibling releases with matching types.
+- `postgres` 0.4.0.2: use current Bytes and DNS releases with matching types.
+- `redis` 0.5.0.2: use current Bytes and DNS releases with matching types.
+- `stream` 0.5.0.3: use current Files and Bytes releases with matching types.
+- `commands` 0.6.0.3: use current sibling releases with matching types.
+- `crdt` 0.2.3.5: use current sibling releases with matching types.
+- `f32array` 0.2.4.3: use current sibling releases with matching types.
+- `journal` 0.4.0.2: use current sibling releases with matching types.
+- `migrate` 0.4.1.2: use current sibling releases with matching types.
+- `notch` 0.4.0.5: use current sibling releases with matching types.
+- `planner` 0.5.1.2: use current sibling releases with matching types.
+- `protobuf` 0.2.2.2: use current sibling releases with matching types.
+- `regex` 0.9.0.3: use current sibling releases with matching types.
+- `template` 0.4.0.2: use current sibling releases with matching types.
+- `text` 0.2.2.4: use current sibling releases with matching types.
+- `zlib` 0.7.0.4: use current sibling releases with matching types.
+- `bits` 0.4.0.2: use current sibling releases with matching types.
+- `cbor` 0.3.0.3: use current sibling releases with matching types.
+- `csv` 0.3.0.3: use current sibling releases with matching types.
+- `dns` 0.8.0.2: use current sibling releases with matching types.
+- `encoding` 0.5.0.3: use current sibling releases with matching types.
+- `files` 0.4.0.3: use current sibling releases with matching types.
+- `hash` 0.3.2.4: use current sibling releases with matching types.
+- `http2` 0.6.0.2: use current sibling releases with matching types.
+- `json` 0.7.3.2: use current sibling releases with matching types.
+- `multipart` 0.3.0.4: use current sibling releases with matching types.
+- `process` 0.5.2.3: use current sibling releases with matching types.
+- `property` 0.4.0.3: use current sibling releases with matching types.
+- `tar` 0.3.0.3: use current sibling releases with matching types.
+- `time` 0.3.0.5: use current sibling releases with matching types.
+- `websocket` 0.4.1.7: use current sibling releases with matching types.
+- `bytes` 0.3.3.3: align the cursor import example with the package release.
+- `jwt` 0.17.0.1: use current sibling releases with matching types.
+- `llm` 0.19.0.1: use current sibling releases with matching types.
+- `oauth2` 0.17.0.1: use current sibling releases with matching types.
+- `sigv4` 0.17.0.1: use current sibling releases with matching types.
+- `webhooks` 0.17.0.1: use current sibling releases with matching types.
+- `camber` 0.19.0.1: use current sibling releases with matching types.
+- `hairpin` 0.19.0.1: use current sibling releases with matching types.
+- `storage` 0.12.0.1: use current sibling releases with matching types.
+- `archive` 0.7.0.2: use current sibling releases with matching types.
+- `http` 0.45.0.1: use current sibling releases with matching types.
+- `postgres` 0.4.0.1: use current sibling releases with matching types.
+- `redis` 0.5.0.1: use current sibling releases with matching types.
+- `stream` 0.5.0.2: use current sibling releases with matching types.
+- `zlib` 0.7.0.3: use current sibling releases with matching types.
+- `commands` 0.6.0.2: use current sibling releases with matching types.
+- `crdt` 0.2.3.4: use current sibling releases with matching types.
+- `f32array` 0.2.4.2: use current sibling releases with matching types.
+- `journal` 0.4.0.1: use current sibling releases with matching types.
+- `migrate` 0.4.1.1: use current sibling releases with matching types.
+- `notch` 0.4.0.4: use current sibling releases with matching types.
+- `planner` 0.5.1.1: use current sibling releases with matching types.
+- `protobuf` 0.2.2.1: use current sibling releases with matching types.
+- `regex` 0.9.0.2: use current sibling releases with matching types.
+- `template` 0.4.0.1: use current sibling releases with matching types.
+- `text` 0.2.2.3: use current sibling releases with matching types.
+- `bits` 0.4.0.1: use current sibling releases with matching types.
+- `cbor` 0.3.0.2: use current sibling releases with matching types.
+- `csv` 0.3.0.2: use current sibling releases with matching types.
+- `dns` 0.8.0.1: use current sibling releases with matching types.
+- `encoding` 0.5.0.2: use current sibling releases with matching types.
+- `files` 0.4.0.2: use current sibling releases with matching types.
+- `hash` 0.3.2.3: use current sibling releases with matching types.
+- `http2` 0.6.0.1: use current sibling releases with matching types.
+- `json` 0.7.3.1: use current sibling releases with matching types.
+- `multipart` 0.3.0.3: use current sibling releases with matching types.
+- `process` 0.5.2.2: use current sibling releases with matching types.
+- `property` 0.4.0.2: use current sibling releases with matching types.
+- `tar` 0.3.0.2: use current sibling releases with matching types.
+- `time` 0.3.0.4: use current sibling releases with matching types.
+- `websocket` 0.4.1.6: use current sibling releases with matching types.
+- `bytes` 0.3.3.2: import Int by name without changing its version or public types.
+- `tty` 0.1.0.2: import Unicode by name without changing its version or text behavior.
+- `template` 0.4.0.0: mark nonempty source lines in parsed nodes. Both renderers indent nested standalone partials once, preserve blank lines and variable newlines, and keep the 64-level limit. Add `NLine` and remove the old output indentation and trimming helpers.
+- `f32array` 0.2.4.1: prove the big-endian array-to-Bytes-to-array round trip for every input below `2^30` elements. Share the little-endian proof stack and retain all F32 bit patterns in the law's domain.
+- `runner` 0.22.0.4: align the webhook example and its published guidance with Hairpin 0.19.0.0 and Webhooks 0.17.0.0. Remove the completed Hairpin consumer pin exceptions.
+- `jwt` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
+- `llm` 0.19.0.0: use Hairpin 0.19.0.0 with matching HTTP models and pure verdicts.
+- `oauth2` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
+- `sigv4` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models.
+- `webhooks` 0.17.0.0: use Hairpin 0.19.0.0 with matching HTTP models and pure verdicts.
+- `hairpin` 0.19.0.0: isolate URL resolution, header merge, verdicts, and outcome classification in `pure.bend`. Runtime requests use the same definitions, and proofs import no foreign effects. Import pure helpers and `Verdict` from `pure.bend`.
+- Gateway and Runner examples: use current HTTP, Camber, Hairpin, and Webhooks types. Remove the completed HTTP consumer pin exceptions.
+- `runner` 0.22.0.3: publish the webhook example guidance with matching current HTTP, Hairpin, and Webhooks versions.
+- `jwt` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
+- `llm` 0.18.0.0: use the published Hairpin and HTTP releases with matching types.
+- `oauth2` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
+- `sigv4` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
+- `webhooks` 0.16.0.0: use the published Hairpin and HTTP releases with matching types.
+- `camber` 0.19.0.0: use published HTTP 0.45.0.0 types.
+- `hairpin` 0.18.0.0: use published HTTP 0.45.0.0 types.
+- `text` 0.2.2.2: pack exact collision-fallback keys four octets per list cell. Keep partial words and byte lengths exact, and retain both owned buffers.
 - `storage` 0.12.0.0: verify local sync and collection with payload-free digest indexes. Stream missing encoded objects in 64 KiB pieces and keep collection fail-closed.
 - `storage` 0.11.0.0: use HTTP 0.45.0.0's context-aware owned response loop for file-backed origins. Remove the duplicate connection loop without changing object routes or status codes.
 - `http` 0.45.0.0: pass server context to owned streaming response handlers and completion observers. Keep affine body state and HTTP connection lifecycle in the shared loop.

@@ -1,6 +1,6 @@
 import Base
 import ./http2.bend as H
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./hpack.bend as Hp
 import ./live.bend as Live
 import ./events.bend as Events

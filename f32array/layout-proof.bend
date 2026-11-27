@@ -1,6 +1,6 @@
 import Base
 import ./f32array.bend as A
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ../lemmas/lemmas.bend as L
 import ../lemmas/perfect.bend as P
 import bend-mathlib@0.8.0.0/nat.bend as N

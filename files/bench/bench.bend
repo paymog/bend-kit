@@ -1,6 +1,6 @@
 import Base
 import ../files.bend as Fs
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def hash.byte(+h: U32, +b: U32) -> U32:
   ((h .^. b) * 16777619 : U32)

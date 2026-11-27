@@ -1,6 +1,6 @@
 import Base
 import ./cbor.bend as Cbor
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def got(m: Maybe<&1, Bytes.Bytes>) -> Bytes.Bytes:
   match m:

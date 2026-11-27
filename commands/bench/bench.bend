@@ -3,7 +3,7 @@ import Base
 import ../../time/time.bend as Time
 import ../model.bend as M
 import ../commands.bend as C
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-sqlite@0.1.0.1/sqlite.bend as S
 
 def lcg(+x: U32) -> U32:

@@ -5,7 +5,7 @@
 import Base
 import ./postgres.bend as P
 import ./codec.bend as Codec
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def join(+sep: String, xs: List<&2, String>) -> String:
   match xs:

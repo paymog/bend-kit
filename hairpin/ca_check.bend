@@ -1,9 +1,10 @@
 import Base
 import ./hairpin.bend as Hairpin
-import bend-kit-http@0.44.0.2/http.bend as Http
-import bend-kit-http@0.44.0.2/pure.bend as Pure
+import ./pure.bend as Policy
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as Pure
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def die(+why: String) -> IO(Unit):
   IO.die(Unit, 1, why)
@@ -107,8 +108,8 @@ def stream.fail(+name: String, x: Hairpin.Client & Retry.Budget & Result<&1, &1,
     Hairpin.close(c)
     stream.fail.of(name, r)
 
-def judge.stream(r: Result<&1, &1, Pure.Err, Http.Stream>) -> Result<&1, &1, Pure.Err, Http.Stream> & Hairpin.Verdict:
-  (r, Hairpin.VerdictOk{})
+def judge.stream(r: Result<&1, &1, Pure.Err, Http.Stream>) -> Result<&1, &1, Pure.Err, Http.Stream> & Policy.Verdict:
+  (r, Policy.VerdictOk{})
 
 def client(+base: String, +ca: String) -> Hairpin.Client:
   Hairpin.ca(Hairpin.base(Hairpin.new(), base), ca)

@@ -1,7 +1,7 @@
 import Base
 import ./bits.bend as Bits
 import ./check.bend as Check
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def finished(+ok: Bool, r: Bytes.Bytes & Nat) -> Bool:
   (b, pos) = r

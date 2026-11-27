@@ -2,8 +2,8 @@
 import Base
 import ./camber.bend as Example
 import ./dispatch_check.bend as Registry
-import bend-kit-http@0.44.0.2/pure.bend as Pure
-import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-json@0.7.3.2/json.bend as Json
 
 type Domain is Data:
   Domain{name: String, secret: String, internal: U32}

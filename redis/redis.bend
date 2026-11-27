@@ -1,8 +1,8 @@
 # Redis and Valkey client: RESP3 over TCP or TLS, with pipelining and a pool. Source: https://github.com/paymog/bend-kit/tree/main/redis
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
-import bend-kit-dns@0.8.0.0/dns.bend as Dns
+import bend-kit-dns@0.8.0.2/dns.bend as Dns
 import ./pure.bend as Pure
 
 type Val is Type:

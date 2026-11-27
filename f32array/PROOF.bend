@@ -3,6 +3,8 @@ import ./f32array.bend as A
 import ./LAWS.bend as Laws
 import ./proofs.bend as P
 import ./roundtrip-proof.bend as Roundtrip
+import ./codec-model.bend as C
+import ./endian-proof.bend as Endian
 
 def Laws.new_zeros():
   {==}
@@ -104,10 +106,10 @@ def Laws.from_bytes_empty():
   {==}
 
 def Laws.bytes_roundtrip_le(a, h):
-  Roundtrip.roundtrip(a, h)
+  Roundtrip.roundtrip(~A.to_bits, ~A.of_bits, ~A.from_bytes.le, ~C.from_bytes_le, ~C.bits_roundtrip, a, h)
 
-def Laws.bytes_roundtrip_be():
-  {==}
+def Laws.bytes_roundtrip_be(a, h):
+  Roundtrip.roundtrip(~A.to_bits.be, ~A.of_bits.be, ~A.from_bytes.be, ~C.from_bytes_be, ~Endian.roundtrip, a, h)
 
 def Laws.cells_roundtrip():
   {==}

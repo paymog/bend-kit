@@ -1,12 +1,12 @@
 # Pure HTTP codecs, framing, redirect, retry, and cookie rules.
 import Base
-import bend-kit-time@0.3.0.3/pure.bend as Time
+import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 import bend-kit-url@0.4.1.0/url.bend as Url
-import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-zlib@0.7.0.2/zlib.bend as Zlib
+import bend-kit-encoding@0.5.0.3/encoding.bend as Enc
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-zlib@0.7.0.4/zlib.bend as Zlib
 
 type Req is Type:
   Req{method: String, path: String, headers: Map<&2, List<&2, String>>, body: Bytes.Bytes}

@@ -11,10 +11,15 @@ package from the hub wait until the package's other files are re-pinned and
 published.
 Files under an evidence/ folder keep their pins. The protobuf generator and
 benchmark import templates take part in the same waves as Bend sources.
+Published README changes also need a release. README-only changes raise the
+fourth version number. Prose such as HTTP0.44.0.2, HTTP 0.44.0.2, and Package
+version is flagged for manual review, not replaced. Historical evidence and
+changelogs are not edited.
 
 Usage: scripts/repin.py [--apply]. --apply re-pins the first wave: imports,
 package READMEs, root README import rows, VERSION, and scripts/pins.allow.
-Use --guidance to regenerate the root Same type section without hub access.
+Use --guidance to regenerate the root Same type section and flag stale prose
+without hub access.
 BEND_HUB overrides the hub, as in scripts/publish.sh.
 """
 import json
@@ -81,6 +86,17 @@ def hub_files(pkg, ver):
     return {k if k.startswith(f"{pkg}/") else f"{pkg}/{k}" for k in keys}
 
 
+def hub_readme(pkg, ver):
+    for key in (f"{pkg}/README.md", "README.md"):
+        try:
+            with urllib.request.urlopen(f"{HUB}/{hub_hash(pkg, ver)}/{key}") as r:
+                return r.read().decode()
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+    raise RuntimeError(f"published README missing for {pkg}@{ver}")
+
+
 def raise_at(old, new):
     return next(i for i, (a, b) in enumerate(zip(old.split("."), new.split("."))) if a != b)
 
@@ -104,6 +120,16 @@ def waves(pkgs, ver, files, pins):
     published = set()
     real = {}
     on_hub = lambda p, v: (p, v) in published or hub_hash(p, v) is not None
+    dirty_readmes = set()
+    for p in pkgs:
+        path = ROOT / p / "README.md"
+        if not path.exists():
+            continue
+        base = ver[p] if on_hub(p, ver[p]) else newest(p)
+        if base:
+            real[p] = hub_files(p, base)
+            if f"{p}/README.md" in real[p] and path.read_text() != hub_readme(p, base):
+                dirty_readmes.add(p)
     for _ in range(64):
         moves, waiting, groups = [], set(), {}
         for p in pkgs:
@@ -111,6 +137,8 @@ def waves(pkgs, ver, files, pins):
             stale = {f: s for f, s in stale.items() if s}
             own = {f for f in stale if any(q == p for q, _ in pins[f])}
             groups[p] = ({f: s for f, s in stale.items() if f not in own}, {f: stale[f] for f in own})
+            if p in dirty_readmes:
+                groups[p][0][f"{p}/README.md"] = set()
         unsettled = {p for p, (rest, _) in groups.items() if rest}
         for p in pkgs:
             rest, own = groups[p]
@@ -133,8 +161,17 @@ def waves(pkgs, ver, files, pins):
             if base:
                 if p not in real:
                     real[p] = hub_files(p, base) if hub_hash(p, base) else {f"{p}/{p}.bend"}
+                readme = ROOT / p / "README.md"
+                if f"{p}/README.md" in real[p] and readme.exists():
+                    text = readme.read_text()
+                    if any(re.search(rf"bend-kit-{q}@{re.escape(old)}(?![0-9])", text)
+                           for e in edits.values() for q, old in e):
+                        edits.setdefault(f"{p}/README.md", {})
                 if edits.keys() & real[p]:
-                    place = min(raise_at(old, n) for e in edits.values() for (_, old), n in e.items())
+                    source_edits = [e for f, e in edits.items()
+                                    if f != f"{p}/README.md" and f in real[p]]
+                    place = min((raise_at(old, n) for e in source_edits
+                                 for (_, old), n in e.items()), default=3)
                     if base == ver[p] or place < raise_at(base, ver[p]):
                         new = bump(ver[p], place)
             moves.append((p, new, edits))
@@ -144,8 +181,9 @@ def waves(pkgs, ver, files, pins):
             return
         yield moves, waiting
         for p, new, edits in moves:
+            dirty_readmes.discard(p)
             for f, e in edits.items():
-                pins[f] = {(q, v) for q, v in pins[f] if (q, v) not in e} | {(q, n) for (q, _), n in e.items()}
+                pins[f] = {(q, v) for q, v in pins.get(f, set()) if (q, v) not in e} | {(q, n) for (q, _), n in e.items()}
             if new:
                 ver[p] = new
         published |= set(ver.items())
@@ -160,7 +198,8 @@ def show(n, moves, waiting):
     for p, new, edits in moves:
         pairs = sorted({(q, old, v) for e in edits.values() for (q, old), v in e.items()})
         head = f"{p} -> {new}" if new else p
-        print(f"  {head}: " + ", ".join(f"{q} {old} -> {v}" for q, old, v in pairs) + f" ({len(edits)} files)")
+        detail = ", ".join(f"{q} {old} -> {v}" for q, old, v in pairs) or "README metadata"
+        print(f"  {head}: {detail} ({len(edits)} files)")
 
 
 def sub(path, old, new):
@@ -242,9 +281,16 @@ def guidance(ver, pkgs, changed):
             refs = [(p.removeprefix("bend-kit-"), v) for p, v in re.findall(
                 r"\b((?:bend-kit-)?[a-z0-9-]+)@([0-9]+(?:\.[0-9]+)*)(?![0-9./])", line)]
             refs = [(p, v) for p, v in refs if p in ver]
+            plain = re.findall(r"\b([A-Za-z][A-Za-z-]*?)\s*`?([0-9]+(?:\.[0-9]+){3})(?![0-9.])", line)
+            refs += [(p.lower(), v) for p, v in plain if p.lower() in ver]
+            if path.parent.name in ver:
+                refs += [(path.parent.name, v) for v in re.findall(
+                    r"\bPackage version:\s*`?([0-9]+(?:\.[0-9]+){3})(?![0-9.])", line, re.I)]
+                if refs:
+                    refs.append((path.parent.name, ver[path.parent.name]))
             stale = any(v != ver[p] for p, v in refs)
             names = {p for p, _ in refs}
-            if not stale and not (path == ROOT / "README.md" and names & changed):
+            if not stale and not names & changed:
                 continue
             print(f"{path.relative_to(ROOT)}:{n}: review dependency guidance manually: {line.strip()}")
             for p in sorted(names):
@@ -275,6 +321,7 @@ def main():
     pkgs, ver, files, pins = load()
     if "--guidance" in sys.argv[1:]:
         same_type(ver, pkgs)
+        guidance(ver, pkgs, set())
         return
     plan = waves(pkgs, ver, files, pins)
     if "--apply" in sys.argv[1:]:
@@ -292,6 +339,7 @@ def main():
         shown = True
     if not shown:
         print("every import names its sibling's VERSION")
+    guidance(ver, pkgs, set())
 
 
 if __name__ == "__main__":

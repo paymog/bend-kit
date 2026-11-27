@@ -2,7 +2,7 @@
 import Base
 import ../../time/time.bend as Time
 import ../json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # Checksum: h = h*31 + c, u32, then add the length.
 def hash(s: String, h: U32, n: U32) -> U32:

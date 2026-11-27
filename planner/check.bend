@@ -1,9 +1,9 @@
 # A diamond build run with real commands: order, single runs, reuse, invalidation, cycles, missing nodes, and a failed command.
 import Base
 import ./planner.bend as P
-import bend-kit-files@0.4.0.1/files.bend as Files
-import bend-kit-process@0.5.2.1/process.bend as Proc
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-files@0.4.0.3/files.bend as Files
+import bend-kit-process@0.5.2.3/process.bend as Proc
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # A diamond whose middle tasks each sleep for a second, logging when they start (+) and end (-).
 def PT() -> List<&2, P.Task>:

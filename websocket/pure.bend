@@ -1,6 +1,6 @@
 # Pure RFC 6455 handshake validation, frame codec, and message assembly.
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # Errors are (code, why). A code of 1000 or more is the RFC 6455 §7.4 close code the
 # peer broke (1002 protocol, 1006 closed early, 1007 bad UTF-8, 1009 too big, 1011 budget);

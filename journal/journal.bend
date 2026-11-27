@@ -1,6 +1,6 @@
 # Append-only journal: checksummed frames, fsync'd appends, and crash recovery of the committed prefix. Source: https://github.com/paymog/bend-kit/tree/main/journal
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./pure.bend as Pure
 
 # Effects. Each one finishes its write with fsync (F_FULLFSYNC on macOS in C) before it answers.

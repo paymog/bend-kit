@@ -1,9 +1,9 @@
 import Base
 import ../http/http.bend as Http
 import ../http/pure.bend as Pure
-import bend-kit-json@0.7.3.0/json.bend as Json
+import bend-kit-json@0.7.3.2/json.bend as Json
 import ./surface_app.bend as Example
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def error_kind(error: Example.Err) -> String:
   match error:

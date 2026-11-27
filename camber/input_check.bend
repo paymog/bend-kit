@@ -3,10 +3,10 @@ import Base
 import ./camber.bend as C
 import ./input_app.bend as App
 import ./input.bend as Input
-import bend-kit-http@0.44.0.2/http.bend as H
-import bend-kit-http@0.44.0.2/pure.bend as Pure
-import bend-kit-http@0.44.0.2/completion.bend as T
-import bend-kit-bytes@0.3.3.1/bytes.bend as B
+import bend-kit-http@0.45.0.2/http.bend as H
+import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.2/completion.bend as T
+import bend-kit-bytes@0.3.3.3/bytes.bend as B
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 def ready(result: Result<&2, &2, C.RegistrationError, C.Application<Unit, App.Config, C.Policy<Unit>>>) -> IO(C.Application<Unit, App.Config, C.Policy<Unit>>):

@@ -1,5 +1,5 @@
 import Base
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./multipart.bend as Mp
 
 # The laws run in the checker. This runs encode and decode on the native runtime: a binary

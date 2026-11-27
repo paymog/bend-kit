@@ -2,7 +2,7 @@
 import Base
 import ./camber.bend as Camber
 import ./ledger.bend as Book
-import bend-kit-files@0.4.0.1/files.bend as Files
+import bend-kit-files@0.4.0.3/files.bend as Files
 import ./dispatch_check.bend as Dispatch
 import ./response_check.bend as Response
 import ./scoped_check.bend as Scoped

@@ -1,6 +1,6 @@
 import Base
 import ./codec.bend as C
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def b(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)

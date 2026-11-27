@@ -1,6 +1,6 @@
 import Base
 import ./bits.bend as Bits
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # The laws run in the checker on short streams. This runs long ones on the native Array:
 # many writer doublings, every width from 0 to 32 at every bit offset, and long Huffman runs.

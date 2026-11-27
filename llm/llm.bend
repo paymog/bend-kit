@@ -1,13 +1,14 @@
 # LLM client for the Anthropic Messages and OpenAI Chat Completions APIs, with SSE streaming. Source: https://github.com/paymog/bend-kit/tree/main/llm
 import Base
 import ./sse.bend as Sse
-import bend-kit-hairpin@0.17.0.1/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.2/pure.bend as HairpinPure
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.44.0.2/http.bend as Http
-import bend-kit-http@0.44.0.2/pure.bend as HttpPure
-import bend-kit-json@0.7.3.0/json.bend as Json
-import bend-kit-bytes@0.3.3.1/bytes.bend as Bytes
-import bend-kit-encoding@0.5.0.1/encoding.bend as Enc
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-encoding@0.5.0.3/encoding.bend as Enc
 import ./pure.bend as Pure
 
 # Anthropic: POST {base}/v1/messages. OpenAI: POST {base}/chat/completions, which many other providers serve too.
@@ -264,22 +265,22 @@ def again.err(+e: HttpPure.Err) -> Maybe<&2, String>:
 def again.of(+status: U32, +h: Map<&2, List<&2, String>>) -> Maybe<&2, String>:
   Bool.pick(Maybe<&2, String>, again.status(status), Some{HttpPure.header(h, "retry-after")}, None{})
 
-# Again when another try may help; otherwise settled, as Hairpin.judge would settle it.
-def verdict(m: Maybe<&2, String>, settled: Hairpin.Verdict) -> Hairpin.Verdict:
+# Again when another try may help; otherwise settled, as HairpinPure.judge would settle it.
+def verdict(m: Maybe<&2, String>, settled: HairpinPure.Verdict) -> HairpinPure.Verdict:
   match m:
     case Some{after}:
-      Hairpin.VerdictAgain{after}
+      HairpinPure.VerdictAgain{after}
     case None{}:
       settled
 
 # Hairpin's judge for every call.
-def again(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) -> Result<&1, &1, HttpPure.Err, HttpPure.Res> & Hairpin.Verdict:
+def again(r: Result<&1, &1, HttpPure.Err, HttpPure.Res>) -> Result<&1, &1, HttpPure.Err, HttpPure.Res> & HairpinPure.Verdict:
   match r:
     case Fail{+e}:
-      (Fail{e}, verdict(again.err(e), Hairpin.VerdictTarget{}))
+      (Fail{e}, verdict(again.err(e), HairpinPure.VerdictTarget{}))
     case Done{res}:
       HttpPure.Res{+status, +h, b} = res
-      (Done{HttpPure.Res{status, h, b}}, verdict(again.of(status, h), Hairpin.judge.status(status)))
+      (Done{HttpPure.Res{status, h, b}}, verdict(again.of(status, h), HairpinPure.judge.status(status)))
 
 def body.ok(good: Bool, +status: U32, b: Bytes.Bytes) -> Result<&1, &1, Err, Bytes.Bytes>:
   match good:
@@ -414,15 +415,15 @@ def send(c: Client, req: Req) -> IO(Client & Result<&1, &1, Err, Reply>):
 type Stream is Type:
   Stream{api: Api, h: Http.Stream, rd: Sse.Reader}
 
-def open.res(x: Http.Stream & HttpPure.Res) -> Result<&1, &1, HttpPure.Err, Http.Stream> & Hairpin.Verdict:
+def open.res(x: Http.Stream & HttpPure.Res) -> Result<&1, &1, HttpPure.Err, Http.Stream> & HairpinPure.Verdict:
   (st, res) = x
   HttpPure.Res{+status, +h, b} = res
-  (Done{st}, verdict(again.of(status, h), Hairpin.judge.status(status)))
+  (Done{st}, verdict(again.of(status, h), HairpinPure.judge.status(status)))
 
-def open.judge(r: Result<&1, &1, HttpPure.Err, Http.Stream>) -> Result<&1, &1, HttpPure.Err, Http.Stream> & Hairpin.Verdict:
+def open.judge(r: Result<&1, &1, HttpPure.Err, Http.Stream>) -> Result<&1, &1, HttpPure.Err, Http.Stream> & HairpinPure.Verdict:
   match r:
     case Fail{+e}:
-      (Fail{e}, verdict(again.err(e), Hairpin.VerdictTarget{}))
+      (Fail{e}, verdict(again.err(e), HairpinPure.VerdictTarget{}))
     case Done{st}:
       open.res(Http.stream.res(st))
 
