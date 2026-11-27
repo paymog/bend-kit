@@ -4,6 +4,7 @@ import ./sse.bend as Sse
 import ./sse-scan-proof.bend as Scan
 import ./sse-buffer-proof.bend as Buffer
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import ./sse-packed-proof.bend as Packed
 
 def Laws.sse_whole():
   {==}
@@ -130,6 +131,21 @@ def Laws.sse_colon_preserves_buffer(f, a, c, i):
 
 def Laws.sse_name_preserves_buffer(needle, ok, a, c, i):
   Buffer.at_preserves(needle, ok, a, c, i)
+
+def Laws.sse_packed_copy(m, src, dst, s, d):
+  Packed.copy_bridge(m, src, dst, s, d)
+
+def Laws.sse_packed_append(a, b, limit, hn, hu):
+  Packed.canonical_append_observed(a, b, limit, hn, hu)
+
+def Laws.sse_packed_append_scan(a, b, limit, hn, hu):
+  Packed.canonical_append_scan(a, b, limit, hn, hu)
+
+def Laws.sse_feed_buffer_observe(a, b, seen, cr, st, limit, hn, hu):
+  Packed.feed_zero_observed(a, b, seen, cr, st, limit, hn, hu)
+
+def Laws.sse_kind_observe(n, a, b, i, j, two, four, five):
+  Packed.kind_observed(n, a, b, i, j, two, four, five)
 
 def Laws.reply_anthropic():
   {==}

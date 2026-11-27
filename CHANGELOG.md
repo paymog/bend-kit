@@ -7,7 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
-- `llm` proofs: split arbitrary parser-loop and clean-prefix scanner fuel, transport scanner results and clean-prefix evidence across equal packed-read observations, generalize CRLF skipping, and remove the proof harness's 64-event chunk limit. The runtime chunk-boundary refinement remains open.
+- `llm` proofs: prove bounded hub-buffer append observations and first-delimiter invariance, connect uncompacted feed buffers to arbitrary chunks, transport field classification, and retain scanner/loop composition facts. The runtime feed/drain refinement remains open.
 - `bytes` proof: prove canonical append preserves arbitrary bounded octet strings, including aligned and unaligned destinations, growth, empty inputs, and exact-capacity buffers.
 - `stats` 0.1.8.1: prove Newton convergence and remove integer square root certification and its search fallback.
 - `runner` 0.22.0.5: use current sibling releases with matching types.

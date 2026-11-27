@@ -5,6 +5,11 @@ import ./sse-scan-proof.bend as Scan
 import ./sse-buffer-proof.bend as Buffer
 import bend-kit-json@0.7.3.2/json.bend as Json
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import ./sse-packed-proof.bend as Packed
+import ../bytes/append-proof.bend as PackedModel
+import ../lemmas/array.bend as Tree
+import bend-mathlib@0.8.0.0/nat.bend as MNat
+import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 
 def b(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -315,6 +320,59 @@ law sse_name_preserves_buffer:
   for +c: U32
   for +i: U32
   {Buffer.at_array(Bytes.at.go(needle, ok, (a, c), i)) == a : Array<U32>}
+
+# The hub byte operations used by SSE implement the unrestricted packed-copy model.
+law sse_packed_copy:
+  for +m: U32
+  for +src: Tree.Tree<U32>
+  for +dst: Tree.Tree<U32>
+  for +s: U32
+  for +d: U32
+  {Bytes.copy(m, Tree.reify(U32, src), Tree.reify(U32, dst), s, d) ==
+    (Tree.reify(U32, src), Tree.reify(U32, PackedModel.copy(m, src, dst, s, d))) : Array<U32> & Array<U32>}
+
+# Appending arbitrary bounded chunks preserves their forward packed-read observations.
+law sse_packed_append:
+  for +a: String
+  for +b: String
+  for +limit: Nat
+  for +hn: MNat.lt(Nat.add(Nat.add(String.length(a), String.length(b)), 3n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  {Packed.observe(String.length(PackedModel.mask(a) ++ PackedModel.mask(b)),
+    Bytes.append(Bytes.from_string(a), Bytes.from_string(b)), 0) == PackedModel.mask(a) ++ PackedModel.mask(b) : String}
+
+law sse_packed_append_scan:
+  for +a: String
+  for +b: String
+  for +limit: Nat
+  for +hn: MNat.lt(Nat.add(Nat.add(String.length(a), String.length(b)), 3n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  {Packed.scan(String.length(PackedModel.mask(a) ++ PackedModel.mask(b)), Bytes.append(Bytes.from_string(a), Bytes.from_string(b)), 0) ==
+    Packed.scan(String.length(PackedModel.mask(a) ++ PackedModel.mask(b)), Bytes.from_string(a ++ b), 0) : U32}
+
+# This feed-buffer bridge does not yet cover compaction or draining.
+law sse_feed_buffer_observe:
+  for +a: String
+  for +b: String
+  for +seen: U32
+  for +cr: Bool
+  for -st: Sse.St
+  for +limit: Nat
+  for +hn: MNat.lt(Nat.add(Nat.add(String.length(a), String.length(b)), 3n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  {Packed.reader_observed(String.length(PackedModel.mask(a) ++ PackedModel.mask(b)),
+    Sse.feed(Sse.Reader{Bytes.from_string(a), 0, seen, cr, st}, Bytes.from_string(b))) == PackedModel.mask(a) ++ PackedModel.mask(b) : String}
+
+law sse_kind_observe:
+  for +n: U32
+  for +a: Tree.Tree<U32>
+  for +b: Tree.Tree<U32>
+  for +i: U32
+  for +j: U32
+  for two: {Buffer.observed(2n, Bytes.peek(Tree.reify(U32, a), i), i) == Buffer.observed(2n, Bytes.peek(Tree.reify(U32, b), j), j) : String}
+  for four: {Buffer.observed(4n, Bytes.peek(Tree.reify(U32, a), i), i) == Buffer.observed(4n, Bytes.peek(Tree.reify(U32, b), j), j) : String}
+  for +five: {Buffer.observed(5n, Bytes.peek(Tree.reify(U32, a), i), i) == Buffer.observed(5n, Bytes.peek(Tree.reify(U32, b), j), j) : String}
+  {Packed.kind_index(n, a, i) == Packed.kind_index(n, b, j) : U32}
 
 def repeated_events(n: Nat) -> String:
   match n:
