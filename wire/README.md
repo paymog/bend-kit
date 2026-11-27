@@ -3,7 +3,7 @@
 Byte-exact TCP, UDP, and TLS. Calls consume a socket or listener and return it beside the result. `connect` returns a new socket inside the `Result`. `tls.close` consumes the socket and does not return it.
 
 ```bend
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 ```
 
 `connect(host, port, ms)` opens TCP. `recv` and `send` move a byte `String`. The `.words` forms move packed `Array<U32>` buffers, four octets per word, and do not build a list cell per byte. `recv_from` and `send_to` are UDP. `ms` is a deadline in milliseconds. `0` means no deadline, except where a def says otherwise. `accept.deadline` rejects `0`. A miss is the host `ETIMEDOUT`: 60 on macOS, 110 on Linux.
@@ -79,6 +79,16 @@ The existing checksum benchmark ran once per variant, not a statistical performa
 This primitive bounds socket IO waiting, **not arbitrary Bend computation**. OS scheduling, event-loop starvation by other work, packed conversion, and result/buffer disposal can delay observation. The live acceptance fixture uses a 100 ms budget plus **150 ms host scheduling/cleanup tolerance**, on an otherwise cooperative loop. This is a test allowance, not a hard real-time promise. Dedicated-process supervision is still needed for uncooperative computation.
 
 Existing `send.words` has its separate, unlimited-write contract. Consumers that require a total write budget must call the deadline primitive; no HTTP server cutover is included in this package change.
+
+## Deadline-bounded packed TLS writes
+
+`tls.send.words.deadline(socket, len, words, ms)` returns
+`IO(Socket & (U32 & Result<&1, &1, U32 & String, Unit>))`.
+
+- `words` and `ms` (`1..2147483647`) follow the same rules as `send.words.deadline`. Invalid length or budget returns `EINVAL` with zero progress before writing; a socket without an attached TLS session returns `EBADF` with zero progress.
+- One monotonic deadline starts before unpacking and covers all `SSL_write` calls and `SSL_ERROR_WANT_READ`/`SSL_ERROR_WANT_WRITE` readiness retries. Each `SSL_write` is capped to one 16 KiB TLS plaintext record so progress advances at record granularity and the deadline is checked between records.
+- On timeout (`ETIMEDOUT`) or write error (`EPIPE`), OpenSSL's write state may be half-flushed and non-resumable. The caller owns the returned socket and must close it with `tls.close`; do not call `tls.send*` again on that socket.
+- Run `python3 -B wire/tls_deadline_check.py` from the repository root to verify all nine scenarios (`success`, `empty`, `length`, `zero-budget`, `large-budget`, `bad-fd`, `reset`, `stall`, `trickle`) in both native and JS compiled lanes.
 
 ## Live acceptance
 

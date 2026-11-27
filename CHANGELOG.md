@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `wire` 0.4.9.0: add `tls.send.words.deadline` with a single monotonic write budget across OpenSSL `WANT_READ`/`WANT_WRITE` retries in both C and JS, capping each `SSL_write` to one 16 KiB TLS plaintext record for accurate partial-progress accounting and bounded stall/trickle termination.
 - `sigv4` 0.17.0.4: reject overflowing, empty, and invalid XML numeric character references.
 - `runner` 0.22.0.6: use current Webhooks, Hairpin, and HTTP releases in the outbox example.
 - `jwt` 0.17.0.3: use current HTTP and Hairpin releases with matching types.
