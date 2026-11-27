@@ -1,8 +1,8 @@
 import Base
 import ./jwt.bend as Jwt
-import bend-kit-hairpin@0.19.0.1/hairpin.bend as Hairpin
-import bend-kit-json@0.7.3.1/json.bend as Json
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # JWKS fetch and cache against the local server jwks-check.sh runs. The set's tried time shows whether a
 # call fetched. Two throwaway P-256 keys: "a" in a.json, "a" and "b" in b.json.

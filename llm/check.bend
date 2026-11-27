@@ -1,13 +1,13 @@
 import Base
 import ./sse.bend as Sse
 import ./llm.bend as Llm
-import bend-kit-hairpin@0.19.0.1/hairpin.bend as Hairpin
-import bend-kit-http@0.45.0.1/http.bend as Http
-import bend-kit-http@0.45.0.1/pure.bend as HttpPure
-import bend-kit-http@0.45.0.1/admission.bend as Admission
-import bend-kit-http@0.45.0.1/completion.bend as Completion
-import bend-kit-json@0.7.3.1/json.bend as Json
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
+import bend-kit-http@0.45.0.2/http.bend as Http
+import bend-kit-http@0.45.0.2/pure.bend as HttpPure
+import bend-kit-http@0.45.0.2/admission.bend as Admission
+import bend-kit-http@0.45.0.2/completion.bend as Completion
+import bend-kit-json@0.7.3.2/json.bend as Json
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 
 # The laws run in the checker. This runs the parser on the runtime at sizes the checker would not reach.

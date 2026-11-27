@@ -1,6 +1,6 @@
 # Server-Sent Events parser (WHATWG HTML §9.2.6), fed in pieces. Source: https://github.com/paymog/bend-kit/tree/main/llm
 import Base
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 # name: the event type, "message" when the stream sets none. data: the data lines joined by LF.
 # id: the last event ID the stream set. name and id hold one Char per octet.

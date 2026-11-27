@@ -1,6 +1,6 @@
 # Pure webhook headers, timestamps, and signature framing.
 import Base
-import bend-kit-time@0.3.0.4/pure.bend as Time
+import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type Err is Data:
