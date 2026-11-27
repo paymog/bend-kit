@@ -4,8 +4,8 @@ import ./raw_http.bend as Raw
 import ../http/http.bend as Http
 import ../http/pure.bend as Pure
 import ../http/completion.bend as Completion
-import bend-kit-time@0.3.0.4/time.bend as Time
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-time@0.3.0.5/time.bend as Time
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-int@0.2.0.0/int.bend as Int
 
 type Payload is Data:

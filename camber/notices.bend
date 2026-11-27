@@ -1,9 +1,9 @@
 # Application-only or actual transport completion, with a closed safe access projection.
 import Base
-import bend-kit-time@0.3.0.4/pure.bend as Time
+import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-int@0.2.0.0/int.bend as Int
-import bend-kit-http@0.45.0.1/completion.bend as Transport
-import bend-kit-notch@0.4.0.4/notch.bend as Notch
+import bend-kit-http@0.45.0.2/completion.bend as Transport
+import bend-kit-notch@0.4.0.5/notch.bend as Notch
 
 type Outcome is Data:
   ApplicationOnly{}

@@ -2,10 +2,10 @@
 import Base
 import ../http/http.bend as Http
 import ../http/pure.bend as Pure
-import bend-kit-json@0.7.3.1/json.bend as Json
+import bend-kit-json@0.7.3.2/json.bend as Json
 import ../router/router.bend as Router
 import ./ownership.bend as Inputs
-import bend-kit-bytes@0.3.3.2/bytes.bend as Bytes
+import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def text(status: U32, body: String) -> Pure.Res:
   Pure.Res{status, Pure.set(Pure.empty(), "content-type", "text/plain; charset=utf-8"), Pure.from_string(body)}

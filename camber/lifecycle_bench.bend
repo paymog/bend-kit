@@ -4,7 +4,7 @@ import ./raw_bench.bend as Raw
 import ./lifecycle_http.bend as Scoped
 import ../http/http.bend as Http
 import ../http/pure.bend as Pure
-import bend-kit-time@0.3.0.4/time.bend as Time
+import bend-kit-time@0.3.0.5/time.bend as Time
 
 def loops(~dispatch: U32 -> Pure.Req -> IO(Pure.Res), n: Nat, +work: Raw.Job, +fields: Map<&2, List<&2, String>>, total: U32) -> IO(U32):
   match n:

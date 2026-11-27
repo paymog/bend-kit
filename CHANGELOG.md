@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `camber` 0.19.0.2: use current sibling releases with matching types.
+- `hairpin` 0.19.0.2: use current sibling releases with matching types.
+- `storage` 0.12.0.2: use current sibling releases with matching types.
 - `archive` 0.7.0.3: use current Bytes, Hash, and Zlib releases with matching types.
 - `http` 0.45.0.2: use current sibling releases with matching types.
 - `postgres` 0.4.0.2: use current Bytes and DNS releases with matching types.
