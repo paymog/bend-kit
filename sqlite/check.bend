@@ -30,6 +30,22 @@ def blob_ok(blob: U32 & Array<U32>) -> Bool:
   (len, words) = blob
   blob_word(Array.get(U32, words, 0), len)
 
+def churn(n: Nat) -> IO(Unit):
+  match n:
+    case 0n:
+      IO.pure(Unit, Unit{})
+    case 1n+p:
+      do IO<Unit>:
+        +db : U32 <- IO.try(U32, Sqlite.db.open(":memory:"))
+        +st : U32 <- IO.try(U32, Sqlite.stmt.prepare(db, "SELECT 1"))
+        row : Bool <- IO.try(Bool, Sqlite.stmt.step(st))
+        require(row, "churn SELECT missed row")
+        IO.try(Unit, Sqlite.stmt.finalize(st))
+        IO.try(Unit, Sqlite.db.close(db))
+        stale : Result<&1, &1, U32 & String, U32> <- Sqlite.stmt.prepare(db, "SELECT 1")
+        reject(stale, "churn closed database accepted a statement")
+        churn(p)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     +db : U32 <- IO.try(U32, Sqlite.db.open(":memory:"))
@@ -68,4 +84,5 @@ def main() -> IO(Unit):
     IO.try(Unit, Sqlite.db.close(db))
     stale : Result<&1, &1, U32 & String, U32> <- Sqlite.stmt.prepare(db, "SELECT 1")
     reject(stale, "closed database accepted a statement")
+    churn(200n)
     IO.print("sqlite smoke ok")
