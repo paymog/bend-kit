@@ -1,3 +1,3 @@
 # Imports that scripts/pins.sh lets through: a target per line, then why.
 # Remove a line when the issue named on it lands.
-bend-kit-zlib@0.7.0.4 # #1308 adopts zlib 0.7.0.5 after publication.
+bend-kit-http@0.45.0.2 # #1308 re-pins downstream consumers after HTTP publishes.

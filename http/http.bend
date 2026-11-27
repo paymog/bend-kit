@@ -14,7 +14,7 @@ import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-json@0.7.3.2/json.bend as Json
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-dns@0.8.0.2/dns.bend as Dns
-import bend-kit-zlib@0.7.0.4/native.bend as ZNative
+import bend-kit-zlib@0.7.0.5/native.bend as ZNative
 
 
 def clock.instant(v: Clock.Instant) -> Time.Instant:
