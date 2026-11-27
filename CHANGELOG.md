@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `llm` proofs: prove bounded observational composition of the actual SSE feed across arbitrary adjacent chunks and valid readers, including compaction, pending CR, and persistent IDs. Complete different-buffer field refinement and dispatch content also check. Interleaved-drain invariance is not claimed.
 - `bytes` proof: prove canonical append preserves arbitrary bounded octet strings, including aligned and unaligned destinations, growth, empty inputs, and exact-capacity buffers.
 - `stats` 0.1.8.1: prove Newton convergence and remove integer square root certification and its search fallback.
 - `runner` 0.22.0.5: use current sibling releases with matching types.
@@ -162,6 +163,8 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 - `cache`, `protobuf`, `scheduler`, `wire`: adopt Time 0.3.0.2 in checks, benchmarks, and clock helpers outside their published files.
 
 - `sigv4` 0.14.0.3: isolate pure S3 XML parsing and prove namespace, nesting, entity, comment, CDATA, malformed response, error, and list fixtures. Keep public runtime response types and signing checks.
+
+- `llm` proofs: add parameterized chunk-list and octet-feed composition, split-CRLF state preservation, and persistent event IDs. Keep runtime behavior and the published version unchanged.
 
 - `jwt`: prove claim-time and leeway boundaries for every `U32` timestamp. Compare sums in `Nat` to cover wrapped subtraction. Keep runtime behavior and the published version unchanged.
 
