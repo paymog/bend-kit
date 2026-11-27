@@ -10,6 +10,8 @@ import ./sse-offset-proof.bend as Offset
 import ./sse-capacity-proof.bend as Capacity
 import ./sse-reader-proof.bend as Reader
 import ./sse-field-proof.bend as Field
+import ./sse-refinement-proof.bend as Refinement
+import ./sse-line-proof.bend as Line
 
 def Laws.sse_whole():
   {==}
@@ -244,6 +246,21 @@ def Laws.sse_field_observed(old, value, la, left, len, src, s, e, limit, name, i
 
 def Laws.sse_field_valid(old, value, la, left, len, src, s, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb):
   Field.field_valid(old, value, la, left, len, src, s, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb)
+
+def Laws.sse_field_spans(a, b, s, t, e, f, delta, limit, se, tf, he, hf, hu, starts, ends, same):
+  Refinement.field_spans(a, b, s, t, e, f, delta, limit, se, tf, he, hf, hu, starts, ends, same)
+
+def Laws.sse_field_refines(old, name, id, retry, a, b, len, other, s, t, e, f, st, next, delta, limit, hl, hr, hu, se, tf, el, fo, starts, ends, hn, left_state, right_state, same):
+  Refinement.field_refines(old, name, id, retry, a, b, len, other, s, t, e, f, st, next, delta, limit, hl, hr, hu, se, tf, el, fo, starts, ends, hn, left_state, right_state, same)
+
+def Laws.sse_scanned_field_refines(old, name, id, retry, a, b, len, other, s, t, st, next, delta, limit, hl, hr, hu, sl, to, starts, ends, hn, left_state, right_state, same):
+  Refinement.scanned_field_refines(old, name, id, retry, a, b, len, other, s, t, st, next, delta, limit, hl, hr, hu, sl, to, starts, ends, hn, left_state, right_state, same)
+
+def Laws.sse_trim_string(text, len, src, depth, limit, hd, hl, hu, hc, length, shape, reads):
+  Line.trim_string(text, len, src, depth, limit, hd, hl, hu, hc, length, shape, reads)
+
+def Laws.sse_dispatch_content(text, name, id, retry, len, src, depth, limit, nonempty, hd, hl, hu, hc, length, shape, reads):
+  Line.dispatch_nonempty(text, name, id, retry, len, src, depth, limit, nonempty, hd, hl, hu, hc, length, shape, reads)
 
 def Laws.reply_anthropic():
   {==}
