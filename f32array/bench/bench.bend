@@ -5,6 +5,7 @@ import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ../f32array.bend as A
 import ../parallel.bend as P
 
+import ../io.bend as E
 # N = 2^22 elements. a[i] = (i + 3) & 3 and b[i] = (5i + 3) & 3, so every sum is an exact integer.
 
 def ramp.go(n: Nat, a: A.F32Array, +i: U32, +k: U32) -> A.F32Array:
@@ -62,7 +63,8 @@ def op.to_bytes.done(t0: Time.Duration, b: Bytes.Bytes, keep: A.F32Array) -> IO(
 def op.to_bytes(c: A.F32Array, keep: A.F32Array) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    op.to_bytes.done(t0, A.to_bytes.le(c), keep)
+    bytes : Bytes.Bytes <- E.to_bytes.le(c)
+    op.to_bytes.done(t0, bytes, keep)
 
 def op.add.chk(t0: Time.Duration, b: A.F32Array, r: A.F32Array & U32) -> IO(Unit):
   (c, +v) = r
@@ -143,7 +145,8 @@ def op.from.done(t0: Time.Duration, b: A.F32Array, m: Maybe<&1, A.F32Array>) -> 
 def op.from(bytes: Bytes.Bytes, b: A.F32Array) -> IO(Unit):
   do IO<Unit>:
     t0 : Time.Duration <- Time.mono()
-    op.from.done(t0, b, A.from_bytes.le(bytes))
+    a : Maybe<&1, A.F32Array> <- E.from_bytes.le(bytes)
+    op.from.done(t0, b, a)
 
 def main() -> IO(Unit):
   op.from(A.to_bytes.le(ramp(1)), ramp(5))

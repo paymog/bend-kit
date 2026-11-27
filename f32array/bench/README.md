@@ -9,7 +9,7 @@ python3 run.py      # 3 runs, median
 python3 run.py 5    # 5 runs
 ```
 
-You need `bend`, `cc`, `rustc`, `bun`, `node`, `python3`, and NumPy. Binaries go to `out/`, which git ignores. It exits non-zero if a build fails, or if two programs disagree on a checksum. Bend uses `parallel.bend` for sum and dot, with eight CPU workers.
+You need `bend`, `cc`, `rustc`, `bun`, `node`, `python3`, and NumPy. Binaries go to `out/`, which git ignores. It exits non-zero if a build fails, or if two programs disagree on a checksum. Bend uses `parallel.bend` for sum and dot, with eight CPU workers. The `Bend IO` column uses `io.bend` for byte conversions; it does not measure the pure converters.
 
 ## The work
 
@@ -17,42 +17,68 @@ You need `bend`, `cc`, `rustc`, `bun`, `node`, `python3`, and NumPy. Binaries go
 
 | op | work | checksum |
 |---|---|---|
-| `from_bytes` | decode the 16 MiB of little-endian bytes into a new array `a` | `a[N-1] + a[12345]` |
+| `from_bytes` | consume 16 MiB of little-endian bytes to produce array `a`; native Bend reuses its buffer | `a[N-1] + a[12345]` |
 | `sum` | add up `a` | the sum |
 | `max` | the largest element of `a` | the max |
 | `dot` | the sum of `a[i] * b[i]` | the dot product |
 | `map` | `a[i] *= 2`, in place | `a[N-1] + a[12345]` |
 | `add` | `a[i] += b[i]`, in place | `a[N-1] + a[12345]` |
-| `to_bytes` | encode `a` as little-endian bytes in a new buffer | byte count + last byte |
+| `to_bytes` | consume `a` to produce little-endian bytes; native Bend reuses its buffer | byte count + last byte |
 
 Each language uses its obvious loop or standard call. C uses `memcpy` and plain loops (so it assumes a little-endian host). Rust uses `Vec<f32>` with `chunks_exact`, `from_le_bytes`, and iterator `sum`, `fold`, and `zip`. Bun and Node use `Float32Array` and `for` loops. Python's standard library has no vector math, so the Python column is NumPy: `frombuffer`, `sum`, `max`, `dot`, `*=`, `+=`, and `tobytes`.
 
 ## Results
 
-M4 Pro, macOS, 2026-11-20. Bend 2.0.38, Apple clang 21.0.0 (`-O2`), rustc 1.91.0 (`opt-level=3`), Bun 1.4.4, Node 24.0.1, Python 3.14.6 with NumPy 2.4.2. Median of five runs with `python3 run.py 5`. Times are in ms; `Nx` is the multiple of the fastest program for that op.
+M4 Pro, macOS, 2026-11-27. Bend 2.0.40, Apple clang 21.0.0 (`-O2`), rustc 1.91.0 (`opt-level=3`), Bun 1.4.4, Node 24.0.1, Python 3.14.6 with NumPy 2.4.2. Median of five runs with `python3 run.py 5`. Times are in ms; `Nx` is the multiple of the fastest program for that op.
 
-| op | C | Rust | Bun | Node | NumPy | Bend |
+| op | C | Rust | Bun | Node | NumPy | Bend IO |
 |---|---:|---:|---:|---:|---:|---:|
-| from_bytes | 0.98 (2.4x) | 1.83 (4.5x) | 1.04 (2.5x) | 1.32 (3.2x) | 0.41 (1.0x) | 3.25 (7.9x) |
-| sum | 2.21 (5.1x) | 2.23 (5.2x) | 6.80 (15.8x) | 10.73 (25.0x) | 0.52 (1.2x) | 0.43 (1.0x) |
-| max | 2.06 (10.6x) | 0.26 (1.3x) | 3.92 (20.0x) | 5.66 (28.9x) | 0.20 (1.0x) | 3.16 (16.2x) |
-| dot | 2.27 (8.6x) | 2.26 (8.6x) | 24.77 (93.9x) | 25.10 (95.1x) | 0.26 (1.0x) | 0.43 (1.6x) |
-| map | 0.25 (1.1x) | 0.24 (1.0x) | 19.08 (81.0x) | 2.99 (12.7x) | 0.26 (1.1x) | 0.49 (2.1x) |
-| add | 0.34 (1.0x) | 0.36 (1.1x) | 6.08 (18.0x) | 8.27 (24.5x) | 0.36 (1.1x) | 0.45 (1.3x) |
-| to_bytes | 0.99 (2.5x) | 1.12 (2.9x) | 1.08 (2.7x) | 0.39 (1.0x) | 2.36 (6.0x) | 2.08 (5.3x) |
-| geomean vs fastest | 3.1x | 2.6x | 16.3x | 13.2x | 1.4x | 3.1x |
+| from_bytes | 1.12 (16.9x) | 2.21 (33.4x) | 1.36 (20.5x) | 1.49 (22.5x) | 0.40 (6.0x) | 0.07 (1.0x) |
+| sum | 2.41 (6.5x) | 2.45 (6.6x) | 7.37 (19.9x) | 10.97 (29.6x) | 0.53 (1.4x) | 0.37 (1.0x) |
+| max | 2.13 (11.7x) | 0.26 (1.4x) | 4.16 (22.8x) | 6.09 (33.3x) | 0.18 (1.0x) | 3.29 (18.0x) |
+| dot | 2.45 (9.1x) | 2.58 (9.6x) | 24.16 (90.2x) | 26.26 (98.0x) | 0.27 (1.0x) | 0.41 (1.5x) |
+| map | 0.27 (1.1x) | 0.25 (1.0x) | 18.85 (74.2x) | 3.25 (12.8x) | 0.26 (1.0x) | 0.47 (1.9x) |
+| add | 0.36 (1.0x) | 0.36 (1.0x) | 6.16 (17.3x) | 8.35 (23.4x) | 0.37 (1.0x) | 0.41 (1.2x) |
+| to_bytes | 1.19 (32.3x) | 1.26 (34.4x) | 1.15 (31.3x) | 0.38 (10.5x) | 2.48 (67.6x) | 0.04 (1.0x) |
+| geomean vs fastest | 6.3x | 5.2x | 31.9x | 25.4x | 2.5x | 1.8x |
 
 Every program printed checksums `2`, `6291456`, `3`, `14680064`, `4`, `6`, and `16777280`.
 
 ## Reading it
 
 - Each `Array` slot holds eight elements. Each sum leaf adds the lanes of each cell pairwise, then adds at most 16 cell totals sequentially. Higher nodes add equal halves pairwise.
-- The eight-worker sum and dot take about 0.43 ms each. The former sequential four-accumulator implementation measured 1.15 ms and 1.95 ms in the earlier 2026-10-27 run. Use the same-run comparison below to separate the algorithm from compiler and machine variation.
-- `map` and `add` are within 2.1x of C.
+- The eight-worker sum and dot take about 0.37 and 0.41 ms. Use the same-run comparison below to separate the algorithm from compiler and machine variation.
+- `map` and `add` are within 1.9x of C.
 - A loop that writes cells must not read the next cell ahead. The read-ahead form of `map` took 1.1 ms; reading and writing the same cell in each pass takes 0.3 to 0.4 ms. The read-only loops (`sum`, `dot`, `max`) read ahead without that cost.
-- `max` is the slowest remaining numeric op: 3.16 ms against 2.06 ms in C.
-- `from_bytes` and `to_bytes` move eight words per cell. C and JS copy the memory, so they are 2 to 6 times faster.
+- `max` is the slowest remaining numeric op: 3.29 ms against 2.13 ms in C.
+- Native IO conversions transfer ownership instead of copying the 16 MiB buffer. The other languages use the calls listed above. This is not a comparison of memory-copy throughput.
 - Only sum and dot use fork-join. Other ops remain sequential.
+
+## Native IO conversions
+
+The original pure-conversion goal was revised to an IO-boundary workaround. Pure converters and their laws stay unchanged. Their wrapping masks still need [upstream bounded access support](https://github.com/bendlang/bend/issues/1936).
+
+Three different approaches were measured with `python3 f32array/bench/run.py 5` on Bend 2.0.40. Each successful run agreed on all seven checksums.
+
+| approach | from_bytes.le ms | to_bytes.le ms |
+|---|---:|---:|
+| unchanged pure baseline, main `0e70fab` | 2.00 | 1.14 |
+| structural Array tree repacking, eight leaves per Cell | 69.00 | 2.08 |
+| aligned addresses, `j .|. lane` instead of `j + lane` | 2.16 | 1.13 |
+| native ownership transfer, IO | 0.07 | 0.04 |
+
+Structural matching copies Array halves in the native runtime. Aligned address expressions do not remove the wrapping masks. Both variants were removed. A fourth attempt used direct pair bindings for consecutive reads; the pinned checker rejected computed match scrutinees before it could run.
+
+For confirmation, build the original main benchmark and the new benchmark with the same compiler. Run each binary with `+RTS --threads 8`, alternating which goes first for 21 pairs. All seven checksums match in every process.
+
+| path | median decode ms | median encode ms | decode range ms | encode range ms |
+|---|---:|---:|---:|---:|
+| pure baseline | 2.109958 | 1.143792 | 1.961375–2.367875 | 1.110125–1.226417 |
+| native IO | 0.074750 | 0.037208 | 0.065500–0.152625 | 0.035792–0.043208 |
+
+The native runtime already stores both Bytes words and eight-lane F32 cells in packed U32 blocks. Little-endian conversion can retain that allocation. Small buffers need a different allocation size. Padding is cleared, and big-endian conversion swaps each word. Shared blocks are copied before mutation. The JS twin converts each element; it does not use the native layout shortcut. These effects stay outside the pure proof graph.
+
+The runtime check covers lengths 0 through 33 and 1,025, both endians, dirty padding, minimal capacity, signed zero, subnormals, infinity, NaN payloads, invalid byte lengths, and agreement with pure encoders. Every padding lane is checked as positive zero.
 
 ## Cutoff and float64 error
 
