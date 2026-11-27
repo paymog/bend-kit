@@ -10,6 +10,7 @@ import ../bytes/append-proof.bend as PackedModel
 import ../lemmas/array.bend as Tree
 import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
+import ../bits/array-proof.bend as Bound
 
 def b(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -373,6 +374,44 @@ law sse_kind_observe:
   for four: {Buffer.observed(4n, Bytes.peek(Tree.reify(U32, a), i), i) == Buffer.observed(4n, Bytes.peek(Tree.reify(U32, b), j), j) : String}
   for +five: {Buffer.observed(5n, Bytes.peek(Tree.reify(U32, a), i), i) == Buffer.observed(5n, Bytes.peek(Tree.reify(U32, b), j), j) : String}
   {Packed.kind_index(n, a, i) == Packed.kind_index(n, b, j) : U32}
+
+law sse_shifted_copy_word:
+  for +i: Nat
+  for +n: Nat
+  for +depth: Nat
+  for +src: Tree.Tree<U32>
+  for +dst: Tree.Tree<U32>
+  for +lo: Nat
+  for +hi: Nat
+  for +s: U32
+  for +d: U32
+  for +limit: Nat
+  for shape: Bound.shape(depth, PackedModel.as_bits(dst))
+  for hd: MNat.lt(depth, 32n)
+  for hl: MNat.le(limit, 1n+Lemmas.pow2(depth))
+  for hu: MNat.le(limit, Lemmas.pow2(32n))
+  for end: MNat.lt(Nat.add(n, 1n+Nat.add(i, U32.to_nat(d))), limit)
+  {Tree.read(U32, PackedModel.copy.shift(Nat.add(i, 1n+n), src, dst, lo, hi,
+    Tree.read(U32, src, s), (s + 1 : U32), d, Tree.read(U32, src, (s + 1 : U32))), PackedModel.advance(i, d)) ==
+    (U32.shrn(Tree.read(U32, src, PackedModel.advance(i, s)), lo) .|.
+      U32.shln(Tree.read(U32, src, PackedModel.advance(1n+i, s)), hi) : U32) : U32}
+
+# Positive shifted copies preserve the first octet, including exact-capacity buffers.
+law sse_shifted_copy_head:
+  for +m: U32
+  for +n: Nat
+  for +depth: Nat
+  for +src: Tree.Tree<U32>
+  for +dst: Tree.Tree<U32>
+  for +s: U32
+  for +limit: Nat
+  for shape: Bound.shape(depth, PackedModel.as_bits(dst))
+  for +hd: MNat.lt(depth, 32n)
+  for +hl: MNat.le(limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n))
+  for hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +hn: MNat.lt(Nat.add(n, 1n), limit)
+  for +em: {U32.to_nat(m) == 1n+n : Nat}
+  {Packed.shifted_copy_head(m, src, dst, s) == Buffer.index(Bytes.peek(Tree.reify(U32, src), s)) : U32}
 
 def repeated_events(n: Nat) -> String:
   match n:

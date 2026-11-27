@@ -147,6 +147,12 @@ def Laws.sse_feed_buffer_observe(a, b, seen, cr, st, limit, hn, hu):
 def Laws.sse_kind_observe(n, a, b, i, j, two, four, five):
   Packed.kind_observed(n, a, b, i, j, two, four, five)
 
+def Laws.sse_shifted_copy_word(i, n, depth, src, dst, lo, hi, s, d, limit, shape, hd, hl, hu, end):
+  Packed.shift_bounded(i, n, depth, src, dst, lo, hi, s, d, limit, shape, hd, hl, hu, end)
+
+def Laws.sse_shifted_copy_head(m, n, depth, src, dst, s, limit, shape, hd, hl, hu, hn, em):
+  Packed.shifted_head_capacity(m, n, depth, src, dst, s, limit, shape, hd, hl, hu, hn, em)
+
 def Laws.reply_anthropic():
   {==}
 

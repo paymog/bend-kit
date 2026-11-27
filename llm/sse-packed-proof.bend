@@ -8,6 +8,7 @@ import bend-mathlib@0.8.0.0/nat.bend as MNat
 import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import ../bits/array-proof.bend as Bound
 import ../bytes/bytes.bend as Local
+import ../bits/field-proof.bend as Field
 
 def observe(+f: Nat, b: Bytes.Bytes, +i: U32) -> String:
   Bytes.Bytes{len, a} = b
@@ -821,3 +822,352 @@ def kind_observed(+n: U32, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>, +i: U32, +j: 
         Buffer.at_observed("event", True{}, Bytes.peek(Tree.reify(U32, a), i), Bytes.peek(Tree.reify(U32, b), j), i, j, five),
         Buffer.at_observed("retry", True{}, Bytes.peek(Tree.reify(U32, a), i), Bytes.peek(Tree.reify(U32, b), j), i, j, five)),
       Equal.sym(U32, kind_index(n, b, j), kind_value(n, at_match("id", b, j), at_match("data", b, j), at_match("event", b, j), at_match("retry", b, j)), kind_index_result(n, b, j))))
+
+def shift_other(n: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +lo: Nat, +hi: Nat, +prev: U32, +k: U32, +d: U32, +w: U32, +j: U32,
+  h: Packed.Outside(n, dst, d, j)) ->
+  {Tree.read(U32, Packed.copy.shift(n, src, dst, lo, hi, prev, k, d, w), j) == Tree.read(U32, dst, j) : U32}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+ +p:
+      (head, tail) = h
+      +v = (U32.shrn(prev, lo) .|. U32.shln(w, hi) : U32)
+      Equal.trans(U32, Tree.read(U32, Packed.copy.shift(n, src, dst, lo, hi, prev, k, d, w), j),
+        Tree.read(U32, Packed.set(dst, d, v), j), Tree.read(U32, dst, j),
+        shift_other(p, src, Packed.set(dst, d, v), lo, hi, w, (k + 1 : U32), (d + 1 : U32), Tree.read(U32, src, (k + 1 : U32)), j,
+          Packed.outside_set(p, dst, (d + 1 : U32), j, d, v, tail)),
+        Packed.read_set_other(dst, d, j, v, head))
+
+def shift_first(+n: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +lo: Nat, +hi: Nat, +prev: U32, +k: U32, +d: U32, +w: U32,
+  h: Packed.Outside(n, dst, (d + 1 : U32), d)) ->
+  {Tree.read(U32, Packed.copy.shift(1n+n, src, dst, lo, hi, prev, k, d, w), d) ==
+    (U32.shrn(prev, lo) .|. U32.shln(w, hi) : U32) : U32}:
+  +v = (U32.shrn(prev, lo) .|. U32.shln(w, hi) : U32)
+  Equal.trans(U32, Tree.read(U32, Packed.copy.shift(1n+n, src, dst, lo, hi, prev, k, d, w), d),
+    Tree.read(U32, Packed.set(dst, d, v), d), v,
+    shift_other(n, src, Packed.set(dst, d, v), lo, hi, w, (k + 1 : U32), (d + 1 : U32), Tree.read(U32, src, (k + 1 : U32)), d,
+      Packed.outside_set(n, dst, (d + 1 : U32), d, d, v, h)),
+    Packed.read_set(dst, d, v))
+
+def shift_source(i: Nat, +src: Tree.Tree<U32>, +lo: Nat, +hi: Nat, prev: U32, +k: U32, +w: U32) -> U32:
+  match i:
+    case 0n:
+      (U32.shrn(prev, lo) .|. U32.shln(w, hi) : U32)
+    case 1n+p:
+      shift_source(p, src, lo, hi, w, (k + 1 : U32), Tree.read(U32, src, (k + 1 : U32)))
+
+def shift_at(i: Nat, +n: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +lo: Nat, +hi: Nat, +prev: U32, +k: U32, +d: U32, +w: U32,
+  h: Packed.Outside(n, dst, Packed.advance(1n+i, d), Packed.advance(i, d))) ->
+  {Tree.read(U32, Packed.copy.shift(Nat.add(i, 1n+n), src, dst, lo, hi, prev, k, d, w), Packed.advance(i, d)) ==
+    shift_source(i, src, lo, hi, prev, k, w) : U32}:
+  match i:
+    case 0n:
+      shift_first(n, src, dst, lo, hi, prev, k, d, w, h)
+    case 1n+ +p:
+      +v = (U32.shrn(prev, lo) .|. U32.shln(w, hi) : U32)
+      shift_at(p, n, src, Packed.set(dst, d, v), lo, hi, w, (k + 1 : U32), (d + 1 : U32), Tree.read(U32, src, (k + 1 : U32)),
+        Packed.outside_set(n, dst, Packed.advance(1n+p, (d + 1 : U32)), Packed.advance(p, (d + 1 : U32)), d, v, h))
+
+def shift_source_value(i: Nat, +src: Tree.Tree<U32>, +lo: Nat, +hi: Nat, +s: U32) ->
+  {shift_source(i, src, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), Tree.read(U32, src, (s + 1 : U32))) ==
+    (U32.shrn(Tree.read(U32, src, Packed.advance(i, s)), lo) .|.
+      U32.shln(Tree.read(U32, src, Packed.advance(1n+i, s)), hi) : U32) : U32}:
+  match i:
+    case 0n:
+      {==}
+    case 1n+ +p:
+      shift_source_value(p, src, lo, hi, (s + 1 : U32))
+
+def shift_value(+i: Nat, +n: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +lo: Nat, +hi: Nat, +s: U32, +d: U32,
+  h: Packed.Outside(n, dst, Packed.advance(1n+i, d), Packed.advance(i, d))) ->
+  {Tree.read(U32, Packed.copy.shift(Nat.add(i, 1n+n), src, dst, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), d,
+    Tree.read(U32, src, (s + 1 : U32))), Packed.advance(i, d)) ==
+    (U32.shrn(Tree.read(U32, src, Packed.advance(i, s)), lo) .|.
+      U32.shln(Tree.read(U32, src, Packed.advance(1n+i, s)), hi) : U32) : U32}:
+  Equal.trans(U32,
+    Tree.read(U32, Packed.copy.shift(Nat.add(i, 1n+n), src, dst, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), d,
+      Tree.read(U32, src, (s + 1 : U32))), Packed.advance(i, d)),
+    shift_source(i, src, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), Tree.read(U32, src, (s + 1 : U32))),
+    (U32.shrn(Tree.read(U32, src, Packed.advance(i, s)), lo) .|. U32.shln(Tree.read(U32, src, Packed.advance(1n+i, s)), hi) : U32),
+    shift_at(i, n, src, dst, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), d, Tree.read(U32, src, (s + 1 : U32)), h),
+    shift_source_value(i, src, lo, hi, s))
+
+def joined_low(+a: U32, +b: U32, +lo: Nat, +hi: Nat, h: MNat.le(8n, hi)) ->
+  {Local.b8((U32.shrn(a, lo) .|. U32.shln(b, hi) : U32)) == Local.b8(U32.shrn(a, lo)) : U32}:
+  +x = U32.shrn(a, lo)
+  +y = U32.shln(b, hi)
+  %Equal.sym(U32, Local.b8((x .|. y : U32)), U32{Field.low(32n, 8n, Field.word((x .|. y : U32)))}, Field.and_mask_word((x .|. y : U32), 8)) :
+    {_ == Local.b8(x) : U32}
+  %Equal.sym(Word(32n), Field.word((x .|. y : U32)), Word.or(32n, Field.word(x), Field.word(y)), Field.word_or(x, y)) :
+    {U32{Field.low(32n, 8n, _)} == Local.b8(x) : U32}
+  %Equal.sym(Word(32n), Field.word(y), Field.wshl(hi, 32n, Field.word(b)), Field.word_shln(hi, b)) :
+    {U32{Field.low(32n, 8n, Word.or(32n, Field.word(x), _))} == Local.b8(x) : U32}
+  Equal.trans(U32,
+    U32{Field.low(32n, 8n, Word.or(32n, Field.word(x), Field.wshl(hi, 32n, Field.word(b))))},
+    U32{Field.low(32n, 8n, Field.word(x))}, Local.b8(x),
+    Equal.cong(Word(32n), U32, w => U32{w},
+      Field.low(32n, 8n, Word.or(32n, Field.word(x), Field.wshl(hi, 32n, Field.word(b)))), Field.low(32n, 8n, Field.word(x)),
+      Field.low_or_shift(32n, 8n, hi, Field.word(x), Field.word(b), h)),
+    Equal.sym(U32, Local.b8(x), U32{Field.low(32n, 8n, Field.word(x))}, Field.and_mask_word(x, 8)))
+
+def shift_bounded(+i: Nat, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +lo: Nat, +hi: Nat, +s: U32, +d: U32, +limit: Nat,
+  shape: Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hl: MNat.le(limit, 1n+Lemmas.pow2(depth)), hu: MNat.le(limit, Lemmas.pow2(32n)),
+  end: MNat.lt(Nat.add(n, 1n+Nat.add(i, U32.to_nat(d))), limit)) ->
+  {Tree.read(U32, Packed.copy.shift(Nat.add(i, 1n+n), src, dst, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), d,
+    Tree.read(U32, src, (s + 1 : U32))), Packed.advance(i, d)) ==
+    (U32.shrn(Tree.read(U32, src, Packed.advance(i, s)), lo) .|.
+      U32.shln(Tree.read(U32, src, Packed.advance(1n+i, s)), hi) : U32) : U32}:
+  shift_value(i, n, src, dst, lo, hi, s, d, Packed.outside_offset(i, n, depth, dst, d, limit, shape, hd, hl, hu, end))
+
+def shift_tail_value(+i: Nat, +n: Nat, +tail: U32, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +lo: Nat, +hi: Nat,
+  +s: U32, +d: U32, +st: U32, +dt: U32, +word_limit: Nat, +byte_limit: Nat,
+  hs: Bound.shape(depth, Packed.as_bits(dst)) & Bound.shape(depth, Packed.as_bits(dst)), +hd: MNat.lt(depth, 32n),
+  hwl: MNat.le(word_limit, 1n+Lemmas.pow2(depth)), hwu: MNat.le(word_limit, Lemmas.pow2(32n)),
+  hbl: MNat.le(byte_limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hbu: MNat.le(byte_limit, Lemmas.pow2(32n)),
+  hw: MNat.lt(Nat.add(n, 1n+Nat.add(i, U32.to_nat(d))), word_limit),
+  hb: MNat.lt(Nat.add(U32.to_nat(tail), U32.to_nat(dt)), byte_limit),
+  hj: MNat.lt(U32.to_nat(Packed.advance(i, d)), U32.to_nat((dt >> 2n : U32)))) ->
+  {Tree.read(U32, Packed.copy.bytes(tail, src,
+    Packed.copy.shift(Nat.add(i, 1n+n), src, dst, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), d, Tree.read(U32, src, (s + 1 : U32))),
+    st, dt), Packed.advance(i, d)) ==
+    (U32.shrn(Tree.read(U32, src, Packed.advance(i, s)), lo) .|.
+      U32.shln(Tree.read(U32, src, Packed.advance(1n+i, s)), hi) : U32) : U32}:
+  (ha, hbshape) = hs
+  +words = Packed.copy.shift(Nat.add(i, 1n+n), src, dst, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), d, Tree.read(U32, src, (s + 1 : U32)))
+  Equal.trans(U32, Tree.read(U32, Packed.copy.bytes(tail, src, words, st, dt), Packed.advance(i, d)),
+    Tree.read(U32, words, Packed.advance(i, d)),
+    (U32.shrn(Tree.read(U32, src, Packed.advance(i, s)), lo) .|. U32.shln(Tree.read(U32, src, Packed.advance(1n+i, s)), hi) : U32),
+    Packed.copy.go_frame(U32.to_nat(tail), depth, src, words, st, dt, Packed.peek(src, st), Packed.advance(i, d), byte_limit,
+      Packed.copy.shift_shape(Nat.add(i, 1n+n), depth, src, dst, lo, hi, Tree.read(U32, src, s), (s + 1 : U32), d, Tree.read(U32, src, (s + 1 : U32)), ha),
+      hd, hbl, hbu, hj, hb),
+    shift_bounded(i, n, depth, src, dst, lo, hi, s, d, word_limit, hbshape, hd, hwl, hwu, hw))
+
+def shift_hi_normal(a: Bool, b: Bool) ->
+  MNat.le(8n, U32.to_nat((32 - (U32{WCon{a, WCon{b, Word.zero(30n)}}} * 8) : U32))):
+  match a b:
+    case False{} False{}:
+      {==}
+    case False{} True{}:
+      {==}
+    case True{} False{}:
+      {==}
+    case True{} True{}:
+      {==}
+
+def shift_hi_bits(+a: Bool, +b: Bool, +t: Word(30n)) ->
+  MNat.le(8n, U32.to_nat((32 - ((U32{WCon{a, WCon{b, t}}} .&. 3) * 8) : U32))):
+  %Equal.sym(U32, (U32{WCon{a, WCon{b, t}}} .&. 3 : U32), U32{WCon{a, WCon{b, Word.zero(30n)}}}, Packed.low2(a, b, t)) :
+    MNat.le(8n, U32.to_nat((32 - (_ * 8) : U32)))
+  shift_hi_normal(a, b)
+
+def shift_hi(+s: U32) -> MNat.le(8n, U32.to_nat((32 - ((s .&. 3) * 8) : U32))):
+  match s:
+    case U32{WCon{+a, WCon{+b, +t}}}:
+      shift_hi_bits(a, b, t)
+
+# Keep scalar transport opaque to avoid expansion: https://github.com/bendlang/bend/issues/1071.
+def peek_zero_value(+t: Tree.Tree<U32>, +v: U32, e: {Tree.read(U32, t, 0) == v : U32}) ->
+  {Packed.peek(t, 0) == Local.b8(v) : U32}:
+  Equal.cong(U32, U32, x => Local.b8(x), Tree.read(U32, t, 0), v, e)
+
+def shift_tail_low(+n: Nat, +tail: U32, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>,
+  +lo: Nat, +hi: Nat, +sw: U32, +st: U32, +dt: U32, +word_limit: Nat, +byte_limit: Nat,
+  hs: Bound.shape(depth, Packed.as_bits(dst)) & Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hwl: MNat.le(word_limit, 1n+Lemmas.pow2(depth)), hwu: MNat.le(word_limit, Lemmas.pow2(32n)),
+  hbl: MNat.le(byte_limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hbu: MNat.le(byte_limit, Lemmas.pow2(32n)),
+  hw: MNat.lt(Nat.add(n, 1n), word_limit),
+  hb: MNat.lt(Nat.add(U32.to_nat(tail), U32.to_nat(dt)), byte_limit),
+  hj: MNat.lt(0n, U32.to_nat((dt >> 2n : U32))), hhi: MNat.le(8n, hi)) ->
+  {Packed.peek(Packed.copy.bytes(tail, src,
+    Packed.copy.shift(1n+n, src, dst, lo, hi, Tree.read(U32, src, sw), (sw + 1 : U32), 0, Tree.read(U32, src, (sw + 1 : U32))),
+    st, dt), 0) == Local.b8(U32.shrn(Tree.read(U32, src, sw), lo)) : U32}:
+  +a = Tree.read(U32, src, sw)
+  +b = Tree.read(U32, src, (sw + 1 : U32))
+  +words = Packed.copy.shift(1n+n, src, dst, lo, hi, a, (sw + 1 : U32), 0, b)
+  Equal.trans(U32, Packed.peek(Packed.copy.bytes(tail, src, words, st, dt), 0), Local.b8((U32.shrn(a, lo) .|. U32.shln(b, hi) : U32)), Local.b8(U32.shrn(a, lo)),
+    peek_zero_value(Packed.copy.bytes(tail, src, words, st, dt), (U32.shrn(a, lo) .|. U32.shln(b, hi) : U32),
+      shift_tail_value(0n, n, tail, depth, src, dst, lo, hi, sw, 0, st, dt, word_limit, byte_limit, hs, hd, hwl, hwu, hbl, hbu, hw, hb, hj)),
+    joined_low(a, b, lo, hi, hhi))
+
+def shift_tail_head_fuel(+f: Nat, +n: Nat, +tail: U32, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>,
+  +lo: Nat, +hi: Nat, +sw: U32, +st: U32, +dt: U32, +word_limit: Nat, +byte_limit: Nat,
+  hs: Bound.shape(depth, Packed.as_bits(dst)) & Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hwl: MNat.le(word_limit, 1n+Lemmas.pow2(depth)), hwu: MNat.le(word_limit, Lemmas.pow2(32n)),
+  hbl: MNat.le(byte_limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hbu: MNat.le(byte_limit, Lemmas.pow2(32n)),
+  hw: MNat.lt(Nat.add(n, 1n), word_limit),
+  hb: MNat.lt(Nat.add(U32.to_nat(tail), U32.to_nat(dt)), byte_limit),
+  hj: MNat.lt(0n, U32.to_nat((dt >> 2n : U32))), hhi: MNat.le(8n, hi), e: {f == 1n+n : Nat}) ->
+  {Packed.peek(Packed.copy.bytes(tail, src,
+    Packed.copy.shift(f, src, dst, lo, hi, Tree.read(U32, src, sw), (sw + 1 : U32), 0, Tree.read(U32, src, (sw + 1 : U32))),
+    st, dt), 0) == Local.b8(U32.shrn(Tree.read(U32, src, sw), lo)) : U32}:
+  %Equal.sym(Nat, f, 1n+n, e) :
+    {Packed.peek(Packed.copy.bytes(tail, src,
+      Packed.copy.shift(_, src, dst, lo, hi, Tree.read(U32, src, sw), (sw + 1 : U32), 0, Tree.read(U32, src, (sw + 1 : U32))),
+      st, dt), 0) == Local.b8(U32.shrn(Tree.read(U32, src, sw), lo)) : U32}
+  shift_tail_low(n, tail, depth, src, dst, lo, hi, sw, st, dt, word_limit, byte_limit, hs, hd, hwl, hwu, hbl, hbu, hw, hb, hj, hhi)
+
+def tail_start_positive.of(+dt: U32, +k: U32, +w: U32, +n: Nat,
+  ed: {dt == k : U32}, ek: {U32.to_nat(k) == Nat.mul(U32.to_nat(w), 4n) : Nat}, ew: {U32.to_nat(w) == 1n+n : Nat}) ->
+  MNat.lt(0n, U32.to_nat((dt >> 2n : U32))):
+  %Equal.sym(U32, dt, k, ed) : MNat.lt(0n, U32.to_nat((_ >> 2n : U32)))
+  %Equal.sym(Nat, U32.to_nat((k >> 2n : U32)), U32.to_nat(w), Packed.block_word_nat(k, w, ek)) : MNat.lt(0n, _)
+  %Equal.sym(Nat, U32.to_nat(w), 1n+n, ew) : MNat.lt(0n, _)
+  {==}
+
+def tail_start_positive(+k: U32, +w: U32, +n: Nat, +limit: Nat,
+  ek: {U32.to_nat(k) == Nat.mul(U32.to_nat(w), 4n) : Nat}, ew: {U32.to_nat(w) == 1n+n : Nat},
+  hk: MNat.lt(U32.to_nat(k), limit), hu: MNat.le(limit, Lemmas.pow2(32n))) ->
+  MNat.lt(0n, U32.to_nat(((0 + k) >> 2n : U32))):
+  tail_start_positive.of((0 + k : U32), k, w, n, Packed.zero_add(k, limit, hk, hu), ek, ew)
+
+def shifted_head_full(+m: U32, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>,
+  +s: U32, +word_limit: Nat, +byte_limit: Nat,
+  hs: Bound.shape(depth, Packed.as_bits(dst)) & Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hwl: MNat.le(word_limit, 1n+Lemmas.pow2(depth)), hwu: MNat.le(word_limit, Lemmas.pow2(32n)),
+  hbl: MNat.le(byte_limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), +hbu: MNat.le(byte_limit, Lemmas.pow2(32n)),
+  +ew: {U32.to_nat((m >> 2n : U32)) == 1n+n : Nat},
+  hw: MNat.lt(Nat.add(n, 1n), word_limit),
+  +end: MNat.lt(Nat.add(U32.to_nat(m), 0n), byte_limit)) ->
+  {Packed.peek(Packed.copy.pick(False{}, m, src, dst, s, 0), 0) == Packed.peek(src, s) : U32}:
+  +w = (m >> 2n : U32)
+  +k = (w * 4 : U32)
+  +hm : MNat.lt(U32.to_nat(m), byte_limit) = (
+    %MNat.add_zero(U32.to_nat(m)) : MNat.lt(_, byte_limit)
+    end)
+  +ek = Packed.copied_block_nat(m, byte_limit, hm, hbu)
+  +hk : MNat.le(U32.to_nat(k), U32.to_nat(m)) = (
+    %Equal.sym(Nat, U32.to_nat(k), Nat.mul(U32.to_nat(w), 4n), ek) : MNat.le(_, U32.to_nat(m))
+    Packed.copied_words_cover(m))
+  +hj = tail_start_positive(k, w, n, byte_limit, ek, ew,
+    MNat.lt_of_le_of_lt(U32.to_nat(k), U32.to_nat(m), byte_limit, hk, hm), hbu)
+  shift_tail_head_fuel(U32.to_nat(w), n, (m - k : U32), depth, src, dst, Local.shift(s), U32.to_nat((32 - ((s .&. 3) * 8) : U32)),
+    (s >> 2n : U32), (s + k : U32), (0 + k : U32), word_limit, byte_limit,
+    hs, hd, hwl, hwu, hbl, hbu, hw, Packed.copied_tail_end(m, 0, byte_limit, end, hbu), hj, shift_hi(s), ew)
+
+
+def bytes_head(+m: U32, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32, +limit: Nat,
+  shape: Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hl: MNat.le(limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)),
+  end: MNat.lt(Nat.add(n, 1n), limit), em: {U32.to_nat(m) == 1n+n : Nat}) ->
+  {Packed.peek(Packed.copy.bytes(m, src, dst, s, 0), 0) == Packed.peek(src, s) : U32}:
+  %Equal.sym(Nat, U32.to_nat(m), 1n+n, em) :
+    {Packed.peek(Packed.copy.go(_, src, dst, s, 0, Packed.peek(src, s)), 0) == Packed.peek(src, s) : U32}
+  Packed.copy.bytes_bounded(0n, n, depth, src, dst, s, 0, limit, shape, hd, hl, hu, end)
+
+def below_equal(+a: Nat, +b: Nat, +limit: Nat, e: {a == b : Nat}, h: MNat.lt(b, limit)) -> MNat.lt(a, limit):
+  %Equal.sym(Nat, a, b, e) : MNat.lt(_, limit)
+  h
+
+def right_zero_sum(+a: Nat, +b: Nat, eb: {b == 0n : Nat}) -> {Nat.add(a, b) == a : Nat}:
+  Equal.trans(Nat, Nat.add(a, b), Nat.add(b, a), a, MNat.add_comm(a, b), Packed.zero_sum_nat(b, a, eb))
+
+def add_zero_nat(+s: U32, +z: U32, ez: {U32.to_nat(z) == 0n : Nat}) -> {s == (s + z : U32) : U32}:
+  +es = right_zero_sum(U32.to_nat(s), U32.to_nat(z), ez)
+  Equal.sym(U32, (s + z : U32), s,
+    Lemmas.u32_to_nat_inj((s + z : U32), s,
+      Equal.trans(Nat, U32.to_nat((s + z : U32)), Nat.add(U32.to_nat(s), U32.to_nat(z)), U32.to_nat(s),
+        Lemmas.u32_add_nat(s, z,
+          below_equal(Nat.add(U32.to_nat(s), U32.to_nat(z)), U32.to_nat(s), Lemmas.pow2(32n), es, Lemmas.u32_to_nat_lt(s))), es)))
+
+def sub_zero_nat(+s: U32, +z: U32, +ez: {U32.to_nat(z) == 0n : Nat}) -> {s == (s - z : U32) : U32}:
+  +hz : MNat.le(U32.to_nat(z), U32.to_nat(s)) = (
+    %Equal.sym(Nat, U32.to_nat(z), 0n, ez) : MNat.le(_, U32.to_nat(s))
+    MNat.zero_le(U32.to_nat(s)))
+  Equal.sym(U32, (s - z : U32), s,
+    Lemmas.u32_to_nat_inj((s - z : U32), s,
+      Equal.trans(Nat, U32.to_nat((s - z : U32)), Nat.sub(U32.to_nat(s), U32.to_nat(z)), U32.to_nat(s),
+        Lemmas.u32_sub_nat(s, z, hz),
+        (%Equal.sym(Nat, U32.to_nat(z), 0n, ez) : {Nat.sub(U32.to_nat(s), _) == U32.to_nat(s) : Nat}
+         MNat.sub_zero(U32.to_nat(s))))))
+
+def shifted_head_zero(+m: U32, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32, +limit: Nat,
+  shape: Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hl: MNat.le(limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)),
+  end: MNat.lt(Nat.add(n, 1n), limit), em: {U32.to_nat(m) == 1n+n : Nat}, ew: {U32.to_nat((m >> 2n : U32)) == 0n : Nat}) ->
+  {Packed.peek(Packed.copy.pick(False{}, m, src, dst, s, 0), 0) == Packed.peek(src, s) : U32}:
+  %Equal.sym(U32, (m >> 2n : U32), 0, Lemmas.u32_to_nat_inj((m >> 2n : U32), 0, ew)) :
+    {Packed.peek(Packed.copy.bytes((m - (_ * 4) : U32), src,
+      Packed.copy.shift.at(_, ((s .&. 3) * 8 : U32), (s >> 2n : U32), 0, src, dst),
+      (s + (_ * 4) : U32), (0 + (_ * 4) : U32)), 0) == Packed.peek(src, s) : U32}
+  %sub_zero_nat(m, 0, {==}) :
+    {Packed.peek(Packed.copy.bytes(_, src, dst, (s + 0 : U32), 0), 0) == Packed.peek(src, s) : U32}
+  %add_zero_nat(s, 0, {==}) :
+    {Packed.peek(Packed.copy.bytes(m, src, dst, _, 0), 0) == Packed.peek(src, s) : U32}
+  bytes_head(m, n, depth, src, dst, s, limit, shape, hd, hl, hu, end, em)
+
+def shifted_head_split(f: Nat, +m: U32, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>,
+  +s: U32, +word_limit: Nat, +byte_limit: Nat,
+  hs: Bound.shape(depth, Packed.as_bits(dst)) & Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hwl: MNat.le(word_limit, 1n+Lemmas.pow2(depth)), hwu: MNat.le(word_limit, Lemmas.pow2(32n)),
+  hbl: MNat.le(byte_limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hbu: MNat.le(byte_limit, Lemmas.pow2(32n)),
+  hw: MNat.lt(f, word_limit), +hn: MNat.lt(Nat.add(n, 1n), byte_limit),
+  +em: {U32.to_nat(m) == 1n+n : Nat}, ef: {f == U32.to_nat((m >> 2n : U32)) : Nat}) ->
+  {Packed.peek(Packed.copy.pick(False{}, m, src, dst, s, 0), 0) == Packed.peek(src, s) : U32}:
+  match f:
+    case 0n:
+      (ha, hb) = hs
+      shifted_head_zero(m, n, depth, src, dst, s, byte_limit, ha, hd, hbl, hbu, hn, em,
+        Equal.sym(Nat, 0n, U32.to_nat((m >> 2n : U32)), ef))
+    case 1n+ +p:
+      +end : MNat.lt(Nat.add(U32.to_nat(m), 0n), byte_limit) = (
+        below_equal(Nat.add(U32.to_nat(m), 0n), Nat.add(n, 1n), byte_limit,
+          Equal.trans(Nat, Nat.add(U32.to_nat(m), 0n), U32.to_nat(m), Nat.add(n, 1n), MNat.add_zero(U32.to_nat(m)),
+            Equal.trans(Nat, U32.to_nat(m), 1n+n, Nat.add(n, 1n), em, MNat.add_comm(1n, n))), hn))
+      shifted_head_full(m, p, depth, src, dst, s, word_limit, byte_limit, hs, hd, hwl, hwu, hbl, hbu,
+        Equal.sym(Nat, 1n+p, U32.to_nat((m >> 2n : U32)), ef),
+        below_equal(Nat.add(p, 1n), 1n+p, word_limit, MNat.add_comm(p, 1n), hw), end)
+
+def shifted_head(+m: U32, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>,
+  +s: U32, +word_limit: Nat, +byte_limit: Nat,
+  shape: Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hwl: MNat.le(word_limit, 1n+Lemmas.pow2(depth)), hwu: MNat.le(word_limit, Lemmas.pow2(32n)),
+  hbl: MNat.le(byte_limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hbu: MNat.le(byte_limit, Lemmas.pow2(32n)),
+  hw: MNat.lt(U32.to_nat((m >> 2n : U32)), word_limit), hn: MNat.lt(Nat.add(n, 1n), byte_limit),
+  em: {U32.to_nat(m) == 1n+n : Nat}) ->
+  {Packed.peek(Packed.copy.pick(False{}, m, src, dst, s, 0), 0) == Packed.peek(src, s) : U32}:
+  shifted_head_split(U32.to_nat((m >> 2n : U32)), m, n, depth, src, dst, s, word_limit, byte_limit,
+    Bound.shape_copy(depth, Packed.as_bits(dst), shape), hd, hwl, hwu, hbl, hbu, hw, hn, em, {==})
+
+def peek_value(+t: Tree.Tree<U32>, +i: U32) ->
+  {Buffer.index(Bytes.peek(Tree.reify(U32, t), i)) == Packed.peek(t, i) : U32}:
+  Equal.cong(Array<U32> & U32, U32, Buffer.index, Bytes.peek(Tree.reify(U32, t), i),
+    (Tree.reify(U32, t), Packed.peek(t, i)), Buffer.tree_peek(t, i))
+
+def shifted_copy_head(+m: U32, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32) -> U32:
+  Buffer.index(Bytes.peek(Bytes.dst(Bytes.copy.pick(False{}, m, Tree.reify(U32, src), Tree.reify(U32, dst), s, 0)), 0))
+
+def shifted_head_observed(+m: U32, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>,
+  +s: U32, +word_limit: Nat, +byte_limit: Nat,
+  shape: Bound.shape(depth, Packed.as_bits(dst)), hd: MNat.lt(depth, 32n),
+  hwl: MNat.le(word_limit, 1n+Lemmas.pow2(depth)), hwu: MNat.le(word_limit, Lemmas.pow2(32n)),
+  hbl: MNat.le(byte_limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hbu: MNat.le(byte_limit, Lemmas.pow2(32n)),
+  hw: MNat.lt(U32.to_nat((m >> 2n : U32)), word_limit), hn: MNat.lt(Nat.add(n, 1n), byte_limit),
+  em: {U32.to_nat(m) == 1n+n : Nat}) ->
+  {shifted_copy_head(m, src, dst, s) == Buffer.index(Bytes.peek(Tree.reify(U32, src), s)) : U32}:
+  +out = Packed.copy.pick(False{}, m, src, dst, s, 0)
+  %Equal.sym(Array<U32> & Array<U32>,
+    Bytes.copy.pick(False{}, m, Tree.reify(U32, src), Tree.reify(U32, dst), s, 0),
+    (Tree.reify(U32, src), Tree.reify(U32, out)), copy_pick_bridge(False{}, m, src, dst, s, 0)) :
+    {Buffer.index(Bytes.peek(Bytes.dst(_), 0)) == Buffer.index(Bytes.peek(Tree.reify(U32, src), s)) : U32}
+  Equal.trans(U32, Buffer.index(Bytes.peek(Tree.reify(U32, out), 0)), Packed.peek(out, 0), Buffer.index(Bytes.peek(Tree.reify(U32, src), s)),
+    peek_value(out, 0),
+    Equal.trans(U32, Packed.peek(out, 0), Packed.peek(src, s), Buffer.index(Bytes.peek(Tree.reify(U32, src), s)),
+      shifted_head(m, n, depth, src, dst, s, word_limit, byte_limit, shape, hd, hwl, hwu, hbl, hbu, hw, hn, em),
+      Equal.sym(U32, Buffer.index(Bytes.peek(Tree.reify(U32, src), s)), Packed.peek(src, s), peek_value(src, s))))
+
+def shifted_head_capacity(+m: U32, +n: Nat, +depth: Nat, +src: Tree.Tree<U32>, +dst: Tree.Tree<U32>, +s: U32, +limit: Nat,
+  shape: Bound.shape(depth, Packed.as_bits(dst)), +hd: MNat.lt(depth, 32n),
+  +hl: MNat.le(limit, 1n+Nat.mul(Lemmas.pow2(depth), 4n)), hu: MNat.le(limit, Lemmas.pow2(32n)),
+  +hn: MNat.lt(Nat.add(n, 1n), limit), +em: {U32.to_nat(m) == 1n+n : Nat}) ->
+  {shifted_copy_head(m, src, dst, s) == Buffer.index(Bytes.peek(Tree.reify(U32, src), s)) : U32}:
+  +cap = Lemmas.pow2(depth)
+  +hm = below_equal(U32.to_nat(m), Nat.add(n, 1n), limit,
+    Equal.trans(Nat, U32.to_nat(m), 1n+n, Nat.add(n, 1n), em, MNat.add_comm(1n, n)), hn)
+  +hc = MNat.le_of_lt_succ(U32.to_nat(m), Nat.mul(cap, 4n),
+    MNat.lt_of_lt_of_le(U32.to_nat(m), limit, 1n+Nat.mul(cap, 4n), hm, hl))
+  +hw : MNat.lt(U32.to_nat((m >> 2n : U32)), 1n+cap) = (
+    %Equal.sym(Nat, U32.to_nat((m >> 2n : U32)), Nat.div(U32.to_nat(m), 4n), Field.shrn_nat(m, 2n)) : MNat.lt(_, 1n+cap)
+    MNat.lt_succ_of_le(Nat.div(U32.to_nat(m), 4n), cap, Packed.div4_le(U32.to_nat(m), cap, hc)))
+  shifted_head_observed(m, n, depth, src, dst, s, 1n+cap, limit, shape, hd, MNat.le_refl(1n+cap),
+    MNat.succ_le_of_lt(cap, Lemmas.pow2(32n), Field.pow2_lt(depth, 32n, hd)), hl, hu, hw, hn, em)
