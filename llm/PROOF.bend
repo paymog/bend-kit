@@ -53,6 +53,21 @@ def Laws.sse_feed_compose(xs, ys, r):
       (rd, acc) = r
       Laws.sse_feed_compose(t, ys, Laws.feed_drain(Sse.feed(rd, Laws.b(h)), acc))
 
+def Laws.sse_drain_schedule(fs, r):
+  Drain.schedule_refines(fs, r)
+
+def Laws.sse_drain_finish(f, r, acc):
+  Drain.finish_refines(f, r, acc)
+
+def Laws.sse_interleaved_event_drains(pieces, r):
+  Drain.interleaved_refines(pieces, r)
+
+def Laws.sse_drain_repartition(left, right, same, r):
+  Drain.repartition_refines(left, right, same, r)
+
+def Laws.sse_event_drain_fixture():
+  {==}
+
 def Laws.sse_octet_compose(a, b, r):
   match a:
     case SNil{}:

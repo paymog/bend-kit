@@ -20,21 +20,6 @@ import bend-kit-lemmas@0.1.5.1/lemmas.bend as Lemmas
 import bend-mathlib@0.8.0.0/u32.bend as MU32
 import bend-mathlib@0.8.0.0/string.bend as MString
 
-def joined(pieces: List<&2, String>) -> String:
-  match pieces:
-    case Nil{}:
-      ""
-    case Con{h, t}:
-      h ++ joined(t)
-
-law schedule_refines:
-  for pieces: List<&2, String>
-  for limit: Nat
-  for bound: MNat.lt(Nat.add(String.length(joined(pieces)), 3n), limit)
-  for ceiling: MNat.le(limit, Lemmas.pow2(32n))
-  {Laws.sse(pieces) == Laws.sse([joined(pieces)]) : List<&2, String>}
-
-
 def skip_pending(+len: U32, +pos: U32, +src: Tree.Tree<U32>,
   available: {U32.is_lt(pos, len) == True{} : Bool},
   lf: {Packed.peek(src, pos) == 10 : U32}) ->
@@ -397,75 +382,6 @@ def line_transport(+len: U32, +other: U32, -left: Sse.Line, -right: Sse.Line,
     line_valid_transport(len, left, a, limit, ea, left_valid),
     line_valid_transport(other, right, b, limit, eb, right_valid))
 
-law line_end_refines:
-  for old: String
-  for name: String
-  for id: String
-  for retry: Maybe<&2, U32>
-  for a: Tree.Tree<U32>
-  for b: Tree.Tree<U32>
-  for len: U32
-  for other: U32
-  for s: U32
-  for t: U32
-  for cr: Bool
-  for -st: Sse.St
-  for -next: Sse.St
-  for delta: Nat
-  for limit: Nat
-  for hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
-  for hr: MNat.lt(Nat.add(U32.to_nat(other), 3n), limit)
-  for hu: MNat.le(limit, Lemmas.pow2(32n))
-  for sl: MNat.le(U32.to_nat(s), U32.to_nat(len))
-  for to: MNat.le(U32.to_nat(t), U32.to_nat(other))
-  for starts: Offset.offset(delta, s, t)
-  for ends: Offset.offset(delta, len, other)
-  for hn: MNat.lt(Nat.add(Nat.add(Nat.add(String.length(old), U32.to_nat((len - s : U32))), 1n), 3n), limit)
-  for shape_left: Bound.shape(Local.depth(Local.words(len)), Packed.as_bits(a))
-  for shape_right: Bound.shape(Local.depth(Local.words(other)), Packed.as_bits(b))
-  for left_state: Field.state_snapshot(name, old, id, retry, st, limit)
-  for right_state: Field.state_snapshot(name, old, id, retry, next, limit)
-  for same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ==
-    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}
-  line_relation(len, other,
-    Sse.line.end(U32.is_eq(Refinement.eol_index(U32.to_nat((len - s : U32)), a, s), len),
-      Tree.reify(U32, a), len, s, Refinement.eol_index(U32.to_nat((len - s : U32)), a, s), cr, st),
-    Sse.line.end(U32.is_eq(Refinement.eol_index(U32.to_nat((other - t : U32)), b, t), other),
-      Tree.reify(U32, b), other, t, Refinement.eol_index(U32.to_nat((other - t : U32)), b, t), cr, next), limit)
-
-law line_refines:
-  for old: String
-  for name: String
-  for id: String
-  for retry: Maybe<&2, U32>
-  for +a: Tree.Tree<U32>
-  for +b: Tree.Tree<U32>
-  for +len: U32
-  for +other: U32
-  for +s: U32
-  for +t: U32
-  for +cr: Bool
-  for -st: Sse.St
-  for -next: Sse.St
-  for delta: Nat
-  for +limit: Nat
-  for hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
-  for hr: MNat.lt(Nat.add(U32.to_nat(other), 3n), limit)
-  for hu: MNat.le(limit, Lemmas.pow2(32n))
-  for sl: MNat.le(U32.to_nat(s), U32.to_nat(len))
-  for to: MNat.le(U32.to_nat(t), U32.to_nat(other))
-  for starts: Offset.offset(delta, s, t)
-  for ends: Offset.offset(delta, len, other)
-  for hn: MNat.lt(Nat.add(Nat.add(Nat.add(String.length(old), U32.to_nat((len - s : U32))), 1n), 3n), limit)
-  for shape_left: Bound.shape(Local.depth(Local.words(len)), Packed.as_bits(a))
-  for shape_right: Bound.shape(Local.depth(Local.words(other)), Packed.as_bits(b))
-  for left_state: Field.state_snapshot(name, old, id, retry, st, limit)
-  for right_state: Field.state_snapshot(name, old, id, retry, next, limit)
-  for same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ==
-    Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String}
-  line_relation(len, other, Sse.line(Tree.reify(U32, a), len, s, s, cr, st),
-    Sse.line(Tree.reify(U32, b), other, t, t, cr, next), limit)
-
 def line_refines_lift(+a: Tree.Tree<U32>, +b: Tree.Tree<U32>, +len: U32, +other: U32,
   +s: U32, +t: U32, +e: U32, +f: U32, +cr: Bool, -st: Sse.St, -next: Sse.St, +limit: Nat,
   ea: {Sse.line(Tree.reify(U32, a), len, s, s, cr, st) ==
@@ -481,7 +397,6 @@ def line_refines_lift(+a: Tree.Tree<U32>, +b: Tree.Tree<U32>, +len: U32, +other:
     Sse.line(Tree.reify(U32, a), len, s, s, cr, st), Sse.line(Tree.reify(U32, b), other, t, t, cr, next),
     Sse.line.end(U32.is_eq(e, len), Tree.reify(U32, a), len, s, e, cr, st),
     Sse.line.end(U32.is_eq(f, other), Tree.reify(U32, b), other, t, f, cr, next), limit, ea, eb, cert)
-
 
 def skip_non_lf(+len: U32, +pos: U32, +src: Tree.Tree<U32>,
   available: {U32.is_lt(pos, len) == True{} : Bool},
@@ -1919,3 +1834,91 @@ def line_scan_pair(+a: Tree.Tree<U32>, +b: Tree.Tree<U32>, +s: U32, +t: U32, +le
     Refinement.eol_relocated(a, b, s, t, len, other, delta, limit, sl, to, hl, hr, hu, starts, ends, same),
     line_scan_bounded(a, s, len, limit, sl, hl, hu), line_scan_bounded(b, t, other, limit, to, hr, hu))
 
+
+def pause_want(f: Nat, -rd: Sse.Reader, -acc: List<&1, Sse.Message>) ->
+  {Laws.drain_pause(f, (rd, Sse.Want{}), acc) == ((rd, Sse.Want{}), acc) :
+    (Sse.Reader & Sse.Next) & List<&1, Sse.Message>}:
+  match f:
+    case 0n:
+      {==}
+    case 1n+p:
+      pause_want(p, rd, acc)
+
+def pause_add(f: Nat, +g: Nat, -r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>) ->
+  {Laws.drain_resume(Nat.add(f, g), r) ==
+    Laws.drain_resume(g, Laws.drain_resume(f, r)) :
+      (Sse.Reader & Sse.Next) & List<&1, Sse.Message>}:
+  match f:
+    case 0n:
+      {==}
+    case 1n+p:
+      pause_add(p, g, Laws.drain_step(r))
+
+def schedule_refines(fs: List<&2, Nat>, -r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>) ->
+  {Laws.drain_schedule(fs, r) == Laws.drain_resume(Laws.drain_budget(fs), r) :
+    (Sse.Reader & Sse.Next) & List<&1, Sse.Message>}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{+f, +rest}:
+      Equal.trans((Sse.Reader & Sse.Next) & List<&1, Sse.Message>,
+        Laws.drain_schedule(rest, Laws.drain_resume(f, r)),
+        Laws.drain_resume(Laws.drain_budget(rest), Laws.drain_resume(f, r)),
+        Laws.drain_resume(Nat.add(f, Laws.drain_budget(rest)), r),
+        schedule_refines(rest, Laws.drain_resume(f, r)),
+        Equal.sym((Sse.Reader & Sse.Next) & List<&1, Sse.Message>,
+          Laws.drain_resume(Nat.add(f, Laws.drain_budget(rest)), r),
+          Laws.drain_resume(Laws.drain_budget(rest), Laws.drain_resume(f, r)),
+          pause_add(f, Laws.drain_budget(rest), r)))
+
+def finish_refines(f: Nat, r: Sse.Reader & Sse.Next, -acc: List<&1, Sse.Message>) ->
+  {Laws.drain_finish(Laws.drain_pause(f, r, acc)) == Laws.drain(f, r, acc) :
+    Sse.Reader & List<&1, Sse.Message>}:
+  match f:
+    case 0n:
+      (rd, n) = r
+      {==}
+    case 1n+p:
+      (rd, n) = r
+      match n:
+        case Sse.Got{e}:
+          finish_refines(p, Sse.next(rd), Con{e, acc})
+        case Sse.Want{}:
+          Equal.cong((Sse.Reader & Sse.Next) & List<&1, Sse.Message>,
+            Sse.Reader & List<&1, Sse.Message>, Laws.drain_finish,
+            Laws.drain_pause(p, (rd, Sse.Want{}), acc), ((rd, Sse.Want{}), acc),
+            pause_want(p, rd, acc))
+
+def interleaved_refines(pieces: List<&2, +Sigma<String, _ => List<&2, Nat>>>,
+  -r: Sse.Reader & List<&1, Sse.Message>) ->
+  {Laws.feed_scheduled(pieces, r) == Laws.feed_uninterrupted(pieces, r) :
+    Sse.Reader & List<&1, Sse.Message>}:
+  match pieces:
+    case Nil{}:
+      {==}
+    case Con{(+chunk, +budgets), +rest}:
+      Equal.trans(Sse.Reader & List<&1, Sse.Message>,
+        Laws.feed_scheduled(rest, Laws.drain_finish(Laws.drain_schedule(budgets, Laws.feed_pending(chunk, r)))),
+        Laws.feed_scheduled(rest, Laws.drain_finish(Laws.drain_resume(Laws.drain_budget(budgets), Laws.feed_pending(chunk, r)))),
+        Laws.feed_uninterrupted(rest, Laws.drain_finish(Laws.drain_resume(Laws.drain_budget(budgets), Laws.feed_pending(chunk, r)))),
+        Equal.cong((Sse.Reader & Sse.Next) & List<&1, Sse.Message>,
+          Sse.Reader & List<&1, Sse.Message>, pending => Laws.feed_scheduled(rest, Laws.drain_finish(pending)),
+          Laws.drain_schedule(budgets, Laws.feed_pending(chunk, r)),
+          Laws.drain_resume(Laws.drain_budget(budgets), Laws.feed_pending(chunk, r)),
+          schedule_refines(budgets, Laws.feed_pending(chunk, r))),
+        interleaved_refines(rest, Laws.drain_finish(Laws.drain_resume(Laws.drain_budget(budgets), Laws.feed_pending(chunk, r)))))
+
+def repartition_refines(+left: List<&2, Nat>, +right: List<&2, Nat>,
+  same: {Laws.drain_budget(left) == Laws.drain_budget(right) : Nat},
+  -r: (Sse.Reader & Sse.Next) & List<&1, Sse.Message>) ->
+  {Laws.drain_schedule(left, r) == Laws.drain_schedule(right, r) :
+    (Sse.Reader & Sse.Next) & List<&1, Sse.Message>}:
+  Equal.trans((Sse.Reader & Sse.Next) & List<&1, Sse.Message>,
+    Laws.drain_schedule(left, r), Laws.drain_resume(Laws.drain_budget(left), r), Laws.drain_schedule(right, r),
+    schedule_refines(left, r),
+    (%Equal.sym(Nat, Laws.drain_budget(left), Laws.drain_budget(right), same) :
+      {Laws.drain_resume(_, r) == Laws.drain_schedule(right, r) :
+        (Sse.Reader & Sse.Next) & List<&1, Sse.Message>}
+     Equal.sym((Sse.Reader & Sse.Next) & List<&1, Sse.Message>,
+       Laws.drain_schedule(right, r), Laws.drain_resume(Laws.drain_budget(right), r),
+       schedule_refines(right, r))))
