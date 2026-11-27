@@ -9,6 +9,7 @@ import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-time@0.3.0.5/time.bend as Time
 import ./prerequisites.bend as Probe
+import ./probe_stdout.bend as Stdout
 
 type Context is Data:
   Context{mode: String, go: Chan(Unit)}
@@ -60,8 +61,7 @@ def run_work(context: Context, body: Pure.Body) -> IO(Pure.Res):
     IO.join(Unit, go)
     # Receive the affine body after the marker; decoder work must not run while building the earlier IO action.
     IO.print("CPU_BEGIN")
-    # Native stdout flushes when the loop waits; this pre-work pause makes the marker visible before parsing.
-    IO.sleep(1)
+    Stdout.flush()
     started : Time.Duration <- Time.mono()
     received : Pure.Body <- IO.join(Pure.Body, bodies)
     work(mode, received, started)

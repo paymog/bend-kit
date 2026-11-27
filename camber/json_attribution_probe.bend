@@ -4,6 +4,7 @@ import bend-kit-json@0.7.3.2/json.bend as Json
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-time@0.3.0.5/time.bend as Time
 import ./prerequisites.bend as Probe
+import ./probe_stdout.bend as Stdout
 
 def end_stage(label: String, started: Time.Duration) -> IO(Unit):
   do IO<Unit>:
@@ -83,7 +84,7 @@ def start(path: String, +count: U32) -> IO(Unit):
     +bodies : Chan(Bytes.Bytes) = bodies0
     load(U32.to_nat(count), path, bodies)
     IO.print("BATCH_BEGIN")
-    IO.sleep(100)
+    Stdout.flush()
     consume(U32.to_nat(count), bodies)
 
 def number(path: String, count: Maybe<&2, U32>) -> IO(Unit):

@@ -9,6 +9,7 @@ import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-time@0.3.0.5/time.bend as Time
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import ./probe_stdout.bend as Stdout
 
 type Context is Data:
   Context{mode: String, ready: Chan(Unit), go: Chan(Unit)}
@@ -37,7 +38,7 @@ def run_work(context: Context, body: Pure.Body) -> IO(Pure.Res):
     # IO.join closes its channel; every worker shares this gate.
     C.receive(Unit, go)
     IO.print("CPU_BEGIN")
-    IO.sleep(1)
+    Stdout.flush()
     started : Time.Duration <- Time.mono()
     received : Pure.Body <- IO.join(Pure.Body, bodies)
     work(mode, received, started)

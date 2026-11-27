@@ -3,6 +3,7 @@ import Base
 import ../users.bend as U
 import ../users_demo.bend as Demo
 import ./signals.bend as S
+import ../probe_stdout.bend as Stdout
 import bend-kit-camber@0.19.0.2/camber.bend as C
 import bend-kit-http@0.45.0.2/http.bend as Http
 import bend-kit-http@0.45.0.2/pure.bend as Pure
@@ -41,7 +42,7 @@ def work(mode: String, io_port: U32) -> IO(Unit):
     case "cpu":
       do IO<Unit>:
         IO.print("CPU ADMITTED")
-        IO.sleep(1)
+        Stdout.flush()
         # As in risk_probe.bend: effect-provided input prevents pre-IO pure evaluation.
         seed : U32 <- IO.try(U32, IO.random_u32())
         value : U32 = spin(seed)

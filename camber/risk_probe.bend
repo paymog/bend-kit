@@ -6,6 +6,7 @@ import ../http/context_probe.bend as Transport
 import bend-kit-wire@0.4.8.1/wire.bend as Wire
 import bend-kit-time@0.3.0.5/time.bend as Time
 import ./prerequisites.bend as Probe
+import ./probe_stdout.bend as Stdout
 
 def receive(-A: Type, channel: Chan(A)) -> IO(A):
   IO.join(A, channel)
@@ -37,7 +38,7 @@ def cpu_done(value: U32, started: Time.Duration) -> IO(Unit):
 def cpu(n: Nat) -> IO(Unit):
   do IO<Unit>:
     IO.print("WORK_BEGIN")
-    IO.sleep(1)
+    Stdout.flush()
     started : Time.Duration <- Time.mono()
     seed : U32 <- IO.try(U32, IO.random_u32())
     cpu_done(spin(n, seed), started)
