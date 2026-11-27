@@ -17,6 +17,7 @@ import ./sse-drain-proof.bend as Drain
 import ./sse-state-proof.bend as State
 import ./sse-budget-proof.bend as Budget
 import ./sse-next-proof.bend as Next
+import ./sse-compose-proof.bend as Compose
 
 def Laws.sse_whole():
   {==}
