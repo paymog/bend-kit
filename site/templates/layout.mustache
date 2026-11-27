@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<link rel="stylesheet" href="{{base}}/style.css">
+{{#source}}
+<base href="{{source}}">
+{{/source}}
+</head>
+<body>
+<header>
+<nav><a class="brand" href="{{base}}/">bend-kit</a><a href="{{base}}/playground/">Playground</a><a href="{{base}}/llms.txt">llms.txt</a><a href="https://github.com/paymog/bend-kit">GitHub</a></nav>
+</header>
+<main>
+{{{content}}}
+</main>
+<footer>This site is a <a href="{{base}}/packages/camber/">Camber</a> app, prerendered to static files. <a href="https://github.com/paymog/bend-kit/tree/main/site">Source</a>.</footer>
+</body>
+</html>

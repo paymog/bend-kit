@@ -1,0 +1,13 @@
+<section class="hero">
+<h1>bend-kit</h1>
+<p>A general-purpose library for <a href="https://bend-lang.com">Bend 2</a>, in {{count}} packages. Each package is proved against its own laws and timed against C, Rust, Python, and JavaScript.</p>
+<p>Import a package from the Bend hub by name and version. Agents can read <a href="{{base}}/llms.txt">llms.txt</a>.</p>
+</section>
+<table class="catalog">
+<thead><tr><th>Package</th><th>What it does</th></tr></thead>
+<tbody>
+{{#packages}}
+<tr><td><a href="{{base}}/packages/{{name}}/">{{name}}</a><br><code class="version">{{version}}</code></td><td>{{about}}<br><code class="import">import bend-kit-{{name}}@{{version}}/{{name}}.bend</code></td></tr>
+{{/packages}}
+</tbody>
+</table>
