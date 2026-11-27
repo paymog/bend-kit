@@ -3,16 +3,16 @@
 Hairpin is an HTTP client for Bend 2, built on `bend-kit-http`. One `Client` holds a base URL, default headers, a socket pool, a cookie jar, a client certificate, a redirect mode, a step timeout, a retry policy, and a circuit breaker. Each request uses all of them. The model is undici's `Agent` with ky's instance options.
 
 ```bend
-import bend-kit-hairpin@0.19.0.2/hairpin.bend as Hairpin
-import bend-kit-hairpin@0.19.0.2/pure.bend as Policy
+import bend-kit-hairpin@0.19.0.3/hairpin.bend as Hairpin
+import bend-kit-hairpin@0.19.0.3/pure.bend as Policy
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.45.0.2/http.bend as Http
-import bend-kit-http@0.45.0.2/pure.bend as Pure
+import bend-kit-http@0.45.0.3/http.bend as Http
+import bend-kit-http@0.45.0.3/pure.bend as Pure
 import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-time@0.3.0.5/time.bend as Clock
 ```
 
-Import `bend-kit-http@0.45.0.2` and `bend-kit-retry@0.3.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Pure.Res` or `Retry.Budget`. `Pure` supplies HTTP model types and pure helpers; `Http` supplies client effects and handles. `Time` supplies pure `Instant` values, `Http.clock.now()` reads the wall clock in that type, and runtime `Clock` supplies `Clock.mono.ms()`.
+Import `bend-kit-http@0.45.0.3` and `bend-kit-retry@0.3.0.0`. Those are the versions `hairpin.bend` imports, and another version has a different `Pure.Res` or `Retry.Budget`. `Pure` supplies HTTP model types and pure helpers; `Http` supplies client effects and handles. `Time` supplies pure `Instant` values, `Http.clock.now()` reads the wall clock in that type, and runtime `Clock` supplies `Clock.mono.ms()`.
 
 Hairpinning, or NAT loopback, is traffic that goes out and bends back. A request does the same.
 
