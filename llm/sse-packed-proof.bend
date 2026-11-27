@@ -376,16 +376,53 @@ def kind_five_result(+hit: Bool, +t: Tree.Tree<U32>, +i: U32) ->
         {Sse.kind.is(4, _) == (Tree.reify(U32, t), kind_five_value(False{}, at_match("retry", t, i))) : Array<U32> & U32}
       {==}
 
-def kind_value(n: U32, id: Bool, data: Bool, event: Bool, retry: Bool) -> U32:
+# Compare low bits first to keep matcher facts opaque: https://github.com/bendlang/bend/issues/1071.
+def word_same(n: Nat, a: Word(n), b: Word(n)) -> Bool:
   match n:
-    case 2:
-      Bool.pick(U32, id, 3, 0)
-    case 4:
-      Bool.pick(U32, data, 1, 0)
-    case 5:
-      kind_five_value(event, retry)
-    case _:
-      0
+    case 0n:
+      True{}
+    case 1n+p:
+      match a b:
+        case WCon{False{}, at} WCon{False{}, bt}:
+          word_same(p, at, bt)
+        case WCon{False{}, at} WCon{True{}, bt}:
+          False{}
+        case WCon{True{}, at} WCon{False{}, bt}:
+          False{}
+        case WCon{True{}, at} WCon{True{}, bt}:
+          word_same(p, at, bt)
+
+def word_same_true(n: Nat, +a: Word(n), +b: Word(n), same: {word_same(n, a, b) == True{} : Bool}) -> {a == b : Word(n)}:
+  match n:
+    case 0n:
+      match a b:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+ +p:
+      match a b:
+        case WCon{False{}, +at} WCon{False{}, +bt}:
+          Equal.cong(Word(p), Word(1n+p), t => WCon{False{}, t}, at, bt, word_same_true(p, at, bt, same))
+        case WCon{False{}, at} WCon{True{}, bt}:
+          Empty.absurd({WCon{False{}, at} == WCon{True{}, bt} : Word(1n+p)}, MNat.internal_false_ne_true(same))
+        case WCon{True{}, at} WCon{False{}, bt}:
+          Empty.absurd({WCon{True{}, at} == WCon{False{}, bt} : Word(1n+p)}, MNat.internal_false_ne_true(same))
+        case WCon{True{}, +at} WCon{True{}, +bt}:
+          Equal.cong(Word(p), Word(1n+p), t => WCon{True{}, t}, at, bt, word_same_true(p, at, bt, same))
+
+def same_u32(a: U32, b: U32) -> Bool:
+  match a b:
+    case U32{x} U32{y}:
+      word_same(32n, x, y)
+
+def same_u32_true(+a: U32, +b: U32, same: {same_u32(a, b) == True{} : Bool}) -> {a == b : U32}:
+  match a b:
+    case U32{+x} U32{+y}:
+      Equal.cong(Word(32n), U32, w => U32{w}, x, y, word_same_true(32n, x, y, same))
+
+def kind_value(+n: U32, id: Bool, data: Bool, event: Bool, retry: Bool) -> U32:
+  Bool.pick(U32, same_u32(n, 2), Bool.pick(U32, id, 3, 0),
+    Bool.pick(U32, same_u32(n, 4), Bool.pick(U32, data, 1, 0),
+      Bool.pick(U32, same_u32(n, 5), kind_five_value(event, retry), 0)))
 
 def kind_named(+k: U32, +needle: String, +t: Tree.Tree<U32>, +i: U32) ->
   {Sse.kind.is(k, Bytes.at(Tree.reify(U32, t), needle, i)) ==
@@ -1607,7 +1644,7 @@ def compact_tree(+len: U32, +src: Tree.Tree<U32>, +pos: U32) -> Tree.Tree<U32>:
   +m = compact_length(len, pos)
   Packed.copy(m, src, Packed.alloc(m), compact_start(len, pos), 0)
 
-def feed_compact_bridge(+len: U32, +src: Tree.Tree<U32>, +pos: U32, +seen: U32, +cr: Bool, st: Sse.St, +lb: U32, +right: Tree.Tree<U32>) ->
+def feed_compact_bridge(+len: U32, +src: Tree.Tree<U32>, +pos: U32, +seen: U32, +cr: Bool, -st: Sse.St, +lb: U32, +right: Tree.Tree<U32>) ->
   {Sse.feed.at(False{}, Bytes.Bytes{len, Tree.reify(U32, src)}, pos, seen, cr, st, Bytes.Bytes{lb, Tree.reify(U32, right)}) ==
     Sse.Reader{Bytes.Bytes{(compact_length(len, pos) + lb : U32), Tree.reify(U32, Packed.append(compact_length(len, pos), compact_tree(len, src, pos), lb, right))},
       0, (U32.max(seen, pos) - pos : U32), cr, st} : Sse.Reader}:

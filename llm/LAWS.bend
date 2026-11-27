@@ -15,6 +15,8 @@ import ./sse-feed-proof.bend as Feed
 import ./sse-offset-proof.bend as Offset
 import ../bytes/bytes.bend as LocalBytes
 import ./sse-capacity-proof.bend as Capacity
+import ./sse-reader-proof.bend as Reader
+import ./sse-field-proof.bend as Field
 
 def b(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -629,6 +631,160 @@ law sse_set_retry_values:
   {Sse.set(4, a, st) == Sse.set(4, b, st) : Sse.St}
 
 
+
+law sse_feed_valid:
+  for +prefix: String
+  for +tail: String
+  for +chunk: String
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +pos: U32
+  for +seen: U32
+  for +cr: Bool
+  for -st: Sse.St
+  for +lb: U32
+  for +right: Tree.Tree<U32>
+  for +limit: Nat
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +eb: {U32.to_nat(lb) == String.length(chunk) : Nat}
+  for +hn: MNat.lt(Nat.add(Nat.add(U32.to_nat(Feed.input_length(U32.is_zero(pos), len, pos)), U32.to_nat(lb)), 3n), limit)
+  for rb: PackedModel.Reads(chunk, right, 0)
+  for valid: Reader.valid_buffer(prefix, tail, len, src, pos, seen, limit)
+  Reader.valid_feed_type(prefix, tail, chunk, len, src, pos, seen, cr, st, lb, right, limit)
+
+law sse_feed_pair_valid:
+  for +prefix: String
+  for +tail: String
+  for +a: String
+  for +b: String
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +pos: U32
+  for +seen: U32
+  for +cr: Bool
+  for -st: Sse.St
+  for +la: U32
+  for +left: Tree.Tree<U32>
+  for +lb: U32
+  for +right: Tree.Tree<U32>
+  for +limit: Nat
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +ea: {U32.to_nat(la) == String.length(a) : Nat}
+  for +eb: {U32.to_nat(lb) == String.length(b) : Nat}
+  for +ha: MNat.lt(Nat.add(Nat.add(U32.to_nat(Feed.input_length(U32.is_zero(pos), len, pos)), U32.to_nat(la)), 3n), limit)
+  for +hb: MNat.lt(Nat.add(Nat.add(U32.to_nat((Feed.input_length(U32.is_zero(pos), len, pos) + la : U32)), U32.to_nat(lb)), 3n), limit)
+  for ra: PackedModel.Reads(a, left, 0)
+  for rb: PackedModel.Reads(b, right, 0)
+  for valid: Reader.valid_buffer(prefix, tail, len, src, pos, seen, limit)
+  Reader.feed_pair_type(prefix, tail, a, b, len, src, pos, seen, cr, st, la, left, lb, right, limit)
+
+law sse_line_restart:
+  for +prefix: String
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +pos: U32
+  for +seen: U32
+  for +cr: Bool
+  for -st: Sse.St
+  for +limit: Nat
+  for hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
+  for hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +hp: MNat.le(U32.to_nat(pos), U32.to_nat(seen))
+  for +hs: MNat.le(U32.to_nat(seen), U32.to_nat(len))
+  for +ep: {Nat.sub(U32.to_nat(seen), U32.to_nat(pos)) == String.length(prefix) : Nat}
+  for clean: Scan.clean_prefix(String.length(prefix), Bytes.peek(Tree.reify(U32, src), pos), pos)
+  {Sse.line(Tree.reify(U32, src), len, pos, seen, cr, st) == Sse.line(Tree.reify(U32, src), len, pos, pos, cr, st) : Sse.Line}
+
+law sse_kind_span_reads:
+  for +name: String
+  for +n: U32
+  for +a: Tree.Tree<U32>
+  for +b: Tree.Tree<U32>
+  for +i: U32
+  for +j: U32
+  for length: {U32.to_nat(n) == String.length(name) : Nat}
+  for ra: PackedModel.Reads(name, a, i)
+  for rb: PackedModel.Reads(name, b, j)
+  {Packed.kind_index(n, a, i) == Packed.kind_index(n, b, j) : U32}
+
+law sse_field_set_data:
+  for +old: String
+  for +value: String
+  for +la: U32
+  for +left: Tree.Tree<U32>
+  for +len: U32
+  for +src: Tree.Tree<U32>
+  for +v: U32
+  for +e: U32
+  for +limit: Nat
+  for +name: String
+  for +id: String
+  for +retry: Maybe<&2, U32>
+  for shape: Bound.shape(LocalBytes.depth(LocalBytes.words(la)), PackedModel.as_bits(left))
+  for +hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +ea: {U32.to_nat(la) == String.length(old) : Nat}
+  for +eb: {U32.to_nat(U32.min((e - v : U32), (len - U32.min(v, len) : U32))) == String.length(value) : Nat}
+  for +hn: MNat.lt(Nat.add(Nat.add(Nat.add(U32.to_nat(la), U32.to_nat(U32.min((e - v : U32), (len - U32.min(v, len) : U32)))), 1n), 3n), limit)
+  for ra: PackedModel.Reads(old, left, 0)
+  for rb: PackedModel.Reads(value, src, U32.min(v, len))
+  {Field.field_state(String.length((old ++ value) ++ "\n"),
+    Sse.field.set(len, v, e, Sse.St{name, Bytes.Bytes{la, Tree.reify(U32, left)}, id, retry}, (Tree.reify(U32, src), 1))) ==
+    (name, (old ++ value) ++ "\n", id, retry) : String & String & String & Maybe<&2, U32>}
+
+law sse_kind_relocated:
+  for +name: String
+  for +delta: Nat
+  for +a: Tree.Tree<U32>
+  for +b: Tree.Tree<U32>
+  for +s: U32
+  for +t: U32
+  for +c: U32
+  for +d: U32
+  for hs: MNat.le(U32.to_nat(s), U32.to_nat(c))
+  for ht: MNat.le(U32.to_nat(t), U32.to_nat(d))
+  for starts: Offset.offset(delta, s, t)
+  for ends: Offset.offset(delta, c, d)
+  for length: {U32.to_nat((c - s : U32)) == String.length(name) : Nat}
+  for ra: PackedModel.Reads(name, a, s)
+  for rb: PackedModel.Reads(name, b, t)
+  {Packed.kind_index((c - s : U32), a, s) == Packed.kind_index((d - t : U32), b, t) : U32}
+
+law sse_value_relocated:
+  for +delta: Nat
+  for +c: U32
+  for +d: U32
+  for +e: U32
+  for +f: U32
+  for +b: U32
+  for +limit: Nat
+  for hc1: MNat.lt(Nat.add(U32.to_nat(c), 1n), limit)
+  for hd1: MNat.lt(Nat.add(U32.to_nat(d), 1n), limit)
+  for hc2: MNat.lt(Nat.add(U32.to_nat(c), 2n), limit)
+  for hd2: MNat.lt(Nat.add(U32.to_nat(d), 2n), limit)
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for +colons: Offset.offset(delta, c, d)
+  for +ends: Offset.offset(delta, e, f)
+  Offset.offset(delta, Field.value_position(c, e, b), Field.value_position(d, f, b))
+
+law sse_observation_span:
+  for +f: Nat
+  for +g: Nat
+  for +h: Nat
+  for +a: Tree.Tree<U32>
+  for +b: Tree.Tree<U32>
+  for +i: U32
+  for +j: U32
+  for +u: U32
+  for +v: U32
+  for +limit: Nat
+  for +hu: MNat.le(limit, Lemmas.pow2(32n))
+  for ha: MNat.lt(Nat.add(f, U32.to_nat(i)), limit)
+  for hb: MNat.lt(Nat.add(f, U32.to_nat(j)), limit)
+  for ea: {Nat.add(f, U32.to_nat(i)) == U32.to_nat(u) : Nat}
+  for eb: {Nat.add(f, U32.to_nat(j)) == U32.to_nat(v) : Nat}
+  for same: {Buffer.observed(Nat.add(Nat.add(f, g), h), Bytes.peek(Tree.reify(U32, a), i), i) == Buffer.observed(Nat.add(Nat.add(f, g), h), Bytes.peek(Tree.reify(U32, b), j), j) : String}
+  {Buffer.observed(g, Bytes.peek(Tree.reify(U32, a), u), u) == Buffer.observed(g, Bytes.peek(Tree.reify(U32, b), v), v) : String}
 
 def repeated_events(n: Nat) -> String:
   match n:

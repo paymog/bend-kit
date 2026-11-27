@@ -8,6 +8,8 @@ import ./sse-packed-proof.bend as Packed
 import ./sse-feed-proof.bend as Feed
 import ./sse-offset-proof.bend as Offset
 import ./sse-capacity-proof.bend as Capacity
+import ./sse-reader-proof.bend as Reader
+import ./sse-field-proof.bend as Field
 
 def Laws.sse_whole():
   {==}
@@ -200,6 +202,30 @@ def Laws.sse_set_id_values(a, b, st, same):
 
 def Laws.sse_set_retry_values(a, b, st, same):
   Feed.retry_values(a, b, st, same)
+
+def Laws.sse_feed_valid(prefix, tail, chunk, len, src, pos, seen, cr, st, lb, right, limit, hu, eb, hn, rb, valid):
+  Reader.feed_valid(prefix, tail, chunk, len, src, pos, seen, cr, st, lb, right, limit, hu, eb, hn, rb, valid)
+
+def Laws.sse_feed_pair_valid(prefix, tail, a, b, len, src, pos, seen, cr, st, la, left, lb, right, limit, hu, ea, eb, ha, hb, ra, rb, valid):
+  Reader.feed_pair_valid(prefix, tail, a, b, len, src, pos, seen, cr, st, la, left, lb, right, limit, hu, ea, eb, ha, hb, ra, rb, valid)
+
+def Laws.sse_line_restart(prefix, len, src, pos, seen, cr, st, limit, hl, hu, hp, hs, ep, clean):
+  Reader.line_restart(prefix, len, src, pos, seen, cr, st, limit, hl, hu, hp, hs, ep, clean)
+
+def Laws.sse_kind_span_reads(name, n, a, b, i, j, length, ra, rb):
+  Field.kind_span_reads(name, n, a, b, i, j, length, ra, rb)
+
+def Laws.sse_field_set_data(old, value, la, left, len, src, v, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb):
+  Field.field_set_data(old, value, la, left, len, src, v, e, limit, name, id, retry, shape, hl, hu, ea, eb, hn, ra, rb)
+
+def Laws.sse_kind_relocated(name, delta, a, b, s, t, c, d, hs, ht, starts, ends, length, ra, rb):
+  Field.kind_relocated(name, delta, a, b, s, t, c, d, hs, ht, starts, ends, length, ra, rb)
+
+def Laws.sse_value_relocated(delta, c, d, e, f, b, limit, hc1, hd1, hc2, hd2, hu, colons, ends):
+  Field.value_relocated(delta, c, d, e, f, b, limit, hc1, hd1, hc2, hd2, hu, colons, ends)
+
+def Laws.sse_observation_span(f, g, h, a, b, i, j, u, v, limit, hu, ha, hb, ea, eb, same):
+  Reader.observed_span(f, g, h, a, b, i, j, u, v, limit, hu, ha, hb, ea, eb, same)
 
 def Laws.reply_anthropic():
   {==}
