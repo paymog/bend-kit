@@ -340,6 +340,12 @@ jobs:
           bend process/check.bend -o "$RUNNER_TEMP/bend-kit-process-check.js"
           bun "$RUNNER_TEMP/bend-kit-process-check.js"
           process/ownership-check.sh
+      - name: Check template Mustache conformance
+        if: matrix.package == 'template'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          python3 -B template/conformance-test.py
+          python3 -B scripts/rss-check.py python3 -B template/conformance.py
       - name: CA and mTLS checks ${{ matrix.package }}
         if: hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         run: |
