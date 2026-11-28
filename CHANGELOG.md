@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `http` checks: keep the HTTP error kind, errno, and message in retry fixture failures. Add a focused repeated retry fixture for native and Bun diagnosis.
 - `runner` 0.22.0.9: reject overlapping live and dead snapshot ids and mismatched dead lookup keys. Prove that accepted registry identities meet the first Revive's uniqueness assumptions.
 - `runner` 0.22.0.8: reject snapshots whose next id is not above every pending, running, and dead ticket id or dead lookup key. Prove accepted freshness and its preservation through orphan recovery.
 - `runner` 0.22.0.7: reject duplicate snapshot ticket ids within pending, within running, and across both registries. Prove that accepted snapshots and orphan requeues establish the accounting proof's queue-id conditions.

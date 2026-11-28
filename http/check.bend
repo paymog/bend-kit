@@ -639,10 +639,31 @@ def retry.serve(l: Listener) -> IO(Unit):
     Listener.close(l7)
     Admission.close(inbox)
 
+def retry.error(e: Pure.Err) -> String:
+  match e:
+    case Pure.ErrUrl{}:
+      "ErrUrl"
+    case Pure.ErrDns{}:
+      "ErrDns"
+    case Pure.ErrConnect{code, why}:
+      "ErrConnect " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrTls{code, why}:
+      "ErrTls " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrRead{code, why}:
+      "ErrRead " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrWrite{code, why}:
+      "ErrWrite " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrTimeout{}:
+      "ErrTimeout"
+    case Pure.ErrRedirect{}:
+      "ErrRedirect"
+    case Pure.ErrBad{}:
+      "ErrBad"
+
 def retry.check(+name: String, +status: U32, +want: String, r: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match r:
     case Fail{e}:
-      IO.die(Unit, 1, name ++ ": fetch failed")
+      IO.die(Unit, 1, name ++ ": fetch failed: " ++ retry.error(e))
     case Done{res}:
       Pure.Res{got, headers, body} = res
       local.ok(Bool.and(U32.is_eq(got, status), String.eq(Bytes.to_string(body), want)), name)
