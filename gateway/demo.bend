@@ -3,8 +3,8 @@ import Base
 import ./app.bend as Gw
 import ./gateway.bend as G
 import bend-kit-cache@0.3.2.0/cache.bend as Cache
-import bend-kit-camber@0.19.1.0/camber.bend as C
-import bend-kit-camber@0.19.1.0/notices.bend as N
+import bend-kit-camber@0.19.2.0/camber.bend as C
+import bend-kit-camber@0.19.2.0/notices.bend as N
 import bend-kit-http@0.45.1.0/completion.bend as T
 import bend-kit-hairpin@0.19.1.0/hairpin.bend as Hairpin
 

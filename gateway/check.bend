@@ -3,7 +3,7 @@ import Base
 import ./gateway.bend as G
 import ./app.bend as Gw
 import ./upstream.bend as Up
-import bend-kit-camber@0.19.1.0/camber.bend as C
+import bend-kit-camber@0.19.2.0/camber.bend as C
 import bend-kit-http@0.45.1.0/http.bend as H
 import bend-kit-http@0.45.1.0/pure.bend as Pure
 import bend-kit-cache@0.3.2.0/cache.bend as Cache

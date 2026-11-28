@@ -7,6 +7,8 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `camber` 0.19.2.1: publish the README with the current self-import pins.
+- `authz`, `camber`, and `gateway` checks and examples: adopt Camber 0.19.2.0 with the HTML response helper. Remove the completed Camber pin allowance.
 - `camber` 0.19.2.0: add `html(status, body)` for packed UTF-8 responses with `text/html; charset=utf-8`.
 - `planner` 0.5.1.3: adopt Process 0.5.2.4 with child file descriptor isolation.
 - `http` 0.45.1.1: align the fetch and server README examples with the Wire 0.4.9.0 release.
