@@ -58,6 +58,17 @@ for name in ("check", "native-macos"):
     assert "scripts/native-check.sh ${{ matrix.package }}" in job
 print("PASS Runner and WebSocket: native compile and execution, failure propagation, and retained Bun gate")
 
+for name in ("check", "native-macos"):
+    job = workflow.split(f"\n  {name}:\n", 1)[1].split("\n\n", 1)[0]
+    for required in (
+        "matrix.package == 'websocket'",
+        "python3 -B websocket/occupied-run.py scripts/native-check.sh websocket",
+        'bend websocket/check.bend -o "$RUNNER_TEMP/websocket-check.js"',
+        'python3 -B websocket/occupied-run.py bun "$RUNNER_TEMP/websocket-check.js"',
+    ):
+        assert required in job, (name, required)
+print("PASS WebSocket occupied-port acceptance: Linux and macOS, native and JS")
+
 hairpin = next(line.strip() for line in workflow.splitlines() if 'echo "hairpin=' in line)
 with tempfile.TemporaryDirectory() as tmp:
     output = Path(tmp) / "output"
