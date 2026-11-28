@@ -232,10 +232,40 @@ def fresh.snapshots() -> IO(Unit):
       hex(next(queued(leaf(8n, big(), "pending"), [Q.Ticket{7n, 2n, "running"}]), 9n)),
       "next one above every queue id preserves the full snapshot")
 
+def registry.fixture(h: H.Heap<Q.Ticket<String>>, run: List<&2, Q.Ticket<String>>, +key: Nat, id: Nat) -> Model.State<String>:
+  next(regraved(queued(h, run), M.HLeaf{Model.dead.hash(key),
+    [M.Entry{key, Model.Dead{Q.Ticket{id, big(), "dead"}, Model.WhyFailed{}, 1n}}]}), 9n)
+
+def registry.revived(m: Maybe<&2, Model.Rec<String>>, i: Nat) -> String:
+  match m:
+    case Some{Model.Snap{s}}:
+      Bool.pick(String, Model.queue.unique(String, Model.step(~String, s, Model.Revive{i, 4n})), "unique", "duplicate")
+    case _:
+      "none"
+
+def registry.snapshots() -> IO(Unit):
+  do IO<Unit>:
+    same(rec(Model.encode.snap(~String, ~penc, registry.fixture(leaf(0n, 1n, "pending"), [], 0n, 0n))),
+      "none", "pending and dead cannot share an id")
+    same(rec(Model.encode.snap(~String, ~penc, registry.fixture(H.HLeaf{}, [Q.Ticket{0n, 2n, "running"}], 0n, 0n))),
+      "none", "running and dead cannot share an id")
+    same(rec(Model.encode.snap(~String, ~penc, registry.fixture(H.HLeaf{}, [], 0n, 7n))),
+      "none", "dead lookup keys must equal their stored ticket ids even below next")
+    same(registry.revived(Model.decode.rec(~String, ~pdec, Model.encode.snap(~String, ~penc,
+      next(registry.fixture(leaf(0n, 1n, "pending"), [], 0n, 0n), 2n))), 0n),
+      "none", "the first revive cannot duplicate id zero from a snapshot with next two")
+    same(rec(Model.encode.snap(~String, ~penc, registry.fixture(leaf(1n, big(), "pending"), [Q.Ticket{2n, 3n, "running"}], 0n, 0n))),
+      hex(registry.fixture(leaf(1n, big(), "pending"), [Q.Ticket{2n, 3n, "running"}], 0n, 0n)),
+      "disjoint registries preserve the full snapshot")
+    same(registry.revived(Model.decode.rec(~String, ~pdec, Model.encode.snap(~String, ~penc,
+      registry.fixture(leaf(1n, big(), "pending"), [Q.Ticket{2n, 3n, "running"}], 0n, 0n))), 0n),
+      "unique", "the first revive of a valid snapshot keeps unique live ids")
+
 def snapshots() -> IO(Unit):
   do IO<Unit>:
     queue.snapshots()
     fresh.snapshots()
+    registry.snapshots()
     same(describe(sample()), "next=5 pending=2 running=1 tries=3 fails=1 dead=1", "the sample state has pending, running, retried, and dead tickets")
     same(graves(Model.dead(String, sample())), "0:unsafe:a ", "a dead ticket keeps its payload and why")
     same(rec(Model.encode.snap(~String, ~penc, sample())), hex(sample()), "a snapshot decodes to the same heap, running list, tries, dead tickets, and breakers")

@@ -2759,7 +2759,7 @@ def queue.kept(-A: Data, ok: Bool, +s: R.State<A>, e: {R.queue.valid(A, s) == ok
     case False{}:
       Unit{}
     case True{}:
-      queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s), e))
+      queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && R.registry.valid(A, s), e))
 
 def queue.decoded(-A: Data, m: Maybe<&2, R.State<A>>) ->
     decoded.maybe(R.State<A>, s => queue.ids(A, s), R.rd.queue(A, m)):
@@ -2901,7 +2901,7 @@ def snapshot.recovery.ids(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes
   recovery.from.ids(~A, s, now, p, snapshot.queue.ids(~A, ~pdec, b, s, e))
 
 def fresh.checked(-A: Data, +s: R.State<A>) -> Data:
-  QL.Both<queue.ids(A, s), {R.fresh(A, s) == True{} : Bool}>
+  QL.Both<queue.ids(A, s), QL.Both<{R.fresh(A, s) == True{} : Bool}, {R.registry.valid(A, s) == True{} : Bool}>>
 
 def fresh.kept(-A: Data, ok: Bool, +s: R.State<A>, +e: {R.queue.valid(A, s) == ok : Bool}) ->
     decoded.maybe(R.State<A>, t => fresh.checked(A, t), R.rd.queue.keep(A, ok, s)):
@@ -2909,8 +2909,10 @@ def fresh.kept(-A: Data, ok: Bool, +s: R.State<A>, +e: {R.queue.valid(A, s) == o
     case False{}:
       Unit{}
     case True{}:
-      QL.Both{queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s), e)),
-        MBool.eq_true_of_and_right(R.queue.unique(A, s), R.fresh(A, s), e)}
+      +tail = MBool.eq_true_of_and_right(R.queue.unique(A, s), R.fresh(A, s) && R.registry.valid(A, s), e)
+      QL.Both{queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && R.registry.valid(A, s), e)),
+        QL.Both{MBool.eq_true_of_and_left(R.fresh(A, s), R.registry.valid(A, s), tail),
+          MBool.eq_true_of_and_right(R.fresh(A, s), R.registry.valid(A, s), tail)}}
 
 def fresh.decoded(-A: Data, m: Maybe<&2, R.State<A>>) ->
     decoded.maybe(R.State<A>, s => fresh.checked(A, s), R.rd.queue(A, m)):
@@ -2972,7 +2974,7 @@ def snapshot.checked(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Byte
 
 def fresh.checked.right(-A: Data, +s: R.State<A>, e: fresh.checked(A, s)) -> {R.fresh(A, s) == True{} : Bool}:
   match e:
-    case QL.Both{ids, fresh}:
+    case QL.Both{ids, QL.Both{fresh, registry}}:
       fresh
 
 def snapshot.fresh(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
@@ -3044,7 +3046,7 @@ def recovery.from.fresh(~A: Data, +s: R.State<A>, +now: Nat, ids: queue.ids(A, s
 def recovery.checked(~A: Data, +s: R.State<A>, now: Nat, e: fresh.checked(A, s)) ->
     {R.fresh(A, Laws.live(~A, recovery.ops(A, Q.running(A, R.queue(A, s)), now), R.calm(A, s))) == True{} : Bool}:
   match e:
-    case QL.Both{ids, fresh}:
+    case QL.Both{ids, QL.Both{fresh, registry}}:
       recovery.from.fresh(~A, s, now, ids, fresh)
 
 def snapshot.recovery.fresh(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>, now: Nat,
@@ -3063,3 +3065,121 @@ def snapshot.enqueue.fresh(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Byte
     QL.Both<{QL.assigned(A, Q.enqueue(~A, d, x, R.queue(A, s))) == Q.next_id(A, R.queue(A, s)) : Nat},
       {R.fresh(A, s) == True{} : Bool}>:
   QL.Both{enqueue.next(~A, s, d, x), snapshot.fresh(~A, ~pdec, b, s, e)}
+
+def registry.checked(-A: Data, +s: R.State<A>, e: fresh.checked(A, s)) -> {R.registry.valid(A, s) == True{} : Bool}:
+  match e:
+    case QL.Both{ids, QL.Both{fresh, registry}}:
+      registry
+
+def snapshot.registry(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) -> {R.registry.valid(A, s) == True{} : Bool}:
+  registry.checked(A, s, snapshot.checked(~A, ~pdec, b, s, e))
+
+def registry.hit(-A: Data, +h: H.Heap<Q.Ticket<A>>, +run: List<&2, Q.Ticket<A>>, +i: Nat, m: Maybe<&2, R.Dead<A>>) -> Data:
+  match m:
+    case None{}:
+      Unit
+    case Some{R.Dead{t, w, at}}:
+      QL.Both<{i == Q.id(A, t) : Nat}, QL.Both<QL.absent.heap(A, h, i), QL.absent.list(A, run, i)>>
+
+def registry.head(-A: Data, +h: H.Heap<Q.Ticket<A>>, +run: List<&2, Q.Ticket<A>>, +i: Nat, +k: Nat,
+    +t: Q.Ticket<A>, w: R.Why, at: Nat, same: {Nat.is_eq(i, k) == True{} : Bool},
+    key: {Nat.is_eq(k, Q.id(A, t)) == True{} : Bool},
+    eh: {R.queue.absent.heap(A, h, k) == True{} : Bool}, er: {R.queue.absent.list(A, run, k) == True{} : Bool}) ->
+    registry.hit(A, h, run, i, Some{R.Dead{t, w, at}}):
+  %Equal.sym(Nat, i, k, MNat.eq_of_is_eq(i, k, same)) : registry.hit(A, h, run, _, Some{R.Dead{t, w, at}})
+  QL.Both{MNat.eq_of_is_eq(k, Q.id(A, t), key), QL.Both{queue.absent.heap(A, h, k, eh), queue.absent.list(A, run, k, er)}}
+
+def registry.entries(~A: Data, +es: List<&2, M.Entry<Nat, R.Dead<A>>>, +h: H.Heap<Q.Ticket<A>>, +run: List<&2, Q.Ticket<A>>, +i: Nat,
+    +e: {R.registry.entries(A, es, h, run) == True{} : Bool}) ->
+    registry.hit(A, h, run, i, M.HMap.entries.get(~Nat, ~R.Dead<A>, ~Nat.is_eq, es, i)):
+  match es:
+    case Nil{}:
+      Unit{}
+    case Con{M.Entry{+k, R.Dead{+t, +w, +at}}, +rest}:
+      +tail = MBool.eq_true_of_and_right(Nat.is_eq(k, Q.id(A, t)),
+        R.queue.absent.heap(A, h, k) && (R.queue.absent.list(A, run, k) && R.registry.entries(A, rest, h, run)), e)
+      +more = MBool.eq_true_of_and_right(R.queue.absent.heap(A, h, k),
+        R.queue.absent.list(A, run, k) && R.registry.entries(A, rest, h, run), tail)
+      split(b => registry.hit(A, h, run, i, M.HMap.bool(Maybe<&2, R.Dead<A>>, b,
+        u => Some{R.Dead{t, w, at}}, u => M.HMap.entries.get(~Nat, ~R.Dead<A>, ~Nat.is_eq, rest, i))),
+        Nat.is_eq(i, k),
+        same => registry.head(A, h, run, i, k, t, w, at, same,
+          MBool.eq_true_of_and_left(Nat.is_eq(k, Q.id(A, t)), R.queue.absent.heap(A, h, k) &&
+            (R.queue.absent.list(A, run, k) && R.registry.entries(A, rest, h, run)), e),
+          MBool.eq_true_of_and_left(R.queue.absent.heap(A, h, k), R.queue.absent.list(A, run, k) && R.registry.entries(A, rest, h, run), tail),
+          MBool.eq_true_of_and_left(R.queue.absent.list(A, run, k), R.registry.entries(A, rest, h, run), more)),
+        different => registry.entries(~A, rest, h, run, i,
+          MBool.eq_true_of_and_right(R.queue.absent.list(A, run, k), R.registry.entries(A, rest, h, run), more)))
+
+def registry.get(~A: Data, +n: Nat, +mask: U32, +ds: R.Graves(A), +hash: U32, +h: H.Heap<Q.Ticket<A>>,
+    +run: List<&2, Q.Ticket<A>>, +i: Nat, +e: {R.registry.graves(A, ds, h, run) == True{} : Bool}) ->
+    registry.hit(A, h, run, i, M.HMap.get.go(~Nat, ~R.Dead<A>, ~Nat.is_eq, n, mask, ds, hash, i)):
+  match n:
+    case 0n:
+      match ds:
+        case M.HNil{}:
+          Unit{}
+        case M.HLeaf{oldhash, +es}:
+          registry.entries(~A, es, h, run, i, e)
+        case M.HBranch{lo, hi}:
+          Unit{}
+    case 1n+p:
+      match ds:
+        case M.HNil{}:
+          Unit{}
+        case M.HLeaf{+oldhash, +es}:
+          split(b => registry.hit(A, h, run, i, M.HMap.bool(Maybe<&2, R.Dead<A>>, b,
+            u => M.HMap.entries.get(~Nat, ~R.Dead<A>, ~Nat.is_eq, es, i), u => None{})),
+            U32.is_eq(oldhash, hash), same => registry.entries(~A, es, h, run, i, e), different => Unit{})
+        case M.HBranch{+lo, +hi}:
+          split(b => registry.hit(A, h, run, i, M.HMap.bool(Maybe<&2, R.Dead<A>>, b,
+            u => M.HMap.get.go(~Nat, ~R.Dead<A>, ~Nat.is_eq, p, (mask << 1n : U32), lo, hash, i),
+            u => M.HMap.get.go(~Nat, ~R.Dead<A>, ~Nat.is_eq, p, (mask << 1n : U32), hi, hash, i))),
+            U32.is_eq((hash .&. mask : U32), 0),
+            left => registry.get(~A, p, (mask << 1n : U32), lo, hash, h, run, i,
+              MBool.eq_true_of_and_left(R.registry.graves(A, lo, h, run), R.registry.graves(A, hi, h, run), e)),
+            right => registry.get(~A, p, (mask << 1n : U32), hi, hash, h, run, i,
+              MBool.eq_true_of_and_right(R.registry.graves(A, lo, h, run), R.registry.graves(A, hi, h, run), e)))
+
+def registry.lookup(~A: Data, +s: R.State<A>, +i: Nat, e: {R.registry.valid(A, s) == True{} : Bool}) ->
+    registry.hit(A, Q.pending(A, R.queue(A, s)), Q.running(A, R.queue(A, s)), i, R.dead.get(~A, R.dead(A, s), i)):
+  match s:
+    case R.State{Q.State{n, +h, +run}, ts, +ds, bs}:
+      registry.get(~A, 32n, 1, ds, R.dead.hash(i), h, run, i, e)
+
+def snapshot.revive.assumptions(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>, +i: Nat,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    registry.hit(A, Q.pending(A, R.queue(A, s)), Q.running(A, R.queue(A, s)), i, R.dead.get(~A, R.dead(A, s), i)):
+  registry.lookup(~A, s, i, snapshot.registry(~A, ~pdec, b, s, e))
+
+def registry.revived.ids(~A: Data, +m: Maybe<&2, R.Dead<A>>, +i: Nat, +n: Nat, +h: H.Heap<Q.Ticket<A>>,
+    +run: List<&2, Q.Ticket<A>>, +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), +d: Nat,
+    ids: queue.ids(A, R.State{Q.State{n, h, run}, ts, ds, bs}), hit: registry.hit(A, h, run, i, m)) ->
+    queue.ids(A, R.step.revived(~A, m, i, n, h, run, ts, ds, bs, d)):
+  match m:
+    case None{}:
+      ids
+    case Some{R.Dead{Q.Ticket{k, old, +x}, w, at}}:
+      QL.Both{distinct, QL.Both{unique, apart}} = ids
+      QL.Both{same, QL.Both{+eh, +er}} = hit
+      QL.Both{distinct, QL.Both{heap.push.unique(~A, Q.Ticket{i, d, x}, h, unique, eh),
+        flights.apart.push(~A, run, h, i, d, x, apart, er)}}
+
+def registry.revive.ids(~A: Data, +s: R.State<A>, +i: Nat, +d: Nat, ids: queue.ids(A, s),
+    hit: registry.hit(A, Q.pending(A, R.queue(A, s)), Q.running(A, R.queue(A, s)), i, R.dead.get(~A, R.dead(A, s), i))) ->
+    queue.ids(A, R.step(~A, s, R.Revive{i, d})):
+  match s:
+    case R.State{Q.State{+n, +h, +run}, +ts, +ds, +bs}:
+      registry.revived.ids(~A, R.dead.get(~A, ds, i), i, n, h, run, ts, ds, bs, d, ids, hit)
+
+def registry.checked.revive(~A: Data, +s: R.State<A>, +i: Nat, d: Nat, e: fresh.checked(A, s)) ->
+    queue.ids(A, R.step(~A, s, R.Revive{i, d})):
+  match e:
+    case QL.Both{ids, QL.Both{fresh, registry}}:
+      registry.revive.ids(~A, s, i, d, ids, registry.lookup(~A, s, i, registry))
+
+def snapshot.revive.ids(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>, +i: Nat, d: Nat,
+    +e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    queue.ids(A, R.step(~A, s, R.Revive{i, d})):
+  registry.checked.revive(~A, s, i, d, snapshot.checked(~A, ~pdec, b, s, e))
