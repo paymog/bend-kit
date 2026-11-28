@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.22.0.6/runner.bend as R
+import bend-kit-runner@0.22.0.8/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.4.0.2/journal.bend` for runtime IO and `bend-kit-journal@0.4.0.2/pure.bend` for read-only inspection and replay benchmarks, `bend-kit-scheduler@0.4.4.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.5`, `bend-kit-collections@0.1.6.0`, `bend-kit-files@0.4.0.3`, `bend-kit-encoding@0.5.0.3`, and `bend-kit-bytes@0.3.3.3`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.4.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.22.0.6/runner.bend as R
+import bend-kit-runner@0.22.0.8/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.22.0.6/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.22.0.8/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `Breakers()` is a `collections.HMap<String, Retry.State>`. The breaker proofs use its checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings.
 
@@ -154,7 +154,7 @@ Run `python3 runner/migrate-test.py` for conversion, CRC, codec, interruption, a
 
 `R.inspect(~A, ~pdec, path, max, limit)` opens an existing file with read-only mode `r`. It never creates, truncates, appends, or runs recovery. Stop writers first so the rehearsal reads a stable file. `max` caps each record, including snapshots; `limit` caps all file bytes.
 
-Import `bend-kit-runner@0.22.0.6/inspect.bend` for `Inspection` and `bytes(~A, ~pdec, max, buffer)`. Both entry points return `Result<&1, &1, U32 & String, Inspection<A>>`. `Inspection{state, tail, end}` holds the exact `model.replay.step` state before recovery and the committed prefix length in octets. Read `model.queue`, `model.tries`, `model.dead`, and `model.breakers` from that state.
+Import `bend-kit-runner@0.22.0.8/inspect.bend` for `Inspection` and `bytes(~A, ~pdec, max, buffer)`. Both entry points return `Result<&1, &1, U32 & String, Inspection<A>>`. `Inspection{state, tail, end}` holds the exact `model.replay.step` state before recovery and the committed prefix length in octets. Read `model.queue`, `model.tries`, `model.dead`, and `model.breakers` from that state.
 
 The tail is `Clean{}` or `Torn{}` from `bend-kit-journal@0.4.0.2/pure.bend`. `Torn{}` explicitly reports an incomplete suffix and returns only the committed prefix state. Do not approve cutover with a torn suffix. Corrupt framing returns `Fail` with its offset and reason. A record or application payload that cannot decode returns `Fail` with `undecodable record at offset <offset>, index <index>`. The offset is the first rejected frame's header position in octets from the file start. The index is zero-based and counts all committed records, including snapshots. A later snapshot cannot hide a rejected record. A torn suffix adds `before torn suffix`; corrupt framing still takes precedence. Diagnostics contain no payload bytes. No partial state is returned for those errors. File errors and a file over `limit` also return `Fail`. Every result leaves the source bytes unchanged.
 
@@ -170,6 +170,12 @@ A crash leaves either the old journal or the new one, and both replay to the sam
 A `Snap` record is tag 14 and the next id, then the pending heap, the running list, the tries, the dead tickets, and the breakers, node by node, so the replayed trees have the live shape. Each heap, list, and map node or cell starts with a u32 flag of 1, and each end is a flag of 0. A ticket is its u64 id and deadline, then a u32 length and the payload. Each node of the dead-ticket trie is a u32 kind: 0 empty, 1 a bucket, or 2 a branch followed by its two halves. A bucket is its u32 hash, then its entries, each a flag of 1, the u64 id, the ticket, a u32 why, and the u64 `at`, then a flag of 0. A snapshot whose trie is not well formed, as `collections`' `hmap_wf` defines it, does not decode: a bucket must not hold one id twice, and its ids must hash to its hash. A breaker is its target and its state, as in a `Break`. The snapshot is one record, so it must fit `limit`, not `max`.
 
 The decoder sorts each bucket by id and checks adjacent ids for strict order. For k entries in one bucket, this costs O(k log k), not O(k²). Unsorted buckets still decode in the current format. Tickets and values do not change, but re-encoding a decoded snapshot puts each bucket's entries in id order. `PROOF.bend` proves that the fast check implies `hmap_wf`.
+
+Snapshot decoding also rejects duplicate ticket ids within the pending heap, within the running list, or across both registries. The queue check visits the actual nodes, not their cached sizes. It preserves the heap shape, running order, payloads, and deadlines. It uses pairwise id comparisons: O(n²) time in the worst case for n pending and running tickets, with no extra id index. The record and journal caps bound the input bytes, not the validation time. Keep these caps within the application's recovery budget.
+
+The next id must be strictly greater than every pending id, running id, dead ticket id, and dead lookup key. Equal or lower counters fail decoding. This extra pass visits actual nodes in O(p + r + d) time. Traversal space is bounded by the longest tree or list path, with no id index. It does not rebuild the heap or change payloads or deadlines. Empty snapshots may start at zero. The check does not establish that a dead lookup key equals its stored ticket id, that dead and live registries are disjoint, that retry metadata is consistent, or that heap order and cached sizes are valid.
+
+The pure queue uses unbounded `Nat` ids. Journal fields are u64le, so persisted ids and the next counter must fit in 0 through 2^64 − 1. Decoding does not reserve room for future enqueues: an accepted next counter of 2^64 − 1 can allocate that id once, but the resulting counter 2^64 cannot round-trip through a snapshot. Applications must stop before exhausting this boundary. Freshness covers retained tickets, not ids of completed or purged tickets absent from the snapshot.
 
 ## Laws
 
@@ -219,6 +225,8 @@ The decoder sorts each bucket by id and checks adjacent ids for strict order. Fo
 - No pending id belongs to a live flight (`flights.apart`).
 
 `loop.step.ids` and `loop.ids.fold` preserve all three id conditions. No per-event uniqueness assumption is needed. These accounting proofs do not require heap order, valid cached heap sizes, a next-id bound, or a running-queue invariant. The separate `loop_flights` law covers the running queue. `loop.ids.empty` and `loop.accounted.empty` establish the hypotheses for an empty runner with no reserved units.
+
+`snapshot.queue.ids` proves that arbitrary bytes accepted as a snapshot establish distinct pending ids, distinct running ids, and no overlap. `snapshot.fresh` proves the strict next-id bounds without a payload round-trip assumption. `snapshot.enqueue.fresh` connects those bounds to the id that the first enqueue allocates. `recovery.live` identifies the pure orphan loop with the same `Requeue` operations that `open` commits. `snapshot.recovery.fresh` proves that calming the breakers and requeuing every orphan preserve the bounds. `snapshot.recovery.ids` establishes `loop.ids` with no live flights. `open` starts no attempts until these commits finish. Its new pool has no reserved units, so `loop.accounted` holds too. Journal IO and later operation histories remain separate trust boundaries: the snapshot proofs do not establish freshness or queue uniqueness for arbitrary forged operation histories.
 
 `loop.live_capacity` combines the accounting equality with `loop_capacity`. It bounds the live flight count by pool capacity when the initial reserved count is within capacity. Cancelled flights still count until completion or retry settlement. The proofs cover successful, capacity-refused, and not-yet-due claims, cancellation, either settle, and repeated or mixed settles. `loop.fixture.accounted` and `loop.fixture.empty` check one mixed sequence with all these cases. Journal IO and the runtime's affine grant ownership remain trust boundaries, as below.
 

@@ -12,8 +12,34 @@ dest=${1:-$HOME/.bend}
 name="bend-$VER-$platform.tar.gz"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-curl --proto '=https' --tlsv1.2 -fsSL -o "$tmp/$name" \
-  "https://github.com/bendlang/bend/releases/download/v$VER/$name"
+url="https://github.com/bendlang/bend/releases/download/v$VER/$name"
+for attempt in 1 2 3; do
+  request=$url
+  if [ "$attempt" -gt 1 ]; then
+    request="$url?bend-ci=$(date +%s)-$$-$attempt"
+  fi
+  if curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
+    --connect-timeout 15 --max-time 120 --dump-header "$tmp/headers" \
+    --output "$tmp/$name" "$request"; then
+    break
+  else
+    status=$?
+  fi
+  echo "Bend $VER $platform download attempt $attempt/3 failed (curl $status)." >&2
+  if [ -f "$tmp/headers" ]; then
+    awk '{
+      sub(/\r$/, "")
+      key = tolower($1)
+      if (key ~ /^http\// || key ~ /^(date|server|age|via|x-cache|x-github-request-id|retry-after|x-ratelimit-remaining|x-ratelimit-reset):$/) print
+    }' "$tmp/headers" >&2
+  fi
+  if [ "$attempt" -eq 3 ]; then
+    echo "Bend download failed after 3 attempts: $url" >&2
+    exit "$status"
+  fi
+  rm -f "$tmp/$name" "$tmp/headers"
+  sleep "$((attempt * 2))"
+done
 echo "$SHA  $tmp/$name" | "${verify[@]}" -
 tar -xzf "$tmp/$name" -C "$tmp"
 mkdir -p "$dest/bin"

@@ -243,7 +243,7 @@ def main():
             for lane, suffix in (('native', ''), ('js', '.js')):
                 target = folder / ('admission' + suffix)
                 Harness.finish(Harness.start(['bend', 'http/admission_check.bend', '-o', str(target)]))
-                command = [str(target), '--threads', '1', '--gpu', 'off'] if lane == 'native' else ['bun', str(target)]
+                command = [str(target), '+RTS', '--threads', '1', '--gpu', 'off', '-RTS'] if lane == 'native' else ['bun', str(target)]
                 stats_path = folder / (lane + '-stats-close.journal')
                 output = Harness.finish(Harness.start(command + ['stats-close', 'active', '0'],
                     env=dict(os.environ, ADMISSION_JOURNAL=str(stats_path))))

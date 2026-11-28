@@ -8,6 +8,15 @@ When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for
 
 ## Unreleased
 - `sqlite` 0.1.0.2: bound native C handle-table memory (`sqlite/effs/sqlite.c`) with an open-addressing hash map and backward-shift deletion (`O(live_handles)` memory, floor 64, strictly monotonic non-reused `u32` IDs).
+- `runner` 0.22.0.8: reject snapshots whose next id is not above every pending, running, and dead ticket id or dead lookup key. Prove accepted freshness and its preservation through orphan recovery.
+- `runner` 0.22.0.7: reject duplicate snapshot ticket ids within pending, within running, and across both registries. Prove that accepted snapshots and orphan requeues establish the accounting proof's queue-id conditions.
+- `http` checks: clear the serving log before each background launch so the JS lane cannot read the native lane's READY line. Repeat the delayed JS serving failure and keep exact PID counts and leak checks.
+- `wire` checks: attempt both firewall rule removals and retry failed deletions once. Preserve setup and client failures. SIGINT and SIGTERM stop and reap the isolated client before cleanup. Required Linux tests compare firewall state after recoverable failures and interruption.
+- `http` checks: pass native thread and GPU options between `+RTS` and `-RTS`. Keep fixture modes and ports as application arguments in the drain, admission, limits, and outcome harnesses.
+- `time` 0.3.0.6: bound native timezone lookup continuations on Bend 2.0.40. Check New York DST transitions and POSIX footer offsets, DST flags, abbreviations, and local times in both runtime lanes.
+- `websocket` CI: compile and run the existing acceptance checks on Linux and macOS arm64, including sibling Wire and libcrypto effects.
+- CI: retry pinned Bend downloads up to three times with fresh release redirects and bounded timeouts. Log safe response headers on failure and keep checksum verification before installation.
+- `storage` CI: require the raw pure proof checker to pass. Keep the scoped verdict policy for runtime code and other packages.
 - `websocket` 0.5.0.0: add `ms: U32` write deadline (`0` = none, `1..2147483647` = deadline in ms) to `send`, `close`, and `io.send`, and thread `ms` through `handshake` and `recv` internal control-frame writes (Ping→Pong, Close echo, protocol-fault Close) over both `ws://` (`Wire.send.words.deadline`) and `wss://` (`Wire.tls.send.words.deadline`). Callers must call `shutdown` after a write timeout/error.
 - `process` 0.5.2.4: spawn JS children via `posix_spawnp` to eliminate Bun `pidfd` descriptor leaks and close inherited parent file descriptors `>= 3` on both native and JS targets (`addclosefrom_np(3)` on Linux, `POSIX_SPAWN_CLOEXEC_DEFAULT` on macOS).
 - `wire` 0.4.9.0: add `tls.send.words.deadline` with a single monotonic write budget across OpenSSL `WANT_READ`/`WANT_WRITE` retries in both C and JS, capping each `SSL_write` to one 16 KiB TLS plaintext record for accurate partial-progress accounting and bounded stall/trickle termination.

@@ -308,7 +308,7 @@ def main():
             for lane, suffix in (('native', ''), ('js', '.js')):
                 target = folder / ('outcome' + suffix)
                 Harness.finish(Harness.start(['bend', 'http/outcome_check.bend', '-o', str(target)]))
-                command = [str(target), '--threads', '1', '--gpu', 'off'] if lane == 'native' else ['bun', str(target)]
+                command = [str(target), '+RTS', '--threads', '1', '--gpu', 'off', '-RTS'] if lane == 'native' else ['bun', str(target)]
                 late_observer(command, lane, folder)
                 for mode in ('whole', 'stream', 'writer', 'whole-convenience', 'stream-convenience', 'writer-convenience'):
                     server = Server(command, lane, mode, folder)

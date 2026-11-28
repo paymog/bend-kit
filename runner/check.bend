@@ -120,10 +120,14 @@ def graveyard() -> Model.State<String>:
 def dead7() -> Model.Dead<String>:
   Model.Dead{Q.Ticket{7n, 0n, "x"}, Model.WhyFailed{}, 1n}
 
+def next(s: Model.State<String>, n: Nat) -> Model.State<String>:
+  Model.State{Q.State{old, h, run}, ts, ds, bs} = s
+  Model.State{Q.State{n, h, run}, ts, ds, bs}
+
 # s with its dead-ticket trie replaced by ds, which no op would build.
 def regraved(s: Model.State<String>, ds: Model.Graves(String)) -> Model.State<String>:
   Model.State{q, ts, old, bs} = s
-  Model.State{q, ts, ds, bs}
+  next(Model.State{q, ts, ds, bs}, Nat.mul(1024n, Nat.mul(65536n, 65536n)))
 
 def brk(s: Model.State<String>, +key: String) -> String:
   show.brk(Model.brk.get(String, s, key))
@@ -181,8 +185,57 @@ def collision.count(m: Maybe<&2, Model.Rec<String>>) -> Nat:
     case _:
       0n
 
+def queued(h: H.Heap<Q.Ticket<String>>, run: List<&2, Q.Ticket<String>>) -> Model.State<String>:
+  Model.State{Q.State{Nat.add(Nat.mul(65536n, 65536n), 10n), h, run}, O.OMap.new(Nat, Model.Try), M.HMap.new(Nat, Model.Dead<String>), M.HMap.new(String, Retry.State)}
+
+def leaf(+i: Nat, d: Nat, x: String) -> H.Heap<Q.Ticket<String>>:
+  H.HNode{1n, Q.Ticket{i, d, x}, H.HLeaf{}, H.HLeaf{}}
+
+def queue.snapshots() -> IO(Unit):
+  do IO<Unit>:
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{3n, Q.Ticket{0n, 1n, "root"}, leaf(1n, 2n, "left"), leaf(1n, 3n, "right")}, []))),
+      "none", "duplicate pending ids in separate subtrees do not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{2n, Q.Ticket{0n, 1n, "root"}, leaf(0n, 2n, "child"), H.HLeaf{}}, []))),
+      "none", "a pending child with its ancestor id does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(H.HLeaf{},
+      [Q.Ticket{0n, 1n, "first"}, Q.Ticket{1n, 2n, "middle"}, Q.Ticket{0n, 3n, "last"}]))),
+      "none", "nonadjacent duplicate running ids do not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(leaf(0n, 1n, "pending"), [Q.Ticket{0n, 2n, "running"}]))),
+      "none", "an id shared by pending and running does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(leaf(0n, 1n, "pending"), [Q.Ticket{Nat.mul(65536n, 65536n), big(), "running"}]))),
+      hex(queued(leaf(0n, 1n, "pending"), [Q.Ticket{Nat.mul(65536n, 65536n), big(), "running"}])),
+      "distinct 64-bit ids with equal low words keep the exact queue shape, payloads, and deadlines")
+
+def fresh.snapshots() -> IO(Unit):
+  do IO<Unit>:
+    same(rec(Model.encode.snap(~String, ~penc, next(queued(leaf(0n, 1n, "pending"), []), 0n))),
+      "none", "next zero cannot reuse the pending id on the first enqueue")
+    same(rec(Model.encode.snap(~String, ~penc, next(queued(leaf(8n, 1n, "pending"), []), 7n))),
+      "none", "next below a pending id does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, next(queued(H.HLeaf{}, [Q.Ticket{8n, 2n, "running"}]), 8n))),
+      "none", "next equal to a running id does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, next(queued(H.HLeaf{}, [Q.Ticket{8n, 2n, "running"}]), 7n))),
+      "none", "next below a running id does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, next(graveyard(), 2n))),
+      "none", "next equal to a dead id does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, next(graveyard(), 1n))),
+      "none", "next below a dead id does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, next(regraved(Model.new(String),
+      M.HLeaf{0, [M.Entry{0n, dead7()}]}), 7n))),
+      "none", "the dead payload ticket id is bounded even when its key differs")
+    same(rec(Model.encode.snap(~String, ~penc, next(regraved(Model.new(String),
+      M.HLeaf{7, [M.Entry{7n, Model.Dead{Q.Ticket{0n, 0n, "x"}, Model.WhyFailed{}, 1n}}]}), 7n))),
+      "none", "the dead lookup key is bounded even when its ticket id differs")
+    same(rec(Model.encode.snap(~String, ~penc, next(queued(leaf(8n, big(), "pending"), [Q.Ticket{7n, 2n, "running"}]), 9n))),
+      hex(next(queued(leaf(8n, big(), "pending"), [Q.Ticket{7n, 2n, "running"}]), 9n)),
+      "next one above every queue id preserves the full snapshot")
+
 def snapshots() -> IO(Unit):
   do IO<Unit>:
+    queue.snapshots()
+    fresh.snapshots()
     same(describe(sample()), "next=5 pending=2 running=1 tries=3 fails=1 dead=1", "the sample state has pending, running, retried, and dead tickets")
     same(graves(Model.dead(String, sample())), "0:unsafe:a ", "a dead ticket keeps its payload and why")
     same(rec(Model.encode.snap(~String, ~penc, sample())), hex(sample()), "a snapshot decodes to the same heap, running list, tries, dead tickets, and breakers")

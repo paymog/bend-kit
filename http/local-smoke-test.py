@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import shutil
 import sys
+import time
 
 name = Path(sys.argv[0]).name
 args = sys.argv[1:]
@@ -34,6 +35,7 @@ if name == "bend":
     shutil.copyfile(os.environ["SMOKE_SERVER"], output)
     output.chmod(0o755)
 elif name == "bun":
+    time.sleep(0.1)
     os.execv(args[0], args)
 elif name == "curl":
     lane = Path(os.environ["SMOKE_LANE"]).read_text()
@@ -117,7 +119,9 @@ def run_case(root, case):
             lane, source, failure = case.split(":")
             count = order.index(f"compile {lane} {source}") + 1
             assert compiled == order[:count], (case, compiled)
-            assert len(pids.read_text().splitlines()) == count - (failure == "compile"), case
+            recorded = pids.read_text().splitlines()
+            expected = count - (failure == "compile")
+            assert len(recorded) == expected, (case, expected, recorded, result.stdout, result.stderr)
         for pid in pids.read_text().splitlines():
             try:
                 os.kill(int(pid), 0)
@@ -156,6 +160,8 @@ def main():
                 run_case(root, f"{lane}:demo:{failure}")
             for source in ("stream_demo", "write_demo"):
                 run_case(root, f"{lane}:{source}:assert")
+        for _ in range(5):
+            run_case(root, "js:demo:serve")
 
 
 if __name__ == "__main__":
