@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `camber` 0.19.1.1: adopt HTTP 0.45.1.1 with its corrected README.
+- `hairpin` 0.19.1.1: adopt HTTP 0.45.1.1 with its corrected README.
+- `storage` 0.12.1.1: adopt HTTP 0.45.1.1 for synchronization.
 - `http` 0.45.1.1: align the fetch and server README examples with the Wire 0.4.9.0 release.
 - `runner` 0.22.0.12: adopt Webhooks 0.17.1.0, Hairpin 0.19.1.0, HTTP 0.45.1.0, and Wire 0.4.9.0 in the outbox example. Remove the completed dependency-wave allowances.
 - `jwt` 0.17.1.0: adopt HTTP 0.45.1.0 and Hairpin 0.19.1.0.
