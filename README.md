@@ -44,7 +44,7 @@ This section comes from entry-file imports and package versions. Run `scripts/re
 
 | Dependency pin | Consumers |
 |---|---|
-| `bend-kit-http@0.45.1.0` | `camber@0.19.1.0`, `hairpin@0.19.1.0`, `jwt@0.17.1.0`, `llm@0.19.1.0`, `oauth2@0.17.1.0`, `sigv4@0.17.1.0`, `webhooks@0.17.1.0` |
+| `bend-kit-http@0.45.1.0` | `camber@0.19.2.1`, `hairpin@0.19.1.0`, `jwt@0.17.1.0`, `llm@0.19.1.0`, `oauth2@0.17.1.0`, `sigv4@0.17.1.0`, `webhooks@0.17.1.0` |
 | `bend-kit-hairpin@0.19.1.0` | `jwt@0.17.1.0`, `llm@0.19.1.0`, `oauth2@0.17.1.0`, `sigv4@0.17.1.0`, `webhooks@0.17.1.0` |
 
 ## Native libraries
@@ -175,7 +175,7 @@ Each package README has the import, one example, and the limits that change the 
 
 | Package | Import | What it does |
 |---|---|---|
-| [`camber`](camber) | `bend-kit-camber@0.19.1.0/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
+| [`camber`](camber) | `bend-kit-camber@0.19.2.1/camber.bend` | Prepared HTTP applications, typed inputs, and bounded dependency owners. |
 | [`gateway`](gateway) | `bend-kit-gateway@0.5.0.0/gateway.bend` | A guarded read-through gateway: authorize, admit, serve from cache, and fetch on a miss, with proofs that every path gives its unit back. `app.bend` is the Camber app. |
 
 For TOML 1.0, use [Emerging-Patterns/eztoml](https://github.com/Emerging-Patterns/eztoml) (`0xd79254973edee82bcf56616220876efe/main.bend`, v0.5.0). For CLI arguments, use [shake](https://github.com/Emerging-Patterns/shake).
