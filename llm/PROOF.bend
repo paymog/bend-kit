@@ -18,6 +18,7 @@ import ./sse-state-proof.bend as State
 import ./sse-budget-proof.bend as Budget
 import ./sse-next-proof.bend as Next
 import ./sse-compose-proof.bend as Compose
+import ./sse-partition-proof.bend as Partition
 
 def Laws.sse_whole():
   {==}
@@ -349,7 +350,7 @@ def Laws.again_bad_request():
 def Laws.again_ok():
   {==}
 
-def Laws.sse_partition(pieces):
+def Laws.sse_partition(pieces, limit, upper, bound):
   match pieces:
     case Nil{}: {==}
     case Con{h, t}:

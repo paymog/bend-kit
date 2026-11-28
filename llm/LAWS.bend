@@ -105,6 +105,9 @@ def joined(pieces: List<&2, String>) -> String:
 
 law sse_partition:
   for pieces: List<&2, String>
+  for +limit: Nat
+  for upper: MNat.le(limit, Lemmas.pow2(32n))
+  for bound: MNat.lt(Nat.add(String.length(joined(pieces)), 4n), limit)
   {sse(pieces) == sse([joined(pieces)]) : List<&2, String>}
 def retried.of(r: Sse.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
   (rd, m) = r
