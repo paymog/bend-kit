@@ -1122,10 +1122,73 @@ def decode(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes) -> Mayb
   Bytes.Bytes{+len, buf} = b
   decode.len(~A, ~pdec, U32.is_ge(len, 12), len, Bytes.Bytes{len, buf})
 
+def queue.absent.heap(-A: Data, h: H.Heap<Q.Ticket<A>>, +i: Nat) -> Bool:
+  match h:
+    case H.HLeaf{}:
+      True{}
+    case H.HNode{n, t, l, r}:
+      Bool.not(Nat.is_eq(Q.id(A, t), i)) && (queue.absent.heap(A, l, i) && queue.absent.heap(A, r, i))
+
+def queue.cross(-A: Data, a: H.Heap<Q.Ticket<A>>, +b: H.Heap<Q.Ticket<A>>) -> Bool:
+  match a:
+    case H.HLeaf{}:
+      True{}
+    case H.HNode{n, t, l, r}:
+      queue.absent.heap(A, b, Q.id(A, t)) && (queue.cross(A, l, b) && queue.cross(A, r, b))
+
+def queue.unique.heap(-A: Data, h: H.Heap<Q.Ticket<A>>) -> Bool:
+  match h:
+    case H.HLeaf{}:
+      True{}
+    case H.HNode{n, t, +l, +r}:
+      +i = Q.id(A, t)
+      queue.absent.heap(A, l, i) && (queue.absent.heap(A, r, i) &&
+        (queue.unique.heap(A, l) && (queue.unique.heap(A, r) && queue.cross(A, l, r))))
+
+def queue.absent.list(-A: Data, xs: List<&2, Q.Ticket<A>>, +i: Nat) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{t, rest}:
+      Bool.not(Nat.is_eq(Q.id(A, t), i)) && queue.absent.list(A, rest, i)
+
+def queue.unique.list(-A: Data, xs: List<&2, Q.Ticket<A>>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{t, +rest}:
+      queue.absent.list(A, rest, Q.id(A, t)) && queue.unique.list(A, rest)
+
+def queue.apart(-A: Data, xs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{t, rest}:
+      queue.absent.heap(A, h, Q.id(A, t)) && queue.apart(A, rest, h)
+
+# ponytail: pairwise id checks cost O(n²); use a proved sorted-id check if recovery size requires it.
+def queue.unique(-A: Data, s: State<A>) -> Bool:
+  State{Q.State{n, +h, +run}, ts, ds, bs} = s
+  queue.unique.list(A, run) && (queue.unique.heap(A, h) && queue.apart(A, run, h))
+
+def rd.queue.keep(-A: Data, ok: Bool, s: State<A>) -> Maybe<&2, State<A>>:
+  match ok:
+    case True{}:
+      Some{s}
+    case False{}:
+      None{}
+
+def rd.queue(-A: Data, m: Maybe<&2, State<A>>) -> Maybe<&2, State<A>>:
+  match m:
+    case None{}:
+      None{}
+    case Some{+s}:
+      rd.queue.keep(A, queue.unique(A, s), s)
+
 # The state of a Snap record whose tag is already checked. The decoder must end at the record's end.
 def decode.snap(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes) -> Maybe<&2, State<A>>:
   Bytes.Bytes{+len, buf} = b
-  rd.done(State<A>, len, rd.state(~A, ~pdec, U32.to_nat((len / 4 + 1 : U32)))(Rd{Bytes.Bytes{len, buf}, 4}))
+  rd.queue(A, rd.done(State<A>, len, rd.state(~A, ~pdec, U32.to_nat((len / 4 + 1 : U32)))(Rd{Bytes.Bytes{len, buf}, 4})))
 
 def decode.snapped(-A: Data, m: Maybe<&2, State<A>>) -> Maybe<&2, Rec<A>>:
   match m:

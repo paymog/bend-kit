@@ -1782,16 +1782,17 @@ def decoded.maybe(-T: Data, P: T -> Data, m: Maybe<&2, T>) -> Data:
 
 def read.done.keep(~A: Data, keep: Bool, +s: R.State<A>, wf: decoded.state(A, s)) ->
     decoded.maybe(R.Rec<A>, r => decoded.rec(A, r),
-      R.decode.snapped(A, Bool.pick(Maybe<&2, R.State<A>>, keep, Some{s}, None{}))):
+      R.decode.snapped(A, R.rd.queue(A, Bool.pick(Maybe<&2, R.State<A>>, keep, Some{s}, None{})))):
   match keep:
     case True{}:
-      wf
+      split(ok => decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.snapped(A, R.rd.queue.keep(A, ok, s))),
+        R.queue.unique(A, s), e => wf, e => Unit{})
     case False{}:
       Unit{}
 
 def read.done.some(~A: Data, +len: U32, +s: R.State<A>, wf: decoded.state(A, s), r: R.Rd) ->
     decoded.maybe(R.Rec<A>, x => decoded.rec(A, x),
-      R.decode.snapped(A, R.rd.done(R.State<A>, len, Some{(r, s)}))):
+      R.decode.snapped(A, R.rd.queue(A, R.rd.done(R.State<A>, len, Some{(r, s)})))):
   match r:
     case R.Rd{b, +at}:
       read.done.keep(~A, U32.is_eq(at, len), s, wf)
@@ -1801,7 +1802,7 @@ def decode.snap.valid(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Byt
   match b:
     case Bytes.Bytes{+len, buf}:
       read.state(~A, ~pdec,
-        m => decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.snapped(A, R.rd.done(R.State<A>, len, m))),
+        m => decoded.maybe(R.Rec<A>, r => decoded.rec(A, r), R.decode.snapped(A, R.rd.queue(A, R.rd.done(R.State<A>, len, m)))),
         Unit{}, +s => wf => r => read.done.some(~A, len, s, wf, r),
         U32.to_nat((len / 4 + 1 : U32)), R.Rd{Bytes.Bytes{len, buf}, 4})
 
@@ -1965,14 +1966,17 @@ def load.wf(~A: Data, +m: Maybe<&2, R.Rec<A>>, acc: Maybe<&2, R.State<A>>,
     case Some{s}:
       load.rec.wf(~A, m, s, valid, wf)
 
-def decode.done.with(~A: Data, -P: Maybe<&2, R.Rec<A>> -> Data, none: P(None{}),
+def decode.done.with(~A: Data, -P: Maybe<&2, R.Rec<A>> -> Data, +none: P(None{}),
     some: @x: R.Rec<A> -> decoded.rec(A, x) -> P(Some{x}),
     +len: U32, +s: R.State<A>, wf: decoded.state(A, s), r: R.Rd) ->
-    P(R.decode.snapped(A, R.rd.done(R.State<A>, len, Some{(r, s)}))):
+    P(R.decode.snapped(A, R.rd.queue(A, R.rd.done(R.State<A>, len, Some{(r, s)})))):
   match r:
     case R.Rd{b, +at}:
-      split(keep => P(R.decode.snapped(A, Bool.pick(Maybe<&2, R.State<A>>, keep, Some{s}, None{}))),
-        U32.is_eq(at, len), e => some(R.Snap{s})(wf), e => none)
+      split(keep => P(R.decode.snapped(A, R.rd.queue(A, Bool.pick(Maybe<&2, R.State<A>>, keep, Some{s}, None{})))),
+        U32.is_eq(at, len),
+        e => split(ok => P(R.decode.snapped(A, R.rd.queue.keep(A, ok, s))),
+          R.queue.unique(A, s), e => some(R.Snap{s})(wf), e => none),
+        e => none)
 
 def decode.snap.with(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
     -P: Maybe<&2, R.Rec<A>> -> Data, +none: P(None{}),
@@ -1980,7 +1984,7 @@ def decode.snap.with(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>,
     b: Bytes.Bytes) -> P(R.decode.snapped(A, R.decode.snap(~A, ~pdec, b))):
   match b:
     case Bytes.Bytes{+len, buf}:
-      read.state(~A, ~pdec, m => P(R.decode.snapped(A, R.rd.done(R.State<A>, len, m))),
+      read.state(~A, ~pdec, m => P(R.decode.snapped(A, R.rd.queue(A, R.rd.done(R.State<A>, len, m)))),
         none, +s => wf => r => decode.done.with(~A, P, none, some, len, s, wf, r),
         U32.to_nat((len / 4 + 1 : U32)), R.Rd{Bytes.Bytes{len, buf}, 4})
 
@@ -2651,3 +2655,247 @@ def loop.fixture.empty() ->
     QL.Both<{Res.reserved(R.loop.pool(Unit, R.loop.fold(~Unit, loop.fixture.events(), loop.fixture()))) == 0n : Nat},
       {R.loop.flights(Unit, R.loop.fold(~Unit, loop.fixture.events(), loop.fixture())) == Nil{} : List<&2, Q.Ticket<Unit>>}>:
   QL.Both{{==}, {==}}
+
+# ---- accepted snapshot queue ids
+
+def queue.not.false(+b: Bool, e: {Bool.not(b) == True{} : Bool}) -> {b == False{} : Bool}:
+  Equal.trans(Bool, b, Bool.not(Bool.not(b)), False{},
+    Equal.sym(Bool, Bool.not(Bool.not(b)), b, MBool.not_not(b)),
+    Equal.cong(Bool, Bool, Bool.not, Bool.not(b), True{}, e))
+
+def queue.absent.heap(-A: Data, +h: H.Heap<Q.Ticket<A>>, +i: Nat,
+    +e: {R.queue.absent.heap(A, h, i) == True{} : Bool}) -> QL.absent.heap(A, h, i):
+  match h:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, +t, +l, +r}:
+      +tail = MBool.eq_true_of_and_right(Bool.not(Nat.is_eq(Q.id(A, t), i)),
+        R.queue.absent.heap(A, l, i) && R.queue.absent.heap(A, r, i), e)
+      QL.Both{queue.not.false(Nat.is_eq(Q.id(A, t), i),
+        MBool.eq_true_of_and_left(Bool.not(Nat.is_eq(Q.id(A, t), i)),
+          R.queue.absent.heap(A, l, i) && R.queue.absent.heap(A, r, i), e)),
+        QL.Both{queue.absent.heap(A, l, i, MBool.eq_true_of_and_left(R.queue.absent.heap(A, l, i), R.queue.absent.heap(A, r, i), tail)),
+          queue.absent.heap(A, r, i, MBool.eq_true_of_and_right(R.queue.absent.heap(A, l, i), R.queue.absent.heap(A, r, i), tail))}}
+
+def queue.cross(-A: Data, +a: H.Heap<Q.Ticket<A>>, +b: H.Heap<Q.Ticket<A>>,
+    +e: {R.queue.cross(A, a, b) == True{} : Bool}) -> heap.cross(A, a, b):
+  match a:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, +t, +l, +r}:
+      +tail = MBool.eq_true_of_and_right(R.queue.absent.heap(A, b, Q.id(A, t)),
+        R.queue.cross(A, l, b) && R.queue.cross(A, r, b), e)
+      QL.Both{queue.absent.heap(A, b, Q.id(A, t),
+        MBool.eq_true_of_and_left(R.queue.absent.heap(A, b, Q.id(A, t)), R.queue.cross(A, l, b) && R.queue.cross(A, r, b), e)),
+        QL.Both{queue.cross(A, l, b, MBool.eq_true_of_and_left(R.queue.cross(A, l, b), R.queue.cross(A, r, b), tail)),
+          queue.cross(A, r, b, MBool.eq_true_of_and_right(R.queue.cross(A, l, b), R.queue.cross(A, r, b), tail))}}
+
+def queue.unique.heap(-A: Data, +h: H.Heap<Q.Ticket<A>>,
+    +e: {R.queue.unique.heap(A, h) == True{} : Bool}) -> heap.unique(A, h):
+  match h:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, +t, +l, +r}:
+      +i = Q.id(A, t)
+      +tail = MBool.eq_true_of_and_right(R.queue.absent.heap(A, l, i),
+        R.queue.absent.heap(A, r, i) && (R.queue.unique.heap(A, l) && (R.queue.unique.heap(A, r) && R.queue.cross(A, l, r))), e)
+      +trees = MBool.eq_true_of_and_right(R.queue.absent.heap(A, r, i),
+        R.queue.unique.heap(A, l) && (R.queue.unique.heap(A, r) && R.queue.cross(A, l, r)), tail)
+      +right = MBool.eq_true_of_and_right(R.queue.unique.heap(A, l), R.queue.unique.heap(A, r) && R.queue.cross(A, l, r), trees)
+      QL.Both{queue.absent.heap(A, l, i, MBool.eq_true_of_and_left(R.queue.absent.heap(A, l, i),
+        R.queue.absent.heap(A, r, i) && (R.queue.unique.heap(A, l) && (R.queue.unique.heap(A, r) && R.queue.cross(A, l, r))), e)),
+        QL.Both{queue.absent.heap(A, r, i, MBool.eq_true_of_and_left(R.queue.absent.heap(A, r, i),
+          R.queue.unique.heap(A, l) && (R.queue.unique.heap(A, r) && R.queue.cross(A, l, r)), tail)),
+          QL.Both{queue.unique.heap(A, l, MBool.eq_true_of_and_left(R.queue.unique.heap(A, l), R.queue.unique.heap(A, r) && R.queue.cross(A, l, r), trees)),
+            QL.Both{queue.unique.heap(A, r, MBool.eq_true_of_and_left(R.queue.unique.heap(A, r), R.queue.cross(A, l, r), right)),
+              queue.cross(A, l, r, MBool.eq_true_of_and_right(R.queue.unique.heap(A, r), R.queue.cross(A, l, r), right))}}}}
+
+def queue.absent.list(-A: Data, +xs: List<&2, Q.Ticket<A>>, +i: Nat,
+    +e: {R.queue.absent.list(A, xs, i) == True{} : Bool}) -> QL.absent.list(A, xs, i):
+  match xs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      QL.Both{queue.not.false(Nat.is_eq(Q.id(A, t), i),
+        MBool.eq_true_of_and_left(Bool.not(Nat.is_eq(Q.id(A, t), i)), R.queue.absent.list(A, rest, i), e)),
+        queue.absent.list(A, rest, i, MBool.eq_true_of_and_right(Bool.not(Nat.is_eq(Q.id(A, t), i)), R.queue.absent.list(A, rest, i), e))}
+
+def queue.unique.list(-A: Data, +xs: List<&2, Q.Ticket<A>>,
+    +e: {R.queue.unique.list(A, xs) == True{} : Bool}) -> flights.distinct(A, xs):
+  match xs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      QL.Both{queue.absent.list(A, rest, Q.id(A, t),
+        MBool.eq_true_of_and_left(R.queue.absent.list(A, rest, Q.id(A, t)), R.queue.unique.list(A, rest), e)),
+        queue.unique.list(A, rest, MBool.eq_true_of_and_right(R.queue.absent.list(A, rest, Q.id(A, t)), R.queue.unique.list(A, rest), e))}
+
+def queue.apart(-A: Data, +xs: List<&2, Q.Ticket<A>>, +h: H.Heap<Q.Ticket<A>>,
+    +e: {R.queue.apart(A, xs, h) == True{} : Bool}) -> flights.apart(A, xs, h):
+  match xs:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      QL.Both{queue.absent.heap(A, h, Q.id(A, t),
+        MBool.eq_true_of_and_left(R.queue.absent.heap(A, h, Q.id(A, t)), R.queue.apart(A, rest, h), e)),
+        queue.apart(A, rest, h, MBool.eq_true_of_and_right(R.queue.absent.heap(A, h, Q.id(A, t)), R.queue.apart(A, rest, h), e))}
+
+def queue.ids(-A: Data, +s: R.State<A>) -> Data:
+  QL.Both<flights.distinct(A, Q.running(A, R.queue(A, s))),
+    QL.Both<heap.unique(A, Q.pending(A, R.queue(A, s))),
+      flights.apart(A, Q.running(A, R.queue(A, s)), Q.pending(A, R.queue(A, s)))>>
+
+def queue.unique.ids(-A: Data, +s: R.State<A>, +e: {R.queue.unique(A, s) == True{} : Bool}) -> queue.ids(A, s):
+  match s:
+    case R.State{Q.State{n, +h, +run}, ts, ds, bs}:
+      +tail = MBool.eq_true_of_and_right(R.queue.unique.list(A, run), R.queue.unique.heap(A, h) && R.queue.apart(A, run, h), e)
+      QL.Both{queue.unique.list(A, run, MBool.eq_true_of_and_left(R.queue.unique.list(A, run), R.queue.unique.heap(A, h) && R.queue.apart(A, run, h), e)),
+        QL.Both{queue.unique.heap(A, h, MBool.eq_true_of_and_left(R.queue.unique.heap(A, h), R.queue.apart(A, run, h), tail)),
+          queue.apart(A, run, h, MBool.eq_true_of_and_right(R.queue.unique.heap(A, h), R.queue.apart(A, run, h), tail))}}
+
+def queue.kept(-A: Data, ok: Bool, +s: R.State<A>, e: {R.queue.unique(A, s) == ok : Bool}) ->
+    decoded.maybe(R.State<A>, t => queue.ids(A, t), R.rd.queue.keep(A, ok, s)):
+  match ok:
+    case False{}:
+      Unit{}
+    case True{}:
+      queue.unique.ids(A, s, e)
+
+def queue.decoded(-A: Data, m: Maybe<&2, R.State<A>>) ->
+    decoded.maybe(R.State<A>, s => queue.ids(A, s), R.rd.queue(A, m)):
+  match m:
+    case None{}:
+      Unit{}
+    case Some{+s}:
+      queue.kept(A, R.queue.unique(A, s), s, {==})
+
+def queue.rec(-A: Data, r: R.Rec<A>) -> Data:
+  match r:
+    case R.Snap{s}:
+      queue.ids(A, s)
+    case R.Do{op}:
+      Unit
+
+def queue.snapped(-A: Data, m: Maybe<&2, R.State<A>>, e: decoded.maybe(R.State<A>, s => queue.ids(A, s), m)) ->
+    decoded.maybe(R.Rec<A>, r => queue.rec(A, r), R.decode.snapped(A, m)):
+  match m:
+    case None{}:
+      Unit{}
+    case Some{s}:
+      e
+
+def queue.snap(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes) ->
+    decoded.maybe(R.Rec<A>, r => queue.rec(A, r), R.decode.snapped(A, R.decode.snap(~A, ~pdec, b))):
+  match b:
+    case Bytes.Bytes{+len, buf}:
+      +m = R.rd.done(R.State<A>, len, R.rd.state(~A, ~pdec, U32.to_nat((len / 4 + 1 : U32)))(R.Rd{Bytes.Bytes{len, buf}, 4}))
+      queue.snapped(A, R.rd.queue(A, m), queue.decoded(A, m))
+
+def queue.did(-A: Data, m: Maybe<&2, R.Op<A>>) ->
+    decoded.maybe(R.Rec<A>, r => queue.rec(A, r), R.decode.did(A, m)):
+  match m:
+    case None{}:
+      Unit{}
+    case Some{op}:
+      Unit{}
+
+def queue.if(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, snap: Bool, b: Bytes.Bytes) ->
+    decoded.maybe(R.Rec<A>, r => queue.rec(A, r), R.decode.rec.if(~A, ~pdec, snap, b)):
+  match snap:
+    case True{}:
+      queue.snap(~A, ~pdec, b)
+    case False{}:
+      queue.did(A, R.decode(~A, ~pdec, b))
+
+def queue.tag(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, pair: Bytes.Bytes & U32) ->
+    decoded.maybe(R.Rec<A>, r => queue.rec(A, r), R.decode.rec.tag(~A, ~pdec, pair)):
+  match pair:
+    case (b, +tag):
+      queue.if(~A, ~pdec, U32.is_eq(tag, 14), b)
+
+def snapshot.queue.ids(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) -> queue.ids(A, s):
+  %e : decoded.maybe(R.Rec<A>, r => queue.rec(A, r), _)
+  queue.tag(~A, ~pdec, R.get.u32(Bytes.get.u32le(b, 0)))
+
+
+def recovery.state(~A: Data, run: List<&2, Q.Ticket<A>>, +now: Nat, n: Nat,
+    h: H.Heap<Q.Ticket<A>>, ts: R.Tries(), ds: R.Graves(A), bs: R.Breakers()) -> R.State<A>:
+  match run:
+    case Nil{}:
+      R.State{Q.State{n, h, Nil{}}, ts, ds, bs}
+    case Con{Q.Ticket{+i, old, x}, rest}:
+      recovery.state(~A, rest, now, n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, now, x}, h),
+        R.tries.bump(ts, i), ds, bs)
+
+def recovery.ops(-A: Data, run: List<&2, Q.Ticket<A>>, +now: Nat) -> List<&2, R.Op<A>>:
+  match run:
+    case Nil{}:
+      Nil{}
+    case Con{Q.Ticket{i, old, x}, rest}:
+      R.Requeue{i, now} <> recovery.ops(A, rest, now)
+
+def recovery.head(~A: Data, +i: Nat, +old: Nat, +x: A, +rest: List<&2, Q.Ticket<A>>, +now: Nat, +n: Nat,
+    +h: H.Heap<Q.Ticket<A>>, +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), absent: QL.absent.list(A, rest, i)) ->
+    {R.step(~A, R.State{Q.State{n, h, Q.Ticket{i, old, x} <> rest}, ts, ds, bs}, R.Requeue{i, now}) ==
+      R.State{Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, now, x}, h), rest},
+        R.tries.bump(ts, i), ds, bs} : R.State<A>}:
+  %Equal.sym(Bool, Nat.is_eq(i, i), True{}, MNat.is_eq_refl(i)) :
+    {R.step.requeued(A, Q.requeue.completed(~A, Q.complete.taken(A,
+      Q.take.keep(A, _, Q.Ticket{i, old, x}, Q.take.list(A, rest, i)), n, h), now), R.tries.bump(ts, i), ds, bs) ==
+      R.State{Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, now, x}, h), rest},
+        R.tries.bump(ts, i), ds, bs} : R.State<A>}
+  %Equal.sym(Q.Taken<A>, Q.take.list(A, rest, i), Q.Taken{rest, None{}}, loop.take.idle(A, rest, i, absent)) :
+    {R.step.requeued(A, Q.requeue.completed(~A, Q.complete.taken(A,
+      Q.take.keep(A, True{}, Q.Ticket{i, old, x}, _), n, h), now), R.tries.bump(ts, i), ds, bs) ==
+      R.State{Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, now, x}, h), rest},
+        R.tries.bump(ts, i), ds, bs} : R.State<A>}
+  {==}
+
+def recovery.live(~A: Data, +run: List<&2, Q.Ticket<A>>, +now: Nat, +n: Nat,
+    +h: H.Heap<Q.Ticket<A>>, +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(), distinct: flights.distinct(A, run)) ->
+    {Laws.live(~A, recovery.ops(A, run, now), R.State{Q.State{n, h, run}, ts, ds, bs}) ==
+      recovery.state(~A, run, now, n, h, ts, ds, bs) : R.State<A>}:
+  match run:
+    case Nil{}:
+      {==}
+    case Con{Q.Ticket{+i, +old, +x}, +rest}:
+      QL.Both{absent, tail} = distinct
+      %Equal.sym(R.State<A>,
+        R.step(~A, R.State{Q.State{n, h, Q.Ticket{i, old, x} <> rest}, ts, ds, bs}, R.Requeue{i, now}),
+        R.State{Q.State{n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, now, x}, h), rest}, R.tries.bump(ts, i), ds, bs},
+        recovery.head(~A, i, old, x, rest, now, n, h, ts, ds, bs, absent)) :
+        {Laws.live(~A, recovery.ops(A, rest, now), _) == recovery.state(~A, run, now, n, h, ts, ds, bs) : R.State<A>}
+      recovery.live(~A, rest, now, n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, now, x}, h),
+        R.tries.bump(ts, i), ds, bs, tail)
+
+def recovery.ids(~A: Data, +run: List<&2, Q.Ticket<A>>, +now: Nat, +n: Nat,
+    +h: H.Heap<Q.Ticket<A>>, +ts: R.Tries(), +ds: R.Graves(A), +bs: R.Breakers(),
+    distinct: flights.distinct(A, run), unique: heap.unique(A, h), apart: flights.apart(A, run, h), p: Res.Pool) ->
+    loop.ids(A, R.Loop{p, recovery.state(~A, run, now, n, h, ts, ds, bs), Nil{}}):
+  match run:
+    case Nil{}:
+      QL.Both{Unit{}, QL.Both{unique, Unit{}}}
+    case Con{Q.Ticket{+i, old, +x}, +rest}:
+      QL.Both{+absent, tail} = distinct
+      QL.Both{eh, more} = apart
+      recovery.ids(~A, rest, now, n, H.Heap.push(~Q.Ticket<A>, ~(a => b => Q.le(A, a, b)), Q.Ticket{i, now, x}, h),
+        R.tries.bump(ts, i), ds, bs, tail, heap.push.unique(~A, Q.Ticket{i, now, x}, h, unique, eh),
+        flights.apart.push(~A, rest, h, i, now, x, more, absent), p)
+
+def recovery.from.ids(~A: Data, +s: R.State<A>, +now: Nat, p: Res.Pool, ids: queue.ids(A, s)) ->
+    loop.ids(A, R.Loop{p, Laws.live(~A, recovery.ops(A, Q.running(A, R.queue(A, s)), now), R.calm(A, s)), Nil{}}):
+  match s:
+    case R.State{Q.State{+n, +h, +run}, +ts, +ds, +bs}:
+      QL.Both{+distinct, QL.Both{unique, apart}} = ids
+      %Equal.sym(R.State<A>,
+        Laws.live(~A, recovery.ops(A, run, now), R.calm(A, R.State{Q.State{n, h, run}, ts, ds, bs})),
+        recovery.state(~A, run, now, n, h, ts, ds, R.calm.map(bs)),
+        recovery.live(~A, run, now, n, h, ts, ds, R.calm.map(bs), distinct)) :
+        loop.ids(A, R.Loop{p, _, Nil{}})
+      recovery.ids(~A, run, now, n, h, ts, ds, R.calm.map(bs), distinct, unique, apart, p)
+
+def snapshot.recovery.ids(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>, now: Nat, p: Res.Pool,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    loop.ids(A, R.Loop{p, Laws.live(~A, recovery.ops(A, Q.running(A, R.queue(A, s)), now), R.calm(A, s)), Nil{}}):
+  recovery.from.ids(~A, s, now, p, snapshot.queue.ids(~A, ~pdec, b, s, e))
