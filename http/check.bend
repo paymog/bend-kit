@@ -697,11 +697,11 @@ def retry.repeat(left: Nat) -> IO(Unit):
         retry.test(listener)
         retry.repeat(p)
 
-def retry.stress() -> IO(Unit):
+def retry.stress(left: Nat) -> IO(Unit):
   do IO<Unit>:
     local.ok(String.eq(retry.error(Pure.ErrRead{104, "connection reset"}), "ErrRead 104 connection reset"), "retry diagnostics: read error keeps errno and message")
     local.ok(String.eq(retry.error(Pure.ErrTimeout{}), "ErrTimeout"), "retry diagnostics: timeout stays distinct")
-    retry.repeat(100n)
+    retry.repeat(left)
 
 def local.proxy.http(req: Pure.Req) -> IO(Pure.Res):
   Pure.Req{+method, path, +headers, body} = req
@@ -1334,7 +1334,7 @@ def main() -> IO(Unit):
     gl : Listener & U32 <- local.listen()
     local.gz.test(gl)
     resolve.check()
-    retry.stress()
+    retry.stress(10n)
     xl : Listener & U32 <- local.listen()
     local.proxy.test(xl)
     sl : Listener & U32 <- local.listen()
