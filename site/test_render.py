@@ -1,6 +1,6 @@
 import unittest
 
-from render import PackagePage, REPO
+from render import PackagePage, REPO, fragment
 
 
 class ReadmeNavigation(unittest.TestCase):
@@ -70,6 +70,13 @@ class ReadmeNavigation(unittest.TestCase):
                      REPO + "scripts/check.sh"):
             self.assertIn('href="' + href + '"', result)
         self.assertIn('id="roadmap"', result)
+
+    def test_shared_fragments_match_page_navigation(self):
+        readme = '<h2>Checks</h2><a href="../http/README.md">HTTP</a>'
+        bench = '<h2>Benchmarks</h2><a href="#benchmarks">Jump</a>'
+        whole = self.render('<section class="readme">' + readme + '</section><section class="bench"><h2>Benchmarks</h2>' + bench + '</section>')
+        prepared = '<section class="readme">' + fragment(readme, "retry", "https://example.test/bend-kit", "readme", {"http"}) + '</section><section class="bench" id="benchmarks"><h2 id="bench-benchmarks">Benchmarks</h2>' + fragment(bench, "retry", "https://example.test/bend-kit", "bench", {"http"}) + '</section>'
+        self.assertEqual(prepared, whole)
 
 
 if __name__ == "__main__":

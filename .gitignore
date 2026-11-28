@@ -4,3 +4,5 @@
 unicode/ucd/
 regex/ucd/
 __pycache__/
+node_modules/
+site/deploy/.wrangler/

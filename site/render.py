@@ -3,7 +3,6 @@
 
 import html
 from html.parser import HTMLParser
-from pathlib import Path
 import re
 import sys
 import unicodedata
@@ -126,14 +125,16 @@ class PackagePage(HTMLParser):
         self.out.append("<!" + decl + ">")
 
 
+def fragment(source, name, base, section, packages):
+    parser = PackagePage(name, base, set(packages))
+    parser.section = section
+    if section == "bench":
+        parser.used.update(("benchmarks", "bench-benchmarks"))
+    parser.feed(source)
+    parser.close()
+    return "".join(parser.out)
+
+
 if __name__ == "__main__":
-    out, base = sys.argv[1:]
-    pages = list((Path(out) / "packages").glob("*/index.html"))
-    packages = {page.parent.name for page in pages}
-    documents = [Path(out) / name / "index.html" for name in ("getting-started", "changelog", "roadmap")]
-    for page in pages + documents:
-        name = page.parent.name if page in pages else ""
-        parser = PackagePage(name, base, packages)
-        parser.feed(page.read_text())
-        parser.close()
-        page.write_text("".join(parser.out))
+    _, name, base, section, *packages = sys.argv[1:]
+    sys.stdout.write(fragment(sys.stdin.read(), name, base, section, packages))

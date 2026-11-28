@@ -10,7 +10,7 @@ type Law is Data:
   Law{name: String, doc: String, statement: String}
 
 type Pkg is Data:
-  Pkg{name: String, version: String, about: String, readme: String, laws: Maybe<&2, List<&2, Law>>, bench: String}
+  Pkg{name: String, version: String, about: String, readme: String, laws: Maybe<&2, List<&2, Law>>, bench: String, readme_html: String}
 
 # base is the absolute site URL with no trailing slash; templates holds the parsed pages by name.
 type Site is Data:
@@ -132,7 +132,7 @@ def text(media: String, body: String) -> Pure.Res:
   Pure.Res{200, Pure.set(Pure.empty(), "content-type", media), Enc.utf8.encode(body)}
 
 def pkg.value(p: Pkg) -> T.Value:
-  Pkg{name, version, about, readme, laws, bench} = p
+  Pkg{name, version, about, readme, laws, bench, readme_html} = p
   T.VMap{put(put(put(Map.new(&2, T.Value), "name", name), "version", version), "about", about)}
 
 def law.value(l: Law) -> T.Value:
@@ -171,13 +171,13 @@ def home(site: Site) -> Pure.Res:
   html(templates, base, "bend-kit", "index", Map.set(&2, T.Value, ctx, "packages", T.VList{pkgs.values(list)}))
 
 def package.page(+templates: Map<&2, List<&2, T.Node>>, +base: String, p: Pkg) -> Pure.Res:
-  Pkg{+name, +version, about, readme, laws, bench} = p
+  Pkg{+name, +version, about, readme, laws, bench, readme_html} = p
   ctx = put(put(put(Map.new(&2, T.Value), "name", name), "version", version), "about", about)
-  ctx2 = put(put(ctx, "readme", gfm(readme)), "bench", gfm(bench))
+  ctx2 = put(put(ctx, "readme", readme_html), "bench", bench)
   html(templates, base, name ++ " · bend-kit", "package", laws.put(ctx2, laws))
 
 def source.page(p: Pkg) -> Pure.Res:
-  Pkg{name, version, about, readme, laws, bench} = p
+  Pkg{name, version, about, readme, laws, bench, readme_html} = p
   text("text/markdown; charset=utf-8", readme)
 
 def missing() -> Result<&2, &1, C.Error<Unit>, Pure.Res>:
@@ -213,7 +213,7 @@ def llms(site: Site) -> Pure.Res:
 
 def document.got(pair: Map<&2, String> & String, title: String, templates: Map<&2, List<&2, T.Node>>, base: String) -> Pure.Res:
   (rest, source) = pair
-  html(templates, base, title ++ " · bend-kit", "document", put(Map.new(&2, T.Value), "body", gfm(source)))
+  html(templates, base, title ++ " · bend-kit", "document", put(Map.new(&2, T.Value), "body", source))
 
 def document(name: String, title: String, site: Site) -> Pure.Res:
   Site{base, list, index, templates, docs} = site
@@ -249,17 +249,21 @@ def routes() -> List<&2, C.Route<Page, C.Policy<Unit>>>:
   [C.Route{"GET", "/", Home{}, [], none()},
    C.Route{"GET", "/llms.txt", Llms{}, [], none()},
    C.Route{"GET", "/getting-started", Document{"getting-started", "Getting started"}, [], none()},
+   C.Route{"GET", "/getting-started/", Document{"getting-started", "Getting started"}, [], none()},
    C.Route{"GET", "/changelog", Document{"changelog", "Changelog"}, [], none()},
+   C.Route{"GET", "/changelog/", Document{"changelog", "Changelog"}, [], none()},
    C.Route{"GET", "/roadmap", Document{"roadmap", "Roadmap"}, [], none()},
+   C.Route{"GET", "/roadmap/", Document{"roadmap", "Roadmap"}, [], none()},
    C.Route{"GET", "/packages/:name", Package{}, [], none()},
+   C.Route{"GET", "/packages/:name/", Package{}, [], none()},
    C.Route{"GET", "/packages/:name/README.md", Source{}, [], none()}]
 
 def index.go(pkgs: List<&2, Pkg>, m: Map<&2, Pkg>) -> Map<&2, Pkg>:
   match pkgs:
     case Nil{}:
       m
-    case Con{Pkg{+name, version, about, readme, laws, bench}, rest}:
-      index.go(rest, Map.set(&2, Pkg, m, name, Pkg{name, version, about, readme, laws, bench}))
+    case Con{Pkg{+name, version, about, readme, laws, bench, readme_html}, rest}:
+      index.go(rest, Map.set(&2, Pkg, m, name, Pkg{name, version, about, readme, laws, bench, readme_html}))
 
 def site(base: String, +pkgs: List<&2, Pkg>, templates: Map<&2, List<&2, T.Node>>, docs: Map<&2, String>) -> Site:
   Site{base, pkgs, index.go(pkgs, Map.new(&2, Pkg)), templates, docs}
@@ -274,7 +278,7 @@ def paths.go(pkgs: List<&2, Pkg>, acc: List<&2, String>) -> List<&2, String>:
   match pkgs:
     case Nil{}:
       acc
-    case Con{Pkg{+name, version, about, readme, laws, bench}, rest}:
+    case Con{Pkg{+name, version, about, readme, laws, bench, readme_html}, rest}:
       paths.go(rest, Con{"/packages/" ++ name, Con{"/packages/" ++ name ++ "/README.md", acc}})
 
 # Every route the static build writes.
