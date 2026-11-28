@@ -56,7 +56,6 @@ def zone(r: Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
       +z = Time.tzif.parse(Bytes.from_string(chars(xs)))
       do IO<Unit>:
         IO.print("New_York transitions: " ++ Nat.show(zone.count(z)))
-        # Local time is not printed: Zone.local and DateTime.rfc3339 in one segment hit bendlang/bend#1069.
 
 def read.done(fr: File & Result<&1, &1, U32 & String, List<&2, U32>>) -> IO(Unit):
   (f, r) = fr
@@ -90,8 +89,59 @@ def nats() -> Bool:
     Nat.is_eq(Time.Duration.to_ms_nat(dur(1, 0, 0)), (4294967295n * 1000n + 1000n : Nat)) &&
     Nat.is_eq(Time.Duration.to_ms_nat(Time.Duration{Int.I64.neg(Int.I64.from_u32(1)), 999999999}), 0n)
 
+def expect(ok: Bool, label: String) -> IO(Unit):
+  match ok:
+    case True{}:
+      IO.print(label ++ ": ok")
+    case False{}:
+      IO.die(Unit, 1, label ++ ": failed")
+
+def zone.type(m: Maybe<&2, Time.Ttype>, offset: U32, +dst: Bool, abbr: String, label: String) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.die(Unit, 1, label ++ ": no type")
+    case Some{Time.Ttype{off, +flag, name}}:
+      expect(Cmp.is_eq(Int.I64.cmp(off, Int.I64.neg(Int.I64.from_u32(offset)))) &&
+        Bool.pick(Bool, dst, flag, Bool.not(flag)) && String.eq(name, abbr), label ++ " type")
+
+def zone.local(m: Maybe<&2, Time.DateTime>, want: String, label: String) -> IO(Unit):
+  match m:
+    case None{}:
+      IO.die(Unit, 1, label ++ ": no local time")
+    case Some{t}:
+      expect(String.eq(Time.DateTime.rfc3339(t), want), label ++ " local")
+
+def zone.case(+z: Time.Zone, +secs: U32, offset: U32, dst: Bool, abbr: String, want: String) -> IO(Unit):
+  do IO<Unit>:
+    zone.type(Time.Zone.at(z, Time.Instant.of_unix(Int.I64.from_u32(secs))), offset, dst, abbr, U32.show(secs))
+    zone.local(Time.Zone.local(z, Time.Instant.of_unix(Int.I64.from_u32(secs))), want, U32.show(secs))
+
+def zone.parsed(m: Maybe<&2, Time.Zone>) -> IO(Time.Zone):
+  match m:
+    case None{}:
+      IO.die(Time.Zone, 1, "invalid timezone fixture")
+    case Some{z}:
+      IO.pure(Time.Zone, z)
+
+def zone.fixture(m: Maybe<&1, Bytes.Bytes>) -> IO(Time.Zone):
+  match m:
+    case None{}:
+      IO.die(Time.Zone, 1, "invalid timezone fixture hex")
+    case Some{b}:
+      zone.parsed(Time.tzif.parse(b))
+
+def zone.checks() -> IO(Unit):
+  do IO<Unit>:
+    +ny : Time.Zone <- zone.fixture(Bytes.from_hex("545a696632000000000000000000000000000000000000000000000000000000000000000000000100000004ffffb9b0000045535400545a6966320000000000000000000000000000000000000000000000000000000000000300000002000000080000000065472f600000000065ed5a700000000067271160000100ffffb9b00000ffffc7c0010445535400454454000a455354354544542c4d332e322e302c4d31312e312e300a"))
+    zone.case(ny, 1710053999, 18000, False{}, "EST", "2024-03-10T01:59:59Z")
+    zone.case(ny, 1710054000, 14400, True{}, "EDT", "2024-03-10T03:00:00Z")
+    +slim : Time.Zone <- zone.fixture(Bytes.from_hex("545a696632000000000000000000000000000000000000000000000000000000000000000000000200000008ffffb9b00000ffffc7c001044553540045445400545a6966320000000000000000000000000000000000000000000000000000000000000200000002000000080000000045f3a8f000000000472d5fe00100ffffb9b00000ffffc7c0010445535400454454000a455354354544542c4d332e322e302c4d31312e312e300a"))
+    zone.case(slim, 1893456000, 18000, False{}, "EST", "2029-12-31T19:00:00Z")
+    zone.case(slim, 1909094400, 14400, True{}, "EDT", "2030-06-30T20:00:00Z")
+
 def main() -> IO(Unit):
   do IO<Unit>:
+    zone.checks()
     t0 : Time.Duration <- Time.mono()
     IO.sleep(20)
     t1 : Time.Duration <- Time.mono()
