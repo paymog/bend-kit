@@ -181,8 +181,32 @@ def collision.count(m: Maybe<&2, Model.Rec<String>>) -> Nat:
     case _:
       0n
 
+def queued(h: H.Heap<Q.Ticket<String>>, run: List<&2, Q.Ticket<String>>) -> Model.State<String>:
+  Model.State{Q.State{10n, h, run}, O.OMap.new(Nat, Model.Try), M.HMap.new(Nat, Model.Dead<String>), M.HMap.new(String, Retry.State)}
+
+def leaf(+i: Nat, d: Nat, x: String) -> H.Heap<Q.Ticket<String>>:
+  H.HNode{1n, Q.Ticket{i, d, x}, H.HLeaf{}, H.HLeaf{}}
+
+def queue.snapshots() -> IO(Unit):
+  do IO<Unit>:
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{3n, Q.Ticket{0n, 1n, "root"}, leaf(1n, 2n, "left"), leaf(1n, 3n, "right")}, []))),
+      "none", "duplicate pending ids in separate subtrees do not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{2n, Q.Ticket{0n, 1n, "root"}, leaf(0n, 2n, "child"), H.HLeaf{}}, []))),
+      "none", "a pending child with its ancestor id does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(H.HLeaf{},
+      [Q.Ticket{0n, 1n, "first"}, Q.Ticket{1n, 2n, "middle"}, Q.Ticket{0n, 3n, "last"}]))),
+      "none", "nonadjacent duplicate running ids do not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(leaf(0n, 1n, "pending"), [Q.Ticket{0n, 2n, "running"}]))),
+      "none", "an id shared by pending and running does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(leaf(0n, 1n, "pending"), [Q.Ticket{Nat.mul(65536n, 65536n), big(), "running"}]))),
+      hex(queued(leaf(0n, 1n, "pending"), [Q.Ticket{Nat.mul(65536n, 65536n), big(), "running"}])),
+      "distinct 64-bit ids with equal low words keep the exact queue shape, payloads, and deadlines")
+
 def snapshots() -> IO(Unit):
   do IO<Unit>:
+    queue.snapshots()
     same(describe(sample()), "next=5 pending=2 running=1 tries=3 fails=1 dead=1", "the sample state has pending, running, retried, and dead tickets")
     same(graves(Model.dead(String, sample())), "0:unsafe:a ", "a dead ticket keeps its payload and why")
     same(rec(Model.encode.snap(~String, ~penc, sample())), hex(sample()), "a snapshot decodes to the same heap, running list, tries, dead tickets, and breakers")
