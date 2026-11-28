@@ -55,7 +55,7 @@ def parts(ps):
 
 HEAD = """import Base
 import ../template.bend as T
-import bend-kit-encoding@0.5.0.1/encoding.bend as E
+import bend-kit-encoding@0.5.0.3/encoding.bend as E
 
 def same(+text: String, +packed: String) -> String:
   T.when(String, String.eq(text, packed), u => text, u => "PACKED MISMATCH " ++ packed)
@@ -77,8 +77,7 @@ def out(r: Result<&2, &2, String, List<&2, T.Node>>, +ctx: Map<&2, T.Value>, +ps
 """
 
 
-def main():
-    OUT.mkdir(exist_ok=True)
+def load_cases():
     cases = []
     for f in FILES:
         for t in json.load(urllib.request.urlopen(SPEC.format(f)))["tests"]:
@@ -140,6 +139,12 @@ def main():
         "partials": {"p": "猫\n{{>p}}\n"},
         "expected": "  猫\n" * 64,
     }))
+    return cases
+
+
+def main():
+    OUT.mkdir(exist_ok=True)
+    cases = load_cases()
     body = "".join(f"def c{i}() -> String:\n  out(T.parse({lit(t['template'])}), {obj(t['data'])}, {parts(t.get('partials', {}))})\n\n" for i, (_, t) in enumerate(cases))
     main = "def main() -> IO(Unit):\n  do IO<Unit>:\n" + "".join(f"    IO.print(c{i}() ++ {lit(END)})\n" for i in range(len(cases)))
     (OUT / "conformance.bend").write_text(HEAD + body + main)
