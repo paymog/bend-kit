@@ -3,8 +3,8 @@
 # S3_VIRTUAL_HOSTED=1 for virtual-hosted addressing. The bucket must exist.
 import Base
 import ./sigv4.bend as S3
-import bend-kit-hairpin@0.19.0.3/hairpin.bend as Hairpin
-import bend-kit-http@0.45.0.3/pure.bend as Http
+import bend-kit-hairpin@0.19.1.0/hairpin.bend as Hairpin
+import bend-kit-http@0.45.1.0/pure.bend as Http
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
 def net(e: Http.Err) -> String:
