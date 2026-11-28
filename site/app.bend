@@ -122,19 +122,10 @@ def template.got(pair: Map<&2, List<&2, T.Node>> & List<&2, T.Node>) -> List<&2,
 def template(templates: Map<&2, List<&2, T.Node>>, name: String) -> List<&2, T.Node>:
   template.got(Map.get(List<&2, T.Node>, Nil{}, templates, name))
 
-# A Mustache section renders for any string, so an empty source must stay unset.
-def source.put(empty: Bool, m: Map<&2, T.Value>, source: String) -> Map<&2, T.Value>:
-  match empty:
-    case True{}:
-      m
-    case False{}:
-      put(m, "source", source)
-
-def html(+templates: Map<&2, List<&2, T.Node>>, +base: String, title: String, +source: String, inner: String, ctx: Map<&2, T.Value>) -> Pure.Res:
+def html(+templates: Map<&2, List<&2, T.Node>>, +base: String, title: String, inner: String, ctx: Map<&2, T.Value>) -> Pure.Res:
   content = T.render(template(templates, inner), put(ctx, "base", base))
   page = put(put(put(Map.new(&2, T.Value), "base", base), "title", title), "content", content)
-  page2 = source.put(String.is_empty(source), page, source)
-  C.html(200, T.render_bytes(template(templates, "layout"), page2))
+  C.html(200, T.render_bytes(template(templates, "layout"), page))
 
 def text(media: String, body: String) -> Pure.Res:
   Pure.Res{200, Pure.set(Pure.empty(), "content-type", media), Enc.utf8.encode(body)}
@@ -176,14 +167,13 @@ def gfm(s: String) -> String:
 def home(site: Site) -> Pure.Res:
   Site{+base, +list, index, +templates} = site
   ctx = put(Map.new(&2, T.Value), "count", Nat.show(List.length(&2, Pkg, list)))
-  html(templates, base, "bend-kit", "", "index", Map.set(&2, T.Value, ctx, "packages", T.VList{pkgs.values(list)}))
+  html(templates, base, "bend-kit", "index", Map.set(&2, T.Value, ctx, "packages", T.VList{pkgs.values(list)}))
 
 def package.page(+templates: Map<&2, List<&2, T.Node>>, +base: String, p: Pkg) -> Pure.Res:
   Pkg{+name, +version, about, readme, laws, bench} = p
   ctx = put(put(put(Map.new(&2, T.Value), "name", name), "version", version), "about", about)
   ctx2 = put(put(ctx, "readme", gfm(readme)), "bench", gfm(bench))
-  source = "https://github.com/paymog/bend-kit/blob/main/" ++ name ++ "/"
-  html(templates, base, name ++ " · bend-kit", source, "package", laws.put(ctx2, laws))
+  html(templates, base, name ++ " · bend-kit", "package", laws.put(ctx2, laws))
 
 def source.page(p: Pkg) -> Pure.Res:
   Pkg{name, version, about, readme, laws, bench} = p
