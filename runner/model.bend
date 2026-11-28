@@ -1205,8 +1205,29 @@ def fresh(-A: Data, s: State<A>) -> Bool:
   State{Q.State{+n, h, run}, ts, ds, bs} = s
   fresh.heap(A, h, n) && (fresh.list(A, run, n) && fresh.graves(A, ds, n))
 
+def registry.entries(-A: Data, es: List<&2, M.Entry<Nat, Dead<A>>>, +h: H.Heap<Q.Ticket<A>>, +run: List<&2, Q.Ticket<A>>) -> Bool:
+  match es:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{+k, Dead{t, w, at}}, rest}:
+      Nat.is_eq(k, Q.id(A, t)) && (queue.absent.heap(A, h, k) &&
+        (queue.absent.list(A, run, k) && registry.entries(A, rest, h, run)))
+
+def registry.graves(-A: Data, ds: Graves(A), +h: H.Heap<Q.Ticket<A>>, +run: List<&2, Q.Ticket<A>>) -> Bool:
+  match ds:
+    case M.HNil{}:
+      True{}
+    case M.HLeaf{hash, es}:
+      registry.entries(A, es, h, run)
+    case M.HBranch{lo, hi}:
+      registry.graves(A, lo, h, run) && registry.graves(A, hi, h, run)
+
+def registry.valid(-A: Data, s: State<A>) -> Bool:
+  State{Q.State{n, h, run}, ts, ds, bs} = s
+  registry.graves(A, ds, h, run)
+
 def queue.valid(-A: Data, +s: State<A>) -> Bool:
-  queue.unique(A, s) && fresh(A, s)
+  queue.unique(A, s) && (fresh(A, s) && registry.valid(A, s))
 
 def rd.queue.keep(-A: Data, ok: Bool, s: State<A>) -> Maybe<&2, State<A>>:
   match ok:
