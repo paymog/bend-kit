@@ -273,14 +273,11 @@ def held_completion(server):
 
 
 def late_observer(command, lane, folder):
-    with socket.socket() as reservation:
-        reservation.bind(('127.0.0.1', 0))
-        port = reservation.getsockname()[1]
     journal = folder / (lane + '-late.journal')
-    handle = Harness.start(command + ['late', str(port)],
+    handle = Harness.start(command + ['late', '0'],
                            env=dict(os.environ, ADMISSION_JOURNAL=str(journal)))
     try:
-        prefix = Harness.ready(handle[0])
+        prefix, port = Harness.ready(handle[0])
         with socket.create_connection(('127.0.0.1', port), timeout=5) as client:
             client.sendall(Admission.request('/late'))
             assert receive(client).endswith(b'ok')

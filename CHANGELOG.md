@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `http` checks: report the late-observer listener's assigned port with `READY <port>`. Use that port for the socket check and pass only the output prefix to the process finisher.
 - `websocket` checks: use OS-assigned loopback ports for full and partial-frame EOF sessions. Check native and JavaScript acceptance with both former ports held open.
 - `template` CI: run all 142 Mustache, Unicode, and nested-partial cases in the package job with pinned Bend. Check harness failure handling and use the current Encoding pin.
 - `http` checks: start mTLS fixtures without reverse DNS. Report each compiler and runtime phase and preserve server diagnostics on failure. Inject failures in both lanes without printing fixture private keys.
