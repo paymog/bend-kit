@@ -2,7 +2,7 @@
 import Base
 import ./pure.bend as Pure
 import bend-kit-files@0.4.0.3/files.bend as Files
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 
 type Error is Data:
   BadChunk{}

@@ -3,3 +3,4 @@
 bend-kit-wire@0.4.8.1  # #1328 re-pins downstream consumers after wire 0.4.9.0 publishes.
 bend-kit-process@0.5.2.3  # #1329 re-pins planner after process 0.5.2.4 publishes.
 bend-kit-time@0.3.0.5  # #1346 re-pins downstream consumers after time 0.3.0.6 publishes.
+bend-kit-dns@0.8.0.2  # #1328 re-pins consumers after dns 0.8.1.0 publishes.

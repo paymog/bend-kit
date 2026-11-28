@@ -117,7 +117,7 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`url`](url) | `bend-kit-url@0.4.1.0/url.bend` | RFC 3986 parse, resolve, and percent-encoding. |
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
-| [`dns`](dns) | `bend-kit-dns@0.8.0.2/dns.bend` | DNS codec and host lookup. |
+| [`dns`](dns) | `bend-kit-dns@0.8.1.0/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.9.0/wire.bend` | TCP, UDP, and TLS sockets. |
 | [`http`](http) | `bend-kit-http@0.45.0.3/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.6.0.2/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
@@ -143,7 +143,7 @@ Each package README has the import, one example, and the limits that change the 
 |---|---|---|
 | [`files`](files) | `bend-kit-files@0.4.0.3/files.bend` | POSIX paths, directories, and packed file IO. |
 | [`storage`](storage) | `bend-kit-storage@0.12.0.3/storage.bend` | A SHA-256 content-addressed store for artifact trees, with proved sync plans, HTTP sync, ingress checks, and reachability collection. |
-| [`stream`](stream) | `bend-kit-stream@0.5.0.3/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
+| [`stream`](stream) | `bend-kit-stream@0.5.1.0/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.2.4/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
 | [`time`](time) | `bend-kit-time@0.3.0.6/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
