@@ -54,6 +54,8 @@ Input helpers return `Result<&2,&1,U32,I>`, with expected status400/415. `C.inpu
 
 `json(~T, ~encode, status, value)` accepts an explicit `T -> Json.Val` public encoder and produces `application/json` using published Json `0.7.3.2`. It never reflects or serializes domain fields itself. `text(status, value)` encodes code-point text with the existing UTF-8 encoder and sets `text/plain; charset=utf-8`. `raw(status, Pure.Body)` moves packed bytes without a guessed content type; `empty(status)` has no body or content type. These helpers return `Pure.Res`; the final dispatch/plain boundary validates status and headers.
 
+`html(status, body: Pure.Body)` moves packed UTF-8 bytes unchanged and sets `text/html; charset=utf-8`. Pass `Template.render_bytes` output directly. The helper does not encode or escape the body.
+
 `redirect(status, location)` returns `Result<&2, &1, ResponseError, Pure.Res>`. Only 301/302/303/307/308 with a nonempty safe Location succeed; other inputs return `InvalidRedirect`. Location is an HTTP field octet String, not an implicitly encoded Unicode URL.
 
 `validate(response)` returns `Done` with the original packed body and repeated header values, or expected `Fail{InvalidResponse{}}`. It accepts status 200..599, lowercase RFC token names, and octet field values without controls except HTAB. Header values must be 0..255: shared Http concatenates header Strings and packs each Char's low eight bits, so accepting a larger code point could truncate into CR/LF. Encode non-ASCII header/URL bytes explicitly. Obs-text 128..255 is preserved.

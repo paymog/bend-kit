@@ -35,6 +35,9 @@ def json(~T: Type, ~encode: T -> Json.Val, status: U32, value: T) -> Pure.Res:
 def text(status: U32, value: String) -> Pure.Res:
   Pure.Res{status, Pure.set(Pure.empty(), "content-type", "text/plain; charset=utf-8"), Json.utf8(value)}
 
+def html(status: U32, body: Pure.Body) -> Pure.Res:
+  Pure.Res{status, Pure.set(Pure.empty(), "content-type", "text/html; charset=utf-8"), body}
+
 def raw(status: U32, body: Pure.Body) -> Pure.Res:
   Pure.Res{status, Pure.empty(), body}
 

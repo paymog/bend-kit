@@ -52,6 +52,8 @@ def helpers() -> IO(Unit):
   do IO<Unit>:
     Registry.require(body(Example.json(~Domain, ~public, 200, Domain{"visible", "secret", 42}), 200, "application/json", "{\"name\":\"visible\"}"), "public projection leaked internal fields")
     Registry.require(body(Example.text(200, "café"), 200, "text/plain; charset=utf-8", "caf\u{C3}\u{A9}"), "text not UTF-8")
+    Registry.require(body(Example.html(201, Json.utf8("<p>café</p>")), 201, "text/html; charset=utf-8", "<p>caf\u{C3}\u{A9}</p>"), "HTML status, content type, or packed UTF-8 changed")
+    Registry.require(body(Example.html(200, Pure.from_string("")), 200, "text/html; charset=utf-8", ""), "empty HTML response changed")
     Registry.require(body(Example.raw(200, Pure.from_string("\0\u{FF}")), 200, "", "\0\u{FF}"), "raw bytes changed")
     Registry.require(body(Example.empty(204), 204, "", ""), "empty response")
     Registry.require(body(Example.problem(400, "quote\"\\café\n", ""), 400, "application/problem+json", "{\"type\":\"about:blank\",\"title\":\"quote\\\"\\\\caf\u{C3}\u{A9}\\n\",\"status\":400}"), "Problem Details title not JSON escaped/UTF-8")
