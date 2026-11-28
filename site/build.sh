@@ -11,6 +11,7 @@ mkdir -p "$out" site/out
 bend site/build.bend -o site/out/build
 # shellcheck disable=SC2046
 site/out/build . "$out" "$base" $(scripts/packages.sh)
+python3 site/render.py "$out" "$base"
 bend site/playground/index.html -o "$out/playground"
 cp site/style.css "$out/style.css"
 touch "$out/.nojekyll"

@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `site`: keep package README links on the site, add heading anchors, and resolve other source links without a document-wide base URL.
 - `authz`, `camber`, and `gateway` checks and examples: adopt Camber 0.19.2.1 and remove the final Camber pin allowance.
 - `camber` 0.19.2.1: publish the README with the current self-import pins.
 - `authz`, `camber`, and `gateway` checks and examples: adopt Camber 0.19.2.0 with the HTML response helper. Remove the completed Camber pin allowance.
