@@ -196,6 +196,7 @@ def large.running(+src: String, +dst: String, +port: U32, +events: Chan(Char), p
   (server, control) = pair
   do IO<Unit>:
     done : Chan(Pure.ServerExit) <- IO.fork(Pure.ServerExit, Http.server.run.loop(~Context, ~connection, Http.ServerListening{server}))
+    IO.print("HTTP storage real origin transfer on port " ++ U32.show(port))
     count : U32 <- IO.try(U32, Transport.sync("http://127.0.0.1:" ++ U32.show(port), dst, StreamCheck.root()))
     ok(U32.is_eq(count, 1), "real origin streams a 17 MiB object")
     events.check("orc", events)
