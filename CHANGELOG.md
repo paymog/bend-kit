@@ -7,6 +7,12 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `jwt` 0.17.1.0: adopt HTTP 0.45.1.0 and Hairpin 0.19.1.0.
+- `llm` 0.19.1.0: adopt HTTP 0.45.1.0 and Hairpin 0.19.1.0; align Wire in runtime checks.
+- `oauth2` 0.17.1.0: adopt HTTP 0.45.1.0 and Hairpin 0.19.1.0; align Wire in runtime checks.
+- `sigv4` 0.17.1.0: adopt HTTP 0.45.1.0 and Hairpin 0.19.1.0.
+- `webhooks` 0.17.1.0: adopt HTTP 0.45.1.0 and Hairpin 0.19.1.0; align Wire in runtime checks.
+- `authz`, `camber`, and `gateway` checks and examples: adopt Camber 0.19.1.0 with matching HTTP and Hairpin types.
 - `camber` 0.19.1.0: adopt HTTP 0.45.1.0 and Wire 0.4.9.0.
 - `hairpin` 0.19.1.0: adopt HTTP 0.45.1.0 and Wire 0.4.9.0.
 - `storage` 0.12.1.0: adopt HTTP 0.45.1.0 and Wire 0.4.9.0 for synchronization.
