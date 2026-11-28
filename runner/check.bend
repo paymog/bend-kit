@@ -613,6 +613,88 @@ def closed.hex(x: R.Runner<String> & String) -> IO(String):
     R.close(String, r)
     return h
 
+def counter.set(r: R.Runner<String>, n: Nat) -> R.Runner<String>:
+  R.Runner{j, s, p, c, ib, fs} = r
+  R.Runner{j, next(s, n), p, c, ib, fs}
+
+def counter.enqueued(+want: Nat, y: R.Runner<String> & R.Out(Nat)) -> IO(R.Runner<String>):
+  match y:
+    case (r, Done{i}):
+      do IO<R.Runner<String>>:
+        same(Nat.show(i), Nat.show(want), "the last admitted enqueue answers its full u64 id")
+        return r
+    case (r, Fail{e}):
+      IO.die(R.Runner<String>, 1, "bad counter: the last available id was refused")
+
+def counter.refused(-X: Type, y: R.Runner<String> & R.Out(X)) -> IO(R.Runner<String>):
+  match y:
+    case (r, Fail{(code, message)}):
+      do IO<R.Runner<String>>:
+        same(U32.show(code) ++ " " ++ message, "75 runner: ticket counter exhausted", "counter exhaustion returns a clear failure")
+        return r
+    case (r, Done{x}):
+      IO.die(R.Runner<String>, 1, "bad counter: exhaustion succeeded")
+
+def counter.unchanged(+n: Nat, x: R.Runner<String> & Model.State<String>) -> IO(R.Runner<String>):
+  (r, s) = x
+  do IO<R.Runner<String>>:
+    same(Nat.show(Q.next_id(String, Model.queue(String, s))), Nat.show(n), "a refused enqueue does not change the next counter")
+    return r
+
+def counter.compacted(fits: Bool, z: R.Ran(String), +path: String, +before: U32) -> IO(Unit):
+  match fits:
+    case True{}:
+      do IO<Unit>:
+        r : R.Runner<String> <- compacted(z)
+        R.close(String, r)
+        r1 : R.Runner<String> <- opened(path, 100n)
+        closed("next=18446744073709551615 pending=0 running=0 tries=0 fails=0 dead=0", "the maximum u64 counter compacts and reopens", view(r1))
+    case False{}:
+      do IO<Unit>:
+        r : R.Runner<String> <- counter.refused(Unit, z)
+        after : U32 <- size(path)
+        same(U32.show(after), U32.show(before), "an unrepresentable counter does not write a snapshot")
+        R.close(String, r)
+        r1 : R.Runner<String> <- opened(path, 100n)
+        closed("next=0 pending=0 running=0 tries=0 fails=0 dead=0", "refused mutations leave the original journal recoverable", view(r1))
+
+def counter.rejected(+path: String, +n: Nat, +fits: Bool) -> IO(Unit):
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 100n)
+    +before : U32 <- size(path)
+    y : R.Runner<String> & R.Out(Nat) <- R.enqueue(~String, ~penc, counter.set(r0, n), 0n, "refused")
+    r1 : R.Runner<String> <- counter.refused(Nat, y)
+    +after : U32 <- size(path)
+    same(U32.show(after), U32.show(before), "a refused enqueue does not append a record")
+    r2 : R.Runner<String> <- counter.unchanged(n, R.state(String, r1))
+    z : R.Ran(String) <- R.compact(~String, ~penc, r2)
+    counter.compacted(fits, z, path, before)
+
+
+def counter.boundary(+dir: String) -> IO(Unit):
+  +path = dir ++ "/counter.journal"
+  +last = Nat.sub(Model.counter.limit(), 2n)
+  do IO<Unit>:
+    r0 : R.Runner<String> <- opened(path, 100n)
+    z0 : R.Ran(String) <- R.compact(~String, ~penc, counter.set(r0, last))
+    r1 : R.Runner<String> <- compacted(z0)
+    R.close(String, r1)
+    r2 : R.Runner<String> <- opened(path, 100n)
+    y : R.Runner<String> & R.Out(Nat) <- R.enqueue(~String, ~penc, r2, Nat.sub(Model.counter.limit(), 1n), "last")
+    r3 : R.Runner<String> <- counter.enqueued(last, y)
+    +want : String = hex(Model.step(~String, next(Model.new(String), last), Model.Enqueue{Nat.sub(Model.counter.limit(), 1n), "last"}))
+    r4 : R.Runner<String> <- held(state.hex(R.state(String, r3)), want, "the last enqueue leaves the full id and maximum u64 next counter")
+    R.close(String, r4)
+    r5 : R.Runner<String> <- opened(path, 100n)
+    r6 : R.Runner<String> <- held(state.hex(R.state(String, r5)), want, "the acknowledged id, payload, deadline, and counter survive replay")
+    z1 : R.Ran(String) <- R.compact(~String, ~penc, r6)
+    r7 : R.Runner<String> <- compacted(z1)
+    R.close(String, r7)
+    r8 : R.Runner<String> <- opened(path, 100n)
+    closed(want, "the acknowledged id, payload, deadline, and counter survive compact and reopen", state.hex(R.state(String, r8)))
+    counter.rejected(dir ++ "/counter-max.journal", Nat.sub(Model.counter.limit(), 1n), True{})
+    counter.rejected(dir ++ "/counter-over.journal", Model.counter.limit(), False{})
+
 def len.of(r: Bytes.Bytes & U32) -> U32:
   (b, n) = r
   n
@@ -1111,6 +1193,7 @@ def all(+dir: String) -> IO(Unit):
     crash.snapshot(dir)
     crash.compacted(dir)
     Example.run(dir ++ "/hooks.journal")
+    counter.boundary(dir)
 
 def main() -> IO(Unit):
   do IO<Unit>:

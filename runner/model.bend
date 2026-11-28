@@ -553,6 +553,19 @@ def why.code(w: Why) -> Nat:
 def W() -> Nat:
   Nat.mul(65536n, 65536n)
 
+def counter.limit() -> Nat:
+  Nat.mul(W(), W())
+
+def counter.fits(n: Nat) -> Bool:
+  Nat.is_lt(Nat.div(n, W()), W())
+
+def counter.allowed(-A: Data, op: Op<A>, n: Nat, +word: Nat) -> Bool:
+  match op:
+    case Enqueue{d, x}:
+      Nat.is_lt(Nat.div(1n+n, word), word)
+    case op:
+      Nat.is_lt(Nat.div(n, word), word)
+
 # Nat fields hold values under 2^64.
 def put.u64(b: Bytes.Bytes, +at: U32, +n: Nat) -> Bytes.Bytes:
   Bytes.set.u32le(Bytes.set.u32le(b, at, U32.from_nat(Nat.mod(n, W()))), (at + 4 : U32), U32.from_nat(Nat.div(n, W())))

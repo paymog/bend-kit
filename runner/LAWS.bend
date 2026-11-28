@@ -9,6 +9,16 @@ import bend-kit-retry@0.3.0.0/retry.bend as Retry
 import bend-kit-collections@0.1.6.0/omap.bend as O
 import ./model.bend as R
 
+# An admitted enqueue leaves its counter's high word below the word modulus.
+law counter_enqueue:
+  for ~A: Data
+  for s: R.State<A>
+  for d: Nat
+  for x: A
+  for word: Nat
+  for allowed: {R.counter.allowed(A, R.Enqueue{d, x}, Q.next_id(A, R.queue(A, s)), word) == True{} : Bool}
+  {Nat.is_lt(Nat.div(Q.next_id(A, R.queue(A, R.step(~A, s, R.Enqueue{d, x}))), word), word) == True{} : Bool}
+
 # ---- replay
 
 def encode.all(~A: Data, ~X: Type, ~enc: R.Op<A> -> X, ops: List<&2, R.Op<A>>) -> List<&1, X>:
