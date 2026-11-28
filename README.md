@@ -146,7 +146,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`stream`](stream) | `bend-kit-stream@0.5.0.3/stream.bend` | Bounded copies between files and TCP/TLS sockets. |
 | [`process`](process) | `bend-kit-process@0.5.2.4/process.bend` | Commands with a child working directory and byte-exact stdin, stdout, and stderr. |
 | [`collections`](collections) | `bend-kit-collections@0.1.6.0/omap.bend` | Ordered maps, a hash map, a vector, a deque, a heap, and comparators. Import the file you need. |
-| [`time`](time) | `bend-kit-time@0.3.0.5/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
+| [`time`](time) | `bend-kit-time@0.3.0.6/time.bend` | Clocks, dates, RFC 3339, HTTP-date, and TZif zones. |
 | [`random`](random) | `bend-kit-random@0.1.0.1/random.bend` | Seeded xoshiro128**. Not for cryptography. |
 | [`concurrency`](concurrency) | `bend-kit-concurrency@0.2.0.0/concurrency.bend` | Parallel map and reduce, a worker pool, `select`, and `timeout`. |
 | [`scheduler`](scheduler) | `bend-kit-scheduler@0.4.4.0/queue.bend` | Pure stable deadline queues, cancellation tokens, and bounded recurrence planning. |

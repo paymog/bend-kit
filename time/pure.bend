@@ -950,22 +950,45 @@ def tz.rule.end(ok: Bool, standard: Ttype, daylight: Ttype, start: TzDate, end: 
     case False{}:
       None{}
 
-def tz.rule.finish(b: TzDatePart, standard: Ttype, daylight: Ttype, start: TzDate) -> Maybe<&2, TzRule>:
+def tz.rule.finish.types(ok: Bool, types: List<&2, Ttype>, start: TzDate, end: TzDate) -> Maybe<&2, TzRule>:
+  match types:
+    case Con{standard, Con{daylight, Nil{}}}:
+      tz.rule.end(ok, standard, daylight, start, end)
+    case _:
+      None{}
+
+# Lists keep wide records boxed across calls on the native backend: bendlang/bend#1069.
+def tz.rule.finish.boxed(b: TzDatePart, types: List<&2, Ttype>, start: TzDate) -> Maybe<&2, TzRule>:
   match b:
     case TzDatePart{end, rest}:
-      tz.rule.end(String.is_empty(rest), standard, daylight, start, end)
+      tz.rule.finish.types(String.is_empty(rest), types, start, end)
 
-def tz.rule.start(a: TzDatePart, +standard: Ttype, +daylight: Ttype) -> Maybe<&2, TzRule>:
+def tz.rule.finish(b: TzDatePart, standard: Ttype, daylight: Ttype, start: TzDate) -> Maybe<&2, TzRule>:
+  tz.rule.finish.boxed(b, [standard, daylight], start)
+
+def tz.rule.start.boxed(a: TzDatePart, +types: List<&2, Ttype>) -> Maybe<&2, TzRule>:
   match a:
     case TzDatePart{start, rest}:
       do Maybe<&2, TzRule>:
         b : TzDatePart <- tz.date(tz.after(',', rest))
-        tz.rule.finish(b, standard, daylight, start)
+        tz.rule.finish.boxed(b, types, start)
 
-def tz.rule.dates(+standard: Ttype, +daylight: Ttype, rest: String) -> Maybe<&2, TzRule>:
+def tz.rule.start(a: TzDatePart, +standard: Ttype, +daylight: Ttype) -> Maybe<&2, TzRule>:
+  tz.rule.start.boxed(a, [standard, daylight])
+
+def tz.rule.dates.boxed(+types: List<&2, Ttype>, rest: String) -> Maybe<&2, TzRule>:
   do Maybe<&2, TzRule>:
     a : TzDatePart <- tz.date(tz.after(',', rest))
-    tz.rule.start(a, standard, daylight)
+    tz.rule.start.boxed(a, types)
+
+def tz.rule.dates(+standard: Ttype, +daylight: Ttype, rest: String) -> Maybe<&2, TzRule>:
+  tz.rule.dates.boxed([standard, daylight], rest)
+
+def tz.rule.default(standard: Ttype, daylight: Ttype, +seconds: Int.I64) -> Maybe<&2, TzRule>:
+  Some{TzRule{standard, daylight, TzDate{MonthWeek{3, 2, 0}, seconds}, TzDate{MonthWeek{11, 1, 0}, seconds}}}
+
+def tz.rule.fixed(+standard: Ttype, +seconds: Int.I64) -> Maybe<&2, TzRule>:
+  Some{TzRule{standard, standard, TzDate{Ordinal{0}, seconds}, TzDate{Ordinal{0}, seconds}}}
 
 def tz.rule.dstclock(r: TzClock, standard: Ttype, abbr: String) -> Maybe<&2, TzRule>:
   match r:
@@ -978,8 +1001,7 @@ def tz.rule.offset(standard: Ttype, abbr: String, west: Int.I64, rest: String) -
       tz.rule.dates(standard, Ttype{Int.I64.sub(i64(3600), west), True{}, abbr}, rest)
     # POSIX leaves absent DST dates to the implementation; use the common US rules.
     case SNil{}:
-      tz.rule.end(True{}, standard, Ttype{Int.I64.sub(i64(3600), west), True{}, abbr},
-        TzDate{MonthWeek{3, 2, 0}, i64(7200)}, TzDate{MonthWeek{11, 1, 0}, i64(7200)})
+      tz.rule.default(standard, Ttype{Int.I64.sub(i64(3600), west), True{}, abbr}, i64(7200))
     case _:
       do Maybe<&2, TzRule>:
         r : TzClock <- tz.clock.sign(rest, 24)
@@ -993,7 +1015,7 @@ def tz.rule.named(name: TzText, standard: Ttype, west: Int.I64) -> Maybe<&2, TzR
 def tz.rule.dst(+standard: Ttype, west: Int.I64, rest: String) -> Maybe<&2, TzRule>:
   match rest:
     case SNil{}:
-      Some{TzRule{standard, standard, TzDate{Ordinal{0}, i64(0)}, TzDate{Ordinal{0}, i64(0)}}}
+      tz.rule.fixed(standard, i64(0))
     case _:
       do Maybe<&2, TzRule>:
         name : TzText <- tz.name(rest)
@@ -1030,11 +1052,13 @@ def tz.day.index(d: TzDay, +y: U32) -> U32:
       +actual = Bool.pick(U32, U32.is_gt(day, last), (day - 7 : U32), day)
       Int.I64.to_u32(Int.I64.sub(Date.to_days(Date{y, month, actual}), Date.to_days(Date{y, 1, 1})))
 
+def tz.date.utc.days(+y: U32, day: TzDay, seconds: Int.I64) -> Int.I64:
+  Int.I64.add(Int.I64.mul(Int.I64.add(Date.to_days(Date{y, 1, 1}), i64(tz.day.index(day, y))), i64(86400)), seconds)
+
 def tz.date.utc(d: TzDate, +y: U32, west: Int.I64) -> Int.I64:
   match d:
     case TzDate{day, sec}:
-      Int.I64.add(Int.I64.mul(Int.I64.add(Date.to_days(Date{y, 1, 1}), i64(tz.day.index(day, y))), i64(86400)),
-        Int.I64.add(sec, west))
+      tz.date.utc.days(y, day, Int.I64.add(sec, west))
 
 # Apply the two transitions for the UTC year and its neighbors. A /time may cross a year boundary.
 type TzEvent is Data:
@@ -1055,11 +1079,32 @@ def tz.event.new(+now: Int.I64, old: Maybe<&2, TzEvent>, +when: Int.I64, dst: Bo
       tz.event.select(Bool.and(Int.I64.is_le(when, now), Int.I64.is_gt(when, prev)),
         Some{TzEvent{prev, flag}}, when, dst)
 
-def tz.event.year(+now: Int.I64, old: Maybe<&2, TzEvent>, +r: TzRule, +y: U32) -> Maybe<&2, TzEvent>:
+def tz.event.year.start.time(r: TzRule, y: U32) -> Int.I64:
   match r:
-    case TzRule{Ttype{+off, _, _}, Ttype{+dstoff, _, _}, +start, +end}:
-      +first = tz.event.new(now, old, tz.date.utc(start, y, Int.I64.neg(off)), True{})
-      tz.event.new(now, first, tz.date.utc(end, y, Int.I64.neg(dstoff)), False{})
+    case TzRule{Ttype{off, _, _}, daylight, start, end}:
+      tz.date.utc(start, y, Int.I64.neg(off))
+
+def tz.event.year.end.time(r: TzRule, y: U32) -> Int.I64:
+  match r:
+    case TzRule{standard, Ttype{off, _, _}, start, end}:
+      tz.date.utc(end, y, Int.I64.neg(off))
+
+def tz.event.year.end.boxed(+now: Int.I64, old: Maybe<&2, TzEvent>, rs: List<&2, TzRule>, y: U32) -> Maybe<&2, TzEvent>:
+  match rs:
+    case Con{r, rest}:
+      tz.event.new(now, old, tz.event.year.end.time(r, y), False{})
+    case Nil{}:
+      old
+
+def tz.event.year.boxed(+now: Int.I64, old: Maybe<&2, TzEvent>, +rs: List<&2, TzRule>, +y: U32) -> Maybe<&2, TzEvent>:
+  match rs:
+    case Con{r, rest}:
+      tz.event.year.end.boxed(now, tz.event.new(now, old, tz.event.year.start.time(r, y), True{}), rs, y)
+    case Nil{}:
+      old
+
+def tz.event.year(+now: Int.I64, old: Maybe<&2, TzEvent>, +r: TzRule, +y: U32) -> Maybe<&2, TzEvent>:
+  tz.event.year.boxed(now, old, [r], y)
 
 def tz.event.prev(+now: Int.I64, old: Maybe<&2, TzEvent>, +r: TzRule, +y: U32) -> Maybe<&2, TzEvent>:
   match y:
