@@ -273,6 +273,7 @@ for name, platform in (("check", "linux"), ("http-macos", "macos")):
     if name == "check":
         assert "if: matrix.package == 'http'" in outcome
         assert "if: always() && matrix.package == 'http'" in upload
+        assert "timeout-minutes: ${{ matrix.package == 'http' && 40 || 20 }}" in job
 print("PASS HTTP response outcomes: Linux and macOS, pinned tools, failure propagation, and always-uploaded results")
 outcome = (root / "http/outcome_check.py").read_text().split("def main():", 1)[1]
 assert outcome.index("held_completion(server)") < outcome.index("failed_write(server)")

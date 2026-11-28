@@ -267,7 +267,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.packages != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.package == 'http' && 40 || 20 }}
     concurrency:
       group: ${{ github.event_name == 'pull_request' && format('pr-{0}-{1}', github.event.pull_request.number, matrix.package) || format('publish-{0}', matrix.package) }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
