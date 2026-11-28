@@ -56,6 +56,8 @@ Every program prints checksum `607518720` and `32768/65536` (pending tickets / n
 
 UTF-8 codec smoke, 2026-11-20, macOS arm64, Bend 2.0.38: `python3 run.py 1 10` (one run, 1,024 jobs). Replay took 0.1 ms in Rust, 1.9 ms in Python, and 2.7 ms in Bend. Dead-ticket replay took 0.2, 2.4, and 3.7 ms. Bend's compacted replay took 1.7 ms. Checksums agreed: replay `9623552`, dead `10672128`, both `512/1024`. This fixture has no breaker targets; the codec checks cover their UTF-8 bytes and round trips.
 
+Next-id validation smoke, 2026-11-27, macOS arm64, Bend 2.0.40: `python3 run.py 1 10`. Replay took 0.1 ms in Rust, 1.8 ms in Python, and 2.6 ms in Bend. Dead-ticket replay took 0.2, 2.4, and 3.7 ms. Bend's compacted replay took 3.6 ms. Checksums agreed: replay `9623552`, dead `10672128`, both `512/1024`. This is a small correctness smoke, not a performance comparison.
+
 ## Reading it
 
 Compaction cuts open's replay by 3.6x here. The log holds 196,608 records, and the compacted journal holds one: the 32,768 pending tickets and their tries. Replay time then follows the live state, not the history. Half of the jobs here are still pending; a runner whose jobs finish gains more.
@@ -75,3 +77,5 @@ Replay is O(n log n) in Bend: the queue is a heap, the tries are an ordered map,
 Run `flock /tmp/bend-kit-bend.lock bend snapshot.bend` from this folder. It decodes 10,000 dead tickets twice: one descending bucket with ids `i * 2^32`, and 10,000 separate buckets. Both rows must print count `10000`. Snapshot construction is outside the timers. This uses the same decoder as `open`, without journal framing.
 
 On 2026-11-19, macOS arm64, Bend 2.0.38's Bun lane: the old decoder (`bend-kit-runner@0.15.0.0`) took 819.9 ms for the colliding bucket. The new decoder took 41.8 ms for that bucket and 55.4 ms for separate buckets. This is one run, not a cross-language comparison. The old check made 49,995,000 pairwise equality calls. Sorting and adjacent comparisons replace that quadratic walk.
+
+With next-id validation on Bend 2.0.40, the same 10,000-ticket smoke took 55.4 ms for the colliding bucket and 50.5 ms for separate buckets on 2026-11-27. Both counts were `10000`. The fixtures now place the next counter above every stored key and ticket id.

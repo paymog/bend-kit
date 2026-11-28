@@ -31,8 +31,8 @@ def spread(xs: List<&2, M.Entry<Nat, R.Dead<U32>>>, ds: R.Graves(U32), +id: Nat)
       spread(rest, M.HMap.put(~Nat, ~R.Dead<U32>, ~R.dead.hash, ~Nat.is_eq, ds, id, v), 1n+id)
 
 def snapshot.of(s: R.State<U32>, ds: R.Graves(U32)) -> Bytes.Bytes:
-  R.State{q, ts, old, bs} = s
-  R.encode.snap(~U32, ~penc, R.State{q, ts, ds, bs})
+  R.State{Q.State{n, h, run}, ts, old, bs} = s
+  R.encode.snap(~U32, ~penc, R.State{Q.State{Nat.mul(10000n, Nat.mul(65536n, 65536n)), h, run}, ts, ds, bs})
 
 def snapshot(ds: R.Graves(U32)) -> Bytes.Bytes:
   snapshot.of(R.new(U32), ds)
