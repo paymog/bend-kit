@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `wire` checks: attempt both firewall rule removals and retry failed deletions once. Preserve setup and client failures. SIGINT and SIGTERM stop and reap the isolated client before cleanup. Required Linux tests compare firewall state after recoverable failures and interruption.
 - `http` checks: pass native thread and GPU options between `+RTS` and `-RTS`. Keep fixture modes and ports as application arguments in the drain, admission, limits, and outcome harnesses.
 - `time` 0.3.0.6: bound native timezone lookup continuations on Bend 2.0.40. Check New York DST transitions and POSIX footer offsets, DST flags, abbreviations, and local times in both runtime lanes.
 - `websocket` CI: compile and run the existing acceptance checks on Linux and macOS arm64, including sibling Wire and libcrypto effects.
