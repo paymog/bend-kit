@@ -9,6 +9,18 @@ def expect.yes(ok: Bool, message: String) -> IO(Unit):
     case False{}:
       IO.die(Unit, 1, message)
 
+def expect.pass(-A: Type, label: String, value: Result<&1, &1, U32 & String, A>) -> IO(A):
+  match value:
+    case Done{v}:
+      IO.pure(A, v)
+    case Fail{(code, msg)}:
+      IO.die(A, code, label ++ ": " ++ msg)
+
+def expect.ok(-A: Type, label: String, action: IO(Result<&1, &1, U32 & String, A>)) -> IO(A):
+  do IO<A>:
+    res : Result<&1, &1, U32 & String, A> <- action
+    expect.pass(A, label, res)
+
 def expect.echo(value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(Unit):
   (code, out, err) = value
   do IO<Unit>:
@@ -50,10 +62,10 @@ def expect.child.read(expected: String,
                       pid: U32, errors: File) -> IO(Unit):
   (output, received) = pair
   do IO<Unit>:
-    text : String <- IO.pass(String, received)
+    text : String <- expect.pass(String, "spawn child stdout read", received)
     File.close(output)
     File.close(errors)
-    status : U32 <- IO.try(U32, Proc.wait(pid))
+    status : U32 <- expect.ok(U32, "spawn child wait", Proc.wait(pid))
     expect.yes(String.eq(text, expected), "spawn output")
     expect.yes(U32.is_eq(status, 0), "spawn status")
 
@@ -62,7 +74,7 @@ def expect.child.written(+expected: String,
                          pid: U32, output: File, errors: File) -> IO(Unit):
   (input, sent) = pair
   do IO<Unit>:
-    IO.pass(Unit, sent)
+    expect.pass(Unit, "spawn child stdin write", sent)
     File.close(input)
     received : File & Result<&1, &1, U32 & String, String> <-
       File.read(output, U32.from_nat(Nat.add(String.length(expected), 1n)))
@@ -84,39 +96,39 @@ def expect.command(expected: String, value: U32 & Bytes.Bytes & Bytes.Bytes) -> 
 
 def expect.cwd() -> IO(Unit):
   do IO<Unit>:
-    +parent : String <- IO.try(String, Proc.cwd())
+    +parent : String <- expect.ok(String, "cwd parent", Proc.cwd())
     own : U32 <- Proc.pid()
     +relative : String = ".process-cwd-" ++ U32.show(own)
     +root : String = parent ++ "/" ++ relative
     +first : String = root ++ "/first"
     +second_relative : String = relative ++ "/second directory"
     +second : String = parent ++ "/" ++ second_relative
-    setup : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    setup : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "cwd setup",
       Proc.run("/bin/sh", ["-c",
         "mkdir \"$1\" \"$2\" \"$3\" && printf first > \"$2/marker\" && printf second > \"$3/marker\"",
         "process-cwd-setup", root, first, second], [], ".", Bytes.from_string("")))
     expect.command("", setup)
 
     # Both children wait for input before reading a file relative to their cwd.
-    first_child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    first_child : U32 & File & File & File <- expect.ok(U32 & File & File & File, "cwd spawn first",
       Proc.spawn("/bin/sh", ["-c", "read ready; exec /bin/cat marker"], [], first))
-    second_child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    second_child : U32 & File & File & File <- expect.ok(U32 & File & File & File, "cwd spawn second",
       Proc.spawn("/bin/sh", ["-c", "read ready; exec /bin/cat marker"], [], second_relative))
-    after_spawn : String <- IO.try(String, Proc.cwd())
+    after_spawn : String <- expect.ok(String, "cwd after spawn", Proc.cwd())
     expect.yes(String.eq(parent, after_spawn), "spawns preserve parent cwd")
     expect.child("first", "\n", first_child)
     expect.child("second", "\n", second_child)
 
-    captured : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    captured : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "cwd run marker",
       Proc.run("/bin/cat", ["marker"], [], first, Bytes.from_string("")))
     expect.command("first", captured)
-    after_run : String <- IO.try(String, Proc.cwd())
+    after_run : String <- expect.ok(String, "cwd after run", Proc.cwd())
     expect.yes(String.eq(parent, after_run), "run preserves parent cwd")
     missing : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
       Proc.run("/bin/cat", [], [], root ++ "/missing", Bytes.from_string(""))
     expect.missing(missing, "missing directory must fail to spawn")
 
-    cleanup : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    cleanup : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "cwd cleanup",
       Proc.run("/bin/sh", ["-c",
         "rm \"$1/marker\" \"$2/marker\" && rmdir \"$1\" \"$2\" \"$3\"",
         "process-cwd-cleanup", first, second, root], [], ".", Bytes.from_string("")))
@@ -126,11 +138,11 @@ def expect.os() -> IO(Unit):
   do IO<Unit>:
     id : U32 <- Proc.pid()
     expect.yes(U32.is_gt(id, 0), "process pid")
-    host : String <- IO.try(String, Proc.hostname())
+    host : String <- expect.ok(String, "os hostname", Proc.hostname())
     expect.yes(Bool.not(String.eq(host, "")), "hostname")
-    +dir : String <- IO.try(String, Proc.cwd())
-    IO.try(Unit, Proc.chdir(dir))
-    again : String <- IO.try(String, Proc.cwd())
+    +dir : String <- expect.ok(String, "os cwd", Proc.cwd())
+    expect.ok(Unit, "os chdir", Proc.chdir(dir))
+    again : String <- expect.ok(String, "os cwd after chdir", Proc.cwd())
     expect.yes(String.eq(dir, again), "cwd/chdir")
 
 def expect.wait.einval(value: Result<&1, &1, U32 & String, U32>, message: String) -> IO(Unit):
@@ -146,14 +158,14 @@ def expect.wait.child(expected: U32, child: U32 & File & File & File) -> IO(Unit
     File.close(input)
     File.close(output)
     File.close(errors)
-    status : U32 <- IO.try(U32, Proc.wait(pid))
+    status : U32 <- expect.ok(U32, "wait.child wait", Proc.wait(pid))
     expect.yes(U32.is_eq(status, expected), "invalid wait must not reap another child")
 
 def expect.wait.pids() -> IO(Unit):
   do IO<Unit>:
-    first : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    first : U32 & File & File & File <- expect.ok(U32 & File & File & File, "wait.pids spawn first",
       Proc.spawn("/bin/sh", ["-c", "exit 17"], [], "."))
-    second : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    second : U32 & File & File & File <- expect.ok(U32 & File & File & File, "wait.pids spawn second",
       Proc.spawn("/bin/sh", ["-c", "exit 23"], [], "."))
     zero : Result<&1, &1, U32 & String, U32> <- Proc.wait(0)
     expect.wait.einval(zero, "wait(0) must not select the process group")
@@ -221,7 +233,7 @@ def expect.group(timeout: U32) -> IO(Unit):
         "process-bounded", marker], [], ".", Bytes.from_string(""), 300, 0)
     expect.run.timeout(held, timeout, "descendant holding stdout runs into the deadline")
     IO.sleep(1500)
-    gone : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    gone : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "group marker check",
       Proc.run("/bin/sh", ["-c", "test ! -e \"$1\" || { rm -f \"$1\"; exit 1; }",
         "process-bounded-gone", marker], [], ".", Bytes.from_string("")))
     expect.command("", gone)
@@ -247,7 +259,7 @@ def expect.bounded.invalid() -> IO(Unit):
     nul : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
       Proc.run.bounded("/bin/echo", ["a\0b"], [], ".", Bytes.from_string(""), 5000, 0)
     expect.bounded.fails(nul, "bounded: NUL in an argument fails")
-    unlimited : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    unlimited : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded unlimited",
       Proc.run.bounded("/bin/echo", ["hello; not a shell"], [], ".", Bytes.from_string(""), 0, 0))
     expect.echo(unlimited)
 
@@ -257,7 +269,7 @@ def expect.bounded.times(n: Nat) -> IO(Unit):
       IO.pure(Unit, Unit{})
     case Succ{k}:
       do IO<Unit>:
-        done : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+        done : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded repeat",
           Proc.run.bounded("/bin/sh", ["-c", "exit 4"], [], ".", Bytes.from_string("in"), 5000, 64))
         expect.bounded.status(4, done, "repeated bounded run status")
         expect.bounded.times(k)
@@ -279,9 +291,9 @@ def expect.census.same(message: String, before: U32 & Bytes.Bytes & Bytes.Bytes,
 def expect.bounded.repeat() -> IO(Unit):
   do IO<Unit>:
     +own : U32 <- Proc.pid()
-    before : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    before : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded repeat census before", expect.census(own))
     expect.bounded.times(200n)
-    after : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    after : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded repeat census after", expect.census(own))
     expect.census.same("200 bounded runs leak no file descriptors and leave no zombies", before, after)
 
 def expect.spawn.one(child: U32 & File & File & File) -> IO(Unit):
@@ -290,7 +302,7 @@ def expect.spawn.one(child: U32 & File & File & File) -> IO(Unit):
     File.close(input)
     File.close(output)
     File.close(errors)
-    status : U32 <- IO.try(U32, Proc.wait(pid))
+    status : U32 <- expect.ok(U32, "spawn repeat wait", Proc.wait(pid))
     expect.yes(U32.is_eq(status, 4), "repeated spawn status")
 
 def expect.spawn.times(n: Nat) -> IO(Unit):
@@ -299,7 +311,7 @@ def expect.spawn.times(n: Nat) -> IO(Unit):
       IO.pure(Unit, Unit{})
     case Succ{k}:
       do IO<Unit>:
-        child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+        child : U32 & File & File & File <- expect.ok(U32 & File & File & File, "spawn repeat spawn",
           Proc.spawn("/bin/sh", ["-c", "exit 4"], [], "."))
         expect.spawn.one(child)
         expect.spawn.times(k)
@@ -307,9 +319,9 @@ def expect.spawn.times(n: Nat) -> IO(Unit):
 def expect.spawn.repeat() -> IO(Unit):
   do IO<Unit>:
     +own : U32 <- Proc.pid()
-    before : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    before : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "spawn repeat census before", expect.census(own))
     expect.spawn.times(200n)
-    after : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes, expect.census(own))
+    after : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "spawn repeat census after", expect.census(own))
     expect.census.same("200 spawns leak no file descriptors and leave no zombies", before, after)
 
 def expect.fd.count.out(value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(String):
@@ -321,15 +333,15 @@ def expect.fd.count.out(value: U32 & Bytes.Bytes & Bytes.Bytes) -> IO(String):
 def expect.fd.isolation.with(+base: String, s1: Listener, s2: Listener, s3: Listener, s4: Listener) -> IO(Unit):
   do IO<Unit>:
     +probe : String = "c=0; for f in /dev/fd/*; do c=$((c+1)); done; printf %s $c"
-    bounded : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    bounded : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "fd isolation run.bounded",
       Proc.run.bounded("/bin/sh", ["-c", probe], [], ".", Bytes.from_string(""), 5000, 64))
     bounded_fds : String <- expect.fd.count.out(bounded)
     expect.yes(String.eq(base, bounded_fds), "run.bounded child does not inherit parent sockets")
-    ran : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    ran : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "fd isolation run",
       Proc.run("/bin/sh", ["-c", probe], [], ".", Bytes.from_string("")))
     ran_fds : String <- expect.fd.count.out(ran)
     expect.yes(String.eq(base, ran_fds), "run child does not inherit parent sockets")
-    child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    child : U32 & File & File & File <- expect.ok(U32 & File & File & File, "fd isolation spawn",
       Proc.spawn("/bin/sh", ["-c", probe], [], "."))
     expect.child(base, "", child)
     Listener.close(s1)
@@ -340,19 +352,19 @@ def expect.fd.isolation.with(+base: String, s1: Listener, s2: Listener, s3: List
 def expect.fd.isolation() -> IO(Unit):
   do IO<Unit>:
     +probe : String = "c=0; for f in /dev/fd/*; do c=$((c+1)); done; printf %s $c"
-    base_res : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    base_res : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "fd isolation baseline",
       Proc.run.bounded("/bin/sh", ["-c", probe], [], ".", Bytes.from_string(""), 5000, 64))
     +base : String <- expect.fd.count.out(base_res)
-    s1 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
-    s2 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
-    s3 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
-    s4 : Listener <- IO.try(Listener, TCP.listen("127.0.0.1", 0))
+    s1 : Listener <- expect.ok(Listener, "fd isolation listen 1", TCP.listen("127.0.0.1", 0))
+    s2 : Listener <- expect.ok(Listener, "fd isolation listen 2", TCP.listen("127.0.0.1", 0))
+    s3 : Listener <- expect.ok(Listener, "fd isolation listen 3", TCP.listen("127.0.0.1", 0))
+    s4 : Listener <- expect.ok(Listener, "fd isolation listen 4", TCP.listen("127.0.0.1", 0))
     expect.fd.isolation.with(base, s1, s2, s3, s4)
 
 def expect.concurrent.touch(marker: String, done: Chan(Unit)) -> IO(Unit):
   do IO<Unit>:
     IO.sleep(50)
-    f : File <- IO.try(File, File.open(marker, "w"))
+    f : File <- expect.ok(File, "concurrent touch open", File.open(marker, "w"))
     File.close(f)
     _ : Result<&1, &1, Unit, Unit> <- Chan.send(Unit, done, Unit{})
     IO.pure(Unit, Unit{})
@@ -377,7 +389,7 @@ def expect.concurrent() -> IO(Unit):
     c1 : Chan(Unit) <- Chan.new(Unit, 1)
     +ch1 : Chan(Unit) = c1
     IO.spawn(Unit, expect.concurrent.touch(m1, ch1))
-    bounded : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    bounded : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "concurrent run.bounded",
       Proc.run.bounded("/bin/sh", ["-c", script, "conc-bounded", m1], [], ".",
         Bytes.from_string(""), 3000, 128))
     _ : Maybe<&1, Unit> <- Chan.recv(Unit, ch1)
@@ -385,7 +397,7 @@ def expect.concurrent() -> IO(Unit):
     c2 : Chan(Unit) <- Chan.new(Unit, 1)
     +ch2 : Chan(Unit) = c2
     IO.spawn(Unit, expect.concurrent.touch(m2, ch2))
-    ran : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    ran : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "concurrent run",
       Proc.run("/bin/sh", ["-c", script, "conc-run", m2], [], ".",
         Bytes.from_string("")))
     _ : Maybe<&1, Unit> <- Chan.recv(Unit, ch2)
@@ -394,11 +406,11 @@ def expect.concurrent() -> IO(Unit):
 def expect.bounded() -> IO(Unit):
   do IO<Unit>:
     +timeout : U32 <- Proc.etimedout()
-    echo : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    echo : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded echo",
       Proc.run.bounded("/bin/echo", ["hello; not a shell"], [], ".", Bytes.from_string(""),
         5000, 1024))
     expect.echo(echo)
-    cat : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    cat : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded cat",
       Proc.run.bounded("/bin/cat", [], [], ".", Bytes.from_string("a\0b"), 5000, 0))
     expect.cat(cat)
     slow : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
@@ -408,7 +420,7 @@ def expect.bounded() -> IO(Unit):
       Proc.run.bounded("/bin/sh", ["-c", "exec >&- 2>&-; exec sleep 5"], [], ".",
         Bytes.from_string(""), 200, 0)
     expect.run.timeout(quiet, timeout, "a child that closes its outputs meets the deadline")
-    exact : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    exact : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded exact max_out",
       Proc.run.bounded("/bin/sh", ["-c", "printf %1000s ''"], [], ".", Bytes.from_string(""),
         5000, 1000))
     expect.width(exact)
@@ -423,11 +435,11 @@ def expect.bounded() -> IO(Unit):
     flood : Result<&1, &1, U32 & String, U32 & Bytes.Bytes & Bytes.Bytes> <-
       Proc.run.bounded("/usr/bin/env", ["yes"], [], ".", Bytes.from_string(""), 5000, 4096)
     expect.run.too_big(flood, "endless output stops at max_out")
-    shut : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    shut : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded early stdin close",
       Proc.run.bounded("/bin/sh", ["-c", "exec <&-; sleep 0.1; exit 3"], [], ".",
         Bytes.from_string(String.repeat("x", 20000n)), 5000, 0))
     expect.bounded.status(3, shut, "a child that closes stdin early keeps its status")
-    signaled : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    signaled : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "bounded signaled leader",
       Proc.run.bounded("/bin/sh", ["-c", "kill -9 $$"], [], ".", Bytes.from_string(""),
         5000, 0))
     expect.bounded.status(137, signaled, "a signaled leader is 128 + signal")
@@ -445,7 +457,7 @@ def expect.signal() -> IO(Unit):
     expect.yes(U32.is_eq(zero, 0), "initial signal poll")
     own : U32 <- Proc.pid()
     killed : U32 & Bytes.Bytes & Bytes.Bytes <-
-      IO.try(U32 & Bytes.Bytes & Bytes.Bytes, signal.send(own))
+      expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "signal send", signal.send(own))
     IO.sleep(50)
     event : U32 <- Proc.signal.poll()
     expect.yes(U32.is_eq(event, 15), "SIGTERM delivery")
@@ -476,11 +488,11 @@ def expect.deadline.child(child: U32 & File & File & File) -> IO(Unit):
     expect.wait.error(timeout, first)
     again : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(pid, 10)
     expect.wait.error(timeout, again)
-    IO.try(Unit, Proc.kill(pid, 0))
+    expect.ok(Unit, "deadline.child kill 0", Proc.kill(pid, 0))
     invalid : Result<&1, &1, U32 & String, Unit> <- Proc.kill(pid, 4294967295)
     expect.kill.error(22, invalid)
-    IO.try(Unit, Proc.kill(pid, 9))
-    status : U32 <- IO.try(U32, Proc.wait.deadline(pid, 5000))
+    expect.ok(Unit, "deadline.child kill 9", Proc.kill(pid, 9))
+    status : U32 <- expect.ok(U32, "deadline.child wait.deadline", Proc.wait.deadline(pid, 5000))
     expect.yes(U32.is_eq(status, 137), "deadline wait returns signal status")
     reaped : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(pid, 1)
     expect.wait.error(10, reaped)
@@ -492,16 +504,16 @@ def expect.deadline.exited(child: U32 & File & File & File) -> IO(Unit):
     File.close(output)
     File.close(errors)
     IO.sleep(100)
-    status : U32 <- IO.try(U32, Proc.wait.deadline(pid, 0))
+    status : U32 <- expect.ok(U32, "deadline.exited wait.deadline(0)", Proc.wait.deadline(pid, 0))
     expect.yes(U32.is_eq(status, 23), "zero deadline waits for cached exit status")
     reaped : Result<&1, &1, U32 & String, U32> <- Proc.wait(pid)
     expect.wait.error(10, reaped)
 
 def expect.deadline() -> IO(Unit):
   do IO<Unit>:
-    other : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    other : U32 & File & File & File <- expect.ok(U32 & File & File & File, "deadline spawn other",
       Proc.spawn("/bin/sh", ["-c", "exit 17"], [], "."))
-    child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    child : U32 & File & File & File <- expect.ok(U32 & File & File & File, "deadline spawn sleep",
       Proc.spawn("/bin/sleep", ["5"], [], "."))
     zero : Result<&1, &1, U32 & String, U32> <- Proc.wait.deadline(0, 1)
     expect.wait.error(22, zero)
@@ -516,28 +528,28 @@ def expect.deadline() -> IO(Unit):
     bad_every : Result<&1, &1, U32 & String, Unit> <- Proc.kill(4294967295, 0)
     expect.kill.error(22, bad_every)
     own : U32 <- Proc.pid()
-    IO.try(Unit, Proc.kill(own, 0))
+    expect.ok(Unit, "deadline kill own 0", Proc.kill(own, 0))
     expect.deadline.child(child)
     expect.wait.child(17, other)
-    exited : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    exited : U32 & File & File & File <- expect.ok(U32 & File & File & File, "deadline spawn exited",
       Proc.spawn("/bin/sh", ["-c", "exit 23"], [], "."))
     expect.deadline.exited(exited)
 
 def main() -> IO(Unit):
   do IO<Unit>:
-    echo : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    echo : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "run echo",
       Proc.run("/bin/echo", ["hello; not a shell"], [], ".", Bytes.from_string("")))
     expect.echo(echo)
 
-    failed : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    failed : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "run nonzero",
       Proc.run("/bin/sh", ["-c", "printf problem >&2; exit 7"], [], ".", Bytes.from_string("")))
     expect.failed(failed)
 
-    cat : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    cat : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "run cat",
       Proc.run("/bin/cat", [], [], ".", Bytes.from_string("a\0b")))
     expect.cat(cat)
 
-    environment : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    environment : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "run env",
       Proc.run("/bin/sh", ["-c", "printf %s \"$BEND_KIT_PROCESS_SMOKE\""],
         ["BEND_KIT_PROCESS_SMOKE=overridden"], ".", Bytes.from_string("")))
     expect.env(environment)
@@ -546,7 +558,7 @@ def main() -> IO(Unit):
       Proc.run("/definitely-not-a-command", [], [], ".", Bytes.from_string(""))
     expect.missing(missing, "missing executable must fail to spawn")
 
-    child : U32 & File & File & File <- IO.try(U32 & File & File & File,
+    child : U32 & File & File & File <- expect.ok(U32 & File & File & File, "spawn cat",
       Proc.spawn("/bin/cat", [], [], "."))
     expect.child("stream", "stream", child)
     expect.cwd()
@@ -554,7 +566,7 @@ def main() -> IO(Unit):
     expect.wait.pids()
     expect.deadline()
     +host_timeout : U32 <- Proc.etimedout()
-    uname : U32 & Bytes.Bytes & Bytes.Bytes <- IO.try(U32 & Bytes.Bytes & Bytes.Bytes,
+    uname : U32 & Bytes.Bytes & Bytes.Bytes <- expect.ok(U32 & Bytes.Bytes & Bytes.Bytes, "run uname",
       Proc.run("/usr/bin/uname", ["-s"], [], ".", Bytes.from_string("")))
     expect.etimedout(host_timeout, uname)
     expect.bounded()
