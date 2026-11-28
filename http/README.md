@@ -151,6 +151,8 @@ CI runs both lanes sequentially on Linux and macOS arm64. Each build and streami
 Run `sh http/mtls-check.sh` for native acceptance or append `js` for JavaScript.
 The TLS harness builds local, mTLS, and HTTP/2 pool checks as separate programs.
 It checks certificate isolation, redirects, uploads, idle reconnects, stream reuse, and cancellation.
+The fixture listeners start without reverse DNS. Each phase prints its name. A failure prints its exit status and server diagnostics before it removes the temporary certificates.
+Run `python3 -B http/mtls-check-test.py` to inject compiler, startup, and runtime failures in both lanes. The test also rejects reverse DNS during fixture startup.
 Run `sh http/ca-check.sh` for private CA acceptance or append `js` for JavaScript.
 CI runs both TLS harnesses in native and JS lanes on Linux and macOS arm64 when HTTP changes.
 Required TLS jobs set `WIRE_LOOPBACK_ONLY=1` and reuse Wire's client-only loopback runner and compiled public-IP denial probe in both runtimes. Only compiled clients enter the macOS sandbox or Linux IPv4/IPv6 firewall boundary. Builds, fixture servers, and RSS supervision stay outside it. The probe must receive a policy error; a timeout or connection refusal fails acceptance.
