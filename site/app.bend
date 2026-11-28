@@ -1,7 +1,7 @@
 # The bend-kit website as a Camber application: one route per page, rendered from package files.
 import Base
 import ../camber/camber.bend as C
-import bend-kit-http@0.45.0.3/pure.bend as Pure
+import bend-kit-http@0.45.1.0/pure.bend as Pure
 import ../template/template.bend as T
 import ../markdown/markdown.bend as M
 import ../encoding/encoding.bend as Enc

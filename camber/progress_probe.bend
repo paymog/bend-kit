@@ -4,7 +4,7 @@ import ./risk_probe.bend as Risk
 import ../http/http.bend as Http
 import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 import bend-kit-time@0.3.0.5/time.bend as Time
 import ./prerequisites.bend as Probe
 import ./probe_stdout.bend as Stdout

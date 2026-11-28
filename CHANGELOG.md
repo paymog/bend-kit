@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `camber` 0.19.1.0: adopt HTTP 0.45.1.0 and Wire 0.4.9.0.
+- `hairpin` 0.19.1.0: adopt HTTP 0.45.1.0 and Wire 0.4.9.0.
+- `storage` 0.12.1.0: adopt HTTP 0.45.1.0 and Wire 0.4.9.0 for synchronization.
 - `http` 0.45.1.0: adopt Wire 0.4.9.0 and DNS 0.8.1.0 with matching socket types.
 - `postgres` 0.4.1.0: adopt Wire 0.4.9.0 and DNS 0.8.1.0.
 - `redis` 0.5.1.0: adopt Wire 0.4.9.0 and DNS 0.8.1.0.

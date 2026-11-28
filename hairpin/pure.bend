@@ -1,5 +1,5 @@
 import Base
-import bend-kit-http@0.45.0.3/pure.bend as Pure
+import bend-kit-http@0.45.1.0/pure.bend as Pure
 import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-url@0.4.1.0/url.bend as Url
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
