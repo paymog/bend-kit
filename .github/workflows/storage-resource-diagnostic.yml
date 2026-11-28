@@ -1,0 +1,60 @@
+name: storage-resource-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/storage-resource-diagnostic.yml'
+      - 'storage/**'
+
+permissions:
+  contents: read
+
+env:
+  BEND_NO_TELEMETRY: '1'
+
+jobs:
+  capture:
+    if: github.head_ref == 'fix/storage-http-resource'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        revision: [current, original]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ matrix.revision == 'original' && 'ac1ae175a99e44fdf0123a313547f7e24a860dd0' || github.event.pull_request.head.sha }}
+      - name: Install pinned Bend
+        run: |
+          scripts/install-bend.sh "$RUNNER_TEMP/storage-bend"
+          echo "$RUNNER_TEMP/storage-bend/bin" >> "$GITHUB_PATH"
+      - name: Install syscall tracer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y strace
+      - name: Capture 10 complete Storage check processes
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/storage-resource-receipts"
+          uname -a
+          bend version
+          for round in $(seq 1 10); do
+            export TMPDIR="$RUNNER_TEMP/storage-resource-$round"
+            mkdir -p "$TMPDIR"
+            python3 -B scripts/rss-check.py strace -f -tt -yy \
+              -e trace=socket,connect,getsockopt,fcntl,close,futex \
+              -o "$RUNNER_TEMP/storage-resource-receipts/syscalls-$round.log" \
+              bend storage/check.bend \
+              2>&1 | tee "$RUNNER_TEMP/storage-resource-receipts/fixture-$round.log"
+            rm -rf "$TMPDIR"
+          done
+      - name: Upload syscall and fixture logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-resource-${{ matrix.revision }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/storage-resource-receipts/
+          if-no-files-found: error
+          retention-days: 30

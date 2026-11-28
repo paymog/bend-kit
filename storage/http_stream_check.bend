@@ -68,19 +68,32 @@ def server(mode: U32, listener: Listener) -> IO(Unit):
     pair : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(listener)
     accepted(mode, pair)
 
-def result.good(mode: U32, result: Result<&1, &1, U32 & String, U32>) -> Bool:
+def result.good(+mode: U32, result: Result<&1, &1, U32 & String, U32>) -> Bool:
   match result:
     case Done{count}:
       Bool.and(U32.is_eq(mode, 0), U32.is_eq(count, 1))
-    case Fail{e}:
-      U32.is_ne(mode, 0)
+    case Fail{(code, +message)}:
+      +prefix = "storage: object " ++ P.Digest.hex(root())
+      Bool.or(
+        Bool.and(U32.is_eq(mode, 1), String.eq(message, prefix ++ ": storage: HTTP object stream failed: malformed or unsupported response, or response limit exceeded")),
+        Bool.and(U32.is_eq(mode, 2), String.eq(message, prefix ++ " does not match its digest")))
+
+def result.check(+mode: U32, result: Result<&1, &1, U32 & String, U32>) -> IO(Unit):
+  match result:
+    case Done{count}:
+      ok(result.good(mode, Done{count}), "large, truncated, or tampered transfer " ++ U32.show(mode))
+    case Fail{(+code, +message)}:
+      do IO<Unit>:
+        IO.print("HTTP stream transfer " ++ U32.show(mode) ++ " failed (" ++ U32.show(code) ++ "): " ++ message)
+        ok(result.good(mode, Fail{(code, message)}), "large, truncated, or tampered transfer " ++ U32.show(mode))
 
 def exercise(+mode: U32, +dir: String, pair: Listener & U32) -> IO(Unit):
-  (listener, port) = pair
+  (listener, +port) = pair
   do IO<Unit>:
+    IO.print("HTTP stream transfer " ++ U32.show(mode) ++ " on port " ++ U32.show(port))
     done : Chan(Unit) <- IO.fork(Unit, server(mode, listener))
     result : Result<&1, &1, U32 & String, U32> <- Transport.sync("http://127.0.0.1:" ++ U32.show(port), dir, root())
-    ok(result.good(mode, result), "large, truncated, or tampered transfer " ++ U32.show(mode))
+    result.check(mode, result)
     IO.join(Unit, done)
     exists : Bool <- Files.exists(S.Disk.object(dir, root()))
     ok(Bool.pick(Bool, exists, U32.is_eq(mode, 0), U32.is_ne(mode, 0)), "only the valid object is published")
@@ -124,6 +137,8 @@ def invalid(+dir: String, +raw: String) -> IO(Unit):
 def run() -> IO(Unit):
   do IO<Unit>:
     +dir : String <- IO.try(String, Files.temp_dir())
+    ok(Bool.not(result.good(1, Fail{(5, "storage: HTTP object request failed: connection failed (11): Resource temporarily unavailable")})), "truncation does not accept connection failure")
+    ok(Bool.not(result.good(2, Fail{(5, "storage: HTTP object request failed: connection failed (11): Resource temporarily unavailable")})), "tampering does not accept connection failure")
     one(0, dir ++ "/large")
     IO.try(Unit, S.Disk.init(dir ++ "/invalid"))
     invalid(dir ++ "/invalid", "file 01\nx")

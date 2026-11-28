@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `storage` checks: retain stream failure details and identify fixture ports. Require the expected truncation and digest errors. Add a focused 20-round HTTP resource diagnostic; the intermittent connection failure remains unresolved.
 - `template` CI: run all 142 Mustache, Unicode, and nested-partial cases in the package job with pinned Bend. Check harness failure handling and use the current Encoding pin.
 - `http` checks: start mTLS fixtures without reverse DNS. Report each compiler and runtime phase and preserve server diagnostics on failure. Inject failures in both lanes without printing fixture private keys.
 - `runner` 0.22.0.9: reject overlapping live and dead snapshot ids and mismatched dead lookup keys. Prove that accepted registry identities meet the first Revive's uniqueness assumptions.
