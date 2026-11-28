@@ -4,7 +4,7 @@ import ./gateway.bend as G
 import bend-kit-authz@0.1.0.0/authz.bend as Az
 import bend-kit-resources@0.1.0.0/resources.bend as Res
 import bend-kit-cache@0.3.2.0/cache.bend as Cache
-import bend-kit-camber@0.19.2.0/camber.bend as C
+import bend-kit-camber@0.19.2.1/camber.bend as C
 import bend-kit-http@0.45.1.0/pure.bend as H
 import bend-kit-hairpin@0.19.1.0/hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
