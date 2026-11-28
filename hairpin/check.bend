@@ -2,10 +2,10 @@ import Base
 import ./hairpin.bend as Hairpin
 import ./pure.bend as Policy
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.45.1.0/http.bend as Http
-import bend-kit-http@0.45.1.0/pure.bend as Pure
-import bend-kit-http@0.45.1.0/admission.bend as Admission
-import bend-kit-http@0.45.1.0/completion.bend as Completion
+import bend-kit-http@0.45.1.1/http.bend as Http
+import bend-kit-http@0.45.1.1/pure.bend as Pure
+import bend-kit-http@0.45.1.1/admission.bend as Admission
+import bend-kit-http@0.45.1.1/completion.bend as Completion
 import bend-kit-time@0.3.0.5/pure.bend as Time
 import bend-kit-time@0.3.0.5/time.bend as Clock
 import bend-kit-json@0.7.3.2/json.bend as Json

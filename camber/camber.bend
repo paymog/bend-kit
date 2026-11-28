@@ -1,13 +1,13 @@
 # Fixed prepared HTTP applications and bounded affine dependency bundles.
 import Base
-import bend-kit-http@0.45.1.0/http.bend as Http
-import bend-kit-http@0.45.1.0/pure.bend as Pure
+import bend-kit-http@0.45.1.1/http.bend as Http
+import bend-kit-http@0.45.1.1/pure.bend as Pure
 import bend-kit-router@0.2.0.0/router.bend as Router
 import bend-kit-router@0.2.0.0/target.bend as Target
 import bend-kit-json@0.7.3.2/json.bend as Json
 import ./response.bend as Response
 import ./input.bend as Input
-import bend-kit-http@0.45.1.0/completion.bend as TransportCompletion
+import bend-kit-http@0.45.1.1/completion.bend as TransportCompletion
 import ./notices.bend as Notices
 import bend-kit-time@0.3.0.5/pure.bend as Time
 import ./ledger.bend as Book

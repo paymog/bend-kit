@@ -2,7 +2,7 @@
 import Base
 import ./app.bend as App
 import ../camber/camber.bend as C
-import bend-kit-http@0.45.1.0/pure.bend as Pure
+import bend-kit-http@0.45.1.1/pure.bend as Pure
 import ../template/template.bend as T
 import ../files/files.bend as Fs
 import ../encoding/encoding.bend as Enc
