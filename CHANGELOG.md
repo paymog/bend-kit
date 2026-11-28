@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `runner` 0.22.0.11: reject malformed retry-map order, duplicate keys, cached sizes, weight bounds, and registry mismatches in snapshots. Prove live-ticket lookup coverage and failure-count updates. Preserve original retry starts across retries and deferrals.
 - `runner` 0.22.0.10: reject snapshot heaps with invalid cached sizes or scheduler order at any depth. Prove that accepted heaps meet the scheduler order and exact-size invariants. Preserve valid heap shape and contents with one linear validation pass.
 - `http` checks: report the late-observer listener's assigned port with `READY <port>`. Use that port for the socket check and pass only the output prefix to the process finisher.
 - `websocket` checks: use OS-assigned loopback ports for full and partial-frame EOF sessions. Check native and JavaScript acceptance with both former ports held open.

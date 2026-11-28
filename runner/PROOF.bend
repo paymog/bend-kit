@@ -2759,6 +2759,9 @@ def queue.kept(-A: Data, ok: Bool, +s: R.State<A>, e: {R.queue.valid(A, s) == ok
     case False{}:
       Unit{}
     case True{}:
+      e = MBool.eq_true_of_and_left(
+        R.queue.unique(A, s) && (R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s))),
+        R.tries.valid(A, s), e)
       queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s)), e))
 
 def queue.decoded(-A: Data, m: Maybe<&2, R.State<A>>) ->
@@ -2902,7 +2905,8 @@ def snapshot.recovery.ids(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes
 
 def fresh.checked(-A: Data, +s: R.State<A>) -> Data:
   QL.Both<queue.ids(A, s), QL.Both<{R.fresh(A, s) == True{} : Bool},
-    QL.Both<{R.registry.valid(A, s) == True{} : Bool}, {R.queue.heap.valid(A, s) == True{} : Bool}>>>
+    QL.Both<{R.registry.valid(A, s) == True{} : Bool},
+      QL.Both<{R.queue.heap.valid(A, s) == True{} : Bool}, {R.tries.valid(A, s) == True{} : Bool}>>>>
 
 def fresh.kept(-A: Data, ok: Bool, +s: R.State<A>, +e: {R.queue.valid(A, s) == ok : Bool}) ->
     decoded.maybe(R.State<A>, t => fresh.checked(A, t), R.rd.queue.keep(A, ok, s)):
@@ -2910,12 +2914,18 @@ def fresh.kept(-A: Data, ok: Bool, +s: R.State<A>, +e: {R.queue.valid(A, s) == o
     case False{}:
       Unit{}
     case True{}:
+      +retry = MBool.eq_true_of_and_right(
+        R.queue.unique(A, s) && (R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s))),
+        R.tries.valid(A, s), e)
+      +e = MBool.eq_true_of_and_left(
+        R.queue.unique(A, s) && (R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s))),
+        R.tries.valid(A, s), e)
       +tail = MBool.eq_true_of_and_right(R.queue.unique(A, s), R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s)), e)
       +checks = MBool.eq_true_of_and_right(R.fresh(A, s), R.registry.valid(A, s) && R.queue.heap.valid(A, s), tail)
       QL.Both{queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s)), e)),
         QL.Both{MBool.eq_true_of_and_left(R.fresh(A, s), R.registry.valid(A, s) && R.queue.heap.valid(A, s), tail),
           QL.Both{MBool.eq_true_of_and_left(R.registry.valid(A, s), R.queue.heap.valid(A, s), checks),
-            MBool.eq_true_of_and_right(R.registry.valid(A, s), R.queue.heap.valid(A, s), checks)}}}
+            QL.Both{MBool.eq_true_of_and_right(R.registry.valid(A, s), R.queue.heap.valid(A, s), checks), retry}}}}
 
 def fresh.decoded(-A: Data, m: Maybe<&2, R.State<A>>) ->
     decoded.maybe(R.State<A>, s => fresh.checked(A, s), R.rd.queue(A, m)):
@@ -3259,10 +3269,116 @@ def heap.state.checked(-A: Data, +s: R.State<A>, e: fresh.checked(A, s)) ->
     QL.Both<QL.ordered(A, Q.pending(A, R.queue(A, s))), heap.sized(A, Q.pending(A, R.queue(A, s)))>:
   match s:
     case R.State{Q.State{n, +h, run}, ts, ds, bs}:
-      QL.Both{ids, QL.Both{fresh, QL.Both{registry, valid}}} = e
+      QL.Both{ids, QL.Both{fresh, QL.Both{registry, QL.Both{valid, retry}}}} = e
       heap.checked(A, h, valid)
 
 def snapshot.heap(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
     e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
     QL.Both<QL.ordered(A, Q.pending(A, R.queue(A, s))), heap.sized(A, Q.pending(A, R.queue(A, s)))>:
   heap.state.checked(A, s, snapshot.checked(~A, ~pdec, b, s, e))
+
+def tries.checked(-A: Data, +s: R.State<A>, e: fresh.checked(A, s)) -> {R.tries.valid(A, s) == True{} : Bool}:
+  QL.Both{ids, QL.Both{fresh, QL.Both{registry, QL.Both{heap, retry}}}} = e
+  retry
+
+def snapshot.tries(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    {R.tries.valid(A, s) == True{} : Bool}:
+  tries.checked(A, s, snapshot.checked(~A, ~pdec, b, s, e))
+
+def tries.searchtree(-A: Data, +s: R.State<A>, e: {R.tries.valid(A, s) == True{} : Bool}) ->
+    {CL.searchtree(~Nat, ~R.Try, ~Nat.cmp, R.tries(A, s)) == True{} : Bool}:
+  match s:
+    case R.State{Q.State{n, +h, +run}, +ts, ds, bs}:
+      MBool.eq_true_of_and_left(CL.searchtree(~Nat, ~R.Try, ~Nat.cmp, ts),
+        R.tries.sized(ts) && (R.tries.heap(A, h, ts) && (R.tries.list(A, run, ts) && R.tries.live(A, ts, h, run))), e)
+
+def snapshot.tries.lookup(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    {CL.searchtree(~Nat, ~R.Try, ~Nat.cmp, R.tries(A, s)) == True{} : Bool}:
+  tries.searchtree(A, s, snapshot.tries(~A, ~pdec, b, s, e))
+
+def tries.bump.lookup(+ts: R.Tries(), +i: Nat, +f: Nat, +st: Nat,
+    tree: {CL.searchtree(~Nat, ~R.Try, ~Nat.cmp, ts) == True{} : Bool},
+    found: {R.tries.get(ts, i) == Some{R.Try{f, st}} : Maybe<&2, R.Try>}) ->
+    {R.tries.get(R.tries.bump(ts, i), i) == Some{R.Try{1n+f, st}} : Maybe<&2, R.Try>}:
+  %Equal.sym(Maybe<&2, R.Try>, R.tries.get(ts, i), Some{R.Try{f, st}}, found) :
+    {R.tries.get(R.tries.bump.got(_, ts, i), i) == Some{R.Try{1n+f, st}} : Maybe<&2, R.Try>}
+  CL.omap_get_put_same(~Nat, ~R.Try, ~Nat.cmp, ~CP.ncmp_refl, ~CP.ncmp_eq, ~CP.ncmp_flip, ~CP.ncmp_trans,
+    ts, tree, i, R.Try{1n+f, st})
+
+def snapshot.tries.bump(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    +i: Nat, +f: Nat, +st: Nat,
+    accepted: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>},
+    found: {R.tries.get(R.tries(A, s), i) == Some{R.Try{f, st}} : Maybe<&2, R.Try>}) ->
+    {R.tries.get(R.tries.bump(R.tries(A, s), i), i) == Some{R.Try{1n+f, st}} : Maybe<&2, R.Try>}:
+  tries.bump.lookup(R.tries(A, s), i, f, st, snapshot.tries.lookup(~A, ~pdec, b, s, accepted), found)
+
+def tries.budget(+attempts: Nat, +f: Nat, +st: Nat, +ms: Nat) ->
+    {R.budget.of(attempts, Some{R.Try{f, st}}, Some{ms}) ==
+      Retry.Budget{Nat.sub(attempts, f), Some{Nat.add(st, ms)}} : Retry.Budget}:
+  {==}
+
+def tries.hit(+m: Maybe<&2, R.Try>) -> Data:
+  Sigma<&2, &2, Nat, f => Sigma<&2, &2, Nat, st => {m == Some{R.Try{f, st}} : Maybe<&2, R.Try>}>>
+
+def tries.present(+m: Maybe<&2, R.Try>, e: {R.tries.present(m) == True{} : Bool}) -> tries.hit(m):
+  match m:
+    case None{}:
+      Empty.absurd(tries.hit(None{}), MBool.false_ne_true(e))
+    case Some{R.Try{+f, +st}}:
+      (f, (st, {==}))
+
+def tries.heap.lookups(-A: Data, +h: H.Heap<Q.Ticket<A>>, +ts: R.Tries(),
+    +e: {R.tries.heap(A, h, ts) == True{} : Bool}) ->
+    QL.all.heap(A, t => tries.hit(R.tries.get(ts, Q.id(A, t))), h):
+  match h:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, +t, +l, +r}:
+      +tail = MBool.eq_true_of_and_right(R.tries.present(R.tries.get(ts, Q.id(A, t))),
+        R.tries.heap(A, l, ts) && R.tries.heap(A, r, ts), e)
+      QL.Both{tries.present(R.tries.get(ts, Q.id(A, t)),
+        MBool.eq_true_of_and_left(R.tries.present(R.tries.get(ts, Q.id(A, t))),
+          R.tries.heap(A, l, ts) && R.tries.heap(A, r, ts), e)),
+        QL.Both{tries.heap.lookups(A, l, ts, MBool.eq_true_of_and_left(R.tries.heap(A, l, ts), R.tries.heap(A, r, ts), tail)),
+          tries.heap.lookups(A, r, ts, MBool.eq_true_of_and_right(R.tries.heap(A, l, ts), R.tries.heap(A, r, ts), tail))}}
+
+def tries.all.list(-A: Data, -P: Q.Ticket<A> -> Data, run: List<&2, Q.Ticket<A>>) -> Data:
+  match run:
+    case Nil{}:
+      Unit
+    case Con{t, rest}:
+      QL.Both<P(t), tries.all.list(A, P, rest)>
+
+def tries.list.lookups(-A: Data, +run: List<&2, Q.Ticket<A>>, +ts: R.Tries(),
+    +e: {R.tries.list(A, run, ts) == True{} : Bool}) ->
+    tries.all.list(A, t => tries.hit(R.tries.get(ts, Q.id(A, t))), run):
+  match run:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      QL.Both{tries.present(R.tries.get(ts, Q.id(A, t)),
+        MBool.eq_true_of_and_left(R.tries.present(R.tries.get(ts, Q.id(A, t))), R.tries.list(A, rest, ts), e)),
+        tries.list.lookups(A, rest, ts,
+          MBool.eq_true_of_and_right(R.tries.present(R.tries.get(ts, Q.id(A, t))), R.tries.list(A, rest, ts), e))}
+
+def tries.covered(-A: Data, +s: R.State<A>, +e: {R.tries.valid(A, s) == True{} : Bool}) ->
+    QL.Both<QL.all.heap(A, t => tries.hit(R.tries.get(R.tries(A, s), Q.id(A, t))), Q.pending(A, R.queue(A, s))),
+      tries.all.list(A, t => tries.hit(R.tries.get(R.tries(A, s), Q.id(A, t))), Q.running(A, R.queue(A, s)))>:
+  match s:
+    case R.State{Q.State{n, +h, +run}, +ts, ds, bs}:
+      +tail = MBool.eq_true_of_and_right(CL.searchtree(~Nat, ~R.Try, ~Nat.cmp, ts),
+        R.tries.sized(ts) && (R.tries.heap(A, h, ts) && (R.tries.list(A, run, ts) && R.tries.live(A, ts, h, run))), e)
+      +covered = MBool.eq_true_of_and_right(R.tries.sized(ts),
+        R.tries.heap(A, h, ts) && (R.tries.list(A, run, ts) && R.tries.live(A, ts, h, run)), tail)
+      +lists = MBool.eq_true_of_and_right(R.tries.heap(A, h, ts), R.tries.list(A, run, ts) && R.tries.live(A, ts, h, run), covered)
+      QL.Both{tries.heap.lookups(A, h, ts,
+        MBool.eq_true_of_and_left(R.tries.heap(A, h, ts), R.tries.list(A, run, ts) && R.tries.live(A, ts, h, run), covered)),
+        tries.list.lookups(A, run, ts, MBool.eq_true_of_and_left(R.tries.list(A, run, ts), R.tries.live(A, ts, h, run), lists))}
+
+def snapshot.tries.covered(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    QL.Both<QL.all.heap(A, t => tries.hit(R.tries.get(R.tries(A, s), Q.id(A, t))), Q.pending(A, R.queue(A, s))),
+      tries.all.list(A, t => tries.hit(R.tries.get(R.tries(A, s), Q.id(A, t))), Q.running(A, R.queue(A, s)))>:
+  tries.covered(A, s, snapshot.tries(~A, ~pdec, b, s, e))

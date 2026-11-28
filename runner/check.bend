@@ -185,8 +185,24 @@ def collision.count(m: Maybe<&2, Model.Rec<String>>) -> Nat:
     case _:
       0n
 
-def queued(h: H.Heap<Q.Ticket<String>>, run: List<&2, Q.Ticket<String>>) -> Model.State<String>:
-  Model.State{Q.State{Nat.add(Nat.mul(65536n, 65536n), 10n), h, run}, O.OMap.new(Nat, Model.Try), M.HMap.new(Nat, Model.Dead<String>), M.HMap.new(String, Retry.State)}
+def queued.tries.heap(h: H.Heap<Q.Ticket<String>>, ts: Model.Tries()) -> Model.Tries():
+  match h:
+    case H.HLeaf{}:
+      ts
+    case H.HNode{n, Q.Ticket{+i, +d, x}, l, r}:
+      queued.tries.heap(l, queued.tries.heap(r, O.OMap.put(~Nat, ~Model.Try, ~Nat.cmp, ts, i, Model.Try{0n, d})))
+
+def queued.tries.list(run: List<&2, Q.Ticket<String>>, ts: Model.Tries()) -> Model.Tries():
+  match run:
+    case Nil{}:
+      ts
+    case Con{Q.Ticket{+i, +d, x}, rest}:
+      queued.tries.list(rest, O.OMap.put(~Nat, ~Model.Try, ~Nat.cmp, ts, i, Model.Try{0n, d}))
+
+def queued(+h: H.Heap<Q.Ticket<String>>, +run: List<&2, Q.Ticket<String>>) -> Model.State<String>:
+  Model.State{Q.State{Nat.add(Nat.mul(65536n, 65536n), 10n), h, run},
+    queued.tries.heap(h, queued.tries.list(run, O.OMap.new(Nat, Model.Try))),
+    M.HMap.new(Nat, Model.Dead<String>), M.HMap.new(String, Retry.State)}
 
 def leaf(+i: Nat, d: Nat, x: String) -> H.Heap<Q.Ticket<String>>:
   H.HNode{1n, Q.Ticket{i, d, x}, H.HLeaf{}, H.HLeaf{}}
@@ -294,12 +310,77 @@ def registry.snapshots() -> IO(Unit):
       registry.fixture(leaf(1n, big(), "pending"), [Q.Ticket{2n, 3n, "running"}], 0n, 0n))), 0n),
       "unique", "the first revive of a valid snapshot keeps unique live ids")
 
+def retried(s: Model.State<String>, ts: Model.Tries()) -> Model.State<String>:
+  Model.State{q, old, ds, bs} = s
+  Model.State{q, ts, ds, bs}
+
+def tries.node(+i: Nat) -> Model.Tries():
+  O.OBin{1, i, Model.Try{3n, big()}, O.OTip{}, O.OTip{}}
+
+def tries.fixture() -> Model.State<String>:
+  queued(H.HNode{3n, Q.Ticket{1n, 1n, "one"}, leaf(0n, 2n, "zero"), leaf(2n, 3n, "two")}, [])
+
+def tries.history() -> Model.State<String>:
+  live([Model.Enqueue{big(), "retry"}, Model.Select{big()}, Model.Requeue{0n, 2n},
+    Model.Select{2n}, Model.Defer{0n, 1n}, Model.Enqueue{0n, "done"}, Model.Select{0n}, Model.Complete{1n},
+    Model.Enqueue{0n, "cancel"}, Model.Cancel{2n}, Model.Enqueue{0n, "dead"}, Model.Select{0n},
+    Model.Abandon{3n, Model.WhyFailed{}, 0n}, Model.Enqueue{0n, "revive"}, Model.Select{0n},
+    Model.Abandon{4n, Model.WhyFailed{}, 0n}, Model.Revive{4n, 7n}, Model.Select{1n}], Model.new(String))
+
+def tries.four() -> Model.State<String>:
+  queued(H.HLeaf{}, [Q.Ticket{0n, 1n, "zero"}, Q.Ticket{1n, 1n, "one"}, Q.Ticket{2n, 1n, "two"}, Q.Ticket{3n, 1n, "three"}])
+
+def tries.snapshots() -> IO(Unit):
+  do IO<Unit>:
+    same(rec(Model.encode.snap(~String, ~penc, retried(tries.four(),
+      O.OBin{4, 1n, Model.Try{0n, 1n},
+        O.OBin{2, 0n, Model.Try{0n, 1n}, O.OTip{}, tries.node(2n)}, tries.node(3n)}))),
+      "none", "retry order is checked against ancestor bounds")
+    same(rec(Model.encode.snap(~String, ~penc, retried(tries.four(),
+      O.OBin{4, 0n, Model.Try{0n, 1n}, O.OTip{},
+        O.OBin{3, 2n, Model.Try{0n, 1n}, tries.node(1n), tries.node(3n)}}))),
+      "none", "retry map weight bounds reject a correctly sized ordered but unbalanced tree")
+    same(rec(Model.encode.snap(~String, ~penc, retried(tries.fixture(),
+      O.OBin{3, 1n, Model.Try{0n, 1n}, tries.node(2n), tries.node(0n)}))),
+      "none", "retry keys must be in search order")
+    same(rec(Model.encode.snap(~String, ~penc, retried(tries.fixture(),
+      O.OBin{3, 1n, Model.Try{0n, 1n}, tries.node(1n), tries.node(2n)}))),
+      "none", "duplicate retry keys do not decode")
+    same(rec(Model.encode.snap(~String, ~penc, retried(queued(leaf(0n, 1n, "x"), []),
+      O.OBin{0, 0n, Model.Try{0n, 1n}, O.OTip{}, O.OTip{}}))),
+      "none", "zero retry cached size does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, retried(tries.fixture(),
+      O.OBin{4, 1n, Model.Try{0n, 1n}, tries.node(0n), tries.node(2n)}))),
+      "none", "excess retry cached size does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, retried(tries.fixture(),
+      O.OBin{4, 1n, Model.Try{0n, 1n}, O.OBin{2, 0n, Model.Try{0n, 2n}, O.OTip{}, O.OTip{}}, tries.node(2n)}))),
+      "none", "deep retry cached size fails even when parent caches agree")
+    same(rec(Model.encode.snap(~String, ~penc, retried(queued(leaf(0n, 1n, "x"), []), O.OTip{}))),
+      "none", "pending tickets require retry metadata")
+    same(rec(Model.encode.snap(~String, ~penc, retried(queued(H.HLeaf{}, [Q.Ticket{0n, 1n, "x"}]), O.OTip{}))),
+      "none", "running tickets require retry metadata")
+    same(rec(Model.encode.snap(~String, ~penc, retried(Model.new(String), tries.node(0n)))),
+      "none", "orphan retry metadata does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, retried(graveyard(), tries.node(0n)))),
+      "none", "dead tickets cannot retain retry metadata")
+    same(rec(Model.encode.snap(~String, ~penc, retried(live([Model.Enqueue{0n, "x"}, Model.Select{0n}, Model.Complete{0n}], Model.new(String)), tries.node(0n)))),
+      "none", "completed tickets cannot retain retry metadata")
+    same(rec(Model.encode.snap(~String, ~penc, retried(live([Model.Enqueue{0n, "x"}, Model.Cancel{0n}], Model.new(String)), tries.node(0n)))),
+      "none", "cancelled tickets cannot retain retry metadata")
+    same(rec(Model.encode.snap(~String, ~penc, tries.history())), hex(tries.history()),
+      "retry and defer keep original starts even above current deadlines; revive resets its budget")
+    same(rec(Model.encode.snap(~String, ~penc, retried(tries.fixture(),
+      O.OBin{3, 1n, Model.Try{8n, big()}, tries.node(0n), tries.node(2n)}))),
+      hex(retried(tries.fixture(), O.OBin{3, 1n, Model.Try{8n, big()}, tries.node(0n), tries.node(2n)})),
+      "valid retry snapshots retain failure counts and start deadlines")
+
 def snapshots() -> IO(Unit):
   do IO<Unit>:
     heap.snapshots()
     queue.snapshots()
     fresh.snapshots()
     registry.snapshots()
+    tries.snapshots()
     same(describe(sample()), "next=5 pending=2 running=1 tries=3 fails=1 dead=1", "the sample state has pending, running, retried, and dead tickets")
     same(graves(Model.dead(String, sample())), "0:unsafe:a ", "a dead ticket keeps its payload and why")
     same(rec(Model.encode.snap(~String, ~penc, sample())), hex(sample()), "a snapshot decodes to the same heap, running list, tries, dead tickets, and breakers")
