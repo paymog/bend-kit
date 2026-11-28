@@ -160,7 +160,7 @@ jobs:
               if [ ${#cs[@]} -gt 0 ]; then
                 echo "$pkg"
               else
-                case "$pkg" in commands|webhooks|f32array|bits|hash) echo "$pkg" ;; esac
+                case "$pkg" in commands|webhooks|f32array|bits|hash|runner) echo "$pkg" ;; esac
               fi
             done
           )
