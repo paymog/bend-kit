@@ -687,6 +687,22 @@ def retry.test(lp: Listener & U32) -> IO(Unit):
       Http.post.json(base ++ "/json", Json.Arr{[Json.Num{Bytes.from_string("1")}, Json.Flag{True{}}]})
     retry.check("post.json", 200, "POST application/json [1,true]", posted)
 
+def retry.repeat(left: Nat) -> IO(Unit):
+  match left:
+    case 0n:
+      IO.pure(Unit, Unit{})
+    case 1n+p:
+      do IO<Unit>:
+        listener : Listener & U32 <- local.listen()
+        retry.test(listener)
+        retry.repeat(p)
+
+def retry.stress() -> IO(Unit):
+  do IO<Unit>:
+    local.ok(String.eq(retry.error(Pure.ErrRead{104, "connection reset"}), "ErrRead 104 connection reset"), "retry diagnostics: read error keeps errno and message")
+    local.ok(String.eq(retry.error(Pure.ErrTimeout{}), "ErrTimeout"), "retry diagnostics: timeout stays distinct")
+    retry.repeat(100n)
+
 def local.proxy.http(req: Pure.Req) -> IO(Pure.Res):
   Pure.Req{+method, path, +headers, body} = req
   do IO<Pure.Res>:
@@ -1318,8 +1334,7 @@ def main() -> IO(Unit):
     gl : Listener & U32 <- local.listen()
     local.gz.test(gl)
     resolve.check()
-    rl : Listener & U32 <- local.listen()
-    retry.test(rl)
+    retry.stress()
     xl : Listener & U32 <- local.listen()
     local.proxy.test(xl)
     sl : Listener & U32 <- local.listen()
