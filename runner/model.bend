@@ -1245,8 +1245,52 @@ def queue.heap.valid(-A: Data, s: State<A>) -> Bool:
   State{Q.State{n, h, run}, ts, ds, bs} = s
   heap.valid(A, h)
 
+def tries.sized(ts: Tries()) -> Bool:
+  match ts:
+    case O.OTip{}:
+      True{}
+    case O.OBin{+n, k, t, +lo, +hi}:
+      +l = U32.to_nat(O.OMap.size(Nat, Try, lo))
+      +r = U32.to_nat(O.OMap.size(Nat, Try, hi))
+      Nat.is_eq(U32.to_nat(n), 1n+Nat.add(l, r)) &&
+        (CL.weight_ok(1n+l, 1n+r) && (tries.sized(lo) && tries.sized(hi)))
+
+def tries.present(t: Maybe<&2, Try>) -> Bool:
+  match t:
+    case None{}:
+      False{}
+    case Some{x}:
+      True{}
+
+def tries.heap(-A: Data, h: H.Heap<Q.Ticket<A>>, +ts: Tries()) -> Bool:
+  match h:
+    case H.HLeaf{}:
+      True{}
+    case H.HNode{n, t, l, r}:
+      tries.present(tries.get(ts, Q.id(A, t))) && (tries.heap(A, l, ts) && tries.heap(A, r, ts))
+
+def tries.list(-A: Data, run: List<&2, Q.Ticket<A>>, +ts: Tries()) -> Bool:
+  match run:
+    case Nil{}:
+      True{}
+    case Con{t, rest}:
+      tries.present(tries.get(ts, Q.id(A, t))) && tries.list(A, rest, ts)
+
+def tries.live(-A: Data, ts: Tries(), +h: H.Heap<Q.Ticket<A>>, +run: List<&2, Q.Ticket<A>>) -> Bool:
+  match ts:
+    case O.OTip{}:
+      True{}
+    case O.OBin{n, +k, t, lo, hi}:
+      Bool.not(queue.absent.heap(A, h, k) && queue.absent.list(A, run, k)) &&
+        (tries.live(A, lo, h, run) && tries.live(A, hi, h, run))
+
+def tries.valid(-A: Data, s: State<A>) -> Bool:
+  State{Q.State{n, +h, +run}, +ts, ds, bs} = s
+  CL.searchtree(~Nat, ~Try, ~Nat.cmp, ts) && (tries.sized(ts) &&
+    (tries.heap(A, h, ts) && (tries.list(A, run, ts) && tries.live(A, ts, h, run))))
+
 def queue.valid(-A: Data, +s: State<A>) -> Bool:
-  queue.unique(A, s) && (fresh(A, s) && (registry.valid(A, s) && queue.heap.valid(A, s)))
+  (queue.unique(A, s) && (fresh(A, s) && (registry.valid(A, s) && queue.heap.valid(A, s)))) && tries.valid(A, s)
 
 def rd.queue.keep(-A: Data, ok: Bool, s: State<A>) -> Maybe<&2, State<A>>:
   match ok:

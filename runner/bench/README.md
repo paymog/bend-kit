@@ -62,6 +62,8 @@ Registry-identity validation smoke, 2026-11-28, macOS arm64, Bend 2.0.40: `pytho
 
 Heap-validation smoke, 2026-11-28, macOS arm64, Bend 2.0.40: `python3 run.py 1 10`. Replay took 0.1 ms in Rust, 1.8 ms in Python, and 2.5 ms in Bend. Dead-ticket replay took 0.2, 2.4, and 3.7 ms. Bend's compacted replay took 3.6 ms. Checksums agreed: replay `9623552`, dead `10672128`, both `512/1024`. This is a small correctness smoke, not a performance comparison.
 
+Retry-map validation smoke, 2026-11-28, macOS arm64, Bend 2.0.40: `python3 run.py 1 10`. Replay took 0.1 ms in Rust, 1.8 ms in Python, and 2.6 ms in Bend. Dead-ticket replay took 0.2, 2.4, and 3.9 ms. Bend's compacted replay took 7.8 ms. Checksums agreed: replay `9623552`, dead `10672128`, both `512/1024`. This is a small correctness smoke, not a performance comparison.
+
 ## Reading it
 
 Compaction cuts open's replay by 3.6x here. The log holds 196,608 records, and the compacted journal holds one: the 32,768 pending tickets and their tries. Replay time then follows the live state, not the history. Half of the jobs here are still pending; a runner whose jobs finish gains more.
