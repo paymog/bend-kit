@@ -2759,7 +2759,7 @@ def queue.kept(-A: Data, ok: Bool, +s: R.State<A>, e: {R.queue.valid(A, s) == ok
     case False{}:
       Unit{}
     case True{}:
-      queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && R.registry.valid(A, s), e))
+      queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s)), e))
 
 def queue.decoded(-A: Data, m: Maybe<&2, R.State<A>>) ->
     decoded.maybe(R.State<A>, s => queue.ids(A, s), R.rd.queue(A, m)):
@@ -2901,7 +2901,8 @@ def snapshot.recovery.ids(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes
   recovery.from.ids(~A, s, now, p, snapshot.queue.ids(~A, ~pdec, b, s, e))
 
 def fresh.checked(-A: Data, +s: R.State<A>) -> Data:
-  QL.Both<queue.ids(A, s), QL.Both<{R.fresh(A, s) == True{} : Bool}, {R.registry.valid(A, s) == True{} : Bool}>>
+  QL.Both<queue.ids(A, s), QL.Both<{R.fresh(A, s) == True{} : Bool},
+    QL.Both<{R.registry.valid(A, s) == True{} : Bool}, {R.queue.heap.valid(A, s) == True{} : Bool}>>>
 
 def fresh.kept(-A: Data, ok: Bool, +s: R.State<A>, +e: {R.queue.valid(A, s) == ok : Bool}) ->
     decoded.maybe(R.State<A>, t => fresh.checked(A, t), R.rd.queue.keep(A, ok, s)):
@@ -2909,10 +2910,12 @@ def fresh.kept(-A: Data, ok: Bool, +s: R.State<A>, +e: {R.queue.valid(A, s) == o
     case False{}:
       Unit{}
     case True{}:
-      +tail = MBool.eq_true_of_and_right(R.queue.unique(A, s), R.fresh(A, s) && R.registry.valid(A, s), e)
-      QL.Both{queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && R.registry.valid(A, s), e)),
-        QL.Both{MBool.eq_true_of_and_left(R.fresh(A, s), R.registry.valid(A, s), tail),
-          MBool.eq_true_of_and_right(R.fresh(A, s), R.registry.valid(A, s), tail)}}
+      +tail = MBool.eq_true_of_and_right(R.queue.unique(A, s), R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s)), e)
+      +checks = MBool.eq_true_of_and_right(R.fresh(A, s), R.registry.valid(A, s) && R.queue.heap.valid(A, s), tail)
+      QL.Both{queue.unique.ids(A, s, MBool.eq_true_of_and_left(R.queue.unique(A, s), R.fresh(A, s) && (R.registry.valid(A, s) && R.queue.heap.valid(A, s)), e)),
+        QL.Both{MBool.eq_true_of_and_left(R.fresh(A, s), R.registry.valid(A, s) && R.queue.heap.valid(A, s), tail),
+          QL.Both{MBool.eq_true_of_and_left(R.registry.valid(A, s), R.queue.heap.valid(A, s), checks),
+            MBool.eq_true_of_and_right(R.registry.valid(A, s), R.queue.heap.valid(A, s), checks)}}}
 
 def fresh.decoded(-A: Data, m: Maybe<&2, R.State<A>>) ->
     decoded.maybe(R.State<A>, s => fresh.checked(A, s), R.rd.queue(A, m)):
@@ -2974,7 +2977,7 @@ def snapshot.checked(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Byte
 
 def fresh.checked.right(-A: Data, +s: R.State<A>, e: fresh.checked(A, s)) -> {R.fresh(A, s) == True{} : Bool}:
   match e:
-    case QL.Both{ids, QL.Both{fresh, registry}}:
+    case QL.Both{ids, QL.Both{fresh, checks}}:
       fresh
 
 def snapshot.fresh(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
@@ -3068,7 +3071,7 @@ def snapshot.enqueue.fresh(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Byte
 
 def registry.checked(-A: Data, +s: R.State<A>, e: fresh.checked(A, s)) -> {R.registry.valid(A, s) == True{} : Bool}:
   match e:
-    case QL.Both{ids, QL.Both{fresh, registry}}:
+    case QL.Both{ids, QL.Both{fresh, QL.Both{registry, heap}}}:
       registry
 
 def snapshot.registry(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
@@ -3176,10 +3179,90 @@ def registry.revive.ids(~A: Data, +s: R.State<A>, +i: Nat, +d: Nat, ids: queue.i
 def registry.checked.revive(~A: Data, +s: R.State<A>, +i: Nat, d: Nat, e: fresh.checked(A, s)) ->
     queue.ids(A, R.step(~A, s, R.Revive{i, d})):
   match e:
-    case QL.Both{ids, QL.Both{fresh, registry}}:
+    case QL.Both{ids, QL.Both{fresh, QL.Both{registry, heap}}}:
       registry.revive.ids(~A, s, i, d, ids, registry.lookup(~A, s, i, registry))
 
 def snapshot.revive.ids(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>, +i: Nat, d: Nat,
     +e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
     queue.ids(A, R.step(~A, s, R.Revive{i, d})):
   registry.checked.revive(~A, s, i, d, snapshot.checked(~A, ~pdec, b, s, e))
+
+def heap.sized(-A: Data, h: H.Heap<Q.Ticket<A>>) -> Data:
+  match h:
+    case H.HLeaf{}:
+      Unit
+    case H.HNode{n, t, +l, +r}:
+      QL.Both<{n == 1n+Nat.add(H.Heap.size(Q.Ticket<A>, l), H.Heap.size(Q.Ticket<A>, r)) : Nat},
+        QL.Both<heap.sized(A, l), heap.sized(A, r)>>
+
+def heap.below.root(-A: Data, h: H.Heap<Q.Ticket<A>>, +t: Q.Ticket<A>,
+    root: {R.heap.root.le(A, t, h) == True{} : Bool}, ordered: QL.ordered(A, h)) -> QL.below(A, h, t):
+  match h:
+    case H.HLeaf{}:
+      Unit{}
+    case H.HNode{n, +x, l, r}:
+      QL.Both{QL.Both{left, right}, children} = ordered
+      +root = root
+      QL.Both{root, QL.Both{QP.below_trans(A, l, t, x, root, left), QP.below_trans(A, r, t, x, root, right)}}
+
+def heap.checked.node(-A: Data, +n: Nat, +t: Q.Ticket<A>, +l: H.Heap<Q.Ticket<A>>, +r: H.Heap<Q.Ticket<A>>,
+    size: {n == 1n+Nat.add(H.Heap.size(Q.Ticket<A>, l), H.Heap.size(Q.Ticket<A>, r)) : Nat},
+    left: {R.heap.root.le(A, t, l) == True{} : Bool}, right: {R.heap.root.le(A, t, r) == True{} : Bool},
+    lc: QL.Both<QL.ordered(A, l), heap.sized(A, l)>, rc: QL.Both<QL.ordered(A, r), heap.sized(A, r)>) ->
+    QL.Both<QL.ordered(A, H.HNode{n, t, l, r}), heap.sized(A, H.HNode{n, t, l, r})>:
+  match lc rc:
+    case QL.Both{+lo, ls} QL.Both{+ro, rs}:
+      QL.Both{QL.Both{QL.Both{heap.below.root(A, l, t, left, lo), heap.below.root(A, r, t, right, ro)}, QL.Both{lo, ro}},
+        QL.Both{size, QL.Both{ls, rs}}}
+
+def heap.checked(-A: Data, +h: H.Heap<Q.Ticket<A>>, +e: {R.heap.valid(A, h) == True{} : Bool}) ->
+    QL.Both<QL.ordered(A, h), heap.sized(A, h)>:
+  match h:
+    case H.HLeaf{}:
+      QL.Both{Unit{}, Unit{}}
+    case H.HNode{+n, +t, +l, +r}:
+      +size = Nat.is_eq(n, 1n+Nat.add(H.Heap.size(Q.Ticket<A>, l), H.Heap.size(Q.Ticket<A>, r)))
+      +left = R.heap.root.le(A, t, l)
+      +right = R.heap.root.le(A, t, r)
+      +lv = R.heap.valid(A, l)
+      +rv = R.heap.valid(A, r)
+      +roots = MBool.eq_true_of_and_right(size, left && (right && (lv && rv)), e)
+      +tail = MBool.eq_true_of_and_right(left, right && (lv && rv), roots)
+      +trees = MBool.eq_true_of_and_right(right, lv && rv, tail)
+      heap.checked.node(A, n, t, l, r,
+        MNat.eq_of_is_eq(n, 1n+Nat.add(H.Heap.size(Q.Ticket<A>, l), H.Heap.size(Q.Ticket<A>, r)),
+          MBool.eq_true_of_and_left(size, left && (right && (lv && rv)), e)),
+        MBool.eq_true_of_and_left(left, right && (lv && rv), roots),
+        MBool.eq_true_of_and_left(right, lv && rv, tail),
+        heap.checked(A, l, MBool.eq_true_of_and_left(lv, rv, trees)),
+        heap.checked(A, r, MBool.eq_true_of_and_right(lv, rv, trees)))
+
+def heap.count(-A: Data, h: H.Heap<Q.Ticket<A>>) -> Nat:
+  match h:
+    case H.HLeaf{}:
+      0n
+    case H.HNode{n, t, l, r}:
+      1n+Nat.add(heap.count(A, l), heap.count(A, r))
+
+def heap.size.count(-A: Data, +h: H.Heap<Q.Ticket<A>>, e: heap.sized(A, h)) ->
+    {H.Heap.size(Q.Ticket<A>, h) == heap.count(A, h) : Nat}:
+  match h:
+    case H.HLeaf{}:
+      {==}
+    case H.HNode{+n, t, +l, +r}:
+      QL.Both{size, QL.Both{ls, rs}} = e
+      %heap.size.count(A, l, ls) : {n == 1n+Nat.add(_, heap.count(A, r)) : Nat}
+      %heap.size.count(A, r, rs) : {n == 1n+Nat.add(H.Heap.size(Q.Ticket<A>, l), _) : Nat}
+      size
+
+def heap.state.checked(-A: Data, +s: R.State<A>, e: fresh.checked(A, s)) ->
+    QL.Both<QL.ordered(A, Q.pending(A, R.queue(A, s))), heap.sized(A, Q.pending(A, R.queue(A, s)))>:
+  match s:
+    case R.State{Q.State{n, +h, run}, ts, ds, bs}:
+      QL.Both{ids, QL.Both{fresh, QL.Both{registry, valid}}} = e
+      heap.checked(A, h, valid)
+
+def snapshot.heap(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes, +s: R.State<A>,
+    e: {R.decode.rec(~A, ~pdec, b) == Some{R.Snap{s}} : Maybe<&2, R.Rec<A>>}) ->
+    QL.Both<QL.ordered(A, Q.pending(A, R.queue(A, s))), heap.sized(A, Q.pending(A, R.queue(A, s)))>:
+  heap.state.checked(A, s, snapshot.checked(~A, ~pdec, b, s, e))

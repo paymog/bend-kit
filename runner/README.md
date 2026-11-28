@@ -3,7 +3,7 @@
 A durable job runner (an outbox). It keeps a scheduler queue in a journal, bounds the attempts that run at once with a resources pool, and retries failed jobs with retry's policy and a breaker per target.
 
 ```bend
-import bend-kit-runner@0.22.0.9/runner.bend as R
+import bend-kit-runner@0.22.0.10/runner.bend as R
 ```
 
 It imports `bend-kit-journal@0.4.0.2/journal.bend` for runtime IO and `bend-kit-journal@0.4.0.2/pure.bend` for read-only inspection and replay benchmarks, `bend-kit-scheduler@0.4.4.0`, `bend-kit-resources@0.1.0.0`, `bend-kit-retry@0.3.0.0`, `bend-kit-time@0.3.0.5`, `bend-kit-collections@0.1.6.0`, `bend-kit-files@0.4.0.3`, `bend-kit-encoding@0.5.0.3`, and `bend-kit-bytes@0.3.3.3`. Payload codecs take and give that version's `Bytes`. Policies, budgets, and outcomes are `bend-kit-retry@0.3.0.0` types; tickets are `bend-kit-scheduler@0.4.4.0` types.
@@ -32,7 +32,7 @@ A job is a `String`. `work` prints it and succeeds. The journal file keeps the j
 import Base
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-runner@0.22.0.9/runner.bend as R
+import bend-kit-runner@0.22.0.10/runner.bend as R
 
 def penc(s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -80,7 +80,7 @@ def main() -> IO(Unit):
 
 ## API
 
-`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.22.0.9/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
+`runner.bend` keeps the runtime entry points. Import `bend-kit-runner@0.22.0.10/model.bend` for pure types and operations, including `State`, `Op`, `step`, `pick`, and the record codecs. These names no longer live in `runner.bend`. The runtime uses the same model implementation as the proofs.
 
 `Breakers()` is a `collections.HMap<String, Retry.State>`. The breaker proofs use its checked lookup, insert, and delete laws. The hash folds code points with FNV-1a; equal hashes still compare full target strings.
 
@@ -154,7 +154,7 @@ Run `python3 runner/migrate-test.py` for conversion, CRC, codec, interruption, a
 
 `R.inspect(~A, ~pdec, path, max, limit)` opens an existing file with read-only mode `r`. It never creates, truncates, appends, or runs recovery. Stop writers first so the rehearsal reads a stable file. `max` caps each record, including snapshots; `limit` caps all file bytes.
 
-Import `bend-kit-runner@0.22.0.9/inspect.bend` for `Inspection` and `bytes(~A, ~pdec, max, buffer)`. Both entry points return `Result<&1, &1, U32 & String, Inspection<A>>`. `Inspection{state, tail, end}` holds the exact `model.replay.step` state before recovery and the committed prefix length in octets. Read `model.queue`, `model.tries`, `model.dead`, and `model.breakers` from that state.
+Import `bend-kit-runner@0.22.0.10/inspect.bend` for `Inspection` and `bytes(~A, ~pdec, max, buffer)`. Both entry points return `Result<&1, &1, U32 & String, Inspection<A>>`. `Inspection{state, tail, end}` holds the exact `model.replay.step` state before recovery and the committed prefix length in octets. Read `model.queue`, `model.tries`, `model.dead`, and `model.breakers` from that state.
 
 The tail is `Clean{}` or `Torn{}` from `bend-kit-journal@0.4.0.2/pure.bend`. `Torn{}` explicitly reports an incomplete suffix and returns only the committed prefix state. Do not approve cutover with a torn suffix. Corrupt framing returns `Fail` with its offset and reason. A record or application payload that cannot decode returns `Fail` with `undecodable record at offset <offset>, index <index>`. The offset is the first rejected frame's header position in octets from the file start. The index is zero-based and counts all committed records, including snapshots. A later snapshot cannot hide a rejected record. A torn suffix adds `before torn suffix`; corrupt framing still takes precedence. Diagnostics contain no payload bytes. No partial state is returned for those errors. File errors and a file over `limit` also return `Fail`. Every result leaves the source bytes unchanged.
 
@@ -175,7 +175,9 @@ Snapshot decoding also rejects duplicate ticket ids within the pending heap, wit
 
 The next id must be strictly greater than every pending id, running id, dead ticket id, and dead lookup key. Equal or lower counters fail decoding. This extra pass visits actual nodes in O(p + r + d) time. Traversal space is bounded by the longest tree or list path, with no id index. It does not rebuild the heap or change payloads or deadlines. Empty snapshots may start at zero.
 
-Each dead lookup key must equal its stored ticket id and must be absent from both pending and running. This check costs O(d × (p + r + 1)) time for d dead, p pending, and r running tickets. It walks actual nodes without an id index and keeps the heap shape, running order, payloads, and deadlines. Combined identity validation costs O((p + r)² + d × (p + r + 1)), in addition to bucket sorting. Retry metadata consistency, heap order, and cached sizes remain assumptions; decoding does not validate them.
+Each dead lookup key must equal its stored ticket id and must be absent from both pending and running. This check costs O(d × (p + r + 1)) time for d dead, p pending, and r running tickets. It walks actual nodes without an id index and keeps the heap shape, running order, payloads, and deadlines. Combined identity validation costs O((p + r)² + d × (p + r + 1)), in addition to bucket sorting. Retry metadata consistency remains an assumption.
+
+Snapshot decoding also checks every heap node's cached size against one plus its two children's cached sizes. It compares each parent and child with the scheduler's deadline-then-id order. The recursive check rejects invalid sizes and order at any depth, without rebuilding the heap. It takes O(p) time and O(h) traversal space for p pending tickets and tree height h, with no extra index. Journal sizes are bounded u64 values. `snapshot.heap` in `PROOF.bend` proves that every accepted snapshot satisfies the scheduler's full-subtree `ordered` hypothesis and the recursive `heap.sized` invariant. `heap.size.count` proves that these cached sizes equal actual node counts. Valid snapshots keep their shape, payloads, deadlines, and running order.
 
 The pure queue uses unbounded `Nat` ids. Journal fields are u64le, so persisted ids and the next counter must fit in 0 through 2^64 − 1. Decoding does not reserve room for future enqueues: an accepted next counter of 2^64 − 1 can allocate that id once, but the resulting counter 2^64 cannot round-trip through a snapshot. Applications must stop before exhausting this boundary. Freshness covers retained tickets, not ids of completed or purged tickets absent from the snapshot.
 
