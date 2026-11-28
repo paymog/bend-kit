@@ -1,13 +1,9 @@
 import Base
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 import ./websocket.bend as WS
 
-# The effects on the native runtime: SHA-1 and random keys through libcrypto and the
-# OS, a 70000-byte frame, and a whole session against a server on 127.0.0.1:39461
-# that runs in this program over the same Conn with server true.
-
-def port() -> U32:
-  39461
+# Check crypto effects, frames, and a loopback session with a server-side Conn.
 
 def of(+s: String) -> Bytes.Bytes:
   Bytes.from_string(s)
@@ -322,18 +318,18 @@ def srv.key(m: Maybe<&2, String>, sock: Socket, rest: Bytes.Bytes) -> IO(Unit):
         a : Result<&1, &1, U32 & String, String> <- WS.accept(k)
         srv.reply(a, sock, rest)
 
-def srv.head(h: Socket & Result<&1, &1, U32 & String, String & Bytes.Bytes>) -> IO(Unit):
+def srv.head(+port: U32, h: Socket & Result<&1, &1, U32 & String, String & Bytes.Bytes>) -> IO(Unit):
   match h:
     case (sock, Fail{e}):
       die("server head", e)
     case (sock, Done{(+head, rest)}):
       do IO<Unit>:
-        ok(Bool.and(String.starts_with(head, "GET /chat HTTP/1.1\r\nHost: localhost:39461\r\n"),
+        ok(Bool.and(String.starts_with(head, "GET /chat HTTP/1.1\r\nHost: localhost:" ++ U32.show(port) ++ "\r\n"),
           WS.value.is(WS.field(head, "sec-websocket-version"), "13")),
           "request line, Host with port, and version 13")
         srv.key(WS.field(head, "sec-websocket-key"), sock, rest)
 
-def server.accepted(a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
+def server.accepted(port: U32, a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Unit):
   match a:
     case (l, Fail{e}):
       do IO<Unit>:
@@ -343,12 +339,12 @@ def server.accepted(a: Listener & Result<&1, &1, U32 & String, Socket>) -> IO(Un
       do IO<Unit>:
         Listener.close(l)
         h : Socket & Result<&1, &1, U32 & String, String & Bytes.Bytes> <- WS.head.read(sock, False{}, 5000)
-        srv.head(h)
+        srv.head(port, h)
 
-def server(l: Listener) -> IO(Unit):
+def server(l: Listener, port: U32) -> IO(Unit):
   do IO<Unit>:
     a : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
-    server.accepted(a)
+    server.accepted(port, a)
 
 # Client side.
 
@@ -415,25 +411,22 @@ def cl.connected(r: Result<&1, &1, U32 & String, WS.Conn>) -> IO(Unit):
         t : WS.Conn & Result<&1, &1, U32 & String, WS.Incoming> <- WS.recv(c, 5000)
         cl.text(t)
 
-def client() -> IO(Unit):
+def client(port: U32) -> IO(Unit):
   do IO<Unit>:
-    r : Result<&1, &1, U32 & String, WS.Conn> <- WS.connect("127.0.0.1", port(), "localhost", "/chat", False{}, 1048576, 5000)
+    r : Result<&1, &1, U32 & String, WS.Conn> <- WS.connect("127.0.0.1", port, "localhost", "/chat", False{}, 1048576, 5000)
     cl.connected(r)
 
-def session(l: Result<&1, &1, U32 & String, Listener>) -> IO(Unit):
+def session(l: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
   match l:
     case Fail{e}:
       die("listen", e)
-    case Done{lis}:
+    case Done{(lis, +port)}:
       do IO<Unit>:
-        ch : Chan(Unit) <- IO.fork(Unit, server(lis))
-        client()
+        ch : Chan(Unit) <- IO.fork(Unit, server(lis, port))
+        client(port)
         IO.join(Unit, ch)
 
 # EOF inside a frame: the server sends its 101 and part of a frame, then closes.
-
-def eof.port() -> U32:
-  39462
 
 def eof.sent(s: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   match s:
@@ -506,14 +499,14 @@ def eof.connected(r: Result<&1, &1, U32 & String, WS.Conn>) -> IO(Unit):
         t : WS.Conn & Result<&1, &1, U32 & String, WS.Incoming> <- WS.recv(c, 5000)
         eof.got(t)
 
-def eof.session(l: Result<&1, &1, U32 & String, Listener>) -> IO(Unit):
+def eof.session(l: Result<&1, &1, U32 & String, Listener & U32>) -> IO(Unit):
   match l:
     case Fail{e}:
       die("eof listen", e)
-    case Done{lis}:
+    case Done{(lis, port)}:
       do IO<Unit>:
         ch : Chan(Unit) <- IO.fork(Unit, eof.server(lis))
-        r : Result<&1, &1, U32 & String, WS.Conn> <- WS.connect("127.0.0.1", eof.port(), "localhost", "/eof", False{}, 1048576, 5000)
+        r : Result<&1, &1, U32 & String, WS.Conn> <- WS.connect("127.0.0.1", port, "localhost", "/eof", False{}, 1048576, 5000)
         eof.connected(r)
         IO.join(Unit, ch)
 
@@ -527,7 +520,7 @@ def main() -> IO(Unit):
     ok(round(65535, 8), "65535-byte frame uses the 16-bit length")
     ok(round(70000, 14), "70000-byte frame uses the 64-bit length")
     splits()
-    l : Result<&1, &1, U32 & String, Listener> <- TCP.listen("127.0.0.1", port())
+    l : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen("127.0.0.1", 0)
     session(l)
-    l2 : Result<&1, &1, U32 & String, Listener> <- TCP.listen("127.0.0.1", eof.port())
+    l2 : Result<&1, &1, U32 & String, Listener & U32> <- Wire.listen("127.0.0.1", 0)
     eof.session(l2)

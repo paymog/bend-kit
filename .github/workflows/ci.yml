@@ -280,7 +280,7 @@ jobs:
       - name: Install Bend
         run: scripts/install-bend.sh
       - name: Install Bun
-        if: matrix.package == 'storage' || matrix.package == 'dns' || matrix.package == 'http' || matrix.package == 'process' || matrix.package == 'runner' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
+        if: matrix.package == 'websocket' || matrix.package == 'storage' || matrix.package == 'dns' || matrix.package == 'http' || matrix.package == 'process' || matrix.package == 'runner' || hashFiles(format('{0}/ca-check.sh', matrix.package), format('{0}/mtls-check.sh', matrix.package)) != ''
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -292,7 +292,17 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           if [ "${{ matrix.package }}" = http ]; then ulimit -v $((20 * 1024 * 1024)); fi
-          scripts/native-check.sh ${{ matrix.package }}
+          if [ "${{ matrix.package }}" = websocket ]; then
+            python3 -B websocket/occupied-run.py scripts/native-check.sh websocket
+          else
+            scripts/native-check.sh ${{ matrix.package }}
+          fi
+      - name: Check WebSocket JavaScript with former ports occupied
+        if: matrix.package == 'websocket'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          bend websocket/check.bend -o "$RUNNER_TEMP/websocket-check.js"
+          python3 -B websocket/occupied-run.py bun "$RUNNER_TEMP/websocket-check.js"
       - name: Check markdown differential checker failure paths
         if: matrix.package == 'markdown'
         run: python3 -B markdown/conformance-test.py
@@ -431,7 +441,7 @@ jobs:
           printf 'tested=%s expected=%s\n' "$actual" "$EXPECTED_HEAD_SHA"
           test "$actual" = "$EXPECTED_HEAD_SHA"
       - uses: oven-sh/setup-bun@v2
-        if: matrix.package == 'dns' || matrix.package == 'process'
+        if: matrix.package == 'dns' || matrix.package == 'process' || matrix.package == 'websocket'
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Install Bend
@@ -439,7 +449,17 @@ jobs:
           scripts/install-bend.sh
           echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
       - name: Check native ${{ matrix.package }}
-        run: scripts/native-check.sh ${{ matrix.package }}
+        run: |
+          if [ "${{ matrix.package }}" = websocket ]; then
+            python3 -B websocket/occupied-run.py scripts/native-check.sh websocket
+          else
+            scripts/native-check.sh ${{ matrix.package }}
+          fi
+      - name: Check WebSocket JavaScript with former ports occupied
+        if: matrix.package == 'websocket'
+        run: |
+          bend websocket/check.bend -o "$RUNNER_TEMP/websocket-check.js"
+          python3 -B websocket/occupied-run.py bun "$RUNNER_TEMP/websocket-check.js"
       - name: Check DNS JavaScript backend
         if: matrix.package == 'dns'
         run: |
