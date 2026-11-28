@@ -16,6 +16,11 @@ import bend-kit-collections@0.1.6.0/order.bend as Order
 import bend-kit-collections@0.1.6.0/omap.bend as O
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 
+def Laws.counter_enqueue(A, s, d, x, word, allowed):
+  match s:
+    case R.State{Q.State{n, h, run}, ts, ds, bs}:
+      allowed
+
 def split(-P: Bool -> Type, b: Bool, yes: {b == True{} : Bool} -> P(True{}), no: {b == False{} : Bool} -> P(False{})) -> P(b):
   match b:
     case True{}:

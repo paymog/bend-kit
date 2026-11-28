@@ -90,13 +90,21 @@ def commit.done(~A: Data, x: Log & Out(Unit), s: Model.State<A>, +op: Model.Op<A
     case (j, Fail{e}):
       (Runner{j, s, p, c, ib, fs}, Fail{e})
 
+def commit.if(~A: Data, ~penc: A -> Bytes.Bytes, allowed: Bool, r: Runner<A>, +op: Model.Op<A>) -> IO(Ran(A)):
+  match allowed:
+    case False{}:
+      IO.pure(Ran(A), (r, Fail{(75, "runner: ticket counter exhausted")}))
+    case True{}:
+      Runner{j, s, p, c, ib, fs} = r
+      do IO<Ran(A)>:
+        x : Log & Out(Unit) <- log.append(j, Model.encode(~A, ~penc, op))
+        return commit.done(~A, x, s, op, p, c, ib, fs)
+
 # Appends op, and applies it once the append is durable. After a failed append the state is as it was,
 # and the journal refuses every later append until the runner is reopened.
 def commit(~A: Data, ~penc: A -> Bytes.Bytes, r: Runner<A>, +op: Model.Op<A>) -> IO(Ran(A)):
-  Runner{j, s, p, c, ib, fs} = r
-  do IO<Ran(A)>:
-    x : Log & Out(Unit) <- log.append(j, Model.encode(~A, ~penc, op))
-    return commit.done(~A, x, s, op, p, c, ib, fs)
+  Runner{j, +s, p, c, ib, fs} = r
+  commit.if(~A, ~penc, Model.counter.allowed(A, op, Q.next_id(A, Model.queue(A, s)), Model.W()), Runner{j, s, p, c, ib, fs}, op)
 
 def enqueue.done(-A: Data, +id: Nat, y: Ran(A)) -> Runner<A> & Out(Nat):
   match y:
@@ -495,15 +503,23 @@ def compact.done(-A: Data, x: Log & Out(Unit), s: Model.State<A>, p: Res.Pool, c
   (l, o) = x
   (Runner{l, s, p, c, ib, fs}, o)
 
+def compact.bound(~A: Data, ~penc: A -> Bytes.Bytes, fits: Bool, r: Runner<A>) -> IO(Ran(A)):
+  match fits:
+    case False{}:
+      IO.pure(Ran(A), (r, Fail{(75, "runner: ticket counter exhausted")}))
+    case True{}:
+      Runner{Log{j, path, limit, base}, +s, p, c, ib, fs} = r
+      J.Journal{file, +max, end, +ok} = j
+      do IO<Ran(A)>:
+        x : Log & Out(Unit) <- compact.if(~A, ~penc, ok, J.Journal{file, max, end, ok}, max, path, limit, base, s)
+        return compact.done(A, x, s, p, c, ib, fs)
+
 # Writes the state as one Snap record into a new journal, fsyncs it, and renames it over the old one.
 # A crash leaves one of the two journals, and both replay to this state. After a failure the old
 # journal stands; when the failure came after the rename, appends stop until the runner is reopened.
 def compact(~A: Data, ~penc: A -> Bytes.Bytes, r: Runner<A>) -> IO(Ran(A)):
-  Runner{Log{j, path, limit, base}, +s, p, c, ib, fs} = r
-  J.Journal{file, +max, end, +ok} = j
-  do IO<Ran(A)>:
-    x : Log & Out(Unit) <- compact.if(~A, ~penc, ok, J.Journal{file, max, end, ok}, max, path, limit, base, s)
-    return compact.done(A, x, s, p, c, ib, fs)
+  Runner{j, +s, p, c, ib, fs} = r
+  compact.bound(~A, ~penc, Model.counter.fits(Q.next_id(A, Model.queue(A, s))), Runner{j, s, p, c, ib, fs})
 
 def tick.ran(e: Out(Unit), b: Bool) -> Out(Bool):
   match e:
