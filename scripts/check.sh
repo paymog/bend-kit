@@ -17,7 +17,7 @@ for d in "$@"; do
       verdict "$d.bend" ""
     fi
     if [ -f PROOF.bend ]; then
-      if [ "$d" = http ] || [ "$d" = hairpin ]; then
+      if [ "$d" = http ] || [ "$d" = hairpin ] || [ "$d" = storage ]; then
         bend PROOF.bend --check-only
       else
         verdict PROOF.bend '^LAWS[.]'
