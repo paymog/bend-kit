@@ -40,7 +40,7 @@ Import the version the callee imports when you pass it a value. The newest folde
 
 This section comes from entry-file imports and package versions. Run `scripts/repin.py --guidance` to update it without hub access.
 
-`http@0.45.1.0` imports: `bytes@0.3.3.3`, `concurrency@0.2.0.0`, `dns@0.8.1.0`, `http2@0.6.0.2`, `json@0.7.3.2`, `time@0.3.0.5`, `url@0.4.1.0`, `wire@0.4.9.0`, `zlib@0.7.0.5`.
+`http@0.45.1.1` imports: `bytes@0.3.3.3`, `concurrency@0.2.0.0`, `dns@0.8.1.0`, `http2@0.6.0.2`, `json@0.7.3.2`, `time@0.3.0.5`, `url@0.4.1.0`, `wire@0.4.9.0`, `zlib@0.7.0.5`.
 
 | Dependency pin | Consumers |
 |---|---|
@@ -119,7 +119,7 @@ Each package README has the import, one example, and the limits that change the 
 | [`netip`](netip) | `bend-kit-netip@0.1.0.0/netip.bend` | IPv4, IPv6, and CIDR values. No DNS. |
 | [`dns`](dns) | `bend-kit-dns@0.8.1.0/dns.bend` | DNS codec and host lookup. |
 | [`wire`](wire) | `bend-kit-wire@0.4.9.0/wire.bend` | TCP, UDP, and TLS sockets. |
-| [`http`](http) | `bend-kit-http@0.45.1.0/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
+| [`http`](http) | `bend-kit-http@0.45.1.1/http.bend` | HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. |
 | [`http2`](http2) | `bend-kit-http2@0.6.0.2/http2.bend` | RFC 9113 frames and an incremental HTTP/2 client. HPACK is `hpack.bend`. |
 | [`hairpin`](hairpin) | `bend-kit-hairpin@0.19.1.0/hairpin.bend` | An HTTP client: base URL, headers, pool, cookies, redirects, streams, and proven retries with a shared budget, deadlines, and a circuit breaker. |
 | [`retry`](retry) | `bend-kit-retry@0.3.0.0/retry.bend` | A pure retry policy: a shared attempt budget, a deadline, bounded backoff with jitter, and a circuit breaker, with proofs. |
