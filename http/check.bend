@@ -639,10 +639,31 @@ def retry.serve(l: Listener) -> IO(Unit):
     Listener.close(l7)
     Admission.close(inbox)
 
+def retry.error(e: Pure.Err) -> String:
+  match e:
+    case Pure.ErrUrl{}:
+      "ErrUrl"
+    case Pure.ErrDns{}:
+      "ErrDns"
+    case Pure.ErrConnect{code, why}:
+      "ErrConnect " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrTls{code, why}:
+      "ErrTls " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrRead{code, why}:
+      "ErrRead " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrWrite{code, why}:
+      "ErrWrite " ++ U32.show(code) ++ " " ++ why
+    case Pure.ErrTimeout{}:
+      "ErrTimeout"
+    case Pure.ErrRedirect{}:
+      "ErrRedirect"
+    case Pure.ErrBad{}:
+      "ErrBad"
+
 def retry.check(+name: String, +status: U32, +want: String, r: Result<&1, &1, Pure.Err, Pure.Res>) -> IO(Unit):
   match r:
     case Fail{e}:
-      IO.die(Unit, 1, name ++ ": fetch failed")
+      IO.die(Unit, 1, name ++ ": fetch failed: " ++ retry.error(e))
     case Done{res}:
       Pure.Res{got, headers, body} = res
       local.ok(Bool.and(U32.is_eq(got, status), String.eq(Bytes.to_string(body), want)), name)
@@ -665,6 +686,22 @@ def retry.test(lp: Listener & U32) -> IO(Unit):
     posted : Result<&1, &1, Pure.Err, Pure.Res> <-
       Http.post.json(base ++ "/json", Json.Arr{[Json.Num{Bytes.from_string("1")}, Json.Flag{True{}}]})
     retry.check("post.json", 200, "POST application/json [1,true]", posted)
+
+def retry.repeat(left: Nat) -> IO(Unit):
+  match left:
+    case 0n:
+      IO.pure(Unit, Unit{})
+    case 1n+p:
+      do IO<Unit>:
+        listener : Listener & U32 <- local.listen()
+        retry.test(listener)
+        retry.repeat(p)
+
+def retry.stress(left: Nat) -> IO(Unit):
+  do IO<Unit>:
+    local.ok(String.eq(retry.error(Pure.ErrRead{104, "connection reset"}), "ErrRead 104 connection reset"), "retry diagnostics: read error keeps errno and message")
+    local.ok(String.eq(retry.error(Pure.ErrTimeout{}), "ErrTimeout"), "retry diagnostics: timeout stays distinct")
+    retry.repeat(left)
 
 def local.proxy.http(req: Pure.Req) -> IO(Pure.Res):
   Pure.Req{+method, path, +headers, body} = req
@@ -1297,8 +1334,7 @@ def main() -> IO(Unit):
     gl : Listener & U32 <- local.listen()
     local.gz.test(gl)
     resolve.check()
-    rl : Listener & U32 <- local.listen()
-    retry.test(rl)
+    retry.stress(10n)
     xl : Listener & U32 <- local.listen()
     local.proxy.test(xl)
     sl : Listener & U32 <- local.listen()
