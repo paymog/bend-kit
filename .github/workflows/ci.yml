@@ -41,13 +41,8 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Install supported Bend
         run: |
-          mkdir -p "$RUNNER_TEMP/launchd-bend"
-          cd "$RUNNER_TEMP/launchd-bend"
-          curl --proto '=https' --tlsv1.2 -fsSL -o bend.tar.gz \
-            https://github.com/bendlang/bend/releases/download/v2.0.40/bend-2.0.40-darwin-arm64.tar.gz
-          echo 'b2be003b041eb6cfc65326be18f79eb2e0bae2189be79a18c507e661b4b6900b  bend.tar.gz' | shasum -a 256 -c -
-          tar -xzf bend.tar.gz
-          echo "$RUNNER_TEMP/launchd-bend/bend/bin" >> "$GITHUB_PATH"
+          scripts/install-bend.sh "$RUNNER_TEMP/launchd-bend"
+          echo "$RUNNER_TEMP/launchd-bend/bin" >> "$GITHUB_PATH"
       - name: Install TLS proxy
         run: |
           brew install nginx
@@ -188,6 +183,8 @@ jobs:
         run: python3 -B scripts/check-test.py
       - name: Check process-tree RSS guard
         run: python3 -B scripts/rss-check-test.py
+      - name: Check Bend download recovery
+        run: python3 -B scripts/install-bend-test.py
       - name: Check HTTP local smoke failure paths
         run: python3 -B http/local-smoke-test.py
       - name: Check loopback runner failure paths

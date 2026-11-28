@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- CI: retry pinned Bend downloads up to three times with fresh release redirects and bounded timeouts. Log safe response headers on failure and keep checksum verification before installation.
 - `storage` CI: require the raw pure proof checker to pass. Keep the scoped verdict policy for runtime code and other packages.
 - `websocket` 0.5.0.0: add `ms: U32` write deadline (`0` = none, `1..2147483647` = deadline in ms) to `send`, `close`, and `io.send`, and thread `ms` through `handshake` and `recv` internal control-frame writes (Ping→Pong, Close echo, protocol-fault Close) over both `ws://` (`Wire.send.words.deadline`) and `wss://` (`Wire.tls.send.words.deadline`). Callers must call `shutdown` after a write timeout/error.
 - `process` 0.5.2.4: spawn JS children via `posix_spawnp` to eliminate Bun `pidfd` descriptor leaks and close inherited parent file descriptors `>= 3` on both native and JS targets (`addclosefrom_np(3)` on Linux, `POSIX_SPAWN_CLOEXEC_DEFAULT` on macOS).
