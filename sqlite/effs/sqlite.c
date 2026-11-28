@@ -95,11 +95,35 @@ static bool sqlite_load(void) {
 typedef struct { void* db; u32 live; } SqliteDb;
 typedef struct { void* st; SqliteDb* db; bool row; } SqliteSt;
 
-// Slot id holds the record, NULL once released; id 0 is never used.
-// ponytail: one pointer per id ever made, never shrunk; a hash map if programs make billions of handles.
-typedef struct { void** at; u32 next; u32 cap; } SqliteReg;
+// Open-addressing hash table keyed by monotonic u32 id (never reused; id 0 is empty).
+// Backward-shift deletion avoids tombstones; capacity scales with live handles (floor 64).
+typedef struct { u32 id; void* ptr; } SqliteSlot;
+typedef struct { SqliteSlot* at; u32 next; u32 len; u32 cap; } SqliteReg;
 static SqliteReg sqlite_dbs;
 static SqliteReg sqlite_sts;
+
+static u32 sqlite_hash(u32 id, u32 mask) {
+  return (id * 2654435761u) & mask;
+}
+
+static void sqlite_rehash(SqliteReg* r, u32 cap) {
+  SqliteSlot* old     = r->at;
+  u32         old_cap = r->cap;
+  SqliteSlot* nw      = io_mem(calloc(cap, sizeof(SqliteSlot)));
+  u32         mask    = cap - 1;
+  for (u32 i = 0; i < old_cap; i += 1) {
+    if (old[i].id != 0) {
+      u32 j = sqlite_hash(old[i].id, mask);
+      while (nw[j].id != 0) {
+        j = (j + 1) & mask;
+      }
+      nw[j] = old[i];
+    }
+  }
+  free(old);
+  r->at  = nw;
+  r->cap = cap;
+}
 
 // 0 when the ids have run out.
 static u32 sqlite_put(SqliteReg* r, void* p) {
@@ -107,16 +131,62 @@ static u32 sqlite_put(SqliteReg* r, void* p) {
   if (r->next == UINT32_MAX) {
     return 0;
   }
-  if (r->next >= r->cap) {
-    r->cap = r->cap == 0 ? 64 : r->cap > UINT32_MAX / 2 ? UINT32_MAX : r->cap * 2;
-    r->at  = io_mem(realloc(r->at, sizeof(void*) * r->cap));
+  if (r->cap == 0 || (r->len + 1) * 2 > r->cap) {
+    u32 ncap = r->cap == 0 ? 64 : r->cap * 2;
+    sqlite_rehash(r, ncap);
   }
-  r->at[r->next] = p;
-  return r->next++;
+  u32 id   = r->next++;
+  u32 mask = r->cap - 1;
+  u32 i    = sqlite_hash(id, mask);
+  while (r->at[i].id != 0) {
+    i = (i + 1) & mask;
+  }
+  r->at[i] = (SqliteSlot){ id, p };
+  r->len  += 1;
+  return id;
 }
 
 static void* sqlite_get(SqliteReg* r, u32 id) {
-  return id != 0 && id < r->next ? r->at[id] : NULL;
+  if (id == 0 || r->cap == 0) {
+    return NULL;
+  }
+  u32 mask = r->cap - 1;
+  u32 i    = sqlite_hash(id, mask);
+  while (r->at[i].id != 0) {
+    if (r->at[i].id == id) {
+      return r->at[i].ptr;
+    }
+    i = (i + 1) & mask;
+  }
+  return NULL;
+}
+
+static void sqlite_del(SqliteReg* r, u32 id) {
+  if (id == 0 || r->cap == 0) {
+    return;
+  }
+  u32 mask = r->cap - 1;
+  u32 i    = sqlite_hash(id, mask);
+  while (r->at[i].id != 0 && r->at[i].id != id) {
+    i = (i + 1) & mask;
+  }
+  if (r->at[i].id != id) {
+    return;
+  }
+  u32 j = (i + 1) & mask;
+  while (r->at[j].id != 0) {
+    u32 k = sqlite_hash(r->at[j].id, mask);
+    if (((i - k) & mask) < ((j - k) & mask)) {
+      r->at[i] = r->at[j];
+      i        = j;
+    }
+    j = (j + 1) & mask;
+  }
+  r->at[i] = (SqliteSlot){ 0, NULL };
+  r->len  -= 1;
+  if (r->cap > 64 && r->len * 8 < r->cap) {
+    sqlite_rehash(r, r->cap / 2);
+  }
 }
 
 static Term sqlite_unit(Env e) {
@@ -235,7 +305,7 @@ Term db_close_run(Env e, Term* f, IoWork* w) {
     return sqlite_err(e, d->db, rc);
   }
   free(d);
-  sqlite_dbs.at[id] = NULL;
+  sqlite_del(&sqlite_dbs, id);
   return sqlite_unit(e);
 }
 
@@ -302,7 +372,7 @@ Term stmt_finalize_run(Env e, Term* f, IoWork* w) {
   sqlite_lib.finalize(s->st);
   s->db->live -= 1;
   free(s);
-  sqlite_sts.at[id] = NULL;
+  sqlite_del(&sqlite_sts, id);
   return sqlite_unit(e);
 }
 

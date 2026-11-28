@@ -43,6 +43,11 @@ for d in "$@"; do
       bend local_check.bend -o "$out/local"
       python3 local_check.py "$out/local"
     fi
+    if [ "$d" = sqlite ]; then
+      awk '/^typedef struct \{ u32 id; void\* ptr; \} SqliteSlot;/{on=1} /^static Term sqlite_unit/{on=0} on' effs/sqlite.c > "$out/sqlite_reg.h"
+      cc -Wall -Wextra -Werror -O2 -I"$out" registry_check.c -o "$out/registry_check"
+      "$out/registry_check"
+    fi
   )
   rm -rf "$out"
   out=

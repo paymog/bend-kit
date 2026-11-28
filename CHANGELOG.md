@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `sqlite` 0.1.0.2: bound native C handle-table memory (`sqlite/effs/sqlite.c`) with an open-addressing hash map and backward-shift deletion (`O(live_handles)` memory, floor 64, strictly monotonic non-reused `u32` IDs).
 - `runner` 0.22.0.8: reject snapshots whose next id is not above every pending, running, and dead ticket id or dead lookup key. Prove accepted freshness and its preservation through orphan recovery.
 - `runner` 0.22.0.7: reject duplicate snapshot ticket ids within pending, within running, and across both registries. Prove that accepted snapshots and orphan requeues establish the accounting proof's queue-id conditions.
 - `http` checks: clear the serving log before each background launch so the JS lane cannot read the native lane's READY line. Repeat the delayed JS serving failure and keep exact PID counts and leak checks.
