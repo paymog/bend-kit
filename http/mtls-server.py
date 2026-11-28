@@ -3,11 +3,19 @@ import socket
 import ssl
 import sys
 import threading
+from socketserver import TCPServer
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ca, chain, key, ports_path = sys.argv[1:5]
 ports = []
+
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer.server_bind resolves the host name before it can publish readiness.
+        TCPServer.server_bind(self)
+        self.server_name = 'localhost'
+        self.server_port = self.server_address[1]
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
@@ -50,7 +58,7 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 for required in (True, False):
-    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server = LoopbackHTTPServer(('127.0.0.1', 0), Handler)
     ports.append(server.server_port)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.minimum_version = ctx.maximum_version = ssl.TLSVersion.TLSv1_2

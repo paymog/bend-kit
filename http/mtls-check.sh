@@ -4,11 +4,29 @@ set -eu
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 dir=$(mktemp -d)
 server=
-cleanup() {
-  if [ -n "$server" ]; then kill "$server" 2>/dev/null || :; wait "$server" 2>/dev/null || :; fi
-  rm -rf "$dir"
+phase="certificate fixtures"
+step() {
+  phase=$1
+  printf '== mTLS %s: %s\n' "$lane" "$phase"
 }
-trap cleanup EXIT INT TERM
+cleanup() {
+  status=$?
+  if [ -n "$server" ]; then kill "$server" 2>/dev/null || :; wait "$server" 2>/dev/null || :; fi
+  if [ "$status" -ne 0 ]; then
+    printf 'mTLS failed during %s (exit %s)\n' "$phase" "$status" >&2
+    if [ -f "$dir/server.log" ]; then
+      echo 'mTLS server diagnostics:' >&2
+      cat "$dir/server.log" >&2
+    fi
+  fi
+  rm -rf "$dir"
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+lane=${1:-native}
+step "certificate fixtures"
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=Bend test CA' \
   -addext 'basicConstraints=critical,CA:TRUE' \
@@ -34,31 +52,42 @@ done
 cd "$here"
 # Separate emission units avoid Bend's host-stack limit: https://github.com/bendlang/bend/issues/2093
 for check in check mtls_check h2_pool_check; do
+  step "compile $check ($lane)"
   if [ "${1:-native}" = js ]; then
     bend "$check.bend" -o "$dir/$check.js"
   else
     bend "$check.bend" -o "$dir/$check"
   fi
 done
-python3 mtls-server.py "$dir/ca.pem" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
+step "server startup"
+python3 -u mtls-server.py "$dir/ca.pem" "$dir/server.pem" "$dir/server.key" "$dir/ports" >"$dir/server.log" 2>&1 &
 server=$!
 i=0
 while [ ! -s "$dir/ports" ]; do
+  kill -0 "$server" 2>/dev/null || { wait "$server" || exit $?; exit 1; }
   i=$((i + 1))
-  [ "$i" -le 100 ] || { cat "$dir/server.log" >&2; exit 1; }
+  [ "$i" -le 100 ] || { echo "timed out waiting for server ports" >&2; exit 1; }
   sleep 0.1
 done
 read -r port _ h2port streamport <"$dir/ports"
+step "server upload assertion"
 python3 mtls-server-check.py "$dir/ca.pem" "$dir/one.pem" "$dir/one.key" "$port"
 if [ "${1:-native}" = js ]; then
+  step "run check (js)"
   SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" bun "$dir/check.js"
+  step "run mtls_check (js)"
   SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" bun "$dir/mtls_check.js" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port"
+  step "run h2_pool_check (js)"
   SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" bun "$dir/h2_pool_check.js" "https://localhost:$h2port" "https://localhost:$streamport"
 else
+  step "run check (native)"
   SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" "$dir/check"
+  step "run mtls_check (native)"
   SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" "$dir/mtls_check" "$dir/one.pem" "$dir/one.key" "$dir/two.pem" "$dir/two.key" "https://localhost:$port"
+  step "run h2_pool_check (native)"
   SSL_CERT_FILE="$dir/ca.pem" python3 "$here/../wire/loopback-run.py" "$dir/h2_pool_check" "https://localhost:$h2port" "https://localhost:$streamport"
 fi
+step "HTTP/2 server assertions"
 [ "$(wc -l <"$dir/ports.streams" | tr -d ' ')" = 1 ] || {
   echo "expected all HTTP/2 streams on one connection" >&2
   exit 1
