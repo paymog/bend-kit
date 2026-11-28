@@ -25,7 +25,13 @@ openssl verify -x509_strict -CAfile "$dir/ca.pem" -purpose sslserver \
 cat >"$dir/server.py" <<'PY'
 import os, select, socket, ssl, sys, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 cert, key, ports_path = sys.argv[1:4]
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name = "localhost"
+        self.server_port = self.server_address[1]
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     def do_GET(self):
@@ -82,7 +88,7 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(reply)
     def log_message(self, fmt, *args):
         pass
-s = ThreadingHTTPServer(("127.0.0.1", 0), H)
+s = LoopbackHTTPServer(("127.0.0.1", 0), H)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.minimum_version = ctx.maximum_version = ssl.TLSVersion.TLSv1_2
 ctx.load_cert_chain(cert, key)
@@ -114,7 +120,7 @@ class Proxy(BaseHTTPRequestHandler):
                     target.sendall(data)
     def log_message(self, fmt, *args):
         pass
-proxy = ThreadingHTTPServer(("127.0.0.1", 0), Proxy)
+proxy = LoopbackHTTPServer(("127.0.0.1", 0), Proxy)
 threading.Thread(target=proxy.serve_forever, daemon=True).start()
 with open(ports_path + ".tmp", "w") as f:
     f.write(f"{s.server_port} {proxy.server_port}\n")

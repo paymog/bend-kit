@@ -10,6 +10,7 @@ for d in "$@"; do
   [ "$d" != camber ] || python3 camber/deploy/metadata_check.py
   [ "$d" != runner ] || python3 runner/migrate-test.py
   [ "$d" != http ] || python3 -B http/mtls-check-test.py
+  [ "$d" != http ] || python3 -B http/ca-check-test.py
   (
     cd "$d"
     if [ "$d" = hairpin ]; then

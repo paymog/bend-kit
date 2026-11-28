@@ -37,6 +37,7 @@ exit 1
         (folder / "PROOF.bend").touch()
         if package == "http":
             (folder / "mtls-check-test.py").touch()
+            (folder / "ca-check-test.py").touch()
         if package == "storage":
             # Keep the JS harnesses empty; this check covers verdict routing only.
             for name in ("http_origin_check.py", "local_check.py"):
