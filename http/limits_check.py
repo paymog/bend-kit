@@ -243,7 +243,7 @@ def main():
             for lane, suffix in (('native', ''), ('js', '.js')):
                 target = folder / ('limits' + suffix)
                 Harness.finish(Harness.start(['bend', 'http/limits_check.bend', '-o', str(target)]))
-                command = [str(target), '--threads', '1', '--gpu', 'off'] if lane == 'native' else ['bun', str(target)]
+                command = [str(target), '+RTS', '--threads', '1', '--gpu', 'off', '-RTS'] if lane == 'native' else ['bun', str(target)]
                 run_lane(lane, command)
     finally:
         (ROOT / 'http/limits_results.json').write_text(json.dumps(dict(scenarios=RESULTS, commands=Harness.RECEIPTS), indent=2) + '\n')

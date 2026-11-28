@@ -466,7 +466,7 @@ def main():
             for lane, suffix in (('native', ''), ('javascript', '.js')):
                 binary = folder / ('drain' + suffix)
                 Process(['bend', str(ROOT / 'http/drain_check.bend'), '-o', str(binary)]).finish()
-                executable = [str(binary), '--threads', '1', '--gpu', 'off'] if lane == 'native' else ['bun', str(binary)]
+                executable = [str(binary), '+RTS', '--threads', '1', '--gpu', 'off', '-RTS'] if lane == 'native' else ['bun', str(binary)]
                 run_lane(lane, executable, folder)
     finally:
         (ROOT / 'http/drain_results.json').write_text(json.dumps(dict(scenarios=RESULTS, commands=COMMANDS), indent=2) + '\n')
