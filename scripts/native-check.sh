@@ -3,6 +3,7 @@
 # effects; for webhooks: it links hairpin, http, and time from the hub, so its
 # build fails if two versions of one C effect slip in (bendlang/bend#1533); and
 # for commands: it drives SQLite through child processes; for f32array: it checks CPU fork-join; for bits: it checks streams past 512 MiB; for hash: it checks reference digests; for runner: it checks journal recovery.
+# WebSocket checks Wire and libcrypto effects from sibling packages.
 # One package at a time: do not fan this out.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,7 +15,7 @@ trap cleanup EXIT
 shopt -s nullglob
 for d in "$@"; do
   cs=("$d"/effs/*.c)
-  [ ${#cs[@]} -eq 0 ] && [ "$d" != http ] && [ "$d" != webhooks ] && [ "$d" != commands ] && [ "$d" != f32array ] && [ "$d" != bits ] && [ "$d" != hash ] && [ "$d" != runner ] && continue
+  [ ${#cs[@]} -eq 0 ] && [ "$d" != http ] && [ "$d" != webhooks ] && [ "$d" != commands ] && [ "$d" != f32array ] && [ "$d" != bits ] && [ "$d" != hash ] && [ "$d" != runner ] && [ "$d" != websocket ] && continue
   [ -f "$d/check.bend" ] || { echo "$d has C effects but no check.bend" >&2; exit 1; }
   echo "== native $d"
   out=$(mktemp -d)

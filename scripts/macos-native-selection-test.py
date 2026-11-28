@@ -10,7 +10,7 @@ root = Path(__file__).resolve().parents[1]
 workflow = (root / ".github/workflows/ci.yml").read_text()
 selection = workflow.split("          native=$(\n", 1)[1].split("          )\n", 1)[0]
 script = "native=$(\n" + textwrap.dedent(selection) + '\n)\nprintf "%s" "$native"\n'
-packages = ["commands", "webhooks", "f32array", "bits", "hash", "runner"]
+packages = ["commands", "webhooks", "f32array", "bits", "hash", "runner", "websocket"]
 cases = [(package, [package]) for package in packages]
 cases += [
     (" ".join(packages), packages),
@@ -32,27 +32,31 @@ with tempfile.TemporaryDirectory() as tmp:
         '#!/bin/bash\nset -eu\n'
         'printf "%s\\n" "$*" >> "$BEND_LOG"\n'
         'test "$*" = "check.bend -o $3"\n'
-        'test "$(basename "$PWD")" = runner\n'
+        'test "$(basename "$PWD")" = "$PACKAGE"\n'
         'test "$BEND_STATUS" = 0 || exit "$BEND_STATUS"\n'
-        'printf \'#!/bin/bash\\necho runner-native-executed\\nexit "$CHECK_STATUS"\\n\' > "$3"\n'
+        'printf \'#!/bin/bash\\necho "$PACKAGE-native-executed"\\nexit "$CHECK_STATUS"\\n\' > "$3"\n'
         'chmod +x "$3"\n'
     )
     bend.chmod(0o755)
-    for compile_status, run_status in [(0, 0), (17, 0), (0, 23)]:
-        log = Path(tmp) / f"bend-{compile_status}-{run_status}.log"
-        result = subprocess.run(
-            ["bash", "scripts/native-check.sh", "runner"], cwd=root,
-            env=dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"],
-                     BEND_LOG=str(log), BEND_STATUS=str(compile_status),
-                     CHECK_STATUS=str(run_status)),
-            capture_output=True, text=True,
-        )
-        assert result.returncode == (compile_status or run_status), result
-        assert len(log.read_text().splitlines()) == 1, result
-        assert ("runner-native-executed" in result.stdout) == (compile_status == 0), result
+    for package in ("runner", "websocket"):
+        for compile_status, run_status in [(0, 0), (17, 0), (0, 23)]:
+            log = Path(tmp) / f"bend-{package}-{compile_status}-{run_status}.log"
+            result = subprocess.run(
+                ["bash", "scripts/native-check.sh", package], cwd=root,
+                env=dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"],
+                         PACKAGE=package, BEND_LOG=str(log), BEND_STATUS=str(compile_status),
+                         CHECK_STATUS=str(run_status)),
+                capture_output=True, text=True,
+            )
+            assert result.returncode == (compile_status or run_status), result
+            assert len(log.read_text().splitlines()) == 1, result
+            assert (f"{package}-native-executed" in result.stdout) == (compile_status == 0), result
 assert "scripts/check.sh ${{ matrix.package }}" in workflow
 assert "matrix.package == 'runner'" in workflow
-print("PASS Runner: native compile and execution, failure propagation, and retained Bun gate")
+for name in ("check", "native-macos"):
+    job = workflow.split(f"\n  {name}:\n", 1)[1].split("\n\n", 1)[0]
+    assert "scripts/native-check.sh ${{ matrix.package }}" in job
+print("PASS Runner and WebSocket: native compile and execution, failure propagation, and retained Bun gate")
 
 hairpin = next(line.strip() for line in workflow.splitlines() if 'echo "hairpin=' in line)
 with tempfile.TemporaryDirectory() as tmp:
