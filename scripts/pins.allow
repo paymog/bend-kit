@@ -2,4 +2,3 @@
 # Remove a line when the issue named on it lands.
 bend-kit-time@0.3.0.5  # #1346 re-pins downstream consumers after time 0.3.0.6 publishes.
 bend-kit-http@0.45.1.0  # #1328 re-pins consumers after the HTTP README correction publishes.
-bend-kit-camber@0.19.2.0  # #1333 re-pins consumers after the README self-pin correction publishes.
