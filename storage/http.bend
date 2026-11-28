@@ -1,9 +1,9 @@
 import Base
 import ./storage.bend as S
 import ./pure.bend as P
-import bend-kit-http@0.45.0.3/http.bend as Http
-import bend-kit-http@0.45.0.3/pure.bend as Pure
-import bend-kit-http@0.45.0.3/completion.bend as Completion
+import bend-kit-http@0.45.1.0/http.bend as Http
+import bend-kit-http@0.45.1.0/pure.bend as Pure
+import bend-kit-http@0.45.1.0/completion.bend as Completion
 import bend-kit-files@0.4.0.3/files.bend as Files
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 

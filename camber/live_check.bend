@@ -7,7 +7,7 @@ import ../http/http.bend as Http
 import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import ../concurrency/concurrency.bend as Conc
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 
 type Counts is Data:
   Counts{busy: U32, mask: U32, completed: U32, rejected: U32}

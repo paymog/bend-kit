@@ -10,7 +10,7 @@ import ../http/pure.bend as Pure
 import ../http/context_probe.bend as Transport
 import bend-kit-json@0.7.3.2/json.bend as Json
 import ../concurrency/concurrency.bend as Conc
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 
 type Bundle is Type:
   Bundle{state: Example.State, application: Example.Application}

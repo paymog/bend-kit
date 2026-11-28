@@ -3,7 +3,7 @@
 import Base
 import ../hairpin.bend as Hairpin
 import bend-kit-retry@0.3.0.0/retry.bend as Retry
-import bend-kit-http@0.45.0.3/pure.bend as Pure
+import bend-kit-http@0.45.1.0/pure.bend as Pure
 import bend-kit-time@0.3.0.5/time.bend as Time
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 

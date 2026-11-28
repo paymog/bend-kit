@@ -4,7 +4,7 @@ import ./live_check.bend as Live
 import ../http/http.bend as Http
 import ../http/pure.bend as Pure
 import ../http/completion.bend as Completion
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 
 def written(result: Socket & Result<&1, &1, U32 & String, Unit>) -> IO((Socket & Pure.Turn) & Completion.Outcome):
   (socket, outcome) = result

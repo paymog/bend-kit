@@ -1,8 +1,8 @@
 import Base
 import ./http.bend as Transport
-import bend-kit-http@0.45.0.3/http.bend as Http
-import bend-kit-http@0.45.0.3/pure.bend as Pure
-import bend-kit-http@0.45.0.3/completion.bend as Completion
+import bend-kit-http@0.45.1.0/http.bend as Http
+import bend-kit-http@0.45.1.0/pure.bend as Pure
+import bend-kit-http@0.45.1.0/completion.bend as Completion
 
 def observe(dir: String, status: U32, outcome: Completion.Outcome) -> IO(Unit):
   Completion.ignore(status, outcome)
