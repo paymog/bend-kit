@@ -1,0 +1,17 @@
+{
+  "name": "bend-kit",
+  "main": "worker.js",
+  "account_id": "e7f962b617a3a8306e35e781cdad1b04",
+  "compatibility_date": "2026-11-28",
+  "workers_dev": true,
+  "containers": [{
+    "class_name": "Site",
+    "instance_type": "basic",
+    "image": "registry.cloudflare.com/e7f962b617a3a8306e35e781cdad1b04/bend-kit-site:ci",
+    "max_instances": 1
+  }],
+  "durable_objects": {
+    "bindings": [{ "name": "SITE", "class_name": "Site" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Site"] }]
+}

@@ -50,23 +50,50 @@ def laws.maybe(src: Maybe<&2, String>) -> Maybe<&2, List<&2, App.Law>>:
 def at(+root: String, +name: String, file: String) -> String:
   Fs.path.join(Fs.path.join(root, name), file)
 
-def load(+root: String, +name: String) -> IO(App.Pkg):
+def names.copy(xs: List<&1, String>) -> List<&2, String>:
+  match xs:
+    case Nil{}: Nil{}
+    case Con{x, rest}: Con{x, names.copy(rest)}
+
+def names.affine(xs: List<&2, String>) -> List<&1, String>:
+  match xs:
+    case Nil{}: Nil{}
+    case Con{x, rest}: Con{x, names.affine(rest)}
+
+def fragment.status(status: U32, output: String) -> IO(String):
+  match status:
+    case 0: IO.pure(String, output)
+    case _: IO.die(String, 1, "Markdown navigation failed")
+
+def fragment.exited(result: U32 & (String & String)) -> IO(String):
+  (status, (output, error)) = result
+  fragment.status(status, output)
+
+def fragment(+root: String, name: String, base: String, section: String, names: List<&2, String>, source: String) -> IO(String):
+  do IO<String>:
+    result : U32 & (String & String) <- IO.try(U32 & (String & String),
+      Process.run("python3", List.append(&1, String, [Fs.path.join(root, "site/render.py"), "--fragment", name, base, section], names.affine(names)), App.gfm(source), 4194304, 30000))
+    fragment.exited(result)
+
+def load(+root: String, +name: String, +base: String, +names: List<&2, String>) -> IO(App.Pkg):
   do IO<App.Pkg>:
-    readme : String <- read.text(at(root, name, "README.md"), 1048576)
+    +readme : String <- read.text(at(root, name, "README.md"), 1048576)
     version : String <- read.text(at(root, name, "VERSION"), 64)
     entry : String <- read.text(at(root, name, name ++ ".bend"), 4096)
     laws : Maybe<&2, String> <- read.maybe(at(root, name, "LAWS.bend"))
     bench : String <- read.text(at(root, name, "bench/README.md"), 1048576)
-    return App.Pkg{name, String.trim(version), App.about(entry), readme, laws.maybe(laws), bench}
+    readme_html : String <- fragment(root, name, base, "readme", names, readme)
+    bench_html : String <- fragment(root, name, base, "bench", names, bench)
+    return App.Pkg{name, String.trim(version), App.about(entry), readme, laws.maybe(laws), bench_html, readme_html}
 
-def load.all(names: List<&1, String>, +root: String) -> IO(List<&2, App.Pkg>):
+def load.all(names: List<&2, String>, +root: String, +base: String, +all: List<&2, String>) -> IO(List<&2, App.Pkg>):
   match names:
     case Nil{}:
       IO.pure(List<&2, App.Pkg>, Nil{})
     case Con{name, rest}:
       do IO<List<&2, App.Pkg>>:
-        pkg : App.Pkg <- load(root, name)
-        pkgs : List<&2, App.Pkg> <- load.all(rest, root)
+        pkg : App.Pkg <- load(root, name, base, all)
+        pkgs : List<&2, App.Pkg> <- load.all(rest, root, base, all)
         return Con{pkg, pkgs}
 
 def parsed(+name: String, result: Result<&2, &2, String, List<&2, T.Node>>) -> IO(List<&2, T.Node>):
@@ -125,17 +152,30 @@ def render(paths: List<&2, String>, +app: C.Application<App.Page, App.Site, C.Po
         write(out, path, completion)
         render(rest, app, out)
 
-def build(+root: String, +out: String, base: String, names: List<&1, String>) -> IO(Unit):
-  do IO<Unit>:
-    +pkgs : List<&2, App.Pkg> <- load.all(names, root)
+def application(+root: String, +base: String, +names: List<&2, String>) -> IO(C.Application<App.Page, App.Site, C.Policy<Unit>> & List<&2, String>):
+  do IO<C.Application<App.Page, App.Site, C.Policy<Unit>> & List<&2, String>>:
+    +pkgs : List<&2, App.Pkg> <- load.all(names, root, base, names)
     templates : Map<&2, List<&2, T.Node>> <- templates.go(["layout", "index", "package", "llms", "document"], Fs.path.join(root, "site/templates"), Map.new(&2, List<&2, T.Node>))
-    guide : String <- read.text(Fs.path.join(root, "site/getting-started.md"), 1048576)
-    changelog : String <- read.text(Fs.path.join(root, "CHANGELOG.md"), 1048576)
-    roadmap : String <- read.text(Fs.path.join(root, "ROADMAP.md"), 1048576)
+    guide_source : String <- read.text(Fs.path.join(root, "site/getting-started.md"), 1048576)
+    changelog_source : String <- read.text(Fs.path.join(root, "CHANGELOG.md"), 1048576)
+    roadmap_source : String <- read.text(Fs.path.join(root, "ROADMAP.md"), 1048576)
+    guide : String <- fragment(root, "", base, "readme", names, guide_source)
+    changelog : String <- fragment(root, "", base, "readme", names, changelog_source)
+    roadmap : String <- fragment(root, "", base, "readme", names, roadmap_source)
     documents : Map<&2, String> = Map.set(&2, String, Map.set(&2, String, Map.set(&2, String, Map.new(&2, String), "getting-started", guide), "changelog", changelog), "roadmap", roadmap)
     app : C.Application<App.Page, App.Site, C.Policy<Unit>> <- ready(App.application(App.site(base, pkgs, templates, documents)))
-    render(App.paths(pkgs), app, out)
+    return (app, App.paths(pkgs))
+
+def build.loaded(pair: C.Application<App.Page, App.Site, C.Policy<Unit>> & List<&2, String>, +out: String) -> IO(Unit):
+  (app, paths) = pair
+  do IO<Unit>:
+    render(paths, app, out)
     IO.print("site: wrote " ++ out)
+
+def build(root: String, out: String, base: String, names: List<&1, String>) -> IO(Unit):
+  do IO<Unit>:
+    pair : C.Application<App.Page, App.Site, C.Policy<Unit>> & List<&2, String> <- application(root, base, names.copy(names))
+    build.loaded(pair, out)
 
 def run(args: List<&1, String>) -> IO(Unit):
   match args:

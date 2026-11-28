@@ -1,0 +1,9 @@
+.git
+.worktrees
+.omp
+.agents
+**/.env*
+**/node_modules
+site/out
+site/dist
+**/.wrangler
