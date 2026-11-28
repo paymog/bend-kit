@@ -274,3 +274,6 @@ for name, platform in (("check", "linux"), ("http-macos", "macos")):
         assert "if: matrix.package == 'http'" in outcome
         assert "if: always() && matrix.package == 'http'" in upload
 print("PASS HTTP response outcomes: Linux and macOS, pinned tools, failure propagation, and always-uploaded results")
+outcome = (root / "http/outcome_check.py").read_text().split("def main():", 1)[1]
+assert outcome.index("held_completion(server)") < outcome.index("failed_write(server)")
+print("PASS HTTP held completion: sample admission counts before large socket writes exhaust the monitor")
