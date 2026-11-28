@@ -3,7 +3,7 @@ import Base
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import bend-kit-hash@0.3.2.4/hash.bend as Hash
 import bend-kit-files@0.4.0.3/files.bend as Files
-import bend-kit-process@0.5.2.3/process.bend as Proc
+import bend-kit-process@0.5.2.4/process.bend as Proc
 import bend-kit-collections@0.1.6.0/omap.bend as OMap
 import bend-kit-collections@0.1.6.0/order.bend as Order
 
