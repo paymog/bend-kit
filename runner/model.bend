@@ -1171,6 +1171,43 @@ def queue.unique(-A: Data, s: State<A>) -> Bool:
   State{Q.State{n, +h, +run}, ts, ds, bs} = s
   queue.unique.list(A, run) && (queue.unique.heap(A, h) && queue.apart(A, run, h))
 
+def fresh.heap(-A: Data, h: H.Heap<Q.Ticket<A>>, +n: Nat) -> Bool:
+  match h:
+    case H.HLeaf{}:
+      True{}
+    case H.HNode{size, t, l, r}:
+      Nat.is_lt(Q.id(A, t), n) && (fresh.heap(A, l, n) && fresh.heap(A, r, n))
+
+def fresh.list(-A: Data, xs: List<&2, Q.Ticket<A>>, +n: Nat) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{t, rest}:
+      Nat.is_lt(Q.id(A, t), n) && fresh.list(A, rest, n)
+
+def fresh.entries(-A: Data, xs: List<&2, M.Entry<Nat, Dead<A>>>, +n: Nat) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{M.Entry{k, Dead{t, w, at}}, rest}:
+      Nat.is_lt(k, n) && (Nat.is_lt(Q.id(A, t), n) && fresh.entries(A, rest, n))
+
+def fresh.graves(-A: Data, ds: Graves(A), +n: Nat) -> Bool:
+  match ds:
+    case M.HNil{}:
+      True{}
+    case M.HLeaf{hash, es}:
+      fresh.entries(A, es, n)
+    case M.HBranch{lo, hi}:
+      fresh.graves(A, lo, n) && fresh.graves(A, hi, n)
+
+def fresh(-A: Data, s: State<A>) -> Bool:
+  State{Q.State{+n, h, run}, ts, ds, bs} = s
+  fresh.heap(A, h, n) && (fresh.list(A, run, n) && fresh.graves(A, ds, n))
+
+def queue.valid(-A: Data, +s: State<A>) -> Bool:
+  queue.unique(A, s) && fresh(A, s)
+
 def rd.queue.keep(-A: Data, ok: Bool, s: State<A>) -> Maybe<&2, State<A>>:
   match ok:
     case True{}:
@@ -1183,7 +1220,7 @@ def rd.queue(-A: Data, m: Maybe<&2, State<A>>) -> Maybe<&2, State<A>>:
     case None{}:
       None{}
     case Some{+s}:
-      rd.queue.keep(A, queue.unique(A, s), s)
+      rd.queue.keep(A, queue.valid(A, s), s)
 
 # The state of a Snap record whose tag is already checked. The decoder must end at the record's end.
 def decode.snap(~A: Data, ~pdec: Bytes.Bytes -> Maybe<&2, A>, b: Bytes.Bytes) -> Maybe<&2, State<A>>:

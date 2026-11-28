@@ -7,6 +7,7 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `runner` 0.22.0.8: reject snapshots whose next id is not above every pending, running, and dead ticket id or dead lookup key. Prove accepted freshness and its preservation through orphan recovery.
 - `runner` 0.22.0.7: reject duplicate snapshot ticket ids within pending, within running, and across both registries. Prove that accepted snapshots and orphan requeues establish the accounting proof's queue-id conditions.
 - `http` checks: clear the serving log before each background launch so the JS lane cannot read the native lane's READY line. Repeat the delayed JS serving failure and keep exact PID counts and leak checks.
 - `wire` checks: attempt both firewall rule removals and retry failed deletions once. Preserve setup and client failures. SIGINT and SIGTERM stop and reap the isolated client before cleanup. Required Linux tests compare firewall state after recoverable failures and interruption.
