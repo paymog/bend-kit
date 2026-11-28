@@ -17,10 +17,15 @@ jobs:
     if: github.head_ref == 'fix/storage-http-resource'
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        revision: [current, original]
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ matrix.revision == 'original' && 'ac1ae175a99e44fdf0123a313547f7e24a860dd0' || github.event.pull_request.head.sha }}
       - name: Install pinned Bend
         run: |
           scripts/install-bend.sh "$RUNNER_TEMP/storage-bend"
@@ -49,7 +54,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: storage-resource-${{ github.run_id }}-${{ github.run_attempt }}
+          name: storage-resource-${{ matrix.revision }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/storage-resource-receipts/
           if-no-files-found: error
           retention-days: 30
