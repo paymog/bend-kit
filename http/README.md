@@ -3,12 +3,12 @@
 An HTTP/1.1 and HTTP/2 client, and an HTTP/1.1 server. Bodies are packed `Bytes`.
 
 ```bend
-import bend-kit-http@0.45.0.3/http.bend as Http
-import bend-kit-http@0.45.0.3/pure.bend as Pure
-import bend-kit-http@0.45.0.3/completion.bend as Completion
+import bend-kit-http@0.45.1.0/http.bend as Http
+import bend-kit-http@0.45.1.0/pure.bend as Pure
+import bend-kit-http@0.45.1.0/completion.bend as Completion
 ```
 
-`Pure.Body` uses `bend-kit-bytes@0.3.3.3`. JSON values for `post.json` use `bend-kit-json@0.7.3.2`. DNS lookup uses `bend-kit-dns@0.8.0.2`. TLS uses `bend-kit-wire@0.4.8.1`.
+`Pure.Body` uses `bend-kit-bytes@0.3.3.3`. JSON values for `post.json` use `bend-kit-json@0.7.3.2`. DNS lookup uses `bend-kit-dns@0.8.1.0`. TLS uses `bend-kit-wire@0.4.9.0`.
 
 Compression uses `bend-kit-zlib@0.7.0.5`: `zlib.bend` for pure decoding and `native.bend` for runtime decoding.
 
@@ -121,7 +121,7 @@ def main() -> IO(Unit):
 
 Use port `0` to let the OS select a free port. `(server, port) = Http.server.port(~Context, server)` returns the actual port beside the same server. The listener stays open from startup through serving. Both native and JS startup use `Wire.listen`.
 
-`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.8.1`.
+`0.31.0.0` adds `fetch.ca` and `pool.fetch.ca`. `Hops` and `Route` gain a `ca` field. A caller that builds those records must pass `""` when it wants the default trust store. `http` imports `bend-kit-wire@0.4.9.0`.
 
 `server.run` consumes the server and returns `ServerExit` after the listener is closed and the accepted work has returned. `server.close` does that close and returns the counts. It waits until handlers and cleanup callbacks return. It can wait forever. `server.stop` refuses new admission and returns `True` the first time. Stop is not drain. You still run or close the server. A callback that does not return is not cancelled. An external supervisor has to enforce a process deadline.
 

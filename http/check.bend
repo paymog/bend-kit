@@ -9,7 +9,7 @@ import bend-kit-http2@0.6.0.2/hpack.bend as Hpack
 import bend-kit-http2@0.6.0.2/http2.bend as H2
 import bend-kit-bytes@0.3.3.3/bytes.bend as HBytes
 import bend-kit-time@0.3.0.5/pure.bend as Time
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 
 
 def show_req(req: Pure.Req) -> IO(Unit):
