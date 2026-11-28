@@ -16,7 +16,7 @@ jobs:
   capture:
     if: github.head_ref == 'fix/storage-http-resource'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
         with:
@@ -29,19 +29,19 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y strace
-      - name: Capture 100 HTTP resource lifecycles
+      - name: Capture 10 complete Storage check processes
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/storage-resource-receipts"
           uname -a
           bend version
-          for round in 1 2 3 4 5; do
+          for round in $(seq 1 10); do
             export TMPDIR="$RUNNER_TEMP/storage-resource-$round"
             mkdir -p "$TMPDIR"
             python3 -B scripts/rss-check.py strace -f -tt -yy \
-              -e trace=socket,connect,getsockopt,fcntl,close \
+              -e trace=socket,connect,getsockopt,fcntl,close,futex \
               -o "$RUNNER_TEMP/storage-resource-receipts/syscalls-$round.log" \
-              bend storage/http_resource_check.bend \
+              bend storage/check.bend \
               2>&1 | tee "$RUNNER_TEMP/storage-resource-receipts/fixture-$round.log"
             rm -rf "$TMPDIR"
           done
