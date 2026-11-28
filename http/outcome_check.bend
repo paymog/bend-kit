@@ -215,16 +215,21 @@ def late.accepted(+observers: Chan(Chan(Completion.Completion<Payload>)),
       IO.join(Completion.Completion<Payload>, observer))
     late.received(event)
 
-def late.ready(+observers: Chan(Chan(Completion.Completion<Payload>)),
+def late.observed(+observers: Chan(Chan(Completion.Completion<Payload>)), port: U32,
   pair: Http.Server<LateContext> & Http.ServerStats) -> IO(Unit):
   (server, stats) = pair
   Http.Server{listener, context, config, inbox, drained} = server
   do IO<Unit>:
-    IO.print("READY")
+    IO.print("READY " ++ U32.show(port))
     accepted : Http.Server<LateContext> & Result<&1, &1, U32 & String, Chan(Unit)> <-
       Http.server.accept(~LateContext, ~late.handle, ~late.owner,
         Http.Server{listener, LateContext{observers, Some{stats}}, config, inbox, drained})
     late.accepted(observers, accepted)
+
+def late.ready(observers: Chan(Chan(Completion.Completion<Payload>)),
+  pair: Http.Server<LateContext> & U32) -> IO(Unit):
+  (server, port) = pair
+  late.observed(observers, port, Http.server.observer(~LateContext, server))
 
 def late.started(+observers: Chan(Chan(Completion.Completion<Payload>)),
   result: Unit & Result<&2, &1, Pure.StartupError, Http.Server<LateContext>>) -> IO(Unit):
@@ -232,7 +237,7 @@ def late.started(+observers: Chan(Chan(Completion.Completion<Payload>)),
   match started:
     case Fail{error}: IO.die(Unit, 1, "late startup failed")
     case Done{server}:
-      late.ready(observers, Http.server.observer(~LateContext, server))
+      late.ready(observers, Http.server.port(~LateContext, server))
 
 def run(mode: String, port: U32) -> IO(Unit):
   match mode:
