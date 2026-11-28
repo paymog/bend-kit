@@ -7,6 +7,9 @@ The kit is in alpha. A breaking change bumps the second number (`0.3.0.0` to `0.
 When you change `<pkg>.bend` or `effs/`, raise `VERSION` and add a line here for that package.
 
 ## Unreleased
+- `http` 0.45.1.0: adopt Wire 0.4.9.0 and DNS 0.8.1.0 with matching socket types.
+- `postgres` 0.4.1.0: adopt Wire 0.4.9.0 and DNS 0.8.1.0.
+- `redis` 0.5.1.0: adopt Wire 0.4.9.0 and DNS 0.8.1.0.
 - `dns` 0.8.1.0: adopt Wire 0.4.9.0.
 - `stream` 0.5.1.0: adopt Wire 0.4.9.0 in transfers and live checks.
 - `http` checks: start both private-CA listeners without reverse DNS. Check assigned loopback addresses and readiness when host lookup fails.
