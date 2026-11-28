@@ -311,6 +311,8 @@ def main():
                     server = Server(command, lane, mode, folder)
                     try:
                         happy(server)  # Small actual socket input precedes adverse large writes.
+                        if mode == 'whole':
+                            held_completion(server)
                         generated(server)
                         continue_response(server)
                         failed_write(server)
@@ -321,8 +323,6 @@ def main():
                         if '-convenience' not in mode:
                             deadline(server)
                         disposable(server)
-                        if mode == 'whole':
-                            held_completion(server)
                     except BaseException as error:
                         RESULTS.append(dict(lane=lane, mode=mode, adverse=repr(error)))
                         raise

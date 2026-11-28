@@ -255,3 +255,26 @@ for result, expected in [("success", 0), ("skipped", 0), ("failure", 1), ("cance
     status = subprocess.run(["bash", "-c", script], env=dict(os.environ, result=result), capture_output=True)
     assert status.returncode == expected, (result, status.returncode)
 print("PASS Stream live: selection, both runners, pinned tools, guarded lanes, and required failure gate")
+
+for name, platform in (("check", "linux"), ("http-macos", "macos")):
+    job = workflow.split(f"\n  {name}:\n", 1)[1].split("\n\n", 1)[0]
+    outcome = job.split("      - name: Check HTTP response outcomes in native and JS\n", 1)[1].split("      - name:", 1)[0]
+    assert "python3 -B http/outcome_check.py" in outcome
+    assert "continue-on-error" not in outcome and "||" not in outcome
+    assert job.index("http/startup_check.py") < job.index("http/outcome_check.py")
+    assert "scripts/install-bend.sh" in job
+    assert "bun-version: ${{ env.BUN_VERSION }}" in job
+    upload = job.split("      - name: Upload HTTP response outcomes\n", 1)[1].split("      - name:", 1)[0]
+    assert "if: always()" in upload
+    assert "actions/upload-artifact@v4" in upload
+    assert f"name: http-outcomes-{platform}-" in upload
+    assert "path: http/outcome_results.json" in upload
+    assert "if-no-files-found: error" in upload
+    if name == "check":
+        assert "if: matrix.package == 'http'" in outcome
+        assert "if: always() && matrix.package == 'http'" in upload
+        assert "timeout-minutes: ${{ matrix.package == 'http' && 40 || 20 }}" in job
+print("PASS HTTP response outcomes: Linux and macOS, pinned tools, failure propagation, and always-uploaded results")
+outcome = (root / "http/outcome_check.py").read_text().split("def main():", 1)[1]
+assert outcome.index("held_completion(server)") < outcome.index("failed_write(server)")
+print("PASS HTTP held completion: sample admission counts before large socket writes exhaust the monitor")

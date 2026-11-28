@@ -267,7 +267,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.packages != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.package == 'http' && 40 || 20 }}
     concurrency:
       group: ${{ github.event_name == 'pull_request' && format('pr-{0}-{1}', github.event.pull_request.number, matrix.package) || format('publish-{0}', matrix.package) }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -326,6 +326,18 @@ jobs:
         run: |
           export PATH="$HOME/.bend/bin:$PATH"
           python3 -B http/startup_check.py
+      - name: Check HTTP response outcomes in native and JS
+        if: matrix.package == 'http'
+        run: |
+          export PATH="$HOME/.bend/bin:$PATH"
+          python3 -B http/outcome_check.py
+      - name: Upload HTTP response outcomes
+        if: always() && matrix.package == 'http'
+        uses: actions/upload-artifact@v4
+        with:
+          name: http-outcomes-linux-${{ github.run_id }}-${{ github.run_attempt }}
+          path: http/outcome_results.json
+          if-no-files-found: error
       - name: Check DNS JavaScript backend
         if: matrix.package == 'dns'
         run: |
@@ -501,6 +513,15 @@ jobs:
         run: python3 -B scripts/rss-check.py scripts/native-check.sh http
       - name: Check HTTP startup sockets in native and JS
         run: python3 -B http/startup_check.py
+      - name: Check HTTP response outcomes in native and JS
+        run: python3 -B http/outcome_check.py
+      - name: Upload HTTP response outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: http-outcomes-macos-${{ github.run_id }}-${{ github.run_attempt }}
+          path: http/outcome_results.json
+          if-no-files-found: error
       - name: Check local HTTP serving and streaming in native and JS
         run: bash http/local-smoke.sh
 
