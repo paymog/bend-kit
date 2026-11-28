@@ -191,6 +191,39 @@ def queued(h: H.Heap<Q.Ticket<String>>, run: List<&2, Q.Ticket<String>>) -> Mode
 def leaf(+i: Nat, d: Nat, x: String) -> H.Heap<Q.Ticket<String>>:
   H.HNode{1n, Q.Ticket{i, d, x}, H.HLeaf{}, H.HLeaf{}}
 
+def heap.snapshots() -> IO(Unit):
+  do IO<Unit>:
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{0n, Q.Ticket{0n, 1n, "root"}, H.HLeaf{}, H.HLeaf{}}, []))),
+      "none", "a zero cached size does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{3n, Q.Ticket{0n, 1n, "root"}, leaf(1n, 2n, "child"), H.HLeaf{}}, []))),
+      "none", "an excessive cached size does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{3n, Q.Ticket{0n, 1n, "root"},
+        H.HNode{2n, Q.Ticket{1n, 2n, "child"}, H.HLeaf{}, H.HLeaf{}}, H.HLeaf{}}, []))),
+      "none", "a deeper wrong cached size does not decode even when the parent size matches its caches")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{2n, Q.Ticket{0n, 2n, "root"}, leaf(1n, 1n, "left"), H.HLeaf{}}, []))),
+      "none", "an earlier left child does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{2n, Q.Ticket{1n, 2n, "root"}, H.HLeaf{}, leaf(0n, 2n, "right")}, []))),
+      "none", "equal deadlines must respect FIFO ids on the right")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{3n, Q.Ticket{0n, 1n, "root"},
+        H.HNode{2n, Q.Ticket{1n, 3n, "child"}, H.HLeaf{}, leaf(2n, 2n, "grandchild")}, H.HLeaf{}}, []))),
+      "none", "an out-of-order grandchild does not decode even when the root bounds every ticket")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{3n, Q.Ticket{0n, 2n, "root"}, H.HLeaf{},
+        H.HNode{2n, Q.Ticket{1n, 3n, "child"}, leaf(2n, 1n, "grandchild"), H.HLeaf{}}}, []))),
+      "none", "a deeper ticket earlier than the root does not decode")
+    same(rec(Model.encode.snap(~String, ~penc, queued(
+      H.HNode{4n, Q.Ticket{0n, 2n, "root"}, leaf(1n, 2n, "left"),
+        H.HNode{2n, Q.Ticket{2n, big(), "right"}, leaf(3n, big(), "deep"), H.HLeaf{}}}, [Q.Ticket{4n, 0n, "running"}]))),
+      hex(queued(H.HNode{4n, Q.Ticket{0n, 2n, "root"}, leaf(1n, 2n, "left"),
+        H.HNode{2n, Q.Ticket{2n, big(), "right"}, leaf(3n, big(), "deep"), H.HLeaf{}}}, [Q.Ticket{4n, 0n, "running"}])),
+      "a valid asymmetric heap preserves all sizes, shape, payloads, deadlines, and running order")
+
 def queue.snapshots() -> IO(Unit):
   do IO<Unit>:
     same(rec(Model.encode.snap(~String, ~penc, queued(
@@ -263,6 +296,7 @@ def registry.snapshots() -> IO(Unit):
 
 def snapshots() -> IO(Unit):
   do IO<Unit>:
+    heap.snapshots()
     queue.snapshots()
     fresh.snapshots()
     registry.snapshots()

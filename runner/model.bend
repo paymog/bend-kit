@@ -1226,8 +1226,27 @@ def registry.valid(-A: Data, s: State<A>) -> Bool:
   State{Q.State{n, h, run}, ts, ds, bs} = s
   registry.graves(A, ds, h, run)
 
+def heap.root.le(-A: Data, +t: Q.Ticket<A>, h: H.Heap<Q.Ticket<A>>) -> Bool:
+  match h:
+    case H.HLeaf{}:
+      True{}
+    case H.HNode{n, x, l, r}:
+      Q.le(A, t, x)
+
+def heap.valid(-A: Data, h: H.Heap<Q.Ticket<A>>) -> Bool:
+  match h:
+    case H.HLeaf{}:
+      True{}
+    case H.HNode{+n, +t, +l, +r}:
+      Nat.is_eq(n, 1n+Nat.add(H.Heap.size(Q.Ticket<A>, l), H.Heap.size(Q.Ticket<A>, r))) &&
+        (heap.root.le(A, t, l) && (heap.root.le(A, t, r) && (heap.valid(A, l) && heap.valid(A, r))))
+
+def queue.heap.valid(-A: Data, s: State<A>) -> Bool:
+  State{Q.State{n, h, run}, ts, ds, bs} = s
+  heap.valid(A, h)
+
 def queue.valid(-A: Data, +s: State<A>) -> Bool:
-  queue.unique(A, s) && (fresh(A, s) && registry.valid(A, s))
+  queue.unique(A, s) && (fresh(A, s) && (registry.valid(A, s) && queue.heap.valid(A, s)))
 
 def rd.queue.keep(-A: Data, ok: Bool, s: State<A>) -> Maybe<&2, State<A>>:
   match ok:
