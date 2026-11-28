@@ -1,6 +1,6 @@
 # DNS host lookup. Source: https://github.com/paymog/bend-kit/tree/main/dns
 import Base
-import bend-kit-wire@0.4.8.1/wire.bend as Wire
+import bend-kit-wire@0.4.9.0/wire.bend as Wire
 import bend-kit-bytes@0.3.3.3/bytes.bend as Bytes
 import ./pure.bend as Pure
 
