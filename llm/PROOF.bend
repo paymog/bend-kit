@@ -348,3 +348,11 @@ def Laws.again_bad_request():
 
 def Laws.again_ok():
   {==}
+
+def Laws.sse_partition(pieces):
+  match pieces:
+    case Nil{}: {==}
+    case Con{h, t}:
+      match t:
+        case Nil{}: {==}
+        case Con{u, v}: ?TODO

@@ -97,6 +97,15 @@ def show(xs: List<&1, Sse.Message>) -> List<&2, String>:
 def sse(pieces: List<&2, String>) -> List<&2, String>:
   show(events(pieces))
 
+def joined(pieces: List<&2, String>) -> String:
+  match pieces:
+    case Nil{}: ""
+    case Con{h, Nil{}}: h
+    case Con{h, Con{u, v}}: h ++ joined(Con{u, v})
+
+law sse_partition:
+  for pieces: List<&2, String>
+  {sse(pieces) == sse([joined(pieces)]) : List<&2, String>}
 def retried.of(r: Sse.Reader & Maybe<&2, U32>) -> Maybe<&2, U32>:
   (rd, m) = r
   m

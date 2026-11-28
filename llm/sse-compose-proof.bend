@@ -3192,3 +3192,377 @@ def logical_line_lift(+future: String, +len: U32, +other: U32,
   (views, left_valid, right_valid) = relation
   (logical_prefix_views(future, Drain.line_view(len, left), Drain.line_view(other, right), views),
     left_valid, right_valid)
+
+def pending_head(lf: Bool, c: Char, tail: String) -> Bool & String:
+  match lf:
+    case True{}: (False{}, tail)
+    case False{}: (False{}, SCon{c, tail})
+
+def pending_normal(cr: Bool, text: String) -> Bool & String:
+  match cr:
+    case False{}: (False{}, text)
+    case True{}:
+      match text:
+        case SNil{}: (True{}, "")
+        case SCon{Chr{+c}, tail}: pending_head(U32.is_eq(c, 10), Chr{c}, tail)
+
+def pending_append(chunk: String, normalized: Bool & String) -> Bool & String:
+  (cr, text) = normalized
+  pending_normal(cr, text ++ chunk)
+
+def pending_head_append(lf: Bool, +c: Char, +tail: String, +chunk: String) ->
+  {pending_head(lf, c, tail ++ chunk) == pending_append(chunk, pending_head(lf, c, tail)) : Bool & String}:
+  match lf:
+    case True{}: {==}
+    case False{}: {==}
+
+def pending_normal_append(cr: Bool, text: String, +chunk: String) ->
+  {pending_normal(cr, text ++ chunk) == pending_append(chunk, pending_normal(cr, text)) : Bool & String}:
+  match cr:
+    case False{}: {==}
+    case True{}:
+      match text:
+        case SNil{}: {==}
+        case SCon{Chr{+c}, tail}: pending_head_append(U32.is_eq(c, 10), Chr{c}, tail, chunk)
+
+def pending_append_related(+left_cr: Bool, +right_cr: Bool, +left: String, +right: String, +chunk: String,
+  same: {pending_normal(left_cr, left) == pending_normal(right_cr, right) : Bool & String}) ->
+  {pending_normal(left_cr, left ++ chunk) == pending_normal(right_cr, right ++ chunk) : Bool & String}:
+  Equal.trans(Bool & String, pending_normal(left_cr, left ++ chunk),
+    pending_append(chunk, pending_normal(left_cr, left)), pending_normal(right_cr, right ++ chunk),
+    pending_normal_append(left_cr, left, chunk),
+    Equal.trans(Bool & String, pending_append(chunk, pending_normal(left_cr, left)),
+      pending_append(chunk, pending_normal(right_cr, right)), pending_normal(right_cr, right ++ chunk),
+      Equal.cong(Bool & String, Bool & String, pending_append(chunk),
+        pending_normal(left_cr, left), pending_normal(right_cr, right), same),
+      Equal.sym(Bool & String, pending_normal(right_cr, right ++ chunk),
+        pending_append(chunk, pending_normal(right_cr, right)), pending_normal_append(right_cr, right, chunk))))
+
+def pending_view(tag: U32, state: String & String & String & Maybe<&2, U32>,
+  message: Maybe<&1, String & String & String>, normalized: Bool & String) -> Budget.view_type():
+  (pending, unread) = normalized
+  (tag, unread, pending, state, message)
+
+def continuation_view(+future: String, view: Budget.view_type()) -> Budget.view_type():
+  (tag, tail, cr, state, message) = view
+  pending_view(tag, state, message, pending_normal(cr, tail ++ future))
+
+def continuation_pending_view(+chunk: String, +tag: U32,
+  -state: String & String & String & Maybe<&2, U32>, -message: Maybe<&1, String & String & String>,
+  normalized: Bool & String) ->
+  {continuation_view(chunk, pending_view(tag, state, message, normalized)) ==
+    pending_view(tag, state, message, pending_append(chunk, normalized)) : Budget.view_type()}:
+  (cr, text) = normalized
+  {==}
+
+def continuation_append(+future: String, +chunk: String, +tag: U32, +tail: String, +cr: Bool,
+  -state: String & String & String & Maybe<&2, U32>, -message: Maybe<&1, String & String & String>) ->
+  {continuation_view(chunk, continuation_view(future, (tag, tail, cr, state, message))) ==
+    continuation_view(future ++ chunk, (tag, tail, cr, state, message)) : Budget.view_type()}:
+  Equal.trans(Budget.view_type(),
+    continuation_view(chunk, continuation_view(future, (tag, tail, cr, state, message))),
+    pending_view(tag, state, message, pending_append(chunk, pending_normal(cr, tail ++ future))),
+    continuation_view(future ++ chunk, (tag, tail, cr, state, message)),
+    continuation_pending_view(chunk, tag, state, message, pending_normal(cr, tail ++ future)),
+    Equal.cong(Bool & String, Budget.view_type(), pending_view(tag, state, message),
+      pending_append(chunk, pending_normal(cr, tail ++ future)), pending_normal(cr, tail ++ (future ++ chunk)),
+      Equal.trans(Bool & String, pending_append(chunk, pending_normal(cr, tail ++ future)),
+        pending_normal(cr, (tail ++ future) ++ chunk), pending_normal(cr, tail ++ (future ++ chunk)),
+        Equal.sym(Bool & String, pending_normal(cr, (tail ++ future) ++ chunk),
+          pending_append(chunk, pending_normal(cr, tail ++ future)), pending_normal_append(cr, tail ++ future, chunk)),
+        Equal.cong(String, Bool & String, pending_normal(cr), (tail ++ future) ++ chunk, tail ++ (future ++ chunk),
+          Model.append_assoc(tail, future, chunk)))))
+
+def continuation_related(+future: String, +chunk: String, -left: Budget.view_type(), -right: Budget.view_type(),
+  same: {continuation_view(future, left) == continuation_view("", right) : Budget.view_type()}) ->
+  {continuation_view(chunk, continuation_view(future, left)) ==
+    continuation_view(chunk, continuation_view("", right)) : Budget.view_type()}:
+  Equal.cong(Budget.view_type(), Budget.view_type(), continuation_view(chunk),
+    continuation_view(future, left), continuation_view("", right), same)
+
+def pending_empty_normal_distinct() ->
+  {pending_normal(True{}, "") != pending_normal(False{}, "") : Bool & String}:
+  eq => MBool.true_ne_false()(Equal.cong(Bool & String, Bool,
+    value => Pair.fst(Bool, String, value), pending_normal(True{}, ""), pending_normal(False{}, ""), eq))
+
+def continuation_reader_observed(+future: String, +len: U32, +src: Tree.Tree<U32>, +s: U32, +cr: Bool,
+  -st: Sse.St, +text: String,
+  same: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == text : String}) ->
+  {continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, cr, st})) ==
+    pending_view(0, Drain.state_view(st), None{}, pending_normal(cr, text ++ future)) : Budget.view_type()}:
+  Equal.cong(String, Budget.view_type(),
+    value => pending_view(0, Drain.state_view(st), None{}, pending_normal(cr, value ++ future)),
+    Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s), text, same)
+
+def skip_pending_lf_continuation_parts(+future: String, +len: U32, +src: Tree.Tree<U32>, +s: U32,
+  -st: Sse.St, +tail: String, +before: MNat.lt(U32.to_nat(s), U32.to_nat(len)),
+  original: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == SCon{Chr{10}, tail} : String},
+  parts: {Model.peek(src, s) == 10 : U32} &
+    {Buffer.observed(U32.to_nat((len - (s + 1 : U32) : U32)),
+      Bytes.peek(Tree.reify(U32, src), (s + 1 : U32)), (s + 1 : U32)) == tail : String}) ->
+  {continuation_view(future, skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))) ==
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})) : Budget.view_type()}:
+  (lf, remaining) = parts
+  Equal.trans(Budget.view_type(),
+    continuation_view(future, skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))),
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), (s + 1 : U32), False{}, st})),
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+    Equal.cong(Array<U32> & U32 & Bool, Budget.view_type(), result => continuation_view(future, skipped_view(len, st, result)),
+      Sse.skip(True{}, Tree.reify(U32, src), len, s), (Tree.reify(U32, src), (s + 1 : U32), False{}),
+      Drain.skip_pending(len, s, src,
+        Equal.trans(Bool, U32.is_lt(s, len), Nat.is_lt(U32.to_nat(s), U32.to_nat(len)), True{},
+          Lemmas.u32_is_lt_nat(s, len), before), lf)),
+    Equal.trans(Budget.view_type(),
+      continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), (s + 1 : U32), False{}, st})),
+      (0, tail ++ future, False{}, Drain.state_view(st), None{}),
+      continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+      continuation_reader_observed(future, len, src, (s + 1 : U32), False{}, st, tail, remaining),
+      Equal.sym(Budget.view_type(),
+        continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+        (0, tail ++ future, False{}, Drain.state_view(st), None{}),
+        continuation_reader_observed(future, len, src, s, True{}, st, SCon{Chr{10}, tail}, original))))
+
+def skip_pending_empty(+len: U32, +src: Tree.Tree<U32>, +s: U32,
+  eq: {s == len : U32}) ->
+  {Sse.skip(True{}, Tree.reify(U32, src), len, s) == (Tree.reify(U32, src), s, True{}) : Array<U32> & U32 & Bool}:
+  %Equal.sym(U32, s, len, eq) :
+    {Sse.skip(True{}, Tree.reify(U32, src), len, _) == (Tree.reify(U32, src), _, True{}) : Array<U32> & U32 & Bool}
+  %Equal.sym(Bool, U32.is_lt(len, len), False{},
+    Equal.trans(Bool, U32.is_lt(len, len), Nat.is_lt(U32.to_nat(len), U32.to_nat(len)), False{},
+      Lemmas.u32_is_lt_nat(len, len), MNat.not_lt_of_le(U32.to_nat(len), U32.to_nat(len), MNat.le_refl(U32.to_nat(len))))) :
+    {Sse.skip.at(_, Tree.reify(U32, src), len) == (Tree.reify(U32, src), len, True{}) : Array<U32> & U32 & Bool}
+  {==}
+
+def skip_pending_non_lf_continuation(+future: String, +len: U32, +src: Tree.Tree<U32>, +s: U32,
+  -st: Sse.St, +c: U32, +tail: String,
+  available: {U32.is_lt(s, len) == True{} : Bool},
+  head: {Model.peek(src, s) == c : U32}, +not_lf: {U32.is_eq(c, 10) == False{} : Bool},
+  +original: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == SCon{Chr{c}, tail} : String}) ->
+  {continuation_view(future, skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))) ==
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})) : Budget.view_type()}:
+  Equal.trans(Budget.view_type(),
+    continuation_view(future, skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))),
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, False{}, st})),
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+    Equal.cong(Array<U32> & U32 & Bool, Budget.view_type(), result => continuation_view(future, skipped_view(len, st, result)),
+      Sse.skip(True{}, Tree.reify(U32, src), len, s), (Tree.reify(U32, src), s, False{}),
+      Drain.skip_non_lf(len, s, src, available,
+        Equal.trans(Bool, U32.is_eq(Model.peek(src, s), 10), U32.is_eq(c, 10), False{},
+          Equal.cong(U32, Bool, value => U32.is_eq(value, 10), Model.peek(src, s), c, head), not_lf))),
+    Equal.trans(Budget.view_type(),
+      continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, False{}, st})),
+      (0, SCon{Chr{c}, tail ++ future}, False{}, Drain.state_view(st), None{}),
+      continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+      continuation_reader_observed(future, len, src, s, False{}, st, SCon{Chr{c}, tail}, original),
+      Equal.sym(Budget.view_type(),
+        continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})),
+        (0, SCon{Chr{c}, tail ++ future}, False{}, Drain.state_view(st), None{}),
+        (%not_lf :
+          {continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})) ==
+            pending_view(0, Drain.state_view(st), None{}, pending_head(_, Chr{c}, tail ++ future)) : Budget.view_type()}
+         continuation_reader_observed(future, len, src, s, True{}, st, SCon{Chr{c}, tail}, original)))))
+
+def skip_pending_cons_continuation(lf: Bool, +future: String, +len: U32, +src: Tree.Tree<U32>, +s: U32,
+  -st: Sse.St, +c: U32, +tail: String, +limit: Nat,
+  +before: MNat.lt(U32.to_nat(s), U32.to_nat(len)),
+  hl: MNat.lt(U32.to_nat(len), limit), hu: MNat.le(limit, Lemmas.pow2(32n)),
+  selected: {U32.is_eq(c, 10) == lf : Bool},
+  +original: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == SCon{Chr{c}, tail} : String}) ->
+  {continuation_view(future, skipped_view(len, st, Sse.skip(True{}, Tree.reify(U32, src), len, s))) ==
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, True{}, st})) : Budget.view_type()}:
+  match lf:
+    case True{}:
+      +input = Equal.trans(String,
+        Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s),
+        SCon{Chr{c}, tail}, SCon{Chr{10}, tail}, original,
+        Equal.cong(U32, String, value => SCon{Chr{value}, tail}, c, 10, Next.byte_eq(c, 10, selected)))
+      skip_pending_lf_continuation_parts(future, len, src, s, st, tail, before, input,
+        Drain.pending_observation(len, s, src, tail, limit, before, hl, hu, input))
+    case False{}:
+      skip_pending_non_lf_continuation(future, len, src, s, st, c, tail,
+        Equal.trans(Bool, U32.is_lt(s, len), Nat.is_lt(U32.to_nat(s), U32.to_nat(len)), True{},
+          Lemmas.u32_is_lt_nat(s, len), before),
+        Pair.fst({Model.peek(src, s) == c : U32},
+          {Buffer.observed(String.length(tail), Bytes.peek(Tree.reify(U32, src), (s + 1 : U32)), (s + 1 : U32)) == tail : String},
+          Next.observed_cons_parts(tail, c, src, s, len, Next.observed_width(SCon{Chr{c}, tail}, src, s, len, original), original)),
+        selected, original)
+
+def skip_continuation(cr: Bool, text: String, +future: String, +len: U32, +src: Tree.Tree<U32>, +s: U32,
+  -st: Sse.St, +limit: Nat,
+  sl: MNat.le(U32.to_nat(s), U32.to_nat(len)), hl: MNat.lt(U32.to_nat(len), limit),
+  hu: MNat.le(limit, Lemmas.pow2(32n)),
+  +original: {Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, src), s), s) == text : String}) ->
+  {continuation_view(future, skipped_view(len, st, Sse.skip(cr, Tree.reify(U32, src), len, s))) ==
+    continuation_view(future, Drain.line_view(len, Sse.LMore{Tree.reify(U32, src), s, cr, st})) : Budget.view_type()}:
+  match cr:
+    case False{}: {==}
+    case True{}:
+      match text:
+        case SNil{}:
+          Equal.cong(Array<U32> & U32 & Bool, Budget.view_type(),
+            result => continuation_view(future, skipped_view(len, st, result)),
+            Sse.skip(True{}, Tree.reify(U32, src), len, s), (Tree.reify(U32, src), s, True{}),
+            skip_pending_empty(len, src, s, Next.empty_position(s, len, sl, Next.observed_width("", src, s, len, original))))
+        case SCon{Chr{+c}, +tail}:
+          skip_pending_cons_continuation(U32.is_eq(c, 10), future, len, src, s, st, c, tail, limit,
+            Next.nonempty_available(s, len, String.length(tail), sl, Next.observed_width(SCon{Chr{c}, tail}, src, s, len, original)),
+            hl, hu, {==}, original)
+
+def continuation_line_relation(+future: String, +len: U32, +other: U32,
+  -left: Sse.Line, -right: Sse.Line, +limit: Nat) -> Type:
+  {continuation_view(future, Drain.line_view(len, left)) ==
+    continuation_view("", Drain.line_view(other, right)) : Budget.view_type()} &
+    Drain.line_valid(len, left, limit) & Drain.line_valid(other, right, limit)
+
+def continuation_line_transport(+future: String, +len: U32, +other: U32,
+  -left: Sse.Line, -right: Sse.Line, -normalized_left: Sse.Line, -normalized_right: Sse.Line, +limit: Nat,
+  ea: {left == normalized_left : Sse.Line}, eb: {right == normalized_right : Sse.Line},
+  relation: continuation_line_relation(future, len, other, normalized_left, normalized_right, limit)) ->
+  continuation_line_relation(future, len, other, left, right, limit):
+  %Equal.sym(Sse.Line, left, normalized_left, ea) : continuation_line_relation(future, len, other, _, right, limit)
+  %Equal.sym(Sse.Line, right, normalized_right, eb) : continuation_line_relation(future, len, other, normalized_left, _, limit)
+  relation
+
+def continuation_more_parts(+future: String, +len: U32, +other: U32, +a: Tree.Tree<U32>, +b: Tree.Tree<U32>,
+  +s: U32, +t: U32, +cr: Bool, +other_cr: Bool, -st: Sse.St, -next: Sse.St,
+  -view: String & String & String & Maybe<&2, U32>, +limit: Nat,
+  same: {pending_normal(cr, Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ++ future) ==
+    pending_normal(other_cr, Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t)) : Bool & String},
+  left_buffer: Drain.buffer_valid(len, Tree.reify(U32, a), s, s, limit),
+  right_buffer: Drain.buffer_valid(other, Tree.reify(U32, b), t, t, limit),
+  left_state: {Drain.state_view(st) == view : String & String & String & Maybe<&2, U32>} & Drain.state_valid(st, limit),
+  right_state: {Drain.state_view(next) == view : String & String & String & Maybe<&2, U32>} & Drain.state_valid(next, limit)) ->
+  continuation_line_relation(future, len, other,
+    Sse.LMore{Tree.reify(U32, a), s, cr, st}, Sse.LMore{Tree.reify(U32, b), t, other_cr, next}, limit):
+  (left_eq, left_valid) = left_state
+  (right_eq, right_valid) = right_state
+  -left = pending_normal(cr, Buffer.observed(U32.to_nat((len - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ++ future)
+  -right = pending_normal(other_cr, Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t))
+  (Equal.trans(Budget.view_type(), pending_view(0, Drain.state_view(st), None{}, left),
+    pending_view(0, view, None{}, left), continuation_view("", Drain.line_view(other, Sse.LMore{Tree.reify(U32, b), t, other_cr, next})),
+    Equal.cong(String & String & String & Maybe<&2, U32>, Budget.view_type(), value => pending_view(0, value, None{}, left),
+      Drain.state_view(st), view, left_eq),
+    Equal.trans(Budget.view_type(), pending_view(0, view, None{}, left), pending_view(0, view, None{}, right),
+      continuation_view("", Drain.line_view(other, Sse.LMore{Tree.reify(U32, b), t, other_cr, next})),
+      Equal.cong(Bool & String, Budget.view_type(), pending_view(0, view, None{}), left, right, same),
+      Equal.trans(Budget.view_type(), pending_view(0, view, None{}, right), pending_view(0, Drain.state_view(next), None{}, right),
+        continuation_view("", Drain.line_view(other, Sse.LMore{Tree.reify(U32, b), t, other_cr, next})),
+        Equal.sym(Budget.view_type(), pending_view(0, Drain.state_view(next), None{}, right), pending_view(0, view, None{}, right),
+          Equal.cong(String & String & String & Maybe<&2, U32>, Budget.view_type(), value => pending_view(0, value, None{}, right),
+            Drain.state_view(next), view, right_eq)),
+        Equal.cong(String, Budget.view_type(), value => pending_view(0, Drain.state_view(next), None{}, pending_normal(other_cr, value)),
+          Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t),
+          Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) ++ "",
+          Equal.sym(String, Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) ++ "",
+            Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t),
+            Model.append_nil(Buffer.observed(U32.to_nat((other - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t))))))),
+    (left_buffer, left_valid), (right_buffer, right_valid))
+
+def field_continuation_finish(+future: String, +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  +a: Tree.Tree<U32>, +b: Tree.Tree<U32>, +len: U32, +other: U32,
+  +s: U32, +t: U32, +e: U32, +f: U32, +pos: U32, +next_pos: U32, +cr: Bool, +other_cr: Bool,
+  -st: Sse.St, -next: Sse.St, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(len)), Model.as_bits(a)),
+  right_shape: Bound.shape(Local.depth(Local.words(other)), Model.as_bits(b)),
+  hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit), hr: MNat.lt(Nat.add(U32.to_nat(other), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  pl: MNat.le(U32.to_nat(pos), U32.to_nat(len)), qo: MNat.le(U32.to_nat(next_pos), U32.to_nat(other)),
+  same: {pending_normal(cr, Buffer.observed(U32.to_nat((len - pos : U32)), Bytes.peek(Tree.reify(U32, a), pos), pos) ++ future) ==
+    pending_normal(other_cr, Buffer.observed(U32.to_nat((other - next_pos : U32)), Bytes.peek(Tree.reify(U32, b), next_pos), next_pos)) : Bool & String},
+  cert: Drain.line_field_refines_type(old, name, id, retry, a, b, len, other, s, t, e, f, pos, next_pos, cr, other_cr, st, next, limit)) ->
+  continuation_line_relation(future, len, other,
+    Sse.line.body(False{}, Tree.reify(U32, a), len, s, e, pos, cr, st),
+    Sse.line.body(False{}, Tree.reify(U32, b), other, t, f, next_pos, other_cr, next), limit):
+  (+value, left, right) = cert
+  continuation_line_transport(future, len, other,
+    Sse.line.body(False{}, Tree.reify(U32, a), len, s, e, pos, cr, st),
+    Sse.line.body(False{}, Tree.reify(U32, b), other, t, f, next_pos, other_cr, next),
+    Sse.LMore{Tree.reify(U32, a), pos, cr, Field.field_state_result(len, a, s, e, st)},
+    Sse.LMore{Tree.reify(U32, b), next_pos, other_cr, Field.field_state_result(other, b, t, f, next)}, limit,
+    Drain.line_field_pair(a, len, s, e, pos, cr, st), Drain.line_field_pair(b, other, t, f, next_pos, other_cr, next),
+    continuation_more_parts(future, len, other, a, b, pos, next_pos, cr, other_cr,
+      Field.field_state_result(len, a, s, e, st), Field.field_state_result(other, b, t, f, next),
+      Field.text_set(Field.field_kind(a, s, e), value, old, name, id, retry), limit, same,
+      (a, "", Drain.restarted_tail(len, a, pos), {==}, Drain.restarted_buffer(len, a, pos, limit, left_shape, hl, pl)),
+      (b, "", Drain.restarted_tail(other, b, next_pos), {==}, Drain.restarted_buffer(other, b, next_pos, limit, right_shape, hr, qo)),
+      Drain.set_snapshot_observe(Field.field_kind(a, s, e), old, value, name, id, retry,
+        Field.field_state_result(len, a, s, e, st), limit, hu,
+        Drain.field_result_snapshot(Field.field_kind(a, s, e), old, value, name, id, retry, a, len, s, e, pos, cr, st, limit, left)),
+      Drain.set_snapshot_observe(Field.field_kind(a, s, e), old, value, name, id, retry,
+        Field.field_state_result(other, b, t, f, next), limit, hu,
+        Drain.field_result_snapshot(Field.field_kind(a, s, e), old, value, name, id, retry, b, other, t, f, next_pos, other_cr, next, limit, right))))
+
+def pending_head_false(+c: U32, +tail: String) ->
+  {pending_head(False{}, Chr{c}, tail) == (False{}, SCon{Chr{c}, tail}) : Bool & String}:
+  {==}
+
+def pending_non_lf_head(+c: U32, +tail: String,
+  not_lf: {U32.is_eq(c, 10) == False{} : Bool}) ->
+  {pending_head(U32.is_eq(c, 10), Chr{c}, tail) == (False{}, SCon{Chr{c}, tail}) : Bool & String}:
+  Equal.trans(Bool & String, pending_head(U32.is_eq(c, 10), Chr{c}, tail), pending_head(False{}, Chr{c}, tail),
+    (False{}, SCon{Chr{c}, tail}),
+    Equal.cong(Bool, Bool & String, flag => pending_head(flag, Chr{c}, tail), U32.is_eq(c, 10), False{}, not_lf),
+    pending_head_false(c, tail))
+
+def pending_non_lf_normal(+c: U32, +tail: String,
+  not_lf: {U32.is_eq(c, 10) == False{} : Bool}) ->
+  {pending_normal(True{}, SCon{Chr{c}, tail}) == (False{}, SCon{Chr{c}, tail}) : Bool & String}:
+  pending_non_lf_head(c, tail, not_lf)
+
+def pending_non_lf_suffix(+c: U32, +tail: String, +future: String,
+  not_lf: {U32.is_eq(c, 10) == False{} : Bool}) ->
+  {pending_normal(True{}, SCon{Chr{c}, tail ++ future}) == (False{}, SCon{Chr{c}, tail ++ future}) : Bool & String}:
+  pending_non_lf_head(c, tail ++ future, not_lf)
+
+def non_lf_pending_observation(+future: String, +src: Tree.Tree<U32>, +pos: U32, +len: U32,
+  +c: U32, +tail: String, not_lf: {U32.is_eq(c, 10) == False{} : Bool},
+  original: {Buffer.observed(U32.to_nat((len - pos : U32)), Bytes.peek(Tree.reify(U32, src), pos), pos) == SCon{Chr{c}, tail} : String}) ->
+  {pending_normal(True{}, Buffer.observed(U32.to_nat((len - pos : U32)), Bytes.peek(Tree.reify(U32, src), pos), pos) ++ future) ==
+    pending_normal(False{}, Buffer.observed(U32.to_nat((len - pos : U32)), Bytes.peek(Tree.reify(U32, src), pos), pos) ++ future) : Bool & String}:
+  %Equal.sym(String, Buffer.observed(U32.to_nat((len - pos : U32)), Bytes.peek(Tree.reify(U32, src), pos), pos) ++ future,
+    SCon{Chr{c}, tail ++ future},
+    Equal.cong(String, String, value => value ++ future,
+      Buffer.observed(U32.to_nat((len - pos : U32)), Bytes.peek(Tree.reify(U32, src), pos), pos), SCon{Chr{c}, tail}, original)) :
+    {pending_normal(True{}, _) == pending_normal(False{}, _) : Bool & String}
+  pending_non_lf_suffix(c, tail, future, not_lf)
+
+def field_continuation_refines(+future: String, +old: String, +name: String, +id: String, +retry: Maybe<&2, U32>,
+  +a: Tree.Tree<U32>, +b: Tree.Tree<U32>, +len: U32, +other: U32, +s: U32, +t: U32, +e: U32, +f: U32,
+  +pos: U32, +next_pos: U32, +cr: Bool, +other_cr: Bool, -st: Sse.St, -next: Sse.St, +delta: Nat, +limit: Nat,
+  left_shape: Bound.shape(Local.depth(Local.words(len)), Model.as_bits(a)),
+  right_shape: Bound.shape(Local.depth(Local.words(other)), Model.as_bits(b)),
+  +hl: MNat.lt(Nat.add(U32.to_nat(len), 3n), limit), +hr: MNat.lt(Nat.add(U32.to_nat(other), 3n), limit),
+  +hu: MNat.le(limit, Lemmas.pow2(32n)),
+  se: MNat.le(U32.to_nat(s), U32.to_nat(e)), tf: MNat.le(U32.to_nat(t), U32.to_nat(f)),
+  el: MNat.le(U32.to_nat(e), U32.to_nat(len)), fo: MNat.le(U32.to_nat(f), U32.to_nat(other)),
+  pl: MNat.le(U32.to_nat(pos), U32.to_nat(len)), qo: MNat.le(U32.to_nat(next_pos), U32.to_nat(other)),
+  starts: Offset.offset(delta, s, t), ends: Offset.offset(delta, e, f),
+  hn: MNat.lt(Nat.add(Nat.add(Nat.add(String.length(old), U32.to_nat((e - s : U32))), 1n), 3n), limit),
+  left_state: Field.state_snapshot(name, old, id, retry, st, limit),
+  right_state: Field.state_snapshot(name, old, id, retry, next, limit),
+  body: {Buffer.observed(U32.to_nat((e - s : U32)), Bytes.peek(Tree.reify(U32, a), s), s) ==
+    Buffer.observed(U32.to_nat((f - t : U32)), Bytes.peek(Tree.reify(U32, b), t), t) : String},
+  suffix: {pending_normal(cr, Buffer.observed(U32.to_nat((len - pos : U32)), Bytes.peek(Tree.reify(U32, a), pos), pos) ++ future) ==
+    pending_normal(other_cr, Buffer.observed(U32.to_nat((other - next_pos : U32)), Bytes.peek(Tree.reify(U32, b), next_pos), next_pos)) : Bool & String}) ->
+  continuation_line_relation(future, len, other,
+    Sse.line.body(False{}, Tree.reify(U32, a), len, s, e, pos, cr, st),
+    Sse.line.body(False{}, Tree.reify(U32, b), other, t, f, next_pos, other_cr, next), limit):
+  field_continuation_finish(future, old, name, id, retry, a, b, len, other, s, t, e, f, pos, next_pos, cr, other_cr,
+    st, next, limit, left_shape, right_shape, hl, hr, hu, pl, qo, suffix,
+    Drain.line_field_refines(old, name, id, retry, a, b, len, other, s, t, e, f, pos, next_pos, cr, other_cr,
+      st, next, delta, limit, hl, hr, hu, se, tf, el, fo, starts, ends, hn, left_state, right_state, body))
+
+def pending_text_second(normalized: Bool & String) -> String:
+  (cr, text) = normalized
+  text
+
+def cr_non_lf_pending_distinct() ->
+  {pending_normal(True{}, "\r") != pending_normal(False{}, "\r\n") : Bool & String}:
+  eq => MNat.zero_ne_succ(0n)(
+    Equal.cong(Nat, Nat, n => Nat.sub(n, 1n),
+      String.length(pending_text_second(pending_normal(True{}, "\r"))),
+      String.length(pending_text_second(pending_normal(False{}, "\r\n"))),
+      Equal.cong(String, Nat, String.length,
+        pending_text_second(pending_normal(True{}, "\r")), pending_text_second(pending_normal(False{}, "\r\n")),
+        Equal.cong(Bool & String, String, pending_text_second,
+          pending_normal(True{}, "\r"), pending_normal(False{}, "\r\n"), eq))))
