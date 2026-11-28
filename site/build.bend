@@ -128,8 +128,12 @@ def render(paths: List<&2, String>, +app: C.Application<App.Page, App.Site, C.Po
 def build(+root: String, +out: String, base: String, names: List<&1, String>) -> IO(Unit):
   do IO<Unit>:
     +pkgs : List<&2, App.Pkg> <- load.all(names, root)
-    templates : Map<&2, List<&2, T.Node>> <- templates.go(["layout", "index", "package", "llms"], Fs.path.join(root, "site/templates"), Map.new(&2, List<&2, T.Node>))
-    app : C.Application<App.Page, App.Site, C.Policy<Unit>> <- ready(App.application(App.site(base, pkgs, templates)))
+    templates : Map<&2, List<&2, T.Node>> <- templates.go(["layout", "index", "package", "llms", "document"], Fs.path.join(root, "site/templates"), Map.new(&2, List<&2, T.Node>))
+    guide : String <- read.text(Fs.path.join(root, "site/getting-started.md"), 1048576)
+    changelog : String <- read.text(Fs.path.join(root, "CHANGELOG.md"), 1048576)
+    roadmap : String <- read.text(Fs.path.join(root, "ROADMAP.md"), 1048576)
+    documents : Map<&2, String> = Map.set(&2, String, Map.set(&2, String, Map.set(&2, String, Map.new(&2, String), "getting-started", guide), "changelog", changelog), "roadmap", roadmap)
+    app : C.Application<App.Page, App.Site, C.Policy<Unit>> <- ready(App.application(App.site(base, pkgs, templates, documents)))
     render(App.paths(pkgs), app, out)
     IO.print("site: wrote " ++ out)
 

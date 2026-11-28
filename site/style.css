@@ -4,7 +4,7 @@
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, sans-serif; }
 a { color: var(--accent); }
 header, main, footer { max-width: 60rem; margin: 0 auto; padding: 0 1.25rem; }
-header nav { display: flex; gap: 1.25rem; padding: 1rem 0; border-bottom: 1px solid var(--line); }
+header nav { display: flex; flex-wrap: wrap; gap: 1.25rem; padding: 1rem 0; border-bottom: 1px solid var(--line); }
 header .brand { font-weight: 700; margin-right: auto; color: var(--fg); text-decoration: none; }
 footer { margin-top: 3rem; padding: 1.5rem 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
 code, pre { font: 0.875rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }

@@ -14,13 +14,14 @@ type Pkg is Data:
 
 # base is the absolute site URL with no trailing slash; templates holds the parsed pages by name.
 type Site is Data:
-  Site{base: String, list: List<&2, Pkg>, index: Map<&2, Pkg>, templates: Map<&2, List<&2, T.Node>>}
+  Site{base: String, list: List<&2, Pkg>, index: Map<&2, Pkg>, templates: Map<&2, List<&2, T.Node>>, docs: Map<&2, String>}
 
 type Page is Data:
   Home{}
   Package{}
   Source{}
   Llms{}
+  Document{name: String, title: String}
 
 type LState is Data:
   LState{doc: List<&2, String>, open: Bool, name: String, ldoc: String, body: List<&2, String>, out: List<&2, Law>}
@@ -165,7 +166,7 @@ def gfm(s: String) -> String:
   M.to_html_with(M.Opts{False{}, True{}}, s)
 
 def home(site: Site) -> Pure.Res:
-  Site{+base, +list, index, +templates} = site
+  Site{+base, +list, index, +templates, docs} = site
   ctx = put(Map.new(&2, T.Value), "count", Nat.show(List.length(&2, Pkg, list)))
   html(templates, base, "bend-kit", "index", Map.set(&2, T.Value, ctx, "packages", T.VList{pkgs.values(list)}))
 
@@ -199,16 +200,24 @@ def package.popped(pair: Map<&2, Pkg> & Maybe<&2, Pkg>, raw: Bool, templates: Ma
 
 def package.named(pair: Map<&2, String> & String, raw: Bool, site: Site) -> Result<&2, &1, C.Error<Unit>, Pure.Res>:
   (left, name) = pair
-  Site{base, list, index, templates} = site
+  Site{base, list, index, templates, docs} = site
   package.popped(Map.pop(&2, Pkg, index, name), raw, templates, base)
 
 def package(raw: Bool, site: Site, params: Map<&2, String>) -> Result<&2, &1, C.Error<Unit>, Pure.Res>:
   package.named(Map.get(String, "", params, "name"), raw, site)
 
 def llms(site: Site) -> Pure.Res:
-  Site{+base, list, index, +templates} = site
+  Site{+base, list, index, +templates, docs} = site
   ctx = put(Map.new(&2, T.Value), "base", base)
   text("text/plain; charset=utf-8", T.render(template(templates, "llms"), Map.set(&2, T.Value, ctx, "packages", T.VList{pkgs.values(list)})))
+
+def document.got(pair: Map<&2, String> & String, title: String, templates: Map<&2, List<&2, T.Node>>, base: String) -> Pure.Res:
+  (rest, source) = pair
+  html(templates, base, title ++ " · bend-kit", "document", put(Map.new(&2, T.Value), "body", gfm(source)))
+
+def document(name: String, title: String, site: Site) -> Pure.Res:
+  Site{base, list, index, templates, docs} = site
+  document.got(Map.get(String, "", docs, name), title, templates, base)
 
 def respond(page: Page, site: Site, params: Map<&2, String>) -> Result<&2, &1, C.Error<Unit>, Pure.Res>:
   match page:
@@ -220,6 +229,8 @@ def respond(page: Page, site: Site, params: Map<&2, String>) -> Result<&2, &1, C
       package(False{}, site, params)
     case Source{}:
       package(True{}, site, params)
+    case Document{name, title}:
+      Done{document(name, title, site)}
 
 def run(page: Page, state: Unit, site: Site, selected: C.Match<C.Policy<Unit>>, req: Pure.Req) -> IO(Unit & Result<&2, &1, C.Error<Unit>, Pure.Res>):
   C.Match{target, params, groups, method, pattern, policies} = selected
@@ -237,6 +248,9 @@ def none() -> C.Policy<Unit>:
 def routes() -> List<&2, C.Route<Page, C.Policy<Unit>>>:
   [C.Route{"GET", "/", Home{}, [], none()},
    C.Route{"GET", "/llms.txt", Llms{}, [], none()},
+   C.Route{"GET", "/getting-started", Document{"getting-started", "Getting started"}, [], none()},
+   C.Route{"GET", "/changelog", Document{"changelog", "Changelog"}, [], none()},
+   C.Route{"GET", "/roadmap", Document{"roadmap", "Roadmap"}, [], none()},
    C.Route{"GET", "/packages/:name", Package{}, [], none()},
    C.Route{"GET", "/packages/:name/README.md", Source{}, [], none()}]
 
@@ -247,8 +261,8 @@ def index.go(pkgs: List<&2, Pkg>, m: Map<&2, Pkg>) -> Map<&2, Pkg>:
     case Con{Pkg{+name, version, about, readme, laws, bench}, rest}:
       index.go(rest, Map.set(&2, Pkg, m, name, Pkg{name, version, about, readme, laws, bench}))
 
-def site(base: String, +pkgs: List<&2, Pkg>, templates: Map<&2, List<&2, T.Node>>) -> Site:
-  Site{base, pkgs, index.go(pkgs, Map.new(&2, Pkg)), templates}
+def site(base: String, +pkgs: List<&2, Pkg>, templates: Map<&2, List<&2, T.Node>>, docs: Map<&2, String>) -> Site:
+  Site{base, pkgs, index.go(pkgs, Map.new(&2, Pkg)), templates, docs}
 
 def application(site: Site) -> Result<&2, &2, C.RegistrationError, C.Application<Page, Site, C.Policy<Unit>>>:
   C.application(~Page, ~Site, ~C.Policy<Unit>, routes(), [], site, none())
@@ -265,7 +279,7 @@ def paths.go(pkgs: List<&2, Pkg>, acc: List<&2, String>) -> List<&2, String>:
 
 # Every route the static build writes.
 def paths(pkgs: List<&2, Pkg>) -> List<&2, String>:
-  paths.go(pkgs, ["/", "/llms.txt"])
+  paths.go(pkgs, ["/", "/llms.txt", "/getting-started", "/changelog", "/roadmap"])
 
 def file.pick(file: Bool, +path: String) -> String:
   match file:
