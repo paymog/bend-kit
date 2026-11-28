@@ -55,6 +55,22 @@ class ReadmeNavigation(unittest.TestCase):
         source = '<!doctype html><!-- test --><nav><a href="#top">Top</a></nav>'
         self.assertEqual(self.render(source), source)
 
+    def test_document_navigation(self):
+        page = PackagePage("", "https://example.test/bend-kit", {"bytes"})
+        page.feed('''<section class="readme"><h1>Roadmap</h1>
+<a href="README.md">Catalog</a><a href="CHANGELOG.md#unreleased">Changes</a>
+<a href="ROADMAP.md">Plans</a><a href="bytes/README.md">Bytes</a>
+<a href="scripts/check.sh">Check</a></section>''')
+        page.close()
+        result = "".join(page.out)
+        for href in ("https://example.test/bend-kit/",
+                     "https://example.test/bend-kit/changelog/#unreleased",
+                     "https://example.test/bend-kit/roadmap/",
+                     "https://example.test/bend-kit/packages/bytes/",
+                     REPO + "scripts/check.sh"):
+            self.assertIn('href="' + href + '"', result)
+        self.assertIn('id="roadmap"', result)
+
 
 if __name__ == "__main__":
     unittest.main()

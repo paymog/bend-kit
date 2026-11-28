@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep package README navigation on the static site."""
+"""Keep Markdown navigation on the static site."""
 
 import html
 from html.parser import HTMLParser
@@ -39,9 +39,13 @@ class PackagePage(HTMLParser):
         prefix = "bench-" if self.section == "bench" else ""
         if value.startswith("#"):
             return "#" + prefix + value[1:]
-        source = REPO + self.name + ("/bench/" if prefix else "/")
+        source = REPO + (self.name + "/" if self.name else "") + ("bench/" if prefix else "")
         resolved = urlsplit(urljoin(source, value))
         path = resolved.path.removeprefix("/paymog/bend-kit/blob/main/")
+        documents = {"README.md": "", "CHANGELOG.md": "changelog/", "ROADMAP.md": "roadmap/"}
+        if not image and path in documents and not resolved.query:
+            fragment = "#" + resolved.fragment if resolved.fragment else ""
+            return self.base + "/" + documents[path] + fragment
         bits = path.rstrip("/").split("/")
         if not image and bits[0] in self.packages and not resolved.query:
             fragment = "#" + resolved.fragment if resolved.fragment else ""
@@ -126,8 +130,10 @@ if __name__ == "__main__":
     out, base = sys.argv[1:]
     pages = list((Path(out) / "packages").glob("*/index.html"))
     packages = {page.parent.name for page in pages}
-    for page in pages:
-        parser = PackagePage(page.parent.name, base, packages)
+    documents = [Path(out) / name / "index.html" for name in ("getting-started", "changelog", "roadmap")]
+    for page in pages + documents:
+        name = page.parent.name if page in pages else ""
+        parser = PackagePage(name, base, packages)
         parser.feed(page.read_text())
         parser.close()
         page.write_text("".join(parser.out))

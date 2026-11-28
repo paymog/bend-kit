@@ -5,6 +5,9 @@ The bend-kit website, live at <https://paymog.github.io/bend-kit/>. It is a Camb
 | route | page |
 |---|---|
 | `/` | The package catalog. |
+| `/getting-started` | Install Bend, import a hub package, and run a check. |
+| `/changelog` | The root `CHANGELOG.md`. |
+| `/roadmap` | The root `ROADMAP.md`. |
 | `/packages/:name` | The README, the laws from `LAWS.bend`, and the tables from `bench/README.md`. |
 | `/packages/:name/README.md` | The raw README. |
 | `/llms.txt` | The agent index. |
@@ -20,3 +23,5 @@ site/build.sh /tmp/site http://127.0.0.1:8000 && \
 The site imports sibling packages by relative path, so it always builds against `main`. It is not a package: `scripts/packages.sh` does not list it, and nothing publishes it to the hub. `.github/workflows/site.yml` builds it on each pull request and deploys it to GitHub Pages on each push to `main`.
 
 The build uses Python 3's standard library to add heading IDs and resolve README links. Links to package READMEs stay on the site. Other relative links point to GitHub. Benchmark headings use a `bench-` prefix to keep their IDs separate from README headings. Run `python3 -m unittest discover -s site -p 'test_*.py'` to check this step.
+
+The three documentation pages use the same Markdown renderer and layout as the package pages. Edit `site/getting-started.md` for the guide. The changelog and roadmap read the root files at build time. `site/build.sh` checks the generated documentation pages before it finishes.
