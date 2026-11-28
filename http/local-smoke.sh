@@ -21,6 +21,7 @@ for lane in native js; do
   fi
   echo "== $lane serving smokes"
   python3 -B ../scripts/rss-check.py bend demo.bend -o "$work/demo$suffix"
+  : > "$work/demo.log"
   "${runner[@]}" "$work/demo$suffix" > "$work/demo.log" 2>&1 &
   server=$!
   for _ in {1..100}; do
