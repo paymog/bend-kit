@@ -134,7 +134,7 @@ def html(+templates: Map<&2, List<&2, T.Node>>, +base: String, title: String, +s
   content = T.render(template(templates, inner), put(ctx, "base", base))
   page = put(put(put(Map.new(&2, T.Value), "base", base), "title", title), "content", content)
   page2 = source.put(String.is_empty(source), page, source)
-  Pure.Res{200, Pure.set(Pure.empty(), "content-type", "text/html; charset=utf-8"), T.render_bytes(template(templates, "layout"), page2)}
+  C.html(200, T.render_bytes(template(templates, "layout"), page2))
 
 def text(media: String, body: String) -> Pure.Res:
   Pure.Res{200, Pure.set(Pure.empty(), "content-type", media), Enc.utf8.encode(body)}
